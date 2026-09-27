@@ -14,7 +14,7 @@ defused per OWASP (a leading <code>'</code> is prepended when the first
 non-whitespace/control character is <code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, <code>|</code> or <code>%</code>,
 including CR/LF- or tab-led variants) so a stored value like
 <code>=1+1</code> opens as text, not a live spreadsheet formula.</p>
-</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Table%3CM%3E-1" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/table/render.rs.html#160-2098">Source</a><a href="#impl-Table%3CM%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;M&gt; <a class="struct" href="struct.Table.html" title="struct tablo_core::resource::Table">Table</a>&lt;M&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.render" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render.rs.html#180-189">Source</a><h4 class="code-header">pub async fn <a href="#method.render" class="fn">render</a>&lt;'a&gt;(
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Table%3CM%3E-1" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/table/render/core.rs.html#82-1103">Source</a><a href="#impl-Table%3CM%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;M&gt; <a class="struct" href="struct.Table.html" title="struct tablo_core::resource::Table">Table</a>&lt;M&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.render" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render/core.rs.html#102-111">Source</a><h4 class="code-header">pub async fn <a href="#method.render" class="fn">render</a>&lt;'a&gt;(
     &amp;self,
     cx: &amp;'a Cx,
     page: <a class="struct" href="struct.TablePage.html" title="struct tablo_core::resource::TablePage">TablePage</a>&lt;M&gt;,
@@ -34,7 +34,7 @@ colors, no <code>ac-*</code>.</p>
 <h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
 <p>Errors when the table has no row key (<a href="struct.Table.html#method.id" title="method tablo_core::resource::Table::id"><code>Self::id</code></a>) or no columns —
 row identity is not optional, and neither is something to show.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.render_with_state" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render.rs.html#202-214">Source</a><h4 class="code-header">pub async fn <a href="#method.render_with_state" class="fn">render_with_state</a>&lt;'a&gt;(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.render_with_state" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render/core.rs.html#124-136">Source</a><h4 class="code-header">pub async fn <a href="#method.render_with_state" class="fn">render_with_state</a>&lt;'a&gt;(
     &amp;self,
     cx: &amp;'a Cx,
     page: <a class="struct" href="struct.TablePage.html" title="struct tablo_core::resource::TablePage">TablePage</a>&lt;M&gt;,
@@ -51,7 +51,7 @@ pass the page’s state (or shard args rebuilt via
 directly needs no knowledge of <code>NormalizedState</code>; a caller that
 already normalized once per request goes through
 <code>Self::render_normalized</code> instead.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.render_live_with_state" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render.rs.html#245-258">Source</a><h4 class="code-header">pub async fn <a href="#method.render_live_with_state" class="fn">render_live_with_state</a>&lt;'a&gt;(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.render_live_with_state" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render/core.rs.html#167-180">Source</a><h4 class="code-header">pub async fn <a href="#method.render_live_with_state" class="fn">render_live_with_state</a>&lt;'a&gt;(
     &amp;self,
     cx: &amp;'a Cx,
     page: <a class="struct" href="struct.TablePage.html" title="struct tablo_core::resource::TablePage">TablePage</a>&lt;M&gt;,
@@ -70,7 +70,7 @@ still navigates as before.</p>
 outside the region a rerun swaps, rendered once by the page that owns
 the signals, so a caller rendering only through this method renders
 <a href="struct.Table.html#method.render_delete_dialog" title="method tablo_core::resource::Table::render_delete_dialog"><code>Self::render_delete_dialog</code></a> itself to keep the <code>?delete=</code> fallback.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.render_delete_dialog" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render.rs.html#932-939">Source</a><h4 class="code-header">pub async fn <a href="#method.render_delete_dialog" class="fn">render_delete_dialog</a>&lt;'a&gt;(
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Table%3CM%3E-2" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/table/render/dialog.rs.html#14-134">Source</a><a href="#impl-Table%3CM%3E-2" class="anchor">§</a><h3 class="code-header">impl&lt;M&gt; <a class="struct" href="struct.Table.html" title="struct tablo_core::resource::Table">Table</a>&lt;M&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.render_delete_dialog" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render/dialog.rs.html#37-44">Source</a><h4 class="code-header">pub async fn <a href="#method.render_delete_dialog" class="fn">render_delete_dialog</a>&lt;'a&gt;(
     &amp;self,
     cx: &amp;'a Cx,
     state: &amp;<a class="struct" href="struct.TableState.html" title="struct tablo_core::resource::TableState">TableState</a>,
@@ -93,14 +93,28 @@ emitted by <code>Panel::render_document</code> on every document with shell asse
 (ADR-0014). Without the document scripts Cancel is inert and Delete still
 POSTs; the dialog primitives are vendored under the ADR-0007 sync guard,
 so they carry no note themselves.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.render_skeleton" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render.rs.html#1036-1045">Source</a><h4 class="code-header">pub async fn <a href="#method.render_skeleton" class="fn">render_skeleton</a>&lt;'a&gt;(&amp;self, cx: &amp;'a Cx) -&gt; Result&lt;BoxView&lt;'a&gt;&gt;<div class="where">where
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Table%3CM%3E-3" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/table/render/filterbar.rs.html#61-371">Source</a><a href="#impl-Table%3CM%3E-3" class="anchor">§</a><h3 class="code-header">impl&lt;M&gt; <a class="struct" href="struct.Table.html" title="struct tablo_core::resource::Table">Table</a>&lt;M&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.render_live_filter_bar" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render/filterbar.rs.html#120-134">Source</a><h4 class="code-header">pub async fn <a href="#method.render_live_filter_bar" class="fn">render_live_filter_bar</a>&lt;'a&gt;(
+    &amp;self,
+    cx: &amp;'a Cx,
+    state: &amp;<a class="struct" href="struct.TableState.html" title="struct tablo_core::resource::TableState">TableState</a>,
+    path: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.98.1/std/primitive.str.html">str</a>,
+    signals: &amp;<a class="struct" href="struct.TableSignals.html" title="struct tablo_core::resource::TableSignals">TableSignals</a>,
+) -&gt; Result&lt;BoxView&lt;'a&gt;&gt;<div class="where">where
+    M: Model,</div></h4></section></summary><div class="docblock"><p>The filter bar for a live table, rendered eagerly by the page that owns
+the signals — the counterpart of <a href="struct.Table.html#method.render_live_search_bar" title="method tablo_core::resource::Table::render_live_search_bar"><code>Self::render_live_search_bar</code></a>.</p>
+<p>Hoisting matters for focus: a <code>&lt;select&gt;</code> change writes the <code>filters</code>
+signal, and a bar rebuilt by that rerun would collapse the native popup
+and drop keyboard context. The table renders without the bar
+(<code>Table::filter_bar(false)</code>), so the control the user touched is never
+replaced.</p>
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Table%3CM%3E-4" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/table/render/skeleton.rs.html#8-103">Source</a><a href="#impl-Table%3CM%3E-4" class="anchor">§</a><h3 class="code-header">impl&lt;M&gt; <a class="struct" href="struct.Table.html" title="struct tablo_core::resource::Table">Table</a>&lt;M&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.render_skeleton" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render/skeleton.rs.html#15-24">Source</a><h4 class="code-header">pub async fn <a href="#method.render_skeleton" class="fn">render_skeleton</a>&lt;'a&gt;(&amp;self, cx: &amp;'a Cx) -&gt; Result&lt;BoxView&lt;'a&gt;&gt;<div class="where">where
     M: Model,</div></h4></section></summary><div class="docblock"><p>The skeleton placeholder table — three pulsing rows under the real
 column header. This is the [<code>suspense</code>] fallback for tables whose rows
 stream in. Wrapped in the same <code>data-boundary</code> region as the real table
 so the markup shape matches when the swap arrives.
 Carries <code>aria-busy</code> while loading plus toolbar/pager pulse placeholders
 so the streamed chrome lands without a layout shift.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.render_live_search_bar" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render.rs.html#1214-1225">Source</a><h4 class="code-header">pub async fn <a href="#method.render_live_search_bar" class="fn">render_live_search_bar</a>&lt;'a&gt;(
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Table%3CM%3E-5" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/table/render/toolbar.rs.html#45-356">Source</a><a href="#impl-Table%3CM%3E-5" class="anchor">§</a><h3 class="code-header">impl&lt;M&gt; <a class="struct" href="struct.Table.html" title="struct tablo_core::resource::Table">Table</a>&lt;M&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.render_live_search_bar" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render/toolbar.rs.html#257-268">Source</a><h4 class="code-header">pub async fn <a href="#method.render_live_search_bar" class="fn">render_live_search_bar</a>&lt;'a&gt;(
     &amp;self,
     cx: &amp;'a Cx,
     state: &amp;<a class="struct" href="struct.TableState.html" title="struct tablo_core::resource::TableState">TableState</a>,
@@ -119,21 +133,7 @@ term is a new result set). The shard re-renders in place.</p>
 <p>Public so a page owning its own signals can render the same toolbar
 above its own shard (the showcase demos, GH #154 §2); resource lists
 reach it through <code>panel::resource_list_live</code>.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.render_live_filter_bar" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/render.rs.html#1322-1336">Source</a><h4 class="code-header">pub async fn <a href="#method.render_live_filter_bar" class="fn">render_live_filter_bar</a>&lt;'a&gt;(
-    &amp;self,
-    cx: &amp;'a Cx,
-    state: &amp;<a class="struct" href="struct.TableState.html" title="struct tablo_core::resource::TableState">TableState</a>,
-    path: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.98.1/std/primitive.str.html">str</a>,
-    signals: &amp;<a class="struct" href="struct.TableSignals.html" title="struct tablo_core::resource::TableSignals">TableSignals</a>,
-) -&gt; Result&lt;BoxView&lt;'a&gt;&gt;<div class="where">where
-    M: Model,</div></h4></section></summary><div class="docblock"><p>The filter bar for a live table, rendered eagerly by the page that owns
-the signals — the counterpart of <a href="struct.Table.html#method.render_live_search_bar" title="method tablo_core::resource::Table::render_live_search_bar"><code>Self::render_live_search_bar</code></a>.</p>
-<p>Hoisting matters for focus: a <code>&lt;select&gt;</code> change writes the <code>filters</code>
-signal, and a bar rebuilt by that rerun would collapse the native popup
-and drop keyboard context. The table renders without the bar
-(<code>Table::filter_bar(false)</code>), so the control the user touched is never
-replaced.</p>
-</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Table%3CM%3E-2" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#209-961">Source</a><a href="#impl-Table%3CM%3E-2" class="anchor">§</a><h3 class="code-header">impl&lt;M&gt; <a class="struct" href="struct.Table.html" title="struct tablo_core::resource::Table">Table</a>&lt;M&gt;</h3></section></summary><div class="impl-items"><section id="method.new" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#210-228">Source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>() -&gt; Self</h4></section><details class="toggle method-toggle" open><summary><section id="method.for" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#231-233">Source</a><h4 class="code-header">pub fn <a href="#method.for" class="fn">for</a>(_cx: &amp;Cx) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a table for the given model. <code>cx</code> is reserved for future tenancy/policy scoping.</p>
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Table%3CM%3E-6" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#209-961">Source</a><a href="#impl-Table%3CM%3E-6" class="anchor">§</a><h3 class="code-header">impl&lt;M&gt; <a class="struct" href="struct.Table.html" title="struct tablo_core::resource::Table">Table</a>&lt;M&gt;</h3></section></summary><div class="impl-items"><section id="method.new" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#210-228">Source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>() -&gt; Self</h4></section><details class="toggle method-toggle" open><summary><section id="method.for" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#231-233">Source</a><h4 class="code-header">pub fn <a href="#method.for" class="fn">for</a>(_cx: &amp;Cx) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a table for the given model. <code>cx</code> is reserved for future tenancy/policy scoping.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.key" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#244-249">Source</a><h4 class="code-header">pub fn <a href="#method.key" class="fn">key</a>(self, key: impl <a class="trait" href="https://doc.rust-lang.org/1.98.1/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.98.1/std/primitive.reference.html">&amp;M</a>) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.98.1/alloc/string/struct.String.html" title="struct alloc::string::String">String</a> + <a class="trait" href="https://doc.rust-lang.org/1.98.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.98.1/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static) -&gt; Self</h4></section></summary><div class="docblock"><p>Declare the row key and the record key together
 (typically <code>|u| u.id.to_string()</code>).</p>
 <p>The common case: one primary-key projection drives keyed diffs and DOM
