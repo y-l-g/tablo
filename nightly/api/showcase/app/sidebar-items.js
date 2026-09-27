@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["UPLOAD_URL_PREFIX"],"fn":["router","router_for_tests","router_with_app_uploads","router_with_uploads"],"struct":["AuthorResource","CommentResource","PostResource","UserResource"]};
+window.SIDEBAR_ITEMS = {"constant":["UPLOAD_URL_PREFIX"],"fn":["read_minutes","router","router_for_tests","router_with_app_uploads","word_count"],"struct":["AuthorResource","CommentResource","PostResource","UserResource"]};

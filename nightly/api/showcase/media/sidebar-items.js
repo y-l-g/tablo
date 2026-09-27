@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["KIND_FILE","KIND_IMAGE","MEDIA_JS","MEDIA_PATH","OWNER_POST","OWNER_USER"],"enum":["MediaOwner"],"fn":["media_file_view","media_for_owner"]};
+window.SIDEBAR_ITEMS = {"constant":["KIND_FILE","KIND_IMAGE","MEDIA_JS","MEDIA_PATH"],"fn":["media_file_view"],"struct":["MediaLibrary"]};

@@ -197,16 +197,17 @@
 <a href=#197 id=197 data-nosnippet>197</a>            email: <span class="string">"ada@example.com"</span>.to_string(),
 <a href=#198 id=198 data-nosnippet>198</a>            role: <span class="string">"admin"</span>.to_string(),
 <a href=#199 id=199 data-nosnippet>199</a>            active: <span class="bool-val">true</span>,
-<a href=#200 id=200 data-nosnippet>200</a>            created_at: jiff::Timestamp::now(),
-<a href=#201 id=201 data-nosnippet>201</a>        };
-<a href=#202 id=202 data-nosnippet>202</a>        UserResource::after_commit(<span class="kw-2">&amp;</span>Cx::default(), Committed::created(user))
-<a href=#203 id=203 data-nosnippet>203</a>            .<span class="kw">await
-<a href=#204 id=204 data-nosnippet>204</a>            </span>.expect(<span class="string">"the hook notifies the board"</span>);
-<a href=#205 id=205 data-nosnippet>205</a>
-<a href=#206 id=206 data-nosnippet>206</a>        tokio::time::timeout(Duration::from_secs(<span class="number">1</span>), changed.recv())
-<a href=#207 id=207 data-nosnippet>207</a>            .<span class="kw">await
-<a href=#208 id=208 data-nosnippet>208</a>            </span>.expect(<span class="string">"a committed write must wake the feed"</span>)
-<a href=#209 id=209 data-nosnippet>209</a>            .expect(<span class="string">"the sender outlives the receiver"</span>);
-<a href=#210 id=210 data-nosnippet>210</a>    }
-<a href=#211 id=211 data-nosnippet>211</a>}
+<a href=#200 id=200 data-nosnippet>200</a>            age: <span class="number">36</span>,
+<a href=#201 id=201 data-nosnippet>201</a>            created_at: jiff::Timestamp::now(),
+<a href=#202 id=202 data-nosnippet>202</a>        };
+<a href=#203 id=203 data-nosnippet>203</a>        UserResource::after_commit(<span class="kw-2">&amp;</span>Cx::default(), Committed::created(user))
+<a href=#204 id=204 data-nosnippet>204</a>            .<span class="kw">await
+<a href=#205 id=205 data-nosnippet>205</a>            </span>.expect(<span class="string">"the hook notifies the board"</span>);
+<a href=#206 id=206 data-nosnippet>206</a>
+<a href=#207 id=207 data-nosnippet>207</a>        tokio::time::timeout(Duration::from_secs(<span class="number">1</span>), changed.recv())
+<a href=#208 id=208 data-nosnippet>208</a>            .<span class="kw">await
+<a href=#209 id=209 data-nosnippet>209</a>            </span>.expect(<span class="string">"a committed write must wake the feed"</span>)
+<a href=#210 id=210 data-nosnippet>210</a>            .expect(<span class="string">"the sender outlives the receiver"</span>);
+<a href=#211 id=211 data-nosnippet>211</a>    }
+<a href=#212 id=212 data-nosnippet>212</a>}
 </code></pre></div></section></main></body></html>
