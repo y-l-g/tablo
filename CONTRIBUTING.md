@@ -90,21 +90,23 @@ vendored file has drifted, and the xtask test suite runs it on every
 
 ## Dependency pins
 
-`topcoat` and `toasty` are git dependencies tracking their `main` branches,
-pinned to exact commits by `Cargo.lock`. Never run a blanket `cargo update`.
-Bump them deliberately:
+`topcoat` and `toasty` are git dependencies pinned to exact `rev`s in both
+manifests. Never run a blanket `cargo update`. Bump them deliberately:
 
 ```sh
-cargo update -p topcoat -p toasty
+cargo update -p topcoat --precise <rev>
+cargo update -p toasty --precise <rev>
 cargo check --offline
 ```
 
 `cargo check --offline` proves the new revs resolve from the local git cache
 instead of failing halfway through a fetch. `benchmarks/tablo` is a detached
 workspace with its own lockfile: bump it in the same commit
-(`cd benchmarks/tablo && cargo update -p topcoat -p toasty`) and keep its
-revs identical to the root lockfile. Drift means the benchmark measures
-different upstream code than the workspace builds.
+(`cargo update --manifest-path benchmarks/tablo/Cargo.toml -p topcoat --precise <rev>`
+and `cargo update --manifest-path benchmarks/tablo/Cargo.toml -p toasty --precise <rev>`)
+and keep its revs identical to the root lockfile. Drift means the benchmark measures
+different upstream code than the workspace builds. GH #344 will add
+`bump-upstream`/`verify-locks` xtask commands handling the `rev =` form.
 
 ## Commits
 
