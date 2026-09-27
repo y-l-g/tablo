@@ -35,9 +35,17 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 ## The gate set
 
-CI runs these ten commands (mirroring `.github/workflows/ci.yml`; this list is the
-canonical copy — `AGENTS.md` and the `check` skill point here). Run the ones covering
-your change before pushing, and all ten before merging.
+CI runs ten gates plus four extra checks (mirroring `.github/workflows/ci.yml`;
+this list is the canonical copy — `AGENTS.md` and the `check` skill point here).
+The fast path is the xtask runner: gates are mutually independent, and `check`
+runs each command below in order, stopping at the first failure.
+
+```sh
+cargo xtask check   # the ten gates plus the extras
+cargo xtask fmt     # the formatting subset: nightly fmt, detached-bench fmt, locked-rev topcoat fmt
+```
+
+The raw commands — the expansion of `cargo xtask check`:
 
 1. `cargo test --workspace --locked`
 2. `cargo clippy --workspace --all-targets --locked -- -D warnings`
@@ -48,7 +56,7 @@ your change before pushing, and all ten before merging.
 7. `cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings`
 8. `cargo +1.98 check --workspace --locked`
 9. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js examples/showcase/assets/media.test.js`
-10. `cargo +nightly udeps --workspace --all-targets --all-features --locked`
+10. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --all-features --locked`
 
 Gate 3 keeps the opt-out auth feature compiling and tested (GH #129, GH #282).
 Gate 4 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
@@ -57,15 +65,19 @@ Gate 10 guards unused dependencies (GH #271); `--all-features` keeps a feature-g
 dependency from looking unused. Rustup installs a missing toolchain on first use.
 
 CI runs four more checks outside the ten, and a change touching what they cover
-has to pass them too:
+has to pass them too (`cargo xtask check` runs all four after the ten):
 
 - the `docs` job builds rustdoc with
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`, then
   builds the guide with `mdbook build docs/guide`;
 - the `fmt` job runs `cargo fmt -- --check` inside each detached `benchmarks/*`
-  workspace (`benchmarks/tablo`, `benchmarks/axum-maud`, `benchmarks/leptos`);
-- the `bench-check` job verifies that `Cargo.lock` and
-  `benchmarks/tablo/Cargo.lock` pin identical `topcoat` and `toasty` revs.
+  workspace (`benchmarks/tablo`, `benchmarks/axum-maud`, `benchmarks/leptos`) —
+  part of `cargo xtask fmt`;
+- the `bench-check` job compiles the detached harness (gates 6–7 above) and
+  verifies that `Cargo.lock` and `benchmarks/tablo/Cargo.lock` pin identical
+  `topcoat` and `toasty` revs and that both manifests' `rev =` pins agree
+  (`cargo xtask verify-locks`, also run by the
+  xtask test suite on every `cargo test`).
 
 ### The `topcoat fmt` trap
 
@@ -73,7 +85,9 @@ The `topcoat` CLI on `PATH` is usually not the revision this workspace locks,
 and `topcoat fmt` reflows `view!` markup differently across revisions. CI
 installs the CLI at the locked revision before formatting, so a locally
 installed CLI of another version proposes a diff CI rejects. Do not hand-fix
-that diff. Install the CLI at the locked rev and run it — the exact command is
+that diff. `cargo xtask fmt` runs the check half only: it never installs the
+CLI, and a missing or wrong-rev CLI fails with the locked-rev install command.
+Install the CLI at the locked rev and run it — the exact command is
 the `Install topcoat CLI` step of the `fmt` job in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
@@ -91,22 +105,29 @@ vendored file has drifted, and the xtask test suite runs it on every
 ## Dependency pins
 
 `topcoat` and `toasty` are git dependencies pinned to exact `rev`s in both
-manifests. Never run a blanket `cargo update`. Bump them deliberately:
+manifests. Never run a blanket `cargo update`. Bump them deliberately with one
+command:
 
 ```sh
-cargo update -p topcoat --precise <rev>
-cargo update -p toasty --precise <rev>
-cargo check --offline
+cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>
 ```
 
-`cargo check --offline` proves the new revs resolve from the local git cache
-instead of failing halfway through a fetch. `benchmarks/tablo` is a detached
-workspace with its own lockfile: bump it in the same commit
-(`cargo update --manifest-path benchmarks/tablo/Cargo.toml -p topcoat --precise <rev>`
-and `cargo update --manifest-path benchmarks/tablo/Cargo.toml -p toasty --precise <rev>`)
-and keep its revs identical to the root lockfile. Drift means the benchmark measures
-different upstream code than the workspace builds. GH #344 will add
-`bump-upstream`/`verify-locks` xtask commands handling the `rev =` form.
+It rewrites the `rev =` pins for both upstream repos in both manifests
+(`toasty-core` and `topcoat-ui*` track their repo's rev), re-resolves both
+lockfiles, proves the new revs resolve from the local git cache
+(`cargo check --offline`), and asserts lockstep. The expansion:
+
+```sh
+# new revs into Cargo.toml and benchmarks/tablo/Cargo.toml, then:
+cargo update -p topcoat -p toasty
+cargo update --manifest-path benchmarks/tablo/Cargo.toml -p topcoat -p toasty
+cargo check --offline
+cargo check --offline --manifest-path benchmarks/tablo/Cargo.toml
+cargo xtask verify-locks
+```
+
+Drift means the benchmark measures different upstream code than the workspace
+builds.
 
 ## Commits
 

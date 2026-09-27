@@ -15,6 +15,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub mod gates;
+
 use topcoat_ui::{Component, Dependency, Registry};
 
 /// The registry components Tablo vendors into `primitives/` (ADR-0007).

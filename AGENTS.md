@@ -3,10 +3,15 @@
 ## Commands
 
 The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): ten commands
-mirroring `.github/workflows/ci.yml`. Run the ones covering your change, all ten before
-merging. CI also runs the extra checks listed there (docs, detached-bench fmt, bench-check).
+mirroring `.github/workflows/ci.yml`. Run it via `cargo xtask check` (fail-fast),
+or the ones covering your change; all ten before merging. CI also runs the extra
+checks listed there (docs, detached-bench fmt, bench-check).
 
 ```sh
+cargo xtask check                                # the gate set, fail-fast
+cargo xtask fmt                                  # nightly fmt + detached fmt + locked-rev topcoat fmt
+cargo xtask verify-locks                         # workspace vs bench rev equality
+cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>  # bump both manifests, assert lockstep
 cargo run -p showcase                            # http://localhost:3000/admin/users
 cargo xtask sync-topcoat-ui                      # re-vendor primitives, verbatim
 cargo xtask verify-topcoat-ui                    # fail on vendored drift

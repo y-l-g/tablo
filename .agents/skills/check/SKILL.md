@@ -5,10 +5,12 @@ description: Always use this skill to verify a change locally before committing 
 
 # Verifying a Change
 
-Run the gates in [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set): the ones
-covering the touched area before pushing, and all ten before merging. That list mirrors
-`.github/workflows/ci.yml` and is the canonical copy; the extra checks outside the ten
-(docs, detached-bench fmt, bench-check) are listed there too.
+Run `cargo xtask check`: the gates in
+[`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set), run in order with a
+stop at the first failure. To run one gate by hand, that list is the canonical
+copy (it mirrors `.github/workflows/ci.yml`); the extra checks outside the ten
+(docs, detached-bench fmt, bench-check) are listed there too. `cargo xtask fmt`
+covers the formatting subset alone.
 
 The asset suites are named rather than globbed, exactly as the CI `assets` job
 names them: a glob would silently shrink the run when a suite is renamed, while
@@ -24,7 +26,9 @@ Rules that catch the recurring failures:
 - `cargo fmt` covers workspace members only; the detached `benchmarks/*`
   workspaces are formatted and linted by manifest path.
 - Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit,
-  with identical `topcoat`/`toasty` revs.
+  with identical `topcoat`/`toasty` revs: bump with
+  `cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>`, prove with
+  `cargo xtask verify-locks`.
 - Give each worktree its own target directory; a shared `CARGO_TARGET_DIR`
   cross-contaminates.
 - Never pipe when you need the exit code: `| tail` masks it. Read `PIPESTATUS`
