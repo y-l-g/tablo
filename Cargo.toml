@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/tablo-core",
     "crates/tablo-macros",
+    "crates/tablo-test",
     "crates/tablo-ui",
     "examples/showcase",
     "xtask",

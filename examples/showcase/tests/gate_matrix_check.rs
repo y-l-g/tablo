@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::common::{
     SESSION_COOKIE, TestClient, comment_count, demo_client, form_body, full_db, mint_session,
-    post_count, session_cookie_value, tenanted_db, user_count,
+    multipart_body, post_count, session_cookie_value, tenanted_db, user_count,
 };
 
 /// A session-holding POST with **no** CSRF cookie and no `csrf_token` field is
@@ -143,26 +143,23 @@ async fn forged_posts_answer_403_and_change_nothing() {
 
     // 3./4. Multipart create and edit: the multipart path shares the CSRF verify.
     let boundary = "----GateMatrixBoundary";
-    for (csrf_part, label) in [
-        (
-            format!(
-                "--{boundary}\r\nContent-Disposition: form-data; name=\"csrf_token\"\r\n\r\n{field}\r\n"
-            ),
-            "mismatched token",
-        ),
-        (String::new(), "missing token"),
+    let author_id = author.id.to_string();
+    for (csrf, label) in [
+        (Some(field.as_str()), "mismatched token"),
+        (None, "missing token"),
     ] {
-        let body = format!(
-            "--{b}\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\nForged\r\n\
-             --{b}\r\nContent-Disposition: form-data; name=\"author_id\"\r\n\r\n{author_id}\r\n\
-             --{b}\r\nContent-Disposition: form-data; name=\"tags\"\r\n\r\nforged\r\n\
-             {csrf_part}--{b}--\r\n",
-            b = boundary,
-            author_id = author.id,
-        );
+        let mut parts: Vec<(&str, Option<&str>, &str)> = vec![
+            ("title", None, "Forged"),
+            ("author_id", None, author_id.as_str()),
+            ("tags", None, "forged"),
+        ];
+        if let Some(csrf) = csrf {
+            parts.push(("csrf_token", None, csrf));
+        }
+        let body = multipart_body(boundary, &parts);
         let resp = client
             .csrf(&cookie)
-            .post_multipart("/admin/posts/create", boundary, body)
+            .post_multipart("/admin/posts/create", boundary, body.clone())
             .await;
         assert_eq!(
             resp.status(),
@@ -171,14 +168,6 @@ async fn forged_posts_answer_403_and_change_nothing() {
             resp.status()
         );
 
-        let body = format!(
-            "--{b}\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\nForged\r\n\
-             --{b}\r\nContent-Disposition: form-data; name=\"author_id\"\r\n\r\n{author_id}\r\n\
-             --{b}\r\nContent-Disposition: form-data; name=\"tags\"\r\n\r\nforged\r\n\
-             {csrf_part}--{b}--\r\n",
-            b = boundary,
-            author_id = author.id,
-        );
         let resp = client
             .csrf(&cookie)
             .post_multipart(&format!("/admin/posts/{}/edit", post.id), boundary, body)

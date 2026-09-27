@@ -49,6 +49,7 @@ auth = ["dep:argon2", "dep:password-hash", "topcoat/session"]
 
 [dev-dependencies]
 serde_json = "1"
+tablo-test = { path = "../tablo-test" }
 tokio.workspace = true
 
 [lints]

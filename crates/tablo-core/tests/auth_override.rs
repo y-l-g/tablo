@@ -16,7 +16,7 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, cookies, get_with_cookies, input_value, memory_db, post_form, router_with,
+    body_string, get_with_cookies, input_value, memory_db, post_form, response_cookies, router_with,
 };
 
 /// A custom user table — deliberately not `AdminUser`.
@@ -124,7 +124,7 @@ async fn seeded_db() -> Db {
 }
 
 fn cookie_value(response: &Response<Body>, name: &str) -> Option<String> {
-    cookies(response)
+    response_cookies(response)
         .into_iter()
         .find(|(cookie, _)| cookie == name)
         .map(|(_, value)| value)
