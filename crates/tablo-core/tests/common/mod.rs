@@ -1,15 +1,22 @@
 //! Shared HTTP harness for the `tablo-core` integration suite.
 //!
-//! One binary (`tests/it.rs`) compiles every module, so the request builders,
-//! the multipart writer, the DB builder and the HTML scrapers live here
-//! instead of being redeclared per module. The showcase suite's `tests/common`
-//! is the same idea; this is the core-side copy.
+//! One binary (`tests/it.rs`) compiles every module, so the request builders
+//! and the DB builder live here instead of being redeclared per module. The
+//! protocol helpers shared with the showcase suite (body readers, the
+//! multipart writer, the cookie jar, `input_value`) live in `tablo-test` and
+//! are re-exported below; the showcase suite's `tests/common` is the same
+//! idea on the app side.
 //!
 //! The auth-gated `auth_override` module is the only caller of the
 //! cookie-carrying helpers, so those carry the `auth` gate too.
 
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
 use tablo_core::{Auth, Panel, Resource};
+#[cfg(feature = "auth")]
+use tablo_test::cookie_header;
+pub use tablo_test::{body_bytes, body_string, multipart_body};
+#[cfg(feature = "auth")]
+pub use tablo_test::{input_value, response_cookies};
 use toasty::Db;
 use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
@@ -99,7 +106,7 @@ pub async fn get_with_cookies(
     cookies: &[(&str, String)],
 ) -> Response<Body> {
     let mut request = http::Request::builder().uri(uri);
-    if let Some(jar) = cookie_header(cookies) {
+    if let Some(jar) = cookie_header(cookies.iter().map(|(name, value)| (*name, value.as_str()))) {
         request = request.header(COOKIE, jar);
     }
     router.handle(request.body(Body::empty()).unwrap()).await
@@ -117,7 +124,7 @@ pub async fn post_form(
         .method(http::Method::POST)
         .uri(uri)
         .header(CONTENT_TYPE, "application/x-www-form-urlencoded");
-    if let Some(jar) = cookie_header(cookies) {
+    if let Some(jar) = cookie_header(cookies.iter().map(|(name, value)| (*name, value.as_str()))) {
         request = request.header(COOKIE, jar);
     }
     router.handle(request.body(Body::from(body)).unwrap()).await
@@ -138,83 +145,6 @@ pub async fn post_fields(router: &Router, uri: &str, fields: &[(&str, &str)]) ->
         body,
     )
     .await
-}
-
-#[cfg(feature = "auth")]
-fn cookie_header(cookies: &[(&str, String)]) -> Option<String> {
-    (!cookies.is_empty()).then(|| {
-        cookies
-            .iter()
-            .map(|(name, value)| format!("{name}={value}"))
-            .collect::<Vec<_>>()
-            .join("; ")
-    })
-}
-
-/// A multipart body, one part per entry: `None` is a text part, `Some("")` the
-/// browser's "no file chosen" file part, `Some(name)` a chosen file.
-pub fn multipart_body(boundary: &str, parts: &[(&str, Option<&str>, &str)]) -> String {
-    let mut body = String::new();
-    for (name, filename, content) in parts {
-        body.push_str(&format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\""
-        ));
-        if let Some(filename) = filename {
-            body.push_str(&format!("; filename=\"{filename}\""));
-        }
-        body.push_str("\r\n\r\n");
-        body.push_str(content);
-        body.push_str("\r\n");
-    }
-    body.push_str(&format!("--{boundary}--\r\n"));
-    body
-}
-
-/// The response body as bytes.
-pub async fn body_bytes(response: Response<Body>) -> Vec<u8> {
-    http_body_util::BodyExt::collect(response.into_body())
-        .await
-        .expect("collect body")
-        .to_bytes()
-        .to_vec()
-}
-
-/// The response body as UTF-8 lossy text.
-pub async fn body_string(response: Response<Body>) -> String {
-    String::from_utf8_lossy(&body_bytes(response).await).into_owned()
-}
-
-/// The `(name, value)` pairs a response's `Set-Cookie` headers carry.
-#[cfg(feature = "auth")]
-pub fn cookies(response: &Response<Body>) -> Vec<(String, String)> {
-    response
-        .headers()
-        .get_all(http::header::SET_COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .filter_map(|value| value.split(';').next())
-        .filter_map(|pair| pair.split_once('='))
-        .map(|(name, value)| (name.trim().to_string(), value.trim().to_string()))
-        .collect()
-}
-
-/// The `value` of the named input in rendered HTML.
-#[cfg(feature = "auth")]
-pub fn input_value(html: &str, name: &str) -> Option<String> {
-    let name_attr = format!("name=\"{name}\"");
-    for tag in html.split('<').skip(1) {
-        if !tag.contains(&name_attr) {
-            continue;
-        }
-        let attrs = &tag[..tag.find('>')?];
-        if let Some(start) = attrs.find("value=\"") {
-            let rest = &attrs[start + "value=\"".len()..];
-            if let Some(end) = rest.find('"') {
-                return Some(rest[..end].to_string());
-            }
-        }
-    }
-    None
 }
 
 /// A new CSRF token, paired with the cookie the POST helpers send.

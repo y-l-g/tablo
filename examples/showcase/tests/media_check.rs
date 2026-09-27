@@ -43,6 +43,8 @@ async fn post_upload(
         None => client.clone(),
     };
     let boundary = "----MediaBoundary";
+    // Ad-hoc, not `tablo_test::multipart_body`: the file part carries a
+    // caller-chosen `Content-Type`, which the kind assertions need.
     let token = csrf
         .map(|token| {
             format!(

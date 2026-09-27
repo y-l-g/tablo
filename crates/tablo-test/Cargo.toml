@@ -1,0 +1,29 @@
+[package]
+name = "tablo-test"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "Shared HTTP test harness for the Tablo integration suites."
+
+[dependencies]
+# Default features off so the `auth` gate below stays inert for dependents:
+# nothing here needs `tablo-core/auth` (`Tenant` and `csrf` are ungated), and
+# an enabled-by-default `auth` on this edge would re-enable it for the whole
+# build through feature unification (gate 3).
+tablo-core = { path = "../tablo-core", default-features = false }
+form_urlencoded = "1.2"
+http = "1"
+http-body-util = "0.1"
+topcoat = { workspace = true }
+uuid.workspace = true
+
+[features]
+default = ["auth"]
+# No extra dependencies: this only exposes the cookie and session helpers the
+# auth suites use, mirroring the gate on the same helpers in tablo-core.
+auth = []
+
+[lints]
+workspace = true

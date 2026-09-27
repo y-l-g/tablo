@@ -3091,11 +3091,11 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 name = "showcase"
 version = "0.1.0"
 dependencies = [
- "form_urlencoded",
  "http",
  "http-body-util",
  "jiff",
  "tablo-core",
+ "tablo-test",
  "tablo-ui",
  "toasty",
  "tokio",
@@ -3408,6 +3408,7 @@ dependencies = [
  "serde_json",
  "subtle",
  "tablo-macros",
+ "tablo-test",
  "tablo-ui",
  "toasty",
  "toasty-core",
@@ -3425,6 +3426,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.6",
+]
+
+[[package]]
+name = "tablo-test"
+version = "0.1.0"
+dependencies = [
+ "form_urlencoded",
+ "http",
+ "http-body-util",
+ "tablo-core",
+ "topcoat",
+ "uuid",
 ]
 
 [[package]]
