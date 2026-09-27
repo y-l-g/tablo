@@ -210,8 +210,7 @@ async fn create_policy_deny() {
         }
         fn table(cx: &topcoat::context::Cx) -> Table<DummyUser> {
             Table::r#for(cx)
-                .id(|u: &DummyUser| u.id.to_string())
-                .pk(|u: &DummyUser| u.id.to_string())
+                .key(|u: &DummyUser| u.id.to_string())
                 .columns(TextColumn::r#for(
                     DummyUser::fields().name(),
                     |u: &DummyUser| u.name.clone(),
@@ -406,8 +405,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         }
         fn table(cx: &Cx) -> Table<Widget> {
             Table::r#for(cx)
-                .id(|w: &Widget| w.id.to_string())
-                .pk(|w: &Widget| w.id.to_string())
+                .key(|w: &Widget| w.id.to_string())
                 .paginate(25)
                 .columns(TextColumn::r#for(Widget::fields().name(), |w: &Widget| {
                     w.name.clone()

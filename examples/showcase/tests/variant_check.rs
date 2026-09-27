@@ -56,8 +56,7 @@ impl Resource for ClipResource {
 
     fn table(cx: &topcoat::context::Cx) -> Table<Clip> {
         Table::r#for(cx)
-            .id(|clip: &Clip| clip.id.to_string())
-            .pk(|clip: &Clip| clip.id.to_string())
+            .key(|clip: &Clip| clip.id.to_string())
             .columns(TextColumn::r#for(Clip::fields().title(), |clip: &Clip| {
                 clip.title.clone()
             }))

@@ -28,7 +28,7 @@ Every method is defaulted, so a resource compiles as soon as it names its model 
 omission has to fail loudly instead of quietly:
 
 - **At `Panel::build`** (which returns `Result<Router>`): the table must be renderable — `table()`
-  declares columns and a row key, plus `Table::pk` where the resource declares action chrome — and
+  declares columns and a row key, plus `Table::key` where the resource declares action chrome — and
   where `can_create` allows it, `form()` must declare fields. A resource that overrides nothing fails
   the build, naming the type, instead of serving an error state or an empty form. `table()`, `form()`
   and `can_create()` are declarations: `Panel::build` calls them with a Db-only context to check them,
@@ -40,7 +40,7 @@ omission has to fail loudly instead of quietly:
   resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
   and the default-deny `can_*` predicates answer them. A resource that wants the chrome declares the
   flag **and** the policy predicate it promises: `can_view()` + `can_delete()` for `deletable()`,
-  `can_view()` + `can_update()` for `editable()`. It also commits the table to `Table::pk(..)` — the
+  `can_view()` + `can_update()` for `editable()`. It also commits the table to `Table::key(..)` — the
   action URLs and bulk values carry that projection — and `Panel::build` refuses a table that declares
   chrome without it. The flag is the whole-resource gate (GH #226); the
   predicates are

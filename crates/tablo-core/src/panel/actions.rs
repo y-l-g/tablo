@@ -958,6 +958,7 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
+            #[allow(deprecated)]
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 // Non-canonical display key: bulk must still resolve
                 // via the typed PK fetch alone. The record key stays canonical
@@ -1084,6 +1085,7 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
+            #[allow(deprecated)]
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
                     .id(|d: &Dummy| d.name.clone())
@@ -1436,8 +1438,7 @@ mod tests {
                     column
                 };
                 crate::resource::Table::r#for(cx)
-                    .id(|c: &Child| c.id.to_string())
-                    .pk(|c: &Child| c.id.to_string())
+                    .key(|c: &Child| c.id.to_string())
                     .columns(column)
             }
         }
@@ -1768,8 +1769,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Child> {
                 crate::resource::Table::r#for(cx)
-                    .id(|c: &Child| c.id.to_string())
-                    .pk(|c: &Child| c.id.to_string())
+                    .key(|c: &Child| c.id.to_string())
                     .columns(
                         crate::resource::TextColumn::computed("Parent", |c: &Child| {
                             if c.parent.is_unloaded() {
@@ -2399,8 +2399,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<OptAuthor> {
                 crate::resource::Table::r#for(cx)
-                    .id(|a: &OptAuthor| a.id.to_string())
-                    .pk(|a: &OptAuthor| a.id.to_string())
+                    .key(|a: &OptAuthor| a.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(
                             OptAuthor::fields().name(),
@@ -2433,8 +2432,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<OptPost> {
                 crate::resource::Table::r#for(cx)
-                    .id(|p: &OptPost| p.id.to_string())
-                    .pk(|p: &OptPost| p.id.to_string())
+                    .key(|p: &OptPost| p.id.to_string())
                     .columns(crate::resource::TextColumn::r#for(
                         OptPost::fields().title(),
                         |p: &OptPost| p.title.clone(),
@@ -2582,8 +2580,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Child> {
                 crate::resource::Table::r#for(cx)
-                    .id(|c: &Child| c.id.to_string())
-                    .pk(|c: &Child| c.id.to_string())
+                    .key(|c: &Child| c.id.to_string())
                     .columns(crate::resource::TextColumn::r#for(
                         Child::fields().name(),
                         |c: &Child| c.name.clone(),
@@ -2619,8 +2616,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Owner> {
                 crate::resource::Table::r#for(cx)
-                    .id(|o: &Owner| o.id.to_string())
-                    .pk(|o: &Owner| o.id.to_string())
+                    .key(|o: &Owner| o.id.to_string())
                     .columns(crate::resource::TextColumn::r#for(
                         Owner::fields().name(),
                         |o: &Owner| o.name.clone(),
@@ -2710,8 +2706,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<BigA> {
                 crate::resource::Table::r#for(cx)
-                    .id(|a: &BigA| a.id.to_string())
-                    .pk(|a: &BigA| a.id.to_string())
+                    .key(|a: &BigA| a.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(BigA::fields().name(), |a: &BigA| {
                             a.name.clone()

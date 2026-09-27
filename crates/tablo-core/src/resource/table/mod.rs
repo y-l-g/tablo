@@ -157,8 +157,8 @@ impl OrderMode {
 /// Table description of a `Resource`'s list view. Declares columns and how they
 /// map to queries.
 ///
-/// Row identity is mandatory and typed: [`Table::id`] declares the row-key
-/// projection and [`Table::render`] errors without it, and cells render via
+/// Row identity is mandatory and typed: [`Table::key`] declares both key halves
+/// and [`Table::render`] errors without a key, and cells render via
 /// [`TextColumn`]'s lens-bound closure where typos fail at compile time instead
 /// of panicking at render.
 pub struct Table<M> {
@@ -232,26 +232,34 @@ impl<M> Table<M> {
         Self::new()
     }
 
-    /// Declare the row-key projection (typically `|u| u.id.to_string()`).
+    /// Declare the row key and the record key together
+    /// (typically `|u| u.id.to_string()`).
     ///
-    /// Required before [`Self::render`]: row identity is not optional
-    /// (`CONTEXT.md` Table) — renders without it return an error rather than
-    /// falling back to loop indices. The projection must be injective within
-    /// a page: duplicate keys corrupt keyed diffs and bulk selection,
-    /// and are debug-asserted at render time.
-    ///
-    /// Display key only: this drives keyed diffs and DOM ids —
-    /// never record fetches. Action URLs and bulk values
-    /// come from [`Self::pk`], which handlers resolve as the model's typed
-    /// PK. The two agree in the common case (`|u| u.id.to_string()`) and
-    /// diverge whenever the display projects a non-PK value.
-    pub fn id(mut self, key: impl Fn(&M) -> String + Send + Sync + 'static) -> Self {
-        self.row_key = Some(Arc::new(key));
+    /// The common case: one primary-key projection drives keyed diffs and DOM
+    /// ids and the action URLs and bulk values handlers resolve as the model's
+    /// typed PK. The projection must be injective within a page: duplicate
+    /// keys corrupt keyed diffs and bulk selection, and are debug-asserted at
+    /// render time. A table whose display projects a non-PK value declares
+    /// that with [`Self::id`] and overrides the record half with [`Self::pk`].
+    pub fn key(mut self, key: impl Fn(&M) -> String + Send + Sync + 'static) -> Self {
+        let key = Arc::new(key);
+        self.row_key = Some(key.clone());
+        self.record_key = Some(key);
         self
+    }
+
+    /// Alias of [`Self::key`]: declares the row-key projection and the
+    /// record-key projection together.
+    pub fn id(self, key: impl Fn(&M) -> String + Send + Sync + 'static) -> Self {
+        self.key(key)
     }
 
     /// Declare the record-key projection for action URLs and bulk checkbox
     /// values (typically `|u| u.id.to_string()`).
+    ///
+    /// Deprecated: [`Self::key`] declares both halves, which agree in the
+    /// common case. This remains only as the record-half override for a table
+    /// whose display projects a non-PK value.
     ///
     /// Required before [`Self::render`] whenever action chrome is on
     /// ([`Self::with_delete`], [`Self::with_edit`], [`Self::with_view`],
@@ -261,6 +269,9 @@ impl<M> Table<M> {
     /// here 404s every delete and bulk submit. Renders with chrome but without
     /// it return an error rather than emitting keys the handlers cannot
     /// resolve.
+    #[deprecated(
+        note = "declare both halves with `Table::key`; this remains only as the record-half override for a non-PK display projection"
+    )]
     pub fn pk(mut self, key: impl Fn(&M) -> String + Send + Sync + 'static) -> Self {
         self.record_key = Some(Arc::new(key));
         self
@@ -907,12 +918,16 @@ impl<M> Table<M> {
                 "no columns declared — declare columns via Table::columns(..)".to_string(),
             );
         }
-        if self.row_key.is_none() {
-            return Some("no row key declared — declare one via Table::id(|row| ..)".to_string());
+        // A `pk`-only table renders its display from the record key: the one
+        // declared key is the primary key either way. The reverse never falls
+        // back — chrome without a record key would emit display keys the
+        // handlers 404 on.
+        if self.row_key.is_none() && self.record_key.is_none() {
+            return Some("no row key declared — declare one via Table::key(|row| ..)".to_string());
         }
         if chrome.actions() && self.record_key.is_none() {
             return Some(
-                "action chrome needs a record key — declare one via Table::pk(|row| ..)"
+                "action chrome needs a record key — declare one via Table::key(|row| ..)"
                     .to_string(),
             );
         }
@@ -989,8 +1004,7 @@ mod tests {
 
     fn status_table(cx: &Cx) -> Table<Task> {
         Table::<Task>::r#for(cx)
-            .id(|t| t.id.to_string())
-            .pk(|t| t.id.to_string())
+            .key(|t| t.id.to_string())
             .columns(TextColumn::r#for(Task::fields().title(), |t| {
                 t.title.clone()
             }))
@@ -1060,8 +1074,7 @@ mod tests {
         }
         let cx = CxTestBuilder::new().app_context(db).build();
         let tbl = Table::<User>::new()
-            .id(|u| u.id.to_string())
-            .pk(|u| u.id.to_string())
+            .key(|u| u.id.to_string())
             .columns(TextColumn::r#for(User::fields().name(), |u: &User| {
                 u.name.clone()
             }))
@@ -1262,8 +1275,7 @@ mod tests {
         }
         let cx = CxTestBuilder::new().app_context(db).build();
         let users_table = Table::<User>::r#for(&cx)
-            .id(|u| u.id.to_string())
-            .pk(|u| u.id.to_string())
+            .key(|u| u.id.to_string())
             .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable());
         let mut db = crate::db::db(&cx);
 
@@ -1303,8 +1315,7 @@ mod tests {
 
         let cx = CxTestBuilder::new().build();
         let table = Table::<User>::r#for(&cx)
-            .id(|u: &User| u.id.to_string())
-            .pk(|u: &User| u.id.to_string())
+            .key(|u: &User| u.id.to_string())
             .columns(TextColumn::r#for(User::fields().name(), |u: &User| {
                 u.name.clone()
             }));
@@ -1382,8 +1393,7 @@ mod tests {
         // and the export (which refuses on any unapplied filter) stays 200.
         let cx = CxTestBuilder::new().build();
         let tbl = Table::<Task>::r#for(&cx)
-            .id(|t| t.id.to_string())
-            .pk(|t| t.id.to_string())
+            .key(|t| t.id.to_string())
             .columns(TextColumn::r#for(Task::fields().title(), |t| {
                 t.title.clone()
             }))
@@ -1501,8 +1511,7 @@ mod tests {
 
     fn paged_users_table(cx: &topcoat::context::Cx, per_page: usize) -> Table<User> {
         Table::<User>::r#for(cx)
-            .id(|u| u.id.to_string())
-            .pk(|u| u.id.to_string())
+            .key(|u| u.id.to_string())
             .columns(TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()).sortable())
             .paginate(per_page)
     }
@@ -1886,8 +1895,7 @@ mod tests {
             .build();
         let table = || {
             Table::<Task>::new()
-                .id(|t| t.id.to_string())
-                .pk(|t| t.id.to_string())
+                .key(|t| t.id.to_string())
                 .columns(
                     TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone())
                         .sortable(),

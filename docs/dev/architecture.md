@@ -90,11 +90,13 @@ committed write, and a failure in it is logged without rolling the write back.
 | `EmbeddedForm` | `tablo-macros` | the flat form map ↔ a typed embedded value |
 | `Uploader` | `upload.rs` | where a `FileUpload`'s bytes go |
 | `Authenticator` | `auth.rs` | how credentials resolve to a `CurrentUser` |
-| `Table::id` / `Table::pk` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
+| `Table::key` (`Table::id` alias) / `Table::pk` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
 
-Row identity is two projections and both are declared: `Table::id` is the display key that drives
-keyed diffs and DOM ids, `Table::pk` is the record key that handlers resolve as the model's typed
-primary key. Action chrome without `pk` is a render error, not a silent 404.
+Row identity is two projections declared together: `Table::key` (aliased as `Table::id`)
+is the display key that drives keyed diffs and DOM ids and the record key that handlers
+resolve as the model's typed primary key. A table whose display projects a non-PK value
+overrides the record half with `Table::pk`. Action chrome without a key is a render error,
+not a silent 404.
 
 ## Reactivity
 

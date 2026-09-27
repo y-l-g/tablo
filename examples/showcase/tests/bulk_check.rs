@@ -401,8 +401,7 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
         }
         fn table(cx: &topcoat::context::Cx) -> Table<DummyUser> {
             Table::r#for(cx)
-                .id(|u: &DummyUser| u.id.to_string())
-                .pk(|u: &DummyUser| u.id.to_string())
+                .key(|u: &DummyUser| u.id.to_string())
                 .columns(TextColumn::r#for(
                     DummyUser::fields().name(),
                     |u: &DummyUser| u.name.clone(),

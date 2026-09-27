@@ -500,8 +500,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
                             d.name.clone()
@@ -726,8 +725,7 @@ mod tests {
         // to the current query; crafting one past a new query is the client's
         // own read-only inconsistency.
         let paged = crate::resource::Table::<Dummy>::r#for(&cx)
-            .id(|d: &Dummy| d.id.to_string())
-            .pk(|d: &Dummy| d.id.to_string())
+            .key(|d: &Dummy| d.id.to_string())
             .columns(crate::resource::TextColumn::r#for(
                 Dummy::fields().name(),
                 |d: &Dummy| d.name.clone(),
@@ -820,8 +818,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
                             d.name.clone()
@@ -1483,8 +1480,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .columns(crate::resource::TextColumn::r#for(
                         Dummy::fields().name(),
                         |d: &Dummy| d.name.clone(),
@@ -1585,8 +1581,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Scoped> {
                 crate::resource::Table::r#for(cx)
-                    .id(|s: &Scoped| s.id.to_string())
-                    .pk(|s: &Scoped| s.id.to_string())
+                    .key(|s: &Scoped| s.id.to_string())
                     .columns(crate::resource::TextColumn::r#for(
                         Scoped::fields().name(),
                         |s: &Scoped| s.name.clone(),
@@ -1678,8 +1673,7 @@ mod tests {
                 // the decode inside `load_table_page` (only paginated loads
                 // decode cursors), not die earlier on missing declarations.
                 Table::<Subscriber>::new()
-                    .id(|s| s.id.to_string())
-                    .pk(|s| s.id.to_string())
+                    .key(|s| s.id.to_string())
                     .columns(crate::resource::TextColumn::r#for(
                         Subscriber::fields().email(),
                         |s: &Subscriber| s.email.clone(),
@@ -1823,8 +1817,7 @@ mod tests {
 
             fn table(_cx: &Cx) -> Table<Self::Model> {
                 Table::<Subscriber>::new()
-                    .id(|s| s.id.to_string())
-                    .pk(|s| s.id.to_string())
+                    .key(|s| s.id.to_string())
                     .columns(crate::resource::TextColumn::r#for(
                         Subscriber::fields().email(),
                         |s: &Subscriber| s.email.clone(),

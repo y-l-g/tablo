@@ -99,8 +99,7 @@ impl Resource for MemberResource {
 
     fn table(cx: &Cx) -> Table<Member> {
         Table::r#for(cx)
-            .id(|member: &Member| member.id.to_string())
-            .pk(|member: &Member| member.id.to_string())
+            .key(|member: &Member| member.id.to_string())
             .paginate(25)
             .columns(TextColumn::r#for(
                 Member::fields().handle(),

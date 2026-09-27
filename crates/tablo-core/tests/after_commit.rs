@@ -98,8 +98,7 @@ impl Resource for AuditedResource {
 
     fn table(cx: &Cx) -> Table<Note> {
         Table::r#for(cx)
-            .id(|note: &Note| note.id.to_string())
-            .pk(|note: &Note| note.id.to_string())
+            .key(|note: &Note| note.id.to_string())
             .paginate(25)
             .columns(TextColumn::r#for(Note::fields().title(), |note: &Note| {
                 note.title.clone()

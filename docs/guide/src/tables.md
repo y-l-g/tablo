@@ -7,8 +7,7 @@ Minimal table:
 
 ```rust
 Table::r#for(cx)
-    .id(|u: &User| u.id.to_string())
-    .pk(|u: &User| u.id.to_string())
+    .key(|u: &User| u.id.to_string())
     .columns((
         TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
             .searchable()
@@ -22,12 +21,15 @@ Table::r#for(cx)
 
 Notes:
 
-- `.id(...)` is required. It keys rows for selection and live updates. Never use a loop index.
-- `.pk(...)` declares the record key that action URLs and bulk checkbox values carry; handlers
-  resolve it as the model's typed primary key. Emit the primary key, not a display label. Declare it
-  whenever the resource carries action chrome — `deletable()`, `editable()`, or a declared detail
-  `view()` — because `Panel::build` refuses a table that carries chrome without a record key. The two projections agree in the common case
-  (`|u| u.id.to_string()`).
+- `.key(...)` is required. It declares the row key and the record key together: the row key
+  keys rows for selection and live updates — never use a loop index — and the record key is
+  what action URLs and bulk checkbox values carry; handlers resolve it as the model's typed
+  primary key, so emit the primary key, not a display label. Declare it whenever the resource
+  carries action chrome — `deletable()`, `editable()`, or a declared detail `view()` — because
+  `Panel::build` refuses a table that carries chrome without a key. A table whose display
+  projects a non-PK value declares that value with `Table::id` and overrides the record half
+  with `Table::pk`, so action URLs and bulk values keep carrying the typed primary key.
+  A non-PK `.id` without a `.pk` override uses the display value for URLs, which handlers 404.
 - `searchable()` searches with `?q=`: an escaped substring match (`like_with_escape`, OR across
   searchable columns), so a term containing `%` or `_` matches those characters literally. `LIKE` is
   ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. `sortable()` sorts with
