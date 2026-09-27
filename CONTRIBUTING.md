@@ -47,7 +47,7 @@ your change before pushing, and all ten before merging.
 6. `cargo check --locked --manifest-path benchmarks/tablo/Cargo.toml`
 7. `cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings`
 8. `cargo +1.98 check --workspace --locked`
-9. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js examples/showcase/assets/media.test.js`
+9. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js examples/showcase/assets/media.test.js`
 10. `cargo +nightly udeps --workspace --all-targets --all-features --locked`
 
 Gate 3 keeps the opt-out auth feature compiling and tested (GH #129, GH #282).

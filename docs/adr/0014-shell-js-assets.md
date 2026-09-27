@@ -1,15 +1,15 @@
 # Shell JS assets: ownership, all-load policy, and the hook contract
 
-Date: 2026-09-18 — Status: accepted — Amended: 2026-09-19, 2026-09-22, 2026-09-23, 2026-09-25
+Date: 2026-09-18 — Status: accepted — Amended: 2026-09-19, 2026-09-22, 2026-09-23, 2026-09-25, 2026-09-27
 
 ## Decision
 
-**Ownership.** `crates/tablo-ui/assets/` holds ten hand-written JS assets (`sidebar.js`,
-`theme.js`, `dialog.js`, `bulk.js`, `filters.js`, `live-search.js`, `selects.js`, `variant.js`,
-`notifications.js`, `mutation-submit.js`; `selects.test.js`, `bulk.test.js`, `dialog.test.js`,
+**Ownership.** `crates/tablo-ui/assets/` holds eleven hand-written JS assets (`sidebar.js`,
+`theme.js`, `dialog.js`, `wire.js`, `bulk.js`, `filters.js`, `live-search.js`, `selects.js`, `variant.js`,
+`notifications.js`, `mutation-submit.js`; `selects.test.js`, `bulk.test.js`, `wire.test.js`, `dialog.test.js`,
 `mutation-submit.test.js`, `notifications.test.js` and `filters.test.js` are the Node tests, not
-shipped, and `examples/showcase/assets/media.test.js` tests the showcase's `media.js` — ~67.0 KB
-unminified, ~25.4 KB gzipped summed per asset (`gzip -9 -n`), with no build or minify step). They
+shipped, and `examples/showcase/assets/media.test.js` tests the showcase's `media.js` — ~68.7 KB
+unminified, ~26.2 KB gzipped summed per asset (`gzip -9 -n`), with no build or minify step). They
 are declared as `Asset` constants in
 `crates/tablo-ui/src/lib.rs` and emitted by `Panel::render_document` in `tablo-core` on every
 document with `ShellAssets`, including the login page, where all but `theme.js`'s backstop apply are
@@ -20,10 +20,10 @@ paint.
 Per-component `<script>` tags stay out: duplicate execution stacks document listeners, and the runtime
 does not manage script lifecycles in swapped content.
 
-**All-load policy.** Every document with `ShellAssets` loads all ten scripts. `render_document`
+**All-load policy.** Every document with `ShellAssets` loads all eleven scripts. `render_document`
 receives an opaque `BoxView` and `layout_shell` a lazy `Slot`, so nothing at document level can
 observe what was rendered; scoping emission to page content needs a new declaration API, and it would
-not shrink the bundle because all ten handles stay referenced. The "hook ⇒ script" guarantee
+not shrink the bundle because all eleven handles stay referenced. The "hook ⇒ script" guarantee
 therefore holds only for documents rendered through `render_document` with `ShellAssets` configured:
 a `Panel` built without `.shell_assets(..)` renders sidebar/toaster hooks with no scripts, as do apps
 using `tablo-ui` components directly.
@@ -39,6 +39,7 @@ The list is attribute hooks only — structural selectors (`.relative`, `pre cod
 | `sidebar.js` | `data-sidebar`, `data-state` (sidebar primitive), `sidebar_state` cookie (shell) | State no longer persists; `Ctrl+B` dies |
 | `theme.js` | `data-theme-toggle` (shell) | Toggle inert; init script still paints the stored theme |
 | `dialog.js` | `data-dialog-close`, `data-dialog-open-param`, `data-row-delete-trigger`, `data-row-delete-action`, `data-row-delete-form` (row delete dialog) | Row Delete still opens the dialog through `?delete=` and Delete still POSTs; Cancel is inert, and Escape/backdrop do not dismiss |
+| `wire.js` | No hooks — the shared `,a,b,` selection-wire codec `bulk.js` writes and `mutation-submit.js` prunes (GH #341) | Both consumers throw on load; bulk delete unusable |
 | `bulk.js` | `data-bulk-form`, `data-table-root`, `data-bulk-confirm-trigger`, `data-bulk-confirm-dialog`, `data-bulk-confirm-description`, `data-row-select`, `data-bulk-select-all`, `ids` transport (table) | Bulk delete unusable |
 | `filters.js` | `data-filter-name`, `data-filters-form`, `data-filters-transport`, `data-filters-live` (filter bar) | Typed controls inert; `<noscript>` free-text + Apply keeps working |
 | `live-search.js` | `data-live-search`, `data-live-search-input`, `data-live-search-transport`, `data-debounce-ms` (live table toolbar) | Typing no longer debounces into a reload; the `<noscript>` GET form is the search path |
@@ -53,7 +54,7 @@ still runs them: the `assets` job names each suite and runs it with `node --test
 with nothing to install first. Revisit with the all-load policy if they grow.
 
 **No-JS posture.** `sidebar.js` (mobile nav persistence) and `bulk.js` (bulk delete) are load-bearing
-for their features; `theme.js` is needed for the toggle; the other seven are progressive enhancements
+for their features; `theme.js` is needed for the toggle; the other eight are progressive enhancements
 with fallbacks, as the table records. Delegation is deliberate throughout: Topcoat morphs swapped
 content with no script-lifecycle handling, so document-level listeners (plus `notifications.js`'s
 `MutationObserver` for mounted-state arming) keep behavior alive after post-load shard swaps.
@@ -64,6 +65,6 @@ are vendored primitives, so the note lives at the core render sites (the delete 
 
 ## Consequences
 
-`Panel::render_document` keeps emitting all ten tags, `defer`red; a new hook extends `ASSET_HOOKS`
+`Panel::render_document` keeps emitting all eleven tags, `defer`red; a new hook extends `ASSET_HOOKS`
 with both sides in the same commit. `cargo xtask` still never touches `assets/` (ADR-0007 covers
 primitives only).

@@ -423,6 +423,7 @@ pub const ASSET_FILES: &[(&str, &str)] = &[
     ("sidebar.js", "SIDEBAR_JS"),
     ("theme.js", "THEME_JS"),
     ("dialog.js", "DIALOG_JS"),
+    ("wire.js", "WIRE_JS"),
     ("bulk.js", "BULK_JS"),
     ("filters.js", "FILTERS_JS"),
     ("live-search.js", "LIVE_SEARCH_JS"),

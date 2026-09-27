@@ -443,7 +443,7 @@ impl Panel {
     /// it; the standalone login page (ADR-0013) uses the same document so
     /// brand and dark mode carry over.
     ///
-    /// The ten shell scripts ship `defer`red (deliberate all-load policy,
+    /// The eleven shell scripts ship `defer`red (deliberate all-load policy,
     /// ADR-0014): parsing never waits for them, and every one is safe
     /// deferred — document-level listeners install after parse, and the
     /// `DOMContentLoaded` handlers still run, since deferred scripts execute
@@ -469,6 +469,7 @@ impl Panel {
                 <script src=(tablo_ui::SIDEBAR_JS) defer=""></script>
                 <script src=(tablo_ui::THEME_JS) defer=""></script>
                 <script src=(tablo_ui::DIALOG_JS) defer=""></script>
+                <script src=(tablo_ui::WIRE_JS) defer=""></script>
                 <script src=(tablo_ui::BULK_JS) defer=""></script>
                 <script src=(tablo_ui::FILTERS_JS) defer=""></script>
                 <script src=(tablo_ui::LIVE_SEARCH_JS) defer=""></script>

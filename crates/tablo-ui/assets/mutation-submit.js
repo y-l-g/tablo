@@ -37,6 +37,15 @@
 // Document-level delegation (like bulk.js) so a table a shard re-rendered
 // needs no re-installation.
 (() => {
+// The selection-wire codec lives in `wire.js`, which the document loads before
+// this script (ADR-0014): the browser global in the browser, `require`d in the
+// Node test (there is no JS test runner in this workspace, and this file must
+// stay a plain browser script loaded by `asset!`, so it cannot be an ES module).
+const { wireOf, wireFrom } =
+  typeof module !== 'undefined' && module.exports
+    ? require('./wire.js')
+    : window.TabloWire;
+
 // The record key a row-delete action URL names, or null when the URL is not
 // one (`/admin/users/<key>/delete`, `delete_action_url`). Percent-encoded
 // segments are decoded: the wire and the action carry the same raw key.
@@ -66,19 +75,6 @@ function removedKeys(form, action) {
   if (ids) return wireOf(ids.value);
   const key = deletedKey(action);
   return key === null ? [] : [key];
-}
-
-// The keys in a `,a,b,`-delimited wire (bulk.js's format: the delimiters make
-// membership exact, so `,ab,` never matches `b`).
-function wireOf(value) {
-  return (value || '')
-    .split(',')
-    .map((key) => key.trim())
-    .filter((key) => key !== '');
-}
-
-function wireFrom(keys) {
-  return keys.length === 0 ? '' : `,${keys.join(',')},`;
 }
 
 // The selection wire minus the keys this mutation removed. A bulk delete
@@ -371,8 +367,6 @@ if (typeof module !== 'undefined' && module.exports) {
     removedKeys,
     swapTargets,
     tableRootFor,
-    wireFrom,
-    wireOf,
   };
 }
 })();
