@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e6395cb5.js";
+            window.path_to_searchindex_js = "searchindex-6a03be21.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -340,7 +340,7 @@ and how tenancy is declared.</p>
 omission has to fail loudly instead of quietly:</p>
 <ul>
 <li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): the table must be renderable — <code>table()</code>
-declares columns and a row key, plus <code>Table::pk</code> where the resource declares action chrome — and
+declares columns and a row key, plus <code>Table::key</code> where the resource declares action chrome — and
 where <code>can_create</code> allows it, <code>form()</code> must declare fields. A resource that overrides nothing fails
 the build, naming the type, instead of serving an error state or an empty form. <code>table()</code>, <code>form()</code>
 and <code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
@@ -352,7 +352,7 @@ implemented for …”), so a missing implementation never looks like a successf
 resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
 and the default-deny <code>can_*</code> predicates answer them. A resource that wants the chrome declares the
 flag <strong>and</strong> the policy predicate it promises: <code>can_view()</code> + <code>can_delete()</code> for <code>deletable()</code>,
-<code>can_view()</code> + <code>can_update()</code> for <code>editable()</code>. It also commits the table to <code>Table::pk(..)</code> — the
+<code>can_view()</code> + <code>can_update()</code> for <code>editable()</code>. It also commits the table to <code>Table::key(..)</code> — the
 action URLs and bulk values carry that projection — and <code>Panel::build</code> refuses a table that declares
 chrome without it. The flag is the whole-resource gate (GH #226); the
 predicates are
@@ -515,8 +515,7 @@ updates, and row and bulk delete.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>Table::r#for(cx)
-    .id(|u: &amp;User| u.id.to_string())
-    .pk(|u: &amp;User| u.id.to_string())
+    .key(|u: &amp;User| u.id.to_string())
     .columns((
         TextColumn::r#for(User::fields().name(), |u: &amp;User| u.name.clone())
             .searchable()
@@ -529,12 +528,15 @@ updates, and row and bulk delete.</p>
 <span class="boring">}</span></code></pre>
 <p>Notes:</p>
 <ul>
-<li><code>.id(...)</code> is required. It keys rows for selection and live updates. Never use a loop index.</li>
-<li><code>.pk(...)</code> declares the record key that action URLs and bulk checkbox values carry; handlers
-resolve it as the model’s typed primary key. Emit the primary key, not a display label. Declare it
-whenever the resource carries action chrome — <code>deletable()</code>, <code>editable()</code>, or a declared detail
-<code>view()</code> — because <code>Panel::build</code> refuses a table that carries chrome without a record key. The two projections agree in the common case
-(<code>|u| u.id.to_string()</code>).</li>
+<li><code>.key(...)</code> is required. It declares the row key and the record key together: the row key
+keys rows for selection and live updates — never use a loop index — and the record key is
+what action URLs and bulk checkbox values carry; handlers resolve it as the model’s typed
+primary key, so emit the primary key, not a display label. Declare it whenever the resource
+carries action chrome — <code>deletable()</code>, <code>editable()</code>, or a declared detail <code>view()</code> — because
+<code>Panel::build</code> refuses a table that carries chrome without a key. A table whose display
+projects a non-PK value declares that value with <code>Table::id</code> and overrides the record half
+with <code>Table::pk</code>, so action URLs and bulk values keep carrying the typed primary key.
+A non-PK <code>.id</code> without a <code>.pk</code> override uses the display value for URLs, which handlers 404.</li>
 <li><code>searchable()</code> searches with <code>?q=</code>: an escaped substring match (<code>like_with_escape</code>, OR across
 searchable columns), so a term containing <code>%</code> or <code>_</code> matches those characters literally. <code>LIKE</code> is
 ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. <code>sortable()</code> sorts with
