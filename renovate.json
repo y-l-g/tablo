@@ -3,12 +3,17 @@
   "extends": ["config:recommended"],
   "prBodyNotes": [
     "Pin policy (GH #103): any change to the workspace Cargo.lock must sync benchmarks/tablo/Cargo.lock in the same commit, keeping topcoat/toasty revs identical.",
-    "Lockfile maintenance is off: topcoat and toasty are bumped deliberately with cargo update -p, never by a blanket cargo update (AGENTS.md \"Renovate PRs\"), and the workspace lock stays in lockstep with benchmarks/tablo/Cargo.lock."
+    "Topcoat and Toasty are git dependencies Renovate never updates: they are pinned to exact revs and bumped deliberately with cargo xtask bump-upstream, never by a blanket cargo update (AGENTS.md \"Renovate PRs\", CONTRIBUTING.md \"Dependency pins\"). The workspace lock stays in lockstep with benchmarks/tablo/Cargo.lock."
   ],
   "lockFileMaintenance": {
     "enabled": false
   },
   "packageRules": [
+    {
+      "description": "Topcoat and Toasty are pinned to exact revs and bumped deliberately (AGENTS.md \"Renovate PRs\", CONTRIBUTING.md \"Dependency pins\")",
+      "matchPackageNames": ["topcoat", "topcoat-*", "toasty", "toasty-*"],
+      "enabled": false
+    },
     {
       "description": "argon2 + password-hash bump as one coupled set (AGENTS.md) — never separately",
       "matchPackageNames": ["argon2", "password-hash"],
