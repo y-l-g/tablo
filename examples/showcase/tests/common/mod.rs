@@ -611,27 +611,29 @@ fn unescape_href(href: &str) -> String {
 
 /// The row titles rendered into a table table, in document order.
 ///
-/// Each row's first cell is the title projection, so this reads the table the
-/// list handlers build (skeleton rows carry no `data-row-select` and are
-/// skipped). Used by pagination and comments assertions that care about which
-/// rows a page actually holds.
+/// Reads each body row (`<tr id="row-…">`, group headers excluded) and takes
+/// its first non-empty cell: the checkbox cell carries no text, so refused
+/// rows without a checkbox read the same as the rest. Used by pagination and
+/// comments assertions that care about which rows a page actually holds.
 pub fn row_titles(html: &str) -> Vec<String> {
     let mut out = Vec::new();
-    let mut rest = html;
-    while let Some(at) = rest.find("data-row-select") {
-        rest = &rest[at..];
-        if let Some(td) = rest.find("<td")
-            && let Some(gt) = rest[td..].find('>')
-        {
-            let after = &rest[td + gt + 1..];
-            if let Some(end) = after.find("</td>") {
-                let text = after[..end].split('<').next().unwrap_or("").trim();
-                if !text.is_empty() {
-                    out.push(text.to_string());
-                }
+    for chunk in html.split("id=\"row-").skip(1) {
+        let end = chunk.find("</tr>").unwrap_or(chunk.len());
+        let row = &chunk[..end];
+        let mut cells = row.split("<td");
+        cells.next();
+        for cell in cells {
+            let Some(gt) = cell.find('>') else { continue };
+            let after = &cell[gt + 1..];
+            let Some(stop) = after.find("</td>") else {
+                continue;
+            };
+            let text = after[..stop].split('<').next().unwrap_or("").trim();
+            if !text.is_empty() {
+                out.push(text.to_string());
+                break;
             }
         }
-        rest = &rest[1..];
     }
     out
 }

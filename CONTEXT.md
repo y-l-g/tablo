@@ -93,8 +93,8 @@ typed PK — action chrome without `pk` is a render error, not a silent 404 (GH 
 
 Row chrome is opt-in per resource (`TableChrome`, GH #226) and gated per record by the table's
 **row policy** (`Table::row_actions`, GH #235), which the panel wires from the resource's
-`can_view`/`can_update`/`can_delete`: a refused row renders no link, and a delete-refused row a
-**disabled** bulk checkbox labelled with the reason. The handler's all-or-nothing check stays as
+`can_view`/`can_update`/`can_delete`: a refused row renders no link, and a delete-refused row no
+bulk checkbox. The handler's all-or-nothing check stays as
 the safety net for a hand-crafted POST.
 
 A `live_search(true)` table hands its chrome to the page's `TableSignals`: the shard's tracked

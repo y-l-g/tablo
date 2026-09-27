@@ -483,10 +483,11 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
     descending.sort();
     descending.reverse();
     assert_eq!(names, descending, "the pages must stay in descending order");
+    // Keys cover every row but the SSO-guarded one, which renders no checkbox.
     let unique: std::collections::HashSet<_> = keys.iter().collect();
     assert_eq!(
         unique.len(),
-        total,
+        total - 1,
         "no row may appear on two pages of a descending walk"
     );
 }
@@ -548,14 +549,14 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
     );
 
     // The tie-breaker is what makes the split exact: without it the second
-    // page would repeat the tie or drop it, so the keys would not cover `total`
-    // distinct rows.
+    // page would repeat the tie or drop it, so the keys would not cover every
+    // selectable row. Keys skip the SSO-guarded row, which has no checkbox.
     let mut keys = row_keys(&page1);
     keys.extend(row_keys(&page2));
     let unique: std::collections::HashSet<_> = keys.iter().collect();
     assert_eq!(
         unique.len(),
-        total,
+        total - 1,
         "the tie-breaker must not skip or repeat a row"
     );
 }

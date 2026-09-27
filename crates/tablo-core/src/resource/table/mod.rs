@@ -38,10 +38,8 @@ pub type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
 /// affordances a resource declares, this says which of them the caller may use
 /// on one loaded row. [`Table::row_actions`] stores the projection and the
 /// renderer consults it per row — a denied action emits no link, and a row
-/// denied `delete` renders its bulk checkbox `disabled` with the reason as its
-/// accessible label, so the row can never enter the selection transport. A row
-/// denied every action keeps its actions cell with a `Locked` badge in place
-/// of the links, so the state reads as locked rather than as missing chrome.
+/// denied `delete` renders no bulk checkbox, so the row can never enter the
+/// selection transport.
 ///
 /// The panel derives one from the resource's
 /// [`can_view`](crate::resource::Resource::can_view) /
@@ -273,9 +271,9 @@ impl<M> Table<M> {
     ///
     /// The `with_*` methods say which affordances the table declares; this says
     /// which of them a row may use. The renderer consults it per row — a denied
-    /// action emits no link, and a row denied `delete` renders its bulk
-    /// checkbox `disabled` with the reason as its accessible label, so the
-    /// selection transport never carries a key the handler refuses.
+    /// action emits no link, and a row denied `delete` renders no bulk
+    /// checkbox, so the selection transport never carries a key the handler
+    /// refuses.
     ///
     /// Defaults to [`RowActions::ALL`], so a table that declares no policy
     /// renders exactly the chrome its `with_*` calls attached. The policy is
@@ -559,7 +557,7 @@ impl<M> Table<M> {
     /// delete chrome but no `pk` is a render error.
     ///
     /// The action is gated per record by [`Self::row_actions`]: a row
-    /// the policy denies renders no `Delete` link and a disabled bulk checkbox,
+    /// the policy denies renders no `Delete` link and no bulk checkbox,
     /// matching the handler's `can_view` + `can_delete` check.
     pub fn with_delete(mut self, prefix: String) -> Self {
         self.delete_prefix = Some(prefix);
@@ -600,10 +598,9 @@ impl<M> Table<M> {
     /// the [`Self::pk`] record keys (handlers resolve them as typed PKs) —
     /// rendering with bulk chrome but no `pk` is a render error.
     ///
-    /// A row the [`Self::row_actions`] policy denies `delete` renders its
-    /// checkbox `disabled` with the reason as its accessible label,
-    /// so select-all never submits a batch the handler's all-or-nothing check
-    /// refuses.
+    /// A row the [`Self::row_actions`] policy denies `delete` renders no
+    /// checkbox, so select-all never submits a batch the handler's
+    /// all-or-nothing check refuses.
     pub fn with_bulk_delete(mut self, enabled: bool) -> Self {
         self.bulk_delete = enabled;
         self

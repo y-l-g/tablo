@@ -66,9 +66,8 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
 /// table's row policy pairs each action with exactly what its route checks —
 /// `can_view` for View, `can_view` + `can_update` for Edit, `can_view` +
 /// `can_delete` for Delete and the bulk checkbox. A row the predicate refuses
-/// renders no link and a disabled checkbox, while the handler keeps its
-/// all-or-nothing check for a hand-crafted POST. A row refused every action
-/// keeps its actions cell with a `Locked` badge in place of the links.
+/// renders no link and no checkbox, while the handler keeps its
+/// all-or-nothing check for a hand-crafted POST.
 ///
 /// `live` selects the shard variant: the swapped region is everything except the
 /// toolbar the page owns eagerly (the live host owns those slots, so a swap must
@@ -1289,7 +1288,7 @@ mod tests {
     /// panel wires each action from the predicate its route checks — `can_view`
     /// for View, `can_view` + `can_update` for Edit, `can_view` + `can_delete`
     /// for Delete and the bulk checkbox — so a refused row renders no link and
-    /// a disabled checkbox instead of a control the route answers 403 to.
+    /// no checkbox instead of a control the route answers 403 to.
     ///
     /// This is the panel half, which the render-level test cannot cover: a
     /// hand-written `row_actions` closure proves the renderer, not the wiring.
@@ -1338,55 +1337,43 @@ mod tests {
         }
 
         let html = list_html_with::<RowPolicyResource>(&["Ada", "Hidden", "Locked"]).await;
+        // Only the allowed row carries a checkbox; refused rows keep their
+        // cells but no key chrome.
         let rows = rendered_rows(&html);
-        assert_eq!(rows.len(), 3, "three rows seeded, three rendered: {html}");
-        // The table orders by the PK fallback (no sortable column), so the
-        // seeding order is not the rendering order: read each row's own key.
-        let id_of = |name: &str| {
-            rows.iter()
-                .find(|(_, cell)| cell == name)
-                .map(|(id, _)| id.clone())
-                .unwrap_or_else(|| panic!("missing the {name} row in {html}"))
-        };
-        let (ada, hidden, locked) = (id_of("Ada"), id_of("Hidden"), id_of("Locked"));
+        assert_eq!(rows.len(), 1, "only Ada carries a checkbox: {html}");
+        let ada = rows[0].0.clone();
+        for name in ["Ada", "Hidden", "Locked"] {
+            assert!(
+                html.contains(&format!(">{name}<")),
+                "the {name} row must still render: {html}"
+            );
+        }
 
-        // The allowed row keeps all three links and an enabled checkbox.
+        // The allowed row keeps all three links and the page's only checkbox.
         assert!(
             html.contains(&format!("href=\"/admin/dummies/{ada}\""))
                 && html.contains(&format!("/admin/dummies/{ada}/edit"))
                 && html.contains(&format!("delete={ada}")),
             "the allowed row must keep its View/Edit/Delete links, got {html}"
         );
-        assert!(
-            !disabled_box(&html, &ada),
-            "the allowed row's checkbox must stay enabled, got {html}"
+        assert_eq!(
+            html.matches("data-row-select").count(),
+            1,
+            "the allowed row owns the page's only checkbox, got {html}"
         );
 
-        // The view-refused row renders no link at all — the View link included,
-        // which is the half only `can_view` can withhold.
-        assert!(
-            !html.contains(&format!("/admin/dummies/{hidden}")),
-            "the view-refused row must render no View/Edit link, got {html}"
+        // Refused rows own no record href and no delete opener: three
+        // record hrefs (Ada's View and Edit, Locked's View) and one delete
+        // opener (Ada's) leave Hidden none.
+        assert_eq!(
+            html.matches("href=\"/admin/dummies/").count(),
+            3,
+            "only Ada and Locked may own a record href, got {html}"
         );
-        assert!(
-            !html.contains(&format!("delete={hidden}")),
-            "the view-refused row must render no Delete link, got {html}"
-        );
-        assert!(
-            disabled_box(&html, &hidden),
-            "the view-refused row's checkbox must be disabled, got {html}"
-        );
-
-        // The update/delete-refused row keeps View and loses the other two.
-        assert!(
-            html.contains(&format!("href=\"/admin/dummies/{locked}\""))
-                && !html.contains(&format!("/admin/dummies/{locked}/edit"))
-                && !html.contains(&format!("delete={locked}")),
-            "the update/delete-refused row must keep only its View link, got {html}"
-        );
-        assert!(
-            disabled_box(&html, &locked),
-            "the update/delete-refused row's checkbox must be disabled, got {html}"
+        assert_eq!(
+            html.matches("delete=").count(),
+            1,
+            "only Ada may own a delete opener, got {html}"
         );
     }
 
@@ -1417,17 +1404,6 @@ mod tests {
             rest = &rest[at + 1..];
         }
         rows
-    }
-
-    /// Whether the checkbox carrying `id` renders `disabled`.
-    fn disabled_box(html: &str, id: &str) -> bool {
-        let at = html
-            .find(&format!("value=\"{id}\""))
-            .unwrap_or_else(|| panic!("missing a checkbox for {id} in {html}"));
-        let start = html[..at].rfind("<input").expect("its opening tag");
-        let tag = &html[start..];
-        let end = tag.find('>').expect("the tag's end");
-        tag[..end].contains("disabled")
     }
 
     /// The GET `?q=` term is clamped like the shard's: bounded
