@@ -1,1 +1,0 @@
-rd_("hshowcasejtablo_coreltablo_macroshtablo_uiextask")
