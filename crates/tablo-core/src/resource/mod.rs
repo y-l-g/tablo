@@ -390,7 +390,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///
     /// The default is empty, and an empty table **cannot render**: the
     /// default `Resource` is not listable until it declares columns via
-    /// `Table::columns(..)` and a row key via `Table::id(..)` (see
+    /// `Table::columns(..)` and a row key via `Table::key(..)` (see
     /// [`Table::render`]).
     fn table(_cx: &Cx) -> Table<Self::Model> {
         Table::new()

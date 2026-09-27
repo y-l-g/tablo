@@ -1781,8 +1781,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .paginate(25)
                     .columns(crate::resource::TextColumn::r#for(
                         Dummy::fields().name(),
@@ -1843,8 +1842,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .paginate(25)
                     .columns(crate::resource::TextColumn::r#for(
                         Dummy::fields().name(),
@@ -2061,11 +2059,12 @@ mod tests {
     }
 
     /// GH #207 part 1: `R::table(cx)` carries no action chrome —
-    /// `wire_table_actions` attaches it — so the record-key requirement is only
+    /// `wire_table_actions` attaches it — so the key requirement is only
     /// knowable from the same declaration the wiring reads. A resource with
-    /// action chrome and no `.pk(..)` fails `build`.
+    /// action chrome and no key at all fails `build`; a `pk`-only table builds
+    /// through the record-key fallback (GH #340).
     #[tokio::test]
-    async fn panel_build_rejects_action_chrome_without_a_record_key() {
+    async fn panel_build_rejects_action_chrome_without_a_key() {
         use crate::{
             resource::{Resource, Table, TextColumn},
             schema::{Schema, TextInput},
@@ -2080,12 +2079,10 @@ mod tests {
         }
 
         fn keyless_table(cx: &Cx) -> Table<Subscriber> {
-            Table::r#for(cx)
-                .id(|s: &Subscriber| s.id.to_string())
-                .columns(TextColumn::r#for(
-                    Subscriber::fields().nickname(),
-                    |s: &Subscriber| s.nickname.clone(),
-                ))
+            Table::r#for(cx).columns(TextColumn::r#for(
+                Subscriber::fields().nickname(),
+                |s: &Subscriber| s.nickname.clone(),
+            ))
         }
 
         /// Chrome opted into explicitly: the default opts out of
@@ -2108,9 +2105,53 @@ mod tests {
             }
         }
 
-        /// Chrome left at the opt-in default, so no record key is needed.
+        /// Chrome left at the opt-in default, so no display key is needed: the
+        /// `pk`-only declaration builds through the display fallback.
         struct ChromeOffResource;
         impl Resource for ChromeOffResource {
+            type Model = Subscriber;
+            fn slug() -> String {
+                "subscribers".to_string()
+            }
+            #[allow(deprecated)]
+            fn table(cx: &Cx) -> Table<Subscriber> {
+                Table::r#for(cx)
+                    .pk(|s: &Subscriber| s.id.to_string())
+                    .columns(TextColumn::r#for(
+                        Subscriber::fields().nickname(),
+                        |s: &Subscriber| s.nickname.clone(),
+                    ))
+            }
+        }
+
+        /// Chrome opted in with only a record key: the display falls back to it.
+        struct PkOnlyChromeResource;
+        impl Resource for PkOnlyChromeResource {
+            type Model = Subscriber;
+            fn slug() -> String {
+                "subscribers".to_string()
+            }
+            fn deletable() -> bool {
+                true
+            }
+            fn editable() -> bool {
+                true
+            }
+            #[allow(deprecated)]
+            fn table(cx: &Cx) -> Table<Subscriber> {
+                Table::r#for(cx)
+                    .pk(|s: &Subscriber| s.id.to_string())
+                    .columns(TextColumn::r#for(
+                        Subscriber::fields().nickname(),
+                        |s: &Subscriber| s.nickname.clone(),
+                    ))
+            }
+        }
+
+        /// No chrome and no keys at all: still a build error — the row key is
+        /// required even with nothing to link to.
+        struct KeylessOffResource;
+        impl Resource for KeylessOffResource {
             type Model = Subscriber;
             fn slug() -> String {
                 "subscribers".to_string()
@@ -2148,25 +2189,38 @@ mod tests {
         };
 
         let Err(error) = panel().resource::<ChromeResource>().build() else {
-            panic!("action chrome without a record key must not build");
+            panic!("action chrome without a key must not build");
         };
         assert!(
-            format!("{error}").contains("action chrome needs a record key"),
-            "the error must name the missing record key, got {error}"
+            format!("{error}").contains("no row key"),
+            "the error must name the missing key, got {error}"
         );
 
         let Err(error) = panel().resource::<ViewedResource>().build() else {
             panic!("a View link is action chrome too");
         };
         assert!(
-            format!("{error}").contains("action chrome needs a record key"),
-            "the error must name the missing record key, got {error}"
+            format!("{error}").contains("no row key"),
+            "the error must name the missing key, got {error}"
+        );
+
+        panel()
+            .resource::<PkOnlyChromeResource>()
+            .build()
+            .expect("a pk-only table builds through the display fallback");
+
+        let Err(error) = panel().resource::<KeylessOffResource>().build() else {
+            panic!("a keyless table must not build even without chrome");
+        };
+        assert!(
+            format!("{error}").contains("no row key"),
+            "the error must name the missing key, got {error}"
         );
 
         panel()
             .resource::<ChromeOffResource>()
             .build()
-            .expect("a resource with no action chrome needs no record key");
+            .expect("a resource with no action chrome needs no display key");
     }
 
     /// GH #207 part 2: `Resource::table` and `Resource::form` run code that

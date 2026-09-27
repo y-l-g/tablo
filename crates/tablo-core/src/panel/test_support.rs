@@ -23,8 +23,7 @@ pub(crate) struct Dummy {
 /// [`Dummy`]'s canonical table: display key, record key, one name column.
 pub(crate) fn dummy_table(cx: &Cx) -> Table<Dummy> {
     Table::<Dummy>::r#for(cx)
-        .id(|d: &Dummy| d.id.to_string())
-        .pk(|d: &Dummy| d.id.to_string())
+        .key(|d: &Dummy| d.id.to_string())
         .columns(TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
             d.name.clone()
         }))

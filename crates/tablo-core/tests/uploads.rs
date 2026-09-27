@@ -104,8 +104,7 @@ impl Resource for DocResource {
 
     fn table(cx: &Cx) -> Table<Doc> {
         Table::r#for(cx)
-            .id(|doc: &Doc| doc.id.to_string())
-            .pk(|doc: &Doc| doc.id.to_string())
+            .key(|doc: &Doc| doc.id.to_string())
             .paginate(25)
             .columns(TextColumn::r#for(Doc::fields().title(), |doc: &Doc| {
                 doc.title.clone()

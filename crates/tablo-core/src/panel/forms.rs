@@ -2660,8 +2660,7 @@ mod tests {
 
         fn table(cx: &Cx) -> crate::resource::Table<Tagged> {
             crate::resource::Table::r#for(cx)
-                .id(|row: &Tagged| row.id.to_string())
-                .pk(|row: &Tagged| row.id.to_string())
+                .key(|row: &Tagged| row.id.to_string())
                 .columns(crate::resource::TextColumn::r#for(
                     Tagged::fields().name(),
                     |row: &Tagged| row.name.clone(),

@@ -256,8 +256,7 @@ impl Resource for UserResource {
 
     fn table(cx: &Cx) -> Table<User> {
         Table::r#for(cx)
-            .id(|u: &User| u.id.to_string())
-            .pk(|u: &User| u.id.to_string())
+            .key(|u: &User| u.id.to_string())
             .columns((
                 TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
                     .searchable()
@@ -488,8 +487,7 @@ impl Resource for AuthorResource {
 
     fn table(cx: &Cx) -> Table<Author> {
         Table::r#for(cx)
-            .id(|a: &Author| a.id.to_string())
-            .pk(|a: &Author| a.id.to_string())
+            .key(|a: &Author| a.id.to_string())
             .columns((
                 TextColumn::r#for(Author::fields().name(), |a: &Author| a.name.clone())
                     .searchable()
@@ -772,8 +770,7 @@ impl Resource for PostResource {
 
     fn table(cx: &Cx) -> Table<Post> {
         Table::r#for(cx)
-            .id(|p: &Post| p.id.to_string())
-            .pk(|p: &Post| p.id.to_string())
+            .key(|p: &Post| p.id.to_string())
             .columns((
                 TextColumn::r#for(Post::fields().title(), |p: &Post| p.title.clone())
                     .searchable()
@@ -1233,8 +1230,7 @@ impl Resource for CommentResource {
 
     fn table(cx: &Cx) -> Table<Comment> {
         Table::r#for(cx)
-            .id(|c: &Comment| c.id.to_string())
-            .pk(|c: &Comment| c.id.to_string())
+            .key(|c: &Comment| c.id.to_string())
             .columns((
                 TextColumn::r#for(Comment::fields().body(), |c: &Comment| c.body.clone())
                     .searchable()

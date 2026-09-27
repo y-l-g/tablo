@@ -349,8 +349,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
                             d.name.clone()
@@ -528,8 +527,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
                             d.name.clone()
@@ -645,8 +643,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
                             d.name.clone()
@@ -759,8 +756,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string())
-                    .pk(|d: &Dummy| d.id.to_string())
+                    .key(|d: &Dummy| d.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
                             d.name.clone()
@@ -919,8 +915,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<TenantDummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &TenantDummy| d.id.to_string())
-                    .pk(|d: &TenantDummy| d.id.to_string())
+                    .key(|d: &TenantDummy| d.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(
                             TenantDummy::fields().name(),
@@ -948,8 +943,7 @@ mod tests {
             }
             fn table(cx: &Cx) -> crate::resource::Table<TenantDummy> {
                 crate::resource::Table::r#for(cx)
-                    .id(|d: &TenantDummy| d.id.to_string())
-                    .pk(|d: &TenantDummy| d.id.to_string())
+                    .key(|d: &TenantDummy| d.id.to_string())
                     .columns(
                         crate::resource::TextColumn::r#for(
                             TenantDummy::fields().name(),
