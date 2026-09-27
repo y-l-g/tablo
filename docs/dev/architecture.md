@@ -130,7 +130,8 @@ Tablo's own and are never overwritten.
 
 ```
 crates/tablo-core/src/
-  panel/      mod, list, forms, actions, detail, search, shell, headers
+  panel/      mod, build, gate, list, forms, actions/{bulk, delete, export, fetch,
+              options}, detail, search, shell, headers
   resource/   mod, table/{mod,render,export}, column, state, filter, relation,
               navigation, naming, commit
   schema/     mod, fields, layouts, lenses, tree, relationship, embedded, pk,

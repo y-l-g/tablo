@@ -32,7 +32,10 @@ unsafe_code = "deny"
 warnings = "deny"
 
 [workspace.lints.clippy]
-too_many_lines = "allow"
+# Denied with the budget in the workspace-root `clippy.toml`
+# (`too-many-lines-threshold = 300`; the lints table cannot express it).
+# A function over budget needs a phase-split issue, not a wider budget.
+too_many_lines = "deny"
 
 # Topcoat and Toasty are git dependencies pinned to exact revs. Bump deliberately
 # (`cargo update -p topcoat --precise <rev>` and `cargo update -p toasty --precise

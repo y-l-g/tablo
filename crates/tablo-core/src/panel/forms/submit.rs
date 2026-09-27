@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::find_by_key_narrowed, gate},
+    super::{actions::find_by_key_narrowed, gate::gate},
     common::{
         FormParts, drop_client_typed_uploads, redirect_after_write, reject_unknown_form_keys,
         rerender_invalid_form, restore_pending_uploads, strip_transport_keys, truthy,

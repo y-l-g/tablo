@@ -51,6 +51,19 @@ pub(crate) async fn response_html(response: http::Response<Body>) -> String {
     .to_string()
 }
 
+/// Seed `rows` [`Dummy`] rows in a single batched insert.
+///
+/// The export-cap tests seed more rows than a per-row `toasty::create!`
+/// loop can afford, so `create_many` accumulates the inserts into one
+/// statement. `name` maps a row index to its label.
+pub(crate) async fn seed_dummies(db: &mut Db, rows: usize, name: impl Fn(usize) -> String) {
+    let mut create = Dummy::create_many();
+    for i in 0..rows {
+        create = create.item(Dummy::create().name(name(i)));
+    }
+    create.exec(&mut *db).await.unwrap();
+}
+
 /// The typed unique field the unique-probe tests share. The column
 /// is a `Uuid`, not a whole number: SQLite's INTEGER affinity coerces `01`
 /// to `1`, so a whole-number column lets a text probe pass.

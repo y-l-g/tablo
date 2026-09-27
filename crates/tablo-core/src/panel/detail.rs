@@ -13,7 +13,10 @@ use topcoat::{
     view::{BoxView, HoistView, ViewExt, internal::ThenView, view},
 };
 
-use super::{actions::load_viewable, gate, list_url};
+use super::{
+    actions::load_viewable,
+    gate::{gate, list_url},
+};
 use crate::{db::db, resource::Resource};
 
 /// Detail page GET.

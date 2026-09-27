@@ -14,7 +14,7 @@ use topcoat::{
 };
 
 use super::{
-    enforce_auth, gate,
+    gate::{enforce_auth, gate},
     list::{load_table_page, table_error_view, wire_table_actions},
 };
 use crate::resource::{Resource, TableSignals};

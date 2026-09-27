@@ -37,7 +37,8 @@ cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli
 8. Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with xtask. Owned
    components live in `components/composites/`.
 9. Hunting dead code: prefer `pub` API, always-same-value config, and test-only paths.
-   `unsafe_code` and `warnings` are denied; `too_many_lines` is allowed.
+   `unsafe_code` and `warnings` are denied; `too_many_lines` is denied with the
+   budget in the workspace-root `clippy.toml` (`too-many-lines-threshold = 300`).
 10. Run `topcoat fmt` with the locked-rev CLI after changing `view!` markup; another CLI's
     diff is not a fix. See `CONTRIBUTING.md`.
 

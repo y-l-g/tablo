@@ -1,12 +1,12 @@
 # Confirmed mutations: the response is a page, the table is re-run by its shard
 
-Date: 2026-09-23 — Status: accepted
+Date: 2026-09-23 — Status: accepted — Amended: 2026-09-27
 
 ## Decision
 
 **A confirmed delete stays a POST that 303s to the list.** The handlers, their policy and
 confirmation checks, their flash notification, and the no-JS path are unchanged
-(`panel/actions.rs`, ADR-0004, ADR-0010). What changes is who follows the redirect: a form marked
+(`panel/actions/`, ADR-0004, ADR-0010). What changes is who follows the redirect: a form marked
 `data-mutation-submit` — the row-delete confirm and the bulk confirm — is posted by
 `crates/tablo-ui/assets/mutation-submit.js` with `fetch`, and the response is applied in place.
 Without JavaScript the marker is inert and the same form POSTs and 303s.
@@ -47,7 +47,7 @@ touch the other's.
 **The client never morphs the response into the live document.** The reason is state, not markup:
 
 - **The response renders the bare list URL, the page keeps its live state.** A delete 303s to
-  `list_url(cx, slug)` — prefix and slug, no query (`panel/actions.rs`). A live table's query state
+  `list_url(cx, slug)` — prefix and slug, no query (`panel/gate.rs`). A live table's query state
   lives in its signals and in the page-owned toolbar, both *outside* `[data-boundary="table"]`, and
   the client can neither read them (only `q`, `filters` and `bulk` have DOM transports; `sort`,
   `dir`, `cursor` and `group_by` are registry-only) nor reset them. Morphing the region would leave

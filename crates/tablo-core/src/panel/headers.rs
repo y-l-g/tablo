@@ -18,6 +18,8 @@ use topcoat::{
     },
 };
 
+use super::build::route_path;
+
 /// Response header carrying the policy.
 const CSP: header::HeaderName = header::CONTENT_SECURITY_POLICY;
 
@@ -165,7 +167,7 @@ impl ServedFileHeaders {
     /// [`Panel::serve_dir`](super::Panel::serve_dir) registers.
     pub(crate) fn new(pattern: &str) -> Self {
         Self {
-            path: super::route_path(pattern),
+            path: route_path(pattern),
         }
     }
 }

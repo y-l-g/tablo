@@ -9,7 +9,7 @@ use topcoat::{
     view::{BoxView, HoistView, ViewExt, attributes, internal::ThenView, view},
 };
 
-use super::super::{gate, list_url};
+use super::super::gate::{gate, list_url};
 use crate::resource::Resource;
 
 /// Shared create/edit page shell (GH #73 multipart enctype, CSRF hidden
