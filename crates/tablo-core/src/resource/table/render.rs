@@ -489,46 +489,46 @@ impl<M> Table<M> {
                                     table_cell(
                                         attrs: attributes! { style=(actions_min.as_deref()) },
                                         <div class="flex gap-2">
-                                                if let Some(url) = view_for_row {
-                                                    <a
-                                                        href=(url)
-                                                        class=(button_variants(
-                                                            ButtonVariant::Outline,
-                                                            ButtonSize::Md,
-                                                        ))
-                                                    >
-                                                        "View"
-                                                    </a>
-                                                }
-                                                if let Some(url) = edit_for_row {
-                                                    <a
-                                                        href=(url)
-                                                        class=(button_variants(
-                                                            ButtonVariant::Outline,
-                                                            ButtonSize::Md,
-                                                        ))
-                                                    >
-                                                        "Edit"
-                                                    </a>
-                                                }
-                                                if let (Some(url), Some(action)) = (
-                                                    open_for_row,
-                                                    delete_action_for_row,
-                                                ) {
-                                                    <a
-                                                        href=(url)
-                                                        data-row-delete-trigger=(delete_dialog_for_row)
-                                                        data-row-delete-action=(action)
-                                                        class=(button_variants(
-                                                            ButtonVariant::Destructive,
-                                                            ButtonSize::Md,
-                                                        ))
-                                                    >
-                                                        "Delete"
-                                                    </a>
-                                                }
-                                            </div>
-                                        )
+                                            if let Some(url) = view_for_row {
+                                                <a
+                                                    href=(url)
+                                                    class=(button_variants(
+                                                        ButtonVariant::Outline,
+                                                        ButtonSize::Md,
+                                                    ))
+                                                >
+                                                    "View"
+                                                </a>
+                                            }
+                                            if let Some(url) = edit_for_row {
+                                                <a
+                                                    href=(url)
+                                                    class=(button_variants(
+                                                        ButtonVariant::Outline,
+                                                        ButtonSize::Md,
+                                                    ))
+                                                >
+                                                    "Edit"
+                                                </a>
+                                            }
+                                            if let (Some(url), Some(action)) = (
+                                                open_for_row,
+                                                delete_action_for_row,
+                                            ) {
+                                                <a
+                                                    href=(url)
+                                                    data-row-delete-trigger=(delete_dialog_for_row)
+                                                    data-row-delete-action=(action)
+                                                    class=(button_variants(
+                                                        ButtonVariant::Destructive,
+                                                        ButtonSize::Md,
+                                                    ))
+                                                >
+                                                    "Delete"
+                                                </a>
+                                            }
+                                        </div>
+                                    )
                                 }
                             )
                         }
