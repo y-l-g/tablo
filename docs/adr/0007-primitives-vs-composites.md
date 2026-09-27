@@ -23,7 +23,7 @@ the set.
 
 `sync-topcoat-ui` resolves `topcoat-ui-registry` through `cargo metadata` (the same mechanism as
 `topcoat ui`) and reads sources through the registry API, so synced content always matches what Cargo
-compiles. Topcoat and Toasty are git dependencies (`branch = "main"`, pinned by `Cargo.lock`), so no
+compiles. Topcoat and Toasty are git dependencies pinned to exact `rev`s, so no
 sibling clone is required. The upstream `sidebar` is synced into `primitives/sidebar.rs` and
 `lib.rs` re-exports the primitive; the shell binds its runtime signals directly (ADR-0009).
 

@@ -34,19 +34,19 @@ warnings = "deny"
 [workspace.lints.clippy]
 too_many_lines = "allow"
 
-# Topcoat and Toasty are git dependencies tracking their `main` branches, pinned by
-# Cargo.lock. Bump deliberately (`cargo update -p topcoat -p toasty`, then `cargo check
-# --offline`); sync `benchmarks/tablo/Cargo.lock` in the same commit. See
+# Topcoat and Toasty are git dependencies pinned to exact revs. Bump deliberately
+# (`cargo update -p topcoat --precise <rev>` and `cargo update -p toasty --precise
+# <rev>`, then `cargo check --offline`); sync `benchmarks/tablo/Cargo.lock` in the same commit. See
 # CONTRIBUTING.md "Dependency pins" (GH #103). `topcoat fmt` needs the CLI built from the
 # locked rev (see the fmt job in `.github/workflows/ci.yml`). For temporary live-editing
 # against a local checkout, add an uncommitted `[patch]` section redirecting to
 # `../topcoat` / `../toasty`.
 [workspace.dependencies]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", branch = "main", default-features = false, features = ["view", "router", "discover"] }
-toasty = { git = "https://github.com/tokio-rs/toasty", branch = "main", default-features = false, features = ["sqlite", "jiff"] }
-toasty-core = { git = "https://github.com/tokio-rs/toasty", branch = "main" }
-topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", branch = "main" }
-topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", branch = "main" }
+topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "7234d9fa11b856f3588d0ae096dffb65933953ae", default-features = false, features = ["view", "router", "discover"] }
+toasty = { git = "https://github.com/tokio-rs/toasty", rev = "6a1f5d90b40e2264825ca73dad04175624489811", default-features = false, features = ["sqlite", "jiff"] }
+toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "6a1f5d90b40e2264825ca73dad04175624489811" }
+topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "7234d9fa11b856f3588d0ae096dffb65933953ae" }
+topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "7234d9fa11b856f3588d0ae096dffb65933953ae" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"
 jiff = "0.2"
