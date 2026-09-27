@@ -13,7 +13,7 @@ use topcoat::{
     view::{BoxView, HoistView, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
-use super::{gate, list_url};
+use super::gate::{gate, list_url};
 use crate::resource::{
     Resource, RowActions, Table, TableChrome, TablePage, TableSignals, TableState, create_page_url,
 };
@@ -40,7 +40,7 @@ pub(crate) fn retry_url_for_error(
 
 /// The action chrome a resource declares: the one derivation both
 /// [`wire_table_actions`] and the build-time declaration check
-/// ([`check_resource`](super::check_resource)) read, so the table the panel
+/// ([`check_resource`](super::build::check_resource)) read, so the table the panel
 /// serves and the table it validated cannot disagree about whether a record
 /// key is required.
 pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {

@@ -430,7 +430,7 @@ impl Panel {
         // Prefer declarative nav_items from Panel::resource, fallback to Home.
         let nav_items = try_app_context::<Vec<NavigationItem>>(cx)
             .cloned()
-            .unwrap_or_else(|| vec![NavigationItem::at("Home", super::panel_prefix(cx))]);
+            .unwrap_or_else(|| vec![NavigationItem::at("Home", super::gate::panel_prefix(cx))]);
         let shell = Self::render_shell(cx, &nav_items, &current, slot, None).await?;
         let brand_title = try_app_context::<Brand>(cx)
             .map(|b| b.name.clone())

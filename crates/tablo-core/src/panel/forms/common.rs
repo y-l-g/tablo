@@ -13,7 +13,10 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::load_viewable_narrowed, gate, list_url},
+    super::{
+        actions::load_viewable_narrowed,
+        gate::{gate, list_url},
+    },
     render::render_form_page,
 };
 use crate::{
