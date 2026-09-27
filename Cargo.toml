@@ -42,7 +42,7 @@ too_many_lines = "allow"
 # against a local checkout, add an uncommitted `[patch]` section redirecting to
 # `../topcoat` / `../toasty`.
 [workspace.dependencies]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "7234d9fa11b856f3588d0ae096dffb65933953ae", default-features = false, features = ["view", "router", "discover"] }
+topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "4257795ef9d1f79f38d8441f04e9e817b1d50855", default-features = false, features = ["view", "router", "discover"] }
 toasty = { git = "https://github.com/tokio-rs/toasty", rev = "6a1f5d90b40e2264825ca73dad04175624489811", default-features = false, features = ["sqlite", "jiff"] }
 toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "6a1f5d90b40e2264825ca73dad04175624489811" }
 topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "7234d9fa11b856f3588d0ae096dffb65933953ae" }

@@ -24,7 +24,7 @@ tablo-core = { path = "../../crates/tablo-core" }
 # enabled here only — the workspace ships sqlite-only, while the honest bench
 # must also measure the Postgres list path. Revs stay in lockstep per the pin
 # policy below; only features differ.
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "7234d9fa11b856f3588d0ae096dffb65933953ae", default-features = false, features = ["router", "serve", "runtime", "discover", "asset"] }
+topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "4257795ef9d1f79f38d8441f04e9e817b1d50855", default-features = false, features = ["router", "serve", "runtime", "discover", "asset"] }
 toasty = { git = "https://github.com/tokio-rs/toasty", rev = "6a1f5d90b40e2264825ca73dad04175624489811", default-features = false, features = ["sqlite", "postgresql", "jiff"] }
 http = "1"
 jiff = "0.2"
