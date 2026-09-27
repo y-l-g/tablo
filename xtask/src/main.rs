@@ -78,7 +78,8 @@ COMMANDS:
                        or the wrong rev.
     verify-locks       Guard: fail when `Cargo.lock` and
                        `benchmarks/tablo/Cargo.lock` pin different `topcoat`
-                       or `toasty` revs. The xtask test suite runs this on
+                       or `toasty` revs, or when the `rev =` manifest pins
+                       disagree. The xtask test suite runs this on
                        every `cargo test`.
     check              The gate set as a local fail-fast convenience runner:
                        the ten CONTRIBUTING gates in order, then docs,

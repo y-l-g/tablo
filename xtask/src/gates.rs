@@ -5,13 +5,22 @@
 //! `check` is a local fail-fast convenience runner only, never a CI job.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     process::Command,
 };
 
 /// Crates pinned in lockstep across the workspace and bench lockfiles (GH #103).
 pub const LOCKSTEP_CRATES: &[&str] = &["topcoat", "toasty"];
+
+/// Upstream repos pinned by `rev =` in both manifests, in the same order as
+/// `set_upstream_revs`' rev arguments. The writer and the `verify-locks`
+/// manifest guard match through this table, so they cannot disagree on what
+/// a repo is.
+pub const UPSTREAM_REPOS: &[(&str, &str)] = &[
+    ("topcoat", "github.com/tokio-rs/topcoat"),
+    ("toasty", "github.com/tokio-rs/toasty"),
+];
 
 /// Dated nightly carrying the rustfmt the workspace check enforces (GH #269).
 pub const NIGHTLY_FMT: &str = "nightly-2026-08-24";
@@ -198,9 +207,63 @@ pub fn check_lockstep(
     }
 }
 
+/// Fail unless both manifests pin the same single rev per upstream repo —
+/// the companion pins (`toasty-core`, `topcoat-ui*`) `bump-upstream` manages,
+/// which the lock comparison never sees.
+pub fn check_manifest_lockstep(
+    workspace: &BTreeMap<String, BTreeSet<String>>,
+    bench: &BTreeMap<String, BTreeSet<String>>,
+) -> anyhow::Result<()> {
+    let show = |revs: Option<&BTreeSet<String>>| {
+        revs.map_or("none".to_string(), |set| {
+            set.iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+    };
+    let mut drift = Vec::new();
+    for (name, _) in UPSTREAM_REPOS {
+        match (workspace.get(*name), bench.get(*name)) {
+            (Some(workspace_revs), Some(bench_revs))
+                if workspace_revs == bench_revs && workspace_revs.len() == 1 =>
+            {
+                println!(
+                    "{name} manifest pins: {} (in sync)",
+                    show(Some(workspace_revs))
+                );
+            }
+            (Some(_), Some(_)) => drift.push(format!(
+                "{name} manifest rev drift: workspace={} bench={}",
+                show(workspace.get(*name)),
+                show(bench.get(*name)),
+            )),
+            _ => drift.push(format!(
+                "{name} manifest rev missing: workspace={} bench={}",
+                show(workspace.get(*name)),
+                show(bench.get(*name)),
+            )),
+        }
+    }
+    if drift.is_empty() {
+        Ok(())
+    } else {
+        anyhow::bail!(
+            "manifest pin drift — bump both manifests in one commit:\n{}",
+            drift.join("\n")
+        )
+    }
+}
+
 fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
     let output = Command::new("cargo")
-        .args(["metadata", "--format-version", "1", "--manifest-path"])
+        .args([
+            "metadata",
+            "--format-version",
+            "1",
+            "--frozen",
+            "--manifest-path",
+        ])
         .arg(manifest)
         .output()
         .map_err(|error| anyhow::anyhow!("failed to run cargo metadata: {error}"))?;
@@ -215,59 +278,102 @@ fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
         .map_err(|error| anyhow::anyhow!("could not parse cargo metadata: {error}"))
 }
 
-/// Workspace vs bench rev equality, local and CI (the `bench-check` lockstep).
+/// Workspace vs bench rev equality, local and CI (the `bench-check` lockstep):
+/// the `rev =` manifest pins `bump-upstream` manages, grouped by repo, then
+/// the resolved lock pins. Manifests are plain file reads first — no
+/// subprocess, no network, nothing to heal — so a hand-edited manifest
+/// reports drift here instead of failing inside `cargo metadata --frozen`
+/// with a git lookup error.
 pub fn verify_locks() -> anyhow::Result<()> {
     let root = repo_root();
-    let workspace = fetch_metadata(&root.join("Cargo.toml"))?;
-    let bench = fetch_metadata(&root.join("benchmarks/tablo/Cargo.toml"))?;
-    check_lockstep(&pins_from_metadata(&workspace), &pins_from_metadata(&bench))
+    let workspace_manifest = std::fs::read_to_string(root.join("Cargo.toml"))
+        .map_err(|error| anyhow::anyhow!("cannot read Cargo.toml: {error}"))?;
+    let bench_manifest = std::fs::read_to_string(root.join("benchmarks/tablo/Cargo.toml"))
+        .map_err(|error| anyhow::anyhow!("cannot read benchmarks/tablo/Cargo.toml: {error}"))?;
+    check_manifest_lockstep(
+        &manifest_revs(&workspace_manifest),
+        &manifest_revs(&bench_manifest),
+    )?;
+    let workspace_meta = fetch_metadata(&root.join("Cargo.toml"))?;
+    let bench_meta = fetch_metadata(&root.join("benchmarks/tablo/Cargo.toml"))?;
+    check_lockstep(
+        &pins_from_metadata(&workspace_meta),
+        &pins_from_metadata(&bench_meta),
+    )
 }
 
 fn is_rev(rev: &str) -> bool {
     rev.len() == 40 && rev.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-/// Replace the `rev = "…"` value on one manifest line.
-fn replace_rev(line: &str, rev: &str) -> Option<String> {
+/// The byte span of the `rev = "…"` value on one manifest line, if present.
+fn rev_span(line: &str) -> Option<(usize, usize)> {
     let start = line.find("rev = \"")? + "rev = \"".len();
     let end = line[start..].find('"')? + start;
+    Some((start, end))
+}
+
+/// The `rev = "…"` value on one manifest line, if present.
+fn read_rev(line: &str) -> Option<&str> {
+    let (start, end) = rev_span(line)?;
+    Some(&line[start..end])
+}
+
+/// Replace the `rev = "…"` value on one manifest line.
+fn replace_rev(line: &str, rev: &str) -> Option<String> {
+    let (start, end) = rev_span(line)?;
     Some(format!("{}{rev}{}", &line[..start], &line[end..]))
 }
 
+/// The `rev =` pins in one manifest, grouped by repo short name: each repo
+/// maps to its distinct pinned revs (one element when the manifest agrees
+/// with itself). Reads through [`UPSTREAM_REPOS`], the same table
+/// `set_upstream_revs` writes through.
+pub fn manifest_revs(manifest: &str) -> BTreeMap<String, BTreeSet<String>> {
+    let mut pins: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for line in manifest.split('\n') {
+        let Some((name, _)) = UPSTREAM_REPOS.iter().find(|(_, url)| line.contains(url)) else {
+            continue;
+        };
+        if let Some(rev) = read_rev(line) {
+            pins.entry(name.to_string())
+                .or_default()
+                .insert(rev.to_string());
+        }
+    }
+    pins
+}
+
 /// Rewrite the `rev =` pins for both upstream repos in one manifest.
-/// Matches on the git URL so `toasty-core` and `topcoat-ui*` follow their repo.
+/// Matches through [`UPSTREAM_REPOS`] so `toasty-core` and `topcoat-ui*`
+/// follow their repo.
 pub fn set_upstream_revs(
     manifest: &str,
     topcoat_rev: &str,
     toasty_rev: &str,
 ) -> anyhow::Result<String> {
-    let mut topcoat_hits = 0;
-    let mut toasty_hits = 0;
+    let revs = [topcoat_rev, toasty_rev];
+    let mut hits = [0, 0];
     let mut out = Vec::new();
     for line in manifest.split('\n') {
-        if line.contains("github.com/tokio-rs/topcoat") {
-            match replace_rev(line, topcoat_rev) {
-                Some(rewritten) => {
-                    topcoat_hits += 1;
-                    out.push(rewritten);
-                }
-                None => out.push(line.to_string()),
+        let mut rewritten = None;
+        for (index, (_, url)) in UPSTREAM_REPOS.iter().enumerate() {
+            if !line.contains(url) {
+                continue;
             }
-        } else if line.contains("github.com/tokio-rs/toasty") {
-            match replace_rev(line, toasty_rev) {
-                Some(rewritten) => {
-                    toasty_hits += 1;
-                    out.push(rewritten);
-                }
-                None => out.push(line.to_string()),
+            if let Some(new_line) = replace_rev(line, revs[index]) {
+                hits[index] += 1;
+                rewritten = Some(new_line);
             }
-        } else {
-            out.push(line.to_string());
+            break;
         }
+        out.push(rewritten.unwrap_or_else(|| line.to_string()));
     }
-    if topcoat_hits == 0 || toasty_hits == 0 {
+    if hits[0] == 0 || hits[1] == 0 {
         anyhow::bail!(
-            "expected topcoat and toasty git pins, found {topcoat_hits} and {toasty_hits}"
+            "expected topcoat and toasty git pins, found {} and {}",
+            hits[0],
+            hits[1]
         );
     }
     Ok(out.join("\n"))
@@ -539,6 +645,83 @@ mod tests {
         let error = check_lockstep(&workspace, &bench).expect_err("a missing pin must fail");
         assert!(
             error.to_string().contains("toasty rev missing"),
+            "unexpected message: {error}"
+        );
+    }
+
+    fn workspace_manifest_fixture() -> &'static str {
+        r#"topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaa" }
+toasty = { git = "https://github.com/tokio-rs/toasty", rev = "bbbb" }
+toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "bbbb" }
+topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaa" }
+topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaa" }
+uuid = "1.23""#
+    }
+
+    fn bench_manifest_fixture() -> &'static str {
+        r#"topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaa", default-features = false }
+toasty = { git = "https://github.com/tokio-rs/toasty", rev = "bbbb", default-features = false }
+http = "1""#
+    }
+
+    #[test]
+    fn manifest_pins_group_companion_crates_by_repo() {
+        let pins = manifest_revs(workspace_manifest_fixture());
+        assert_eq!(
+            pins,
+            BTreeMap::from([
+                ("topcoat".to_string(), BTreeSet::from(["aaaa".to_string()])),
+                ("toasty".to_string(), BTreeSet::from(["bbbb".to_string()])),
+            ])
+        );
+    }
+
+    #[test]
+    fn manifest_lockstep_passes_when_revs_match() {
+        let workspace = manifest_revs(workspace_manifest_fixture());
+        let bench = manifest_revs(bench_manifest_fixture());
+        check_manifest_lockstep(&workspace, &bench).expect("identical pins are in sync");
+    }
+
+    #[test]
+    fn manifest_lockstep_names_the_drifted_repo() {
+        let workspace = manifest_revs(workspace_manifest_fixture());
+        let mut bench = manifest_revs(bench_manifest_fixture());
+        bench.insert("toasty".to_string(), BTreeSet::from(["cccc".to_string()]));
+        let error = check_manifest_lockstep(&workspace, &bench).expect_err("drift must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("toasty manifest rev drift: workspace=bbbb bench=cccc"),
+            "unexpected message: {error}"
+        );
+    }
+
+    #[test]
+    fn manifest_lockstep_fails_when_a_manifest_disagrees_with_itself() {
+        let mut workspace = manifest_revs(workspace_manifest_fixture());
+        workspace
+            .get_mut("topcoat")
+            .expect("topcoat pins")
+            .insert("zzzz".to_string());
+        let bench = manifest_revs(bench_manifest_fixture());
+        let error = check_manifest_lockstep(&workspace, &bench).expect_err("self-drift must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("topcoat manifest rev drift: workspace=aaaa, zzzz bench=aaaa"),
+            "unexpected message: {error}"
+        );
+    }
+
+    #[test]
+    fn manifest_lockstep_reports_a_missing_pin() {
+        let workspace = manifest_revs(workspace_manifest_fixture());
+        let bench = BTreeMap::from([("topcoat".to_string(), BTreeSet::from(["aaaa".to_string()]))]);
+        let error =
+            check_manifest_lockstep(&workspace, &bench).expect_err("a missing pin must fail");
+        assert!(
+            error.to_string().contains("toasty manifest rev missing"),
             "unexpected message: {error}"
         );
     }

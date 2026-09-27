@@ -75,7 +75,8 @@ has to pass them too (`cargo xtask check` runs all four after the ten):
   part of `cargo xtask fmt`;
 - the `bench-check` job compiles the detached harness (gates 6–7 above) and
   verifies that `Cargo.lock` and `benchmarks/tablo/Cargo.lock` pin identical
-  `topcoat` and `toasty` revs (`cargo xtask verify-locks`, also run by the
+  `topcoat` and `toasty` revs and that both manifests' `rev =` pins agree
+  (`cargo xtask verify-locks`, also run by the
   xtask test suite on every `cargo test`).
 
 ### The `topcoat fmt` trap
