@@ -34,23 +34,6 @@ use super::{
 /// coalescing still applies to the resulting rerun.
 pub(crate) const LIVE_SEARCH_DEBOUNCE_MS: u32 = 200;
 
-/// The accessible reason a bulk checkbox disabled by the per-row policy carries
-/// the row's `Delete` is denied, so selecting it could only produce
-/// a batch the handler refuses. Read aloud by a screen reader in place of the
-/// checkbox's usual "Select row" label, and offered as the pointer tooltip too.
-///
-/// A row with no allowed action at all carries the same reason on the badge
-/// that stands in for its links ([`LOCKED_ROW_LABEL`]).
-pub(crate) const DENIED_ROW_REASON: &str = "You cannot delete this row";
-
-/// The label a row whose policy allows no action renders in place of its
-/// row-action links: the cell is never left empty, so a locked row reads as a
-/// state rather than as missing chrome. Generic on purpose — the framework
-/// knows only the [`RowActions`] outcome, not whether the record is
-/// SSO-managed or a removed placeholder — with [`DENIED_ROW_REASON`] as its
-/// tooltip, the same reason the row's disabled bulk checkbox carries.
-pub(crate) const LOCKED_ROW_LABEL: &str = "Locked";
-
 /// The readability floor one [`ColumnWidth::Wide`](super::super::ColumnWidth::Wide)
 /// column contributes to the table's `min-width`, in whole rem.
 ///
@@ -451,7 +434,6 @@ impl<M> Table<M> {
                             let delete_action_for_row = row.delete_action.clone();
                             let delete_dialog_for_row = delete_dialog_id.clone();
                             let selectable_for_row = row.selectable;
-                            let locked_for_row = row.locked;
                             let row_dom_id = row_dom_id(&key_for_row);
                             if let Some(header) = row.group_header.clone() {
                                 table_row(
@@ -478,16 +460,11 @@ impl<M> Table<M> {
                                             >
                                         )
                                     } else {
-                                        table_cell(
-                                            <input
-                                                type="checkbox"
-                                                value=(key_for_select)
-                                                aria-label=(DENIED_ROW_REASON)
-                                                title=(DENIED_ROW_REASON)
-                                                data-row-select=""
-                                                disabled=""
-                                            >
-                                        )
+                                        // A refused row renders no checkbox:
+                                        // selecting it could only produce a
+                                        // batch the handler refuses. The cell
+                                        // stays so the row keeps its shape.
+                                        table_cell()
                                     }
                                 }
                                 // `row.cells` is built column-for-column, so the
@@ -506,24 +483,12 @@ impl<M> Table<M> {
                                     )
                                 }
                                 // Every row carries the actions cell its header
-                                // declares, even a row locked out of every
-                                // link. The cell repeats only the column's
-                                // content floor — never a width share, which
-                                // the header row owns — so the buttons fit
-                                // instead of spilling past the table.
+                                // declares; a row refused every link keeps an
+                                // empty cell so the row keeps its shape.
                                 if with_actions {
                                     table_cell(
                                         attrs: attributes! { style=(actions_min.as_deref()) },
-                                        if locked_for_row {
-                                            <span
-                                                class="inline-flex items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground"
-                                                title=(DENIED_ROW_REASON)
-                                            >
-                                                (LOCKED_ROW_LABEL)
-                                            </span>
-                                        }
-                                        if !locked_for_row {
-                                            <div class="flex gap-2">
+                                        <div class="flex gap-2">
                                                 if let Some(url) = view_for_row {
                                                     <a
                                                         href=(url)
@@ -563,8 +528,7 @@ impl<M> Table<M> {
                                                     </a>
                                                 }
                                             </div>
-                                        }
-                                    )
+                                        )
                                 }
                             )
                         }
@@ -770,8 +734,8 @@ impl<M> Table<M> {
     ///
     /// The chrome prefixes say which links the table *can* render; the
     /// [`Table::row_actions`] policy says which of them *this* record may use.
-    /// A denied action emits no URL, and a row denied `delete` renders its bulk
-    /// checkbox disabled. The policy is consulted only when a prefix is wired.
+    /// A denied action emits no URL, and a row denied `delete` renders no bulk
+    /// checkbox. The policy is consulted only when a prefix is wired.
     ///
     /// The delete URL's shared parameters are encoded once for the whole page,
     /// because the filter transport is the expensive half and rebuilding it per
@@ -843,10 +807,6 @@ impl<M> Table<M> {
                     .as_ref()
                     .filter(|_| actions.delete)
                     .map(|prefix| delete_action_url(prefix, &record_id));
-                // A row with no allowed action keeps its actions cell: the
-                // template renders the locked badge in place of the links.
-                // Read before the URLs move into the view below.
-                let locked = view_url.is_none() && edit_url.is_none() && delete_url.is_none();
                 RowView {
                     key,
                     record_id,
@@ -856,7 +816,6 @@ impl<M> Table<M> {
                     delete_url,
                     delete_action,
                     selectable: actions.delete,
-                    locked,
                     group: group_key.map(|group| group(row)),
                     group_header: None,
                 }
@@ -2152,16 +2111,11 @@ struct RowView {
     /// Delete control hands it to the shared dialog before opening it, so the
     /// confirmed POST keeps the route the `?delete=` fallback uses.
     delete_action: Option<String>,
-    /// Whether the row's bulk checkbox is enabled: a row the
-    /// [`Table::row_actions`] policy denies `delete` renders it `disabled`, so
-    /// `bulk.js` never lets it into the selection transport and select-all
-    /// cannot submit a batch the handler refuses wholesale.
+    /// Whether the row renders a bulk checkbox: a row the
+    /// [`Table::row_actions`] policy denies `delete` renders none, so
+    /// `bulk.js` never sees its key and select-all cannot submit a batch the
+    /// handler refuses wholesale.
     selectable: bool,
-    /// Whether the row's policy allows no action at all: the template renders
-    /// the [`LOCKED_ROW_LABEL`] badge in place of the links instead of an
-    /// empty cell, so the row still carries the actions column its header
-    /// declares.
-    locked: bool,
     /// The row's group label, when `?group_by=` named the declared group.
     /// Carried on every row so the page-local shim can order by it.
     group: Option<String>,
@@ -2886,10 +2840,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn denied_rows_render_no_links_and_a_disabled_checkbox() {
+    async fn denied_rows_render_no_links_and_no_checkbox() {
         // the row policy gates the chrome per record, so a row the
-        // resource refuses renders no Edit/Delete link and a bulk checkbox a
-        // user cannot check — the rendered affordance and the route agree.
+        // resource refuses renders no Edit/Delete link and no bulk checkbox —
+        // the rendered affordance and the route agree.
         let cx = CxTestBuilder::new().build();
         let ada = User {
             id: uuid::Uuid::new_v4(),
@@ -2938,38 +2892,26 @@ mod tests {
                 && !html.contains(&format!("delete={ken_id}")),
             "the denied row must render no Edit/Delete link, got {html}"
         );
-        // Its checkbox is present (the transport shape is unchanged) but
-        // disabled, carrying the reason as its accessible label.
-        let ken_at = html
-            .find(&format!("value=\"{ken_id}\""))
-            .unwrap_or_else(|| panic!("missing the denied row's checkbox in {html}"));
-        let tag_start = html[..ken_at].rfind("<input").expect("its opening tag");
-        let tag_end = html[tag_start..].find('>').expect("the tag's end");
-        let tag = &html[tag_start..tag_start + tag_end];
+        // Its row still renders, but with no checkbox at all: the one
+        // `data-row-select` on the page is the allowed row's.
         assert!(
-            tag.contains("data-row-select"),
-            "the denied row keeps the bulk checkbox marker, got {tag}"
+            html.contains(">Ken<"),
+            "the denied row must still render, got {html}"
         );
         assert!(
-            tag.contains("disabled=\"\""),
-            "the denied row's checkbox must be disabled, got {tag}"
+            !html.contains(&format!("value=\"{ken_id}\"")),
+            "the denied row must render no checkbox, got {html}"
         );
-        assert!(
-            tag.contains(&format!("aria-label=\"{DENIED_ROW_REASON}\""))
-                && tag.contains(&format!("title=\"{DENIED_ROW_REASON}\"")),
-            "the denied row's checkbox must carry the reason, got {tag}"
+        assert_eq!(
+            html.matches("data-row-select").count(),
+            1,
+            "the allowed row owns the page's only checkbox, got {html}"
         );
-        // The allowed row's checkbox is not disabled, so the assertion above
-        // is not passing on every row.
-        let ada_at = html
-            .find(&format!("value=\"{ada_id}\""))
-            .expect("Ada's box");
-        let ada_start = html[..ada_at].rfind("<input").expect("its opening tag");
-        let ada_end = html[ada_start..].find('>').expect("the tag's end");
-        let ada_tag = &html[ada_start..ada_start + ada_end];
+        // The allowed row's checkbox is present, so the count above is not
+        // passing on a page with no bulk chrome at all.
         assert!(
-            !ada_tag.contains("disabled") && ada_tag.contains("aria-label=\"Select row\""),
-            "the allowed row's checkbox must stay enabled, got {ada_tag}"
+            html.contains(&format!("value=\"{ada_id}\"")),
+            "the allowed row must keep its checkbox, got {html}"
         );
     }
 
@@ -2998,7 +2940,6 @@ mod tests {
             id: uuid::Uuid::new_v4(),
             name: "Ken".to_string(),
         };
-        let ken_id = ken.id.to_string();
         let ada_id = ada.id.to_string();
         let policy_table = Table::<User>::r#for(&cx)
             .id(|u| u.id.to_string())
@@ -3024,8 +2965,12 @@ mod tests {
             .await
             .unwrap()
             .render(&cx);
-        // The locked row renders no action link at all.
-        let ken_row = row_chunk(&html, &ken_id);
+        // The locked row renders no action link at all. Found by its name
+        // cell: it carries no checkbox value to search for.
+        let ken_at = html.find(">Ken<").expect("the locked row");
+        let ken_start = html[..ken_at].rfind("<tr").expect("its row");
+        let ken_end = html[ken_at..].find("</tr>").expect("its end") + ken_at;
+        let ken_row = &html[ken_start..ken_end];
         assert!(
             !ken_row.contains("/admin/users/"),
             "the locked row must render no action link at all, got {ken_row}"
@@ -3037,9 +2982,8 @@ mod tests {
             ada_row.contains(&format!("/admin/users/{ada_id}/edit")),
             "the allowed row must keep its links, got {ada_row}"
         );
-        // Alignment: the locked row carries a cell per header, badge
-        // included. Counted on the closing tags: `<thead` itself opens
-        // with `<th`.
+        // Alignment: the locked row carries a cell per header. Counted on
+        // the closing tags: `<thead` itself opens with `<th`.
         let thead_at = html.find("<thead").expect("a header row");
         let thead_end = html.find("</thead>").expect("its end");
         assert_eq!(
