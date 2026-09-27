@@ -73,8 +73,8 @@ Identity is two projections: the <code>Table::id</code> display key (keyed diffs
 typed PK — action chrome without <code>pk</code> is a render error, not a silent 404 (GH #168).</p>
 <p>Row chrome is opt-in per resource (<code>TableChrome</code>, GH #226) and gated per record by the table’s
 <strong>row policy</strong> (<code>Table::row_actions</code>, GH #235), which the panel wires from the resource’s
-<code>can_view</code>/<code>can_update</code>/<code>can_delete</code>: a refused row renders no link, and a delete-refused row a
-<strong>disabled</strong> bulk checkbox labelled with the reason. The handler’s all-or-nothing check stays as
+<code>can_view</code>/<code>can_update</code>/<code>can_delete</code>: a refused row renders no link, and a delete-refused row no
+bulk checkbox. The handler’s all-or-nothing check stays as
 the safety net for a hand-crafted POST.</p>
 <p>A <code>live_search(true)</code> table hands its chrome to the page’s <code>TableSignals</code>: the shard’s tracked
 reads re-render the table in place when search, sort, filters, or pagination write a signal

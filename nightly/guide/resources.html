@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-74b8eb73.js";
+            window.path_to_searchindex_js = "searchindex-41ecfb66.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -224,7 +224,7 @@ chrome without it. The flag is the whole-resource gate (GH #226); the
 predicates are
 applied <strong>per row</strong> (GH #235). The panel wires them into the table’s row policy, so a row
 <code>can_update()</code> refuses renders no Edit link, a row <code>can_delete()</code> refuses renders no Delete link
-and a <strong>disabled bulk checkbox</strong> labelled with the reason, and a row <code>can_view()</code> refuses renders
+and no bulk checkbox, and a row <code>can_view()</code> refuses renders
 no View link. Select-all therefore submits only the rows the handler will accept — the showcase’s
 SSO-guarded user is the worked example: its row keeps the View link and nothing else. The handler
 keeps its all-or-nothing check on the POST as the safety net for a hand-crafted request. The
