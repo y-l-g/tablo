@@ -13,7 +13,7 @@
 <a href=#13 id=13 data-nosnippet>13</a>    view::{BoxView, HoistView, ViewExt, attributes, internal::ThenView, suspense, view},
 <a href=#14 id=14 data-nosnippet>14</a>};
 <a href=#15 id=15 data-nosnippet>15</a>
-<a href=#16 id=16 data-nosnippet>16</a><span class="kw">use super</span>::{gate, list_url};
+<a href=#16 id=16 data-nosnippet>16</a><span class="kw">use </span><span class="kw">super</span>::gate::{gate, list_url};
 <a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span><span class="kw">crate</span>::resource::{
 <a href=#18 id=18 data-nosnippet>18</a>    Resource, RowActions, Table, TableChrome, TablePage, TableSignals, TableState, create_page_url,
 <a href=#19 id=19 data-nosnippet>19</a>};
@@ -40,7 +40,7 @@
 <a href=#40 id=40 data-nosnippet>40</a>
 <a href=#41 id=41 data-nosnippet>41</a><span class="doccomment">/// The action chrome a resource declares: the one derivation both
 <a href=#42 id=42 data-nosnippet>42</a>/// [`wire_table_actions`] and the build-time declaration check
-<a href=#43 id=43 data-nosnippet>43</a>/// ([`check_resource`](super::check_resource)) read, so the table the panel
+<a href=#43 id=43 data-nosnippet>43</a>/// ([`check_resource`](super::build::check_resource)) read, so the table the panel
 <a href=#44 id=44 data-nosnippet>44</a>/// serves and the table it validated cannot disagree about whether a record
 <a href=#45 id=45 data-nosnippet>45</a>/// key is required.
 <a href=#46 id=46 data-nosnippet>46</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declared_chrome&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx) -&gt; TableChrome {

@@ -430,7 +430,7 @@
 <a href=#430 id=430 data-nosnippet>430</a>        <span class="comment">// Prefer declarative nav_items from Panel::resource, fallback to Home.
 <a href=#431 id=431 data-nosnippet>431</a>        </span><span class="kw">let </span>nav_items = try_app_context::&lt;Vec&lt;NavigationItem&gt;&gt;(cx)
 <a href=#432 id=432 data-nosnippet>432</a>            .cloned()
-<a href=#433 id=433 data-nosnippet>433</a>            .unwrap_or_else(|| <span class="macro">vec!</span>[NavigationItem::at(<span class="string">"Home"</span>, <span class="kw">super</span>::panel_prefix(cx))]);
+<a href=#433 id=433 data-nosnippet>433</a>            .unwrap_or_else(|| <span class="macro">vec!</span>[NavigationItem::at(<span class="string">"Home"</span>, <span class="kw">super</span>::gate::panel_prefix(cx))]);
 <a href=#434 id=434 data-nosnippet>434</a>        <span class="kw">let </span>shell = <span class="self">Self</span>::render_shell(cx, <span class="kw-2">&amp;</span>nav_items, <span class="kw-2">&amp;</span>current, slot, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 <a href=#435 id=435 data-nosnippet>435</a>        <span class="kw">let </span>brand_title = try_app_context::&lt;Brand&gt;(cx)
 <a href=#436 id=436 data-nosnippet>436</a>            .map(|b| b.name.clone())
