@@ -255,13 +255,17 @@ pub fn check_manifest_lockstep(
     }
 }
 
+/// `cargo metadata` for one manifest. `--locked` (not `--frozen`): a stale
+/// tree must fail instead of healing the lockfile, but fresh CI caches
+/// legitimately need the network to resolve — `--offline` would mask the
+/// drift signal with download errors.
 fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
     let output = Command::new("cargo")
         .args([
             "metadata",
             "--format-version",
             "1",
-            "--frozen",
+            "--locked",
             "--manifest-path",
         ])
         .arg(manifest)
@@ -282,8 +286,8 @@ fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
 /// the `rev =` manifest pins `bump-upstream` manages, grouped by repo, then
 /// the resolved lock pins. Manifests are plain file reads first — no
 /// subprocess, no network, nothing to heal — so a hand-edited manifest
-/// reports drift here instead of failing inside `cargo metadata --frozen`
-/// with a git lookup error.
+/// reports drift here instead of failing inside `cargo metadata --locked`
+/// with a resolution error.
 pub fn verify_locks() -> anyhow::Result<()> {
     let root = repo_root();
     let workspace_manifest = std::fs::read_to_string(root.join("Cargo.toml"))
