@@ -116,22 +116,11 @@ jobs:
       # nightly-only (GH #269) and stable rustfmt ignores them with a warning.
       # The date is fixed so the rustfmt version the gate enforces cannot move
       # without a commit here; rust-toolchain.toml records the choice. The
-      # default toolchain stays stable so the detached-bench `cargo fmt` steps
-      # below and the topcoat-cli build keep running on it.
+      # default toolchain stays stable so the detached-bench checks xtask runs
+      # and the topcoat-cli build keep running on it.
       - run: rustup update stable && rustup default stable
       - run: rustup toolchain install nightly-2026-08-24 --profile minimal --component rustfmt
       - uses: Swatinem/rust-cache@v2
-      # `fmt --all` covers every workspace member; the detached benches
-      # (workspace `exclude`) keep their own stable checks below.
-      - run: cargo +nightly-2026-08-24 fmt --all -- --check
-      # The detached benches have their own workspaces/lockfiles (GH #175):
-      # check each in its own directory.
-      - name: fmt detached benches
-        run: |
-          for bench in benchmarks/tablo benchmarks/axum-maud benchmarks/leptos; do
-            echo "--- fmt --check $bench"
-            (cd "$bench" && cargo fmt -- --check)
-          done
       - name: Restore topcoat CLI cache
         # `cargo install` builds the CLI from source (~4 minutes); the binary
         # is rev-pinned, so a cache keyed on Cargo.lock restores exactly the
@@ -148,16 +137,21 @@ jobs:
         # itself recommends ("depends on topcoat 0.6.2, but the topcoat CLI
         # is 0.7.0"), precise to the rev because the manifests pin an exact
         # rev. Reading the rev from the lock keeps library and
-        # formatter in lockstep through every `cargo update -p topcoat --precise <rev>`.
+        # formatter in lockstep through every `cargo xtask bump-upstream`.
         run: |
           REV=$(grep -A 2 '^name = "topcoat"$' Cargo.lock | grep -o '#[0-9a-f]\{40\}' | head -1 | cut -c2-)
           test -n "$REV" || { echo "could not read topcoat rev from Cargo.lock"; exit 1; }
           echo "Installing topcoat-cli at locked revision $REV"
           cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli --locked
-      - name: topcoat fmt
-        run: |
-          topcoat fmt
-          git diff --exit-code
+      - name: topcoat fmt (locked rev, via xtask)
+        # The three format checks — workspace nightly fmt (`fmt --all` covers
+        # every member; the detached benches keep their own stable checks),
+        # detached-bench fmt (benchmarks/tablo, benchmarks/axum-maud,
+        # benchmarks/leptos), locked-rev `topcoat fmt` plus diff guard — run
+        # through `cargo xtask fmt`: one subcommand per job, jobs stay
+        # parallel. The toolchain and CLI installs above stay in CI: xtask
+        # runs the check half only, never the ~4-minute CLI reinstall.
+        run: cargo xtask fmt
 
   udeps:
     name: udeps
@@ -192,15 +186,6 @@ jobs:
         run: cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings
       # Pin policy (Cargo.toml comment / ADR-0003): the bench must measure the
       # same upstream revs the workspace ships, so the two lockfiles stay in
-      # lockstep through every `cargo update -p <crate> --precise <rev>` bump.
+      # lockstep through every bump. `verify-locks` fails on drift.
       - name: Lockstep pin check (workspace vs bench)
-        run: |
-          for crate in topcoat toasty; do
-            root=$(grep -A 2 "^name = \"$crate\"$" Cargo.lock | grep -o '#[0-9a-f]\{40\}' | head -1)
-            bench=$(grep -A 2 "^name = \"$crate\"$" benchmarks/tablo/Cargo.lock | grep -o '#[0-9a-f]\{40\}' | head -1)
-            if [ -z "$root" ] || [ "$root" != "$bench" ]; then
-              echo "::error::$crate rev drift: workspace=$root bench=$bench"
-              exit 1
-            fi
-            echo "$crate: $root (in sync)"
-          done
+        run: cargo xtask verify-locks
