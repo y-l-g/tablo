@@ -18,7 +18,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { boxesIn, headerState, selectionKeys, wireFrom, wireOf } = require('./bulk.js');
+const { boxesIn, headerState, selectionKeys } = require('./bulk.js');
 
 // A row checkbox, as the DOM hands it over: value + checked + disabled.
 const box = (value, { checked = false, disabled = false } = {}) => ({
@@ -89,12 +89,4 @@ test('the header reads "all" when every selectable row is checked', () => {
 test('the header reads "partial" on a partial selection', () => {
   const selectable = [box('ada', { checked: true }), box('grace')];
   assert.deepEqual(headerState(selectable), { checked: false, indeterminate: true });
-});
-
-test('the wire is comma-delimited on both ends, so membership is exact', () => {
-  assert.equal(wireFrom(['ab']), ',ab,');
-  assert.equal(wireFrom([]), '');
-  assert.deepEqual(wireOf(',ab,'), ['ab']);
-  assert.deepEqual(wireOf(''), []);
-  assert.ok(!wireOf(',ab,').includes('b'), 'a substring is not a member');
 });

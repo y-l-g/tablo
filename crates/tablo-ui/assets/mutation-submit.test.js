@@ -29,8 +29,6 @@ const {
   removedKeys,
   swapTargets,
   tableRootFor,
-  wireFrom,
-  wireOf,
 } = require(SCRIPT);
 
 const { listenerDocument } = require('./test-dom');
@@ -136,21 +134,14 @@ test('pruning drops the removed keys and keeps the rest', () => {
   assert.equal(pruneWire(',a,b,c,', ['b']), ',a,c,');
   assert.equal(pruneWire(',a,b,', ['a', 'b']), '');
   assert.equal(pruneWire('', ['a']), '');
+  // Exactness comes from the wire's delimiters: `,ab,` never matches `b`.
+  assert.equal(pruneWire(',ab,', ['b']), ',ab,');
 });
 
 test('pruning keeps keys selected on another page', () => {
   // The wire carries selections the page does not render (bulk.js keeps them
   // across pages); a delete must not drop those.
   assert.equal(pruneWire(',page2,page3,', ['page2']), ',page3,');
-});
-
-test('wire membership is exact', () => {
-  // `,ab,` never matches `b`: the delimiters are what make the comparison a
-  // membership test rather than a substring one.
-  assert.deepEqual(wireOf(',ab,'), ['ab']);
-  assert.equal(pruneWire(',ab,', ['b']), ',ab,');
-  assert.equal(wireFrom(['a', 'b']), ',a,b,');
-  assert.equal(wireFrom([]), '');
 });
 
 // --- what the response hands over -------------------------------------------

@@ -34,20 +34,17 @@
 // replace table markup need no re-installation. Scoped per table via
 // `[data-table-root]` so multiple tables never cross-talk.
 (() => {
+// The selection-wire codec lives in `wire.js`, which the document loads before
+// this script (ADR-0014): the browser global in the browser, `require`d in the
+// Node test (there is no JS test runner in this workspace, and this file must
+// stay a plain browser script loaded by `asset!`, so it cannot be an ES module).
+const { wireOf, wireFrom } =
+  typeof module !== 'undefined' && module.exports
+    ? require('./wire.js')
+    : window.TabloWire;
+
 function transportFor(root) {
   return root.querySelector('form[data-bulk-form] input[name="ids"]');
-}
-
-// The keys currently selected, in wire form.
-function wireOf(value) {
-  return (value || '')
-    .split(',')
-    .map((key) => key.trim())
-    .filter((key) => key !== '');
-}
-
-function wireFrom(keys) {
-  return keys.length === 0 ? '' : `,${keys.join(',')},`;
 }
 
 // Every row checkbox in the table, selectable or not.
@@ -230,6 +227,6 @@ if (typeof document !== 'undefined') install();
 // loaded by `asset!`, so it cannot be an ES module). Guarded, so the browser
 // branch is inert.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { boxesIn, headerState, selectionKeys, wireFrom, wireOf };
+  module.exports = { boxesIn, headerState, selectionKeys };
 }
 })();
