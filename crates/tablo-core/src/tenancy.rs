@@ -90,6 +90,15 @@ pub(crate) fn tenant_field_index<M: toasty::schema::Model>() -> Option<usize> {
         .map(|field| field.id.index)
 }
 
+/// The form key of `M`'s tenant column, when [`tenant_field_index`] finds one.
+pub(crate) fn tenant_field_name<M: toasty::schema::Model>() -> Option<String> {
+    let index = tenant_field_index::<M>()?;
+    M::schema()
+        .fields()
+        .get(index)
+        .and_then(|field| field.name.app.clone())
+}
+
 /// The **derived** `tenant_id = tenant` over `M`, or `None` when
 /// [`tenant_field_index`] finds no tenant column.
 ///

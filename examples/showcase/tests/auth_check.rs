@@ -447,7 +447,7 @@ async fn auth_disabled_serves_the_panel_without_login() {
     let router = tablo_core::Panel::new("admin")
         .app_context(db)
         .auth(tablo_core::Auth::disabled())
-        .resource::<showcase::app::UserResource>()
+        .form_resource::<showcase::app::UserResource>()
         .build()
         .expect("panel builds");
 

@@ -34,9 +34,9 @@ impl Resource for UserResource {
 }
 ```
 
-List-only minimal: writes stay 403 and create/edit render empty until you add
-`can_create` / `can_update` / `can_delete`, `form()`, and the
-`create_record` / `update_record` fns (see the [resources chapter](docs/guide/src/resources.md)).
+List-only minimal: writes stay 403 until you add `can_create` / `can_update` / `can_delete`, a
+`#[derive(RecordForm)]` struct, and a `FormResource` impl registered with `Panel::form_resource`
+(see the [forms chapter](docs/guide/src/forms.md#the-record-form)).
 
 ```rust
 #[layout("/admin")]

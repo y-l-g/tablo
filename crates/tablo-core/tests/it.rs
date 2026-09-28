@@ -19,4 +19,5 @@ mod uploads;
 mod embedded_lens;
 mod embedded_value;
 mod readonly_render;
+mod record_form;
 mod relation_render;

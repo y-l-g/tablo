@@ -25,7 +25,11 @@ use super::{
     search::SearchRegistry,
     shell::DarkMode,
 };
-use crate::resource::Resource;
+use crate::{
+    form::{FormResource, RecordForm},
+    resource::Resource,
+    schema::SkippedBy,
+};
 
 impl Panel {
     /// Build the [`Router`], discovering all `#[page]` / `#[layout]` / `#[shard]`
@@ -320,7 +324,8 @@ pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), St
 }
 
 /// A resource's build-time declaration check: monomorphized once per
-/// declared resource by [`Panel::resource`], run by [`Panel::build`] with the
+/// declared resource by [`Panel::resource`] or [`Panel::form_resource`], run
+/// by [`Panel::build`] with the
 /// app's values and no request.
 pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 
@@ -328,13 +333,14 @@ pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 ///
 /// The trait ships every method with a default, so a resource that overrides
 /// nothing compiles and only fails when a user reaches a page. The essentials
-/// that are *declarations* — a tenant predicate for a gated resource, a
-/// renderable table, a form for the create page, a backed `unique()` marker —
-/// are checked here, at build, and reported with the resource's type name.
+/// that are *declarations* — a tenant predicate for a gated resource and a
+/// renderable table — are checked here, at build, and reported with the
+/// resource's type name; [`check_form_resource`] and [`check_list_resource`]
+/// add the checks the registration method implies.
 /// Runtime essentials (the record fns) keep their loud failure.
 ///
 /// A declaration that panics is a boot failure too: `Resource::table` and
-/// `Resource::form` run code that panics on a mis-declaration, and this check's
+/// `FormResource::form` run code that panics on a mis-declaration, and this check's
 /// contract is a registration error the caller can log or exit on. The whole
 /// body is caught, because `R::Model::schema()` and the policy predicates are
 /// part of the same declaration, and the panic's own message is carried into
@@ -342,16 +348,7 @@ pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 /// state after an unwind: `cx` is the build-time `validation_cx`, and the panic
 /// fails the whole `build`.
 pub(super) fn check_resource<R: Resource>(cx: &Cx) -> Result<(), String> {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        check_resource_inner::<R>(cx)
-    })) {
-        Ok(result) => result,
-        Err(payload) => Err(format!(
-            "resource `{}` panicked while declaring itself: {}",
-            std::any::type_name::<R>(),
-            panic_message(payload.as_ref())
-        )),
-    }
+    caught::<R>(|| check_resource_inner::<R>(cx))
 }
 
 /// The message out of a caught panic payload.
@@ -405,15 +402,113 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             std::any::type_name::<R>()
         ));
     }
-    // The form is only required where the panel would serve one, and `create`
-    // is the statically checkable half of that (`can_update` needs a record).
-    // The default policy denies create, so a read-only resource is unaffected.
-    let form = R::form(cx);
-    if R::can_create(cx) && form.is_empty() {
-        return Err(format!(
-            "resource `{}` allows create but its form declares no fields — build it with Schema::new(..)",
+    Ok(())
+}
+
+/// The declaration check for a resource registered with
+/// [`Panel::resource`](super::Panel::resource): it serves no form, so a policy
+/// that allows create or an edit link it renders would lead nowhere.
+pub(super) fn check_list_resource<R: Resource>(cx: &Cx) -> Result<(), String> {
+    caught::<R>(|| {
+        let declared = match (R::can_create(cx), R::editable()) {
+            (true, true) => "create and edit",
+            (true, false) => "create",
+            (false, true) => "edit",
+            (false, false) => return Ok(()),
+        };
+        Err(format!(
+            "resource `{}` declares {declared} but is registered with `Panel::resource`, which \
+             serves no form — implement `FormResource` and register it with `Panel::form_resource`",
             std::any::type_name::<R>()
+        ))
+    })
+}
+
+/// The declaration checks for a resource registered with
+/// [`Panel::form_resource`](super::Panel::form_resource): the form's struct and
+/// its `Schema` agree on keys, on blank answers, and on who owns the tenant
+/// column, and every `unique()` marker is backed by an index.
+pub(super) fn check_form_resource<R: FormResource>(cx: &Cx) -> Result<(), String> {
+    caught::<R>(|| check_form_inner::<R>(cx))
+}
+
+fn check_form_inner<R: FormResource>(cx: &Cx) -> Result<(), String> {
+    let form = R::form(cx);
+    let resource = std::any::type_name::<R>();
+    let fields = <R::Form as RecordForm>::fields(cx);
+    let controls = form.controls();
+    // Key agreement, reported control-first: a control no field binds is the
+    // direction that drops what the user typed.
+    for control in &controls {
+        let claims = fields
+            .iter()
+            .filter(|field| field.keys.contains(&control.name))
+            .count();
+        if claims == 0 {
+            return Err(format!(
+                "resource `{resource}` renders form control `{}` but no field of its record form \
+                 binds it, so what the user types there is never written",
+                control.name
+            ));
+        }
+        if claims > 1 {
+            return Err(format!(
+                "resource `{resource}` binds form control `{}` from more than one record-form field",
+                control.name
+            ));
+        }
+    }
+    for field in &fields {
+        for key in &field.keys {
+            if !controls.iter().any(|control| &control.name == key) {
+                return Err(format!(
+                    "resource `{resource}`'s record form field `{}` binds key `{key}`, but the form \
+                     declares no control for it",
+                    field.name
+                ));
+            }
+        }
+        // Blank agreement: an empty submission must resolve wherever the
+        // schema lets one through.
+        if field.answers_blank {
+            continue;
+        }
+        if let Some(control) = controls.iter().find(|control| {
+            field.keys.contains(&control.name)
+                && (!control.required || control.skipped_by.is_some())
+        }) {
+            let place = match control.skipped_by {
+                Some(SkippedBy::Repeater) => "sits inside a `Repeater`, so it may be posted empty",
+                Some(SkippedBy::VariantGroup) => {
+                    "sits inside a variant group, which a submission naming another variant \
+                     leaves unchecked"
+                }
+                None => "is optional",
+            };
+            return Err(format!(
+                "resource `{resource}`'s form control `{}` {place}, but record form field `{}` has \
+                 no blank answer — declare `#[record_form(blank = ..)]`, make the field an \
+                 `Option`, or make the control required",
+                control.name, field.name
+            ));
+        }
+    }
+    // Tenant ownership: the framework stamps a gated resource's tenant column
+    // on create; a form that claimed it would let the client choose.
+    if R::requires_tenant()
+        && let Some(column) = crate::tenancy::tenant_field_name::<R::Model>()
+        && let Some(field) = fields.iter().find(|field| field.keys.contains(&column))
+    {
+        return Err(format!(
+            "resource `{resource}` requires a tenant, but record form field `{}` claims its tenant \
+             column `{column}` — the framework stamps it on create; drop it from the form",
+            field.name
         ));
+    }
+    // Column coverage: a create that leaves a non-nullable column unset fails
+    // at the driver on every submit, with no field to point the user at.
+    if R::can_create(cx) {
+        check_create_columns::<R>(&fields)?;
     }
     // `.unique()` is a promise the panel makes and the database has to keep
     // (item 3): the marker turns the app-side pre-check on, so a field
@@ -451,6 +546,66 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
     Ok(())
 }
 
+/// Every non-nullable column a create must set is set by something: the
+/// record form, toasty (`#[auto]`, `#[default(..)]`), the tenant stamp, or the
+/// resource's own `CREATE_COLUMNS`.
+fn check_create_columns<R: FormResource>(
+    fields: &[crate::form::FormField<<R::Form as RecordForm>::Field>],
+) -> Result<(), String> {
+    let resource = std::any::type_name::<R>();
+    let prefilled = crate::form::prefilled_fields::<R::Model>();
+    let tenant = R::requires_tenant()
+        .then(crate::tenancy::tenant_field_name::<R::Model>)
+        .flatten();
+    let model = R::Model::schema();
+    let root = model.as_root_unwrap();
+    for name in R::CREATE_COLUMNS {
+        if !root
+            .fields
+            .iter()
+            .any(|field| field.name.app.as_deref() == Some(*name))
+        {
+            return Err(format!(
+                "resource `{resource}` names `{name}` in `CREATE_COLUMNS`, but `{}` has no such \
+                 field",
+                std::any::type_name::<R::Model>()
+            ));
+        }
+    }
+    for (index, field) in root.fields.iter().enumerate() {
+        let Some(name) = field.name.app.as_deref() else {
+            continue;
+        };
+        let filled = field.nullable()
+            || field.is_relation()
+            || prefilled.get(index).copied().unwrap_or(false)
+            || tenant.as_deref() == Some(name)
+            || fields.iter().any(|claim| claim.name == name)
+            || R::CREATE_COLUMNS.contains(&name);
+        if !filled {
+            return Err(format!(
+                "resource `{resource}` allows create, but nothing writes the non-nullable column \
+                 `{name}`: its record form has no such field, toasty fills no `#[default(..)]` for \
+                 it, and `CREATE_COLUMNS` does not name it — every create would fail at the driver"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Run a declaration check, turning a panic in the app's declarations into a
+/// registration error naming the resource.
+fn caught<R: Resource>(check: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(check)) {
+        Ok(result) => result,
+        Err(payload) => Err(format!(
+            "resource `{}` panicked while declaring itself: {}",
+            std::any::type_name::<R>(),
+            panic_message(payload.as_ref())
+        )),
+    }
+}
+
 /// A context for the build-time declaration checks: the app's own values, no
 /// request. Resources must be able to describe their table and form from this
 /// — that they cannot read a request here is the contract, not a limitation.
@@ -475,7 +630,7 @@ mod tests {
     use toasty::Db;
 
     use super::*;
-    use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+    use crate::panel::test_support::{Dummy, dummy_table, form_panel_for, panel_for};
 
     /// A slug made of ordinary URL-segment characters still builds, and its
     /// list route resolves: rejecting the pattern characters must not
@@ -680,6 +835,14 @@ mod tests {
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx)
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct DummyForm {
+            name: String,
+        }
+        impl crate::form::FormResource for DummyResource {
+            type Form = DummyForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Dummy::fields().name()))
             }
@@ -691,7 +854,7 @@ mod tests {
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = panel_for::<DummyResource>(db)
+        let router = form_panel_for::<DummyResource>(db)
             .build()
             .expect("the explicit opt-out builds the panel");
 
@@ -797,6 +960,17 @@ mod tests {
                         a.email.clone()
                     }))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Author)]
+        struct AuthorForm {
+            email: String,
+        }
+        impl crate::form::FormResource for AuthorResource {
+            type Form = AuthorForm;
+            // Not gated, so the tenant is not stamped: a create override would
+            // set it.
+            const CREATE_COLUMNS: &'static [&'static str] = &["tenant_id"];
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Author::fields().email()).unique())
             }
@@ -807,7 +981,7 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        panel_for::<AuthorResource>(db)
+        form_panel_for::<AuthorResource>(db)
             .build()
             .expect("a composite unique index backs the marker");
     }
@@ -971,6 +1145,14 @@ mod tests {
                         |s: &Subscriber| s.nickname.clone(),
                     ))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Subscriber)]
+        struct UnbackedForm {
+            nickname: String,
+        }
+        impl crate::form::FormResource for UnbackedResource {
+            type Form = UnbackedForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
             }
@@ -983,7 +1165,7 @@ mod tests {
             .unwrap();
         let Err(error) = Panel::new("admin")
             .app_context(db)
-            .resource::<UnbackedResource>()
+            .form_resource::<UnbackedResource>()
             .build()
         else {
             panic!("a `unique()` marker with no unique index must not build");
@@ -1084,6 +1266,17 @@ mod tests {
                     ))
             }
         }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Subscriber)]
+        struct PkOnlyChromeForm {
+            nickname: String,
+        }
+        impl crate::form::FormResource for PkOnlyChromeResource {
+            type Form = PkOnlyChromeForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
+            }
+        }
 
         /// No chrome and no keys at all: still a build error — the row key is
         /// required even with nothing to link to.
@@ -1142,7 +1335,7 @@ mod tests {
         );
 
         panel()
-            .resource::<PkOnlyChromeResource>()
+            .form_resource::<PkOnlyChromeResource>()
             .build()
             .expect("a pk-only table builds through the display fallback");
 
@@ -1196,6 +1389,14 @@ mod tests {
                         |s: &Subscriber| s.nickname.clone(),
                     ))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Subscriber)]
+        struct ReadOnlyForm {
+            nickname: String,
+        }
+        impl crate::form::FormResource for ReadOnlyResource {
+            type Form = ReadOnlyForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
             }
@@ -1208,7 +1409,7 @@ mod tests {
             .unwrap();
         let Err(error) = Panel::new("admin")
             .app_context(db)
-            .resource::<ReadOnlyResource>()
+            .form_resource::<ReadOnlyResource>()
             .build()
         else {
             panic!("the marker is unbacked whether or not create is allowed");
@@ -1306,7 +1507,7 @@ mod tests {
         );
     }
 
-    /// GH #207 part 2: `Resource::table` and `Resource::form` run code that
+    /// GH #207 part 2: `Resource::table` and `FormResource::form` run code that
     /// panics on a mis-declaration, but `build`'s contract is a registration
     /// error the caller can log or exit on. Both classes below are caught at
     /// the boundary instead of unwinding out of `build`.

@@ -11,16 +11,21 @@ pub trait Resource: Sized + Send + Sync + 'static {
     fn query(_cx: &Cx) -> Query<List<Self::Model>>; // default: Query::all()
     fn query_with(_cx: &Cx, _needs: &IncludeNeeds)
         -> Query<List<Self::Model>>;                // default: query(cx), unchanged
-    fn hydrate_form_values(_cx: &Cx, _record: &Self::Model)
+    fn view_values(_cx: &Cx, _record: &Self::Model)
         -> HashMap<String, String>;                 // default: empty
     fn export_query(_cx: &Cx, _needs: &IncludeNeeds)
         -> Query<List<Self::Model>>;                // default: query_with(cx, needs)
     fn table(_cx: &Cx) -> Table<Self::Model>;       // default: Table::new(), empty until columns + id
-    fn form(_cx: &Cx) -> Schema;                    // default: Schema::empty()
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
-    // defaults, and create/update/delete record fns
+    // defaults, and the delete record fns
 }
 ```
+
+A resource with a create or edit form also implements `FormResource`, which holds its `form()`, its
+record form type, `validate_record`, and the create and update record fns
+([Forms](./forms.md#the-record-form)). It registers with `Panel::form_resource`; a list-only
+resource registers with `Panel::resource`, which serves the list, the detail page, delete, bulk
+delete, and export, and links to no create page.
 
 ## The contract
 
@@ -28,13 +33,15 @@ Every method is defaulted, so a resource compiles as soon as it names its model 
 omission has to fail loudly instead of quietly:
 
 - **At `Panel::build`** (which returns `Result<Router>`): the table must be renderable — `table()`
-  declares columns and a row key, plus `Table::key` where the resource declares action chrome — and
-  where `can_create` allows it, `form()` must declare fields. A resource that overrides nothing fails
-  the build, naming the type, instead of serving an error state or an empty form. `table()`, `form()`
-  and `can_create()` are declarations: `Panel::build` calls them with a Db-only context to check them,
+  declares columns and a row key, plus `Table::key` where the resource declares action chrome. A
+  resource registered with `Panel::resource` whose `can_create` or `editable()` is on fails the
+  build, since it serves no form; a `FormResource`'s record form must agree with its `form()` schema
+  ([Forms](./forms.md#the-record-form)). A resource that overrides nothing fails the build, naming
+  the type, instead of serving an error state or an empty form. `table()`, `form()` and
+  `can_create()` are declarations: `Panel::build` calls them with a Db-only context to check them,
   and each list and form request calls `table()` / `form()` again, so a declaration must not need
   request-scoped context.
-- **At request time, loudly**: the record fns default to an error naming the type ("delete not
+- **At request time, loudly**: `delete_record` defaults to an error naming the type ("delete not
   implemented for …"), so a missing implementation never looks like a successful no-op.
 - **Chrome is opt-in, gated per record**: `deletable()` and `editable()` default to `false`, so a
   resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
@@ -85,8 +92,9 @@ omission has to fail loudly instead of quietly:
   overriding `query_with` narrows the export too (GH #177, GH #298, ADR-0018). Override
   `export_query` itself only when the CSV needs a branch the other loaders do not.
 - `table()` and `form()` are hand-written, and so is the impl itself: a resource is `type Model` plus
-  whichever hooks it uses. There is no `Resource` derive (GH #222) — the macros crate ships
-  `derive(EmbeddedForm)` only (GH #191).
+  whichever hooks it uses. There is no `Resource` derive (GH #222); the macros crate ships
+  `derive(EmbeddedForm)` (GH #191) and `derive(RecordForm)` (GH #369), which types the form's
+  values rather than declaring the resource.
 
 ```rust
 struct UserResource;
@@ -107,13 +115,13 @@ impl Resource for PostResource {
 }
 ```
 
-- Record fns (`create_record`, `update_record`, `delete_record`, `bulk_delete_records`) do the
-  writes. Handlers load records, check policy, then call them in a transaction. `create_record` and
-  `update_record` return the row they wrote — `toasty::create!` hands the created one back and a
-  Toasty instance update reloads the model, so both are already in hand — because that is the only
-  way the framework can name what a write committed (GH #112). A record fn therefore ends with
-  `Ok(rec)` (at the end of an instance update that is usually the whole change), and a model used by
-  a `Resource` derives `Clone`.
+- Record fns (`FormResource::create_record` / `update_record`, `delete_record`,
+  `bulk_delete_records`) do the writes. Handlers load records, check policy, then call them in a
+  transaction. `create_record` and `update_record` return the row they wrote — the create builder
+  hands the created one back and a Toasty instance update reloads the model, so both are already in
+  hand — because that is the only way the framework can name what a write committed (GH #112). The
+  derived `write_update` ends with the reloaded record, and a model used by a `Resource` derives
+  `Clone`.
 - `after_commit(cx, committed)` is the post-commit seam (GH #112): called once per committed write,
   after the transaction and before the response, with a `Committed` naming the mutation
   (`Mutation::Create/Update/Delete`) and the rows it wrote (a bulk delete is one call with all of
@@ -121,9 +129,10 @@ impl Resource for PostResource {
   record fn leaks the effect on a rollback, and the transaction's pool discipline forbids a second
   handle while it is open. The default is a no-op, a hook failure is logged without touching the
   committed write, and it never runs when nothing committed.
-- For edit forms, `hydrate_form_values(cx, record)` maps a record to initial field values. `cx` is
-  the request's: a scalar projection needs nothing from it, but an embedded value's keys come from
-  the compiled mapping (GH #191).
+- The edit form hydrates from `RecordForm::hydrate`, which the derive generates.
+  `view_values(cx, record)` is the detail page's projection for a list-only resource, and adds any
+  key only the view shows for a form resource. `cx` is the request's: a scalar projection needs
+  nothing from it, but an embedded value's keys come from the compiled mapping (GH #191).
 
 ## Tenancy
 

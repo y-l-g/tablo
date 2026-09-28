@@ -376,7 +376,7 @@ fn selectable_row_ids(html: &str) -> Vec<String> {
 /// handler's own `can_delete` check would leave this test green.
 #[tokio::test]
 async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
-    use tablo_core::{Resource, Schema, Table, TextColumn, TextInput};
+    use tablo_core::{Resource, Table, TextColumn};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct DummyUser {
@@ -406,9 +406,6 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
                     DummyUser::fields().name(),
                     |u: &DummyUser| u.name.clone(),
                 ))
-        }
-        fn form(_cx: &topcoat::context::Cx) -> Schema {
-            Schema::new(TextInput::r#for(DummyUser::fields().name()))
         }
     }
 

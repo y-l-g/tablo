@@ -375,7 +375,7 @@ mod tests {
         super::common::{FormParts, MAX_FORM_BYTES},
         *,
     };
-    use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+    use crate::panel::test_support::{Dummy, dummy_table, form_panel_for};
 
     #[test]
     fn form_values_decode_utf8_plus_and_encoded_separators() {
@@ -481,23 +481,21 @@ mod tests {
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx)
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct DummyForm {
+            name: String,
+        }
+        impl crate::form::FormResource for DummyResource {
+            type Form = DummyForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(crate::schema::FileUpload::r#for(Dummy::fields().name()))
-            }
-            async fn create_record(
-                _cx: &Cx,
-                _values: std::collections::HashMap<String, String>,
-                _ex: &mut dyn toasty::Executor,
-            ) -> topcoat::Result<Dummy> {
-                // The over-cap body is refused before any write, so this test
-                // never reaches the record fn; a create returns its row
-                // and there is none to return.
-                Err(std::io::Error::other("unreachable: the body cap 413s first").into())
             }
         }
 
         let db = Db::builder().connect("sqlite::memory:").await.unwrap();
-        let router = panel_for::<DummyResource>(db)
+        let router = form_panel_for::<DummyResource>(db)
             .build()
             .expect("panel builds");
         let boundary = "----Boundary123";

@@ -27,6 +27,7 @@ code and an ADR disagree, the code wins and the ADR is the thing to fix.
 | [0019](0019-embedded-values.md) | Embedded values derive their codec; the discriminant picks the variant |
 | [0020](0020-confirmed-mutations.md) | A confirmed mutation re-runs the table's shard; the client never morphs the response |
 | [0021](0021-media-library.md) | The media library is a polymorphic `medias` table in the showcase |
+| [0022](0022-record-forms.md) | A form writes through a derived typed struct, completed from the stored record |
 
 **Numbers are permanent.** An ADR keeps its number and subject matter for the life of the repo,
 because code comments, vendored headers, and rustdoc cite them (ADR-0007 in every synced primitive

@@ -7,16 +7,13 @@ use topcoat::{
 };
 
 use super::super::gate::gate;
-use crate::{
-    resource::{Resource, clamp_query_term},
-    schema::OptionLoadError,
-};
+use crate::{form::FormResource, resource::clamp_query_term, schema::OptionLoadError};
 
 /// Relationship option search endpoint (D2/D5).
 ///
 /// `GET {parent_list_url}/options?field=&q=` — server-side narrowing for
 /// tables above the option cap. `field` allow-lists to a declared searchable
-/// relationship `Select` in `R::form(cx)` (400 otherwise); non-searchable
+/// relationship `Select` in `FormResource::form` (400 otherwise); non-searchable
 /// selects keep today's cap error and never call here. `q` is trimmed and
 /// clamped to the shared query bound; empty `q` returns the bounded head.
 ///
@@ -29,7 +26,7 @@ use crate::{
 /// filtered overflow → 200 with a "keep typing" hint option (client keeps its hint element).
 /// Success → 200 `text/html` with `<option>` markup, bounded to
 /// `MAX_RELATIONSHIP_OPTIONS`, values are typed PK strings, labels escaped.
-pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+pub(crate) fn resource_options<R: FormResource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         gate::<R>(cx)?;
         let (field, q) = options_query(cx);
@@ -206,6 +203,14 @@ mod tests {
                         |p: &OptPost| p.title.clone(),
                     ))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = OptPost)]
+        struct OptPostForm {
+            author_id: uuid::Uuid,
+        }
+        impl crate::form::FormResource for OptPostResource {
+            type Form = OptPostForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(
                     crate::schema::Select::r#for(OptPost::fields().author_id())
@@ -240,7 +245,7 @@ mod tests {
         }
         let router = Panel::new("admin")
             .app_context(db)
-            .resource::<OptPostResource>()
+            .form_resource::<OptPostResource>()
             .resource::<OptAuthorResource>()
             .auth(crate::Auth::disabled())
             .build()
@@ -371,6 +376,22 @@ mod tests {
             fn slug() -> String {
                 "owners".to_string()
             }
+            fn table(cx: &Cx) -> crate::resource::Table<Owner> {
+                crate::resource::Table::r#for(cx)
+                    .key(|o: &Owner| o.id.to_string())
+                    .columns(crate::resource::TextColumn::r#for(
+                        Owner::fields().name(),
+                        |o: &Owner| o.name.clone(),
+                    ))
+            }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Owner)]
+        struct OwnerForm {
+            child_id: uuid::Uuid,
+        }
+        impl crate::form::FormResource for OwnerResource {
+            type Form = OwnerForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(
                     crate::schema::Select::r#for(Owner::fields().child_id())
@@ -381,14 +402,6 @@ mod tests {
                         )
                         .searchable(),
                 )
-            }
-            fn table(cx: &Cx) -> crate::resource::Table<Owner> {
-                crate::resource::Table::r#for(cx)
-                    .key(|o: &Owner| o.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Owner::fields().name(),
-                        |o: &Owner| o.name.clone(),
-                    ))
             }
         }
 
@@ -416,7 +429,7 @@ mod tests {
 
         let router = Panel::new("admin")
             .app_context(db)
-            .resource::<OwnerResource>()
+            .form_resource::<OwnerResource>()
             .resource::<ChildSource>()
             .auth(crate::Auth::disabled())
             .build()
@@ -500,6 +513,22 @@ mod tests {
             fn slug() -> String {
                 "big-ps".to_string()
             }
+            fn table(cx: &Cx) -> crate::resource::Table<BigP> {
+                crate::resource::Table::r#for(cx)
+                    .id(|r: &BigP| r.id.to_string())
+                    .columns(crate::resource::TextColumn::r#for(
+                        BigP::fields().name(),
+                        |r: &BigP| r.name.clone(),
+                    ))
+            }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = BigP)]
+        struct SearchableParentForm {
+            author_id: uuid::Uuid,
+        }
+        impl crate::form::FormResource for SearchableParent {
+            type Form = SearchableParentForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(
                     crate::schema::Select::r#for(BigP::fields().author_id())
@@ -511,6 +540,13 @@ mod tests {
                         .searchable(),
                 )
             }
+        }
+        struct PlainParent;
+        impl Resource for PlainParent {
+            type Model = BigP;
+            fn slug() -> String {
+                "plain-ps".to_string()
+            }
             fn table(cx: &Cx) -> crate::resource::Table<BigP> {
                 crate::resource::Table::r#for(cx)
                     .id(|r: &BigP| r.id.to_string())
@@ -520,12 +556,13 @@ mod tests {
                     ))
             }
         }
-        struct PlainParent;
-        impl Resource for PlainParent {
-            type Model = BigP;
-            fn slug() -> String {
-                "plain-ps".to_string()
-            }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = BigP)]
+        struct PlainParentForm {
+            author_id: uuid::Uuid,
+        }
+        impl crate::form::FormResource for PlainParent {
+            type Form = PlainParentForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(
                     crate::schema::Select::r#for(BigP::fields().author_id())
@@ -535,14 +572,6 @@ mod tests {
                             |a: &BigA| a.name.clone(),
                         ),
                 )
-            }
-            fn table(cx: &Cx) -> crate::resource::Table<BigP> {
-                crate::resource::Table::r#for(cx)
-                    .id(|r: &BigP| r.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        BigP::fields().name(),
-                        |r: &BigP| r.name.clone(),
-                    ))
             }
         }
 
@@ -562,8 +591,8 @@ mod tests {
         }
         let router = Panel::new("admin")
             .app_context(db)
-            .resource::<SearchableParent>()
-            .resource::<PlainParent>()
+            .form_resource::<SearchableParent>()
+            .form_resource::<PlainParent>()
             .auth(crate::Auth::disabled())
             .build()
             .expect("panel builds");

@@ -64,22 +64,9 @@ fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     if let Err(error) = validate_form_attrs(&input) {
         return error.to_compile_error();
     }
-    let krate = match proc_macro_crate::crate_name("tablo-core") {
-        Ok(found) => {
-            let name = match found {
-                proc_macro_crate::FoundCrate::Itself => "tablo_core".to_string(),
-                proc_macro_crate::FoundCrate::Name(n) => n,
-            };
-            let ident = syn::Ident::new(&name.replace('-', "_"), proc_macro2::Span::call_site());
-            quote! { ::#ident }
-        }
-        Err(_) => {
-            return syn::Error::new_spanned(
-                &input.ident,
-                "tablo-core must be a dependency to #[derive(EmbeddedForm)]",
-            )
-            .to_compile_error();
-        }
+    let krate = match crate::tablo_core_path(&input.ident, "EmbeddedForm") {
+        Ok(krate) => krate,
+        Err(error) => return error.to_compile_error(),
     };
 
     match &input.data {
@@ -372,6 +359,34 @@ fn field_label(field: &syn::Field, ident: &syn::Ident) -> String {
         .unwrap_or_else(|| label(ident))
 }
 
+/// A `read_form` body: read every field, collecting each one's errors into
+/// `errors`, and build `ctor` only when none failed.
+///
+/// Each value binds under a prefixed name, so a field called `values` or
+/// `errors` cannot shadow the reads after it.
+fn collected_read(
+    krate: &TokenStream2,
+    ctor: &TokenStream2,
+    reads: &[(syn::Ident, TokenStream2)],
+) -> TokenStream2 {
+    let names: Vec<&syn::Ident> = reads.iter().map(|(name, _)| name).collect();
+    let bindings: Vec<syn::Ident> = names
+        .iter()
+        .map(|name| quote::format_ident!("__read_{}", name))
+        .collect();
+    let exprs = reads.iter().map(|(_, expr)| expr);
+    quote! {
+        let mut errors: ::std::vec::Vec<#krate::form::FieldError> = ::std::vec::Vec::new();
+        #( let #bindings = #exprs; )*
+        match (#(#bindings,)*) {
+            (#(::std::option::Option::Some(#bindings),)*) if errors.is_empty() => {
+                ::std::result::Result::Ok(#ctor { #(#names: #bindings),* })
+            }
+            _ => ::std::result::Result::Err(errors),
+        }
+    }
+}
+
 /// One write, read, presence check, and control per named field.
 fn expand_struct(
     krate: &TokenStream2,
@@ -402,9 +417,15 @@ fn expand_struct(
                 });
                 present_checks.push(leaf_present(krate, &path));
                 let path = chained(krate, &parent, &owner, ty, index, None);
-                reads.push(quote! {
-                    #name: #krate::schema::parse_leaf(&#krate::schema::leaf_key(cx, #path), values)
-                });
+                reads.push((
+                    name.clone(),
+                    quote! {
+                        #krate::schema::take_leaf(
+                            #krate::schema::parse_leaf(&#krate::schema::leaf_key(cx, #path), values),
+                            &mut errors,
+                        )
+                    },
+                ));
                 let text = field_label(field, name);
                 controls.push(leaf_control(krate, &path, &text, ty, field));
             }
@@ -415,15 +436,22 @@ fn expand_struct(
                 });
                 present_checks.push(nested_present(krate, ty, &path));
                 let path = chained(krate, &parent, &owner, ty, index, None);
-                reads.push(quote! {
-                    #name: <#ty as #krate::schema::EmbeddedForm>::read_form(cx, #path, values)
-                });
+                reads.push((
+                    name.clone(),
+                    quote! {
+                        #krate::schema::take_value(
+                            <#ty as #krate::schema::EmbeddedForm>::read_form(cx, #path, values),
+                            &mut errors,
+                        )
+                    },
+                ));
                 let path = chained(krate, &parent, &owner, ty, index, None);
                 controls.push(quote! { <#ty>::form(cx, #path) });
             }
         }
     }
 
+    let read_body = collected_read(krate, &quote! { Self }, &reads);
     let expanded = quote! {
         impl #impl_generics #krate::schema::EmbeddedForm for #ident #ty_generics #where_clause {
             fn write_form<M>(
@@ -441,11 +469,11 @@ fn expand_struct(
                 cx: &#krate::__macro::Cx,
                 parent: #krate::__macro::Path<M, Self>,
                 values: &::std::collections::HashMap<String, String>,
-            ) -> Self
+            ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::form::FieldError>>
             where
                 M: #krate::__macro::Model,
             {
-                Self { #(#reads),* }
+                #read_body
             }
 
             fn any_present<M>(
@@ -564,12 +592,18 @@ fn expand_enum(krate: &TokenStream2, input: &DeriveInput, data: &syn::DataEnum) 
                             }
                             let path =
                                 chained(krate, &parent, &owner, ty, index, Some(variant_index));
-                            reads.push(quote! {
-                                #name: #krate::schema::parse_leaf(
-                                    &#krate::schema::leaf_key(cx, #path),
-                                    values,
-                                )
-                            });
+                            reads.push((
+                                name.clone(),
+                                quote! {
+                                    #krate::schema::take_leaf(
+                                        #krate::schema::parse_leaf(
+                                            &#krate::schema::leaf_key(cx, #path),
+                                            values,
+                                        ),
+                                        &mut errors,
+                                    )
+                                },
+                            ));
                             let text = field_label(field, name);
                             let control = leaf_control(krate, &path, &text, ty, field);
                             match shared {
@@ -594,9 +628,15 @@ fn expand_enum(krate: &TokenStream2, input: &DeriveInput, data: &syn::DataEnum) 
                             presence_checks.push(nested_present(krate, ty, &path));
                             let path =
                                 chained(krate, &parent, &owner, ty, index, Some(variant_index));
-                            reads.push(quote! {
-                                #name: <#ty as #krate::schema::EmbeddedForm>::read_form(cx, #path, values)
-                            });
+                            reads.push((
+                                name.clone(),
+                                quote! {
+                                    #krate::schema::take_value(
+                                        <#ty as #krate::schema::EmbeddedForm>::read_form(cx, #path, values),
+                                        &mut errors,
+                                    )
+                                },
+                            ));
                             let path =
                                 chained(krate, &parent, &owner, ty, index, Some(variant_index));
                             controls.push(quote! { <#ty>::form(cx, #path) });
@@ -615,8 +655,9 @@ fn expand_enum(krate: &TokenStream2, input: &DeriveInput, data: &syn::DataEnum) 
                         #(#writes)*
                     }
                 });
+                let read_body = collected_read(krate, &quote! { Self::#variant_name }, &reads);
                 read_arms.push(quote! {
-                    #variant_index => Self::#variant_name { #(#reads),* },
+                    #variant_index => { #read_body }
                 });
                 variant_groups.push(variant_group(krate, &discriminant_value, &controls));
             }
@@ -630,7 +671,9 @@ fn expand_enum(krate: &TokenStream2, input: &DeriveInput, data: &syn::DataEnum) 
                         out.insert(spec.discriminant().to_string(), #discriminant_value);
                     }
                 });
-                read_arms.push(quote! { #variant_index => Self::#variant_name, });
+                read_arms.push(quote! {
+                    #variant_index => ::std::result::Result::Ok(Self::#variant_name),
+                });
                 variant_groups.push(variant_group(krate, &discriminant_value, &[]));
             }
             Fields::Unnamed(_) => {
@@ -669,7 +712,7 @@ fn expand_enum(krate: &TokenStream2, input: &DeriveInput, data: &syn::DataEnum) 
                 cx: &#krate::__macro::Cx,
                 parent: #krate::__macro::Path<M, Self>,
                 values: &::std::collections::HashMap<String, String>,
-            ) -> Self
+            ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::form::FieldError>>
             where
                 M: #krate::__macro::Model,
             {
@@ -681,17 +724,22 @@ fn expand_enum(krate: &TokenStream2, input: &DeriveInput, data: &syn::DataEnum) 
                     .unwrap_or_default();
                 // A discriminant the submission **names** always wins. Only a
                 // submission that carries none at all falls back to the payload
-                // rule; one that names an unknown variant is refused loudly
-                // rather than silently read as some other variant.
+                // rule; one that names an unknown variant is refused rather
+                // than silently read as some other variant.
                 let variant: usize = if submitted.is_empty() {
                     #fallback
                 } else {
-                    spec.index_of(submitted).unwrap_or_else(|| {
-                        panic!(
-                            "submitted discriminant {submitted:?} does not name a variant of {}",
-                            stringify!(#ident),
-                        )
-                    })
+                    match spec.index_of(submitted) {
+                        ::std::option::Option::Some(index) => index,
+                        ::std::option::Option::None => {
+                            return ::std::result::Result::Err(::std::vec![
+                                #krate::form::FieldError::invalid(
+                                    spec.discriminant(),
+                                    ::std::format!("`{submitted}` is not a valid variant"),
+                                ),
+                            ]);
+                        }
+                    }
                 };
                 match variant {
                     #(#read_arms)*

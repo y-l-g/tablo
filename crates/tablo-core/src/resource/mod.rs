@@ -13,8 +13,6 @@ use std::collections::HashMap;
 use toasty::stmt::{List, Query};
 use topcoat::{Result, context::Cx};
 
-use crate::schema::Schema;
-
 mod column;
 mod commit;
 mod filter;
@@ -54,14 +52,15 @@ pub(crate) use crate::query_term::clamp_query_term;
 /// rather than silently:
 ///
 /// - **Checked at [`Panel::build`](crate::panel::Panel::build)**: the table must declare columns
-///   and a row key, and with [`can_create`](Self::can_create) the [`form`](Self::form) must declare
-///   fields. `table`, `form` and `can_create` are declarations and take no request context, because
-///   build checks them with a Db-only context.
-/// - **Loud at request time**: the record fns ([`create_record`](Self::create_record),
-///   [`update_record`](Self::update_record), [`delete_record`](Self::delete_record)) default to an
-///   error naming the type, so a resource that never implemented delete says so instead of writing
-///   nothing quietly. [`bulk_delete_records`](Self::bulk_delete_records) loops `delete_record` by
-///   default, so it stays loud through the same stub.
+///   and a row key. A resource with a create or edit form implements
+///   [`FormResource`](crate::FormResource) and registers with
+///   [`Panel::form_resource`](crate::Panel::form_resource); build refuses one registered with
+///   [`Panel::resource`](crate::Panel::resource) whose [`can_create`](Self::can_create) or
+///   [`editable`](Self::editable) is on. These are declarations, checked with a Db-only context.
+/// - **Loud at request time**: [`delete_record`](Self::delete_record) defaults to an error naming
+///   the type, so a resource that never implemented delete says so instead of writing nothing
+///   quietly. [`bulk_delete_records`](Self::bulk_delete_records) loops `delete_record` by default,
+///   so it stays loud through the same stub.
 /// - **Opt-in chrome, gated per record**: [`deletable`](Self::deletable) and
 ///   [`editable`](Self::editable) are whole-resource flags, false by default; see
 ///   [`deletable`](Self::deletable) for how the row predicates narrow them.
@@ -107,6 +106,13 @@ pub trait Resource: Sized + Send + Sync + 'static {
     }
 
     /// Whether the current user may create a new record.
+    ///
+    /// `Panel::build` calls this with a Db-only context to decide which
+    /// declaration checks apply, so a predicate that reads the request (a
+    /// tenant, a user) answers as it would for an anonymous request there. The
+    /// list page links to the create page only for a resource registered with
+    /// [`Panel::form_resource`](crate::Panel::form_resource), whatever this
+    /// answers.
     fn can_create(_cx: &Cx) -> bool {
         false
     }
@@ -151,13 +157,13 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// How one record is displayed on the detail page, read-only.
     ///
-    /// The same [`Schema`] a form uses, rendered for reading: a `TextInput`
+    /// The same [`Schema`](crate::schema::Schema) a form uses, rendered for reading: a `TextInput`
     /// shows its stored value instead of an `<input>`, a `Select` shows the
     /// option label the form offered, and a layout block keeps the structure it
     /// declares. Declaring a view is what turns the detail page on — the default
     /// declares nothing, so the route 404s and no `View` row action renders.
     ///
-    /// Values come from [`hydrate_form_values`](Self::hydrate_form_values). A
+    /// Values come from [`view_values`](Self::view_values). A
     /// relation is not one of these fields — it is a list of records, not a
     /// string — and renders through [`view_relations`](Self::view_relations).
     ///
@@ -215,7 +221,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// its heading reads the title instead of `Blog Posts <record key>`.
     ///
     /// `cx` is the request's context — the same one [`view`](Self::view) and
-    /// [`hydrate_form_values`](Self::hydrate_form_values) receive — so a label
+    /// [`view_values`](Self::view_values) receive — so a label
     /// can read request state (a locale, a tenant). The default ignores both
     /// arguments and returns `None`.
     ///
@@ -396,27 +402,6 @@ pub trait Resource: Sized + Send + Sync + 'static {
         Table::new()
     }
 
-    /// The schema the create and edit forms render, and the source of the
-    /// fields the panel validates and hydrates.
-    ///
-    /// The default is empty, so a resource with no form still lists.
-    fn form(_cx: &Cx) -> Schema {
-        Schema::empty()
-    }
-
-    /// App-level field validation beyond the Schema's own rules.
-    ///
-    /// Runs after the Schema's required/typed/relationship checks inside
-    /// `prepare_submission` and before the unique probe. Returns field errors
-    /// keyed by field name; empty means valid. The default declares none, so
-    /// a resource without custom rules keeps the Schema's verdict alone.
-    ///
-    /// A range rule lives here, never in a record fn: a record fn error is a
-    /// 500, while this renders inline with a 200 and writes nothing.
-    fn validate(_cx: &Cx, _values: &HashMap<String, String>) -> HashMap<String, Vec<String>> {
-        HashMap::new()
-    }
-
     /// Sidebar entry for the resource.
     ///
     /// The default declares a label ([`Self::navigation_label`]) and no URL:
@@ -435,75 +420,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
         NavigationItem::for_resource::<Self>()
     }
 
-    /// Create a new record from form values, returning the row it wrote.
+    /// Delete the already-authorized `record` (#86).
     ///
-    /// The `Panel` create handler validates `required`/`email` inline and checks
-    /// `Resource::can_create` before calling this, inside a framework-owned
-    /// transaction: `ex` is the open tx — run every statement
-    /// through it (`exec(&mut *ex)`) and never open a second handle, so the
-    /// write commits atomically with the handler's checks. The default
-    /// implementation returns an error; resources should override to perform
-    /// the actual `toasty::create!` (or `Insert`).
-    ///
-    /// Return the created row — `toasty::create!` already hands it back, and
-    /// the framework cannot otherwise name what a create wrote: the primary key
-    /// is the database's (or the app's) to generate, so it is only knowable
-    /// from the row. That is what [`Self::after_commit`] receives for a create.
-    fn create_record(
-        _cx: &Cx,
-        _values: HashMap<String, String>,
-        _ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<Self::Model>> + Send
-    where
-        Self: Sized,
-    {
-        async move {
-            Err(std::io::Error::other(format!(
-                "create not implemented for {}",
-                std::any::type_name::<Self>()
-            ))
-            .into())
-        }
-    }
-
-    /// Update the already-authorized `record` from form values,
-    /// returning the row as it now stands.
-    ///
-    /// The handler loads `record` through the tenancy-scoped query **inside
-    /// the framework transaction** and checks `can_view` + `can_update` on
-    /// that snapshot before calling this — use the passed record directly,
-    /// never re-query by id (re-loading outside the checked snapshot was the
-    /// TOCTOU hole). Run writes through `ex`; commit/rollback is the
-    /// handler's job. Residual (documented, not fixed): a concurrent
-    /// cross-transaction policy flip landing between this tx's snapshot and
-    /// its commit is backend-isolation territory, out of scope here.
-    ///
-    /// Return the updated row, the way [`Self::create_record`] returns the
-    /// created one: `toasty::update!` already resolves to it, and
-    /// [`Self::after_commit`] needs what was written rather than what was
-    /// loaded — the pre-write snapshot would have a watcher notify its
-    /// subscribers with stale values.
-    fn update_record(
-        _cx: &Cx,
-        _record: Self::Model,
-        _values: HashMap<String, String>,
-        _ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<Self::Model>> + Send
-    where
-        Self: Sized,
-    {
-        async move {
-            Err(std::io::Error::other(format!(
-                "update not implemented for {}",
-                std::any::type_name::<Self>()
-            ))
-            .into())
-        }
-    }
-
-    /// Delete the already-authorized `record` (#86): same checked-
-    /// snapshot contract as [`Self::update_record`] — no re-query, write
-    /// through `ex`.
+    /// The handler loads `record` through the tenancy-scoped query inside the
+    /// framework transaction and checks `can_delete` on that snapshot: use it,
+    /// never re-query by id, and write through `ex`.
     fn delete_record(
         _cx: &Cx,
         _record: Self::Model,
@@ -578,19 +499,19 @@ pub trait Resource: Sized + Send + Sync + 'static {
         async move { Ok(()) }
     }
 
-    /// Hydrate form values from a record for the Edit and View pages.
+    /// The record's values for the detail page, keyed by the name each
+    /// [`view`](Self::view) field binds.
     ///
-    /// The record's **string projection**: the flat map every field binds, keyed
-    /// by the name the control posts. Default returns empty; a resource
-    /// overrides it to map its record to those keys (`name -> record.name`).
+    /// A resource registered with [`Panel::resource`](crate::Panel::resource)
+    /// supplies every key its view shows here. A
+    /// [`FormResource`](crate::FormResource) gets its form's keys from
+    /// [`RecordForm::hydrate`](crate::RecordForm::hydrate), and this adds any
+    /// key only the view shows; the form's keys win on a collision.
     ///
-    /// `cx` carries the app schema. A scalar projection needs no
-    /// request context, but an embedded **value** does: its keys are the
-    /// columns the compiled mapping resolves
-    /// ([`write_embedded`](crate::schema::write_embedded)), so this override
-    /// does not re-derive them. The context is the
-    /// request's, the same one `form(cx)` and the record fns receive.
-    fn hydrate_form_values(_cx: &Cx, _record: &Self::Model) -> HashMap<String, String> {
+    /// `cx` carries the app schema, which an embedded value's keys need
+    /// ([`write_embedded`](crate::schema::write_embedded)). The default is
+    /// empty.
+    fn view_values(_cx: &Cx, _record: &Self::Model) -> HashMap<String, String> {
         HashMap::new()
     }
 }

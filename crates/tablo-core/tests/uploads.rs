@@ -7,7 +7,6 @@
 //! one.
 
 use std::{
-    collections::HashMap,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -110,7 +109,16 @@ impl Resource for DocResource {
                 doc.title.clone()
             }))
     }
-
+}
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Doc)]
+struct DocForm {
+    title: String,
+    cover: String,
+    attachment: String,
+}
+impl tablo_core::FormResource for DocResource {
+    type Form = DocForm;
     fn form(_cx: &Cx) -> Schema {
         Schema::new((
             TextInput::r#for(Doc::fields().title()),
@@ -120,73 +128,6 @@ impl Resource for DocResource {
                 .optional(),
         ))
     }
-
-    fn hydrate_form_values(_cx: &Cx, record: &Doc) -> HashMap<String, String> {
-        HashMap::from([
-            ("title".to_string(), record.title.clone()),
-            ("cover".to_string(), record.cover.clone()),
-            ("attachment".to_string(), record.attachment.clone()),
-        ])
-    }
-
-    async fn create_record(
-        _cx: &Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Doc> {
-        // Absent keys store "" — the shape every showcase record fn
-        // has, so the upload path reaches the row the ordinary way.
-        let (title, cover, attachment) = stored_values(&values);
-        toasty::create!(Doc {
-            title: title,
-            cover: cover,
-            attachment: attachment,
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })
-    }
-
-    async fn update_record(
-        _cx: &Cx,
-        mut record: Doc,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Doc> {
-        // Absent keys keep the stored value; a cleared upload arrives
-        // as a present, empty value.
-        for (name, value) in [
-            ("title", &mut record.title),
-            ("cover", &mut record.cover),
-            ("attachment", &mut record.attachment),
-        ] {
-            if let Some(submitted) = values.get(name) {
-                *value = submitted.trim().to_string();
-            }
-        }
-        toasty::update!(record {
-            title: record.title.clone(),
-            cover: record.cover.clone(),
-            attachment: record.attachment.clone(),
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })?;
-        Ok(record)
-    }
-}
-
-/// The three uploaded strings a record fn reads, trimmed like every app does.
-fn stored_values(values: &HashMap<String, String>) -> (String, String, String) {
-    let read = |name: &str| {
-        values
-            .get(name)
-            .cloned()
-            .unwrap_or_default()
-            .trim()
-            .to_string()
-    };
-    (read("title"), read("cover"), read("attachment"))
 }
 
 async fn seeded_db() -> Db {
@@ -217,7 +158,7 @@ fn router(db: Db, uploader: Option<impl Uploader>) -> Router {
         None => panel,
     };
     panel
-        .resource::<DocResource>()
+        .form_resource::<DocResource>()
         .build()
         .expect("panel builds")
 }
@@ -891,7 +832,7 @@ async fn serve_dir_serves_the_upload_directory_through_the_panel() {
         .app_context(db)
         .auth(Auth::disabled())
         .serve_dir("/uploads/{*file}", dir.clone())
-        .resource::<DocResource>()
+        .form_resource::<DocResource>()
         .build()
         .expect("panel builds");
 
@@ -928,7 +869,7 @@ async fn a_served_directory_is_reachable_without_a_session() {
         .app_context(db)
         // No `.auth(..)` call: the shipped gate is on, which is the point.
         .serve_dir("/uploads/{*file}", dir.clone())
-        .resource::<DocResource>()
+        .form_resource::<DocResource>()
         .build()
         .expect("panel builds");
 
@@ -976,7 +917,7 @@ async fn served_active_content_is_inert() {
         .app_context(db)
         .auth(Auth::disabled())
         .serve_dir("/uploads/{*file}", dir.clone())
-        .resource::<DocResource>()
+        .form_resource::<DocResource>()
         .build()
         .expect("panel builds");
 
@@ -1063,7 +1004,7 @@ async fn a_serve_dir_path_without_a_catch_all_fails_the_build() {
     let Err(error) = Panel::new("admin")
         .app_context(db)
         .serve_dir("/uploads", temp_dir("bad-path"))
-        .resource::<DocResource>()
+        .form_resource::<DocResource>()
         .build()
     else {
         panic!("a serve_dir pattern with no catch-all must fail the build");

@@ -1,5 +1,9 @@
 # A record form that writes what the schema declares
 
+Closes #369.
+
+Line citations refer to the tree this design was written against, `72632705`.
+
 ## Summary
 
 A form-bearing resource declares one struct, `#[derive(RecordForm)]`, whose
@@ -149,7 +153,8 @@ Panel::new("admin")
     .form_resource::<CommentResource>();
 ```
 
-`Panel::resource::<R: Resource>` serves the list, the detail page, and delete.
+`Panel::resource::<R: Resource>` serves the list, the detail page, delete,
+bulk delete, and export, and its list links to no create page.
 `Panel::form_resource::<R: FormResource>` serves those plus the create page,
 the edit page, and the relationship-options endpoint. `Schema` stays
 hand-written because a Rust type does not pick its control: `role` is a
@@ -219,7 +224,8 @@ async fn update_record(
 
 `F::into_create` returns the model's create builder with every form field set.
 `write_create` stamps the tenant; a record fn that executes the create builder
-itself sets the tenant with `require_tenant(cx)?`, as the showcase does today.
+itself sets the tenant with `require_tenant(cx)?`, and names every column it
+sets beyond the form in `FormResource::CREATE_COLUMNS`.
 
 ### Validation rules
 
@@ -270,10 +276,10 @@ Edit (`resource_edit_post`):
 3. Record the **named keys** (see [Completion and naming](#completion-and-naming)).
 4. **Complete** every declared key the submission did not name from
    `F::hydrate(advisory)`, then run `Schema::validate_async`.
-5. Open the transaction, run the authoritative load, re-check policy, and run
-   `check_unique`.
+5. Open the transaction, run the authoritative load, and re-check policy.
 6. Re-complete the unnamed keys from `F::hydrate(record)`, the in-transaction
-   record. Then normalize, `F::parse`, and `validate_record`.
+   record. Then run `check_unique` against that projection, normalize,
+   `F::parse`, and `validate_record`.
 7. On any error, re-render with a 200. Otherwise call
    `update_record(cx, record, Posted { form, named }, tx)` and commit.
 
@@ -304,9 +310,10 @@ record, so the key stays absent and parses as blank. After completion the parse
 sees one value per declared key, which is why `create_record` receives a plain
 `F` and `Posted<F>` derefs to one.
 
-The write assigns only named fields. A field the submission did not post is
-never assigned, so a concurrent write to it between the page load and the
-commit survives. A named field is assigned even when its value equals the
+The write assigns only named fields, plus the model's own `#[update(..)]`
+defaults and `#[version]` bump, which `record.update()` adds to every update.
+A field the submission did not post is never assigned, so a concurrent write
+to it between the page load and the commit survives. A named field is assigned even when its value equals the
 stored one.
 
 ### Resolving a value
@@ -323,22 +330,26 @@ stored one.
 - **An embedded value** calls `EmbeddedForm::read_form`, which now returns
   `Result<Self, Vec<FieldError>>`. A leaf keeps ADR-0019's rule: empty reads
   as the leaf type's `Default`. A parse failure or an undeclared discriminant
-  is an `Invalid` error rather than a panic.
+  is an `Invalid` error rather than a panic. An emptied leaf therefore stores
+  its type's `Default`: an emptied `jiff::Timestamp` leaf stores the Unix
+  epoch.
 
-A blank reaches the parse without a schema error in one designed case:
+A blank reaches the parse without a schema error in two designed cases:
 `walk_absent_groups` suppresses requiredness inside an all-empty `Repeater`
+and inside a variant group the discriminant does not name
 (`schema/tree.rs:197`). The panel-build check below requires such a field to
 answer blank, so a `Required` error from the parse always accompanies the
 schema's own error.
 
 ### Writing
 
-`F::into_create` builds `<M as Model>::Create` with one `set_<field>` per form
-field. `F::into_update(record, named)` calls `record.update()` and then one
-`set_<field>` per named field; it returns `None` when no field is named. Both
-use the generated `set_<field>(&mut self, v: impl Assign<T>)`
-(`toasty-macros/src/model/expand/update.rs:70` at toasty `6a1f5d9`); an
-embedded value is assigned whole.
+`F::into_create` builds `<M as Model>::Create::default()` (which applies the
+model's `#[default(..)]`s) and chains the builder's by-value `<field>(v)`
+setter once per form field. `F::into_update(record, named)` calls
+`record.update()` and then one `set_<field>(&mut self, v: impl Assign<T>)`
+(`toasty-macros/src/model/expand/update.rs:70` at toasty `6a1f5d9`) per named
+field; it returns `None` when no field is named. An embedded value is assigned
+whole.
 
 `into_update` returns `Option` because toasty asserts on an update with no
 assignments:
@@ -387,14 +398,23 @@ compiled schema an embedded key needs (`panel/build.rs:457`):
    no field binds is reported first: that is the direction that silently drops
    data.
 2. **Blank agreement.** A scalar field whose control is optional, or whose
-   control sits inside a `Repeater`, answers blank. Embedded fields are exempt
-   because their leaves answer with `Default`.
+   control sits inside a `Repeater` or a variant group, answers blank.
+   Embedded fields are exempt because their leaves answer with `Default`.
 3. **Tenant ownership.** On a gated resource, no form field claims the column
    `tenant_field_index` finds.
+4. **Create columns.** Where `can_create` allows it, every non-nullable,
+   non-relation column is a form field, filled by toasty (`#[auto]`,
+   `#[default(..)]`), the stamped tenant column, or named in
+   `FormResource::CREATE_COLUMNS`. Toasty keeps `#[default(..)]` in generated
+   code only, so the check reads it off `M::Create::default()`: a column that
+   insert leaves `NULL` is one nothing fills.
 
 `Panel::resource::<R>` refuses a resource whose `can_create(cx)` or
 `editable()` is true: that resource declares create or edit and has no form to
-serve it.
+serve it. The checks call `can_create` with the Db-only build context, so a
+request-scoped predicate that denies there skips checks 4 and the refusal; the
+list page links to create only for a `form_resource` registration, whatever
+`can_create` answers per request.
 
 The checks read the schema once, at build. `form(cx)` must therefore declare
 the same key set on every request. No `Schema` feature varies the key set by
@@ -422,7 +442,9 @@ rustc refuses the rest at the use site the derive emits:
 - A field whose type differs from the model's: the path assertion
   `Path<M, T>` fails.
 - A scalar outside the supported set, which covers a `#[document]` column: the
-  sealed `FormScalar` bound fails.
+  `FormScalar` bound fails. `FormScalar` is implemented for `String`, every
+  `TypedValue` type, and an `Option` of either, so an app extends it by
+  implementing `TypedValue`.
 - `embed` on a type without `EmbeddedForm`.
 
 ### Errors and status codes
@@ -431,6 +453,7 @@ rustc refuses the rest at the use site the derive emits:
 | --- | --- |
 | A posted key no control declares | 400 (unchanged) |
 | A schema rule, a parse error, or a `validate_record` error | 200, re-rendered inline, nothing written |
+| A `validate_record` error on a field `RecordForm::fields` binds to no key | 500, nothing written |
 | A record fn error | `hook_failure` (`panel/forms/submit.rs:160`, unchanged) |
 | `PostResource`: author missing from the tenant | 500 from the record fn (unchanged) |
 | `CommentResource`: post outside the tenant | 404 from the record fn (unchanged) |
@@ -529,17 +552,16 @@ Then, in order:
    so the derive's `tablo_core::` paths resolve inside `tablo-core`'s own unit
    tests. `proc_macro_crate` already answers `FoundCrate::Itself` with
    `tablo_core` (`crates/tablo-macros/src/embedded.rs:67-71`).
-2. In `tablo-core`: `RecordForm`, the sealed `FormScalar`, `FormField`,
+2. In `tablo-core`: `RecordForm`, `FormScalar`, `FormField`,
    `FieldError` and `FieldErrorKind`, `FieldErrors`, `Posted`,
    `write_create`, and `write_update`. Make `form_keys` public as
    `schema::value_keys`, with the discriminant first so an embedded field's
    errors render under its variant control.
 3. `EmbeddedForm::read_form` and `parse_leaf` return `Result`. Remove
-   `submitted` and `EmbeddedForm::any_present` with their tests
-   (`crates/tablo-core/tests/embedded_value.rs`): outside those tests, their
-   callers are `kept_embedded`, which step 8 deletes, and the
-   `EmbeddedForm` derive's own recursion
-   (`crates/tablo-macros/src/embedded.rs:330`).
+   `submitted`: outside its tests (`crates/tablo-core/tests/embedded_value.rs`),
+   its caller is `kept_embedded`, which step 8 deletes. `EmbeddedForm::any_present`
+   stays: an enum's payload fallback asks a nested value whether its own keys
+   were posted (`crates/tablo-macros/src/embedded.rs:317`).
 4. Add `FormResource` and `Panel::form_resource`. Move `form`, the create and
    edit routes, and the options route (`panel/mod.rs:324`) behind it. Remove
    `form`, `validate`, `create_record`, and `update_record` from `Resource`, and
@@ -630,12 +652,14 @@ that the detail page and the form agree on a field holds by construction.
   the record fns now receive typed values. Keep the reference to upstream
   issues #115 and #119.
 - Amend ADR-0019 for `read_form` returning `Result` and the removal of
-  `submitted` and `any_present`.
+  `submitted`.
 - `docs/adr/README.md`: the index row for ADR-0022.
-- `docs/dev/upstream-notes.md`: toasty's instance update builder has no setter
-  keyed by path and implements no trait carrying `exec`.
-- `CONTEXT.md`: add `Record form`, `Posted`, `Named field`, and `Completion`
-  entries, with an `_Avoid_` list for each (`Patch`, `Draft`, `Presence`,
+- The two toasty gaps the design works around live where they bite: the
+  `RecordForm::exec_update` rustdoc records that the instance update builder
+  implements no trait carrying `exec`, and the Alternatives above record that it
+  sets a field only by ident.
+- `CONTEXT.md`: add `Record form`, `Posted`, and `Completion` entries (the
+  last defines named keys and fields), with an `_Avoid_` list for each (`Patch`, `Draft`, `Presence`,
   `Input`). Amend the `Resource` entry (`CONTEXT.md:62`), which names
   `hydrate_form_values`.
 - `docs/guide/src/resources.md`: a chapter adapted from the User-facing API

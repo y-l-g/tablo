@@ -1,6 +1,6 @@
 # Single-resource CRUD — Create/Edit, record fns, Policy, Notification
 
-Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-21, 2026-09-22
+Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-21, 2026-09-22, 2026-09-28
 
 ## Decision
 
@@ -47,3 +47,10 @@ with no N+1. `Panel` remains the single owner of Router/Db/Shell; `Resource::que
 own row-scoping seam with the framework applying the tenant half (ADR-0002); `Schema` stays the form
 seam and `Table` the list seam. No `Resource` hand-rolls `#[shard]`. The showcase test modules cover
 the vertical slice, and `cargo test --workspace` / `clippy -D warnings` / `fmt` stay green per commit.
+
+## Amendment — 2026-09-28
+
+**Hydration and the create/update record fns belong to the record form.** The decision's
+`Resource::hydrate_form_values` is superseded by this amendment: the edit form hydrates from
+`RecordForm::hydrate`, and `form`, `validate_record`, `create_record`, and `update_record` live on
+`FormResource`, registered with `Panel::form_resource` (ADR-0022).

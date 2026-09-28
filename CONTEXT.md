@@ -58,11 +58,13 @@ _Avoid_: Token (the client half), SessionStore, Login, Cookie
 
 ### Resource
 
-A type that maps one Toasty Model to its admin UI: the base query, the table, the form, the
-record's string projection for edit/view hydration (`hydrate_form_values(cx, record)`), the
-view (GH #187), the navigation entry, and the policy (`can_*` predicates). One Model → one
-Resource; its routes (list/create/view/edit/delete) come from the Panel registration, not a
-`pages()` declaration. A resource that declares no `view` has no detail page: `viewed()` is
+A type that maps one Toasty Model to its admin UI: the base query, the table, the view
+(GH #187) and its values (`view_values(cx, record)`), the navigation entry, and the policy
+(`can_*` predicates). A resource with a create or edit form also implements `FormResource`,
+which holds the form's schema, its record form, `validate_record`, and the create and update
+record fns. One Model → one Resource; its routes come from the Panel registration —
+`Panel::resource` for the list, detail, delete, bulk delete, and export, `Panel::form_resource` for
+those plus create, edit, and the relationship options — not a `pages()` declaration. A resource that declares no `view` has no detail page: `viewed()` is
 derived from the schema, so the route and the row's `View` link cannot disagree. Tenancy,
 export scoping, and row chrome are covered in the guide; see
 [resources](docs/guide/src/resources.md) and
@@ -135,8 +137,8 @@ _Avoid_: Show page, Infolist page, Record view
 
 ### Action
 
-A user-invoked delete/create/edit operation driven by a `Resource` record fn (`delete_record` /
-`bulk_delete_records` / `create_record` / `update_record`) through a POST handler, inside a
+A user-invoked delete/create/edit operation driven by a record fn (`Resource::delete_record` /
+`bulk_delete_records`, `FormResource::create_record` / `update_record`) through a POST handler, inside a
 transaction, with authorization checked against the passed record inside the handler (ADR-0004).
 A non-CRUD operation (publish, archive) is still modelled as a record fn or a hand-written page;
 an `Action` value with its own before/after hooks remains future work (GH #112).
@@ -244,6 +246,35 @@ on create and changed on edit. Per-field overrides are `#[form(label = "…")]`,
 [forms](docs/guide/src/forms.md).
 
 _Avoid_: Nested form, Sub-form, Composite field, Inline model
+
+### Record form
+
+The typed value a resource's form submission parses into (GH #369, ADR-0022):
+one struct, `#[derive(RecordForm)]`, with one field per model column the form writes, named
+and typed like the model's field. A scalar binds the key its control posts; an embedded value
+(`#[record_form(embed)]`) binds every key it occupies. The panel parses every submission into it,
+hydrates the edit and detail pages from it, and writes it through toasty's builders. See
+[forms](docs/guide/src/forms.md#the-record-form).
+
+_Avoid_: Patch, Draft, Input, DTO, Form (alone: that is the `Schema`)
+
+### Completion
+
+On an edit, filling every declared key the submission did not post from the stored record
+before the form parses, so the record fn receives a whole form and an unposted key keeps its
+value. The **named** keys are the ones the submission posted; a **named field** has at least one
+named key, and the write assigns only named fields (plus the model's `#[update(..)]` defaults and
+`#[version]` bump). An untouched file input is not named.
+
+_Avoid_: Presence, Backfill (as the general term), Merge, Default
+
+### Posted
+
+What `FormResource::update_record` receives: the parsed record form (it derefs to it) and the
+fields the submission named. `into_update(&mut record)` is the instance update builder with one
+assignment per named field, or `None` when the submission named none.
+
+_Avoid_: Patch, Changes, Diff, Submission
 
 ### Uploader
 

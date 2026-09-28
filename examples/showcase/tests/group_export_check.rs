@@ -157,7 +157,7 @@ async fn posts_export_streams_csv_with_content_disposition() {
 async fn export_over_cap_413s_at_route_level() {
     // GH #136 §4: the 413 mapping is unit-tested (`export_cap_maps_one_row…`);
     // this pins the route wiring — a table past the cap answers 413.
-    use tablo_core::{Resource, Schema, Table, TextColumn, TextInput};
+    use tablo_core::{Resource, Table, TextColumn};
     use toasty::Db;
 
     use crate::common::TestClient;
@@ -188,9 +188,6 @@ async fn export_over_cap_413s_at_route_level() {
                 .columns(TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
                     d.name.clone()
                 }))
-        }
-        fn form(_cx: &topcoat::context::Cx) -> Schema {
-            Schema::new(TextInput::r#for(Dummy::fields().name()))
         }
     }
 

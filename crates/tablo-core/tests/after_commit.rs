@@ -7,15 +7,13 @@
 //! `tx.commit()`, before the response — and no unit test of the hook alone
 //! could show that.
 
-use std::collections::HashMap;
-
 use http::header::LOCATION;
 use tablo_core::{Committed, Mutation, Resource, Schema, Table, TextColumn, TextInput};
 use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
 
-use crate::common::{memory_db, post_fields, router};
+use crate::common::{form_router, memory_db, post_fields};
 
 #[derive(Debug, toasty::Model, Clone)]
 struct Note {
@@ -105,47 +103,6 @@ impl Resource for AuditedResource {
             }))
     }
 
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
-    }
-
-    fn hydrate_form_values(_cx: &Cx, record: &Note) -> HashMap<String, String> {
-        HashMap::from([("title".to_string(), record.title.clone())])
-    }
-
-    async fn create_record(
-        _cx: &Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Note> {
-        toasty::create!(Note {
-            title: values.get("title").cloned().unwrap_or_default(),
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })
-    }
-
-    async fn update_record(
-        _cx: &Cx,
-        mut record: Note,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Note> {
-        if let Some(title) = values.get("title") {
-            record.title = title.clone();
-        }
-        toasty::update!(record {
-            title: record.title.clone(),
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })?;
-        // The instance update reloads the row, so this is the committed state
-        // the hook must see.
-        Ok(record)
-    }
-
     async fn delete_record(
         _cx: &Cx,
         record: Note,
@@ -161,6 +118,17 @@ impl Resource for AuditedResource {
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
         audit(cx, &committed).await
+    }
+}
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Note)]
+struct AuditedForm {
+    title: String,
+}
+impl tablo_core::FormResource for AuditedResource {
+    type Form = AuditedForm;
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(TextInput::r#for(Note::fields().title()))
     }
 }
 
@@ -190,22 +158,16 @@ impl Resource for PlainResource {
                 note.title.clone()
             }))
     }
-
+}
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Note)]
+struct PlainForm {
+    title: String,
+}
+impl tablo_core::FormResource for PlainResource {
+    type Form = PlainForm;
     fn form(_cx: &Cx) -> Schema {
         Schema::new(TextInput::r#for(Note::fields().title()))
-    }
-
-    async fn create_record(
-        _cx: &Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Note> {
-        toasty::create!(Note {
-            title: values.get("title").cloned().unwrap_or_default(),
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })
     }
 }
 
@@ -235,20 +197,26 @@ impl Resource for FailingWriteResource {
             }))
     }
 
+    async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
+        audit(cx, &committed).await
+    }
+}
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Note)]
+struct FailingWriteForm {
+    title: String,
+}
+impl tablo_core::FormResource for FailingWriteResource {
+    type Form = FailingWriteForm;
     fn form(_cx: &Cx) -> Schema {
         Schema::new(TextInput::r#for(Note::fields().title()))
     }
-
     async fn create_record(
         _cx: &Cx,
-        _values: HashMap<String, String>,
+        _form: FailingWriteForm,
         _ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<Note> {
         Err(std::io::Error::other("the write refused itself").into())
-    }
-
-    async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
-        audit(cx, &committed).await
     }
 }
 
@@ -280,27 +248,21 @@ impl Resource for FailingHookResource {
             }))
     }
 
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
-    }
-
-    async fn create_record(
-        _cx: &Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Note> {
-        toasty::create!(Note {
-            title: values.get("title").cloned().unwrap_or_default(),
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })
-    }
-
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
         // Ran, and left its evidence, before failing.
         audit(cx, &committed).await?;
         Err(std::io::Error::other("the webhook is down").into())
+    }
+}
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Note)]
+struct FailingHookForm {
+    title: String,
+}
+impl tablo_core::FormResource for FailingHookResource {
+    type Form = FailingHookForm;
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(TextInput::r#for(Note::fields().title()))
     }
 }
 
@@ -331,7 +293,7 @@ async fn audits(db: &Db) -> Vec<Audit> {
 #[tokio::test]
 async fn a_create_audits_the_row_it_committed_exactly_once() {
     let db = seeded_db().await;
-    let router = router::<AuditedResource>(db.clone());
+    let router = form_router::<AuditedResource>(db.clone());
 
     let response = post_fields(&router, "/admin/notes/create", &[("title", "Alpha")]).await;
     assert_eq!(response.status(), 303, "a valid create redirects");
@@ -352,7 +314,7 @@ async fn a_create_audits_the_row_it_committed_exactly_once() {
 #[tokio::test]
 async fn an_edit_and_a_delete_each_audit_the_row_they_named() {
     let db = seeded_db().await;
-    let router = router::<AuditedResource>(db.clone());
+    let router = form_router::<AuditedResource>(db.clone());
     let note = seed_note(&db, "Alpha").await;
 
     let response = post_fields(
@@ -393,7 +355,7 @@ async fn an_edit_and_a_delete_each_audit_the_row_they_named() {
 #[tokio::test]
 async fn a_bulk_delete_is_one_call_for_the_whole_batch() {
     let db = seeded_db().await;
-    let router = router::<AuditedResource>(db.clone());
+    let router = form_router::<AuditedResource>(db.clone());
     let first = seed_note(&db, "Alpha").await;
     let second = seed_note(&db, "Beta").await;
 
@@ -420,7 +382,7 @@ async fn a_bulk_delete_is_one_call_for_the_whole_batch() {
 #[tokio::test]
 async fn a_refused_submit_never_reaches_the_hook() {
     let db = seeded_db().await;
-    let router = router::<AuditedResource>(db.clone());
+    let router = form_router::<AuditedResource>(db.clone());
 
     // `title` is required: validation re-renders the form and the transaction
     // is never opened.
@@ -437,7 +399,7 @@ async fn a_refused_submit_never_reaches_the_hook() {
 #[tokio::test]
 async fn a_failed_write_never_reaches_the_hook() {
     let db = seeded_db().await;
-    let router = router::<FailingWriteResource>(db.clone());
+    let router = form_router::<FailingWriteResource>(db.clone());
 
     let response = post_fields(
         &router,
@@ -461,7 +423,7 @@ async fn a_failed_write_never_reaches_the_hook() {
 #[tokio::test]
 async fn a_failing_hook_does_not_undo_the_write() {
     let db = seeded_db().await;
-    let router = router::<FailingHookResource>(db.clone());
+    let router = form_router::<FailingHookResource>(db.clone());
 
     let response = post_fields(
         &router,
@@ -490,7 +452,7 @@ async fn a_failing_hook_does_not_undo_the_write() {
 #[tokio::test]
 async fn a_resource_without_the_hook_writes_exactly_as_before() {
     let db = seeded_db().await;
-    let router = router::<PlainResource>(db.clone());
+    let router = form_router::<PlainResource>(db.clone());
 
     let response = post_fields(&router, "/admin/plain-notes/create", &[("title", "Alpha")]).await;
     assert_eq!(response.status(), 303, "the default hook is a no-op");

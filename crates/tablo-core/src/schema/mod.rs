@@ -25,8 +25,10 @@ use std::collections::{HashMap, HashSet};
 
 pub use embedded::{
     EmbeddedForm, EnumSpec, discriminant_select, enum_spec, leaf_key, parse_leaf, read_embedded,
-    submitted, write_embedded,
+    value_keys, write_embedded,
 };
+#[doc(hidden)]
+pub use embedded::{take_leaf, take_value};
 pub use fields::{FileUpload, Select, TextInput, Textarea};
 pub use layouts::{Grid, Group, Repeater, Section, Tabs};
 pub use lenses::FieldLens;
@@ -41,6 +43,30 @@ pub(crate) use tree::{
 };
 pub use validation::TypedValue;
 
+/// One control as the record-form checks see it ([`Schema::controls`]).
+#[derive(Debug, Clone)]
+pub(crate) struct Control {
+    /// The key the control posts.
+    pub(crate) name: String,
+    /// Whether an empty submission fails the control's rules.
+    pub(crate) required: bool,
+    /// The message an empty submission produces, when it fails.
+    pub(crate) required_error: Option<String>,
+    /// The container that can skip the control's requiredness, if any: a
+    /// submission may then reach the parse with the control empty.
+    pub(crate) skipped_by: Option<SkippedBy>,
+}
+
+/// A container whose submission can leave its controls' requiredness
+/// unchecked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SkippedBy {
+    /// An all-empty `Repeater` group.
+    Repeater,
+    /// A variant group the submission's discriminant does not name.
+    VariantGroup,
+}
+
 /// The container that composes layout blocks.
 #[derive(Debug, Default)]
 pub struct Schema {
@@ -50,9 +76,7 @@ pub struct Schema {
 impl Schema {
     /// Whether this schema declares nothing to render.
     ///
-    /// `Panel::build` refuses a resource that allows create but declares no
-    /// fields: the form would render empty and silently accept nothing. Public
-    /// because [`Resource::view`](crate::resource::Resource::view) defaults to
+    /// Public because [`Resource::view`](crate::resource::Resource::view) defaults to
     /// this and [`Resource::viewed`](crate::resource::Resource::viewed) reads it
     /// as "no detail page declared".
     pub fn is_empty(&self) -> bool {
@@ -87,8 +111,9 @@ impl Schema {
     /// a detail page reuses the field types and layout blocks a form already
     /// declares rather than a parallel infolist vocabulary. `values` is the
     /// record hydrated exactly as the edit form hydrates it
-    /// ([`Resource::hydrate_form_values`](crate::resource::Resource::hydrate_form_values)):
-    /// what a user reads on the page is what the form would have shown them.
+    /// ([`RecordForm::hydrate`](crate::RecordForm::hydrate) for a form
+    /// resource): what a user reads on the page is what the form would have
+    /// shown them.
     pub async fn render_readonly<'a>(
         &self,
         cx: &'a Cx,
@@ -121,10 +146,10 @@ impl Schema {
     /// A parse failure here leaves the submission untouched and reports nothing:
     /// it is unreachable from the handlers, and a silent rewrite would hide a
     /// bypass rather than surface it. A field with no submission keeps its
-    /// absence (an update writes only present keys), and an **empty** submission
-    /// stays empty: a typed column has no spelling for "no value", so empty is
-    /// the presence rule's business — `.required()` refuses it inline, and an
-    /// optional typed field reaches its record fn as `""`.
+    /// absence, and an **empty** submission stays empty: a typed column has no
+    /// spelling for "no value", so empty is the presence rule's business —
+    /// `.required()` refuses it inline, and an optional typed field reaches the
+    /// record form's parse as `""`, which reads it as the field's blank answer.
     pub fn normalize_values(&self, values: &mut HashMap<String, String>) {
         for (name, input) in self.text_inputs() {
             let Some(submitted) = values.get(&name) else {
@@ -197,6 +222,38 @@ impl Schema {
             }
         }
         .boxed())
+    }
+
+    /// Every control, in declaration order, with what an empty submission
+    /// does to it: the schema's own required message when it refuses one, and
+    /// the container that can skip its requiredness — an all-empty `Repeater`
+    /// or a variant group the discriminant does not name
+    /// ([`walk_absent_groups`]).
+    pub(crate) fn controls(&self) -> Vec<Control> {
+        fn walk(nodes: &[Node], skipped_by: Option<SkippedBy>, out: &mut Vec<Control>) {
+            let empty = HashMap::new();
+            for node in nodes {
+                if let Some((name, errors)) = validate_leaf(node, &empty) {
+                    out.push(Control {
+                        name: name.to_string(),
+                        required: !errors.is_empty(),
+                        required_error: errors.into_iter().next(),
+                        skipped_by,
+                    });
+                }
+                if let Some(child) = node.children() {
+                    let inner = match node {
+                        Node::Repeater(_) => Some(SkippedBy::Repeater),
+                        Node::Group(group) if group.is_variant() => Some(SkippedBy::VariantGroup),
+                        _ => None,
+                    };
+                    walk(&child.nodes, skipped_by.or(inner), out);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.nodes, None, &mut out);
+        out
     }
 
     /// Collect field names for validation (TextInput + Textarea + Select + FileUpload).
@@ -307,10 +364,11 @@ impl Schema {
 
     /// Validate submitted values against declared inputs.
     ///
-    /// Absent keys are treated as `""` for validation; update record fns must
-    /// therefore only write keys present in the submission, or an omitted
-    /// optional field silently blanks the stored value. Use
-    /// [`Self::unknown_keys`] to allow-list POST keys.
+    /// Absent keys are treated as `""`. The edit handler completes every key
+    /// the submission did not post from the stored record before it validates,
+    /// so an omitted key validates as its stored value there
+    /// ([`FormResource`](crate::FormResource)). Use [`Self::unknown_keys`] to
+    /// allow-list POST keys.
     ///
     /// A field a submission hides is not validated: an all-empty
     /// Repeater group is absent, and a variant group the submission's

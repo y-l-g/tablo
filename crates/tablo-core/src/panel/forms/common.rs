@@ -21,6 +21,7 @@ use super::{
 };
 use crate::{
     db::db,
+    form::{FormResource, RecordForm},
     notification::{Notification, set_notification},
     resource::Resource,
 };
@@ -48,8 +49,8 @@ pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
 /// Reject POST keys no declared Schema input owns (GH #89 mass-assignment
 /// allow-list). `csrf_token` is a handler key, not a field, so it is filtered
 /// before the check, as are `clear_<field>` flags for declared `FileUpload`
-/// fields (explicit-clear convention — `truthy`); absent keys are fine
-/// (present-keys-only updates), unknown keys are a 400 — accepting
+/// fields (explicit-clear convention — `truthy`); absent keys are fine (an
+/// edit completes them from the stored record), unknown keys are a 400 — accepting
 /// `role`/`tenant_id` smuggling would let a generic record fn iterating
 /// `values` promote them to client-controlled writes.
 pub(super) fn reject_unknown_form_keys(
@@ -177,7 +178,7 @@ pub(super) async fn restore_pending_uploads(
 // The public link rides through to the re-rendered form for the same reason
 // as above.
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn rerender_invalid_form<'a, R: Resource>(
+pub(super) async fn rerender_invalid_form<'a, R: FormResource>(
     cx: &'a Cx,
     tx: toasty::Transaction<'_>,
     title: String,
@@ -203,7 +204,7 @@ pub(super) fn redirect_after_write<R: Resource>(cx: &Cx, note: &'static str) -> 
 
 /// Edit page GET — hydrates the form from the record the tenant-scoped
 /// load returned.
-pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
+pub(crate) fn resource_edit<R: FormResource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         let mut db = db(cx);
@@ -212,7 +213,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
-        let values = R::hydrate_form_values(cx, &record);
+        let values = <R::Form as RecordForm>::hydrate(cx, &record);
         let public = R::public_url(cx, &record);
         let html = render_form_page::<R>(
             cx,
@@ -263,7 +264,7 @@ mod tests {
         ]);
         assert!(reject_unknown_form_keys(&schema, &values).is_ok());
 
-        // Absent keys are fine (present-keys-only updates).
+        // Absent keys are fine: an edit completes them from the stored record.
         let values = HashMap::from([(
             crate::csrf::FIELD_NAME.to_string(),
             "some-token".to_string(),

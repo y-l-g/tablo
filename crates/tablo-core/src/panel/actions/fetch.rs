@@ -147,7 +147,7 @@ mod tests {
     use topcoat::router::Body;
 
     use super::*;
-    use crate::panel::test_support::panel_for;
+    use crate::panel::test_support::form_panel_for;
 
     #[tokio::test]
     async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
@@ -246,6 +246,17 @@ mod tests {
                     ))
             }
         }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Pair)]
+        struct PairForm {
+            name: String,
+        }
+        impl crate::form::FormResource for PairResource {
+            type Form = PairForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(crate::schema::TextInput::r#for(Pair::fields().name()))
+            }
+        }
 
         let db = Db::builder()
             .models(toasty::models!(Pair))
@@ -253,7 +264,9 @@ mod tests {
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = panel_for::<PairResource>(db).build().expect("panel builds");
+        let router = form_panel_for::<PairResource>(db)
+            .build()
+            .expect("panel builds");
         let resp = router
             .handle(
                 http::Request::builder()

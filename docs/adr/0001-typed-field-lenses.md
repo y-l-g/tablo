@@ -1,6 +1,6 @@
 # Typed field lenses, not string state paths
 
-Date: 2026-08-19 — Status: accepted — Amended: 2026-09-10
+Date: 2026-08-19 — Status: accepted — Amended: 2026-09-10, 2026-09-28
 
 ## Decision
 
@@ -17,3 +17,10 @@ carries uniqueness too, read from the model's index list rather than from the fi
 extraction remain upstream gaps — form values stay string-keyed (`HashMap<String, String>`) at the
 value level, so the lens proves field existence, not typed data flow. See upstream issues #115
 (metadata) and #119 (instance→field extraction).
+
+## Amendment — 2026-09-28
+
+**Record fns receive typed values.** The form transport stays string-keyed, and a record form
+(ADR-0022) parses it into a struct whose fields are bound by ident to the model's fields, so the
+write is typed at compile time. Upstream issues #115 and #119 stand: an embedded leaf's key is still
+resolved at run time.

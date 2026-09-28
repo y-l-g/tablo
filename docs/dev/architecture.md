@@ -10,7 +10,7 @@ depends on `tablo-core` and `tablo-ui`.
 
 | Crate | Depends on | Contents |
 | --- | --- | --- |
-| `tablo-macros` | — | the `EmbeddedForm` derive |
+| `tablo-macros` | — | the `EmbeddedForm` and `RecordForm` derives |
 | `tablo-ui` | `topcoat` | synced primitives, owned composites, `icons.rs` |
 | `tablo-core` | `tablo-macros`, `tablo-ui`, `toasty` | Panel, Resource, Table, Schema, auth, tenancy, upload |
 | `examples/showcase` | `tablo-core`, `tablo-ui`, `toasty` | the runnable admin and the integration tests |
@@ -62,12 +62,14 @@ the same 404, while a row the caller may not view is a 403.
 Create, update, delete, and bulk delete run the same shape:
 
 1. `enforce_auth`, `enforce_tenant`, and the matching `can_*` check.
-2. For a form: validate, which also resolves relationship fields against the related resource's
-   query.
+2. For a form: on an edit, complete the keys the submission did not post from the stored record;
+   then validate, which also resolves relationship fields against the related resource's query.
 3. Open a framework-owned transaction and re-load the target through the scoped query, so policy is
    checked against the row that is about to be written rather than the submitted id.
-4. Call the resource's record function inside that transaction.
-5. Commit, then call `Resource::after_commit(cx, committed)`.
+4. For a form: re-complete the unposted keys from that row, run the unique probe, parse the values
+   into the resource's record form, and run `validate_record`; any error re-renders the form.
+5. Call the resource's record function inside that transaction.
+6. Commit, then call `Resource::after_commit(cx, committed)`.
 
 Every POST carries a double-submit CSRF token, and a bulk delete additionally requires the
 `confirm=1` marker that only the confirm control emits. The record functions are the mutation
@@ -88,6 +90,7 @@ committed write, and a failure in it is logged without rolling the write back.
 | `Resource::editable` / `deletable` | `resource/mod.rs` | whether the row chrome renders, default off |
 | `schema::OptionSource` | `schema/relationship.rs` | what a relationship select offers, and who may see it |
 | `EmbeddedForm` | `tablo-macros` | the flat form map ↔ a typed embedded value |
+| `RecordForm` / `FormResource` | `form.rs` | the typed value a form writes, and the create and update record fns |
 | `Uploader` | `upload.rs` | where a `FileUpload`'s bytes go |
 | `Authenticator` | `auth.rs` | how credentials resolve to a `CurrentUser` |
 | `Table::key` (`Table::id` alias) / `Table::pk` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |

@@ -28,6 +28,7 @@ pub struct User {
     /// A stored integer the form binds through `TextInput::typed`: optional,
     /// zero or more.
     pub age: i64,
+    #[default(jiff::Timestamp::now())]
     pub created_at: Timestamp,
 }
 
@@ -117,6 +118,7 @@ pub struct Post {
     #[index]
     pub status: String,
     pub featured: bool,
+    #[default(jiff::Timestamp::now())]
     pub created_at: Timestamp,
     /// The library row this post shows as its cover, if any. An optional
     /// single picker: the form offers the tenant's media rows and stores the

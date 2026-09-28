@@ -1,10 +1,7 @@
 use http::header::LOCATION;
 use showcase::{app::router_for_tests as router, models::User};
 
-use crate::common::{
-    assert_hydrate_keys_are_form_fields, body_string, demo_client, response_cookies, seeded_db,
-    set_cookie_header,
-};
+use crate::common::{body_string, demo_client, response_cookies, seeded_db, set_cookie_header};
 
 #[tokio::test]
 async fn edit_page_hydrates_and_updates() {
@@ -152,52 +149,137 @@ async fn edit_rejects_forged_post_before_probing_the_record() {
         );
     }
 }
+/// An edit that posts only `email` changes only `email`: the framework fills
+/// every unposted key from the stored record and writes only the named fields.
 #[tokio::test]
-async fn update_record_keeps_absent_fields() {
-    use std::collections::HashMap;
-
-    use showcase::app::UserResource;
-    use tablo_core::Resource;
-
+async fn an_edit_writes_only_the_fields_it_posts() {
     let db = seeded_db().await;
-    let cx = topcoat::context::CxTestBuilder::new()
-        .app_context(db.clone())
-        .build();
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
-    let users = User::all().exec(&mut db_q).await.unwrap();
-    let user = users.first().unwrap().clone();
-    // Only email submitted: name must keep its stored value.
-    let mut values = HashMap::new();
-    values.insert("email".to_string(), "kept@example.com".to_string());
-    let mut ex = tablo_core::db::db(&cx);
-    UserResource::update_record(&cx, user.clone(), values, &mut ex)
+    let user = User::filter(User::fields().name().eq("Ada Lovelace".to_string()))
+        .first()
+        .exec(&mut db_q)
         .await
-        .unwrap();
+        .unwrap()
+        .expect("Ada is seeded");
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let resp = client
+        .csrf(&csrf)
+        .post_form(
+            &format!("/admin/users/{}/edit", user.id),
+            format!("email=kept%40example.com&csrf_token={csrf}"),
+        )
+        .await;
+    assert!(
+        resp.status().is_redirection(),
+        "a partial edit passes validation, got {} {}",
+        resp.status(),
+        body_string(resp).await
+    );
     let mut db_check = db.clone();
     let fresh = User::get_by_id(&mut db_check, &user.id).await.unwrap();
     assert_eq!(fresh.email, "kept@example.com");
-    assert_eq!(
-        fresh.name, user.name,
-        "absent fields must not be blanked, got {}",
-        fresh.name
-    );
+    assert_eq!(fresh.name, user.name, "an unposted field keeps its value");
+    assert_eq!(fresh.role, user.role);
+    assert_eq!(fresh.active, user.active);
+    assert_eq!(fresh.age, user.age);
 }
 
+/// Emptying an optional select stores the field's blank answer: the create
+/// default, never the stored value.
 #[tokio::test]
-async fn hydrate_form_values_match_schema_fields() {
-    use showcase::app::UserResource;
-
+async fn an_emptied_select_stores_its_blank_answer() {
     let db = seeded_db().await;
-    let cx = topcoat::context::CxTestBuilder::new()
-        .app_context(db.clone())
-        .build();
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
-    let users = User::all().exec(&mut db_q).await.unwrap();
-    let user = users.first().unwrap();
-    // Every hydrated key must be a declared form field: a renamed
-    // lens without an updated string literal would render blank and break
-    // the unique unchanged-skip.
-    assert_hydrate_keys_are_form_fields::<UserResource>(&cx, user);
+    let admin = User::filter(User::fields().role().eq("admin".to_string()))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("an admin is seeded");
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let url = format!("/admin/users/{}/edit", admin.id);
+    // Deactivate first, so the emptied `active` below has a value to change.
+    let resp = client
+        .csrf(&csrf)
+        .post_form(&url, format!("active=false&csrf_token={csrf}"))
+        .await;
+    assert!(resp.status().is_redirection());
+    let resp = client
+        .csrf(&csrf)
+        .post_form(&url, format!("role=&active=&age=&csrf_token={csrf}"))
+        .await;
+    assert!(
+        resp.status().is_redirection(),
+        "got {} {}",
+        resp.status(),
+        body_string(resp).await
+    );
+    let mut db_check = db.clone();
+    let fresh = User::get_by_id(&mut db_check, &admin.id).await.unwrap();
+    assert_eq!(
+        fresh.role, "member",
+        "an emptied role stores the create default"
+    );
+    assert!(fresh.active, "an emptied active stores the create default");
+    assert_eq!(fresh.age, 0, "an emptied age stores zero");
+    assert_eq!(fresh.name, admin.name, "an unposted field keeps its value");
+}
+
+/// The post form's optional selects store their create defaults when emptied.
+#[tokio::test]
+async fn an_emptied_post_select_stores_its_blank_answer() {
+    use showcase::models::Post;
+
+    let db = crate::common::full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let post = Post::filter(Post::fields().title().eq("Hello Toasty".to_string()))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("the seeded post");
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let url = format!("/admin/posts/{}/edit", post.id);
+    let resp = client
+        .csrf(&csrf)
+        .post_form(
+            &url,
+            format!("status=published&featured=true&csrf_token={csrf}"),
+        )
+        .await;
+    assert!(resp.status().is_redirection());
+    let resp = client
+        .csrf(&csrf)
+        .post_form(&url, format!("status=&featured=&csrf_token={csrf}"))
+        .await;
+    assert!(
+        resp.status().is_redirection(),
+        "got {} {}",
+        resp.status(),
+        body_string(resp).await
+    );
+    let mut db_check = db.clone();
+    let saved = Post::filter(Post::fields().id().eq(post.id))
+        .first()
+        .exec(&mut db_check)
+        .await
+        .unwrap()
+        .expect("the post");
+    assert_eq!(
+        saved.status, "draft",
+        "an emptied status stores the create default"
+    );
+    assert!(
+        !saved.featured,
+        "an emptied featured stores the create default"
+    );
+    assert_eq!(saved.title, post.title, "an unposted field keeps its value");
 }
 
 #[tokio::test]
@@ -371,6 +453,61 @@ async fn post_edit_binds_and_saves_embedded_fields() {
         "the embedded struct's leaf must persist"
     );
     assert_eq!(saved.seo.description, "Desc");
+}
+
+/// Posting one leaf of an embedded struct names the whole value: the other
+/// leaf is completed from the stored record, so the value is written whole
+/// without blanking it. The other post fields are not posted and keep theirs.
+#[tokio::test]
+async fn post_edit_naming_one_embedded_leaf_keeps_the_other() {
+    use showcase::models::Post;
+
+    let db = crate::common::full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+
+    let mut db_q = db.clone();
+    let post = Post::filter(Post::fields().title().eq("Hello Toasty".to_string()))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("the seeded post");
+    assert!(
+        !post.seo.description.is_empty(),
+        "the fixture must carry a description to keep"
+    );
+
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let resp = client
+        .csrf(&csrf)
+        .post_form(
+            &format!("/admin/posts/{}/edit", post.id),
+            format!("seo_title=Only+the+title&csrf_token={csrf}"),
+        )
+        .await;
+    assert!(
+        resp.status().is_redirection(),
+        "a partial edit must redirect, got {} {}",
+        resp.status(),
+        body_string(resp).await
+    );
+
+    let mut db_check = db.clone();
+    let saved = Post::filter(Post::fields().id().eq(post.id))
+        .first()
+        .exec(&mut db_check)
+        .await
+        .unwrap()
+        .expect("the post");
+    assert_eq!(saved.seo.title, "Only the title");
+    assert_eq!(
+        saved.seo.description, post.seo.description,
+        "the unposted leaf keeps its stored value"
+    );
+    assert_eq!(saved.body, post.body);
+    assert_eq!(saved.status, post.status);
+    assert_eq!(saved.publication, post.publication);
 }
 
 /// GH #191: the edit form carries the **stored variant**, and a submit that
