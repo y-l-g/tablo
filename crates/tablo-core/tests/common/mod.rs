@@ -11,7 +11,9 @@
 //! cookie-carrying helpers, so those carry the `auth` gate too.
 
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
-use tablo_core::{Auth, FormResource, Panel, Resource};
+#[cfg(feature = "auth")]
+use tablo_core::Resource;
+use tablo_core::{Auth, FormResource, Panel};
 #[cfg(feature = "auth")]
 use tablo_test::cookie_header;
 pub use tablo_test::{body_bytes, body_string, multipart_body};
@@ -39,6 +41,7 @@ pub fn panel(db: Db) -> Panel {
 }
 
 /// [`panel`] with one resource registered and built under `auth`.
+#[cfg(feature = "auth")]
 pub fn router_with<R: Resource>(db: Db, auth: Auth) -> Router {
     Panel::new("admin")
         .app_context(db)

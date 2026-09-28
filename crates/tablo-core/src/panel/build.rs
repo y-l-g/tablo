@@ -778,6 +778,14 @@ mod tests {
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx)
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct DummyForm {
+            name: String,
+        }
+        impl crate::form::FormResource for DummyResource {
+            type Form = DummyForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Dummy::fields().name()))
             }
@@ -789,7 +797,7 @@ mod tests {
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = panel_for::<DummyResource>(db)
+        let router = form_panel_for::<DummyResource>(db)
             .build()
             .expect("the explicit opt-out builds the panel");
 
