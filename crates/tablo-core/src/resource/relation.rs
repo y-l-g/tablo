@@ -17,13 +17,15 @@
 //! record it read — the page is rendered before the handler's `record` binding
 //! drops, and the borrow checker says so if it is not.
 
+use std::borrow::Cow;
+
 use tablo_ui::{table, table_body, table_cell, table_head, table_header, table_row};
 use topcoat::{
     context::Cx,
-    view::{BoxView, ViewExt, view},
+    view::{BoxView, ViewExt, attributes, view},
 };
 
-use super::Resource;
+use super::{ColumnWidth, Resource};
 
 /// The most rows a relation table renders.
 ///
@@ -34,6 +36,16 @@ use super::Resource;
 /// truncates, so a capped relation never reads as a complete one.
 pub const MAX_RELATION_ROWS: usize = 50;
 
+/// The readability floor one [`ColumnWidth::Wide`] relation column contributes
+/// to the table's `min-width`, in whole rem.
+///
+/// The same floor the list table gives a wide column: a wide column declares no
+/// width, so a sum of declared widths alone would let it crush to zero on a
+/// narrow viewport. Six rem keeps body text readable and, summed across the
+/// wide columns, trips the wrapper's horizontal scroll before the fixed layout
+/// crushes them.
+const WIDE_COLUMN_MIN_REM: u8 = 6;
+
 /// One column of a relation's read-only table.
 ///
 /// The projection is the same shape a list column uses — a typed closure over
@@ -42,6 +54,8 @@ pub const MAX_RELATION_ROWS: usize = 50;
 pub struct RelationColumn<R> {
     label: String,
     display: Box<dyn Fn(&R) -> String + Send + Sync>,
+    /// The width this column claims in the table's fixed layout.
+    width: ColumnWidth,
 }
 
 impl<R> RelationColumn<R> {
@@ -58,7 +72,28 @@ impl<R> RelationColumn<R> {
         Self {
             label: label.into(),
             display: Box::new(display),
+            width: ColumnWidth::Wide,
         }
+    }
+
+    /// Declare this column's width in the table's fixed layout:
+    /// `.width(ColumnWidth::Percent(20))` for a column that knows its own
+    /// measure.
+    ///
+    /// The default is [`Wide`](ColumnWidth::Wide): a relation column holds a
+    /// related row's own text — a comment body, a name — so it takes a share
+    /// of what the declared columns leave. Override it when the content
+    /// disagrees: a status, date, or count is
+    /// [`Narrow`](ColumnWidth::Narrow).
+    pub fn width(mut self, width: ColumnWidth) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// The width this column declares, which the renderer emits on its `th`
+    /// and on every `td` of its column.
+    pub fn column_width(&self) -> ColumnWidth {
+        self.width
     }
 
     /// The column's heading.
@@ -76,6 +111,7 @@ impl<R> std::fmt::Debug for RelationColumn<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RelationColumn")
             .field("label", &self.label)
+            .field("width", &self.width)
             .finish_non_exhaustive()
     }
 }
@@ -140,6 +176,67 @@ into_relation_columns_tuples!(a, b, c, d, e, f);
 into_relation_columns_tuples!(a, b, c, d, e, f, g);
 into_relation_columns_tuples!(a, b, c, d, e, f, g, h);
 
+/// The width every column of one relation render declares: one `style` value
+/// per declared column, in column order, plus the table-level floor.
+///
+/// A [`ColumnWidth::Narrow`] column claims its kind's share (10% nominally);
+/// an explicit `Rem`/`Percent` is emitted as declared; a
+/// [`Wide`](ColumnWidth::Wide) column declares nothing and takes a share of
+/// what the declared columns leave. At most eight columns declare together,
+/// so the kind defaults total at most 80%: they never claim the whole table
+/// the way an unbounded set could, and every undeclared column keeps a share.
+///
+/// The table-level `min-width` is the sum of those declarations: every share
+/// as emitted, every `Rem` verbatim, and one [`WIDE_COLUMN_MIN_REM`] per wide
+/// column (which declares nothing and would otherwise crush to zero). With
+/// `w-full` the table never exceeds its container on its own, so without the
+/// floor the wrapper's `overflow-x-auto` never scrolls; with it the table
+/// keeps its measure on a narrow viewport and the wrapper scrolls. Emitted
+/// only when the sum carries a length — shares alone are a fraction of the
+/// container and can never overflow it.
+fn relation_widths<R>(
+    columns: &[RelationColumn<R>],
+) -> (Vec<Option<Cow<'static, str>>>, Option<Cow<'static, str>>) {
+    let cells = columns
+        .iter()
+        .map(|col| {
+            let width = col.column_width();
+            width.explicit_css().or_else(|| {
+                width
+                    .default_percent()
+                    .map(|percent| Cow::Owned(format!("width: {percent}%")))
+            })
+        })
+        .collect();
+    let mut percent_terms: Vec<u8> = Vec::new();
+    let mut rem_total: u32 = 0;
+    for col in columns {
+        match col.column_width() {
+            ColumnWidth::Wide => rem_total += u32::from(WIDE_COLUMN_MIN_REM),
+            ColumnWidth::Narrow => {
+                if let Some(share) = col.column_width().default_percent() {
+                    percent_terms.push(share);
+                }
+            }
+            ColumnWidth::Rem(rem) => rem_total += u32::from(rem),
+            ColumnWidth::Percent(share) => percent_terms.push(share),
+        }
+    }
+    let table_min_width = (rem_total > 0).then(|| {
+        let mut parts: Vec<String> = percent_terms
+            .iter()
+            .map(|share| format!("{share}%"))
+            .collect();
+        parts.push(format!("{rem_total}rem"));
+        if parts.len() == 1 {
+            Cow::Owned(format!("min-width: {}", parts[0]))
+        } else {
+            Cow::Owned(format!("min-width: calc({})", parts.join(" + ")))
+        }
+    });
+    (cells, table_min_width)
+}
+
 /// Render `rows` as a titled, read-only table.
 ///
 /// `R` is the related resource. Its [`can_view`](Resource::can_view) is applied
@@ -194,6 +291,9 @@ pub fn render_relation<'a, R: Resource>(
     let overflow = (total > MAX_RELATION_ROWS).then(|| {
         format!("Showing the first {MAX_RELATION_ROWS} of {total} related rows you can view.")
     });
+    // The declared widths are a property of the columns, not of the row, so
+    // they are resolved once here: the same CSS for every row.
+    let (cell_widths, table_min_width) = relation_widths(&columns.columns);
     // Row ids are positional: this table does not reorder or swap, so it needs
     // no record key — the list's `Table::id` contract exists for keyed diffs
     // and action URLs, and neither exists here.
@@ -205,18 +305,25 @@ pub fn render_relation<'a, R: Resource>(
                 <p class="text-sm text-muted-foreground">"None."</p>
             } else {
                 table(
+                    attrs: attributes! { class="table-fixed" style=(table_min_width.as_deref()) },
                     table_header(
                         table_row(
-                            for head in heads {
-                                table_head((head))
+                            for (head, width) in heads.iter().zip(&cell_widths) {
+                                table_head(
+                                    attrs: attributes! { style=(width.as_deref()) },
+                                    (head.clone())
+                                )
                             }
                         )
                     )
                     table_body(
-                        for row in cells {
+                        for row in &cells {
                             table_row(
-                                for cell in row {
-                                    table_cell((cell))
+                                for (cell, width) in row.iter().zip(&cell_widths) {
+                                    table_cell(
+                                        attrs: attributes! { class="truncate" style=(width.as_deref()) },
+                                        (cell.clone())
+                                    )
                                 }
                             )
                         }
