@@ -17,9 +17,7 @@ the scope before continuing.
 
 ## Using AI assistants
 
-AI-assisted contributions are welcome. The human author is responsible for understanding the
-submitted code and defending it in review: a change whose author cannot discuss it gets closed.
-Name the model and describe what it did in the pull request description.
+AI-assisted contributions are welcome, with no disclosure required.
 
 ## Build and run
 
