@@ -22,5 +22,7 @@ document stays as the proposal record.
 ## Starting a new document
 
 Copy [`_template.md`](_template.md) to `docs/dev/design/<feature-name>.md` and
-fill it in. Keep the section order; if a section genuinely does not apply,
-delete it and say why in one line rather than leaving it empty.
+fill it in. The template's sections are the default shape, not a fixed form:
+keep them in that order where they fit, delete one that does not apply and say
+why in one line rather than leaving it empty, and add a section when the design
+needs one the template lacks.
