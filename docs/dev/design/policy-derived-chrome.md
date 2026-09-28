@@ -79,13 +79,6 @@ relationship option loads keep their per-row `can_*` gating.
   to decide columns before loading rows. The rows are already in hand at render
   time, so the page-driven rule needs no query. Discarded.
 
-## Open questions
-
-- Blocking-acceptance: confirm hiding (rather than disabling) the action and
-  bulk columns on fully denied or empty pages.
-- Blocking-implementation: none.
-- Deferrable: none.
-
 ## Out of scope
 
 Policy vocabulary (`can_*` signatures and default-deny) is unchanged. The
