@@ -32,8 +32,6 @@ what changed and why with the issue link (`Closes #123`), the gates that ran
 and their result, and the checklist. Keep the section headings; delete checklist
 items that do not apply rather than leaving them unchecked with no explanation.
 
-If an AI agent created the change, name the model and describe what it did.
-
 ## Be succinct
 
 Reviewers already know Tablo and Rust. Include what they need to evaluate the
