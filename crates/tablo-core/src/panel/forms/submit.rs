@@ -20,8 +20,10 @@ use super::{
 };
 use crate::{
     db::db,
+    form::{FieldErrorKind, FormResource, Posted, RecordForm},
     notification::notify_write_failure,
     resource::{Committed, Resource},
+    schema::Schema,
 };
 
 /// Failure-toast wording for the create/update handlers: one place,
@@ -30,31 +32,29 @@ const WRITE_CREATE: &str = "create the record";
 const WRITE_UPDATE: &str = "save the changes";
 
 /// The staged submission both write handlers carry into their transaction: the
-/// declared schema, the upload-staged and transport-stripped values, the
-/// validation errors so far, the upload paths a re-render keeps, and
-/// the stored values the edit path compares against.
+/// declared schema, the completed values, the validation errors so far, the
+/// upload paths a re-render keeps, and the keys the submission named.
 struct Submission {
-    schema: crate::schema::Schema,
+    schema: Schema,
     values: HashMap<String, String>,
     errors: HashMap<String, Vec<String>>,
     carried: HashSet<String>,
-    current: HashMap<String, String>,
+    named: HashSet<String>,
 }
 
 /// Stage a create/edit submission: reject undeclared keys, take file values
 /// only from file parts, store the uploads outside the transaction, restore the
-/// paths a re-rendered form carried, backfill
-/// an untouched file input from `advisory`, strip the transport keys
-/// and validate — required and unique-free checks first, then the
-/// async relationship existence check.
+/// paths a re-rendered form carried, strip the transport keys, record the keys
+/// the submission names, complete the rest from `advisory`, and validate —
+/// required and unique-free checks first, then the async relationship
+/// existence check.
 ///
-/// `advisory` is the edit path's pre-transaction snapshot: it seeds the stored
-/// values and the untouched-file backfill. A create passes `None`, so both are
-/// empty and the backfill never fires.
-async fn prepare_submission<R: Resource>(
+/// `advisory` is the edit path's pre-transaction snapshot. A create passes
+/// `None`, so nothing is completed and an absent key validates as `""`.
+async fn prepare_submission<R: FormResource>(
     cx: &Cx,
     parts: FormParts,
-    advisory: Option<R::Model>,
+    advisory: Option<&R::Model>,
 ) -> Result<Submission, topcoat::Error> {
     let schema = R::form(cx);
     reject_unknown_form_keys(&schema, &parts.values)?;
@@ -63,8 +63,8 @@ async fn prepare_submission<R: Resource>(
         files,
         file_part_names,
     } = parts;
-    let current = advisory
-        .map(|advisory| R::hydrate_form_values(cx, &advisory))
+    let stored = advisory
+        .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
     // A declared `FileUpload` takes its value only from a file part:
     // a text part or a url-encoded pair under the same name is client-typed,
@@ -78,16 +78,13 @@ async fn prepare_submission<R: Resource>(
     let (upload_errors, mut carried) =
         crate::upload::store_uploads(cx, &schema, &files, &mut values).await;
     // A form re-rendered after a failed submit carries the path its store just
-    // answered; the uploader must still hold it, and it wins over the record's
-    // stored value below. Run before the backfill: a restored field
-    // is non-empty, so the backfill leaves it alone.
+    // answered; the uploader must still hold it. A restored field is
+    // non-empty, so the untouched check below leaves it alone.
     carried.extend(restore_pending_uploads(cx, &schema, &mut values).await);
-    // Untouched file inputs preserve the stored path: the edit form
-    // renders an empty file input (browsers never pre-fill it), so an empty
-    // submit means "keep", not "clear" — without this the required check
-    // rejects untouched edits and optional uploads get blanked. An explicit
-    // `clear_<field>=1` opts back into clearing; a chosen file still wins over
-    // it, because a replacement is not a removal.
+    // An untouched file input is not named: the edit form renders an empty file
+    // input (browsers never pre-fill it), so an empty part means "keep", not
+    // "clear". An explicit `clear_<field>=1` names it empty; a chosen file
+    // still wins over the clear, because a replacement is not a removal.
     for name in schema.file_uploads().keys() {
         let cleared = values
             .get(&format!("clear_{name}"))
@@ -96,28 +93,106 @@ async fn prepare_submission<R: Resource>(
             .get(name)
             .map(|v| v.trim().is_empty())
             .unwrap_or(true);
-        if !cleared && empty && current.get(name).is_some_and(|v| !v.trim().is_empty()) {
-            values.insert(name.clone(), current[name].clone());
+        if !cleared && empty && stored.get(name).is_some_and(|v| !v.trim().is_empty()) {
+            values.remove(name);
         }
     }
     // Transport keys never reach the record fn; see `strip_transport_keys`.
     strip_transport_keys(&schema, &mut values);
+    let named: HashSet<String> = values.keys().cloned().collect();
+    complete(&schema, &mut values, &named, &stored);
     let mut errors = schema.validate_async(cx, &values).await;
     // A rejected upload owns its field's error slot: "required" would restate
     // the symptom (nothing was stored) and hide the reason.
     errors.extend(upload_errors);
-    // App-level rules render inline like the Schema's own: a record fn error
-    // is a 500, so a range or cross-field rule lives here, never there.
-    for (field, field_errors) in R::validate(cx, &values) {
-        errors.entry(field).or_default().extend(field_errors);
-    }
     Ok(Submission {
         schema,
         values,
         errors,
         carried,
-        current,
+        named,
     })
+}
+
+/// Fill every declared key the submission did not name from `stored`, the
+/// record's form projection, and drop one `stored` does not hold. On create
+/// `stored` is empty and an unnamed key stays absent.
+fn complete(
+    schema: &Schema,
+    values: &mut HashMap<String, String>,
+    named: &HashSet<String>,
+    stored: &HashMap<String, String>,
+) {
+    for name in schema.field_names() {
+        if named.contains(&name) {
+            continue;
+        }
+        match stored.get(&name) {
+            Some(value) => values.insert(name, value.clone()),
+            None => values.remove(&name),
+        };
+    }
+}
+
+/// Parse the completed values into the resource's form and run its
+/// `validate_record`, adding each failure to `errors`.
+///
+/// A parse failure is added only to a key with no error yet, so a blank
+/// required control shows the schema's message once. `validate_record` needs a
+/// whole form, so it runs only when every field parsed.
+fn parse_form<R: FormResource>(
+    cx: &Cx,
+    schema: &Schema,
+    values: &HashMap<String, String>,
+    errors: &mut HashMap<String, Vec<String>>,
+) -> Option<R::Form> {
+    // Typed fields parse their own spelling, not the browser's.
+    let mut normalized = values.clone();
+    schema.normalize_values(&mut normalized);
+    match <R::Form as RecordForm>::parse(cx, &normalized) {
+        Ok(form) => {
+            let fields = <R::Form as RecordForm>::fields(cx);
+            for (field, message) in R::validate_record(cx, &form).iter() {
+                // A field's errors render under its first key: a scalar's own,
+                // an embedded enum's discriminant.
+                if let Some(key) = fields
+                    .iter()
+                    .find(|claim| claim.field == *field)
+                    .and_then(|claim| claim.keys.first())
+                {
+                    errors.entry(key.clone()).or_default().push(message.clone());
+                }
+            }
+            Some(form)
+        }
+        Err(failures) => {
+            let controls = schema.controls();
+            for failure in failures {
+                if errors.contains_key(&failure.key) {
+                    continue;
+                }
+                let message = match failure.kind {
+                    FieldErrorKind::Required => controls
+                        .iter()
+                        .find(|control| control.name == failure.key)
+                        .and_then(|control| control.required_error.clone())
+                        .unwrap_or(failure.message),
+                    FieldErrorKind::Invalid => failure.message,
+                };
+                errors.insert(failure.key, vec![message]);
+            }
+            None
+        }
+    }
+}
+
+/// The form fields with at least one key the submission named.
+fn named_fields<F: RecordForm>(cx: &Cx, named: &HashSet<String>) -> Vec<F::Field> {
+    F::fields(cx)
+        .into_iter()
+        .filter(|field| field.keys.iter().any(|key| named.contains(key)))
+        .map(|field| field.field)
+        .collect()
 }
 
 /// The shared write tail: commit the transaction,
@@ -162,7 +237,7 @@ async fn commit_write<'a, R: Resource>(
     }
 }
 
-pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
+pub(crate) fn resource_create_post<R: FormResource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         if !R::can_create(cx) {
@@ -174,7 +249,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // snapshot: a rejected file leaves its field empty beside the reason.
         let Submission {
             schema,
-            mut values,
+            values,
             mut errors,
             carried,
             ..
@@ -193,7 +268,8 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         {
             errors.entry(name).or_default().extend(errs);
         }
-        if !errors.is_empty() {
+        let form = parse_form::<R>(cx, &schema, &values, &mut errors);
+        let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form::<R>(
                 cx,
                 tx,
@@ -205,34 +281,32 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 None,
             )
             .await;
-        }
-        // Typed fields write their own spelling, not the browser's.
-        schema.normalize_values(&mut values);
-        // Attempt creation via Resource hook, inside the tx. The row it
-        // returns is what `after_commit` names for this write — the
-        // key is the database's to generate, so the row is the only place the
-        // framework can learn it.
-        let written = R::create_record(cx, values.clone(), &mut tx).await;
+        };
+        // The row the record fn returns is what `after_commit` names for this
+        // write — the key is the database's to generate, so the row is the
+        // only place the framework can learn it.
+        let written = R::create_record(cx, form, &mut tx).await;
         commit_write::<R>(cx, tx, written, Committed::created, "Created", WRITE_CREATE).await
     })))
 }
 
-/// Edit page POST — validates, checks `can_view` + `can_update`, mutates via Update projection.
+/// Edit page POST — validates, checks `can_view` + `can_update`, and writes
+/// the fields the submission named.
 ///
 /// Requires both `can_view` and `can_update` (matching GET, deny-by-default):
 /// a view-denied but writable record must not be mutable by direct POST.
-pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
+pub(crate) fn resource_edit_post<R: FormResource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         let parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, &parts.values)?;
         let id = topcoat::router::path_param_segment(cx, "id").to_string();
-        // Advisory load on a pooled handle: feeds hydration and the
-        // pre-validation file backfill below. The body is already parsed and
-        // CSRF-verified, so the load never runs for a forged POST.
-        // The authoritative load + policy check happens inside the framework
-        // transaction; validation's `validate_async` loaders run before it
-        // opens (see `crate::db` pool discipline).
+        // Advisory load on a pooled handle: feeds the completion validation
+        // reads. The body is already parsed and CSRF-verified, so the load
+        // never runs for a forged POST. The authoritative load + policy check
+        // happens inside the framework transaction; validation's
+        // `validate_async` loaders run before it opens (see `crate::db` pool
+        // discipline).
         let mut db0 = db(cx);
         let advisory = find_by_key_narrowed::<R>(cx, &id, &mut db0).await?;
         if !R::can_view(cx, &advisory) {
@@ -246,8 +320,8 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             mut values,
             mut errors,
             carried,
-            current,
-        } = prepare_submission::<R>(cx, parts, Some(advisory)).await?;
+            named,
+        } = prepare_submission::<R>(cx, parts, Some(&advisory)).await?;
         // Authoritative load inside the framework transaction (#86):
         // policy is checked on this snapshot and the same record flows into
         // the write — never a silent re-load outside the checked snapshot.
@@ -260,10 +334,16 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         if !R::can_update(cx, &record) {
             return Err(forbidden().into());
         }
-        for (name, errs) in check_unique::<R>(cx, &schema, &values, &current, &mut tx).await? {
+        // The unnamed keys come from this snapshot, not the advisory one: the
+        // parsed form reads what the write sees, and no unnamed key is ever
+        // written back.
+        let stored = <R::Form as RecordForm>::hydrate(cx, &record);
+        complete(&schema, &mut values, &named, &stored);
+        for (name, errs) in check_unique::<R>(cx, &schema, &values, &stored, &mut tx).await? {
             errors.entry(name).or_default().extend(errs);
         }
-        if !errors.is_empty() {
+        let form = parse_form::<R>(cx, &schema, &values, &mut errors);
+        let Some(form) = form.filter(|_| errors.is_empty()) else {
             let public = R::public_url(cx, &record);
             return rerender_invalid_form::<R>(
                 cx,
@@ -276,13 +356,13 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
                 public,
             )
             .await;
-        }
-        // Typed fields write their own spelling, not the browser's.
-        schema.normalize_values(&mut values);
-        let written = R::update_record(cx, record, values.clone(), &mut tx).await;
+        };
+        let posted = Posted::new(form, named_fields::<R::Form>(cx, &named));
+        let written = R::update_record(cx, record, posted, &mut tx).await;
         commit_write::<R>(cx, tx, written, Committed::updated, "Updated", WRITE_UPDATE).await
     })))
 }
+
 #[cfg(test)]
 mod tests {
     use toasty::Db;
@@ -291,14 +371,12 @@ mod tests {
     use super::*;
     use crate::{
         Panel,
-        panel::test_support::{Dummy, dummy_table, panel_for, response_html},
+        panel::test_support::{Dummy, dummy_table, form_panel_for, response_html},
         schema::{FileUpload, Schema, TextInput},
     };
 
     #[tokio::test]
     async fn edit_post_requires_can_view_as_well_as_can_update() {
-        use std::collections::HashMap;
-
         use crate::resource::Resource;
 
         struct ViewDeniedResource;
@@ -313,18 +391,19 @@ mod tests {
             fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            async fn update_record(
-                _cx: &Cx,
-                record: Dummy,
-                _values: HashMap<String, String>,
-                _ex: &mut dyn toasty::Executor,
-            ) -> Result<Dummy> {
-                // Nothing to write in this test; a record fn returns the row it
-                // wrote, so it hands back the one it was given.
-                Ok(record)
-            }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx)
+            }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct ViewDeniedForm {
+            name: String,
+        }
+        impl crate::form::FormResource for ViewDeniedResource {
+            type Form = ViewDeniedForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Dummy::fields().name()))
             }
         }
 
@@ -340,7 +419,7 @@ mod tests {
         .exec(&mut db)
         .await
         .unwrap();
-        let router = panel_for::<ViewDeniedResource>(db)
+        let router = form_panel_for::<ViewDeniedResource>(db)
             .build()
             .expect("panel builds");
         let url = format!("/admin/dummies/{}/edit", row.id);
@@ -395,14 +474,12 @@ mod tests {
         assert_eq!(no_token.status(), http::StatusCode::FORBIDDEN);
     }
 
-    /// Record fns never see framework transport keys: the create POST carries
+    /// Framework transport keys never reach the write: the create POST carries
     /// `csrf_token` (and, for file schemas, `clear_<field>` and the
     /// `keep_<field>` candidate a re-rendered form adds), which the framework
-    /// strips before `create_record`.
+    /// strips before the parse, and the client-typed candidate is never stored.
     #[tokio::test]
-    async fn create_record_receives_no_transport_keys() {
-        use std::sync::Mutex;
-
+    async fn transport_keys_never_reach_the_write() {
         use crate::schema::{FileUpload, Schema, TextInput};
 
         #[derive(Debug, toasty::Model, Clone)]
@@ -414,7 +491,6 @@ mod tests {
             title: String,
         }
 
-        static RECEIVED: Mutex<Vec<Vec<String>>> = Mutex::new(Vec::new());
         struct CapturingResource;
         impl crate::resource::Resource for CapturingResource {
             type Model = Doc;
@@ -435,28 +511,20 @@ mod tests {
                         |d: &Doc| d.title.clone(),
                     ))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Doc)]
+        struct CapturingForm {
+            title: String,
+            path: String,
+        }
+        impl crate::form::FormResource for CapturingResource {
+            type Form = CapturingForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new((
                     TextInput::r#for(Doc::fields().title()),
                     FileUpload::r#for(Doc::fields().path()),
                 ))
-            }
-            async fn create_record(
-                _cx: &Cx,
-                values: HashMap<String, String>,
-                ex: &mut dyn toasty::Executor,
-            ) -> topcoat::Result<Doc> {
-                let mut keys = values.keys().cloned().collect::<Vec<_>>();
-                keys.sort();
-                RECEIVED.lock().unwrap().push(keys);
-                // A create returns the row it wrote.
-                toasty::create!(Doc {
-                    path: values.get("path").cloned().unwrap_or_default(),
-                    title: values.get("title").cloned().unwrap_or_default(),
-                })
-                .exec(&mut *ex)
-                .await
-                .map_err(|error| -> topcoat::Error { error.into() })
             }
         }
 
@@ -466,7 +534,7 @@ mod tests {
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = panel_for::<CapturingResource>(db)
+        let router = form_panel_for::<CapturingResource>(db.clone())
             .build()
             .expect("panel builds");
         let csrf = uuid::Uuid::new_v4().to_string();
@@ -511,15 +579,14 @@ mod tests {
                     .to_bytes()
             )
         );
-        let received = RECEIVED.lock().unwrap();
-        let keys = received.last().expect("create_record ran");
-        assert!(
-            !keys.contains(&"csrf_token".to_string())
-                && !keys.contains(&"clear_path".to_string())
-                && !keys.contains(&"keep_path".to_string()),
-            "transport keys must be stripped before the record fn, got {keys:?}"
+        let mut db_q = db.clone();
+        let docs = Doc::all().exec(&mut db_q).await.unwrap();
+        assert_eq!(docs.len(), 1, "one row written");
+        assert_eq!(docs[0].title, "x");
+        assert_ne!(
+            docs[0].path, "javascript:alert(1)",
+            "a client-typed carry candidate must never be stored"
         );
-        assert_eq!(keys.len(), 2, "declared fields only, got {keys:?}");
     }
 
     /// GH #229, create half: a write that fails at the driver surfaces the
@@ -547,21 +614,16 @@ mod tests {
             fn can_create(_cx: &Cx) -> bool {
                 true
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct WritingForm {
+            name: String,
+        }
+        impl crate::form::FormResource for WritingResource {
+            type Form = WritingForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Dummy::fields().name()))
-            }
-            async fn create_record(
-                _cx: &Cx,
-                values: HashMap<String, String>,
-                ex: &mut dyn toasty::Executor,
-            ) -> Result<Dummy> {
-                // The write the hook performs is the one that fails.
-                toasty::create!(Dummy {
-                    name: values.get("name").cloned().unwrap_or_default(),
-                })
-                .exec(&mut *ex)
-                .await
-                .map_err(Into::into)
             }
         }
 
@@ -677,13 +739,21 @@ mod tests {
             fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct EditingForm {
+            name: String,
+        }
+        impl crate::form::FormResource for EditingResource {
+            type Form = EditingForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Dummy::fields().name()))
             }
             async fn update_record(
                 _cx: &Cx,
                 record: Dummy,
-                _values: HashMap<String, String>,
+                _posted: crate::form::Posted<EditingForm>,
                 ex: &mut dyn toasty::Executor,
             ) -> Result<Dummy> {
                 // The write the hook performs is the one that fails: the name
@@ -795,8 +865,6 @@ mod tests {
     /// redirect consumes the cookie, so a reload does not replay the toast.
     #[tokio::test]
     async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
-        use std::collections::HashMap;
-
         use crate::resource::Resource;
 
         const COOKIE_NAME: &str = crate::notification::COOKIE_NAME;
@@ -813,6 +881,22 @@ mod tests {
             fn can_create(_cx: &Cx) -> bool {
                 true
             }
+            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::r#for(cx)
+                    .id(|r: &Dummy| r.id.to_string())
+                    .columns(crate::resource::TextColumn::r#for(
+                        Dummy::fields().name(),
+                        |r: &Dummy| r.name.clone(),
+                    ))
+            }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct NotifyingForm {
+            name: String,
+        }
+        impl crate::form::FormResource for NotifyingResource {
+            type Form = NotifyingForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 // A real field, optional so the test's csrf-only POST still
                 // passes validation — `Schema::empty()` is what GH #138's
@@ -823,7 +907,7 @@ mod tests {
             }
             async fn create_record(
                 _cx: &Cx,
-                _values: HashMap<String, String>,
+                _form: NotifyingForm,
                 ex: &mut dyn toasty::Executor,
             ) -> Result<Dummy> {
                 // The row the write produced is what the handler needs back
@@ -835,14 +919,6 @@ mod tests {
                 .await
                 .map_err(|error| -> topcoat::Error { error.into() })
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .id(|r: &Dummy| r.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Dummy::fields().name(),
-                        |r: &Dummy| r.name.clone(),
-                    ))
-            }
         }
 
         let db = Db::builder()
@@ -851,7 +927,7 @@ mod tests {
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = panel_for::<NotifyingResource>(db)
+        let router = form_panel_for::<NotifyingResource>(db)
             .build()
             .expect("panel builds");
         let token = uuid::Uuid::new_v4().to_string();
@@ -948,6 +1024,14 @@ mod tests {
                         |s: &Subscriber| s.email.clone(),
                     ))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Subscriber)]
+        struct SubscriberForm {
+            email: String,
+        }
+        impl crate::form::FormResource for SubscriberResource {
+            type Form = SubscriberForm;
             fn form(_cx: &Cx) -> Schema {
                 // `.optional()` lets an empty submit probe instead of failing
                 // on presence: uniqueness wins.
@@ -957,24 +1041,6 @@ mod tests {
                         .optional(),
                 )
             }
-            async fn create_record(
-                _cx: &Cx,
-                values: HashMap<String, String>,
-                ex: &mut dyn toasty::Executor,
-            ) -> topcoat::Result<Subscriber> {
-                // Writes what the panel would: the record fns trim, and the
-                // framework's probe trims too, so the stored `""` is exactly
-                // what the next probe looks for.
-                toasty::create!(Subscriber {
-                    email: values
-                        .get("email")
-                        .map(|v| v.trim().to_string())
-                        .unwrap_or_default(),
-                })
-                .exec(ex)
-                .await
-                .map_err(|error| -> topcoat::Error { error.into() })
-            }
         }
 
         let db = Db::builder()
@@ -983,7 +1049,7 @@ mod tests {
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = panel_for::<SubscriberResource>(db.clone())
+        let router = form_panel_for::<SubscriberResource>(db.clone())
             .build()
             .expect("panel builds");
 
@@ -1087,26 +1153,20 @@ mod tests {
                         |row: &Doc| row.title.clone(),
                     ))
             }
-
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Doc)]
+        struct DocForm {
+            title: String,
+            path: String,
+        }
+        impl crate::form::FormResource for DocResource {
+            type Form = DocForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new((
                     TextInput::r#for(Doc::fields().title()),
                     FileUpload::r#for(Doc::fields().path()),
                 ))
-            }
-
-            async fn create_record(
-                _cx: &Cx,
-                values: HashMap<String, String>,
-                ex: &mut dyn toasty::Executor,
-            ) -> topcoat::Result<Doc> {
-                toasty::create!(Doc {
-                    title: values.get("title").cloned().unwrap_or_default(),
-                    path: values.get("path").cloned().unwrap_or_default(),
-                })
-                .exec(&mut *ex)
-                .await
-                .map_err(|error| -> topcoat::Error { error.into() })
             }
         }
 
@@ -1119,7 +1179,7 @@ mod tests {
         let router = Panel::new("admin")
             .app_context(db.clone())
             .uploads(NoHoldsUploader)
-            .resource::<DocResource>()
+            .form_resource::<DocResource>()
             .auth(crate::Auth::disabled())
             .build()
             .expect("panel builds");

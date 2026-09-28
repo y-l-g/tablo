@@ -3,8 +3,6 @@
 //! Every module's resource declares the same two-column model and the same
 //! table over it, and mounts the same panel; one copy lives here.
 
-use std::collections::HashMap;
-
 use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 
@@ -32,11 +30,20 @@ pub(crate) fn dummy_table(cx: &Cx) -> Table<Dummy> {
         }))
 }
 
-/// A panel mounted at `/admin` with one resource and the auth gate off.
+/// A panel mounted at `/admin` with one list-only resource and the auth gate
+/// off.
 pub(crate) fn panel_for<R: Resource>(db: Db) -> Panel {
     Panel::new("admin")
         .app_context(db)
         .resource::<R>()
+        .auth(crate::Auth::disabled())
+}
+
+/// [`panel_for`] for a resource with a form.
+pub(crate) fn form_panel_for<R: crate::form::FormResource>(db: Db) -> Panel {
+    Panel::new("admin")
+        .app_context(db)
+        .form_resource::<R>()
         .auth(crate::Auth::disabled())
 }
 
@@ -110,6 +117,18 @@ impl crate::resource::Resource for TaggedResource {
                 |row: &Tagged| row.name.clone(),
             ))
     }
+}
+
+/// [`Tagged`]'s record form: both columns, written through the derived write.
+#[derive(crate::RecordForm)]
+#[record_form(model = Tagged)]
+pub(crate) struct TaggedForm {
+    pub(crate) name: String,
+    pub(crate) token: uuid::Uuid,
+}
+
+impl crate::form::FormResource for TaggedResource {
+    type Form = TaggedForm;
 
     fn form(_cx: &Cx) -> Schema {
         Schema::new((
@@ -117,55 +136,4 @@ impl crate::resource::Resource for TaggedResource {
             TextInput::typed::<Tagged, uuid::Uuid>(Tagged::fields().token()).unique(),
         ))
     }
-
-    fn hydrate_form_values(_cx: &Cx, record: &Tagged) -> HashMap<String, String> {
-        HashMap::from([
-            ("name".to_string(), record.name.clone()),
-            ("token".to_string(), record.token.to_string()),
-        ])
-    }
-
-    async fn create_record(
-        _cx: &Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Tagged> {
-        toasty::create!(Tagged {
-            name: values.get("name").cloned().unwrap_or_default(),
-            token: submitted_token(&values),
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })
-    }
-
-    async fn update_record(
-        _cx: &Cx,
-        mut record: Tagged,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Tagged> {
-        if let Some(name) = values.get("name") {
-            record.name = name.clone();
-        }
-        if values.contains_key("token") {
-            record.token = submitted_token(&values);
-        }
-        toasty::update!(record {
-            name: record.name.clone(),
-            token: record.token,
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })?;
-        Ok(record)
-    }
-}
-
-/// The submitted token, or the nil UUID when it does not parse.
-pub(crate) fn submitted_token(values: &HashMap<String, String>) -> uuid::Uuid {
-    values
-        .get("token")
-        .and_then(|value| value.parse::<uuid::Uuid>().ok())
-        .unwrap_or(uuid::Uuid::nil())
 }

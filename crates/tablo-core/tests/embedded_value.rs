@@ -10,12 +10,24 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    EmbeddedForm, Schema, enum_spec, leaf_key, read_embedded, submitted, write_embedded,
+    EmbeddedForm, FieldErrorKind, Schema, enum_spec, leaf_key, read_embedded, value_keys,
+    write_embedded,
 };
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
 };
+
+/// Whether `values` carries any key of the value at `path`.
+fn mentions<M: toasty::schema::Model, T>(
+    cx: &topcoat::context::Cx,
+    path: impl Into<toasty::stmt::Path<M, T>>,
+    values: &HashMap<String, String>,
+) -> bool {
+    value_keys(cx, path)
+        .iter()
+        .any(|key| values.contains_key(key))
+}
 
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 struct Seo {
@@ -180,17 +192,17 @@ async fn keys_come_from_the_compiled_mapping() {
 
     // A value knows which keys are its own: the discriminant and every leaf,
     // the shared column included (once — it is one column).
-    assert!(submitted(
+    assert!(mentions(
         &cx,
         Post::fields().publication(),
         &map(&[("publication", "1")])
     ));
-    assert!(submitted(
+    assert!(mentions(
         &cx,
         Post::fields().publication(),
         &map(&[("publication_timestamp", "t")])
     ));
-    assert!(submitted(
+    assert!(mentions(
         &cx,
         Post::fields().publication(),
         &map(&[("publication_canonical_url", "/x")])
@@ -216,7 +228,7 @@ async fn a_struct_round_trips_through_the_flat_map() {
         "a struct writes exactly its leaves"
     );
 
-    let read: Seo = read_embedded(&cx, Post::fields().seo(), &values);
+    let read: Seo = read_embedded(&cx, Post::fields().seo(), &values).expect("the value reads");
     assert_eq!(read, seo);
 }
 
@@ -242,7 +254,8 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
         "an enum writes its discriminant and the active variant's leaves"
     );
 
-    let read: Publication = read_embedded(&cx, Post::fields().publication(), &values);
+    let read: Publication =
+        read_embedded(&cx, Post::fields().publication(), &values).expect("the value reads");
     assert_eq!(read, published);
 
     // The discriminating case: a submission whose *payloads* say Published but
@@ -254,7 +267,8 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
         ("publication_canonical_url", "/hello"),
         ("publication_reason", "superseded"),
     ]);
-    let read: Publication = read_embedded(&cx, Post::fields().publication(), &contradictory);
+    let read: Publication =
+        read_embedded(&cx, Post::fields().publication(), &contradictory).expect("the value reads");
     assert_eq!(
         read,
         Publication::Archived {
@@ -279,7 +293,8 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
         ("publication_timestamp", "2026-09-22T00:00:00Z"),
         ("publication_canonical_url", "/hello"),
     ]);
-    let read: Publication = read_embedded(&cx, Post::fields().publication(), &published);
+    let read: Publication =
+        read_embedded(&cx, Post::fields().publication(), &published).expect("the value reads");
     assert_eq!(
         read,
         Publication::Published {
@@ -293,7 +308,8 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
         ("publication_timestamp", "2026-09-22T00:00:00Z"),
         ("publication_reason", "superseded"),
     ]);
-    let read: Publication = read_embedded(&cx, Post::fields().publication(), &archived);
+    let read: Publication =
+        read_embedded(&cx, Post::fields().publication(), &archived).expect("the value reads");
     assert_eq!(
         read,
         Publication::Archived {
@@ -306,7 +322,8 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
     // A *shared* payload cannot say which variant was meant (it belongs to all
     // three), so on its own it infers nothing: the first variant.
     let shared_only = map(&[("publication_timestamp", "2026-09-22T00:00:00Z")]);
-    let read: Publication = read_embedded(&cx, Post::fields().publication(), &shared_only);
+    let read: Publication =
+        read_embedded(&cx, Post::fields().publication(), &shared_only).expect("the value reads");
     assert_eq!(
         read,
         Publication::Scheduled {
@@ -318,17 +335,20 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
 }
 
 /// A discriminant the submission **names** but the enum does not declare is
-/// refused loudly. Reading it as some other variant would store a value the
-/// caller never asked for.
+/// refused on the discriminant's key. Reading it as some other variant would
+/// store a value the caller never asked for.
 #[tokio::test]
-#[should_panic(expected = "does not name a variant of Publication")]
-async fn an_unknown_discriminant_panics() {
+async fn an_unknown_discriminant_is_refused() {
     let cx = post_cx().await;
     let values = map(&[
         ("publication", "99"),
         ("publication_canonical_url", "/hello"),
     ]);
-    let _: Publication = read_embedded(&cx, Post::fields().publication(), &values);
+    let errors = read_embedded::<Post, Publication>(&cx, Post::fields().publication(), &values)
+        .expect_err("an undeclared variant is refused");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].key, "publication");
+    assert_eq!(errors[0].kind, FieldErrorKind::Invalid);
 }
 
 /// Nesting: a struct inside a variant delegates to that struct's own codec, and
@@ -360,7 +380,7 @@ async fn nested_values_delegate_to_their_own_codec() {
         ])
     );
 
-    let read: Media = read_embedded(&cx, Post::fields().media(), &values);
+    let read: Media = read_embedded(&cx, Post::fields().media(), &values).expect("the value reads");
     assert_eq!(read, video);
 }
 
@@ -378,7 +398,8 @@ async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
         &mut values,
     );
     assert_eq!(values, map(&[("visibility", "1")]));
-    let read: Visibility = read_embedded(&cx, Post::fields().visibility(), &values);
+    let read: Visibility =
+        read_embedded(&cx, Post::fields().visibility(), &values).expect("the value reads");
     assert_eq!(read, Visibility::Public);
 
     let mut values = HashMap::new();
@@ -394,7 +415,8 @@ async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
         values,
         map(&[("visibility", "2"), ("visibility_reason", "draft")])
     );
-    let read: Visibility = read_embedded(&cx, Post::fields().visibility(), &values);
+    let read: Visibility =
+        read_embedded(&cx, Post::fields().visibility(), &values).expect("the value reads");
     assert_eq!(
         read,
         Visibility::Private {
@@ -422,46 +444,49 @@ async fn typed_leaves_round_trip_and_default_when_empty() {
             ("post_stats_read_minutes", "6"),
         ])
     );
-    let read: PostStats = read_embedded(&cx, Post::fields().post_stats(), &values);
+    let read: PostStats =
+        read_embedded(&cx, Post::fields().post_stats(), &values).expect("the value reads");
     assert_eq!(read, stats);
 
     let empty = map(&[
         ("post_stats_word_count", "  "),
         ("post_stats_read_minutes", ""),
     ]);
-    let read: PostStats = read_embedded(&cx, Post::fields().post_stats(), &empty);
+    let read: PostStats =
+        read_embedded(&cx, Post::fields().post_stats(), &empty).expect("the value reads");
     assert_eq!(read, PostStats::default(), "an empty typed leaf defaults");
 }
 
-/// A value the type cannot parse panics loudly: typed controls refuse it inline
-/// first, so reaching the codec with one means the form was bypassed, and a
-/// silent zero is the bug GH #192 fixed.
+/// A value the type cannot parse is refused on its own key, worded as the
+/// typed rule words it: a silent zero is the bug GH #192 fixed.
 #[tokio::test]
-#[should_panic(expected = "is not a valid value for `post_stats_word_count`")]
-async fn an_unparseable_typed_leaf_panics() {
+async fn an_unparseable_typed_leaf_is_refused() {
     let cx = post_cx().await;
     let values = map(&[("post_stats_word_count", "many")]);
-    let _: PostStats = read_embedded(&cx, Post::fields().post_stats(), &values);
+    let errors = read_embedded::<Post, PostStats>(&cx, Post::fields().post_stats(), &values)
+        .expect_err("an unparseable leaf is refused");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].key, "post_stats_word_count");
+    assert_eq!(errors[0].message, "`many` is not a valid whole number");
 }
 
-/// Presence: whether a submission mentions this value at all, which is the
-/// update path's "absent means unchanged" rule with no app-side column
-/// names.
+/// A value's keys are every column it occupies, so a record form binds a
+/// submission naming any of them to the one field that holds the value.
 #[tokio::test]
-async fn submitted_reports_whether_a_value_was_mentioned() {
+async fn value_keys_name_every_key_of_a_value() {
     let cx = post_cx().await;
-    assert!(submitted(
+    assert!(mentions(
         &cx,
         Post::fields().seo(),
         &map(&[("seo_title", "x")])
     ));
-    assert!(!submitted(
+    assert!(!mentions(
         &cx,
         Post::fields().seo(),
         &map(&[("title", "x")])
     ));
     // The discriminant counts: a form that only posts the variant mentioned it.
-    assert!(submitted(
+    assert!(mentions(
         &cx,
         Post::fields().publication(),
         &map(&[("publication", "1")])
@@ -477,7 +502,7 @@ async fn a_nested_enum_contributes_its_discriminant() {
     // The nested enum's discriminant is a key of the value: naming only it
     // mentions the wrapper.
     assert!(
-        submitted(
+        mentions(
             &cx,
             Post::fields().wrapper(),
             &map(&[("wrapper_inner", "1")])
@@ -485,7 +510,7 @@ async fn a_nested_enum_contributes_its_discriminant() {
         "naming only the nested variant mentions the value"
     );
     assert!(
-        !submitted(&cx, Post::fields().wrapper(), &map(&[("title", "x")])),
+        !mentions(&cx, Post::fields().wrapper(), &map(&[("title", "x")])),
         "a key outside the value does not mention it"
     );
 
@@ -507,7 +532,8 @@ async fn a_nested_enum_contributes_its_discriminant() {
             ("wrapper_inner_alt", "i"),
         ])
     );
-    let read: Wrapper = read_embedded(&cx, Post::fields().wrapper(), &values);
+    let read: Wrapper =
+        read_embedded(&cx, Post::fields().wrapper(), &values).expect("the value reads");
     assert_eq!(read, wrapper);
 }
 
@@ -525,7 +551,8 @@ async fn variant_casing_needs_no_normalisation() {
     ] {
         let mut values = HashMap::new();
         write_embedded(&cx, Post::fields().casing(), &casing, &mut values);
-        let read: Casing = read_embedded(&cx, Post::fields().casing(), &values);
+        let read: Casing =
+            read_embedded(&cx, Post::fields().casing(), &values).expect("the value reads");
         assert_eq!(read, casing, "wrote {values:?}");
     }
 
@@ -571,7 +598,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
             ("flags_revision", "7"),
         ])
     );
-    let read: Flags = read_embedded(&cx, Post::fields().flags(), &values);
+    let read: Flags = read_embedded(&cx, Post::fields().flags(), &values).expect("the value reads");
     assert_eq!(read, flags);
 
     // A bad `bool` is refused by the typed control before a record fn runs, so

@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use super::super::gate::{gate, list_url};
-use crate::resource::Resource;
+use crate::form::FormResource;
 
 /// Shared create/edit page shell (GH #73 multipart enctype, CSRF hidden
 /// input, inline error slot). Title and submit label are the only deltas.
@@ -23,7 +23,7 @@ use crate::resource::Resource;
 // The public link rides alongside the form state: one more argument rather
 // than a second render entry point.
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn render_form_page<'a, R: Resource>(
+pub(super) async fn render_form_page<'a, R: FormResource>(
     cx: &'a Cx,
     title: String,
     submit_label: &'static str,
@@ -101,7 +101,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
 }
 
 /// Create page GET.
-pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
+pub(crate) fn resource_create<R: FormResource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         if !R::can_create(cx) {
@@ -123,8 +123,6 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
 }
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn create_form_multipart_predicate_follows_file_upload() {
         // GH #136 layer rule: core owns the `has_file_upload` predicate
@@ -143,28 +141,14 @@ mod tests {
             path: String,
             title: String,
         }
-        struct WithFile;
-        impl Resource for WithFile {
-            type Model = Doc;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(FileUpload::r#for(Doc::fields().path()))
-            }
-        }
-        struct WithoutFile;
-        impl Resource for WithoutFile {
-            type Model = Doc;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Doc::fields().title()))
-            }
-        }
-
-        let cx = topcoat::context::CxTestBuilder::new().build();
+        let with_file = Schema::new(FileUpload::r#for(Doc::fields().path()));
+        let without_file = Schema::new(TextInput::r#for(Doc::fields().title()));
         assert!(
-            WithFile::form(&cx).has_file_upload(),
+            with_file.has_file_upload(),
             "file schema must report an upload"
         );
         assert!(
-            !WithoutFile::form(&cx).has_file_upload(),
+            !without_file.has_file_upload(),
             "plain schema must report no upload"
         );
     }

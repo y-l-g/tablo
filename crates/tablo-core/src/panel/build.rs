@@ -25,7 +25,10 @@ use super::{
     search::SearchRegistry,
     shell::DarkMode,
 };
-use crate::resource::Resource;
+use crate::{
+    form::{FormResource, RecordForm},
+    resource::Resource,
+};
 
 impl Panel {
     /// Build the [`Router`], discovering all `#[page]` / `#[layout]` / `#[shard]`
@@ -342,16 +345,7 @@ pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 /// state after an unwind: `cx` is the build-time `validation_cx`, and the panic
 /// fails the whole `build`.
 pub(super) fn check_resource<R: Resource>(cx: &Cx) -> Result<(), String> {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        check_resource_inner::<R>(cx)
-    })) {
-        Ok(result) => result,
-        Err(payload) => Err(format!(
-            "resource `{}` panicked while declaring itself: {}",
-            std::any::type_name::<R>(),
-            panic_message(payload.as_ref())
-        )),
-    }
+    caught::<R>(|| check_resource_inner::<R>(cx))
 }
 
 /// The message out of a caught panic payload.
@@ -405,14 +399,103 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             std::any::type_name::<R>()
         ));
     }
-    // The form is only required where the panel would serve one, and `create`
-    // is the statically checkable half of that (`can_update` needs a record).
-    // The default policy denies create, so a read-only resource is unaffected.
-    let form = R::form(cx);
-    if R::can_create(cx) && form.is_empty() {
-        return Err(format!(
-            "resource `{}` allows create but its form declares no fields — build it with Schema::new(..)",
+    Ok(())
+}
+
+/// The declaration check for a resource registered with
+/// [`Panel::resource`](super::Panel::resource): it serves no form, so a policy
+/// that allows create or an edit link it renders would lead nowhere.
+pub(super) fn check_list_resource<R: Resource>(cx: &Cx) -> Result<(), String> {
+    caught::<R>(|| {
+        let declared = match (R::can_create(cx), R::editable()) {
+            (true, true) => "create and edit",
+            (true, false) => "create",
+            (false, true) => "edit",
+            (false, false) => return Ok(()),
+        };
+        Err(format!(
+            "resource `{}` declares {declared} but is registered with `Panel::resource`, which \
+             serves no form — implement `FormResource` and register it with `Panel::form_resource`",
             std::any::type_name::<R>()
+        ))
+    })
+}
+
+/// The declaration checks for a resource registered with
+/// [`Panel::form_resource`](super::Panel::form_resource): the form's struct and
+/// its `Schema` agree on keys, on blank answers, and on who owns the tenant
+/// column, and every `unique()` marker is backed by an index.
+pub(super) fn check_form_resource<R: FormResource>(cx: &Cx) -> Result<(), String> {
+    caught::<R>(|| check_form_inner::<R>(cx))
+}
+
+fn check_form_inner<R: FormResource>(cx: &Cx) -> Result<(), String> {
+    let form = R::form(cx);
+    let resource = std::any::type_name::<R>();
+    let fields = <R::Form as RecordForm>::fields(cx);
+    let controls = form.controls();
+    // Key agreement, reported control-first: a control no field binds is the
+    // direction that drops what the user typed.
+    for control in &controls {
+        let claims = fields
+            .iter()
+            .filter(|field| field.keys.contains(&control.name))
+            .count();
+        if claims == 0 {
+            return Err(format!(
+                "resource `{resource}` renders form control `{}` but no field of its record form \
+                 binds it, so what the user types there is never written",
+                control.name
+            ));
+        }
+        if claims > 1 {
+            return Err(format!(
+                "resource `{resource}` binds form control `{}` from more than one record-form field",
+                control.name
+            ));
+        }
+    }
+    for field in &fields {
+        for key in &field.keys {
+            if !controls.iter().any(|control| &control.name == key) {
+                return Err(format!(
+                    "resource `{resource}`'s record form field `{}` binds key `{key}`, but the form \
+                     declares no control for it",
+                    field.name
+                ));
+            }
+        }
+        // Blank agreement: an empty submission must resolve wherever the
+        // schema lets one through.
+        if field.answers_blank {
+            continue;
+        }
+        if let Some(control) = controls.iter().find(|control| {
+            field.keys.contains(&control.name) && (!control.required || control.in_repeater)
+        }) {
+            let place = if control.in_repeater {
+                "sits inside a `Repeater`, so it may be posted empty"
+            } else {
+                "is optional"
+            };
+            return Err(format!(
+                "resource `{resource}`'s form control `{}` {place}, but record form field `{}` has \
+                 no blank answer — declare `#[record_form(blank = ..)]`, make the field an \
+                 `Option`, or make the control required",
+                control.name, field.name
+            ));
+        }
+    }
+    // Tenant ownership: the framework stamps a gated resource's tenant column
+    // on create; a form that claimed it would let the client choose.
+    if R::requires_tenant()
+        && let Some(column) = crate::tenancy::tenant_field_name::<R::Model>()
+        && let Some(field) = fields.iter().find(|field| field.keys.contains(&column))
+    {
+        return Err(format!(
+            "resource `{resource}` requires a tenant, but record form field `{}` claims its tenant \
+             column `{column}` — the framework stamps it on create; drop it from the form",
+            field.name
         ));
     }
     // `.unique()` is a promise the panel makes and the database has to keep
@@ -451,6 +534,19 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
     Ok(())
 }
 
+/// Run a declaration check, turning a panic in the app's declarations into a
+/// registration error naming the resource.
+fn caught<R: Resource>(check: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(check)) {
+        Ok(result) => result,
+        Err(payload) => Err(format!(
+            "resource `{}` panicked while declaring itself: {}",
+            std::any::type_name::<R>(),
+            panic_message(payload.as_ref())
+        )),
+    }
+}
+
 /// A context for the build-time declaration checks: the app's own values, no
 /// request. Resources must be able to describe their table and form from this
 /// — that they cannot read a request here is the contract, not a limitation.
@@ -475,7 +571,7 @@ mod tests {
     use toasty::Db;
 
     use super::*;
-    use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+    use crate::panel::test_support::{Dummy, dummy_table, form_panel_for, panel_for};
 
     /// A slug made of ordinary URL-segment characters still builds, and its
     /// list route resolves: rejecting the pattern characters must not
@@ -797,6 +893,14 @@ mod tests {
                         a.email.clone()
                     }))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Author)]
+        struct AuthorForm {
+            email: String,
+        }
+        impl crate::form::FormResource for AuthorResource {
+            type Form = AuthorForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Author::fields().email()).unique())
             }
@@ -807,7 +911,7 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        panel_for::<AuthorResource>(db)
+        form_panel_for::<AuthorResource>(db)
             .build()
             .expect("a composite unique index backs the marker");
     }
@@ -971,6 +1075,14 @@ mod tests {
                         |s: &Subscriber| s.nickname.clone(),
                     ))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Subscriber)]
+        struct UnbackedForm {
+            nickname: String,
+        }
+        impl crate::form::FormResource for UnbackedResource {
+            type Form = UnbackedForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
             }
@@ -983,7 +1095,7 @@ mod tests {
             .unwrap();
         let Err(error) = Panel::new("admin")
             .app_context(db)
-            .resource::<UnbackedResource>()
+            .form_resource::<UnbackedResource>()
             .build()
         else {
             panic!("a `unique()` marker with no unique index must not build");
@@ -1084,6 +1196,17 @@ mod tests {
                     ))
             }
         }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Subscriber)]
+        struct PkOnlyChromeForm {
+            nickname: String,
+        }
+        impl crate::form::FormResource for PkOnlyChromeResource {
+            type Form = PkOnlyChromeForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
+            }
+        }
 
         /// No chrome and no keys at all: still a build error — the row key is
         /// required even with nothing to link to.
@@ -1142,7 +1265,7 @@ mod tests {
         );
 
         panel()
-            .resource::<PkOnlyChromeResource>()
+            .form_resource::<PkOnlyChromeResource>()
             .build()
             .expect("a pk-only table builds through the display fallback");
 
@@ -1196,6 +1319,14 @@ mod tests {
                         |s: &Subscriber| s.nickname.clone(),
                     ))
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Subscriber)]
+        struct ReadOnlyForm {
+            nickname: String,
+        }
+        impl crate::form::FormResource for ReadOnlyResource {
+            type Form = ReadOnlyForm;
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
             }
@@ -1208,7 +1339,7 @@ mod tests {
             .unwrap();
         let Err(error) = Panel::new("admin")
             .app_context(db)
-            .resource::<ReadOnlyResource>()
+            .form_resource::<ReadOnlyResource>()
             .build()
         else {
             panic!("the marker is unbacked whether or not create is allowed");

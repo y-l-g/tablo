@@ -1,6 +1,7 @@
 //! Procedural macros for Tablo.
 
 mod embedded;
+mod record_form;
 
 use proc_macro::TokenStream;
 use syn::DeriveInput;
@@ -59,4 +60,62 @@ use syn::DeriveInput;
 pub fn embedded_form(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
     embedded::expand(input)
+}
+
+/// Derive `RecordForm` for the typed value a resource's form writes.
+///
+/// One field per model column the form writes, named and typed like the
+/// model's field. A scalar (`String`, a `TypedValue` type, or an `Option` of
+/// one) binds the key its control posts; a `#[record_form(embed)]` field binds
+/// every key of an `EmbeddedForm` value and is written whole.
+///
+/// ```ignore
+/// #[derive(tablo_core::RecordForm)]
+/// #[record_form(model = User)]
+/// pub struct UserForm {
+///     pub name: String,
+///     #[record_form(blank = "member")]
+///     pub role: String,
+///     #[record_form(blank = 0)]
+///     pub age: i64,
+/// }
+/// ```
+///
+/// The derive also emits `UserFormField`, one variant per field, which
+/// `FieldErrors` and `Posted` key on.
+///
+/// # Attributes
+///
+/// - `#[record_form(model = User)]` on the struct: the model the form writes.
+/// - `#[record_form(blank = <expr>)]` on a scalar: the value an empty submission reads as. `String`
+///   answers `""` and `Option<T>` answers `None` without one.
+/// - `#[record_form(embed)]` on an `EmbeddedForm` value.
+///
+/// A generic struct, a tuple struct, an empty struct, a `Deferred<_>` field,
+/// `blank` on an `Option` or an embedded value, and an unknown key are compile
+/// errors. So are a field the model lacks and a type the model's field does not
+/// have.
+#[proc_macro_derive(RecordForm, attributes(record_form))]
+pub fn record_form(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as DeriveInput);
+    record_form::expand_tokens(input).into()
+}
+
+/// The path the generated code names `tablo-core` by: `::tablo_core`, or the
+/// consumer's rename of it.
+fn tablo_core_path(span: &syn::Ident, derive: &str) -> syn::Result<proc_macro2::TokenStream> {
+    match proc_macro_crate::crate_name("tablo-core") {
+        Ok(found) => {
+            let name = match found {
+                proc_macro_crate::FoundCrate::Itself => "tablo_core".to_string(),
+                proc_macro_crate::FoundCrate::Name(n) => n,
+            };
+            let ident = syn::Ident::new(&name.replace('-', "_"), proc_macro2::Span::call_site());
+            Ok(quote::quote! { ::#ident })
+        }
+        Err(_) => Err(syn::Error::new_spanned(
+            span,
+            format!("tablo-core must be a dependency to #[derive({derive})]"),
+        )),
+    }
 }

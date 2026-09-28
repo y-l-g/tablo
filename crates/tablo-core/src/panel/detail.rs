@@ -7,6 +7,8 @@
 //! policy,
 //! and answers the same 404 for an unknown or out-of-scope id.
 
+use std::collections::HashMap;
+
 use topcoat::{
     context::Cx,
     router::{Body, error::not_found, path_param_segment},
@@ -17,7 +19,37 @@ use super::{
     actions::load_viewable,
     gate::{gate, list_url},
 };
-use crate::{db::db, resource::Resource};
+use crate::{
+    db::db,
+    form::{FormResource, RecordForm},
+    resource::Resource,
+};
+
+/// Where the detail page reads a record's values from.
+pub(crate) trait DetailValues<R: Resource> {
+    fn values(cx: &Cx, record: &R::Model) -> HashMap<String, String>;
+}
+
+/// A list-only resource: [`Resource::view_values`] alone.
+pub(crate) struct ViewValues;
+
+impl<R: Resource> DetailValues<R> for ViewValues {
+    fn values(cx: &Cx, record: &R::Model) -> HashMap<String, String> {
+        R::view_values(cx, record)
+    }
+}
+
+/// A form resource: the form's projection over [`Resource::view_values`], so
+/// the page and the form agree about what a field holds (ADR-0016).
+pub(crate) struct FormValues;
+
+impl<R: FormResource> DetailValues<R> for FormValues {
+    fn values(cx: &Cx, record: &R::Model) -> HashMap<String, String> {
+        let mut values = R::view_values(cx, record);
+        values.extend(<R::Form as RecordForm>::hydrate(cx, record));
+        values
+    }
+}
 
 /// Detail page GET.
 ///
@@ -32,7 +64,7 @@ use crate::{db::db, resource::Resource};
 /// request's scope get one answer, as everywhere else in the panel. `can_view`
 /// on the loaded record is a 403 rather than a 404: the record exists and this
 /// caller may not see it.
-pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
+pub(crate) fn resource_view<R: Resource, V: DetailValues<R>>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         if !R::viewed(cx) {
@@ -41,9 +73,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let id = path_param_segment(cx, "id").to_string();
         let mut db = db(cx);
         let record = load_viewable::<R>(cx, &mut db).await?;
-        // Values come from the same hydration the edit form uses, so the page
-        // and the form cannot disagree about what a field holds.
-        let values = R::hydrate_form_values(cx, &record);
+        let values = V::values(cx, &record);
         let body = R::view(cx).render_readonly(cx, &values).await?;
         // Relations render from the record itself: the `Schema`
         // above carries only its string projection, and the related rows are

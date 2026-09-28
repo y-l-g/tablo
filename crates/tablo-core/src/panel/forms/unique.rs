@@ -104,7 +104,7 @@ mod tests {
     use topcoat::router::Body;
 
     use super::*;
-    use crate::panel::test_support::{Tagged, TaggedResource, panel_for, response_html};
+    use crate::panel::test_support::{Tagged, TaggedResource, form_panel_for, response_html};
 
     #[tokio::test]
     async fn unique_check_flags_duplicates_for_marked_fields() {
@@ -482,7 +482,7 @@ mod tests {
         .exec(&mut db_q)
         .await
         .unwrap();
-        let router = panel_for::<TaggedResource>(db.clone())
+        let router = form_panel_for::<TaggedResource>(db.clone())
             .build()
             .expect("panel builds");
 
@@ -576,7 +576,7 @@ mod tests {
         .exec(&mut db_q)
         .await
         .unwrap();
-        let router = panel_for::<TaggedResource>(db.clone())
+        let router = form_panel_for::<TaggedResource>(db.clone())
             .build()
             .expect("panel builds");
 

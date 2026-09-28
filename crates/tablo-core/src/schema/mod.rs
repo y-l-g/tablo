@@ -25,8 +25,10 @@ use std::collections::{HashMap, HashSet};
 
 pub use embedded::{
     EmbeddedForm, EnumSpec, discriminant_select, enum_spec, leaf_key, parse_leaf, read_embedded,
-    submitted, write_embedded,
+    value_keys, write_embedded,
 };
+#[doc(hidden)]
+pub use embedded::{take_leaf, take_value};
 pub use fields::{FileUpload, Select, TextInput, Textarea};
 pub use layouts::{Grid, Group, Repeater, Section, Tabs};
 pub use lenses::FieldLens;
@@ -40,6 +42,19 @@ pub(crate) use tree::{
     Mode, Node, RenderSource, for_each_field, validate_leaf, walk_absent_groups,
 };
 pub use validation::TypedValue;
+
+/// One control as the record-form checks see it ([`Schema::controls`]).
+#[derive(Debug, Clone)]
+pub(crate) struct Control {
+    /// The key the control posts.
+    pub(crate) name: String,
+    /// Whether an empty submission fails the control's rules.
+    pub(crate) required: bool,
+    /// The message an empty submission produces, when it fails.
+    pub(crate) required_error: Option<String>,
+    /// Whether the control sits inside a `Repeater`.
+    pub(crate) in_repeater: bool,
+}
 
 /// The container that composes layout blocks.
 #[derive(Debug, Default)]
@@ -197,6 +212,36 @@ impl Schema {
             }
         }
         .boxed())
+    }
+
+    /// Every control, in declaration order, with what an empty submission
+    /// does to it: the schema's own required message when it refuses one, and
+    /// whether it sits inside a `Repeater`, whose all-empty group skips
+    /// requiredness.
+    pub(crate) fn controls(&self) -> Vec<Control> {
+        fn walk(nodes: &[Node], in_repeater: bool, out: &mut Vec<Control>) {
+            let empty = HashMap::new();
+            for node in nodes {
+                if let Some((name, errors)) = validate_leaf(node, &empty) {
+                    out.push(Control {
+                        name: name.to_string(),
+                        required: !errors.is_empty(),
+                        required_error: errors.into_iter().next(),
+                        in_repeater,
+                    });
+                }
+                if let Some(child) = node.children() {
+                    walk(
+                        &child.nodes,
+                        in_repeater || matches!(node, Node::Repeater(_)),
+                        out,
+                    );
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.nodes, false, &mut out);
+        out
     }
 
     /// Collect field names for validation (TextInput + Textarea + Select + FileUpload).

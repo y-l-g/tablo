@@ -195,28 +195,18 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
                     r.word_count.to_string()
                 }))
         }
+    }
+    #[derive(tablo_core::RecordForm)]
+    #[record_form(model = Reading)]
+    struct ReadingForm {
+        word_count: i64,
+    }
+    impl tablo_core::FormResource for ReadingResource {
+        type Form = ReadingForm;
         fn form(_cx: &Cx) -> Schema {
             Schema::new(TextInput::typed::<Reading, i64>(
                 Reading::fields().word_count(),
             ))
-        }
-        async fn create_record(
-            _cx: &Cx,
-            values: HashMap<String, String>,
-            ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<Reading> {
-            // A create returns the row it wrote: that is what the framework
-            // hands to `after_commit`.
-            toasty::create!(Reading {
-                word_count: values
-                    .get("word_count")
-                    .expect("validated")
-                    .parse::<i64>()
-                    .expect("a typed field is validated before the record fn"),
-            })
-            .exec(ex)
-            .await
-            .map_err(|error| -> topcoat::Error { error.into() })
         }
     }
 
@@ -228,7 +218,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     db.push_schema().await.unwrap();
     let router: Router = Panel::new("admin")
         .app_context(db.clone())
-        .resource::<ReadingResource>()
+        .form_resource::<ReadingResource>()
         .auth(Auth::disabled())
         .build()
         .expect("panel builds");

@@ -23,7 +23,7 @@
 //!
 //! Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()));
 //! write_embedded(cx, Post::fields().seo(), &record.seo, &mut values);
-//! let seo = read_embedded(cx, Post::fields().seo(), &values);
+//! let seo = read_embedded(cx, Post::fields().seo(), &values)?;
 //! ```
 //!
 //! # What is not covered
@@ -49,7 +49,10 @@ use std::collections::HashMap;
 use toasty::stmt::Path;
 use topcoat::context::Cx;
 
-use crate::schema::{Select, lenses::FieldResolver};
+use crate::{
+    form::{FieldError, FormScalar},
+    schema::{Select, lenses::FieldResolver},
+};
 
 /// The resolver for this request, with the one failure a value binding cannot
 /// fall back from: no app schema means no columns.
@@ -86,7 +89,16 @@ pub trait EmbeddedForm: Sized {
     /// whose own payload was submitted (the create form, a hand-written POST),
     /// else the first variant. The fallback reads the keys the schema resolves
     /// rather than remembered column names.
-    fn read_form<M>(cx: &Cx, parent: Path<M, Self>, values: &HashMap<String, String>) -> Self
+    ///
+    /// # Errors
+    ///
+    /// Every leaf whose value its type refuses, and a discriminant that names
+    /// no variant.
+    fn read_form<M>(
+        cx: &Cx,
+        parent: Path<M, Self>,
+        values: &HashMap<String, String>,
+    ) -> Result<Self, Vec<FieldError>>
     where
         M: toasty::schema::Model;
 
@@ -222,13 +234,12 @@ where
     })
 }
 
-/// Every form key the value at `parent` occupies: its leaf columns, plus the
-/// discriminant of every enum it contains.
+/// Every form key the value at `parent` occupies: an enum's discriminant first,
+/// then its leaf columns.
 ///
-/// Internal to [`submitted`]: a value answers presence for itself through
-/// [`EmbeddedForm::any_present`], and this is the flat-map answer for a whole
-/// value at a model-rooted path.
-fn form_keys<M, T>(cx: &Cx, parent: impl Into<Path<M, T>>) -> Vec<String>
+/// A record form binds these keys to the one field that holds the value, so a
+/// submission naming any of them names the field.
+pub fn value_keys<M, T>(cx: &Cx, parent: impl Into<Path<M, T>>) -> Vec<String>
 where
     M: toasty::schema::Model,
 {
@@ -240,29 +251,12 @@ where
                 std::any::type_name::<T>()
             )
         });
-    let mut keys = spec.columns;
+    let mut keys = Vec::with_capacity(spec.columns.len() + 1);
     if let Some(enum_spec) = spec.enum_spec {
         keys.push(enum_spec.discriminant);
     }
+    keys.extend(spec.columns);
     keys
-}
-
-/// Whether a submission carries any key of the value at `parent`.
-///
-/// The update half of the presence rule: a submit that never mentions
-/// this value leaves it alone, and "mentions" is decided by the columns the
-/// schema resolves rather than by a name the app spells.
-pub fn submitted<M, T>(
-    cx: &Cx,
-    parent: impl Into<Path<M, T>>,
-    values: &HashMap<String, String>,
-) -> bool
-where
-    M: toasty::schema::Model,
-{
-    form_keys(cx, parent)
-        .iter()
-        .any(|key| values.contains_key(key))
 }
 
 /// The variant control for an embedded enum: a `Select` over the
@@ -320,7 +314,7 @@ pub fn read_embedded<M, T>(
     cx: &Cx,
     parent: impl Into<Path<M, T>>,
     values: &HashMap<String, String>,
-) -> T
+) -> Result<T, Vec<FieldError>>
 where
     M: toasty::schema::Model,
     T: EmbeddedForm,
@@ -334,24 +328,32 @@ where
 /// panel's rule for a typed column with no spelling for "no value" —
 /// an optional typed leaf left blank reaches its record fn as that default.
 ///
-/// A value the type **cannot** parse panics instead: typed controls refuse
-/// those inline before a record fn runs, so reaching here with one means the
-/// form was bypassed, and a silent default is exactly the bug GH #192 fixed.
-/// The panic names the column and the type's own parse error.
-pub fn parse_leaf<T>(key: &str, values: &HashMap<String, String>) -> T
+/// # Errors
+///
+/// A value the type cannot parse, worded as the typed rule words it.
+pub fn parse_leaf<T>(key: &str, values: &HashMap<String, String>) -> Result<T, FieldError>
 where
-    T: std::str::FromStr + Default,
-    T::Err: std::fmt::Display,
+    T: FormScalar + Default,
 {
-    let Some(raw) = values.get(key) else {
-        return T::default();
-    };
-    let trimmed = raw.trim();
+    let trimmed = values.get(key).map(|raw| raw.trim()).unwrap_or("");
     if trimmed.is_empty() {
-        return T::default();
+        return Ok(T::default());
     }
-    match trimmed.parse::<T>() {
-        Ok(value) => value,
-        Err(error) => panic!("`{trimmed}` is not a valid value for `{key}`: {error} (GH #191)"),
-    }
+    T::parse_form(trimmed).map_err(|message| FieldError::invalid(key, message))
+}
+
+/// Move `result`'s value out, or its errors into `errors`. Generated
+/// `read_form` bodies collect every leaf's error with it.
+#[doc(hidden)]
+pub fn take_leaf<T>(result: Result<T, FieldError>, errors: &mut Vec<FieldError>) -> Option<T> {
+    result.map_err(|error| errors.push(error)).ok()
+}
+
+/// [`take_leaf`] for a nested value's `read_form`.
+#[doc(hidden)]
+pub fn take_value<T>(
+    result: Result<T, Vec<FieldError>>,
+    errors: &mut Vec<FieldError>,
+) -> Option<T> {
+    result.map_err(|nested| errors.extend(nested)).ok()
 }

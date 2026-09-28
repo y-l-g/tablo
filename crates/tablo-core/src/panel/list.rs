@@ -416,7 +416,7 @@ mod tests {
     use toasty::Db;
 
     use super::{super::TABLE_SEARCH_PATH, *};
-    use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+    use crate::panel::test_support::{Dummy, dummy_table, form_panel_for, panel_for};
 
     /// The minimal table-backed model the list-chrome tests share:
     /// `list_html` was declared twice with byte-identical bodies apart from one
@@ -430,6 +430,22 @@ mod tests {
     /// [`list_html`] with the named rows seeded in order, so a per-record
     /// policy has rows to disagree about.
     async fn list_html_with<R: Resource>(names: &[&str]) -> String {
+        list_html_via(names, panel_for::<R>).await
+    }
+
+    /// [`list_html`] for a resource registered with `Panel::form_resource`.
+    async fn form_list_html<R: crate::form::FormResource>() -> String {
+        form_list_html_with::<R>(&["Ada"]).await
+    }
+
+    /// [`list_html_with`] for a resource registered with
+    /// `Panel::form_resource`.
+    async fn form_list_html_with<R: crate::form::FormResource>(names: &[&str]) -> String {
+        list_html_via(names, form_panel_for::<R>).await
+    }
+
+    /// The list body of the panel `panel` builds over a db seeded with `names`.
+    async fn list_html_via(names: &[&str], panel: fn(Db) -> crate::Panel) -> String {
         use http_body_util::BodyExt;
 
         let mut db = Db::builder()
@@ -446,7 +462,7 @@ mod tests {
             .await
             .unwrap();
         }
-        let router = panel_for::<R>(db).build().expect("panel builds");
+        let router = panel(db).build().expect("panel builds");
         let resp = router
             .handle(
                 http::Request::builder()
@@ -1080,6 +1096,14 @@ mod tests {
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx).paginate(25)
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct CreatableForm {
+            name: String,
+        }
+        impl crate::form::FormResource for CreatableResource {
+            type Form = CreatableForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
             }
@@ -1098,7 +1122,7 @@ mod tests {
             }
         }
 
-        let html = list_html::<CreatableResource>().await;
+        let html = form_list_html::<CreatableResource>().await;
         assert!(
             html.contains("href=\"/admin/dummies/create\"") && html.contains("Create"),
             "allowed list must link to the create page, got {html}"
@@ -1149,6 +1173,14 @@ mod tests {
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx).paginate(25)
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct WritableForm {
+            name: String,
+        }
+        impl crate::form::FormResource for WritableResource {
+            type Form = WritableForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
             }
@@ -1173,7 +1205,7 @@ mod tests {
             }
         }
 
-        let html = list_html::<WritableResource>().await;
+        let html = form_list_html::<WritableResource>().await;
         assert!(
             html.contains("/edit") && html.contains(">Edit<"),
             "editable list must link rows to their edit pages, got {html}"
@@ -1218,6 +1250,14 @@ mod tests {
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx).paginate(25)
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct DeniedForm {
+            name: String,
+        }
+        impl crate::form::FormResource for DeniedResource {
+            type Form = DeniedForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
             }
@@ -1235,7 +1275,7 @@ mod tests {
         .exec(&mut db)
         .await
         .unwrap();
-        let router = panel_for::<DeniedResource>(db)
+        let router = form_panel_for::<DeniedResource>(db)
             .build()
             .expect("panel builds");
 
@@ -1325,15 +1365,23 @@ mod tests {
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx).paginate(25)
             }
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Dummy::fields().name()))
-            }
             fn view(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Dummy::fields().name()))
             }
         }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct RowPolicyForm {
+            name: String,
+        }
+        impl crate::form::FormResource for RowPolicyResource {
+            type Form = RowPolicyForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Dummy::fields().name()))
+            }
+        }
 
-        let html = list_html_with::<RowPolicyResource>(&["Ada", "Hidden", "Locked"]).await;
+        let html = form_list_html_with::<RowPolicyResource>(&["Ada", "Hidden", "Locked"]).await;
         // Only the allowed row carries a checkbox; refused rows keep their
         // cells but no key chrome.
         let rows = rendered_rows(&html);
@@ -1487,6 +1535,14 @@ mod tests {
                     ))
                     .paginate(25)
             }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct GatedForm {
+            name: String,
+        }
+        impl crate::form::FormResource for GatedResource {
+            type Form = GatedForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
             }
@@ -1498,7 +1554,7 @@ mod tests {
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = panel_for::<GatedResource>(db)
+        let router = form_panel_for::<GatedResource>(db)
             .build()
             .expect("panel builds");
         // No tenant anywhere → 403, not unscoped rows.

@@ -30,7 +30,7 @@ use toasty::Db;
 use topcoat::{
     asset::{Asset, AssetConfig},
     font::Font,
-    router::{PageFn, RouteFn},
+    router::{PageFn, PageRenderFn, RouteFn},
 };
 
 #[cfg(feature = "auth")]
@@ -42,17 +42,23 @@ pub(crate) use self::search::TABLE_SEARCH_PATH;
 pub use self::shell::{Brand, DarkMode};
 use self::{
     actions::{resource_bulk_delete, resource_delete, resource_export, resource_options},
-    build::{ResourceCheck, check_resource, is_directory_pattern, validate_route_segment},
-    detail::resource_view,
+    build::{
+        ResourceCheck, check_form_resource, check_list_resource, check_resource,
+        is_directory_pattern, validate_route_segment,
+    },
+    detail::{FormValues, ViewValues, resource_view},
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
     list::resource_list,
     search::{SearchFn, search_handler_for},
     shell::ShellAssets,
 };
 pub(crate) use self::{build::route_path, search::table_search};
-use crate::resource::{
-    BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
-    NavigationItem, RECORD_ROUTE_PARAM, Resource,
+use crate::{
+    form::FormResource,
+    resource::{
+        BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
+        NavigationItem, RECORD_ROUTE_PARAM, Resource,
+    },
 };
 
 /// The admin application.
@@ -221,15 +227,21 @@ impl Panel {
         self
     }
 
-    /// Declare a `Resource` for this panel (the declarative seam, ADR-0008).
+    /// Declare a list-only `Resource` for this panel (the declarative seam,
+    /// ADR-0008).
     ///
     /// Registers the resource's **list page** at `{prefix}/{slug}` (e.g.
-    /// `Panel::new("admin").resource::<UserResource>()` serves `/admin/users`)
-    /// and derives its [`NavigationItem`] from the same slug, so the sidebar
-    /// and the router can never disagree. The panel root redirects to the
-    /// first declared resource's list. Multiple calls compose. Sidebar order
-    /// comes from the resource's [`Resource::navigation`] override, defaulting
-    /// to declaration order (#165).
+    /// `Panel::new("admin").resource::<AuditResource>()` serves `/admin/audits`),
+    /// its detail page, delete, bulk delete, and CSV export, and derives its
+    /// [`NavigationItem`] from the same slug, so the sidebar and the router can
+    /// never disagree. The panel root redirects to the first declared
+    /// resource's list. Multiple calls compose. Sidebar order comes from the
+    /// resource's [`Resource::navigation`] override, defaulting to declaration
+    /// order (#165).
+    ///
+    /// A resource with a create or edit form registers with
+    /// [`Self::form_resource`] instead: [`Panel::build`] refuses one registered
+    /// here whose `can_create` or `editable()` is on.
     ///
     /// A duplicate slug or a slug that is not one URL segment
     /// is recorded here and reported by [`Panel::build`], which
@@ -237,25 +249,30 @@ impl Panel {
     /// shadow each other's routes, and a hostile `slug()` must not reach a
     /// route path or a response header.
     pub fn resource<R: Resource>(mut self) -> Self {
-        let slug = R::slug();
-        if let Err(error) = validate_route_segment("Resource::slug", &slug) {
-            self.registration_errors.push(error);
-            return self;
+        if let Some(url) = self.register_common::<R>(resource_view::<R, ViewValues>) {
+            self.resource_checks.push(check_list_resource::<R>);
+            self.finish_registration::<R>(url);
         }
-        if self.slugs.iter().any(|s| s == &slug) {
-            self.registration_errors.push(format!(
-                "duplicate resource slug '{slug}': each Resource needs a distinct slug (see Resource::slug)"
-            ));
+        self
+    }
+
+    /// Declare a `Resource` with a create and edit form for this panel.
+    ///
+    /// Registers everything [`Self::resource`] does, plus the create page, the
+    /// edit page, and the relationship-options endpoint. The detail page reads
+    /// the form's projection ([`RecordForm::hydrate`](crate::RecordForm::hydrate)),
+    /// so the page and the form agree about what a field holds.
+    ///
+    /// [`Panel::build`] checks that the form's struct and its `Schema` agree:
+    /// every control is bound by exactly one field and every field's key is a
+    /// declared control; an optional control, or one inside a `Repeater`, binds
+    /// a field with a blank answer; and a gated resource's form does not claim
+    /// its tenant column.
+    pub fn form_resource<R: FormResource>(mut self) -> Self {
+        let Some(url) = self.register_common::<R>(resource_view::<R, FormValues>) else {
             return self;
-        }
-        self.slugs.push(slug);
-        self.resource_checks.push(check_resource::<R>);
-        let url = format!("{}/{}", self.prefix, R::slug());
-        self.pages.push(PageFn::new(
-            http::Method::GET,
-            route_path(&url),
-            resource_list::<R>,
-        ));
+        };
+        self.resource_checks.push(check_form_resource::<R>);
         // Create page — GET renders form, POST handles submission.
         let create_url = format!("{url}/{CREATE_ROUTE_SEGMENT}");
         self.pages.push(PageFn::new(
@@ -268,22 +285,6 @@ impl Panel {
             route_path(&create_url),
             resource_create_post::<R>,
         ));
-        // Detail page — GET renders the record read-only. Registered
-        // unconditionally, unlike the row link: `Panel::resource` runs before a
-        // request exists, so `R::view(cx)` is not declarable here. The handler
-        // 404s a resource that declares no view, which is the same answer as an
-        // unknown id and costs one comparison.
-        //
-        // `RECORD_ROUTE_PARAM` shares its position with the literal `create`
-        // segment above: topcoat routes through `matchit`, which prefers a
-        // static segment over a parameter one, so the create page keeps being
-        // reached regardless of registration order.
-        let detail_url = format!("{url}/{RECORD_ROUTE_PARAM}");
-        self.pages.push(PageFn::new(
-            http::Method::GET,
-            route_path(&detail_url),
-            resource_view::<R>,
-        ));
         // Edit page — GET renders hydrated form, POST handles update.
         let edit_url = format!("{url}/{RECORD_ROUTE_PARAM}/{EDIT_ROUTE_SEGMENT}");
         self.pages.push(PageFn::new(
@@ -295,6 +296,58 @@ impl Panel {
             http::Method::POST,
             route_path(&edit_url),
             resource_edit_post::<R>,
+        ));
+        // Relationship option search — GET for searchable selects past the cap
+        // `{list_url}/options?field=&q=` reusing the related
+        // table's searchable columns, bounded, policy-checked.
+        let options_url = format!("{url}/options");
+        self.routes.push(RouteFn::new(
+            http::Method::GET,
+            route_path(&options_url),
+            resource_options::<R>,
+        ));
+        self.finish_registration::<R>(url);
+        self
+    }
+
+    /// The routes every resource registers: the list, the detail page (read
+    /// through `detail`), delete, bulk delete, and export. Returns the list URL,
+    /// or `None` when the slug was refused.
+    fn register_common<R: Resource>(&mut self, detail: PageRenderFn) -> Option<String> {
+        let slug = R::slug();
+        if let Err(error) = validate_route_segment("Resource::slug", &slug) {
+            self.registration_errors.push(error);
+            return None;
+        }
+        if self.slugs.iter().any(|s| s == &slug) {
+            self.registration_errors.push(format!(
+                "duplicate resource slug '{slug}': each Resource needs a distinct slug (see Resource::slug)"
+            ));
+            return None;
+        }
+        self.slugs.push(slug);
+        self.resource_checks.push(check_resource::<R>);
+        let url = format!("{}/{}", self.prefix, R::slug());
+        self.pages.push(PageFn::new(
+            http::Method::GET,
+            route_path(&url),
+            resource_list::<R>,
+        ));
+        // Detail page — GET renders the record read-only. Registered
+        // unconditionally, unlike the row link: registration runs before a
+        // request exists, so `R::view(cx)` is not declarable here. The handler
+        // 404s a resource that declares no view, which is the same answer as an
+        // unknown id and costs one comparison.
+        //
+        // `RECORD_ROUTE_PARAM` shares its position with the literal `create`
+        // segment: topcoat routes through `matchit`, which prefers a static
+        // segment over a parameter one, so the create page keeps being reached
+        // regardless of registration order.
+        let detail_url = format!("{url}/{RECORD_ROUTE_PARAM}");
+        self.pages.push(PageFn::new(
+            http::Method::GET,
+            route_path(&detail_url),
+            detail,
         ));
         // Delete action — POST via row button (requires confirmation).
         let delete_url = format!("{url}/{RECORD_ROUTE_PARAM}/{DELETE_ROUTE_SEGMENT}");
@@ -312,24 +365,21 @@ impl Panel {
         ));
         // CSV export — GET over the tenant-scoped export query + Table
         // filters/sort (ADR-0012).
-        let export_url = format!("{}/export", url);
+        let export_url = format!("{url}/export");
         self.routes.push(RouteFn::new(
             http::Method::GET,
             route_path(&export_url),
             resource_export::<R>,
         ));
-        // Relationship option search — GET for searchable selects past the cap
-        // `{list_url}/options?field=&q=` reusing the related
-        // table's searchable columns, bounded, policy-checked.
-        let options_url = format!("{}/options", url);
-        self.routes.push(RouteFn::new(
-            http::Method::GET,
-            route_path(&options_url),
-            resource_options::<R>,
-        ));
-        // Live-search handler: the slug-dispatched `#[shard]` below
-        // cannot be generic (inventory only discovers concrete fns), so each
-        // resource monomorphizes its table loader here, keyed by list path.
+        Some(url)
+    }
+
+    /// The registration tail every resource shares: its live-search handler,
+    /// the panel root, and its sidebar entry.
+    fn finish_registration<R: Resource>(&mut self, url: String) {
+        // Live-search handler: the slug-dispatched `#[shard]` cannot be generic
+        // (inventory only discovers concrete fns), so each resource
+        // monomorphizes its table loader here, keyed by list path.
         self.search_handlers
             .insert(url.clone(), search_handler_for::<R>());
         if self.root_target.is_none() {
@@ -337,7 +387,6 @@ impl Panel {
         }
         let nav_item = self.nav_item::<R>();
         self.nav_items.push(nav_item);
-        self
     }
 
     /// Set branding for the shell (header + sidebar). Additive `class` stays the only Shell seam.

@@ -5,9 +5,14 @@
 //! workspace README and `CONTEXT.md` for the vocabulary.
 #![doc = include_str!("../../../CONTEXT.md")]
 
+// The derives emit `tablo_core::` paths; this lets them expand inside this
+// crate's own tests too.
+extern crate self as tablo_core;
+
 #[doc(hidden)]
 pub mod __macro {
     pub use toasty::{
+        Executor, Result as DbResult,
         schema::{Embed, Model},
         stmt,
         stmt::Path,
@@ -24,6 +29,7 @@ mod auth_off;
 pub mod csrf;
 pub mod cursor;
 pub mod db;
+pub mod form;
 pub mod notification;
 pub mod panel;
 mod query_term;
@@ -38,6 +44,10 @@ pub mod upload;
 pub use auth::{Auth, Authenticator, CurrentUser, PasswordAuth};
 #[cfg(not(feature = "auth"))]
 pub use auth_off::Auth;
+pub use form::{
+    FieldError, FieldErrorKind, FieldErrors, FormField, FormResource, FormScalar, Posted,
+    RecordForm, write_create, write_update,
+};
 pub use notification::{Notification, NotificationStatus};
 pub use panel::{Brand, DarkMode, Panel};
 pub use resource::{
@@ -49,8 +59,8 @@ pub use resource::{
 pub use schema::{
     EmbeddedForm, EnumSpec, FieldLens, FileUpload, Grid, Group, IntoSchema, Repeater, Schema,
     Section, Select, Tabs, TextInput, Textarea, TypedValue, discriminant_select, enum_spec,
-    leaf_key, parse_leaf, read_embedded, submitted, write_embedded,
+    leaf_key, parse_leaf, read_embedded, value_keys, write_embedded,
 };
-pub use tablo_macros::EmbeddedForm;
+pub use tablo_macros::{EmbeddedForm, RecordForm};
 pub use tenancy::{Tenant, require_tenant, tenant_id};
 pub use upload::Uploader;
