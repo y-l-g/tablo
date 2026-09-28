@@ -268,13 +268,17 @@ fn export_base_query<R: Resource>(
 /// One cursor-chunked pass over an export base query.
 ///
 /// Yields the raw `MAX_EXPORT_ROWS + 1` window (the bounded over-fetch the
-/// cap counts within) a chunk at a time and stops at a short chunk,
+/// cap counts within) a chunk at a time and stops when `next_cursor` is `None`,
 /// so callers hold one chunk instead of the window. Each chunk after the
-/// first resumes from the previous chunk's `next_cursor`; a chunk shorter
-/// than the requested size ends the walk, because chaining an absent cursor
-/// or re-fetching cursor-free would rescan from the start. A full window is
-/// probed one row past itself, so [`beyond_window`](Self::beyond_window)
-/// distinguishes "the table ended" from "the window did".
+/// first resumes from the previous chunk's `next_cursor`; the walk ends when
+/// the cursor is absent, because re-fetching cursor-free would rescan from the
+/// start. Toasty's `per_page` is an upper bound, not a guarantee, so a chunk
+/// shorter than the requested size still continues when it carries a cursor —
+/// and an empty page with a cursor continues too, because Toasty may filter a
+/// full SQL page down to zero rows in-memory while preserving the cursor.
+/// A full window is probed one row past itself, so
+/// [`beyond_window`](Self::beyond_window) distinguishes "the table ended" from
+/// "the window did".
 struct ExportChunker<M> {
     query: toasty::stmt::Query<toasty::stmt::List<M>>,
     after: Option<toasty_core::stmt::Value>,
@@ -307,45 +311,53 @@ where
         if self.exhausted {
             return Ok(None);
         }
-        let remaining = (MAX_EXPORT_ROWS + 1).saturating_sub(self.raw_scanned);
-        if remaining == 0 {
-            // The window is full: one probe row past it says whether
-            // the walk stopped on the table's end or on the window's. A full
-            // chunk without a cursor cannot be probed and is treated
-            // as the end.
-            if let Some(cursor) = self.after.clone() {
-                let probe = toasty::stmt::Paginate::new(self.query.clone(), 1)
-                    .after(cursor)
-                    .exec(db)
-                    .await
-                    .map_err(crate::db::unavailable)?;
-                self.beyond_window = !probe.items.is_empty();
+        loop {
+            let remaining = (MAX_EXPORT_ROWS + 1).saturating_sub(self.raw_scanned);
+            if remaining == 0 {
+                // The window is full: one probe row past it says whether
+                // the walk stopped on the table's end or on the window's. A full
+                // chunk without a cursor cannot be probed and is treated
+                // as the end.
+                if let Some(cursor) = self.after.clone() {
+                    let probe = toasty::stmt::Paginate::new(self.query.clone(), 1)
+                        .after(cursor)
+                        .exec(db)
+                        .await
+                        .map_err(crate::db::unavailable)?;
+                    self.beyond_window = !probe.items.is_empty();
+                }
+                self.exhausted = true;
+                return Ok(None);
             }
-            self.exhausted = true;
-            return Ok(None);
+            let take = remaining.min(EXPORT_CHUNK_ROWS);
+            let mut page = toasty::stmt::Paginate::new(self.query.clone(), take);
+            if let Some(cursor) = self.after.take() {
+                page = page.after(cursor);
+            }
+            let loaded = page.exec(db).await.map_err(crate::db::unavailable)?;
+            if loaded.items.is_empty() {
+                // An empty page ends the walk only when the cursor is absent:
+                // Toasty preserves the cursor while filtering rows in-memory,
+                // so an empty page with a cursor has more rows past it.
+                self.after = loaded.next_cursor;
+                if self.after.is_none() {
+                    self.exhausted = true;
+                    return Ok(None);
+                }
+                continue;
+            }
+            self.raw_scanned += loaded.items.len();
+            self.after = loaded.next_cursor;
+            let items = loaded.items;
+            if self.after.is_none() {
+                // Absent cursor: the table is exhausted — re-fetching cursor-free
+                // would rescan from the start, so stop here. A short chunk with a
+                // cursor still continues: `per_page` is an upper bound.
+                self.exhausted = true;
+                self.after = None;
+            }
+            return Ok(Some(items));
         }
-        let take = remaining.min(EXPORT_CHUNK_ROWS);
-        let mut page = toasty::stmt::Paginate::new(self.query.clone(), take);
-        if let Some(cursor) = self.after.take() {
-            page = page.after(cursor);
-        }
-        let loaded = page.exec(db).await.map_err(crate::db::unavailable)?;
-        if loaded.items.is_empty() {
-            self.exhausted = true;
-            return Ok(None);
-        }
-        let full = loaded.items.len() == take;
-        self.raw_scanned += loaded.items.len();
-        self.after = loaded.next_cursor;
-        let items = loaded.items;
-        if !full {
-            // Short chunk: the table is exhausted — chaining the (absent)
-            // cursor, or re-fetching cursor-free, would rescan from the
-            // start, so stop here.
-            self.exhausted = true;
-            self.after = None;
-        }
-        Ok(Some(items))
     }
 }
 
@@ -358,6 +370,22 @@ mod tests {
         Panel,
         panel::test_support::{Dummy, dummy_table, panel_for, seed_dummies},
     };
+
+    /// The [`Dummy`] resource both chunker walk tests drive: one table, no
+    /// filters, so the walk exercises raw cursor paging.
+    struct ChunkerDummyResource;
+    impl crate::resource::Resource for ChunkerDummyResource {
+        type Model = Dummy;
+        fn slug() -> String {
+            "dummies".to_string()
+        }
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
+            dummy_table(cx)
+        }
+    }
 
     #[tokio::test]
     async fn export_drops_rows_failing_can_view() {
@@ -1040,25 +1068,9 @@ mod tests {
 
     #[tokio::test]
     async fn export_chunker_stops_at_a_short_chunk() {
-        // a short chunk ends the walk — re-fetching cursor-free
+        // A page without a cursor ends the walk — re-fetching cursor-free
         // would rescan from the start and multiply the visible count past
         // the cap.
-
-        use crate::resource::Resource;
-
-        struct TinyResource;
-        impl Resource for TinyResource {
-            type Model = Dummy;
-            fn slug() -> String {
-                "dummies".to_string()
-            }
-            fn can_view_any(_cx: &Cx) -> bool {
-                true
-            }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                dummy_table(cx)
-            }
-        }
 
         let mut db = Db::builder()
             .models(toasty::models!(Dummy))
@@ -1077,10 +1089,10 @@ mod tests {
         let cx = topcoat::context::CxTestBuilder::new()
             .app_context(db.clone())
             .build();
-        let table = TinyResource::table(&cx);
+        let table = ChunkerDummyResource::table(&cx);
         let state = crate::resource::TableState::default();
         let mut chunker = ExportChunker::new(
-            export_base_query::<TinyResource>(&cx, &table, &state, &table.include_needs())
+            export_base_query::<ChunkerDummyResource>(&cx, &table, &state, &table.include_needs())
                 .expect("tenant scope"),
         );
         let first = chunker
@@ -1091,7 +1103,47 @@ mod tests {
         assert_eq!(first.len(), 3);
         assert!(
             chunker.next_chunk(&mut db).await.unwrap().is_none(),
-            "short chunk must end the walk, not rescan"
+            "cursor-free chunk must end the walk, not rescan"
+        );
+        assert!(
+            chunker.next_chunk(&mut db).await.unwrap().is_none(),
+            "exhausted walk stays exhausted"
+        );
+    }
+
+    #[tokio::test]
+    async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
+        // GH #232: a row count that is an exact multiple of the chunk size
+        // must not rescan from the start. On SQLite a full page carries a
+        // cursor and the empty follow-up ends the walk, so the walk yields
+        // one full chunk then stops; the cursor rule keeps this true even
+        // for backends that return a full page without a cursor.
+
+        let mut db = Db::builder()
+            .models(toasty::models!(Dummy))
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        db.push_schema().await.unwrap();
+        seed_dummies(&mut db, EXPORT_CHUNK_ROWS, |i| format!("row-{i:05}")).await;
+        let cx = topcoat::context::CxTestBuilder::new()
+            .app_context(db.clone())
+            .build();
+        let table = ChunkerDummyResource::table(&cx);
+        let state = crate::resource::TableState::default();
+        let mut chunker = ExportChunker::new(
+            export_base_query::<ChunkerDummyResource>(&cx, &table, &state, &table.include_needs())
+                .expect("tenant scope"),
+        );
+        let first = chunker
+            .next_chunk(&mut db)
+            .await
+            .unwrap()
+            .expect("full first chunk");
+        assert_eq!(first.len(), EXPORT_CHUNK_ROWS);
+        assert!(
+            chunker.next_chunk(&mut db).await.unwrap().is_none(),
+            "exact multiple must end the walk, not rescan from the start"
         );
         assert!(
             chunker.next_chunk(&mut db).await.unwrap().is_none(),
