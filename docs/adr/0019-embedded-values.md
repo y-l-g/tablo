@@ -1,6 +1,6 @@
 # Embedded values: a derived codec, and the discriminant column as the variant rule
 
-Date: 2026-09-22 — Status: accepted — Amended: 2026-09-22, 2026-09-25
+Date: 2026-09-22 — Status: accepted — Amended: 2026-09-22, 2026-09-25, 2026-09-28
 
 ## Decision
 
@@ -90,3 +90,12 @@ remains the seam for a derived form with more controls than a tuple holds.
 
 **`IntoRelationColumns` takes a flat tuple.** Every element is a `RelationColumn<R>`; a nested tuple
 such as `(a, (b, c))` does not convert.
+
+## Amendment — 2026-09-28
+
+**`read_form` reports errors instead of panicking.** `EmbeddedForm::read_form`, `read_embedded` and
+`parse_leaf` return `Result`: a leaf its type refuses and a discriminant that names no variant are
+`FieldError`s on their own key, rendered inline by the submit pipeline. A record form binds the whole
+value with `#[record_form(embed)]` (ADR-0022), and `value_keys` names the keys it occupies,
+discriminant first. `submitted` is removed: the edit handler decides which keys were posted.
+`any_present` stays, for an enum's payload fallback over a nested value.

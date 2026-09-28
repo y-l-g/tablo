@@ -1,5 +1,7 @@
 # A record form that writes what the schema declares
 
+Closes #369.
+
 ## Summary
 
 A form-bearing resource declares one struct, `#[derive(RecordForm)]`, whose
@@ -270,10 +272,10 @@ Edit (`resource_edit_post`):
 3. Record the **named keys** (see [Completion and naming](#completion-and-naming)).
 4. **Complete** every declared key the submission did not name from
    `F::hydrate(advisory)`, then run `Schema::validate_async`.
-5. Open the transaction, run the authoritative load, re-check policy, and run
-   `check_unique`.
+5. Open the transaction, run the authoritative load, and re-check policy.
 6. Re-complete the unnamed keys from `F::hydrate(record)`, the in-transaction
-   record. Then normalize, `F::parse`, and `validate_record`.
+   record. Then run `check_unique` against that projection, normalize,
+   `F::parse`, and `validate_record`.
 7. On any error, re-render with a 200. Otherwise call
    `update_record(cx, record, Posted { form, named }, tx)` and commit.
 
@@ -535,11 +537,10 @@ Then, in order:
    `schema::value_keys`, with the discriminant first so an embedded field's
    errors render under its variant control.
 3. `EmbeddedForm::read_form` and `parse_leaf` return `Result`. Remove
-   `submitted` and `EmbeddedForm::any_present` with their tests
-   (`crates/tablo-core/tests/embedded_value.rs`): outside those tests, their
-   callers are `kept_embedded`, which step 8 deletes, and the
-   `EmbeddedForm` derive's own recursion
-   (`crates/tablo-macros/src/embedded.rs:330`).
+   `submitted`: outside its tests (`crates/tablo-core/tests/embedded_value.rs`),
+   its caller is `kept_embedded`, which step 8 deletes. `EmbeddedForm::any_present`
+   stays: an enum's payload fallback asks a nested value whether its own keys
+   were posted (`crates/tablo-macros/src/embedded.rs:317`).
 4. Add `FormResource` and `Panel::form_resource`. Move `form`, the create and
    edit routes, and the options route (`panel/mod.rs:324`) behind it. Remove
    `form`, `validate`, `create_record`, and `update_record` from `Resource`, and
@@ -630,10 +631,12 @@ that the detail page and the form agree on a field holds by construction.
   the record fns now receive typed values. Keep the reference to upstream
   issues #115 and #119.
 - Amend ADR-0019 for `read_form` returning `Result` and the removal of
-  `submitted` and `any_present`.
+  `submitted`.
 - `docs/adr/README.md`: the index row for ADR-0022.
-- `docs/dev/upstream-notes.md`: toasty's instance update builder has no setter
-  keyed by path and implements no trait carrying `exec`.
+- The two toasty gaps the design works around live where they bite: the
+  `RecordForm::exec_update` rustdoc records that the instance update builder
+  implements no trait carrying `exec`, and the Alternatives above record that it
+  sets a field only by ident.
 - `CONTEXT.md`: add `Record form`, `Posted`, `Named field`, and `Completion`
   entries, with an `_Avoid_` list for each (`Patch`, `Draft`, `Presence`,
   `Input`). Amend the `Resource` entry (`CONTEXT.md:62`), which names

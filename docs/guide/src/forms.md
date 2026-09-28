@@ -1,7 +1,97 @@
 # Forms
 
-Create and edit forms: typed lenses, layout blocks, the fields and what each one guarantees, file
-uploads, and how validation failures are reported.
+Create and edit forms: the record form a submission parses into, typed lenses, layout blocks, the
+fields and what each one guarantees, file uploads, and how validation failures are reported.
+
+## The record form
+
+A resource with a create or edit form declares one struct, `#[derive(RecordForm)]`, with one field
+per model column the form writes. A field's name is the model field's name and its type is the
+model field's type, so a renamed or retyped column is a compile error:
+
+```rust
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = User)]
+pub struct UserForm {
+    pub name: String,
+    pub email: String,
+    #[record_form(blank = "member")]
+    pub role: String,
+    #[record_form(blank = true)]
+    pub active: bool,
+    #[record_form(blank = 0)]
+    pub age: i64,
+}
+```
+
+A field is a **scalar** — `String`, a `TypedValue` type, or an `Option` of one — bound to the key
+its control posts, or an **embedded value** marked `#[record_form(embed)]` (an `EmbeddedForm`
+type, bound to every key it occupies and written whole). A column the form does not write stays
+off the struct: a gated resource's `tenant_id` is stamped by the framework on create, and a column
+like `created_at` takes a toasty `#[default(..)]` on the model. The derive also emits
+`UserFormField`, one variant per field.
+
+`#[record_form(blank = <expr>)]` is what an empty submission stores. `String` answers `""` and
+`Option<T>` answers `None` without one; any other type needs `blank` wherever its control may be
+left empty.
+
+The resource implements `FormResource` beside `Resource` and registers with
+`Panel::form_resource`:
+
+```rust
+impl FormResource for UserResource {
+    type Form = UserForm;
+
+    fn form(_cx: &Cx) -> Schema { /* the controls, as below */ }
+
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserForm> {
+        let mut errors = FieldErrors::new();
+        if form.age < 0 {
+            errors.add(UserFormField::Age, "Age must be zero or more");
+        }
+        errors
+    }
+}
+
+Panel::new("admin").form_resource::<UserResource>()
+```
+
+`create_record` and `update_record` default to the derived write, so a resource whose write is
+"store what the form says" declares neither. One that checks something inside the transaction
+overrides the record fn and delegates:
+
+```rust
+async fn update_record(
+    cx: &Cx,
+    record: Comment,
+    posted: Posted<CommentForm>,
+    ex: &mut dyn toasty::Executor,
+) -> Result<Comment> {
+    // `Posted` derefs to the form: an unposted `post_id` reads as the stored one.
+    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
+    tablo_core::write_update::<Self>(cx, record, posted, ex).await
+}
+```
+
+A record fn that writes more than the form owns uses the builders: `form.into_create()` is the
+model's create builder with every field set, and `posted.into_update(&mut record)` is the instance
+update builder with one assignment per field the submission named, or `None` when it named none.
+
+What a submission does:
+
+- **An unposted key keeps its value.** On edit, every declared key the submission does not post is
+  filled from the stored record before validation and the parse, and the write assigns only the
+  fields the submission named. An emptied control is posted, so it stores the field's blank answer.
+  An API client can therefore post one field of an edit.
+- **Errors render in one round.** Schema rules, the unique probe, a value the form's type refuses,
+  and `validate_record` render inline with a 200 and write nothing. `validate_record` sees a whole
+  form, so it runs once every field parses.
+- **`Panel::build` checks the struct against the schema**: every control is bound by exactly one
+  field and every field's key is a declared control; an optional control, or one inside a
+  `Repeater`, binds a field with a blank answer; and a gated resource's form does not claim its
+  tenant column.
+
+## Controls
 
 Forms use typed lenses, not string paths:
 
@@ -44,8 +134,7 @@ What to know:
   `jiff::Timestamp` leaf renders `type="datetime-local"`: the control carries no zone, so the stored
   instant renders in UTC and a submission is read back as UTC. Empty is
   the presence rule's business, not the typed one: a typed column has no spelling for "no value", so
-  an empty submission on an optional typed field reaches the record fn as `""` exactly as any other
-  optional column does.
+  an empty submission on an optional typed field stores the record form field's blank answer.
 - `unique()` does two things. It adds an app-level pre-check — Toasty exposes no unique-violation
   predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and it
   implies **presence**: the framework stores `""` rather than NULL, so an empty value on a unique
@@ -53,7 +142,7 @@ What to know:
   admits only one (GH #189). `.optional()` does not lift that rule, and `Panel::build` refuses a
   `unique()` marker on a column with no unique index (single-field or composite, `#[unique(a, b)]`
   included), so the declaration and the database cannot disagree about which fields are unique.
-- Relation select validates the FK against the related resource query before `create_record` runs:
+- Relation select validates the FK against the related resource query before the write runs:
 
 ```rust
 Select::r#for(Post::fields().author_id())
@@ -117,10 +206,10 @@ Select::r#for(Post::fields().author_id())
   the user cannot see never blocks the submit (GH #297). A submission that names no variant hides
   nothing, because the value codec's payload fallback may still read any group.
 
-Validation errors render inline per field. Absent keys validate as `""` and updates write only
-present keys; handlers reject unknown form keys with 400 (`role` / `tenant_id` smuggling fails
-closed; only `csrf_token`, `clear_<field>` and `keep_<field>` are exempt), so extra posted keys never
-reach record fns.
+Validation errors render inline per field. On create an absent key validates as `""`; on edit it
+validates as its stored value. Handlers reject unknown form keys with 400 (`role` / `tenant_id`
+smuggling fails closed; only `csrf_token`, `clear_<field>` and `keep_<field>` are exempt), and the
+record form parses declared keys only, so an extra posted key never reaches a write.
 
 Embedded values declare one form node and flatten their fields; see
 [Data access](./data-access.md#embedded-values).
