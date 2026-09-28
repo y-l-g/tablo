@@ -20,7 +20,7 @@ use topcoat::context::{Cx, app_context};
 /// handle).
 ///
 /// List pages stream: the table query runs while the response body streams,
-/// so a list body held alive holds a pooled connection until the body drains.
+/// so a live list body holds a pooled connection until drained or dropped.
 /// With a single-connection pool a second query waits while an earlier list
 /// body stays alive; drain or drop the body before the next query.
 #[inline]
