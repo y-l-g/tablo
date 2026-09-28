@@ -246,6 +246,15 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
         }
 
         // A registry that really knows the `users` slug, so the known-path
@@ -347,18 +356,17 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                            d.name.clone()
-                        })
-                        .searchable()
-                        .sortable(),
-                    )
-                    .paginate(1)
-                    .live_search(true)
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    })
+                    .searchable()
+                    .sortable(),
+                )
+                .paginate(1)
+                .live_search(true)
             }
         }
 
@@ -525,18 +533,17 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                            d.name.clone()
-                        })
-                        .searchable()
-                        .sortable(),
-                    )
-                    .paginate(1)
-                    .live_search(true)
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    })
+                    .searchable()
+                    .sortable(),
+                )
+                .paginate(1)
+                .live_search(true)
             }
         }
 
@@ -641,20 +648,19 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                            d.name.clone()
-                        })
-                        .searchable()
-                        .sortable(),
-                    )
-                    .filters(crate::resource::TernaryFilter::r#for(
-                        Dummy::fields().featured(),
-                    ))
-                    .live_search(true)
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    })
+                    .searchable()
+                    .sortable(),
+                )
+                .filters(crate::resource::TernaryFilter::r#for(
+                    Dummy::fields().featured(),
+                ))
+                .live_search(true)
             }
         }
 
@@ -754,19 +760,18 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                            d.name.clone()
-                        })
-                        .searchable()
-                        .sortable(),
-                    )
-                    .group_by("name", |d: &Dummy| d.name.clone())
-                    .paginate(25)
-                    .live_search(true)
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    })
+                    .searchable()
+                    .sortable(),
+                )
+                .group_by("name", |d: &Dummy| d.name.clone())
+                .paginate(25)
+                .live_search(true)
             }
         }
 
@@ -913,19 +918,18 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &TenantDummy) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<TenantDummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &TenantDummy| d.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(
-                            TenantDummy::fields().name(),
-                            |d: &TenantDummy| d.name.clone(),
-                        )
-                        .searchable()
-                        .sortable(),
+            fn table(_cx: &Cx) -> crate::resource::Table<TenantDummy> {
+                crate::resource::Table::new(
+                    |d: &TenantDummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(
+                        TenantDummy::fields().name(),
+                        |d: &TenantDummy| d.name.clone(),
                     )
-                    .paginate(10)
-                    .live_search(true)
+                    .searchable()
+                    .sortable(),
+                )
+                .paginate(10)
+                .live_search(true)
             }
         }
 
@@ -941,19 +945,18 @@ mod tests {
             fn can_view_any(_cx: &Cx) -> bool {
                 false
             }
-            fn table(cx: &Cx) -> crate::resource::Table<TenantDummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &TenantDummy| d.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(
-                            TenantDummy::fields().name(),
-                            |d: &TenantDummy| d.name.clone(),
-                        )
-                        .searchable()
-                        .sortable(),
+            fn table(_cx: &Cx) -> crate::resource::Table<TenantDummy> {
+                crate::resource::Table::new(
+                    |d: &TenantDummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(
+                        TenantDummy::fields().name(),
+                        |d: &TenantDummy| d.name.clone(),
                     )
-                    .paginate(10)
-                    .live_search(true)
+                    .searchable()
+                    .sortable(),
+                )
+                .paginate(10)
+                .live_search(true)
             }
         }
 

@@ -47,16 +47,16 @@ pub(crate) use crate::query_term::clamp_query_term;
 ///
 /// # Contract
 ///
-/// **Every method has a default**, so a resource compiles the moment it
-/// declares a [`Model`](Self::Model) — and an omission must fail loudly
-/// rather than silently:
+/// **Every method but [`table`](Self::table) has a default**, so a resource
+/// compiles as soon as it declares a [`Model`](Self::Model) and its list view —
+/// and an omission must fail loudly rather than silently:
 ///
-/// - **Checked at [`Panel::build`](crate::panel::Panel::build)**: the table must declare columns
-///   and a row key. A resource with a create or edit form implements
-///   [`FormResource`](crate::FormResource) and registers with
-///   [`Panel::form_resource`](crate::Panel::form_resource); build refuses one registered with
-///   [`Panel::resource`](crate::Panel::resource) whose [`can_create`](Self::can_create) or
-///   [`editable`](Self::editable) is on. These are declarations, checked with a Db-only context.
+/// - **Checked at [`Panel::build`](crate::panel::Panel::build)**: the declared table must serve a
+///   list. A resource with a create or edit form implements [`FormResource`](crate::FormResource)
+///   and registers with [`Panel::form_resource`](crate::Panel::form_resource); build refuses one
+///   registered with [`Panel::resource`](crate::Panel::resource) whose
+///   [`can_create`](Self::can_create) or [`editable`](Self::editable) is on. These are
+///   declarations, checked with a Db-only context.
 /// - **Loud at request time**: [`delete_record`](Self::delete_record) defaults to an error naming
 ///   the type, so a resource that never implemented delete says so instead of writing nothing
 ///   quietly. [`bulk_delete_records`](Self::bulk_delete_records) loops `delete_record` by default,
@@ -140,7 +140,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// alongside those predicates.
     ///
     /// This flag is the whole-resource gate; the panel wires the predicates into
-    /// the table's row policy ([`Table::row_actions`]), so a row they refuse
+    /// the table's row policy, so a row they refuse
     /// renders no Delete link and a disabled bulk checkbox. The handler keeps
     /// its all-or-nothing check as the safety net for a hand-crafted POST.
     fn deletable() -> bool {
@@ -226,9 +226,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// arguments and returns `None`.
     ///
     /// A label is display text, not a key. Two records can share one (two
-    /// users named Ada), so it cannot replace [`Table::id`], whose projection
-    /// must stay injective within a page for keyed diffs and bulk selection
-    /// or [`Table::pk`], which the action routes resolve as the
+    /// users named Ada), so it cannot replace the table key, whose projection
+    /// must stay injective within a page for keyed diffs and bulk selection,
+    /// or the record key, which the action routes resolve as the
     /// model's typed PK.
     fn record_label(_cx: &Cx, _record: &Self::Model) -> Option<String> {
         None
@@ -394,13 +394,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// Description of the list view.
     ///
-    /// The default is empty, and an empty table **cannot render**: the
-    /// default `Resource` is not listable until it declares columns via
-    /// `Table::columns(..)` and a row key via `Table::key(..)` (see
-    /// [`Table::render`]).
-    fn table(_cx: &Cx) -> Table<Self::Model> {
-        Table::new()
-    }
+    /// Every resource declares its table with [`Table::new`]: columns and the
+    /// row key the list renders (see [`Table::render`]).
+    fn table(_cx: &Cx) -> Table<Self::Model>;
 
     /// Sidebar entry for the resource.
     ///
@@ -668,6 +664,15 @@ mod tests {
     impl Resource for UserResource {
         type Model = User;
 
+        fn table(_cx: &Cx) -> crate::resource::Table<User> {
+            crate::resource::Table::new(
+                |r: &User| r.id.to_string(),
+                crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| {
+                    r.name.clone()
+                }),
+            )
+        }
+
         fn query(_cx: &Cx) -> toasty::stmt::Query<List<User>> {
             // Custom scoping example: only users named Ada
             toasty::stmt::Query::<List<User>>::all().filter(User::fields().name().eq("Ada"))
@@ -678,6 +683,15 @@ mod tests {
 
     impl Resource for BareResource {
         type Model = User;
+
+        fn table(_cx: &Cx) -> crate::resource::Table<User> {
+            crate::resource::Table::new(
+                |r: &User| r.id.to_string(),
+                crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| {
+                    r.name.clone()
+                }),
+            )
+        }
     }
 
     #[tokio::test]
@@ -717,6 +731,15 @@ mod tests {
     impl Resource for Misdeclared {
         type Model = User;
 
+        fn table(_cx: &Cx) -> crate::resource::Table<User> {
+            crate::resource::Table::new(
+                |r: &User| r.id.to_string(),
+                crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| {
+                    r.name.clone()
+                }),
+            )
+        }
+
         fn requires_tenant() -> bool {
             true
         }
@@ -750,6 +773,15 @@ mod tests {
 
     impl Resource for DeclaredScope {
         type Model = User;
+
+        fn table(_cx: &Cx) -> crate::resource::Table<User> {
+            crate::resource::Table::new(
+                |r: &User| r.id.to_string(),
+                crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| {
+                    r.name.clone()
+                }),
+            )
+        }
 
         fn requires_tenant() -> bool {
             true

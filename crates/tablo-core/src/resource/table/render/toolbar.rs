@@ -374,11 +374,12 @@ mod tests {
     #[tokio::test]
     async fn bulk_checkboxes_render_with_keys_and_select_all() {
         let cx = CxTestBuilder::new().build();
-        let bulk_table = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_delete("/admin/users".to_string())
-            .with_bulk_delete(true);
+        let bulk_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string())
+        .with_bulk_delete(true);
         let rows = vec![
             User {
                 id: uuid::Uuid::new_v4(),
@@ -490,9 +491,10 @@ mod tests {
         );
 
         // Without bulk: no checkboxes, no bulk form.
-        let plain = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let plain = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         let page: TablePage<User> = rows.into();
         let html = plain
             .render(&cx, page)

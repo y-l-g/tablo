@@ -544,13 +544,13 @@ mod tests {
             fn can_create(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Doc> {
-                crate::resource::Table::r#for(cx)
-                    .id(|d: &Doc| d.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Doc::fields().title(),
-                        |d: &Doc| d.title.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Doc> {
+                crate::resource::Table::new(
+                    |d: &Doc| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Doc::fields().title(), |d: &Doc| {
+                        d.title.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -646,6 +646,15 @@ mod tests {
         struct WritingResource;
         impl Resource for WritingResource {
             type Model = Dummy;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -768,6 +777,15 @@ mod tests {
         struct EditingResource;
         impl Resource for EditingResource {
             type Model = Dummy;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -922,13 +940,13 @@ mod tests {
             fn can_create(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .id(|r: &Dummy| r.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Dummy::fields().name(),
-                        |r: &Dummy| r.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -1057,13 +1075,13 @@ mod tests {
             fn can_create(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> Table<Subscriber> {
-                Table::r#for(cx)
-                    .id(|s: &Subscriber| s.id.to_string())
-                    .columns(TextColumn::r#for(
-                        Subscriber::fields().email(),
-                        |s: &Subscriber| s.email.clone(),
-                    ))
+            fn table(_cx: &Cx) -> Table<Subscriber> {
+                Table::new(
+                    |s: &Subscriber| s.id.to_string(),
+                    TextColumn::r#for(Subscriber::fields().email(), |s: &Subscriber| {
+                        s.email.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -1186,13 +1204,13 @@ mod tests {
                 true
             }
 
-            fn table(cx: &Cx) -> crate::resource::Table<Doc> {
-                crate::resource::Table::r#for(cx)
-                    .id(|row: &Doc| row.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Doc::fields().title(),
-                        |row: &Doc| row.title.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Doc> {
+                crate::resource::Table::new(
+                    |row: &Doc| row.id.to_string(),
+                    crate::resource::TextColumn::r#for(Doc::fields().title(), |row: &Doc| {
+                        row.title.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]

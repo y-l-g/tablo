@@ -21,15 +21,14 @@ pub struct UserResource;
 impl Resource for UserResource {
     type Model = User;
     fn can_view_any(_cx: &Cx) -> bool { true }
-    fn table(cx: &Cx) -> Table<User> {
-        Table::r#for(cx)
-            .id(|u: &User| u.id.to_string())
-            .columns(
-                TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
-                    .searchable()
-                    .sortable(),
-            )
-            .paginate(20)
+    fn table(_cx: &Cx) -> Table<User> {
+        Table::new(
+            |u: &User| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
+                .searchable()
+                .sortable(),
+        )
+        .paginate(20)
     }
 }
 ```

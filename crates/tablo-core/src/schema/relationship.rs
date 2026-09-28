@@ -598,7 +598,7 @@ mod tests {
 
     #[tokio::test]
     async fn relationship_option_values_are_primary_keys_not_table_ids() {
-        // `Table::id` is a display projection — option
+        // the table key is a display projection — option
         // values must come from the record's typed PK, or a display string
         // silently stores a label in the FK column. The source surface has no
         // table row-key projection to reach for at all, so the

@@ -115,10 +115,11 @@ mod tests {
         }];
         // Zero page size is a programmer error: a descriptive error
         // the streamed list renders in-region, never a per-request panic.
-        let zero = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .paginate(0);
+        let zero = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .paginate(0);
         let page: TablePage<User> = rows.into();
         let err = match zero
             .render_with_state(&cx, page, &TableState::default(), "/admin/users")
@@ -136,11 +137,12 @@ mod tests {
     #[tokio::test]
     async fn group_by_survives_pager_and_labels_page_local_counts() {
         let cx = CxTestBuilder::new().build();
-        let grouped = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable())
-            .group_by("status", |u| u.name.clone())
-            .paginate(1);
+        let grouped = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
+        )
+        .group_by("status", |u| u.name.clone())
+        .paginate(1);
         let state = TableState {
             group_by: Some("status".to_string()),
             sort: Some(Sort {
@@ -181,10 +183,11 @@ mod tests {
         // a cursor past the last row (rows deleted under pagination)
         // must offer navigation, never a pager-less dead end.
         let cx = CxTestBuilder::new().build();
-        let tbl = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable())
-            .paginate(1);
+        let tbl = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
+        )
+        .paginate(1);
         let void_page = TablePage {
             rows: Vec::new(),
             next_cursor: None,

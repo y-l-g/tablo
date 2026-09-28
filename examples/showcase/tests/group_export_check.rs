@@ -182,12 +182,11 @@ async fn export_over_cap_413s_at_route_level() {
         fn can_view(_cx: &topcoat::context::Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(cx: &topcoat::context::Cx) -> Table<Dummy> {
-            Table::r#for(cx)
-                .key(|d: &Dummy| d.id.to_string())
-                .columns(TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                }))
+        fn table(_cx: &topcoat::context::Cx) -> Table<Dummy> {
+            Table::new(
+                |d: &Dummy| d.id.to_string(),
+                TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
+            )
         }
     }
 

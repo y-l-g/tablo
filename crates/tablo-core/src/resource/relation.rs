@@ -295,7 +295,7 @@ pub fn render_relation<'a, R: Resource>(
     // they are resolved once here: the same CSS for every row.
     let (cell_widths, table_min_width) = relation_widths(&columns.columns);
     // Row ids are positional: this table does not reorder or swap, so it needs
-    // no record key — the list's `Table::id` contract exists for keyed diffs
+    // no record key — the list's table-key contract exists for keyed diffs
     // and action URLs, and neither exists here.
     view! {
         cx =>

@@ -269,12 +269,11 @@ async fn forged_delete_runs_no_record_query() {
         fn can_delete(_cx: &topcoat::context::Cx, _r: &Dummy) -> bool {
             true
         }
-        fn table(cx: &topcoat::context::Cx) -> Table<Dummy> {
-            Table::r#for(cx)
-                .id(|d: &Dummy| d.id.to_string())
-                .columns(TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                }))
+        fn table(_cx: &topcoat::context::Cx) -> Table<Dummy> {
+            Table::new(
+                |d: &Dummy| d.id.to_string(),
+                TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
+            )
         }
         async fn delete_record(
             _cx: &topcoat::context::Cx,

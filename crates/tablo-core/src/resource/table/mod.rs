@@ -1,8 +1,8 @@
 //! The [`Table`] builder plus query planning (`filter_expr`/`search_expr`/`order_bys_for`).
 //!
 //! Rendering lives in [`render`](self::render), CSV export in [`export`](self::export).
-//! One routine applies the declaration for both loaders and the
-//! essentials check covers the action chrome the panel wires.
+//! One routine applies the declaration for both loaders, and the essentials
+//! check refuses a table whose page size cannot serve a list.
 
 use std::{marker::PhantomData, sync::Arc};
 
@@ -29,14 +29,14 @@ pub type RowKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
 pub type GroupKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
 
 /// Per-record action policy: reads which row actions one model instance allows.
-/// See [`Table::row_actions`].
+/// See [`RowActions`].
 pub type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
 
 /// Which row actions one record may use.
 ///
-/// The per-record half of `TableChrome`: the chrome flags say which
-/// affordances a resource declares, this says which of them the caller may use
-/// on one loaded row. [`Table::row_actions`] stores the projection and the
+/// The action prefixes say which affordances a resource declares; this says
+/// which of them the caller may use
+/// on one loaded row. The panel wires the projection into the table and the
 /// renderer consults it per row — a denied action emits no link, and a row
 /// denied `delete` renders no bulk checkbox, so the row can never enter the
 /// selection transport.
@@ -61,9 +61,8 @@ pub struct RowActions {
 }
 
 impl RowActions {
-    /// Every action allowed: what a table that declares no projection renders
-    /// ([`Table::row_actions`]), so a hand-wired table shows exactly the chrome
-    /// its `with_*` calls attached.
+    /// Every action allowed: what a table with no panel-wired policy renders, so
+    /// it shows exactly the chrome its action prefixes declare.
     pub const ALL: Self = Self {
         view: true,
         edit: true,
@@ -78,15 +77,13 @@ pub struct GroupDef<M> {
     key: GroupKey<M>,
 }
 
-/// The action chrome a caller attaches to a [`Table`] after
-/// [`Resource::table`](crate::resource::Resource::table) returned.
+/// The action chrome a resource declares: which row actions
+/// `wire_table_actions` attaches.
 ///
-/// `R::table(cx)` declares columns, filters, grouping and the row keys, but the
-/// row actions are wired later — [`Table`] carries no delete/edit/view prefix
-/// until `panel::wire_table_actions` attaches one. The record-key requirement
-/// depends on that wiring, so the build-time declaration check has to be told
-/// what the wiring will attach; `wire_table_actions` and the check derive it
-/// from the same place, so the two cannot disagree.
+/// [`Resource::table`](crate::resource::Resource::table) returns a table
+/// carrying no delete/edit/view prefix: the panel attaches them from the
+/// resource's `deletable()`, `editable()` and
+/// [`viewed`](crate::resource::Resource::viewed) declarations.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct TableChrome {
     /// Whether the row renders a Delete action (which also enables bulk).
@@ -95,16 +92,6 @@ pub(crate) struct TableChrome {
     pub(crate) edit: bool,
     /// Whether the row renders a View action.
     pub(crate) view: bool,
-}
-
-impl TableChrome {
-    /// Whether any row-level action link renders, and so needs a record key.
-    ///
-    /// The bulk-selection column needs it too, but rides the delete prefix (see
-    /// `Table::bulk_enabled`), so it is covered here rather than named again.
-    pub(crate) fn actions(&self) -> bool {
-        self.delete || self.edit || self.view
-    }
 }
 
 /// A [`TableState`] whose `group_by` has already been checked against the
@@ -157,16 +144,16 @@ impl OrderMode {
 /// Table description of a `Resource`'s list view. Declares columns and how they
 /// map to queries.
 ///
-/// Row identity is mandatory and typed: [`Table::key`] declares both key halves
-/// and [`Table::render`] errors without a key, and cells render via
+/// Row identity is mandatory and typed: [`Table::new`] takes the key
+/// projection driving both key halves, and cells render via
 /// [`TextColumn`]'s lens-bound closure where typos fail at compile time instead
 /// of panicking at render.
 pub struct Table<M> {
     columns: Vec<TextColumn<M>>,
     filters: Vec<Filter<M>>,
     group_by: Option<GroupDef<M>>,
-    row_key: Option<RowKey<M>>,
-    record_key: Option<RowKey<M>>,
+    row_key: RowKey<M>,
+    record_key: RowKey<M>,
     row_policy: Option<RowPolicy<M>>,
     page_size: Option<usize>,
     search_ui: Option<bool>,
@@ -185,8 +172,6 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("columns", &self.columns)
             .field("filters", &self.filters.len())
             .field("group_by", &self.group_by.is_some())
-            .field("row_key", &self.row_key.is_some())
-            .field("record_key", &self.record_key.is_some())
             .field("row_policy", &self.row_policy.is_some())
             .field("page_size", &self.page_size)
             .field("search_ui", &self.search_ui)
@@ -200,20 +185,76 @@ impl<M> std::fmt::Debug for Table<M> {
     }
 }
 
-impl<M> Default for Table<M> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<M> Table<M> {
-    pub fn new() -> Self {
+    /// Declare a table with its row key and columns.
+    ///
+    /// One primary-key projection (typically `|u| u.id.to_string()`) drives
+    /// both halves: keyed diffs and DOM ids, and the action URLs and bulk
+    /// values handlers resolve as the model's typed PK. The projection must be
+    /// injective within a page: duplicate keys corrupt keyed diffs and bulk
+    /// selection, and are debug-asserted at render time. A table whose display
+    /// projects a non-PK value uses [`Self::new_split`].
+    ///
+    /// Panics on duplicate [`TextColumn::name`], the guard every constructor
+    /// applies: sort resolution is
+    /// first-sortable-`name()`-match, so duplicate sortable names would
+    /// silently misresolve `?sort=`. The guard covers computed names too
+    /// (`TextColumn::computed("Status", ..)` derives `name = "status"`) for
+    /// namespace consistency and future-proofing. Same fail-loud policy as
+    /// the GH #101 searchable/sortable panics and the Schema GH #100 guard.
+    pub fn new(
+        key: impl Fn(&M) -> String + Send + Sync + 'static,
+        cols: impl IntoColumns<M>,
+    ) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        let key = Arc::new(key);
+        Self::from_keys(key.clone(), key, cols)
+    }
+
+    /// Declare a table whose display projects a non-PK value.
+    ///
+    /// `display` drives keyed diffs and DOM ids; `record` drives action URLs
+    /// and bulk checkbox values handlers resolve as the model's typed PK
+    /// (`pk_eq_expr` / `pk_in_expr` — an unparseable value 404s), so emitting
+    /// a display key there 404s every delete and bulk submit.
+    ///
+    /// # Panics
+    ///
+    /// Panics on duplicate [`TextColumn::name`], like [`Self::new`].
+    pub fn new_split(
+        display: impl Fn(&M) -> String + Send + Sync + 'static,
+        record: impl Fn(&M) -> String + Send + Sync + 'static,
+        cols: impl IntoColumns<M>,
+    ) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        Self::from_keys(Arc::new(display), Arc::new(record), cols)
+    }
+
+    /// The one constructor body: rejects duplicate column names, then builds
+    /// the table around the two declared projections.
+    fn from_keys(row_key: RowKey<M>, record_key: RowKey<M>, cols: impl IntoColumns<M>) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        let cols = cols.into_columns();
+        let mut seen = std::collections::HashSet::with_capacity(cols.len());
+        for c in &cols {
+            let name = c.name();
+            assert!(
+                seen.insert(name),
+                "duplicate column name '{name}': each Table column needs a distinct name (GH #156)"
+            );
+        }
         Self {
-            columns: Vec::new(),
+            columns: cols,
             filters: Vec::new(),
             group_by: None,
-            row_key: None,
-            record_key: None,
+            row_key,
+            record_key,
             row_policy: None,
             page_size: None,
             search_ui: None,
@@ -225,56 +266,6 @@ impl<M> Table<M> {
             live_search: false,
             _marker: PhantomData,
         }
-    }
-
-    /// Create a table for the given model. `cx` is reserved for future tenancy/policy scoping.
-    pub fn r#for(_cx: &Cx) -> Self {
-        Self::new()
-    }
-
-    /// Declare the row key and the record key together
-    /// (typically `|u| u.id.to_string()`).
-    ///
-    /// The common case: one primary-key projection drives keyed diffs and DOM
-    /// ids and the action URLs and bulk values handlers resolve as the model's
-    /// typed PK. The projection must be injective within a page: duplicate
-    /// keys corrupt keyed diffs and bulk selection, and are debug-asserted at
-    /// render time. A table whose display projects a non-PK value declares
-    /// that with [`Self::id`] and overrides the record half with [`Self::pk`].
-    pub fn key(mut self, key: impl Fn(&M) -> String + Send + Sync + 'static) -> Self {
-        let key = Arc::new(key);
-        self.row_key = Some(key.clone());
-        self.record_key = Some(key);
-        self
-    }
-
-    /// Alias of [`Self::key`]: declares the row-key projection and the
-    /// record-key projection together.
-    pub fn id(self, key: impl Fn(&M) -> String + Send + Sync + 'static) -> Self {
-        self.key(key)
-    }
-
-    /// Declare the record-key projection for action URLs and bulk checkbox
-    /// values (typically `|u| u.id.to_string()`).
-    ///
-    /// Deprecated: [`Self::key`] declares both halves, which agree in the
-    /// common case. This remains only as the record-half override for a table
-    /// whose display projects a non-PK value.
-    ///
-    /// Required before [`Self::render`] whenever action chrome is on
-    /// ([`Self::with_delete`], [`Self::with_edit`], [`Self::with_view`],
-    /// [`Self::with_bulk_delete`]):
-    /// handlers resolve these strings as the model's typed PK (`pk_eq_expr` /
-    /// `pk_in_expr` — an unparseable value 404s), so emitting a display key
-    /// here 404s every delete and bulk submit. Renders with chrome but without
-    /// it return an error rather than emitting keys the handlers cannot
-    /// resolve.
-    #[deprecated(
-        note = "declare both halves with `Table::key`; this remains only as the record-half override for a non-PK display projection"
-    )]
-    pub fn pk(mut self, key: impl Fn(&M) -> String + Send + Sync + 'static) -> Self {
-        self.record_key = Some(Arc::new(key));
-        self
     }
 
     /// Declare the per-record action policy: which of the wired row
@@ -297,7 +288,7 @@ impl<M> Table<M> {
     /// [`can_update`](crate::resource::Resource::can_update) /
     /// [`can_delete`](crate::resource::Resource::can_delete), each action
     /// mirroring the predicates its route checks.
-    pub fn row_actions(
+    pub(crate) fn row_actions(
         mut self,
         policy: impl Fn(&M) -> RowActions + Send + Sync + 'static,
     ) -> Self {
@@ -305,35 +296,10 @@ impl<M> Table<M> {
         self
     }
 
-    /// Declare columns. Accepts a single column or tuple of columns.
-    ///
-    /// Panics on duplicate [`TextColumn::name`]: sort resolution is
-    /// first-sortable-`name()`-match, so duplicate sortable names would
-    /// silently misresolve `?sort=`. The guard covers computed names too
-    /// (`TextColumn::computed("Status", ..)` derives `name = "status"`) for
-    /// namespace consistency and future-proofing. Same fail-loud policy as
-    /// the GH #101 searchable/sortable panics and the Schema GH #100 guard.
-    pub fn columns(mut self, cols: impl IntoColumns<M>) -> Self
-    where
-        M: toasty::schema::Model,
-    {
-        let cols = cols.into_columns();
-        let mut seen = std::collections::HashSet::with_capacity(cols.len());
-        for c in &cols {
-            let name = c.name();
-            assert!(
-                seen.insert(name),
-                "duplicate column name '{name}': each Table column needs a distinct name (GH #156)"
-            );
-        }
-        self.columns = cols;
-        self
-    }
-
     /// Declare filters. Accepts a single filter or tuple of filters.
     ///
     /// Panics on duplicate [`Filter::name`], the same fail-loud
-    /// policy as [`Self::columns`]: the `filters` transport is one
+    /// policy as [`Self::new`]: the `filters` transport is one
     /// `name:value` pair per declared filter, and `parse_filters_param` keeps
     /// the first value for a duplicated key, so two filters sharing a name
     /// would silently drop one of them.
@@ -508,9 +474,8 @@ impl<M> Table<M> {
         self.page_size
     }
 
-    /// Which row actions `record` allows: the declared
-    /// [`Self::row_actions`] policy, or [`RowActions::ALL`] when the table
-    /// declares none.
+    /// Which row actions `record` allows: the panel-wired policy, or
+    /// [`RowActions::ALL`] when the table declares none.
     ///
     /// The renderer reads this per row to decide the View/Edit/Delete links and
     /// whether the bulk checkbox is enabled.
@@ -563,14 +528,13 @@ impl<M> Table<M> {
 
     /// Enable row-level `Delete` action. When set, each row renders a
     /// `Delete` button that POSTs to `{prefix}/{id}/delete` with
-    /// `requires_confirmation` semantics. `{id}` is the [`Self::pk`]
-    /// record key (handlers resolve it as the typed PK) — rendering with
-    /// delete chrome but no `pk` is a render error.
+    /// `requires_confirmation` semantics. `{id}` is the record key
+    /// (handlers resolve it as the typed PK).
     ///
-    /// The action is gated per record by [`Self::row_actions`]: a row
+    /// The action is gated per record by the panel-wired row policy: a row
     /// the policy denies renders no `Delete` link and no bulk checkbox,
     /// matching the handler's `can_view` + `can_delete` check.
-    pub fn with_delete(mut self, prefix: String) -> Self {
+    pub(crate) fn with_delete(mut self, prefix: String) -> Self {
         self.delete_prefix = Some(prefix);
         self
     }
@@ -578,41 +542,39 @@ impl<M> Table<M> {
     /// Enable row-level `Edit` action. When set, each row renders
     /// an `Edit` link to `{prefix}/{id}/edit` (Filament's `recordActions`
     /// `EditAction`, same last-column slot as `Delete`). `{id}` is the
-    /// [`Self::pk`] record key — rendering with edit chrome but no `pk` is a
-    /// render error.
+    /// record key.
     ///
-    /// The action is gated per record by [`Self::row_actions`]: a row
+    /// The action is gated per record by the panel-wired row policy: a row
     /// the policy denies renders no `Edit` link, matching the edit route's
     /// `can_view` + `can_update` check. The list still renders every row —
     /// `can_view` stays out of the query, so pagination is not mislabelled.
-    pub fn with_edit(mut self, prefix: String) -> Self {
+    pub(crate) fn with_edit(mut self, prefix: String) -> Self {
         self.edit_prefix = Some(prefix);
         self
     }
 
     /// Enable the row-level `View` action. When set, each row renders
     /// a `View` link to `{prefix}/{id}` — the detail page — in the same
-    /// last-column slot as `Edit` and `Delete`. `{id}` is the [`Self::pk`]
-    /// record key, like the edit URL.
+    /// last-column slot as `Edit` and `Delete`. `{id}` is the record key,
+    /// like the edit URL.
     ///
     /// The caller sets this only for a resource that declares a detail page
     /// ([`Resource::viewed`](crate::resource::Resource::viewed)), so a resource
     /// with no view renders no link instead of one that 404s. The action is
-    /// gated per record by [`Self::row_actions`]: a row the policy
+    /// gated per record by the panel-wired row policy: a row the policy
     /// denies renders no `View` link, matching the detail route's `can_view`.
-    pub fn with_view(mut self, prefix: String) -> Self {
+    pub(crate) fn with_view(mut self, prefix: String) -> Self {
         self.view_prefix = Some(prefix);
         self
     }
 
     /// Enable bulk selection with `BulkDelete` action. Checkbox values are
-    /// the [`Self::pk`] record keys (handlers resolve them as typed PKs) —
-    /// rendering with bulk chrome but no `pk` is a render error.
+    /// the record keys (handlers resolve them as typed PKs).
     ///
-    /// A row the [`Self::row_actions`] policy denies `delete` renders no
+    /// A row the panel-wired row policy denies `delete` renders no
     /// checkbox, so select-all never submits a batch the handler's
     /// all-or-nothing check refuses.
-    pub fn with_bulk_delete(mut self, enabled: bool) -> Self {
+    pub(crate) fn with_bulk_delete(mut self, enabled: bool) -> Self {
         self.bulk_delete = enabled;
         self
     }
@@ -900,36 +862,13 @@ impl<M> Table<M> {
 
     /// The first declaration this table is missing, if any.
     ///
-    /// The same checks [`Self::render`](Self::render_with_state) enforces per
+    /// The same check [`Self::render`](Self::render_with_state) enforces per
     /// request, lifted so [`Panel::build`](crate::panel::Panel::build) can
     /// refuse to serve a resource whose table could never render — the
     /// declaration is knowable at boot, so a request is too late to report it.
-    ///
-    /// `chrome` is the action chrome the caller will attach: the
-    /// declared table carries no delete/edit/view prefix, so the record-key
-    /// requirement is only knowable once the wiring is known. The render
-    /// enforces the same predicate on the wired table.
-    pub(crate) fn missing_essentials(&self, chrome: TableChrome) -> Option<String> {
+    pub(crate) fn missing_essentials(&self) -> Option<String> {
         if self.page_size == Some(0) {
             return Some("paginate requires per_page > 0".to_string());
-        }
-        if self.columns.is_empty() {
-            return Some(
-                "no columns declared — declare columns via Table::columns(..)".to_string(),
-            );
-        }
-        // A `pk`-only table renders its display from the record key: the one
-        // declared key is the primary key either way. The reverse never falls
-        // back — chrome without a record key would emit display keys the
-        // handlers 404 on.
-        if self.row_key.is_none() && self.record_key.is_none() {
-            return Some("no row key declared — declare one via Table::key(|row| ..)".to_string());
-        }
-        if chrome.actions() && self.record_key.is_none() {
-            return Some(
-                "action chrome needs a record key — declare one via Table::key(|row| ..)"
-                    .to_string(),
-            );
         }
         None
     }
@@ -1002,16 +941,15 @@ mod tests {
         created_at: jiff::Timestamp,
     }
 
-    fn status_table(cx: &Cx) -> Table<Task> {
-        Table::<Task>::r#for(cx)
-            .key(|t| t.id.to_string())
-            .columns(TextColumn::r#for(Task::fields().title(), |t| {
-                t.title.clone()
-            }))
-            .filters(SelectFilter::r#for(
-                Task::fields().status(),
-                vec!["published".to_string(), "draft".to_string()],
-            ))
+    fn status_table(_cx: &Cx) -> Table<Task> {
+        Table::<Task>::new(
+            |t| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
+        )
+        .filters(SelectFilter::r#for(
+            Task::fields().status(),
+            vec!["published".to_string(), "draft".to_string()],
+        ))
     }
 
     fn filters_state(pairs: &[(&str, &str)]) -> TableState {
@@ -1073,12 +1011,11 @@ mod tests {
             .unwrap();
         }
         let cx = CxTestBuilder::new().app_context(db).build();
-        let tbl = Table::<User>::new()
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u: &User| {
-                u.name.clone()
-            }))
-            .paginate(1);
+        let tbl = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+        )
+        .paginate(1);
         // A valid cursor token: the first page of two rows has a next page.
         let first = tbl
             .load(
@@ -1122,17 +1059,21 @@ mod tests {
 
     #[test]
     fn table_search_expr_ors_across_searchable_columns() {
-        let cx = CxTestBuilder::new().build();
         // distinct names — title + status, not one field twice.
-        let tasks_table = Table::<Task>::r#for(&cx).columns((
-            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()).searchable(),
-            TextColumn::r#for(Task::fields().status(), |t| t.status.clone()).searchable(),
-        ));
+        let tasks_table = Table::<Task>::new(
+            |t| t.id.to_string(),
+            (
+                TextColumn::r#for(Task::fields().title(), |t| t.title.clone()).searchable(),
+                TextColumn::r#for(Task::fields().status(), |t| t.status.clone()).searchable(),
+            ),
+        );
         assert!(tasks_table.search_expr("Ada").is_some());
         assert!(tasks_table.search_expr("").is_none());
         assert!(tasks_table.search_expr("   ").is_none());
-        let table_none = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let table_none = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         assert!(table_none.search_expr("Ada").is_none());
     }
 
@@ -1142,16 +1083,21 @@ mod tests {
     /// `export_query` can drop every include).
     #[test]
     fn table_include_needs_unions_the_columns_declarations() {
-        let cx = CxTestBuilder::new().build();
-        let plain = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let plain = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         assert!(plain.include_needs().is_empty());
 
-        let declared = Table::<Task>::r#for(&cx).columns((
-            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
-            TextColumn::computed("Owner", |t: &Task| t.title.clone()).needs(["author"]),
-            TextColumn::computed("Audit", |t: &Task| t.title.clone()).needs(["comments", "author"]),
-        ));
+        let declared = Table::<Task>::new(
+            |t| t.id.to_string(),
+            (
+                TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
+                TextColumn::computed("Owner", |t: &Task| t.title.clone()).needs(["author"]),
+                TextColumn::computed("Audit", |t: &Task| t.title.clone())
+                    .needs(["comments", "author"]),
+            ),
+        );
         let needs = declared.include_needs();
         assert!(needs.wants("author") && needs.wants("comments"));
         // Only what a column declared: `author` declared twice is still a
@@ -1161,31 +1107,38 @@ mod tests {
 
     #[test]
     fn table_order_by_returns_first_sortable() {
-        let cx = CxTestBuilder::new().build();
         // distinct names — title sortable + status plain.
-        let tasks_table = Table::<Task>::r#for(&cx).columns((
-            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()).sortable(),
-            TextColumn::r#for(Task::fields().status(), |t| t.status.clone()),
-        ));
+        let tasks_table = Table::<Task>::new(
+            |t| t.id.to_string(),
+            (
+                TextColumn::r#for(Task::fields().title(), |t| t.title.clone()).sortable(),
+                TextColumn::r#for(Task::fields().status(), |t| t.status.clone()),
+            ),
+        );
         assert!(tasks_table.order_by(false).is_some());
-        let table_none = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let table_none = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         assert!(table_none.order_by(false).is_none());
     }
 
     #[test]
     fn table_order_bys_single_sort_column() {
-        let cx = CxTestBuilder::new().build();
-        let users_table = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable());
+        let users_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
+        );
         let orders = users_table.order_bys_for(&TableState::default(), OrderMode::List);
         // Single sortable column, no app-level PK suffix — toasty's engine
         // appends the physical PK columns to ambiguous cursor orderings
         // internally.
         assert_eq!(orders.len(), 1, "sortable column only, got {orders:?}");
         // No sortable → empty
-        let table_none = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let table_none = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         assert!(
             table_none
                 .order_bys_for(&TableState::default(), OrderMode::List)
@@ -1196,10 +1149,11 @@ mod tests {
 
     #[test]
     fn order_bys_for_resolves_sort_param_with_fallbacks() {
-        let cx = CxTestBuilder::new().build();
-        let sorted = Table::<User>::r#for(&cx)
-            .paginate(25)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable());
+        let sorted = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
+        )
+        .paginate(25);
 
         // ?sort=name&dir=desc → name desc (toasty appends PK internally)
         let state = TableState {
@@ -1231,9 +1185,11 @@ mod tests {
         );
 
         // Paginated table with no sortable column → PK-only deterministic order
-        let unsorted = Table::<User>::r#for(&cx)
-            .paginate(25)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let unsorted = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .paginate(25);
         let orders = unsorted.order_bys_for(&TableState::default(), OrderMode::List);
         assert_eq!(
             orders.len(),
@@ -1242,8 +1198,10 @@ mod tests {
         );
 
         // Unpaginated and unsorted → empty (query stays unordered)
-        let plain = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let plain = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         assert!(
             plain
                 .order_bys_for(&TableState::default(), OrderMode::List)
@@ -1274,9 +1232,10 @@ mod tests {
             toasty::create!(User { name }).exec(&mut db).await.unwrap();
         }
         let cx = CxTestBuilder::new().app_context(db).build();
-        let users_table = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable());
+        let users_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
+        );
         let mut db = crate::db::db(&cx);
 
         // Page 1 of 1-per-page: full page → real next cursor.
@@ -1314,11 +1273,10 @@ mod tests {
         use topcoat::view::ViewExt;
 
         let cx = CxTestBuilder::new().build();
-        let table = Table::<User>::r#for(&cx)
-            .key(|u: &User| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u: &User| {
-                u.name.clone()
-            }));
+        let table = Table::<User>::new(
+            |u: &User| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+        );
 
         let page = crate::resource::TablePage::<User>::from(vec![]);
         let html = table
@@ -1391,13 +1349,11 @@ mod tests {
         // `all` is the documented TernaryFilter no-op — it selects
         // no predicate AND is never flagged, so the list shows no warning
         // and the export (which refuses on any unapplied filter) stays 200.
-        let cx = CxTestBuilder::new().build();
-        let tbl = Table::<Task>::r#for(&cx)
-            .key(|t| t.id.to_string())
-            .columns(TextColumn::r#for(Task::fields().title(), |t| {
-                t.title.clone()
-            }))
-            .filters(TernaryFilter::r#for(Task::fields().featured()));
+        let tbl = Table::<Task>::new(
+            |t| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
+        )
+        .filters(TernaryFilter::r#for(Task::fields().featured()));
         let state = filters_state(&[("featured", "all")]);
         assert!(
             tbl.filter_expr(&state).is_none(),
@@ -1452,10 +1408,13 @@ mod tests {
         // computed("Status") derives name "status", colliding with
         // the field column's name — the TextColumn::name namespace must stay
         // unique even though computeds are never sortable today.
-        let _ = Table::<Task>::new().columns((
-            TextColumn::r#for(Task::fields().status(), |t: &Task| t.status.clone()).sortable(),
-            TextColumn::computed("Status", |t: &Task| t.status.clone()),
-        ));
+        let _ = Table::<Task>::new(
+            |t| t.id.to_string(),
+            (
+                TextColumn::r#for(Task::fields().status(), |t: &Task| t.status.clone()).sortable(),
+                TextColumn::computed("Status", |t: &Task| t.status.clone()),
+            ),
+        );
     }
 
     #[test]
@@ -1463,20 +1422,26 @@ mod tests {
     fn duplicate_column_name_panics_on_case_only_computed_collision() {
         // computed names are label.to_lowercase(), so labels
         // differing only by case still collide.
-        let _ = Table::<User>::new().columns((
-            TextColumn::computed("Status", |u: &User| u.name.clone()),
-            TextColumn::computed("STATUS", |u: &User| u.name.clone()),
-        ));
+        let _ = Table::<User>::new(
+            |u| u.id.to_string(),
+            (
+                TextColumn::computed("Status", |u: &User| u.name.clone()),
+                TextColumn::computed("STATUS", |u: &User| u.name.clone()),
+            ),
+        );
     }
 
     #[test]
     #[should_panic(expected = "duplicate column name")]
     fn duplicate_column_name_panics_on_duplicate_field() {
         // same guard covers two bindings of one field.
-        let _ = Table::<User>::new().columns((
-            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-        ));
+        let _ = Table::<User>::new(
+            |u| u.id.to_string(),
+            (
+                TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+                TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+            ),
+        );
     }
 
     #[test]
@@ -1485,7 +1450,11 @@ mod tests {
         // the transport names a filter by its field, and the parser
         // keeps the first value for a duplicated key, so two filters on one
         // field would silently drop one. Refuse the declaration instead.
-        let _ = Table::<Task>::new().filters((
+        let _ = Table::<Task>::new(
+            |t| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
+        )
+        .filters((
             SelectFilter::r#for(Task::fields().status(), vec!["published".to_string()]),
             SelectFilter::r#for(Task::fields().status(), vec!["draft".to_string()]),
         ));
@@ -1509,11 +1478,12 @@ mod tests {
         CxTestBuilder::new().app_context(db).build()
     }
 
-    fn paged_users_table(cx: &topcoat::context::Cx, per_page: usize) -> Table<User> {
-        Table::<User>::r#for(cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()).sortable())
-            .paginate(per_page)
+    fn paged_users_table(per_page: usize) -> Table<User> {
+        Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()).sortable(),
+        )
+        .paginate(per_page)
     }
 
     #[tokio::test]
@@ -1525,7 +1495,7 @@ mod tests {
         // *fetched* row), dropping every `(per_page+1)`th row from forward
         // walks — this walk fails loudly if that ever lands.
         let cx = seeded_users(&["u01", "u02", "u03", "u04", "u05"]).await;
-        let tbl = paged_users_table(&cx, 2);
+        let tbl = paged_users_table(2);
         let query = || toasty::stmt::Query::<List<User>>::all();
         // Forward walk from the first page to exhaustion.
         let mut seen = Vec::new();
@@ -1574,7 +1544,7 @@ mod tests {
         // `paginate(2)`) must report no next page — the engine's optimistic
         // `next_cursor` alone would be a phantom link to an empty page.
         let cx = seeded_users(&["u01", "u02", "u03", "u04"]).await;
-        let tbl = paged_users_table(&cx, 2);
+        let tbl = paged_users_table(2);
         let query = || toasty::stmt::Query::<List<User>>::all();
         let first = tbl
             .load(&cx, query(), &TableState::default())
@@ -1736,7 +1706,7 @@ mod tests {
         // thread-local attribution below holds.
         use std::sync::atomic::Ordering;
         let cx = seeded_users(&["u01", "u02", "u03", "u04"]).await;
-        let tbl = paged_users_table(&cx, 2);
+        let tbl = paged_users_table(2);
         let budget = install_budget_counter();
         let _scope = tracing::info_span!(BUDGET_SPAN).entered();
         let count_around = |reset: bool| {
@@ -1782,7 +1752,7 @@ mod tests {
         assert_eq!(first.rows.len(), 2);
         // Short terminal page: main alone, no probe (paginate(3) over 4
         // rows ends on a 1-row page).
-        let tbl3 = paged_users_table(&cx, 3);
+        let tbl3 = paged_users_table(3);
         count_around(true);
         let head = tbl3
             .load(
@@ -1894,13 +1864,11 @@ mod tests {
             .app_context(db)
             .build();
         let table = || {
-            Table::<Task>::new()
-                .key(|t| t.id.to_string())
-                .columns(
-                    TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone())
-                        .sortable(),
-                )
-                .paginate(2)
+            Table::<Task>::new(
+                |t| t.id.to_string(),
+                TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()).sortable(),
+            )
+            .paginate(2)
         };
         // The query orders by `title` then the PK to break ties, so a cursor
         // with three fields has one too many.

@@ -164,6 +164,16 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
+                crate::resource::Table::new(
+                    |r: &Subscriber| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(
+                        Subscriber::fields().email(),
+                        |r: &Subscriber| r.email.clone(),
+                    ),
+                )
+            }
         }
 
         let mut db = Db::builder()
@@ -237,13 +247,13 @@ mod tests {
             fn can_update(_cx: &Cx, _record: &Pair) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Pair> {
-                crate::resource::Table::r#for(cx)
-                    .id(|p: &Pair| format!("{}-{}", p.a, p.b))
-                    .columns(crate::resource::TextColumn::r#for(
-                        Pair::fields().name(),
-                        |p: &Pair| p.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Pair> {
+                crate::resource::Table::new(
+                    |p: &Pair| format!("{}-{}", p.a, p.b),
+                    crate::resource::TextColumn::r#for(Pair::fields().name(), |p: &Pair| {
+                        p.name.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]

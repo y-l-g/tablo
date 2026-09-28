@@ -193,8 +193,8 @@ mod tests {
 
     #[tokio::test]
     async fn delete_resolves_record_key_not_display_key() {
-        // GH #168 defect 1 round-trip: `Table::id` projects a non-PK value
-        // (the name), `Table::pk` carries the typed PK. Handlers must 404
+        // GH #168 defect 1 round-trip: the display key projects a non-PK value
+        // (the name), the record key carries the typed PK. Handlers must 404
         // the display value and accept the record key, for single and bulk.
 
         use crate::resource::Resource;
@@ -211,15 +211,14 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            #[allow(deprecated)]
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.name.clone())
-                    .pk(|d: &Dummy| d.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Dummy::fields().name(),
-                        |d: &Dummy| d.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new_split(
+                    |d: &Dummy| d.name.clone(),
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    }),
+                )
             }
             async fn delete_record(
                 _cx: &Cx,

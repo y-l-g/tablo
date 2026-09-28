@@ -97,14 +97,14 @@ impl Resource for MemberResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Member> {
-        Table::r#for(cx)
-            .key(|member: &Member| member.id.to_string())
-            .paginate(25)
-            .columns(TextColumn::r#for(
-                Member::fields().handle(),
-                |member: &Member| member.handle.clone(),
-            ))
+    fn table(_cx: &Cx) -> Table<Member> {
+        Table::new(
+            |member: &Member| member.id.to_string(),
+            TextColumn::r#for(Member::fields().handle(), |member: &Member| {
+                member.handle.clone()
+            }),
+        )
+        .paginate(25)
     }
 }
 

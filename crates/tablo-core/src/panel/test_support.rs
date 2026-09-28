@@ -22,12 +22,11 @@ pub(crate) struct Dummy {
 }
 
 /// [`Dummy`]'s canonical table: display key, record key, one name column.
-pub(crate) fn dummy_table(cx: &Cx) -> Table<Dummy> {
-    Table::<Dummy>::r#for(cx)
-        .key(|d: &Dummy| d.id.to_string())
-        .columns(TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-            d.name.clone()
-        }))
+pub(crate) fn dummy_table(_cx: &Cx) -> Table<Dummy> {
+    Table::<Dummy>::new(
+        |d: &Dummy| d.id.to_string(),
+        TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
+    )
 }
 
 /// A panel mounted at `/admin` with one list-only resource and the auth gate
@@ -109,13 +108,13 @@ impl crate::resource::Resource for TaggedResource {
         true
     }
 
-    fn table(cx: &Cx) -> crate::resource::Table<Tagged> {
-        crate::resource::Table::r#for(cx)
-            .key(|row: &Tagged| row.id.to_string())
-            .columns(crate::resource::TextColumn::r#for(
-                Tagged::fields().name(),
-                |row: &Tagged| row.name.clone(),
-            ))
+    fn table(_cx: &Cx) -> crate::resource::Table<Tagged> {
+        crate::resource::Table::new(
+            |row: &Tagged| row.id.to_string(),
+            crate::resource::TextColumn::r#for(Tagged::fields().name(), |row: &Tagged| {
+                row.name.clone()
+            }),
+        )
     }
 }
 

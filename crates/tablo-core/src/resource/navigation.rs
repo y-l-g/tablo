@@ -167,6 +167,15 @@ mod tests {
     impl Resource for UserResource {
         type Model = User;
 
+        fn table(_cx: &Cx) -> crate::resource::Table<User> {
+            crate::resource::Table::new(
+                |r: &User| r.id.to_string(),
+                crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| {
+                    r.name.clone()
+                }),
+            )
+        }
+
         fn query(_cx: &Cx) -> toasty::stmt::Query<List<User>> {
             // Custom scoping example: only users named Ada
             toasty::stmt::Query::<List<User>>::all().filter(User::fields().name().eq("Ada"))

@@ -162,16 +162,15 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &OptAuthor) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<OptAuthor> {
-                crate::resource::Table::r#for(cx)
-                    .key(|a: &OptAuthor| a.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(
-                            OptAuthor::fields().name(),
-                            |a: &OptAuthor| a.name.clone(),
-                        )
-                        .searchable(),
+            fn table(_cx: &Cx) -> crate::resource::Table<OptAuthor> {
+                crate::resource::Table::new(
+                    |a: &OptAuthor| a.id.to_string(),
+                    crate::resource::TextColumn::r#for(
+                        OptAuthor::fields().name(),
+                        |a: &OptAuthor| a.name.clone(),
                     )
+                    .searchable(),
+                )
             }
         }
 
@@ -195,13 +194,13 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &OptPost) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<OptPost> {
-                crate::resource::Table::r#for(cx)
-                    .key(|p: &OptPost| p.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        OptPost::fields().title(),
-                        |p: &OptPost| p.title.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<OptPost> {
+                crate::resource::Table::new(
+                    |p: &OptPost| p.id.to_string(),
+                    crate::resource::TextColumn::r#for(OptPost::fields().title(), |p: &OptPost| {
+                        p.title.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -351,13 +350,13 @@ mod tests {
                     Query::<List<Child>>::all()
                 }
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Child> {
-                crate::resource::Table::r#for(cx)
-                    .key(|c: &Child| c.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Child::fields().name(),
-                        |c: &Child| c.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Child> {
+                crate::resource::Table::new(
+                    |c: &Child| c.id.to_string(),
+                    crate::resource::TextColumn::r#for(Child::fields().name(), |c: &Child| {
+                        c.name.clone()
+                    }),
+                )
             }
         }
 
@@ -376,13 +375,13 @@ mod tests {
             fn slug() -> String {
                 "owners".to_string()
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Owner> {
-                crate::resource::Table::r#for(cx)
-                    .key(|o: &Owner| o.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Owner::fields().name(),
-                        |o: &Owner| o.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Owner> {
+                crate::resource::Table::new(
+                    |o: &Owner| o.id.to_string(),
+                    crate::resource::TextColumn::r#for(Owner::fields().name(), |o: &Owner| {
+                        o.name.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -485,15 +484,14 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &BigA) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<BigA> {
-                crate::resource::Table::r#for(cx)
-                    .key(|a: &BigA| a.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(BigA::fields().name(), |a: &BigA| {
-                            a.name.clone()
-                        })
-                        .searchable(),
-                    )
+            fn table(_cx: &Cx) -> crate::resource::Table<BigA> {
+                crate::resource::Table::new(
+                    |a: &BigA| a.id.to_string(),
+                    crate::resource::TextColumn::r#for(BigA::fields().name(), |a: &BigA| {
+                        a.name.clone()
+                    })
+                    .searchable(),
+                )
             }
         }
 
@@ -513,13 +511,13 @@ mod tests {
             fn slug() -> String {
                 "big-ps".to_string()
             }
-            fn table(cx: &Cx) -> crate::resource::Table<BigP> {
-                crate::resource::Table::r#for(cx)
-                    .id(|r: &BigP| r.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        BigP::fields().name(),
-                        |r: &BigP| r.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<BigP> {
+                crate::resource::Table::new(
+                    |r: &BigP| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(BigP::fields().name(), |r: &BigP| {
+                        r.name.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -547,13 +545,13 @@ mod tests {
             fn slug() -> String {
                 "plain-ps".to_string()
             }
-            fn table(cx: &Cx) -> crate::resource::Table<BigP> {
-                crate::resource::Table::r#for(cx)
-                    .id(|r: &BigP| r.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        BigP::fields().name(),
-                        |r: &BigP| r.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<BigP> {
+                crate::resource::Table::new(
+                    |r: &BigP| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(BigP::fields().name(), |r: &BigP| {
+                        r.name.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]

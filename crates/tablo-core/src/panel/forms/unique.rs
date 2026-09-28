@@ -123,6 +123,16 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
+                crate::resource::Table::new(
+                    |r: &Subscriber| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(
+                        Subscriber::fields().email(),
+                        |r: &Subscriber| r.email.clone(),
+                    ),
+                )
+            }
         }
 
         let mut db = Db::builder()
@@ -233,6 +243,16 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
+                crate::resource::Table::new(
+                    |r: &Subscriber| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(
+                        Subscriber::fields().email(),
+                        |r: &Subscriber| r.email.clone(),
+                    ),
+                )
+            }
         }
 
         let db = Db::builder()
@@ -304,6 +324,16 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
+                crate::resource::Table::new(
+                    |r: &Subscriber| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(
+                        Subscriber::fields().email(),
+                        |r: &Subscriber| r.email.clone(),
+                    ),
+                )
+            }
         }
 
         let db = Db::builder()
@@ -357,6 +387,15 @@ mod tests {
         struct ProbeResource;
         impl Resource for ProbeResource {
             type Model = Probe;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Probe> {
+                crate::resource::Table::new(
+                    |r: &Probe| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Probe::fields().email(), |r: &Probe| {
+                        r.email.clone()
+                    }),
+                )
+            }
         }
 
         // Schema never pushed: the probe query cannot run, so the check must
@@ -397,6 +436,16 @@ mod tests {
         struct TaggedResource;
         impl Resource for TaggedResource {
             type Model = Nicknamed;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Nicknamed> {
+                crate::resource::Table::new(
+                    |r: &Nicknamed| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(
+                        Nicknamed::fields().nickname(),
+                        |r: &Nicknamed| r.nickname.clone(),
+                    ),
+                )
+            }
         }
 
         let mut db = Db::builder()

@@ -87,17 +87,15 @@ _Avoid_: Form, Infolist, Fieldset (as top-level term), statePath
 The declarative description of a list view. Declares columns, filters, search, sort, pagination,
 and row/bulk actions. It also declares how to query — searchable and filterable columns produce
 Toasty predicates, sortable columns map to order_by. Owns the row loop: row identity is mandatory
-and typed, declared once via the table key (`Table::key(|u| u.id.to_string())`)
-until Toasty exposes instance→PK extraction, and render errors without it — never a loop index.
+and typed, declared once via the constructor (`Table::new(|u| u.id.to_string(), columns)`)
+until Toasty exposes instance→PK extraction — never a loop index.
 Identity is two projections: the display key (keyed diffs, DOM ids) and the
 record key (edit/delete URLs, bulk checkbox values), resolved by handlers as the
-typed PK — action chrome without a key is a render error, not a silent 404 (GH #168).
-A table whose display projects a non-PK value declares that value with `Table::id` and
-overrides the record half with `Table::pk`; a `pk`-only table renders its display from the
-record key.
+typed PK. A table whose display projects a non-PK value uses
+`Table::new_split(display, record, columns)`.
 
 Row chrome is opt-in per resource (`TableChrome`, GH #226) and gated per record by the table's
-**row policy** (`Table::row_actions`, GH #235), which the panel wires from the resource's
+**row policy**, which the panel wires from the resource's
 `can_view`/`can_update`/`can_delete`: a refused row renders no link, and a delete-refused row no
 bulk checkbox. The handler's all-or-nothing check stays as
 the safety net for a hand-crafted POST.

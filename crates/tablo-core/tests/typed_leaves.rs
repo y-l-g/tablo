@@ -185,15 +185,14 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> tablo_core::Table<Reading> {
-            tablo_core::Table::r#for(cx)
-                .id(|r: &Reading| r.id.to_string())
+        fn table(_cx: &Cx) -> tablo_core::Table<Reading> {
+            tablo_core::Table::new(
+                |r: &Reading| r.id.to_string(),
                 // The list renders the integer through a computed column: a
                 // lens-bound column takes `Path<M, String>`, the same
                 // compile-time rule the typed field constructor respects.
-                .columns(tablo_core::TextColumn::computed("Words", |r: &Reading| {
-                    r.word_count.to_string()
-                }))
+                tablo_core::TextColumn::computed("Words", |r: &Reading| r.word_count.to_string()),
+            )
         }
     }
     #[derive(tablo_core::RecordForm)]

@@ -101,13 +101,12 @@ impl Resource for DocResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Doc> {
-        Table::r#for(cx)
-            .key(|doc: &Doc| doc.id.to_string())
-            .paginate(25)
-            .columns(TextColumn::r#for(Doc::fields().title(), |doc: &Doc| {
-                doc.title.clone()
-            }))
+    fn table(_cx: &Cx) -> Table<Doc> {
+        Table::new(
+            |doc: &Doc| doc.id.to_string(),
+            TextColumn::r#for(Doc::fields().title(), |doc: &Doc| doc.title.clone()),
+        )
+        .paginate(25)
     }
 }
 #[derive(tablo_core::RecordForm)]
