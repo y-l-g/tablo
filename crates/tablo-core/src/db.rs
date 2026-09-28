@@ -18,6 +18,11 @@ use topcoat::context::{Cx, app_context};
 /// handlers therefore keep the tx strictly around check + write + commit and
 /// `drop(tx)` before any re-render (form option loaders open their own
 /// handle).
+///
+/// List pages stream: the table query runs while the response body streams,
+/// so a list body held alive holds a pooled connection until the body drains.
+/// With a single-connection pool a second query waits while an earlier list
+/// body stays alive; drain or drop the body before the next query.
 #[inline]
 pub fn db(cx: &Cx) -> Db {
     app_context::<Db>(cx).clone()

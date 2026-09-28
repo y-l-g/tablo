@@ -13,6 +13,8 @@ mod after_commit;
 mod auth_override;
 mod resource_query_override;
 mod sqlite;
+#[cfg(feature = "auth")]
+mod stream_pool;
 mod typed_leaves;
 mod uploads;
 
