@@ -10,7 +10,8 @@
 //! On edit, a declared key the submission does not post is **completed** from
 //! the stored record before the parse, so [`FormResource::update_record`]
 //! receives a whole form, and [`Posted`] records which fields the submission
-//! **named**. The write assigns only named fields.
+//! **named**. The write assigns only named fields, plus what the model's own
+//! `#[update(..)]` defaults and `#[version]` column assign on every update.
 //!
 //! ```no_run
 //! #[derive(Debug, Clone, toasty::Model)]
@@ -28,6 +29,15 @@
 //!     name: String,
 //!     #[record_form(blank = 0)]
 //!     age: i64,
+//! }
+//!
+//! // A column type toasty stores but the form edge cannot spell.
+//! #[derive(Debug, Clone, toasty::Model)]
+//! struct Tagged {
+//!     #[key]
+//!     #[auto]
+//!     id: uuid::Uuid,
+//!     tags: Vec<String>,
 //! }
 //! ```
 //!
@@ -54,6 +64,24 @@
 //! #[record_form(model = User)]
 //! struct UserForm {
 //!     age: i32,
+//! }
+//! ```
+//!
+//! A scalar type the form edge cannot spell:
+//!
+//! ```compile_fail
+//! #[derive(Debug, Clone, toasty::Model)]
+//! struct Tagged {
+//!     #[key]
+//!     #[auto]
+//!     id: uuid::Uuid,
+//!     tags: Vec<String>,
+//! }
+//!
+//! #[derive(tablo_core::RecordForm)]
+//! #[record_form(model = Tagged)]
+//! struct TaggedForm {
+//!     tags: Vec<String>,
 //! }
 //! ```
 //!
@@ -374,6 +402,16 @@ pub trait FormResource: Resource {
     /// The typed value the form's submission parses into.
     type Form: RecordForm<Model = Self::Model>;
 
+    /// The columns an overriding [`Self::create_record`] sets itself, beyond
+    /// the form's fields.
+    ///
+    /// [`Panel::build`](crate::Panel::build) refuses a resource that allows
+    /// create when a non-nullable column is neither a form field, nor filled by
+    /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
+    /// create would fail at the driver on every submit. A record fn that sets
+    /// such a column by hand names it here.
+    const CREATE_COLUMNS: &'static [&'static str] = &[];
+
     /// The schema the create and edit forms render.
     fn form(cx: &Cx) -> Schema;
 
@@ -409,6 +447,32 @@ pub trait FormResource: Resource {
     ) -> impl Future<Output = Result<Self::Model>> + Send {
         write_update::<Self>(cx, record, posted, ex)
     }
+}
+
+/// Which of `M`'s root fields the create builder fills before any setter runs:
+/// `#[auto]` fields, which the database fills, and `#[default(..)]` ones.
+///
+/// Read off `M::Create::default()`, because toasty keeps a `#[default]` in its
+/// generated code only, never in the app schema.
+pub(crate) fn prefilled_fields<M: Model>() -> Vec<bool> {
+    let insert = <M::Create as Default>::default().into_insert();
+    let toasty_core::stmt::Expr::Stmt(statement) = toasty_core::stmt::Expr::from(insert) else {
+        return Vec::new();
+    };
+    statement
+        .stmt
+        .as_insert()
+        .and_then(|insert| insert.source.body.as_values())
+        .and_then(|values| values.rows.last())
+        .and_then(|row| row.as_record())
+        .map(|record| {
+            record
+                .fields
+                .iter()
+                .map(|expr| !expr.is_value_null())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// The derived create: the form's builder, the request tenant stamped on a

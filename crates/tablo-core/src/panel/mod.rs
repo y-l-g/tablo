@@ -249,7 +249,9 @@ impl Panel {
     /// shadow each other's routes, and a hostile `slug()` must not reach a
     /// route path or a response header.
     pub fn resource<R: Resource>(mut self) -> Self {
-        if let Some(url) = self.register_common::<R>(resource_view::<R, ViewValues>) {
+        if let Some(url) =
+            self.register_common::<R>(resource_list::<R, false>, resource_view::<R, ViewValues>)
+        {
             self.resource_checks.push(check_list_resource::<R>);
             self.finish_registration::<R>(url);
         }
@@ -269,7 +271,9 @@ impl Panel {
     /// a field with a blank answer; and a gated resource's form does not claim
     /// its tenant column.
     pub fn form_resource<R: FormResource>(mut self) -> Self {
-        let Some(url) = self.register_common::<R>(resource_view::<R, FormValues>) else {
+        let Some(url) =
+            self.register_common::<R>(resource_list::<R, true>, resource_view::<R, FormValues>)
+        else {
             return self;
         };
         self.resource_checks.push(check_form_resource::<R>);
@@ -310,10 +314,14 @@ impl Panel {
         self
     }
 
-    /// The routes every resource registers: the list, the detail page (read
-    /// through `detail`), delete, bulk delete, and export. Returns the list URL,
+    /// The routes every resource registers: the list (`list`), the detail page
+    /// (`detail`), delete, bulk delete, and export. Returns the list URL,
     /// or `None` when the slug was refused.
-    fn register_common<R: Resource>(&mut self, detail: PageRenderFn) -> Option<String> {
+    fn register_common<R: Resource>(
+        &mut self,
+        list: PageRenderFn,
+        detail: PageRenderFn,
+    ) -> Option<String> {
         let slug = R::slug();
         if let Err(error) = validate_route_segment("Resource::slug", &slug) {
             self.registration_errors.push(error);
@@ -328,11 +336,8 @@ impl Panel {
         self.slugs.push(slug);
         self.resource_checks.push(check_resource::<R>);
         let url = format!("{}/{}", self.prefix, R::slug());
-        self.pages.push(PageFn::new(
-            http::Method::GET,
-            route_path(&url),
-            resource_list::<R>,
-        ));
+        self.pages
+            .push(PageFn::new(http::Method::GET, route_path(&url), list));
         // Detail page — GET renders the record read-only. Registered
         // unconditionally, unlike the row link: registration runs before a
         // request exists, so `R::view(cx)` is not declarable here. The handler

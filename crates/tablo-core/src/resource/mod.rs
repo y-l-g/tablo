@@ -106,6 +106,13 @@ pub trait Resource: Sized + Send + Sync + 'static {
     }
 
     /// Whether the current user may create a new record.
+    ///
+    /// `Panel::build` calls this with a Db-only context to decide which
+    /// declaration checks apply, so a predicate that reads the request (a
+    /// tenant, a user) answers as it would for an anonymous request there. The
+    /// list page links to the create page only for a resource registered with
+    /// [`Panel::form_resource`](crate::Panel::form_resource), whatever this
+    /// answers.
     fn can_create(_cx: &Cx) -> bool {
         false
     }

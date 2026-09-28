@@ -181,9 +181,19 @@ pub(crate) fn table_error_view<'a, R: Resource>(
 /// The list page header: the resource's title and the Create entry point
 /// (Filament's List page `CreateAction`), a real link so no-JS keeps
 /// working, gated on `can_create`. The POST handler enforces the same policy.
-fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> BoxView<'a> {
+///
+/// `forms` is whether the resource was registered with
+/// [`Panel::form_resource`](crate::Panel::form_resource): a list-only resource
+/// has no create route, so its header links to none even when a request-scoped
+/// `can_create` allows it and the build-time check could not see it.
+fn list_header<'a, R: Resource>(
+    cx: &'a Cx,
+    title: &str,
+    list_path: &str,
+    forms: bool,
+) -> BoxView<'a> {
     let title = title.to_string();
-    let create_url = R::can_create(cx).then(|| create_page_url(list_path));
+    let create_url = (forms && R::can_create(cx)).then(|| create_page_url(list_path));
     let create_label = format!("Create {}", R::navigation_label());
     view! {
         cx =>
@@ -219,7 +229,7 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
 /// region that swaps in the skeleton → table without any client-side fetching
 /// (GH #98: the skeleton is thead + placeholders only, so chrome pops in with
 /// the swap by design).
-pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
+pub(crate) fn resource_list<R: Resource, const FORMS: bool>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         if !R::can_view_any(cx) {
@@ -233,7 +243,9 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let title = R::navigation_label();
         let list_path = list_url(cx, &R::slug());
         if table.is_live_search() {
-            return Ok(resource_list_live::<R>(cx, table, state, title, list_path));
+            return Ok(resource_list_live::<R, FORMS>(
+                cx, table, state, title, list_path,
+            ));
         }
 
         // The skeleton table (`Table::render_skeleton_normalized`) streams
@@ -252,7 +264,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // #153: the retry link must not echo an unknown `?group_by=`).
         let state = table.normalize_state(&state);
         let skeleton = table.render_skeleton_normalized(cx, &state).await?;
-        let header = list_header::<R>(cx, &title, &list_path);
+        let header = list_header::<R>(cx, &title, &list_path, FORMS);
         let lazy_rows = ThenView::new(async move {
             let rendered = async {
                 let page = load_table_page::<R>(cx, &table, &state).await?;
@@ -287,7 +299,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
 /// interaction writes a signal, so search, sort, filters, and pagination
 /// re-render only the invocation output, morphing in place with focus and
 /// scroll surviving.
-pub(crate) fn resource_list_live<R: Resource>(
+pub(crate) fn resource_list_live<R: Resource, const FORMS: bool>(
     cx: &Cx,
     table: Table<R::Model>,
     state: TableState,
@@ -330,7 +342,7 @@ pub(crate) fn resource_list_live<R: Resource>(
         // region: a keystroke starts a new result set and must never carry
         // (or re-open) a dialog, so the live page renders it eagerly once.
         let delete_dialog = table.render_delete_dialog_normalized(cx, &state).await?;
-        let header = list_header::<R>(cx, &title, &list_path);
+        let header = list_header::<R>(cx, &title, &list_path, FORMS);
         let lazy_rows = ThenView::new(async move {
             // The retry link inside the table writes the same signals the
             // toolbar does, so a bad cursor recovers in place.

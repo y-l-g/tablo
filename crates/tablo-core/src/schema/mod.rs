@@ -52,8 +52,19 @@ pub(crate) struct Control {
     pub(crate) required: bool,
     /// The message an empty submission produces, when it fails.
     pub(crate) required_error: Option<String>,
-    /// Whether the control sits inside a `Repeater`.
-    pub(crate) in_repeater: bool,
+    /// The container that can skip the control's requiredness, if any: a
+    /// submission may then reach the parse with the control empty.
+    pub(crate) skipped_by: Option<SkippedBy>,
+}
+
+/// A container whose submission can leave its controls' requiredness
+/// unchecked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SkippedBy {
+    /// An all-empty `Repeater` group.
+    Repeater,
+    /// A variant group the submission's discriminant does not name.
+    VariantGroup,
 }
 
 /// The container that composes layout blocks.
@@ -65,9 +76,7 @@ pub struct Schema {
 impl Schema {
     /// Whether this schema declares nothing to render.
     ///
-    /// `Panel::build` refuses a resource that allows create but declares no
-    /// fields: the form would render empty and silently accept nothing. Public
-    /// because [`Resource::view`](crate::resource::Resource::view) defaults to
+    /// Public because [`Resource::view`](crate::resource::Resource::view) defaults to
     /// this and [`Resource::viewed`](crate::resource::Resource::viewed) reads it
     /// as "no detail page declared".
     pub fn is_empty(&self) -> bool {
@@ -217,10 +226,11 @@ impl Schema {
 
     /// Every control, in declaration order, with what an empty submission
     /// does to it: the schema's own required message when it refuses one, and
-    /// whether it sits inside a `Repeater`, whose all-empty group skips
-    /// requiredness.
+    /// the container that can skip its requiredness — an all-empty `Repeater`
+    /// or a variant group the discriminant does not name
+    /// ([`walk_absent_groups`]).
     pub(crate) fn controls(&self) -> Vec<Control> {
-        fn walk(nodes: &[Node], in_repeater: bool, out: &mut Vec<Control>) {
+        fn walk(nodes: &[Node], skipped_by: Option<SkippedBy>, out: &mut Vec<Control>) {
             let empty = HashMap::new();
             for node in nodes {
                 if let Some((name, errors)) = validate_leaf(node, &empty) {
@@ -228,20 +238,21 @@ impl Schema {
                         name: name.to_string(),
                         required: !errors.is_empty(),
                         required_error: errors.into_iter().next(),
-                        in_repeater,
+                        skipped_by,
                     });
                 }
                 if let Some(child) = node.children() {
-                    walk(
-                        &child.nodes,
-                        in_repeater || matches!(node, Node::Repeater(_)),
-                        out,
-                    );
+                    let inner = match node {
+                        Node::Repeater(_) => Some(SkippedBy::Repeater),
+                        Node::Group(group) if group.is_variant() => Some(SkippedBy::VariantGroup),
+                        _ => None,
+                    };
+                    walk(&child.nodes, skipped_by.or(inner), out);
                 }
             }
         }
         let mut out = Vec::new();
-        walk(&self.nodes, false, &mut out);
+        walk(&self.nodes, None, &mut out);
         out
     }
 

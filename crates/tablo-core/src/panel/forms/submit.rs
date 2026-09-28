@@ -140,12 +140,17 @@ fn complete(
 /// A parse failure is added only to a key with no error yet, so a blank
 /// required control shows the schema's message once. `validate_record` needs a
 /// whole form, so it runs only when every field parsed.
+///
+/// # Errors
+///
+/// A `validate_record` error on a field `RecordForm::fields` binds to no key:
+/// it cannot render, and the write must not proceed past it.
 fn parse_form<R: FormResource>(
     cx: &Cx,
     schema: &Schema,
     values: &HashMap<String, String>,
     errors: &mut HashMap<String, Vec<String>>,
-) -> Option<R::Form> {
+) -> Result<Option<R::Form>, topcoat::Error> {
     // Typed fields parse their own spelling, not the browser's.
     let mut normalized = values.clone();
     schema.normalize_values(&mut normalized);
@@ -155,15 +160,23 @@ fn parse_form<R: FormResource>(
             for (field, message) in R::validate_record(cx, &form).iter() {
                 // A field's errors render under its first key: a scalar's own,
                 // an embedded enum's discriminant.
-                if let Some(key) = fields
+                let Some(key) = fields
                     .iter()
                     .find(|claim| claim.field == *field)
                     .and_then(|claim| claim.keys.first())
-                {
-                    errors.entry(key.clone()).or_default().push(message.clone());
-                }
+                else {
+                    // A rule refused a field the form lists no key for: there is
+                    // nowhere to render it, and writing anyway would drop it.
+                    return Err(std::io::Error::other(format!(
+                        "validate_record refused {field:?}, which `{}::fields` binds to no key: \
+                         {message}",
+                        std::any::type_name::<R::Form>()
+                    ))
+                    .into());
+                };
+                errors.entry(key.clone()).or_default().push(message.clone());
             }
-            Some(form)
+            Ok(Some(form))
         }
         Err(failures) => {
             let controls = schema.controls();
@@ -181,7 +194,7 @@ fn parse_form<R: FormResource>(
                 };
                 errors.insert(failure.key, vec![message]);
             }
-            None
+            Ok(None)
         }
     }
 }
@@ -268,7 +281,7 @@ pub(crate) fn resource_create_post<R: FormResource>(cx: &Cx, body: Body) -> BoxV
         {
             errors.entry(name).or_default().extend(errs);
         }
-        let form = parse_form::<R>(cx, &schema, &values, &mut errors);
+        let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form::<R>(
                 cx,
@@ -342,7 +355,7 @@ pub(crate) fn resource_edit_post<R: FormResource>(cx: &Cx, body: Body) -> BoxVie
         for (name, errs) in check_unique::<R>(cx, &schema, &values, &stored, &mut tx).await? {
             errors.entry(name).or_default().extend(errs);
         }
-        let form = parse_form::<R>(cx, &schema, &values, &mut errors);
+        let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             let public = R::public_url(cx, &record);
             return rerender_invalid_form::<R>(
@@ -927,8 +940,8 @@ mod tests {
             type Form = NotifyingForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 // A real field, optional so the test's csrf-only POST still
-                // passes validation — `Schema::empty()` is what GH #138's
-                // build check refuses for a resource that allows create.
+                // passes validation: the record form's field needs a control
+                // to bind (the key-agreement build check).
                 crate::schema::Schema::new(
                     crate::schema::TextInput::r#for(Dummy::fields().name()).optional(),
                 )

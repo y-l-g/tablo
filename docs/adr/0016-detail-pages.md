@@ -73,7 +73,9 @@ table spells its columns in one list; a nested tuple such as `(a, (b, c))` does 
 
 ## Amendment — 2026-09-28
 
-**Values come from the form's projection.** A resource registered with `Panel::form_resource` renders
+**Values come from the form's projection.** The consequence "values come from
+`hydrate_form_values`" is superseded by this amendment. A resource registered with
+`Panel::form_resource` renders
 its detail page from `RecordForm::hydrate`, extended with `Resource::view_values` for keys only the
 view shows (ADR-0022); the form's keys win. A list-only resource supplies every key through
 `view_values`, which is `hydrate_form_values` renamed.

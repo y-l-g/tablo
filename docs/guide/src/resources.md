@@ -24,7 +24,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
 A resource with a create or edit form also implements `FormResource`, which holds its `form()`, its
 record form type, `validate_record`, and the create and update record fns
 ([Forms](./forms.md#the-record-form)). It registers with `Panel::form_resource`; a list-only
-resource registers with `Panel::resource`.
+resource registers with `Panel::resource`, which serves the list, the detail page, delete, bulk
+delete, and export, and links to no create page.
 
 ## The contract
 

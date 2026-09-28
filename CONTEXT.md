@@ -63,8 +63,8 @@ A type that maps one Toasty Model to its admin UI: the base query, the table, th
 (`can_*` predicates). A resource with a create or edit form also implements `FormResource`,
 which holds the form's schema, its record form, `validate_record`, and the create and update
 record fns. One Model → one Resource; its routes come from the Panel registration —
-`Panel::resource` for list, detail, and delete, `Panel::form_resource` for those plus create and
-edit — not a `pages()` declaration. A resource that declares no `view` has no detail page: `viewed()` is
+`Panel::resource` for the list, detail, delete, bulk delete, and export, `Panel::form_resource` for
+those plus create, edit, and the relationship options — not a `pages()` declaration. A resource that declares no `view` has no detail page: `viewed()` is
 derived from the schema, so the route and the row's `View` link cannot disagree. Tenancy,
 export scoping, and row chrome are covered in the guide; see
 [resources](docs/guide/src/resources.md) and
@@ -263,7 +263,8 @@ _Avoid_: Patch, Draft, Input, DTO, Form (alone: that is the `Schema`)
 On an edit, filling every declared key the submission did not post from the stored record
 before the form parses, so the record fn receives a whole form and an unposted key keeps its
 value. The **named** keys are the ones the submission posted; a **named field** has at least one
-named key, and the write assigns only named fields. An untouched file input is not named.
+named key, and the write assigns only named fields (plus the model's `#[update(..)]` defaults and
+`#[version]` bump). An untouched file input is not named.
 
 _Avoid_: Presence, Backfill (as the general term), Merge, Default
 

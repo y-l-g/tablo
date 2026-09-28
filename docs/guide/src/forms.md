@@ -81,15 +81,19 @@ What a submission does:
 
 - **An unposted key keeps its value.** On edit, every declared key the submission does not post is
   filled from the stored record before validation and the parse, and the write assigns only the
-  fields the submission named. An emptied control is posted, so it stores the field's blank answer.
-  An API client can therefore post one field of an edit.
+  fields the submission named, plus the model's own `#[update(..)]` defaults and `#[version]` bump.
+  An emptied control is posted, so it stores the field's blank answer; an emptied leaf of an
+  embedded value stores the leaf type's `Default` (ADR-0019), so an emptied `jiff::Timestamp` leaf
+  stores the Unix epoch. An API client can post one field of an edit.
 - **Errors render in one round.** Schema rules, the unique probe, a value the form's type refuses,
   and `validate_record` render inline with a 200 and write nothing. `validate_record` sees a whole
   form, so it runs once every field parses.
 - **`Panel::build` checks the struct against the schema**: every control is bound by exactly one
   field and every field's key is a declared control; an optional control, or one inside a
-  `Repeater`, binds a field with a blank answer; and a gated resource's form does not claim its
-  tenant column.
+  `Repeater` or a variant group, binds a field with a blank answer; a gated resource's form does
+  not claim its tenant column; and, where `can_create` allows it, every non-nullable column is a
+  form field, filled by toasty (`#[auto]`, `#[default(..)]`), the stamped tenant column, or named in
+  `FormResource::CREATE_COLUMNS` by a create override that sets it.
 
 ## Controls
 

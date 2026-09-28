@@ -624,3 +624,279 @@ async fn a_form_resource_serves_create_and_edit() {
         StatusCode::OK
     );
 }
+
+#[tokio::test]
+async fn build_refuses_a_variant_group_control_with_no_blank_answer() {
+    // A submission naming another variant leaves the group's requiredness
+    // unchecked, so an empty value reaches the parse with no visible control
+    // to fix it on.
+    #[derive(tablo_core::RecordForm)]
+    #[record_form(model = Item)]
+    struct VariantForm {
+        title: String,
+        priority: i64,
+    }
+
+    item_resource!(
+        Variant,
+        VariantForm,
+        Schema::new((
+            TextInput::r#for(Item::fields().title()),
+            tablo_core::Group::new()
+                .variant("title", "a")
+                .schema(TextInput::typed::<Item, i64>(Item::fields().priority())),
+        ))
+    );
+    let error = form_build_error::<Variant>(item_db().await);
+    assert!(
+        error.contains("`priority` sits inside a variant group")
+            && error.contains("no blank answer"),
+        "{error}"
+    );
+}
+
+/// A resource over [`Item`] that allows create through `F`, whose form writes
+/// only `title`.
+macro_rules! title_only_resource {
+    ($name:ident, $columns:expr) => {
+        struct $name;
+
+        impl Resource for $name {
+            type Model = Item;
+
+            fn slug() -> String {
+                "items".to_string()
+            }
+
+            fn can_create(_cx: &Cx) -> bool {
+                true
+            }
+
+            fn table(cx: &Cx) -> Table<Item> {
+                item_table(cx)
+            }
+        }
+
+        impl FormResource for $name {
+            type Form = TitleForm;
+
+            const CREATE_COLUMNS: &'static [&'static str] = $columns;
+
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Item::fields().title()))
+            }
+        }
+    };
+}
+
+#[tokio::test]
+async fn build_refuses_a_create_that_leaves_a_required_column_unset() {
+    title_only_resource!(Partial, &[]);
+    let error = form_build_error::<Partial>(item_db().await);
+    assert!(
+        error.contains("non-nullable column `notes`") && error.contains("CREATE_COLUMNS"),
+        "{error}"
+    );
+}
+
+#[tokio::test]
+async fn create_columns_names_what_an_override_sets() {
+    title_only_resource!(Covered, &["notes", "priority", "done"]);
+    panel(item_db().await)
+        .form_resource::<Covered>()
+        .build()
+        .expect("the override's own columns are declared");
+
+    title_only_resource!(Misnamed, &["notes", "priority", "done", "nope"]);
+    let error = form_build_error::<Misnamed>(item_db().await);
+    assert!(error.contains("`nope` in `CREATE_COLUMNS`"), "{error}");
+}
+
+/// A value the control lets through but the field's type refuses renders
+/// inline through the real handler, and nothing is written.
+#[tokio::test]
+async fn a_value_the_form_type_refuses_renders_inline() {
+    struct Loose;
+
+    impl Resource for Loose {
+        type Model = Item;
+
+        fn slug() -> String {
+            "items".to_string()
+        }
+
+        fn can_view(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn can_update(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn table(cx: &Cx) -> Table<Item> {
+            item_table(cx)
+        }
+    }
+
+    impl FormResource for Loose {
+        type Form = PriorityForm;
+
+        fn form(_cx: &Cx) -> Schema {
+            // A static-options select checks membership, not the column's type.
+            Schema::new(
+                Select::r#for(Item::fields().priority())
+                    .options(vec!["1".to_string(), "lots".to_string()]),
+            )
+        }
+    }
+
+    let db = item_db().await;
+    let item = seed_item(&db).await;
+    let router = form_router::<Loose>(db.clone());
+    let response = post_fields(
+        &router,
+        &format!("/admin/items/{}/edit", item.id),
+        &[("priority", "lots")],
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
+    let html = body_string(response).await;
+    assert!(
+        html.contains("`lots` is not a valid whole number"),
+        "{html}"
+    );
+    assert_eq!(reload(&db, item.id).await.priority, 7);
+}
+
+/// A `validate_record` error on a field the form binds to no key cannot
+/// render, so the submit fails closed instead of writing past it.
+#[tokio::test]
+async fn an_unkeyable_record_rule_fails_closed() {
+    /// [`PriorityForm`] with no keys: nothing can render its errors.
+    struct Keyless(PriorityForm);
+
+    impl RecordForm for Keyless {
+        type Model = Item;
+        type Field = PriorityFormField;
+
+        fn fields(_cx: &Cx) -> Vec<tablo_core::FormField<PriorityFormField>> {
+            Vec::new()
+        }
+
+        fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
+            PriorityForm::hydrate(cx, record)
+        }
+
+        fn parse(
+            _cx: &Cx,
+            _values: &HashMap<String, String>,
+        ) -> Result<Self, Vec<tablo_core::FieldError>> {
+            // The form binds no key, so the submission holds nothing to read.
+            Ok(Keyless(PriorityForm { priority: 1 }))
+        }
+
+        fn into_create(self) -> <Item as toasty::schema::Model>::Create {
+            self.0.into_create()
+        }
+
+        fn into_update<'a>(
+            self,
+            record: &'a mut Item,
+            named: &HashSet<PriorityFormField>,
+        ) -> Option<<Item as toasty::schema::Model>::Update<'a>> {
+            self.0.into_update(record, named)
+        }
+
+        fn exec_update<'a>(
+            update: <Item as toasty::schema::Model>::Update<'a>,
+            ex: &'a mut dyn toasty::Executor,
+        ) -> impl std::future::Future<Output = toasty::Result<()>> + Send + 'a {
+            PriorityForm::exec_update(update, ex)
+        }
+    }
+
+    struct Refusing;
+
+    impl Resource for Refusing {
+        type Model = Item;
+
+        fn slug() -> String {
+            "items".to_string()
+        }
+
+        fn can_view(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn can_update(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn table(cx: &Cx) -> Table<Item> {
+            item_table(cx)
+        }
+    }
+
+    impl FormResource for Refusing {
+        type Form = Keyless;
+
+        fn form(_cx: &Cx) -> Schema {
+            Schema::empty()
+        }
+
+        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<Keyless> {
+            let mut errors = FieldErrors::new();
+            errors.add(PriorityFormField::Priority, "never");
+            errors
+        }
+    }
+
+    let db = item_db().await;
+    let item = seed_item(&db).await;
+    let router = form_router::<Refusing>(db.clone());
+    let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
+}
+
+/// A list-only resource serves no create route, so its list links to none —
+/// even when a request-scoped `can_create` allows create and the build check,
+/// which runs with no request, could not see it.
+#[tokio::test]
+async fn a_list_only_resource_never_links_to_create() {
+    struct TenantCreates;
+
+    impl Resource for TenantCreates {
+        type Model = Item;
+
+        fn slug() -> String {
+            "items".to_string()
+        }
+
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+
+        fn can_create(cx: &Cx) -> bool {
+            tablo_core::tenant_id(cx).is_some()
+        }
+
+        fn table(cx: &Cx) -> Table<Item> {
+            item_table(cx)
+        }
+    }
+
+    let router = panel(item_db().await)
+        .resource::<TenantCreates>()
+        .build()
+        .expect("create is denied without a request");
+    let request = http::Request::builder()
+        .uri("/admin/items")
+        .extension(Tenant(Uuid::new_v4()))
+        .body(topcoat::router::Body::empty())
+        .unwrap();
+    let response = router.handle(request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = body_string(response).await;
+    assert!(!html.contains("/admin/items/create"), "{html}");
+}

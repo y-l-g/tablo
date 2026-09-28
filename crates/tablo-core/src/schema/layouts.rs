@@ -159,6 +159,11 @@ impl Group {
         self
     }
 
+    /// Whether this group holds one embedded enum variant's payload.
+    pub(crate) fn is_variant(&self) -> bool {
+        self.variant.is_some()
+    }
+
     /// Whether a submission leaves this variant group unrendered.
     ///
     /// A group with no variant marker is never hidden. A marked group is hidden

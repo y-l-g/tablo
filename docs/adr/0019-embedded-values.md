@@ -93,9 +93,12 @@ such as `(a, (b, c))` does not convert.
 
 ## Amendment — 2026-09-28
 
-**`read_form` reports errors instead of panicking.** `EmbeddedForm::read_form`, `read_embedded` and
+**`read_form` reports errors instead of panicking.** Rule 1's `submitted`, rule 3's loud refusal of
+an undeclared discriminant, and rule 5's `Resource::hydrate_form_values` are superseded by this
+amendment. `EmbeddedForm::read_form`, `read_embedded` and
 `parse_leaf` return `Result`: a leaf its type refuses and a discriminant that names no variant are
 `FieldError`s on their own key, rendered inline by the submit pipeline. A record form binds the whole
 value with `#[record_form(embed)]` (ADR-0022), and `value_keys` names the keys it occupies,
 discriminant first. `submitted` is removed: the edit handler decides which keys were posted.
-`any_present` stays, for an enum's payload fallback over a nested value.
+`any_present` stays, for an enum's payload fallback over a nested value. Hydration is
+`RecordForm::hydrate` for a form resource and `Resource::view_values` for a list-only one.

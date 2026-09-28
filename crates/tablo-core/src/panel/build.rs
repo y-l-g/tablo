@@ -28,6 +28,7 @@ use super::{
 use crate::{
     form::{FormResource, RecordForm},
     resource::Resource,
+    schema::SkippedBy,
 };
 
 impl Panel {
@@ -473,12 +474,16 @@ fn check_form_inner<R: FormResource>(cx: &Cx) -> Result<(), String> {
             continue;
         }
         if let Some(control) = controls.iter().find(|control| {
-            field.keys.contains(&control.name) && (!control.required || control.in_repeater)
+            field.keys.contains(&control.name)
+                && (!control.required || control.skipped_by.is_some())
         }) {
-            let place = if control.in_repeater {
-                "sits inside a `Repeater`, so it may be posted empty"
-            } else {
-                "is optional"
+            let place = match control.skipped_by {
+                Some(SkippedBy::Repeater) => "sits inside a `Repeater`, so it may be posted empty",
+                Some(SkippedBy::VariantGroup) => {
+                    "sits inside a variant group, which a submission naming another variant \
+                     leaves unchecked"
+                }
+                None => "is optional",
             };
             return Err(format!(
                 "resource `{resource}`'s form control `{}` {place}, but record form field `{}` has \
@@ -499,6 +504,11 @@ fn check_form_inner<R: FormResource>(cx: &Cx) -> Result<(), String> {
              column `{column}` — the framework stamps it on create; drop it from the form",
             field.name
         ));
+    }
+    // Column coverage: a create that leaves a non-nullable column unset fails
+    // at the driver on every submit, with no field to point the user at.
+    if R::can_create(cx) {
+        check_create_columns::<R>(&fields)?;
     }
     // `.unique()` is a promise the panel makes and the database has to keep
     // (item 3): the marker turns the app-side pre-check on, so a field
@@ -530,6 +540,53 @@ fn check_form_inner<R: FormResource>(cx: &Cx) -> Result<(), String> {
                 "resource `{}` marks form field `{name}` unique, but `{}::{name}` carries no unique index — add `#[unique]` (or `#[unique(..)]`) to the column or drop `.unique()`, which would otherwise check a rule the database does not enforce",
                 std::any::type_name::<R>(),
                 std::any::type_name::<R::Model>()
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Every non-nullable column a create must set is set by something: the
+/// record form, toasty (`#[auto]`, `#[default(..)]`), the tenant stamp, or the
+/// resource's own `CREATE_COLUMNS`.
+fn check_create_columns<R: FormResource>(
+    fields: &[crate::form::FormField<<R::Form as RecordForm>::Field>],
+) -> Result<(), String> {
+    let resource = std::any::type_name::<R>();
+    let prefilled = crate::form::prefilled_fields::<R::Model>();
+    let tenant = R::requires_tenant()
+        .then(crate::tenancy::tenant_field_name::<R::Model>)
+        .flatten();
+    let model = R::Model::schema();
+    let root = model.as_root_unwrap();
+    for name in R::CREATE_COLUMNS {
+        if !root
+            .fields
+            .iter()
+            .any(|field| field.name.app.as_deref() == Some(*name))
+        {
+            return Err(format!(
+                "resource `{resource}` names `{name}` in `CREATE_COLUMNS`, but `{}` has no such \
+                 field",
+                std::any::type_name::<R::Model>()
+            ));
+        }
+    }
+    for (index, field) in root.fields.iter().enumerate() {
+        let Some(name) = field.name.app.as_deref() else {
+            continue;
+        };
+        let filled = field.nullable()
+            || field.is_relation()
+            || prefilled.get(index).copied().unwrap_or(false)
+            || tenant.as_deref() == Some(name)
+            || fields.iter().any(|claim| claim.name == name)
+            || R::CREATE_COLUMNS.contains(&name);
+        if !filled {
+            return Err(format!(
+                "resource `{resource}` allows create, but nothing writes the non-nullable column \
+                 `{name}`: its record form has no such field, toasty fills no `#[default(..)]` for \
+                 it, and `CREATE_COLUMNS` does not name it — every create would fail at the driver"
             ));
         }
     }
@@ -911,6 +968,9 @@ mod tests {
         }
         impl crate::form::FormResource for AuthorResource {
             type Form = AuthorForm;
+            // Not gated, so the tenant is not stamped: a create override would
+            // set it.
+            const CREATE_COLUMNS: &'static [&'static str] = &["tenant_id"];
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Author::fields().email()).unique())
             }

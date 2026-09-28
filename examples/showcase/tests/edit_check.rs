@@ -201,12 +201,16 @@ async fn an_emptied_select_stores_its_blank_answer() {
         .unwrap()
         .expect("an admin is seeded");
     let csrf = uuid::Uuid::new_v4().to_string();
+    let url = format!("/admin/users/{}/edit", admin.id);
+    // Deactivate first, so the emptied `active` below has a value to change.
     let resp = client
         .csrf(&csrf)
-        .post_form(
-            &format!("/admin/users/{}/edit", admin.id),
-            format!("role=&age=&csrf_token={csrf}"),
-        )
+        .post_form(&url, format!("active=false&csrf_token={csrf}"))
+        .await;
+    assert!(resp.status().is_redirection());
+    let resp = client
+        .csrf(&csrf)
+        .post_form(&url, format!("role=&active=&age=&csrf_token={csrf}"))
         .await;
     assert!(
         resp.status().is_redirection(),
@@ -220,8 +224,62 @@ async fn an_emptied_select_stores_its_blank_answer() {
         fresh.role, "member",
         "an emptied role stores the create default"
     );
+    assert!(fresh.active, "an emptied active stores the create default");
     assert_eq!(fresh.age, 0, "an emptied age stores zero");
     assert_eq!(fresh.name, admin.name, "an unposted field keeps its value");
+}
+
+/// The post form's optional selects store their create defaults when emptied.
+#[tokio::test]
+async fn an_emptied_post_select_stores_its_blank_answer() {
+    use showcase::models::Post;
+
+    let db = crate::common::full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let post = Post::filter(Post::fields().title().eq("Hello Toasty".to_string()))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("the seeded post");
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let url = format!("/admin/posts/{}/edit", post.id);
+    let resp = client
+        .csrf(&csrf)
+        .post_form(
+            &url,
+            format!("status=published&featured=true&csrf_token={csrf}"),
+        )
+        .await;
+    assert!(resp.status().is_redirection());
+    let resp = client
+        .csrf(&csrf)
+        .post_form(&url, format!("status=&featured=&csrf_token={csrf}"))
+        .await;
+    assert!(
+        resp.status().is_redirection(),
+        "got {} {}",
+        resp.status(),
+        body_string(resp).await
+    );
+    let mut db_check = db.clone();
+    let saved = Post::filter(Post::fields().id().eq(post.id))
+        .first()
+        .exec(&mut db_check)
+        .await
+        .unwrap()
+        .expect("the post");
+    assert_eq!(
+        saved.status, "draft",
+        "an emptied status stores the create default"
+    );
+    assert!(
+        !saved.featured,
+        "an emptied featured stores the create default"
+    );
+    assert_eq!(saved.title, post.title, "an unposted field keeps its value");
 }
 
 #[tokio::test]
