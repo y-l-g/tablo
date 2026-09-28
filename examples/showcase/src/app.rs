@@ -1,10 +1,10 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 use tablo_core::{
-    Brand, ColumnWidth, Committed, DateFilter, Grid, Group, IncludeNeeds, Panel, RelationColumn,
-    RelationColumns, Repeater, Resource, Schema, Section, Select, SelectFilter, Table,
-    TernaryFilter, TextColumn, TextInput, Textarea, Uploader, VariantFilter, read_embedded,
-    render_relation, require_tenant, scoped_query, submitted, tenant_id, write_embedded,
+    Brand, ColumnWidth, Committed, DateFilter, FieldErrors, FormResource, Grid, Group,
+    IncludeNeeds, Panel, Posted, RelationColumn, RelationColumns, Repeater, Resource, Schema,
+    Section, Select, SelectFilter, Table, TernaryFilter, TextColumn, TextInput, Textarea, Uploader,
+    VariantFilter, render_relation, scoped_query, tenant_id, write_create, write_update,
 };
 use toasty::Db;
 use topcoat::{
@@ -32,115 +32,6 @@ use crate::{
 /// shell: one document contract, one typeface.
 pub(crate) const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
-/// The submitted value for `key`, trimmed; an absent key is empty.
-fn submitted_trimmed(values: &HashMap<String, String>, key: &str) -> String {
-    values
-        .get(key)
-        .cloned()
-        .unwrap_or_default()
-        .trim()
-        .to_string()
-}
-
-/// The submitted value for `key` parsed as `T`; an absent key is empty, so an
-/// unparsable value fails with `invalid <key>` — the message a typed control
-/// refuses inline before a record fn runs.
-fn submitted_parsed<T: std::str::FromStr>(values: &HashMap<String, String>, key: &str) -> Result<T>
-where
-    T::Err: std::fmt::Display,
-{
-    submitted_trimmed(values, key)
-        .parse::<T>()
-        .map_err(|e| topcoat::Error::from(std::io::Error::other(format!("invalid {key}: {e}"))))
-}
-
-/// The submitted value for `key`, trimmed; an absent key keeps `current`
-/// so an omitted optional field never blanks the record.
-fn kept(values: &HashMap<String, String>, key: &str, current: &str) -> String {
-    match values.get(key) {
-        Some(v) => v.trim().to_string(),
-        None => current.to_string(),
-    }
-}
-
-/// The submitted value for `key` when it is one of `allowed`; anything else
-/// keeps `current`.
-fn kept_one_of(
-    values: &HashMap<String, String>,
-    key: &str,
-    allowed: &[&str],
-    current: &str,
-) -> String {
-    match values.get(key).map(|v| v.trim()) {
-        Some(v) if allowed.contains(&v) => v.to_string(),
-        _ => current.to_string(),
-    }
-}
-
-/// The submitted boolean for `key`: `"true"`/`"false"` (trimmed) parse, and an
-/// absent or unparsable value keeps `current`.
-fn kept_bool(values: &HashMap<String, String>, key: &str, current: bool) -> bool {
-    match values.get(key).map(|v| v.trim()) {
-        Some("true") => true,
-        Some("false") => false,
-        _ => current,
-    }
-}
-
-/// The submitted value for `key` parsed as `T`; an absent key keeps `current`.
-/// An unparsable value fails with `invalid <key>`, the message a typed control
-/// refuses inline before a record fn runs.
-fn kept_parsed<T: std::str::FromStr>(
-    values: &HashMap<String, String>,
-    key: &str,
-    current: T,
-) -> Result<T>
-where
-    T::Err: std::fmt::Display,
-{
-    match values.get(key) {
-        Some(v) => v.trim().parse::<T>().map_err(|e| {
-            topcoat::Error::from(std::io::Error::other(format!("invalid {key}: {e}")))
-        }),
-        None => Ok(current),
-    }
-}
-
-/// The kept age: absent keeps the stored value, empty stores zero like a
-/// create, otherwise the parsed value. Range is the validation layer's
-/// (`UserResource::validate`), never this helper's: reaching here with a
-/// negative means the form was bypassed.
-fn kept_age(values: &HashMap<String, String>, current: i64) -> Result<i64> {
-    match values.get("age") {
-        None => Ok(current),
-        Some(v) if v.trim().is_empty() => Ok(0),
-        Some(v) => v
-            .trim()
-            .parse::<i64>()
-            .map_err(|e| topcoat::Error::from(std::io::Error::other(format!("invalid age: {e}")))),
-    }
-}
-
-/// The submitted embedded value for `field`; an absent group keeps `current`
-/// The submit may omit a section the form did not render.
-fn kept_embedded<M, T, L>(
-    cx: &Cx,
-    field: impl Fn() -> L,
-    values: &HashMap<String, String>,
-    current: &T,
-) -> T
-where
-    M: toasty::schema::Model,
-    T: tablo_core::EmbeddedForm + Clone,
-    L: Into<toasty::stmt::Path<M, T>>,
-{
-    if submitted(cx, field(), values) {
-        read_embedded(cx, field(), values)
-    } else {
-        current.clone()
-    }
-}
-
 /// How many words `body` holds: whitespace-separated tokens.
 ///
 /// Empty bodies hold none.
@@ -156,32 +47,6 @@ pub fn read_minutes(words: usize) -> i64 {
         0
     } else {
         words.div_ceil(200) as i64
-    }
-}
-
-/// The submitted cover: an empty picker clears the cover, otherwise the picked
-/// library row's id.
-fn submitted_cover(values: &HashMap<String, String>) -> Result<Option<uuid::Uuid>, topcoat::Error> {
-    match values.get("cover_id").map(|s| s.trim().to_string()) {
-        Some(s) if !s.is_empty() => s.parse::<uuid::Uuid>().map(Some).map_err(|e| {
-            topcoat::Error::from(std::io::Error::other(format!("invalid cover_id: {e}")))
-        }),
-        _ => Ok(None),
-    }
-}
-
-/// The kept cover: an absent picker keeps the stored one, an empty one clears
-/// it, otherwise the picked row's id.
-fn kept_cover(
-    values: &HashMap<String, String>,
-    current: Option<uuid::Uuid>,
-) -> Result<Option<uuid::Uuid>, topcoat::Error> {
-    match values.get("cover_id") {
-        Some(s) if s.trim().is_empty() => Ok(None),
-        Some(s) => s.trim().parse::<uuid::Uuid>().map(Some).map_err(|e| {
-            topcoat::Error::from(std::io::Error::other(format!("invalid cover_id: {e}")))
-        }),
-        None => Ok(current),
     }
 }
 
@@ -274,6 +139,54 @@ impl Resource for UserResource {
             .live_search(true)
     }
 
+    fn view(_cx: &Cx) -> Schema {
+        Schema::new(
+            Section::new("Profile").schema((
+                TextInput::r#for(User::fields().name()),
+                TextInput::r#for(User::fields().email()),
+                Select::r#for(User::fields().role())
+                    .options(vec!["admin".to_string(), "member".to_string()])
+                    .label("Role"),
+                Select::r#for(User::fields().active())
+                    .options_with_labels(vec![
+                        ("true".to_string(), "Active".to_string()),
+                        ("false".to_string(), "Inactive".to_string()),
+                    ])
+                    .label("Active"),
+                TextInput::typed::<User, i64>(User::fields().age()).label("Age"),
+            )),
+        )
+    }
+
+    /// Wake the live feed after a committed write, so an open page re-reads the
+    /// users it shows.
+    async fn after_commit(_cx: &Cx, _committed: Committed<User>) -> Result<()> {
+        crate::live::notify();
+        Ok(())
+    }
+
+    delete_through_query!(User);
+}
+
+/// What the user form writes. `role`, `active`, and `age` are optional
+/// controls, so each declares what an emptied control stores: the create
+/// defaults, and zero for a stored integer.
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = User)]
+pub struct UserForm {
+    pub name: String,
+    pub email: String,
+    #[record_form(blank = "member")]
+    pub role: String,
+    #[record_form(blank = true)]
+    pub active: bool,
+    #[record_form(blank = 0)]
+    pub age: i64,
+}
+
+impl FormResource for UserResource {
+    type Form = UserForm;
+
     fn form(_cx: &Cx) -> Schema {
         Schema::new(
             Section::new("Profile").schema((
@@ -305,139 +218,16 @@ impl Resource for UserResource {
         )
     }
 
-    fn view(_cx: &Cx) -> Schema {
-        Schema::new(
-            Section::new("Profile").schema((
-                TextInput::r#for(User::fields().name()),
-                TextInput::r#for(User::fields().email()),
-                Select::r#for(User::fields().role())
-                    .options(vec!["admin".to_string(), "member".to_string()])
-                    .label("Role"),
-                Select::r#for(User::fields().active())
-                    .options_with_labels(vec![
-                        ("true".to_string(), "Active".to_string()),
-                        ("false".to_string(), "Inactive".to_string()),
-                    ])
-                    .label("Active"),
-                TextInput::typed::<User, i64>(User::fields().age()).label("Age"),
-            )),
-        )
-    }
-
-    fn hydrate_form_values(_cx: &Cx, record: &User) -> HashMap<String, String> {
-        let mut map = HashMap::new();
-        map.insert("name".to_string(), record.name.clone());
-        map.insert("email".to_string(), record.email.clone());
-        map.insert("role".to_string(), record.role.clone());
-        map.insert(
-            "active".to_string(),
-            if record.active { "true" } else { "false" }.to_string(),
-        );
-        map.insert("age".to_string(), record.age.to_string());
-        map
-    }
-
-    /// A stored integer holds zero or more: empty submits are the presence
-    /// rule's (optional, so allowed), a non-number is the typed rule's, and a
-    /// negative is this hook's — all render inline with a 200 and write
-    /// nothing, never a 500 from a record fn.
-    fn validate(_cx: &Cx, values: &HashMap<String, String>) -> HashMap<String, Vec<String>> {
-        let mut errors = HashMap::new();
-        if let Some(raw) = values.get("age") {
-            let trimmed = raw.trim();
-            if !trimmed.is_empty()
-                && let Ok(parsed) = trimmed.parse::<i64>()
-                && parsed < 0
-            {
-                errors.insert(
-                    "age".to_string(),
-                    vec!["Age must be zero or more".to_string()],
-                );
-            }
+    /// A stored integer holds zero or more: a non-number is the typed rule's
+    /// error, and a negative is this rule's. Both render inline with a 200 and
+    /// write nothing, never a 500 from a record fn.
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserForm> {
+        let mut errors = FieldErrors::new();
+        if form.age < 0 {
+            errors.add(UserFormField::Age, "Age must be zero or more");
         }
         errors
     }
-
-    /// Wake the live feed after a committed write, so an open page re-reads the
-    /// users it shows.
-    async fn after_commit(_cx: &Cx, _committed: Committed<User>) -> Result<()> {
-        crate::live::notify();
-        Ok(())
-    }
-
-    async fn create_record(
-        _cx: &Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<User> {
-        let name = submitted_trimmed(&values, "name");
-        let email = submitted_trimmed(&values, "email");
-        // Optional selects fall back to member/active: the form offers them,
-        // older clients omitting them still create a valid member.
-        let role = match values.get("role").map(|s| s.trim().to_string()) {
-            Some(r) if r == "admin" || r == "member" => r,
-            _ => "member".to_string(),
-        };
-        let active = !matches!(
-            values.get("active").map(|s| s.trim().to_string()),
-            Some(a) if a == "false"
-        );
-        // An optional stored integer: empty stores zero. A non-number is the
-        // typed rule's inline error; a negative is `validate`'s. Both render
-        // before a record fn runs, so reaching here with either means the form
-        // was bypassed.
-        let age = match values.get("age").map(|s| s.trim().to_string()) {
-            Some(s) if !s.is_empty() => s.parse::<i64>().map_err(|e| {
-                topcoat::Error::from(std::io::Error::other(format!("invalid age: {e}")))
-            })?,
-            _ => 0,
-        };
-        // The created row goes back to the framework: it is what
-        // `after_commit` names for this write.
-        toasty::create!(User {
-            name: name,
-            email: email,
-            role: role,
-            active: active,
-            age: age,
-            created_at: jiff::Timestamp::now(),
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|e| -> topcoat::Error { e.into() })
-    }
-
-    async fn update_record(
-        _cx: &Cx,
-        mut record: User,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<User> {
-        // The handler's checked snapshot: `record` was loaded
-        // inside the framework tx and policy-checked — no re-query.
-        let name = kept(&values, "name", &record.name);
-        let email = kept(&values, "email", &record.email);
-        let role = kept_one_of(&values, "role", &["admin", "member"], &record.role);
-        let active = kept_bool(&values, "active", record.active);
-        let age = kept_age(&values, record.age)?;
-        // The updated row goes back to the framework: it is what
-        // `after_commit` names, and it is already the committed state.
-        toasty::update!(record {
-            name: name,
-            email: email,
-            role: role,
-            active: active,
-            age: age,
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|e| -> topcoat::Error { e.into() })?;
-        // The instance update reloads `record` from the database's returned
-        // values, so this is the committed row — what `after_commit` names.
-        Ok(record)
-    }
-
-    delete_through_query!(User);
 }
 
 pub struct AuthorResource;
@@ -499,70 +289,27 @@ impl Resource for AuthorResource {
             .live_search(true)
     }
 
+    delete_through_query!(Author);
+}
+
+/// What the author form writes. The tenant is the framework's to stamp on
+/// create, so it is not a field.
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Author)]
+pub struct AuthorForm {
+    pub name: String,
+    pub email: String,
+}
+
+impl FormResource for AuthorResource {
+    type Form = AuthorForm;
+
     fn form(_cx: &Cx) -> Schema {
         Schema::new((
             TextInput::r#for(Author::fields().name()),
             TextInput::r#for(Author::fields().email()).email().unique(),
         ))
     }
-
-    fn hydrate_form_values(_cx: &Cx, record: &Author) -> HashMap<String, String> {
-        let mut m = HashMap::new();
-        m.insert("name".to_string(), record.name.clone());
-        m.insert("email".to_string(), record.email.clone());
-        m
-    }
-
-    fn create_record(
-        cx: &Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<Author>> + Send
-    where
-        Self: Sized,
-    {
-        let cx = cx.clone();
-        async move {
-            let name = submitted_trimmed(&values, "name");
-            let email = submitted_trimmed(&values, "email");
-            // `requires_tenant` makes the handler answer 403 before this runs
-            // so `require_tenant` never panics on a tenantless submit
-            // and a nil-tenant orphan stays impossible.
-            let tid = require_tenant(&cx)?;
-            // The created row goes back to the framework.
-            toasty::create!(Author {
-                tenant_id: tid,
-                name: name,
-                email: email
-            })
-            .exec(&mut *ex)
-            .await
-            .map_err(|e| -> topcoat::Error { e.into() })
-        }
-    }
-
-    async fn update_record(
-        _cx: &Cx,
-        mut rec: Author,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<Author> {
-        // The handler's checked snapshot — no re-query.
-        let name = kept(&values, "name", &rec.name);
-        let email = kept(&values, "email", &rec.email);
-        // The updated row goes back to the framework.
-        toasty::update!(rec {
-            name: name,
-            email: email
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|e| -> topcoat::Error { e.into() })?;
-        // The committed row, reloaded by the instance update.
-        Ok(rec)
-    }
-
-    delete_through_query!(Author);
 }
 
 pub struct PostResource;
@@ -853,6 +600,57 @@ impl Resource for PostResource {
             .live_search(true)
     }
 
+    delete_through_query!(Post);
+}
+
+/// What the post form writes: every column but the tenant (stamped by the
+/// framework), `created_at` (a model default), and the relations. The embedded
+/// values are written whole.
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Post)]
+pub struct PostForm {
+    pub title: String,
+    pub body: String,
+    #[record_form(blank = "draft")]
+    pub status: String,
+    #[record_form(blank = false)]
+    pub featured: bool,
+    pub author_id: uuid::Uuid,
+    pub cover_id: Option<uuid::Uuid>,
+    pub tags: String,
+    #[record_form(embed)]
+    pub seo: Seo,
+    #[record_form(embed)]
+    pub publication: Publication,
+}
+
+/// The author must exist *in this tenant* at write time: `validate_async`
+/// checked the option set before the transaction opened, but the author may
+/// be cross-tenant or deleted since, so the check re-runs through the
+/// tenant-scoped query inside the transaction. A miss is a 500.
+async fn ensure_author_in_tenant(
+    cx: &Cx,
+    author_id: uuid::Uuid,
+    ex: &mut dyn toasty::Executor,
+) -> Result<()> {
+    let author_exists = scoped_query::<AuthorResource>(cx)?
+        .filter(Author::fields().id().eq(author_id))
+        .first()
+        .exec(&mut *ex)
+        .await
+        .map_err(|e| -> topcoat::Error { e.into() })?
+        .is_some();
+    if !author_exists {
+        return Err(topcoat::Error::from(std::io::Error::other(
+            "author not found",
+        )));
+    }
+    Ok(())
+}
+
+impl FormResource for PostResource {
+    type Form = PostForm;
+
     fn form(cx: &Cx) -> Schema {
         Schema::new((
             Section::new("Content").schema((
@@ -913,170 +711,22 @@ impl Resource for PostResource {
         ))
     }
 
-    fn hydrate_form_values(cx: &Cx, record: &Post) -> HashMap<String, String> {
-        let mut m = HashMap::new();
-        m.insert("title".to_string(), record.title.clone());
-        m.insert("body".to_string(), record.body.clone());
-        m.insert("status".to_string(), record.status.clone());
-        m.insert(
-            "featured".to_string(),
-            if record.featured { "true" } else { "false" }.to_string(),
-        );
-        m.insert("author_id".to_string(), record.author_id.to_string());
-        m.insert(
-            "cover_id".to_string(),
-            record.cover_id.map(|id| id.to_string()).unwrap_or_default(),
-        );
-        m.insert("tags".to_string(), record.tags.clone());
-        // Embedded values: each writes the columns the app schema
-        // resolves for it — the flattened leaves, the enum's discriminant, and
-        // the active variant's payload. No column name is spelled here, and no
-        // "which payload is non-empty" decision is made: the stored variant is
-        // what the form carries back.
-        write_embedded(cx, Post::fields().seo(), &record.seo, &mut m);
-        write_embedded(
-            cx,
-            Post::fields().publication(),
-            &record.publication,
-            &mut m,
-        );
-        m
-    }
-    fn create_record(
-        cx: &Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<Post>> + Send
-    where
-        Self: Sized,
-    {
-        let cx = cx.clone();
-        async move {
-            let title = submitted_trimmed(&values, "title");
-            let author_id = submitted_parsed::<uuid::Uuid>(&values, "author_id")?;
-            // Verify the author exists *in this tenant*: `scoped_query` is the
-            // framework's tenancy-scoped entry point — plain
-            // `AuthorResource::query` is the tenant-unscoped base now that the
-            // framework applies the tenant filter at every loader.
-            let author_exists = scoped_query::<AuthorResource>(&cx)?
-                .filter(Author::fields().id().eq(author_id))
-                .first()
-                .exec(&mut *ex)
-                .await
-                .map_err(|e| -> topcoat::Error { e.into() })?
-                .is_some();
-            if !author_exists {
-                return Err(topcoat::Error::from(std::io::Error::other(
-                    "author not found",
-                )));
-            }
-            let tags = submitted_trimmed(&values, "tags");
-            // Optional lifecycle fields with draft defaults: older clients
-            // omitting them still create a valid draft.
-            let body = submitted_trimmed(&values, "body");
-            let status = match values.get("status").map(|s| s.trim().to_string()) {
-                Some(s) if s == "draft" || s == "published" => s,
-                _ => "draft".to_string(),
-            };
-            let featured = matches!(
-                values.get("featured").map(|s| s.trim().to_string()),
-                Some(s) if s == "true"
-            );
-            let cover_id = submitted_cover(&values)?;
-            // The same fail-closed check as the author create above: the 403 is
-            // already answered, so a nil-tenant post cannot be minted.
-            let tid = require_tenant(&cx)?;
-            // Embedded values: the codec reads each one back from the
-            // submission, choosing an enum's variant from the discriminant the
-            // form posted rather than from which payloads are non-empty.
-            let seo = read_embedded(&cx, Post::fields().seo(), &values);
-            let publication = read_embedded(&cx, Post::fields().publication(), &values);
-            // The created row goes back to the framework.
-            toasty::create!(Post {
-                tenant_id: tid,
-                title: title,
-                body: body,
-                status: status,
-                featured: featured,
-                created_at: jiff::Timestamp::now(),
-                cover_id: cover_id,
-                tags: tags,
-                seo: seo,
-                publication: publication,
-                author_id: author_id,
-            })
-            .exec(&mut *ex)
-            .await
-            .map_err(|e| -> topcoat::Error { e.into() })
-        }
+    async fn create_record(cx: &Cx, form: PostForm, ex: &mut dyn toasty::Executor) -> Result<Post> {
+        ensure_author_in_tenant(cx, form.author_id, ex).await?;
+        write_create::<Self>(cx, form, ex).await
     }
 
-    fn update_record(
+    async fn update_record(
         cx: &Cx,
-        mut rec: Post,
-        values: HashMap<String, String>,
+        record: Post,
+        posted: Posted<PostForm>,
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<Post>> + Send
-    where
-        Self: Sized,
-    {
-        let cx = cx.clone();
-        async move {
-            // The handler's checked snapshot — no re-query.
-            let title = kept(&values, "title", &rec.title);
-            let author_id = kept_parsed(&values, "author_id", rec.author_id)?;
-            // Symmetric FK double-check (mirrors create): validate_async
-            // already checked, but the author may be cross-tenant or deleted
-            // since — so the check runs through the tenant-scoped query
-            // exactly as the create above does.
-            let author_exists = scoped_query::<AuthorResource>(&cx)?
-                .filter(Author::fields().id().eq(author_id))
-                .first()
-                .exec(&mut *ex)
-                .await
-                .map_err(|e| -> topcoat::Error { e.into() })?
-                .is_some();
-            if !author_exists {
-                return Err(topcoat::Error::from(std::io::Error::other(
-                    "author not found",
-                )));
-            }
-            let tags = kept(&values, "tags", &rec.tags);
-            let body = kept(&values, "body", &rec.body);
-            let status = kept_one_of(&values, "status", &["draft", "published"], &rec.status);
-            let featured = kept_bool(&values, "featured", rec.featured);
-            let cover_id = kept_cover(&values, rec.cover_id)?;
-            // Embedded values: an absent value keeps the stored one,
-            // exactly like the scalar fields above — the submit may
-            // omit a section the form did not render. "Absent" is decided by
-            // the keys the app schema resolves, not by a name spelled here.
-            let seo = kept_embedded(&cx, || Post::fields().seo(), &values, &rec.seo);
-            let publication = kept_embedded(
-                &cx,
-                || Post::fields().publication(),
-                &values,
-                &rec.publication,
-            );
-            toasty::update!(rec {
-                title: title,
-                author_id: author_id,
-                cover_id: cover_id,
-                tags: tags,
-                body: body,
-                status: status,
-                featured: featured,
-                seo: seo,
-                publication: publication
-            })
-            .exec(&mut *ex)
-            .await
-            .map_err(|e| -> topcoat::Error { e.into() })?;
-            // The instance update reloads `rec`, so this is the committed row.
-            Ok(rec)
-        }
+    ) -> Result<Post> {
+        // An unposted `author_id` reads as the stored one, which is re-checked
+        // too: the author may have left the tenant since.
+        ensure_author_in_tenant(cx, posted.author_id, ex).await?;
+        write_update::<Self>(cx, record, posted, ex).await
     }
-
-    delete_through_query!(Post);
 }
 
 /// Comments resource over `Comment`: the moderation queue.
@@ -1255,6 +905,20 @@ impl Resource for CommentResource {
             .live_search(true)
     }
 
+    delete_through_query!(Comment);
+}
+
+/// What the comment form writes.
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Comment)]
+pub struct CommentForm {
+    pub body: String,
+    pub post_id: uuid::Uuid,
+}
+
+impl FormResource for CommentResource {
+    type Form = CommentForm;
+
     fn form(_cx: &Cx) -> Schema {
         Schema::new((
             // Prose, so a textarea rather than a one-line input — the same
@@ -1273,56 +937,28 @@ impl Resource for CommentResource {
         ))
     }
 
-    fn hydrate_form_values(_cx: &Cx, record: &Comment) -> HashMap<String, String> {
-        let mut m = HashMap::new();
-        m.insert("body".to_string(), record.body.clone());
-        m.insert("post_id".to_string(), record.post_id.to_string());
-        m
-    }
-
     async fn create_record(
         cx: &Cx,
-        values: HashMap<String, String>,
+        form: CommentForm,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Comment> {
-        let body = submitted_trimmed(&values, "body");
-        let post_id = submitted_parsed::<uuid::Uuid>(&values, "post_id")?;
         // Tenancy double-check inside the tx: the pre-tx option-set
         // validation is not a write-time guarantee.
-        ensure_post_in_tenant(cx, post_id, ex).await?;
-        // The created row goes back to the framework.
-        toasty::create!(Comment {
-            body: body,
-            post_id: post_id,
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|e| -> topcoat::Error { e.into() })
+        ensure_post_in_tenant(cx, form.post_id, ex).await?;
+        write_create::<Self>(cx, form, ex).await
     }
 
     async fn update_record(
         cx: &Cx,
-        mut record: Comment,
-        values: HashMap<String, String>,
+        record: Comment,
+        posted: Posted<CommentForm>,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Comment> {
-        let body = kept(&values, "body", &record.body);
-        let post_id = kept_parsed(&values, "post_id", record.post_id)?;
-        // An update can re-point the comment at another post, which
-        // is exactly the move the pre-tx check cannot be trusted to catch.
-        ensure_post_in_tenant(cx, post_id, ex).await?;
-        toasty::update!(record {
-            body: body,
-            post_id: post_id,
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|e| -> topcoat::Error { e.into() })?;
-        // The committed row, reloaded by the instance update.
-        Ok(record)
+        // An update can re-point the comment at another post, which is exactly
+        // the move the pre-tx check cannot be trusted to catch.
+        ensure_post_in_tenant(cx, posted.post_id, ex).await?;
+        write_update::<Self>(cx, record, posted, ex).await
     }
-
-    delete_through_query!(Comment);
 }
 
 #[layout("/admin")]
@@ -1507,10 +1143,10 @@ fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -
         // Light by default: the header toggle is the only thing that
         // turns dark on. `Panel::dark_mode` stays available for an app that
         // wants a dark-first panel.
-        .resource::<UserResource>()
-        .resource::<AuthorResource>()
-        .resource::<PostResource>()
-        .resource::<CommentResource>();
+        .form_resource::<UserResource>()
+        .form_resource::<AuthorResource>()
+        .form_resource::<PostResource>()
+        .form_resource::<CommentResource>();
     // No "Published" saved-view entry: it would point at
     // `/admin/posts?filters=status:published`, i.e. the Blog Posts table with a
     // filter — the same page twice in the sidebar, and the one arrangement the

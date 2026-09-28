@@ -13,7 +13,7 @@ use crate::{form::FormResource, resource::clamp_query_term, schema::OptionLoadEr
 ///
 /// `GET {parent_list_url}/options?field=&q=` — server-side narrowing for
 /// tables above the option cap. `field` allow-lists to a declared searchable
-/// relationship `Select` in `R::form(cx)` (400 otherwise); non-searchable
+/// relationship `Select` in `FormResource::form` (400 otherwise); non-searchable
 /// selects keep today's cap error and never call here. `q` is trimmed and
 /// clamped to the shared query bound; empty `q` returns the bounded head.
 ///

@@ -4,9 +4,7 @@ use showcase::{
     models::{Author, Comment, Post},
 };
 
-use crate::common::{
-    assert_hydrate_keys_are_form_fields, body_string, demo_client, full_db, post_count,
-};
+use crate::common::{body_string, demo_client, full_db, post_count};
 
 #[tokio::test]
 async fn posts_list_shows_author_name() {
@@ -271,33 +269,6 @@ async fn posts_update_rechecks_author_existence() {
         "bogus author update must not redirect, got {}",
         resp.status()
     );
-}
-
-#[tokio::test]
-async fn hydrate_form_values_match_schema_fields() {
-    use showcase::app::{AuthorResource, PostResource};
-
-    let db = full_db().await;
-    let cx = topcoat::context::CxTestBuilder::new()
-        .app_context(db.clone())
-        .build();
-    let mut db_q = db.clone();
-    let author = Author::all()
-        .exec(&mut db_q)
-        .await
-        .unwrap()
-        .into_iter()
-        .next()
-        .unwrap();
-    assert_hydrate_keys_are_form_fields::<AuthorResource>(&cx, &author);
-    let post = Post::all()
-        .exec(&mut db_q)
-        .await
-        .unwrap()
-        .into_iter()
-        .next()
-        .unwrap();
-    assert_hydrate_keys_are_form_fields::<PostResource>(&cx, &post);
 }
 
 #[tokio::test]

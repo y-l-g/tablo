@@ -102,8 +102,9 @@ impl Schema {
     /// a detail page reuses the field types and layout blocks a form already
     /// declares rather than a parallel infolist vocabulary. `values` is the
     /// record hydrated exactly as the edit form hydrates it
-    /// ([`Resource::hydrate_form_values`](crate::resource::Resource::hydrate_form_values)):
-    /// what a user reads on the page is what the form would have shown them.
+    /// ([`RecordForm::hydrate`](crate::RecordForm::hydrate) for a form
+    /// resource): what a user reads on the page is what the form would have
+    /// shown them.
     pub async fn render_readonly<'a>(
         &self,
         cx: &'a Cx,
@@ -136,10 +137,10 @@ impl Schema {
     /// A parse failure here leaves the submission untouched and reports nothing:
     /// it is unreachable from the handlers, and a silent rewrite would hide a
     /// bypass rather than surface it. A field with no submission keeps its
-    /// absence (an update writes only present keys), and an **empty** submission
-    /// stays empty: a typed column has no spelling for "no value", so empty is
-    /// the presence rule's business — `.required()` refuses it inline, and an
-    /// optional typed field reaches its record fn as `""`.
+    /// absence, and an **empty** submission stays empty: a typed column has no
+    /// spelling for "no value", so empty is the presence rule's business —
+    /// `.required()` refuses it inline, and an optional typed field reaches the
+    /// record form's parse as `""`, which reads it as the field's blank answer.
     pub fn normalize_values(&self, values: &mut HashMap<String, String>) {
         for (name, input) in self.text_inputs() {
             let Some(submitted) = values.get(&name) else {
@@ -352,10 +353,11 @@ impl Schema {
 
     /// Validate submitted values against declared inputs.
     ///
-    /// Absent keys are treated as `""` for validation; update record fns must
-    /// therefore only write keys present in the submission, or an omitted
-    /// optional field silently blanks the stored value. Use
-    /// [`Self::unknown_keys`] to allow-list POST keys.
+    /// Absent keys are treated as `""`. The edit handler completes every key
+    /// the submission did not post from the stored record before it validates,
+    /// so an omitted key validates as its stored value there
+    /// ([`FormResource`](crate::FormResource)). Use [`Self::unknown_keys`] to
+    /// allow-list POST keys.
     ///
     /// A field a submission hides is not validated: an all-empty
     /// Repeater group is absent, and a variant group the submission's

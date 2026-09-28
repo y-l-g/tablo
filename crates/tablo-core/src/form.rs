@@ -11,6 +11,64 @@
 //! the stored record before the parse, so [`FormResource::update_record`]
 //! receives a whole form, and [`Posted`] records which fields the submission
 //! **named**. The write assigns only named fields.
+//!
+//! ```no_run
+//! #[derive(Debug, Clone, toasty::Model)]
+//! struct User {
+//!     #[key]
+//!     #[auto]
+//!     id: uuid::Uuid,
+//!     name: String,
+//!     age: i64,
+//! }
+//!
+//! #[derive(tablo_core::RecordForm)]
+//! #[record_form(model = User)]
+//! struct UserForm {
+//!     name: String,
+//!     #[record_form(blank = 0)]
+//!     age: i64,
+//! }
+//! ```
+//!
+//! # Compile-time refusals
+//!
+//! A field the model does not have:
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
+//! #[derive(tablo_core::RecordForm)]
+//! #[record_form(model = User)]
+//! struct UserForm {
+//!     nickname: String,
+//! }
+//! ```
+//!
+//! A type the model's field does not have:
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
+//! #[derive(tablo_core::RecordForm)]
+//! #[record_form(model = User)]
+//! struct UserForm {
+//!     age: i32,
+//! }
+//! ```
+//!
+//! `embed` on a type that is not an [`EmbeddedForm`](crate::EmbeddedForm):
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
+//! #[derive(tablo_core::RecordForm)]
+//! #[record_form(model = User)]
+//! struct UserForm {
+//!     #[record_form(embed)]
+//!     name: String,
+//! }
+//! ```
 
 use std::{
     collections::{HashMap, HashSet},

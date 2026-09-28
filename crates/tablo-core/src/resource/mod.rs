@@ -150,7 +150,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// How one record is displayed on the detail page, read-only.
     ///
-    /// The same [`Schema`] a form uses, rendered for reading: a `TextInput`
+    /// The same [`Schema`](crate::schema::Schema) a form uses, rendered for reading: a `TextInput`
     /// shows its stored value instead of an `<input>`, a `Select` shows the
     /// option label the form offered, and a layout block keeps the structure it
     /// declares. Declaring a view is what turns the detail page on — the default

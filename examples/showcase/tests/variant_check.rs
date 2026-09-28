@@ -7,9 +7,7 @@
 //! embedded value over a real model and a real panel — with a typed leaf in the
 //! inactive variant so a validated group would refuse the submission.
 
-use std::collections::HashMap;
-
-use tablo_core::{Auth, Panel, Resource, Schema, Table, TextColumn, TextInput, read_embedded};
+use tablo_core::{Auth, Panel, Resource, Schema, Table, TextColumn, TextInput};
 use toasty::Db;
 use uuid::Uuid;
 
@@ -61,24 +59,19 @@ impl Resource for ClipResource {
                 clip.title.clone()
             }))
     }
-
+}
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Clip)]
+struct ClipForm {
+    title: String,
+    #[record_form(embed)]
+    body: Body,
+}
+impl tablo_core::FormResource for ClipResource {
+    type Form = ClipForm;
     fn form(cx: &topcoat::context::Cx) -> Schema {
         Schema::new(TextInput::r#for(Clip::fields().title()))
             .extend(Body::form(cx, Clip::fields().body()))
-    }
-
-    async fn create_record(
-        cx: &topcoat::context::Cx,
-        values: HashMap<String, String>,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Clip> {
-        toasty::create!(Clip {
-            title: values.get("title").cloned().unwrap_or_default(),
-            body: read_embedded(cx, Clip::fields().body(), &values),
-        })
-        .exec(&mut *ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })
     }
 }
 
@@ -93,7 +86,7 @@ async fn a_hidden_variant_groups_fields_do_not_block_the_submit() {
     let router = Panel::new("admin")
         .app_context(db.clone())
         .auth(Auth::disabled())
-        .resource::<ClipResource>()
+        .form_resource::<ClipResource>()
         .build()
         .expect("panel builds");
     let client = TestClient::new(&router);
@@ -139,7 +132,7 @@ async fn the_named_variants_fields_still_validate() {
     let router = Panel::new("admin")
         .app_context(db.clone())
         .auth(Auth::disabled())
-        .resource::<ClipResource>()
+        .form_resource::<ClipResource>()
         .build()
         .expect("panel builds");
     let client = TestClient::new(&router);

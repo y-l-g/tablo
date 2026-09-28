@@ -233,7 +233,7 @@ async fn delete_404_for_an_unknown_id() {
 async fn forged_delete_runs_no_record_query() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use tablo_core::{Resource, Schema, Table, TextColumn, TextInput};
+    use tablo_core::{Resource, Table, TextColumn};
 
     // Every load (find_by_key, the tx fetch) starts from the tenant-scoped
     // query, which calls the resource's `query_with` — and `CountingResource`
@@ -275,9 +275,6 @@ async fn forged_delete_runs_no_record_query() {
                 .columns(TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
                     d.name.clone()
                 }))
-        }
-        fn form(_cx: &topcoat::context::Cx) -> Schema {
-            Schema::new(TextInput::r#for(Dummy::fields().name()))
         }
         async fn delete_record(
             _cx: &topcoat::context::Cx,

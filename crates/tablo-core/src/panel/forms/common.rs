@@ -49,8 +49,8 @@ pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
 /// Reject POST keys no declared Schema input owns (GH #89 mass-assignment
 /// allow-list). `csrf_token` is a handler key, not a field, so it is filtered
 /// before the check, as are `clear_<field>` flags for declared `FileUpload`
-/// fields (explicit-clear convention — `truthy`); absent keys are fine
-/// (present-keys-only updates), unknown keys are a 400 — accepting
+/// fields (explicit-clear convention — `truthy`); absent keys are fine (an
+/// edit completes them from the stored record), unknown keys are a 400 — accepting
 /// `role`/`tenant_id` smuggling would let a generic record fn iterating
 /// `values` promote them to client-controlled writes.
 pub(super) fn reject_unknown_form_keys(
@@ -264,7 +264,7 @@ mod tests {
         ]);
         assert!(reject_unknown_form_keys(&schema, &values).is_ok());
 
-        // Absent keys are fine (present-keys-only updates).
+        // Absent keys are fine: an edit completes them from the stored record.
         let values = HashMap::from([(
             crate::csrf::FIELD_NAME.to_string(),
             "some-token".to_string(),

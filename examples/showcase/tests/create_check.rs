@@ -216,17 +216,16 @@ async fn create_policy_deny() {
                     |u: &DummyUser| u.name.clone(),
                 ))
         }
+    }
+    #[derive(tablo_core::RecordForm)]
+    #[record_form(model = DummyUser)]
+    struct DenyCreateForm {
+        name: String,
+    }
+    impl tablo_core::FormResource for DenyCreateResource {
+        type Form = DenyCreateForm;
         fn form(_cx: &topcoat::context::Cx) -> Schema {
             Schema::new(TextInput::r#for(DummyUser::fields().name()).required())
-        }
-        async fn create_record(
-            _cx: &topcoat::context::Cx,
-            _values: std::collections::HashMap<String, String>,
-            _ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<DummyUser> {
-            // `can_create` denies before the handler ever calls this, so there
-            // is no row to return (a create returns what it wrote).
-            Err(std::io::Error::other("unreachable: create is denied by policy").into())
         }
     }
 
@@ -239,7 +238,7 @@ async fn create_policy_deny() {
     let router = tablo_core::Panel::new("admin")
         .app_context(db.clone())
         .auth(tablo_core::Auth::disabled())
-        .resource::<DenyCreateResource>()
+        .form_resource::<DenyCreateResource>()
         .build()
         .expect("panel builds");
     let client = TestClient::new(&router);
@@ -379,8 +378,6 @@ async fn users_create_static_selects_set_role_and_active() {
 /// `notify_write_failure`'s doc comment describes this delivery.
 #[tokio::test]
 async fn a_failed_write_toasts_on_the_next_panel_page() {
-    use std::collections::HashMap;
-
     use tablo_core::{Resource, Schema, Table, TextColumn, TextInput};
     use topcoat::context::Cx;
 
@@ -411,12 +408,20 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
                     w.name.clone()
                 }))
         }
+    }
+    #[derive(tablo_core::RecordForm)]
+    #[record_form(model = Widget)]
+    struct FailingForm {
+        name: String,
+    }
+    impl tablo_core::FormResource for FailingResource {
+        type Form = FailingForm;
         fn form(_cx: &Cx) -> Schema {
             Schema::new(TextInput::r#for(Widget::fields().name()))
         }
         async fn create_record(
             _cx: &Cx,
-            _values: HashMap<String, String>,
+            _form: FailingForm,
             _ex: &mut dyn toasty::Executor,
         ) -> topcoat::Result<Widget> {
             // Validation passed; the write itself did not land.
@@ -433,7 +438,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     let router = tablo_core::Panel::new("admin")
         .app_context(db)
         .auth(tablo_core::Auth::disabled())
-        .resource::<FailingResource>()
+        .form_resource::<FailingResource>()
         .build()
         .expect("panel builds");
     let client = TestClient::new(&router);

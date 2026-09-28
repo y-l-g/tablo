@@ -323,7 +323,8 @@ pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), St
 }
 
 /// A resource's build-time declaration check: monomorphized once per
-/// declared resource by [`Panel::resource`], run by [`Panel::build`] with the
+/// declared resource by [`Panel::resource`] or [`Panel::form_resource`], run
+/// by [`Panel::build`] with the
 /// app's values and no request.
 pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 
@@ -331,13 +332,14 @@ pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 ///
 /// The trait ships every method with a default, so a resource that overrides
 /// nothing compiles and only fails when a user reaches a page. The essentials
-/// that are *declarations* — a tenant predicate for a gated resource, a
-/// renderable table, a form for the create page, a backed `unique()` marker —
-/// are checked here, at build, and reported with the resource's type name.
+/// that are *declarations* — a tenant predicate for a gated resource and a
+/// renderable table — are checked here, at build, and reported with the
+/// resource's type name; [`check_form_resource`] and [`check_list_resource`]
+/// add the checks the registration method implies.
 /// Runtime essentials (the record fns) keep their loud failure.
 ///
 /// A declaration that panics is a boot failure too: `Resource::table` and
-/// `Resource::form` run code that panics on a mis-declaration, and this check's
+/// `FormResource::form` run code that panics on a mis-declaration, and this check's
 /// contract is a registration error the caller can log or exit on. The whole
 /// body is caught, because `R::Model::schema()` and the policy predicates are
 /// part of the same declaration, and the panic's own message is carried into
@@ -1437,7 +1439,7 @@ mod tests {
         );
     }
 
-    /// GH #207 part 2: `Resource::table` and `Resource::form` run code that
+    /// GH #207 part 2: `Resource::table` and `FormResource::form` run code that
     /// panics on a mis-declaration, but `build`'s contract is a registration
     /// error the caller can log or exit on. Both classes below are caught at
     /// the boundary instead of unwinding out of `build`.

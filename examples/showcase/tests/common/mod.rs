@@ -6,16 +6,12 @@
 #![allow(dead_code)]
 
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, create_admin, seed, seed_content};
-use tablo_core::Resource;
 pub use tablo_test::{
     SESSION_COOKIE, TestClient, body_string, form_body, input_value, multipart_body,
     response_cookies, session_cookie_value, set_cookie_header,
 };
 use toasty::Db;
-use topcoat::{
-    context::Cx,
-    router::{Body, Router},
-};
+use topcoat::router::{Body, Router};
 
 /// A fresh in-memory `Db` carrying the **full** showcase model set, schema
 /// pushed and no rows — the one place the model list is written.
@@ -453,18 +449,4 @@ pub async fn comment_count(db: &Db) -> usize {
         .await
         .unwrap()
         .len()
-}
-
-/// Assert every hydrated key is a declared form field: a renamed
-/// lens without an updated string literal would render blank and break the
-/// unique unchanged-skip.
-pub fn assert_hydrate_keys_are_form_fields<R: Resource>(cx: &Cx, record: &R::Model) {
-    let fields = R::form(cx).field_names();
-    for key in R::hydrate_form_values(cx, record).keys() {
-        assert!(
-            fields.contains(key),
-            "hydrate key {key} is not a {} form field (GH #89)",
-            R::slug()
-        );
-    }
 }

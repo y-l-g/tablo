@@ -1,7 +1,9 @@
 use std::time::Instant;
 
 use jiff::Timestamp;
-use tablo_core::{Panel, Resource, Schema, Table, TableState, Tenant, TextColumn, TextInput};
+use tablo_core::{
+    FormResource, Panel, Resource, Schema, Table, TableState, Tenant, TextColumn, TextInput,
+};
 use toasty::{Db, Deferred};
 use topcoat::{
     Result,
@@ -82,15 +84,6 @@ impl Resource for AuthorResource {
             ))
             .paginate(2)
     }
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new((
-            TextInput::r#for(Author::fields().name()).required(),
-            TextInput::r#for(Author::fields().email())
-                .required()
-                .email()
-                .unique(),
-        ))
-    }
 }
 
 pub struct PostResource;
@@ -162,6 +155,18 @@ impl Resource for PostResource {
             ))
             .paginate(50)
     }
+}
+
+/// The post form: the title alone, so the edit chrome the list measures has a
+/// page to link to.
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Post)]
+pub struct PostForm {
+    pub title: String,
+}
+
+impl FormResource for PostResource {
+    type Form = PostForm;
     fn form(_cx: &Cx) -> Schema {
         Schema::new(TextInput::r#for(Post::fields().title()).required())
     }
@@ -482,7 +487,7 @@ fn router(db: Db) -> Router {
         .app_context(db)
         .auth(tablo_core::Auth::disabled())
         .resource::<AuthorResource>()
-        .resource::<PostResource>()
+        .form_resource::<PostResource>()
         .build()
         .expect("panel builds")
 }

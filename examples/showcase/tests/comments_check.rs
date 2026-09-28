@@ -219,10 +219,8 @@ async fn comments_create_valid_redirects_and_creates() {
 /// post.
 #[tokio::test]
 async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() {
-    use std::collections::HashMap;
-
-    use showcase::app::{CommentResource, PostResource};
-    use tablo_core::{Resource, Tenant, db::db as db_handle, scoped_query};
+    use showcase::app::{CommentForm, CommentFormField, CommentResource, PostResource};
+    use tablo_core::{FormResource, Posted, Resource, Tenant, db::db as db_handle, scoped_query};
     use topcoat::{context::CxTestBuilder, router::response::IntoResponse};
 
     let (db, t1, t2) = tenanted_db().await;
@@ -253,18 +251,16 @@ async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() 
         .unwrap()
         .expect("t1 seeds one post");
 
-    let values = |post_id: uuid::Uuid| {
-        let mut v = HashMap::new();
-        v.insert("body".to_string(), "moderated".to_string());
-        v.insert("post_id".to_string(), post_id.to_string());
-        v
+    let form = |post_id: uuid::Uuid| CommentForm {
+        body: "moderated".to_string(),
+        post_id,
     };
 
     // Create against the foreign post: refused inside the tx.
     let mut handle = db_handle(&cx);
     let mut tx = handle.transaction().await.unwrap();
     let refused =
-        <CommentResource as Resource>::create_record(&cx, values(foreign.id), &mut tx).await;
+        <CommentResource as FormResource>::create_record(&cx, form(foreign.id), &mut tx).await;
     let error = refused.expect_err("a cross-tenant post must not accept a comment");
     drop(tx);
     // The guard's own 404, not a driver or FK failure: "wrong tenant looks
@@ -282,7 +278,7 @@ async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() 
     // blanket-denying.
     let mut handle = db_handle(&cx);
     let mut tx = handle.transaction().await.unwrap();
-    <CommentResource as Resource>::create_record(&cx, values(own.id), &mut tx)
+    <CommentResource as FormResource>::create_record(&cx, form(own.id), &mut tx)
         .await
         .expect("the tenant's own post accepts a comment");
     tx.commit().await.unwrap();
@@ -298,9 +294,13 @@ async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() 
     let original_post = stored.post_id;
     let mut handle = db_handle(&cx);
     let mut tx = handle.transaction().await.unwrap();
-    let repointed =
-        <CommentResource as Resource>::update_record(&cx, stored, values(foreign.id), &mut tx)
-            .await;
+    let repointed = <CommentResource as FormResource>::update_record(
+        &cx,
+        stored,
+        Posted::new(form(foreign.id), [CommentFormField::PostId]),
+        &mut tx,
+    )
+    .await;
     assert!(
         repointed.is_err(),
         "an update must not re-point a comment at another tenant's post"

@@ -375,6 +375,34 @@ mod tests {
         schema::{FileUpload, Schema, TextInput},
     };
 
+    /// Completion fills an unnamed key from the stored projection it is
+    /// handed — the edit path hands it the in-transaction record — keeps a
+    /// named key as posted, and drops an unnamed key the projection lacks.
+    #[test]
+    fn completion_fills_unnamed_keys_from_the_stored_projection() {
+        let schema = Schema::new(TextInput::r#for(Dummy::fields().name()));
+        let named = HashSet::new();
+        let mut values = HashMap::from([("name".to_string(), "advisory".to_string())]);
+        let stored = HashMap::from([("name".to_string(), "authoritative".to_string())]);
+        complete(&schema, &mut values, &named, &stored);
+        assert_eq!(
+            values["name"], "authoritative",
+            "an unnamed key reads the stored record"
+        );
+
+        let named = HashSet::from(["name".to_string()]);
+        let mut values = HashMap::from([("name".to_string(), "posted".to_string())]);
+        complete(&schema, &mut values, &named, &stored);
+        assert_eq!(
+            values["name"], "posted",
+            "a named key keeps what was posted"
+        );
+
+        let mut values = HashMap::from([("name".to_string(), "stale".to_string())]);
+        complete(&schema, &mut values, &HashSet::new(), &HashMap::new());
+        assert!(!values.contains_key("name"), "nothing stored, nothing kept");
+    }
+
     #[tokio::test]
     async fn edit_post_requires_can_view_as_well_as_can_update() {
         use crate::resource::Resource;
