@@ -56,9 +56,11 @@ and the identically shaped `typed_context` is called bare today, from the
 derive (`crates/tablo-macros/src/embedded.rs:348`) and by hand
 (`examples/showcase/src/app.rs:417-420`). The checkbox renders the `tablo-ui`
 checkbox primitive (`crates/tablo-ui/src/components/primitives/checkbox.rs:33`)
-plus a hidden companion posting `"false"`, so an unchecked box still names its
-key and writes `false`. A box with no posted key at all (no companion, no
-script) reads as unnamed and keeps the stored value under the completion rule.
+plus a hidden input with the same name posting `"false"` emitted before the
+checkbox, which posts `"true"`. Duplicate keys are last-wins: a checked box
+posts both keys and reads `true`; an unchecked box posts only `"false"` and
+writes `false`. A box with no posted key at all (no companion, no script)
+reads as unnamed and keeps the stored value under the completion rule.
 
 ## Edge cases
 
@@ -80,14 +82,8 @@ script) reads as unnamed and keeps the stored value under the completion rule.
   adds bound design (width defaults, sort/search semantics per type) this step
   does not need. Deferred.
 
-## Open questions
-
-- Blocking-acceptance: none.
-- Blocking-implementation: duplicate-key precedence for the hidden companion
-  (first-wins vs last-wins in form parsing) must be pinned by a test before the checkbox merges.
-- Deferrable: the generic-`Display` overload and a checkbox filter control.
-
 ## Out of scope
 
 `RecordForm` derivation, completion, and the `Table` key constructor (#384) are
-unchanged. `TextInput::for` keeps its `String`-only signature.
+unchanged. `TextInput::for` keeps its `String`-only signature. No checkbox
+filter control rides along.
