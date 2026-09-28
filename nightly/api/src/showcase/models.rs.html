@@ -28,150 +28,152 @@
 <a href=#28 id=28 data-nosnippet>28</a>    <span class="doccomment">/// A stored integer the form binds through `TextInput::typed`: optional,
 <a href=#29 id=29 data-nosnippet>29</a>    /// zero or more.
 <a href=#30 id=30 data-nosnippet>30</a>    </span><span class="kw">pub </span>age: i64,
-<a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">pub </span>created_at: Timestamp,
-<a href=#32 id=32 data-nosnippet>32</a>}
-<a href=#33 id=33 data-nosnippet>33</a>
-<a href=#34 id=34 data-nosnippet>34</a><span class="attr">#[derive(Debug, Clone, toasty::Model)]
-<a href=#35 id=35 data-nosnippet>35</a></span><span class="comment">// Scoped, not global: the form's unique probe runs through the
-<a href=#36 id=36 data-nosnippet>36</a>// tenant-scoped query (`scoped_query`), so a *global* unique index
-<a href=#37 id=37 data-nosnippet>37</a>// on `email` would be rejected by the database for an email another tenant
-<a href=#38 id=38 data-nosnippet>38</a>// already owns — after the probe passed — and surface as a 500. Constraining
-<a href=#39 id=39 data-nosnippet>39</a>// `(tenant_id, email)` makes the constraint say what the probe enforces, so two
-<a href=#40 id=40 data-nosnippet>40</a>// tenants may share an email.
-<a href=#41 id=41 data-nosnippet>41</a></span><span class="attr">#[unique(tenant_id, email)]
-<a href=#42 id=42 data-nosnippet>42</a></span><span class="kw">pub struct </span>Author {
-<a href=#43 id=43 data-nosnippet>43</a>    <span class="attr">#[key]
-<a href=#44 id=44 data-nosnippet>44</a>    #[auto]
-<a href=#45 id=45 data-nosnippet>45</a>    </span><span class="kw">pub </span>id: uuid::Uuid,
-<a href=#46 id=46 data-nosnippet>46</a>    <span class="attr">#[index]
-<a href=#47 id=47 data-nosnippet>47</a>    </span><span class="kw">pub </span>tenant_id: uuid::Uuid,
-<a href=#48 id=48 data-nosnippet>48</a>    <span class="doccomment">/// Display name.
-<a href=#49 id=49 data-nosnippet>49</a>    </span><span class="kw">pub </span>name: String,
-<a href=#50 id=50 data-nosnippet>50</a>    <span class="kw">pub </span>email: String,
-<a href=#51 id=51 data-nosnippet>51</a>    <span class="attr">#[has_many]
-<a href=#52 id=52 data-nosnippet>52</a>    </span><span class="kw">pub </span>posts: Deferred&lt;Vec&lt;Post&gt;&gt;,
-<a href=#53 id=53 data-nosnippet>53</a>}
-<a href=#54 id=54 data-nosnippet>54</a>
-<a href=#55 id=55 data-nosnippet>55</a><span class="doccomment">/// SEO metadata for a post — an embedded struct.
-<a href=#56 id=56 data-nosnippet>56</a>///
-<a href=#57 id=57 data-nosnippet>57</a>/// Flattens into the parent table as `seo_title` / `seo_description`: the same
-<a href=#58 id=58 data-nosnippet>58</a>/// row, no join, but two more columns the form binds like any other.
-<a href=#59 id=59 data-nosnippet>59</a></span><span class="attr">#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
-<a href=#60 id=60 data-nosnippet>60</a></span><span class="kw">pub struct </span>Seo {
-<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">pub </span>title: String,
-<a href=#62 id=62 data-nosnippet>62</a>    <span class="doccomment">/// A multi-line control: the derive renders one `TextInput` per leaf, and
-<a href=#63 id=63 data-nosnippet>63</a>    /// this is the one leaf the panel wants as a `Textarea`.
-<a href=#64 id=64 data-nosnippet>64</a>    </span><span class="attr">#[form(textarea, rows = <span class="number">3</span>)]
-<a href=#65 id=65 data-nosnippet>65</a>    </span><span class="kw">pub </span>description: String,
-<a href=#66 id=66 data-nosnippet>66</a>}
-<a href=#67 id=67 data-nosnippet>67</a>
-<a href=#68 id=68 data-nosnippet>68</a><span class="doccomment">/// A post's lifecycle — an embedded enum whose **timestamps are shared**.
-<a href=#69 id=69 data-nosnippet>69</a>///
-<a href=#70 id=70 data-nosnippet>70</a>/// Every variant declares a timestamp under the same `#[shared(timestamp)]`
-<a href=#71 id=71 data-nosnippet>71</a>/// identifier, so the three coalesce into one `publication_timestamp` column
-<a href=#72 id=72 data-nosnippet>72</a>/// instead of one column per variant. The rest of each variant is its own
-<a href=#73 id=73 data-nosnippet>73</a>/// nullable column (`publication_scheduled_for`, `publication_canonical_url`,
-<a href=#74 id=74 data-nosnippet>74</a>/// `publication_reason`).
-<a href=#75 id=75 data-nosnippet>75</a>///
-<a href=#76 id=76 data-nosnippet>76</a>/// The timestamps are `jiff::Timestamp`: the form binds them through
-<a href=#77 id=77 data-nosnippet>77</a>/// `TextInput::typed`, which renders `type="datetime-local"` and reads the
-<a href=#78 id=78 data-nosnippet>78</a>/// submission back as UTC.
-<a href=#79 id=79 data-nosnippet>79</a></span><span class="attr">#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
-<a href=#80 id=80 data-nosnippet>80</a></span><span class="kw">pub enum </span>Publication {
-<a href=#81 id=81 data-nosnippet>81</a>    <span class="attr">#[column(variant = <span class="number">1</span>)]
-<a href=#82 id=82 data-nosnippet>82</a>    </span>Scheduled {
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="doccomment">/// The shared column's one control renders from the first variant that
-<a href=#84 id=84 data-nosnippet>84</a>        /// declares it, so its label is written there.
-<a href=#85 id=85 data-nosnippet>85</a>        </span><span class="attr">#[shared(timestamp)]
-<a href=#86 id=86 data-nosnippet>86</a>        #[form(label = <span class="string">"Publication timestamp"</span>)]
-<a href=#87 id=87 data-nosnippet>87</a>        </span>scheduled_at: Timestamp,
-<a href=#88 id=88 data-nosnippet>88</a>        scheduled_for: String,
-<a href=#89 id=89 data-nosnippet>89</a>    },
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="attr">#[column(variant = <span class="number">2</span>)]
-<a href=#91 id=91 data-nosnippet>91</a>    </span>Published {
-<a href=#92 id=92 data-nosnippet>92</a>        <span class="attr">#[shared(timestamp)]
-<a href=#93 id=93 data-nosnippet>93</a>        </span>published_at: Timestamp,
-<a href=#94 id=94 data-nosnippet>94</a>        <span class="attr">#[form(label = <span class="string">"Canonical URL"</span>)]
-<a href=#95 id=95 data-nosnippet>95</a>        </span>canonical_url: String,
-<a href=#96 id=96 data-nosnippet>96</a>    },
-<a href=#97 id=97 data-nosnippet>97</a>    <span class="attr">#[column(variant = <span class="number">3</span>)]
-<a href=#98 id=98 data-nosnippet>98</a>    </span>Archived {
-<a href=#99 id=99 data-nosnippet>99</a>        <span class="attr">#[shared(timestamp)]
-<a href=#100 id=100 data-nosnippet>100</a>        </span>archived_at: Timestamp,
-<a href=#101 id=101 data-nosnippet>101</a>        <span class="attr">#[form(label = <span class="string">"Archive reason"</span>)]
-<a href=#102 id=102 data-nosnippet>102</a>        </span>reason: String,
-<a href=#103 id=103 data-nosnippet>103</a>    },
-<a href=#104 id=104 data-nosnippet>104</a>}
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a><span class="doccomment">/// Post with BelongsTo Author and HasMany Comments (relations via include + computed).
-<a href=#107 id=107 data-nosnippet>107</a></span><span class="attr">#[derive(Debug, Clone, toasty::Model)]
-<a href=#108 id=108 data-nosnippet>108</a></span><span class="kw">pub struct </span>Post {
-<a href=#109 id=109 data-nosnippet>109</a>    <span class="attr">#[key]
-<a href=#110 id=110 data-nosnippet>110</a>    #[auto]
-<a href=#111 id=111 data-nosnippet>111</a>    </span><span class="kw">pub </span>id: uuid::Uuid,
-<a href=#112 id=112 data-nosnippet>112</a>    <span class="attr">#[index]
-<a href=#113 id=113 data-nosnippet>113</a>    </span><span class="kw">pub </span>tenant_id: uuid::Uuid,
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="attr">#[index]
-<a href=#115 id=115 data-nosnippet>115</a>    </span><span class="kw">pub </span>title: String,
-<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">pub </span>body: String,
-<a href=#117 id=117 data-nosnippet>117</a>    <span class="attr">#[index]
-<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="kw">pub </span>status: String,
-<a href=#119 id=119 data-nosnippet>119</a>    <span class="kw">pub </span>featured: bool,
-<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">pub </span>created_at: Timestamp,
-<a href=#121 id=121 data-nosnippet>121</a>    <span class="doccomment">/// The library row this post shows as its cover, if any. An optional
-<a href=#122 id=122 data-nosnippet>122</a>    /// single picker: the form offers the tenant's media rows and stores the
-<a href=#123 id=123 data-nosnippet>123</a>    /// picked row's id.
-<a href=#124 id=124 data-nosnippet>124</a>    </span><span class="kw">pub </span>cover_id: <span class="prelude-ty">Option</span>&lt;uuid::Uuid&gt;,
-<a href=#125 id=125 data-nosnippet>125</a>    <span class="kw">pub </span>tags: String,
-<a href=#126 id=126 data-nosnippet>126</a>    <span class="doccomment">/// Embedded struct.
-<a href=#127 id=127 data-nosnippet>127</a>    </span><span class="kw">pub </span>seo: Seo,
-<a href=#128 id=128 data-nosnippet>128</a>    <span class="doccomment">/// Shared column + per-variant payloads.
-<a href=#129 id=129 data-nosnippet>129</a>    </span><span class="kw">pub </span>publication: Publication,
-<a href=#130 id=130 data-nosnippet>130</a>    <span class="attr">#[index]
-<a href=#131 id=131 data-nosnippet>131</a>    </span><span class="kw">pub </span>author_id: uuid::Uuid,
-<a href=#132 id=132 data-nosnippet>132</a>    <span class="attr">#[belongs_to(key = author_id, references = id)]
-<a href=#133 id=133 data-nosnippet>133</a>    </span><span class="kw">pub </span>author: Deferred&lt;Author&gt;,
-<a href=#134 id=134 data-nosnippet>134</a>    <span class="attr">#[has_many]
-<a href=#135 id=135 data-nosnippet>135</a>    </span><span class="kw">pub </span>comments: Deferred&lt;Vec&lt;Comment&gt;&gt;,
-<a href=#136 id=136 data-nosnippet>136</a>}
-<a href=#137 id=137 data-nosnippet>137</a>
-<a href=#138 id=138 data-nosnippet>138</a><span class="attr">#[derive(Debug, Clone, toasty::Model)]
-<a href=#139 id=139 data-nosnippet>139</a></span><span class="kw">pub struct </span>Comment {
-<a href=#140 id=140 data-nosnippet>140</a>    <span class="attr">#[key]
-<a href=#141 id=141 data-nosnippet>141</a>    #[auto]
-<a href=#142 id=142 data-nosnippet>142</a>    </span><span class="kw">pub </span>id: uuid::Uuid,
-<a href=#143 id=143 data-nosnippet>143</a>    <span class="kw">pub </span>body: String,
-<a href=#144 id=144 data-nosnippet>144</a>    <span class="attr">#[index]
-<a href=#145 id=145 data-nosnippet>145</a>    </span><span class="kw">pub </span>post_id: uuid::Uuid,
-<a href=#146 id=146 data-nosnippet>146</a>    <span class="attr">#[belongs_to(key = post_id, references = id)]
-<a href=#147 id=147 data-nosnippet>147</a>    </span><span class="kw">pub </span>post: Deferred&lt;Post&gt;,
-<a href=#148 id=148 data-nosnippet>148</a>}
-<a href=#149 id=149 data-nosnippet>149</a>
-<a href=#150 id=150 data-nosnippet>150</a><span class="doccomment">/// One stored file in the media library — the `medias` table.
-<a href=#151 id=151 data-nosnippet>151</a>///
-<a href=#152 id=152 data-nosnippet>152</a>/// A WordPress-style library: one row per stored file with the tenant that
-<a href=#153 id=153 data-nosnippet>153</a>/// uploaded it, the `path` the `Uploader` returned, the client's `filename`,
-<a href=#154 id=154 data-nosnippet>154</a>/// a `kind`, and a timestamp. Rows carry no owner: a post shows one row as
-<a href=#155 id=155 data-nosnippet>155</a>/// its cover through its own `cover_id`, and the library lists one tenant's
-<a href=#156 id=156 data-nosnippet>156</a>/// rows. ADR-0021 records the shape.
-<a href=#157 id=157 data-nosnippet>157</a></span><span class="attr">#[derive(Debug, Clone, toasty::Model)]
-<a href=#158 id=158 data-nosnippet>158</a>#[table = <span class="string">"medias"</span>]
-<a href=#159 id=159 data-nosnippet>159</a></span><span class="kw">pub struct </span>MediaAsset {
-<a href=#160 id=160 data-nosnippet>160</a>    <span class="attr">#[key]
-<a href=#161 id=161 data-nosnippet>161</a>    #[auto]
-<a href=#162 id=162 data-nosnippet>162</a>    </span><span class="kw">pub </span>id: uuid::Uuid,
-<a href=#163 id=163 data-nosnippet>163</a>    <span class="doccomment">/// The tenant that uploaded the file, like every other showcase row
-<a href=#164 id=164 data-nosnippet>164</a>    /// the library lists one tenant's media.
-<a href=#165 id=165 data-nosnippet>165</a>    </span><span class="attr">#[index]
-<a href=#166 id=166 data-nosnippet>166</a>    </span><span class="kw">pub </span>tenant_id: uuid::Uuid,
-<a href=#167 id=167 data-nosnippet>167</a>    <span class="doccomment">/// What the app's [`Uploader`](tablo_core::Uploader) returned, stored
-<a href=#168 id=168 data-nosnippet>168</a>    /// verbatim and rendered as the URL the file is served at.
-<a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">pub </span>path: String,
-<a href=#170 id=170 data-nosnippet>170</a>    <span class="doccomment">/// The client's filename, a basename, for display.
-<a href=#171 id=171 data-nosnippet>171</a>    </span><span class="kw">pub </span>filename: String,
-<a href=#172 id=172 data-nosnippet>172</a>    <span class="doccomment">/// `"image"` or `"file"` — the app's own kind, from the uploaded part's
-<a href=#173 id=173 data-nosnippet>173</a>    /// content type. It decides whether a row renders a thumbnail or a link.
-<a href=#174 id=174 data-nosnippet>174</a>    </span><span class="kw">pub </span>kind: String,
-<a href=#175 id=175 data-nosnippet>175</a>    <span class="kw">pub </span>created_at: Timestamp,
-<a href=#176 id=176 data-nosnippet>176</a>}
+<a href=#31 id=31 data-nosnippet>31</a>    <span class="attr">#[default(jiff::Timestamp::now())]
+<a href=#32 id=32 data-nosnippet>32</a>    </span><span class="kw">pub </span>created_at: Timestamp,
+<a href=#33 id=33 data-nosnippet>33</a>}
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a><span class="attr">#[derive(Debug, Clone, toasty::Model)]
+<a href=#36 id=36 data-nosnippet>36</a></span><span class="comment">// Scoped, not global: the form's unique probe runs through the
+<a href=#37 id=37 data-nosnippet>37</a>// tenant-scoped query (`scoped_query`), so a *global* unique index
+<a href=#38 id=38 data-nosnippet>38</a>// on `email` would be rejected by the database for an email another tenant
+<a href=#39 id=39 data-nosnippet>39</a>// already owns — after the probe passed — and surface as a 500. Constraining
+<a href=#40 id=40 data-nosnippet>40</a>// `(tenant_id, email)` makes the constraint say what the probe enforces, so two
+<a href=#41 id=41 data-nosnippet>41</a>// tenants may share an email.
+<a href=#42 id=42 data-nosnippet>42</a></span><span class="attr">#[unique(tenant_id, email)]
+<a href=#43 id=43 data-nosnippet>43</a></span><span class="kw">pub struct </span>Author {
+<a href=#44 id=44 data-nosnippet>44</a>    <span class="attr">#[key]
+<a href=#45 id=45 data-nosnippet>45</a>    #[auto]
+<a href=#46 id=46 data-nosnippet>46</a>    </span><span class="kw">pub </span>id: uuid::Uuid,
+<a href=#47 id=47 data-nosnippet>47</a>    <span class="attr">#[index]
+<a href=#48 id=48 data-nosnippet>48</a>    </span><span class="kw">pub </span>tenant_id: uuid::Uuid,
+<a href=#49 id=49 data-nosnippet>49</a>    <span class="doccomment">/// Display name.
+<a href=#50 id=50 data-nosnippet>50</a>    </span><span class="kw">pub </span>name: String,
+<a href=#51 id=51 data-nosnippet>51</a>    <span class="kw">pub </span>email: String,
+<a href=#52 id=52 data-nosnippet>52</a>    <span class="attr">#[has_many]
+<a href=#53 id=53 data-nosnippet>53</a>    </span><span class="kw">pub </span>posts: Deferred&lt;Vec&lt;Post&gt;&gt;,
+<a href=#54 id=54 data-nosnippet>54</a>}
+<a href=#55 id=55 data-nosnippet>55</a>
+<a href=#56 id=56 data-nosnippet>56</a><span class="doccomment">/// SEO metadata for a post — an embedded struct.
+<a href=#57 id=57 data-nosnippet>57</a>///
+<a href=#58 id=58 data-nosnippet>58</a>/// Flattens into the parent table as `seo_title` / `seo_description`: the same
+<a href=#59 id=59 data-nosnippet>59</a>/// row, no join, but two more columns the form binds like any other.
+<a href=#60 id=60 data-nosnippet>60</a></span><span class="attr">#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
+<a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">pub struct </span>Seo {
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">pub </span>title: String,
+<a href=#63 id=63 data-nosnippet>63</a>    <span class="doccomment">/// A multi-line control: the derive renders one `TextInput` per leaf, and
+<a href=#64 id=64 data-nosnippet>64</a>    /// this is the one leaf the panel wants as a `Textarea`.
+<a href=#65 id=65 data-nosnippet>65</a>    </span><span class="attr">#[form(textarea, rows = <span class="number">3</span>)]
+<a href=#66 id=66 data-nosnippet>66</a>    </span><span class="kw">pub </span>description: String,
+<a href=#67 id=67 data-nosnippet>67</a>}
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a><span class="doccomment">/// A post's lifecycle — an embedded enum whose **timestamps are shared**.
+<a href=#70 id=70 data-nosnippet>70</a>///
+<a href=#71 id=71 data-nosnippet>71</a>/// Every variant declares a timestamp under the same `#[shared(timestamp)]`
+<a href=#72 id=72 data-nosnippet>72</a>/// identifier, so the three coalesce into one `publication_timestamp` column
+<a href=#73 id=73 data-nosnippet>73</a>/// instead of one column per variant. The rest of each variant is its own
+<a href=#74 id=74 data-nosnippet>74</a>/// nullable column (`publication_scheduled_for`, `publication_canonical_url`,
+<a href=#75 id=75 data-nosnippet>75</a>/// `publication_reason`).
+<a href=#76 id=76 data-nosnippet>76</a>///
+<a href=#77 id=77 data-nosnippet>77</a>/// The timestamps are `jiff::Timestamp`: the form binds them through
+<a href=#78 id=78 data-nosnippet>78</a>/// `TextInput::typed`, which renders `type="datetime-local"` and reads the
+<a href=#79 id=79 data-nosnippet>79</a>/// submission back as UTC.
+<a href=#80 id=80 data-nosnippet>80</a></span><span class="attr">#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
+<a href=#81 id=81 data-nosnippet>81</a></span><span class="kw">pub enum </span>Publication {
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="attr">#[column(variant = <span class="number">1</span>)]
+<a href=#83 id=83 data-nosnippet>83</a>    </span>Scheduled {
+<a href=#84 id=84 data-nosnippet>84</a>        <span class="doccomment">/// The shared column's one control renders from the first variant that
+<a href=#85 id=85 data-nosnippet>85</a>        /// declares it, so its label is written there.
+<a href=#86 id=86 data-nosnippet>86</a>        </span><span class="attr">#[shared(timestamp)]
+<a href=#87 id=87 data-nosnippet>87</a>        #[form(label = <span class="string">"Publication timestamp"</span>)]
+<a href=#88 id=88 data-nosnippet>88</a>        </span>scheduled_at: Timestamp,
+<a href=#89 id=89 data-nosnippet>89</a>        scheduled_for: String,
+<a href=#90 id=90 data-nosnippet>90</a>    },
+<a href=#91 id=91 data-nosnippet>91</a>    <span class="attr">#[column(variant = <span class="number">2</span>)]
+<a href=#92 id=92 data-nosnippet>92</a>    </span>Published {
+<a href=#93 id=93 data-nosnippet>93</a>        <span class="attr">#[shared(timestamp)]
+<a href=#94 id=94 data-nosnippet>94</a>        </span>published_at: Timestamp,
+<a href=#95 id=95 data-nosnippet>95</a>        <span class="attr">#[form(label = <span class="string">"Canonical URL"</span>)]
+<a href=#96 id=96 data-nosnippet>96</a>        </span>canonical_url: String,
+<a href=#97 id=97 data-nosnippet>97</a>    },
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="attr">#[column(variant = <span class="number">3</span>)]
+<a href=#99 id=99 data-nosnippet>99</a>    </span>Archived {
+<a href=#100 id=100 data-nosnippet>100</a>        <span class="attr">#[shared(timestamp)]
+<a href=#101 id=101 data-nosnippet>101</a>        </span>archived_at: Timestamp,
+<a href=#102 id=102 data-nosnippet>102</a>        <span class="attr">#[form(label = <span class="string">"Archive reason"</span>)]
+<a href=#103 id=103 data-nosnippet>103</a>        </span>reason: String,
+<a href=#104 id=104 data-nosnippet>104</a>    },
+<a href=#105 id=105 data-nosnippet>105</a>}
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a><span class="doccomment">/// Post with BelongsTo Author and HasMany Comments (relations via include + computed).
+<a href=#108 id=108 data-nosnippet>108</a></span><span class="attr">#[derive(Debug, Clone, toasty::Model)]
+<a href=#109 id=109 data-nosnippet>109</a></span><span class="kw">pub struct </span>Post {
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="attr">#[key]
+<a href=#111 id=111 data-nosnippet>111</a>    #[auto]
+<a href=#112 id=112 data-nosnippet>112</a>    </span><span class="kw">pub </span>id: uuid::Uuid,
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="attr">#[index]
+<a href=#114 id=114 data-nosnippet>114</a>    </span><span class="kw">pub </span>tenant_id: uuid::Uuid,
+<a href=#115 id=115 data-nosnippet>115</a>    <span class="attr">#[index]
+<a href=#116 id=116 data-nosnippet>116</a>    </span><span class="kw">pub </span>title: String,
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">pub </span>body: String,
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="attr">#[index]
+<a href=#119 id=119 data-nosnippet>119</a>    </span><span class="kw">pub </span>status: String,
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">pub </span>featured: bool,
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="attr">#[default(jiff::Timestamp::now())]
+<a href=#122 id=122 data-nosnippet>122</a>    </span><span class="kw">pub </span>created_at: Timestamp,
+<a href=#123 id=123 data-nosnippet>123</a>    <span class="doccomment">/// The library row this post shows as its cover, if any. An optional
+<a href=#124 id=124 data-nosnippet>124</a>    /// single picker: the form offers the tenant's media rows and stores the
+<a href=#125 id=125 data-nosnippet>125</a>    /// picked row's id.
+<a href=#126 id=126 data-nosnippet>126</a>    </span><span class="kw">pub </span>cover_id: <span class="prelude-ty">Option</span>&lt;uuid::Uuid&gt;,
+<a href=#127 id=127 data-nosnippet>127</a>    <span class="kw">pub </span>tags: String,
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="doccomment">/// Embedded struct.
+<a href=#129 id=129 data-nosnippet>129</a>    </span><span class="kw">pub </span>seo: Seo,
+<a href=#130 id=130 data-nosnippet>130</a>    <span class="doccomment">/// Shared column + per-variant payloads.
+<a href=#131 id=131 data-nosnippet>131</a>    </span><span class="kw">pub </span>publication: Publication,
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="attr">#[index]
+<a href=#133 id=133 data-nosnippet>133</a>    </span><span class="kw">pub </span>author_id: uuid::Uuid,
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="attr">#[belongs_to(key = author_id, references = id)]
+<a href=#135 id=135 data-nosnippet>135</a>    </span><span class="kw">pub </span>author: Deferred&lt;Author&gt;,
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="attr">#[has_many]
+<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">pub </span>comments: Deferred&lt;Vec&lt;Comment&gt;&gt;,
+<a href=#138 id=138 data-nosnippet>138</a>}
+<a href=#139 id=139 data-nosnippet>139</a>
+<a href=#140 id=140 data-nosnippet>140</a><span class="attr">#[derive(Debug, Clone, toasty::Model)]
+<a href=#141 id=141 data-nosnippet>141</a></span><span class="kw">pub struct </span>Comment {
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="attr">#[key]
+<a href=#143 id=143 data-nosnippet>143</a>    #[auto]
+<a href=#144 id=144 data-nosnippet>144</a>    </span><span class="kw">pub </span>id: uuid::Uuid,
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">pub </span>body: String,
+<a href=#146 id=146 data-nosnippet>146</a>    <span class="attr">#[index]
+<a href=#147 id=147 data-nosnippet>147</a>    </span><span class="kw">pub </span>post_id: uuid::Uuid,
+<a href=#148 id=148 data-nosnippet>148</a>    <span class="attr">#[belongs_to(key = post_id, references = id)]
+<a href=#149 id=149 data-nosnippet>149</a>    </span><span class="kw">pub </span>post: Deferred&lt;Post&gt;,
+<a href=#150 id=150 data-nosnippet>150</a>}
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a><span class="doccomment">/// One stored file in the media library — the `medias` table.
+<a href=#153 id=153 data-nosnippet>153</a>///
+<a href=#154 id=154 data-nosnippet>154</a>/// A WordPress-style library: one row per stored file with the tenant that
+<a href=#155 id=155 data-nosnippet>155</a>/// uploaded it, the `path` the `Uploader` returned, the client's `filename`,
+<a href=#156 id=156 data-nosnippet>156</a>/// a `kind`, and a timestamp. Rows carry no owner: a post shows one row as
+<a href=#157 id=157 data-nosnippet>157</a>/// its cover through its own `cover_id`, and the library lists one tenant's
+<a href=#158 id=158 data-nosnippet>158</a>/// rows. ADR-0021 records the shape.
+<a href=#159 id=159 data-nosnippet>159</a></span><span class="attr">#[derive(Debug, Clone, toasty::Model)]
+<a href=#160 id=160 data-nosnippet>160</a>#[table = <span class="string">"medias"</span>]
+<a href=#161 id=161 data-nosnippet>161</a></span><span class="kw">pub struct </span>MediaAsset {
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="attr">#[key]
+<a href=#163 id=163 data-nosnippet>163</a>    #[auto]
+<a href=#164 id=164 data-nosnippet>164</a>    </span><span class="kw">pub </span>id: uuid::Uuid,
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="doccomment">/// The tenant that uploaded the file, like every other showcase row
+<a href=#166 id=166 data-nosnippet>166</a>    /// the library lists one tenant's media.
+<a href=#167 id=167 data-nosnippet>167</a>    </span><span class="attr">#[index]
+<a href=#168 id=168 data-nosnippet>168</a>    </span><span class="kw">pub </span>tenant_id: uuid::Uuid,
+<a href=#169 id=169 data-nosnippet>169</a>    <span class="doccomment">/// What the app's [`Uploader`](tablo_core::Uploader) returned, stored
+<a href=#170 id=170 data-nosnippet>170</a>    /// verbatim and rendered as the URL the file is served at.
+<a href=#171 id=171 data-nosnippet>171</a>    </span><span class="kw">pub </span>path: String,
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="doccomment">/// The client's filename, a basename, for display.
+<a href=#173 id=173 data-nosnippet>173</a>    </span><span class="kw">pub </span>filename: String,
+<a href=#174 id=174 data-nosnippet>174</a>    <span class="doccomment">/// `"image"` or `"file"` — the app's own kind, from the uploaded part's
+<a href=#175 id=175 data-nosnippet>175</a>    /// content type. It decides whether a row renders a thumbnail or a link.
+<a href=#176 id=176 data-nosnippet>176</a>    </span><span class="kw">pub </span>kind: String,
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="kw">pub </span>created_at: Timestamp,
+<a href=#178 id=178 data-nosnippet>178</a>}
 </code></pre></div></section></main></body></html>

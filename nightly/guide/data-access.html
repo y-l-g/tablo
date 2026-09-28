@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a03be21.js";
+            window.path_to_searchindex_js = "searchindex-d9ad9041.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -234,17 +234,26 @@ pub enum Publication {
 // form declaration: controls, flattened names, and the variant Select
 Section::new("Publication").schema(Publication::form(cx, Post::fields().publication()))
 
-// hydration and the record fn: the typed value, keys resolved from the schema
+// a record form binds the whole value, and the derive calls the codec
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Post)]
+pub struct PostForm {
+    #[record_form(embed)]
+    pub publication: Publication,
+    // …
+}
+
+// the codec by hand: the typed value, keys resolved from the schema
 write_embedded(cx, Post::fields().publication(), &amp;record.publication, &amp;mut values);
-let publication = read_embedded(cx, Post::fields().publication(), &amp;values);
-if submitted(cx, Post::fields().publication(), &amp;values) { /* the submit mentioned it */ }
+let publication = read_embedded(cx, Post::fields().publication(), &amp;values)?;
+let keys = value_keys(cx, Post::fields().publication()); // the discriminant, then every leaf
 <span class="boring">}</span></code></pre>
 <p>An enum’s variant is its <strong>discriminant column</strong>, carried by the form as a <code>Select</code> over the
 schema’s variant list — each option submitting the variant’s stored value and reading as its name —
 and each variant’s payload renders inside its own marked group, so the client shows only the chosen
 variant’s, and a variant can be picked on create and changed on edit (a read-only page names the
 stored variant instead of printing its discriminant). A named discriminant always wins (and one the
-enum does not declare is refused loudly, never read as some other variant), so a stale payload is
+enum does not declare is refused on the discriminant’s key, never read as some other variant), so a stale payload is
 not a vote. Only when no discriminant is named at all — the create form, a hand-written POST — do
 payloads select one, by a variant’s own <strong>non-shared</strong> payload through resolved keys. The toggle is
 markup-only (<code>variant.js</code> hides the inactive groups): with JavaScript off every variant’s payload

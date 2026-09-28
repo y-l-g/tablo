@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a03be21.js";
+            window.path_to_searchindex_js = "searchindex-d9ad9041.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -191,28 +191,34 @@ and how tenancy is declared.</p>
     fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: Query::all()
     fn query_with(_cx: &amp;Cx, _needs: &amp;IncludeNeeds)
         -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query(cx), unchanged
-    fn hydrate_form_values(_cx: &amp;Cx, _record: &amp;Self::Model)
+    fn view_values(_cx: &amp;Cx, _record: &amp;Self::Model)
         -&gt; HashMap&lt;String, String&gt;;                 // default: empty
     fn export_query(_cx: &amp;Cx, _needs: &amp;IncludeNeeds)
         -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query_with(cx, needs)
     fn table(_cx: &amp;Cx) -&gt; Table&lt;Self::Model&gt;;       // default: Table::new(), empty until columns + id
-    fn form(_cx: &amp;Cx) -&gt; Schema;                    // default: Schema::empty()
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
-    // defaults, and create/update/delete record fns
+    // defaults, and the delete record fns
 }
 <span class="boring">}</span></code></pre>
+<p>A resource with a create or edit form also implements <code>FormResource</code>, which holds its <code>form()</code>, its
+record form type, <code>validate_record</code>, and the create and update record fns
+(<a href="./forms.html#the-record-form">Forms</a>). It registers with <code>Panel::form_resource</code>; a list-only
+resource registers with <code>Panel::resource</code>, which serves the list, the detail page, delete, bulk
+delete, and export, and links to no create page.</p>
 <h2 id="the-contract"><a class="header" href="#the-contract">The contract</a></h2>
 <p>Every method is defaulted, so a resource compiles as soon as it names its model — which means an
 omission has to fail loudly instead of quietly:</p>
 <ul>
 <li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): the table must be renderable — <code>table()</code>
-declares columns and a row key, plus <code>Table::key</code> where the resource declares action chrome — and
-where <code>can_create</code> allows it, <code>form()</code> must declare fields. A resource that overrides nothing fails
-the build, naming the type, instead of serving an error state or an empty form. <code>table()</code>, <code>form()</code>
-and <code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
+declares columns and a row key, plus <code>Table::key</code> where the resource declares action chrome. A
+resource registered with <code>Panel::resource</code> whose <code>can_create</code> or <code>editable()</code> is on fails the
+build, since it serves no form; a <code>FormResource</code>’s record form must agree with its <code>form()</code> schema
+(<a href="./forms.html#the-record-form">Forms</a>). A resource that overrides nothing fails the build, naming
+the type, instead of serving an error state or an empty form. <code>table()</code>, <code>form()</code> and
+<code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
 and each list and form request calls <code>table()</code> / <code>form()</code> again, so a declaration must not need
 request-scoped context.</li>
-<li><strong>At request time, loudly</strong>: the record fns default to an error naming the type (“delete not
+<li><strong>At request time, loudly</strong>: <code>delete_record</code> defaults to an error naming the type (“delete not
 implemented for …”), so a missing implementation never looks like a successful no-op.</li>
 <li><strong>Chrome is opt-in, gated per record</strong>: <code>deletable()</code> and <code>editable()</code> default to <code>false</code>, so a
 resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
@@ -263,8 +269,9 @@ empty set, so an option label must project the related record’s own columns.</
 overriding <code>query_with</code> narrows the export too (GH #177, GH #298, ADR-0018). Override
 <code>export_query</code> itself only when the CSV needs a branch the other loaders do not.</li>
 <li><code>table()</code> and <code>form()</code> are hand-written, and so is the impl itself: a resource is <code>type Model</code> plus
-whichever hooks it uses. There is no <code>Resource</code> derive (GH #222) — the macros crate ships
-<code>derive(EmbeddedForm)</code> only (GH #191).</li>
+whichever hooks it uses. There is no <code>Resource</code> derive (GH #222); the macros crate ships
+<code>derive(EmbeddedForm)</code> (GH #191) and <code>derive(RecordForm)</code> (GH #369), which types the form’s
+values rather than declaring the resource.</li>
 </ul>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -286,13 +293,13 @@ impl Resource for PostResource {
 }
 <span class="boring">}</span></code></pre>
 <ul>
-<li>Record fns (<code>create_record</code>, <code>update_record</code>, <code>delete_record</code>, <code>bulk_delete_records</code>) do the
-writes. Handlers load records, check policy, then call them in a transaction. <code>create_record</code> and
-<code>update_record</code> return the row they wrote — <code>toasty::create!</code> hands the created one back and a
-Toasty instance update reloads the model, so both are already in hand — because that is the only
-way the framework can name what a write committed (GH #112). A record fn therefore ends with
-<code>Ok(rec)</code> (at the end of an instance update that is usually the whole change), and a model used by
-a <code>Resource</code> derives <code>Clone</code>.</li>
+<li>Record fns (<code>FormResource::create_record</code> / <code>update_record</code>, <code>delete_record</code>,
+<code>bulk_delete_records</code>) do the writes. Handlers load records, check policy, then call them in a
+transaction. <code>create_record</code> and <code>update_record</code> return the row they wrote — the create builder
+hands the created one back and a Toasty instance update reloads the model, so both are already in
+hand — because that is the only way the framework can name what a write committed (GH #112). The
+derived <code>write_update</code> ends with the reloaded record, and a model used by a <code>Resource</code> derives
+<code>Clone</code>.</li>
 <li><code>after_commit(cx, committed)</code> is the post-commit seam (GH #112): called once per committed write,
 after the transaction and before the response, with a <code>Committed</code> naming the mutation
 (<code>Mutation::Create/Update/Delete</code>) and the rows it wrote (a bulk delete is one call with all of
@@ -300,9 +307,10 @@ them). It is where email, webhooks, audit rows and cache invalidation belong —
 record fn leaks the effect on a rollback, and the transaction’s pool discipline forbids a second
 handle while it is open. The default is a no-op, a hook failure is logged without touching the
 committed write, and it never runs when nothing committed.</li>
-<li>For edit forms, <code>hydrate_form_values(cx, record)</code> maps a record to initial field values. <code>cx</code> is
-the request’s: a scalar projection needs nothing from it, but an embedded value’s keys come from
-the compiled mapping (GH #191).</li>
+<li>The edit form hydrates from <code>RecordForm::hydrate</code>, which the derive generates.
+<code>view_values(cx, record)</code> is the detail page’s projection for a list-only resource, and adds any
+key only the view shows for a form resource. <code>cx</code> is the request’s: a scalar projection needs
+nothing from it, but an embedded value’s keys come from the compiled mapping (GH #191).</li>
 </ul>
 <h2 id="tenancy"><a class="header" href="#tenancy">Tenancy</a></h2>
 <p>Tenancy is declared, not restated per query. The pattern:</p>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"derive":["EmbeddedForm"],"mod":["auth","csrf","cursor","db","notification","panel","resource","schema","tenancy","upload"]};
+window.SIDEBAR_ITEMS = {"derive":["EmbeddedForm","RecordForm"],"mod":["auth","csrf","cursor","db","form","notification","panel","resource","schema","tenancy","upload"]};

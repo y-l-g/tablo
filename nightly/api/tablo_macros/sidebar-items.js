@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"derive":["EmbeddedForm"]};
+window.SIDEBAR_ITEMS = {"derive":["EmbeddedForm","RecordForm"]};

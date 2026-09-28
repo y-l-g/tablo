@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a03be21.js";
+            window.path_to_searchindex_js = "searchindex-d9ad9041.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -325,28 +325,34 @@ and how tenancy is declared.</p>
     fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: Query::all()
     fn query_with(_cx: &amp;Cx, _needs: &amp;IncludeNeeds)
         -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query(cx), unchanged
-    fn hydrate_form_values(_cx: &amp;Cx, _record: &amp;Self::Model)
+    fn view_values(_cx: &amp;Cx, _record: &amp;Self::Model)
         -&gt; HashMap&lt;String, String&gt;;                 // default: empty
     fn export_query(_cx: &amp;Cx, _needs: &amp;IncludeNeeds)
         -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query_with(cx, needs)
     fn table(_cx: &amp;Cx) -&gt; Table&lt;Self::Model&gt;;       // default: Table::new(), empty until columns + id
-    fn form(_cx: &amp;Cx) -&gt; Schema;                    // default: Schema::empty()
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
-    // defaults, and create/update/delete record fns
+    // defaults, and the delete record fns
 }
 <span class="boring">}</span></code></pre>
+<p>A resource with a create or edit form also implements <code>FormResource</code>, which holds its <code>form()</code>, its
+record form type, <code>validate_record</code>, and the create and update record fns
+(<a href="#the-record-form">Forms</a>). It registers with <code>Panel::form_resource</code>; a list-only
+resource registers with <code>Panel::resource</code>, which serves the list, the detail page, delete, bulk
+delete, and export, and links to no create page.</p>
 <h2 id="the-contract"><a class="header" href="#the-contract">The contract</a></h2>
 <p>Every method is defaulted, so a resource compiles as soon as it names its model — which means an
 omission has to fail loudly instead of quietly:</p>
 <ul>
 <li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): the table must be renderable — <code>table()</code>
-declares columns and a row key, plus <code>Table::key</code> where the resource declares action chrome — and
-where <code>can_create</code> allows it, <code>form()</code> must declare fields. A resource that overrides nothing fails
-the build, naming the type, instead of serving an error state or an empty form. <code>table()</code>, <code>form()</code>
-and <code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
+declares columns and a row key, plus <code>Table::key</code> where the resource declares action chrome. A
+resource registered with <code>Panel::resource</code> whose <code>can_create</code> or <code>editable()</code> is on fails the
+build, since it serves no form; a <code>FormResource</code>’s record form must agree with its <code>form()</code> schema
+(<a href="#the-record-form">Forms</a>). A resource that overrides nothing fails the build, naming
+the type, instead of serving an error state or an empty form. <code>table()</code>, <code>form()</code> and
+<code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
 and each list and form request calls <code>table()</code> / <code>form()</code> again, so a declaration must not need
 request-scoped context.</li>
-<li><strong>At request time, loudly</strong>: the record fns default to an error naming the type (“delete not
+<li><strong>At request time, loudly</strong>: <code>delete_record</code> defaults to an error naming the type (“delete not
 implemented for …”), so a missing implementation never looks like a successful no-op.</li>
 <li><strong>Chrome is opt-in, gated per record</strong>: <code>deletable()</code> and <code>editable()</code> default to <code>false</code>, so a
 resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
@@ -397,8 +403,9 @@ empty set, so an option label must project the related record’s own columns.</
 overriding <code>query_with</code> narrows the export too (GH #177, GH #298, ADR-0018). Override
 <code>export_query</code> itself only when the CSV needs a branch the other loaders do not.</li>
 <li><code>table()</code> and <code>form()</code> are hand-written, and so is the impl itself: a resource is <code>type Model</code> plus
-whichever hooks it uses. There is no <code>Resource</code> derive (GH #222) — the macros crate ships
-<code>derive(EmbeddedForm)</code> only (GH #191).</li>
+whichever hooks it uses. There is no <code>Resource</code> derive (GH #222); the macros crate ships
+<code>derive(EmbeddedForm)</code> (GH #191) and <code>derive(RecordForm)</code> (GH #369), which types the form’s
+values rather than declaring the resource.</li>
 </ul>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -420,13 +427,13 @@ impl Resource for PostResource {
 }
 <span class="boring">}</span></code></pre>
 <ul>
-<li>Record fns (<code>create_record</code>, <code>update_record</code>, <code>delete_record</code>, <code>bulk_delete_records</code>) do the
-writes. Handlers load records, check policy, then call them in a transaction. <code>create_record</code> and
-<code>update_record</code> return the row they wrote — <code>toasty::create!</code> hands the created one back and a
-Toasty instance update reloads the model, so both are already in hand — because that is the only
-way the framework can name what a write committed (GH #112). A record fn therefore ends with
-<code>Ok(rec)</code> (at the end of an instance update that is usually the whole change), and a model used by
-a <code>Resource</code> derives <code>Clone</code>.</li>
+<li>Record fns (<code>FormResource::create_record</code> / <code>update_record</code>, <code>delete_record</code>,
+<code>bulk_delete_records</code>) do the writes. Handlers load records, check policy, then call them in a
+transaction. <code>create_record</code> and <code>update_record</code> return the row they wrote — the create builder
+hands the created one back and a Toasty instance update reloads the model, so both are already in
+hand — because that is the only way the framework can name what a write committed (GH #112). The
+derived <code>write_update</code> ends with the reloaded record, and a model used by a <code>Resource</code> derives
+<code>Clone</code>.</li>
 <li><code>after_commit(cx, committed)</code> is the post-commit seam (GH #112): called once per committed write,
 after the transaction and before the response, with a <code>Committed</code> naming the mutation
 (<code>Mutation::Create/Update/Delete</code>) and the rows it wrote (a bulk delete is one call with all of
@@ -434,9 +441,10 @@ them). It is where email, webhooks, audit rows and cache invalidation belong —
 record fn leaks the effect on a rollback, and the transaction’s pool discipline forbids a second
 handle while it is open. The default is a no-op, a hook failure is logged without touching the
 committed write, and it never runs when nothing committed.</li>
-<li>For edit forms, <code>hydrate_form_values(cx, record)</code> maps a record to initial field values. <code>cx</code> is
-the request’s: a scalar projection needs nothing from it, but an embedded value’s keys come from
-the compiled mapping (GH #191).</li>
+<li>The edit form hydrates from <code>RecordForm::hydrate</code>, which the derive generates.
+<code>view_values(cx, record)</code> is the detail page’s projection for a list-only resource, and adds any
+key only the view shows for a form resource. <code>cx</code> is the request’s: a scalar projection needs
+nothing from it, but an embedded value’s keys come from the compiled mapping (GH #191).</li>
 </ul>
 <h2 id="tenancy"><a class="header" href="#tenancy">Tenancy</a></h2>
 <p>Tenancy is declared, not restated per query. The pattern:</p>
@@ -617,8 +625,94 @@ dismissing never navigates; the control’s <code>?delete=&lt;key&gt;</code> hre
 renders the same dialog open with the action already set.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="forms"><a class="header" href="#forms">Forms</a></h1>
-<p>Create and edit forms: typed lenses, layout blocks, the fields and what each one guarantees, file
-uploads, and how validation failures are reported.</p>
+<p>Create and edit forms: the record form a submission parses into, typed lenses, layout blocks, the
+fields and what each one guarantees, file uploads, and how validation failures are reported.</p>
+<h2 id="the-record-form"><a class="header" href="#the-record-form">The record form</a></h2>
+<p>A resource with a create or edit form declares one struct, <code>#[derive(RecordForm)]</code>, with one field
+per model column the form writes. A field’s name is the model field’s name and its type is the
+model field’s type, so a renamed or retyped column is a compile error:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(tablo_core::RecordForm)]
+#[record_form(model = User)]
+pub struct UserForm {
+    pub name: String,
+    pub email: String,
+    #[record_form(blank = "member")]
+    pub role: String,
+    #[record_form(blank = true)]
+    pub active: bool,
+    #[record_form(blank = 0)]
+    pub age: i64,
+}
+<span class="boring">}</span></code></pre>
+<p>A field is a <strong>scalar</strong> — <code>String</code>, a <code>TypedValue</code> type, or an <code>Option</code> of one — bound to the key
+its control posts, or an <strong>embedded value</strong> marked <code>#[record_form(embed)]</code> (an <code>EmbeddedForm</code>
+type, bound to every key it occupies and written whole). A column the form does not write stays
+off the struct: a gated resource’s <code>tenant_id</code> is stamped by the framework on create, and a column
+like <code>created_at</code> takes a toasty <code>#[default(..)]</code> on the model. The derive also emits
+<code>UserFormField</code>, one variant per field.</p>
+<p><code>#[record_form(blank = &lt;expr&gt;)]</code> is what an empty submission stores. <code>String</code> answers <code>""</code> and
+<code>Option&lt;T&gt;</code> answers <code>None</code> without one; any other type needs <code>blank</code> wherever its control may be
+left empty.</p>
+<p>The resource implements <code>FormResource</code> beside <code>Resource</code> and registers with
+<code>Panel::form_resource</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl FormResource for UserResource {
+    type Form = UserForm;
+
+    fn form(_cx: &amp;Cx) -&gt; Schema { /* the controls, as below */ }
+
+    fn validate_record(_cx: &amp;Cx, form: &amp;UserForm) -&gt; FieldErrors&lt;UserForm&gt; {
+        let mut errors = FieldErrors::new();
+        if form.age &lt; 0 {
+            errors.add(UserFormField::Age, "Age must be zero or more");
+        }
+        errors
+    }
+}
+
+Panel::new("admin").form_resource::&lt;UserResource&gt;()
+<span class="boring">}</span></code></pre>
+<p><code>create_record</code> and <code>update_record</code> default to the derived write, so a resource whose write is
+“store what the form says” declares neither. One that checks something inside the transaction
+overrides the record fn and delegates:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn update_record(
+    cx: &amp;Cx,
+    record: Comment,
+    posted: Posted&lt;CommentForm&gt;,
+    ex: &amp;mut dyn toasty::Executor,
+) -&gt; Result&lt;Comment&gt; {
+    // `Posted` derefs to the form: an unposted `post_id` reads as the stored one.
+    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
+    tablo_core::write_update::&lt;Self&gt;(cx, record, posted, ex).await
+}
+<span class="boring">}</span></code></pre>
+<p>A record fn that writes more than the form owns uses the builders: <code>form.into_create()</code> is the
+model’s create builder with every field set, and <code>posted.into_update(&amp;mut record)</code> is the instance
+update builder with one assignment per field the submission named, or <code>None</code> when it named none.</p>
+<p>What a submission does:</p>
+<ul>
+<li><strong>An unposted key keeps its value.</strong> On edit, every declared key the submission does not post is
+filled from the stored record before validation and the parse, and the write assigns only the
+fields the submission named, plus the model’s own <code>#[update(..)]</code> defaults and <code>#[version]</code> bump.
+An emptied control is posted, so it stores the field’s blank answer; an emptied leaf of an
+embedded value stores the leaf type’s <code>Default</code> (ADR-0019), so an emptied <code>jiff::Timestamp</code> leaf
+stores the Unix epoch. An API client can post one field of an edit.</li>
+<li><strong>Errors render in one round.</strong> Schema rules, the unique probe, a value the form’s type refuses,
+and <code>validate_record</code> render inline with a 200 and write nothing. <code>validate_record</code> sees a whole
+form, so it runs once every field parses.</li>
+<li><strong><code>Panel::build</code> checks the struct against the schema</strong>: every control is bound by exactly one
+field and every field’s key is a declared control; an optional control, or one inside a
+<code>Repeater</code> or a variant group, binds a field with a blank answer; a gated resource’s form does
+not claim its tenant column; and, where <code>can_create</code> allows it, every non-nullable column is a
+form field, filled by toasty (<code>#[auto]</code>, <code>#[default(..)]</code>), the stamped tenant column, or named in
+<code>FormResource::CREATE_COLUMNS</code> by a create override that sets it.</li>
+</ul>
+<h2 id="controls"><a class="header" href="#controls">Controls</a></h2>
 <p>Forms use typed lenses, not string paths:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -659,8 +753,7 @@ embedded/document sibling, as <code>r#for_context</code> is to <code>r#for</code
 <code>jiff::Timestamp</code> leaf renders <code>type="datetime-local"</code>: the control carries no zone, so the stored
 instant renders in UTC and a submission is read back as UTC. Empty is
 the presence rule’s business, not the typed one: a typed column has no spelling for “no value”, so
-an empty submission on an optional typed field reaches the record fn as <code>""</code> exactly as any other
-optional column does.</li>
+an empty submission on an optional typed field stores the record form field’s blank answer.</li>
 <li><code>unique()</code> does two things. It adds an app-level pre-check — Toasty exposes no unique-violation
 predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and it
 implies <strong>presence</strong>: the framework stores <code>""</code> rather than NULL, so an empty value on a unique
@@ -668,7 +761,7 @@ field is refused inline as <code>"&lt;Label&gt; is required"</code> instead of b
 admits only one (GH #189). <code>.optional()</code> does not lift that rule, and <code>Panel::build</code> refuses a
 <code>unique()</code> marker on a column with no unique index (single-field or composite, <code>#[unique(a, b)]</code>
 included), so the declaration and the database cannot disagree about which fields are unique.</li>
-<li>Relation select validates the FK against the related resource query before <code>create_record</code> runs:</li>
+<li>Relation select validates the FK against the related resource query before the write runs:</li>
 </ul>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -744,10 +837,10 @@ the user cannot see never blocks the submit (GH #297). A submission that names n
 nothing, because the value codec’s payload fallback may still read any group.</p>
 </li>
 </ul>
-<p>Validation errors render inline per field. Absent keys validate as <code>""</code> and updates write only
-present keys; handlers reject unknown form keys with 400 (<code>role</code> / <code>tenant_id</code> smuggling fails
-closed; only <code>csrf_token</code>, <code>clear_&lt;field&gt;</code> and <code>keep_&lt;field&gt;</code> are exempt), so extra posted keys never
-reach record fns.</p>
+<p>Validation errors render inline per field. On create an absent key validates as <code>""</code>; on edit it
+validates as its stored value. Handlers reject unknown form keys with 400 (<code>role</code> / <code>tenant_id</code>
+smuggling fails closed; only <code>csrf_token</code>, <code>clear_&lt;field&gt;</code> and <code>keep_&lt;field&gt;</code> are exempt), and the
+record form parses declared keys only, so an extra posted key never reaches a write.</p>
 <p>Embedded values declare one form node and flatten their fields; see
 <a href="#embedded-values">Data access</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -785,8 +878,9 @@ replace <code>Table::id</code>, which must stay injective within a page for keye
 value when no option matches, a relationship key included), <code>FileUpload</code> shows the stored path as a
 link to the file (GH #242), and layout blocks keep their structure. No control, no CSRF field, no
 validation slot.</li>
-<li><strong>Values come from <code>hydrate_form_values</code></strong>, the same projection the edit form hydrates, so a field
-that renders in the form renders here.</li>
+<li><strong>Values come from the form’s projection</strong> (<code>RecordForm::hydrate</code>) for a resource registered with
+<code>Panel::form_resource</code>, so a field that renders in the form renders here; <code>view_values</code> adds a key
+only the view shows. A list-only resource supplies every key through <code>view_values</code>.</li>
 <li><strong>Related rows</strong> render through <code>view_relations(cx, record)</code>, the page’s second half:</li>
 </ul>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -950,17 +1044,26 @@ pub enum Publication {
 // form declaration: controls, flattened names, and the variant Select
 Section::new("Publication").schema(Publication::form(cx, Post::fields().publication()))
 
-// hydration and the record fn: the typed value, keys resolved from the schema
+// a record form binds the whole value, and the derive calls the codec
+#[derive(tablo_core::RecordForm)]
+#[record_form(model = Post)]
+pub struct PostForm {
+    #[record_form(embed)]
+    pub publication: Publication,
+    // …
+}
+
+// the codec by hand: the typed value, keys resolved from the schema
 write_embedded(cx, Post::fields().publication(), &amp;record.publication, &amp;mut values);
-let publication = read_embedded(cx, Post::fields().publication(), &amp;values);
-if submitted(cx, Post::fields().publication(), &amp;values) { /* the submit mentioned it */ }
+let publication = read_embedded(cx, Post::fields().publication(), &amp;values)?;
+let keys = value_keys(cx, Post::fields().publication()); // the discriminant, then every leaf
 <span class="boring">}</span></code></pre>
 <p>An enum’s variant is its <strong>discriminant column</strong>, carried by the form as a <code>Select</code> over the
 schema’s variant list — each option submitting the variant’s stored value and reading as its name —
 and each variant’s payload renders inside its own marked group, so the client shows only the chosen
 variant’s, and a variant can be picked on create and changed on edit (a read-only page names the
 stored variant instead of printing its discriminant). A named discriminant always wins (and one the
-enum does not declare is refused loudly, never read as some other variant), so a stale payload is
+enum does not declare is refused on the discriminant’s key, never read as some other variant), so a stale payload is
 not a vote. Only when no discriminant is named at all — the create form, a hand-written POST — do
 payloads select one, by a variant’s own <strong>non-shared</strong> payload through resolved keys. The toggle is
 markup-only (<code>variant.js</code> hides the inactive groups): with JavaScript off every variant’s payload

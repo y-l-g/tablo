@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a03be21.js";
+            window.path_to_searchindex_js = "searchindex-d9ad9041.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -181,8 +181,94 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="forms"><a class="header" href="#forms">Forms</a></h1>
-<p>Create and edit forms: typed lenses, layout blocks, the fields and what each one guarantees, file
-uploads, and how validation failures are reported.</p>
+<p>Create and edit forms: the record form a submission parses into, typed lenses, layout blocks, the
+fields and what each one guarantees, file uploads, and how validation failures are reported.</p>
+<h2 id="the-record-form"><a class="header" href="#the-record-form">The record form</a></h2>
+<p>A resource with a create or edit form declares one struct, <code>#[derive(RecordForm)]</code>, with one field
+per model column the form writes. A field’s name is the model field’s name and its type is the
+model field’s type, so a renamed or retyped column is a compile error:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(tablo_core::RecordForm)]
+#[record_form(model = User)]
+pub struct UserForm {
+    pub name: String,
+    pub email: String,
+    #[record_form(blank = "member")]
+    pub role: String,
+    #[record_form(blank = true)]
+    pub active: bool,
+    #[record_form(blank = 0)]
+    pub age: i64,
+}
+<span class="boring">}</span></code></pre>
+<p>A field is a <strong>scalar</strong> — <code>String</code>, a <code>TypedValue</code> type, or an <code>Option</code> of one — bound to the key
+its control posts, or an <strong>embedded value</strong> marked <code>#[record_form(embed)]</code> (an <code>EmbeddedForm</code>
+type, bound to every key it occupies and written whole). A column the form does not write stays
+off the struct: a gated resource’s <code>tenant_id</code> is stamped by the framework on create, and a column
+like <code>created_at</code> takes a toasty <code>#[default(..)]</code> on the model. The derive also emits
+<code>UserFormField</code>, one variant per field.</p>
+<p><code>#[record_form(blank = &lt;expr&gt;)]</code> is what an empty submission stores. <code>String</code> answers <code>""</code> and
+<code>Option&lt;T&gt;</code> answers <code>None</code> without one; any other type needs <code>blank</code> wherever its control may be
+left empty.</p>
+<p>The resource implements <code>FormResource</code> beside <code>Resource</code> and registers with
+<code>Panel::form_resource</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl FormResource for UserResource {
+    type Form = UserForm;
+
+    fn form(_cx: &amp;Cx) -&gt; Schema { /* the controls, as below */ }
+
+    fn validate_record(_cx: &amp;Cx, form: &amp;UserForm) -&gt; FieldErrors&lt;UserForm&gt; {
+        let mut errors = FieldErrors::new();
+        if form.age &lt; 0 {
+            errors.add(UserFormField::Age, "Age must be zero or more");
+        }
+        errors
+    }
+}
+
+Panel::new("admin").form_resource::&lt;UserResource&gt;()
+<span class="boring">}</span></code></pre>
+<p><code>create_record</code> and <code>update_record</code> default to the derived write, so a resource whose write is
+“store what the form says” declares neither. One that checks something inside the transaction
+overrides the record fn and delegates:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn update_record(
+    cx: &amp;Cx,
+    record: Comment,
+    posted: Posted&lt;CommentForm&gt;,
+    ex: &amp;mut dyn toasty::Executor,
+) -&gt; Result&lt;Comment&gt; {
+    // `Posted` derefs to the form: an unposted `post_id` reads as the stored one.
+    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
+    tablo_core::write_update::&lt;Self&gt;(cx, record, posted, ex).await
+}
+<span class="boring">}</span></code></pre>
+<p>A record fn that writes more than the form owns uses the builders: <code>form.into_create()</code> is the
+model’s create builder with every field set, and <code>posted.into_update(&amp;mut record)</code> is the instance
+update builder with one assignment per field the submission named, or <code>None</code> when it named none.</p>
+<p>What a submission does:</p>
+<ul>
+<li><strong>An unposted key keeps its value.</strong> On edit, every declared key the submission does not post is
+filled from the stored record before validation and the parse, and the write assigns only the
+fields the submission named, plus the model’s own <code>#[update(..)]</code> defaults and <code>#[version]</code> bump.
+An emptied control is posted, so it stores the field’s blank answer; an emptied leaf of an
+embedded value stores the leaf type’s <code>Default</code> (ADR-0019), so an emptied <code>jiff::Timestamp</code> leaf
+stores the Unix epoch. An API client can post one field of an edit.</li>
+<li><strong>Errors render in one round.</strong> Schema rules, the unique probe, a value the form’s type refuses,
+and <code>validate_record</code> render inline with a 200 and write nothing. <code>validate_record</code> sees a whole
+form, so it runs once every field parses.</li>
+<li><strong><code>Panel::build</code> checks the struct against the schema</strong>: every control is bound by exactly one
+field and every field’s key is a declared control; an optional control, or one inside a
+<code>Repeater</code> or a variant group, binds a field with a blank answer; a gated resource’s form does
+not claim its tenant column; and, where <code>can_create</code> allows it, every non-nullable column is a
+form field, filled by toasty (<code>#[auto]</code>, <code>#[default(..)]</code>), the stamped tenant column, or named in
+<code>FormResource::CREATE_COLUMNS</code> by a create override that sets it.</li>
+</ul>
+<h2 id="controls"><a class="header" href="#controls">Controls</a></h2>
 <p>Forms use typed lenses, not string paths:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -223,8 +309,7 @@ embedded/document sibling, as <code>r#for_context</code> is to <code>r#for</code
 <code>jiff::Timestamp</code> leaf renders <code>type="datetime-local"</code>: the control carries no zone, so the stored
 instant renders in UTC and a submission is read back as UTC. Empty is
 the presence rule’s business, not the typed one: a typed column has no spelling for “no value”, so
-an empty submission on an optional typed field reaches the record fn as <code>""</code> exactly as any other
-optional column does.</li>
+an empty submission on an optional typed field stores the record form field’s blank answer.</li>
 <li><code>unique()</code> does two things. It adds an app-level pre-check — Toasty exposes no unique-violation
 predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and it
 implies <strong>presence</strong>: the framework stores <code>""</code> rather than NULL, so an empty value on a unique
@@ -232,7 +317,7 @@ field is refused inline as <code>"&lt;Label&gt; is required"</code> instead of b
 admits only one (GH #189). <code>.optional()</code> does not lift that rule, and <code>Panel::build</code> refuses a
 <code>unique()</code> marker on a column with no unique index (single-field or composite, <code>#[unique(a, b)]</code>
 included), so the declaration and the database cannot disagree about which fields are unique.</li>
-<li>Relation select validates the FK against the related resource query before <code>create_record</code> runs:</li>
+<li>Relation select validates the FK against the related resource query before the write runs:</li>
 </ul>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -308,10 +393,10 @@ the user cannot see never blocks the submit (GH #297). A submission that names n
 nothing, because the value codec’s payload fallback may still read any group.</p>
 </li>
 </ul>
-<p>Validation errors render inline per field. Absent keys validate as <code>""</code> and updates write only
-present keys; handlers reject unknown form keys with 400 (<code>role</code> / <code>tenant_id</code> smuggling fails
-closed; only <code>csrf_token</code>, <code>clear_&lt;field&gt;</code> and <code>keep_&lt;field&gt;</code> are exempt), so extra posted keys never
-reach record fns.</p>
+<p>Validation errors render inline per field. On create an absent key validates as <code>""</code>; on edit it
+validates as its stored value. Handlers reject unknown form keys with 400 (<code>role</code> / <code>tenant_id</code>
+smuggling fails closed; only <code>csrf_token</code>, <code>clear_&lt;field&gt;</code> and <code>keep_&lt;field&gt;</code> are exempt), and the
+record form parses declared keys only, so an extra posted key never reaches a write.</p>
 <p>Embedded values declare one form node and flatten their fields; see
 <a href="./data-access.html#embedded-values">Data access</a>.</p>
 

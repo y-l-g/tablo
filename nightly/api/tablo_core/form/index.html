@@ -1,0 +1,77 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Record forms: the typed value a form submission parses into, and the write that stores it."><title>tablo_core::form - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="tablo_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module form</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../tablo_core/index.html">tablo_<wbr>core</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module form</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#compile-time-refusals" title="Compile-time refusals">Compile-time refusals</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate tablo_<wbr>core</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">tablo_core</a></div><h1>Module <span>form</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/tablo_core/form.rs.html#1-531">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Record forms: the typed value a form submission parses into, and the write
+that stores it.</p>
+<p>A form-bearing resource declares one struct with
+<a href="trait.RecordForm.html" title="trait tablo_core::form::RecordForm"><code>#[derive(RecordForm)]</code></a>: one field per model column the
+form writes, named and typed like the model’s field. The panel parses every
+submission into that struct, hydrates the edit and detail pages from it, and
+writes it through toasty’s generated builders. ADR-0022 records the design.</p>
+<p>On edit, a declared key the submission does not post is <strong>completed</strong> from
+the stored record before the parse, so <a href="trait.FormResource.html#method.update_record" title="associated function tablo_core::form::FormResource::update_record"><code>FormResource::update_record</code></a>
+receives a whole form, and <a href="struct.Posted.html" title="struct tablo_core::form::Posted"><code>Posted</code></a> records which fields the submission
+<strong>named</strong>. The write assigns only named fields, plus what the model’s own
+<code>#[update(..)]</code> defaults and <code>#[version]</code> column assign on every update.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Debug, Clone, toasty::Model)]
+</span><span class="kw">struct </span>User {
+    <span class="attr">#[key]
+    #[auto]
+    </span>id: uuid::Uuid,
+    name: String,
+    age: i64,
+}
+
+<span class="attr">#[derive(tablo_core::RecordForm)]
+#[record_form(model = User)]
+</span><span class="kw">struct </span>UserForm {
+    name: String,
+    <span class="attr">#[record_form(blank = <span class="number">0</span>)]
+    </span>age: i64,
+}
+
+<span class="comment">// A column type toasty stores but the form edge cannot spell.
+</span><span class="attr">#[derive(Debug, Clone, toasty::Model)]
+</span><span class="kw">struct </span>Tagged {
+    <span class="attr">#[key]
+    #[auto]
+    </span>id: uuid::Uuid,
+    tags: Vec&lt;String&gt;,
+}</code></pre></div><h2 id="compile-time-refusals"><a class="doc-anchor" href="#compile-time-refusals">§</a>Compile-time refusals</h2>
+<p>A field the model does not have:</p>
+
+<div class="example-wrap compile_fail"><a href="#" class="tooltip" title="This example deliberately fails to compile">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(tablo_core::RecordForm)]
+#[record_form(model = User)]
+</span><span class="kw">struct </span>UserForm {
+    nickname: String,
+}</code></pre></div>
+<p>A type the model’s field does not have:</p>
+
+<div class="example-wrap compile_fail"><a href="#" class="tooltip" title="This example deliberately fails to compile">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(tablo_core::RecordForm)]
+#[record_form(model = User)]
+</span><span class="kw">struct </span>UserForm {
+    age: i32,
+}</code></pre></div>
+<p>A scalar type the form edge cannot spell:</p>
+
+<div class="example-wrap compile_fail"><a href="#" class="tooltip" title="This example deliberately fails to compile">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Debug, Clone, toasty::Model)]
+</span><span class="kw">struct </span>Tagged {
+    <span class="attr">#[key]
+    #[auto]
+    </span>id: uuid::Uuid,
+    tags: Vec&lt;String&gt;,
+}
+
+<span class="attr">#[derive(tablo_core::RecordForm)]
+#[record_form(model = Tagged)]
+</span><span class="kw">struct </span>TaggedForm {
+    tags: Vec&lt;String&gt;,
+}</code></pre></div>
+<p><code>embed</code> on a type that is not an <a href="../schema/trait.EmbeddedForm.html" title="trait tablo_core::schema::EmbeddedForm"><code>EmbeddedForm</code></a>:</p>
+
+<div class="example-wrap compile_fail"><a href="#" class="tooltip" title="This example deliberately fails to compile">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(tablo_core::RecordForm)]
+#[record_form(model = User)]
+</span><span class="kw">struct </span>UserForm {
+    <span class="attr">#[record_form(embed)]
+    </span>name: String,
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.FieldError.html" title="struct tablo_core::form::FieldError">Field<wbr>Error</a></dt><dd>One key a parse refused, with the message the form renders under it.</dd><dt><a class="struct" href="struct.FieldErrors.html" title="struct tablo_core::form::FieldErrors">Field<wbr>Errors</a></dt><dd>Field-keyed validation errors from <a href="trait.FormResource.html#method.validate_record" title="associated function tablo_core::form::FormResource::validate_record"><code>FormResource::validate_record</code></a>.</dd><dt><a class="struct" href="struct.FormField.html" title="struct tablo_core::form::FormField">Form<wbr>Field</a></dt><dd>One record-form field and the form keys it binds.</dd><dt><a class="struct" href="struct.Posted.html" title="struct tablo_core::form::Posted">Posted</a></dt><dd>An edit submission: the parsed form, and the fields the submission named.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.FieldErrorKind.html" title="enum tablo_core::form::FieldErrorKind">Field<wbr>Error<wbr>Kind</a></dt><dd>Why a key failed to parse.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.FormResource.html" title="trait tablo_core::form::FormResource">Form<wbr>Resource</a></dt><dd>A resource with a create and edit form.</dd><dt><a class="trait" href="trait.FormScalar.html" title="trait tablo_core::form::FormScalar">Form<wbr>Scalar</a></dt><dd>A type one form key reads and writes: <code>String</code>, every <a href="../schema/trait.TypedValue.html" title="trait tablo_core::schema::TypedValue"><code>TypedValue</code></a> type,
+and an <code>Option</code> of either.</dd><dt><a class="trait" href="trait.RecordForm.html" title="trait tablo_core::form::RecordForm">Record<wbr>Form</a></dt><dd>The typed value a resource’s form submission parses into.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.parse_scalar.html" title="fn tablo_core::form::parse_scalar">parse_<wbr>scalar</a></dt><dd>Read one scalar from a completed submission.</dd><dt><a class="fn" href="fn.write_create.html" title="fn tablo_core::form::write_create">write_<wbr>create</a></dt><dd>The derived create: the form’s builder, the request tenant stamped on a
+gated resource’s tenant column, executed through <code>ex</code>.</dd><dt><a class="fn" href="fn.write_update.html" title="fn tablo_core::form::write_update">write_<wbr>update</a></dt><dd>The derived update: assign every named field and execute through <code>ex</code>.</dd></dl></section></div></main></body></html>
