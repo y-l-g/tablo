@@ -1,6 +1,8 @@
 //! The read-only relation table (item 6).
 
-use tablo_core::{MAX_RELATION_ROWS, RelationColumn, RelationColumns, Resource, render_relation};
+use tablo_core::{
+    ColumnWidth, MAX_RELATION_ROWS, RelationColumn, RelationColumns, Resource, render_relation,
+};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -187,5 +189,67 @@ async fn a_relation_caps_its_rows_and_says_so() {
             "the first {MAX_RELATION_ROWS} of {total} related rows you can view"
         )),
         "a truncated table names the cap and the total: {html}"
+    );
+}
+
+/// GH #264: the relation table lays out fixed like the list table — the
+/// declared width reaches the header and every row's cell as data, a wide
+/// column declares nothing, long values truncate instead of widening the
+/// column, and the wide column's floor keeps its measure on a narrow
+/// viewport so the wrapper scrolls instead of collapsing it to zero.
+#[tokio::test]
+async fn a_relation_table_lays_out_fixed_with_declared_widths() {
+    let cx = CxTestBuilder::new().build();
+    let declared = RelationColumns::columns((
+        RelationColumn::computed("Name", |r: &Row| r.name.clone()),
+        RelationColumn::computed("Status", |r: &Row| r.name.clone())
+            .width(ColumnWidth::Percent(30)),
+    ));
+    let html = render_relation::<AllRows>(&cx, "Related", declared, &[row("first")])
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    assert!(
+        html.contains("table-fixed"),
+        "the relation table must lay out fixed, got {html}"
+    );
+    assert_eq!(
+        html.matches("style=\"width: 30%\"").count(),
+        2,
+        "the declared width must reach the th and the td, got {html}"
+    );
+    assert_eq!(
+        html.matches("style=\"width").count(),
+        2,
+        "the wide column must declare no width, got {html}"
+    );
+    assert!(
+        html.contains("truncate"),
+        "a value wider than its column must truncate, got {html}"
+    );
+    assert!(
+        html.contains("min-width: calc(30% + 6rem)"),
+        "the wide column keeps its floor so a narrow viewport scrolls, got {html}"
+    );
+
+    // The defaults declare nothing at all: two wide columns split the table
+    // and still carry the floor that keeps them readable.
+    let html = render_relation::<AllRows>(&cx, "Related", columns(), &[row("first")])
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    assert!(
+        html.contains("table-fixed"),
+        "a default relation table must lay out fixed, got {html}"
+    );
+    assert!(
+        !html.contains("style=\"width"),
+        "default wide columns declare no width, got {html}"
+    );
+    assert!(
+        html.contains("min-width: 12rem"),
+        "two wide columns keep two floors, got {html}"
     );
 }

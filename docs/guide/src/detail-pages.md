@@ -75,7 +75,10 @@ row the include loaded, and a test counts the statements a detail page runs to h
 (`render_relation::<CommentResource>`), so the table applies that resource's `can_view` to every
 loaded row, and it renders at most `MAX_RELATION_ROWS` rows, printing a line that names the cap and
 the total when it truncates. Related rows render read-only: no pager, no search, no bulk column, no
-row actions.
+row actions. The table follows the list's fixed-layout rule: `table-fixed`, one `ColumnWidth` per
+relation column (default `Wide`), `truncate` on every cell, and a `min-width` carrying one
+readability floor per wide column, so long values clip to an ellipsis and a narrow viewport scrolls
+instead of collapsing a column.
 - A typed column (`Uuid`, `jiff::Timestamp`) is readable: bind it with `TextInput::typed` (GH #192)
   and the view renders its stored value as text. A foreign key therefore reads as its stored id
   rather than the related record's label — render the relation through `view_relations` when the
