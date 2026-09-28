@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d9ad9041.js";
+            window.path_to_searchindex_js = "searchindex-ea45145c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -233,6 +233,12 @@ widths (shares as emitted, lengths verbatim, one readability floor per wide colu
 the actions column), and the wrapper’s <code>overflow-x-auto</code> scrolls once the table is wider than its
 container. The actions column pairs its share with that floor on its header and cells, so the row
 buttons fit instead of spilling past the table.</li>
+<li>Relation tables on detail pages follow the same fixed-layout rule: <code>table-fixed</code>, a <code>ColumnWidth</code>
+per column (default <code>Wide</code>, so a default table declares no widths and splits evenly),
+<code>truncate</code> on every cell, and a <code>min-width</code> summing the shares plus one readability floor per wide
+column, so the wrapper scrolls on a narrow viewport instead of collapsing an undeclared column.
+<code>RelationColumn::width(ColumnWidth::..)</code> overrides the default; an explicit <code>Rem</code> behaves as on
+the list, leaving wide columns no space when the lengths exceed the table.</li>
 <li>Computed columns render only. They do not affect search or sort.</li>
 </ul>
 <p>Filters:</p>

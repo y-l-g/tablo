@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d9ad9041.js";
+            window.path_to_searchindex_js = "searchindex-ea45145c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -252,7 +252,10 @@ row the include loaded, and a test counts the statements a detail page runs to h
 (<code>render_relation::&lt;CommentResource&gt;</code>), so the table applies that resource’s <code>can_view</code> to every
 loaded row, and it renders at most <code>MAX_RELATION_ROWS</code> rows, printing a line that names the cap and
 the total when it truncates. Related rows render read-only: no pager, no search, no bulk column, no
-row actions.</p>
+row actions. The table follows the list’s fixed-layout rule: <code>table-fixed</code>, one <code>ColumnWidth</code> per
+relation column (default <code>Wide</code>), <code>truncate</code> on every cell, and a <code>min-width</code> carrying one
+readability floor per wide column, so long values clip to an ellipsis and a narrow viewport scrolls
+instead of collapsing a column.</p>
 <ul>
 <li>A typed column (<code>Uuid</code>, <code>jiff::Timestamp</code>) is readable: bind it with <code>TextInput::typed</code> (GH #192)
 and the view renders its stored value as text. A foreign key therefore reads as its stored id
