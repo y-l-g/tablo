@@ -348,8 +348,9 @@ assignments:
 assert!(!i.assignments.is_empty(), "stmt = {i:#?}");
 ```
 
-This is a plain `assert!`, so it fires in release builds. With `Option`, app
-code cannot build an empty statement.
+This is a plain `assert!`, so it fires in release builds. A model carrying an
+`#[update(..)]` default never reaches it, because `apply_update_defaults` leaves
+an assignment behind. With `Option`, app code cannot build an empty statement.
 
 The builder comes from `record.update()`, so the model's `#[update(..)]`
 defaults and its `#[version]` condition apply to every write `into_update`
@@ -486,12 +487,12 @@ they are.
   needs `PartialEq` on every embedded type, and `Seo` derives none. Writing the
   named fields matches today's contract.
 - **The `Schema` as the typed form**, with each lens-bound control carrying a
-  typed writer and no struct. At toasty `6a1f5d9`, the instance update builder
-  keeps `assignments` private and exposes setters only per field ident
-  (`update.rs:70`). Building a `stmt::Update` through `UpdateTarget` instead
-  skips `apply_update_defaults` and the `#[version]` condition, which exist
-  only inside the generated `update()`. `docs/dev/upstream-notes.md` records
-  both gaps.
+  typed writer and no struct. Form values stay string-keyed, so a control has no
+  typed value to write (ADR-0001). The generated update builder sets a field
+  only by its ident (`update.rs:70`), so an assignment keyed at runtime means
+  building a `stmt::Update` through `UpdateTarget`, which drops
+  `apply_update_defaults` and the `#[version]` assignment and condition the
+  generated `update()` adds (`model.rs:90`).
 - **`type Form` on `Resource`.** An associated type cannot carry a default on
   stable (E0658), so all 121 `impl Resource` sites would name a placeholder.
 - **One registration method with a `NoForm<M>` form.** Every list-only
@@ -515,7 +516,9 @@ are unusable without one another. Two tests are written first, against toasty
 alone, and gate the API:
 
 - **The empty-assignment test.** `record.update().exec(..)` with no setter
-  panics on the assertion quoted above, which confirms `into_update`'s `Option`.
+  panics, which confirms `into_update`'s `Option`. The assert runs on toasty's
+  worker task, so the caller panics unwrapping a dropped channel
+  (`db/connection.rs:65`) and the test expects `RecvError`.
 - **The borrow and return test.** `record.update()` borrows the record mutably
   for the builder's life, `exec(mut self, ..)` consumes the builder
   (`update.rs:195`), and the record then holds the written row.
