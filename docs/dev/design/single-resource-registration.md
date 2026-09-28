@@ -71,8 +71,9 @@ bulk delete, and export routes only. The four `check_form_inner` checks (key
 agreement, blank agreement, tenant ownership, create columns) run when the
 return is `Some` and are skipped when it is `None`. A resource returning `Some`
 without a `FormResource` impl fails `Panel::build` naming the resource and the
-missing impl; the detection mechanism is the blocking-acceptance question
-below. The list-only guard (`:411-425`) is deleted: `form()` returning `Some`
+missing impl. Detection uses the autoref trick; a spike proves the encoding
+compiles on the pinned toolchain before the implementation merges. The
+list-only guard (`:411-425`) is deleted: `form()` returning `Some`
 is the declaration that create or edit exists.
 
 ## Edge cases
@@ -93,18 +94,8 @@ is the declaration that create or edit exists.
   `NoForm` type exists, and ADR-0022 records this rejection. Discarded until the
   language feature stabilizes.
 - **Additive second call** (`resource::<R>().with_form::<R>()`). Compiles today
-  but keeps two method names and repeats the type parameter, so it is kept only
-  as the fallback encoding in Open questions.
-
-## Open questions
-
-- Blocking-acceptance: how `Panel::build` detects a `Some` without a
-  `FormResource` impl on stable. Candidates are the autoref detection trick and
-  the additive `with_form` chain above. A spike must prove the chosen encoding
-  compiles on the pinned toolchain before the implementation merges.
-- Blocking-implementation: none beyond the spike outcome.
-- Deferrable: merging the typed-write assoc once default associated types
-  stabilize.
+  but keeps two method names and repeats the type parameter; fallback encoding
+  when the spike fails.
 
 ## Out of scope
 
