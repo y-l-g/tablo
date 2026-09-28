@@ -241,7 +241,8 @@ impl Panel {
     ///
     /// A resource with a create or edit form registers with
     /// [`Self::form_resource`] instead: [`Panel::build`] refuses one registered
-    /// here whose `can_create` or `editable()` is on.
+    /// here whose `can_create` or `editable()` is on, and the list links to no
+    /// create page whatever a request-scoped `can_create` answers.
     ///
     /// A duplicate slug or a slug that is not one URL segment
     /// is recorded here and reported by [`Panel::build`], which
@@ -267,9 +268,12 @@ impl Panel {
     ///
     /// [`Panel::build`] checks that the form's struct and its `Schema` agree:
     /// every control is bound by exactly one field and every field's key is a
-    /// declared control; an optional control, or one inside a `Repeater`, binds
-    /// a field with a blank answer; and a gated resource's form does not claim
-    /// its tenant column.
+    /// declared control; an optional control, or one inside a `Repeater` or a
+    /// variant group, binds a field with a blank answer; a gated resource's form
+    /// does not claim its tenant column; and, where `can_create` allows it,
+    /// every non-nullable column is set by the form, by toasty, by the tenant
+    /// stamp, or by an override that names it in
+    /// [`FormResource::CREATE_COLUMNS`].
     pub fn form_resource<R: FormResource>(mut self) -> Self {
         let Some(url) =
             self.register_common::<R>(resource_list::<R, true>, resource_view::<R, FormValues>)
