@@ -63,7 +63,7 @@ impl Resource for UserResource {
     }
 
     // CREATE_COLUMNS, validate_record, create_record, and update_record move
-    // here unchanged; can_* / editable() are unchanged.
+    // here unchanged; can_* are unchanged.
 }
 
 Panel::new("admin").resource::<UserResource>()
@@ -113,9 +113,11 @@ The detail page projects `Resource::view_values` plus
 picks the projection from the same const.
 
 **Chrome.** The list renders its create link when `HAS_FORM` and
-`R::can_create(cx)` both hold, and its row Edit link from `R::editable()`. A
-resource that declares either without a form fails `Panel::build`, so no link
-points at an unregistered route.
+`R::can_create(cx)` both hold, and attaches the row Edit prefix from
+`HAS_FORM`. A resource whose `can_create` answers true without a form fails
+`Panel::build`: the list would offer a create page that does not exist.
+`policy-derived-chrome.md` (#383) deletes `Resource::editable` and attaches the
+edit prefix where the registration serves forms; that flag is `HAS_FORM` here.
 
 **Declaration checks.** `Panel::build` runs one check per resource with the
 Db-only context (`panel/build.rs:612-616`):
@@ -123,10 +125,9 @@ Db-only context (`panel/build.rs:612-616`):
 - `Resource::Form` and `Resource::form` agree. A record form whose `form()`
   answers `None`, or a `NoForm` resource whose `form()` answers `Some`, is
   refused by name.
-- A resource whose `can_create` or `editable()` answers true while
-  `HAS_FORM` is false is refused. This replaces the registration-specific
-  guard (`panel/build.rs:411-425`) and reads the same declaration the chrome
-  does.
+- A resource whose `can_create` answers true while `HAS_FORM` is false is
+  refused. This replaces the `Panel::resource` guard
+  (`panel/build.rs:411-425`), whose edit half the chrome no longer needs.
 - For a resource with a form, every check `check_form_inner` runs today
   (`:435-547`): key agreement, blank agreement, tenant ownership,
   create-column coverage (`:508-512`, gated on `can_create(cx)`), and the
