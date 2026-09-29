@@ -94,11 +94,12 @@ committed write, and a failure in it is logged without rolling the write back.
 | `Uploader` | `upload.rs` | where a `FileUpload`'s bytes go |
 | `Authenticator` | `auth.rs` | how credentials resolve to a `CurrentUser` |
 | `Table::new` / `Table::new_split` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
+| `panel::wired_table` | `panel/mod.rs` | the wired list table a page-owned table renders |
 
-Row identity is two projections declared together: `Table::new` takes the display key that
-drives keyed diffs and DOM ids and the record key that handlers
+Row identity is two projections. `Table::new` takes one key projection and uses it for both halves:
+the display key that drives keyed diffs and DOM ids, and the record key that handlers
 resolve as the model's typed primary key. A table whose display projects a non-PK value
-uses `Table::new_split(display, record, columns)`.
+splits them with `Table::new_split(display, record, columns)`.
 
 ## Reactivity
 

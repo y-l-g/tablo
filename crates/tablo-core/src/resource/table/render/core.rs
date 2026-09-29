@@ -630,7 +630,7 @@ impl<M> Table<M> {
                 let mut seen = std::collections::HashSet::new();
                 row_data.iter().all(|row| seen.insert(row.key.clone()))
             },
-            "duplicate Table::new keys in one page: Table::new must be injective"
+            "duplicate table keys in one page: the key projection must be injective"
         );
         row_data
     }

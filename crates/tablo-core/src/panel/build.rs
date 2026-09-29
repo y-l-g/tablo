@@ -1331,9 +1331,14 @@ mod tests {
         let Err(error) = panel.resource::<ZeroPageResource>().build() else {
             panic!("a table that paginates at zero must not build");
         };
+        let message = format!("{error}");
         assert!(
-            format!("{error}").contains("ZeroPageResource"),
+            message.contains("ZeroPageResource"),
             "the error must name the resource whose table cannot serve a list, got {error}"
+        );
+        assert!(
+            message.contains("per_page > 0"),
+            "the error must name the page-size contract, got {error}"
         );
     }
 

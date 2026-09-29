@@ -397,9 +397,8 @@ pub(crate) fn resource_list_live<R: Resource, const FORMS: bool>(
 /// Resource lists must declare a page size: without
 /// [`Table::paginate`] the load would be an unbounded `exec`, so the missing
 /// declaration fails loudly here instead of silently loading the whole table.
-/// Page-owned tables (the showcase
-/// demos, GH #154 §2) load through [`Table::load`] directly and keep the
-/// unbounded branch for previews.
+/// Page-owned tables (GH #154 §2) load through [`Table::load`] directly and
+/// keep the unbounded branch for previews.
 pub(crate) async fn load_table_page<R: Resource>(
     cx: &Cx,
     table: &Table<R::Model>,

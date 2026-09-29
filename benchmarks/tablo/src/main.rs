@@ -100,9 +100,9 @@ impl Resource for PostResource {
         true
     }
     // GH #226: `editable()`/`deletable()` are opt-in, so the predicates they
-    // promise are declared beside them. `bench_list_path` reads only the two
-    // flags below — these predicates keep the fixture honest about the pairing,
-    // they do not change what is measured.
+    // promise are declared beside them. `bench_list_path` renders the wired
+    // table, so `can_view`/`can_update`/`can_delete` each run once per rendered
+    // row inside the timed region — the pairing is part of what is measured.
     fn can_update(_cx: &Cx, _record: &Post) -> bool {
         true
     }
@@ -278,7 +278,7 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
         let state = TableState::from_cx(&cx);
         // The wired table the panel serves: row Delete + bulk bar + Edit
         // chrome per row — a bench without it would under-measure render cost.
-        let table = tablo_core::panel::__bench_wired_table::<PostResource>(&cx);
+        let table = tablo_core::panel::wired_table::<PostResource>(&cx);
         assert_eq!(
             table.page_size(),
             Some(50),

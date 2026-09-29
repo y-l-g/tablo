@@ -61,15 +61,25 @@ use crate::{
     },
 };
 
-/// Detached-bench seam: the table the streamed list page serves, without the
-/// router.
+/// The table the panel's list page serves for `R`, for a page that owns its
+/// table instead of mounting the panel's list route.
 ///
-/// Forwards to the panel's action wiring so the bench renders exactly what the
-/// list page serves instead of hand-mirroring it.
-#[doc(hidden)]
-pub fn __bench_wired_table<R: Resource>(
-    cx: &topcoat::context::Cx,
-) -> crate::resource::Table<R::Model> {
+/// The page-owned seam (GH #154 §2) pairs this with
+/// [`Table::load`](crate::resource::Table::load) and
+/// [`Table::render_live_with_state`](crate::resource::Table::render_live_with_state).
+/// The table carries `R::table`'s columns, key, page size, search toolbar and
+/// filter bar, plus the action chrome `R` declares — the row Delete link and
+/// bulk column from [`deletable`](crate::resource::Resource::deletable), the
+/// Edit link from [`editable`](crate::resource::Resource::editable) and the
+/// View link from [`viewed`](crate::resource::Resource::viewed) — each gated
+/// per row by `can_view`/`can_update`/`can_delete`, the wiring the panel's own
+/// list applies. The chrome has no other entry point: a page-owned table that
+/// must agree with the resource's routes takes its wiring from here.
+///
+/// This is the streamed page's variant, not the live shard's: the page owns the
+/// search and filter controls eagerly, and a live rerun re-renders the page
+/// unit (ADR-0020).
+pub fn wired_table<R: Resource>(cx: &topcoat::context::Cx) -> crate::resource::Table<R::Model> {
     self::list::wire_table_actions::<R>(cx, false)
 }
 

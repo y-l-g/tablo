@@ -36,8 +36,7 @@ and declares its list view, and any other omission has to fail loudly instead of
   `paginate(0)` fails the build. A
   resource registered with `Panel::resource` whose `can_create` or `editable()` is on fails the
   build, since it serves no form; a `FormResource`'s record form must agree with its `form()` schema
-  ([Forms](./forms.md#the-record-form)). A resource that overrides nothing fails the build, naming
-  the type, instead of serving an error state or an empty form. `table()`, `form()` and
+  ([Forms](./forms.md#the-record-form)). `table()`, `form()` and
   `can_create()` are declarations: `Panel::build` calls them with a Db-only context to check them,
   and each list and form request calls `table()` / `form()` again, so a declaration must not need
   request-scoped context.

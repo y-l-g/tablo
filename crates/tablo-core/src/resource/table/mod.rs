@@ -195,6 +195,8 @@ impl<M> Table<M> {
     /// selection, and are debug-asserted at render time. A table whose display
     /// projects a non-PK value uses [`Self::new_split`].
     ///
+    /// # Panics
+    ///
     /// Panics on duplicate [`TextColumn::name`], the guard every constructor
     /// applies: sort resolution is
     /// first-sortable-`name()`-match, so duplicate sortable names would
@@ -202,6 +204,9 @@ impl<M> Table<M> {
     /// (`TextColumn::computed("Status", ..)` derives `name = "status"`) for
     /// namespace consistency and future-proofing. Same fail-loud policy as
     /// the GH #101 searchable/sortable panics and the Schema GH #100 guard.
+    ///
+    /// Also panics on an empty column set: a table with no columns renders a
+    /// headers-only list, which no resource declares.
     pub fn new(
         key: impl Fn(&M) -> String + Send + Sync + 'static,
         cols: impl IntoColumns<M>,
@@ -222,7 +227,8 @@ impl<M> Table<M> {
     ///
     /// # Panics
     ///
-    /// Panics on duplicate [`TextColumn::name`], like [`Self::new`].
+    /// Panics on duplicate [`TextColumn::name`] and on an empty column set,
+    /// like [`Self::new`].
     pub fn new_split(
         display: impl Fn(&M) -> String + Send + Sync + 'static,
         record: impl Fn(&M) -> String + Send + Sync + 'static,
@@ -241,6 +247,10 @@ impl<M> Table<M> {
         M: toasty::schema::Model,
     {
         let cols = cols.into_columns();
+        assert!(
+            !cols.is_empty(),
+            "a Table needs at least one column: declare columns with Table::new(key, columns)"
+        );
         let mut seen = std::collections::HashSet::with_capacity(cols.len());
         for c in &cols {
             let name = c.name();
@@ -726,11 +736,14 @@ impl<M> Table<M> {
     /// ordering, and cursor pagination — and return the rows.
     ///
     /// The loader half of the live-table seam (GH #154 §2): a page that owns
-    /// its own table (the showcase demos) can hand its shard a query and this
+    /// its own table can hand its shard a query and this
     /// hook applies the same declaration pipeline `panel::load_table_page`
     /// applies to the tenant-scoped `Resource::query`, so a
     /// page-level shard does not
-    /// reimplement filtering, ordering, or cursor validation.
+    /// reimplement filtering, ordering, or cursor validation. The table such a
+    /// page serves comes from
+    /// [`panel::wired_table`](crate::panel::wired_table), which carries the
+    /// resource's action chrome.
     ///
     /// The cursor-existence probes reuse `query`, so they pay the query's
     /// relation includes. The panel's resource-list loader seeds them from a
@@ -926,7 +939,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        resource::{SelectFilter, Sort, TableState, TernaryFilter, TextColumn},
+        resource::{Resource, SelectFilter, Sort, TableState, TernaryFilter, TextColumn},
         test_support::User,
     };
 
@@ -988,6 +1001,86 @@ mod tests {
         // Empty term → None
         assert!(col.to_search_expr("").is_none());
         assert!(col.to_search_expr("   ").is_none());
+    }
+
+    #[tokio::test]
+    async fn table_load_rejects_a_zero_page_size() {
+        // `paginate(0)` is a declaration no list can serve: the load half of
+        // the guard refuses it before the query reaches the engine (GH #96),
+        // so a page-owned table cannot bypass the build-time check either.
+        let db = Db::builder()
+            .models(toasty::models!(User))
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let cx = CxTestBuilder::new().app_context(db).build();
+        let tbl = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+        )
+        .paginate(0);
+        let err = tbl
+            .load(
+                &cx,
+                toasty::stmt::Query::<List<User>>::all(),
+                &TableState::default(),
+            )
+            .await
+            .expect_err("paginate(0) must fail the load loudly");
+        assert!(
+            format!("{err}").contains("per_page > 0"),
+            "the load error must name the page-size contract, got {err}"
+        );
+    }
+
+    /// The panel's page-owned seam must attach the chrome the resource
+    /// declares. `bulk_enabled` is the witness and is private to this module,
+    /// which is why the test lives here.
+    #[tokio::test]
+    async fn wired_table_carries_the_declared_action_chrome() {
+        struct ChromeResource;
+        impl Resource for ChromeResource {
+            type Model = User;
+
+            fn table(_cx: &Cx) -> Table<User> {
+                Table::new(
+                    |u: &User| u.id.to_string(),
+                    TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+                )
+                .paginate(25)
+            }
+
+            fn deletable() -> bool {
+                true
+            }
+        }
+
+        let db = Db::builder()
+            .models(toasty::models!(User))
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        // The wiring derives the action URLs from the request path, so the Cx
+        // needs one; a bare builder has no request for `panel_prefix` to read.
+        let parts = http::Request::builder()
+            .uri("/admin/dummies")
+            .body(())
+            .unwrap()
+            .into_parts()
+            .0;
+        let cx = CxTestBuilder::new()
+            .app_context(db)
+            .request_context(parts)
+            .build();
+        // The declaration alone carries no chrome: `Resource::table` is bare,
+        // so a table that renders action links comes from the panel's wiring.
+        assert!(!ChromeResource::table(&cx).bulk_enabled());
+        let wired = crate::panel::wired_table::<ChromeResource>(&cx);
+        assert!(
+            wired.bulk_enabled(),
+            "wired_table must attach the delete/bulk chrome the resource declares"
+        );
+        assert_eq!(wired.page_size(), Some(25));
     }
 
     #[tokio::test]
@@ -1400,6 +1493,23 @@ mod tests {
             html.contains("other filter(s) still apply"),
             "mixed banner keeps the GH #148 tail, got {html}"
         );
+    }
+
+    /// A column source that yields none: the one way to reach the
+    /// constructor's column guard now that every shipped [`IntoColumns`] impl
+    /// yields at least one column.
+    struct NoColumns;
+
+    impl<M> IntoColumns<M> for NoColumns {
+        fn into_columns(self) -> Vec<TextColumn<M>> {
+            Vec::new()
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "at least one column")]
+    fn empty_column_set_panics_at_the_constructor() {
+        let _ = Table::<User>::new(|u| u.id.to_string(), NoColumns);
     }
 
     #[test]
