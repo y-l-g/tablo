@@ -138,7 +138,8 @@ pub(crate) fn table_error_view<'a, R: Resource>(
             // cause: the shard reads it (declaring the dependency below), and
             // every click increments it, so the write always changes even when
             // the query signals already hold the values that failed.
-            let attempt = topcoat::runtime::signal(cx, || 0u64);
+            // Keyed by the list, like the table's own signals.
+            let attempt = topcoat::runtime::signal(&cx.keyed(path), || 0u64);
             let cursor = signals.cursor.clone();
             let none = crate::resource::cursor_none();
             let cursor_error = crate::cursor::is_cursor_error(error);
@@ -305,7 +306,12 @@ pub(crate) fn resource_list_live<R: Resource>(
         // One state→signal conversion, seeded from the state the
         // page parsed — before normalizing, so an unknown `?group_by=` seeds
         // the signal as written and is dropped on the way back in.
-        let signals = state.to_signals(cx);
+        //
+        // Keyed by the list: runtime navigation carries every signal the next
+        // page shares with this one, and one call site would otherwise give
+        // every resource's list the same ids — one list's search would filter
+        // the next.
+        let signals = state.to_signals(&cx.keyed(list_path.as_str()));
         // One normalization per request: the toolbar, the hoisted
         // filter bar, the skeleton, the dialog and the retry link all read
         // the state this page parsed, so it normalizes here and every seam
@@ -469,6 +475,79 @@ mod tests {
         assert!(resp.status().is_success());
         let body = resp.into_body().collect().await.unwrap().to_bytes();
         String::from_utf8_lossy(&body).to_string()
+    }
+
+    /// Runtime navigation restores every signal the next page shares with
+    /// the current one, so two resources' lists must declare different signal
+    /// ids, or one list's search filters the next (GH #395).
+    #[tokio::test]
+    async fn live_lists_declare_distinct_signal_ids() {
+        use http_body_util::BodyExt;
+
+        use crate::resource::Resource;
+
+        macro_rules! live_resource {
+            ($name:ident, $slug:literal) => {
+                struct $name;
+                impl Resource for $name {
+                    type Model = Dummy;
+                    type Form = crate::NoForm<Self::Model>;
+                    fn slug() -> String {
+                        $slug.to_string()
+                    }
+                    fn can_view_any(_cx: &Cx) -> bool {
+                        true
+                    }
+                    fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
+                        dummy_table(cx).paginate(25).live_search(true)
+                    }
+                }
+            };
+        }
+        live_resource!(FirstResource, "firsts");
+        live_resource!(SecondResource, "seconds");
+
+        let db = Db::builder()
+            .models(toasty::models!(Dummy))
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        db.push_schema().await.unwrap();
+        let router = crate::Panel::new("admin")
+            .app_context(db)
+            .resource::<FirstResource>()
+            .resource::<SecondResource>()
+            .auth(crate::Auth::disabled())
+            .build()
+            .expect("panel builds");
+        let mut ids = Vec::new();
+        for uri in ["/admin/firsts", "/admin/seconds"] {
+            let resp = router
+                .handle(
+                    http::Request::builder()
+                        .uri(uri)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await;
+            let body = resp.into_body().collect().await.unwrap().to_bytes();
+            let html = String::from_utf8_lossy(&body).to_string();
+            let page: std::collections::HashSet<String> = html
+                .split("&quot;id&quot;:&quot;")
+                .skip(1)
+                .filter_map(|rest| rest.split("&quot;").next().map(str::to_string))
+                .collect();
+            assert!(
+                !page.is_empty(),
+                "{uri} must declare its table signals, got {html}"
+            );
+            ids.push(page);
+        }
+        assert!(
+            ids[0].is_disjoint(&ids[1]),
+            "two lists share signal ids {:?}",
+            ids[0].intersection(&ids[1]).collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
