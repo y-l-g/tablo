@@ -37,7 +37,7 @@ pub(crate) use state::{
 };
 pub use state::{Sort, TablePage, TableSignals, TableState};
 pub(crate) use table::TableChrome;
-pub use table::{GroupDef, GroupKey, OrderMode, RowActions, RowKey, RowPolicy, Table};
+pub use table::{GroupDef, GroupKey, OrderMode, RowActions, RowKey, Table};
 
 #[cfg(test)]
 pub(crate) use crate::query_term::MAX_QUERY_TERM;

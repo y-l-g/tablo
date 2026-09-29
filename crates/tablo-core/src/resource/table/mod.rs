@@ -30,7 +30,7 @@ pub type GroupKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
 
 /// Per-record action policy: reads which row actions one model instance allows.
 /// See [`RowActions`].
-pub type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
+pub(crate) type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
 
 /// Which row actions one record may use.
 ///
@@ -61,8 +61,8 @@ pub struct RowActions {
 }
 
 impl RowActions {
-    /// Every action allowed: what a table with no panel-wired policy renders, so
-    /// it shows exactly the chrome its action prefixes declare.
+    /// Every action allowed: what a table without a panel-wired row policy
+    /// renders.
     pub const ALL: Self = Self {
         view: true,
         edit: true,
