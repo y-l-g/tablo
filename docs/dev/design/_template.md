@@ -2,8 +2,9 @@
 Design document template.
 
 Copy this file to `docs/dev/design/<feature-name>.md` and fill it in.
-Delete sections that genuinely do not apply (and explain why in one line),
-but keep the section order.
+These sections are the default shape, not a fixed form: keep them in this
+order where they fit, delete one that does not apply (and explain why in one
+line), and add a section when the design needs one this template lacks.
 
 A design document is guide-level: write it for the people who will use the
 change, not for someone reading the implementation. The two audiences are:
