@@ -199,7 +199,7 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
                 tablo_ui::page_title((title))
                 if let Some(url) = create_url {
                     <a
-                        href=(url)
+                        (crate::resource::runtime_link(cx, &url))
                         class=(tablo_ui::button_variants(
                             tablo_ui::ButtonVariant::Primary,
                             tablo_ui::ButtonSize::Md,
@@ -1181,6 +1181,13 @@ mod tests {
         assert!(
             html.contains("/edit") && html.contains(">Edit<"),
             "editable list must link rows to their edit pages, got {html}"
+        );
+        // The row and Create links navigate through the runtime, and the
+        // panel's router turns prefetching off.
+        assert!(
+            html.contains("data-topcoat-link=\"never\"")
+                && !html.contains("data-topcoat-link=\"intent\""),
+            "panel links must use runtime navigation without prefetch, got {html}"
         );
         let html = list_html::<LockedResource>().await;
         assert!(

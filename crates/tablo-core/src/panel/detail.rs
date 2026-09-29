@@ -62,7 +62,10 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             tablo_ui::page(
                 tablo_ui::page_header(
                     tablo_ui::page_title((title))
-                    <a href=(back) class="text-sm text-muted-foreground underline">
+                    <a
+                        (crate::resource::runtime_link(cx, &back))
+                        class="text-sm text-muted-foreground underline"
+                    >
                         "Back to list"
                     </a>
                     if let Some(public) = public {

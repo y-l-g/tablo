@@ -392,7 +392,7 @@ impl<M> Table<M> {
                                         <div class="flex gap-2">
                                             if let Some(url) = view_for_row {
                                                 <a
-                                                    href=(url)
+                                                    (crate::resource::runtime_link(cx, &url))
                                                     class=(button_variants(
                                                         ButtonVariant::Outline,
                                                         ButtonSize::Md,
@@ -403,7 +403,7 @@ impl<M> Table<M> {
                                             }
                                             if let Some(url) = edit_for_row {
                                                 <a
-                                                    href=(url)
+                                                    (crate::resource::runtime_link(cx, &url))
                                                     class=(button_variants(
                                                         ButtonVariant::Outline,
                                                         ButtonSize::Md,

@@ -235,8 +235,14 @@ impl Panel {
         // The runtime layer registers last, outside every other pathless
         // layer: a page re-run is a marked POST the layer rewrites into a
         // GET for the page's own URL, and the layers it wraps must receive
-        // the rewritten GET rather than the discarded POST.
-        Ok(builder.runtime().build())
+        // the rewritten GET rather than the discarded POST. Panel links
+        // navigate through it without prefetching: a prefetch renders the
+        // destination, list queries included, for a page the user may never
+        // open.
+        Ok(builder
+            .runtime()
+            .prefetch(topcoat::runtime::PrefetchMode::Never)
+            .build())
     }
 }
 
