@@ -85,7 +85,8 @@ impl<M> Table<M> {
     /// Real chrome, no fake affordances: the header renders sort **links**
     /// driving `?sort=`/`?dir=` and a search toolbar driving `?q=` (shown by
     /// default when any column is `searchable()`), rows are keyed by the
-    /// projection declared via [`Self::id`] per `CONTEXT.md` and rendered via
+    /// projection declared via [`Table::new`](super::super::Table::new) per
+    /// `CONTEXT.md` and rendered via
     /// each column's typed projection, pagination shows Previous/Next links
     /// built from the executed page's **real** cursors (never invented page
     /// numbers), and the empty state reflects whether a search was active.
@@ -97,8 +98,7 @@ impl<M> Table<M> {
     ///
     /// # Errors
     ///
-    /// Errors when the table has no row key ([`Self::id`]) or no columns —
-    /// row identity is not optional, and neither is something to show.
+    /// Errors when pagination declares `per_page = 0`.
     pub async fn render<'a>(&self, cx: &'a Cx, page: TablePage<M>) -> Result<BoxView<'a>>
     where
         M: toasty::schema::Model + Send + Sync + 'static,
@@ -214,36 +214,10 @@ impl<M> Table<M> {
             )
             .into());
         }
-        if self.columns.is_empty() {
-            return Err(std::io::Error::other(
-                "Table::render: no columns declared — declare columns via Table::columns(..)",
-            )
-            .into());
-        }
-        // The display half falls back to the record key: a `pk`-only table
-        // renders its display from the primary key. The reverse never falls
-        // back — chrome without a record key would emit display keys the
-        // handlers 404 on, so it fails loud like a missing row key.
-        let row_key = self.row_key.clone().or_else(|| self.record_key.clone());
-        let Some(row_key) = row_key else {
-            return Err(std::io::Error::other(
-                "Table::render: no row key declared — declare one via Table::key(|row| ..)",
-            )
-            .into());
-        };
-        let row_key = row_key.clone();
+        let row_key = self.row_key.clone();
         let delete_prefix = self.delete_prefix.clone();
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
-        // Record keys feed URLs and bulk values, which handlers resolve as
-        // the typed PK: chrome without one would emit display keys
-        // the handlers 404 on, so fail loud like a missing row key.
-        if (with_actions || with_bulk) && self.record_key.is_none() {
-            return Err(std::io::Error::other(
-                "Table::render: action chrome needs a record key — declare one via Table::key(|row| ..)",
-            )
-            .into());
-        }
         let record_key = self.record_key.clone();
         let head = self
             .render_thead(cx, state, path, with_actions, with_bulk, signals.as_ref())
@@ -277,7 +251,7 @@ impl<M> Table<M> {
             path,
             &page,
             &row_key,
-            record_key.as_ref(),
+            &record_key,
             group_key.as_ref(),
         );
         // The confirmation dialog lives with the delete chrome and
@@ -565,7 +539,7 @@ impl<M> Table<M> {
         path: &str,
         page: &TablePage<M>,
         row_key: &RowKey<M>,
-        record_key: Option<&RowKey<M>>,
+        record_key: &RowKey<M>,
         group_key: Option<&GroupKey<M>>,
     ) -> Vec<RowView>
     where
@@ -583,7 +557,7 @@ impl<M> Table<M> {
             .iter()
             .map(|row| {
                 let key = row_key(row);
-                let record_id = record_key.map(|f| f(row)).unwrap_or_default();
+                let record_id = record_key(row);
                 let actions = if gated {
                     self.actions_for(row)
                 } else {
@@ -656,7 +630,7 @@ impl<M> Table<M> {
                 let mut seen = std::collections::HashSet::new();
                 row_data.iter().all(|row| seen.insert(row.key.clone()))
             },
-            "duplicate Table::key keys in one page: Table::key must be injective"
+            "duplicate table keys in one page: the key projection must be injective"
         );
         row_data
     }
@@ -1107,8 +1081,8 @@ impl<M> Table<M> {
 /// action URLs. A struct (not a tuple): five anonymous positions would
 /// mislead readers and trip `clippy::type_complexity`.
 ///
-/// `key` is the `Table::id` display projection (keyed diffs, DOM ids);
-/// `record_id` is the `Table::pk` projection (URLs, bulk values), resolved
+/// `key` is the display projection (keyed diffs, DOM ids);
+/// `record_id` is the record projection (URLs, bulk values), resolved
 /// by handlers as the typed PK.
 struct RowView {
     key: String,
@@ -1204,16 +1178,15 @@ pub(super) mod tests {
         )
     }
 
-    pub(crate) fn status_table(cx: &Cx) -> Table<Task> {
-        Table::<Task>::r#for(cx)
-            .key(|t| t.id.to_string())
-            .columns(TextColumn::r#for(Task::fields().title(), |t| {
-                t.title.clone()
-            }))
-            .filters(SelectFilter::r#for(
-                Task::fields().status(),
-                vec!["published".to_string(), "draft".to_string()],
-            ))
+    pub(crate) fn status_table(_cx: &Cx) -> Table<Task> {
+        Table::<Task>::new(
+            |t| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
+        )
+        .filters(SelectFilter::r#for(
+            Task::fields().status(),
+            vec!["published".to_string(), "draft".to_string()],
+        ))
     }
 
     pub(crate) fn filters_state(pairs: &[(&str, &str)]) -> TableState {
@@ -1282,37 +1255,17 @@ pub(super) mod tests {
     }
 
     #[tokio::test]
-    async fn table_render_requires_row_key_and_columns() {
-        let cx = CxTestBuilder::new().build();
-        let rows = vec![User {
-            id: uuid::Uuid::nil(),
-            name: "Ada".to_string(),
-        }];
-        // No columns → error
-        let no_columns = Table::<User>::r#for(&cx).id(|u| u.id.to_string());
-        let page: TablePage<User> = rows.clone().into();
-        assert!(
-            no_columns.render(&cx, page.clone()).await.is_err(),
-            "render without columns must error"
-        );
-        // Columns but no row key → error
-        let no_key = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
-        assert!(
-            no_key.render(&cx, page.clone()).await.is_err(),
-            "render without row key must error"
-        );
-    }
-
-    #[tokio::test]
     async fn table_for_columns_renders_with_keyed_rows() {
         let cx = CxTestBuilder::new().build();
         // columns need distinct names — title + status, not one
         // field twice.
-        let tasks_table = Table::<Task>::r#for(&cx).id(|t| t.id.to_string()).columns((
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()).searchable(),
-            TextColumn::r#for(Task::fields().status(), |t: &Task| t.status.clone()).sortable(),
-        ));
+        let tasks_table = Table::<Task>::new(
+            |t| t.id.to_string(),
+            (
+                TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()).searchable(),
+                TextColumn::r#for(Task::fields().status(), |t: &Task| t.status.clone()).sortable(),
+            ),
+        );
         // Use dummy rows for render check (no DB) — keyed by row.id
         let rows = vec![
             Task {
@@ -1379,14 +1332,17 @@ pub(super) mod tests {
     #[tokio::test]
     async fn table_lays_out_fixed_and_emits_declared_column_widths() {
         let cx = CxTestBuilder::new().build();
-        let width_table = Table::<Task>::r#for(&cx).id(|t| t.id.to_string()).columns((
-            // A field-backed column defaults to `Wide`: it declares no
-            // width and takes the share the declared columns leave.
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
-            // A computed column defaults to `Narrow`, overridden here.
-            TextColumn::computed("Status", |t: &Task| t.status.clone())
-                .width(ColumnWidth::Percent(30)),
-        ));
+        let width_table = Table::<Task>::new(
+            |t| t.id.to_string(),
+            (
+                // A field-backed column defaults to `Wide`: it declares no
+                // width and takes the share the declared columns leave.
+                TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
+                // A computed column defaults to `Narrow`, overridden here.
+                TextColumn::computed("Status", |t: &Task| t.status.clone())
+                    .width(ColumnWidth::Percent(30)),
+            ),
+        );
         let page: TablePage<Task> = vec![Task {
             id: uuid::Uuid::new_v4(),
             title: "Ada".to_string(),
@@ -1434,10 +1390,13 @@ pub(super) mod tests {
     #[tokio::test]
     async fn kind_defaults_claim_a_share_of_the_table() {
         let cx = CxTestBuilder::new().build();
-        let default_table = Table::<Task>::r#for(&cx).id(|t| t.id.to_string()).columns((
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
-            TextColumn::computed("Status", |t: &Task| t.status.clone()),
-        ));
+        let default_table = Table::<Task>::new(
+            |t| t.id.to_string(),
+            (
+                TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
+                TextColumn::computed("Status", |t: &Task| t.status.clone()),
+            ),
+        );
         let page: TablePage<Task> = vec![Task {
             id: uuid::Uuid::new_v4(),
             title: "Ada".to_string(),
@@ -1480,10 +1439,11 @@ pub(super) mod tests {
             [(1, "12%", "7rem"), (2, "18%", "11rem"), (3, "25%", "15rem")];
         for (links, expected, floor) in cases {
             let cx = CxTestBuilder::new().build();
-            let mut chrome_table = Table::<User>::r#for(&cx)
-                .key(|u| u.id.to_string())
-                .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-                .with_view("/admin/users".to_string());
+            let mut chrome_table = Table::<User>::new(
+                |u| u.id.to_string(),
+                TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+            )
+            .with_view("/admin/users".to_string());
             if links > 1 {
                 chrome_table = chrome_table.with_edit("/admin/users".to_string());
             }
@@ -1540,19 +1500,20 @@ pub(super) mod tests {
         // Four computed columns (4 × the 10% nominal) plus both chrome columns
         // (5% + 20%) overrun the budget, so every default is scaled down
         // together and the field column beside them keeps the rest.
-        let crowded = Table::<Task>::r#for(&cx)
-            .key(|t| t.id.to_string())
-            .columns((
+        let crowded = Table::<Task>::new(
+            |t| t.id.to_string(),
+            (
                 TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
                 TextColumn::computed("Status", |t: &Task| t.status.clone()),
                 TextColumn::computed("Featured", |t: &Task| t.featured.to_string()),
                 TextColumn::computed("Created", |t: &Task| t.created_at.to_string()),
                 TextColumn::computed("Id", |t: &Task| t.id.to_string()),
-            ))
-            .with_delete("/admin/tasks".to_string())
-            .with_edit("/admin/tasks".to_string())
-            .with_view("/admin/tasks".to_string())
-            .with_bulk_delete(true);
+            ),
+        )
+        .with_delete("/admin/tasks".to_string())
+        .with_edit("/admin/tasks".to_string())
+        .with_view("/admin/tasks".to_string())
+        .with_bulk_delete(true);
         let page: TablePage<Task> = vec![Task {
             id: uuid::Uuid::new_v4(),
             title: "Ada".to_string(),
@@ -1611,11 +1572,12 @@ pub(super) mod tests {
         // GH #162 (Filament's `recordActions` EditAction): `with_edit` wires
         // one `Edit` link per row into the shared Actions column.
         let cx = CxTestBuilder::new().build();
-        let action_table = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_delete("/admin/users".to_string())
-            .with_edit("/admin/users".to_string());
+        let action_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string());
         let rows = vec![User {
             id: uuid::Uuid::new_v4(),
             name: "Ada".to_string(),
@@ -1641,9 +1603,10 @@ pub(super) mod tests {
         );
         // Without either prefix there is no Actions column at all — and a
         // chromeless table needs no `pk`: nothing emits URLs.
-        let plain = Table::<User>::r#for(&cx)
-            .id(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let plain = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         let page: TablePage<User> = vec![User {
             id: uuid::Uuid::new_v4(),
             name: "Ada".to_string(),
@@ -1679,18 +1642,19 @@ pub(super) mod tests {
         };
         let ken_id = ken.id.to_string();
         let ada_id = ada.id.to_string();
-        let policy_table = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_delete("/admin/users".to_string())
-            .with_edit("/admin/users".to_string())
-            .with_view("/admin/users".to_string())
-            .with_bulk_delete(true)
-            .row_actions(|u: &User| RowActions {
-                view: true,
-                edit: u.name != "Ken",
-                delete: u.name != "Ken",
-            });
+        let policy_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_view("/admin/users".to_string())
+        .with_bulk_delete(true)
+        .row_actions(|u: &User| RowActions {
+            view: true,
+            edit: u.name != "Ken",
+            delete: u.name != "Ken",
+        });
         let page: TablePage<User> = vec![ada, ken].into();
         let html = policy_table
             .render(&cx, page)
@@ -1764,20 +1728,21 @@ pub(super) mod tests {
             name: "Ken".to_string(),
         };
         let ada_id = ada.id.to_string();
-        let policy_table = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_delete("/admin/users".to_string())
-            .with_edit("/admin/users".to_string())
-            .with_bulk_delete(true)
-            .row_actions(|u: &User| {
-                let allowed = u.name != "Ken";
-                RowActions {
-                    view: allowed,
-                    edit: allowed,
-                    delete: allowed,
-                }
-            });
+        let policy_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_bulk_delete(true)
+        .row_actions(|u: &User| {
+            let allowed = u.name != "Ken";
+            RowActions {
+                view: allowed,
+                edit: allowed,
+                delete: allowed,
+            }
+        });
         let page: TablePage<User> = vec![ada, ken].into();
         let html = policy_table
             .render(&cx, page)
@@ -1823,13 +1788,14 @@ pub(super) mod tests {
         let cx = CxTestBuilder::new().build();
         let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let counted = calls.clone();
-        let policy_table = Table::<User>::r#for(&cx)
-            .id(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .row_actions(move |_: &User| {
-                counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                RowActions::ALL
-            });
+        let policy_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .row_actions(move |_: &User| {
+            counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            RowActions::ALL
+        });
         let page: TablePage<User> = vec![User {
             id: uuid::Uuid::new_v4(),
             name: "Ada".to_string(),
@@ -1855,20 +1821,20 @@ pub(super) mod tests {
     }
 
     #[tokio::test]
-    #[allow(deprecated)]
     async fn action_chrome_emits_record_keys_not_display_keys() {
         // a non-PK display projection drives keyed diffs and DOM ids
-        // only — edit URLs, delete dialogs, and bulk values carry the `pk`
+        // only — edit URLs, delete dialogs, and bulk values carry the record
         // projection handlers resolve as the typed PK.
         use topcoat::view::ViewExt;
         let cx = CxTestBuilder::new().build();
-        let key_table = Table::<User>::r#for(&cx)
-            .id(|u| u.id.to_string().to_uppercase())
-            .pk(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_delete("/admin/users".to_string())
-            .with_edit("/admin/users".to_string())
-            .with_bulk_delete(true);
+        let key_table = Table::<User>::new_split(
+            |u| u.id.to_string().to_uppercase(),
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_bulk_delete(true);
         let rows = vec![User {
             id: uuid::Uuid::new_v4(),
             name: "Ada".to_string(),
@@ -1909,42 +1875,18 @@ pub(super) mod tests {
     }
 
     #[tokio::test]
-    async fn action_chrome_without_any_key_fails_loud() {
-        // chrome without a key would emit display keys the handlers
-        // 404 on — a render error, like a missing row key, not a silent 404.
-        let cx = CxTestBuilder::new().build();
-        let keyless = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_bulk_delete(true)
-            .with_delete("/admin/users".to_string());
-        let page: TablePage<User> = vec![User {
-            id: uuid::Uuid::new_v4(),
-            name: "Ada".to_string(),
-        }]
-        .into();
-        let err = match keyless.render(&cx, page).await {
-            Ok(_) => panic!("chrome without a key must fail loud"),
-            Err(err) => err.to_string(),
-        };
-        assert!(
-            err.contains("Table::key"),
-            "the error must name the missing declaration, got {err}"
-        );
-    }
-
-    #[tokio::test]
-    #[allow(deprecated)]
     async fn pk_only_table_renders_display_from_record_key() {
-        // a `pk`-only table declares no display override: keyed diffs and DOM
-        // ids fall back to the record key, and chrome URLs carry it.
+        // a single-key table drives keyed diffs, DOM ids, and chrome URLs
+        // from the one projection.
         use topcoat::view::ViewExt;
         let cx = CxTestBuilder::new().build();
-        let tbl = Table::<User>::r#for(&cx)
-            .pk(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_delete("/admin/users".to_string())
-            .with_edit("/admin/users".to_string())
-            .with_bulk_delete(true);
+        let tbl = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_bulk_delete(true);
         let rows = vec![User {
             id: uuid::Uuid::new_v4(),
             name: "Ada".to_string(),
@@ -1982,17 +1924,18 @@ pub(super) mod tests {
 
     #[tokio::test]
     async fn id_only_non_pk_display_emits_display_urls() {
-        // `.id` declares both halves, so a non-PK display without a `.pk`
-        // override renders action URLs from the display value — handlers 404
-        // them. Authors must add the override (see the tables guide).
+        // `new` declares both halves together, so a non-PK display without
+        // `new_split` renders action URLs from the display value — handlers
+        // 404 them. Authors must use `new_split` (see the tables guide).
         use topcoat::view::ViewExt;
         let cx = CxTestBuilder::new().build();
-        let tbl = Table::<User>::r#for(&cx)
-            .id(|u| u.name.clone())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_delete("/admin/users".to_string())
-            .with_edit("/admin/users".to_string())
-            .with_bulk_delete(true);
+        let tbl = Table::<User>::new(
+            |u| u.name.clone(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_bulk_delete(true);
         let page: TablePage<User> = vec![User {
             id: uuid::Uuid::new_v4(),
             name: "Ada".to_string(),
@@ -2008,15 +1951,15 @@ pub(super) mod tests {
             .render(&cx);
         assert!(
             html.contains("href=\"/admin/users/Ada/edit\""),
-            "edit URL carries the display value without a pk override in {html}"
+            "edit URL carries the display value without a split record key in {html}"
         );
         assert!(
             html.contains("value=\"Ada\""),
-            "bulk value carries the display value without a pk override in {html}"
+            "bulk value carries the display value without a split record key in {html}"
         );
         assert!(
             html.contains("?delete=Ada"),
-            "delete dialog link carries the display value without a pk override in {html}"
+            "delete dialog link carries the display value without a split record key in {html}"
         );
     }
 
@@ -2026,11 +1969,12 @@ pub(super) mod tests {
         // value renders no headers and vanishes from pager links instead of
         // silently grouping by the single declared key.
         let cx = CxTestBuilder::new().build();
-        let grouped = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable())
-            .group_by("status", |u| u.name.clone())
-            .paginate(1);
+        let grouped = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
+        )
+        .group_by("status", |u| u.name.clone())
+        .paginate(1);
         let state = TableState {
             group_by: Some("email".to_string()),
             sort: Some(Sort {
@@ -2073,12 +2017,11 @@ pub(super) mod tests {
         // published), so a legend-only shim — every header, then an ungrouped
         // table — cannot satisfy the ordering assertions below.
         let cx = CxTestBuilder::new().build();
-        let grouped = Table::<Task>::r#for(&cx)
-            .id(|t| t.id.to_string())
-            .columns(TextColumn::r#for(Task::fields().title(), |t| {
-                t.title.clone()
-            }))
-            .group_by("status", |t| t.status.clone());
+        let grouped = Table::<Task>::new(
+            |t| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
+        )
+        .group_by("status", |t| t.status.clone());
         let state = TableState {
             group_by: Some("status".to_string()),
             ..TableState::default()
@@ -2153,14 +2096,11 @@ pub(super) mod tests {
     async fn table_render_reuses_one_filter_transport_base_across_rows() {
         let cx = CxTestBuilder::new().build();
         let state = filters_state(&[("status", "published"), ("featured", "true")]);
-        let tbl = Table::<User>::r#for(&cx)
-            // Every row renders a delete-dialog link, so the table needs the
-            // record key those URLs carry.
-            .key(|u: &User| u.id.to_string())
-            .with_delete("/admin/users".to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u: &User| {
-                u.name.clone()
-            }));
+        let tbl = Table::<User>::new(
+            |u: &User| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string());
         let rows = |n: usize| -> Vec<User> {
             (0..n)
                 .map(|i| User {
@@ -2218,11 +2158,12 @@ pub(super) mod tests {
         // replacement could leave dead. The refresh control's absence is the
         // page's own answer to "can this table refresh in place?".
         let cx = CxTestBuilder::new().build();
-        let tbl = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_delete("/admin/users".to_string())
-            .with_bulk_delete(true);
+        let tbl = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_delete("/admin/users".to_string())
+        .with_bulk_delete(true);
         let rows = vec![User {
             id: uuid::Uuid::nil(),
             name: "Ada".to_string(),
@@ -2250,9 +2191,10 @@ pub(super) mod tests {
         // every rendered row exposes its morph id; re-rendering the
         // same page yields the same ids.
         let cx = CxTestBuilder::new().build();
-        let tbl = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let tbl = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         let rows = vec![
             User {
                 id: uuid::Uuid::nil(),

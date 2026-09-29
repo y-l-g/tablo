@@ -23,8 +23,8 @@ use super::{
 /// and stores the
 /// related record's primary key as the value. Typos in the lens fail at compile
 /// time; a wrong value projection fails where the projected type differs from
-/// the PK. Option values are never read from the related table's `Table::id`
-/// row-key projection; that projection stays the list's row identity
+/// the PK. Option values are never read from the related table's row-key
+/// projection; that projection stays the list's row identity
 /// (DOM ids, bulk values, edit/delete URLs), not a source of FK values.
 pub struct Select {
     name: String,
@@ -208,7 +208,7 @@ impl Select {
     /// `<option value>`; the third maps the record to its display label.
     ///
     /// Option values are typed PKs, never the table's row-key projection: using
-    /// `Table::id` silently stored display strings in FK columns. The projection
+    /// a display projection silently stored display strings in FK columns. The projection
     /// is `Fn(&R::Model) -> R::Model::PrimaryKey`, so a wrong field fails to
     /// compile. The related PK must be a single primitive implementing
     /// `Display`, whose canonical string round-trips through the form; edit

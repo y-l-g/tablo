@@ -6,30 +6,29 @@ updates, and row and bulk delete.
 Minimal table:
 
 ```rust
-Table::r#for(cx)
-    .key(|u: &User| u.id.to_string())
-    .columns((
+Table::new(
+    |u: &User| u.id.to_string(),
+    (
         TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
             .searchable()
             .sortable(),
         TextColumn::computed("Status", |u: &User| {
             if u.active { "Active".into() } else { "Inactive".into() }
         }),
-    ))
-    .paginate(20)
+    ),
+)
+.paginate(20)
 ```
 
 Notes:
 
-- `.key(...)` is required. It declares the row key and the record key together: the row key
+- `Table::new(key, columns)` declares the row key and the record key together: the row key
   keys rows for selection and live updates — never use a loop index — and the record key is
-  what action URLs and bulk checkbox values carry; handlers resolve it as the model's typed
-  primary key, so emit the primary key, not a display label. Declare it whenever the resource
-  carries action chrome — `deletable()`, `editable()`, or a declared detail `view()` — because
-  `Panel::build` refuses a table that carries chrome without a key. A table whose display
-  projects a non-PK value declares that value with `Table::id` and overrides the record half
-  with `Table::pk`, so action URLs and bulk values keep carrying the typed primary key.
-  A non-PK `.id` without a `.pk` override uses the display value for URLs, which handlers 404.
+  what action URLs and bulk checkbox values carry. Handlers resolve the record key as the
+  model's typed primary key, so declare the primary key, not a display label: a non-PK
+  projection makes every delete and bulk submit 404. A table whose display must stay a
+  non-PK value uses `Table::new_split(display, record, columns)`, which carries the typed
+  primary key in the URLs instead.
 - `searchable()` searches with `?q=`: an escaped substring match (`like_with_escape`, OR across
   searchable columns), so a term containing `%` or `_` matches those characters literally. `LIKE` is
   ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. `sortable()` sorts with
@@ -96,7 +95,7 @@ Grouping and export:
 Live updates:
 
 ```rust
-Table::r#for(cx).live_search(true)
+Table::new(|u: &User| u.id.to_string(), columns).live_search(true)
 ```
 
 Search, sort, filter, and pager controls then refresh the table in place without a full page load.

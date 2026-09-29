@@ -61,6 +61,28 @@ use crate::{
     },
 };
 
+/// The table the panel's list page serves for `R`, for a page that owns its
+/// table instead of mounting the panel's list route.
+///
+/// The page-owned seam (GH #154 §2) pairs this with
+/// [`Table::load`](crate::resource::Table::load) and
+/// [`Table::render_live_with_state`](crate::resource::Table::render_live_with_state).
+/// The table carries `R::table`'s columns, key, page size, search toolbar and
+/// filter bar, plus the action chrome `R` declares — the row Delete link and
+/// bulk column from [`deletable`](crate::resource::Resource::deletable), the
+/// Edit link from [`editable`](crate::resource::Resource::editable) and the
+/// View link from [`viewed`](crate::resource::Resource::viewed) — each gated
+/// per row by `can_view`/`can_update`/`can_delete`, the wiring the panel's own
+/// list applies. The chrome has no other entry point: a page-owned table that
+/// must agree with the resource's routes takes its wiring from here.
+///
+/// This is the streamed page's variant, not the live shard's: the page owns the
+/// search and filter controls eagerly, and a live rerun re-renders the page
+/// unit (ADR-0020).
+pub fn wired_table<R: Resource>(cx: &topcoat::context::Cx) -> crate::resource::Table<R::Model> {
+    self::list::wire_table_actions::<R>(cx, false)
+}
+
 /// The admin application.
 ///
 /// ```ignore
@@ -504,6 +526,15 @@ mod tests {
         impl Resource for DummyResource {
             type Model = Dummy;
 
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
+
             fn navigation() -> NavigationItem {
                 // The override cannot know the panel prefix, so it decorates
                 // the default item: order here, URL from the panel.
@@ -516,6 +547,15 @@ mod tests {
         struct PlainResource;
         impl Resource for PlainResource {
             type Model = Dummy;
+
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
 
             fn slug() -> String {
                 "plain".to_string()
@@ -544,6 +584,15 @@ mod tests {
         struct DraftsResource;
         impl Resource for DraftsResource {
             type Model = Dummy;
+
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
 
             fn slug() -> String {
                 "drafts".to_string()
@@ -575,6 +624,15 @@ mod tests {
         impl Resource for ReportsResource {
             type Model = Dummy;
 
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
+
             fn slug() -> String {
                 "reports".to_string()
             }
@@ -595,6 +653,15 @@ mod tests {
         impl Resource for OwnSlugResource {
             type Model = Dummy;
 
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
+
             fn slug() -> String {
                 "users".to_string()
             }
@@ -614,6 +681,15 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
         }
 
         let panel = Panel::new("backoffice");
@@ -640,10 +716,28 @@ mod tests {
         struct UserResource;
         impl Resource for UserResource {
             type Model = Dummy;
+
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
         }
         struct CategoryResource;
         impl Resource for CategoryResource {
             type Model = Dummy;
+
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
 
             fn slug() -> String {
                 "categories".to_string()
@@ -687,6 +781,15 @@ mod tests {
         impl Resource for PinnedResource {
             type Model = Dummy;
 
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
+
             fn slug() -> String {
                 "pinned".to_string()
             }
@@ -704,6 +807,15 @@ mod tests {
         struct OtherResource;
         impl Resource for OtherResource {
             type Model = Dummy;
+
+            fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
 
             fn slug() -> String {
                 "other".to_string()

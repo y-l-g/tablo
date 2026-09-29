@@ -28,8 +28,8 @@ const WRITE_BULK_DELETE: &str = "delete the selected rows";
 
 /// Bulk delete POST — ids via `ids` form field (comma-separated).
 ///
-/// Identity is the typed PK fetch alone: the display closure
-/// `Table::id` is never re-matched, so non-canonical keys (uppercase UUID,
+/// Identity is the typed PK fetch alone: the display key
+/// is never re-matched, so non-canonical keys (uppercase UUID,
 /// email key) cannot 404 a batch whose rows exist. Bounded by
 /// `MAX_BULK_IDS` so the `IN` list cannot be amplified into a DoS.
 /// Fetch, policy checks, and deletes share one framework transaction
@@ -195,19 +195,18 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            #[allow(deprecated)]
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
                 // Non-canonical display key: bulk must still resolve
                 // via the typed PK fetch alone. The record key stays canonical
                 // The renderer emits it for bulk values, so the
                 // display/URL split is exercised, not bypassed.
-                crate::resource::Table::r#for(cx)
-                    .id(|d: &Dummy| d.id.to_string().to_uppercase())
-                    .pk(|d: &Dummy| d.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Dummy::fields().name(),
-                        |d: &Dummy| d.name.clone(),
-                    ))
+                crate::resource::Table::new_split(
+                    |d: &Dummy| d.id.to_string().to_uppercase(),
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    }),
+                )
             }
             async fn bulk_delete_records(
                 _cx: &Cx,
@@ -233,7 +232,7 @@ mod tests {
         let router = panel_for::<UpperKeyResource>(db)
             .build()
             .expect("panel builds");
-        // Canonical lowercase id succeeds despite uppercase Table::id.
+        // Canonical lowercase id succeeds despite an uppercase display key.
         let token = uuid::Uuid::new_v4().to_string();
         let ok = router
             .handle(

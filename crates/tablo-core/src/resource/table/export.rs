@@ -67,16 +67,16 @@ fn escape_csv(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use topcoat::context::CxTestBuilder;
 
     use super::*;
     use crate::{resource::TextColumn, test_support::User};
 
     #[test]
     fn csv_row_defuses_formula_cells_per_owasp() {
-        let cx = CxTestBuilder::new().build();
-        let csv_table = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let csv_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         for payload in ["=1+1", "+1+1", "-1+1", "@SUM(1+1)", "|id", "%x", "  =cmd"] {
             let user = User {
                 id: uuid::Uuid::nil(),
@@ -108,9 +108,10 @@ mod tests {
         // are RFC4180-quoted (they carry a newline); a tab-led cell has no
         // quote/comma/newline and stays bare — either way the `'` leads the
         // defused content.
-        let cx = CxTestBuilder::new().build();
-        let csv_table = Table::<User>::r#for(&cx)
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let csv_table = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         for (payload, defused) in [
             ("\r=1+1", "'\r=1+1"),
             ("\n@cmd", "'\n@cmd"),

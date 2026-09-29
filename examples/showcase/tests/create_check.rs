@@ -208,13 +208,11 @@ async fn create_policy_deny() {
         fn can_view_any(_cx: &topcoat::context::Cx) -> bool {
             true
         }
-        fn table(cx: &topcoat::context::Cx) -> Table<DummyUser> {
-            Table::r#for(cx)
-                .key(|u: &DummyUser| u.id.to_string())
-                .columns(TextColumn::r#for(
-                    DummyUser::fields().name(),
-                    |u: &DummyUser| u.name.clone(),
-                ))
+        fn table(_cx: &topcoat::context::Cx) -> Table<DummyUser> {
+            Table::new(
+                |u: &DummyUser| u.id.to_string(),
+                TextColumn::r#for(DummyUser::fields().name(), |u: &DummyUser| u.name.clone()),
+            )
         }
     }
     #[derive(tablo_core::RecordForm)]
@@ -400,13 +398,12 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> Table<Widget> {
-            Table::r#for(cx)
-                .key(|w: &Widget| w.id.to_string())
-                .paginate(25)
-                .columns(TextColumn::r#for(Widget::fields().name(), |w: &Widget| {
-                    w.name.clone()
-                }))
+        fn table(_cx: &Cx) -> Table<Widget> {
+            Table::new(
+                |w: &Widget| w.id.to_string(),
+                TextColumn::r#for(Widget::fields().name(), |w: &Widget| w.name.clone()),
+            )
+            .paginate(25)
         }
     }
     #[derive(tablo_core::RecordForm)]

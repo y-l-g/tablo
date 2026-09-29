@@ -21,7 +21,6 @@ use super::{
     forms::MAX_FORM_BYTES,
     gate::{PanelPrefix, enforce_auth},
     headers,
-    list::declared_chrome,
     search::SearchRegistry,
     shell::DarkMode,
 };
@@ -331,10 +330,11 @@ pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 
 /// What a declared resource must be able to promise before the panel serves it.
 ///
-/// The trait ships every method with a default, so a resource that overrides
-/// nothing compiles and only fails when a user reaches a page. The essentials
-/// that are *declarations* — a tenant predicate for a gated resource and a
-/// renderable table — are checked here, at build, and reported with the
+/// The trait defaults every method but `table`, so a resource that overrides
+/// nothing else compiles and only fails when a user reaches the page that needs
+/// the missing piece. The essentials that are *declarations* — a tenant
+/// predicate for a gated resource and a page size the list can serve — are
+/// checked here, at build, and reported with the
 /// resource's type name; [`check_form_resource`] and [`check_list_resource`]
 /// add the checks the registration method implies.
 /// Runtime essentials (the record fns) keep their loud failure.
@@ -392,11 +392,10 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             std::any::type_name::<R::Model>(),
         ));
     }
-    // Chrome is attached by `wire_table_actions`, not by `R::table(cx)`
-    // the record-key requirement is only knowable from the same
-    // derivation the wiring reads.
-    let chrome = declared_chrome::<R>(cx);
-    if let Some(missing) = R::table(cx).missing_essentials(chrome) {
+    // The table carries its key and columns by construction; only the page
+    // size can still misdeclare, so the build refuses that here rather than
+    // at request time.
+    if let Some(missing) = R::table(cx).missing_essentials() {
         return Err(format!(
             "resource `{}` cannot serve its list: {missing}",
             std::any::type_name::<R>()
@@ -648,14 +647,14 @@ mod tests {
             fn can_view_any(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .paginate(25)
-                    .columns(crate::resource::TextColumn::r#for(
-                        Dummy::fields().name(),
-                        |d: &Dummy| d.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    }),
+                )
+                .paginate(25)
             }
         }
 
@@ -709,14 +708,14 @@ mod tests {
             fn can_view_any(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .paginate(25)
-                    .columns(crate::resource::TextColumn::r#for(
-                        Dummy::fields().name(),
-                        |d: &Dummy| d.name.clone(),
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    }),
+                )
+                .paginate(25)
             }
         }
 
@@ -953,12 +952,11 @@ mod tests {
             fn can_create(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> Table<Author> {
-                Table::r#for(cx)
-                    .id(|a: &Author| a.id.to_string())
-                    .columns(TextColumn::r#for(Author::fields().email(), |a: &Author| {
-                        a.email.clone()
-                    }))
+            fn table(_cx: &Cx) -> Table<Author> {
+                Table::new(
+                    |a: &Author| a.id.to_string(),
+                    TextColumn::r#for(Author::fields().email(), |a: &Author| a.email.clone()),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -1012,12 +1010,11 @@ mod tests {
         /// below could be refused for: the rejection is the tenant probe's, not
         /// a page essential's. The model has no `tenant_id` column, so only an
         /// override can scope it.
-        fn dummy_table(cx: &Cx) -> Table<Dummy> {
-            Table::r#for(cx)
-                .id(|d: &Dummy| d.id.to_string())
-                .columns(TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                }))
+        fn dummy_table(_cx: &Cx) -> Table<Dummy> {
+            Table::new(
+                |d: &Dummy| d.id.to_string(),
+                TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
+            )
         }
 
         struct UndiscoverableResource;
@@ -1094,6 +1091,15 @@ mod tests {
         impl Resource for HostileResource {
             type Model = Dummy;
 
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
+
             fn slug() -> String {
                 "a\"b\r\n".to_string()
             }
@@ -1137,13 +1143,13 @@ mod tests {
             fn can_create(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> Table<Subscriber> {
-                Table::r#for(cx)
-                    .id(|s: &Subscriber| s.id.to_string())
-                    .columns(TextColumn::r#for(
-                        Subscriber::fields().nickname(),
-                        |s: &Subscriber| s.nickname.clone(),
-                    ))
+            fn table(_cx: &Cx) -> Table<Subscriber> {
+                Table::new(
+                    |s: &Subscriber| s.id.to_string(),
+                    TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
+                        s.nickname.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -1177,13 +1183,10 @@ mod tests {
         );
     }
 
-    /// GH #207 part 1: `R::table(cx)` carries no action chrome —
-    /// `wire_table_actions` attaches it — so the key requirement is only
-    /// knowable from the same declaration the wiring reads. A resource with
-    /// action chrome and no key at all fails `build`; a `pk`-only table builds
-    /// through the record-key fallback (GH #340).
+    /// The table carries its key and columns by construction, so a keyed table
+    /// builds with or without action chrome.
     #[tokio::test]
-    async fn panel_build_rejects_action_chrome_without_a_key() {
+    async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         use crate::{
             resource::{Resource, Table, TextColumn},
             schema::{Schema, TextInput},
@@ -1197,16 +1200,15 @@ mod tests {
             nickname: String,
         }
 
-        fn keyless_table(cx: &Cx) -> Table<Subscriber> {
-            Table::r#for(cx).columns(TextColumn::r#for(
-                Subscriber::fields().nickname(),
-                |s: &Subscriber| s.nickname.clone(),
-            ))
+        fn keyed_table() -> Table<Subscriber> {
+            Table::new(
+                |s: &Subscriber| s.id.to_string(),
+                TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
+                    s.nickname.clone()
+                }),
+            )
         }
 
-        /// Chrome opted into explicitly: the default opts out of
-        /// both links, so a resource that wants them names them — and that is
-        /// what makes the record key required.
         struct ChromeResource;
         impl Resource for ChromeResource {
             type Model = Subscriber;
@@ -1219,88 +1221,41 @@ mod tests {
             fn editable() -> bool {
                 true
             }
-            fn table(cx: &Cx) -> Table<Subscriber> {
-                keyless_table(cx)
+            fn table(_cx: &Cx) -> Table<Subscriber> {
+                keyed_table()
+            }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Subscriber)]
+        struct ChromeForm {
+            nickname: String,
+        }
+        impl crate::form::FormResource for ChromeResource {
+            type Form = ChromeForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
             }
         }
 
-        /// Chrome left at the opt-in default, so no display key is needed: the
-        /// `pk`-only declaration builds through the display fallback.
         struct ChromeOffResource;
         impl Resource for ChromeOffResource {
             type Model = Subscriber;
             fn slug() -> String {
                 "subscribers".to_string()
             }
-            #[allow(deprecated)]
-            fn table(cx: &Cx) -> Table<Subscriber> {
-                Table::r#for(cx)
-                    .pk(|s: &Subscriber| s.id.to_string())
-                    .columns(TextColumn::r#for(
-                        Subscriber::fields().nickname(),
-                        |s: &Subscriber| s.nickname.clone(),
-                    ))
+            fn table(_cx: &Cx) -> Table<Subscriber> {
+                keyed_table()
             }
         }
 
-        /// Chrome opted in with only a record key: the display falls back to it.
-        struct PkOnlyChromeResource;
-        impl Resource for PkOnlyChromeResource {
-            type Model = Subscriber;
-            fn slug() -> String {
-                "subscribers".to_string()
-            }
-            fn deletable() -> bool {
-                true
-            }
-            fn editable() -> bool {
-                true
-            }
-            #[allow(deprecated)]
-            fn table(cx: &Cx) -> Table<Subscriber> {
-                Table::r#for(cx)
-                    .pk(|s: &Subscriber| s.id.to_string())
-                    .columns(TextColumn::r#for(
-                        Subscriber::fields().nickname(),
-                        |s: &Subscriber| s.nickname.clone(),
-                    ))
-            }
-        }
-        #[derive(crate::RecordForm)]
-        #[record_form(model = Subscriber)]
-        struct PkOnlyChromeForm {
-            nickname: String,
-        }
-        impl crate::form::FormResource for PkOnlyChromeResource {
-            type Form = PkOnlyChromeForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
-            }
-        }
-
-        /// No chrome and no keys at all: still a build error — the row key is
-        /// required even with nothing to link to.
-        struct KeylessOffResource;
-        impl Resource for KeylessOffResource {
-            type Model = Subscriber;
-            fn slug() -> String {
-                "subscribers".to_string()
-            }
-            fn table(cx: &Cx) -> Table<Subscriber> {
-                keyless_table(cx)
-            }
-        }
-
-        /// Delete and edit left at the opt-in default, but the detail page is
-        /// declared, so the View link is action chrome all the same.
         struct ViewedResource;
         impl Resource for ViewedResource {
             type Model = Subscriber;
             fn slug() -> String {
                 "subscribers".to_string()
             }
-            fn table(cx: &Cx) -> Table<Subscriber> {
-                keyless_table(cx)
+            fn table(_cx: &Cx) -> Table<Subscriber> {
+                keyed_table()
             }
             fn view(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
@@ -1318,39 +1273,73 @@ mod tests {
                 .auth(crate::Auth::disabled())
         };
 
-        let Err(error) = panel().resource::<ChromeResource>().build() else {
-            panic!("action chrome without a key must not build");
-        };
-        assert!(
-            format!("{error}").contains("no row key"),
-            "the error must name the missing key, got {error}"
-        );
-
-        let Err(error) = panel().resource::<ViewedResource>().build() else {
-            panic!("a View link is action chrome too");
-        };
-        assert!(
-            format!("{error}").contains("no row key"),
-            "the error must name the missing key, got {error}"
-        );
-
         panel()
-            .form_resource::<PkOnlyChromeResource>()
+            .form_resource::<ChromeResource>()
             .build()
-            .expect("a pk-only table builds through the display fallback");
-
-        let Err(error) = panel().resource::<KeylessOffResource>().build() else {
-            panic!("a keyless table must not build even without chrome");
-        };
-        assert!(
-            format!("{error}").contains("no row key"),
-            "the error must name the missing key, got {error}"
-        );
-
+            .expect("a keyed table with chrome builds");
         panel()
             .resource::<ChromeOffResource>()
             .build()
-            .expect("a resource with no action chrome needs no display key");
+            .expect("a keyed table without chrome builds");
+        panel()
+            .resource::<ViewedResource>()
+            .build()
+            .expect("a keyed table with a detail view builds");
+    }
+
+    /// A keyed table can still misdeclare the one essential the constructor
+    /// does not settle: a page size no list can serve. The build refuses it,
+    /// naming the resource, rather than letting the first request carry it.
+    #[tokio::test]
+    async fn panel_build_rejects_a_table_that_cannot_serve_its_list() {
+        use crate::resource::{Resource, Table, TextColumn};
+
+        #[derive(Debug, toasty::Model, Clone)]
+        struct Subscriber {
+            #[key]
+            #[auto]
+            id: uuid::Uuid,
+            nickname: String,
+        }
+
+        struct ZeroPageResource;
+        impl Resource for ZeroPageResource {
+            type Model = Subscriber;
+            fn slug() -> String {
+                "subscribers".to_string()
+            }
+            fn table(_cx: &Cx) -> Table<Subscriber> {
+                Table::new(
+                    |s: &Subscriber| s.id.to_string(),
+                    TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
+                        s.nickname.clone()
+                    }),
+                )
+                .paginate(0)
+            }
+        }
+
+        let db = Db::builder()
+            .models(toasty::models!(Subscriber))
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let panel = Panel::new("admin")
+            .app_context(db)
+            .auth(crate::Auth::disabled());
+
+        let Err(error) = panel.resource::<ZeroPageResource>().build() else {
+            panic!("a table that paginates at zero must not build");
+        };
+        let message = format!("{error}");
+        assert!(
+            message.contains("ZeroPageResource"),
+            "the error must name the resource whose table cannot serve a list, got {error}"
+        );
+        assert!(
+            message.contains("per_page > 0"),
+            "the error must name the page-size contract, got {error}"
+        );
     }
 
     /// The marker is a property of the declaration, not of the policy serving
@@ -1381,13 +1370,13 @@ mod tests {
                 true
             }
             // `can_create` keeps its default (deny); only the form is declared.
-            fn table(cx: &Cx) -> Table<Subscriber> {
-                Table::r#for(cx)
-                    .id(|s: &Subscriber| s.id.to_string())
-                    .columns(TextColumn::r#for(
-                        Subscriber::fields().nickname(),
-                        |s: &Subscriber| s.nickname.clone(),
-                    ))
+            fn table(_cx: &Cx) -> Table<Subscriber> {
+                Table::new(
+                    |s: &Subscriber| s.id.to_string(),
+                    TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
+                        s.nickname.clone()
+                    }),
+                )
             }
         }
         #[derive(crate::RecordForm)]
@@ -1429,6 +1418,15 @@ mod tests {
         struct FirstResource;
         impl Resource for FirstResource {
             type Model = Dummy;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1436,6 +1434,15 @@ mod tests {
         struct SecondResource;
         impl Resource for SecondResource {
             type Model = Dummy;
+
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1470,6 +1477,15 @@ mod tests {
                     type Model = Dummy;
                     fn slug() -> String {
                         $slug.to_string()
+                    }
+                    fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                        crate::resource::Table::new(
+                            |d: &Dummy| d.id.to_string(),
+                            crate::resource::TextColumn::r#for(
+                                Dummy::fields().name(),
+                                |d: &Dummy| d.name.clone(),
+                            ),
+                        )
                     }
                 }
             };
@@ -1529,7 +1545,7 @@ mod tests {
             meta: Meta,
         }
 
-        /// Two columns over one field: `Table::columns` asserts on the
+        /// Two columns over one field: `Table::new` asserts on the
         /// duplicate name.
         struct DuplicateColumnResource;
         impl Resource for DuplicateColumnResource {
@@ -1537,11 +1553,14 @@ mod tests {
             fn slug() -> String {
                 "docs".to_string()
             }
-            fn table(cx: &Cx) -> Table<Doc> {
-                Table::r#for(cx).id(|d: &Doc| d.id.to_string()).columns((
-                    TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
-                    TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
-                ))
+            fn table(_cx: &Cx) -> Table<Doc> {
+                Table::new(
+                    |d: &Doc| d.id.to_string(),
+                    (
+                        TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
+                        TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
+                    ),
+                )
             }
         }
 
@@ -1554,12 +1573,11 @@ mod tests {
             fn slug() -> String {
                 "docs".to_string()
             }
-            fn table(cx: &Cx) -> Table<Doc> {
-                Table::r#for(cx)
-                    .id(|d: &Doc| d.id.to_string())
-                    .columns(TextColumn::r#for(Doc::fields().meta().note(), |d: &Doc| {
-                        d.meta.note.clone()
-                    }))
+            fn table(_cx: &Cx) -> Table<Doc> {
+                Table::new(
+                    |d: &Doc| d.id.to_string(),
+                    TextColumn::r#for(Doc::fields().meta().note(), |d: &Doc| d.meta.note.clone()),
+                )
             }
         }
 

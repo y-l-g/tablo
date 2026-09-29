@@ -52,12 +52,11 @@ impl Resource for ClipResource {
         true
     }
 
-    fn table(cx: &topcoat::context::Cx) -> Table<Clip> {
-        Table::r#for(cx)
-            .key(|clip: &Clip| clip.id.to_string())
-            .columns(TextColumn::r#for(Clip::fields().title(), |clip: &Clip| {
-                clip.title.clone()
-            }))
+    fn table(_cx: &topcoat::context::Cx) -> Table<Clip> {
+        Table::new(
+            |clip: &Clip| clip.id.to_string(),
+            TextColumn::r#for(Clip::fields().title(), |clip: &Clip| clip.title.clone()),
+        )
     }
 }
 #[derive(tablo_core::RecordForm)]

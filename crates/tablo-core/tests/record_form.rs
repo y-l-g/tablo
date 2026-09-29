@@ -49,12 +49,11 @@ fn item_schema() -> Schema {
     ))
 }
 
-fn item_table(cx: &Cx) -> Table<Item> {
-    Table::r#for(cx)
-        .key(|item: &Item| item.id.to_string())
-        .columns(TextColumn::r#for(Item::fields().title(), |item: &Item| {
-            item.title.clone()
-        }))
+fn item_table(_cx: &Cx) -> Table<Item> {
+    Table::new(
+        |item: &Item| item.id.to_string(),
+        TextColumn::r#for(Item::fields().title(), |item: &Item| item.title.clone()),
+    )
 }
 
 struct ItemResource;
@@ -82,8 +81,8 @@ impl Resource for ItemResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Item> {
-        item_table(cx)
+    fn table(_cx: &Cx) -> Table<Item> {
+        item_table(_cx)
     }
 
     fn view(_cx: &Cx) -> Schema {
@@ -394,12 +393,11 @@ impl Resource for OwnedResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Owned> {
-        Table::r#for(cx)
-            .key(|row: &Owned| row.id.to_string())
-            .columns(TextColumn::r#for(Owned::fields().title(), |row: &Owned| {
-                row.title.clone()
-            }))
+    fn table(_cx: &Cx) -> Table<Owned> {
+        Table::new(
+            |row: &Owned| row.id.to_string(),
+            TextColumn::r#for(Owned::fields().title(), |row: &Owned| row.title.clone()),
+        )
     }
 }
 
@@ -456,8 +454,8 @@ macro_rules! item_resource {
                 true
             }
 
-            fn table(cx: &Cx) -> Table<Item> {
-                item_table(cx)
+            fn table(_cx: &Cx) -> Table<Item> {
+                item_table(_cx)
             }
         }
 
@@ -560,8 +558,8 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
             true
         }
 
-        fn table(cx: &Cx) -> Table<Owned> {
-            OwnedResource::table(cx)
+        fn table(_cx: &Cx) -> Table<Owned> {
+            OwnedResource::table(_cx)
         }
     }
 
@@ -672,8 +670,8 @@ macro_rules! title_only_resource {
                 true
             }
 
-            fn table(cx: &Cx) -> Table<Item> {
-                item_table(cx)
+            fn table(_cx: &Cx) -> Table<Item> {
+                item_table(_cx)
             }
         }
 
@@ -733,8 +731,8 @@ async fn a_value_the_form_type_refuses_renders_inline() {
             true
         }
 
-        fn table(cx: &Cx) -> Table<Item> {
-            item_table(cx)
+        fn table(_cx: &Cx) -> Table<Item> {
+            item_table(_cx)
         }
     }
 
@@ -832,8 +830,8 @@ async fn an_unkeyable_record_rule_fails_closed() {
             true
         }
 
-        fn table(cx: &Cx) -> Table<Item> {
-            item_table(cx)
+        fn table(_cx: &Cx) -> Table<Item> {
+            item_table(_cx)
         }
     }
 
@@ -881,8 +879,8 @@ async fn a_list_only_resource_never_links_to_create() {
             tablo_core::tenant_id(cx).is_some()
         }
 
-        fn table(cx: &Cx) -> Table<Item> {
-            item_table(cx)
+        fn table(_cx: &Cx) -> Table<Item> {
+            item_table(_cx)
         }
     }
 

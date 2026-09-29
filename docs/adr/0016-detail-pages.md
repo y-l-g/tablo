@@ -45,8 +45,8 @@ the showcase counts the statements a detail page runs with and without related r
 
 ## Consequences
 
-- `GET {prefix}/{slug}/{id}` serves a detail page for any resource that declares a `view`;
-  `Table::with_view` adds the row link, and only for those resources.
+- `GET {prefix}/{slug}/{id}` serves a detail page for any resource that declares a `view`; the panel
+  adds the row link, and only for those resources (2026-09-28 amendment, GH #384).
 - A detail page is the Schema *plus* `view_relations`, so a resource with related rows to show
   declares both; `view` alone is a page of scalar fields.
 - A view binds the same fields a form can — `TextInput::r#for` for `String` lenses, `TextInput::typed`

@@ -272,9 +272,8 @@ pub async fn login_next<'a>(
 /// link, which carries it as a query parameter.
 ///
 /// Reads the control the UI actually renders rather than re-deriving identity:
-/// `Table::id` is a display projection and `Table::pk` is the record key
-/// so a test that guessed from the display key would be asserting
-/// the wrong thing.
+/// the display key and the record key are separate projections, so a test that
+/// guessed from the display key would be asserting the wrong thing.
 pub fn row_link_key(html: &str, kind: &str) -> Option<String> {
     let needle = format!("{kind}=");
     let mut rest = html;
@@ -371,7 +370,7 @@ pub fn row_titles(html: &str) -> Vec<String> {
 
 /// The record key of every rendered row, in document order.
 ///
-/// The bulk checkbox carries the record key as its `value` (`Table::pk`), so a
+/// The bulk checkbox carries the record key as its `value`, so a
 /// pagination walk can assert the exact rows a page holds: tied display values
 /// cannot be told apart by their first cell. Attributes render in no
 /// guaranteed order (topcoat#122), so this reads each `<input>` tag whole

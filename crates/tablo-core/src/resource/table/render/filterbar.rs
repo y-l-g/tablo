@@ -389,19 +389,18 @@ mod tests {
     #[tokio::test]
     async fn filter_widgets_render_typed_controls() {
         let cx = CxTestBuilder::new().build();
-        let table_task1 = Table::<Task>::r#for(&cx)
-            .key(|t| t.id.to_string())
-            .columns(TextColumn::r#for(Task::fields().title(), |t| {
-                t.title.clone()
-            }))
-            .filters((
-                SelectFilter::r#for(
-                    Task::fields().status(),
-                    vec!["draft".to_string(), "published".to_string()],
-                ),
-                TernaryFilter::r#for(Task::fields().featured()),
-                DateFilter::r#for(Task::fields().created_at()),
-            ));
+        let table_task1 = Table::<Task>::new(
+            |t| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
+        )
+        .filters((
+            SelectFilter::r#for(
+                Task::fields().status(),
+                vec!["draft".to_string(), "published".to_string()],
+            ),
+            TernaryFilter::r#for(Task::fields().featured()),
+            DateFilter::r#for(Task::fields().created_at()),
+        ));
         let page: TablePage<Task> = Vec::new().into();
         // State with an active select value pre-selects it.
         let mut filters = HashMap::new();
@@ -465,12 +464,11 @@ mod tests {
     #[tokio::test]
     async fn variant_filter_renders_select_control() {
         let cx = CxTestBuilder::new().build();
-        let table_driver1 = Table::<Driver>::r#for(&cx)
-            .key(|d| d.id.to_string())
-            .columns(TextColumn::r#for(Driver::fields().name(), |d| {
-                d.name.clone()
-            }))
-            .filters(vehicule_filter());
+        let table_driver1 = Table::<Driver>::new(
+            |d| d.id.to_string(),
+            TextColumn::r#for(Driver::fields().name(), |d| d.name.clone()),
+        )
+        .filters(vehicule_filter());
         let page: TablePage<Driver> = Vec::new().into();
         let html = table_driver1
             .render_with_state(&cx, page, &TableState::default(), "/admin/drivers")
@@ -493,15 +491,14 @@ mod tests {
     #[tokio::test]
     async fn empty_with_filters_shows_filtered_message() {
         let cx = CxTestBuilder::new().build();
-        let table_task2 = Table::<Task>::r#for(&cx)
-            .key(|t| t.id.to_string())
-            .columns(TextColumn::r#for(Task::fields().title(), |t| {
-                t.title.clone()
-            }))
-            .filters(SelectFilter::r#for(
-                Task::fields().status(),
-                vec!["draft".to_string()],
-            ));
+        let table_task2 = Table::<Task>::new(
+            |t| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
+        )
+        .filters(SelectFilter::r#for(
+            Task::fields().status(),
+            vec!["draft".to_string()],
+        ));
         let mut filters = HashMap::new();
         filters.insert("status".to_string(), "draft".to_string());
         let state = TableState {
@@ -557,14 +554,15 @@ mod tests {
         // only the dimension it names: `group_by` survives, and with a search
         // and filters active the "Clear search" link leaves the filters alone.
         let cx = CxTestBuilder::new().build();
-        let tbl = Table::<Task>::r#for(&cx)
-            .key(|t| t.id.to_string())
-            .columns(TextColumn::r#for(Task::fields().title(), |t| t.title.clone()).sortable())
-            .filters(SelectFilter::r#for(
-                Task::fields().status(),
-                vec!["published".to_string()],
-            ))
-            .group_by("status", |t| t.status.clone());
+        let tbl = Table::<Task>::new(
+            |t| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()).sortable(),
+        )
+        .filters(SelectFilter::r#for(
+            Task::fields().status(),
+            vec!["published".to_string()],
+        ))
+        .group_by("status", |t| t.status.clone());
         let state = TableState {
             search: Some("Hello".to_string()),
             filters: HashMap::from([("status".to_string(), "published".to_string())]),

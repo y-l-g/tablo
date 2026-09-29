@@ -73,16 +73,17 @@ impl Resource for AuthorResource {
     fn requires_tenant() -> bool {
         true
     }
-    fn table(cx: &Cx) -> Table<Author> {
-        Table::r#for(cx)
-            .key(|a: &Author| a.id.to_string())
-            .columns((
+    fn table(_cx: &Cx) -> Table<Author> {
+        Table::new(
+            |a: &Author| a.id.to_string(),
+            (
                 TextColumn::r#for(Author::fields().name(), |a: &Author| a.name.clone())
                     .searchable()
                     .sortable(),
                 TextColumn::r#for(Author::fields().email(), |a: &Author| a.email.clone()),
-            ))
-            .paginate(2)
+            ),
+        )
+        .paginate(2)
     }
 }
 
@@ -99,9 +100,9 @@ impl Resource for PostResource {
         true
     }
     // GH #226: `editable()`/`deletable()` are opt-in, so the predicates they
-    // promise are declared beside them. `bench_list_path` reads only the two
-    // flags below — these predicates keep the fixture honest about the pairing,
-    // they do not change what is measured.
+    // promise are declared beside them. `bench_list_path` renders the wired
+    // table, so `can_view`/`can_update`/`can_delete` each run once per rendered
+    // row inside the timed region — the pairing is part of what is measured.
     fn can_update(_cx: &Cx, _record: &Post) -> bool {
         true
     }
@@ -129,10 +130,10 @@ impl Resource for PostResource {
             .include(inc_author)
             .include(inc_comments)
     }
-    fn table(cx: &Cx) -> Table<Post> {
-        Table::r#for(cx)
-            .key(|p: &Post| p.id.to_string())
-            .columns((
+    fn table(_cx: &Cx) -> Table<Post> {
+        Table::new(
+            |p: &Post| p.id.to_string(),
+            (
                 TextColumn::r#for(Post::fields().title(), |p: &Post| p.title.clone())
                     .searchable()
                     .sortable(),
@@ -152,8 +153,9 @@ impl Resource for PostResource {
                     }
                 })
                 .needs(["comments"]),
-            ))
-            .paginate(50)
+            ),
+        )
+        .paginate(50)
     }
 }
 
@@ -274,29 +276,14 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
         );
         let start = Instant::now();
         let state = TableState::from_cx(&cx);
-        // Action wiring, mirroring `wire_table_actions` (panel/list.rs,
-        // `live = false`): the shipped page renders row Delete + bulk bar +
-        // Edit chrome per row — a bench without it would under-measure render
-        // cost. `wire_table_actions` itself is `pub(crate)`, so the detached
-        // harness repeats its steps against the same list URL.
-        let table = PostResource::table(&cx);
+        // The wired table the panel serves: row Delete + bulk bar + Edit
+        // chrome per row — a bench without it would under-measure render cost.
+        let table = tablo_core::panel::wired_table::<PostResource>(&cx);
         assert_eq!(
             table.page_size(),
             Some(50),
             "declared .paginate(50) must reach the loader"
         );
-        let table = if PostResource::deletable() {
-            table
-                .with_delete("/admin/posts".to_string())
-                .with_bulk_delete(true)
-        } else {
-            table
-        };
-        let table = if PostResource::editable() {
-            table.with_edit("/admin/posts".to_string())
-        } else {
-            table
-        };
         let page = table
             .load(
                 &cx,

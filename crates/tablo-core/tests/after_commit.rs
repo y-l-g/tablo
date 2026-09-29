@@ -94,13 +94,12 @@ impl Resource for AuditedResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Note> {
-        Table::r#for(cx)
-            .key(|note: &Note| note.id.to_string())
-            .paginate(25)
-            .columns(TextColumn::r#for(Note::fields().title(), |note: &Note| {
-                note.title.clone()
-            }))
+    fn table(_cx: &Cx) -> Table<Note> {
+        Table::new(
+            |note: &Note| note.id.to_string(),
+            TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
+        )
+        .paginate(25)
     }
 
     async fn delete_record(
@@ -151,12 +150,11 @@ impl Resource for PlainResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Note> {
-        Table::r#for(cx)
-            .id(|note: &Note| note.id.to_string())
-            .columns(TextColumn::r#for(Note::fields().title(), |note: &Note| {
-                note.title.clone()
-            }))
+    fn table(_cx: &Cx) -> Table<Note> {
+        Table::new(
+            |note: &Note| note.id.to_string(),
+            TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
+        )
     }
 }
 #[derive(tablo_core::RecordForm)]
@@ -189,12 +187,11 @@ impl Resource for FailingWriteResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Note> {
-        Table::r#for(cx)
-            .id(|note: &Note| note.id.to_string())
-            .columns(TextColumn::r#for(Note::fields().title(), |note: &Note| {
-                note.title.clone()
-            }))
+    fn table(_cx: &Cx) -> Table<Note> {
+        Table::new(
+            |note: &Note| note.id.to_string(),
+            TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
+        )
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
@@ -240,12 +237,11 @@ impl Resource for FailingHookResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Note> {
-        Table::r#for(cx)
-            .id(|note: &Note| note.id.to_string())
-            .columns(TextColumn::r#for(Note::fields().title(), |note: &Note| {
-                note.title.clone()
-            }))
+    fn table(_cx: &Cx) -> Table<Note> {
+        Table::new(
+            |note: &Note| note.id.to_string(),
+            TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
+        )
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {

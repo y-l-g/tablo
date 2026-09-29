@@ -15,7 +15,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         -> HashMap<String, String>;                 // default: empty
     fn export_query(_cx: &Cx, _needs: &IncludeNeeds)
         -> Query<List<Self::Model>>;                // default: query_with(cx, needs)
-    fn table(_cx: &Cx) -> Table<Self::Model>;       // default: Table::new(), empty until columns + id
+    fn table(_cx: &Cx) -> Table<Self::Model>;       // required: Table::new(key, columns)
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
     // defaults, and the delete record fns
 }
@@ -29,15 +29,14 @@ delete, and export, and links to no create page.
 
 ## The contract
 
-Every method is defaulted, so a resource compiles as soon as it names its model — which means an
-omission has to fail loudly instead of quietly:
+Every method except `table()` is defaulted — `table()` is required, so a resource names its model
+and declares its list view, and any other omission has to fail loudly instead of quietly:
 
-- **At `Panel::build`** (which returns `Result<Router>`): the table must be renderable — `table()`
-  declares columns and a row key, plus `Table::key` where the resource declares action chrome. A
+- **At `Panel::build`** (which returns `Result<Router>`): the declared table must serve a list, so
+  `paginate(0)` fails the build. A
   resource registered with `Panel::resource` whose `can_create` or `editable()` is on fails the
   build, since it serves no form; a `FormResource`'s record form must agree with its `form()` schema
-  ([Forms](./forms.md#the-record-form)). A resource that overrides nothing fails the build, naming
-  the type, instead of serving an error state or an empty form. `table()`, `form()` and
+  ([Forms](./forms.md#the-record-form)). `table()`, `form()` and
   `can_create()` are declarations: `Panel::build` calls them with a Db-only context to check them,
   and each list and form request calls `table()` / `form()` again, so a declaration must not need
   request-scoped context.
@@ -47,10 +46,8 @@ omission has to fail loudly instead of quietly:
   resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
   and the default-deny `can_*` predicates answer them. A resource that wants the chrome declares the
   flag **and** the policy predicate it promises: `can_view()` + `can_delete()` for `deletable()`,
-  `can_view()` + `can_update()` for `editable()`. It also commits the table to `Table::key(..)` — the
-  action URLs and bulk values carry that projection — and `Panel::build` refuses a table that declares
-  chrome without it. The flag is the whole-resource gate (GH #226); the
-  predicates are
+  `can_view()` + `can_update()` for `editable()`. The flag is the whole-resource gate (GH #226);
+  the predicates are
   applied **per row** (GH #235). The panel wires them into the table's row policy, so a row
   `can_update()` refuses renders no Edit link, a row `can_delete()` refuses renders no Delete link
   and no bulk checkbox, and a row `can_view()` refuses renders

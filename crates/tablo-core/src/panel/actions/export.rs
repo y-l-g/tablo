@@ -520,7 +520,7 @@ mod tests {
             fn export_query(cx: &Cx, needs: &IncludeNeeds) -> Query<List<Child>> {
                 narrowed(cx, needs)
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Child> {
+            fn table(_cx: &Cx) -> crate::resource::Table<Child> {
                 let column = crate::resource::TextColumn::computed("Parent", |c: &Child| {
                     if c.parent.is_unloaded() {
                         "(unloaded)".to_string()
@@ -533,9 +533,7 @@ mod tests {
                 } else {
                     column
                 };
-                crate::resource::Table::r#for(cx)
-                    .key(|c: &Child| c.id.to_string())
-                    .columns(column)
+                crate::resource::Table::new(|c: &Child| c.id.to_string(), column)
             }
         }
 
@@ -863,19 +861,18 @@ mod tests {
                     Query::<List<Child>>::all()
                 }
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Child> {
-                crate::resource::Table::r#for(cx)
-                    .key(|c: &Child| c.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::computed("Parent", |c: &Child| {
-                            if c.parent.is_unloaded() {
-                                "(unloaded)".to_string()
-                            } else {
-                                c.parent.get().name.clone()
-                            }
-                        })
-                        .needs(["parent"]),
-                    )
+            fn table(_cx: &Cx) -> crate::resource::Table<Child> {
+                crate::resource::Table::new(
+                    |c: &Child| c.id.to_string(),
+                    crate::resource::TextColumn::computed("Parent", |c: &Child| {
+                        if c.parent.is_unloaded() {
+                            "(unloaded)".to_string()
+                        } else {
+                            c.parent.get().name.clone()
+                        }
+                    })
+                    .needs(["parent"]),
+                )
             }
         }
 
@@ -1182,18 +1179,17 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Task) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Task> {
-                crate::resource::Table::r#for(cx)
-                    .id(|t: &Task| t.id.to_string())
-                    .columns(
-                        TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone())
-                            .searchable()
-                            .sortable(),
-                    )
-                    .filters(SelectFilter::r#for(
-                        Task::fields().status(),
-                        vec!["published".to_string(), "draft".to_string()],
-                    ))
+            fn table(_cx: &Cx) -> crate::resource::Table<Task> {
+                crate::resource::Table::new(
+                    |t: &Task| t.id.to_string(),
+                    TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone())
+                        .searchable()
+                        .sortable(),
+                )
+                .filters(SelectFilter::r#for(
+                    Task::fields().status(),
+                    vec!["published".to_string(), "draft".to_string()],
+                ))
             }
         }
 
@@ -1265,11 +1261,10 @@ mod tests {
 
         // The two modes differ only where they must: an unordered table pins
         // the export to the PK, while the list keeps the query unordered.
-        let unsorted = crate::resource::Table::<Task>::r#for(&cx)
-            .id(|t: &Task| t.id.to_string())
-            .columns(TextColumn::r#for(Task::fields().title(), |t: &Task| {
-                t.title.clone()
-            }));
+        let unsorted = crate::resource::Table::<Task>::new(
+            |t: &Task| t.id.to_string(),
+            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
+        );
         let neutral = TableState::default();
         assert!(
             unsorted.order_bys_for(&neutral, OrderMode::List).is_empty(),

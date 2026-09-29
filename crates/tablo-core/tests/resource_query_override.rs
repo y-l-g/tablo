@@ -21,6 +21,13 @@ struct Everyone;
 
 impl Resource for Everyone {
     type Model = User;
+
+    fn table(_cx: &Cx) -> tablo_core::Table<User> {
+        tablo_core::Table::new(
+            |u: &User| u.id.to_string(),
+            tablo_core::TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+        )
+    }
 }
 
 /// Overrides `query`: every load through this resource sees only Ada.
@@ -28,6 +35,13 @@ struct JustAda;
 
 impl Resource for JustAda {
     type Model = User;
+
+    fn table(_cx: &Cx) -> tablo_core::Table<User> {
+        tablo_core::Table::new(
+            |u: &User| u.id.to_string(),
+            tablo_core::TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+        )
+    }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<User>> {
         toasty::stmt::Query::<toasty::stmt::List<User>>::all()

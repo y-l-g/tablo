@@ -40,6 +40,13 @@ struct AllRows;
 impl Resource for AllRows {
     type Model = Row;
 
+    fn table(_cx: &Cx) -> tablo_core::Table<Row> {
+        tablo_core::Table::new(
+            |r: &Row| r.id.to_string(),
+            tablo_core::TextColumn::r#for(Row::fields().name(), |r: &Row| r.name.clone()),
+        )
+    }
+
     fn can_view(_cx: &Cx, _record: &Row) -> bool {
         true
     }
@@ -50,6 +57,13 @@ struct NamedRows;
 
 impl Resource for NamedRows {
     type Model = Row;
+
+    fn table(_cx: &Cx) -> tablo_core::Table<Row> {
+        tablo_core::Table::new(
+            |r: &Row| r.id.to_string(),
+            tablo_core::TextColumn::r#for(Row::fields().name(), |r: &Row| r.name.clone()),
+        )
+    }
 
     fn can_view(_cx: &Cx, record: &Row) -> bool {
         record.name != "denied-row"

@@ -16,8 +16,8 @@ A `Resource` registered on a `Panel` is fully writable on the framework's existi
   transaction, with `can_*` re-checked on the tenant-scoped loaded snapshot; a bulk delete re-fetches
   every id through the same query and is all-or-nothing (ADR-0004). The panel's list loader wires the
   chrome the resource declares (`Resource::deletable` → row Delete + bulk bar, `Resource::editable`
-  → Edit link, `Resource::viewed` → View link) with `Table::with_delete`, `Table::with_edit`,
-  `Table::with_view` and `Table::with_bulk_delete`.
+  → Edit link, `Resource::viewed` → View link) as the table's delete, edit and view action prefixes
+  (2026-09-28 amendment, GH #384).
 - **Schema** hydrates and dehydrates through typed lenses:
   `TextInput::r#for(User::fields().name()).required().email().unique()` fails to compile on a bad
   field; `Schema::hydrate` fills `value` attrs from the Model through `Resource::hydrate_form_values`,

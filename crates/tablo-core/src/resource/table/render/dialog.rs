@@ -12,8 +12,8 @@ use super::super::{
 };
 
 impl<M> Table<M> {
-    /// The row-delete confirmation dialog, rendered with the table when
-    /// [`Self::with_delete`] wired the delete route.
+    /// The row-delete confirmation dialog, rendered with the table the panel
+    /// wired the delete route into.
     ///
     /// One dialog per table: the row Delete controls name it
     /// (`data-row-delete-trigger`) and carry the record's POST target

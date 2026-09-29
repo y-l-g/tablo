@@ -31,14 +31,12 @@ impl Resource for PoolResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<PoolDummy> {
-        Table::<PoolDummy>::r#for(cx)
-            .key(|d: &PoolDummy| d.id.to_string())
-            .columns(TextColumn::r#for(
-                PoolDummy::fields().name(),
-                |d: &PoolDummy| d.name.clone(),
-            ))
-            .paginate(25)
+    fn table(_cx: &Cx) -> Table<PoolDummy> {
+        Table::new(
+            |d: &PoolDummy| d.id.to_string(),
+            TextColumn::r#for(PoolDummy::fields().name(), |d: &PoolDummy| d.name.clone()),
+        )
+        .paginate(25)
     }
 }
 

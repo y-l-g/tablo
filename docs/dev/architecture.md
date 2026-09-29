@@ -93,13 +93,13 @@ committed write, and a failure in it is logged without rolling the write back.
 | `RecordForm` / `FormResource` | `form.rs` | the typed value a form writes, and the create and update record fns |
 | `Uploader` | `upload.rs` | where a `FileUpload`'s bytes go |
 | `Authenticator` | `auth.rs` | how credentials resolve to a `CurrentUser` |
-| `Table::key` (`Table::id` alias) / `Table::pk` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
+| `Table::new` / `Table::new_split` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
+| `panel::wired_table` | `panel/mod.rs` | the wired list table a page-owned table renders |
 
-Row identity is two projections declared together: `Table::key` (aliased as `Table::id`)
-is the display key that drives keyed diffs and DOM ids and the record key that handlers
+Row identity is two projections. `Table::new` takes one key projection and uses it for both halves:
+the display key that drives keyed diffs and DOM ids, and the record key that handlers
 resolve as the model's typed primary key. A table whose display projects a non-PK value
-overrides the record half with `Table::pk`. Action chrome without a key is a render error,
-not a silent 404.
+splits them with `Table::new_split(display, record, columns)`.
 
 ## Reactivity
 

@@ -81,8 +81,8 @@ pub(crate) fn resource_view<R: Resource, V: DetailValues<R>>(cx: &Cx, _body: Bod
         let relations = R::view_relations(cx, &record);
         // The record's own label titles the page when the resource declares
         // one. The fallback is the page's name plus the URL's record
-        // key, which is what the route carries (`Table::id` is the list's
-        // display key and `pk` its record key).
+        // key, which is what the route carries (the display key drives the list
+        // and the record key the action URLs).
         let title = detail_title::<R>(cx, &record, &id);
         let back = list_url(cx, &R::slug());
         let public = R::public_url(cx, &record);
@@ -144,6 +144,15 @@ mod tests {
 
     impl Resource for Unlabelled {
         type Model = Note;
+
+        fn table(_cx: &Cx) -> crate::resource::Table<Note> {
+            crate::resource::Table::new(
+                |r: &Note| r.id.to_string(),
+                crate::resource::TextColumn::r#for(Note::fields().title(), |r: &Note| {
+                    r.title.clone()
+                }),
+            )
+        }
     }
 
     /// A resource that labels its records with the note's title.
@@ -151,6 +160,15 @@ mod tests {
 
     impl Resource for Labelled {
         type Model = Note;
+
+        fn table(_cx: &Cx) -> crate::resource::Table<Note> {
+            crate::resource::Table::new(
+                |r: &Note| r.id.to_string(),
+                crate::resource::TextColumn::r#for(Note::fields().title(), |r: &Note| {
+                    r.title.clone()
+                }),
+            )
+        }
 
         fn record_label(_cx: &Cx, record: &Note) -> Option<String> {
             Some(record.title.clone())

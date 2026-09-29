@@ -38,11 +38,9 @@ pub(crate) fn retry_url_for_error(
     }
 }
 
-/// The action chrome a resource declares: the one derivation both
-/// [`wire_table_actions`] and the build-time declaration check
-/// ([`check_resource`](super::build::check_resource)) read, so the table the panel
-/// serves and the table it validated cannot disagree about whether a record
-/// key is required.
+/// The action chrome a resource declares: the one derivation
+/// [`wire_table_actions`] reads to decide which affordances the table it serves
+/// carries.
 pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
     TableChrome {
         delete: R::deletable(),
@@ -398,10 +396,9 @@ pub(crate) fn resource_list_live<R: Resource, const FORMS: bool>(
 ///
 /// Resource lists must declare a page size: without
 /// [`Table::paginate`] the load would be an unbounded `exec`, so the missing
-/// declaration fails loudly here — like a missing row key at render — instead
-/// of silently loading the whole table. Page-owned tables (the showcase
-/// demos, GH #154 §2) load through [`Table::load`] directly and keep the
-/// unbounded branch for previews.
+/// declaration fails loudly here instead of silently loading the whole table.
+/// Page-owned tables (GH #154 §2) load through [`Table::load`] directly and
+/// keep the unbounded branch for previews.
 pub(crate) async fn load_table_page<R: Resource>(
     cx: &Cx,
     table: &Table<R::Model>,
@@ -526,21 +523,20 @@ mod tests {
             fn deletable() -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                            d.name.clone()
-                        })
-                        .searchable()
-                        .sortable(),
-                    )
-                    .filters(crate::resource::TernaryFilter::r#for(
-                        Dummy::fields().featured(),
-                    ))
-                    .paginate(1)
-                    .live_search(true)
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    })
+                    .searchable()
+                    .sortable(),
+                )
+                .filters(crate::resource::TernaryFilter::r#for(
+                    Dummy::fields().featured(),
+                ))
+                .paginate(1)
+                .live_search(true)
             }
         }
 
@@ -752,13 +748,11 @@ mod tests {
         // handlers clear them in the browser, so a live cursor always belongs
         // to the current query; crafting one past a new query is the client's
         // own read-only inconsistency.
-        let paged = crate::resource::Table::<Dummy>::r#for(&cx)
-            .key(|d: &Dummy| d.id.to_string())
-            .columns(crate::resource::TextColumn::r#for(
-                Dummy::fields().name(),
-                |d: &Dummy| d.name.clone(),
-            ))
-            .paginate(1);
+        let paged = crate::resource::Table::<Dummy>::new(
+            |d: &Dummy| d.id.to_string(),
+            crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
+        )
+        .paginate(1);
         for name in ["Bob", "Cara"] {
             toasty::create!(Dummy {
                 name: name.to_string(),
@@ -844,18 +838,17 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .columns(
-                        crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                            d.name.clone()
-                        })
-                        .searchable()
-                        .sortable(),
-                    )
-                    .paginate(25)
-                    .live_search(true)
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    })
+                    .searchable()
+                    .sortable(),
+                )
+                .paginate(25)
+                .live_search(true)
             }
         }
 
@@ -1065,11 +1058,10 @@ mod tests {
             .unwrap();
         }
         let cx = CxTestBuilder::new().app_context(db).build();
-        let table = Table::<Dummy>::r#for(&cx)
-            .id(|d: &Dummy| d.id.to_string())
-            .columns(TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                d.name.clone()
-            }));
+        let table = Table::<Dummy>::new(
+            |d: &Dummy| d.id.to_string(),
+            TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
+        );
         assert!(table.page_size().is_none());
         let page = table
             .load(
@@ -1340,7 +1332,7 @@ mod tests {
     /// no checkbox instead of a control the route answers 403 to.
     ///
     /// This is the panel half, which the render-level test cannot cover: a
-    /// hand-written `row_actions` closure proves the renderer, not the wiring.
+    /// hand-written row policy closure proves the renderer, not the wiring.
     #[tokio::test]
     async fn per_record_policy_narrows_the_wired_chrome() {
         use crate::{
@@ -1538,14 +1530,14 @@ mod tests {
             fn can_create(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::r#for(cx)
-                    .key(|d: &Dummy| d.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Dummy::fields().name(),
-                        |d: &Dummy| d.name.clone(),
-                    ))
-                    .paginate(25)
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |d: &Dummy| d.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
+                        d.name.clone()
+                    }),
+                )
+                .paginate(25)
             }
         }
         #[derive(crate::RecordForm)]
@@ -1647,14 +1639,14 @@ mod tests {
             fn can_view_any(_cx: &Cx) -> bool {
                 true
             }
-            fn table(cx: &Cx) -> crate::resource::Table<Scoped> {
-                crate::resource::Table::r#for(cx)
-                    .key(|s: &Scoped| s.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
-                        Scoped::fields().name(),
-                        |s: &Scoped| s.name.clone(),
-                    ))
-                    .paginate(25)
+            fn table(_cx: &Cx) -> crate::resource::Table<Scoped> {
+                crate::resource::Table::new(
+                    |s: &Scoped| s.id.to_string(),
+                    crate::resource::TextColumn::r#for(Scoped::fields().name(), |s: &Scoped| {
+                        s.name.clone()
+                    }),
+                )
+                .paginate(25)
             }
         }
 
@@ -1740,13 +1732,14 @@ mod tests {
                 // A realistic paginated table: the tampered cursor must reach
                 // the decode inside `load_table_page` (only paginated loads
                 // decode cursors), not die earlier on missing declarations.
-                Table::<Subscriber>::new()
-                    .key(|s| s.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
+                Table::<Subscriber>::new(
+                    |s| s.id.to_string(),
+                    crate::resource::TextColumn::r#for(
                         Subscriber::fields().email(),
                         |s: &Subscriber| s.email.clone(),
-                    ))
-                    .paginate(25)
+                    ),
+                )
+                .paginate(25)
             }
         }
 
@@ -1884,13 +1877,14 @@ mod tests {
             }
 
             fn table(_cx: &Cx) -> Table<Self::Model> {
-                Table::<Subscriber>::new()
-                    .key(|s| s.id.to_string())
-                    .columns(crate::resource::TextColumn::r#for(
+                Table::<Subscriber>::new(
+                    |s| s.id.to_string(),
+                    crate::resource::TextColumn::r#for(
                         Subscriber::fields().email(),
                         |s: &Subscriber| s.email.clone(),
-                    ))
-                    .paginate(1)
+                    ),
+                )
+                .paginate(1)
             }
         }
 

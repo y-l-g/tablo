@@ -1,6 +1,6 @@
 # Relations: no new Relation trait, includes declared where they are read
 
-Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-18, 2026-09-22, 2026-09-25
+Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-18, 2026-09-22, 2026-09-25, 2026-09-28
 
 ## Decision
 
@@ -53,7 +53,8 @@ sets keep membership validation. The UI is a native `<select>` plus `selects.js`
 aborts in-flight requests, preserves selection and placeholder); without JavaScript the plain select
 keeps working.
 
-**Row identity.** `Table::id` is display-only (keyed diffs, DOM ids) and `Table::pk` feeds
-edit/delete URLs and bulk checkbox values, resolved by handlers as the model's typed PK. Rendering
-action or bulk chrome without `pk` is a render error, not a silent 404, and single and bulk deletes
-require `can_view` + `can_delete` (GH #168).
+**Row identity.** `Table::new(key, columns)` declares the table's row key and record key together:
+the projection drives keyed diffs and DOM ids, and the edit/delete URLs and bulk checkbox values
+handlers resolve as the model's typed PK. `Table::new_split(display, record, columns)` splits the two
+for a table whose display projects a non-PK value (2026-09-28 amendment, GH #384). Single and bulk
+deletes require `can_view` + `can_delete` (GH #168).

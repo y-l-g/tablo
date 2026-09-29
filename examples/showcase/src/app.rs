@@ -119,10 +119,10 @@ impl Resource for UserResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<User> {
-        Table::r#for(cx)
-            .key(|u: &User| u.id.to_string())
-            .columns((
+    fn table(_cx: &Cx) -> Table<User> {
+        Table::new(
+            |u: &User| u.id.to_string(),
+            (
                 TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
                     .searchable()
                     .sortable(),
@@ -134,9 +134,10 @@ impl Resource for UserResource {
                 TextColumn::computed("Created", |u: &User| {
                     u.created_at.strftime("%Y-%m-%d").to_string()
                 }),
-            ))
-            .paginate(25)
-            .live_search(true)
+            ),
+        )
+        .paginate(25)
+        .live_search(true)
     }
 
     fn view(_cx: &Cx) -> Schema {
@@ -275,18 +276,19 @@ impl Resource for AuthorResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Author> {
-        Table::r#for(cx)
-            .key(|a: &Author| a.id.to_string())
-            .columns((
+    fn table(_cx: &Cx) -> Table<Author> {
+        Table::new(
+            |a: &Author| a.id.to_string(),
+            (
                 TextColumn::r#for(Author::fields().name(), |a: &Author| a.name.clone())
                     .searchable()
                     .sortable(),
                 TextColumn::r#for(Author::fields().email(), |a: &Author| a.email.clone())
                     .searchable(),
-            ))
-            .paginate(25)
-            .live_search(true)
+            ),
+        )
+        .paginate(25)
+        .live_search(true)
     }
 
     delete_through_query!(Author);
@@ -515,10 +517,10 @@ impl Resource for PostResource {
         true
     }
 
-    fn table(cx: &Cx) -> Table<Post> {
-        Table::r#for(cx)
-            .key(|p: &Post| p.id.to_string())
-            .columns((
+    fn table(_cx: &Cx) -> Table<Post> {
+        Table::new(
+            |p: &Post| p.id.to_string(),
+            (
                 TextColumn::r#for(Post::fields().title(), |p: &Post| p.title.clone())
                     .searchable()
                     .sortable(),
@@ -562,42 +564,43 @@ impl Resource for PostResource {
                     }
                 })
                 .needs(["comments"]),
-            ))
-            .filters((
-                SelectFilter::r#for(
-                    Post::fields().status(),
-                    vec!["draft".into(), "published".into()],
-                ),
-                TernaryFilter::r#for(Post::fields().featured()),
-                DateFilter::r#for(Post::fields().created_at()),
-                // Prebuilt-expression VariantFilter (no embedded enum needed):
-                // the editorial facet, where each option pairs the featured
-                // flag with the lifecycle status — `Promoted` is featured and
-                // published, `Backlog` is a draft that is not featured.
-                VariantFilter::r#for(
-                    "promoted",
-                    "Promoted",
-                    vec![
-                        (
-                            "Promoted".to_string(),
-                            Post::fields()
-                                .featured()
-                                .eq(true)
-                                .and(Post::fields().status().eq("published".to_string())),
-                        ),
-                        (
-                            "Backlog".to_string(),
-                            Post::fields()
-                                .featured()
-                                .eq(false)
-                                .and(Post::fields().status().eq("draft".to_string())),
-                        ),
-                    ],
-                ),
-            ))
-            .group_by("status", |p: &Post| p.status.clone())
-            .paginate(25)
-            .live_search(true)
+            ),
+        )
+        .filters((
+            SelectFilter::r#for(
+                Post::fields().status(),
+                vec!["draft".into(), "published".into()],
+            ),
+            TernaryFilter::r#for(Post::fields().featured()),
+            DateFilter::r#for(Post::fields().created_at()),
+            // Prebuilt-expression VariantFilter (no embedded enum needed):
+            // the editorial facet, where each option pairs the featured
+            // flag with the lifecycle status — `Promoted` is featured and
+            // published, `Backlog` is a draft that is not featured.
+            VariantFilter::r#for(
+                "promoted",
+                "Promoted",
+                vec![
+                    (
+                        "Promoted".to_string(),
+                        Post::fields()
+                            .featured()
+                            .eq(true)
+                            .and(Post::fields().status().eq("published".to_string())),
+                    ),
+                    (
+                        "Backlog".to_string(),
+                        Post::fields()
+                            .featured()
+                            .eq(false)
+                            .and(Post::fields().status().eq("draft".to_string())),
+                    ),
+                ],
+            ),
+        ))
+        .group_by("status", |p: &Post| p.status.clone())
+        .paginate(25)
+        .live_search(true)
     }
 
     delete_through_query!(Post);
@@ -878,10 +881,10 @@ impl Resource for CommentResource {
         Self::base(needs)
     }
 
-    fn table(cx: &Cx) -> Table<Comment> {
-        Table::r#for(cx)
-            .key(|c: &Comment| c.id.to_string())
-            .columns((
+    fn table(_cx: &Cx) -> Table<Comment> {
+        Table::new(
+            |c: &Comment| c.id.to_string(),
+            (
                 TextColumn::r#for(Comment::fields().body(), |c: &Comment| c.body.clone())
                     .searchable()
                     .sortable(),
@@ -900,9 +903,10 @@ impl Resource for CommentResource {
                 // computed column defaults to.
                 .width(ColumnWidth::Wide)
                 .needs(["post"]),
-            ))
-            .paginate(25)
-            .live_search(true)
+            ),
+        )
+        .paginate(25)
+        .live_search(true)
     }
 
     delete_through_query!(Comment);

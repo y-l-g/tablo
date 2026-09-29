@@ -114,9 +114,10 @@ mod tests {
     #[tokio::test]
     async fn skeleton_shares_the_table_root_with_the_swapped_body() {
         let cx = CxTestBuilder::new().build();
-        let tbl = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()));
+        let tbl = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        );
         let html = tbl
             .render_skeleton(&cx)
             .await
@@ -189,10 +190,11 @@ mod tests {
         // The skeleton's action column must count every row link `render_inner`
         // renders, `with_view` included, or the swap changes the table width.
         let cx = CxTestBuilder::new().build();
-        let tbl = Table::<User>::r#for(&cx)
-            .key(|u| u.id.to_string())
-            .columns(TextColumn::r#for(User::fields().name(), |u| u.name.clone()))
-            .with_view("/admin/users".to_string());
+        let tbl = Table::<User>::new(
+            |u| u.id.to_string(),
+            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+        )
+        .with_view("/admin/users".to_string());
         let skeleton = tbl
             .render_skeleton(&cx)
             .await

@@ -399,13 +399,11 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
             // Deny second record (name == "b")
             rec.name != "b"
         }
-        fn table(cx: &topcoat::context::Cx) -> Table<DummyUser> {
-            Table::r#for(cx)
-                .key(|u: &DummyUser| u.id.to_string())
-                .columns(TextColumn::r#for(
-                    DummyUser::fields().name(),
-                    |u: &DummyUser| u.name.clone(),
-                ))
+        fn table(_cx: &topcoat::context::Cx) -> Table<DummyUser> {
+            Table::new(
+                |u: &DummyUser| u.id.to_string(),
+                TextColumn::r#for(DummyUser::fields().name(), |u: &DummyUser| u.name.clone()),
+            )
         }
     }
 
