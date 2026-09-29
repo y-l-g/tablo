@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ae68d531.js";
+            window.path_to_searchindex_js = "searchindex-e918a8d8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -346,7 +346,7 @@ its form and declares its list view, and any other omission has to fail loudly i
 <ul>
 <li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): the declared table must serve a list, so
 <code>paginate(0)</code> fails the build. A
-<code>NoForm</code> resource whose <code>can_create</code> or <code>editable()</code> is on, or whose <code>form()</code> declares a schema,
+<code>NoForm</code> resource whose <code>can_create</code> is on, or whose <code>form()</code> declares a schema,
 fails the build, since it serves no form; a record form must agree with its <code>form()</code> schema
 (<a href="#the-record-form">Forms</a>). <code>table()</code>, <code>form()</code> and
 <code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
@@ -354,22 +354,20 @@ and each list and form request calls <code>table()</code> / <code>form()</code> 
 request-scoped context.</li>
 <li><strong>At request time, loudly</strong>: <code>delete_record</code> defaults to an error naming the type (“delete not
 implemented for …”), so a missing implementation never looks like a successful no-op.</li>
-<li><strong>Chrome is opt-in, gated per record</strong>: <code>deletable()</code> and <code>editable()</code> default to <code>false</code>, so a
-resource that never mentions them renders no Edit or Delete affordance — the routes it serves still
-exist, and the default-deny <code>can_*</code> predicates answer them. A resource that wants the chrome declares the
-flag <strong>and</strong> the policy predicate it promises: <code>can_view()</code> + <code>can_delete()</code> for <code>deletable()</code>,
-<code>can_view()</code> + <code>can_update()</code> for <code>editable()</code>. The flag is the whole-resource gate (GH #226);
-the predicates are
-applied <strong>per row</strong> (GH #235). The panel wires them into the table’s row policy, so a row
-<code>can_update()</code> refuses renders no Edit link, a row <code>can_delete()</code> refuses renders no Delete link
-and no bulk checkbox, and a row <code>can_view()</code> refuses renders
-no View link. Select-all therefore submits only the rows the handler will accept — the showcase’s
-SSO-guarded user is the worked example: its row keeps the View link and nothing else. The handler
-keeps its all-or-nothing check on the POST as the safety net for a hand-crafted request. The
-<code>View</code> link needs no flag at all — it is derived from whether the resource declares a <code>view()</code>
-schema, so there the route and the row link cannot disagree.</li>
-<li><strong>Default-deny stands</strong>: every <code>can_*</code> defaults to <code>false</code>, so an unconfigured resource exposes
-no data and no mutation.</li>
+<li><strong>Chrome follows the declarations, gated per record</strong>: the row Delete control, the bulk column,
+and the bulk bar render when <code>can_delete_any()</code> allows, the Edit link when the resource has a
+record form, and the View link when it declares <code>view()</code>. <code>can_delete_any()</code> defaults to <code>false</code>
+and the delete handlers check it too, so a resource that never mentions it renders no delete
+affordance and answers every delete POST with 403. <code>can_delete()</code> defaults to <code>can_delete_any()</code>;
+override it to refuse some rows. The panel applies the row predicates <strong>per row</strong> through the
+table’s row policy (GH #235), so a row <code>can_update()</code> refuses renders no Edit link, a row
+<code>can_delete()</code> refuses renders no Delete link and no bulk checkbox, and a row <code>can_view()</code>
+refuses renders no View link. Select-all therefore submits only the rows the handler will accept
+— the showcase’s SSO-guarded user is the worked example: its row keeps the View link and nothing
+else. The handler keeps its all-or-nothing check on the POST as the safety net for a hand-crafted
+request.</li>
+<li><strong>Default-deny stands</strong>: every <code>can_*</code> defaults to <code>false</code>, except <code>can_delete()</code>, which defaults
+to <code>can_delete_any()</code>; an unconfigured resource exposes no data and no mutation.</li>
 </ul>
 <h2 id="what-to-know"><a class="header" href="#what-to-know">What to know</a></h2>
 <ul>
@@ -613,9 +611,9 @@ file. <code>?bom=1</code> opts into an Excel BOM.</li>
 <span class="boring">}</span></code></pre>
 <p>Search, sort, filter, and pager controls then refresh the table in place without a full page load.
 The plain links and forms stay as the no-JS fallback.</p>
-<p>Panel wires the bulk checkbox column when the resource opts in with <code>deletable() -&gt; true</code> (GH #226:
-chrome is opt-in, and the flag pairs with <code>can_view</code> + <code>can_delete</code>). The column then follows those
-predicates per record (GH #235): a row either one refuses renders no checkbox,
+<p>Panel wires the bulk checkbox column when the resource’s <code>can_delete_any()</code> allows, the same
+predicate the delete handlers check. The column then follows <code>can_view</code> + <code>can_delete</code> per record
+(GH #235): a row either one refuses renders no checkbox,
 so select-all never submits a key the handler would refuse
 the whole batch over. A row refused every action keeps an empty actions cell,
 so the row keeps a cell per header. Bulk delete asks first: the bulk bar’s

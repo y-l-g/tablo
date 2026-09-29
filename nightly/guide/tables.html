@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ae68d531.js";
+            window.path_to_searchindex_js = "searchindex-e918a8d8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -276,9 +276,9 @@ file. <code>?bom=1</code> opts into an Excel BOM.</li>
 <span class="boring">}</span></code></pre>
 <p>Search, sort, filter, and pager controls then refresh the table in place without a full page load.
 The plain links and forms stay as the no-JS fallback.</p>
-<p>Panel wires the bulk checkbox column when the resource opts in with <code>deletable() -&gt; true</code> (GH #226:
-chrome is opt-in, and the flag pairs with <code>can_view</code> + <code>can_delete</code>). The column then follows those
-predicates per record (GH #235): a row either one refuses renders no checkbox,
+<p>Panel wires the bulk checkbox column when the resource’s <code>can_delete_any()</code> allows, the same
+predicate the delete handlers check. The column then follows <code>can_view</code> + <code>can_delete</code> per record
+(GH #235): a row either one refuses renders no checkbox,
 so select-all never submits a key the handler would refuse
 the whole batch over. A row refused every action keeps an empty actions cell,
 so the row keeps a cell per header. Bulk delete asks first: the bulk bar’s

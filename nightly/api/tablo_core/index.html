@@ -75,7 +75,7 @@ Identity is two projections: the display key (keyed diffs, DOM ids) and the
 record key (edit/delete URLs, bulk checkbox values), resolved by handlers as the
 typed PK. A table whose display projects a non-PK value uses
 <code>Table::new_split(display, record, columns)</code>.</p>
-<p>Row chrome is opt-in per resource (<code>TableChrome</code>, GH #226) and gated per record by the table’s
+<p>Row chrome follows the resource’s declarations (<code>TableChrome</code>, GH #383) and is gated per record by the table’s
 <strong>row policy</strong>, which the panel wires from the resource’s
 <code>can_view</code>/<code>can_update</code>/<code>can_delete</code>: a refused row renders no link, and a delete-refused row no
 bulk checkbox. The handler’s all-or-nothing check stays as
@@ -127,28 +127,15 @@ instead, which defaults to this query (GH #177). See
 <p><em>Avoid</em>: Scope, EloquentQuery, Builder (as domain term)</p>
 <h4 id="policy"><a class="doc-anchor" href="#policy">§</a>Policy</h4>
 <p>The per-Resource authorization rules, implemented as <code>Resource::can_view_any</code>/<code>can_view</code>/
-<code>can_create</code>/<code>can_update</code>/<code>can_delete</code> — the one authorization vocabulary. Default-deny; checked
-in both page and POST handlers, and in relationship option loads (GH #108). The row/bulk chrome
-that promises these actions is opt-in to match (GH #226): <code>Resource::editable</code>/<code>deletable</code> default
-to <code>false</code>, and the panel applies the predicates per row through the table’s row policy (GH #235).
-<code>Resource::viewed</code> works the same way, derived from the declared <code>view</code> schema. See
-<a href="docs/guide/src/policy-auth-tenancy.md">policy, auth, tenancy</a>.</p>
+<code>can_create</code>/<code>can_update</code>/<code>can_delete_any</code>/<code>can_delete</code> — the one authorization vocabulary.
+Default-deny; checked in both page and POST handlers, and in relationship option loads (GH #108).
+The row chrome follows the declarations that also govern each route (GH #383): the row Delete
+control, the bulk column, and the bulk bar render when <code>can_delete_any</code> allows, the Edit link when
+the resource has a record form, and the View link when <code>Resource::viewed</code> holds. The panel then
+applies <code>can_view</code> + <code>can_update</code> / <code>can_delete</code> per row through the table’s row policy (GH #235):
+a refused row renders no link and an empty bulk cell. <code>can_delete</code> defaults to <code>can_delete_any</code>.
+See <a href="docs/guide/src/policy-auth-tenancy.md">policy, auth, tenancy</a>.</p>
 <p><em>Avoid</em>: Guard, Permission, Gate, Ability, Policy trait</p>
-<h4 id="editable"><a class="doc-anchor" href="#editable">§</a>editable</h4>
-<p>A <strong>chrome switch</strong>, not a policy predicate: <code>Resource::editable()</code> decides whether the per-row
-<code>Edit</code> link renders (GH #162). Defaults to <code>false</code> (GH #226). A resource that opts in overrides
-it to <code>true</code> alongside the predicate it promises (<code>can_view</code> + <code>can_update</code>), which the panel
-applies per record (GH #235). It grants nothing: the edit GET and POST always require
-<code>can_view</code> + <code>can_update</code>, and the routes exist whether or not the link renders.</p>
-<p><em>Avoid</em>: Writable, Mutable, can_edit</p>
-<h4 id="deletable"><a class="doc-anchor" href="#deletable">§</a>deletable</h4>
-<p>A <strong>chrome switch</strong>, not a policy predicate: <code>Resource::deletable()</code> decides whether the row
-Delete button and the bulk checkbox column render (GH #96). Defaults to <code>false</code> (GH #226).
-A resource that opts in overrides it to <code>true</code> alongside <code>can_view</code> + <code>can_delete</code>, which the
-panel applies per record (GH #235): a refused row renders no Delete link and a <strong>disabled</strong> bulk
-checkbox labelled with the reason. It grants nothing: <code>delete_record</code>/<code>bulk_delete_records</code>
-re-check <code>can_delete</code> on the loaded record inside the handler’s transaction.</p>
-<p><em>Avoid</em>: Destroyable, Removable, can_delete</p>
 <h4 id="navigationitem"><a class="doc-anchor" href="#navigationitem">§</a>NavigationItem</h4>
 <p>An entry in the Panel sidebar: a label, a NavTarget, and a sort order. Derived by default from a
 Resource, overridable to change the label, the order, or an explicit URL. The Panel that owns the
