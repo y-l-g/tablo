@@ -1,0 +1,254 @@
+   Compiling libc v0.2.189
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.26
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling cfg-if v1.0.5
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling thiserror v2.0.21
+   Compiling syn v3.0.6
+   Compiling httparse v1.10.1
+   Compiling zmij v1.0.23
+   Compiling typenum v1.20.1
+   Compiling bytes v1.12.1
+   Compiling itoa v1.0.18
+   Compiling serde_json v1.0.151
+   Compiling foldhash v0.2.0
+   Compiling equivalent v1.0.2
+   Compiling allocator-api2 v0.2.21
+   Compiling pin-project-lite v0.2.17
+   Compiling zerocopy v0.8.59
+   Compiling hashbrown v0.17.1
+   Compiling syn v2.0.119
+   Compiling indexmap v2.14.2
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.3
+   Compiling futures-core v0.3.34
+   Compiling winnow v1.0.4
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling http v1.5.0
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling getrandom v0.3.4
+   Compiling getrandom v0.2.17
+   Compiling ref-cast v1.0.27
+   Compiling memchr v2.8.3
+   Compiling tokio-macros v2.7.2
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling tokio v1.53.1
+   Compiling futures-macro v0.3.34
+   Compiling tracing-attributes v0.1.31
+   Compiling ref-cast-impl v1.0.27
+   Compiling find-msvc-tools v0.1.14
+   Compiling shlex v2.0.1
+   Compiling cc v1.5.1
+   Compiling once_cell v1.21.4
+   Compiling heck v0.5.0
+   Compiling futures-sink v0.3.34
+   Compiling serde v1.0.229
+   Compiling slab v0.4.12
+   Compiling toml_edit v0.25.15+spec-1.1.0
+   Compiling rand_core v0.6.4
+   Compiling errno v0.3.14
+   Compiling stable_deref_trait v1.2.1
+   Compiling getrandom v0.4.3
+   Compiling elsa v1.11.2
+   Compiling proc-macro-crate v3.5.0
+   Compiling signal-hook-registry v1.4.8
+   Compiling siphasher v1.0.4
+   Compiling percent-encoding v2.3.2
+   Compiling base64 v0.22.1
+   Compiling smallvec v1.16.2
+   Compiling futures-task v0.3.34
+   Compiling anymap3 v1.1.0
+   Compiling futures-util v0.3.34
+   Compiling topcoat-core v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling log v0.4.34
+   Compiling crypto-common v0.1.7
+   Compiling ring v0.17.14
+   Compiling subtle v2.6.1
+   Compiling topcoat-core-grammar v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling tracing-core v0.1.36
+   Compiling topcoat-view v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling cpufeatures v0.3.1
+   Compiling tracing v0.1.44
+   Compiling crc32fast v1.5.2
+   Compiling cmov v0.5.4
+   Compiling rand_core v0.9.5
+   Compiling ctutils v0.4.2
+   Compiling block-buffer v0.10.4
+   Compiling form_urlencoded v1.2.2
+   Compiling hybrid-array v0.4.15
+   Compiling digest v0.10.7
+   Compiling tokio-util v0.7.19
+   Compiling http-body v1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling rustls v0.23.45
+   Compiling toml_writer v1.1.2+spec-1.1.0
+   Compiling atomic-waker v1.1.2
+   Compiling fnv v1.0.7
+   Compiling cpufeatures v0.2.17
+   Compiling sha1 v0.10.7
+   Compiling toml v1.1.6+spec-1.1.0
+   Compiling h2 v0.4.19
+   Compiling ppv-lite86 v0.2.21
+   Compiling crypto-common v0.2.2
+   Compiling rand_chacha v0.9.0
+   Compiling rand v0.9.5
+   Compiling block-buffer v0.12.1
+   Compiling futures-channel v0.3.34
+   Compiling httpdate v1.0.3
+   Compiling const-oid v0.10.2
+   Compiling data-encoding v2.11.1
+   Compiling digest v0.11.3
+   Compiling hyper v1.11.1
+   Compiling topcoat-view-grammar v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling tungstenite v0.29.0
+   Compiling rand_core v0.10.1
+   Compiling ryu v1.0.23
+   Compiling zeroize v1.9.0
+   Compiling rustls-pki-types v1.15.1
+   Compiling serde_urlencoded v0.7.1
+   Compiling tokio-tungstenite v0.29.0
+   Compiling hyper-util v0.1.21
+   Compiling sha2 v0.11.0
+   Compiling topcoat-view-macro v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling http-body-util v0.1.5
+   Compiling serde_path_to_error v0.1.20
+   Compiling inventory v0.3.24
+   Compiling untrusted v0.9.0
+   Compiling matchit v0.9.2
+   Compiling ipnet v2.12.2
+   Compiling topcoat-router v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling adler2 v2.0.1
+   Compiling simd-adler32 v0.3.10
+   Compiling miniz_oxide v0.9.1
+   Compiling rustls-webpki v0.103.15
+   Compiling topcoat-asset v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling base64 v0.23.1
+   Compiling rustversion v1.0.23
+   Compiling ureq-proto v0.6.4
+   Compiling flate2 v1.1.10
+   Compiling webpki-roots v1.0.9
+   Compiling topcoat-font v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling utf8-zero v0.8.1
+   Compiling ureq v3.4.2
+   Compiling encoding_rs v0.8.42
+   Compiling unicase v2.9.0
+   Compiling mime_guess v2.0.5
+   Compiling topcoat-icon v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling topcoat-runtime v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling multer v3.1.0
+   Compiling multiversion_no_op v1.0.0
+   Compiling core_detect v1.0.0
+   Compiling simdutf8 v0.1.5
+   Compiling mime v0.3.17
+   Compiling scopeguard v1.2.0
+   Compiling topcoat-font-grammar v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling topcoat-runtime-grammar v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling topcoat-icon-grammar v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling topcoat-router-grammar v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling inout v0.1.4
+   Compiling spin v0.9.9
+   Compiling topcoat-router-macro v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling topcoat-icon-macro v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling cipher v0.4.4
+   Compiling topcoat-runtime-macro v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling topcoat-font-macro v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling topcoat-core-macro v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling universal-hash v0.5.1
+   Compiling opaque-debug v0.3.1
+   Compiling polyval v0.6.2
+   Compiling topcoat-tailwind v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling time-core v0.1.9
+   Compiling num-conv v0.2.2
+   Compiling time-macros v0.2.32
+   Compiling topcoat v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling ghash v0.5.1
+   Compiling ctr v0.9.2
+   Compiling aes v0.8.4
+   Compiling rand_chacha v0.3.1
+   Compiling hmac v0.12.1
+   Compiling aead v0.5.2
+   Compiling cookie v0.18.2
+   Compiling powerfmt v0.2.0
+   Compiling deranged v0.5.8
+   Compiling aes-gcm v0.10.3
+   Compiling hkdf v0.12.4
+   Compiling rand v0.8.8
+   Compiling tablo-ui v0.1.0 (/home/youenn/Documents/Github/filament-topcoat/argentum/.claude/worktrees/policy-derived-chrome/crates/tablo-ui)
+   Compiling time v0.3.55
+   Compiling sha2 v0.10.9
+   Compiling chacha20 v0.10.2
+   Compiling async-trait v0.1.92
+   Compiling vcpkg v0.2.15
+   Compiling pkg-config v0.3.34
+   Compiling rand v0.10.3
+   Compiling libsqlite3-sys v0.38.2
+   Compiling topcoat-cookie v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling aho-corasick v1.1.5
+   Compiling bit-vec v0.10.1
+   Compiling web-time v1.1.0
+   Compiling borrow-or-share v0.2.4
+   Compiling jiff-core v0.1.1
+   Compiling regex-syntax v0.8.11
+   Compiling jiff v0.2.37
+   Compiling regex-automata v0.4.18
+   Compiling bit-set v0.11.1
+   Compiling fluent-uri v0.4.1
+   Compiling topcoat-session v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling uuid v1.26.1
+   Compiling tokio-stream v0.1.19
+   Compiling toasty-core v0.11.0 (https://github.com/tokio-rs/toasty?rev=b1713229065feaae51e560f1f0548226465621db#b1713229)
+   Compiling regex v1.13.1
+   Compiling hashlink v0.12.2
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling toasty-macros v0.11.0 (https://github.com/tokio-rs/toasty?rev=b1713229065feaae51e560f1f0548226465621db#b1713229)
+   Compiling base64ct v1.8.3
+   Compiling fallible-iterator v0.3.0
+   Compiling bitflags v2.13.2
+   Compiling phc v0.6.1
+   Compiling pluralizer v0.5.0
+   Compiling deadpool-runtime v0.3.1
+   Compiling toasty v0.11.0 (https://github.com/tokio-rs/toasty?rev=b1713229065feaae51e560f1f0548226465621db#b1713229)
+   Compiling deadpool v0.13.1
+   Compiling password-hash v0.6.1
+   Compiling toasty-sql v0.11.0 (https://github.com/tokio-rs/toasty?rev=b1713229065feaae51e560f1f0548226465621db#b1713229)
+   Compiling rusqlite v0.40.2
+   Compiling blake2 v0.11.0
+   Compiling tablo-macros v0.1.0 (/home/youenn/Documents/Github/filament-topcoat/argentum/.claude/worktrees/policy-derived-chrome/crates/tablo-macros)
+   Compiling by_address v1.2.1
+   Compiling toasty-driver-sqlite v0.11.0 (https://github.com/tokio-rs/toasty?rev=b1713229065feaae51e560f1f0548226465621db#b1713229)
+   Compiling index_vec v0.1.4
+   Compiling argon2 v0.6.0
+   Compiling email_address v0.2.9
+   Compiling topcoat-ui-registry v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling anyhow v1.0.104
+   Compiling topcoat-ui v0.9.0 (https://github.com/tokio-rs/topcoat?rev=866f81afb38e3dad29f2c174be28d98c8728f45f#866f81af)
+   Compiling lazy_static v1.5.0
+   Compiling sharded-slab v0.1.7
+   Compiling tracing-log v0.2.0
+   Compiling thread_local v1.1.10
+   Compiling nu-ansi-term v0.50.3
+   Compiling tracing-subscriber v0.3.23
+   Compiling xtask v0.1.0 (/home/youenn/Documents/Github/filament-topcoat/argentum/.claude/worktrees/policy-derived-chrome/xtask)
+   Compiling showcase v0.1.0 (/home/youenn/Documents/Github/filament-topcoat/argentum/.claude/worktrees/policy-derived-chrome/examples/showcase)
+   Compiling tablo-core v0.1.0 (/home/youenn/Documents/Github/filament-topcoat/argentum/.claude/worktrees/policy-derived-chrome/crates/tablo-core)
+error[E0599]: no associated function or constant named `editable` found for type parameter `R` in the current scope
+   --> crates/tablo-core/src/panel/build.rs:426:49
+    |
+406 | fn check_form_declaration<R: Resource>(cx: &Cx) -> Result<(), String> {
+    |                           - associated function or constant `editable` not found for this type parameter
+...
+426 |     let declared = match (R::can_create(cx), R::editable()) {
+    |                                                 ^^^^^^^^ associated function or constant not found in `R`
+    |
+help: there is an associated function `table` with a similar name
+   --> crates/tablo-core/src/resource/mod.rs:412:5
+    |
+412 |     fn table(_cx: &Cx) -> Table<Self::Model>;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `tablo-core` (lib) due to 1 previous error

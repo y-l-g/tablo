@@ -103,20 +103,13 @@ impl Resource for PostResource {
     fn can_view(_cx: &Cx, _record: &Post) -> bool {
         true
     }
-    // GH #226: `editable()`/`deletable()` are opt-in, so the predicates they
-    // promise are declared beside them. `bench_list_path` renders the wired
-    // table, so `can_view`/`can_update`/`can_delete` each run once per rendered
-    // row inside the timed region — the pairing is part of what is measured.
+    // `bench_list_path` renders the wired table, so `can_view`/`can_update`/
+    // `can_delete` each run once per rendered row inside the timed region —
+    // the row policy is part of what is measured.
     fn can_update(_cx: &Cx, _record: &Post) -> bool {
         true
     }
-    fn can_delete(_cx: &Cx, _record: &Post) -> bool {
-        true
-    }
-    fn editable() -> bool {
-        true
-    }
-    fn deletable() -> bool {
+    fn can_delete_any(_cx: &Cx) -> bool {
         true
     }
     fn requires_tenant() -> bool {

@@ -65,10 +65,11 @@ use crate::{
 /// [`Table::load`](crate::resource::Table::load) and
 /// [`Table::render_live_with_state`](crate::resource::Table::render_live_with_state).
 /// The table carries `R::table`'s columns, key, page size, search toolbar and
-/// filter bar, plus the action chrome `R` declares — the row Delete link and
-/// bulk column from [`deletable`](crate::resource::Resource::deletable), the
-/// Edit link from [`editable`](crate::resource::Resource::editable) and the
-/// View link from [`viewed`](crate::resource::Resource::viewed) — each gated
+/// filter bar, plus the action chrome `R`'s declarations imply — the row
+/// Delete link and bulk column from
+/// [`can_delete_any`](crate::resource::Resource::can_delete_any), the Edit link
+/// from a record form ([`RecordForm::HAS_FORM`])
+/// and the View link from [`viewed`](crate::resource::Resource::viewed) — each gated
 /// per row by `can_view`/`can_update`/`can_delete`, the wiring the panel's own
 /// list applies. The chrome has no other entry point: a page-owned table that
 /// must agree with the resource's routes takes its wiring from here.
@@ -264,8 +265,8 @@ impl Panel {
     /// resource type, so one type serves the same routes in every panel.
     ///
     /// [`Panel::build`] checks that the resource's [`form`](Resource::form)
-    /// agrees with its `Form`, that a resource with no form allows neither
-    /// `can_create` nor `editable()`, and, for a resource with a form, that the
+    /// agrees with its `Form`, that a resource with no form does not allow
+    /// `can_create`, and, for a resource with a form, that the
     /// form's struct and its `Schema` agree: every control is bound by exactly
     /// one field and every field's key is a declared control; an optional
     /// control, or one inside a `Repeater` or a variant group, binds a field

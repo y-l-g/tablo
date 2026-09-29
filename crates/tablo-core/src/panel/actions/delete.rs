@@ -42,6 +42,11 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::<_, BoxView<'_>>::new(
         async move {
             gate::<R>(cx)?;
+            // The whole-resource half of the policy, before the body is read:
+            // a resource that allows no delete renders no delete chrome.
+            if !R::can_delete_any(cx) {
+                return Err(forbidden().into());
+            }
             // Delete/bulk-delete carry no file parts: only the values half is read.
             let values = parse_form_body(cx, body).await?.values;
             crate::csrf::verify(cx, &values)?;
@@ -125,7 +130,7 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 false
             }
-            fn can_delete(_cx: &Cx, _record: &Dummy) -> bool {
+            fn can_delete_any(_cx: &Cx) -> bool {
                 true
             }
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
@@ -193,6 +198,82 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delete_and_bulk_delete_require_can_delete_any() {
+        // `can_delete_any` is the whole-resource gate the delete chrome
+        // follows, so a POST to a resource that leaves it at its default is
+        // refused even when the row predicates allow the record.
+
+        use crate::resource::Resource;
+
+        struct RowOnlyResource;
+        impl Resource for RowOnlyResource {
+            type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
+            fn slug() -> String {
+                "dummies".to_string()
+            }
+            fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
+                true
+            }
+            fn can_delete(_cx: &Cx, _record: &Dummy) -> bool {
+                true
+            }
+            fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
+                dummy_table(cx)
+            }
+        }
+
+        let mut db = Db::builder()
+            .models(toasty::models!(Dummy))
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        db.push_schema().await.unwrap();
+        let row = toasty::create!(Dummy {
+            name: "Ada".to_string(),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+        let router = panel_for::<RowOnlyResource>(db.clone())
+            .build()
+            .expect("panel builds");
+        let token = uuid::Uuid::new_v4().to_string();
+        let post = |uri: String, body: String| {
+            router.handle(
+                http::Request::builder()
+                    .uri(uri)
+                    .method(http::Method::POST)
+                    .header(
+                        http::header::CONTENT_TYPE,
+                        "application/x-www-form-urlencoded",
+                    )
+                    .header(
+                        http::header::COOKIE,
+                        format!("{}={token}", crate::csrf::COOKIE_NAME),
+                    )
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+        };
+        let single = post(
+            format!("/admin/dummies/{}/delete", row.id),
+            format!("confirm=1&csrf_token={token}"),
+        )
+        .await;
+        assert_eq!(single.status(), http::StatusCode::FORBIDDEN);
+        let bulk = post(
+            "/admin/dummies/bulk-delete".to_string(),
+            format!("ids={}&confirm=1&csrf_token={token}", row.id),
+        )
+        .await;
+        assert_eq!(bulk.status(), http::StatusCode::FORBIDDEN);
+        let mut db = db;
+        let remaining = Dummy::all().exec(&mut db).await.unwrap();
+        assert_eq!(remaining.len(), 1, "a refused delete writes nothing");
+    }
+
+    #[tokio::test]
     async fn delete_resolves_record_key_not_display_key() {
         // GH #168 defect 1 round-trip: the display key projects a non-PK value
         // (the name), the record key carries the typed PK. Handlers must 404
@@ -207,7 +288,7 @@ mod tests {
             fn slug() -> String {
                 "dummies".to_string()
             }
-            fn can_delete(_cx: &Cx, _record: &Dummy) -> bool {
+            fn can_delete_any(_cx: &Cx) -> bool {
                 true
             }
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {

@@ -42,15 +42,16 @@ pub(crate) fn retry_url_for_error(
     }
 }
 
-/// The action chrome a resource declares: the one derivation
+/// The action chrome a resource's declarations imply: the one derivation
 /// [`wire_table_actions`] reads to decide which affordances the table it serves
-/// carries.
+/// carries. Each column follows what also governs its route — the delete
+/// handlers check `can_delete_any`, only a record form registers the edit
+/// route, and only a `view` schema serves the detail page — and is answered
+/// once per request, so the streamed skeleton and the table agree.
 pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
     TableChrome {
-        delete: R::deletable(),
-        edit: R::editable(),
-        // the View link follows the declaration, not a flag — a
-        // resource with no `view` schema has no page to link to.
+        delete: R::can_delete_any(cx),
+        edit: <R::Form as RecordForm>::HAS_FORM,
         view: R::viewed(cx),
     }
 }
@@ -61,10 +62,9 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
 /// declaration (not the request path) so the URLs are right wherever the table
 /// renders.
 ///
-/// Chrome is opt-in and each affordance is gated by the flag that promises it —
-/// `deletable()` for row + bulk delete, `editable()` for the per-row Edit link —
-/// because the alternative ships controls whose actions always answer 403; see
-/// [`Resource::deletable`]. The per-*record* gate rides the same call: the
+/// Each affordance renders only where [`declared_chrome`] allows it, so no
+/// control ships whose route cannot answer it. The per-*record* gate rides the
+/// same call: the
 /// table's row policy pairs each action with exactly what its route checks —
 /// `can_view` for View, `can_view` + `can_update` for Edit, `can_view` +
 /// `can_delete` for Delete and the bulk checkbox. A row the predicate refuses
@@ -502,12 +502,9 @@ mod tests {
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
                 true
             }
-            // the bulk transport this test pins is opt-in chrome, so
-            // the flag and the predicate it promises are declared together.
-            fn can_delete(_cx: &Cx, _record: &Dummy) -> bool {
-                true
-            }
-            fn deletable() -> bool {
+            // the bulk transport this test pins renders where the policy
+            // allows delete.
+            fn can_delete_any(_cx: &Cx) -> bool {
                 true
             }
             fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
@@ -903,9 +900,6 @@ mod tests {
             fn slug() -> String {
                 "dummies".to_string()
             }
-            fn deletable() -> bool {
-                false
-            }
             fn can_view_any(_cx: &Cx) -> bool {
                 true
             }
@@ -953,7 +947,7 @@ mod tests {
             "read-only list must not render delete actions, got {html}"
         );
         // the read-only example must not emit an Edit link it cannot
-        // honour — it declares neither chrome flag, so both are absent.
+        // honour — it has no record form and allows no delete.
         assert!(
             !html.contains("/edit") && !html.contains(">Edit<"),
             "read-only list must not render edit actions, got {html}"
@@ -976,9 +970,6 @@ mod tests {
             type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
-            }
-            fn deletable() -> bool {
-                false
             }
             fn can_view_any(_cx: &Cx) -> bool {
                 true
@@ -1130,9 +1121,9 @@ mod tests {
 
     #[tokio::test]
     async fn non_editable_resource_hides_edit_links() {
-        // `editable` is the `deletable` counterpart for
-        // the per-row Edit link — read-only resources hide it, writable ones
-        // link each row to `{list}/{id}/edit`.
+        // The per-row Edit link follows the record form: a `NoForm` resource
+        // hides it, a resource with a form links each row to
+        // `{list}/{id}/edit`.
 
         use crate::resource::Resource;
 
@@ -1147,16 +1138,9 @@ mod tests {
             fn slug() -> String {
                 "dummies".to_string()
             }
-            fn deletable() -> bool {
-                false
-            }
-            // GH #226/#235: chrome is opt-in, so the writable half of this test
-            // declares the flag *and* the predicates that honour it — the row
-            // policy mirrors the edit route's own `can_view` + `can_update`
-            // check, so a flag beside default-deny predicates renders no link.
-            fn editable() -> bool {
-                true
-            }
+            // GH #235: the row policy mirrors the edit route's own `can_view`
+            // + `can_update` check, so a form beside default-deny predicates
+            // renders no link.
             fn can_view_any(_cx: &Cx) -> bool {
                 true
             }
@@ -1185,12 +1169,6 @@ mod tests {
             fn slug() -> String {
                 "dummies".to_string()
             }
-            fn deletable() -> bool {
-                false
-            }
-            fn editable() -> bool {
-                false
-            }
             fn can_view_any(_cx: &Cx) -> bool {
                 true
             }
@@ -1211,14 +1189,13 @@ mod tests {
         );
     }
 
-    /// chrome is opt-in, so a list whose rows the policy denies renders
-    /// no Edit link — the acceptance test for the flipped `editable()` default.
+    /// A list whose rows the policy denies renders no Edit link and no delete
+    /// chrome.
     ///
-    /// This resource never mentions `editable()` or `deletable()`, so no prefix
-    /// is wired and its `can_update` (untouched default-deny) is never
-    /// consulted: the coarse whole-resource flag alone withholds the chrome.
-    /// GH #235 covers the other half — a resource that opts in *and* denies a
-    /// row per record — by wiring `can_update` into the table's row policy.
+    /// This resource has a form, so the Edit prefix is wired, and its
+    /// default-deny `can_view` / `can_update` withhold the link per row. Its
+    /// `can_delete_any` is default-deny too, so no delete prefix is wired and
+    /// neither the Delete control nor the bulk column renders.
     ///
     /// The row assertion comes first so the negative assertions below cannot
     /// pass vacuously; the route assertion then records the route's own answer
@@ -1231,7 +1208,7 @@ mod tests {
 
         /// The minimum a resource can declare: `can_view_any` so the list
         /// renders, a grid and a form so there is something to link to, and
-        /// every `can_*` and chrome flag left at its default.
+        /// every other `can_*` left at its default.
         struct DeniedResource;
         impl Resource for DeniedResource {
             type Model = Dummy;
@@ -1288,13 +1265,13 @@ mod tests {
         );
         assert!(
             !html.contains("/edit") && !html.contains(">Edit<"),
-            "a resource that never opts into edit chrome must render no Edit link, got {html}"
+            "a row the policy denies must render no Edit link, got {html}"
         );
         assert!(
             !html.contains("Bulk Delete")
                 && !html.contains("data-bulk-form")
                 && !html.contains("/delete"),
-            "a resource that never opts into delete chrome must render no delete affordance, got {html}"
+            "a resource that allows no delete must render no delete affordance, got {html}"
         );
 
         // The route's own answer for the row the list no longer links.
@@ -1313,7 +1290,7 @@ mod tests {
         );
     }
 
-    /// a resource that opts into chrome narrows it per record. The
+    /// a resource whose chrome is wired narrows it per record. The
     /// panel wires each action from the predicate its route checks — `can_view`
     /// for View, `can_view` + `can_update` for Edit, `can_view` + `can_delete`
     /// for Delete and the bulk checkbox — so a refused row renders no link and
@@ -1328,8 +1305,8 @@ mod tests {
             schema::{Schema, TextInput},
         };
 
-        /// Chrome opted into for all three actions, with a policy that refuses
-        /// one row per predicate so each half is separately visible.
+        /// Chrome wired for all three actions, with a policy that refuses one
+        /// row per predicate so each half is separately visible.
         struct RowPolicyResource;
         impl Resource for RowPolicyResource {
             type Model = Dummy;
@@ -1341,10 +1318,7 @@ mod tests {
             fn slug() -> String {
                 "dummies".to_string()
             }
-            fn editable() -> bool {
-                true
-            }
-            fn deletable() -> bool {
+            fn can_delete_any(_cx: &Cx) -> bool {
                 true
             }
             fn can_view_any(_cx: &Cx) -> bool {
