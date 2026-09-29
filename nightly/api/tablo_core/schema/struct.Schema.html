@@ -75,7 +75,7 @@ contains a <a href="struct.FileUpload.html" title="struct tablo_core::schema::Fi
 <p>Absent keys are treated as <code>""</code>. The edit handler completes every key
 the submission did not post from the stored record before it validates,
 so an omitted key validates as its stored value there
-(<a href="../form/trait.FormResource.html" title="trait tablo_core::form::FormResource"><code>FormResource</code></a>). Use <a href="struct.Schema.html#method.unknown_keys" title="method tablo_core::schema::Schema::unknown_keys"><code>Self::unknown_keys</code></a> to
+(<a href="../resource/trait.Resource.html#method.update_record" title="associated function tablo_core::resource::Resource::update_record"><code>Resource::update_record</code></a>). Use <a href="struct.Schema.html#method.unknown_keys" title="method tablo_core::schema::Schema::unknown_keys"><code>Self::unknown_keys</code></a> to
 allow-list POST keys.</p>
 <p>A field a submission hides is not validated: an all-empty
 Repeater group is absent, and a variant group the submission’s

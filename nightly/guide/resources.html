@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-92db1746.js";
+            window.path_to_searchindex_js = "searchindex-ae68d531.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -188,6 +188,7 @@ and how tenancy is declared.</p>
 </span><span class="boring">fn main() {
 </span>pub trait Resource: Sized + Send + Sync + 'static {
     type Model: toasty::schema::Model + Send + Sync + 'static;
+    type Form: RecordForm&lt;Model = Self::Model&gt;;     // required: a record form, or NoForm
     fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: Query::all()
     fn query_with(_cx: &amp;Cx, _needs: &amp;IncludeNeeds)
         -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query(cx), unchanged
@@ -197,22 +198,22 @@ and how tenancy is declared.</p>
         -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query_with(cx, needs)
     fn table(_cx: &amp;Cx) -&gt; Table&lt;Self::Model&gt;;       // required: Table::new(key, columns)
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
-    // defaults, and the delete record fns
+    // defaults, form()/validate_record and the record fns
 }
 <span class="boring">}</span></code></pre>
-<p>A resource with a create or edit form also implements <code>FormResource</code>, which holds its <code>form()</code>, its
-record form type, <code>validate_record</code>, and the create and update record fns
-(<a href="./forms.html#the-record-form">Forms</a>). It registers with <code>Panel::form_resource</code>; a list-only
-resource registers with <code>Panel::resource</code>, which serves the list, the detail page, delete, bulk
-delete, and export, and links to no create page.</p>
+<p>Every resource registers with <code>Panel::resource</code>, which serves the list, the detail page, delete,
+bulk delete, and export. A resource whose <code>Form</code> is a <code>#[derive(RecordForm)]</code> struct also gets the
+create page, the edit page, and the relationship options
+(<a href="./forms.html#the-record-form">Forms</a>); a list-only resource names
+<code>type Form = NoForm&lt;Self::Model&gt;;</code> and links to no create page.</p>
 <h2 id="the-contract"><a class="header" href="#the-contract">The contract</a></h2>
-<p>Every method except <code>table()</code> is defaulted — <code>table()</code> is required, so a resource names its model
-and declares its list view, and any other omission has to fail loudly instead of quietly:</p>
+<p>Every item except <code>Model</code>, <code>Form</code>, and <code>table()</code> is defaulted, so a resource names its model and
+its form and declares its list view, and any other omission has to fail loudly instead of quietly:</p>
 <ul>
 <li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): the declared table must serve a list, so
 <code>paginate(0)</code> fails the build. A
-resource registered with <code>Panel::resource</code> whose <code>can_create</code> or <code>editable()</code> is on fails the
-build, since it serves no form; a <code>FormResource</code>’s record form must agree with its <code>form()</code> schema
+<code>NoForm</code> resource whose <code>can_create</code> or <code>editable()</code> is on, or whose <code>form()</code> declares a schema,
+fails the build, since it serves no form; a record form must agree with its <code>form()</code> schema
 (<a href="./forms.html#the-record-form">Forms</a>). <code>table()</code>, <code>form()</code> and
 <code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
 and each list and form request calls <code>table()</code> / <code>form()</code> again, so a declaration must not need
@@ -220,8 +221,8 @@ request-scoped context.</li>
 <li><strong>At request time, loudly</strong>: <code>delete_record</code> defaults to an error naming the type (“delete not
 implemented for …”), so a missing implementation never looks like a successful no-op.</li>
 <li><strong>Chrome is opt-in, gated per record</strong>: <code>deletable()</code> and <code>editable()</code> default to <code>false</code>, so a
-resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
-and the default-deny <code>can_*</code> predicates answer them. A resource that wants the chrome declares the
+resource that never mentions them renders no Edit or Delete affordance — the routes it serves still
+exist, and the default-deny <code>can_*</code> predicates answer them. A resource that wants the chrome declares the
 flag <strong>and</strong> the policy predicate it promises: <code>can_view()</code> + <code>can_delete()</code> for <code>deletable()</code>,
 <code>can_view()</code> + <code>can_update()</code> for <code>editable()</code>. The flag is the whole-resource gate (GH #226);
 the predicates are
@@ -276,12 +277,14 @@ values rather than declaring the resource.</li>
 
 impl Resource for UserResource {
     type Model = User;
+    type Form = NoForm&lt;Self::Model&gt;;
 }
 
 struct PostResource;
 
 impl Resource for PostResource {
     type Model = Post;
+    type Form = NoForm&lt;Self::Model&gt;;
 
     // the resource's own scoping seam, spelled out where it is used
     fn query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
@@ -290,7 +293,7 @@ impl Resource for PostResource {
 }
 <span class="boring">}</span></code></pre>
 <ul>
-<li>Record fns (<code>FormResource::create_record</code> / <code>update_record</code>, <code>delete_record</code>,
+<li>Record fns (<code>create_record</code> / <code>update_record</code>, <code>delete_record</code>,
 <code>bulk_delete_records</code>) do the writes. Handlers load records, check policy, then call them in a
 transaction. <code>create_record</code> and <code>update_record</code> return the row they wrote — the create builder
 hands the created one back and a Toasty instance update reloads the model, so both are already in
@@ -315,6 +318,7 @@ nothing from it, but an embedded value’s keys come from the compiled mapping (
 </span><span class="boring">fn main() {
 </span>impl Resource for PostResource {
     type Model = Post;
+    type Form = NoForm&lt;Self::Model&gt;;
 
     // `Post` declares `tenant_id: uuid::Uuid`. Declaring this is the whole
     // tenant contract: the gate is GH #87 — every handler 403s without a

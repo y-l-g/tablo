@@ -8,7 +8,7 @@
 <a href=#8 id=8 data-nosnippet>8</a>//! writes it through toasty's generated builders. ADR-0022 records the design.
 <a href=#9 id=9 data-nosnippet>9</a>//!
 <a href=#10 id=10 data-nosnippet>10</a>//! On edit, a declared key the submission does not post is **completed** from
-<a href=#11 id=11 data-nosnippet>11</a>//! the stored record before the parse, so [`FormResource::update_record`]
+<a href=#11 id=11 data-nosnippet>11</a>//! the stored record before the parse, so [`Resource::update_record`]
 <a href=#12 id=12 data-nosnippet>12</a>//! receives a whole form, and [`Posted`] records which fields the submission
 <a href=#13 id=13 data-nosnippet>13</a>//! **named**. The write assigns only named fields, plus what the model's own
 <a href=#14 id=14 data-nosnippet>14</a>//! `#[update(..)]` defaults and `#[version]` column assign on every update.
@@ -109,7 +109,7 @@
 <a href=#109 id=109 data-nosnippet>109</a>
 <a href=#110 id=110 data-nosnippet>110</a><span class="kw">use crate</span>::{
 <a href=#111 id=111 data-nosnippet>111</a>    resource::Resource,
-<a href=#112 id=112 data-nosnippet>112</a>    schema::{Schema, TypedValue},
+<a href=#112 id=112 data-nosnippet>112</a>    schema::TypedValue,
 <a href=#113 id=113 data-nosnippet>113</a>    tenancy::{require_tenant, tenant_field_index},
 <a href=#114 id=114 data-nosnippet>114</a>};
 <a href=#115 id=115 data-nosnippet>115</a>
@@ -314,219 +314,229 @@
 <a href=#314 id=314 data-nosnippet>314</a>        update: &lt;<span class="self">Self</span>::Model <span class="kw">as </span>Model&gt;::Update&lt;<span class="lifetime">'a</span>&gt;,
 <a href=#315 id=315 data-nosnippet>315</a>        ex: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="kw">dyn </span>Executor,
 <a href=#316 id=316 data-nosnippet>316</a>    ) -&gt; <span class="kw">impl </span>Future&lt;Output = toasty::Result&lt;()&gt;&gt; + Send + <span class="lifetime">'a</span>;
-<a href=#317 id=317 data-nosnippet>317</a>}
-<a href=#318 id=318 data-nosnippet>318</a>
-<a href=#319 id=319 data-nosnippet>319</a><span class="doccomment">/// An edit submission: the parsed form, and the fields the submission named.
-<a href=#320 id=320 data-nosnippet>320</a>///
-<a href=#321 id=321 data-nosnippet>321</a>/// Derefs to the form, so a record fn reads `posted.author_id` — the posted
-<a href=#322 id=322 data-nosnippet>322</a>/// value, or the stored one when the submission did not name the field.
-<a href=#323 id=323 data-nosnippet>323</a></span><span class="kw">pub struct </span>Posted&lt;F: RecordForm&gt; {
-<a href=#324 id=324 data-nosnippet>324</a>    form: F,
-<a href=#325 id=325 data-nosnippet>325</a>    named: HashSet&lt;F::Field&gt;,
-<a href=#326 id=326 data-nosnippet>326</a>}
-<a href=#327 id=327 data-nosnippet>327</a>
-<a href=#328 id=328 data-nosnippet>328</a><span class="kw">impl</span>&lt;F: RecordForm&gt; Posted&lt;F&gt; {
-<a href=#329 id=329 data-nosnippet>329</a>    <span class="doccomment">/// A posted form that names `named`.
-<a href=#330 id=330 data-nosnippet>330</a>    </span><span class="kw">pub fn </span>new(form: F, named: <span class="kw">impl </span>IntoIterator&lt;Item = F::Field&gt;) -&gt; <span class="self">Self </span>{
-<a href=#331 id=331 data-nosnippet>331</a>        <span class="self">Self </span>{
-<a href=#332 id=332 data-nosnippet>332</a>            form,
-<a href=#333 id=333 data-nosnippet>333</a>            named: named.into_iter().collect(),
-<a href=#334 id=334 data-nosnippet>334</a>        }
-<a href=#335 id=335 data-nosnippet>335</a>    }
-<a href=#336 id=336 data-nosnippet>336</a>
-<a href=#337 id=337 data-nosnippet>337</a>    <span class="doccomment">/// Whether the submission named `field`.
-<a href=#338 id=338 data-nosnippet>338</a>    </span><span class="kw">pub fn </span>named(<span class="kw-2">&amp;</span><span class="self">self</span>, field: F::Field) -&gt; bool {
-<a href=#339 id=339 data-nosnippet>339</a>        <span class="self">self</span>.named.contains(<span class="kw-2">&amp;</span>field)
-<a href=#340 id=340 data-nosnippet>340</a>    }
+<a href=#317 id=317 data-nosnippet>317</a>
+<a href=#318 id=318 data-nosnippet>318</a>    <span class="doccomment">/// Whether the resource naming this form has create and edit pages.
+<a href=#319 id=319 data-nosnippet>319</a>    ///
+<a href=#320 id=320 data-nosnippet>320</a>    /// [`Panel::resource`](crate::Panel::resource) registers the create, edit,
+<a href=#321 id=321 data-nosnippet>321</a>    /// and options routes only when this holds. [`NoForm`] sets it to `false`.
+<a href=#322 id=322 data-nosnippet>322</a>    </span><span class="kw">const </span>HAS_FORM: bool = <span class="bool-val">true</span>;
+<a href=#323 id=323 data-nosnippet>323</a>}
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a><span class="doccomment">/// The record form of a resource with no create or edit page.
+<a href=#326 id=326 data-nosnippet>326</a>///
+<a href=#327 id=327 data-nosnippet>327</a>/// A list-only resource names it as [`Resource::Form`]:
+<a href=#328 id=328 data-nosnippet>328</a>/// `type Form = NoForm&lt;Self::Model&gt;;`. [`fields`](RecordForm::fields) and
+<a href=#329 id=329 data-nosnippet>329</a>/// [`hydrate`](RecordForm::hydrate) are empty and
+<a href=#330 id=330 data-nosnippet>330</a>/// [`into_update`](RecordForm::into_update) answers `None`. No route parses or
+<a href=#331 id=331 data-nosnippet>331</a>/// writes it, so [`parse`](RecordForm::parse) and
+<a href=#332 id=332 data-nosnippet>332</a>/// [`into_create`](RecordForm::into_create) panic naming the model, and the
+<a href=#333 id=333 data-nosnippet>333</a>/// future [`exec_update`](RecordForm::exec_update) returns panics when polled.
+<a href=#334 id=334 data-nosnippet>334</a></span><span class="kw">pub struct </span>NoForm&lt;M&gt;(std::marker::PhantomData&lt;<span class="kw">fn</span>() -&gt; M&gt;);
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a><span class="kw">impl</span>&lt;M: Model + Send + Sync + <span class="lifetime">'static</span>&gt; NoForm&lt;M&gt; {
+<a href=#337 id=337 data-nosnippet>337</a>    <span class="kw">fn </span>unreachable() -&gt; ! {
+<a href=#338 id=338 data-nosnippet>338</a>        <span class="macro">panic!</span>(<span class="string">"`NoForm&lt;{}&gt;` has no form"</span>, std::any::type_name::&lt;M&gt;())
+<a href=#339 id=339 data-nosnippet>339</a>    }
+<a href=#340 id=340 data-nosnippet>340</a>}
 <a href=#341 id=341 data-nosnippet>341</a>
-<a href=#342 id=342 data-nosnippet>342</a>    <span class="doccomment">/// The update builder assigning every named field, or `None` when the
-<a href=#343 id=343 data-nosnippet>343</a>    /// submission named none. See [`RecordForm::into_update`].
-<a href=#344 id=344 data-nosnippet>344</a>    </span><span class="kw">pub fn </span>into_update(<span class="self">self</span>, record: <span class="kw-2">&amp;mut </span>F::Model) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;F::Model <span class="kw">as </span>Model&gt;::Update&lt;<span class="lifetime">'_</span>&gt;&gt; {
-<a href=#345 id=345 data-nosnippet>345</a>        <span class="self">self</span>.form.into_update(record, <span class="kw-2">&amp;</span><span class="self">self</span>.named)
-<a href=#346 id=346 data-nosnippet>346</a>    }
+<a href=#342 id=342 data-nosnippet>342</a><span class="kw">impl</span>&lt;M: Model + Send + Sync + <span class="lifetime">'static</span>&gt; RecordForm <span class="kw">for </span>NoForm&lt;M&gt; {
+<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">type </span>Model = M;
+<a href=#344 id=344 data-nosnippet>344</a>    <span class="kw">type </span>Field = std::convert::Infallible;
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a>    <span class="kw">const </span>HAS_FORM: bool = <span class="bool-val">false</span>;
 <a href=#347 id=347 data-nosnippet>347</a>
-<a href=#348 id=348 data-nosnippet>348</a>    <span class="doccomment">/// The parsed form alone.
-<a href=#349 id=349 data-nosnippet>349</a>    </span><span class="kw">pub fn </span>into_form(<span class="self">self</span>) -&gt; F {
-<a href=#350 id=350 data-nosnippet>350</a>        <span class="self">self</span>.form
-<a href=#351 id=351 data-nosnippet>351</a>    }
-<a href=#352 id=352 data-nosnippet>352</a>}
-<a href=#353 id=353 data-nosnippet>353</a>
-<a href=#354 id=354 data-nosnippet>354</a><span class="kw">impl</span>&lt;F: RecordForm&gt; std::ops::Deref <span class="kw">for </span>Posted&lt;F&gt; {
-<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">type </span>Target = F;
-<a href=#356 id=356 data-nosnippet>356</a>
-<a href=#357 id=357 data-nosnippet>357</a>    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
-<a href=#358 id=358 data-nosnippet>358</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.form
-<a href=#359 id=359 data-nosnippet>359</a>    }
-<a href=#360 id=360 data-nosnippet>360</a>}
-<a href=#361 id=361 data-nosnippet>361</a>
-<a href=#362 id=362 data-nosnippet>362</a><span class="doccomment">/// Field-keyed validation errors from [`FormResource::validate_record`].
-<a href=#363 id=363 data-nosnippet>363</a></span><span class="kw">pub struct </span>FieldErrors&lt;F: RecordForm&gt; {
-<a href=#364 id=364 data-nosnippet>364</a>    errors: Vec&lt;(F::Field, String)&gt;,
-<a href=#365 id=365 data-nosnippet>365</a>}
+<a href=#348 id=348 data-nosnippet>348</a>    <span class="kw">fn </span>fields(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; Vec&lt;FormField&lt;<span class="self">Self</span>::Field&gt;&gt; {
+<a href=#349 id=349 data-nosnippet>349</a>        Vec::new()
+<a href=#350 id=350 data-nosnippet>350</a>    }
+<a href=#351 id=351 data-nosnippet>351</a>
+<a href=#352 id=352 data-nosnippet>352</a>    <span class="kw">fn </span>hydrate(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span>M) -&gt; HashMap&lt;String, String&gt; {
+<a href=#353 id=353 data-nosnippet>353</a>        HashMap::new()
+<a href=#354 id=354 data-nosnippet>354</a>    }
+<a href=#355 id=355 data-nosnippet>355</a>
+<a href=#356 id=356 data-nosnippet>356</a>    <span class="kw">fn </span>parse(
+<a href=#357 id=357 data-nosnippet>357</a>        _cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#358 id=358 data-nosnippet>358</a>        _values: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
+<a href=#359 id=359 data-nosnippet>359</a>    ) -&gt; std::result::Result&lt;<span class="self">Self</span>, Vec&lt;FieldError&gt;&gt; {
+<a href=#360 id=360 data-nosnippet>360</a>        <span class="self">Self</span>::unreachable()
+<a href=#361 id=361 data-nosnippet>361</a>    }
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>    <span class="kw">fn </span>into_create(<span class="self">self</span>) -&gt; M::Create {
+<a href=#364 id=364 data-nosnippet>364</a>        <span class="self">Self</span>::unreachable()
+<a href=#365 id=365 data-nosnippet>365</a>    }
 <a href=#366 id=366 data-nosnippet>366</a>
-<a href=#367 id=367 data-nosnippet>367</a><span class="kw">impl</span>&lt;F: RecordForm&gt; FieldErrors&lt;F&gt; {
-<a href=#368 id=368 data-nosnippet>368</a>    <span class="doccomment">/// No errors.
-<a href=#369 id=369 data-nosnippet>369</a>    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-<a href=#370 id=370 data-nosnippet>370</a>        <span class="self">Self </span>{ errors: Vec::new() }
-<a href=#371 id=371 data-nosnippet>371</a>    }
-<a href=#372 id=372 data-nosnippet>372</a>
-<a href=#373 id=373 data-nosnippet>373</a>    <span class="doccomment">/// Refuse `field` with `message`.
-<a href=#374 id=374 data-nosnippet>374</a>    </span><span class="kw">pub fn </span>add(<span class="kw-2">&amp;mut </span><span class="self">self</span>, field: F::Field, message: <span class="kw">impl </span>Into&lt;String&gt;) {
-<a href=#375 id=375 data-nosnippet>375</a>        <span class="self">self</span>.errors.push((field, message.into()));
-<a href=#376 id=376 data-nosnippet>376</a>    }
-<a href=#377 id=377 data-nosnippet>377</a>
-<a href=#378 id=378 data-nosnippet>378</a>    <span class="doccomment">/// Whether nothing was refused.
-<a href=#379 id=379 data-nosnippet>379</a>    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#380 id=380 data-nosnippet>380</a>        <span class="self">self</span>.errors.is_empty()
-<a href=#381 id=381 data-nosnippet>381</a>    }
-<a href=#382 id=382 data-nosnippet>382</a>
-<a href=#383 id=383 data-nosnippet>383</a>    <span class="doccomment">/// The errors in the order they were added.
-<a href=#384 id=384 data-nosnippet>384</a>    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>(F::Field, String)&gt; {
-<a href=#385 id=385 data-nosnippet>385</a>        <span class="self">self</span>.errors.iter()
-<a href=#386 id=386 data-nosnippet>386</a>    }
-<a href=#387 id=387 data-nosnippet>387</a>}
-<a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a><span class="kw">impl</span>&lt;F: RecordForm&gt; Default <span class="kw">for </span>FieldErrors&lt;F&gt; {
-<a href=#390 id=390 data-nosnippet>390</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#391 id=391 data-nosnippet>391</a>        <span class="self">Self</span>::new()
-<a href=#392 id=392 data-nosnippet>392</a>    }
+<a href=#367 id=367 data-nosnippet>367</a>    <span class="kw">fn </span>into_update&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#368 id=368 data-nosnippet>368</a>        <span class="self">self</span>,
+<a href=#369 id=369 data-nosnippet>369</a>        _record: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>M,
+<a href=#370 id=370 data-nosnippet>370</a>        _named: <span class="kw-2">&amp;</span>HashSet&lt;<span class="self">Self</span>::Field&gt;,
+<a href=#371 id=371 data-nosnippet>371</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;M::Update&lt;<span class="lifetime">'a</span>&gt;&gt; {
+<a href=#372 id=372 data-nosnippet>372</a>        <span class="prelude-val">None
+<a href=#373 id=373 data-nosnippet>373</a>    </span>}
+<a href=#374 id=374 data-nosnippet>374</a>
+<a href=#375 id=375 data-nosnippet>375</a>    <span class="kw">fn </span>exec_update&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#376 id=376 data-nosnippet>376</a>        update: M::Update&lt;<span class="lifetime">'a</span>&gt;,
+<a href=#377 id=377 data-nosnippet>377</a>        ex: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="kw">dyn </span>Executor,
+<a href=#378 id=378 data-nosnippet>378</a>    ) -&gt; <span class="kw">impl </span>Future&lt;Output = toasty::Result&lt;()&gt;&gt; + Send + <span class="lifetime">'a </span>{
+<a href=#379 id=379 data-nosnippet>379</a>        <span class="comment">// `into_update` answers `None`, so no builder reaches here. The
+<a href=#380 id=380 data-nosnippet>380</a>        // builder is not known to be `Send`, so the future must not hold it.
+<a href=#381 id=381 data-nosnippet>381</a>        </span>drop((update, ex));
+<a href=#382 id=382 data-nosnippet>382</a>        <span class="kw">async </span>{ <span class="self">Self</span>::unreachable() }
+<a href=#383 id=383 data-nosnippet>383</a>    }
+<a href=#384 id=384 data-nosnippet>384</a>}
+<a href=#385 id=385 data-nosnippet>385</a>
+<a href=#386 id=386 data-nosnippet>386</a><span class="doccomment">/// An edit submission: the parsed form, and the fields the submission named.
+<a href=#387 id=387 data-nosnippet>387</a>///
+<a href=#388 id=388 data-nosnippet>388</a>/// Derefs to the form, so a record fn reads `posted.author_id` — the posted
+<a href=#389 id=389 data-nosnippet>389</a>/// value, or the stored one when the submission did not name the field.
+<a href=#390 id=390 data-nosnippet>390</a></span><span class="kw">pub struct </span>Posted&lt;F: RecordForm&gt; {
+<a href=#391 id=391 data-nosnippet>391</a>    form: F,
+<a href=#392 id=392 data-nosnippet>392</a>    named: HashSet&lt;F::Field&gt;,
 <a href=#393 id=393 data-nosnippet>393</a>}
 <a href=#394 id=394 data-nosnippet>394</a>
-<a href=#395 id=395 data-nosnippet>395</a><span class="doccomment">/// A resource with a create and edit form.
-<a href=#396 id=396 data-nosnippet>396</a>///
-<a href=#397 id=397 data-nosnippet>397</a>/// Register it with [`Panel::form_resource`](crate::Panel::form_resource). The
-<a href=#398 id=398 data-nosnippet>398</a>/// record fns default to the derived write, [`write_create`] and
-<a href=#399 id=399 data-nosnippet>399</a>/// [`write_update`]; override one to check something inside the transaction,
-<a href=#400 id=400 data-nosnippet>400</a>/// then delegate.
-<a href=#401 id=401 data-nosnippet>401</a></span><span class="kw">pub trait </span>FormResource: Resource {
-<a href=#402 id=402 data-nosnippet>402</a>    <span class="doccomment">/// The typed value the form's submission parses into.
-<a href=#403 id=403 data-nosnippet>403</a>    </span><span class="kw">type </span>Form: RecordForm&lt;Model = <span class="self">Self</span>::Model&gt;;
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>    <span class="doccomment">/// The columns an overriding [`Self::create_record`] sets itself, beyond
-<a href=#406 id=406 data-nosnippet>406</a>    /// the form's fields.
-<a href=#407 id=407 data-nosnippet>407</a>    ///
-<a href=#408 id=408 data-nosnippet>408</a>    /// [`Panel::build`](crate::Panel::build) refuses a resource that allows
-<a href=#409 id=409 data-nosnippet>409</a>    /// create when a non-nullable column is neither a form field, nor filled by
-<a href=#410 id=410 data-nosnippet>410</a>    /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
-<a href=#411 id=411 data-nosnippet>411</a>    /// create would fail at the driver on every submit. A record fn that sets
-<a href=#412 id=412 data-nosnippet>412</a>    /// such a column by hand names it here.
-<a href=#413 id=413 data-nosnippet>413</a>    </span><span class="kw">const </span>CREATE_COLUMNS: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str] = <span class="kw-2">&amp;</span>[];
+<a href=#395 id=395 data-nosnippet>395</a><span class="kw">impl</span>&lt;F: RecordForm&gt; Posted&lt;F&gt; {
+<a href=#396 id=396 data-nosnippet>396</a>    <span class="doccomment">/// A posted form that names `named`.
+<a href=#397 id=397 data-nosnippet>397</a>    </span><span class="kw">pub fn </span>new(form: F, named: <span class="kw">impl </span>IntoIterator&lt;Item = F::Field&gt;) -&gt; <span class="self">Self </span>{
+<a href=#398 id=398 data-nosnippet>398</a>        <span class="self">Self </span>{
+<a href=#399 id=399 data-nosnippet>399</a>            form,
+<a href=#400 id=400 data-nosnippet>400</a>            named: named.into_iter().collect(),
+<a href=#401 id=401 data-nosnippet>401</a>        }
+<a href=#402 id=402 data-nosnippet>402</a>    }
+<a href=#403 id=403 data-nosnippet>403</a>
+<a href=#404 id=404 data-nosnippet>404</a>    <span class="doccomment">/// Whether the submission named `field`.
+<a href=#405 id=405 data-nosnippet>405</a>    </span><span class="kw">pub fn </span>named(<span class="kw-2">&amp;</span><span class="self">self</span>, field: F::Field) -&gt; bool {
+<a href=#406 id=406 data-nosnippet>406</a>        <span class="self">self</span>.named.contains(<span class="kw-2">&amp;</span>field)
+<a href=#407 id=407 data-nosnippet>407</a>    }
+<a href=#408 id=408 data-nosnippet>408</a>
+<a href=#409 id=409 data-nosnippet>409</a>    <span class="doccomment">/// The update builder assigning every named field, or `None` when the
+<a href=#410 id=410 data-nosnippet>410</a>    /// submission named none. See [`RecordForm::into_update`].
+<a href=#411 id=411 data-nosnippet>411</a>    </span><span class="kw">pub fn </span>into_update(<span class="self">self</span>, record: <span class="kw-2">&amp;mut </span>F::Model) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;F::Model <span class="kw">as </span>Model&gt;::Update&lt;<span class="lifetime">'_</span>&gt;&gt; {
+<a href=#412 id=412 data-nosnippet>412</a>        <span class="self">self</span>.form.into_update(record, <span class="kw-2">&amp;</span><span class="self">self</span>.named)
+<a href=#413 id=413 data-nosnippet>413</a>    }
 <a href=#414 id=414 data-nosnippet>414</a>
-<a href=#415 id=415 data-nosnippet>415</a>    <span class="doccomment">/// The schema the create and edit forms render.
-<a href=#416 id=416 data-nosnippet>416</a>    </span><span class="kw">fn </span>form(cx: <span class="kw-2">&amp;</span>Cx) -&gt; Schema;
-<a href=#417 id=417 data-nosnippet>417</a>
-<a href=#418 id=418 data-nosnippet>418</a>    <span class="doccomment">/// App-level rules on the parsed form. The errors render inline with a
-<a href=#419 id=419 data-nosnippet>419</a>    /// 200 and nothing is written; a record fn error is a 500, so a range or
-<a href=#420 id=420 data-nosnippet>420</a>    /// cross-field rule belongs here.
-<a href=#421 id=421 data-nosnippet>421</a>    </span><span class="kw">fn </span>validate_record(_cx: <span class="kw-2">&amp;</span>Cx, _form: <span class="kw-2">&amp;</span><span class="self">Self</span>::Form) -&gt; FieldErrors&lt;<span class="self">Self</span>::Form&gt; {
-<a href=#422 id=422 data-nosnippet>422</a>        FieldErrors::new()
-<a href=#423 id=423 data-nosnippet>423</a>    }
-<a href=#424 id=424 data-nosnippet>424</a>
-<a href=#425 id=425 data-nosnippet>425</a>    <span class="doccomment">/// Create a record from the parsed form, inside the handler's transaction.
-<a href=#426 id=426 data-nosnippet>426</a>    ///
-<a href=#427 id=427 data-nosnippet>427</a>    /// `ex` is the open transaction: run every statement through it. Return the
-<a href=#428 id=428 data-nosnippet>428</a>    /// created row; it is what [`Resource::after_commit`] receives.
-<a href=#429 id=429 data-nosnippet>429</a>    </span><span class="kw">fn </span>create_record(
-<a href=#430 id=430 data-nosnippet>430</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#431 id=431 data-nosnippet>431</a>        form: <span class="self">Self</span>::Form,
-<a href=#432 id=432 data-nosnippet>432</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
-<a href=#433 id=433 data-nosnippet>433</a>    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Model&gt;&gt; + Send {
-<a href=#434 id=434 data-nosnippet>434</a>        write_create::&lt;<span class="self">Self</span>&gt;(cx, form, ex)
-<a href=#435 id=435 data-nosnippet>435</a>    }
-<a href=#436 id=436 data-nosnippet>436</a>
-<a href=#437 id=437 data-nosnippet>437</a>    <span class="doccomment">/// Update the already-authorized `record` from the posted form, inside the
-<a href=#438 id=438 data-nosnippet>438</a>    /// handler's transaction.
-<a href=#439 id=439 data-nosnippet>439</a>    ///
-<a href=#440 id=440 data-nosnippet>440</a>    /// `record` is the snapshot the handler loaded and policy-checked inside
-<a href=#441 id=441 data-nosnippet>441</a>    /// the transaction: use it, never re-query. Return the row as it now stands.
-<a href=#442 id=442 data-nosnippet>442</a>    </span><span class="kw">fn </span>update_record(
-<a href=#443 id=443 data-nosnippet>443</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#444 id=444 data-nosnippet>444</a>        record: <span class="self">Self</span>::Model,
-<a href=#445 id=445 data-nosnippet>445</a>        posted: Posted&lt;<span class="self">Self</span>::Form&gt;,
-<a href=#446 id=446 data-nosnippet>446</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
-<a href=#447 id=447 data-nosnippet>447</a>    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Model&gt;&gt; + Send {
-<a href=#448 id=448 data-nosnippet>448</a>        write_update::&lt;<span class="self">Self</span>&gt;(cx, record, posted, ex)
-<a href=#449 id=449 data-nosnippet>449</a>    }
-<a href=#450 id=450 data-nosnippet>450</a>}
-<a href=#451 id=451 data-nosnippet>451</a>
-<a href=#452 id=452 data-nosnippet>452</a><span class="doccomment">/// Which of `M`'s root fields the create builder fills before any setter runs:
-<a href=#453 id=453 data-nosnippet>453</a>/// `#[auto]` fields, which the database fills, and `#[default(..)]` ones.
-<a href=#454 id=454 data-nosnippet>454</a>///
-<a href=#455 id=455 data-nosnippet>455</a>/// Read off `M::Create::default()`, because toasty keeps a `#[default]` in its
-<a href=#456 id=456 data-nosnippet>456</a>/// generated code only, never in the app schema.
-<a href=#457 id=457 data-nosnippet>457</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prefilled_fields&lt;M: Model&gt;() -&gt; Vec&lt;bool&gt; {
-<a href=#458 id=458 data-nosnippet>458</a>    <span class="kw">let </span>insert = &lt;M::Create <span class="kw">as </span>Default&gt;::default().into_insert();
-<a href=#459 id=459 data-nosnippet>459</a>    <span class="kw">let </span>toasty_core::stmt::Expr::Stmt(statement) = toasty_core::stmt::Expr::from(insert) <span class="kw">else </span>{
-<a href=#460 id=460 data-nosnippet>460</a>        <span class="kw">return </span>Vec::new();
-<a href=#461 id=461 data-nosnippet>461</a>    };
-<a href=#462 id=462 data-nosnippet>462</a>    statement
-<a href=#463 id=463 data-nosnippet>463</a>        .stmt
-<a href=#464 id=464 data-nosnippet>464</a>        .as_insert()
-<a href=#465 id=465 data-nosnippet>465</a>        .and_then(|insert| insert.source.body.as_values())
-<a href=#466 id=466 data-nosnippet>466</a>        .and_then(|values| values.rows.last())
-<a href=#467 id=467 data-nosnippet>467</a>        .and_then(|row| row.as_record())
-<a href=#468 id=468 data-nosnippet>468</a>        .map(|record| {
-<a href=#469 id=469 data-nosnippet>469</a>            record
-<a href=#470 id=470 data-nosnippet>470</a>                .fields
-<a href=#471 id=471 data-nosnippet>471</a>                .iter()
-<a href=#472 id=472 data-nosnippet>472</a>                .map(|expr| !expr.is_value_null())
-<a href=#473 id=473 data-nosnippet>473</a>                .collect()
-<a href=#474 id=474 data-nosnippet>474</a>        })
-<a href=#475 id=475 data-nosnippet>475</a>        .unwrap_or_default()
-<a href=#476 id=476 data-nosnippet>476</a>}
-<a href=#477 id=477 data-nosnippet>477</a>
-<a href=#478 id=478 data-nosnippet>478</a><span class="doccomment">/// The derived create: the form's builder, the request tenant stamped on a
-<a href=#479 id=479 data-nosnippet>479</a>/// gated resource's tenant column, executed through `ex`.
-<a href=#480 id=480 data-nosnippet>480</a>///
-<a href=#481 id=481 data-nosnippet>481</a>/// A gated resource whose tenant is inherited (no `tenant_id` column of its
-<a href=#482 id=482 data-nosnippet>482</a>/// own) has nothing to stamp.
-<a href=#483 id=483 data-nosnippet>483</a>///
-<a href=#484 id=484 data-nosnippet>484</a>/// # Errors
-<a href=#485 id=485 data-nosnippet>485</a>///
-<a href=#486 id=486 data-nosnippet>486</a>/// A tenantless request on a gated resource (the handler answers 403 first),
-<a href=#487 id=487 data-nosnippet>487</a>/// or the driver's error.
-<a href=#488 id=488 data-nosnippet>488</a></span><span class="kw">pub async fn </span>write_create&lt;R: FormResource&gt;(
-<a href=#489 id=489 data-nosnippet>489</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#490 id=490 data-nosnippet>490</a>    form: R::Form,
-<a href=#491 id=491 data-nosnippet>491</a>    ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
-<a href=#492 id=492 data-nosnippet>492</a>) -&gt; <span class="prelude-ty">Result</span>&lt;R::Model&gt; {
-<a href=#493 id=493 data-nosnippet>493</a>    <span class="kw">let </span><span class="kw-2">mut </span>insert = form.into_create().into_insert();
-<a href=#494 id=494 data-nosnippet>494</a>    <span class="kw">if </span>R::requires_tenant()
-<a href=#495 id=495 data-nosnippet>495</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(index) = tenant_field_index::&lt;R::Model&gt;()
-<a href=#496 id=496 data-nosnippet>496</a>    {
-<a href=#497 id=497 data-nosnippet>497</a>        insert.set(index, toasty_core::stmt::Value::from(require_tenant(cx)<span class="question-mark">?</span>));
-<a href=#498 id=498 data-nosnippet>498</a>    }
-<a href=#499 id=499 data-nosnippet>499</a>    ex.exec(insert.into())
-<a href=#500 id=500 data-nosnippet>500</a>        .<span class="kw">await
-<a href=#501 id=501 data-nosnippet>501</a>        </span>.map_err(|error| -&gt; topcoat::Error { error.into() })
-<a href=#502 id=502 data-nosnippet>502</a>}
-<a href=#503 id=503 data-nosnippet>503</a>
-<a href=#504 id=504 data-nosnippet>504</a><span class="doccomment">/// The derived update: assign every named field and execute through `ex`.
-<a href=#505 id=505 data-nosnippet>505</a>///
-<a href=#506 id=506 data-nosnippet>506</a>/// A submission that names no field writes nothing. The instance update
-<a href=#507 id=507 data-nosnippet>507</a>/// reloads `record`, so the returned row is the written one.
-<a href=#508 id=508 data-nosnippet>508</a>///
-<a href=#509 id=509 data-nosnippet>509</a>/// # Errors
-<a href=#510 id=510 data-nosnippet>510</a>///
-<a href=#511 id=511 data-nosnippet>511</a>/// The driver's error.
-<a href=#512 id=512 data-nosnippet>512</a></span><span class="kw">pub async fn </span>write_update&lt;R: FormResource&gt;(
-<a href=#513 id=513 data-nosnippet>513</a>    _cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#514 id=514 data-nosnippet>514</a>    <span class="kw-2">mut </span>record: R::Model,
-<a href=#515 id=515 data-nosnippet>515</a>    posted: Posted&lt;R::Form&gt;,
-<a href=#516 id=516 data-nosnippet>516</a>    ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
-<a href=#517 id=517 data-nosnippet>517</a>) -&gt; <span class="prelude-ty">Result</span>&lt;R::Model&gt; {
-<a href=#518 id=518 data-nosnippet>518</a>    <span class="comment">// Build the execution future before awaiting: the builder itself is not
-<a href=#519 id=519 data-nosnippet>519</a>    // known to be `Send`, the future `exec_update` returns is.
-<a href=#520 id=520 data-nosnippet>520</a>    </span>{
-<a href=#521 id=521 data-nosnippet>521</a>        <span class="kw">let </span>pending = posted
-<a href=#522 id=522 data-nosnippet>522</a>            .into_update(<span class="kw-2">&amp;mut </span>record)
-<a href=#523 id=523 data-nosnippet>523</a>            .map(|update| &lt;R::Form <span class="kw">as </span>RecordForm&gt;::exec_update(update, <span class="kw-2">&amp;mut *</span>ex));
-<a href=#524 id=524 data-nosnippet>524</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(pending) = pending {
-<a href=#525 id=525 data-nosnippet>525</a>            pending
-<a href=#526 id=526 data-nosnippet>526</a>                .<span class="kw">await
-<a href=#527 id=527 data-nosnippet>527</a>                </span>.map_err(|error| -&gt; topcoat::Error { error.into() })<span class="question-mark">?</span>;
-<a href=#528 id=528 data-nosnippet>528</a>        }
-<a href=#529 id=529 data-nosnippet>529</a>    }
-<a href=#530 id=530 data-nosnippet>530</a>    <span class="prelude-val">Ok</span>(record)
-<a href=#531 id=531 data-nosnippet>531</a>}
+<a href=#415 id=415 data-nosnippet>415</a>    <span class="doccomment">/// The parsed form alone.
+<a href=#416 id=416 data-nosnippet>416</a>    </span><span class="kw">pub fn </span>into_form(<span class="self">self</span>) -&gt; F {
+<a href=#417 id=417 data-nosnippet>417</a>        <span class="self">self</span>.form
+<a href=#418 id=418 data-nosnippet>418</a>    }
+<a href=#419 id=419 data-nosnippet>419</a>}
+<a href=#420 id=420 data-nosnippet>420</a>
+<a href=#421 id=421 data-nosnippet>421</a><span class="kw">impl</span>&lt;F: RecordForm&gt; std::ops::Deref <span class="kw">for </span>Posted&lt;F&gt; {
+<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">type </span>Target = F;
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a>    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
+<a href=#425 id=425 data-nosnippet>425</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.form
+<a href=#426 id=426 data-nosnippet>426</a>    }
+<a href=#427 id=427 data-nosnippet>427</a>}
+<a href=#428 id=428 data-nosnippet>428</a>
+<a href=#429 id=429 data-nosnippet>429</a><span class="doccomment">/// Field-keyed validation errors from [`Resource::validate_record`].
+<a href=#430 id=430 data-nosnippet>430</a></span><span class="kw">pub struct </span>FieldErrors&lt;F: RecordForm&gt; {
+<a href=#431 id=431 data-nosnippet>431</a>    errors: Vec&lt;(F::Field, String)&gt;,
+<a href=#432 id=432 data-nosnippet>432</a>}
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a><span class="kw">impl</span>&lt;F: RecordForm&gt; FieldErrors&lt;F&gt; {
+<a href=#435 id=435 data-nosnippet>435</a>    <span class="doccomment">/// No errors.
+<a href=#436 id=436 data-nosnippet>436</a>    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+<a href=#437 id=437 data-nosnippet>437</a>        <span class="self">Self </span>{ errors: Vec::new() }
+<a href=#438 id=438 data-nosnippet>438</a>    }
+<a href=#439 id=439 data-nosnippet>439</a>
+<a href=#440 id=440 data-nosnippet>440</a>    <span class="doccomment">/// Refuse `field` with `message`.
+<a href=#441 id=441 data-nosnippet>441</a>    </span><span class="kw">pub fn </span>add(<span class="kw-2">&amp;mut </span><span class="self">self</span>, field: F::Field, message: <span class="kw">impl </span>Into&lt;String&gt;) {
+<a href=#442 id=442 data-nosnippet>442</a>        <span class="self">self</span>.errors.push((field, message.into()));
+<a href=#443 id=443 data-nosnippet>443</a>    }
+<a href=#444 id=444 data-nosnippet>444</a>
+<a href=#445 id=445 data-nosnippet>445</a>    <span class="doccomment">/// Whether nothing was refused.
+<a href=#446 id=446 data-nosnippet>446</a>    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#447 id=447 data-nosnippet>447</a>        <span class="self">self</span>.errors.is_empty()
+<a href=#448 id=448 data-nosnippet>448</a>    }
+<a href=#449 id=449 data-nosnippet>449</a>
+<a href=#450 id=450 data-nosnippet>450</a>    <span class="doccomment">/// The errors in the order they were added.
+<a href=#451 id=451 data-nosnippet>451</a>    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>(F::Field, String)&gt; {
+<a href=#452 id=452 data-nosnippet>452</a>        <span class="self">self</span>.errors.iter()
+<a href=#453 id=453 data-nosnippet>453</a>    }
+<a href=#454 id=454 data-nosnippet>454</a>}
+<a href=#455 id=455 data-nosnippet>455</a>
+<a href=#456 id=456 data-nosnippet>456</a><span class="kw">impl</span>&lt;F: RecordForm&gt; Default <span class="kw">for </span>FieldErrors&lt;F&gt; {
+<a href=#457 id=457 data-nosnippet>457</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#458 id=458 data-nosnippet>458</a>        <span class="self">Self</span>::new()
+<a href=#459 id=459 data-nosnippet>459</a>    }
+<a href=#460 id=460 data-nosnippet>460</a>}
+<a href=#461 id=461 data-nosnippet>461</a>
+<a href=#462 id=462 data-nosnippet>462</a><span class="doccomment">/// Which of `M`'s root fields the create builder fills before any setter runs:
+<a href=#463 id=463 data-nosnippet>463</a>/// `#[auto]` fields, which the database fills, and `#[default(..)]` ones.
+<a href=#464 id=464 data-nosnippet>464</a>///
+<a href=#465 id=465 data-nosnippet>465</a>/// Read off `M::Create::default()`, because toasty keeps a `#[default]` in its
+<a href=#466 id=466 data-nosnippet>466</a>/// generated code only, never in the app schema.
+<a href=#467 id=467 data-nosnippet>467</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prefilled_fields&lt;M: Model&gt;() -&gt; Vec&lt;bool&gt; {
+<a href=#468 id=468 data-nosnippet>468</a>    <span class="kw">let </span>insert = &lt;M::Create <span class="kw">as </span>Default&gt;::default().into_insert();
+<a href=#469 id=469 data-nosnippet>469</a>    <span class="kw">let </span>toasty_core::stmt::Expr::Stmt(statement) = toasty_core::stmt::Expr::from(insert) <span class="kw">else </span>{
+<a href=#470 id=470 data-nosnippet>470</a>        <span class="kw">return </span>Vec::new();
+<a href=#471 id=471 data-nosnippet>471</a>    };
+<a href=#472 id=472 data-nosnippet>472</a>    statement
+<a href=#473 id=473 data-nosnippet>473</a>        .stmt
+<a href=#474 id=474 data-nosnippet>474</a>        .as_insert()
+<a href=#475 id=475 data-nosnippet>475</a>        .and_then(|insert| insert.source.body.as_values())
+<a href=#476 id=476 data-nosnippet>476</a>        .and_then(|values| values.rows.last())
+<a href=#477 id=477 data-nosnippet>477</a>        .and_then(|row| row.as_record())
+<a href=#478 id=478 data-nosnippet>478</a>        .map(|record| {
+<a href=#479 id=479 data-nosnippet>479</a>            record
+<a href=#480 id=480 data-nosnippet>480</a>                .fields
+<a href=#481 id=481 data-nosnippet>481</a>                .iter()
+<a href=#482 id=482 data-nosnippet>482</a>                .map(|expr| !expr.is_value_null())
+<a href=#483 id=483 data-nosnippet>483</a>                .collect()
+<a href=#484 id=484 data-nosnippet>484</a>        })
+<a href=#485 id=485 data-nosnippet>485</a>        .unwrap_or_default()
+<a href=#486 id=486 data-nosnippet>486</a>}
+<a href=#487 id=487 data-nosnippet>487</a>
+<a href=#488 id=488 data-nosnippet>488</a><span class="doccomment">/// The derived create: the form's builder, the request tenant stamped on a
+<a href=#489 id=489 data-nosnippet>489</a>/// gated resource's tenant column, executed through `ex`.
+<a href=#490 id=490 data-nosnippet>490</a>///
+<a href=#491 id=491 data-nosnippet>491</a>/// A gated resource whose tenant is inherited (no `tenant_id` column of its
+<a href=#492 id=492 data-nosnippet>492</a>/// own) has nothing to stamp.
+<a href=#493 id=493 data-nosnippet>493</a>///
+<a href=#494 id=494 data-nosnippet>494</a>/// # Errors
+<a href=#495 id=495 data-nosnippet>495</a>///
+<a href=#496 id=496 data-nosnippet>496</a>/// A tenantless request on a gated resource (the handler answers 403 first),
+<a href=#497 id=497 data-nosnippet>497</a>/// or the driver's error.
+<a href=#498 id=498 data-nosnippet>498</a></span><span class="kw">pub async fn </span>write_create&lt;R: Resource&gt;(
+<a href=#499 id=499 data-nosnippet>499</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#500 id=500 data-nosnippet>500</a>    form: R::Form,
+<a href=#501 id=501 data-nosnippet>501</a>    ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
+<a href=#502 id=502 data-nosnippet>502</a>) -&gt; <span class="prelude-ty">Result</span>&lt;R::Model&gt; {
+<a href=#503 id=503 data-nosnippet>503</a>    <span class="kw">let </span><span class="kw-2">mut </span>insert = form.into_create().into_insert();
+<a href=#504 id=504 data-nosnippet>504</a>    <span class="kw">if </span>R::requires_tenant()
+<a href=#505 id=505 data-nosnippet>505</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(index) = tenant_field_index::&lt;R::Model&gt;()
+<a href=#506 id=506 data-nosnippet>506</a>    {
+<a href=#507 id=507 data-nosnippet>507</a>        insert.set(index, toasty_core::stmt::Value::from(require_tenant(cx)<span class="question-mark">?</span>));
+<a href=#508 id=508 data-nosnippet>508</a>    }
+<a href=#509 id=509 data-nosnippet>509</a>    ex.exec(insert.into())
+<a href=#510 id=510 data-nosnippet>510</a>        .<span class="kw">await
+<a href=#511 id=511 data-nosnippet>511</a>        </span>.map_err(|error| -&gt; topcoat::Error { error.into() })
+<a href=#512 id=512 data-nosnippet>512</a>}
+<a href=#513 id=513 data-nosnippet>513</a>
+<a href=#514 id=514 data-nosnippet>514</a><span class="doccomment">/// The derived update: assign every named field and execute through `ex`.
+<a href=#515 id=515 data-nosnippet>515</a>///
+<a href=#516 id=516 data-nosnippet>516</a>/// A submission that names no field writes nothing. The instance update
+<a href=#517 id=517 data-nosnippet>517</a>/// reloads `record`, so the returned row is the written one.
+<a href=#518 id=518 data-nosnippet>518</a>///
+<a href=#519 id=519 data-nosnippet>519</a>/// # Errors
+<a href=#520 id=520 data-nosnippet>520</a>///
+<a href=#521 id=521 data-nosnippet>521</a>/// The driver's error.
+<a href=#522 id=522 data-nosnippet>522</a></span><span class="kw">pub async fn </span>write_update&lt;R: Resource&gt;(
+<a href=#523 id=523 data-nosnippet>523</a>    _cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#524 id=524 data-nosnippet>524</a>    <span class="kw-2">mut </span>record: R::Model,
+<a href=#525 id=525 data-nosnippet>525</a>    posted: Posted&lt;R::Form&gt;,
+<a href=#526 id=526 data-nosnippet>526</a>    ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
+<a href=#527 id=527 data-nosnippet>527</a>) -&gt; <span class="prelude-ty">Result</span>&lt;R::Model&gt; {
+<a href=#528 id=528 data-nosnippet>528</a>    <span class="comment">// Build the execution future before awaiting: the builder itself is not
+<a href=#529 id=529 data-nosnippet>529</a>    // known to be `Send`, the future `exec_update` returns is.
+<a href=#530 id=530 data-nosnippet>530</a>    </span>{
+<a href=#531 id=531 data-nosnippet>531</a>        <span class="kw">let </span>pending = posted
+<a href=#532 id=532 data-nosnippet>532</a>            .into_update(<span class="kw-2">&amp;mut </span>record)
+<a href=#533 id=533 data-nosnippet>533</a>            .map(|update| &lt;R::Form <span class="kw">as </span>RecordForm&gt;::exec_update(update, <span class="kw-2">&amp;mut *</span>ex));
+<a href=#534 id=534 data-nosnippet>534</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(pending) = pending {
+<a href=#535 id=535 data-nosnippet>535</a>            pending
+<a href=#536 id=536 data-nosnippet>536</a>                .<span class="kw">await
+<a href=#537 id=537 data-nosnippet>537</a>                </span>.map_err(|error| -&gt; topcoat::Error { error.into() })<span class="question-mark">?</span>;
+<a href=#538 id=538 data-nosnippet>538</a>        }
+<a href=#539 id=539 data-nosnippet>539</a>    }
+<a href=#540 id=540 data-nosnippet>540</a>    <span class="prelude-val">Ok</span>(record)
+<a href=#541 id=541 data-nosnippet>541</a>}
 </code></pre></div></section></main></body></html>

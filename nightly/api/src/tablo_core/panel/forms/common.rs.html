@@ -21,7 +21,7 @@
 <a href=#21 id=21 data-nosnippet>21</a>};
 <a href=#22 id=22 data-nosnippet>22</a><span class="kw">use crate</span>::{
 <a href=#23 id=23 data-nosnippet>23</a>    db::db,
-<a href=#24 id=24 data-nosnippet>24</a>    form::{FormResource, RecordForm},
+<a href=#24 id=24 data-nosnippet>24</a>    form::RecordForm,
 <a href=#25 id=25 data-nosnippet>25</a>    notification::{Notification, set_notification},
 <a href=#26 id=26 data-nosnippet>26</a>    resource::Resource,
 <a href=#27 id=27 data-nosnippet>27</a>};
@@ -178,7 +178,7 @@
 <a href=#178 id=178 data-nosnippet>178</a>// The public link rides through to the re-rendered form for the same reason
 <a href=#179 id=179 data-nosnippet>179</a>// as above.
 <a href=#180 id=180 data-nosnippet>180</a></span><span class="attr">#[allow(clippy::too_many_arguments)]
-<a href=#181 id=181 data-nosnippet>181</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">async fn </span>rerender_invalid_form&lt;<span class="lifetime">'a</span>, R: FormResource&gt;(
+<a href=#181 id=181 data-nosnippet>181</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">async fn </span>rerender_invalid_form&lt;<span class="lifetime">'a</span>, R: Resource&gt;(
 <a href=#182 id=182 data-nosnippet>182</a>    cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
 <a href=#183 id=183 data-nosnippet>183</a>    tx: toasty::Transaction&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#184 id=184 data-nosnippet>184</a>    title: String,
@@ -204,7 +204,7 @@
 <a href=#204 id=204 data-nosnippet>204</a>
 <a href=#205 id=205 data-nosnippet>205</a><span class="doccomment">/// Edit page GET — hydrates the form from the record the tenant-scoped
 <a href=#206 id=206 data-nosnippet>206</a>/// load returned.
-<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_edit&lt;R: FormResource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_edit&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
 <a href=#208 id=208 data-nosnippet>208</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
 <a href=#209 id=209 data-nosnippet>209</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
 <a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);

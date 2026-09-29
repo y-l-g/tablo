@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-92db1746.js";
+            window.path_to_searchindex_js = "searchindex-ae68d531.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -214,9 +214,9 @@ replace <code>Table::new</code>’s key, which must stay injective within a page
 value when no option matches, a relationship key included), <code>FileUpload</code> shows the stored path as a
 link to the file (GH #242), and layout blocks keep their structure. No control, no CSRF field, no
 validation slot.</li>
-<li><strong>Values come from the form’s projection</strong> (<code>RecordForm::hydrate</code>) for a resource registered with
-<code>Panel::form_resource</code>, so a field that renders in the form renders here; <code>view_values</code> adds a key
-only the view shows. A list-only resource supplies every key through <code>view_values</code>.</li>
+<li><strong>Values come from the form’s projection</strong> (<code>RecordForm::hydrate</code>), so a field that renders in
+the form renders here; <code>view_values</code> adds a key only the view shows. A <code>NoForm</code> resource
+supplies every key through <code>view_values</code>.</li>
 <li><strong>Related rows</strong> render through <code>view_relations(cx, record)</code>, the page’s second half:</li>
 </ul>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]

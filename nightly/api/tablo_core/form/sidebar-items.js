@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["FieldErrorKind"],"fn":["parse_scalar","write_create","write_update"],"struct":["FieldError","FieldErrors","FormField","Posted"],"trait":["FormResource","FormScalar","RecordForm"]};
+window.SIDEBAR_ITEMS = {"enum":["FieldErrorKind"],"fn":["parse_scalar","write_create","write_update"],"struct":["FieldError","FieldErrors","FormField","NoForm","Posted"],"trait":["FormScalar","RecordForm"]};
