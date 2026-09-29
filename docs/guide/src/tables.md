@@ -101,9 +101,9 @@ Table::new(|u: &User| u.id.to_string(), columns).live_search(true)
 Search, sort, filter, and pager controls then refresh the table in place without a full page load.
 The plain links and forms stay as the no-JS fallback.
 
-Panel wires the bulk checkbox column when the resource opts in with `deletable() -> true` (GH #226:
-chrome is opt-in, and the flag pairs with `can_view` + `can_delete`). The column then follows those
-predicates per record (GH #235): a row either one refuses renders no checkbox,
+Panel wires the bulk checkbox column when the resource's `can_delete_any()` allows, the same
+predicate the delete handlers check. The column then follows `can_view` + `can_delete` per record
+(GH #235): a row either one refuses renders no checkbox,
 so select-all never submits a key the handler would refuse
 the whole batch over. A row refused every action keeps an empty actions cell,
 so the row keeps a cell per header. Bulk delete asks first: the bulk bar's

@@ -147,19 +147,12 @@ impl Resource for UserResource {
         // so the panel never writes it (reads still flow).
         record.name != "Ken Thompson"
     }
+    fn can_delete_any(_cx: &Cx) -> bool {
+        true
+    }
     fn can_delete(_cx: &Cx, record: &User) -> bool {
         // Same SSO guard on the delete path: per-row Policy proven over HTTP.
         record.name != "Ken Thompson"
-    }
-
-    // chrome is opt-in. The flags are declared next to the predicates
-    // above that honour them — `can_view` + `can_update` for the Edit link,
-    // `can_delete` for the row and bulk Delete.
-    fn editable() -> bool {
-        true
-    }
-    fn deletable() -> bool {
-        true
     }
 
     fn table(_cx: &Cx) -> Table<User> {
@@ -263,16 +256,8 @@ impl Resource for AuthorResource {
     fn can_update(cx: &Cx, _record: &Author) -> bool {
         Self::can_view_any(cx)
     }
-    fn can_delete(cx: &Cx, _record: &Author) -> bool {
+    fn can_delete_any(cx: &Cx) -> bool {
         Self::can_view_any(cx)
-    }
-
-    // chrome is opt-in, declared beside the predicates above.
-    fn editable() -> bool {
-        true
-    }
-    fn deletable() -> bool {
-        true
     }
 
     // Tenant-scoped model: every handler fails closed without a
@@ -571,16 +556,8 @@ impl Resource for PostResource {
     fn can_update(cx: &Cx, _record: &Post) -> bool {
         Self::can_view_any(cx)
     }
-    fn can_delete(cx: &Cx, _record: &Post) -> bool {
+    fn can_delete_any(cx: &Cx) -> bool {
         Self::can_view_any(cx)
-    }
-
-    // chrome is opt-in, declared beside the predicates above.
-    fn editable() -> bool {
-        true
-    }
-    fn deletable() -> bool {
-        true
     }
 
     // Tenant-scoped model: every handler fails closed without a
@@ -739,10 +716,10 @@ async fn ensure_author_in_tenant(
 /// the shape that fails closed: no tenant is a 403 everywhere, and the
 /// predicate is the framework's to apply.
 ///
-/// The queue moderates: row and bulk delete are enabled, which is
-/// what `can_delete` and `delete_record` are written for — bulk delete rides
+/// The queue moderates: `can_delete_any` enables row and bulk delete, and
+/// `delete_record` writes them — bulk delete rides
 /// the framework default that loops `delete_record`. A resource that wants a
-/// read-only queue overrides [`Resource::deletable`] to `false` instead.
+/// read-only queue leaves [`can_delete_any`](Resource::can_delete_any) at its default instead.
 pub struct CommentResource;
 
 /// Re-resolve a comment's parent post through the tenant-scoped
@@ -887,16 +864,7 @@ impl Resource for CommentResource {
     fn can_update(_cx: &Cx, _record: &Comment) -> bool {
         true
     }
-    fn can_delete(_cx: &Cx, _record: &Comment) -> bool {
-        true
-    }
-
-    // chrome is opt-in. The moderation queue wants both, and the
-    // predicates above answer for every row.
-    fn editable() -> bool {
-        true
-    }
-    fn deletable() -> bool {
+    fn can_delete_any(_cx: &Cx) -> bool {
         true
     }
 

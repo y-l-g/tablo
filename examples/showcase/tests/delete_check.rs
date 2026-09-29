@@ -267,7 +267,7 @@ async fn forged_delete_runs_no_record_query() {
         fn can_view(_cx: &topcoat::context::Cx, _r: &Dummy) -> bool {
             true
         }
-        fn can_delete(_cx: &topcoat::context::Cx, _r: &Dummy) -> bool {
+        fn can_delete_any(_cx: &topcoat::context::Cx) -> bool {
             true
         }
         fn table(_cx: &topcoat::context::Cx) -> Table<Dummy> {

@@ -82,8 +82,9 @@ pub struct GroupDef<M> {
 ///
 /// [`Resource::table`](crate::resource::Resource::table) returns a table
 /// carrying no delete/edit/view prefix: the panel attaches them from the
-/// resource's `deletable()`, `editable()` and
-/// [`viewed`](crate::resource::Resource::viewed) declarations.
+/// resource's [`can_delete_any`](crate::resource::Resource::can_delete_any),
+/// its record form, and its [`viewed`](crate::resource::Resource::viewed)
+/// declaration.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct TableChrome {
     /// Whether the row renders a Delete action (which also enables bulk).
@@ -1051,7 +1052,7 @@ mod tests {
                 .paginate(25)
             }
 
-            fn deletable() -> bool {
+            fn can_delete_any(_cx: &Cx) -> bool {
                 true
             }
         }

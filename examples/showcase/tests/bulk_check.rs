@@ -396,6 +396,9 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
         fn can_view(_cx: &topcoat::context::Cx, _rec: &DummyUser) -> bool {
             true
         }
+        fn can_delete_any(_cx: &topcoat::context::Cx) -> bool {
+            true
+        }
         fn can_delete(_cx: &topcoat::context::Cx, rec: &DummyUser) -> bool {
             // Deny second record (name == "b")
             rec.name != "b"

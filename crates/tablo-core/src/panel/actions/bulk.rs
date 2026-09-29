@@ -38,6 +38,11 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
     Box::pin(HoistView::new(ThenView::<_, BoxView<'_>>::new(
         async move {
             gate::<R>(cx)?;
+            // The whole-resource half of the policy, before the body is read:
+            // a resource that allows no delete renders no delete chrome.
+            if !R::can_delete_any(cx) {
+                return Err(forbidden().into());
+            }
             // Delete/bulk-delete carry no file parts: only the values half is read.
             let values = parse_form_body(cx, body).await?.values;
             crate::csrf::verify(cx, &values)?;
@@ -190,7 +195,7 @@ mod tests {
             fn slug() -> String {
                 "dummies".to_string()
             }
-            fn can_delete(_cx: &Cx, _record: &Dummy) -> bool {
+            fn can_delete_any(_cx: &Cx) -> bool {
                 true
             }
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
@@ -317,7 +322,7 @@ mod tests {
             fn slug() -> String {
                 "dummies".to_string()
             }
-            fn can_delete(_cx: &Cx, _record: &Dummy) -> bool {
+            fn can_delete_any(_cx: &Cx) -> bool {
                 true
             }
             fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
