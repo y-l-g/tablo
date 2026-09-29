@@ -1,6 +1,6 @@
 # Record forms: a derived typed value, completed from the stored record
 
-Date: 2026-09-28 — Status: accepted
+Date: 2026-09-28 — Status: accepted — Amended: 2026-09-29
 
 ## Decision
 
@@ -13,13 +13,13 @@ because an embedded leaf's key is its flattened storage column. A scalar (`Strin
 type, or an `Option` of one) binds one key; `#[record_form(embed)]` binds every key of an
 `EmbeddedForm` value and writes it whole.
 
-**2. `FormResource` is a second trait, registered separately.** `form`, `validate_record`,
-`create_record`, and `update_record` live on `FormResource: Resource`, with `type Form`. A list-only
-resource implements `Resource` alone and registers with `Panel::resource`; a form resource
-registers with `Panel::form_resource`, which adds the create, edit, and options routes, and only its
-list page links to a create page. An
-associated type cannot carry a default on stable (E0658), so `type Form` on `Resource` would name a
-placeholder in every list-only resource.
+**2. The form lives on `Resource`, registered once (GH #382).** `type Form`, `CREATE_COLUMNS`,
+`form`, `validate_record`, `create_record`, and `update_record` live on `Resource`, and every
+resource registers with `Panel::resource`. A list-only resource names
+`type Form = NoForm<Self::Model>;`: an associated type cannot carry a default on stable (E0658), and
+the one line removes a misregistration a second trait allowed, a form resource registered without
+its form routes. `RecordForm::HAS_FORM`, `false` on `NoForm`, decides at registration whether the
+create, edit, and options routes exist and whether the list links to create.
 
 **3. An edit completes the submission from the stored record.** Every declared key the submission
 does not post is filled from `RecordForm::hydrate` of the stored record — the advisory load for
@@ -44,12 +44,12 @@ transaction delegates to them.
 **6. `Panel::build` checks the struct against the schema.** Every control is bound by exactly one
 field and every field's key is a declared control; an optional control, or one inside a `Repeater`
 or a variant group (whose requiredness a submission can skip), binds a field that answers blank; a
-gated resource's form does not claim its tenant column; and a resource registered with
-`Panel::resource` does not declare create or edit.
+gated resource's form does not claim its tenant column; a resource with a record form overrides
+`form()`; and a `NoForm` resource declares no schema and allows neither create nor edit.
 
 **7. A create sets every non-nullable column.** Where `can_create` allows it, each non-nullable,
 non-relation column must be a form field, filled by toasty, the stamped tenant column, or named in
-`FormResource::CREATE_COLUMNS` by an override that sets it. Toasty keeps `#[default(..)]` in
+`Resource::CREATE_COLUMNS` by an override that sets it. Toasty keeps `#[default(..)]` in
 generated code only, not in the app schema, so the check reads the defaults off
 `M::Create::default()`: a column its insert leaves `NULL` is one nothing fills.
 

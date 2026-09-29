@@ -21,7 +21,7 @@ use super::{
 };
 use crate::{
     db::db,
-    form::{FormResource, RecordForm},
+    form::RecordForm,
     notification::{Notification, set_notification},
     resource::Resource,
 };
@@ -178,7 +178,7 @@ pub(super) async fn restore_pending_uploads(
 // The public link rides through to the re-rendered form for the same reason
 // as above.
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn rerender_invalid_form<'a, R: FormResource>(
+pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     cx: &'a Cx,
     tx: toasty::Transaction<'_>,
     title: String,
@@ -204,7 +204,7 @@ pub(super) fn redirect_after_write<R: Resource>(cx: &Cx, note: &'static str) -> 
 
 /// Edit page GET — hydrates the form from the record the tenant-scoped
 /// load returned.
-pub(crate) fn resource_edit<R: FormResource>(cx: &Cx, _body: Body) -> BoxView<'_> {
+pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         let mut db = db(cx);

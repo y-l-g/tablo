@@ -202,6 +202,11 @@ async fn create_policy_deny() {
     struct DenyCreateResource;
     impl Resource for DenyCreateResource {
         type Model = DummyUser;
+        type Form = DenyCreateForm;
+        fn form(_cx: &topcoat::context::Cx) -> Schema {
+            Schema::new(TextInput::r#for(DummyUser::fields().name()).required())
+        }
+
         fn can_create(_cx: &topcoat::context::Cx) -> bool {
             false
         }
@@ -220,13 +225,6 @@ async fn create_policy_deny() {
     struct DenyCreateForm {
         name: String,
     }
-    impl tablo_core::FormResource for DenyCreateResource {
-        type Form = DenyCreateForm;
-        fn form(_cx: &topcoat::context::Cx) -> Schema {
-            Schema::new(TextInput::r#for(DummyUser::fields().name()).required())
-        }
-    }
-
     let db = Db::builder()
         .models(toasty::models!(DummyUser))
         .connect("sqlite::memory:")
@@ -236,7 +234,7 @@ async fn create_policy_deny() {
     let router = tablo_core::Panel::new("admin")
         .app_context(db.clone())
         .auth(tablo_core::Auth::disabled())
-        .form_resource::<DenyCreateResource>()
+        .resource::<DenyCreateResource>()
         .build()
         .expect("panel builds");
     let client = TestClient::new(&router);
@@ -389,6 +387,19 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     struct FailingResource;
     impl Resource for FailingResource {
         type Model = Widget;
+        type Form = FailingForm;
+        fn form(_cx: &Cx) -> Schema {
+            Schema::new(TextInput::r#for(Widget::fields().name()))
+        }
+        async fn create_record(
+            _cx: &Cx,
+            _form: FailingForm,
+            _ex: &mut dyn toasty::Executor,
+        ) -> topcoat::Result<Widget> {
+            // Validation passed; the write itself did not land.
+            Err(std::io::Error::other("the write did not land").into())
+        }
+
         fn slug() -> String {
             "widgets".to_string()
         }
@@ -411,21 +422,6 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     struct FailingForm {
         name: String,
     }
-    impl tablo_core::FormResource for FailingResource {
-        type Form = FailingForm;
-        fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Widget::fields().name()))
-        }
-        async fn create_record(
-            _cx: &Cx,
-            _form: FailingForm,
-            _ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<Widget> {
-            // Validation passed; the write itself did not land.
-            Err(std::io::Error::other("the write did not land").into())
-        }
-    }
-
     let db = Db::builder()
         .models(toasty::models!(Widget))
         .connect("sqlite::memory:")
@@ -435,7 +431,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     let router = tablo_core::Panel::new("admin")
         .app_context(db)
         .auth(tablo_core::Auth::disabled())
-        .form_resource::<FailingResource>()
+        .resource::<FailingResource>()
         .build()
         .expect("panel builds");
     let client = TestClient::new(&router);

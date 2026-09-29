@@ -90,7 +90,7 @@ committed write, and a failure in it is logged without rolling the write back.
 | `Resource::editable` / `deletable` | `resource/mod.rs` | whether the row chrome renders, default off |
 | `schema::OptionSource` | `schema/relationship.rs` | what a relationship select offers, and who may see it |
 | `EmbeddedForm` | `tablo-macros` | the flat form map ↔ a typed embedded value |
-| `RecordForm` / `FormResource` | `form.rs` | the typed value a form writes, and the create and update record fns |
+| `RecordForm` / `NoForm` | `form.rs` | the typed value a form writes, and the form of a resource with none |
 | `Uploader` | `upload.rs` | where a `FileUpload`'s bytes go |
 | `Authenticator` | `auth.rs` | how credentials resolve to a `CurrentUser` |
 | `Table::new` / `Table::new_split` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |

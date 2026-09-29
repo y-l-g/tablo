@@ -20,7 +20,7 @@ use super::{
 };
 use crate::{
     db::db,
-    form::{FieldErrorKind, FormResource, Posted, RecordForm},
+    form::{FieldErrorKind, Posted, RecordForm},
     notification::notify_write_failure,
     resource::{Committed, Resource},
     schema::Schema,
@@ -51,7 +51,7 @@ struct Submission {
 ///
 /// `advisory` is the edit path's pre-transaction snapshot. A create passes
 /// `None`, so nothing is completed and an absent key validates as `""`.
-async fn prepare_submission<R: FormResource>(
+async fn prepare_submission<R: Resource>(
     cx: &Cx,
     parts: FormParts,
     advisory: Option<&R::Model>,
@@ -145,7 +145,7 @@ fn complete(
 ///
 /// A `validate_record` error on a field `RecordForm::fields` binds to no key:
 /// it cannot render, and the write must not proceed past it.
-fn parse_form<R: FormResource>(
+fn parse_form<R: Resource>(
     cx: &Cx,
     schema: &Schema,
     values: &HashMap<String, String>,
@@ -250,7 +250,7 @@ async fn commit_write<'a, R: Resource>(
     }
 }
 
-pub(crate) fn resource_create_post<R: FormResource>(cx: &Cx, body: Body) -> BoxView<'_> {
+pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         if !R::can_create(cx) {
@@ -308,7 +308,7 @@ pub(crate) fn resource_create_post<R: FormResource>(cx: &Cx, body: Body) -> BoxV
 ///
 /// Requires both `can_view` and `can_update` (matching GET, deny-by-default):
 /// a view-denied but writable record must not be mutable by direct POST.
-pub(crate) fn resource_edit_post<R: FormResource>(cx: &Cx, body: Body) -> BoxView<'_> {
+pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         let parts = parse_form_body(cx, body).await?;
@@ -384,7 +384,7 @@ mod tests {
     use super::*;
     use crate::{
         Panel,
-        panel::test_support::{Dummy, dummy_table, form_panel_for, response_html},
+        panel::test_support::{Dummy, dummy_table, panel_for, response_html},
         schema::{FileUpload, Schema, TextInput},
     };
 
@@ -423,6 +423,11 @@ mod tests {
         struct ViewDeniedResource;
         impl Resource for ViewDeniedResource {
             type Model = Dummy;
+            type Form = ViewDeniedForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Dummy::fields().name()))
+            }
+
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -441,13 +446,6 @@ mod tests {
         struct ViewDeniedForm {
             name: String,
         }
-        impl crate::form::FormResource for ViewDeniedResource {
-            type Form = ViewDeniedForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Dummy::fields().name()))
-            }
-        }
-
         let mut db = Db::builder()
             .models(toasty::models!(Dummy))
             .connect("sqlite::memory:")
@@ -460,7 +458,7 @@ mod tests {
         .exec(&mut db)
         .await
         .unwrap();
-        let router = form_panel_for::<ViewDeniedResource>(db)
+        let router = panel_for::<ViewDeniedResource>(db)
             .build()
             .expect("panel builds");
         let url = format!("/admin/dummies/{}/edit", row.id);
@@ -535,6 +533,14 @@ mod tests {
         struct CapturingResource;
         impl crate::resource::Resource for CapturingResource {
             type Model = Doc;
+            type Form = CapturingForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new((
+                    TextInput::r#for(Doc::fields().title()),
+                    FileUpload::r#for(Doc::fields().path()),
+                ))
+            }
+
             fn slug() -> String {
                 "docs".to_string()
             }
@@ -559,23 +565,13 @@ mod tests {
             title: String,
             path: String,
         }
-        impl crate::form::FormResource for CapturingResource {
-            type Form = CapturingForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new((
-                    TextInput::r#for(Doc::fields().title()),
-                    FileUpload::r#for(Doc::fields().path()),
-                ))
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Doc))
             .connect("sqlite::memory:")
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = form_panel_for::<CapturingResource>(db.clone())
+        let router = panel_for::<CapturingResource>(db.clone())
             .build()
             .expect("panel builds");
         let csrf = uuid::Uuid::new_v4().to_string();
@@ -646,6 +642,10 @@ mod tests {
         struct WritingResource;
         impl Resource for WritingResource {
             type Model = Dummy;
+            type Form = WritingForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Dummy::fields().name()))
+            }
 
             fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -670,13 +670,6 @@ mod tests {
         struct WritingForm {
             name: String,
         }
-        impl crate::form::FormResource for WritingResource {
-            type Form = WritingForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Dummy::fields().name()))
-            }
-        }
-
         // Schema never pushed: the INSERT cannot run, so the failure is the
         // driver's own (the `unique_check_propagates_probe_errors` setup).
         let db = Db::builder()
@@ -777,6 +770,25 @@ mod tests {
         struct EditingResource;
         impl Resource for EditingResource {
             type Model = Dummy;
+            type Form = EditingForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Dummy::fields().name()))
+            }
+            async fn update_record(
+                _cx: &Cx,
+                record: Dummy,
+                _posted: crate::form::Posted<EditingForm>,
+                ex: &mut dyn toasty::Executor,
+            ) -> Result<Dummy> {
+                // The write the hook performs is the one that fails: the name
+                // is taken, and only the database knows it.
+                toasty::create!(Ghost {
+                    name: "taken".to_string(),
+                })
+                .exec(&mut *ex)
+                .await?;
+                Ok(record)
+            }
 
             fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -804,28 +816,6 @@ mod tests {
         struct EditingForm {
             name: String,
         }
-        impl crate::form::FormResource for EditingResource {
-            type Form = EditingForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Dummy::fields().name()))
-            }
-            async fn update_record(
-                _cx: &Cx,
-                record: Dummy,
-                _posted: crate::form::Posted<EditingForm>,
-                ex: &mut dyn toasty::Executor,
-            ) -> Result<Dummy> {
-                // The write the hook performs is the one that fails: the name
-                // is taken, and only the database knows it.
-                toasty::create!(Ghost {
-                    name: "taken".to_string(),
-                })
-                .exec(&mut *ex)
-                .await?;
-                Ok(record)
-            }
-        }
-
         /// Runs the edit handler under a route that captures `{id}`, and hands
         /// its error back as the body.
         fn edit_error(cx: &Cx, body: Body) -> RouteFuture<'_> {
@@ -931,30 +921,6 @@ mod tests {
         struct NotifyingResource;
         impl Resource for NotifyingResource {
             type Model = Dummy;
-            fn slug() -> String {
-                "dummies".to_string()
-            }
-            fn can_view_any(_cx: &Cx) -> bool {
-                true
-            }
-            fn can_create(_cx: &Cx) -> bool {
-                true
-            }
-            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
-                crate::resource::Table::new(
-                    |r: &Dummy| r.id.to_string(),
-                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                        r.name.clone()
-                    }),
-                )
-            }
-        }
-        #[derive(crate::RecordForm)]
-        #[record_form(model = Dummy)]
-        struct NotifyingForm {
-            name: String,
-        }
-        impl crate::form::FormResource for NotifyingResource {
             type Form = NotifyingForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 // A real field, optional so the test's csrf-only POST still
@@ -978,15 +944,37 @@ mod tests {
                 .await
                 .map_err(|error| -> topcoat::Error { error.into() })
             }
-        }
 
+            fn slug() -> String {
+                "dummies".to_string()
+            }
+            fn can_view_any(_cx: &Cx) -> bool {
+                true
+            }
+            fn can_create(_cx: &Cx) -> bool {
+                true
+            }
+            fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                crate::resource::Table::new(
+                    |r: &Dummy| r.id.to_string(),
+                    crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
+                        r.name.clone()
+                    }),
+                )
+            }
+        }
+        #[derive(crate::RecordForm)]
+        #[record_form(model = Dummy)]
+        struct NotifyingForm {
+            name: String,
+        }
         let db = Db::builder()
             .models(toasty::models!(Dummy))
             .connect("sqlite::memory:")
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = form_panel_for::<NotifyingResource>(db)
+        let router = panel_for::<NotifyingResource>(db)
             .build()
             .expect("panel builds");
         let token = uuid::Uuid::new_v4().to_string();
@@ -1066,6 +1054,17 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+            type Form = SubscriberForm;
+            fn form(_cx: &Cx) -> Schema {
+                // `.optional()` lets an empty submit probe instead of failing
+                // on presence: uniqueness wins.
+                Schema::new(
+                    TextInput::r#for(Subscriber::fields().email())
+                        .unique()
+                        .optional(),
+                )
+            }
+
             fn slug() -> String {
                 "subscribers".to_string()
             }
@@ -1089,26 +1088,13 @@ mod tests {
         struct SubscriberForm {
             email: String,
         }
-        impl crate::form::FormResource for SubscriberResource {
-            type Form = SubscriberForm;
-            fn form(_cx: &Cx) -> Schema {
-                // `.optional()` lets an empty submit probe instead of failing
-                // on presence: uniqueness wins.
-                Schema::new(
-                    TextInput::r#for(Subscriber::fields().email())
-                        .unique()
-                        .optional(),
-                )
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Subscriber))
             .connect("sqlite::memory:")
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = form_panel_for::<SubscriberResource>(db.clone())
+        let router = panel_for::<SubscriberResource>(db.clone())
             .build()
             .expect("panel builds");
 
@@ -1191,6 +1177,13 @@ mod tests {
 
         impl crate::resource::Resource for DocResource {
             type Model = Doc;
+            type Form = DocForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new((
+                    TextInput::r#for(Doc::fields().title()),
+                    FileUpload::r#for(Doc::fields().path()),
+                ))
+            }
 
             fn slug() -> String {
                 "docs".to_string()
@@ -1219,16 +1212,6 @@ mod tests {
             title: String,
             path: String,
         }
-        impl crate::form::FormResource for DocResource {
-            type Form = DocForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new((
-                    TextInput::r#for(Doc::fields().title()),
-                    FileUpload::r#for(Doc::fields().path()),
-                ))
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Doc))
             .connect("sqlite::memory:")
@@ -1238,7 +1221,7 @@ mod tests {
         let router = Panel::new("admin")
             .app_context(db.clone())
             .uploads(NoHoldsUploader)
-            .form_resource::<DocResource>()
+            .resource::<DocResource>()
             .auth(crate::Auth::disabled())
             .build()
             .expect("panel builds");

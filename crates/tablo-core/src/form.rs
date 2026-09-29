@@ -8,7 +8,7 @@
 //! writes it through toasty's generated builders. ADR-0022 records the design.
 //!
 //! On edit, a declared key the submission does not post is **completed** from
-//! the stored record before the parse, so [`FormResource::update_record`]
+//! the stored record before the parse, so [`Resource::update_record`]
 //! receives a whole form, and [`Posted`] records which fields the submission
 //! **named**. The write assigns only named fields, plus what the model's own
 //! `#[update(..)]` defaults and `#[version]` column assign on every update.
@@ -109,7 +109,7 @@ use topcoat::{Result, context::Cx};
 
 use crate::{
     resource::Resource,
-    schema::{Schema, TypedValue},
+    schema::TypedValue,
     tenancy::{require_tenant, tenant_field_index},
 };
 
@@ -314,6 +314,73 @@ pub trait RecordForm: Sized + Send + 'static {
         update: <Self::Model as Model>::Update<'a>,
         ex: &'a mut dyn Executor,
     ) -> impl Future<Output = toasty::Result<()>> + Send + 'a;
+
+    /// Whether the resource naming this form has create and edit pages.
+    ///
+    /// [`Panel::resource`](crate::Panel::resource) registers the create, edit,
+    /// and options routes only when this holds. [`NoForm`] sets it to `false`.
+    const HAS_FORM: bool = true;
+}
+
+/// The record form of a resource with no create or edit page.
+///
+/// A list-only resource names it as [`Resource::Form`]:
+/// `type Form = NoForm<Self::Model>;`. [`fields`](RecordForm::fields) and
+/// [`hydrate`](RecordForm::hydrate) are empty and
+/// [`into_update`](RecordForm::into_update) answers `None`. No route parses or
+/// writes it, so [`parse`](RecordForm::parse) and
+/// [`into_create`](RecordForm::into_create) panic naming the model, and the
+/// future [`exec_update`](RecordForm::exec_update) returns panics when polled.
+pub struct NoForm<M>(std::marker::PhantomData<fn() -> M>);
+
+impl<M: Model + Send + Sync + 'static> NoForm<M> {
+    fn unreachable() -> ! {
+        panic!("`NoForm<{}>` has no form", std::any::type_name::<M>())
+    }
+}
+
+impl<M: Model + Send + Sync + 'static> RecordForm for NoForm<M> {
+    type Model = M;
+    type Field = std::convert::Infallible;
+
+    const HAS_FORM: bool = false;
+
+    fn fields(_cx: &Cx) -> Vec<FormField<Self::Field>> {
+        Vec::new()
+    }
+
+    fn hydrate(_cx: &Cx, _record: &M) -> HashMap<String, String> {
+        HashMap::new()
+    }
+
+    fn parse(
+        _cx: &Cx,
+        _values: &HashMap<String, String>,
+    ) -> std::result::Result<Self, Vec<FieldError>> {
+        Self::unreachable()
+    }
+
+    fn into_create(self) -> M::Create {
+        Self::unreachable()
+    }
+
+    fn into_update<'a>(
+        self,
+        _record: &'a mut M,
+        _named: &HashSet<Self::Field>,
+    ) -> Option<M::Update<'a>> {
+        None
+    }
+
+    fn exec_update<'a>(
+        update: M::Update<'a>,
+        ex: &'a mut dyn Executor,
+    ) -> impl Future<Output = toasty::Result<()>> + Send + 'a {
+        // `into_update` answers `None`, so no builder reaches here. The
+        // builder is not known to be `Send`, so the future must not hold it.
+        drop((update, ex));
+        async { Self::unreachable() }
+    }
 }
 
 /// An edit submission: the parsed form, and the fields the submission named.
@@ -359,7 +426,7 @@ impl<F: RecordForm> std::ops::Deref for Posted<F> {
     }
 }
 
-/// Field-keyed validation errors from [`FormResource::validate_record`].
+/// Field-keyed validation errors from [`Resource::validate_record`].
 pub struct FieldErrors<F: RecordForm> {
     errors: Vec<(F::Field, String)>,
 }
@@ -389,63 +456,6 @@ impl<F: RecordForm> FieldErrors<F> {
 impl<F: RecordForm> Default for FieldErrors<F> {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// A resource with a create and edit form.
-///
-/// Register it with [`Panel::form_resource`](crate::Panel::form_resource). The
-/// record fns default to the derived write, [`write_create`] and
-/// [`write_update`]; override one to check something inside the transaction,
-/// then delegate.
-pub trait FormResource: Resource {
-    /// The typed value the form's submission parses into.
-    type Form: RecordForm<Model = Self::Model>;
-
-    /// The columns an overriding [`Self::create_record`] sets itself, beyond
-    /// the form's fields.
-    ///
-    /// [`Panel::build`](crate::Panel::build) refuses a resource that allows
-    /// create when a non-nullable column is neither a form field, nor filled by
-    /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
-    /// create would fail at the driver on every submit. A record fn that sets
-    /// such a column by hand names it here.
-    const CREATE_COLUMNS: &'static [&'static str] = &[];
-
-    /// The schema the create and edit forms render.
-    fn form(cx: &Cx) -> Schema;
-
-    /// App-level rules on the parsed form. The errors render inline with a
-    /// 200 and nothing is written; a record fn error is a 500, so a range or
-    /// cross-field rule belongs here.
-    fn validate_record(_cx: &Cx, _form: &Self::Form) -> FieldErrors<Self::Form> {
-        FieldErrors::new()
-    }
-
-    /// Create a record from the parsed form, inside the handler's transaction.
-    ///
-    /// `ex` is the open transaction: run every statement through it. Return the
-    /// created row; it is what [`Resource::after_commit`] receives.
-    fn create_record(
-        cx: &Cx,
-        form: Self::Form,
-        ex: &mut dyn Executor,
-    ) -> impl Future<Output = Result<Self::Model>> + Send {
-        write_create::<Self>(cx, form, ex)
-    }
-
-    /// Update the already-authorized `record` from the posted form, inside the
-    /// handler's transaction.
-    ///
-    /// `record` is the snapshot the handler loaded and policy-checked inside
-    /// the transaction: use it, never re-query. Return the row as it now stands.
-    fn update_record(
-        cx: &Cx,
-        record: Self::Model,
-        posted: Posted<Self::Form>,
-        ex: &mut dyn Executor,
-    ) -> impl Future<Output = Result<Self::Model>> + Send {
-        write_update::<Self>(cx, record, posted, ex)
     }
 }
 
@@ -485,7 +495,7 @@ pub(crate) fn prefilled_fields<M: Model>() -> Vec<bool> {
 ///
 /// A tenantless request on a gated resource (the handler answers 403 first),
 /// or the driver's error.
-pub async fn write_create<R: FormResource>(
+pub async fn write_create<R: Resource>(
     cx: &Cx,
     form: R::Form,
     ex: &mut dyn Executor,
@@ -509,7 +519,7 @@ pub async fn write_create<R: FormResource>(
 /// # Errors
 ///
 /// The driver's error.
-pub async fn write_update<R: FormResource>(
+pub async fn write_update<R: Resource>(
     _cx: &Cx,
     mut record: R::Model,
     posted: Posted<R::Form>,

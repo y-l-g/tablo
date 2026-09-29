@@ -39,6 +39,11 @@ struct ClipResource;
 
 impl Resource for ClipResource {
     type Model = Clip;
+    type Form = ClipForm;
+    fn form(cx: &topcoat::context::Cx) -> Schema {
+        Schema::new(TextInput::r#for(Clip::fields().title()))
+            .extend(Body::form(cx, Clip::fields().body()))
+    }
 
     fn slug() -> String {
         "clips".to_string()
@@ -66,14 +71,6 @@ struct ClipForm {
     #[record_form(embed)]
     body: Body,
 }
-impl tablo_core::FormResource for ClipResource {
-    type Form = ClipForm;
-    fn form(cx: &topcoat::context::Cx) -> Schema {
-        Schema::new(TextInput::r#for(Clip::fields().title()))
-            .extend(Body::form(cx, Clip::fields().body()))
-    }
-}
-
 #[tokio::test]
 async fn a_hidden_variant_groups_fields_do_not_block_the_submit() {
     let db = Db::builder()
@@ -85,7 +82,7 @@ async fn a_hidden_variant_groups_fields_do_not_block_the_submit() {
     let router = Panel::new("admin")
         .app_context(db.clone())
         .auth(Auth::disabled())
-        .form_resource::<ClipResource>()
+        .resource::<ClipResource>()
         .build()
         .expect("panel builds");
     let client = TestClient::new(&router);
@@ -131,7 +128,7 @@ async fn the_named_variants_fields_still_validate() {
     let router = Panel::new("admin")
         .app_context(db.clone())
         .auth(Auth::disabled())
-        .form_resource::<ClipResource>()
+        .resource::<ClipResource>()
         .build()
         .expect("panel builds");
     let client = TestClient::new(&router);

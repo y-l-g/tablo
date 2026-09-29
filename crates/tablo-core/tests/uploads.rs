@@ -82,6 +82,16 @@ struct DocResource;
 
 impl Resource for DocResource {
     type Model = Doc;
+    type Form = DocForm;
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new((
+            TextInput::r#for(Doc::fields().title()),
+            FileUpload::r#for(Doc::fields().cover()).label("Cover"),
+            FileUpload::r#for(Doc::fields().attachment())
+                .label("Attachment")
+                .optional(),
+        ))
+    }
 
     fn can_view_any(_cx: &Cx) -> bool {
         true
@@ -116,19 +126,6 @@ struct DocForm {
     cover: String,
     attachment: String,
 }
-impl tablo_core::FormResource for DocResource {
-    type Form = DocForm;
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new((
-            TextInput::r#for(Doc::fields().title()),
-            FileUpload::r#for(Doc::fields().cover()).label("Cover"),
-            FileUpload::r#for(Doc::fields().attachment())
-                .label("Attachment")
-                .optional(),
-        ))
-    }
-}
-
 async fn seeded_db() -> Db {
     memory_db(toasty::models!(Doc)).await
 }
@@ -157,7 +154,7 @@ fn router(db: Db, uploader: Option<impl Uploader>) -> Router {
         None => panel,
     };
     panel
-        .form_resource::<DocResource>()
+        .resource::<DocResource>()
         .build()
         .expect("panel builds")
 }
@@ -831,7 +828,7 @@ async fn serve_dir_serves_the_upload_directory_through_the_panel() {
         .app_context(db)
         .auth(Auth::disabled())
         .serve_dir("/uploads/{*file}", dir.clone())
-        .form_resource::<DocResource>()
+        .resource::<DocResource>()
         .build()
         .expect("panel builds");
 
@@ -868,7 +865,7 @@ async fn a_served_directory_is_reachable_without_a_session() {
         .app_context(db)
         // No `.auth(..)` call: the shipped gate is on, which is the point.
         .serve_dir("/uploads/{*file}", dir.clone())
-        .form_resource::<DocResource>()
+        .resource::<DocResource>()
         .build()
         .expect("panel builds");
 
@@ -916,7 +913,7 @@ async fn served_active_content_is_inert() {
         .app_context(db)
         .auth(Auth::disabled())
         .serve_dir("/uploads/{*file}", dir.clone())
-        .form_resource::<DocResource>()
+        .resource::<DocResource>()
         .build()
         .expect("panel builds");
 
@@ -1003,7 +1000,7 @@ async fn a_serve_dir_path_without_a_catch_all_fails_the_build() {
     let Err(error) = Panel::new("admin")
         .app_context(db)
         .serve_dir("/uploads", temp_dir("bad-path"))
-        .form_resource::<DocResource>()
+        .resource::<DocResource>()
         .build()
     else {
         panic!("a serve_dir pattern with no catch-all must fail the build");

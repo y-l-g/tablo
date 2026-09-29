@@ -166,6 +166,7 @@ mod tests {
 
     impl Resource for UserResource {
         type Model = User;
+        type Form = crate::NoForm<Self::Model>;
 
         fn table(_cx: &Cx) -> crate::resource::Table<User> {
             crate::resource::Table::new(

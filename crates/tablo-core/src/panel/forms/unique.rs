@@ -104,7 +104,7 @@ mod tests {
     use topcoat::router::Body;
 
     use super::*;
-    use crate::panel::test_support::{Tagged, TaggedResource, form_panel_for, response_html};
+    use crate::panel::test_support::{Tagged, TaggedResource, panel_for, response_html};
 
     #[tokio::test]
     async fn unique_check_flags_duplicates_for_marked_fields() {
@@ -123,6 +123,7 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
                 crate::resource::Table::new(
@@ -243,6 +244,7 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
                 crate::resource::Table::new(
@@ -324,6 +326,7 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
                 crate::resource::Table::new(
@@ -387,6 +390,7 @@ mod tests {
         struct ProbeResource;
         impl Resource for ProbeResource {
             type Model = Probe;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Probe> {
                 crate::resource::Table::new(
@@ -436,6 +440,7 @@ mod tests {
         struct TaggedResource;
         impl Resource for TaggedResource {
             type Model = Nicknamed;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Nicknamed> {
                 crate::resource::Table::new(
@@ -531,7 +536,7 @@ mod tests {
         .exec(&mut db_q)
         .await
         .unwrap();
-        let router = form_panel_for::<TaggedResource>(db.clone())
+        let router = panel_for::<TaggedResource>(db.clone())
             .build()
             .expect("panel builds");
 
@@ -625,7 +630,7 @@ mod tests {
         .exec(&mut db_q)
         .await
         .unwrap();
-        let router = form_panel_for::<TaggedResource>(db.clone())
+        let router = panel_for::<TaggedResource>(db.clone())
             .build()
             .expect("panel builds");
 

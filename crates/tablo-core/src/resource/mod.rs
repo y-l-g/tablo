@@ -1,7 +1,7 @@
 //! `Resource` — maps one Toasty [`Model`](toasty::schema::Model) to its admin UI.
 //!
 //! One `Model` → one `Resource`. The trait is the single seam for query
-//! scoping (`query`), form/table stubs, and navigation. See
+//! scoping (`query`), the form and table declarations, and navigation. See
 //! `CONTEXT.md` and ADR-0002.
 //!
 //! Facade over the cohesive submodules split out in GH #133: `filter`,
@@ -10,8 +10,13 @@
 
 use std::collections::HashMap;
 
-use toasty::stmt::{List, Query};
+use toasty::{
+    Executor,
+    stmt::{List, Query},
+};
 use topcoat::{Result, context::Cx};
+
+use crate::form::{FieldErrors, Posted, RecordForm, write_create, write_update};
 
 mod column;
 mod commit;
@@ -47,16 +52,16 @@ pub(crate) use crate::query_term::clamp_query_term;
 ///
 /// # Contract
 ///
-/// **Every method but [`table`](Self::table) has a default**, so a resource
-/// compiles as soon as it declares a [`Model`](Self::Model) and its list view —
-/// and an omission must fail loudly rather than silently:
+/// **Every item but [`Model`](Self::Model), [`Form`](Self::Form) and
+/// [`table`](Self::table) has a default**, so a resource compiles as soon as it
+/// declares its model, its record form (or [`NoForm`](crate::NoForm)) and its
+/// list view — and an omission must fail loudly rather than silently:
 ///
 /// - **Checked at [`Panel::build`](crate::panel::Panel::build)**: the declared table must serve a
-///   list. A resource with a create or edit form implements [`FormResource`](crate::FormResource)
-///   and registers with [`Panel::form_resource`](crate::Panel::form_resource); build refuses one
-///   registered with [`Panel::resource`](crate::Panel::resource) whose
-///   [`can_create`](Self::can_create) or [`editable`](Self::editable) is on. These are
-///   declarations, checked with a Db-only context.
+///   list, and [`form`](Self::form) must agree with [`Form`](Self::Form): a record form's fields
+///   are the schema's controls, and a [`NoForm`](crate::NoForm) resource declares no schema. A
+///   resource with no form must not allow [`can_create`](Self::can_create) or
+///   [`editable`](Self::editable). These are declarations, checked with a Db-only context.
 /// - **Loud at request time**: [`delete_record`](Self::delete_record) defaults to an error naming
 ///   the type, so a resource that never implemented delete says so instead of writing nothing
 ///   quietly. [`bulk_delete_records`](Self::bulk_delete_records) loops `delete_record` by default,
@@ -76,6 +81,25 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// rows: a handler keeps a copy of the rows it loaded while the
     /// record fn consumes them, so the hook can be handed what was written.
     type Model: toasty::schema::Model + Send + Sync + Clone + 'static;
+
+    /// The typed value the create and edit forms parse into.
+    ///
+    /// A resource with create and edit pages names its
+    /// [`#[derive(RecordForm)]`](crate::RecordForm) struct; a list-only resource
+    /// names [`NoForm<Self::Model>`](crate::NoForm), and
+    /// [`Panel::resource`](crate::Panel::resource) registers no form route for
+    /// it ([`RecordForm::HAS_FORM`]).
+    type Form: RecordForm<Model = Self::Model>;
+
+    /// The columns an overriding [`Self::create_record`] sets itself, beyond
+    /// the form's fields.
+    ///
+    /// [`Panel::build`](crate::Panel::build) refuses a resource that allows
+    /// create when a non-nullable column is neither a form field, nor filled by
+    /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
+    /// create would fail at the driver on every submit. A record fn that sets
+    /// such a column by hand names it here.
+    const CREATE_COLUMNS: &'static [&'static str] = &[];
 
     /// Whether the current user may view the list page.
     ///
@@ -110,9 +134,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// `Panel::build` calls this with a Db-only context to decide which
     /// declaration checks apply, so a predicate that reads the request (a
     /// tenant, a user) answers as it would for an anonymous request there. The
-    /// list page links to the create page only for a resource registered with
-    /// [`Panel::form_resource`](crate::Panel::form_resource), whatever this
-    /// answers.
+    /// list page links to the create page only for a resource with a record
+    /// form ([`RecordForm::HAS_FORM`]), whatever this answers.
     fn can_create(_cx: &Cx) -> bool {
         false
     }
@@ -398,6 +421,51 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// row key the list renders (see [`Table::render`]).
     fn table(_cx: &Cx) -> Table<Self::Model>;
 
+    /// The schema the create and edit forms render.
+    ///
+    /// [`Panel::build`](crate::Panel::build) refuses a record form field this
+    /// schema does not declare, and a schema on a resource whose
+    /// [`Form`](Self::Form) is [`NoForm`](crate::NoForm).
+    fn form(_cx: &Cx) -> crate::schema::Schema {
+        crate::schema::Schema::empty()
+    }
+
+    /// App-level rules on the parsed form. The errors render inline with a
+    /// 200 and nothing is written; a record fn error is a 500, so a range or
+    /// cross-field rule belongs here.
+    fn validate_record(_cx: &Cx, _form: &Self::Form) -> FieldErrors<Self::Form> {
+        FieldErrors::new()
+    }
+
+    /// Create a record from the parsed form, inside the handler's transaction.
+    ///
+    /// Defaults to the derived write, [`write_create`]; override to check
+    /// something inside the transaction, then delegate. `ex` is the open
+    /// transaction: run every statement through it. Return the created row; it
+    /// is what [`Self::after_commit`] receives.
+    fn create_record(
+        cx: &Cx,
+        form: Self::Form,
+        ex: &mut dyn Executor,
+    ) -> impl Future<Output = Result<Self::Model>> + Send {
+        write_create::<Self>(cx, form, ex)
+    }
+
+    /// Update the already-authorized `record` from the posted form, inside the
+    /// handler's transaction.
+    ///
+    /// Defaults to the derived write, [`write_update`]. `record` is the
+    /// snapshot the handler loaded and policy-checked inside the transaction:
+    /// use it, never re-query. Return the row as it now stands.
+    fn update_record(
+        cx: &Cx,
+        record: Self::Model,
+        posted: Posted<Self::Form>,
+        ex: &mut dyn Executor,
+    ) -> impl Future<Output = Result<Self::Model>> + Send {
+        write_update::<Self>(cx, record, posted, ex)
+    }
+
     /// Sidebar entry for the resource.
     ///
     /// The default declares a label ([`Self::navigation_label`]) and no URL:
@@ -498,11 +566,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// The record's values for the detail page, keyed by the name each
     /// [`view`](Self::view) field binds.
     ///
-    /// A resource registered with [`Panel::resource`](crate::Panel::resource)
-    /// supplies every key its view shows here. A
-    /// [`FormResource`](crate::FormResource) gets its form's keys from
-    /// [`RecordForm::hydrate`](crate::RecordForm::hydrate), and this adds any
-    /// key only the view shows; the form's keys win on a collision.
+    /// The detail page reads the form's keys from
+    /// [`RecordForm::hydrate`], and this adds any
+    /// key only the view shows; the form's keys win on a collision. A
+    /// resource with no form ([`NoForm`](crate::NoForm)) supplies every key its
+    /// view shows here.
     ///
     /// `cx` carries the app schema, which an embedded value's keys need
     /// ([`write_embedded`](crate::schema::write_embedded)). The default is
@@ -663,6 +731,7 @@ mod tests {
 
     impl Resource for UserResource {
         type Model = User;
+        type Form = crate::NoForm<Self::Model>;
 
         fn table(_cx: &Cx) -> crate::resource::Table<User> {
             crate::resource::Table::new(
@@ -683,6 +752,7 @@ mod tests {
 
     impl Resource for BareResource {
         type Model = User;
+        type Form = crate::NoForm<Self::Model>;
 
         fn table(_cx: &Cx) -> crate::resource::Table<User> {
             crate::resource::Table::new(
@@ -730,6 +800,7 @@ mod tests {
 
     impl Resource for Misdeclared {
         type Model = User;
+        type Form = crate::NoForm<Self::Model>;
 
         fn table(_cx: &Cx) -> crate::resource::Table<User> {
             crate::resource::Table::new(
@@ -773,6 +844,7 @@ mod tests {
 
     impl Resource for DeclaredScope {
         type Model = User;
+        type Form = crate::NoForm<Self::Model>;
 
         fn table(_cx: &Cx) -> crate::resource::Table<User> {
             crate::resource::Table::new(

@@ -13,7 +13,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
 
-use crate::common::{form_router, memory_db, post_fields};
+use crate::common::{memory_db, panel_router, post_fields};
 
 #[derive(Debug, toasty::Model, Clone)]
 struct Note {
@@ -69,6 +69,10 @@ struct AuditedResource;
 
 impl Resource for AuditedResource {
     type Model = Note;
+    type Form = AuditedForm;
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(TextInput::r#for(Note::fields().title()))
+    }
 
     fn slug() -> String {
         "notes".to_string()
@@ -124,19 +128,16 @@ impl Resource for AuditedResource {
 struct AuditedForm {
     title: String,
 }
-impl tablo_core::FormResource for AuditedResource {
-    type Form = AuditedForm;
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
-    }
-}
-
 /// A resource that declares no hook: the default is a no-op, so nothing about
 /// its writes changes ('s "existing resources are unaffected").
 struct PlainResource;
 
 impl Resource for PlainResource {
     type Model = Note;
+    type Form = PlainForm;
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(TextInput::r#for(Note::fields().title()))
+    }
 
     fn slug() -> String {
         "plain-notes".to_string()
@@ -162,18 +163,22 @@ impl Resource for PlainResource {
 struct PlainForm {
     title: String,
 }
-impl tablo_core::FormResource for PlainResource {
-    type Form = PlainForm;
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
-    }
-}
-
 /// A resource whose record fn fails: nothing commits, so the hook must not run.
 struct FailingWriteResource;
 
 impl Resource for FailingWriteResource {
     type Model = Note;
+    type Form = FailingWriteForm;
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(TextInput::r#for(Note::fields().title()))
+    }
+    async fn create_record(
+        _cx: &Cx,
+        _form: FailingWriteForm,
+        _ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Note> {
+        Err(std::io::Error::other("the write refused itself").into())
+    }
 
     fn slug() -> String {
         "failing-writes".to_string()
@@ -203,20 +208,6 @@ impl Resource for FailingWriteResource {
 struct FailingWriteForm {
     title: String,
 }
-impl tablo_core::FormResource for FailingWriteResource {
-    type Form = FailingWriteForm;
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
-    }
-    async fn create_record(
-        _cx: &Cx,
-        _form: FailingWriteForm,
-        _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Note> {
-        Err(std::io::Error::other("the write refused itself").into())
-    }
-}
-
 /// A resource whose hook fails: the write is already committed, so the failure
 /// is logged and the write stands (GH #112's "failures handled loudly without
 /// rolling back the write").
@@ -224,6 +215,10 @@ struct FailingHookResource;
 
 impl Resource for FailingHookResource {
     type Model = Note;
+    type Form = FailingHookForm;
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(TextInput::r#for(Note::fields().title()))
+    }
 
     fn slug() -> String {
         "failing-hooks".to_string()
@@ -255,13 +250,6 @@ impl Resource for FailingHookResource {
 struct FailingHookForm {
     title: String,
 }
-impl tablo_core::FormResource for FailingHookResource {
-    type Form = FailingHookForm;
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
-    }
-}
-
 async fn seeded_db() -> Db {
     memory_db(toasty::models!(Note, Audit)).await
 }
@@ -289,7 +277,7 @@ async fn audits(db: &Db) -> Vec<Audit> {
 #[tokio::test]
 async fn a_create_audits_the_row_it_committed_exactly_once() {
     let db = seeded_db().await;
-    let router = form_router::<AuditedResource>(db.clone());
+    let router = panel_router::<AuditedResource>(db.clone());
 
     let response = post_fields(&router, "/admin/notes/create", &[("title", "Alpha")]).await;
     assert_eq!(response.status(), 303, "a valid create redirects");
@@ -310,7 +298,7 @@ async fn a_create_audits_the_row_it_committed_exactly_once() {
 #[tokio::test]
 async fn an_edit_and_a_delete_each_audit_the_row_they_named() {
     let db = seeded_db().await;
-    let router = form_router::<AuditedResource>(db.clone());
+    let router = panel_router::<AuditedResource>(db.clone());
     let note = seed_note(&db, "Alpha").await;
 
     let response = post_fields(
@@ -351,7 +339,7 @@ async fn an_edit_and_a_delete_each_audit_the_row_they_named() {
 #[tokio::test]
 async fn a_bulk_delete_is_one_call_for_the_whole_batch() {
     let db = seeded_db().await;
-    let router = form_router::<AuditedResource>(db.clone());
+    let router = panel_router::<AuditedResource>(db.clone());
     let first = seed_note(&db, "Alpha").await;
     let second = seed_note(&db, "Beta").await;
 
@@ -378,7 +366,7 @@ async fn a_bulk_delete_is_one_call_for_the_whole_batch() {
 #[tokio::test]
 async fn a_refused_submit_never_reaches_the_hook() {
     let db = seeded_db().await;
-    let router = form_router::<AuditedResource>(db.clone());
+    let router = panel_router::<AuditedResource>(db.clone());
 
     // `title` is required: validation re-renders the form and the transaction
     // is never opened.
@@ -395,7 +383,7 @@ async fn a_refused_submit_never_reaches_the_hook() {
 #[tokio::test]
 async fn a_failed_write_never_reaches_the_hook() {
     let db = seeded_db().await;
-    let router = form_router::<FailingWriteResource>(db.clone());
+    let router = panel_router::<FailingWriteResource>(db.clone());
 
     let response = post_fields(
         &router,
@@ -419,7 +407,7 @@ async fn a_failed_write_never_reaches_the_hook() {
 #[tokio::test]
 async fn a_failing_hook_does_not_undo_the_write() {
     let db = seeded_db().await;
-    let router = form_router::<FailingHookResource>(db.clone());
+    let router = panel_router::<FailingHookResource>(db.clone());
 
     let response = post_fields(
         &router,
@@ -448,7 +436,7 @@ async fn a_failing_hook_does_not_undo_the_write() {
 #[tokio::test]
 async fn a_resource_without_the_hook_writes_exactly_as_before() {
     let db = seeded_db().await;
-    let router = form_router::<PlainResource>(db.clone());
+    let router = panel_router::<PlainResource>(db.clone());
 
     let response = post_fields(&router, "/admin/plain-notes/create", &[("title", "Alpha")]).await;
     assert_eq!(response.status(), 303, "the default hook is a no-op");

@@ -173,6 +173,7 @@ async fn export_over_cap_413s_at_route_level() {
     struct BigResource;
     impl Resource for BigResource {
         type Model = Dummy;
+        type Form = tablo_core::NoForm<Self::Model>;
         fn slug() -> String {
             "dummies".to_string()
         }

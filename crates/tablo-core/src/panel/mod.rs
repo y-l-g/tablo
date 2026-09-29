@@ -30,7 +30,7 @@ use toasty::Db;
 use topcoat::{
     asset::{Asset, AssetConfig},
     font::Font,
-    router::{PageFn, PageRenderFn, RouteFn},
+    router::{PageFn, RouteFn},
 };
 
 #[cfg(feature = "auth")]
@@ -42,11 +42,8 @@ pub(crate) use self::search::TABLE_SEARCH_PATH;
 pub use self::shell::{Brand, DarkMode};
 use self::{
     actions::{resource_bulk_delete, resource_delete, resource_export, resource_options},
-    build::{
-        ResourceCheck, check_form_resource, check_list_resource, check_resource,
-        is_directory_pattern, validate_route_segment,
-    },
-    detail::{FormValues, ViewValues, resource_view},
+    build::{ResourceCheck, check_resource, is_directory_pattern, validate_route_segment},
+    detail::resource_view,
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
     list::resource_list,
     search::{SearchFn, search_handler_for},
@@ -54,7 +51,7 @@ use self::{
 };
 pub(crate) use self::{build::route_path, search::table_search};
 use crate::{
-    form::FormResource,
+    form::RecordForm,
     resource::{
         BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
         NavigationItem, RECORD_ROUTE_PARAM, Resource,
@@ -249,8 +246,7 @@ impl Panel {
         self
     }
 
-    /// Declare a list-only `Resource` for this panel (the declarative seam,
-    /// ADR-0008).
+    /// Declare a `Resource` for this panel (the declarative seam, ADR-0008).
     ///
     /// Registers the resource's **list page** at `{prefix}/{slug}` (e.g.
     /// `Panel::new("admin").resource::<AuditResource>()` serves `/admin/audits`),
@@ -261,10 +257,22 @@ impl Panel {
     /// resource's [`Resource::navigation`] override, defaulting to declaration
     /// order (#165).
     ///
-    /// A resource with a create or edit form registers with
-    /// [`Self::form_resource`] instead: [`Panel::build`] refuses one registered
-    /// here whose `can_create` or `editable()` is on, and the list links to no
-    /// create page whatever a request-scoped `can_create` answers.
+    /// A resource whose [`Form`](Resource::Form) is a record form
+    /// ([`RecordForm::HAS_FORM`]) also gets the create page, the edit page, and
+    /// the relationship-options endpoint; one that names
+    /// [`NoForm`](crate::NoForm) gets none of them. The route set follows the
+    /// resource type, so one type serves the same routes in every panel.
+    ///
+    /// [`Panel::build`] checks that the resource's [`form`](Resource::form)
+    /// agrees with its `Form`, that a resource with no form allows neither
+    /// `can_create` nor `editable()`, and, for a resource with a form, that the
+    /// form's struct and its `Schema` agree: every control is bound by exactly
+    /// one field and every field's key is a declared control; an optional
+    /// control, or one inside a `Repeater` or a variant group, binds a field
+    /// with a blank answer; a gated resource's form does not claim its tenant
+    /// column; and, where `can_create` allows it, every non-nullable column is
+    /// set by the form, by toasty, by the tenant stamp, or by an override that
+    /// names it in [`Resource::CREATE_COLUMNS`].
     ///
     /// A duplicate slug or a slug that is not one URL segment
     /// is recorded here and reported by [`Panel::build`], which
@@ -272,37 +280,19 @@ impl Panel {
     /// shadow each other's routes, and a hostile `slug()` must not reach a
     /// route path or a response header.
     pub fn resource<R: Resource>(mut self) -> Self {
-        if let Some(url) =
-            self.register_common::<R>(resource_list::<R, false>, resource_view::<R, ViewValues>)
-        {
-            self.resource_checks.push(check_list_resource::<R>);
-            self.finish_registration::<R>(url);
+        let Some(url) = self.register_common::<R>() else {
+            return self;
+        };
+        if <R::Form as RecordForm>::HAS_FORM {
+            self.register_form_routes::<R>(&url);
         }
+        self.finish_registration::<R>(url);
         self
     }
 
-    /// Declare a `Resource` with a create and edit form for this panel.
-    ///
-    /// Registers everything [`Self::resource`] does, plus the create page, the
-    /// edit page, and the relationship-options endpoint. The detail page reads
-    /// the form's projection ([`RecordForm::hydrate`](crate::RecordForm::hydrate)),
-    /// so the page and the form agree about what a field holds.
-    ///
-    /// [`Panel::build`] checks that the form's struct and its `Schema` agree:
-    /// every control is bound by exactly one field and every field's key is a
-    /// declared control; an optional control, or one inside a `Repeater` or a
-    /// variant group, binds a field with a blank answer; a gated resource's form
-    /// does not claim its tenant column; and, where `can_create` allows it,
-    /// every non-nullable column is set by the form, by toasty, by the tenant
-    /// stamp, or by an override that names it in
-    /// [`FormResource::CREATE_COLUMNS`].
-    pub fn form_resource<R: FormResource>(mut self) -> Self {
-        let Some(url) =
-            self.register_common::<R>(resource_list::<R, true>, resource_view::<R, FormValues>)
-        else {
-            return self;
-        };
-        self.resource_checks.push(check_form_resource::<R>);
+    /// The create page, the edit page, and the relationship-options endpoint
+    /// of a resource with a record form.
+    fn register_form_routes<R: Resource>(&mut self, url: &str) {
         // Create page — GET renders form, POST handles submission.
         let create_url = format!("{url}/{CREATE_ROUTE_SEGMENT}");
         self.pages.push(PageFn::new(
@@ -336,18 +326,12 @@ impl Panel {
             route_path(&options_url),
             resource_options::<R>,
         ));
-        self.finish_registration::<R>(url);
-        self
     }
 
-    /// The routes every resource registers: the list (`list`), the detail page
-    /// (`detail`), delete, bulk delete, and export. Returns the list URL,
+    /// The routes every resource registers: the list, the detail page,
+    /// delete, bulk delete, and export. Returns the list URL,
     /// or `None` when the slug was refused.
-    fn register_common<R: Resource>(
-        &mut self,
-        list: PageRenderFn,
-        detail: PageRenderFn,
-    ) -> Option<String> {
+    fn register_common<R: Resource>(&mut self) -> Option<String> {
         let slug = R::slug();
         if let Err(error) = validate_route_segment("Resource::slug", &slug) {
             self.registration_errors.push(error);
@@ -362,8 +346,11 @@ impl Panel {
         self.slugs.push(slug);
         self.resource_checks.push(check_resource::<R>);
         let url = format!("{}/{}", self.prefix, R::slug());
-        self.pages
-            .push(PageFn::new(http::Method::GET, route_path(&url), list));
+        self.pages.push(PageFn::new(
+            http::Method::GET,
+            route_path(&url),
+            resource_list::<R>,
+        ));
         // Detail page — GET renders the record read-only. Registered
         // unconditionally, unlike the row link: registration runs before a
         // request exists, so `R::view(cx)` is not declarable here. The handler
@@ -378,7 +365,7 @@ impl Panel {
         self.pages.push(PageFn::new(
             http::Method::GET,
             route_path(&detail_url),
-            detail,
+            resource_view::<R>,
         ));
         // Delete action — POST via row button (requires confirmation).
         let delete_url = format!("{url}/{RECORD_ROUTE_PARAM}/{DELETE_ROUTE_SEGMENT}");
@@ -525,6 +512,7 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -547,6 +535,7 @@ mod tests {
         struct PlainResource;
         impl Resource for PlainResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -584,6 +573,7 @@ mod tests {
         struct DraftsResource;
         impl Resource for DraftsResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -623,6 +613,7 @@ mod tests {
         struct ReportsResource;
         impl Resource for ReportsResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -652,6 +643,7 @@ mod tests {
         struct OwnSlugResource;
         impl Resource for OwnSlugResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -681,6 +673,7 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -716,6 +709,7 @@ mod tests {
         struct UserResource;
         impl Resource for UserResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -729,6 +723,7 @@ mod tests {
         struct CategoryResource;
         impl Resource for CategoryResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -780,6 +775,7 @@ mod tests {
         struct PinnedResource;
         impl Resource for PinnedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -807,6 +803,7 @@ mod tests {
         struct OtherResource;
         impl Resource for OtherResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(

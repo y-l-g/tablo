@@ -71,7 +71,8 @@ hand-crafted POST is refused by the same predicate that removed the chrome.
 The bulk column and bar render with the delete prefix. A read-only resource with no `view()`
 schema and no form renders neither.
 
-**Build.** `check_list_resource`'s `editable()` arm is gone with #382's check. No new build check:
+**Build.** This design deletes the `editable()` arm of `check_form_declaration` (`panel/build.rs`,
+from #382). No new build check:
 `can_delete_any` may depend on the request.
 
 ## Edge cases

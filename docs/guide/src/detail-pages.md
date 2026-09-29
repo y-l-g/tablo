@@ -37,9 +37,9 @@ replace `Table::new`'s key, which must stay injective within a page for keyed di
   value when no option matches, a relationship key included), `FileUpload` shows the stored path as a
   link to the file (GH #242), and layout blocks keep their structure. No control, no CSRF field, no
   validation slot.
-- **Values come from the form's projection** (`RecordForm::hydrate`) for a resource registered with
-  `Panel::form_resource`, so a field that renders in the form renders here; `view_values` adds a key
-  only the view shows. A list-only resource supplies every key through `view_values`.
+- **Values come from the form's projection** (`RecordForm::hydrate`), so a field that renders in
+  the form renders here; `view_values` adds a key only the view shows. A `NoForm` resource
+  supplies every key through `view_values`.
 - **Related rows** render through `view_relations(cx, record)`, the page's second half:
 
 ```rust

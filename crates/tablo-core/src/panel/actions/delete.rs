@@ -118,6 +118,7 @@ mod tests {
         struct ViewDeniedResource;
         impl Resource for ViewDeniedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -202,6 +203,7 @@ mod tests {
         struct NameKeyResource;
         impl Resource for NameKeyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }

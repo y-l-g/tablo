@@ -220,7 +220,7 @@ async fn comments_create_valid_redirects_and_creates() {
 #[tokio::test]
 async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() {
     use showcase::app::{CommentForm, CommentFormField, CommentResource, PostResource};
-    use tablo_core::{FormResource, Posted, Resource, Tenant, db::db as db_handle, scoped_query};
+    use tablo_core::{Posted, Resource, Tenant, db::db as db_handle, scoped_query};
     use topcoat::{context::CxTestBuilder, router::response::IntoResponse};
 
     let (db, t1, t2) = tenanted_db().await;
@@ -260,7 +260,7 @@ async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() 
     let mut handle = db_handle(&cx);
     let mut tx = handle.transaction().await.unwrap();
     let refused =
-        <CommentResource as FormResource>::create_record(&cx, form(foreign.id), &mut tx).await;
+        <CommentResource as Resource>::create_record(&cx, form(foreign.id), &mut tx).await;
     let error = refused.expect_err("a cross-tenant post must not accept a comment");
     drop(tx);
     // The guard's own 404, not a driver or FK failure: "wrong tenant looks
@@ -278,7 +278,7 @@ async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() 
     // blanket-denying.
     let mut handle = db_handle(&cx);
     let mut tx = handle.transaction().await.unwrap();
-    <CommentResource as FormResource>::create_record(&cx, form(own.id), &mut tx)
+    <CommentResource as Resource>::create_record(&cx, form(own.id), &mut tx)
         .await
         .expect("the tenant's own post accepts a comment");
     tx.commit().await.unwrap();
@@ -294,7 +294,7 @@ async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() 
     let original_post = stored.post_id;
     let mut handle = db_handle(&cx);
     let mut tx = handle.transaction().await.unwrap();
-    let repointed = <CommentResource as FormResource>::update_record(
+    let repointed = <CommentResource as Resource>::update_record(
         &cx,
         stored,
         Posted::new(form(foreign.id), [CommentFormField::PostId]),

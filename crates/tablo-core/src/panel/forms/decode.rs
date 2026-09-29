@@ -375,7 +375,7 @@ mod tests {
         super::common::{FormParts, MAX_FORM_BYTES},
         *,
     };
-    use crate::panel::test_support::{Dummy, dummy_table, form_panel_for};
+    use crate::panel::test_support::{Dummy, dummy_table, panel_for};
 
     #[test]
     fn form_values_decode_utf8_plus_and_encoded_separators() {
@@ -472,6 +472,11 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = DummyForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(crate::schema::FileUpload::r#for(Dummy::fields().name()))
+            }
+
             fn can_view_any(_cx: &Cx) -> bool {
                 true
             }
@@ -487,15 +492,8 @@ mod tests {
         struct DummyForm {
             name: String,
         }
-        impl crate::form::FormResource for DummyResource {
-            type Form = DummyForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(crate::schema::FileUpload::r#for(Dummy::fields().name()))
-            }
-        }
-
         let db = Db::builder().connect("sqlite::memory:").await.unwrap();
-        let router = form_panel_for::<DummyResource>(db)
+        let router = panel_for::<DummyResource>(db)
             .build()
             .expect("panel builds");
         let boundary = "----Boundary123";

@@ -35,12 +35,14 @@ like `created_at` takes a toasty `#[default(..)]` on the model. The derive also 
 `Option<T>` answers `None` without one; any other type needs `blank` wherever its control may be
 left empty.
 
-The resource implements `FormResource` beside `Resource` and registers with
-`Panel::form_resource`:
+The resource names the struct as its `Form` and declares the form's schema in `form()`:
 
 ```rust
-impl FormResource for UserResource {
+impl Resource for UserResource {
+    type Model = User;
     type Form = UserForm;
+
+    fn table(cx: &Cx) -> Table<User> { /* … */ }
 
     fn form(_cx: &Cx) -> Schema { /* the controls, as below */ }
 
@@ -53,8 +55,12 @@ impl FormResource for UserResource {
     }
 }
 
-Panel::new("admin").form_resource::<UserResource>()
+Panel::new("admin").resource::<UserResource>()
 ```
+
+A resource with a record form gets the create page, the edit page, and the relationship-options
+endpoint. A list-only resource names `type Form = NoForm<Self::Model>;` and leaves `form()` at its
+empty default; it gets none of them.
 
 `create_record` and `update_record` default to the derived write, so a resource whose write is
 "store what the form says" declares neither. One that checks something inside the transaction
@@ -88,12 +94,13 @@ What a submission does:
 - **Errors render in one round.** Schema rules, the unique probe, a value the form's type refuses,
   and `validate_record` render inline with a 200 and write nothing. `validate_record` sees a whole
   form, so it runs once every field parses.
-- **`Panel::build` checks the struct against the schema**: every control is bound by exactly one
+- **`Panel::build` checks the struct against the schema**: a `NoForm` resource declares no
+  schema; every control is bound by exactly one
   field and every field's key is a declared control; an optional control, or one inside a
   `Repeater` or a variant group, binds a field with a blank answer; a gated resource's form does
   not claim its tenant column; and, where `can_create` allows it, every non-nullable column is a
   form field, filled by toasty (`#[auto]`, `#[default(..)]`), the stamped tenant column, or named in
-  `FormResource::CREATE_COLUMNS` by a create override that sets it.
+  `Resource::CREATE_COLUMNS` by a create override that sets it.
 
 ## Controls
 
