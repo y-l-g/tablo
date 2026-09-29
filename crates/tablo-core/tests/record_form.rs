@@ -6,14 +6,14 @@ use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
 use tablo_core::{
-    FieldErrorKind, FieldErrors, FormResource, Panel, RecordForm, Repeater, Resource, Schema,
-    Select, Table, Tenant, TextColumn, TextInput, write_create,
+    FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm, Repeater, Resource, Schema, Select,
+    Table, Tenant, TextColumn, TextInput, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
 use uuid::Uuid;
 
-use crate::common::{body_string, form_router, get, memory_db, panel, post_fields};
+use crate::common::{body_string, get, memory_db, panel, panel_router, post_fields};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Item {
@@ -60,6 +60,19 @@ struct ItemResource;
 
 impl Resource for ItemResource {
     type Model = Item;
+    type Form = ItemForm;
+
+    fn form(_cx: &Cx) -> Schema {
+        item_schema()
+    }
+
+    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemForm> {
+        let mut errors = FieldErrors::new();
+        if form.priority > 10 {
+            errors.add(ItemFormField::Priority, "Priority is at most 10");
+        }
+        errors
+    }
 
     fn slug() -> String {
         "items".to_string()
@@ -87,22 +100,6 @@ impl Resource for ItemResource {
 
     fn view(_cx: &Cx) -> Schema {
         Schema::new(TextInput::r#for(Item::fields().title()))
-    }
-}
-
-impl FormResource for ItemResource {
-    type Form = ItemForm;
-
-    fn form(_cx: &Cx) -> Schema {
-        item_schema()
-    }
-
-    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemForm> {
-        let mut errors = FieldErrors::new();
-        if form.priority > 10 {
-            errors.add(ItemFormField::Priority, "Priority is at most 10");
-        }
-        errors
     }
 }
 
@@ -249,7 +246,7 @@ async fn hydrate_is_the_parse_s_inverse() {
 #[tokio::test]
 async fn a_create_writes_the_parsed_form() {
     let db = item_db().await;
-    let router = form_router::<ItemResource>(db.clone());
+    let router = panel_router::<ItemResource>(db.clone());
     let response = post_fields(&router, "/admin/items/create", &[("title", "New")]).await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     let mut handle = db.clone();
@@ -271,7 +268,7 @@ async fn a_create_writes_the_parsed_form() {
 async fn an_edit_writes_only_the_fields_it_names() {
     let db = item_db().await;
     let item = seed_item(&db).await;
-    let router = form_router::<ItemResource>(db.clone());
+    let router = panel_router::<ItemResource>(db.clone());
     let response = post_fields(
         &router,
         &format!("/admin/items/{}/edit", item.id),
@@ -293,7 +290,7 @@ async fn an_edit_writes_only_the_fields_it_names() {
 async fn an_emptied_control_stores_its_blank_answer() {
     let db = item_db().await;
     let item = seed_item(&db).await;
-    let router = form_router::<ItemResource>(db.clone());
+    let router = panel_router::<ItemResource>(db.clone());
     let response = post_fields(
         &router,
         &format!("/admin/items/{}/edit", item.id),
@@ -314,7 +311,7 @@ async fn an_emptied_control_stores_its_blank_answer() {
 async fn an_edit_naming_no_field_writes_nothing_and_redirects() {
     let db = item_db().await;
     let item = seed_item(&db).await;
-    let router = form_router::<ItemResource>(db.clone());
+    let router = panel_router::<ItemResource>(db.clone());
     let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     let stored = reload(&db, item.id).await;
@@ -328,7 +325,7 @@ async fn an_edit_naming_no_field_writes_nothing_and_redirects() {
 async fn schema_and_record_errors_render_in_one_round() {
     let db = item_db().await;
     let item = seed_item(&db).await;
-    let router = form_router::<ItemResource>(db.clone());
+    let router = panel_router::<ItemResource>(db.clone());
     let response = post_fields(
         &router,
         &format!("/admin/items/{}/edit", item.id),
@@ -349,7 +346,7 @@ async fn schema_and_record_errors_render_in_one_round() {
 async fn the_detail_page_reads_the_forms_projection() {
     let db = item_db().await;
     let item = seed_item(&db).await;
-    let router = form_router::<ItemResource>(db.clone());
+    let router = panel_router::<ItemResource>(db.clone());
     let response = get(&router, &format!("/admin/items/{}", item.id)).await;
     assert_eq!(response.status(), StatusCode::OK);
     let html = body_string(response).await;
@@ -376,6 +373,11 @@ struct OwnedResource;
 
 impl Resource for OwnedResource {
     type Model = Owned;
+    type Form = OwnedForm;
+
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(TextInput::r#for(Owned::fields().title()))
+    }
 
     fn slug() -> String {
         "owned".to_string()
@@ -401,14 +403,6 @@ impl Resource for OwnedResource {
     }
 }
 
-impl FormResource for OwnedResource {
-    type Form = OwnedForm;
-
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Owned::fields().title()))
-    }
-}
-
 #[tokio::test]
 async fn the_derived_create_stamps_the_request_tenant() {
     let db = memory_db(toasty::models!(Owned)).await;
@@ -430,9 +424,9 @@ async fn the_derived_create_stamps_the_request_tenant() {
     assert_eq!(created.tenant_id, tenant, "the request tenant is stamped");
 }
 
-/// The build error for `R` registered with `Panel::form_resource`.
-fn form_build_error<R: FormResource>(db: Db) -> String {
-    match panel(db).form_resource::<R>().build() {
+/// The build error for a panel over `R`.
+fn form_build_error<R: Resource>(db: Db) -> String {
+    match panel(db).resource::<R>().build() {
         Ok(_) => panic!("{} must not build", std::any::type_name::<R>()),
         Err(error) => error.to_string(),
     }
@@ -445,6 +439,7 @@ macro_rules! item_resource {
 
         impl Resource for $name {
             type Model = Item;
+            type Form = $form;
 
             fn slug() -> String {
                 "items".to_string()
@@ -457,10 +452,6 @@ macro_rules! item_resource {
             fn table(_cx: &Cx) -> Table<Item> {
                 item_table(_cx)
             }
-        }
-
-        impl FormResource for $name {
-            type Form = $form;
 
             fn form(_cx: &Cx) -> Schema {
                 $schema
@@ -553,6 +544,14 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
 
     impl Resource for Claiming {
         type Model = Owned;
+        type Form = ClaimingForm;
+
+        fn form(_cx: &Cx) -> Schema {
+            Schema::new((
+                TextInput::typed::<Owned, Uuid>(Owned::fields().tenant_id()),
+                TextInput::r#for(Owned::fields().title()),
+            ))
+        }
 
         fn requires_tenant() -> bool {
             true
@@ -563,17 +562,6 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
         }
     }
 
-    impl FormResource for Claiming {
-        type Form = ClaimingForm;
-
-        fn form(_cx: &Cx) -> Schema {
-            Schema::new((
-                TextInput::typed::<Owned, Uuid>(Owned::fields().tenant_id()),
-                TextInput::r#for(Owned::fields().title()),
-            ))
-        }
-    }
-
     let error = form_build_error::<Claiming>(memory_db(toasty::models!(Owned)).await);
     assert!(
         error.contains("claims its tenant column `tenant_id`"),
@@ -581,17 +569,60 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
     );
 }
 
-#[tokio::test]
-async fn a_list_only_registration_refuses_create_or_edit() {
-    let db = item_db().await;
-    let Err(error) = panel(db).resource::<ItemResource>().build() else {
-        panic!("a resource that allows create needs a form registration");
+/// A `NoForm` resource over [`Item`] whose `can_create` and `form()` answer
+/// the given values.
+macro_rules! list_only_resource {
+    ($name:ident, $create:expr, $schema:expr) => {
+        struct $name;
+
+        impl Resource for $name {
+            type Model = Item;
+            type Form = NoForm<Self::Model>;
+
+            fn slug() -> String {
+                "items".to_string()
+            }
+
+            fn can_create(_cx: &Cx) -> bool {
+                $create
+            }
+
+            fn table(_cx: &Cx) -> Table<Item> {
+                item_table(_cx)
+            }
+
+            fn form(_cx: &Cx) -> Schema {
+                $schema
+            }
+        }
     };
-    let error = error.to_string();
+}
+
+#[tokio::test]
+async fn build_refuses_a_list_only_resource_that_allows_create() {
+    list_only_resource!(Creating, true, Schema::empty());
+    let error = form_build_error::<Creating>(item_db().await);
+    assert!(error.contains("allows create but has no form"), "{error}");
+}
+
+#[tokio::test]
+async fn build_refuses_a_list_only_resource_that_declares_a_schema() {
+    list_only_resource!(Schematic, false, item_schema());
+    let error = form_build_error::<Schematic>(item_db().await);
     assert!(
-        error.contains("declares create") && error.contains("Panel::form_resource"),
+        error.contains("declares a form schema but its `Form` is `NoForm`"),
         "{error}"
     );
+}
+
+#[tokio::test]
+async fn a_list_only_resource_serves_no_form_route() {
+    list_only_resource!(Listed, false, Schema::empty());
+    let router = panel_router::<Listed>(item_db().await);
+    let create = get(&router, "/admin/items/create").await;
+    assert_eq!(create.status(), StatusCode::NOT_FOUND);
+    let options = get(&router, "/admin/items/options?field=title").await;
+    assert_eq!(options.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -601,7 +632,7 @@ async fn a_form_resource_serves_create_and_edit() {
     let router: topcoat::router::Router = Panel::new("admin")
         .app_context(db)
         .auth(tablo_core::Auth::disabled())
-        .form_resource::<ItemResource>()
+        .resource::<ItemResource>()
         .build()
         .expect("panel builds");
     let create = get(&router, "/admin/items/create").await;
@@ -661,6 +692,9 @@ macro_rules! title_only_resource {
 
         impl Resource for $name {
             type Model = Item;
+            type Form = TitleForm;
+
+            const CREATE_COLUMNS: &'static [&'static str] = $columns;
 
             fn slug() -> String {
                 "items".to_string()
@@ -673,12 +707,6 @@ macro_rules! title_only_resource {
             fn table(_cx: &Cx) -> Table<Item> {
                 item_table(_cx)
             }
-        }
-
-        impl FormResource for $name {
-            type Form = TitleForm;
-
-            const CREATE_COLUMNS: &'static [&'static str] = $columns;
 
             fn form(_cx: &Cx) -> Schema {
                 Schema::new(TextInput::r#for(Item::fields().title()))
@@ -701,7 +729,7 @@ async fn build_refuses_a_create_that_leaves_a_required_column_unset() {
 async fn create_columns_names_what_an_override_sets() {
     title_only_resource!(Covered, &["notes", "priority", "done"]);
     panel(item_db().await)
-        .form_resource::<Covered>()
+        .resource::<Covered>()
         .build()
         .expect("the override's own columns are declared");
 
@@ -718,6 +746,15 @@ async fn a_value_the_form_type_refuses_renders_inline() {
 
     impl Resource for Loose {
         type Model = Item;
+        type Form = PriorityForm;
+
+        fn form(_cx: &Cx) -> Schema {
+            // A static-options select checks membership, not the column's type.
+            Schema::new(
+                Select::r#for(Item::fields().priority())
+                    .options(vec!["1".to_string(), "lots".to_string()]),
+            )
+        }
 
         fn slug() -> String {
             "items".to_string()
@@ -736,21 +773,9 @@ async fn a_value_the_form_type_refuses_renders_inline() {
         }
     }
 
-    impl FormResource for Loose {
-        type Form = PriorityForm;
-
-        fn form(_cx: &Cx) -> Schema {
-            // A static-options select checks membership, not the column's type.
-            Schema::new(
-                Select::r#for(Item::fields().priority())
-                    .options(vec!["1".to_string(), "lots".to_string()]),
-            )
-        }
-    }
-
     let db = item_db().await;
     let item = seed_item(&db).await;
-    let router = form_router::<Loose>(db.clone());
+    let router = panel_router::<Loose>(db.clone());
     let response = post_fields(
         &router,
         &format!("/admin/items/{}/edit", item.id),
@@ -817,6 +842,17 @@ async fn an_unkeyable_record_rule_fails_closed() {
 
     impl Resource for Refusing {
         type Model = Item;
+        type Form = Keyless;
+
+        fn form(_cx: &Cx) -> Schema {
+            Schema::empty()
+        }
+
+        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<Keyless> {
+            let mut errors = FieldErrors::new();
+            errors.add(PriorityFormField::Priority, "never");
+            errors
+        }
 
         fn slug() -> String {
             "items".to_string()
@@ -835,23 +871,9 @@ async fn an_unkeyable_record_rule_fails_closed() {
         }
     }
 
-    impl FormResource for Refusing {
-        type Form = Keyless;
-
-        fn form(_cx: &Cx) -> Schema {
-            Schema::empty()
-        }
-
-        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<Keyless> {
-            let mut errors = FieldErrors::new();
-            errors.add(PriorityFormField::Priority, "never");
-            errors
-        }
-    }
-
     let db = item_db().await;
     let item = seed_item(&db).await;
-    let router = form_router::<Refusing>(db.clone());
+    let router = panel_router::<Refusing>(db.clone());
     let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
@@ -866,6 +888,7 @@ async fn a_list_only_resource_never_links_to_create() {
 
     impl Resource for TenantCreates {
         type Model = Item;
+        type Form = tablo_core::NoForm<Self::Model>;
 
         fn slug() -> String {
             "items".to_string()

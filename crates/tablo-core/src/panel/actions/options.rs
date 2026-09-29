@@ -7,13 +7,16 @@ use topcoat::{
 };
 
 use super::super::gate::gate;
-use crate::{form::FormResource, resource::clamp_query_term, schema::OptionLoadError};
+use crate::{
+    resource::{Resource, clamp_query_term},
+    schema::OptionLoadError,
+};
 
 /// Relationship option search endpoint (D2/D5).
 ///
 /// `GET {parent_list_url}/options?field=&q=` — server-side narrowing for
 /// tables above the option cap. `field` allow-lists to a declared searchable
-/// relationship `Select` in `FormResource::form` (400 otherwise); non-searchable
+/// relationship `Select` in `Resource::form` (400 otherwise); non-searchable
 /// selects keep today's cap error and never call here. `q` is trimmed and
 /// clamped to the shared query bound; empty `q` returns the bounded head.
 ///
@@ -26,7 +29,7 @@ use crate::{form::FormResource, resource::clamp_query_term, schema::OptionLoadEr
 /// filtered overflow → 200 with a "keep typing" hint option (client keeps its hint element).
 /// Success → 200 `text/html` with `<option>` markup, bounded to
 /// `MAX_RELATIONSHIP_OPTIONS`, values are typed PK strings, labels escaped.
-pub(crate) fn resource_options<R: FormResource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         gate::<R>(cx)?;
         let (field, q) = options_query(cx);
@@ -153,6 +156,7 @@ mod tests {
         struct OptAuthorResource;
         impl Resource for OptAuthorResource {
             type Model = OptAuthor;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "opt-authors".to_string()
             }
@@ -185,6 +189,19 @@ mod tests {
         struct OptPostResource;
         impl Resource for OptPostResource {
             type Model = OptPost;
+            type Form = OptPostForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(
+                    crate::schema::Select::r#for(OptPost::fields().author_id())
+                        .relationship::<OptAuthorResource>(
+                            OptAuthorResource::query,
+                            |a: &OptAuthor| a.id,
+                            |a: &OptAuthor| a.name.clone(),
+                        )
+                        .searchable(),
+                )
+            }
+
             fn slug() -> String {
                 "opt-posts".to_string()
             }
@@ -208,21 +225,6 @@ mod tests {
         struct OptPostForm {
             author_id: uuid::Uuid,
         }
-        impl crate::form::FormResource for OptPostResource {
-            type Form = OptPostForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(
-                    crate::schema::Select::r#for(OptPost::fields().author_id())
-                        .relationship::<OptAuthorResource>(
-                            OptAuthorResource::query,
-                            |a: &OptAuthor| a.id,
-                            |a: &OptAuthor| a.name.clone(),
-                        )
-                        .searchable(),
-                )
-            }
-        }
-
         async fn body_text(resp: http::Response<Body>) -> String {
             let bytes = resp.into_body().collect().await.unwrap().to_bytes();
             String::from_utf8_lossy(&bytes).to_string()
@@ -244,7 +246,7 @@ mod tests {
         }
         let router = Panel::new("admin")
             .app_context(db)
-            .form_resource::<OptPostResource>()
+            .resource::<OptPostResource>()
             .resource::<OptAuthorResource>()
             .auth(crate::Auth::disabled())
             .build()
@@ -331,6 +333,7 @@ mod tests {
         struct ChildSource;
         impl Resource for ChildSource {
             type Model = Child;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "children".to_string()
             }
@@ -372,6 +375,19 @@ mod tests {
         struct OwnerResource;
         impl Resource for OwnerResource {
             type Model = Owner;
+            type Form = OwnerForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(
+                    crate::schema::Select::r#for(Owner::fields().child_id())
+                        .relationship::<ChildSource>(
+                            ChildSource::query,
+                            |c: &Child| c.id,
+                            |c: &Child| c.name.clone(),
+                        )
+                        .searchable(),
+                )
+            }
+
             fn slug() -> String {
                 "owners".to_string()
             }
@@ -389,21 +405,6 @@ mod tests {
         struct OwnerForm {
             child_id: uuid::Uuid,
         }
-        impl crate::form::FormResource for OwnerResource {
-            type Form = OwnerForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(
-                    crate::schema::Select::r#for(Owner::fields().child_id())
-                        .relationship::<ChildSource>(
-                            ChildSource::query,
-                            |c: &Child| c.id,
-                            |c: &Child| c.name.clone(),
-                        )
-                        .searchable(),
-                )
-            }
-        }
-
         let mut db = Db::builder()
             .models(toasty::models!(Parent, Child, Owner))
             .connect("sqlite::memory:")
@@ -428,7 +429,7 @@ mod tests {
 
         let router = Panel::new("admin")
             .app_context(db)
-            .form_resource::<OwnerResource>()
+            .resource::<OwnerResource>()
             .resource::<ChildSource>()
             .auth(crate::Auth::disabled())
             .build()
@@ -475,6 +476,7 @@ mod tests {
         struct BigAResource;
         impl Resource for BigAResource {
             type Model = BigA;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "big-as".to_string()
             }
@@ -508,6 +510,19 @@ mod tests {
         struct SearchableParent;
         impl Resource for SearchableParent {
             type Model = BigP;
+            type Form = SearchableParentForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(
+                    crate::schema::Select::r#for(BigP::fields().author_id())
+                        .relationship::<BigAResource>(
+                            BigAResource::query,
+                            |a: &BigA| a.id,
+                            |a: &BigA| a.name.clone(),
+                        )
+                        .searchable(),
+                )
+            }
+
             fn slug() -> String {
                 "big-ps".to_string()
             }
@@ -525,8 +540,10 @@ mod tests {
         struct SearchableParentForm {
             author_id: uuid::Uuid,
         }
-        impl crate::form::FormResource for SearchableParent {
-            type Form = SearchableParentForm;
+        struct PlainParent;
+        impl Resource for PlainParent {
+            type Model = BigP;
+            type Form = PlainParentForm;
             fn form(_cx: &Cx) -> crate::schema::Schema {
                 crate::schema::Schema::new(
                     crate::schema::Select::r#for(BigP::fields().author_id())
@@ -534,14 +551,10 @@ mod tests {
                             BigAResource::query,
                             |a: &BigA| a.id,
                             |a: &BigA| a.name.clone(),
-                        )
-                        .searchable(),
+                        ),
                 )
             }
-        }
-        struct PlainParent;
-        impl Resource for PlainParent {
-            type Model = BigP;
+
             fn slug() -> String {
                 "plain-ps".to_string()
             }
@@ -559,20 +572,6 @@ mod tests {
         struct PlainParentForm {
             author_id: uuid::Uuid,
         }
-        impl crate::form::FormResource for PlainParent {
-            type Form = PlainParentForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(
-                    crate::schema::Select::r#for(BigP::fields().author_id())
-                        .relationship::<BigAResource>(
-                            BigAResource::query,
-                            |a: &BigA| a.id,
-                            |a: &BigA| a.name.clone(),
-                        ),
-                )
-            }
-        }
-
         let mut db = Db::builder()
             .models(toasty::models!(BigA, BigP))
             .connect("sqlite::memory:")
@@ -589,8 +588,8 @@ mod tests {
         }
         let router = Panel::new("admin")
             .app_context(db)
-            .form_resource::<SearchableParent>()
-            .form_resource::<PlainParent>()
+            .resource::<SearchableParent>()
+            .resource::<PlainParent>()
             .auth(crate::Auth::disabled())
             .build()
             .expect("panel builds");

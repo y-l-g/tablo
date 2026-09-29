@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use super::super::gate::{gate, list_url};
-use crate::form::FormResource;
+use crate::resource::Resource;
 
 /// Shared create/edit page shell (GH #73 multipart enctype, CSRF hidden
 /// input, inline error slot). Title and submit label are the only deltas.
@@ -23,7 +23,7 @@ use crate::form::FormResource;
 // The public link rides alongside the form state: one more argument rather
 // than a second render entry point.
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn render_form_page<'a, R: FormResource>(
+pub(super) async fn render_form_page<'a, R: Resource>(
     cx: &'a Cx,
     title: String,
     submit_label: &'static str,
@@ -101,7 +101,7 @@ pub(super) async fn render_form_page<'a, R: FormResource>(
 }
 
 /// Create page GET.
-pub(crate) fn resource_create<R: FormResource>(cx: &Cx, _body: Body) -> BoxView<'_> {
+pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         if !R::can_create(cx) {

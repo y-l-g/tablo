@@ -92,6 +92,7 @@ struct MemberResource;
 
 impl Resource for MemberResource {
     type Model = Member;
+    type Form = tablo_core::NoForm<Self::Model>;
 
     fn can_view_any(_cx: &Cx) -> bool {
         true

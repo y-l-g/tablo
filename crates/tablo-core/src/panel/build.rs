@@ -24,11 +24,7 @@ use super::{
     search::SearchRegistry,
     shell::DarkMode,
 };
-use crate::{
-    form::{FormResource, RecordForm},
-    resource::Resource,
-    schema::SkippedBy,
-};
+use crate::{form::RecordForm, resource::Resource, schema::SkippedBy};
 
 impl Panel {
     /// Build the [`Router`], discovering all `#[page]` / `#[layout]` / `#[shard]`
@@ -323,8 +319,7 @@ pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), St
 }
 
 /// A resource's build-time declaration check: monomorphized once per
-/// declared resource by [`Panel::resource`] or [`Panel::form_resource`], run
-/// by [`Panel::build`] with the
+/// declared resource by [`Panel::resource`], run by [`Panel::build`] with the
 /// app's values and no request.
 pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 
@@ -335,12 +330,12 @@ pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 /// the missing piece. The essentials that are *declarations* — a tenant
 /// predicate for a gated resource and a page size the list can serve — are
 /// checked here, at build, and reported with the
-/// resource's type name; [`check_form_resource`] and [`check_list_resource`]
-/// add the checks the registration method implies.
+/// resource's type name, together with the agreement between the resource's
+/// `Form` and its `form()` schema ([`check_form_declaration`]).
 /// Runtime essentials (the record fns) keep their loud failure.
 ///
 /// A declaration that panics is a boot failure too: `Resource::table` and
-/// `FormResource::form` run code that panics on a mis-declaration, and this check's
+/// `Resource::form` run code that panics on a mis-declaration, and this check's
 /// contract is a registration error the caller can log or exit on. The whole
 /// body is caught, because `R::Model::schema()` and the policy predicates are
 /// part of the same declaration, and the panic's own message is carried into
@@ -401,37 +396,37 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             std::any::type_name::<R>()
         ));
     }
-    Ok(())
+    check_form_declaration::<R>(cx)
 }
 
-/// The declaration check for a resource registered with
-/// [`Panel::resource`](super::Panel::resource): it serves no form, so a policy
-/// that allows create or an edit link it renders would lead nowhere.
-pub(super) fn check_list_resource<R: Resource>(cx: &Cx) -> Result<(), String> {
-    caught::<R>(|| {
-        let declared = match (R::can_create(cx), R::editable()) {
-            (true, true) => "create and edit",
-            (true, false) => "create",
-            (false, true) => "edit",
-            (false, false) => return Ok(()),
-        };
-        Err(format!(
-            "resource `{}` declares {declared} but is registered with `Panel::resource`, which \
-             serves no form — implement `FormResource` and register it with `Panel::form_resource`",
-            std::any::type_name::<R>()
-        ))
-    })
+/// A resource with a record form runs [`check_form_inner`], whose key
+/// agreement also refuses a form whose fields `form()` does not declare. A
+/// resource with no form declares no schema, and serves no create or edit
+/// page, so a policy that allows create or an edit link would lead nowhere.
+fn check_form_declaration<R: Resource>(cx: &Cx) -> Result<(), String> {
+    if <R::Form as RecordForm>::HAS_FORM {
+        return check_form_inner::<R>(cx);
+    }
+    let resource = std::any::type_name::<R>();
+    if !R::form(cx).is_empty() {
+        return Err(format!(
+            "resource `{resource}` declares a form schema but its `Form` is `NoForm` — name the \
+             record form in `type Form`"
+        ));
+    }
+    let declared = match (R::can_create(cx), R::editable()) {
+        (true, true) => "create and edit",
+        (true, false) => "create",
+        (false, true) => "edit",
+        (false, false) => return Ok(()),
+    };
+    Err(format!(
+        "resource `{resource}` allows {declared} but has no form — name its record form in `type \
+         Form` and declare `form()`"
+    ))
 }
 
-/// The declaration checks for a resource registered with
-/// [`Panel::form_resource`](super::Panel::form_resource): the form's struct and
-/// its `Schema` agree on keys, on blank answers, and on who owns the tenant
-/// column, and every `unique()` marker is backed by an index.
-pub(super) fn check_form_resource<R: FormResource>(cx: &Cx) -> Result<(), String> {
-    caught::<R>(|| check_form_inner::<R>(cx))
-}
-
-fn check_form_inner<R: FormResource>(cx: &Cx) -> Result<(), String> {
+fn check_form_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
     let form = R::form(cx);
     let resource = std::any::type_name::<R>();
     let fields = <R::Form as RecordForm>::fields(cx);
@@ -548,7 +543,7 @@ fn check_form_inner<R: FormResource>(cx: &Cx) -> Result<(), String> {
 /// Every non-nullable column a create must set is set by something: the
 /// record form, toasty (`#[auto]`, `#[default(..)]`), the tenant stamp, or the
 /// resource's own `CREATE_COLUMNS`.
-fn check_create_columns<R: FormResource>(
+fn check_create_columns<R: Resource>(
     fields: &[crate::form::FormField<<R::Form as RecordForm>::Field>],
 ) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
@@ -629,7 +624,7 @@ mod tests {
     use toasty::Db;
 
     use super::*;
-    use crate::panel::test_support::{Dummy, dummy_table, form_panel_for, panel_for};
+    use crate::panel::test_support::{Dummy, dummy_table, panel_for};
 
     /// A slug made of ordinary URL-segment characters still builds, and its
     /// list route resolves: rejecting the pattern characters must not
@@ -641,6 +636,7 @@ mod tests {
         struct PlainResource;
         impl Resource for PlainResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "user-profiles_2".to_string()
             }
@@ -702,6 +698,7 @@ mod tests {
         struct StarResource;
         impl Resource for StarResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "user*profiles".to_string()
             }
@@ -762,6 +759,7 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx)
@@ -789,6 +787,7 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx)
@@ -827,6 +826,7 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = DummyForm;
 
             fn can_create(_cx: &Cx) -> bool {
                 true
@@ -834,26 +834,22 @@ mod tests {
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx)
             }
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Dummy::fields().name()))
+            }
         }
         #[derive(crate::RecordForm)]
         #[record_form(model = Dummy)]
         struct DummyForm {
             name: String,
         }
-        impl crate::form::FormResource for DummyResource {
-            type Form = DummyForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Dummy::fields().name()))
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Dummy))
             .connect("sqlite::memory:")
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = form_panel_for::<DummyResource>(db)
+        let router = panel_for::<DummyResource>(db)
             .build()
             .expect("the explicit opt-out builds the panel");
 
@@ -943,6 +939,14 @@ mod tests {
         struct AuthorResource;
         impl Resource for AuthorResource {
             type Model = Author;
+            type Form = AuthorForm;
+            // Not gated, so the tenant is not stamped: a create override would
+            // set it.
+            const CREATE_COLUMNS: &'static [&'static str] = &["tenant_id"];
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Author::fields().email()).unique())
+            }
+
             fn slug() -> String {
                 "authors".to_string()
             }
@@ -964,22 +968,12 @@ mod tests {
         struct AuthorForm {
             email: String,
         }
-        impl crate::form::FormResource for AuthorResource {
-            type Form = AuthorForm;
-            // Not gated, so the tenant is not stamped: a create override would
-            // set it.
-            const CREATE_COLUMNS: &'static [&'static str] = &["tenant_id"];
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Author::fields().email()).unique())
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Author))
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        form_panel_for::<AuthorResource>(db)
+        panel_for::<AuthorResource>(db)
             .build()
             .expect("a composite unique index backs the marker");
     }
@@ -1020,6 +1014,7 @@ mod tests {
         struct UndiscoverableResource;
         impl Resource for UndiscoverableResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1038,6 +1033,7 @@ mod tests {
         struct DeclaredScopeResource;
         impl Resource for DeclaredScopeResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "declared".to_string()
             }
@@ -1090,6 +1086,7 @@ mod tests {
         struct HostileResource;
         impl Resource for HostileResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -1134,6 +1131,11 @@ mod tests {
         struct UnbackedResource;
         impl Resource for UnbackedResource {
             type Model = Subscriber;
+            type Form = UnbackedForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
+            }
+
             fn slug() -> String {
                 "subscribers".to_string()
             }
@@ -1157,13 +1159,6 @@ mod tests {
         struct UnbackedForm {
             nickname: String,
         }
-        impl crate::form::FormResource for UnbackedResource {
-            type Form = UnbackedForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Subscriber))
             .connect("sqlite::memory:")
@@ -1171,7 +1166,7 @@ mod tests {
             .unwrap();
         let Err(error) = Panel::new("admin")
             .app_context(db)
-            .form_resource::<UnbackedResource>()
+            .resource::<UnbackedResource>()
             .build()
         else {
             panic!("a `unique()` marker with no unique index must not build");
@@ -1212,6 +1207,11 @@ mod tests {
         struct ChromeResource;
         impl Resource for ChromeResource {
             type Model = Subscriber;
+            type Form = ChromeForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
+            }
+
             fn slug() -> String {
                 "subscribers".to_string()
             }
@@ -1230,16 +1230,10 @@ mod tests {
         struct ChromeForm {
             nickname: String,
         }
-        impl crate::form::FormResource for ChromeResource {
-            type Form = ChromeForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
-            }
-        }
-
         struct ChromeOffResource;
         impl Resource for ChromeOffResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "subscribers".to_string()
             }
@@ -1251,6 +1245,7 @@ mod tests {
         struct ViewedResource;
         impl Resource for ViewedResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "subscribers".to_string()
             }
@@ -1274,7 +1269,7 @@ mod tests {
         };
 
         panel()
-            .form_resource::<ChromeResource>()
+            .resource::<ChromeResource>()
             .build()
             .expect("a keyed table with chrome builds");
         panel()
@@ -1305,6 +1300,7 @@ mod tests {
         struct ZeroPageResource;
         impl Resource for ZeroPageResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "subscribers".to_string()
             }
@@ -1363,6 +1359,11 @@ mod tests {
         struct ReadOnlyResource;
         impl Resource for ReadOnlyResource {
             type Model = Subscriber;
+            type Form = ReadOnlyForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
+            }
+
             fn slug() -> String {
                 "subscribers".to_string()
             }
@@ -1384,13 +1385,6 @@ mod tests {
         struct ReadOnlyForm {
             nickname: String,
         }
-        impl crate::form::FormResource for ReadOnlyResource {
-            type Form = ReadOnlyForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Subscriber))
             .connect("sqlite::memory:")
@@ -1398,7 +1392,7 @@ mod tests {
             .unwrap();
         let Err(error) = Panel::new("admin")
             .app_context(db)
-            .form_resource::<ReadOnlyResource>()
+            .resource::<ReadOnlyResource>()
             .build()
         else {
             panic!("the marker is unbacked whether or not create is allowed");
@@ -1418,6 +1412,7 @@ mod tests {
         struct FirstResource;
         impl Resource for FirstResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -1434,6 +1429,7 @@ mod tests {
         struct SecondResource;
         impl Resource for SecondResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -1475,6 +1471,7 @@ mod tests {
                 struct $name;
                 impl Resource for $name {
                     type Model = Dummy;
+                    type Form = crate::NoForm<Self::Model>;
                     fn slug() -> String {
                         $slug.to_string()
                     }
@@ -1523,7 +1520,7 @@ mod tests {
         );
     }
 
-    /// GH #207 part 2: `Resource::table` and `FormResource::form` run code that
+    /// GH #207 part 2: `Resource::table` and `Resource::form` run code that
     /// panics on a mis-declaration, but `build`'s contract is a registration
     /// error the caller can log or exit on. Both classes below are caught at
     /// the boundary instead of unwinding out of `build`.
@@ -1550,6 +1547,7 @@ mod tests {
         struct DuplicateColumnResource;
         impl Resource for DuplicateColumnResource {
             type Model = Doc;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "docs".to_string()
             }
@@ -1570,6 +1568,7 @@ mod tests {
         struct TraversalLensResource;
         impl Resource for TraversalLensResource {
             type Model = Doc;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "docs".to_string()
             }
@@ -1618,6 +1617,7 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
                 dummy_table(cx)
             }
@@ -1727,6 +1727,7 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             // A rendered page, not the default-deny 403: an error response is
             // produced above the layer chain, so only a served document proves

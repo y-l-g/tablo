@@ -1041,6 +1041,7 @@ mod tests {
         struct ChromeResource;
         impl Resource for ChromeResource {
             type Model = User;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> Table<User> {
                 Table::new(

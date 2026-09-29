@@ -1,9 +1,7 @@
 use std::time::Instant;
 
 use jiff::Timestamp;
-use tablo_core::{
-    FormResource, Panel, Resource, Schema, Table, TableState, Tenant, TextColumn, TextInput,
-};
+use tablo_core::{Panel, Resource, Schema, Table, TableState, Tenant, TextColumn, TextInput};
 use toasty::{Db, Deferred};
 use topcoat::{
     Result,
@@ -66,6 +64,7 @@ pub struct Comment {
 pub struct AuthorResource;
 impl Resource for AuthorResource {
     type Model = Author;
+    type Form = tablo_core::NoForm<Self::Model>;
     /// Gated like the showcase's `AuthorResource` (GH #223): the harness mirrors
     /// the shipped resources, and a hand-written `tenant_id` filter here would
     /// teach the recipe the framework removed. Nothing loads through this
@@ -90,6 +89,11 @@ impl Resource for AuthorResource {
 pub struct PostResource;
 impl Resource for PostResource {
     type Model = Post;
+    type Form = PostForm;
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(TextInput::r#for(Post::fields().title()).required())
+    }
+
     // Bench policy (GH #171): the shipped list 403s unless `can_view_any`
     // passes and a tenant is present — the harness asserts both per iteration
     // so the measured path is the enforced one, not an open query.
@@ -165,13 +169,6 @@ impl Resource for PostResource {
 #[record_form(model = Post)]
 pub struct PostForm {
     pub title: String,
-}
-
-impl FormResource for PostResource {
-    type Form = PostForm;
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Post::fields().title()).required())
-    }
 }
 
 async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
@@ -474,7 +471,7 @@ fn router(db: Db) -> Router {
         .app_context(db)
         .auth(tablo_core::Auth::disabled())
         .resource::<AuthorResource>()
-        .form_resource::<PostResource>()
+        .resource::<PostResource>()
         .build()
         .expect("panel builds")
 }

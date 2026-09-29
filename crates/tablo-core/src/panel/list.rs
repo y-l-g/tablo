@@ -14,8 +14,12 @@ use topcoat::{
 };
 
 use super::gate::{gate, list_url};
-use crate::resource::{
-    Resource, RowActions, Table, TableChrome, TablePage, TableSignals, TableState, create_page_url,
+use crate::{
+    form::RecordForm,
+    resource::{
+        Resource, RowActions, Table, TableChrome, TablePage, TableSignals, TableState,
+        create_page_url,
+    },
 };
 
 /// Retry link for a failed streamed table load.
@@ -180,18 +184,13 @@ pub(crate) fn table_error_view<'a, R: Resource>(
 /// (Filament's List page `CreateAction`), a real link so no-JS keeps
 /// working, gated on `can_create`. The POST handler enforces the same policy.
 ///
-/// `forms` is whether the resource was registered with
-/// [`Panel::form_resource`](crate::Panel::form_resource): a list-only resource
-/// has no create route, so its header links to none even when a request-scoped
-/// `can_create` allows it and the build-time check could not see it.
-fn list_header<'a, R: Resource>(
-    cx: &'a Cx,
-    title: &str,
-    list_path: &str,
-    forms: bool,
-) -> BoxView<'a> {
+/// A resource with no record form ([`RecordForm::HAS_FORM`]) has no create
+/// route, so its header links to none even when a request-scoped `can_create`
+/// allows it and the build-time check could not see it.
+fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> BoxView<'a> {
     let title = title.to_string();
-    let create_url = (forms && R::can_create(cx)).then(|| create_page_url(list_path));
+    let create_url = (<R::Form as RecordForm>::HAS_FORM && R::can_create(cx))
+        .then(|| create_page_url(list_path));
     let create_label = format!("Create {}", R::navigation_label());
     view! {
         cx =>
@@ -227,7 +226,7 @@ fn list_header<'a, R: Resource>(
 /// region that swaps in the skeleton → table without any client-side fetching
 /// (GH #98: the skeleton is thead + placeholders only, so chrome pops in with
 /// the swap by design).
-pub(crate) fn resource_list<R: Resource, const FORMS: bool>(cx: &Cx, _body: Body) -> BoxView<'_> {
+pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         if !R::can_view_any(cx) {
@@ -241,9 +240,7 @@ pub(crate) fn resource_list<R: Resource, const FORMS: bool>(cx: &Cx, _body: Body
         let title = R::navigation_label();
         let list_path = list_url(cx, &R::slug());
         if table.is_live_search() {
-            return Ok(resource_list_live::<R, FORMS>(
-                cx, table, state, title, list_path,
-            ));
+            return Ok(resource_list_live::<R>(cx, table, state, title, list_path));
         }
 
         // The skeleton table (`Table::render_skeleton_normalized`) streams
@@ -262,7 +259,7 @@ pub(crate) fn resource_list<R: Resource, const FORMS: bool>(cx: &Cx, _body: Body
         // #153: the retry link must not echo an unknown `?group_by=`).
         let state = table.normalize_state(&state);
         let skeleton = table.render_skeleton_normalized(cx, &state).await?;
-        let header = list_header::<R>(cx, &title, &list_path, FORMS);
+        let header = list_header::<R>(cx, &title, &list_path);
         let lazy_rows = ThenView::new(async move {
             let rendered = async {
                 let page = load_table_page::<R>(cx, &table, &state).await?;
@@ -297,7 +294,7 @@ pub(crate) fn resource_list<R: Resource, const FORMS: bool>(cx: &Cx, _body: Body
 /// interaction writes a signal, so search, sort, filters, and pagination
 /// re-render only the invocation output, morphing in place with focus and
 /// scroll surviving.
-pub(crate) fn resource_list_live<R: Resource, const FORMS: bool>(
+pub(crate) fn resource_list_live<R: Resource>(
     cx: &Cx,
     table: Table<R::Model>,
     state: TableState,
@@ -340,7 +337,7 @@ pub(crate) fn resource_list_live<R: Resource, const FORMS: bool>(
         // region: a keystroke starts a new result set and must never carry
         // (or re-open) a dialog, so the live page renders it eagerly once.
         let delete_dialog = table.render_delete_dialog_normalized(cx, &state).await?;
-        let header = list_header::<R>(cx, &title, &list_path, FORMS);
+        let header = list_header::<R>(cx, &title, &list_path);
         let lazy_rows = ThenView::new(async move {
             // The retry link inside the table writes the same signals the
             // toolbar does, so a bad cursor recovers in place.
@@ -425,7 +422,7 @@ mod tests {
     use toasty::Db;
 
     use super::{super::TABLE_SEARCH_PATH, *};
-    use crate::panel::test_support::{Dummy, dummy_table, form_panel_for, panel_for};
+    use crate::panel::test_support::{Dummy, dummy_table, panel_for};
 
     /// The minimal table-backed model the list-chrome tests share:
     /// `list_html` was declared twice with byte-identical bodies apart from one
@@ -440,17 +437,6 @@ mod tests {
     /// policy has rows to disagree about.
     async fn list_html_with<R: Resource>(names: &[&str]) -> String {
         list_html_via(names, panel_for::<R>).await
-    }
-
-    /// [`list_html`] for a resource registered with `Panel::form_resource`.
-    async fn form_list_html<R: crate::form::FormResource>() -> String {
-        form_list_html_with::<R>(&["Ada"]).await
-    }
-
-    /// [`list_html_with`] for a resource registered with
-    /// `Panel::form_resource`.
-    async fn form_list_html_with<R: crate::form::FormResource>(names: &[&str]) -> String {
-        list_html_via(names, form_panel_for::<R>).await
     }
 
     /// The list body of the panel `panel` builds over a db seeded with `names`.
@@ -506,6 +492,7 @@ mod tests {
         struct LiveResource;
         impl Resource for LiveResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -829,6 +816,7 @@ mod tests {
         struct LiveResource;
         impl Resource for LiveResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -911,6 +899,7 @@ mod tests {
         struct ReadOnlyResource;
         impl Resource for ReadOnlyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -984,6 +973,7 @@ mod tests {
         struct UnpaginatedResource;
         impl Resource for UnpaginatedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1088,6 +1078,11 @@ mod tests {
         struct CreatableResource;
         impl Resource for CreatableResource {
             type Model = Dummy;
+            type Form = CreatableForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
+            }
+
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1106,15 +1101,10 @@ mod tests {
         struct CreatableForm {
             name: String,
         }
-        impl crate::form::FormResource for CreatableResource {
-            type Form = CreatableForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
-            }
-        }
         struct DenyCreateResource;
         impl Resource for DenyCreateResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1126,7 +1116,7 @@ mod tests {
             }
         }
 
-        let html = form_list_html::<CreatableResource>().await;
+        let html = list_html::<CreatableResource>().await;
         assert!(
             html.contains("href=\"/admin/dummies/create\"") && html.contains("Create"),
             "allowed list must link to the create page, got {html}"
@@ -1149,6 +1139,11 @@ mod tests {
         struct WritableResource;
         impl Resource for WritableResource {
             type Model = Dummy;
+            type Form = WritableForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
+            }
+
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1183,15 +1178,10 @@ mod tests {
         struct WritableForm {
             name: String,
         }
-        impl crate::form::FormResource for WritableResource {
-            type Form = WritableForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
-            }
-        }
         struct LockedResource;
         impl Resource for LockedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1209,7 +1199,7 @@ mod tests {
             }
         }
 
-        let html = form_list_html::<WritableResource>().await;
+        let html = list_html::<WritableResource>().await;
         assert!(
             html.contains("/edit") && html.contains(">Edit<"),
             "editable list must link rows to their edit pages, got {html}"
@@ -1245,6 +1235,11 @@ mod tests {
         struct DeniedResource;
         impl Resource for DeniedResource {
             type Model = Dummy;
+            type Form = DeniedForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
+            }
+
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1260,13 +1255,6 @@ mod tests {
         struct DeniedForm {
             name: String,
         }
-        impl crate::form::FormResource for DeniedResource {
-            type Form = DeniedForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
-            }
-        }
-
         let mut db = Db::builder()
             .models(toasty::models!(Dummy))
             .connect("sqlite::memory:")
@@ -1279,7 +1267,7 @@ mod tests {
         .exec(&mut db)
         .await
         .unwrap();
-        let router = form_panel_for::<DeniedResource>(db)
+        let router = panel_for::<DeniedResource>(db)
             .build()
             .expect("panel builds");
 
@@ -1345,6 +1333,11 @@ mod tests {
         struct RowPolicyResource;
         impl Resource for RowPolicyResource {
             type Model = Dummy;
+            type Form = RowPolicyForm;
+            fn form(_cx: &Cx) -> Schema {
+                Schema::new(TextInput::r#for(Dummy::fields().name()))
+            }
+
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1378,14 +1371,7 @@ mod tests {
         struct RowPolicyForm {
             name: String,
         }
-        impl crate::form::FormResource for RowPolicyResource {
-            type Form = RowPolicyForm;
-            fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Dummy::fields().name()))
-            }
-        }
-
-        let html = form_list_html_with::<RowPolicyResource>(&["Ada", "Hidden", "Locked"]).await;
+        let html = list_html_with::<RowPolicyResource>(&["Ada", "Hidden", "Locked"]).await;
         // Only the allowed row carries a checkbox; refused rows keep their
         // cells but no key chrome.
         let rows = rendered_rows(&html);
@@ -1518,6 +1504,11 @@ mod tests {
         struct GatedResource;
         impl Resource for GatedResource {
             type Model = Dummy;
+            type Form = GatedForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
+            }
+
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1545,20 +1536,13 @@ mod tests {
         struct GatedForm {
             name: String,
         }
-        impl crate::form::FormResource for GatedResource {
-            type Form = GatedForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Dummy))
             .connect("sqlite::memory:")
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = form_panel_for::<GatedResource>(db)
+        let router = panel_for::<GatedResource>(db)
             .build()
             .expect("panel builds");
         // No tenant anywhere → 403, not unscoped rows.
@@ -1630,6 +1614,7 @@ mod tests {
         struct ScopedResource;
         impl Resource for ScopedResource {
             type Model = Scoped;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "scoped".to_string()
             }
@@ -1723,6 +1708,7 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
 
             fn can_view_any(_cx: &Cx) -> bool {
                 true
@@ -1871,6 +1857,7 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
 
             fn can_view_any(_cx: &Cx) -> bool {
                 true

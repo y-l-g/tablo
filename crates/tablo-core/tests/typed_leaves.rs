@@ -176,6 +176,13 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     struct ReadingResource;
     impl Resource for ReadingResource {
         type Model = Reading;
+        type Form = ReadingForm;
+        fn form(_cx: &Cx) -> Schema {
+            Schema::new(TextInput::typed::<Reading, i64>(
+                Reading::fields().word_count(),
+            ))
+        }
+
         fn slug() -> String {
             "readings".to_string()
         }
@@ -200,15 +207,6 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     struct ReadingForm {
         word_count: i64,
     }
-    impl tablo_core::FormResource for ReadingResource {
-        type Form = ReadingForm;
-        fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::typed::<Reading, i64>(
-                Reading::fields().word_count(),
-            ))
-        }
-    }
-
     let db = Db::builder()
         .models(toasty::models!(Reading))
         .connect("sqlite::memory:")
@@ -217,7 +215,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     db.push_schema().await.unwrap();
     let router: Router = Panel::new("admin")
         .app_context(db.clone())
-        .form_resource::<ReadingResource>()
+        .resource::<ReadingResource>()
         .auth(Auth::disabled())
         .build()
         .expect("panel builds");

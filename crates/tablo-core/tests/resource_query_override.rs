@@ -21,6 +21,7 @@ struct Everyone;
 
 impl Resource for Everyone {
     type Model = User;
+    type Form = tablo_core::NoForm<Self::Model>;
 
     fn table(_cx: &Cx) -> tablo_core::Table<User> {
         tablo_core::Table::new(
@@ -35,6 +36,7 @@ struct JustAda;
 
 impl Resource for JustAda {
     type Model = User;
+    type Form = tablo_core::NoForm<Self::Model>;
 
     fn table(_cx: &Cx) -> tablo_core::Table<User> {
         tablo_core::Table::new(

@@ -8,6 +8,7 @@ One resource maps one Toasty model to its admin UI:
 ```rust
 pub trait Resource: Sized + Send + Sync + 'static {
     type Model: toasty::schema::Model + Send + Sync + 'static;
+    type Form: RecordForm<Model = Self::Model>;     // required: a record form, or NoForm
     fn query(_cx: &Cx) -> Query<List<Self::Model>>; // default: Query::all()
     fn query_with(_cx: &Cx, _needs: &IncludeNeeds)
         -> Query<List<Self::Model>>;                // default: query(cx), unchanged
@@ -17,25 +18,25 @@ pub trait Resource: Sized + Send + Sync + 'static {
         -> Query<List<Self::Model>>;                // default: query_with(cx, needs)
     fn table(_cx: &Cx) -> Table<Self::Model>;       // required: Table::new(key, columns)
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
-    // defaults, and the delete record fns
+    // defaults, form()/validate_record and the record fns
 }
 ```
 
-A resource with a create or edit form also implements `FormResource`, which holds its `form()`, its
-record form type, `validate_record`, and the create and update record fns
-([Forms](./forms.md#the-record-form)). It registers with `Panel::form_resource`; a list-only
-resource registers with `Panel::resource`, which serves the list, the detail page, delete, bulk
-delete, and export, and links to no create page.
+Every resource registers with `Panel::resource`, which serves the list, the detail page, delete,
+bulk delete, and export. A resource whose `Form` is a `#[derive(RecordForm)]` struct also gets the
+create page, the edit page, and the relationship options
+([Forms](./forms.md#the-record-form)); a list-only resource names
+`type Form = NoForm<Self::Model>;` and links to no create page.
 
 ## The contract
 
-Every method except `table()` is defaulted — `table()` is required, so a resource names its model
-and declares its list view, and any other omission has to fail loudly instead of quietly:
+Every item except `Model`, `Form`, and `table()` is defaulted, so a resource names its model and
+its form and declares its list view, and any other omission has to fail loudly instead of quietly:
 
 - **At `Panel::build`** (which returns `Result<Router>`): the declared table must serve a list, so
   `paginate(0)` fails the build. A
-  resource registered with `Panel::resource` whose `can_create` or `editable()` is on fails the
-  build, since it serves no form; a `FormResource`'s record form must agree with its `form()` schema
+  `NoForm` resource whose `can_create` or `editable()` is on, or whose `form()` declares a schema,
+  fails the build, since it serves no form; a record form must agree with its `form()` schema
   ([Forms](./forms.md#the-record-form)). `table()`, `form()` and
   `can_create()` are declarations: `Panel::build` calls them with a Db-only context to check them,
   and each list and form request calls `table()` / `form()` again, so a declaration must not need
@@ -112,7 +113,7 @@ impl Resource for PostResource {
 }
 ```
 
-- Record fns (`FormResource::create_record` / `update_record`, `delete_record`,
+- Record fns (`create_record` / `update_record`, `delete_record`,
   `bulk_delete_records`) do the writes. Handlers load records, check policy, then call them in a
   transaction. `create_record` and `update_record` return the row they wrote — the create builder
   hands the created one back and a Toasty instance update reloads the model, so both are already in

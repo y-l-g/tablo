@@ -246,6 +246,7 @@ mod tests {
         struct DummyResource;
         impl Resource for DummyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
                 crate::resource::Table::new(
@@ -347,6 +348,7 @@ mod tests {
         struct LiveResource;
         impl Resource for LiveResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -524,6 +526,7 @@ mod tests {
         struct LiveResource;
         impl Resource for LiveResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -639,6 +642,7 @@ mod tests {
         struct UnpaginatedLive;
         impl Resource for UnpaginatedLive {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -751,6 +755,7 @@ mod tests {
         struct GroupedResource;
         impl Resource for GroupedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -906,6 +911,7 @@ mod tests {
         struct TenantLive;
         impl Resource for TenantLive {
             type Model = TenantDummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "tenant-dummies".to_string()
             }
@@ -936,6 +942,7 @@ mod tests {
         struct DeniedLive;
         impl Resource for DeniedLive {
             type Model = TenantDummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "denied-dummies".to_string()
             }

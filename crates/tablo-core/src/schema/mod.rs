@@ -367,7 +367,7 @@ impl Schema {
     /// Absent keys are treated as `""`. The edit handler completes every key
     /// the submission did not post from the stored record before it validates,
     /// so an omitted key validates as its stored value there
-    /// ([`FormResource`](crate::FormResource)). Use [`Self::unknown_keys`] to
+    /// ([`Resource::update_record`](crate::Resource::update_record)). Use [`Self::unknown_keys`] to
     /// allow-list POST keys.
     ///
     /// A field a submission hides is not validated: an all-empty

@@ -39,6 +39,7 @@ struct AllRows;
 
 impl Resource for AllRows {
     type Model = Row;
+    type Form = tablo_core::NoForm<Self::Model>;
 
     fn table(_cx: &Cx) -> tablo_core::Table<Row> {
         tablo_core::Table::new(
@@ -57,6 +58,7 @@ struct NamedRows;
 
 impl Resource for NamedRows {
     type Model = Row;
+    type Form = tablo_core::NoForm<Self::Model>;
 
     fn table(_cx: &Cx) -> tablo_core::Table<Row> {
         tablo_core::Table::new(

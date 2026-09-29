@@ -60,11 +60,12 @@ _Avoid_: Token (the client half), SessionStore, Login, Cookie
 
 A type that maps one Toasty Model to its admin UI: the base query, the table, the view
 (GH #187) and its values (`view_values(cx, record)`), the navigation entry, and the policy
-(`can_*` predicates). A resource with a create or edit form also implements `FormResource`,
-which holds the form's schema, its record form, `validate_record`, and the create and update
-record fns. One Model → one Resource; its routes come from the Panel registration —
-`Panel::resource` for the list, detail, delete, bulk delete, and export, `Panel::form_resource` for
-those plus create, edit, and the relationship options — not a `pages()` declaration. A resource that declares no `view` has no detail page: `viewed()` is
+(`can_*` predicates), and its form: the record form (`type Form`), the form's schema (`form()`),
+`validate_record`, and the create and update record fns. A list-only resource names
+`type Form = NoForm<Self::Model>;`. One Model → one Resource, registered once with
+`Panel::resource`: every resource gets the list, detail, delete, bulk delete, and export routes,
+and a resource with a record form also gets create, edit, and the relationship options — not a
+`pages()` declaration. A resource that declares no `view` has no detail page: `viewed()` is
 derived from the schema, so the route and the row's `View` link cannot disagree. Tenancy,
 export scoping, and row chrome are covered in the guide; see
 [resources](docs/guide/src/resources.md) and
@@ -136,7 +137,7 @@ _Avoid_: Show page, Infolist page, Record view
 ### Action
 
 A user-invoked delete/create/edit operation driven by a record fn (`Resource::delete_record` /
-`bulk_delete_records`, `FormResource::create_record` / `update_record`) through a POST handler, inside a
+`bulk_delete_records`, `create_record` / `update_record`) through a POST handler, inside a
 transaction, with authorization checked against the passed record inside the handler (ADR-0004).
 A non-CRUD operation (publish, archive) is still modelled as a record fn or a hand-written page;
 an `Action` value with its own before/after hooks remains future work (GH #112).
@@ -268,7 +269,7 @@ _Avoid_: Presence, Backfill (as the general term), Merge, Default
 
 ### Posted
 
-What `FormResource::update_record` receives: the parsed record form (it derefs to it) and the
+What `Resource::update_record` receives: the parsed record form (it derefs to it) and the
 fields the submission named. `into_update(&mut record)` is the instance update builder with one
 assignment per named field, or `None` when the submission named none.
 

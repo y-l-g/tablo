@@ -376,6 +376,7 @@ mod tests {
     struct ChunkerDummyResource;
     impl crate::resource::Resource for ChunkerDummyResource {
         type Model = Dummy;
+        type Form = crate::NoForm<Self::Model>;
         fn slug() -> String {
             "dummies".to_string()
         }
@@ -396,6 +397,7 @@ mod tests {
         struct RowPolicyResource;
         impl Resource for RowPolicyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -503,6 +505,7 @@ mod tests {
         struct ExportResource<const DECLARES: bool>;
         impl<const DECLARES: bool> Resource for ExportResource<DECLARES> {
             type Model = Child;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 if DECLARES { "declared" } else { "bare" }.to_string()
             }
@@ -652,6 +655,7 @@ mod tests {
         struct ChunkedResource;
         impl Resource for ChunkedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -748,6 +752,7 @@ mod tests {
         struct EmptyResource;
         impl Resource for EmptyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -837,6 +842,7 @@ mod tests {
         struct ScanResource;
         impl Resource for ScanResource {
             type Model = Child;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "children".to_string()
             }
@@ -947,6 +953,7 @@ mod tests {
         struct MixedResource;
         impl Resource for MixedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1008,6 +1015,7 @@ mod tests {
         struct WindowedResource;
         impl Resource for WindowedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -1170,6 +1178,7 @@ mod tests {
         struct TaskResource;
         impl Resource for TaskResource {
             type Model = Task;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "tasks".to_string()
             }
@@ -1288,6 +1297,7 @@ mod tests {
         struct CappedResource;
         impl Resource for CappedResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }

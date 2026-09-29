@@ -97,10 +97,9 @@ read `R::Form::HAS_FORM`. The create link renders when `HAS_FORM && R::can_creat
 
 | Condition | Result |
 | --- | --- |
-| `HAS_FORM` and `form(cx)` is empty | refused: ``resource `X` names form `F` but `form()` declares no fields`` |
 | `!HAS_FORM` and `form(cx)` is non-empty | refused: ``resource `X` declares a form schema but its `Form` is `NoForm` — name the record form in `type Form` `` |
-| `!HAS_FORM` and `can_create(cx)` | refused: ``resource `X` allows create but has no form`` |
-| `HAS_FORM` | every check `check_form_inner` runs today (`panel/build.rs:434-547`) |
+| `!HAS_FORM` and `can_create(cx)` or `editable()` | refused: ``resource `X` allows create but has no form`` (or `edit`; the `editable()` arm leaves with #383) |
+| `HAS_FORM` | every check `check_form_inner` runs today (`panel/build.rs:434-547`); its key agreement already refuses a form whose fields `form()` does not declare |
 
 Checks run under the Db-only context (`validation_cx`, `panel/build.rs:611`), as today.
 

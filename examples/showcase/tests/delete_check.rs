@@ -257,6 +257,7 @@ async fn forged_delete_runs_no_record_query() {
     struct CountingResource;
     impl Resource for CountingResource {
         type Model = Dummy;
+        type Form = tablo_core::NoForm<Self::Model>;
         fn query(cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Dummy>> {
             counted_query(cx)
         }

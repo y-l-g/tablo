@@ -20,6 +20,7 @@ pub struct UserResource;
 
 impl Resource for UserResource {
     type Model = User;
+    type Form = NoForm<Self::Model>;
     fn can_view_any(_cx: &Cx) -> bool { true }
     fn table(_cx: &Cx) -> Table<User> {
         Table::new(
@@ -34,7 +35,7 @@ impl Resource for UserResource {
 ```
 
 List-only minimal: writes stay 403 until you add `can_create` / `can_update` / `can_delete`, a
-`#[derive(RecordForm)]` struct, and a `FormResource` impl registered with `Panel::form_resource`
+`#[derive(RecordForm)]` struct named as the resource's `type Form`, and its `form()` schema
 (see the [forms chapter](docs/guide/src/forms.md#the-record-form)).
 
 ```rust

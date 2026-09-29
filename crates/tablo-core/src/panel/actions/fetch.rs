@@ -147,7 +147,7 @@ mod tests {
     use topcoat::router::Body;
 
     use super::*;
-    use crate::panel::test_support::form_panel_for;
+    use crate::panel::test_support::panel_for;
 
     #[tokio::test]
     async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
@@ -164,6 +164,7 @@ mod tests {
         struct SubscriberResource;
         impl Resource for SubscriberResource {
             type Model = Subscriber;
+            type Form = crate::NoForm<Self::Model>;
 
             fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
                 crate::resource::Table::new(
@@ -235,6 +236,11 @@ mod tests {
         struct PairResource;
         impl Resource for PairResource {
             type Model = Pair;
+            type Form = PairForm;
+            fn form(_cx: &Cx) -> crate::schema::Schema {
+                crate::schema::Schema::new(crate::schema::TextInput::r#for(Pair::fields().name()))
+            }
+
             fn slug() -> String {
                 "pairs".to_string()
             }
@@ -261,22 +267,13 @@ mod tests {
         struct PairForm {
             name: String,
         }
-        impl crate::form::FormResource for PairResource {
-            type Form = PairForm;
-            fn form(_cx: &Cx) -> crate::schema::Schema {
-                crate::schema::Schema::new(crate::schema::TextInput::r#for(Pair::fields().name()))
-            }
-        }
-
         let db = Db::builder()
             .models(toasty::models!(Pair))
             .connect("sqlite::memory:")
             .await
             .unwrap();
         db.push_schema().await.unwrap();
-        let router = form_panel_for::<PairResource>(db)
-            .build()
-            .expect("panel builds");
+        let router = panel_for::<PairResource>(db).build().expect("panel builds");
         let resp = router
             .handle(
                 http::Request::builder()

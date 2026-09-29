@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Brand, ColumnWidth, Committed, DateFilter, FieldErrors, FormResource, Grid, Group,
-    IncludeNeeds, Panel, Posted, RelationColumn, RelationColumns, Repeater, Resource, Schema,
-    Section, Select, SelectFilter, Table, TernaryFilter, TextColumn, TextInput, Textarea, Uploader,
-    VariantFilter, render_relation, scoped_query, tenant_id, write_create, write_update,
+    Brand, ColumnWidth, Committed, DateFilter, FieldErrors, Grid, Group, IncludeNeeds, Panel,
+    Posted, RelationColumn, RelationColumns, Repeater, Resource, Schema, Section, Select,
+    SelectFilter, Table, TernaryFilter, TextColumn, TextInput, Textarea, Uploader, VariantFilter,
+    render_relation, scoped_query, tenant_id, write_create, write_update,
 };
 use toasty::Db;
 use topcoat::{
@@ -89,6 +89,49 @@ pub struct UserResource;
 
 impl Resource for UserResource {
     type Model = User;
+    type Form = UserForm;
+
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new(
+            Section::new("Profile").schema((
+                TextInput::r#for(User::fields().name()).placeholder("Ada Lovelace"),
+                TextInput::r#for(User::fields().email())
+                    .email()
+                    .unique()
+                    .placeholder("ada@example.com"),
+                // Static-options Select (the non-relationship kind): role
+                // vocabulary with presence defaulting from the column.
+                Select::r#for(User::fields().role())
+                    .options(vec!["admin".to_string(), "member".to_string()])
+                    .label("Role")
+                    .optional(),
+                // Bool lens via static options: the shipped Field set has no
+                // checkbox, so Active renders as a Yes/No select.
+                Select::r#for(User::fields().active())
+                    .options_with_labels(vec![
+                        ("true".to_string(), "Active".to_string()),
+                        ("false".to_string(), "Inactive".to_string()),
+                    ])
+                    .label("Active")
+                    .optional(),
+                // A stored integer: optional, zero or more.
+                TextInput::typed::<User, i64>(User::fields().age())
+                    .label("Age")
+                    .optional(),
+            )),
+        )
+    }
+
+    /// A stored integer holds zero or more: a non-number is the typed rule's
+    /// error, and a negative is this rule's. Both render inline with a 200 and
+    /// write nothing, never a 500 from a record fn.
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserForm> {
+        let mut errors = FieldErrors::new();
+        if form.age < 0 {
+            errors.add(UserFormField::Age, "Age must be zero or more");
+        }
+        errors
+    }
 
     fn can_view_any(_cx: &Cx) -> bool {
         true
@@ -185,56 +228,18 @@ pub struct UserForm {
     pub age: i64,
 }
 
-impl FormResource for UserResource {
-    type Form = UserForm;
-
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(
-            Section::new("Profile").schema((
-                TextInput::r#for(User::fields().name()).placeholder("Ada Lovelace"),
-                TextInput::r#for(User::fields().email())
-                    .email()
-                    .unique()
-                    .placeholder("ada@example.com"),
-                // Static-options Select (the non-relationship kind): role
-                // vocabulary with presence defaulting from the column.
-                Select::r#for(User::fields().role())
-                    .options(vec!["admin".to_string(), "member".to_string()])
-                    .label("Role")
-                    .optional(),
-                // Bool lens via static options: the shipped Field set has no
-                // checkbox, so Active renders as a Yes/No select.
-                Select::r#for(User::fields().active())
-                    .options_with_labels(vec![
-                        ("true".to_string(), "Active".to_string()),
-                        ("false".to_string(), "Inactive".to_string()),
-                    ])
-                    .label("Active")
-                    .optional(),
-                // A stored integer: optional, zero or more.
-                TextInput::typed::<User, i64>(User::fields().age())
-                    .label("Age")
-                    .optional(),
-            )),
-        )
-    }
-
-    /// A stored integer holds zero or more: a non-number is the typed rule's
-    /// error, and a negative is this rule's. Both render inline with a 200 and
-    /// write nothing, never a 500 from a record fn.
-    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserForm> {
-        let mut errors = FieldErrors::new();
-        if form.age < 0 {
-            errors.add(UserFormField::Age, "Age must be zero or more");
-        }
-        errors
-    }
-}
-
 pub struct AuthorResource;
 
 impl Resource for AuthorResource {
     type Model = Author;
+    type Form = AuthorForm;
+
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new((
+            TextInput::r#for(Author::fields().name()),
+            TextInput::r#for(Author::fields().email()).email().unique(),
+        ))
+    }
 
     fn navigation_label() -> String {
         "Writers".to_string()
@@ -303,17 +308,6 @@ pub struct AuthorForm {
     pub email: String,
 }
 
-impl FormResource for AuthorResource {
-    type Form = AuthorForm;
-
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new((
-            TextInput::r#for(Author::fields().name()),
-            TextInput::r#for(Author::fields().email()).email().unique(),
-        ))
-    }
-}
-
 pub struct PostResource;
 
 impl PostResource {
@@ -350,6 +344,84 @@ impl PostResource {
 
 impl Resource for PostResource {
     type Model = Post;
+    type Form = PostForm;
+
+    fn form(cx: &Cx) -> Schema {
+        Schema::new((
+            Section::new("Content").schema((
+                TextInput::r#for(Post::fields().title()).placeholder("A title editors click"),
+                // Prose, so a textarea rather than a one-line input.
+                // Optional so quick draft stubs submit; full stories fill it.
+                Textarea::r#for(Post::fields().body())
+                    .placeholder("The full story…")
+                    .rows(6)
+                    .optional(),
+            )),
+            // Grouped metadata: lifecycle selects beside the author picker.
+            Group::new().schema((
+                Grid::new(2).schema((
+                    Select::r#for(Post::fields().status())
+                        .options(vec!["draft".to_string(), "published".to_string()])
+                        .label("Status")
+                        .optional(),
+                    Select::r#for(Post::fields().featured())
+                        .options_with_labels(vec![
+                            ("true".to_string(), "Featured".to_string()),
+                            ("false".to_string(), "Regular".to_string()),
+                        ])
+                        .label("Featured")
+                        .optional(),
+                )),
+                Select::r#for(Post::fields().author_id())
+                    .relationship::<AuthorResource>(
+                        AuthorResource::query,
+                        |a: &Author| a.id,
+                        |a: &Author| a.name.clone(),
+                    )
+                    .searchable()
+                    .label("Author"),
+                // One media source: the cover is a picked library row, not an
+                // upload. Optional and single: empty clears the cover.
+                Select::r#for(Post::fields().cover_id())
+                    .relationship::<MediaLibrary>(
+                        |_cx| toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all(),
+                        |m: &MediaAsset| m.id,
+                        |m: &MediaAsset| m.filename.clone(),
+                    )
+                    .searchable()
+                    .label("Cover")
+                    .optional(),
+                Repeater::new("Tags").schema(TextInput::r#for(Post::fields().tags()).label("Tag")),
+            )),
+            // Embedded **values**. One declaration per value: the
+            // controls, their flattened names, and the enum's discriminant all
+            // come from the app schema and the type's own shape — nothing here
+            // spells `seo_title`, and no variant is recovered from which
+            // payload columns happen to be filled in.
+            Group::new().schema((
+                Section::new("SEO").schema(Seo::form(cx, Post::fields().seo())),
+                Section::new("Publication")
+                    .schema(Publication::form(cx, Post::fields().publication())),
+            )),
+        ))
+    }
+
+    async fn create_record(cx: &Cx, form: PostForm, ex: &mut dyn toasty::Executor) -> Result<Post> {
+        ensure_author_in_tenant(cx, form.author_id, ex).await?;
+        write_create::<Self>(cx, form, ex).await
+    }
+
+    async fn update_record(
+        cx: &Cx,
+        record: Post,
+        posted: Posted<PostForm>,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<Post> {
+        // An unposted `author_id` reads as the stored one, which is re-checked
+        // too: the author may have left the tenant since.
+        ensure_author_in_tenant(cx, posted.author_id, ex).await?;
+        write_update::<Self>(cx, record, posted, ex).await
+    }
 
     fn navigation_label() -> String {
         "Blog Posts".to_string()
@@ -651,87 +723,6 @@ async fn ensure_author_in_tenant(
     Ok(())
 }
 
-impl FormResource for PostResource {
-    type Form = PostForm;
-
-    fn form(cx: &Cx) -> Schema {
-        Schema::new((
-            Section::new("Content").schema((
-                TextInput::r#for(Post::fields().title()).placeholder("A title editors click"),
-                // Prose, so a textarea rather than a one-line input.
-                // Optional so quick draft stubs submit; full stories fill it.
-                Textarea::r#for(Post::fields().body())
-                    .placeholder("The full story…")
-                    .rows(6)
-                    .optional(),
-            )),
-            // Grouped metadata: lifecycle selects beside the author picker.
-            Group::new().schema((
-                Grid::new(2).schema((
-                    Select::r#for(Post::fields().status())
-                        .options(vec!["draft".to_string(), "published".to_string()])
-                        .label("Status")
-                        .optional(),
-                    Select::r#for(Post::fields().featured())
-                        .options_with_labels(vec![
-                            ("true".to_string(), "Featured".to_string()),
-                            ("false".to_string(), "Regular".to_string()),
-                        ])
-                        .label("Featured")
-                        .optional(),
-                )),
-                Select::r#for(Post::fields().author_id())
-                    .relationship::<AuthorResource>(
-                        AuthorResource::query,
-                        |a: &Author| a.id,
-                        |a: &Author| a.name.clone(),
-                    )
-                    .searchable()
-                    .label("Author"),
-                // One media source: the cover is a picked library row, not an
-                // upload. Optional and single: empty clears the cover.
-                Select::r#for(Post::fields().cover_id())
-                    .relationship::<MediaLibrary>(
-                        |_cx| toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all(),
-                        |m: &MediaAsset| m.id,
-                        |m: &MediaAsset| m.filename.clone(),
-                    )
-                    .searchable()
-                    .label("Cover")
-                    .optional(),
-                Repeater::new("Tags").schema(TextInput::r#for(Post::fields().tags()).label("Tag")),
-            )),
-            // Embedded **values**. One declaration per value: the
-            // controls, their flattened names, and the enum's discriminant all
-            // come from the app schema and the type's own shape — nothing here
-            // spells `seo_title`, and no variant is recovered from which
-            // payload columns happen to be filled in.
-            Group::new().schema((
-                Section::new("SEO").schema(Seo::form(cx, Post::fields().seo())),
-                Section::new("Publication")
-                    .schema(Publication::form(cx, Post::fields().publication())),
-            )),
-        ))
-    }
-
-    async fn create_record(cx: &Cx, form: PostForm, ex: &mut dyn toasty::Executor) -> Result<Post> {
-        ensure_author_in_tenant(cx, form.author_id, ex).await?;
-        write_create::<Self>(cx, form, ex).await
-    }
-
-    async fn update_record(
-        cx: &Cx,
-        record: Post,
-        posted: Posted<PostForm>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<Post> {
-        // An unposted `author_id` reads as the stored one, which is re-checked
-        // too: the author may have left the tenant since.
-        ensure_author_in_tenant(cx, posted.author_id, ex).await?;
-        write_update::<Self>(cx, record, posted, ex).await
-    }
-}
-
 /// Comments resource over `Comment`: the moderation queue.
 ///
 /// Comments carry no tenant of their own — they inherit visibility from their
@@ -809,6 +800,48 @@ impl CommentResource {
 
 impl Resource for CommentResource {
     type Model = Comment;
+    type Form = CommentForm;
+
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new((
+            // Prose, so a textarea rather than a one-line input — the same
+            // shape the post body uses.
+            Textarea::r#for(Comment::fields().body())
+                .placeholder("Write a reply…")
+                .rows(4),
+            Select::r#for(Comment::fields().post_id())
+                .relationship::<PostResource>(
+                    PostResource::query,
+                    |p: &Post| p.id,
+                    |p: &Post| p.title.clone(),
+                )
+                .searchable()
+                .label("Post"),
+        ))
+    }
+
+    async fn create_record(
+        cx: &Cx,
+        form: CommentForm,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<Comment> {
+        // Tenancy double-check inside the tx: the pre-tx option-set
+        // validation is not a write-time guarantee.
+        ensure_post_in_tenant(cx, form.post_id, ex).await?;
+        write_create::<Self>(cx, form, ex).await
+    }
+
+    async fn update_record(
+        cx: &Cx,
+        record: Comment,
+        posted: Posted<CommentForm>,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<Comment> {
+        // An update can re-point the comment at another post, which is exactly
+        // the move the pre-tx check cannot be trusted to catch.
+        ensure_post_in_tenant(cx, posted.post_id, ex).await?;
+        write_update::<Self>(cx, record, posted, ex).await
+    }
 
     fn navigation_label() -> String {
         // "Comments", not "Discussion": the entity is a comment, the
@@ -918,51 +951,6 @@ impl Resource for CommentResource {
 pub struct CommentForm {
     pub body: String,
     pub post_id: uuid::Uuid,
-}
-
-impl FormResource for CommentResource {
-    type Form = CommentForm;
-
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new((
-            // Prose, so a textarea rather than a one-line input — the same
-            // shape the post body uses.
-            Textarea::r#for(Comment::fields().body())
-                .placeholder("Write a reply…")
-                .rows(4),
-            Select::r#for(Comment::fields().post_id())
-                .relationship::<PostResource>(
-                    PostResource::query,
-                    |p: &Post| p.id,
-                    |p: &Post| p.title.clone(),
-                )
-                .searchable()
-                .label("Post"),
-        ))
-    }
-
-    async fn create_record(
-        cx: &Cx,
-        form: CommentForm,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<Comment> {
-        // Tenancy double-check inside the tx: the pre-tx option-set
-        // validation is not a write-time guarantee.
-        ensure_post_in_tenant(cx, form.post_id, ex).await?;
-        write_create::<Self>(cx, form, ex).await
-    }
-
-    async fn update_record(
-        cx: &Cx,
-        record: Comment,
-        posted: Posted<CommentForm>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<Comment> {
-        // An update can re-point the comment at another post, which is exactly
-        // the move the pre-tx check cannot be trusted to catch.
-        ensure_post_in_tenant(cx, posted.post_id, ex).await?;
-        write_update::<Self>(cx, record, posted, ex).await
-    }
 }
 
 #[layout("/admin")]
@@ -1147,10 +1135,10 @@ fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -
         // Light by default: the header toggle is the only thing that
         // turns dark on. `Panel::dark_mode` stays available for an app that
         // wants a dark-first panel.
-        .form_resource::<UserResource>()
-        .form_resource::<AuthorResource>()
-        .form_resource::<PostResource>()
-        .form_resource::<CommentResource>();
+        .resource::<UserResource>()
+        .resource::<AuthorResource>()
+        .resource::<PostResource>()
+        .resource::<CommentResource>();
     // No "Published" saved-view entry: it would point at
     // `/admin/posts?filters=status:published`, i.e. the Blog Posts table with a
     // filter — the same page twice in the sidebar, and the one arrangement the

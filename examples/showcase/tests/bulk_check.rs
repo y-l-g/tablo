@@ -389,6 +389,7 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
     struct PartialDenyResource;
     impl Resource for PartialDenyResource {
         type Model = DummyUser;
+        type Form = tablo_core::NoForm<Self::Model>;
         fn can_view_any(_cx: &topcoat::context::Cx) -> bool {
             true
         }

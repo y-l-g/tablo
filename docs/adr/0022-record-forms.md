@@ -74,3 +74,14 @@ derive's field enum and runs once every field parses.
 - A form's key set is read once, at build: `form(cx)` must declare the same controls on every
   request.
 - A `validate_record` error on a field the form binds to no key fails the submit closed.
+
+## Amendment — 2026-09-29
+
+**One trait, one registration (GH #382).** Decision 2 is superseded. `type Form`, `CREATE_COLUMNS`,
+`form`, `validate_record`, `create_record`, and `update_record` live on `Resource`, and every
+resource registers with `Panel::resource`. A list-only resource names
+`type Form = NoForm<Self::Model>;`, the placeholder decision 2 avoided: a one-line cost that
+removes the misregistration `Panel::resource` could not detect, a resource with a form registered
+without its form routes. `RecordForm::HAS_FORM`, `false` on `NoForm` only, decides at registration
+whether the create, edit, and options routes exist and whether the list links to create.
+`Panel::build` refuses a `NoForm` resource that declares a `form()` schema or allows create.

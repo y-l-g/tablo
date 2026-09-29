@@ -45,8 +45,8 @@ pub use auth::{Auth, Authenticator, CurrentUser, PasswordAuth};
 #[cfg(not(feature = "auth"))]
 pub use auth_off::Auth;
 pub use form::{
-    FieldError, FieldErrorKind, FieldErrors, FormField, FormResource, FormScalar, Posted,
-    RecordForm, write_create, write_update,
+    FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
+    write_create, write_update,
 };
 pub use notification::{Notification, NotificationStatus};
 pub use panel::{Brand, DarkMode, Panel};

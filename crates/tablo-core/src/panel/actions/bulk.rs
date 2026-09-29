@@ -186,6 +186,7 @@ mod tests {
         struct UpperKeyResource;
         impl Resource for UpperKeyResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }
@@ -312,6 +313,7 @@ mod tests {
         struct FlakyBulkResource;
         impl Resource for FlakyBulkResource {
             type Model = Dummy;
+            type Form = crate::NoForm<Self::Model>;
             fn slug() -> String {
                 "dummies".to_string()
             }

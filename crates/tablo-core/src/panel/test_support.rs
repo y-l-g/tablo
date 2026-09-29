@@ -29,20 +29,11 @@ pub(crate) fn dummy_table(_cx: &Cx) -> Table<Dummy> {
     )
 }
 
-/// A panel mounted at `/admin` with one list-only resource and the auth gate
-/// off.
+/// A panel mounted at `/admin` with one resource and the auth gate off.
 pub(crate) fn panel_for<R: Resource>(db: Db) -> Panel {
     Panel::new("admin")
         .app_context(db)
         .resource::<R>()
-        .auth(crate::Auth::disabled())
-}
-
-/// [`panel_for`] for a resource with a form.
-pub(crate) fn form_panel_for<R: crate::form::FormResource>(db: Db) -> Panel {
-    Panel::new("admin")
-        .app_context(db)
-        .form_resource::<R>()
         .auth(crate::Auth::disabled())
 }
 
@@ -87,6 +78,14 @@ pub(crate) struct TaggedResource;
 
 impl crate::resource::Resource for TaggedResource {
     type Model = Tagged;
+    type Form = TaggedForm;
+
+    fn form(_cx: &Cx) -> Schema {
+        Schema::new((
+            TextInput::r#for(Tagged::fields().name()),
+            TextInput::typed::<Tagged, uuid::Uuid>(Tagged::fields().token()).unique(),
+        ))
+    }
 
     fn slug() -> String {
         "tagged".to_string()
@@ -124,15 +123,4 @@ impl crate::resource::Resource for TaggedResource {
 pub(crate) struct TaggedForm {
     pub(crate) name: String,
     pub(crate) token: uuid::Uuid,
-}
-
-impl crate::form::FormResource for TaggedResource {
-    type Form = TaggedForm;
-
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new((
-            TextInput::r#for(Tagged::fields().name()),
-            TextInput::typed::<Tagged, uuid::Uuid>(Tagged::fields().token()).unique(),
-        ))
-    }
 }

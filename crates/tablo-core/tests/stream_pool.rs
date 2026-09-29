@@ -18,6 +18,7 @@ struct PoolResource;
 
 impl Resource for PoolResource {
     type Model = PoolDummy;
+    type Form = tablo_core::NoForm<Self::Model>;
 
     fn slug() -> String {
         "dummies".to_string()
