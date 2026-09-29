@@ -716,8 +716,8 @@ async fn ensure_author_in_tenant(
 /// the shape that fails closed: no tenant is a 403 everywhere, and the
 /// predicate is the framework's to apply.
 ///
-/// The queue moderates: row and bulk delete are enabled, which is
-/// what `can_delete` and `delete_record` are written for — bulk delete rides
+/// The queue moderates: `can_delete_any` enables row and bulk delete, and
+/// `delete_record` writes them — bulk delete rides
 /// the framework default that loops `delete_record`. A resource that wants a
 /// read-only queue leaves [`can_delete_any`](Resource::can_delete_any) at its default instead.
 pub struct CommentResource;

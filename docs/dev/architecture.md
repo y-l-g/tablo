@@ -87,7 +87,7 @@ committed write, and a failure in it is logged without rolling the write back.
 | `Resource::tenant_scope` | `tenancy.rs` | the tenant predicate, derived from the model's `tenant_id` by default |
 | `Resource::export_query` | `resource/mod.rs` | the export's base query, narrowed to the includes its columns declared |
 | `Resource::can_*` | `resource/mod.rs` | authorization, default deny |
-| `Resource::can_delete_any` | `resource/mod.rs` | whether delete is allowed at all: the delete chrome and the handlers' first check |
+| `Resource::can_delete_any` | `resource/mod.rs` | whether delete is allowed at all: the delete chrome and the delete handlers' policy gate |
 | `schema::OptionSource` | `schema/relationship.rs` | what a relationship select offers, and who may see it |
 | `EmbeddedForm` | `tablo-macros` | the flat form map ↔ a typed embedded value |
 | `RecordForm` / `NoForm` | `form.rs` | the typed value a form writes, and the form of a resource with none |

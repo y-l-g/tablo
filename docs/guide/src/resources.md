@@ -55,8 +55,8 @@ its form and declares its list view, and any other omission has to fail loudly i
   — the showcase's SSO-guarded user is the worked example: its row keeps the View link and nothing
   else. The handler keeps its all-or-nothing check on the POST as the safety net for a hand-crafted
   request.
-- **Default-deny stands**: every `can_*` defaults to `false`, so an unconfigured resource exposes
-  no data and no mutation.
+- **Default-deny stands**: every `can_*` defaults to `false`, except `can_delete()`, which defaults
+  to `can_delete_any()`; an unconfigured resource exposes no data and no mutation.
 
 ## What to know
 

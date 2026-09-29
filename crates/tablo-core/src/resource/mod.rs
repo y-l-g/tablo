@@ -70,8 +70,8 @@ pub(crate) use crate::query_term::clamp_query_term;
 ///   [`can_delete_any`](Self::can_delete_any) allows, the Edit link when the resource has a record
 ///   form, and the View link when it declares [`view`](Self::view); the row predicates then gate
 ///   each row.
-/// - **Default-deny is untouched**: every `can_*` defaults to `false`, so an unconfigured resource
-///   exposes no data and no mutation.
+/// - **Default-deny is untouched**: every `can_*` defaults to `false`, except `can_delete`, which
+///   defaults to `can_delete_any`; an unconfigured resource exposes no data and no mutation.
 pub trait Resource: Sized + Send + Sync + 'static {
     /// The persisted model this resource administers.
     ///
@@ -148,10 +148,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// Whether the current user may delete records of this resource at all.
     ///
-    /// Decides once per request whether the list renders the row Delete
-    /// control, the bulk column, and the bulk bar, and gates the single-delete
-    /// and bulk-delete POSTs before any record loads. Answered per request, not
-    /// per row, so the streamed skeleton and the table agree on their columns.
+    /// Decides whether the list renders the row Delete control, the bulk
+    /// column, and the bulk bar, and gates the single-delete and bulk-delete
+    /// POSTs before any record loads. The column decision takes no record, so
+    /// the streamed skeleton and the table agree on their columns. The default
+    /// [`can_delete`](Self::can_delete) also calls it once per row.
     fn can_delete_any(_cx: &Cx) -> bool {
         false
     }

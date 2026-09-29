@@ -104,8 +104,9 @@ impl Resource for PostResource {
         true
     }
     // `bench_list_path` renders the wired table, so `can_view`/`can_update`/
-    // `can_delete` each run once per rendered row inside the timed region —
-    // the row policy is part of what is measured.
+    // `can_delete` (its default, which reads `can_delete_any`) each run once
+    // per rendered row inside the timed region — the row policy is part of
+    // what is measured.
     fn can_update(_cx: &Cx, _record: &Post) -> bool {
         true
     }
