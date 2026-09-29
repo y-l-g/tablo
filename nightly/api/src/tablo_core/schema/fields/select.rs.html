@@ -23,8 +23,8 @@
 <a href=#23 id=23 data-nosnippet>23</a>/// and stores the
 <a href=#24 id=24 data-nosnippet>24</a>/// related record's primary key as the value. Typos in the lens fail at compile
 <a href=#25 id=25 data-nosnippet>25</a>/// time; a wrong value projection fails where the projected type differs from
-<a href=#26 id=26 data-nosnippet>26</a>/// the PK. Option values are never read from the related table's `Table::id`
-<a href=#27 id=27 data-nosnippet>27</a>/// row-key projection; that projection stays the list's row identity
+<a href=#26 id=26 data-nosnippet>26</a>/// the PK. Option values are never read from the related table's row-key
+<a href=#27 id=27 data-nosnippet>27</a>/// projection; that projection stays the list's row identity
 <a href=#28 id=28 data-nosnippet>28</a>/// (DOM ids, bulk values, edit/delete URLs), not a source of FK values.
 <a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">pub struct </span>Select {
 <a href=#30 id=30 data-nosnippet>30</a>    name: String,
@@ -208,7 +208,7 @@
 <a href=#208 id=208 data-nosnippet>208</a>    /// `&lt;option value&gt;`; the third maps the record to its display label.
 <a href=#209 id=209 data-nosnippet>209</a>    ///
 <a href=#210 id=210 data-nosnippet>210</a>    /// Option values are typed PKs, never the table's row-key projection: using
-<a href=#211 id=211 data-nosnippet>211</a>    /// `Table::id` silently stored display strings in FK columns. The projection
+<a href=#211 id=211 data-nosnippet>211</a>    /// a display projection silently stored display strings in FK columns. The projection
 <a href=#212 id=212 data-nosnippet>212</a>    /// is `Fn(&amp;R::Model) -&gt; R::Model::PrimaryKey`, so a wrong field fails to
 <a href=#213 id=213 data-nosnippet>213</a>    /// compile. The related PK must be a single primitive implementing
 <a href=#214 id=214 data-nosnippet>214</a>    /// `Display`, whose canonical string round-trips through the form; edit

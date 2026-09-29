@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ea45145c.js";
+            window.path_to_searchindex_js = "searchindex-92db1746.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -195,7 +195,7 @@ and how tenancy is declared.</p>
         -&gt; HashMap&lt;String, String&gt;;                 // default: empty
     fn export_query(_cx: &amp;Cx, _needs: &amp;IncludeNeeds)
         -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query_with(cx, needs)
-    fn table(_cx: &amp;Cx) -&gt; Table&lt;Self::Model&gt;;       // default: Table::new(), empty until columns + id
+    fn table(_cx: &amp;Cx) -&gt; Table&lt;Self::Model&gt;;       // required: Table::new(key, columns)
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
     // defaults, and the delete record fns
 }
@@ -206,15 +206,14 @@ record form type, <code>validate_record</code>, and the create and update record
 resource registers with <code>Panel::resource</code>, which serves the list, the detail page, delete, bulk
 delete, and export, and links to no create page.</p>
 <h2 id="the-contract"><a class="header" href="#the-contract">The contract</a></h2>
-<p>Every method is defaulted, so a resource compiles as soon as it names its model — which means an
-omission has to fail loudly instead of quietly:</p>
+<p>Every method except <code>table()</code> is defaulted — <code>table()</code> is required, so a resource names its model
+and declares its list view, and any other omission has to fail loudly instead of quietly:</p>
 <ul>
-<li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): the table must be renderable — <code>table()</code>
-declares columns and a row key, plus <code>Table::key</code> where the resource declares action chrome. A
+<li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): the declared table must serve a list, so
+<code>paginate(0)</code> fails the build. A
 resource registered with <code>Panel::resource</code> whose <code>can_create</code> or <code>editable()</code> is on fails the
 build, since it serves no form; a <code>FormResource</code>’s record form must agree with its <code>form()</code> schema
-(<a href="./forms.html#the-record-form">Forms</a>). A resource that overrides nothing fails the build, naming
-the type, instead of serving an error state or an empty form. <code>table()</code>, <code>form()</code> and
+(<a href="./forms.html#the-record-form">Forms</a>). <code>table()</code>, <code>form()</code> and
 <code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
 and each list and form request calls <code>table()</code> / <code>form()</code> again, so a declaration must not need
 request-scoped context.</li>
@@ -224,10 +223,8 @@ implemented for …”), so a missing implementation never looks like a successf
 resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
 and the default-deny <code>can_*</code> predicates answer them. A resource that wants the chrome declares the
 flag <strong>and</strong> the policy predicate it promises: <code>can_view()</code> + <code>can_delete()</code> for <code>deletable()</code>,
-<code>can_view()</code> + <code>can_update()</code> for <code>editable()</code>. It also commits the table to <code>Table::key(..)</code> — the
-action URLs and bulk values carry that projection — and <code>Panel::build</code> refuses a table that declares
-chrome without it. The flag is the whole-resource gate (GH #226); the
-predicates are
+<code>can_view()</code> + <code>can_update()</code> for <code>editable()</code>. The flag is the whole-resource gate (GH #226);
+the predicates are
 applied <strong>per row</strong> (GH #235). The panel wires them into the table’s row policy, so a row
 <code>can_update()</code> refuses renders no Edit link, a row <code>can_delete()</code> refuses renders no Delete link
 and no bulk checkbox, and a row <code>can_view()</code> refuses renders

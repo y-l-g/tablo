@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ea45145c.js";
+            window.path_to_searchindex_js = "searchindex-92db1746.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -186,29 +186,28 @@ updates, and row and bulk delete.</p>
 <p>Minimal table:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Table::r#for(cx)
-    .key(|u: &amp;User| u.id.to_string())
-    .columns((
+</span>Table::new(
+    |u: &amp;User| u.id.to_string(),
+    (
         TextColumn::r#for(User::fields().name(), |u: &amp;User| u.name.clone())
             .searchable()
             .sortable(),
         TextColumn::computed("Status", |u: &amp;User| {
             if u.active { "Active".into() } else { "Inactive".into() }
         }),
-    ))
-    .paginate(20)
+    ),
+)
+.paginate(20)
 <span class="boring">}</span></code></pre>
 <p>Notes:</p>
 <ul>
-<li><code>.key(...)</code> is required. It declares the row key and the record key together: the row key
+<li><code>Table::new(key, columns)</code> declares the row key and the record key together: the row key
 keys rows for selection and live updates — never use a loop index — and the record key is
-what action URLs and bulk checkbox values carry; handlers resolve it as the model’s typed
-primary key, so emit the primary key, not a display label. Declare it whenever the resource
-carries action chrome — <code>deletable()</code>, <code>editable()</code>, or a declared detail <code>view()</code> — because
-<code>Panel::build</code> refuses a table that carries chrome without a key. A table whose display
-projects a non-PK value declares that value with <code>Table::id</code> and overrides the record half
-with <code>Table::pk</code>, so action URLs and bulk values keep carrying the typed primary key.
-A non-PK <code>.id</code> without a <code>.pk</code> override uses the display value for URLs, which handlers 404.</li>
+what action URLs and bulk checkbox values carry. Handlers resolve the record key as the
+model’s typed primary key, so declare the primary key, not a display label: a non-PK
+projection makes every delete and bulk submit 404. A table whose display must stay a
+non-PK value uses <code>Table::new_split(display, record, columns)</code>, which carries the typed
+primary key in the URLs instead.</li>
 <li><code>searchable()</code> searches with <code>?q=</code>: an escaped substring match (<code>like_with_escape</code>, OR across
 searchable columns), so a term containing <code>%</code> or <code>_</code> matches those characters literally. <code>LIKE</code> is
 ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. <code>sortable()</code> sorts with
@@ -273,7 +272,7 @@ file. <code>?bom=1</code> opts into an Excel BOM.</li>
 <p>Live updates:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Table::r#for(cx).live_search(true)
+</span>Table::new(|u: &amp;User| u.id.to_string(), columns).live_search(true)
 <span class="boring">}</span></code></pre>
 <p>Search, sort, filter, and pager controls then refresh the table in place without a full page load.
 The plain links and forms stay as the no-JS fallback.</p>

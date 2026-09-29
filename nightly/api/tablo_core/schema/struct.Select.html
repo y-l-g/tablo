@@ -3,8 +3,8 @@
 and stores the
 related record’s primary key as the value. Typos in the lens fail at compile
 time; a wrong value projection fails where the projected type differs from
-the PK. Option values are never read from the related table’s <code>Table::id</code>
-row-key projection; that projection stays the list’s row identity
+the PK. Option values are never read from the related table’s row-key
+projection; that projection stays the list’s row identity
 (DOM ids, bulk values, edit/delete URLs), not a source of FK values.</p>
 </div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Select" class="impl"><a class="src rightside" href="../../src/tablo_core/schema/fields/select.rs.html#80-615">Source</a><a href="#impl-Select" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.Select.html" title="struct tablo_core::schema::Select">Select</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.for" class="method"><a class="src rightside" href="../../src/tablo_core/schema/fields/select.rs.html#90-106">Source</a><h4 class="code-header">pub fn <a href="#method.for" class="fn">for</a>&lt;M, T&gt;(path: Path&lt;M, T&gt;) -&gt; Self<div class="where">where
     M: Model,</div></h4></section></summary><div class="docblock"><p>Create a <code>Select</code> bound to the given field lens (e.g. <code>Post::fields().author_id()</code>).</p>
@@ -58,7 +58,7 @@ the framework’s derived tenant filter apply. The second projects each
 record to the model’s <strong>primary key</strong>, stringified with <code>Display</code> as the
 <code>&lt;option value&gt;</code>; the third maps the record to its display label.</p>
 <p>Option values are typed PKs, never the table’s row-key projection: using
-<code>Table::id</code> silently stored display strings in FK columns. The projection
+a display projection silently stored display strings in FK columns. The projection
 is <code>Fn(&amp;R::Model) -&gt; R::Model::PrimaryKey</code>, so a wrong field fails to
 compile. The related PK must be a single primitive implementing
 <code>Display</code>, whose canonical string round-trips through the form; edit
