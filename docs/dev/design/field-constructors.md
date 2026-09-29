@@ -26,20 +26,20 @@ The gap, at the pinned revision:
 
 - `Model` exposes schema and path metadata only — `id()`, `schema()`,
   `path_root()`, `path_field()`, `field_name_to_id()`
-  (`crates/toasty/src/schema/model.rs:60-115`). Its generated per-field accessors
-  return paths (`crates/toasty-macros/src/model/expand/fields.rs:537`), and the
-  derive generates no per-field value getter
+  (`crates/toasty/src/schema/model.rs:60-115`). Its generated per-field
+  accessors return paths
+  (`crates/toasty-macros/src/model/expand/fields.rs:537`), and the derive
+  generates no per-field value getter
   (`crates/toasty-macros/src/model/expand/model.rs:56`).
 - `Path<T, U>` holds an untyped path plus `PhantomData`
   (`crates/toasty/src/stmt/path.rs:37-40`); its methods are query builders
-  (`eq`, `lt`, `asc`, `like`, `is_some`, …). It implements `Debug` (`:800`), not
-  `Display`, and carries no value reader.
+  (`eq`, `lt`, `asc`, `like`, `is_some`, …). It implements `Debug` (`:800`),
+  not `Display`, and carries no value reader.
 - `TextColumn` documents the same absence and the hand-written closure as the
   only way to read a field (`column.rs:144-148`); ADR-0001 records it as an open
   upstream gap (`docs/adr/0001-typed-field-lenses.md:18-25`).
 
-Tracked in GH #119, which lists no upstream issue: Toasty has no equivalent
-tracker.
+Tracked in GH #119, which records no upstream issue.
 
 **Upstream API this design needs.** A way to read a field value from an instance
 through a lens, so that a constructor taking `Path<M, T>` can produce the
@@ -67,9 +67,9 @@ The exact signature is Toasty's to choose. The requirement is one call that
 turns a lens into an instance reader; the derive already knows the field index
 and the accessor, so it can emit it.
 
-Until that lands, `field` is not implementable and the `String` half of #385
-stays blocked. `TextInput::typed` and `Select::checkbox` are independent of this
-blocker and ship on their own.
+Until that API exists, `field` is not implementable and the `String` half of
+#385 stays blocked. `TextInput::typed` and `Select::checkbox` are independent of
+this blocker and merge on their own.
 
 ## Motivation
 
@@ -132,9 +132,10 @@ argument, and the identically shaped `typed_context`
 (`crates/tablo-macros/src/embedded.rs:348`) and by hand
 (`examples/showcase/src/app.rs:417-420`).
 
-The checkbox renders the `tablo-ui` checkbox primitive
-(`crates/tablo-ui/src/components/primitives/checkbox.rs:33`) as
-`value="true"`, preceded by a hidden input with the same name posting `"false"`.
+`Select::checkbox` renders the `tablo-ui` checkbox primitive
+(`crates/tablo-ui/src/components/primitives/checkbox.rs:33`) with
+`value="true"`, and renders a hidden input of the same name before it to post
+`"false"`.
 Decoding collects posted pairs into a map
 (`panel/forms/decode.rs:367-369`), so a duplicate key resolves to the last pair
 in the body: a checked box posts `"false"` then `"true"` and reads `true`; an
@@ -154,8 +155,9 @@ key takes the field's blank answer (`panel/forms/submit.rs:66-68`).
   fails to compile; the error points at the `FieldLens<M, String>` bound. The
   generic-`Display` overload stays future work.
 - **Traversal lenses.** A lens that crosses an embedded step type-checks but is
-  refused at build, as for `for`: `Panel::build` reports the single-field lens
-  rule (`panel/build.rs:1552-1560`, asserted at `:1583-1588`).
+  refused at build, as for `for`: the single-field lens rule
+  (`schema/lenses.rs:655-662`) surfaces through `Panel::build` as a declaration
+  error (fixture `panel/build.rs:1552-1560`, asserted at `:1590-1593`).
 - **Nullable strings.** An `Option<String>` leaf yields
   `Path<M, Option<String>>`, and `Option<String>` implements no `TypedValue`
   (`schema/validation.rs:46-81`), so optional text columns keep `computed`.
