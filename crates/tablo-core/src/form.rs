@@ -318,16 +318,19 @@ pub trait RecordForm: Sized + Send + 'static {
     /// Whether the resource naming this form has create and edit pages.
     ///
     /// [`Panel::resource`](crate::Panel::resource) registers the create, edit,
-    /// and options routes only when this holds. Only [`NoForm`] overrides it.
+    /// and options routes only when this holds. [`NoForm`] sets it to `false`.
     const HAS_FORM: bool = true;
 }
 
 /// The record form of a resource with no create or edit page.
 ///
 /// A list-only resource names it as [`Resource::Form`]:
-/// `type Form = NoForm<Self::Model>;`. No route parses or writes it, so every
-/// method but [`fields`](RecordForm::fields) and
-/// [`hydrate`](RecordForm::hydrate) panics naming the model.
+/// `type Form = NoForm<Self::Model>;`. [`fields`](RecordForm::fields) and
+/// [`hydrate`](RecordForm::hydrate) are empty and
+/// [`into_update`](RecordForm::into_update) answers `None`. No route parses or
+/// writes it, so [`parse`](RecordForm::parse) and
+/// [`into_create`](RecordForm::into_create) panic naming the model, and the
+/// future [`exec_update`](RecordForm::exec_update) returns panics when polled.
 pub struct NoForm<M>(std::marker::PhantomData<fn() -> M>);
 
 impl<M: Model + Send + Sync + 'static> NoForm<M> {

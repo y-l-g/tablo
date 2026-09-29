@@ -44,8 +44,8 @@ its form and declares its list view, and any other omission has to fail loudly i
 - **At request time, loudly**: `delete_record` defaults to an error naming the type ("delete not
   implemented for …"), so a missing implementation never looks like a successful no-op.
 - **Chrome is opt-in, gated per record**: `deletable()` and `editable()` default to `false`, so a
-  resource that never mentions them renders no Edit or Delete affordance — the routes still exist,
-  and the default-deny `can_*` predicates answer them. A resource that wants the chrome declares the
+  resource that never mentions them renders no Edit or Delete affordance — the routes it serves still
+  exist, and the default-deny `can_*` predicates answer them. A resource that wants the chrome declares the
   flag **and** the policy predicate it promises: `can_view()` + `can_delete()` for `deletable()`,
   `can_view()` + `can_update()` for `editable()`. The flag is the whole-resource gate (GH #226);
   the predicates are
@@ -99,12 +99,14 @@ struct UserResource;
 
 impl Resource for UserResource {
     type Model = User;
+    type Form = NoForm<Self::Model>;
 }
 
 struct PostResource;
 
 impl Resource for PostResource {
     type Model = Post;
+    type Form = NoForm<Self::Model>;
 
     // the resource's own scoping seam, spelled out where it is used
     fn query(cx: &Cx) -> Query<List<Post>> {
@@ -139,6 +141,7 @@ Tenancy is declared, not restated per query. The pattern:
 ```rust
 impl Resource for PostResource {
     type Model = Post;
+    type Form = NoForm<Self::Model>;
 
     // `Post` declares `tenant_id: uuid::Uuid`. Declaring this is the whole
     // tenant contract: the gate is GH #87 — every handler 403s without a

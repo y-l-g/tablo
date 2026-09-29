@@ -1,6 +1,6 @@
 # Detail pages: `Resource::view` and one Schema, read two ways
 
-Date: 2026-09-21 — Status: accepted — Amended: 2026-09-25, 2026-09-28
+Date: 2026-09-21 — Status: accepted — Amended: 2026-09-25, 2026-09-28, 2026-09-29
 
 ## Decision
 
@@ -74,8 +74,7 @@ table spells its columns in one list; a nested tuple such as `(a, (b, c))` does 
 ## Amendment — 2026-09-28
 
 **Values come from the form's projection.** The consequence "values come from
-`hydrate_form_values`" is superseded by this amendment. A resource registered with
-`Panel::form_resource` renders
-its detail page from `RecordForm::hydrate`, extended with `Resource::view_values` for keys only the
-view shows (ADR-0022); the form's keys win. A list-only resource supplies every key through
-`view_values`, which is `hydrate_form_values` renamed.
+`hydrate_form_values`" is superseded by this amendment. A resource renders its detail page from
+`RecordForm::hydrate`, extended with `Resource::view_values` for keys only the view shows
+(ADR-0022); the form's keys win. A `NoForm` resource's projection is empty, so it supplies every key
+through `view_values`, which is `hydrate_form_values` renamed.

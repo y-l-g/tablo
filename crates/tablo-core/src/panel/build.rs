@@ -399,19 +399,28 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
     check_form_declaration::<R>(cx)
 }
 
-/// A resource with a record form runs [`check_form_inner`], whose key
-/// agreement also refuses a form whose fields `form()` does not declare. A
-/// resource with no form declares no schema, and serves no create or edit
-/// page, so a policy that allows create or an edit link would lead nowhere.
+/// A resource with a record form declares its schema and runs
+/// [`check_form_inner`]. A resource whose form serves no pages
+/// ([`RecordForm::HAS_FORM`] false) declares no schema, and a policy that
+/// allows create or an edit link would lead nowhere.
 fn check_form_declaration<R: Resource>(cx: &Cx) -> Result<(), String> {
+    let resource = std::any::type_name::<R>();
+    let form = std::any::type_name::<R::Form>();
     if <R::Form as RecordForm>::HAS_FORM {
+        // A form with fields and the empty `form()` default is a missing
+        // override; the key check below would only name the first field.
+        if R::form(cx).is_empty() && !<R::Form as RecordForm>::fields(cx).is_empty() {
+            return Err(format!(
+                "resource `{resource}` names record form `{form}` but does not override `form()`, \
+                 whose default declares no controls"
+            ));
+        }
         return check_form_inner::<R>(cx);
     }
-    let resource = std::any::type_name::<R>();
     if !R::form(cx).is_empty() {
         return Err(format!(
-            "resource `{resource}` declares a form schema but its `Form` is `NoForm` — name the \
-             record form in `type Form`"
+            "resource `{resource}` declares a form schema but its `Form`, `{form}`, serves no \
+             form — name the record form in `type Form`"
         ));
     }
     let declared = match (R::can_create(cx), R::editable()) {

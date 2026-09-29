@@ -1,6 +1,6 @@
 # Single-resource CRUD — Create/Edit, record fns, Policy, Notification
 
-Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-21, 2026-09-22, 2026-09-28
+Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-21, 2026-09-22, 2026-09-28, 2026-09-29
 
 ## Decision
 
@@ -53,4 +53,4 @@ the vertical slice, and `cargo test --workspace` / `clippy -D warnings` / `fmt` 
 **Hydration and the create/update record fns belong to the record form.** The decision's
 `Resource::hydrate_form_values` is superseded by this amendment: the edit form hydrates from
 `RecordForm::hydrate`, and `form`, `validate_record`, `create_record`, and `update_record` live on
-`FormResource`, registered with `Panel::form_resource` (ADR-0022).
+`Resource` beside its `type Form`, registered with `Panel::resource` (ADR-0022).

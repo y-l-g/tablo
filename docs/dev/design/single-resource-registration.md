@@ -97,7 +97,8 @@ read `R::Form::HAS_FORM`. The create link renders when `HAS_FORM && R::can_creat
 
 | Condition | Result |
 | --- | --- |
-| `!HAS_FORM` and `form(cx)` is non-empty | refused: ``resource `X` declares a form schema but its `Form` is `NoForm` — name the record form in `type Form` `` |
+| `HAS_FORM`, `form(cx)` empty, and the form has fields | refused: ``resource `X` names record form `F` but does not override `form()` …`` |
+| `!HAS_FORM` and `form(cx)` is non-empty | refused: ``resource `X` declares a form schema but its `Form`, `F`, serves no form — name the record form in `type Form` `` |
 | `!HAS_FORM` and `can_create(cx)` or `editable()` | refused: ``resource `X` allows create but has no form`` (or `edit`; the `editable()` arm leaves with #383) |
 | `HAS_FORM` | every check `check_form_inner` runs today (`panel/build.rs:434-547`); its key agreement already refuses a form whose fields `form()` does not declare |
 
@@ -109,6 +110,8 @@ Request-time policy, tenancy, export, and transactions do not change.
 
 - **Direct calls on a `NoForm` resource.** `R::create_record` / `R::update_record` reach
   `NoForm::into_create` / `parse` only through app code, which panics naming the type.
+- **One route set per type.** The route set follows `Resource::Form`, so one resource type serves
+  the same routes in every panel that registers it.
 - **Request-dependent schema.** `form(cx)` is read at build and per request. Its field set must not
   depend on the request; the key-agreement check only sees the build answer.
 

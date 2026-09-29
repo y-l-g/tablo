@@ -260,7 +260,8 @@ impl Panel {
     /// A resource whose [`Form`](Resource::Form) is a record form
     /// ([`RecordForm::HAS_FORM`]) also gets the create page, the edit page, and
     /// the relationship-options endpoint; one that names
-    /// [`NoForm`](crate::NoForm) gets none of them.
+    /// [`NoForm`](crate::NoForm) gets none of them. The route set follows the
+    /// resource type, so one type serves the same routes in every panel.
     ///
     /// [`Panel::build`] checks that the resource's [`form`](Resource::form)
     /// agrees with its `Form`, that a resource with no form allows neither

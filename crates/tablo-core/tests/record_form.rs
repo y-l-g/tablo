@@ -569,10 +569,10 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
     );
 }
 
-/// A `NoForm` resource over [`Item`] whose `can_create` and `form()` answer
-/// the given values.
+/// A `NoForm` resource over [`Item`] whose `can_create`, `editable()` and
+/// `form()` answer the given values.
 macro_rules! list_only_resource {
-    ($name:ident, $create:expr, $schema:expr) => {
+    ($name:ident, $create:expr, $edit:expr, $schema:expr) => {
         struct $name;
 
         impl Resource for $name {
@@ -585,6 +585,10 @@ macro_rules! list_only_resource {
 
             fn can_create(_cx: &Cx) -> bool {
                 $create
+            }
+
+            fn editable() -> bool {
+                $edit
             }
 
             fn table(_cx: &Cx) -> Table<Item> {
@@ -600,29 +604,104 @@ macro_rules! list_only_resource {
 
 #[tokio::test]
 async fn build_refuses_a_list_only_resource_that_allows_create() {
-    list_only_resource!(Creating, true, Schema::empty());
+    list_only_resource!(Creating, true, false, Schema::empty());
     let error = form_build_error::<Creating>(item_db().await);
     assert!(error.contains("allows create but has no form"), "{error}");
 }
 
 #[tokio::test]
 async fn build_refuses_a_list_only_resource_that_declares_a_schema() {
-    list_only_resource!(Schematic, false, item_schema());
+    list_only_resource!(Schematic, false, false, item_schema());
     let error = form_build_error::<Schematic>(item_db().await);
     assert!(
-        error.contains("declares a form schema but its `Form` is `NoForm`"),
+        error.contains("declares a form schema") && error.contains("serves no form"),
         "{error}"
     );
 }
 
 #[tokio::test]
+async fn build_refuses_a_list_only_resource_that_allows_edit() {
+    list_only_resource!(Editing, false, true, Schema::empty());
+    let error = form_build_error::<Editing>(item_db().await);
+    assert!(error.contains("allows edit but has no form"), "{error}");
+}
+
+#[tokio::test]
+async fn build_names_a_missing_form_override() {
+    item_resource!(Unoverridden, TitleForm, Schema::empty());
+    let error = form_build_error::<Unoverridden>(item_db().await);
+    assert!(error.contains("does not override `form()`"), "{error}");
+}
+
+#[tokio::test]
 async fn a_list_only_resource_serves_no_form_route() {
-    list_only_resource!(Listed, false, Schema::empty());
-    let router = panel_router::<Listed>(item_db().await);
-    let create = get(&router, "/admin/items/create").await;
-    assert_eq!(create.status(), StatusCode::NOT_FOUND);
-    let options = get(&router, "/admin/items/options?field=title").await;
-    assert_eq!(options.status(), StatusCode::NOT_FOUND);
+    list_only_resource!(Listed, false, false, Schema::empty());
+    let db = item_db().await;
+    let item = seed_item(&db).await;
+    let router = panel_router::<Listed>(db.clone());
+    let edit = format!("/admin/items/{}/edit", item.id);
+    // `create` falls to the GET-only detail route, so its POST is a 405.
+    for (response, status) in [
+        (
+            get(&router, "/admin/items/create").await,
+            StatusCode::NOT_FOUND,
+        ),
+        (
+            get(&router, "/admin/items/options?field=title").await,
+            StatusCode::NOT_FOUND,
+        ),
+        (get(&router, &edit).await, StatusCode::NOT_FOUND),
+        (
+            post_fields(&router, "/admin/items/create", &[("title", "New")]).await,
+            StatusCode::METHOD_NOT_ALLOWED,
+        ),
+        (
+            post_fields(&router, &edit, &[("title", "New")]).await,
+            StatusCode::NOT_FOUND,
+        ),
+    ] {
+        assert_eq!(response.status(), status);
+    }
+    assert_eq!(reload(&db, item.id).await.title, "Stored");
+}
+
+/// A `NoForm` resource renders its detail page from `view_values` alone.
+#[tokio::test]
+async fn a_list_only_detail_page_reads_view_values() {
+    struct Viewed;
+
+    impl Resource for Viewed {
+        type Model = Item;
+        type Form = NoForm<Self::Model>;
+
+        fn slug() -> String {
+            "items".to_string()
+        }
+
+        fn can_view(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn table(_cx: &Cx) -> Table<Item> {
+            item_table(_cx)
+        }
+
+        fn view(_cx: &Cx) -> Schema {
+            Schema::new(TextInput::r#for(Item::fields().title()))
+        }
+
+        fn view_values(_cx: &Cx, record: &Item) -> HashMap<String, String> {
+            HashMap::from([("title".to_string(), format!("{} (view)", record.title))])
+        }
+    }
+
+    let db = item_db().await;
+    let item = seed_item(&db).await;
+    let router = panel_router::<Viewed>(db);
+    let response = get(&router, &format!("/admin/items/{}", item.id)).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = body_string(response).await;
+    assert!(html.contains("Stored (view)"), "{html}");
 }
 
 #[tokio::test]
