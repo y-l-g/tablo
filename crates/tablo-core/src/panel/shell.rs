@@ -13,7 +13,9 @@ use topcoat::{
     icon::icon,
     router::Slot,
     runtime::{Event, Signal, signal},
-    view::{BoxView, Child, HoistView, View, ViewExt, attributes, internal::ThenView, view},
+    view::{
+        Attributes, BoxView, Child, HoistView, View, ViewExt, attributes, internal::ThenView, view,
+    },
 };
 
 use super::Panel;
@@ -21,6 +23,32 @@ use crate::{
     notification::{LiveToast, live_toast, live_toaster, take_notification},
     resource::NavigationItem,
 };
+
+/// `extra` plus the attribute that sends a sidebar link through runtime
+/// navigation. The menu button writes the `href` itself, so this carries none.
+fn sidebar_link(cx: &Cx, mut extra: Attributes) -> Attributes {
+    let mut attrs = crate::resource::runtime_link(cx, "");
+    attrs.remove("href");
+    extra.extend(attrs);
+    extra
+}
+
+/// The value of the request's `name` cookie.
+///
+/// Parsed from the raw `Cookie` header on purpose: `topcoat::cookie::cookies`
+/// panics when the cookie router layer is absent (tests, minimal routers), and
+/// the shell must render everywhere.
+fn request_cookie(cx: &Cx, name: &str) -> Option<String> {
+    let header = try_request_context::<http::request::Parts>(cx)?
+        .headers
+        .get(COOKIE)?
+        .to_str()
+        .ok()?;
+    header.split(';').find_map(|part| {
+        let (key, value) = part.trim().split_once('=')?;
+        (key == name).then(|| value.to_string())
+    })
+}
 
 /// Branding for the admin shell (panel header + sidebar header).
 #[derive(Debug, Clone)]
@@ -56,14 +84,13 @@ impl Brand {
 /// Whether the shell starts in dark mode for a visitor with no stored choice.
 /// Persisted via `theme.js` (`localStorage` + `theme` cookie).
 ///
-/// Precedence (corrected in): this build-time default only
-/// sets the initial `<html class>` and is handed to the blocking
-/// `theme_init_script` as its fallback. The stored preference — `localStorage`
-/// first, then the `theme` cookie — wins in **both** directions: a stored
-/// `light` removes the class this default added. The server never reads the
-/// cookie per request, so a toggle is client-side until the next navigation,
-/// at which point this default would otherwise re-darken the page — which is
-/// exactly the bug GH #184 fixed.
+/// Precedence: the stored preference wins in **both** directions over this
+/// build-time default. The server renders `<html class>` from the `theme`
+/// cookie when it carries `dark` or `light`, and from this default otherwise;
+/// the blocking `theme_init_script` then applies `localStorage`, then the
+/// cookie, with this default as its fallback. Rendering the cookie matters for
+/// runtime navigation, which copies `<html>`'s attributes from the next page
+/// and runs no script (GH #184, GH #395).
 #[derive(Debug, Clone, Copy)]
 pub struct DarkMode(pub bool);
 
@@ -161,16 +188,20 @@ impl Panel {
                     sidebar_menu(
                         for item in &nav_items {
                             let is_active = item.is_current_path(&current_path);
+                            let attrs = sidebar_link(
+                                cx,
+                                attributes! {
+                                    // Tapping a link in the mobile sheet closes
+                                    // it; on desktop the navigation is the effect.
+                                    @click=$(|_e: Event| mobile_open.set(false))
+                                },
+                            );
                             sidebar_menu_item(
                                 sidebar_menu_button(
                                     active: is_active,
                                     href: item.url(),
                                     tooltip: Some(item.label.as_str()),
-                                    attrs: attributes! {
-                                        // Tapping a link in the mobile sheet closes
-                                        // it; on desktop the navigation is the effect.
-                                        @click=$(|_e: Event| mobile_open.set(false))
-                                    },
+                                    attrs: attrs,
                                     <span>(item.label.clone())</span>
                                 )
                             )
@@ -185,20 +216,11 @@ impl Panel {
     /// Whether the persisted `sidebar_state` cookie asks for an expanded
     /// desktop sidebar (default: expanded).
     ///
-    /// Parsed from the raw `Cookie` header on purpose: `topcoat::cookie::cookies`
-    /// panics when the cookie router layer is absent (tests, minimal routers),
-    /// and the shell must render everywhere. The value only seeds the runtime
+    /// The value only seeds the runtime
     /// signal's initial `data-state`; after hydration the browser owns the
     /// state, and `assets/sidebar.js` mirrors changes back to the cookie.
     fn sidebar_starts_open(cx: &Cx) -> bool {
-        !try_request_context::<http::request::Parts>(cx)
-            .and_then(|parts| parts.headers.get(COOKIE))
-            .and_then(|value| value.to_str().ok())
-            .is_some_and(|cookie| {
-                cookie
-                    .split(';')
-                    .any(|part| part.trim().strip_prefix("sidebar_state=") == Some("collapsed"))
-            })
+        request_cookie(cx, "sidebar_state").as_deref() != Some("collapsed")
     }
 
     /// Render the Filament-grade Shell that frames every admin page.
@@ -486,7 +508,12 @@ impl Panel {
             }
             .boxed(),
         };
-        let html_class = default_dark.then_some("dark");
+        let dark = match request_cookie(cx, "theme").as_deref() {
+            Some("dark") => true,
+            Some("light") => false,
+            _ => default_dark,
+        };
+        let html_class = dark.then_some("dark");
         Ok(view! {
             cx =>
             <!DOCTYPE html>
@@ -665,6 +692,44 @@ mod tests {
             html.contains("<html>"),
             "no DarkMode must not set the dark class, got {html}"
         );
+    }
+
+    #[tokio::test]
+    async fn theme_cookie_overrides_the_dark_mode_default() {
+        // Runtime navigation copies `<html>`'s attributes from the next page
+        // and runs no script, so the server must render the stored choice.
+        use topcoat::context::CxTestBuilder;
+
+        async fn html_tag(default_dark: bool, cookie: &str) -> String {
+            let (parts, ()) = http::Request::builder()
+                .uri("/admin/users")
+                .header(http::header::COOKIE, cookie)
+                .body(())
+                .unwrap()
+                .into_parts();
+            let cx = CxTestBuilder::new()
+                .request_context(parts)
+                .app_context(DarkMode(default_dark))
+                .build();
+            let cx_ref = &cx;
+            let slot = view! { cx_ref => "hello" }.boxed().into();
+            let html = Panel::layout_shell(&cx, slot)
+                .await
+                .unwrap()
+                .single()
+                .await
+                .unwrap()
+                .render(&cx);
+            let start = html.find("<html").unwrap();
+            html[start..=start + html[start..].find('>').unwrap()].to_string()
+        }
+
+        assert_eq!(html_tag(false, "theme=dark").await, "<html class=\"dark\">");
+        assert_eq!(
+            html_tag(true, "sidebar_state=collapsed; theme=light").await,
+            "<html>"
+        );
+        assert_eq!(html_tag(true, "theme=sepia").await, "<html class=\"dark\">");
     }
 
     #[tokio::test]
@@ -855,6 +920,13 @@ mod tests {
             html.contains("data-sidebar=\"group\"") || html.contains("Navigation"),
             "missing sidebar group in {html}"
         );
+        // Each entry navigates through the runtime; the menu button writes the
+        // one `href`, so the runtime attributes add none.
+        assert!(
+            html.contains("href=\"/admin/showcase\"") && html.contains("data-topcoat-link="),
+            "sidebar entries must carry runtime navigation in {html}"
+        );
+        assert!(!html.contains("href=\"\""), "no empty href in {html}");
         // Data-state for collapsible, seeded by the signal (cookie default:
         // expanded) and bound for the browser runtime.
         assert!(

@@ -32,6 +32,7 @@ pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use filter::{DateFilter, Filter, IntoFilters, SelectFilter, TernaryFilter, VariantFilter};
 use naming::{kebab_case, pluralize, type_short_name};
+pub(crate) use navigation::runtime_link;
 pub use navigation::{NavTarget, NavigationItem};
 pub use relation::{
     IntoRelationColumns, MAX_RELATION_ROWS, RelationColumn, RelationColumns, render_relation,
