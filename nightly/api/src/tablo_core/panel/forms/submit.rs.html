@@ -10,7 +10,7 @@
 <a href=#10 id=10 data-nosnippet>10</a>};
 <a href=#11 id=11 data-nosnippet>11</a>
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use super</span>::{
-<a href=#13 id=13 data-nosnippet>13</a>    <span class="kw">super</span>::{actions::find_by_key_narrowed, gate::gate},
+<a href=#13 id=13 data-nosnippet>13</a>    <span class="kw">super</span>::{actions::find_by_key, gate::gate},
 <a href=#14 id=14 data-nosnippet>14</a>    common::{
 <a href=#15 id=15 data-nosnippet>15</a>        FormParts, commit_write, drop_client_typed_uploads, reject_unknown_form_keys,
 <a href=#16 id=16 data-nosnippet>16</a>        rerender_invalid_form, restore_pending_uploads, strip_transport_keys, truthy,
@@ -278,7 +278,7 @@
 <a href=#278 id=278 data-nosnippet>278</a>        // `validate_async` loaders run before it opens (see `crate::db` pool
 <a href=#279 id=279 data-nosnippet>279</a>        // discipline).
 <a href=#280 id=280 data-nosnippet>280</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>db0 = db(cx);
-<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span>advisory = find_by_key_narrowed::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;mut </span>db0).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span>advisory = find_by_key::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;mut </span>db0).<span class="kw">await</span><span class="question-mark">?</span>;
 <a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">if </span>!R::can_view(cx, <span class="kw-2">&amp;</span>advisory) {
 <a href=#283 id=283 data-nosnippet>283</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
 <a href=#284 id=284 data-nosnippet>284</a>        }
@@ -297,7 +297,7 @@
 <a href=#297 id=297 data-nosnippet>297</a>        // the write — never a silent re-load outside the checked snapshot.
 <a href=#298 id=298 data-nosnippet>298</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
 <a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">let </span><span class="kw-2">mut </span>tx = db.transaction().<span class="kw">await</span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
-<a href=#300 id=300 data-nosnippet>300</a>        <span class="kw">let </span>record = find_by_key_narrowed::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#300 id=300 data-nosnippet>300</a>        <span class="kw">let </span>record = find_by_key::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span><span class="question-mark">?</span>;
 <a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">if </span>!R::can_view(cx, <span class="kw-2">&amp;</span>record) {
 <a href=#302 id=302 data-nosnippet>302</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
 <a href=#303 id=303 data-nosnippet>303</a>        }

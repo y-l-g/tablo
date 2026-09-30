@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a8719c81.js";
+            window.path_to_searchindex_js = "searchindex-f90b5c1a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -324,12 +324,9 @@ and how tenancy is declared.</p>
     type Model: toasty::schema::Model + Send + Sync + 'static;
     type Form: RecordForm&lt;Model = Self::Model&gt;;     // required: a record form, or NoForm
     fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: Query::all()
-    fn query_with(_cx: &amp;Cx, _needs: &amp;IncludeNeeds)
-        -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query(cx), unchanged
+    fn view_query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: query(cx)
     fn view_values(_cx: &amp;Cx, _record: &amp;Self::Model)
         -&gt; HashMap&lt;String, String&gt;;                 // default: empty
-    fn export_query(_cx: &amp;Cx, _needs: &amp;IncludeNeeds)
-        -&gt; Query&lt;List&lt;Self::Model&gt;&gt;;                // default: query_with(cx, needs)
     fn table(_cx: &amp;Cx) -&gt; Table&lt;Self::Model&gt;;       // required: Table::new(key, columns)
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
     // defaults, form()/validate_record and the record fns
@@ -379,25 +376,17 @@ call: <code>for_resource</code> names none, so the panel that mounts the resourc
 <code>{prefix}/{slug}</code>, and a resource never links at <code>/admin</code> on a panel mounted elsewhere. Spell a
 URL out instead (<code>NavigationItem::at(..)</code>) only to link somewhere other than the resource’s list
 page — the Panel keeps it verbatim.</li>
-<li><code>query()</code> is the seam for the resource’s <strong>own</strong> row scoping — soft deletes, row-level visibility,
-and the relations a page loads. It is the full base query: the detail page and app code that calls
-<code>scoped_query</code> use it. Tenancy is not its job: when <code>requires_tenant()</code> is <code>true</code> the framework
-derives the <code>tenant_id</code> filter from the model’s own schema and ANDs it onto whatever <code>query</code>
-returns, at every loader (GH #223), so restating it here is redundant.</li>
-<li><code>query_with(cx, needs)</code> is the same base query narrowed to the relations a loader declared
-(GH #298). The default ignores <code>needs</code> and returns <code>query(cx)</code> unchanged, so a resource that
-overrides nothing loads the full base query at every loader. Override it to split the base query
-into one branch per declared name: a loader then loads an include only when it asks for it by name.
-The list and the export pass their table’s <code>Table::include_needs()</code> (the union of the columns’
-<code>TextColumn::needs(..)</code> declarations); the edit page, delete, the bulk fetch, the unique probe,
-the relationship option lists and their targeted FK existence check, and the pagination probes
-pass an empty set. Keep the resource’s own scope and whatever your <code>can_view</code> reads in every
-branch — the <em>tenant</em> half is not the override’s to keep, the framework ANDs it onto what
-<code>query_with</code> returns exactly as it does for <code>query</code>. The option loaders run <code>query_with</code> with an
-empty set, so an option label must project the related record’s own columns.</li>
-<li><code>export_query(cx, needs)</code> is the export’s seed; its default delegates to <code>query_with</code>, so
-overriding <code>query_with</code> narrows the export too (GH #177, GH #298, ADR-0018). Override
-<code>export_query</code> itself only when the CSV needs a branch the other loaders do not.</li>
+<li><code>query()</code> is the seam for the resource’s <strong>own</strong> row scoping: soft deletes and row-level
+visibility. Every loader starts from it, as does app code that calls <code>scoped_query</code>. Tenancy is not
+its job: when <code>requires_tenant()</code> is <code>true</code> the framework derives the <code>tenant_id</code> filter from the
+model’s own schema and ANDs it onto whatever <code>query</code> returns, at every loader (GH #223), so
+restating it here is redundant. Relations are not its job either (ADR-0018): the list and the
+export load the relations their columns declare with <code>TextColumn::include(..)</code>, and the detail
+page loads <code>view_query</code>. Include a relation in <code>query</code> only when every loader needs it, such as one
+<code>can_view</code> reads. The option loaders run <code>query</code>, so an option label projects the related record’s
+own columns.</li>
+<li><code>view_query()</code> is the detail page’s query: <code>query</code> plus the relations <code>view_relations</code> reads,
+e.g. <code>Self::query(cx).include(comments)</code>. The framework ANDs the tenant scope onto it too.</li>
 <li><code>table()</code> and <code>form()</code> are hand-written, and so is the impl itself: a resource is <code>type Model</code> plus
 whichever hooks it uses. There is no <code>Resource</code> derive (GH #222); the macros crate ships
 <code>derive(EmbeddedForm)</code> (GH #191) and <code>derive(RecordForm)</code> (GH #369), which types the form’s
@@ -493,7 +482,7 @@ a post that does. Declare the predicate instead of the column:</p>
 }
 
 fn tenant_scope(tenant: uuid::Uuid) -&gt; Option&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
-    // The framework ANDs this onto `query`/`export_query` at every loader,
+    // The framework ANDs this onto `query`/`view_query` at every loader,
     // exactly as it ANDs the derived filter elsewhere.
     Some(Comment::fields().post().tenant_id().eq(tenant))
 }
@@ -600,8 +589,7 @@ refuses with 400.</p>
 claims full-table totals. Unknown <code>?group_by=</code> values render no headers and drop from nav links.</li>
 <li><code>GET /admin/{slug}/export</code> returns the filtered set as CSV (<code>text/csv; charset=utf-8</code> +
 <code>Content-Disposition</code>, RFC4180 with OWASP formula-defusing), reusing the same filters and sort over
-<code>export_query</code> — the base <code>query</code> unless the resource narrows it to the includes its columns
-declared (GH #177). Capped at 10k viewable rows: per-row <code>can_view</code> runs before the cap, so 413
+the tenant-scoped <code>query</code> with the relations its columns include (ADR-0018). Capped at 10k viewable rows: per-row <code>can_view</code> runs before the cap, so 413
 reflects what the caller may receive. An export whose filtered set runs past the 10,001-row scan
 window is a 413 too, even when fewer rows would be viewable: the export never returns a partial
 file. <code>?bom=1</code> opts into an Excel BOM.</li>
@@ -894,12 +882,20 @@ validation slot.</li>
 <li><strong>Values come from the form’s projection</strong> (<code>RecordForm::hydrate</code>), so a field that renders in
 the form renders here; <code>view_values</code> adds a key only the view shows. A <code>NoForm</code> resource
 supplies every key through <code>view_values</code>.</li>
-<li><strong>Related rows</strong> render through <code>view_relations(cx, record)</code>, the page’s second half:</li>
+<li><strong>Related rows</strong> render through <code>view_relations(cx, record)</code>, the page’s second half. The page
+loads through <code>view_query</code>, so include what the hook reads there:</li>
 </ul>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
+</span>fn view_query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
+    let comments: Include&lt;Post, List&lt;Comment&gt;&gt; = Post::fields().comments().into();
+    Self::query(cx).include(comments)
+}
+<span class="boring">}</span></code></pre>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
 </span>fn view_relations&lt;'a&gt;(cx: &amp;'a Cx, record: &amp;Post) -&gt; Option&lt;BoxView&lt;'a&gt;&gt; {
-    // The relation comes from `Resource::query`'s include, so this is the guard
+    // The relation comes from `Resource::view_query`'s include, so this is the guard
     // the list columns use: drop the include and the page says so instead of
     // panicking inside `Deferred::get`.
     if record.comments.is_unloaded() {
@@ -907,7 +903,7 @@ supplies every key through <code>view_values</code>.</li>
             view! {
                 cx =&gt;
                 &lt;p class="text-sm text-destructive"&gt;
-                    "Comments were not loaded by this query — add them to Resource::query's include."
+                    "Comments were not loaded by this query — add them to Resource::view_query's include."
                 &lt;/p&gt;
             }
             .boxed(),
@@ -1035,14 +1031,15 @@ escape <code>%</code> and <code>_</code> first, and never interpolate raw input 
     .await?;
 // then `post.author.get()` with no extra query
 <span class="boring">}</span></code></pre>
-<p>Guard computed cells against a missing preload so a query change fails loudly, not with blank data —
-and declare the relation, which is what the CSV export’s narrowed query is built from (GH #177):</p>
+<p>Declare the relation a cell reads, typed on the model: the list and the CSV export load exactly the
+relations their columns include (ADR-0018). Guard the cell against a missing include so a dropped
+declaration fails loudly, not with blank data:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>TextColumn::computed("Author", |p: &amp;Post| {
     if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
 })
-.needs(["author"])
+.include(Post::fields().author())
 <span class="boring">}</span></code></pre>
 <h2 id="embedded-values"><a class="header" href="#embedded-values">Embedded values</a></h2>
 <p>Derive the codec and declare nothing per field (GH #191, ADR-0019). The derive reads the type’s

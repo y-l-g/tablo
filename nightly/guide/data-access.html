@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a8719c81.js";
+            window.path_to_searchindex_js = "searchindex-f90b5c1a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -209,14 +209,15 @@ escape <code>%</code> and <code>_</code> first, and never interpolate raw input 
     .await?;
 // then `post.author.get()` with no extra query
 <span class="boring">}</span></code></pre>
-<p>Guard computed cells against a missing preload so a query change fails loudly, not with blank data —
-and declare the relation, which is what the CSV export’s narrowed query is built from (GH #177):</p>
+<p>Declare the relation a cell reads, typed on the model: the list and the CSV export load exactly the
+relations their columns include (ADR-0018). Guard the cell against a missing include so a dropped
+declaration fails loudly, not with blank data:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>TextColumn::computed("Author", |p: &amp;Post| {
     if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
 })
-.needs(["author"])
+.include(Post::fields().author())
 <span class="boring">}</span></code></pre>
 <h2 id="embedded-values"><a class="header" href="#embedded-values">Embedded values</a></h2>
 <p>Derive the codec and declare nothing per field (GH #191, ADR-0019). The derive reads the type’s

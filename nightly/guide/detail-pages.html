@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a8719c81.js";
+            window.path_to_searchindex_js = "searchindex-f90b5c1a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -217,12 +217,20 @@ validation slot.</li>
 <li><strong>Values come from the form’s projection</strong> (<code>RecordForm::hydrate</code>), so a field that renders in
 the form renders here; <code>view_values</code> adds a key only the view shows. A <code>NoForm</code> resource
 supplies every key through <code>view_values</code>.</li>
-<li><strong>Related rows</strong> render through <code>view_relations(cx, record)</code>, the page’s second half:</li>
+<li><strong>Related rows</strong> render through <code>view_relations(cx, record)</code>, the page’s second half. The page
+loads through <code>view_query</code>, so include what the hook reads there:</li>
 </ul>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
+</span>fn view_query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
+    let comments: Include&lt;Post, List&lt;Comment&gt;&gt; = Post::fields().comments().into();
+    Self::query(cx).include(comments)
+}
+<span class="boring">}</span></code></pre>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
 </span>fn view_relations&lt;'a&gt;(cx: &amp;'a Cx, record: &amp;Post) -&gt; Option&lt;BoxView&lt;'a&gt;&gt; {
-    // The relation comes from `Resource::query`'s include, so this is the guard
+    // The relation comes from `Resource::view_query`'s include, so this is the guard
     // the list columns use: drop the include and the page says so instead of
     // panicking inside `Deferred::get`.
     if record.comments.is_unloaded() {
@@ -230,7 +238,7 @@ supplies every key through <code>view_values</code>.</li>
             view! {
                 cx =&gt;
                 &lt;p class="text-sm text-destructive"&gt;
-                    "Comments were not loaded by this query — add them to Resource::query's include."
+                    "Comments were not loaded by this query — add them to Resource::view_query's include."
                 &lt;/p&gt;
             }
             .boxed(),

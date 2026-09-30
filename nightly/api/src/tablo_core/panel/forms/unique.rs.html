@@ -81,23 +81,22 @@
 <a href=#81 id=81 data-nosnippet>81</a>        // snapshot as the write that follows. A failing probe fails the
 <a href=#82 id=82 data-nosnippet>82</a>        // submit — swallowing it would write past a check that
 <a href=#83 id=83 data-nosnippet>83</a>        // never ran. The probe runs through the tenant-scoped query and reads
-<a href=#84 id=84 data-nosnippet>84</a>        // only the record's own columns, so it passes an empty include set.
-<a href=#85 id=85 data-nosnippet>85</a>        </span><span class="kw">let </span>rows =
-<a href=#86 id=86 data-nosnippet>86</a>            <span class="kw">crate</span>::resource::scoped_query_with::&lt;R&gt;(cx, <span class="kw-2">&amp;</span><span class="kw">crate</span>::resource::IncludeNeeds::default())<span class="question-mark">?
-<a href=#87 id=87 data-nosnippet>87</a>                </span>.filter(filter)
-<a href=#88 id=88 data-nosnippet>88</a>                .limit(<span class="number">1</span>)
-<a href=#89 id=89 data-nosnippet>89</a>                .exec(<span class="kw-2">&amp;mut *</span>ex)
-<a href=#90 id=90 data-nosnippet>90</a>                .<span class="kw">await
-<a href=#91 id=91 data-nosnippet>91</a>                </span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
-<a href=#92 id=92 data-nosnippet>92</a>        <span class="kw">if </span>!rows.is_empty() {
-<a href=#93 id=93 data-nosnippet>93</a>            errors.insert(
-<a href=#94 id=94 data-nosnippet>94</a>                name,
-<a href=#95 id=95 data-nosnippet>95</a>                <span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"{} has already been taken"</span>, input.label_str())],
-<a href=#96 id=96 data-nosnippet>96</a>            );
-<a href=#97 id=97 data-nosnippet>97</a>        }
-<a href=#98 id=98 data-nosnippet>98</a>    }
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="prelude-val">Ok</span>(errors)
-<a href=#100 id=100 data-nosnippet>100</a>}
-<a href=#101 id=101 data-nosnippet>101</a><span class="attr">#[cfg(test)]
-<a href=#102 id=102 data-nosnippet>102</a></span><span class="kw">mod </span>tests;
+<a href=#84 id=84 data-nosnippet>84</a>        // only the record's own columns.
+<a href=#85 id=85 data-nosnippet>85</a>        </span><span class="kw">let </span>rows = <span class="kw">crate</span>::resource::scoped_query::&lt;R&gt;(cx)<span class="question-mark">?
+<a href=#86 id=86 data-nosnippet>86</a>            </span>.filter(filter)
+<a href=#87 id=87 data-nosnippet>87</a>            .limit(<span class="number">1</span>)
+<a href=#88 id=88 data-nosnippet>88</a>            .exec(<span class="kw-2">&amp;mut *</span>ex)
+<a href=#89 id=89 data-nosnippet>89</a>            .<span class="kw">await
+<a href=#90 id=90 data-nosnippet>90</a>            </span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
+<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">if </span>!rows.is_empty() {
+<a href=#92 id=92 data-nosnippet>92</a>            errors.insert(
+<a href=#93 id=93 data-nosnippet>93</a>                name,
+<a href=#94 id=94 data-nosnippet>94</a>                <span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"{} has already been taken"</span>, input.label_str())],
+<a href=#95 id=95 data-nosnippet>95</a>            );
+<a href=#96 id=96 data-nosnippet>96</a>        }
+<a href=#97 id=97 data-nosnippet>97</a>    }
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="prelude-val">Ok</span>(errors)
+<a href=#99 id=99 data-nosnippet>99</a>}
+<a href=#100 id=100 data-nosnippet>100</a><span class="attr">#[cfg(test)]
+<a href=#101 id=101 data-nosnippet>101</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>
