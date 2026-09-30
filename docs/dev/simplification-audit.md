@@ -82,8 +82,8 @@ unauthenticated.
 
 **Change.** Add `fn label() -> String`, singular, defaulted from the model type name, as Filament's
 model label is. Derive `navigation_label()` as its plural through `pluralize`
-(`resource/naming.rs`), and use `label()` in the action titles. `slug()` keeps deriving from the resource type, so two
-resources over one model keep distinct routes.
+(`resource/naming.rs`), and use `label()` in the action titles. `slug()` keeps deriving from the
+resource type, so two resources over one model keep distinct routes.
 
 **Removes.** The wrong titles.
 
