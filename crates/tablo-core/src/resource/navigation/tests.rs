@@ -37,15 +37,15 @@ fn for_resource_derives_label_only() {
     assert!(!item.is_current_path("/admin/users"));
 }
 
-/// GH #165: `Derived` is resolved by the owning Panel from its own prefix
-/// plus the resource's slug — exactly once — while an explicit URL is the
-/// author's, even one shaped like another panel's mount.
+/// GH #165: `Derived` is resolved to the URL the owning Panel mounts it at —
+/// exactly once — while an explicit URL is the author's, even one shaped like
+/// another panel's mount.
 #[test]
 fn derived_targets_resolve_against_the_owning_panel() {
     let derived = NavigationItem::for_resource::<UserResource>();
 
     // Non-`/admin` panel → this panel's mount, never `/admin/users`.
-    let resolved = derived.clone().resolved("/backoffice", "users");
+    let resolved = derived.clone().resolved("/backoffice/users");
     assert_eq!(resolved.url(), Some("/backoffice/users"));
     assert_eq!(resolved.label, "Users");
     assert_eq!(
@@ -53,29 +53,15 @@ fn derived_targets_resolve_against_the_owning_panel() {
             order: -1,
             ..derived.clone()
         }
-        .resolved("/backoffice", "users")
+        .resolved("/backoffice/users")
         .order,
         -1
     );
     // Already resolved: resolving again is a no-op, however the second
     // panel is mounted.
     assert_eq!(
-        resolved.clone().resolved("elsewhere", "users").url(),
+        resolved.clone().resolved("/elsewhere/users").url(),
         Some("/backoffice/users")
-    );
-
-    // Mount normalisation follows `Panel::new`.
-    assert_eq!(
-        derived.clone().resolved("/admin", "users").url(),
-        Some("/admin/users")
-    );
-    assert_eq!(
-        derived.clone().resolved("/backoffice/", "users").url(),
-        Some("/backoffice/users")
-    );
-    assert_eq!(
-        derived.clone().resolved("", "users").url(),
-        Some("/admin/users")
     );
 
     // Explicit URLs survive verbatim — including `/admin/users`, which the
@@ -88,7 +74,7 @@ fn derived_targets_resolve_against_the_owning_panel() {
     ] {
         let spelled_out = NavigationItem::at("Users", url);
         assert_eq!(
-            spelled_out.resolved("backoffice", "users").url(),
+            spelled_out.resolved("/backoffice/users").url(),
             Some(url),
             "explicit URL must survive resolution"
         );

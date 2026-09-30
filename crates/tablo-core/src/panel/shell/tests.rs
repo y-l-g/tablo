@@ -685,3 +685,54 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
         "collapsed cookie must seed the collapsed state in {html}"
     );
 }
+
+/// A home entry at the bare prefix matches every path under it: only the
+/// most specific matching entry is active, and only the first of two entries
+/// that share a URL.
+#[tokio::test]
+async fn sidebar_marks_only_the_longest_matching_entry_active() {
+    use topcoat::{context::CxTestBuilder, view::view};
+
+    use crate::resource::NavigationItem;
+
+    let nav_items = vec![
+        NavigationItem::at("Dashboard", "/admin"),
+        NavigationItem::at("Users", "/admin/users"),
+        NavigationItem::at("Overview", "/admin"),
+    ];
+    for (path, active_label) in [
+        ("/admin", "Dashboard"),
+        ("/admin/users/create", "Users"),
+        ("/admin/media", "Dashboard"),
+    ] {
+        let (parts, ()) = http::Request::builder()
+            .uri(path)
+            .body(())
+            .unwrap()
+            .into_parts();
+        let cx = CxTestBuilder::new().request_context(parts).build();
+        let cx_ref = &cx;
+        let slot = view! { cx_ref => "hello" }.boxed().into();
+        let html = Panel::render_shell(&cx, &nav_items, path, slot, None)
+            .await
+            .unwrap()
+            .single()
+            .await
+            .unwrap()
+            .render(&cx);
+        let active: Vec<&str> = html
+            .match_indices("data-active=\"true\"")
+            .map(|(at, _)| {
+                let start = html[..at].rfind('<').unwrap();
+                // The whole link: an attribute value can hold a `>`.
+                let end = at + html[at..].find("</a>").unwrap();
+                &html[start..end]
+            })
+            .collect();
+        assert_eq!(active.len(), 1, "one active entry on {path}: {active:?}");
+        assert!(
+            active[0].contains(&format!("title=\"{active_label}\"")),
+            "{active_label} is active on {path}: {active:?}"
+        );
+    }
+}

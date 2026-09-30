@@ -24,7 +24,7 @@ use crate::{
 mod column;
 mod commit;
 mod filter;
-mod naming;
+pub(crate) mod naming;
 mod navigation;
 mod page;
 mod relation;
@@ -35,7 +35,7 @@ pub use column::{ColumnWidth, IntoColumns, TextColumn};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use filter::{DateFilter, Filter, IntoFilters, SelectFilter, TernaryFilter, VariantFilter};
-use naming::{kebab_case, pluralize, type_short_name};
+use naming::{kebab_case, pluralize, type_short_name, type_stem};
 pub(crate) use navigation::runtime_link;
 pub use navigation::{NavTarget, NavigationItem};
 pub use page::TablePage;
@@ -282,9 +282,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// naming the rules cannot guess (`UsersResource` pluralizes to
     /// `userses` — name resources singular, or override).
     fn slug() -> String {
-        let name = type_short_name::<Self>();
-        let singular = name.strip_suffix("Resource").unwrap_or(name);
-        kebab_case(&pluralize(singular))
+        kebab_case(&pluralize(type_stem::<Self>("Resource")))
     }
 
     /// One record's name, e.g. `"User"`: the noun in the "Create {label}" and

@@ -1,16 +1,17 @@
 //! `Panel` — the admin application shell.
 //!
 //! Owns the [`Router`](topcoat::router::Router) and the `Db` in `app_context`, and registers each
-//! declared [`Resource`]'s list page at `{prefix}/{slug}` (Filament-style
-//! routes — ADR-0008). See `CONTEXT.md`.
+//! declared [`Resource`]'s list page and each [`Page`] at `{prefix}/{slug}`,
+//! and the home page at the prefix (Filament-style routes — ADR-0008). See
+//! `CONTEXT.md`.
 //!
 //! Layout: the [`Panel`] builder and its navigation seam live here; assembly
 //! (`build`, declaration checks, route paths) in `build`; the auth/tenant
 //! gate and prefix URLs in `gate`; shell rendering in `shell`; list + live
 //! shard support in `list`; form decoding and create/edit in `forms`; the
 //! record detail page in `detail`; delete/bulk/export/options in `actions`;
-//! the live-search registry + shard dispatch in `search`; and response
-//! hardening headers in `headers`.
+//! the registered-page handler in `pages`; the live-search registry + shard
+//! dispatch in `search`; and response hardening headers in `headers`.
 
 mod actions;
 mod build;
@@ -19,6 +20,7 @@ mod forms;
 mod gate;
 mod headers;
 mod list;
+mod pages;
 mod search;
 mod shell;
 #[cfg(test)]
@@ -43,6 +45,7 @@ use self::{
     detail::resource_view,
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
     list::resource_list,
+    pages::page_handler,
     search::{SearchFn, search_handler_for},
     shell::ShellAssets,
 };
@@ -53,6 +56,7 @@ pub(crate) use self::{
     search::table_search,
 };
 use crate::{
+    Page,
     form::RecordForm,
     resource::{
         BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
@@ -97,7 +101,9 @@ pub struct Panel {
     nav_items: Vec<NavigationItem>,
     pages: Vec<PageFn>,
     routes: Vec<RouteFn>,
-    root_target: Option<String>,
+    root: Option<Root>,
+    /// Every slug a resource or a page mounts at: one namespace, since both
+    /// mount at `{prefix}/{slug}`.
     slugs: Vec<String>,
     search_handlers: HashMap<String, SearchFn>,
     /// `Content-Security-Policy: frame-ancestors …` for every response
@@ -147,7 +153,7 @@ impl Panel {
             nav_items: Vec::new(),
             pages: Vec::new(),
             routes: Vec::new(),
-            root_target: None,
+            root: None,
             slugs: Vec::new(),
             search_handlers: HashMap::new(),
             frame_ancestors: Some(headers::DEFAULT_FRAME_ANCESTORS.to_string()),
@@ -241,10 +247,11 @@ impl Panel {
     /// `Panel::new("admin").resource::<AuditResource>()` serves `/admin/audits`),
     /// its detail page, delete, bulk delete, and CSV export, and derives its
     /// [`NavigationItem`] from the same slug, so the sidebar and the router can
-    /// never disagree. The panel root redirects to the first declared
-    /// resource's list. Multiple calls compose. Sidebar order comes from the
-    /// resource's [`Resource::navigation`] override, defaulting to declaration
-    /// order (#165).
+    /// never disagree. Without a [`home`](Self::home) page, the panel root
+    /// redirects to the first declared resource's list. Multiple calls
+    /// compose. Sidebar order comes from the resource's
+    /// [`Resource::navigation`] override, defaulting to declaration order
+    /// (#165).
     ///
     /// A resource whose [`Form`](Resource::Form) is a record form
     /// ([`RecordForm::HAS_FORM`]) also gets the create page, the edit page, and
@@ -263,11 +270,11 @@ impl Panel {
     /// set by the form, by toasty, by the tenant stamp, or by an override that
     /// names it in [`Resource::CREATE_COLUMNS`].
     ///
-    /// A duplicate slug or a slug that is not one URL segment
-    /// is recorded here and reported by [`Panel::build`], which
-    /// returns `Err` instead of panicking: two resources over one slug would
-    /// shadow each other's routes, and a hostile `slug()` must not reach a
-    /// route path or a response header.
+    /// A slug another resource or [page](Self::page) holds, one the panel
+    /// routes itself (`login`, `logout`), or one that is not one URL segment
+    /// is recorded here and reported by [`Panel::build`], which returns `Err`
+    /// instead of panicking: two routes over one slug would shadow each other,
+    /// and a hostile `slug()` must not reach a route path or a response header.
     pub fn resource<R: Resource>(mut self) -> Self {
         let Some(url) = self.register_common::<R>() else {
             return self;
@@ -321,20 +328,8 @@ impl Panel {
     /// delete, bulk delete, and export. Returns the list URL,
     /// or `None` when the slug was refused.
     fn register_common<R: Resource>(&mut self) -> Option<String> {
-        let slug = R::slug();
-        if let Err(error) = validate_route_segment("Resource::slug", &slug) {
-            self.registration_errors.push(error);
-            return None;
-        }
-        if self.slugs.iter().any(|s| s == &slug) {
-            self.registration_errors.push(format!(
-                "duplicate resource slug '{slug}': each Resource needs a distinct slug (see Resource::slug)"
-            ));
-            return None;
-        }
-        self.slugs.push(slug);
+        let url = self.claim_slug::<R>("Resource::slug", R::slug())?;
         self.resource_checks.push(check_resource::<R>);
-        let url = format!("{}/{}", self.prefix, R::slug());
         self.pages.push(PageFn::new(
             http::Method::GET,
             route_path(&url),
@@ -389,11 +384,87 @@ impl Panel {
         // monomorphizes its table loader here, keyed by list path.
         self.search_handlers
             .insert(url.clone(), search_handler_for::<R>());
-        if self.root_target.is_none() {
-            self.root_target = Some(url);
+        if self.root.is_none() {
+            self.root = Some(Root::Redirect(url));
         }
         let nav_item = self.nav_item::<R>();
         self.nav_items.push(nav_item);
+    }
+
+    /// Claim `{prefix}/{slug}` for the resource or page `T`, returning that
+    /// URL, or record why the slug is refused: it is not one URL segment, the
+    /// panel routes it itself, or another resource or page holds it.
+    fn claim_slug<T>(&mut self, kind: &str, slug: String) -> Option<String> {
+        let owner = std::any::type_name::<T>();
+        let refused = if let Err(error) = validate_route_segment(kind, &slug) {
+            Some(error)
+        } else if RESERVED_SLUGS.contains(&slug.as_str()) {
+            Some(format!(
+                "slug '{slug}' of `{owner}`: the panel routes `{}/{slug}` itself",
+                self.prefix
+            ))
+        } else if self.slugs.contains(&slug) {
+            Some(format!(
+                "duplicate slug '{slug}': `{owner}` mounts where another resource or page does \
+                 — each needs a distinct `slug()`"
+            ))
+        } else {
+            None
+        };
+        if let Some(error) = refused {
+            self.registration_errors.push(error);
+            return None;
+        }
+        let url = format!("{}/{slug}", self.prefix);
+        self.slugs.push(slug);
+        Some(url)
+    }
+
+    /// Declare a [`Page`] for this panel: its `GET` at `{prefix}/{slug}`
+    /// and its sidebar entry at the same URL.
+    ///
+    /// Pages and resources share one slug namespace, and the slug is checked
+    /// as a resource's is ([`Self::resource`]): a refused one is reported by
+    /// [`Panel::build`].
+    pub fn page<P: Page>(mut self) -> Self {
+        if let Some(url) = self.claim_slug::<P>("Page::slug", P::slug()) {
+            let item = self.mount_page::<P>(&url);
+            self.nav_items.push(item);
+        }
+        self
+    }
+
+    /// Declare the panel's home page (Filament's dashboard): the [`Page`]
+    /// served at the panel prefix itself, with a sidebar entry there.
+    ///
+    /// It replaces the redirect to the first resource's list, and its entry
+    /// leads the sidebar among entries of the same `order`. `P::slug()` is
+    /// not read. A second call is recorded and reported by [`Panel::build`].
+    pub fn home<P: Page>(mut self) -> Self {
+        if matches!(self.root, Some(Root::Home)) {
+            self.registration_errors.push(format!(
+                "Panel::home: a home page is already registered; `{}` would shadow it",
+                std::any::type_name::<P>()
+            ));
+            return self;
+        }
+        self.root = Some(Root::Home);
+        let item = self.mount_page::<P>(&self.prefix.clone());
+        // First among equal `order`s whatever the call order, as Filament's
+        // dashboard leads its sidebar.
+        self.nav_items.insert(0, item);
+        self
+    }
+
+    /// Route `P`'s `GET` at `url` and return its sidebar entry, resolved to
+    /// the same URL.
+    fn mount_page<P: Page>(&mut self, url: &str) -> NavigationItem {
+        self.pages.push(PageFn::new(
+            http::Method::GET,
+            route_path(url),
+            page_handler::<P>,
+        ));
+        P::navigation().resolved(url)
     }
 
     /// Set branding for the shell (header + sidebar). Additive `class` stays the only Shell seam.
@@ -453,6 +524,18 @@ impl Panel {
     }
 }
 
+/// The segments the panel routes under its prefix itself (the auth routes),
+/// which no resource or page may take as its slug.
+const RESERVED_SLUGS: &[&str] = &["login", "logout"];
+
+/// What the panel serves at its prefix.
+enum Root {
+    /// A redirect to the first declared resource's list.
+    Redirect(String),
+    /// The [`Panel::home`] page.
+    Home,
+}
+
 impl Panel {
     /// Derive a [`NavigationItem`] for `R` using this panel's mount prefix.
     ///
@@ -472,7 +555,7 @@ impl Panel {
     /// override spelled out stays exactly as written, and an override's `order`
     /// decides sidebar order.
     pub(crate) fn nav_item<R: Resource>(&self) -> NavigationItem {
-        R::navigation().resolved(&self.prefix, &R::slug())
+        R::navigation().resolved(&format!("{}/{}", self.prefix, R::slug()))
     }
 }
 

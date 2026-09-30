@@ -9,7 +9,7 @@ const PAGE_TITLE: StaticClass = class!("text-2xl font-bold tracking-tight text-f
 const PAGE_DESCRIPTION: StaticClass = class!("text-sm text-muted-foreground");
 const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 
-/// Standard container for an admin page (CONTEXT.md:Page, ADR-0008).
+/// Standard container for an admin page (CONTEXT.md:Page container, ADR-0008).
 ///
 /// Owns `max-w-7xl mx-auto p-6 flex flex-col gap-6` so pages declare title
 /// and content, not Tailwind layout classes.

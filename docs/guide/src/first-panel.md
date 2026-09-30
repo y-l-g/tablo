@@ -109,9 +109,9 @@ pooled `Db` from the app context, and `Panel::build` returns an error without on
 - `db.push_schema().await` creates the tables for a prototype. Production uses `toasty-cli`
   migrations ([Data access](./data-access.md)).
 - `Panel::new("admin")` mounts the panel at `/admin`. `resource::<BookResource>()` registers the
-  resource's list at `{prefix}/{slug}`, derives its sidebar entry from the same slug, and points
-  the panel root at the first declared resource, so `BookResource` answers on `/admin/books`. The
-  other routes — create, edit, detail, delete, bulk delete, export, relationship options — come
+  resource's list at `{prefix}/{slug}`, derives its sidebar entry from the same slug, and, with
+  no home page registered, points the panel root at the first declared resource, so
+  `BookResource` answers on `/admin/books`. The other routes — create, edit, detail, delete, bulk delete, export, relationship options — come
   from the same registration ([Panel and routing](./panel-and-routing.md)).
 - `app_context(db)` registers the pooled `Db` on the panel's app context. `Panel::build` requires
   it: without that call it returns `Err` (`Panel::build requires a Db via app_context`) instead of a

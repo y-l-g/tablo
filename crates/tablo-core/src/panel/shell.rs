@@ -171,14 +171,23 @@ impl Panel {
         // breaking ties — a resource's `navigation()` override interleaves by
         // setting it.
         nav_items.sort_by_key(|item| item.order);
-        // A Panel resolves every item it owns (`Panel::resource`); one that
+        // A Panel resolves every item it owns (`Panel::resource`, `page`,
+        // `home`); one that
         // reaches the sidebar unresolved has no URL to render, which is a
         // framework bug rather than user error.
         debug_assert!(
             nav_items.iter().all(|item| item.url().is_some()),
             "navigation items are resolved by the Panel that owns them"
         );
-        let current_path = current_path.to_string();
+        // One active entry: a home entry at the bare prefix matches every path
+        // under it, so the longest matching URL wins, and the first such entry
+        // among any that share it.
+        let active = nav_items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| item.is_current_path(current_path))
+            .min_by_key(|(_, item)| std::cmp::Reverse(item.url().map_or(0, str::len)))
+            .map(|(index, _)| index);
 
         Ok(view! {
             cx =>
@@ -186,8 +195,8 @@ impl Panel {
                 sidebar_group_label("Navigation")
                 sidebar_group_content(
                     sidebar_menu(
-                        for item in &nav_items {
-                            let is_active = item.is_current_path(&current_path);
+                        for (index, item) in nav_items.iter().enumerate() {
+                            let is_active = active == Some(index);
                             let attrs = sidebar_link(
                                 cx,
                                 attributes! {

@@ -705,7 +705,7 @@ fn panel_build_rejects_duplicate_resource_slugs() {
         panic!("two resources over one slug must not build");
     };
     assert!(
-        format!("{error}").contains("duplicate resource slug"),
+        format!("{error}").contains("duplicate slug"),
         "the error must name the duplicate, got {error}"
     );
 }

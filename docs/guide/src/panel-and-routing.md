@@ -2,8 +2,8 @@
 
 How a panel is mounted, the routes a resource adds, and the panel options that shape the shell.
 
-`Panel` owns the router, the `Db` in app context, and the shell layout. Registering a resource adds
-its routes and its sidebar item.
+`Panel` owns the router, the `Db` in app context, and the shell layout. Registering a resource or a
+[page](#pages) adds its routes and its sidebar item.
 
 Routes for a resource with slug `users` under prefix `admin`:
 
@@ -18,7 +18,8 @@ Routes for a resource with slug `users` under prefix `admin`:
 - `GET /admin/users/export` : CSV export
 - `GET /admin/users/options` : relation option search for a searchable select (GH #150),
   see [Forms](./forms.md)
-- `GET /admin` redirects to the first resource
+- `GET /admin` serves the [home page](#pages), or redirects to the first resource when the panel
+  has none
 
 Useful panel options:
 
@@ -37,6 +38,51 @@ default. Omit `dark_mode` and the panel starts light.
 The panel owns the URL of each resource's list page and resolves a resource's sidebar entry to
 `{prefix}/{slug}`; the resource owns the label and the ordering. See
 [Resources](./resources.md) for the `navigation()` override.
+
+## Pages
+
+A page that is not record CRUD — a dashboard, a report, a settings screen — implements `Page` and
+registers on the panel, which mounts it and lists it in the sidebar:
+
+```rust
+use tablo_core::{Page, Panel};
+use topcoat::{
+    Result,
+    context::Cx,
+    view::{View, view},
+};
+
+struct Dashboard;
+
+impl Page for Dashboard {
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(view! { cx => tablo_ui::page(tablo_ui::page_header(tablo_ui::page_title("Dashboard"))) })
+    }
+}
+
+// `ReportsPage` implements `Page` the same way.
+Panel::new("admin")
+    .home::<Dashboard>()        // GET /admin
+    .resource::<UserResource>()
+    .page::<ReportsPage>()      // GET /admin/reports
+```
+
+The slug and the sidebar label default to the type name without a `Page` suffix: `ReportsPage`
+mounts at `reports` with the label `Reports`, and `MediaLibraryPage` at `media-library` with
+`Media library`. Override `slug()`, `navigation_label()`, or `navigation()` — the last sets the
+`order`, as a resource's does. Every page has a sidebar entry. Pages and resources share one slug
+namespace, and `Panel::build` rejects a duplicate, a slug the panel routes itself (`login`,
+`logout`), and a slug that is not one URL segment.
+
+`Panel::home` mounts its page at the prefix itself, in place of the redirect to the first resource,
+and a second `home` fails the build. Its sidebar entry leads the entries of the same `order` and
+points at the prefix, which every path under it matches, so the sidebar marks one entry active: the
+most specific match.
+
+The panel checks for a resolved user before `render` runs, and the app's `#[layout]` at the prefix
+frames the page in the shell. A page serves one `GET`; a form it renders posts to an app `#[route]`
+under the prefix, which the auth gate covers. `examples/showcase` registers a dashboard, the media
+library and the live feed this way.
 
 ## Public pages
 

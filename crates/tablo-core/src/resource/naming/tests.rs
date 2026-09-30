@@ -1,4 +1,15 @@
 #[test]
+fn type_stems_drop_the_suffix_unless_nothing_is_left() {
+    use super::{sentence_case, type_stem};
+    struct UserResource;
+    struct Resource;
+    assert_eq!(type_stem::<UserResource>("Resource"), "User");
+    assert_eq!(type_stem::<Resource>("Resource"), "Resource");
+    assert_eq!(sentence_case("MediaLibrary"), "Media library");
+    assert_eq!(sentence_case("Dashboard"), "Dashboard");
+}
+
+#[test]
 fn pluralize_and_kebab_follow_english_rules() {
     use super::{kebab_case, pluralize};
     // rules

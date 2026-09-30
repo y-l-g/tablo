@@ -39,6 +39,7 @@ pub mod db;
 mod error;
 pub mod form;
 pub mod notification;
+mod page;
 pub mod panel;
 mod query_term;
 pub mod resource;
@@ -54,6 +55,7 @@ pub use form::{
     write_create, write_update,
 };
 pub use notification::{Notification, NotificationStatus};
+pub use page::Page;
 pub use panel::{Brand, DarkMode, Panel};
 pub use resource::{
     ColumnWidth, Committed, Cursor, DateFilter, Filter, IntoFilters, IntoRelationColumns,
