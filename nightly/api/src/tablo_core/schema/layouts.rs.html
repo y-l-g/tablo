@@ -20,15 +20,15 @@
 <a href=#20 id=20 data-nosnippet>20</a>};
 <a href=#21 id=21 data-nosnippet>21</a>
 <a href=#22 id=22 data-nosnippet>22</a><span class="doccomment">/// The one titled-group container: `Section` and `Repeater` render the same
-<a href=#23 id=23 data-nosnippet>23</a>/// border-only panel, so every titled group on a form looks alike.
+<a href=#23 id=23 data-nosnippet>23</a>/// panel, so every titled group on a form looks alike.
 <a href=#24 id=24 data-nosnippet>24</a>///
-<a href=#25 id=25 data-nosnippet>25</a>/// The shape is the `card` primitive's — rounded panel with header/content
-<a href=#26 id=26 data-nosnippet>26</a>/// rhythm — without its opaque paint: no `bg-card`, no `shadow-sm`. Overlays
-<a href=#27 id=27 data-nosnippet>27</a>/// keep the primitive as-is (dialogs, sheets and popovers sit above the page
-<a href=#28 id=28 data-nosnippet>28</a>/// and need the fill and the shadow); a form panel sits on the page
-<a href=#29 id=29 data-nosnippet>29</a>/// background, so it draws only its border.
-<a href=#30 id=30 data-nosnippet>30</a></span><span class="kw">const </span>PANEL: StaticClass =
-<a href=#31 id=31 data-nosnippet>31</a>    <span class="macro">class!</span>(<span class="string">"flex flex-col gap-5 rounded-xl border border-border py-6 text-card-foreground"</span>);
+<a href=#25 id=25 data-nosnippet>25</a>/// The surface is the `card` primitive's — border, `bg-card` fill and
+<a href=#26 id=26 data-nosnippet>26</a>/// `shadow-sm`, with its header/content rhythm — the same surface a table and
+<a href=#27 id=27 data-nosnippet>27</a>/// an app page's cards draw, so every panel on a page reads as one family and
+<a href=#28 id=28 data-nosnippet>28</a>/// a theme restyles them all through the `--card` and `--shadow-sm` tokens.
+<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">const </span>PANEL: StaticClass = <span class="macro">class!</span>(
+<a href=#30 id=30 data-nosnippet>30</a>    <span class="string">"flex flex-col gap-5 rounded-xl border border-border bg-card py-6 text-card-foreground shadow-sm"
+<a href=#31 id=31 data-nosnippet>31</a></span>);
 <a href=#32 id=32 data-nosnippet>32</a>
 <a href=#33 id=33 data-nosnippet>33</a><span class="doccomment">/// Section — titled container with an optional child `Schema`.
 <a href=#34 id=34 data-nosnippet>34</a>///

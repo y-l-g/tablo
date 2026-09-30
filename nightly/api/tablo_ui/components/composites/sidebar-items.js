@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["error_state","page","theme","toast"]};
+window.SIDEBAR_ITEMS = {"mod":["empty_state","error_state","page","theme","toast"]};

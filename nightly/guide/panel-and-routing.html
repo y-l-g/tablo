@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fd4c9170.js";
+            window.path_to_searchindex_js = "searchindex-7ccf44b4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -208,7 +208,10 @@ has none</li>
     .dark_mode(true)
     .login_hint("Demo: admin@example.com / password")
 <span class="boring">}</span></code></pre>
-<p><code>brand</code> sets the header and sidebar name. <code>dark_mode</code> sets the theme a visitor sees <strong>before they
+<p><code>brand</code> sets the name in the sidebar header and on the login card, and in the topbar below the <code>md</code>
+breakpoint,
+where the sidebar folds into a sheet. A brand without a logo shows its initial as the mark.
+<code>dark_mode</code> sets the theme a visitor sees <strong>before they
 have chosen one</strong> — the toggle is always rendered, and a stored choice wins in both directions
 (GH #184): picking light persists, and the next page stays light instead of falling back to this
 default. Omit <code>dark_mode</code> and the panel starts light.</p>
@@ -244,7 +247,7 @@ Panel::new("admin")
 <p>The slug and the sidebar label default to the type name without a <code>Page</code> suffix: <code>ReportsPage</code>
 mounts at <code>reports</code> with the label <code>Reports</code>, and <code>MediaLibraryPage</code> at <code>media-library</code> with
 <code>Media library</code>. Override <code>slug()</code>, <code>navigation_label()</code>, or <code>navigation()</code> — the last sets the
-<code>order</code>, as a resource’s does. Every page has a sidebar entry. Pages and resources share one slug
+<code>order</code> and the icon, as a resource’s does. Every page has a sidebar entry. Pages and resources share one slug
 namespace, and <code>Panel::build</code> rejects a duplicate, a slug the panel routes itself (<code>login</code>,
 <code>logout</code>), and a slug that is not one URL segment.</p>
 <p><code>Panel::home</code> mounts its page at the prefix itself, in place of the redirect to the first resource,
@@ -255,6 +258,13 @@ most specific match.</p>
 frames the page in the shell. A page serves one <code>GET</code>; a form it renders posts to an app <code>#[route]</code>
 under the prefix, which the auth gate covers. <code>examples/showcase</code> registers a dashboard, the media
 library and the live feed this way.</p>
+<p>A page lays itself out with the composites the panel’s own pages use, so it reads as one of them:
+<code>tablo_ui::page</code> owns the width and the padding, and <code>page_header</code> takes a <code>page_title</code>, an optional
+<code>page_description</code> under it and optional <code>page_actions</code> at the end of the title’s line. Content goes
+in <code>page_content</code>: <code>tablo_ui::card</code> for a panel, the same surface as a form section and a table, and
+<code>tablo_ui::empty_state</code> for a region with nothing to list. The surfaces draw from the tokens in the
+app’s <code>styles.css</code> (<code>--card</code>, <code>--border</code>, <code>--shadow-sm</code>, <code>--primary</code>…), so a theme restyles the
+panel’s pages and the app’s alike.</p>
 <h2 id="public-pages"><a class="header" href="#public-pages">Public pages</a></h2>
 <p>A public page is an app-level <code>#[page]</code> outside the panel prefix. The auth gate installs two layers
 — the panel prefix and <code>/_topcoat/runtime</code> — and a layer wraps only the routes under its path

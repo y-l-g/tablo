@@ -474,13 +474,13 @@
 <a href=#474 id=474 data-nosnippet>474</a><span class="doccomment">/// How a read-only value is presented.
 <a href=#475 id=475 data-nosnippet>475</a>///
 <a href=#476 id=476 data-nosnippet>476</a>/// Two shapes, because the difference is content, not styling: prose wraps at
-<a href=#477 id=477 data-nosnippet>477</a>/// spaces, and an identifier (a stored path, an address) has no spaces to break
-<a href=#478 id=478 data-nosnippet>478</a>/// at, so it breaks anywhere and sets in mono.
+<a href=#477 id=477 data-nosnippet>477</a>/// spaces (and breaks a token too long for its line), and a stored path has no
+<a href=#478 id=478 data-nosnippet>478</a>/// spaces to break at, so it breaks anywhere and sets in mono.
 <a href=#479 id=479 data-nosnippet>479</a></span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 <a href=#480 id=480 data-nosnippet>480</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ValueKind {
-<a href=#481 id=481 data-nosnippet>481</a>    <span class="doccomment">/// Wrapping text: a title, a body, a description.
+<a href=#481 id=481 data-nosnippet>481</a>    <span class="doccomment">/// Wrapping text: a title, a body, an address.
 <a href=#482 id=482 data-nosnippet>482</a>    </span>Prose,
-<a href=#483 id=483 data-nosnippet>483</a>    <span class="doccomment">/// A path, a key, an address — no spaces to break at.
+<a href=#483 id=483 data-nosnippet>483</a>    <span class="doccomment">/// A stored path — no spaces to break at.
 <a href=#484 id=484 data-nosnippet>484</a>    </span>Machine,
 <a href=#485 id=485 data-nosnippet>485</a>}
 <a href=#486 id=486 data-nosnippet>486</a>
@@ -501,8 +501,8 @@
 <a href=#501 id=501 data-nosnippet>501</a>) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
 <a href=#502 id=502 data-nosnippet>502</a>    <span class="kw">let </span>text = value.unwrap_or_default().to_string();
 <a href=#503 id=503 data-nosnippet>503</a>    <span class="kw">let </span>value_class = <span class="kw">match </span>kind {
-<a href=#504 id=504 data-nosnippet>504</a>        ValueKind::Prose =&gt; <span class="string">"text-sm break-words whitespace-pre-wrap"</span>,
-<a href=#505 id=505 data-nosnippet>505</a>        ValueKind::Machine =&gt; <span class="string">"text-sm font-mono break-all whitespace-pre-wrap"</span>,
+<a href=#504 id=504 data-nosnippet>504</a>        ValueKind::Prose =&gt; <span class="string">"text-sm text-foreground wrap-anywhere whitespace-pre-wrap"</span>,
+<a href=#505 id=505 data-nosnippet>505</a>        ValueKind::Machine =&gt; <span class="string">"text-sm text-foreground font-mono break-all whitespace-pre-wrap"</span>,
 <a href=#506 id=506 data-nosnippet>506</a>    };
 <a href=#507 id=507 data-nosnippet>507</a>    <span class="kw">let </span>value = <span class="macro">view!</span> { cx =&gt; &lt;div class=(value_class)&gt;(text)&lt;/div&gt; }.boxed();
 <a href=#508 id=508 data-nosnippet>508</a>    render_value_view(cx, label, value)

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fd4c9170.js";
+            window.path_to_searchindex_js = "searchindex-7ccf44b4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -236,8 +236,10 @@ name, used in the “Create” and “Edit” titles; <code>navigation_label()</
 and the list title. Override <code>label()</code> to rename, and <code>navigation_label()</code> only for a plural the
 rules cannot guess.</li>
 <li><code>navigation()</code> curates this resource’s sidebar entry: override it to change the label, the <code>order</code>
-(lower renders first, ties keep declaration order) or the URL, e.g.
-<code>NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }</code>. The URL is the Panel’s
+(lower renders first, ties keep declaration order), the icon or the URL, e.g.
+<code>NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }</code> or
+<code>NavigationItem::for_resource::&lt;Self&gt;().icon(tablo_ui::icons::USERS)</code>. <code>tablo_ui::icons</code> carries
+a set of navigation icons; an app that stages an icon set of its own passes any <code>IconData</code>. The URL is the Panel’s
 call: <code>for_resource</code> names none, so the panel that mounts the resource resolves it to
 <code>{prefix}/{slug}</code>, and a resource never links at <code>/admin</code> on a panel mounted elsewhere. Spell a
 URL out instead (<code>NavigationItem::at(..)</code>) only to link somewhere other than the resource’s list

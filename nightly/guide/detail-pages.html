@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fd4c9170.js";
+            window.path_to_searchindex_js = "searchindex-7ccf44b4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -197,8 +197,10 @@ keys the form does not, and a resource with no form declares one too.</p>
 <span class="boring">}</span></code></pre>
 <p>That registers <code>GET /admin/{slug}/{id}</code> — loaded through the tenant-scoped query, so an unknown id
 and one outside the tenant are the same 404, while <code>can_view</code> denial is a 403 — and adds a <code>View</code>
-link beside <code>Edit</code> on each row. A resource with no <code>view</code> declaration has no page and no link, and
-the route answers 404 rather than rendering an empty shell.</p>
+control beside <code>Edit</code> on each row. A resource with no <code>view</code> declaration has no page and no link, and
+the route answers 404 rather than rendering an empty shell. The page’s header links back to the
+list, and to the edit form when the resource has one and <code>can_update</code> allows this record — the gate
+the row’s <code>Edit</code> control uses.</p>
 <p>The heading is the record’s label when the resource declares one:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

@@ -3,7 +3,7 @@
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>std::borrow::Cow;
 <a href=#4 id=4 data-nosnippet>4</a>
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>tablo_ui::{ButtonSize, ButtonVariant, button_variants, table_cell, table_row};
-<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>topcoat::{context::Cx, view::<span class="kw-2">*</span>};
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>topcoat::{context::Cx, icon::icon, view::<span class="kw-2">*</span>};
 <a href=#7 id=7 data-nosnippet>7</a>
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::{
 <a href=#9 id=9 data-nosnippet>9</a>    <span class="kw">super</span>::{
@@ -65,7 +65,7 @@
 <a href=#65 id=65 data-nosnippet>65</a>                table_cell(
 <a href=#66 id=66 data-nosnippet>66</a>                    attrs: <span class="macro">attributes!</span> {
 <a href=#67 id=67 data-nosnippet>67</a>                        colspan=(colspan)
-<a href=#68 id=68 data-nosnippet>68</a>                        class=<span class="string">"px-4 py-2 bg-muted text-sm font-medium"
+<a href=#68 id=68 data-nosnippet>68</a>                        class=<span class="string">"bg-muted/60 px-3 py-2 text-sm font-medium text-foreground"
 <a href=#69 id=69 data-nosnippet>69</a>                    </span>},
 <a href=#70 id=70 data-nosnippet>70</a>                    (header.text)
 <a href=#71 id=71 data-nosnippet>71</a>                )
@@ -146,213 +146,232 @@
 <a href=#146 id=146 data-nosnippet>146</a>        .clone()
 <a href=#147 id=147 data-nosnippet>147</a>        .zip(row.delete_action.clone())
 <a href=#148 id=148 data-nosnippet>148</a>        .map(|(url, action)| (url, action, chrome.delete_dialog_id.clone()));
-<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">let </span>link_class = button_variants(ButtonVariant::Outline, ButtonSize::Md);
-<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">let </span>edit_class = link_class.clone();
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="kw">let </span>delete_class = button_variants(ButtonVariant::Destructive, ButtonSize::Md);
-<a href=#152 id=152 data-nosnippet>152</a>    <span class="macro">view!</span> {
-<a href=#153 id=153 data-nosnippet>153</a>        cx =&gt;
-<a href=#154 id=154 data-nosnippet>154</a>        table_cell(
-<a href=#155 id=155 data-nosnippet>155</a>            attrs: <span class="macro">attributes!</span> { style=(actions_min.as_deref()) },
-<a href=#156 id=156 data-nosnippet>156</a>            &lt;div class=<span class="string">"flex gap-2"</span>&gt;
-<a href=#157 id=157 data-nosnippet>157</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = view_url {
-<a href=#158 id=158 data-nosnippet>158</a>                    &lt;a (<span class="kw">crate</span>::resource::runtime_link(cx, <span class="kw-2">&amp;</span>url)) class=(link_class)&gt;
-<a href=#159 id=159 data-nosnippet>159</a>                        <span class="string">"View"
-<a href=#160 id=160 data-nosnippet>160</a>                    </span>&lt;/a&gt;
-<a href=#161 id=161 data-nosnippet>161</a>                }
-<a href=#162 id=162 data-nosnippet>162</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = edit_url {
-<a href=#163 id=163 data-nosnippet>163</a>                    &lt;a (<span class="kw">crate</span>::resource::runtime_link(cx, <span class="kw-2">&amp;</span>url)) class=(edit_class)&gt;
-<a href=#164 id=164 data-nosnippet>164</a>                        <span class="string">"Edit"
-<a href=#165 id=165 data-nosnippet>165</a>                    </span>&lt;/a&gt;
-<a href=#166 id=166 data-nosnippet>166</a>                }
-<a href=#167 id=167 data-nosnippet>167</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>((url, action, dialog)) = delete {
-<a href=#168 id=168 data-nosnippet>168</a>                    &lt;a
-<a href=#169 id=169 data-nosnippet>169</a>                        href=(url)
-<a href=#170 id=170 data-nosnippet>170</a>                        data-row-delete-trigger=(dialog)
-<a href=#171 id=171 data-nosnippet>171</a>                        data-row-delete-action=(action)
-<a href=#172 id=172 data-nosnippet>172</a>                        class=(delete_class)
-<a href=#173 id=173 data-nosnippet>173</a>                    &gt;
-<a href=#174 id=174 data-nosnippet>174</a>                        <span class="string">"Delete"
-<a href=#175 id=175 data-nosnippet>175</a>                    </span>&lt;/a&gt;
-<a href=#176 id=176 data-nosnippet>176</a>                }
-<a href=#177 id=177 data-nosnippet>177</a>            &lt;/div&gt;
-<a href=#178 id=178 data-nosnippet>178</a>        )
-<a href=#179 id=179 data-nosnippet>179</a>    }
-<a href=#180 id=180 data-nosnippet>180</a>    .boxed()
-<a href=#181 id=181 data-nosnippet>181</a>}
-<a href=#182 id=182 data-nosnippet>182</a>
-<a href=#183 id=183 data-nosnippet>183</a><span class="doccomment">/// Precomputed per-row presentation for the table body: the display row key,
-<a href=#184 id=184 data-nosnippet>184</a>/// the record key, the rendered cells, and the optional Edit / delete-dialog
-<a href=#185 id=185 data-nosnippet>185</a>/// action URLs. A struct (not a tuple): five anonymous positions would
-<a href=#186 id=186 data-nosnippet>186</a>/// mislead readers and trip `clippy::type_complexity`.
-<a href=#187 id=187 data-nosnippet>187</a>///
-<a href=#188 id=188 data-nosnippet>188</a>/// `key` is the display projection (keyed diffs, DOM ids);
-<a href=#189 id=189 data-nosnippet>189</a>/// `record_id` is the record projection (URLs, bulk values), resolved
-<a href=#190 id=190 data-nosnippet>190</a>/// by handlers as the typed PK.
-<a href=#191 id=191 data-nosnippet>191</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>RowView {
-<a href=#192 id=192 data-nosnippet>192</a>    key: String,
-<a href=#193 id=193 data-nosnippet>193</a>    record_id: String,
-<a href=#194 id=194 data-nosnippet>194</a>    cells: Vec&lt;String&gt;,
-<a href=#195 id=195 data-nosnippet>195</a>    view_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#196 id=196 data-nosnippet>196</a>    edit_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#197 id=197 data-nosnippet>197</a>    delete_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#198 id=198 data-nosnippet>198</a>    <span class="doccomment">/// The row's delete POST target (`{prefix}/{key}/delete`): the
-<a href=#199 id=199 data-nosnippet>199</a>    /// Delete control hands it to the shared dialog before opening it, so the
-<a href=#200 id=200 data-nosnippet>200</a>    /// confirmed POST keeps the route the `?delete=` fallback uses.
-<a href=#201 id=201 data-nosnippet>201</a>    </span>delete_action: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#202 id=202 data-nosnippet>202</a>    <span class="doccomment">/// Whether the row renders a bulk checkbox: a row the
-<a href=#203 id=203 data-nosnippet>203</a>    /// [`Table::row_actions`] policy denies `delete` renders none, so
-<a href=#204 id=204 data-nosnippet>204</a>    /// `bulk.js` never sees its key and select-all cannot submit a batch the
-<a href=#205 id=205 data-nosnippet>205</a>    /// handler refuses wholesale.
-<a href=#206 id=206 data-nosnippet>206</a>    </span>selectable: bool,
-<a href=#207 id=207 data-nosnippet>207</a>    <span class="doccomment">/// The row's group label, when `?group_by=` named the declared group.
-<a href=#208 id=208 data-nosnippet>208</a>    /// Carried on every row so the page-local shim can order by it.
-<a href=#209 id=209 data-nosnippet>209</a>    </span>group: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#210 id=210 data-nosnippet>210</a>    <span class="doccomment">/// The header this row renders above itself, `Some` only on the first row
-<a href=#211 id=211 data-nosnippet>211</a>    /// of its group.
-<a href=#212 id=212 data-nosnippet>212</a>    </span>group_header: <span class="prelude-ty">Option</span>&lt;GroupHeader&gt;,
-<a href=#213 id=213 data-nosnippet>213</a>}
-<a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a><span class="doccomment">/// One page-local group header: the label with its page-local count,
-<a href=#216 id=216 data-nosnippet>216</a>/// and the stable DOM id the injected header row carries so the in-place morph
-<a href=#217 id=217 data-nosnippet>217</a>/// can follow it (`row_dom_id`'s contract).
-<a href=#218 id=218 data-nosnippet>218</a></span><span class="attr">#[derive(Clone)]
-<a href=#219 id=219 data-nosnippet>219</a></span><span class="kw">struct </span>GroupHeader {
-<a href=#220 id=220 data-nosnippet>220</a>    <span class="doccomment">/// `"{label} ({n} on this page)"`.
-<a href=#221 id=221 data-nosnippet>221</a>    </span>text: String,
-<a href=#222 id=222 data-nosnippet>222</a>    <span class="doccomment">/// [`group_header_dom_id`] of the label.
-<a href=#223 id=223 data-nosnippet>223</a>    </span>dom_id: String,
-<a href=#224 id=224 data-nosnippet>224</a>}
-<a href=#225 id=225 data-nosnippet>225</a>
-<a href=#226 id=226 data-nosnippet>226</a><span class="kw">impl</span>&lt;M&gt; Table&lt;M&gt; {
-<a href=#227 id=227 data-nosnippet>227</a>    <span class="doccomment">/// Project the loaded page into the row presentation the template renders.
-<a href=#228 id=228 data-nosnippet>228</a>    ///
-<a href=#229 id=229 data-nosnippet>229</a>    /// Precomputed so template bodies capture only owned data — the lazy view
-<a href=#230 id=230 data-nosnippet>230</a>    /// outlives the render call, so it must never borrow `self` or `page`.
-<a href=#231 id=231 data-nosnippet>231</a>    ///
-<a href=#232 id=232 data-nosnippet>232</a>    /// The per-row delete URL opens the confirmation dialog on the list page
-<a href=#233 id=233 data-nosnippet>233</a>    /// (`?delete=&lt;key&gt;`); the per-row edit URL links to `{prefix}/{key}/edit`.
-<a href=#234 id=234 data-nosnippet>234</a>    /// Both — and the bulk checkbox values — carry the *record* key, resolved by
-<a href=#235 id=235 data-nosnippet>235</a>    /// handlers as the model's typed PK; the display `key` stays on keyed diffs
-<a href=#236 id=236 data-nosnippet>236</a>    /// and DOM ids.
-<a href=#237 id=237 data-nosnippet>237</a>    ///
-<a href=#238 id=238 data-nosnippet>238</a>    /// The chrome prefixes say which links the table *can* render; the
-<a href=#239 id=239 data-nosnippet>239</a>    /// [`Table::row_actions`] policy says which of them *this* record may use.
-<a href=#240 id=240 data-nosnippet>240</a>    /// A denied action emits no URL, and a row denied `delete` renders no bulk
-<a href=#241 id=241 data-nosnippet>241</a>    /// checkbox. The policy is consulted only when a prefix is wired.
-<a href=#242 id=242 data-nosnippet>242</a>    ///
-<a href=#243 id=243 data-nosnippet>243</a>    /// The delete URL's shared parameters are encoded once for the whole page:
-<a href=#244 id=244 data-nosnippet>244</a>    /// rebuilding them per row is work a client can inflate with an oversized
-<a href=#245 id=245 data-nosnippet>245</a>    /// query.
-<a href=#246 id=246 data-nosnippet>246</a>    ///
-<a href=#247 id=247 data-nosnippet>247</a>    /// Page-local grouping is display-only: `group_by` is a bare key closure with
-<a href=#248 id=248 data-nosnippet>248</a>    /// no lens, so no `ORDER BY` is derivable and a group cannot span pages. The
-<a href=#249 id=249 data-nosnippet>249</a>    /// shim therefore reorders *this page's* rows by the group label — a stable
-<a href=#250 id=250 data-nosnippet>250</a>    /// sort, so rows keep the query's order inside their group — and hangs each
-<a href=#251 id=251 data-nosnippet>251</a>    /// group's header off its first row. The query, its cursors and the export
-<a href=#252 id=252 data-nosnippet>252</a>    /// keep the declared ordering.
-<a href=#253 id=253 data-nosnippet>253</a>    ///
-<a href=#254 id=254 data-nosnippet>254</a>    /// Row keys must be injective within a page: duplicates corrupt keyed diffs
-<a href=#255 id=255 data-nosnippet>255</a>    /// and bulk selection.
-<a href=#256 id=256 data-nosnippet>256</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>row_views(
-<a href=#257 id=257 data-nosnippet>257</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#258 id=258 data-nosnippet>258</a>        state: <span class="kw-2">&amp;</span>TableState,
-<a href=#259 id=259 data-nosnippet>259</a>        path: <span class="kw-2">&amp;</span>str,
-<a href=#260 id=260 data-nosnippet>260</a>        page: <span class="kw-2">&amp;</span>TablePage&lt;M&gt;,
-<a href=#261 id=261 data-nosnippet>261</a>        row_key: <span class="kw-2">&amp;</span>RowKey&lt;M&gt;,
-<a href=#262 id=262 data-nosnippet>262</a>        record_key: <span class="kw-2">&amp;</span>RowKey&lt;M&gt;,
-<a href=#263 id=263 data-nosnippet>263</a>        group_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>GroupKey&lt;M&gt;&gt;,
-<a href=#264 id=264 data-nosnippet>264</a>    ) -&gt; Vec&lt;RowView&gt;
-<a href=#265 id=265 data-nosnippet>265</a>    <span class="kw">where
-<a href=#266 id=266 data-nosnippet>266</a>        </span>M: toasty::schema::Model,
-<a href=#267 id=267 data-nosnippet>267</a>    {
-<a href=#268 id=268 data-nosnippet>268</a>        <span class="kw">let </span>delete_url_base = <span class="self">self
-<a href=#269 id=269 data-nosnippet>269</a>            </span>.delete_prefix
-<a href=#270 id=270 data-nosnippet>270</a>            .as_ref()
-<a href=#271 id=271 data-nosnippet>271</a>            .map(|<span class="kw">_</span>| state.row_url_base(path));
-<a href=#272 id=272 data-nosnippet>272</a>        <span class="kw">let </span>gated = <span class="self">self</span>.delete_prefix.is_some()
-<a href=#273 id=273 data-nosnippet>273</a>            || <span class="self">self</span>.edit_prefix.is_some()
-<a href=#274 id=274 data-nosnippet>274</a>            || <span class="self">self</span>.view_prefix.is_some();
-<a href=#275 id=275 data-nosnippet>275</a>        <span class="kw">let </span><span class="kw-2">mut </span>row_data: Vec&lt;RowView&gt; = page
-<a href=#276 id=276 data-nosnippet>276</a>            .rows
-<a href=#277 id=277 data-nosnippet>277</a>            .iter()
-<a href=#278 id=278 data-nosnippet>278</a>            .map(|row| {
-<a href=#279 id=279 data-nosnippet>279</a>                <span class="kw">let </span>key = row_key(row);
-<a href=#280 id=280 data-nosnippet>280</a>                <span class="kw">let </span>record_id = record_key(row);
-<a href=#281 id=281 data-nosnippet>281</a>                <span class="kw">let </span>actions = <span class="kw">if </span>gated {
-<a href=#282 id=282 data-nosnippet>282</a>                    <span class="self">self</span>.actions_for(row)
-<a href=#283 id=283 data-nosnippet>283</a>                } <span class="kw">else </span>{
-<a href=#284 id=284 data-nosnippet>284</a>                    RowActions::ALL
-<a href=#285 id=285 data-nosnippet>285</a>                };
-<a href=#286 id=286 data-nosnippet>286</a>                <span class="kw">let </span>cells: Vec&lt;String&gt; = <span class="self">self
-<a href=#287 id=287 data-nosnippet>287</a>                    </span>.columns
-<a href=#288 id=288 data-nosnippet>288</a>                    .iter()
-<a href=#289 id=289 data-nosnippet>289</a>                    .map(|col| col.render_cell(row))
-<a href=#290 id=290 data-nosnippet>290</a>                    .collect();
-<a href=#291 id=291 data-nosnippet>291</a>                <span class="kw">let </span>edit_url = <span class="self">self
-<a href=#292 id=292 data-nosnippet>292</a>                    </span>.edit_prefix
-<a href=#293 id=293 data-nosnippet>293</a>                    .as_ref()
-<a href=#294 id=294 data-nosnippet>294</a>                    .filter(|<span class="kw">_</span>| actions.edit)
-<a href=#295 id=295 data-nosnippet>295</a>                    .map(|prefix| <span class="self">self</span>.action_url(row_edit_url(prefix, <span class="kw-2">&amp;</span>record_id)));
-<a href=#296 id=296 data-nosnippet>296</a>                <span class="kw">let </span>view_url = <span class="self">self
-<a href=#297 id=297 data-nosnippet>297</a>                    </span>.view_prefix
-<a href=#298 id=298 data-nosnippet>298</a>                    .as_ref()
-<a href=#299 id=299 data-nosnippet>299</a>                    .filter(|<span class="kw">_</span>| actions.view)
-<a href=#300 id=300 data-nosnippet>300</a>                    .map(|prefix| row_view_url(prefix, <span class="kw-2">&amp;</span>record_id));
-<a href=#301 id=301 data-nosnippet>301</a>                <span class="kw">let </span>delete_url = delete_url_base
-<a href=#302 id=302 data-nosnippet>302</a>                    .as_ref()
-<a href=#303 id=303 data-nosnippet>303</a>                    .filter(|<span class="kw">_</span>| actions.delete)
-<a href=#304 id=304 data-nosnippet>304</a>                    .map(|base| base.delete_dialog(<span class="kw-2">&amp;</span>record_id));
-<a href=#305 id=305 data-nosnippet>305</a>                <span class="comment">// The shared dialog's POST target for this row: the
-<a href=#306 id=306 data-nosnippet>306</a>                // row control hands it over before opening the dialog, so the
-<a href=#307 id=307 data-nosnippet>307</a>                // action and the control come from the one policy decision.
-<a href=#308 id=308 data-nosnippet>308</a>                </span><span class="kw">let </span>delete_action = <span class="self">self
-<a href=#309 id=309 data-nosnippet>309</a>                    </span>.delete_prefix
-<a href=#310 id=310 data-nosnippet>310</a>                    .as_ref()
-<a href=#311 id=311 data-nosnippet>311</a>                    .filter(|<span class="kw">_</span>| actions.delete)
-<a href=#312 id=312 data-nosnippet>312</a>                    .map(|prefix| <span class="self">self</span>.action_url(delete_action_url(prefix, <span class="kw-2">&amp;</span>record_id)));
-<a href=#313 id=313 data-nosnippet>313</a>                RowView {
-<a href=#314 id=314 data-nosnippet>314</a>                    key,
-<a href=#315 id=315 data-nosnippet>315</a>                    record_id,
-<a href=#316 id=316 data-nosnippet>316</a>                    cells,
-<a href=#317 id=317 data-nosnippet>317</a>                    view_url,
-<a href=#318 id=318 data-nosnippet>318</a>                    edit_url,
-<a href=#319 id=319 data-nosnippet>319</a>                    delete_url,
-<a href=#320 id=320 data-nosnippet>320</a>                    delete_action,
-<a href=#321 id=321 data-nosnippet>321</a>                    selectable: actions.delete,
-<a href=#322 id=322 data-nosnippet>322</a>                    group: group_key.map(|group| group(row)),
-<a href=#323 id=323 data-nosnippet>323</a>                    group_header: <span class="prelude-val">None</span>,
-<a href=#324 id=324 data-nosnippet>324</a>                }
-<a href=#325 id=325 data-nosnippet>325</a>            })
-<a href=#326 id=326 data-nosnippet>326</a>            .collect();
-<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">if </span>group_key.is_some() {
-<a href=#328 id=328 data-nosnippet>328</a>            row_data.sort_by(|a, b| a.group.cmp(<span class="kw-2">&amp;</span>b.group));
-<a href=#329 id=329 data-nosnippet>329</a>            <span class="kw">let </span><span class="kw-2">mut </span>start = <span class="number">0</span>;
-<a href=#330 id=330 data-nosnippet>330</a>            <span class="kw">while </span>start &lt; row_data.len() {
-<a href=#331 id=331 data-nosnippet>331</a>                <span class="kw">let </span>label = row_data[start].group.clone().unwrap_or_default();
-<a href=#332 id=332 data-nosnippet>332</a>                <span class="kw">let </span><span class="kw-2">mut </span>end = start;
-<a href=#333 id=333 data-nosnippet>333</a>                <span class="kw">while </span>end &lt; row_data.len() &amp;&amp; row_data[end].group.as_deref() == <span class="prelude-val">Some</span>(label.as_str())
-<a href=#334 id=334 data-nosnippet>334</a>                {
-<a href=#335 id=335 data-nosnippet>335</a>                    end += <span class="number">1</span>;
-<a href=#336 id=336 data-nosnippet>336</a>                }
-<a href=#337 id=337 data-nosnippet>337</a>                <span class="comment">// The count is page-local, and says so: a group split across
-<a href=#338 id=338 data-nosnippet>338</a>                // pages must not read as a table total. The header
-<a href=#339 id=339 data-nosnippet>339</a>                // carries an id derived from its label — never from its
-<a href=#340 id=340 data-nosnippet>340</a>                // position — so the in-place morph can follow it.
-<a href=#341 id=341 data-nosnippet>341</a>                </span>row_data[start].group_header = <span class="prelude-val">Some</span>(GroupHeader {
-<a href=#342 id=342 data-nosnippet>342</a>                    dom_id: group_header_dom_id(<span class="kw-2">&amp;</span>label),
-<a href=#343 id=343 data-nosnippet>343</a>                    text: <span class="macro">format!</span>(<span class="string">"{label} ({} on this page)"</span>, end - start),
-<a href=#344 id=344 data-nosnippet>344</a>                });
-<a href=#345 id=345 data-nosnippet>345</a>                start = end;
-<a href=#346 id=346 data-nosnippet>346</a>            }
-<a href=#347 id=347 data-nosnippet>347</a>        }
-<a href=#348 id=348 data-nosnippet>348</a>        <span class="macro">debug_assert!</span>(
-<a href=#349 id=349 data-nosnippet>349</a>            {
-<a href=#350 id=350 data-nosnippet>350</a>                <span class="kw">let </span><span class="kw-2">mut </span>seen = std::collections::HashSet::new();
-<a href=#351 id=351 data-nosnippet>351</a>                row_data.iter().all(|row| seen.insert(row.key.clone()))
-<a href=#352 id=352 data-nosnippet>352</a>            },
-<a href=#353 id=353 data-nosnippet>353</a>            <span class="string">"duplicate table keys in one page: the key projection must be injective"
-<a href=#354 id=354 data-nosnippet>354</a>        </span>);
-<a href=#355 id=355 data-nosnippet>355</a>        row_data
-<a href=#356 id=356 data-nosnippet>356</a>    }
-<a href=#357 id=357 data-nosnippet>357</a>}
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="comment">// Icon-only controls: the label rides `aria-label` for assistive tech and
+<a href=#150 id=150 data-nosnippet>150</a>    // `title` for a pointer, and the icon carries it on screen.
+<a href=#151 id=151 data-nosnippet>151</a>    </span><span class="kw">let </span>link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="kw">let </span>edit_class = link_class.clone();
+<a href=#153 id=153 data-nosnippet>153</a>    <span class="kw">let </span>delete_class = link_class.clone();
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="macro">view!</span> {
+<a href=#155 id=155 data-nosnippet>155</a>        cx =&gt;
+<a href=#156 id=156 data-nosnippet>156</a>        table_cell(
+<a href=#157 id=157 data-nosnippet>157</a>            attrs: <span class="macro">attributes!</span> { style=(actions_min.as_deref()) },
+<a href=#158 id=158 data-nosnippet>158</a>            &lt;div class=<span class="string">"flex items-center justify-end gap-1"</span>&gt;
+<a href=#159 id=159 data-nosnippet>159</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = view_url {
+<a href=#160 id=160 data-nosnippet>160</a>                    &lt;a
+<a href=#161 id=161 data-nosnippet>161</a>                        (<span class="kw">crate</span>::resource::runtime_link(cx, <span class="kw-2">&amp;</span>url))
+<a href=#162 id=162 data-nosnippet>162</a>                        class=(link_class)
+<a href=#163 id=163 data-nosnippet>163</a>                        aria-label=<span class="string">"View"
+<a href=#164 id=164 data-nosnippet>164</a>                        </span>title=<span class="string">"View"
+<a href=#165 id=165 data-nosnippet>165</a>                    </span>&gt;
+<a href=#166 id=166 data-nosnippet>166</a>                        icon(data: tablo_ui::icons::EYE)
+<a href=#167 id=167 data-nosnippet>167</a>                    &lt;/a&gt;
+<a href=#168 id=168 data-nosnippet>168</a>                }
+<a href=#169 id=169 data-nosnippet>169</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = edit_url {
+<a href=#170 id=170 data-nosnippet>170</a>                    &lt;a
+<a href=#171 id=171 data-nosnippet>171</a>                        (<span class="kw">crate</span>::resource::runtime_link(cx, <span class="kw-2">&amp;</span>url))
+<a href=#172 id=172 data-nosnippet>172</a>                        class=(edit_class)
+<a href=#173 id=173 data-nosnippet>173</a>                        aria-label=<span class="string">"Edit"
+<a href=#174 id=174 data-nosnippet>174</a>                        </span>title=<span class="string">"Edit"
+<a href=#175 id=175 data-nosnippet>175</a>                    </span>&gt;
+<a href=#176 id=176 data-nosnippet>176</a>                        icon(data: tablo_ui::icons::PENCIL)
+<a href=#177 id=177 data-nosnippet>177</a>                    &lt;/a&gt;
+<a href=#178 id=178 data-nosnippet>178</a>                }
+<a href=#179 id=179 data-nosnippet>179</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>((url, action, dialog)) = delete {
+<a href=#180 id=180 data-nosnippet>180</a>                    &lt;a
+<a href=#181 id=181 data-nosnippet>181</a>                        href=(url)
+<a href=#182 id=182 data-nosnippet>182</a>                        data-row-delete-trigger=(dialog)
+<a href=#183 id=183 data-nosnippet>183</a>                        data-row-delete-action=(action)
+<a href=#184 id=184 data-nosnippet>184</a>                        class=(delete_class)
+<a href=#185 id=185 data-nosnippet>185</a>                        aria-label=<span class="string">"Delete"
+<a href=#186 id=186 data-nosnippet>186</a>                        </span>title=<span class="string">"Delete"
+<a href=#187 id=187 data-nosnippet>187</a>                    </span>&gt;
+<a href=#188 id=188 data-nosnippet>188</a>                        <span class="comment">// The glyph carries the destructive color: the ghost
+<a href=#189 id=189 data-nosnippet>189</a>                        // variant already sets the control's text color.
+<a href=#190 id=190 data-nosnippet>190</a>                        </span>icon(
+<a href=#191 id=191 data-nosnippet>191</a>                            data: tablo_ui::icons::TRASH,
+<a href=#192 id=192 data-nosnippet>192</a>                            attrs: <span class="macro">attributes!</span> { class=<span class="string">"text-destructive" </span>}
+<a href=#193 id=193 data-nosnippet>193</a>                        )
+<a href=#194 id=194 data-nosnippet>194</a>                    &lt;/a&gt;
+<a href=#195 id=195 data-nosnippet>195</a>                }
+<a href=#196 id=196 data-nosnippet>196</a>            &lt;/div&gt;
+<a href=#197 id=197 data-nosnippet>197</a>        )
+<a href=#198 id=198 data-nosnippet>198</a>    }
+<a href=#199 id=199 data-nosnippet>199</a>    .boxed()
+<a href=#200 id=200 data-nosnippet>200</a>}
+<a href=#201 id=201 data-nosnippet>201</a>
+<a href=#202 id=202 data-nosnippet>202</a><span class="doccomment">/// Precomputed per-row presentation for the table body: the display row key,
+<a href=#203 id=203 data-nosnippet>203</a>/// the record key, the rendered cells, and the optional Edit / delete-dialog
+<a href=#204 id=204 data-nosnippet>204</a>/// action URLs. A struct (not a tuple): five anonymous positions would
+<a href=#205 id=205 data-nosnippet>205</a>/// mislead readers and trip `clippy::type_complexity`.
+<a href=#206 id=206 data-nosnippet>206</a>///
+<a href=#207 id=207 data-nosnippet>207</a>/// `key` is the display projection (keyed diffs, DOM ids);
+<a href=#208 id=208 data-nosnippet>208</a>/// `record_id` is the record projection (URLs, bulk values), resolved
+<a href=#209 id=209 data-nosnippet>209</a>/// by handlers as the typed PK.
+<a href=#210 id=210 data-nosnippet>210</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>RowView {
+<a href=#211 id=211 data-nosnippet>211</a>    key: String,
+<a href=#212 id=212 data-nosnippet>212</a>    record_id: String,
+<a href=#213 id=213 data-nosnippet>213</a>    cells: Vec&lt;String&gt;,
+<a href=#214 id=214 data-nosnippet>214</a>    view_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#215 id=215 data-nosnippet>215</a>    edit_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#216 id=216 data-nosnippet>216</a>    delete_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#217 id=217 data-nosnippet>217</a>    <span class="doccomment">/// The row's delete POST target (`{prefix}/{key}/delete`): the
+<a href=#218 id=218 data-nosnippet>218</a>    /// Delete control hands it to the shared dialog before opening it, so the
+<a href=#219 id=219 data-nosnippet>219</a>    /// confirmed POST keeps the route the `?delete=` fallback uses.
+<a href=#220 id=220 data-nosnippet>220</a>    </span>delete_action: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#221 id=221 data-nosnippet>221</a>    <span class="doccomment">/// Whether the row renders a bulk checkbox: a row the
+<a href=#222 id=222 data-nosnippet>222</a>    /// [`Table::row_actions`] policy denies `delete` renders none, so
+<a href=#223 id=223 data-nosnippet>223</a>    /// `bulk.js` never sees its key and select-all cannot submit a batch the
+<a href=#224 id=224 data-nosnippet>224</a>    /// handler refuses wholesale.
+<a href=#225 id=225 data-nosnippet>225</a>    </span>selectable: bool,
+<a href=#226 id=226 data-nosnippet>226</a>    <span class="doccomment">/// The row's group label, when `?group_by=` named the declared group.
+<a href=#227 id=227 data-nosnippet>227</a>    /// Carried on every row so the page-local shim can order by it.
+<a href=#228 id=228 data-nosnippet>228</a>    </span>group: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#229 id=229 data-nosnippet>229</a>    <span class="doccomment">/// The header this row renders above itself, `Some` only on the first row
+<a href=#230 id=230 data-nosnippet>230</a>    /// of its group.
+<a href=#231 id=231 data-nosnippet>231</a>    </span>group_header: <span class="prelude-ty">Option</span>&lt;GroupHeader&gt;,
+<a href=#232 id=232 data-nosnippet>232</a>}
+<a href=#233 id=233 data-nosnippet>233</a>
+<a href=#234 id=234 data-nosnippet>234</a><span class="doccomment">/// One page-local group header: the label with its page-local count,
+<a href=#235 id=235 data-nosnippet>235</a>/// and the stable DOM id the injected header row carries so the in-place morph
+<a href=#236 id=236 data-nosnippet>236</a>/// can follow it (`row_dom_id`'s contract).
+<a href=#237 id=237 data-nosnippet>237</a></span><span class="attr">#[derive(Clone)]
+<a href=#238 id=238 data-nosnippet>238</a></span><span class="kw">struct </span>GroupHeader {
+<a href=#239 id=239 data-nosnippet>239</a>    <span class="doccomment">/// `"{label} ({n} on this page)"`.
+<a href=#240 id=240 data-nosnippet>240</a>    </span>text: String,
+<a href=#241 id=241 data-nosnippet>241</a>    <span class="doccomment">/// [`group_header_dom_id`] of the label.
+<a href=#242 id=242 data-nosnippet>242</a>    </span>dom_id: String,
+<a href=#243 id=243 data-nosnippet>243</a>}
+<a href=#244 id=244 data-nosnippet>244</a>
+<a href=#245 id=245 data-nosnippet>245</a><span class="kw">impl</span>&lt;M&gt; Table&lt;M&gt; {
+<a href=#246 id=246 data-nosnippet>246</a>    <span class="doccomment">/// Project the loaded page into the row presentation the template renders.
+<a href=#247 id=247 data-nosnippet>247</a>    ///
+<a href=#248 id=248 data-nosnippet>248</a>    /// Precomputed so template bodies capture only owned data — the lazy view
+<a href=#249 id=249 data-nosnippet>249</a>    /// outlives the render call, so it must never borrow `self` or `page`.
+<a href=#250 id=250 data-nosnippet>250</a>    ///
+<a href=#251 id=251 data-nosnippet>251</a>    /// The per-row delete URL opens the confirmation dialog on the list page
+<a href=#252 id=252 data-nosnippet>252</a>    /// (`?delete=&lt;key&gt;`); the per-row edit URL links to `{prefix}/{key}/edit`.
+<a href=#253 id=253 data-nosnippet>253</a>    /// Both — and the bulk checkbox values — carry the *record* key, resolved by
+<a href=#254 id=254 data-nosnippet>254</a>    /// handlers as the model's typed PK; the display `key` stays on keyed diffs
+<a href=#255 id=255 data-nosnippet>255</a>    /// and DOM ids.
+<a href=#256 id=256 data-nosnippet>256</a>    ///
+<a href=#257 id=257 data-nosnippet>257</a>    /// The chrome prefixes say which links the table *can* render; the
+<a href=#258 id=258 data-nosnippet>258</a>    /// [`Table::row_actions`] policy says which of them *this* record may use.
+<a href=#259 id=259 data-nosnippet>259</a>    /// A denied action emits no URL, and a row denied `delete` renders no bulk
+<a href=#260 id=260 data-nosnippet>260</a>    /// checkbox. The policy is consulted only when a prefix is wired.
+<a href=#261 id=261 data-nosnippet>261</a>    ///
+<a href=#262 id=262 data-nosnippet>262</a>    /// The delete URL's shared parameters are encoded once for the whole page:
+<a href=#263 id=263 data-nosnippet>263</a>    /// rebuilding them per row is work a client can inflate with an oversized
+<a href=#264 id=264 data-nosnippet>264</a>    /// query.
+<a href=#265 id=265 data-nosnippet>265</a>    ///
+<a href=#266 id=266 data-nosnippet>266</a>    /// Page-local grouping is display-only: `group_by` is a bare key closure with
+<a href=#267 id=267 data-nosnippet>267</a>    /// no lens, so no `ORDER BY` is derivable and a group cannot span pages. The
+<a href=#268 id=268 data-nosnippet>268</a>    /// shim therefore reorders *this page's* rows by the group label — a stable
+<a href=#269 id=269 data-nosnippet>269</a>    /// sort, so rows keep the query's order inside their group — and hangs each
+<a href=#270 id=270 data-nosnippet>270</a>    /// group's header off its first row. The query, its cursors and the export
+<a href=#271 id=271 data-nosnippet>271</a>    /// keep the declared ordering.
+<a href=#272 id=272 data-nosnippet>272</a>    ///
+<a href=#273 id=273 data-nosnippet>273</a>    /// Row keys must be injective within a page: duplicates corrupt keyed diffs
+<a href=#274 id=274 data-nosnippet>274</a>    /// and bulk selection.
+<a href=#275 id=275 data-nosnippet>275</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>row_views(
+<a href=#276 id=276 data-nosnippet>276</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#277 id=277 data-nosnippet>277</a>        state: <span class="kw-2">&amp;</span>TableState,
+<a href=#278 id=278 data-nosnippet>278</a>        path: <span class="kw-2">&amp;</span>str,
+<a href=#279 id=279 data-nosnippet>279</a>        page: <span class="kw-2">&amp;</span>TablePage&lt;M&gt;,
+<a href=#280 id=280 data-nosnippet>280</a>        row_key: <span class="kw-2">&amp;</span>RowKey&lt;M&gt;,
+<a href=#281 id=281 data-nosnippet>281</a>        record_key: <span class="kw-2">&amp;</span>RowKey&lt;M&gt;,
+<a href=#282 id=282 data-nosnippet>282</a>        group_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>GroupKey&lt;M&gt;&gt;,
+<a href=#283 id=283 data-nosnippet>283</a>    ) -&gt; Vec&lt;RowView&gt;
+<a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">where
+<a href=#285 id=285 data-nosnippet>285</a>        </span>M: toasty::schema::Model,
+<a href=#286 id=286 data-nosnippet>286</a>    {
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span>delete_url_base = <span class="self">self
+<a href=#288 id=288 data-nosnippet>288</a>            </span>.delete_prefix
+<a href=#289 id=289 data-nosnippet>289</a>            .as_ref()
+<a href=#290 id=290 data-nosnippet>290</a>            .map(|<span class="kw">_</span>| state.row_url_base(path));
+<a href=#291 id=291 data-nosnippet>291</a>        <span class="kw">let </span>gated = <span class="self">self</span>.delete_prefix.is_some()
+<a href=#292 id=292 data-nosnippet>292</a>            || <span class="self">self</span>.edit_prefix.is_some()
+<a href=#293 id=293 data-nosnippet>293</a>            || <span class="self">self</span>.view_prefix.is_some();
+<a href=#294 id=294 data-nosnippet>294</a>        <span class="kw">let </span><span class="kw-2">mut </span>row_data: Vec&lt;RowView&gt; = page
+<a href=#295 id=295 data-nosnippet>295</a>            .rows
+<a href=#296 id=296 data-nosnippet>296</a>            .iter()
+<a href=#297 id=297 data-nosnippet>297</a>            .map(|row| {
+<a href=#298 id=298 data-nosnippet>298</a>                <span class="kw">let </span>key = row_key(row);
+<a href=#299 id=299 data-nosnippet>299</a>                <span class="kw">let </span>record_id = record_key(row);
+<a href=#300 id=300 data-nosnippet>300</a>                <span class="kw">let </span>actions = <span class="kw">if </span>gated {
+<a href=#301 id=301 data-nosnippet>301</a>                    <span class="self">self</span>.actions_for(row)
+<a href=#302 id=302 data-nosnippet>302</a>                } <span class="kw">else </span>{
+<a href=#303 id=303 data-nosnippet>303</a>                    RowActions::ALL
+<a href=#304 id=304 data-nosnippet>304</a>                };
+<a href=#305 id=305 data-nosnippet>305</a>                <span class="kw">let </span>cells: Vec&lt;String&gt; = <span class="self">self
+<a href=#306 id=306 data-nosnippet>306</a>                    </span>.columns
+<a href=#307 id=307 data-nosnippet>307</a>                    .iter()
+<a href=#308 id=308 data-nosnippet>308</a>                    .map(|col| col.render_cell(row))
+<a href=#309 id=309 data-nosnippet>309</a>                    .collect();
+<a href=#310 id=310 data-nosnippet>310</a>                <span class="kw">let </span>edit_url = <span class="self">self
+<a href=#311 id=311 data-nosnippet>311</a>                    </span>.edit_prefix
+<a href=#312 id=312 data-nosnippet>312</a>                    .as_ref()
+<a href=#313 id=313 data-nosnippet>313</a>                    .filter(|<span class="kw">_</span>| actions.edit)
+<a href=#314 id=314 data-nosnippet>314</a>                    .map(|prefix| <span class="self">self</span>.action_url(row_edit_url(prefix, <span class="kw-2">&amp;</span>record_id)));
+<a href=#315 id=315 data-nosnippet>315</a>                <span class="kw">let </span>view_url = <span class="self">self
+<a href=#316 id=316 data-nosnippet>316</a>                    </span>.view_prefix
+<a href=#317 id=317 data-nosnippet>317</a>                    .as_ref()
+<a href=#318 id=318 data-nosnippet>318</a>                    .filter(|<span class="kw">_</span>| actions.view)
+<a href=#319 id=319 data-nosnippet>319</a>                    .map(|prefix| row_view_url(prefix, <span class="kw-2">&amp;</span>record_id));
+<a href=#320 id=320 data-nosnippet>320</a>                <span class="kw">let </span>delete_url = delete_url_base
+<a href=#321 id=321 data-nosnippet>321</a>                    .as_ref()
+<a href=#322 id=322 data-nosnippet>322</a>                    .filter(|<span class="kw">_</span>| actions.delete)
+<a href=#323 id=323 data-nosnippet>323</a>                    .map(|base| base.delete_dialog(<span class="kw-2">&amp;</span>record_id));
+<a href=#324 id=324 data-nosnippet>324</a>                <span class="comment">// The shared dialog's POST target for this row: the
+<a href=#325 id=325 data-nosnippet>325</a>                // row control hands it over before opening the dialog, so the
+<a href=#326 id=326 data-nosnippet>326</a>                // action and the control come from the one policy decision.
+<a href=#327 id=327 data-nosnippet>327</a>                </span><span class="kw">let </span>delete_action = <span class="self">self
+<a href=#328 id=328 data-nosnippet>328</a>                    </span>.delete_prefix
+<a href=#329 id=329 data-nosnippet>329</a>                    .as_ref()
+<a href=#330 id=330 data-nosnippet>330</a>                    .filter(|<span class="kw">_</span>| actions.delete)
+<a href=#331 id=331 data-nosnippet>331</a>                    .map(|prefix| <span class="self">self</span>.action_url(delete_action_url(prefix, <span class="kw-2">&amp;</span>record_id)));
+<a href=#332 id=332 data-nosnippet>332</a>                RowView {
+<a href=#333 id=333 data-nosnippet>333</a>                    key,
+<a href=#334 id=334 data-nosnippet>334</a>                    record_id,
+<a href=#335 id=335 data-nosnippet>335</a>                    cells,
+<a href=#336 id=336 data-nosnippet>336</a>                    view_url,
+<a href=#337 id=337 data-nosnippet>337</a>                    edit_url,
+<a href=#338 id=338 data-nosnippet>338</a>                    delete_url,
+<a href=#339 id=339 data-nosnippet>339</a>                    delete_action,
+<a href=#340 id=340 data-nosnippet>340</a>                    selectable: actions.delete,
+<a href=#341 id=341 data-nosnippet>341</a>                    group: group_key.map(|group| group(row)),
+<a href=#342 id=342 data-nosnippet>342</a>                    group_header: <span class="prelude-val">None</span>,
+<a href=#343 id=343 data-nosnippet>343</a>                }
+<a href=#344 id=344 data-nosnippet>344</a>            })
+<a href=#345 id=345 data-nosnippet>345</a>            .collect();
+<a href=#346 id=346 data-nosnippet>346</a>        <span class="kw">if </span>group_key.is_some() {
+<a href=#347 id=347 data-nosnippet>347</a>            row_data.sort_by(|a, b| a.group.cmp(<span class="kw-2">&amp;</span>b.group));
+<a href=#348 id=348 data-nosnippet>348</a>            <span class="kw">let </span><span class="kw-2">mut </span>start = <span class="number">0</span>;
+<a href=#349 id=349 data-nosnippet>349</a>            <span class="kw">while </span>start &lt; row_data.len() {
+<a href=#350 id=350 data-nosnippet>350</a>                <span class="kw">let </span>label = row_data[start].group.clone().unwrap_or_default();
+<a href=#351 id=351 data-nosnippet>351</a>                <span class="kw">let </span><span class="kw-2">mut </span>end = start;
+<a href=#352 id=352 data-nosnippet>352</a>                <span class="kw">while </span>end &lt; row_data.len() &amp;&amp; row_data[end].group.as_deref() == <span class="prelude-val">Some</span>(label.as_str())
+<a href=#353 id=353 data-nosnippet>353</a>                {
+<a href=#354 id=354 data-nosnippet>354</a>                    end += <span class="number">1</span>;
+<a href=#355 id=355 data-nosnippet>355</a>                }
+<a href=#356 id=356 data-nosnippet>356</a>                <span class="comment">// The count is page-local, and says so: a group split across
+<a href=#357 id=357 data-nosnippet>357</a>                // pages must not read as a table total. The header
+<a href=#358 id=358 data-nosnippet>358</a>                // carries an id derived from its label — never from its
+<a href=#359 id=359 data-nosnippet>359</a>                // position — so the in-place morph can follow it.
+<a href=#360 id=360 data-nosnippet>360</a>                </span>row_data[start].group_header = <span class="prelude-val">Some</span>(GroupHeader {
+<a href=#361 id=361 data-nosnippet>361</a>                    dom_id: group_header_dom_id(<span class="kw-2">&amp;</span>label),
+<a href=#362 id=362 data-nosnippet>362</a>                    text: <span class="macro">format!</span>(<span class="string">"{label} ({} on this page)"</span>, end - start),
+<a href=#363 id=363 data-nosnippet>363</a>                });
+<a href=#364 id=364 data-nosnippet>364</a>                start = end;
+<a href=#365 id=365 data-nosnippet>365</a>            }
+<a href=#366 id=366 data-nosnippet>366</a>        }
+<a href=#367 id=367 data-nosnippet>367</a>        <span class="macro">debug_assert!</span>(
+<a href=#368 id=368 data-nosnippet>368</a>            {
+<a href=#369 id=369 data-nosnippet>369</a>                <span class="kw">let </span><span class="kw-2">mut </span>seen = std::collections::HashSet::new();
+<a href=#370 id=370 data-nosnippet>370</a>                row_data.iter().all(|row| seen.insert(row.key.clone()))
+<a href=#371 id=371 data-nosnippet>371</a>            },
+<a href=#372 id=372 data-nosnippet>372</a>            <span class="string">"duplicate table keys in one page: the key projection must be injective"
+<a href=#373 id=373 data-nosnippet>373</a>        </span>);
+<a href=#374 id=374 data-nosnippet>374</a>        row_data
+<a href=#375 id=375 data-nosnippet>375</a>    }
+<a href=#376 id=376 data-nosnippet>376</a>}
 </code></pre></div></section></main></body></html>
