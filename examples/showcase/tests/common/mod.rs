@@ -139,7 +139,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
         },
         publication: showcase::models::Publication::Scheduled {
             scheduled_at: "2024-07-01T09:00:00Z".parse::<jiff::Timestamp>().unwrap(),
-            scheduled_for: String::new(),
+            scheduled_for: None,
         },
         author_id: a2.id,
     })

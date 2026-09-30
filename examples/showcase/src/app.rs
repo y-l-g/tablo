@@ -367,8 +367,15 @@ impl Resource for PostResource {
     }
 
     /// The post's public page, linked from the detail and edit headers.
+    ///
+    /// The blog serves published posts only, so an unpublished record links
+    /// nothing: the URL would answer not-found.
     fn public_url(_cx: &Cx, record: &Post) -> Option<String> {
-        Some(format!("/blog/{}", record.id))
+        if record.status == crate::blog::PUBLISHED {
+            Some(format!("/blog/{}", record.id))
+        } else {
+            None
+        }
     }
 
     /// One post, read-only. Each entry binds the same storage name

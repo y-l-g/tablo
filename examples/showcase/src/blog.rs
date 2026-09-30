@@ -27,7 +27,7 @@ use topcoat::{
 use crate::models::{Author, MediaAsset, Post};
 
 // The status a post carries once it is visible to the public.
-const PUBLISHED: &str = "published";
+pub(crate) const PUBLISHED: &str = "published";
 
 // The record key in `/blog/{id}`: the post's `Uuid`, parsed from the segment.
 path_param!(pub id: uuid::Uuid);

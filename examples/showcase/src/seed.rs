@@ -281,7 +281,7 @@ fn filler_embedded() -> (Seo, Publication) {
         },
         Publication::Scheduled {
             scheduled_at: "2024-07-01T09:00:00Z".parse::<Timestamp>().unwrap(),
-            scheduled_for: String::new(),
+            scheduled_for: None,
         },
     )
 }
@@ -370,7 +370,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             },
             publication: Publication::Scheduled {
                 scheduled_at: "2024-07-01T09:00:00Z".parse::<Timestamp>().unwrap(),
-                scheduled_for: "2024-08-01T09:00:00Z".to_string(),
+                scheduled_for: Some("2024-08-01T09:00:00Z".parse::<Timestamp>().unwrap()),
             },
             author_id: alan_author.id,
         })

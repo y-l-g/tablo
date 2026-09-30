@@ -76,7 +76,8 @@ pub struct Seo {
 ///
 /// The timestamps are `jiff::Timestamp`: the form binds them through
 /// a typed text field, which renders `type="datetime-local"` and reads the
-/// submission back as UTC.
+/// submission back as UTC. `scheduled_for` is optional, so an empty control
+/// stores no time instead of the epoch a bare `Timestamp` decodes to.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
 pub enum Publication {
     #[column(variant = 1)]
@@ -86,7 +87,7 @@ pub enum Publication {
         #[shared(timestamp)]
         #[form(label = "Publication timestamp")]
         scheduled_at: Timestamp,
-        scheduled_for: String,
+        scheduled_for: Option<Timestamp>,
     },
     #[column(variant = 2)]
     Published {
