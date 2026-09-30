@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,42 +181,65 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="security"><a class="header" href="#security">Security</a></h1>
-<p>The defaults Tablo ships with, and the deployment assumptions they depend on.</p>
+<p>What Tablo does by default, and what your deployment must provide for those defaults to hold.</p>
+<h2 id="your-deployment-must-provide"><a class="header" href="#your-deployment-must-provide">Your deployment must provide</a></h2>
 <ul>
-<li>All POSTs verify a double-submit <code>csrf_token</code> before any DB work. <code>confirm=1</code> is a UX step, not a
-boundary.</li>
-<li>A file field’s value comes only from a file part (the uploader’s answer, or the sanitized basename
-with no uploader), the record’s stored value on an untouched edit, or empty on <code>clear_&lt;field&gt;</code>. A
-re-rendered form’s <code>keep_&lt;field&gt;</code> candidate is re-used only when the installed uploader’s
-<code>holds(path)</code> confirms the store still has it, so a client-typed path is never stored. A stored
-value renders as a link only when it is rooted (<code>/…</code>, not <code>//host</code>) or an absolute
-<code>http(s)://…</code> URL; anything else renders as text (GH #277).</li>
-<li>Passwords use Argon2id. Unknown emails take the same code path, and login failures share one
-generic message.</li>
-<li>Deletes and bulk deletes re-fetch through <code>query()</code> and re-check policy inside the handler
-transaction.</li>
-<li>Table free-text is an escaped substring <code>LIKE</code> across the searchable columns (<code>like_with_escape</code> +
-<code>escape_like_pattern</code>), never a raw pattern. Do not interpolate raw input into SQL.</li>
-<li>Session, CSRF, and notification cookies use hardened <code>__Host-</code> + <code>Secure</code> settings. Localhost is
-exempt; non-localhost deploys need HTTPS or browsers drop them and mutations 403.</li>
-<li>Every response the panel’s layer chain produces, including the router’s own 404 and 405, carries
-<code>Content-Security-Policy: frame-ancestors 'self'</code>, so an admin page cannot be clickjacked from
-another origin. <code>Panel::frame_ancestors(..)</code> widens it for a deployment that frames the panel,
-<code>Panel::without_frame_ancestors()</code> sends none for a proxy that owns the whole policy, and an
-app’s own <code>Content-Security-Policy</code> on a handler response always wins — the layer only fills the
-gap. Three router responses are built outside every registered layer, so no layer can harden them: the 403 for a
-cross-site request, the 400 for a malformed <code>x-topcoat-identity</code> header, and the bare 500 for a
-panic.</li>
-<li>Redirects: <code>Err(redirect(..))</code> (307) for GETs, <code>Err(see_other(..))</code> (303 PRG) after mutations.
-Mid-stream they degrade to <code>window.location.replace</code>; streamed regions own their failure
-rendering. Wrap <code>Slot</code> in <code>error_boundary</code> for branded error pages.</li>
-<li>A served directory (<code>Panel::serve_dir</code>) shares the panel’s origin, so every file response the
-directory route serves carries <code>X-Content-Type-Options: nosniff</code>, a fixed sandboxing
-<code>Content-Security-Policy</code>, and <code>Content-Disposition: attachment</code> unless the file is a common raster
-image, audio/video or <code>text/plain</code>. An app that serves active documents mounts them on its own
-origin; the policy is not configurable. The directory route’s own failures keep Topcoat’s
-<code>text/plain</code> 404 page and an <code>Allow</code>-only empty 405, so they carry none of the served-file policy
-and no user content; the panel’s <code>frame-ancestors</code> layer still covers both.</li>
+<li><strong>HTTPS.</strong> The session, CSRF and notification cookies are <code>__Host-</code> cookies marked <code>Secure</code>.
+Browsers accept them over plain HTTP only on <code>localhost</code>; anywhere else, without HTTPS, the
+browser drops them and every form POST fails its CSRF check with 403.</li>
+<li><strong>Login rate limiting.</strong> Tablo has no rate limiter or account lockout. Limit login attempts at
+your proxy or firewall.</li>
+<li><strong>Session revocation.</strong> Call <code>auth::revoke_sessions_for_user</code> when a password changes or an
+account is deactivated; see <a href="./policy-auth-tenancy.html#authentication">Authentication</a>.</li>
+</ul>
+<h2 id="requests-and-writes"><a class="header" href="#requests-and-writes">Requests and writes</a></h2>
+<ul>
+<li>Every panel POST, login and logout included, verifies a double-submit CSRF token before touching
+the database; a missing or wrong token answers 403.</li>
+<li>Delete and bulk-delete POSTs also require the <code>confirm=1</code> marker the confirmation dialog sends.
+It prevents accidental deletes; it is not a security boundary.</li>
+<li>A form POST with a key the form does not declare answers 400, so a client cannot write a
+field the form does not show, such as <code>role</code> or <code>tenant_id</code>.</li>
+<li>Update and delete handlers load the target through the resource’s scoped query inside the
+write’s transaction and check policy on that row. See <a href="./policy-auth-tenancy.html#policy">Policy</a>.</li>
+<li>Table search escapes <code>%</code> and <code>_</code> and binds the term as a parameter; no user input is
+interpolated into SQL.</li>
+</ul>
+<h2 id="authentication"><a class="header" href="#authentication">Authentication</a></h2>
+<ul>
+<li>Passwords are hashed with Argon2id. A login for an unknown email verifies against a dummy hash,
+so it takes as long as a wrong password, and every failure shows the same message.</li>
+<li>Sessions are stored server-side, keyed by a hash of the cookie’s token, and replaced on login.</li>
+<li>A redirect after login follows <code>next</code> only to a same-origin path.</li>
+</ul>
+<h2 id="responses"><a class="header" href="#responses">Responses</a></h2>
+<ul>
+<li><strong>Framing.</strong> Every response the panel’s router produces, including its 404 and 405 pages,
+carries <code>Content-Security-Policy: frame-ancestors 'self'</code>, so another site cannot frame the
+admin. <code>Panel::frame_ancestors("'self' https://intranet.example")</code> changes the directive, and
+<code>Panel::without_frame_ancestors()</code> omits it for a proxy that sets its own policy. A
+<code>Content-Security-Policy</code> your own handler sets is kept. The router answers three errors before
+any layer runs, so they carry no header: the 403 for a cross-site request, the 400 for a
+malformed <code>x-topcoat-identity</code> header, and the 500 for a panic.</li>
+<li><strong>Redirects.</strong> Return <code>Err(redirect(..))</code> (307) from a <code>GET</code> and <code>Err(see_other(..))</code> (303) after
+a write, so a reload does not repeat it. A redirect raised after streaming started becomes a
+<code>window.location.replace</code>. Wrap a layout’s <code>Slot</code> in <code>error_boundary</code> for a branded error page.</li>
+<li><strong>Notifications</strong> are one-time flash cookies set on the redirect after a write and consumed by
+the next page, so a reload does not show them again.</li>
+</ul>
+<h2 id="uploaded-files"><a class="header" href="#uploaded-files">Uploaded files</a></h2>
+<ul>
+<li>A file field stores only a value that came from a file part: the uploader’s answer, the stored
+value on an untouched edit, or nothing when cleared. A path typed into the form is never stored.
+See <a href="./forms.html#file-uploads">File uploads</a>.</li>
+<li>A stored value renders as a link only when it is a root-relative path (<code>/…</code>, not <code>//host</code>) or an
+<code>http(s)</code> URL; anything else, such as <code>javascript:</code>, renders as text.</li>
+<li>Files served with <code>Panel::serve_dir</code> share the panel’s origin, so every file response carries
+<code>X-Content-Type-Options: nosniff</code>, a sandboxing <code>Content-Security-Policy</code>, and
+<code>Content-Disposition: attachment</code> unless the file is a common image, audio or video type or
+plain text. An uploaded HTML or SVG file therefore downloads instead of running script. The
+policy is fixed; serve active documents from another origin.</li>
+<li>Served directories are <strong>public</strong>: the auth gate does not cover them.</li>
 </ul>
 
                     </main>

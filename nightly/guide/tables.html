@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,61 +181,108 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="tables"><a class="header" href="#tables">Tables</a></h1>
-<p>The list view: columns and the row key, search and sort, filters, grouping and CSV export, live
-updates, and row and bulk delete.</p>
-<p>Minimal table:</p>
+<p>A resource’s <code>table()</code> declares its list page: the columns, the row key, and the search, sort,
+filter, grouping and pagination the list offers. The same declaration drives the CSV export.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Table::new(
-    |u: &amp;User| u.id.to_string(),
-    (
-        TextColumn::r#for(User::fields().name(), |u: &amp;User| u.name.clone())
-            .searchable()
-            .sortable(),
-        TextColumn::computed("Status", |u: &amp;User| {
-            if u.active { "Active".into() } else { "Inactive".into() }
-        }),
-    ),
-)
-.paginate(20)
+</span>fn table(_cx: &amp;Cx) -&gt; Table&lt;User&gt; {
+    Table::new(
+        |u: &amp;User| u.id.to_string(),
+        (
+            TextColumn::r#for(User::fields().name(), |u: &amp;User| u.name.clone())
+                .searchable()
+                .sortable(),
+            TextColumn::r#for(User::fields().email(), |u: &amp;User| u.email.clone()).searchable(),
+            TextColumn::computed("Status", |u: &amp;User| {
+                if u.active { "Active" } else { "Inactive" }.to_string()
+            }),
+        ),
+    )
+    .paginate(20)
+}
 <span class="boring">}</span></code></pre>
-<p>Notes:</p>
+<h2 id="the-row-key"><a class="header" href="#the-row-key">The row key</a></h2>
+<p><code>Table::new(key, columns)</code> takes the row key first. It must be the model’s primary key as a
+string: the table uses it to identify rows for selection and in-place updates, and the action
+URLs and bulk checkboxes carry it, where handlers parse it back into the primary key. A key that
+is not the primary key makes every delete answer 404.</p>
+<p>When rows must be keyed by something else in the page, <code>Table::new_split(display, record, columns)</code> takes the two keys separately: <code>display</code> identifies rows in the page and <code>record</code> is the
+primary key the URLs carry. Either way, keys must be unique within a page.</p>
+<h2 id="columns"><a class="header" href="#columns">Columns</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Constructor</th><th>Cell</th><th>Search and sort</th></tr>
+</thead>
+<tbody>
+<tr><td><code>TextColumn::r#for(lens, project)</code></td><td><code>project(row)</code>, bound to a <code>String</code> field</td><td><code>.searchable()</code>, <code>.sortable()</code></td></tr>
+<tr><td><code>TextColumn::computed(label, project)</code></td><td><code>project(row)</code></td><td>not available: calling either panics</td></tr>
+</tbody>
+</table>
+</div>
 <ul>
-<li><code>Table::new(key, columns)</code> declares the row key and the record key together: the row key
-keys rows for selection and live updates — never use a loop index — and the record key is
-what action URLs and bulk checkbox values carry. Handlers resolve the record key as the
-model’s typed primary key, so declare the primary key, not a display label: a non-PK
-projection makes every delete and bulk submit 404. A table whose display must stay a
-non-PK value uses <code>Table::new_split(display, record, columns)</code>, which carries the typed
-primary key in the URLs instead.</li>
-<li><code>searchable()</code> searches with <code>?q=</code>: an escaped substring match (<code>like_with_escape</code>, OR across
-searchable columns), so a term containing <code>%</code> or <code>_</code> matches those characters literally. <code>LIKE</code> is
-ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. <code>sortable()</code> sorts with
-<code>?sort=</code> and <code>?dir=</code>. Both work without JS.</li>
-<li>The URL is the state: <code>?q=</code>, <code>?sort=</code>, <code>?dir=</code>, <code>?after=</code> or <code>?before=</code>, <code>?f.&lt;name&gt;=</code>, <code>?group_by=</code>
-parse into <code>TableState</code>. Every table paginates, at 25 rows unless <code>.paginate(n)</code> sets another
-size; pagination is cursor based, and Toasty appends the PK tie-breaker internally so cursors stay
-deterministic.</li>
-<li>Columns render in a fixed layout (<code>table-fixed</code>): a column’s width is the one its header declares, not
-the widest cell on the current page, so filtering, sorting or paging never re-measures the columns.
-Widths are percentages of the table, so what a table declares is a share of its container rather than a
-length that can outgrow it. The default follows the column’s kind: a field column
-(<code>TextColumn::r#for</code>) declares nothing and takes what the declared columns leave, a computed column
-(<code>TextColumn::computed</code>) claims a share (10% nominally). The chrome columns — bulk selection, row
-actions — claim shares too, and the kind defaults scale down together when their total would leave the
-field columns less than 40% of the table. <code>TextColumn::width(ColumnWidth::..)</code> overrides either; an
-explicit <code>Rem</code> does not shrink with the table, so a table narrower than its lengths leaves the field
-columns no space at all. The width is emitted as an inline <code>style</code> — Tailwind generates only the class
-literals it finds in source — and a value wider than its column truncates with an ellipsis.</li>
-<li>A <code>w-full</code> table never exceeds its container on its own, so on a narrow viewport the percentages
-would crush the cells instead of scrolling: the table carries a <code>min-width</code> summing its declared
-widths (shares as emitted, lengths verbatim, one readability floor per wide column, a content floor on
-the actions column), and the wrapper’s <code>overflow-x-auto</code> scrolls once the table is wider than its
-container. The actions column pairs its share with that floor on its header and cells, so the row
-buttons fit instead of spilling past the table.</li>
-<li>Computed columns render only. They do not affect search or sort.</li>
+<li>
+<p><strong>Labels.</strong> A field column is labelled from its field name (<code>created_at</code> → “Created at”); a
+computed column uses the label you pass.</p>
+</li>
+<li>
+<p><strong>Relations.</strong> A column whose closure reads a relation declares it with <code>.include(..)</code>, and the
+list and the export load it with the page’s rows in one query. A relation no column includes
+is not loaded. Guard the read so a missing include fails loudly instead of showing blank data:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>TextColumn::computed("Author", |p: &amp;Post| {
+    if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
+})
+.include(Post::fields().author())
+<span class="boring">}</span></code></pre>
+</li>
+<li>
+<p><strong>Widths.</strong> The table uses a fixed layout: a column’s width is what it declares, not the width of
+its widest cell, so paging and filtering never shift the columns. A field column takes an equal
+share of the space left over; a computed column defaults to a narrow share of the table (10%,
+scaled down when many columns claim one). Override with <code>.width(ColumnWidth::Percent(30))</code>,
+<code>Rem(8)</code>, <code>Narrow</code> or <code>Wide</code>. A cell wider than its column is truncated with an ellipsis. On a
+narrow screen the table keeps a minimum width and scrolls horizontally instead of crushing its
+columns.</p>
+</li>
 </ul>
-<p>Filters:</p>
+<p>Two columns with the same name, or a table with no columns, panic; <code>Panel::build</code> reports it as a
+startup error.</p>
+<h2 id="search-sort-and-pagination"><a class="header" href="#search-sort-and-pagination">Search, sort and pagination</a></h2>
+<p>The URL holds the list’s whole state, so every view of a list is a link you can share:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Parameter</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>?q=ada</code></td><td>search: each searchable column contains <code>ada</code>; any column may match</td></tr>
+<tr><td><code>?sort=name&amp;dir=desc</code></td><td>sort by a sortable column; <code>dir</code> is <code>asc</code> (default) or <code>desc</code></td></tr>
+<tr><td><code>?after=…</code>, <code>?before=…</code></td><td>the next or previous page, as an opaque cursor</td></tr>
+<tr><td><code>?f.status=published</code></td><td>a filter: see <a href="#filters">Filters</a></td></tr>
+<tr><td><code>?group_by=status</code></td><td>grouping: see <a href="#grouping">Grouping</a></td></tr>
+</tbody>
+</table>
+</div>
+<ul>
+<li>Search escapes <code>%</code> and <code>_</code>, so they match literally. Terms are trimmed and capped at 128
+characters. Matching follows the database’s <code>LIKE</code>: case-insensitive for ASCII on SQLite,
+case-sensitive on PostgreSQL.</li>
+<li>Pagination is cursor-based, 25 rows per page unless <code>.paginate(n)</code> sets another size. The
+primary key breaks ties, so a sort over duplicate values still pages deterministically.</li>
+<li>All of it works without JavaScript. <code>.hide_search()</code> removes the search box, and
+<code>.hide_filter_bar()</code> the filter controls.</li>
+</ul>
+<h3 id="live-updates"><a class="header" href="#live-updates">Live updates</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>Table::new(|u: &amp;User| u.id.to_string(), columns).live_search()
+<span class="boring">}</span></code></pre>
+<p>With <code>live_search()</code>, typing in the search box, sorting, filtering and paging update the table
+in place, without a page load, keeping focus and scroll position. The plain links and forms
+remain for visitors without JavaScript.</p>
+<h2 id="filters"><a class="header" href="#filters">Filters</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>.filters((
@@ -244,50 +291,60 @@ buttons fit instead of spilling past the table.</li>
     DateFilter::r#for(Post::fields().created_at()),
 ))
 <span class="boring">}</span></code></pre>
-<p>Active filters travel as one <code>?f.&lt;name&gt;=&lt;value&gt;</code> parameter each (<code>?f.status=published</code>) and
-combine with AND. At most 32 filters apply, each with a name and a value of at most 256 bytes.
-Unknown keys, rejected values, dropped filters and the retired <code>?filters=</code> spelling never fail
-silently: the list renders a <code>role=alert</code> banner (<code>Table::unapplied_filters</code>) while export refuses
-with 400.</p>
-<p>Grouping and export:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Filter</th><th>Field</th><th>Values</th></tr>
+</thead>
+<tbody>
+<tr><td><code>SelectFilter::r#for(lens, options)</code></td><td><code>String</code></td><td>one of <code>options</code>, matched exactly</td></tr>
+<tr><td><code>TernaryFilter::r#for(lens)</code></td><td><code>bool</code></td><td><code>true</code>, <code>false</code>, or <code>all</code> (no filter)</td></tr>
+<tr><td><code>DateFilter::r#for(lens)</code></td><td><code>jiff::Timestamp</code></td><td>a date <code>2024-01-15</code> matches that UTC day; an RFC 3339 timestamp matches that instant</td></tr>
+<tr><td><code>VariantFilter::r#for(name, label, options)</code></td><td>any</td><td>named options, each a Toasty predicate you build</td></tr>
+</tbody>
+</table>
+</div>
+<p>Each active filter is one parameter, <code>?f.&lt;name&gt;=&lt;value&gt;</code>, named after the field, and active
+filters combine with AND. At most 32 filters apply, each name and value at most 256 bytes.</p>
+<p>A filter that cannot apply — an unknown name, a value the filter rejects, or one over the limits —
+is never dropped silently: the list shows a warning banner naming it, and the export refuses the
+request with 400 rather than export more rows than asked.</p>
+<h2 id="grouping"><a class="header" href="#grouping">Grouping</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>.group_by("status", |p: &amp;Post| p.status.clone())
 <span class="boring">}</span></code></pre>
+<p><code>?group_by=status</code> groups the current page’s rows under headers with a row count. Grouping runs
+on the loaded page, so the counts cover that page, not the whole table. A <code>?group_by=</code> value the
+table does not declare is ignored.</p>
+<h2 id="export"><a class="header" href="#export">Export</a></h2>
+<p><code>GET /admin/{slug}/export</code> returns the list as a CSV file named <code>{slug}.csv</code>, with the current
+search, filters and sort applied, and the relations the columns include loaded.</p>
 <ul>
-<li>Grouping is page-local with a row count per group. Toasty has no <code>GROUP BY</code> yet, so grouping never
-claims full-table totals. Unknown <code>?group_by=</code> values render no headers and drop from nav links.</li>
-<li><code>GET /admin/{slug}/export</code> returns the filtered set as CSV (<code>text/csv; charset=utf-8</code> +
-<code>Content-Disposition</code>, RFC4180 with OWASP formula-defusing), reusing the same filters and sort over
-the tenant-scoped <code>query</code> with the relations its columns include (ADR-0018). Capped at 10k viewable rows: per-row <code>can_view</code> runs before the cap, so 413
-reflects what the caller may receive. An export whose filtered set runs past the 10,001-row scan
-window is a 413 too, even when fewer rows would be viewable: the export never returns a partial
-file. <code>?bom=1</code> opts into an Excel BOM.</li>
-<li>Failed table loads render the branded <code>ErrorState</code> in-region, not a blank page.</li>
+<li>Rows the caller may not view (<code>can_view</code>) are left out.</li>
+<li>The export delivers at most 10,000 rows. When the search and filters match more, it answers
+413 rather than a truncated file.</li>
+<li>Cells that a spreadsheet would read as a formula are escaped. Add <code>?bom=1</code> to prefix the file
+with a byte-order mark for Excel.</li>
 </ul>
-<p>Live updates:</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>Table::new(|u: &amp;User| u.id.to_string(), columns).live_search()
-<span class="boring">}</span></code></pre>
-<p>Search, sort, filter, and pager controls then refresh the table in place without a full page load.
-The plain links and forms stay as the no-JS fallback.</p>
-<p>Panel wires the bulk checkbox column when the resource’s <code>can_delete_any()</code> allows, the same
-predicate the delete handlers check. The column then follows <code>can_view</code> + <code>can_delete</code> per record
-(GH #235): a row either one refuses renders no checkbox,
-so select-all never submits a key the handler would refuse
-the whole batch over. A row refused every action keeps an empty actions cell,
-so the row keeps a cell per header. Bulk delete asks first: the bulk bar’s
-button opens an alert dialog that names how many rows are selected, and its confirm control is the
-only thing carrying the <code>confirm=1</code> the handler requires — a POST without that marker is a 400, so
-the safeguard does not depend on the script that opens the dialog (GH #184).</p>
-<p>Row delete asks first too, and the dialog opens in place (GH #233): the row control names the
-table’s one dialog and carries that record’s POST target. Confirming it needs no navigation
-(GH #234): the client follows the POST’s 303, mounts the flash toast the handler set, and refreshes
-the table through the shard — a delete costs the confirmed POST, the list render behind the redirect
-(whose body is discarded except the toast) and one <code>table_search</code> request. Cancel is a button, so
-dismissing never navigates; the control’s <code>?delete=&lt;key&gt;</code> href stays as the no-JS fallback, which
-renders the same dialog open with the action already set.</p>
+<h2 id="row-actions-and-deletes"><a class="header" href="#row-actions-and-deletes">Row actions and deletes</a></h2>
+<p>Each row shows the actions its record allows:</p>
+<ul>
+<li><strong>View</strong> when the resource declares a detail page (<code>view()</code>) and <code>can_view</code> allows the record;</li>
+<li><strong>Edit</strong> when the resource has a record form and <code>can_view</code> and <code>can_update</code> allow it;</li>
+<li><strong>Delete</strong> when <code>can_delete_any</code> allows deletes and <code>can_view</code> and <code>can_delete</code> allow the record.</li>
+</ul>
+<p>A row that allows none keeps an empty actions cell.</p>
+<p>When <code>can_delete_any</code> allows deletes, the list adds a checkbox column and a bulk bar. A row whose
+record may not be deleted gets no checkbox, so select-all only selects deletable rows. A bulk
+delete accepts at most 400 records and deletes all of them or none.</p>
+<p>Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
+confirming it deletes the row, shows a notification and refreshes the table without leaving the
+page. The bulk bar’s button opens a dialog stating how many rows are selected. The delete
+handlers refuse a POST that was not confirmed through the dialog with 400, and without
+JavaScript the Delete link renders the list with its dialog already open.</p>
+<p>If the table fails to load, the list shows an error state with a retry link in place of the rows;
+the rest of the page still renders.</p>
 
                     </main>
 

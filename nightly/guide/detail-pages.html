@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,96 +181,122 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="detail-pages"><a class="header" href="#detail-pages">Detail pages</a></h1>
-<p>A read-only page for one record (GH #187): the <code>view</code> schema, what renders, related rows, and the
-current limits.</p>
-<p>A resource can show one record read-only by declaring <code>view</code>, a <code>Schema</code> in the form’s vocabulary
-read the other way round (ADR-0016). Like Filament’s infolist it is its own declaration: it may show
-keys the form does not, and a resource with no form declares one too.</p>
+<p>A detail page shows one record, read-only, at <code>GET /admin/{slug}/{id}</code>. A resource gets one by
+declaring <code>view()</code>: a <code>Schema</code> built from the same fields and layout blocks as a form.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn view(cx: &amp;Cx) -&gt; Schema {
+</span>fn view(_cx: &amp;Cx) -&gt; Schema {
     Schema::new(Section::new("Post").schema((
         Field::text(Post::fields().title()),
         Field::text(Post::fields().body()).multiline(6),
+        Field::choice(Post::fields().status()).options(vec!["draft".into(), "published".into()]),
     )))
 }
 <span class="boring">}</span></code></pre>
-<p>That registers <code>GET /admin/{slug}/{id}</code> — loaded through the tenant-scoped query, so an unknown id
-and one outside the tenant are the same 404, while <code>can_view</code> denial is a 403 — and adds a <code>View</code>
-control beside <code>Edit</code> on each row. A resource with no <code>view</code> declaration has no page and no link, and
-the route answers 404 rather than rendering an empty shell. The page’s header links back to the
-list, and to the edit form when the resource has one and <code>can_update</code> allows this record — the gate
-the row’s <code>Edit</code> control uses.</p>
-<p>The heading is the record’s label when the resource declares one:</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn record_label(cx: &amp;Cx, record: &amp;Post) -&gt; Option&lt;String&gt; {
-    Some(record.title.clone())
-}
-<span class="boring">}</span></code></pre>
-<p>The default returns <code>None</code>, and the heading is then <code>{label} {id}</code> — one record’s name and the URL’s
-record key. A label is display text, not a key: two records may share one, so it does not
-replace <code>Table::new</code>’s key, which must stay injective within a page for keyed diffs (GH #241).</p>
+<p>Declaring a view adds a View action to each row. A resource without one has no detail page: the
+route answers 404 and no row links to it. The view is its own declaration, so it may show fields
+the form does not, and a list-only resource can declare one too.</p>
+<h2 id="what-the-page-shows"><a class="header" href="#what-the-page-shows">What the page shows</a></h2>
+<p>The header carries the record’s title, a link back to the list, and an Edit link when the resource
+has a form and <code>can_update</code> allows this record. Below it come the view’s fields, then any
+<a href="#free-form-content">free-form content</a>, then the <a href="#related-tables">related tables</a>.</p>
+<p>Each field renders its label and its stored value, never a control:</p>
 <ul>
-<li><strong>Read-only is not a disabled form.</strong> Fields render labels and stored values:
-a text field shows text, a choice shows the option label the form offered (or the stored value
-when no option matches, a relationship key included), a file field shows the stored path as a link
-to the file (GH #242), an embedded enum shows its stored variant’s name and payload, and layout
-blocks keep their structure. No control, no CSRF field, no validation slot.</li>
-<li><strong>Values come from the form’s projection</strong> (<code>RecordForm::hydrate</code>), so a field that renders in
-the form renders here; <code>view_values</code> adds a key only the view shows. A <code>NoForm</code> resource
-supplies every key through <code>view_values</code>. A field whose key neither supplies renders <code>(missing)</code>
-and fails a <code>debug_assert!</code>, as a list column shows <code>(unloaded)</code> for a relation its query did not
-load (ADR-0011): a blank would read as an empty value.</li>
-<li><strong>Free-form content</strong> — anything read off the record that is not one of its fields, such as a
-word count — renders through <code>view_content(cx, record)</code>, below the fields. The page loads
-through <code>view_query</code>, so include there any relation the hook or <code>view_values</code> reads.</li>
-<li><strong>Related rows</strong> render as <a href="#relations">relations</a>, below the content.</li>
-<li>A typed column (<code>Uuid</code>, <code>jiff::Timestamp</code>) is readable: bind it with <code>Field::text</code> (GH #192)
-and the view renders its stored value as text. A foreign key therefore reads as its stored id
-rather than the related record’s label — show the label through <code>view_values</code> when a reader
-needs it.</li>
-<li><code>IntoSchema</code> takes at most eight top-level blocks; a longer view wraps a ninth in a <code>Group</code>.</li>
+<li>a text field shows the value as text, typed values included;</li>
+<li>a choice shows the label of the matching option, or the stored value when none matches, so a
+relationship choice shows the stored key, not the related record’s name;</li>
+<li>a file field shows the stored path as a link, under the rules in
+<a href="./forms.html#file-uploads">File uploads</a>;</li>
+<li>an embedded enum shows its variant’s name and that variant’s fields;</li>
+<li>layout blocks keep their structure.</li>
 </ul>
-<h2 id="relations"><a class="header" href="#relations">Relations</a></h2>
-<p>A record’s related rows — a post’s comments — render on its detail and edit pages as the related
-resource’s own list table, narrowed to the record (Filament’s relation managers):</p>
+<p><strong>Where values come from.</strong> A field the record form binds shows the form’s value for it, the
+same value the edit form starts with. <code>view_values(cx, record)</code> supplies every other key, as a map
+from field name to display text; when both supply a key, the form’s value wins. A <code>NoForm</code>
+resource supplies every key there:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>impl Resource for PostResource {
-    fn relations() -&gt; Vec&lt;Relation&lt;Post&gt;&gt; {
-        vec![Relation::has_many::&lt;CommentResource, _&gt;(
-            Comment::fields().post_id(),
-            |post: &amp;Post| post.id,
-        )]
-    }
+</span>fn view_values(_cx: &amp;Cx, audit: &amp;Audit) -&gt; HashMap&lt;String, String&gt; {
+    HashMap::from([
+        ("action".to_string(), audit.action.clone()),
+        ("created_at".to_string(), audit.created_at.to_string()),
+    ])
 }
 <span class="boring">}</span></code></pre>
-<p><code>has_many</code> names the related resource and the binding between the two: the related model’s
-foreign-key column and the owner’s value for it (a nullable key takes the owner’s value in
-<code>Some</code>). The table is <code>CommentResource</code>’s: its columns, search, sort, filters and pager, over its
-tenant-scoped query plus <code>post_id = &lt;this post&gt;</code>. Its policies apply as on its list: a request
-<code>can_view_any</code> refuses, or one without a tenant the related resource requires, gets no section.
-The section is titled with the related resource’s navigation label; <code>.label(..)</code> overrides it.</p>
-<p>The detail page shows the rows read-only, as Filament’s view page does: each row keeps its View
-link. The edit page carries the writes: the row Edit and Delete actions, bulk delete, and the
-create link, each gated per row or by <code>can_create</code> as on the list.</p>
-<p>The relation’s URL parameters are prefixed with the related resource’s slug — <code>?comments.q=</code>,
-<code>?comments.sort=</code>, <code>?comments.after=</code> — so several relations share one page without colliding.
-A link or a form in one relation carries only that relation’s parameters.</p>
-<p>On the edit page, when the related resource has a form and <code>can_create</code> allows it, the section
-links a create button to that resource’s create page with the owner already chosen
-(<code>/admin/comments/create?post_id=…</code>): the create page seeds a relationship control a query
-parameter names, and nothing else. The seed is a prefill, and the write checks what is submitted
-as for any create.</p>
-<p>Writes started from the relation return to the page it is on: the create link, the row edit and
-delete actions and the bulk delete carry <code>?return=</code>, and the write redirects there instead of to
-the related resource’s list. The panel follows a <code>return</code> only to a path under its own prefix.</p>
-<p><code>Panel::build</code> rejects a relation to a resource the panel does not register — its row actions and
-create link would lead nowhere — and two relations of one resource to the same related resource.
-A table declared <code>live_search</code> stays live in a relation: sorting, searching, filtering and paging
-re-render that table in place, with its URL parameters prefixed by the relation’s key, and without
-JavaScript its links and forms fall back to full page loads.</p>
+<p>To show something that is not a column’s own value, such as the author’s name behind
+<code>author_id</code>, render it as <a href="#free-form-content">free-form content</a>.</p>
+<p>A field no source fills renders <code>(missing)</code>, and fails a <code>debug_assert!</code> in debug builds.</p>
+<p><strong>Loading.</strong> The record loads through <code>view_query</code> — <code>query</code> by default — with the tenant scope
+applied. Include there every relation <code>view_values</code> or <code>view_content</code> reads:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn view_query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
+    let author: Include&lt;Post, Author&gt; = Post::fields().author().into();
+    Self::query(cx).include(author)
+}
+<span class="boring">}</span></code></pre>
+<p>An unknown id and an id outside the request’s tenant are the same 404; a record <code>can_view</code> refuses
+is a 403.</p>
+<p><strong>Title.</strong> <code>record_label</code> sets the page title; without it the title is the resource’s <code>label()</code> and
+the record’s key, such as “Post 3f2a…”:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn record_label(_cx: &amp;Cx, post: &amp;Post) -&gt; Option&lt;String&gt; {
+    Some(post.title.clone())
+}
+<span class="boring">}</span></code></pre>
+<p><code>public_url(cx, record)</code> adds a “View public post” link to the header when it returns a URL.</p>
+<h2 id="free-form-content"><a class="header" href="#free-form-content">Free-form content</a></h2>
+<p><code>view_content(cx, record)</code> renders anything that is not a field, such as a word count, below the
+fields:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn view_content&lt;'a&gt;(cx: &amp;'a Cx, post: &amp;Post) -&gt; Option&lt;BoxView&lt;'a&gt;&gt; {
+    let words = post.body.split_whitespace().count();
+    Some(
+        view! { cx =&gt; &lt;p class="text-sm text-muted-foreground"&gt;(format!("{words} words"))&lt;/p&gt; }
+            .boxed(),
+    )
+}
+<span class="boring">}</span></code></pre>
+<p>The returned view may borrow <code>cx</code> but not the record: compute what you need from the record first.</p>
+<h2 id="related-tables"><a class="header" href="#related-tables">Related tables</a></h2>
+<p><code>relations()</code> lists the related resources whose rows belong to a record. Each renders on the
+record’s detail and edit pages as that resource’s own list table, narrowed to the record:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn relations() -&gt; Vec&lt;Relation&lt;Post&gt;&gt; {
+    vec![Relation::has_many::&lt;CommentResource, _&gt;(
+        Comment::fields().post_id(), // the related model's foreign key
+        |post: &amp;Post| post.id,       // the owner's value for it
+    )]
+}
+<span class="boring">}</span></code></pre>
+<p>For a nullable foreign key, the owner’s value is wrapped in <code>Some</code>. The table is
+<code>CommentResource</code>’s — its columns, search, sort, filters and pager — over its tenant-scoped query
+plus <code>post_id = &lt;this post&gt;</code>. It is titled with the related resource’s <code>navigation_label()</code>, or
+<code>.label(..)</code>.</p>
+<ul>
+<li><strong>Policy.</strong> The related resource’s policies apply as on its own list: no section renders when
+its <code>can_view_any</code> refuses, or when it requires a tenant the request lacks, and each row keeps
+only the actions its record allows.</li>
+<li><strong>Detail page versus edit page.</strong> On the detail page the table is read-only: rows keep only
+their View action. On the edit page rows also carry Edit and Delete, the table has bulk delete,
+and a create button appears when the related resource has a form and allows <code>can_create</code>.</li>
+<li><strong>Creating from the parent.</strong> The create button opens the related resource’s create page with
+the owner preselected, as in <code>/admin/comments/create?post_id=…</code>. The create page accepts such a
+parameter only for a relationship choice; the value is a default, and the submitted form is
+validated like any other create.</li>
+<li><strong>Returning.</strong> Writes started from a related table carry <code>?return=</code> and redirect back to the
+page they started on. The panel follows <code>return</code> only to a path under its own prefix.</li>
+<li><strong>URL parameters.</strong> Each related table’s parameters are prefixed with the related resource’s
+slug — <code>?comments.q=</code>, <code>?comments.sort=</code>, <code>?comments.after=</code> — so several tables share one page.</li>
+<li><strong>Live search.</strong> A related table whose resource declares <code>live_search()</code> stays live: sorting,
+searching, filtering and paging re-render that table in place. Without JavaScript its links and
+forms fall back to full page loads.</li>
+</ul>
+<p><code>Panel::build</code> refuses a relation to a resource the panel does not register, and two relations of
+one resource to the same related resource.</p>
 
                     </main>
 

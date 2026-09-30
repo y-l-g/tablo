@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,30 +181,68 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="testing-and-benchmarks"><a class="header" href="#testing-and-benchmarks">Testing and benchmarks</a></h1>
-<p>How to test a panel, what the showcase covers, and the performance harness and its budget.</p>
-<p>Panel behavior is tested over HTTP through the shared harness in <code>crates/tablo-test</code>:
-<code>tablo_test::TestClient</code> drives a <code>Router</code> in memory and carries the cookies, tenant, and CSRF
-token a request needs, with body readers, form and multipart writers, and HTML scrapers alongside
-it. Cover each resource policy fn. Cover scoping in <code>query()</code>.</p>
-<p>The showcase has integration tests per area (list, create, edit, delete, bulk, filters, tenancy,
-uploads, export, auth) under <code>examples/showcase/tests/</code>.</p>
-<pre><code class="language-sh">cargo test -p showcase
-node --test crates/tablo-ui/assets/*.test.js   # the shell asset suites
-cargo run --manifest-path benchmarks/tablo/Cargo.toml -- --bench
-./benchmarks/scripts/bench.sh
+<h2 id="testing-a-panel"><a class="header" href="#testing-a-panel">Testing a panel</a></h2>
+<p>Test a panel over HTTP, in memory: build the router against a test database and send it requests.
+The <code>tablo-test</code> crate provides <code>TestClient</code>, which carries cookies, a tenant and a CSRF token, and
+helpers to build form bodies and read responses. It is not published; depend on it from the same
+source as <code>tablo-core</code>.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use tablo_test::{TestClient, form_body};
+
+#[tokio::test]
+async fn books_cannot_be_deleted() {
+    let db = seeded_db().await; // your fixture: an in-memory database with rows
+    let id = first_book_id(&amp;db).await;
+    let router = Panel::new("admin")
+        .app_context(db.clone())
+        .resource::&lt;BookResource&gt;()
+        .auth(Auth::disabled())
+        .build()
+        .unwrap();
+    let client = TestClient::new(&amp;router);
+
+    assert_eq!(client.get("/admin/books").await.status(), 200);
+
+    // A POST needs the CSRF cookie and a matching `csrf_token` field.
+    let token = uuid::Uuid::new_v4().to_string();
+    let response = client
+        .csrf(&amp;token)
+        .post_form(
+            &amp;format!("/admin/books/{id}/delete"),
+            form_body(&amp;[("csrf_token", &amp;token), ("confirm", "1")]),
+        )
+        .await;
+    assert_eq!(response.status(), 403); // `can_delete_any` is not overridden
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li><strong>Cover every policy predicate</strong> with a request that it allows and one that it refuses, and
+assert on the database as well as the status code.</li>
+<li><strong>Cover <code>query()</code> scoping</strong> by seeding a row the scope excludes and asserting that the list,
+the detail page and a delete all miss it.</li>
+<li><strong>Tenancy.</strong> <code>client.tenant(id)</code> scopes a request to a tenant, the way a signed-in user’s tenant
+would.</li>
+<li><strong>Signed-in requests.</strong> With authentication on, sign in through <code>POST /admin/login</code> once and
+reuse the client’s cookies, or insert an <code>AuthSession</code> row directly to skip the password hash.</li>
+</ul>
+<p><code>examples/showcase/tests/</code> is a complete suite covering lists, forms, deletes, filters, export,
+tenancy, uploads and authentication; its <code>common</code> module holds the fixtures above.</p>
+<h2 id="the-browser-scripts"><a class="header" href="#the-browser-scripts">The browser scripts</a></h2>
+<p><code>tablo-ui</code>’s client scripts are plain browser scripts with no build step. Their unit tests run on
+Node’s built-in runner:</p>
+<pre><code class="language-sh">node --test crates/tablo-ui/assets/*.test.js
 </code></pre>
-<p>The shell scripts under <code>crates/tablo-ui/assets/</code> are plain browser scripts loaded through
-<code>asset!</code>, so they have no build step and no runner of their own. Each carries a guarded
-<code>module.exports</code> at the bottom so Node’s built-in runner can reach it: <code>selects.test.js</code> covers the
-combobox filter rule (GH #184), the hide-and-drop-<code>required</code> wiring (GH #236, GH #249) and the
-single wiring pass (GH #237), and <code>bulk.test.js</code> covers the selection helpers and the disabled-box
-skip (GH #235). The Rust-side markup assertions cover what the scripts leave alone.</p>
-<p>Budget: 50-row list with 2 preloaded relations renders under 40ms p50 on local SQLite. <strong>This is a
-target, not a gate</strong> (GH #171): the harness prints it “for reference only; UNGATED” and never
-PASS/FAILs on it, and <code>benchmarks/results/</code> is gitignored, so no committed number exists on a fresh
-checkout. The skeleton ships first, rows stream in after.</p>
-<p>Setup details — the detached bench workspace, the <code>oha</code> methodology, and the compile-only
-axum-maud/leptos stubs — are in <code>benchmarks/README.md</code>.</p>
+<h2 id="benchmarks"><a class="header" href="#benchmarks">Benchmarks</a></h2>
+<p>The benchmark renders a 50-row list with two included relations, under tenancy and policy, through
+the same path as the panel’s list page:</p>
+<pre><code class="language-sh">cargo run --manifest-path benchmarks/tablo/Cargo.toml -- --bench
+./benchmarks/scripts/bench.sh   # adds an HTTP run with `oha`
+</code></pre>
+<p>The target is under 40 ms at the median on local SQLite. It is a reference, not a pass/fail gate:
+the harness prints the target beside the measurement. Results are written to
+<code>benchmarks/results/</code>, which is not committed. <code>benchmarks/README.md</code> covers the setup, the
+optional PostgreSQL run and the method.</p>
 
                     </main>
 

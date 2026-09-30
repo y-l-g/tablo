@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,12 +181,10 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="forms"><a class="header" href="#forms">Forms</a></h1>
-<p>Create and edit forms: the record form a submission parses into, typed lenses, layout blocks, the
-fields and what each one guarantees, file uploads, and how validation failures are reported.</p>
+<p>A resource with create and edit pages declares two things: a <strong>record form</strong>, the typed struct a
+submission parses into, and a <strong>schema</strong> in <code>form()</code>, the controls the page renders. <code>Panel::build</code>
+checks that the two agree.</p>
 <h2 id="the-record-form"><a class="header" href="#the-record-form">The record form</a></h2>
-<p>A resource with a create or edit form declares one struct, <code>#[derive(RecordForm)]</code>, with one field
-per model column the form writes. A field’s name is the model field’s name and its type is the
-model field’s type, so a renamed or retyped column is a compile error:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>#[derive(tablo_core::RecordForm)]
@@ -196,31 +194,36 @@ pub struct UserForm {
     pub email: String,
     #[form(blank = "member")]
     pub role: String,
-    #[form(blank = true)]
-    pub active: bool,
     #[form(blank = 0)]
     pub age: i64,
 }
 <span class="boring">}</span></code></pre>
-<p>A field is a <strong>scalar</strong> — <code>String</code>, a <code>TypedValue</code> type, or an <code>Option</code> of one — bound to the key
-its control posts, or an <strong>embedded value</strong> marked <code>#[form(embed)]</code> (an <code>EmbeddedForm</code>
-type, bound to every key it occupies and written whole). A column the form does not write stays
-off the struct: a gated resource’s <code>tenant_id</code> is stamped by the framework on create, and a column
-like <code>created_at</code> takes a toasty <code>#[default(..)]</code> on the model. The derive also emits
-<code>UserFormField</code>, one variant per field.</p>
-<p><code>#[form(blank = &lt;expr&gt;)]</code> is what an empty submission stores. <code>String</code> answers <code>""</code> and
-<code>Option&lt;T&gt;</code> answers <code>None</code> without one; any other type needs <code>blank</code> wherever its control may be
-left empty.</p>
-<p>The resource names the struct as its <code>Form</code> and declares the form’s schema in <code>form()</code>:</p>
+<p>Each field names a model field and has that field’s type, so renaming or retyping a column breaks
+the build. A field is either a <strong>scalar</strong> — <code>String</code>, a <a href="#typed-values">typed value</a>, or an
+<code>Option</code> of one — bound to the one key its control posts, or an <a href="#embedded-values">embedded value</a>
+marked <code>#[form(embed)]</code>.</p>
+<p>Leave out the columns the form does not write: the tenant column of a tenant-owned resource, which
+the framework sets on create, and columns with a Toasty <code>#[default(..)]</code> or <code>#[auto]</code>.</p>
+<p><strong>Blank values.</strong> <code>#[form(blank = &lt;expr&gt;)]</code> is what a field stores when its control is submitted
+empty. <code>String</code> stores <code>""</code> and <code>Option&lt;T&gt;</code> stores <code>None</code> without one; any other type needs
+<code>blank</code> when its control is optional.</p>
+<p>The resource names the struct as its <code>Form</code> and declares the controls:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    fn table(cx: &amp;Cx) -&gt; Table&lt;User&gt; { /* … */ }
-
-    fn form(_cx: &amp;Cx) -&gt; Schema { /* the controls, as below */ }
+    fn form(_cx: &amp;Cx) -&gt; Schema {
+        Schema::new(Section::new("Profile").schema((
+            Field::text(User::fields().name()),
+            Field::text(User::fields().email()).email(),
+            Field::choice(User::fields().role())
+                .options(vec!["admin".into(), "member".into()])
+                .optional(),
+            Field::text(User::fields().age()).optional(),
+        )))
+    }
 
     fn validate_record(_cx: &amp;Cx, form: &amp;UserForm) -&gt; FieldErrors {
         let mut errors = FieldErrors::new();
@@ -229,200 +232,198 @@ left empty.</p>
         }
         errors
     }
-}
 
-Panel::new("admin").resource::&lt;UserResource&gt;()
-<span class="boring">}</span></code></pre>
-<p>Each error names the key it renders under — the control’s own key, an embedded value’s flattened
-one, or a <code>Repeater</code> group’s label. A key the submitted form renders nowhere — one the schema
-declares no control for, or a field of a variant group the chosen variant hides — fails the submit
-as a declaration error instead of writing past the rule.</p>
-<p>A resource with a record form gets the create page, the edit page, and the relationship-options
-endpoint. A list-only resource names <code>type Form = NoForm&lt;Self::Model&gt;;</code> and leaves <code>form()</code> at its
-empty default; it gets none of them.</p>
-<p><code>create_record</code> and <code>update_record</code> default to the derived write, so a resource whose write is
-“store what the form says” declares neither. One that checks something inside the transaction
-overrides the record fn and delegates:</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>async fn update_record(
-    cx: &amp;Cx,
-    record: Comment,
-    posted: Posted&lt;CommentForm&gt;,
-    ex: &amp;mut dyn toasty::Executor,
-) -&gt; Result&lt;Comment&gt; {
-    // `Posted` derefs to the form: an unposted `post_id` reads as the stored one.
-    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
-    tablo_core::write_update::&lt;Self&gt;(cx, record, posted, ex).await
+    // table(), policy …
 }
 <span class="boring">}</span></code></pre>
-<p>A record fn that writes more than the form owns uses the builders: <code>form.into_create()</code> is the
-model’s create builder with every field set, and <code>posted.into_update(&amp;mut record)</code> is the instance
-update builder with one assignment per field the submission named, or <code>None</code> when it named none.</p>
-<p>What a submission does:</p>
-<ul>
-<li><strong>An unposted key keeps its value.</strong> On edit, every declared key the submission does not post is
-filled from the stored record before validation and the parse, and the write assigns only the
-fields the submission named, plus the model’s own <code>#[update(..)]</code> defaults and <code>#[version]</code> bump.
-An emptied control is posted, so it stores the field’s blank answer; an emptied leaf of an
-embedded value follows the same rule — the <code>#[form(blank = ..)]</code> answer it declares, else the
-type’s own (<code>""</code> for <code>String</code>, <code>None</code> for <code>Option&lt;T&gt;</code>) — and a leaf with neither is refused
-inline. A leaf of a variant group the discriminant hides is not read at all. An API client can
-post one field of an edit.</li>
-<li><strong>Errors render in one round.</strong> Schema rules, the unique probe, a value the form’s type refuses,
-and <code>validate_record</code> render inline with a 200 and write nothing. <code>validate_record</code> sees a whole
-form, so it runs once every field parses.</li>
-<li><strong><code>Panel::build</code> checks the struct against the schema</strong>: a <code>NoForm</code> resource declares no
-schema; every control is bound by exactly one
-field and every field’s key is a declared control; an optional control, or one inside a
-<code>Repeater</code>, binds a field with a blank answer, an embedded value answering when each of its leaves
-does — a control a submission can skip, an embedded enum’s discriminant or a variant group’s
-payload outside a <code>Repeater</code>, is not asked; a gated resource’s form does
-not claim its tenant column; and, where <code>can_create</code> allows it, every non-nullable column is a
-form field, filled by toasty (<code>#[auto]</code>, <code>#[default(..)]</code>), the stamped tenant column, or named in
-<code>Resource::CREATE_COLUMNS</code> by a create override that sets it.</li>
-</ul>
+<p><code>Panel::build</code> refuses the resource unless every control is bound by exactly one form field,
+every form field has a control, every optional control’s field has a blank value, and — when
+<code>can_create</code> is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
+stamp, or by an overridden <code>create_record</code> that lists it in <code>Resource::CREATE_COLUMNS</code>.</p>
 <h2 id="controls"><a class="header" href="#controls">Controls</a></h2>
-<p>Every control is a <code>Field</code>, built from a typed lens, never a string path:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>Schema::new((
     Section::new("Account").schema((
-        Field::text(User::fields().email()).email().unique(),
-        Field::choice(User::fields().role())
-            .options(vec!["admin".into(), "member".into()]),
+        Field::text(User::fields().email()).email(),
+        Field::choice(User::fields().role()).options(vec!["admin".into(), "member".into()]),
     )),
     Grid::new(2).schema((
         Field::text(User::fields().name()),
         Field::text(User::fields().bio()).multiline(4),
-        Field::file(MediaAsset::fields().path()),
     )),
 ))
 <span class="boring">}</span></code></pre>
-<p>What to know:</p>
+<p><strong>Layout blocks</strong> arrange fields: <code>Section::new(title)</code> is a titled card, <code>Group::new()</code> an untitled
+container, and <code>Grid::new(cols)</code> a grid of 1 to 12 columns. <code>Repeater::new(label)</code> is a titled group
+that may be left entirely empty: its fields’ rules apply once one of them is filled, and
+<code>.required()</code> refuses an all-empty group. A schema or block takes a tuple of at most eight children;
+nest a <code>Group</code> for more.</p>
+<p><strong>Fields</strong> are built from a Toasty field lens:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Constructor</th><th>Column</th><th>Control</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Field::text(lens)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td><code>&lt;input&gt;</code>, or <code>&lt;textarea&gt;</code> with <code>.multiline(rows)</code></td></tr>
+<tr><td><code>Field::choice(lens)</code></td><td>any</td><td><code>&lt;select&gt;</code> over static options or a relationship</td></tr>
+<tr><td><code>Field::file(lens)</code></td><td><code>String</code> holding the file’s path</td><td>file input: see <a href="#file-uploads">File uploads</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>Every field takes <code>.label(..)</code>, <code>.required()</code> and <code>.optional()</code>. The label defaults to the column
+name in sentence case, and <code>required</code> defaults to whether the column is non-nullable. The other
+modifiers belong to one kind of field and panic on another, which <code>Panel::build</code> reports:</p>
 <ul>
-<li>Layout blocks: <code>Section</code>, <code>Group</code>, <code>Grid</code>, <code>Repeater</code>. Fields: <code>Field::text</code>, <code>Field::choice</code>,
-<code>Field::file</code>. <code>.multiline(rows)</code> renders a text field as a <code>&lt;textarea&gt;</code>. A modifier belongs to one
-control — <code>email</code>, <code>unique</code>, <code>placeholder</code>, <code>multiline</code> to text; <code>options</code>, <code>options_with_labels</code>,
-<code>relationship</code>, <code>searchable</code> to choice — and on another control it panics, naming the field.</li>
-<li>A constructor takes a column’s lens (<code>User::fields().email()</code>) or a <code>ResolvedLens</code>:
-<code>ResolvedLens::new(cx, Post::fields().seo().title())</code> resolves a lens through an embedded struct, an
-enum variant, or a <code>#[document]</code> to its flattened storage column (<code>seo_title</code>), for every kind of
-field. An embedded leaf is optional by default; <code>.required()</code> opts in.</li>
-<li><code>required</code> defaults to the column nullability. Use <code>.optional()</code> to opt out. A bare choice over a
-non-nullable FK rejects <code>""</code> inline instead of failing at the driver.</li>
-<li><code>email()</code> applies the <code>email_address</code> grammar at the form edge: a text domain needs two labels
-(<code>a@b</code> and <code>a@b..c</code> are refused), a display name is a header rather than an address, and the whole
-address is capped at 254 octets (RFC 5321 §4.5.3.1.3). A quoted local part
-(<code>"a b"@example.com</code>), a unicode address (<code>用户@例え.jp</code>) and a bracketed domain literal
-(<code>a@[127.0.0.1]</code>) pass.</li>
-<li><strong><code>Field::text</code> binds any <code>FormScalar</code> column</strong>: <code>String</code>, a <code>TypedValue</code> type, or an <code>Option</code> of
-one (GH #192). <code>Field::text(User::fields().age())</code> over an <code>i64</code> renders the value’s <code>Display</code>,
-parses the submission through the type, and refuses what it cannot parse as an inline field error
-naming the input — <code>`twelve` is not a valid whole number</code> — instead of a 500 or a silent
-default. What is stored is the type’s own spelling of the parsed value, so a value re-submitted
-unchanged is written back in the shape it was read. <code>TypedValue</code> covers the integer types, <code>bool</code>,
-<code>f32</code>, <code>f64</code>, <code>Uuid</code> and <code>jiff::Timestamp</code>; an app type implements it (<code>NOUN</code> names it in the
-error, <code>INPUT_TYPE</code> sets the control’s <code>type</code>, and <code>parse_input</code> reads a submission). A
-<code>jiff::Timestamp</code> renders <code>type="datetime-local"</code>: the control carries no zone, so the stored
-instant renders in UTC and a submission is read back as UTC. Empty is the presence rule’s business,
-not the typed one: a typed column has no spelling for “no value”, so an empty submission on an
-optional typed field stores the record form field’s blank answer.</li>
-<li><code>unique()</code> does two things. It adds an app-level pre-check — Toasty exposes no unique-violation
-predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and on
-a non-nullable column it implies <strong>presence</strong>: an empty <code>String</code> stores <code>""</code>, so an empty value on
-a unique field is refused inline as <code>"&lt;Label&gt; is required"</code> instead of being written past an index
-that admits only one (GH #189). <code>.optional()</code> does not lift that rule there. An <code>Option</code> column
-stores NULL for an empty value, which the index admits many times, so a unique <code>Option</code> field
-follows its own <code>required</code>. <code>Panel::build</code> refuses a
-<code>unique()</code> marker on a column with no unique index (single-field or composite, <code>#[unique(a, b)]</code>
-included), so the declaration and the database cannot disagree about which fields are unique.</li>
-<li>A relationship choice validates the FK against the related resource query before the write runs:</li>
+<li>text: <code>.email()</code>, <code>.unique()</code>, <code>.placeholder(..)</code>, <code>.multiline(rows)</code>;</li>
+<li>choice: <code>.options(..)</code>, <code>.options_with_labels(..)</code>, <code>.relationship(..)</code>, <code>.searchable()</code>.</li>
 </ul>
+<h3 id="typed-values"><a class="header" href="#typed-values">Typed values</a></h3>
+<p><code>Field::text</code> binds more than strings. Over an integer, float, <code>bool</code>, <code>Uuid</code> or
+<code>jiff::Timestamp</code> column it renders the stored value and parses the submission back through the
+type. A value the type refuses is an inline error naming it: <code>`twelve` is not a valid whole number</code>. A <code>jiff::Timestamp</code> renders a <code>datetime-local</code> input, which carries no time zone, so
+values display and parse as UTC.</p>
+<p>Implement <code>TypedValue</code> to bind your own type: <code>NOUN</code> names it in errors, <code>INPUT_TYPE</code> sets the
+input’s <code>type</code>, and <code>parse_input</code> reads a submission (by default through <code>FromStr</code>).</p>
+<h3 id="email-and-uniqueness"><a class="header" href="#email-and-uniqueness">Email and uniqueness</a></h3>
+<p><code>.email()</code> renders <code>type="email"</code> and refuses what is not an address: a domain needs two labels
+(<code>a@b</code> is refused), a display name (<code>Ada &lt;ada@example.com&gt;</code>) is refused, and the address is capped
+at 254 bytes.</p>
+<p>A text field over a column with a unique index checks uniqueness before the write, and reports a
+taken value inline. <code>.unique()</code> states it explicitly; <code>Panel::build</code> refuses <code>.unique()</code> on a
+column without a unique index, single-column or composite. The check is a query before the write,
+so two concurrent submissions can both pass it; the database index stays the final guard.</p>
+<p>On a non-nullable column, uniqueness also makes the field required, even with <code>.optional()</code>:
+an empty <code>String</code> is stored as <code>""</code>, and the index admits only one. An <code>Option</code> column stores
+<code>NULL</code> for an empty value, so a unique <code>Option</code> field may stay optional.</p>
+<h3 id="relationships"><a class="header" href="#relationships">Relationships</a></h3>
+<p>A choice over a foreign key loads its options from the related resource:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>Field::choice(Post::fields().author_id())
     .relationship::&lt;AuthorResource&gt;(
-        AuthorResource::query,
-        |a: &amp;Author| a.id,
-        |a: &amp;Author| a.name.clone(),
+        AuthorResource::query,          // names the source; options load through its scoped query
+        |a: &amp;Author| a.id,              // the option value: the primary key
+        |a: &amp;Author| a.name.clone(),    // the option label
     )
+    .searchable()
     .label("Author")
 <span class="boring">}</span></code></pre>
 <ul>
-<li>
-<p>Relation options are bounded to 200 (<code>MAX_RELATIONSHIP_OPTIONS</code>) and memoized per
-<code>(request, tenant)</code>. Small tables validate against the bounded set; <code>can_view</code> filters before
-labels, <code>can_view_any</code>/tenant denial fails closed (<code>not available</code>).</p>
-</li>
-<li>
-<p>Large reference tables (10k+ rows) need <code>.searchable()</code> on the choice (GH #150): an over-cap
-searchable choice degrades to type-to-search instead of a retry error. Typing fetches
-<code>GET {parent_list_url}/options?field=&amp;q=</code> (debounced 200ms, abort in-flight, selection preserved),
-which reuses the related <code>Table</code>’s declared <code>searchable()</code> columns (<code>search_expr</code>), bounds to 200,
-and filters <code>can_view</code> before labels. No searchable columns → hard-cap path (non-searchable keeps
-the cap error). Overflowed submits validate via a targeted PK check (the tenant-scoped query +
-<code>can_view</code>): legitimate FKs beyond the cap pass, hidden → <code>invalid</code>, denied → <code>not available</code>, DB
-failure → retry. Initial render keeps the stored value + search input + “Too many options — type
-to search” hint; no-JS keeps the plain select (other fields still submit, relation cannot be
-changed past the cap).</p>
-</li>
-<li>
-<p><code>Field::file</code> binds a <code>String</code> path and owns the request half: no <code>value</code> on <code>type=file</code>,
-<code>enctype="multipart/form-data"</code> when a form has one, a 10 MiB body cap (413), a 400 for multipart
-without a boundary, and sanitized basenames (<code>.</code> / <code>..</code> / Windows reserved names surface as inline
-errors). On an edit the control drops native <code>required</code> (GH #184) — a <code>required</code> file input cannot
-be pre-filled, so it blocked every untouched save; <code>required</code> still holds on create. A value reaches
-the field only from a file part (the uploader’s own answer, a re-rendered form’s carried upload
-included), from the record on an untouched edit, or as empty on <code>clear_&lt;field&gt;</code>; text typed under
-the field’s name is dropped (GH #277).</p>
-</li>
-<li>
-<p><strong>Where the bytes go is the app’s</strong> (GH #188, ADR-0017): install an <code>Uploader</code> once with
-<code>Panel::uploads(store)</code>. <code>store(filename, bytes) -&gt; Result&lt;String, String&gt;</code> receives the sanitized
-name and the content (bounded by the cap) and returns the value the record stores; a refusal is an
-inline error (<code>"&lt;Label&gt; could not be uploaded: &lt;reason&gt;"</code>), not a 500. With no uploader installed
-the sanitized basename is stored — the default — and the bytes are drained rather than buffered.
-A form that re-renders with errors carries the path that store just returned in a hidden
-<code>keep_&lt;field&gt;</code> control, because the browser’s file input is empty on the next attempt: implement
-<code>Uploader::holds(path)</code> to make that carry survive the submit (GH #297). The framework re-uses a
-carried path only when <code>holds</code> confirms the store still has it — <code>holds</code> must answer <code>true</code> only
-for a path the store itself produced and resolves inside its own root — and it defaults to <code>false</code>,
-which keeps the behaviour of a store that does not implement it: no carry, so the next submit
-fails <code>required</code> (create) or an edit keeps the record’s stored file.</p>
-</li>
-<li>
-<p>The stored path renders as a link to the file, on the edit form and on the detail page (GH #242),
-only when it is a rooted path or an absolute <code>http(s)</code> URL (GH #277): the framework reads no
-extension and renders what the app stored, inventing no URL convention, and any other value — a
-bare basename, a <code>javascript:</code> scheme — renders as text rather than a clickable <code>href</code>.
-<code>Panel::serve_dir(path, dir)</code> mounts the directory an upload store writes to. A served directory is
-<strong>public</strong> (ADR-0017): its URLs answer whoever asks, with no session, because the auth gate covers
-only the panel prefix and <code>/_topcoat/runtime</code> (ADR-0013) and a served directory is mounted outside
-both. An app that needs protected files owns that route itself. Every stored value also offers a
-<code>clear_&lt;field&gt;</code> checkbox (“Remove the current file”), the one control that means “remove” rather
-than “keep”; an empty file input still means keep. Clearing does not waive <code>required</code> — a resource
-whose records may lose their file declares <code>.optional()</code>.</p>
-</li>
-<li>
-<p><code>Repeater</code> is a single-entry group. An all-empty group is skipped, so its inner required fields do
-not fail the submit. A <code>required</code> repeater yields one label-keyed error; a partially filled group
-still enforces inner <code>required</code>. An embedded enum’s variant groups follow the discriminant a
-submission names (GH #191): only the named variant’s fields validate, so a stale value in a group
-the user cannot see never blocks the submit (GH #297). A submission that names no variant hides
-nothing, because the value codec’s payload fallback may still read any group.</p>
-</li>
-<li>
-<p><code>unique()</code> exists on text fields; the probe parses the submission into the field’s type and
-compares it through the field’s own lens.</p>
-</li>
+<li>Options come from the related resource’s tenant-scoped query and follow its policy: the list is
+empty and the field shows “not available” unless the related resource allows <code>can_view_any</code>,
+and each record must pass its <code>can_view</code>.</li>
+<li>A submitted key must be one of those records, so a hand-crafted POST cannot point at another
+tenant’s row.</li>
+<li>At most 200 options load. Past that, a <code>.searchable()</code> choice turns into type-to-search against
+<code>GET {list_url}/options</code>, which searches the related table’s <code>searchable()</code> columns; a
+non-searchable choice shows an error instead. <code>.searchable()</code> also filters a short list as
+you type. Without JavaScript the plain select remains.</li>
 </ul>
-<p>Validation errors render inline per field. On create an absent key validates as <code>""</code>; on edit it
-validates as its stored value. Handlers reject unknown form keys with 400 (<code>role</code> / <code>tenant_id</code>
-smuggling fails closed; only <code>csrf_token</code>, <code>clear_&lt;field&gt;</code> and <code>keep_&lt;field&gt;</code> are exempt), and the
-record form parses declared keys only, so an extra posted key never reaches a write.</p>
-<p>Embedded values declare one form node and flatten their fields; see
-<a href="./data-access.html#embedded-values">Data access</a>.</p>
+<h2 id="submitting"><a class="header" href="#submitting">Submitting</a></h2>
+<ul>
+<li><strong>Validation runs in one round.</strong> Required fields, email, relationships, uniqueness and typed
+parsing are checked together, and the form re-renders with every error inline, with status 200
+and nothing written. <code>validate_record</code> needs the parsed form, so it runs only when every field
+parses. Each error names the key it renders under: the control’s key, an embedded value’s
+flattened key, or a repeater’s label. An error keyed to something the form does not render
+fails the request instead of being dropped.</li>
+<li><strong>Unknown keys are refused.</strong> A POST carrying a key the form does not declare answers 400, so a
+client cannot smuggle in <code>role</code> or <code>tenant_id</code>. The CSRF token and the file fields’ <code>clear_</code> and
+<code>keep_</code> keys are the exceptions.</li>
+<li><strong>An edit writes only what was posted.</strong> On an edit, a declared key missing from the submission
+keeps its stored value, and the update assigns only the fields the submission named, plus the
+model’s own <code>#[update(..)]</code> defaults and <code>#[version]</code> bump. An API client can post a single
+field. A control submitted empty is posted, and stores its field’s blank value.</li>
+</ul>
+<p>To write more than the form holds, override <code>create_record</code> or <code>update_record</code>
+(<a href="./resources.html#writes">Resources</a>) and use the builders: <code>form.into_create()</code> is the model’s
+create builder with every form field set, and <code>posted.into_update(&amp;mut record)</code> is the update
+builder with one assignment per posted field, or <code>None</code> when nothing was posted.</p>
+<h2 id="file-uploads"><a class="header" href="#file-uploads">File uploads</a></h2>
+<p><code>Field::file</code> binds a <code>String</code> column that stores the file’s path or URL, never its bytes. A form
+with a file field is sent as <code>multipart/form-data</code>, with a 10 MiB body limit (larger answers 413).
+Filenames are reduced to a safe basename before anything sees them.</p>
+<p>Where the bytes go is your app’s decision. Install an <code>Uploader</code> on the panel:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct DirUploader { dir: PathBuf }
+
+impl Uploader for DirUploader {
+    async fn store(&amp;self, filename: &amp;str, bytes: &amp;[u8]) -&gt; Result&lt;String, String&gt; {
+        let name = format!("{}-{filename}", uuid::Uuid::new_v4());
+        tokio::fs::write(self.dir.join(&amp;name), bytes)
+            .await
+            .map_err(|_| "the upload could not be written".to_string())?;
+        Ok(format!("/uploads/{name}")) // the value the record stores
+    }
+}
+
+Panel::new("admin")
+    .uploads(DirUploader { dir: dir.clone() })
+    .serve_dir("/uploads/{*file}", dir)
+<span class="boring">}</span></code></pre>
+<ul>
+<li><code>store</code> returns the value to save. An <code>Err(reason)</code> is shown to the user inline as
+<code>&lt;Label&gt; could not be uploaded: &lt;reason&gt;</code>, so keep the reason free of paths and driver messages.
+Without an uploader the panel stores the sanitized filename and discards the bytes.</li>
+<li><strong>Keeping a file across a failed submit.</strong> When a form re-renders with errors, the file input is
+empty again. The form carries the path <code>store</code> just returned, and the panel reuses it on the next
+submit only when <code>Uploader::holds(path)</code> answers <code>true</code>. The default answers <code>false</code>, so the user
+uploads again. Answer <code>true</code> only for a path your store produced and still holds inside its own
+root; checking whether an arbitrary path exists would let a client pick any file.</li>
+<li><strong>Editing.</strong> The edit form shows the stored file as a link and an empty file input. Leaving it
+empty keeps the file; the “Remove the current file” checkbox (<code>clear_&lt;field&gt;</code>) empties the
+field. The input is required only while nothing is stored, and clearing a required field fails
+validation, so declare <code>.optional()</code> when a record may lose its file.</li>
+<li><strong>Links.</strong> The stored value renders as a link, on the edit form and the detail page, only when
+it is a root-relative path (<code>/uploads/a.png</code>, not <code>//host</code>) or an <code>http(s)</code> URL; anything else
+renders as text.</li>
+<li><strong>Serving.</strong> <code>Panel::serve_dir(path, dir)</code> serves a directory, and the served files are
+<strong>public</strong>: the auth gate does not cover them. An app that needs protected files serves them
+from its own route. See <a href="./security.html">Security</a> for the headers served files carry.</li>
+</ul>
+<h2 id="embedded-values"><a class="header" href="#embedded-values">Embedded values</a></h2>
+<p>A Toasty <code>#[derive(Embed)]</code> struct or enum is stored in its parent’s row as flattened columns
+(<code>seo_title</code>, <code>seo_description</code>). Derive <code>EmbeddedForm</code> on it and the form binds the whole value:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
+pub struct Seo {
+    pub title: String,
+    #[form(multiline = 3)]
+    pub description: String,
+}
+
+// In `form()`: one call renders a control per field.
+Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()))
+
+// In the record form: the value is one field.
+#[derive(tablo_core::RecordForm)]
+#[form(model = Post)]
+pub struct PostForm {
+    pub title: String,
+    #[form(embed)]
+    pub seo: Seo,
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li>Every field of the value is a scalar, or a nested value marked <code>#[form(embed)]</code>.
+<code>#[form(label = "…")]</code>, <code>#[form(multiline = N)]</code> and <code>#[form(blank = ..)]</code> customize a field;
+an unknown attribute is a compile error.</li>
+<li>Embedded fields are optional by default. An emptied field stores its blank value, and a field
+with no blank value refuses an empty submission inline.</li>
+<li><strong>Enums</strong> render a choice of variant plus one group of fields per variant; the page shows only
+the chosen variant’s group, and the variant can change on edit. The submission’s variant decides
+which fields are read and validated, so a stale value in a hidden group never blocks a submit.
+Without JavaScript every group renders, and the variant choice still decides.</li>
+<li>Not supported inside a value: a <code>#[document]</code> field, a relation, an enum nested inside an enum
+variant, and tuple structs.</li>
+</ul>
+<p>To bind a single embedded field on its own, pass a <code>ResolvedLens</code>:
+<code>Field::text(ResolvedLens::new(cx, Post::fields().seo().title()))</code> binds the flattened <code>seo_title</code>
+column. Such a field is optional unless you call <code>.required()</code>.</p>
 
                     </main>
 

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,199 +181,164 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="resources"><a class="header" href="#resources">Resources</a></h1>
-<p>The <code>Resource</code> trait: how one Toasty model maps to its admin UI, what the framework checks at boot,
-and how tenancy is declared.</p>
-<p>One resource maps one Toasty model to its admin UI:</p>
+<p>A resource is the admin for one Toasty model: which rows it lists, how its table and form look,
+who may see and change a record, and how a write runs. You implement the <code>Resource</code> trait on a
+unit struct and register it with <code>Panel::resource</code>.</p>
+<p>The smallest resource lists rows and nothing else:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>pub trait Resource: Sized + Send + Sync + 'static {
-    type Model: toasty::schema::Model + Send + Sync + Clone + 'static;
-    type Form: RecordForm&lt;Model = Self::Model&gt;;     // required: a record form, or NoForm
-    fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: Query::all()
-    fn view_query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: query(cx)
-    fn view_values(_cx: &amp;Cx, _record: &amp;Self::Model)
-        -&gt; HashMap&lt;String, String&gt;;                 // default: empty
-    fn table(_cx: &amp;Cx) -&gt; Table&lt;Self::Model&gt;;       // required: Table::new(key, columns)
-    // plus can_* policy fns (default deny), slug/navigation/requires_tenant
-    // defaults, form()/validate_record and the record fns
-}
-<span class="boring">}</span></code></pre>
-<p>Every resource registers with <code>Panel::resource</code>, which serves the list, the detail page, delete,
-bulk delete, and export. A resource whose <code>Form</code> is a <code>#[derive(RecordForm)]</code> struct also gets the
-create page, the edit page, and the relationship options
-(<a href="./forms.html#the-record-form">Forms</a>); a list-only resource names
-<code>type Form = NoForm&lt;Self::Model&gt;;</code> and links to no create page.</p>
-<h2 id="the-contract"><a class="header" href="#the-contract">The contract</a></h2>
-<p>Every item except <code>Model</code>, <code>Form</code>, and <code>table()</code> is defaulted, so a resource names its model and
-its form and declares its list view, and any other omission has to fail loudly instead of quietly:</p>
-<ul>
-<li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): a
-<code>NoForm</code> resource whose <code>can_create</code> is on, or whose <code>form()</code> declares a schema,
-fails the build, since it serves no form; a record form must agree with its <code>form()</code> schema
-(<a href="./forms.html#the-record-form">Forms</a>). <code>table()</code>, <code>form()</code> and
-<code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
-and each list and form request calls <code>table()</code> / <code>form()</code> again, so a declaration must not need
-request-scoped context.</li>
-<li><strong>Chrome follows the declarations, gated per record</strong>: the row Delete control, the bulk column,
-and the bulk bar render when <code>can_delete_any()</code> allows, the Edit link when the resource has a
-record form, and the View link when it declares <code>view()</code>. <code>can_delete_any()</code> defaults to <code>false</code>
-and the delete handlers check it too, so a resource that never mentions it renders no delete
-affordance and answers every delete POST with 403. <code>can_delete()</code> defaults to <code>can_delete_any()</code>;
-override it to refuse some rows. The panel applies the row predicates <strong>per row</strong> through the
-table’s row policy (GH #235), so a row <code>can_update()</code> refuses renders no Edit link, a row
-<code>can_delete()</code> refuses renders no Delete link and no bulk checkbox, and a row <code>can_view()</code>
-refuses renders no View link. Select-all therefore submits only the rows the handler will accept
-— the showcase’s SSO-guarded user is the worked example: its row keeps the View link and nothing
-else. The handler keeps its all-or-nothing check on the POST as the safety net for a hand-crafted
-request.</li>
-<li><strong>Default-deny stands</strong>: every <code>can_*</code> defaults to <code>false</code>, except <code>can_delete()</code>, which defaults
-to <code>can_delete_any()</code>; an unconfigured resource exposes no data and no mutation.</li>
-</ul>
-<h2 id="what-to-know"><a class="header" href="#what-to-know">What to know</a></h2>
-<ul>
-<li><code>slug()</code>, <code>label()</code>, and <code>navigation_label()</code> have working defaults. <code>label()</code> is one record’s
-name, used in the “Create” and “Edit” titles; <code>navigation_label()</code> pluralizes it for the sidebar
-and the list title. Override <code>label()</code> to rename, and <code>navigation_label()</code> only for a plural the
-rules cannot guess.</li>
-<li><code>navigation()</code> curates this resource’s sidebar entry: override it to change the label, the <code>order</code>
-(lower renders first, ties keep declaration order), the icon or the URL, e.g.
-<code>NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }</code> or
-<code>NavigationItem::for_resource::&lt;Self&gt;().icon(tablo_ui::icons::USERS)</code>. <code>tablo_ui::icons</code> carries
-a set of navigation icons; an app that stages an icon set of its own passes any <code>IconData</code>. The URL is the Panel’s
-call: <code>for_resource</code> names none, so the panel that mounts the resource resolves it to
-<code>{prefix}/{slug}</code>, and a resource never links at <code>/admin</code> on a panel mounted elsewhere. Spell a
-URL out instead (<code>NavigationItem::at(..)</code>) only to link somewhere other than the resource’s list
-page — the Panel keeps it verbatim.</li>
-<li><code>query()</code> is the seam for the resource’s <strong>own</strong> row scoping: soft deletes and row-level
-visibility. Every loader starts from it, as does app code that calls <code>scoped_query</code>. Tenancy is not
-its job: when <code>requires_tenant()</code> is <code>true</code> the framework derives the <code>tenant_id</code> filter from the
-model’s own schema and ANDs it onto whatever <code>query</code> returns, at every loader (GH #223), so
-restating it here is redundant. Relations are not its job either (ADR-0018): the list and the
-export load the relations their columns declare with <code>TextColumn::include(..)</code>, and the detail
-page loads <code>view_query</code>. Include a relation in <code>query</code> only when every loader needs it, such as one
-<code>can_view</code> reads. The option loaders run <code>query</code>, so an option label projects the related record’s
-own columns.</li>
-<li><code>view_query()</code> is the detail page’s query: <code>query</code> plus the relations <code>view_values</code> or
-<code>view_content</code> read off the record, e.g. <code>Self::query(cx).include(author)</code>. The framework ANDs
-the tenant scope onto it too. A <a href="./detail-pages.html#relations">relation</a> runs its own query.</li>
-<li><code>table()</code> and <code>form()</code> are hand-written, and so is the impl itself: a resource is <code>type Model</code> plus
-whichever hooks it uses. There is no <code>Resource</code> derive (GH #222); the macros crate ships
-<code>derive(EmbeddedForm)</code> (GH #191) and <code>derive(RecordForm)</code> (GH #369), which types the form’s
-values rather than declaring the resource.</li>
-</ul>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct UserResource;
+</span>pub struct AuditResource;
 
-impl Resource for UserResource {
-    type Model = User;
-    type Form = NoForm&lt;Self::Model&gt;;
-}
+impl Resource for AuditResource {
+    type Model = Audit;
+    type Form = NoForm&lt;Audit&gt;; // list-only: no create or edit pages
 
-struct PostResource;
-
-impl Resource for PostResource {
-    type Model = Post;
-    type Form = NoForm&lt;Self::Model&gt;;
-
-    // the resource's own scoping seam, spelled out where it is used
-    fn query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
-        // soft deletes, row-level visibility, includes — not the tenant filter
-    }
-}
-<span class="boring">}</span></code></pre>
-<ul>
-<li>Record fns (<code>create_record</code> / <code>update_record</code>, <code>delete_record</code>,
-<code>bulk_delete_records</code>) do the writes. Handlers load records, check policy, then call them in a
-transaction. <code>create_record</code> and <code>update_record</code> return the row they wrote — the create builder
-hands the created one back and a Toasty instance update reloads the model, so both are already in
-hand — because that is the only way the framework can name what a write committed (GH #112). The
-derived <code>write_update</code> ends with the reloaded record, and a model used by a <code>Resource</code> derives
-<code>Clone</code>. <code>delete_record</code> defaults to deleting the row by its record key through <code>scoped_query</code>,
-and <code>bulk_delete_records</code> loops over <code>delete_record</code>, so one override (a soft delete, say) covers
-both.</li>
-<li><code>after_commit(cx, committed)</code> is the post-commit seam (GH #112): called once per committed write,
-after the transaction and before the response, with a <code>Committed</code> naming the mutation
-(<code>Mutation::Create/Update/Delete</code>) and the rows it wrote (a bulk delete is one call with all of
-them). It is where email, webhooks, audit rows and cache invalidation belong — running them in a
-record fn leaks the effect on a rollback, and the transaction’s pool discipline forbids a second
-handle while it is open. The default is a no-op, a hook failure is logged without touching the
-committed write, and it never runs when nothing committed.</li>
-<li>The edit form hydrates from <code>RecordForm::hydrate</code>, which the derive generates.
-<code>view_values(cx, record)</code> is the detail page’s projection for a list-only resource, and adds any
-key only the view shows for a form resource. <code>cx</code> is the request’s: a scalar projection needs
-nothing from it, but an embedded value’s keys come from the compiled mapping (GH #191).</li>
-</ul>
-<h2 id="tenancy"><a class="header" href="#tenancy">Tenancy</a></h2>
-<p>Tenancy is declared, not restated per query. The pattern:</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>impl Resource for PostResource {
-    type Model = Post;
-    type Form = NoForm&lt;Self::Model&gt;;
-
-    // `Post` declares `tenant_id: uuid::Uuid`. Declaring this is the whole
-    // tenant contract: the gate is GH #87 — every handler 403s without a
-    // tenant — and the scope is GH #223 — every loader (list, edit, delete,
-    // bulk, export, relationship options) ANDs `tenant_id = &lt;request tenant&gt;`,
-    // derived from the model's own schema, onto whatever `query` returns.
-    fn requires_tenant() -&gt; bool {
+    fn can_view_any(_cx: &amp;Cx) -&gt; bool {
         true
     }
 
-    // The resource's *own* scoping only — a soft delete, row-level visibility,
-    // the includes a page loads. Writing the tenant filter here is redundant:
-    // the framework derives it at every loader, so a copy that disagreed with
-    // the derived column could only hide rows, never widen access.
-    fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
-        Query::&lt;List&lt;Post&gt;&gt;::all()
+    fn table(_cx: &amp;Cx) -&gt; Table&lt;Audit&gt; {
+        Table::new(
+            |a: &amp;Audit| a.id.to_string(),
+            TextColumn::r#for(Audit::fields().action(), |a: &amp;Audit| a.action.clone()),
+        )
     }
 }
 <span class="boring">}</span></code></pre>
-<p>App code that loads rows outside the framework’s loaders — a record fn double-checking a foreign
-key, a <code>Page</code> — calls <code>scoped_query::&lt;PostResource&gt;(cx)?</code> rather than <code>PostResource::query(cx)</code>:
-on a gated resource that method is the <strong>tenant-unscoped</strong> base, deliberately, so the
-tenant-unscoped case is visible at the call site (it still carries whatever the resource’s own
-<code>query</code> scopes — soft deletes included).</p>
-<p>Three shapes, one gate:</p>
-<ol>
-<li>
-<p><strong>The model carries the tenant</strong> (the common case): <code>requires_tenant() = true</code> and nothing else. The framework derives <code>tenant_id = &lt;request tenant&gt;</code>
-from the model’s own schema.</p>
-</li>
-<li>
-<p><strong>The row inherits its tenant</strong> — <code>Comment</code> has no <code>tenant_id</code>, it belongs to
-a post that does. Declare the predicate instead of the column:</p>
+<p>A resource with create and edit pages names a <code>#[derive(RecordForm)]</code> struct as its <code>Form</code> and
+declares the form’s controls in <code>form()</code>; see <a href="./forms.html">Forms</a>.</p>
+<h2 id="trait-items"><a class="header" href="#trait-items">Trait items</a></h2>
+<p>Only <code>Model</code>, <code>Form</code> and <code>table()</code> are required. Every other item has a default.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Item</th><th>Default</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td><code>type Model</code></td><td>required</td><td>the Toasty model; must be <code>Clone + Send + Sync</code></td></tr>
+<tr><td><code>type Form</code></td><td>required</td><td>a record form, or <code>NoForm&lt;Self::Model&gt;</code> for a list-only resource</td></tr>
+<tr><td><code>table(cx)</code></td><td>required</td><td>the list’s columns, filters and options: <a href="./tables.html">Tables</a></td></tr>
+<tr><td><code>form(cx)</code></td><td>no controls</td><td>the create and edit form’s controls: <a href="./forms.html">Forms</a></td></tr>
+<tr><td><code>validate_record(cx, form)</code></td><td>no errors</td><td>rules that need the whole parsed form</td></tr>
+<tr><td><code>view(cx)</code></td><td>nothing</td><td>the detail page’s fields; the page exists only when this declares some: <a href="./detail-pages.html">Detail pages</a></td></tr>
+<tr><td><code>view_values(cx, record)</code>, <code>view_content(cx, record)</code></td><td>none</td><td>what the detail page shows beyond the form’s fields</td></tr>
+<tr><td><code>view_query(cx)</code></td><td><code>query(cx)</code></td><td>the detail page’s query, with the relations it reads</td></tr>
+<tr><td><code>record_label(cx, record)</code></td><td><code>None</code></td><td>the detail page’s heading</td></tr>
+<tr><td><code>public_url(cx, record)</code></td><td><code>None</code></td><td>a link to the record’s public page on its detail and edit pages</td></tr>
+<tr><td><code>relations()</code></td><td>none</td><td>related resources shown as tables on the detail and edit pages</td></tr>
+<tr><td><code>query(cx)</code></td><td>every row</td><td>the base query every loader starts from: <a href="#scoping-the-query">Scoping</a></td></tr>
+<tr><td><code>requires_tenant()</code>, <code>tenant_scope(tenant)</code></td><td>not tenant-owned</td><td>tenancy: <a href="./policy-auth-tenancy.html#tenancy">Policy, auth, tenancy</a></td></tr>
+<tr><td><code>can_view_any</code>, <code>can_view</code>, <code>can_create</code>, <code>can_update</code>, <code>can_delete_any</code></td><td><code>false</code></td><td>policy: <a href="./policy-auth-tenancy.html#policy">Policy, auth, tenancy</a></td></tr>
+<tr><td><code>can_delete(cx, record)</code></td><td><code>can_delete_any(cx)</code></td><td>per-record delete policy</td></tr>
+<tr><td><code>create_record</code>, <code>update_record</code></td><td>the derived write</td><td>the create and update writes: <a href="#writes">Writes</a></td></tr>
+<tr><td><code>delete_record</code>, <code>bulk_delete_records</code></td><td>delete by primary key</td><td>the delete writes</td></tr>
+<tr><td><code>after_commit(cx, committed)</code></td><td>nothing</td><td>side effects after a write commits</td></tr>
+<tr><td><code>CREATE_COLUMNS</code></td><td>none</td><td>columns an overridden <code>create_record</code> sets itself</td></tr>
+<tr><td><code>slug()</code>, <code>label()</code>, <code>navigation_label()</code></td><td>from the type names</td><td>URLs and titles: <a href="#naming">Naming</a></td></tr>
+<tr><td><code>navigation()</code></td><td>the default entry</td><td>the sidebar entry: <a href="./panel-and-routing.html#sidebar">Sidebar</a></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="naming"><a class="header" href="#naming">Naming</a></h2>
+<p>The names default from the type names, following Filament’s conventions:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Item</th><th>Default</th><th><code>BlogPostResource</code> over <code>BlogPost</code></th></tr>
+</thead>
+<tbody>
+<tr><td><code>slug()</code></td><td>resource name without <code>Resource</code>, pluralized, kebab-cased</td><td><code>blog-posts</code></td></tr>
+<tr><td><code>label()</code></td><td>the model’s type name; used in “Create …” and “Edit …”</td><td><code>BlogPost</code></td></tr>
+<tr><td><code>navigation_label()</code></td><td><code>label()</code> pluralized; the sidebar entry and list title</td><td><code>BlogPosts</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Override <code>label()</code> to rename a record, and <code>navigation_label()</code> only when the plural rules guess
+wrong. Name resources in the singular: <code>UsersResource</code> pluralizes to <code>userses</code>.</p>
+<h2 id="scoping-the-query"><a class="header" href="#scoping-the-query">Scoping the query</a></h2>
+<p><code>query(cx)</code> is the base query of every loader: the list, the export, the edit and delete
+handlers, relationship options and the detail page. Use it for the resource’s own row scoping,
+such as hiding soft-deleted rows:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn requires_tenant() -&gt; bool {
-    true
-}
-
-fn tenant_scope(tenant: uuid::Uuid) -&gt; Option&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
-    // The framework ANDs this onto `query`/`view_query` at every loader,
-    // exactly as it ANDs the derived filter elsewhere.
-    Some(Comment::fields().post().tenant_id().eq(tenant))
+</span>fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
+    Query::&lt;List&lt;Post&gt;&gt;::all().filter(Post::fields().deleted_at().is_none())
 }
 <span class="boring">}</span></code></pre>
-<p>The gate is what matters: writing this filter inside <code>query</code> with
-<code>requires_tenant() = false</code> would <em>skip</em> it for a tenantless request rather
-than refuse it, serving every tenant’s rows to a tenantless admin.</p>
-</li>
-<li>
-<p><strong>The resource must serve more than one tenant</strong> (a deliberate cross-tenant
-view): <code>requires_tenant() = false</code> and scope in <code>query</code> by hand — the one
-explicit way out, and the gate goes with it.</p>
-</li>
-</ol>
-<p>A gated resource that supplies no predicate at all — no <code>tenant_id</code> column and
-no <code>tenant_scope</code> override — fails <code>Panel::build</code> (GH #231), the same boot
-failure any other misdeclaration gets, and every loader keeps answering an error
-naming itself rather than querying tenant-unscoped — the backstop for a
-predicate that is only <code>None</code> for some tenants. There is no override that
-removes the scope.</p>
-<p>The request’s tenant comes from the logged-in user; see
-<a href="./policy-auth-tenancy.html">Policy, auth, tenancy</a>.</p>
+<p>Two things do not belong in <code>query</code>:</p>
+<ul>
+<li><strong>The tenant filter.</strong> For a tenant-owned resource the framework adds it to <code>query</code> at every
+loader. See <a href="./policy-auth-tenancy.html#tenancy">Tenancy</a>.</li>
+<li><strong>Relations.</strong> The list and the export load the relations their columns declare with
+<code>TextColumn::include</code>, and the detail page loads <code>view_query</code>. Include a relation in <code>query</code>
+only when every loader reads it, for example because <code>can_view</code> does.</li>
+</ul>
+<p>In your own code, load a resource’s rows with <code>scoped_query::&lt;R&gt;(cx)?</code>, not <code>R::query(cx)</code>:
+<code>scoped_query</code> is <code>query</code> with the tenant filter applied, and returns an error rather than an
+unscoped query when the request has no tenant.</p>
+<p>The unique-value check on forms probes through the same scoped query, so a <code>#[unique]</code> index
+wider than the scope is invisible to it: the check misses the collision and the database refuses
+the write with a 500. Scope such indexes to match, as in <code>#[unique(tenant_id, email)]</code>.</p>
+<h2 id="writes"><a class="header" href="#writes">Writes</a></h2>
+<p>Every create, update and delete runs in a transaction the framework opens. For an update or a
+delete, the handler first loads the target record through the scoped query inside that transaction
+and checks policy on it. It then calls the resource’s record function with the open transaction as
+<code>ex</code>.</p>
+<p><code>create_record</code> and <code>update_record</code> default to writing the record form’s fields
+(<code>write_create</code> and <code>write_update</code>), so most resources declare neither. To check something inside
+the transaction, override the function and delegate:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn update_record(
+    cx: &amp;Cx,
+    record: Comment,
+    posted: Posted&lt;CommentForm&gt;,
+    ex: &amp;mut dyn toasty::Executor,
+) -&gt; Result&lt;Comment&gt; {
+    // `Posted` derefs to the form.
+    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
+    tablo_core::write_update::&lt;Self&gt;(cx, record, posted, ex).await
+}
+<span class="boring">}</span></code></pre>
+<p>Run every statement through <code>ex</code>, and use the <code>record</code> you are given rather than loading it
+again: it is the row the policy check passed. Both functions return the written row. An error
+rolls the transaction back and nothing is written.</p>
+<p><code>delete_record</code> deletes the row by its primary key, and <code>bulk_delete_records</code> calls
+<code>delete_record</code> once per record in one transaction, so overriding <code>delete_record</code> — for a soft
+delete, say — covers both. A bulk delete is all-or-nothing.</p>
+<h3 id="after-the-commit"><a class="header" href="#after-the-commit">After the commit</a></h3>
+<p><code>after_commit</code> runs once per committed write, after the transaction and before the response. Put
+side effects there — email, webhooks, audit rows, cache invalidation — so a rolled-back write never
+triggers them:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn after_commit(cx: &amp;Cx, committed: Committed&lt;Post&gt;) -&gt; Result&lt;()&gt; {
+    for post in committed.records() {
+        notify_subscribers(cx, post).await?;
+    }
+    Ok(())
+}
+<span class="boring">}</span></code></pre>
+<p><code>Committed</code> names the mutation (<code>Mutation::Create</code>, <code>Update</code> or <code>Delete</code>) and the rows written: the
+created or updated row, or every deleted row in one call for a bulk delete. The hook is not called
+when nothing committed. An error it returns is logged; the write stays committed.</p>
+<h2 id="startup-checks"><a class="header" href="#startup-checks">Startup checks</a></h2>
+<p><code>Panel::build</code> calls each resource’s declarations once, with a context that holds only the
+database, and refuses the resource when:</p>
+<ul>
+<li><code>table()</code> or <code>view()</code> is malformed: a duplicate column or field name, a zero page size, a
+modifier on the wrong kind of field;</li>
+<li>the record form and <code>form()</code> disagree: a control no form field binds, a form field with no
+control, an optional control whose field has no blank value, a <code>unique()</code> field with no
+unique index, or a tenant-owned resource’s form claiming its tenant column;</li>
+<li><code>can_create</code> is allowed and a non-nullable column is set by nothing: not the form, not a Toasty
+default, not the tenant stamp, and not listed in <code>CREATE_COLUMNS</code>;</li>
+<li>a <code>NoForm</code> resource declares <code>form()</code> or allows <code>can_create</code>;</li>
+<li><code>requires_tenant()</code> is <code>true</code> and no tenant predicate can be derived;</li>
+<li>a relation names a resource the panel does not register, or names one twice.</li>
+</ul>
+<p>Because of this call, <code>table()</code>, <code>form()</code>, <code>view()</code> and <code>can_create()</code> must not depend on the
+request: a check that reads the current user or tenant sees an anonymous request at startup.</p>
 
                     </main>
 

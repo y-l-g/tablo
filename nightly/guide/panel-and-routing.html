@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,115 +181,160 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="panel-and-routing"><a class="header" href="#panel-and-routing">Panel and routing</a></h1>
-<p>How a panel is mounted, the routes a resource adds, and the panel options that shape the shell.</p>
-<p><code>Panel</code> owns the router, the <code>Db</code> in app context, and the shell layout. Registering a resource or a
-<a href="#pages">page</a> adds its routes and its sidebar item.</p>
-<p>Routes for a resource with slug <code>users</code> under prefix <code>admin</code>:</p>
-<ul>
-<li><code>GET /admin/users</code> : list</li>
-<li><code>GET + POST /admin/users/create</code> : create</li>
-<li><code>GET /admin/users/{id}</code> : detail page, read-only (GH #187) — 404 when the resource declares no
-<code>view</code> schema,
-see <a href="./detail-pages.html">Detail pages</a></li>
-<li><code>GET + POST /admin/users/{id}/edit</code> : edit</li>
-<li><code>POST /admin/users/{id}/delete</code> : delete with confirm step</li>
-<li><code>POST /admin/users/bulk-delete</code> : bulk delete</li>
-<li><code>GET /admin/users/export</code> : CSV export</li>
-<li><code>GET /admin/users/options</code> : relation option search for a searchable select (GH #150),
-see <a href="./forms.html">Forms</a></li>
-<li><code>GET /admin</code> serves the <a href="#pages">home page</a>, or redirects to the first resource when the panel
-has none</li>
-</ul>
-<p>Useful panel options:</p>
+<p><code>Panel</code> is the admin application. You configure it with builder calls, and <code>build()</code> turns it into
+a Topcoat <code>Router</code> that serves every registered resource and page, the login page, and the shell
+that frames them.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Panel::new("admin")
+</span>let router = Panel::new("admin")          // mounted at /admin
+    .app_context(db)                      // the toasty::Db every handler uses
     .brand(Brand::new("Acme"))
-    .dark_mode(true)
-    .login_hint("Demo: admin@example.com / password")
+    .home::&lt;Dashboard&gt;()                  // GET /admin
+    .resource::&lt;UserResource&gt;()           // /admin/users and its sub-routes
+    .page::&lt;ReportsPage&gt;()                // GET /admin/reports
+    .build()?;
 <span class="boring">}</span></code></pre>
-<p><code>brand</code> sets the name in the sidebar header and on the login card, and in the topbar below the <code>md</code>
-breakpoint,
-where the sidebar folds into a sheet. A brand without a logo shows its initial as the mark.
-<code>dark_mode</code> sets the theme a visitor sees <strong>before they
-have chosen one</strong> — the toggle is always rendered, and a stored choice wins in both directions
-(GH #184): picking light persists, and the next page stays light instead of falling back to this
-default. Omit <code>dark_mode</code> and the panel starts light.</p>
-<p>The panel owns the URL of each resource’s list page and resolves a resource’s sidebar entry to
-<code>{prefix}/{slug}</code>; the resource owns the label and the ordering. See
-<a href="./resources.html">Resources</a> for the <code>navigation()</code> override.</p>
+<h2 id="routes"><a class="header" href="#routes">Routes</a></h2>
+<p>A resource with the slug <code>users</code>, on a panel mounted at <code>/admin</code>, serves:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Serves</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/admin/users</code></td><td>the list</td></tr>
+<tr><td><code>GET</code></td><td><code>/admin/users/{id}</code></td><td>the <a href="./detail-pages.html">detail page</a>; 404 when the resource declares no <code>view()</code></td></tr>
+<tr><td><code>POST</code></td><td><code>/admin/users/{id}/delete</code></td><td>delete one record</td></tr>
+<tr><td><code>POST</code></td><td><code>/admin/users/bulk-delete</code></td><td>delete the selected records</td></tr>
+<tr><td><code>GET</code></td><td><code>/admin/users/export</code></td><td>the list as CSV</td></tr>
+<tr><td><code>GET</code>, <code>POST</code></td><td><code>/admin/users/create</code></td><td>the create form ¹</td></tr>
+<tr><td><code>GET</code>, <code>POST</code></td><td><code>/admin/users/{id}/edit</code></td><td>the edit form ¹</td></tr>
+<tr><td><code>GET</code></td><td><code>/admin/users/options</code></td><td>option search for a searchable relationship select ¹</td></tr>
+</tbody>
+</table>
+</div>
+<p>¹ Only for a resource whose <code>Form</code> is a record form; a list-only resource names <code>NoForm</code> and gets
+none of these. See <a href="./forms.html">Forms</a>.</p>
+<p><code>{id}</code> is the record’s primary key. Each route checks the resource’s policy, so a registered
+route is not an open one: see <a href="./policy-auth-tenancy.html">Policy, auth, tenancy</a>.</p>
+<p>The panel also serves:</p>
+<ul>
+<li><code>GET /admin</code>: the <a href="#pages">home page</a>, or a redirect to the first registered resource’s list
+when there is none.</li>
+<li><code>GET</code>, <code>POST /admin/login</code> and <code>POST /admin/logout</code>, unless authentication is disabled.</li>
+</ul>
+<h2 id="builder-reference"><a class="header" href="#builder-reference">Builder reference</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Call</th><th>Effect</th><th>See</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Panel::new(prefix)</code></td><td>mounts the panel at <code>/{prefix}</code></td><td></td></tr>
+<tr><td><code>app_context(db)</code></td><td>installs the <code>toasty::Db</code>; <code>build</code> fails without it</td><td><a href="./data-access.html">Data access</a></td></tr>
+<tr><td><code>resource::&lt;R&gt;()</code></td><td>registers a resource’s routes and sidebar entry</td><td><a href="./resources.html">Resources</a></td></tr>
+<tr><td><code>page::&lt;P&gt;()</code></td><td>registers a page at <code>/{prefix}/{slug}</code></td><td><a href="#pages">Pages</a></td></tr>
+<tr><td><code>home::&lt;P&gt;()</code></td><td>registers a page at <code>/{prefix}</code></td><td><a href="#pages">Pages</a></td></tr>
+<tr><td><code>brand(Brand)</code></td><td>sets the name and optional logo in the sidebar, the topbar and the login card</td><td><a href="#branding-and-theme">Branding</a></td></tr>
+<tr><td><code>dark_mode(bool)</code></td><td>sets the theme a first-time visitor sees</td><td><a href="#branding-and-theme">Branding</a></td></tr>
+<tr><td><code>login_hint(text)</code></td><td>adds a line under the login form</td><td><a href="#branding-and-theme">Branding</a></td></tr>
+<tr><td><code>auth(Auth)</code></td><td>replaces or disables the built-in password login</td><td><a href="./policy-auth-tenancy.html#authentication">Policy, auth, tenancy</a></td></tr>
+<tr><td><code>uploads(uploader)</code></td><td>sets where file fields store their bytes</td><td><a href="./forms.html#file-uploads">Forms</a></td></tr>
+<tr><td><code>serve_dir(path, dir)</code></td><td>serves a directory of files, publicly</td><td><a href="./forms.html#file-uploads">Forms</a></td></tr>
+<tr><td><code>assets(bundle)</code>, <code>shell_assets(css, font)</code></td><td>adds the stylesheet, font and scripts</td><td><a href="#assets">Assets</a></td></tr>
+<tr><td><code>frame_ancestors(..)</code>, <code>without_frame_ancestors()</code></td><td>changes the anti-framing header</td><td><a href="./security.html">Security</a></td></tr>
+<tr><td><code>build()</code></td><td>checks every declaration and returns the <code>Router</code></td><td></td></tr>
+</tbody>
+</table>
+</div>
+<p>The builder calls never fail; <code>build()</code> returns an error naming what is wrong instead. It refuses a
+missing <code>Db</code>, two resources or pages with one slug, a slug the panel routes itself (<code>login</code>,
+<code>logout</code>), a slug that is not a single URL segment, a second home page, <code>shell_assets</code> without
+<code>assets</code>, and every resource declaration check described in
+<a href="./resources.html#startup-checks">Resources</a>.</p>
+<h2 id="the-shell-layout"><a class="header" href="#the-shell-layout">The shell layout</a></h2>
+<p>The panel’s pages render inside your app’s <code>#[layout]</code> at the panel prefix. Delegate it to the
+panel to get the shell — sidebar, topbar, theme toggle and notification toasts:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[layout("/admin")]
+async fn admin_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
+    Panel::layout_shell(cx, slot).await
+}
+<span class="boring">}</span></code></pre>
+<h2 id="sidebar"><a class="header" href="#sidebar">Sidebar</a></h2>
+<p>Every resource and page gets one sidebar entry, labelled with its <code>navigation_label()</code> and linked
+to its list or page URL. Entries sort by <code>order</code> (lower first, default <code>0</code>); entries with the same
+<code>order</code> keep registration order, and the home page leads its <code>order</code>.</p>
+<p>Override <code>navigation()</code> on the resource or page to change the order or add an icon. Start from the
+default entry so the panel still resolves the URL:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn navigation() -&gt; NavigationItem {
+    NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }
+        .icon(tablo_ui::icons::USERS)
+}
+<span class="boring">}</span></code></pre>
+<p><code>NavigationItem::for_page::&lt;Self&gt;()</code> is the equivalent for a page. <code>NavigationItem::at(label, url)</code>
+links elsewhere; the panel keeps that URL as written. The entry whose URL is the longest match
+for the current path is marked active.</p>
 <h2 id="pages"><a class="header" href="#pages">Pages</a></h2>
-<p>A page that is not record CRUD — a dashboard, a report, a settings screen — implements <code>Page</code> and
-registers on the panel, which mounts it and lists it in the sidebar:</p>
+<p>A page that is not a record list — a dashboard, a report, a settings screen — implements <code>Page</code>:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use tablo_core::{Page, Panel};
-use topcoat::{
-    Result,
-    context::Cx,
-    view::{View, view},
-};
+use topcoat::{Result, context::Cx, view::{View, view}};
 
-struct Dashboard;
+struct ReportsPage;
 
-impl Page for Dashboard {
+impl Page for ReportsPage {
     async fn render(cx: &amp;Cx) -&gt; Result&lt;impl View&gt; {
-        Ok(view! { cx =&gt; tablo_ui::page(tablo_ui::page_header(tablo_ui::page_title("Dashboard"))) })
+        Ok(view! { cx =&gt;
+            tablo_ui::page(
+                tablo_ui::page_header(tablo_ui::page_title("Reports"))
+                tablo_ui::page_content(tablo_ui::card(tablo_ui::card_content("…")))
+            )
+        })
     }
 }
 
-// `ReportsPage` implements `Page` the same way.
-Panel::new("admin")
-    .home::&lt;Dashboard&gt;()        // GET /admin
-    .resource::&lt;UserResource&gt;()
-    .page::&lt;ReportsPage&gt;()      // GET /admin/reports
+Panel::new("admin").page::&lt;ReportsPage&gt;() // GET /admin/reports
 <span class="boring">}</span></code></pre>
-<p>The slug and the sidebar label default to the type name without a <code>Page</code> suffix: <code>ReportsPage</code>
-mounts at <code>reports</code> with the label <code>Reports</code>, and <code>MediaLibraryPage</code> at <code>media-library</code> with
-<code>Media library</code>. Override <code>slug()</code>, <code>navigation_label()</code>, or <code>navigation()</code> — the last sets the
-<code>order</code> and the icon, as a resource’s does. Every page has a sidebar entry. Pages and resources share one slug
-namespace, and <code>Panel::build</code> rejects a duplicate, a slug the panel routes itself (<code>login</code>,
-<code>logout</code>), and a slug that is not one URL segment.</p>
-<p><code>Panel::home</code> mounts its page at the prefix itself, in place of the redirect to the first resource,
-and a second <code>home</code> fails the build. Its sidebar entry leads the entries of the same <code>order</code> and
-points at the prefix, which every path under it matches, so the sidebar marks one entry active: the
-most specific match.</p>
-<p>The panel checks for a resolved user before <code>render</code> runs, and the app’s <code>#[layout]</code> at the prefix
-frames the page in the shell. A page serves one <code>GET</code>; a form it renders posts to an app <code>#[route]</code>
-under the prefix, which the auth gate covers. <code>examples/showcase</code> registers a dashboard, the media
-library and the live feed this way.</p>
-<p>A page lays itself out with the composites the panel’s own pages use, so it reads as one of them:
-<code>tablo_ui::page</code> owns the width and the padding, and <code>page_header</code> takes a <code>page_title</code>, an optional
-<code>page_description</code> under it and optional <code>page_actions</code> at the end of the title’s line. Content goes
-in <code>page_content</code>: <code>tablo_ui::card</code> for a panel, the same surface as a form section and a table, and
-<code>tablo_ui::empty_state</code> for a region with nothing to list. The surfaces draw from the tokens in the
-app’s <code>styles.css</code> (<code>--card</code>, <code>--border</code>, <code>--shadow-sm</code>, <code>--primary</code>…), so a theme restyles the
-panel’s pages and the app’s alike.</p>
+<ul>
+<li><strong>Slug and label</strong> default to the type name without its <code>Page</code> suffix: <code>ReportsPage</code> mounts at
+<code>reports</code> and is labelled “Reports”; <code>MediaLibraryPage</code> mounts at <code>media-library</code> and is
+labelled “Media library”. Override <code>slug()</code> and <code>navigation_label()</code> to change them. Pages and
+resources share one slug namespace.</li>
+<li><strong>The home page.</strong> <code>Panel::home::&lt;P&gt;()</code> mounts a page at the prefix itself instead of the
+redirect to the first resource. A panel has at most one; a second fails <code>build()</code>.</li>
+<li><strong>Access.</strong> With authentication on, the page renders only for a signed-in user with panel access,
+inside the shell layout.</li>
+<li><strong>Forms.</strong> A page serves one <code>GET</code>. A form it renders posts to an app <code>#[route]</code>; put that route
+under the panel prefix so the auth gate covers it.</li>
+</ul>
+<p>The <code>tablo_ui</code> composites give a page the same frame as the panel’s own pages: <code>page</code> sets the
+width and padding; <code>page_header</code> holds a <code>page_title</code>, an optional <code>page_description</code> and optional
+<code>page_actions</code>; <code>page_content</code> holds the body. Inside it, use <code>card</code> for a panel of content and
+<code>empty_state</code> for a region with nothing to show. They are styled by the design tokens in your
+<code>styles.css</code> (<code>--card</code>, <code>--border</code>, <code>--primary</code>, …), so one theme restyles the panel’s pages and
+yours.</p>
+<p>The showcase registers a dashboard as its home page, a media library and a live activity feed.</p>
 <h2 id="public-pages"><a class="header" href="#public-pages">Public pages</a></h2>
-<p>A public page is an app-level <code>#[page]</code> outside the panel prefix. The auth gate installs two layers
-— the panel prefix and <code>/_topcoat/runtime</code> — and a layer wraps only the routes under its path
-prefix, so no route under another prefix is gated. Route discovery is link-time over the binary, so
-the <code>discover()</code> call inside <code>Panel::build</code> collects these pages with no router change:</p>
+<p>A page outside the panel prefix is an ordinary Topcoat <code>#[page]</code>. The auth gate covers only the
+panel prefix and <code>/_topcoat/runtime</code>, so such a page is public. <code>build()</code> discovers it like any
+other Topcoat route; the panel needs no registration call.</p>
+<p><code>Panel::document</code> renders the same HTML document as the admin shell — head, assets, theme — around
+your own markup:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>use tablo_core::Panel;
-use topcoat::{
-    Result,
-    context::Cx,
-    router::{Slot, layout, page},
-    view::{View, view},
-};
-
-// The layout path is a prefix: `/blog` wraps `/blog` and `/blog/{id}`, and
-// nothing else. A layout at `/` would wrap `/admin` too.
+</span>// A layout wraps every route under its path: this one wraps /blog and /blog/{id}.
+// A layout at "/" would wrap /admin too.
 #[layout("/blog")]
 async fn blog_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
     Panel::document(
         cx,
         "Blog",
-        view! {
-            &lt;div class="mx-auto max-w-3xl px-6 py-10"&gt;(slot)&lt;/div&gt;
-        },
+        view! { &lt;div class="mx-auto max-w-3xl px-6 py-10"&gt;(slot)&lt;/div&gt; },
     )
     .await
 }
@@ -299,20 +344,41 @@ async fn blog() -&gt; Result&lt;impl View&gt; {
     Ok(view! { "Posts" })
 }
 <span class="boring">}</span></code></pre>
-<p><code>Panel::document</code> renders the document the admin shell renders — <code>topcoat::dev::script()</code>, the theme
-script, and, where the panel registered <code>Panel::shell_assets</code>, the runtime script, the font, the
-stylesheet and the shell scripts. The panel renders the <code>&lt;body&gt;</code> element and the dark-mode <code>&lt;html&gt;</code>
-class; the page owns its chrome inside, classes included.</p>
-<p>The runtime script, the font, the stylesheet and the shell scripts are <code>Asset</code> URLs, and an <code>Asset</code>
-panics where no asset config is registered: a layout that rendered them under a router built without
-<code>.assets(..)</code> — a markup test, say — fails instead of rendering. <code>Panel::document</code> leaves them out
-there, as the panel’s own shell does.</p>
-<p>The panel’s resource loaders are panel-scoped (auth, tenancy, chrome), so a public page queries the
-model directly: <code>Post::filter(Post::fields().status().eq("published".to_string()))</code>, with an explicit
-<code>.include(..)</code> for every relation the page reads. See <a href="./data-access.html">Data access</a>. The framework
-scopes a <code>Resource</code>’s loaders, not a page’s own query, so app code that loads rows outside those
-loaders calls <code>scoped_query</code> — a public page in a multi-tenant app states its tenant predicate in the
-query it writes (ADR-0002).</p>
+<p>A public page loads its rows with a plain Toasty query, not through a resource. The resource’s
+tenant scope applies only to the panel’s loaders, so in a multi-tenant app the page states its own
+tenant predicate. See <a href="./data-access.html">Data access</a>.</p>
+<h2 id="branding-and-theme"><a class="header" href="#branding-and-theme">Branding and theme</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>Panel::new("admin")
+    .brand(Brand::new("Acme").logo("/logo.svg"))
+    .dark_mode(true)
+    .login_hint("Demo: admin@example.com / password")
+<span class="boring">}</span></code></pre>
+<ul>
+<li><code>brand</code> names the panel in the sidebar header, on the login card, and in the topbar on narrow
+screens. A brand without a logo shows its first letter.</li>
+<li><code>dark_mode(true)</code> makes the panel start dark for a visitor who has not chosen a theme. The theme
+toggle always renders, and a visitor’s choice, light or dark, is remembered and wins over this
+default. Without the call the panel starts light.</li>
+<li><code>login_hint</code> renders a muted line under the login form, such as demo credentials.</li>
+</ul>
+<h2 id="assets"><a class="header" href="#assets">Assets</a></h2>
+<p>Without assets the panel renders unstyled HTML without the shell’s scripts, and every page and
+form still works. To style it, register the app’s Topcoat asset bundle, then the Tailwind stylesheet and
+the font the shell links:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>const GEIST: Font = fontsource_font!(GEIST, host: Asset);
+
+Panel::new("admin")
+    .assets(AssetBundle::load().expect("asset bundle"))
+    .shell_assets(tailwind::stylesheet!(), GEIST)
+<span class="boring">}</span></code></pre>
+<p><code>shell_assets</code> also makes the shell load <code>tablo-ui</code>’s scripts: live search, confirmation dialogs,
+searchable selects, toasts and the sidebar and theme toggles. <code>build()</code> refuses <code>shell_assets</code>
+without <code>assets</code>. <code>examples/showcase</code> has the complete setup, including the <code>build.rs</code> that
+generates the stylesheet.</p>
 
                     </main>
 

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,14 +181,19 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="your-first-panel"><a class="header" href="#your-first-panel">Your first panel</a></h1>
-<p>A complete panel: one Toasty model, one <code>Resource</code> over it, and the <code>main</code> that mounts them and
-serves the admin.</p>
+<p>This chapter builds a complete admin in one file: a <code>Book</code> model, a resource for it, and the
+<code>main</code> that serves it with a login page.</p>
 <pre class="playground"><code class="language-rust">use tablo_core::auth::{AdminUser, hash_password};
 use tablo_core::{Field, Panel, Resource, Schema, Table, TextColumn};
 use toasty::Db;
-use topcoat::{Result, context::Cx};
+use topcoat::{
+    Result,
+    context::Cx,
+    router::{Slot, layout},
+    view::View,
+};
 
-/// The persisted model: every column the panel renders comes from this type.
+/// The model: every column the panel renders comes from this type.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct Book {
     #[key]
@@ -210,7 +215,7 @@ impl Resource for BookResource {
     type Model = Book;
     type Form = BookForm;
 
-    // Policy defaults to deny, so the list answers 403 without this.
+    // Every policy predicate denies by default; this one opens the list.
     fn can_view_any(_cx: &amp;Cx) -&gt; bool {
         true
     }
@@ -229,22 +234,26 @@ impl Resource for BookResource {
     }
 }
 
+/// Frames every page under `/admin` in the panel's shell: sidebar, topbar, toasts.
+#[layout("/admin")]
+async fn admin_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
+    Panel::layout_shell(cx, slot).await
+}
+
 #[tokio::main]
 async fn main() -&gt; Result&lt;()&gt; {
     let mut db = Db::builder()
         .models(toasty::models!(
             Book,
-            // The shipped password auth reads these two tables, and
-            // `Panel::build` asserts both are registered.
+            // The built-in password login reads these two tables.
             tablo_core::auth::AdminUser,
             tablo_core::auth::AuthSession
         ))
         .connect("sqlite::memory:")
         .await?;
-
     db.push_schema().await?;
 
-    // One account to sign in with; the hash is an Argon2id PHC string.
+    // One account to sign in with.
     toasty::create!(AdminUser {
         email: "admin@example.com".to_string(),
         password_hash: hash_password("secret")?,
@@ -256,7 +265,6 @@ async fn main() -&gt; Result&lt;()&gt; {
     .exec(&amp;mut db)
     .await?;
 
-    // `app_context(db)` installs the Db `Panel::build` requires.
     let router = Panel::new("admin")
         .app_context(db)
         .resource::&lt;BookResource&gt;()
@@ -265,45 +273,48 @@ async fn main() -&gt; Result&lt;()&gt; {
     topcoat::start(router).await?;
     Ok(())
 }</code></pre>
+<p>Run it and sign in as <code>admin@example.com</code> / <code>secret</code>:</p>
 <pre><code class="language-sh">cargo run
-# then open http://127.0.0.1:3000/admin/books and sign in as admin@example.com / secret
+# open http://127.0.0.1:3000/admin/books
 </code></pre>
-<p>The sample needs <code>tablo-core</code>, <code>topcoat</code> (whose defaults cover <code>serve</code>), <code>toasty</code> with the <code>sqlite</code>
-and <code>jiff</code> features, <code>tokio</code> with <code>macros</code> and <code>rt-multi-thread</code>, and <code>uuid</code>; <code>jiff</code> is named
-directly for <code>Timestamp::now()</code>. The workspace’s own revisions and features are in <code>Cargo.toml</code>.</p>
-<h2 id="the-wiring"><a class="header" href="#the-wiring">The wiring</a></h2>
-<p>The one required call the other chapters leave implicit is <code>app_context(db)</code>: the panel reads its
-pooled <code>Db</code> from the app context, and <code>Panel::build</code> returns an error without one.</p>
+<p>The example depends on <code>tablo-core</code>, <code>topcoat</code> (its default features include the server),
+<code>toasty</code> with the <code>sqlite</code> and <code>jiff</code> features, <code>jiff</code> for <code>Timestamp::now()</code>, <code>tokio</code> with
+<code>macros</code> and <code>rt-multi-thread</code>, and <code>uuid</code>. The workspace <code>Cargo.toml</code> pins the revisions the
+toolkit is tested with.</p>
+<h2 id="what-each-part-does"><a class="header" href="#what-each-part-does">What each part does</a></h2>
 <ul>
-<li><code>Db::builder().models(..)</code> names every model Toasty maps. The shipped password auth reads
-<code>tablo_core::auth::AdminUser</code> and <code>tablo_core::auth::AuthSession</code>, so both are listed; with auth
-on, <code>Panel::build</code> asserts they are there, and the panel serves its login page at
-<code>/admin/login</code> (<a href="./policy-auth-tenancy.html">Policy, auth, tenancy</a>).</li>
-<li><code>db.push_schema().await</code> creates the tables for a prototype. Production uses <code>toasty-cli</code>
-migrations (<a href="./data-access.html">Data access</a>).</li>
-<li><code>Panel::new("admin")</code> mounts the panel at <code>/admin</code>. <code>resource::&lt;BookResource&gt;()</code> registers the
-resource’s list at <code>{prefix}/{slug}</code>, derives its sidebar entry from the same slug, and, with
-no home page registered, points the panel root at the first declared resource, so
-<code>BookResource</code> answers on <code>/admin/books</code>. The other routes — create, edit, detail, delete, bulk delete, export, relationship options — come
-from the same registration (<a href="./panel-and-routing.html">Panel and routing</a>).</li>
-<li><code>app_context(db)</code> registers the pooled <code>Db</code> on the panel’s app context. <code>Panel::build</code> requires
-it: without that call it returns <code>Err</code> (<code>Panel::build requires a Db via app_context</code>) instead of a
-router. <code>build</code> also uses that same database to run its declaration checks, with no request in
-hand.</li>
-<li><code>build()?</code> returns the <code>Router</code>, or an error naming the misdeclaration it found — a duplicate or
-malformed resource slug, a malformed panel prefix, a form that disagrees with the resource’s
-<code>form()</code> schema (<a href="./resources.html">Resources</a>).</li>
-<li><code>topcoat::start(router)</code> binds <code>HOST</code> and <code>PORT</code> (<code>127.0.0.1:3000</code> when unset) and serves until
-Ctrl+C or <code>SIGTERM</code>.</li>
+<li><strong><code>#[derive(RecordForm)]</code></strong> declares what a form submission parses into. Each field is named
+and typed like the model’s field, so a renamed column fails to compile. See
+<a href="./forms.html">Forms</a>.</li>
+<li><strong><code>impl Resource</code></strong> declares the admin for one model: its table, its form’s controls, and its
+policy. A resource must name <code>Model</code> and <code>Form</code> and declare <code>table()</code>; every other item has a
+default. See <a href="./resources.html">Resources</a>.</li>
+<li><strong><code>#[layout("/admin")]</code></strong> frames the panel’s pages. <code>Panel::layout_shell</code> renders the whole
+document around them; the layout’s path must match the panel’s prefix.</li>
+<li><strong><code>Db::builder().models(..)</code></strong> lists every model Toasty maps, including the two tables the
+built-in login uses. With authentication on, <code>Panel::build</code> panics if they are missing.</li>
+<li><strong><code>db.push_schema()</code></strong> creates the tables, which suits a prototype. A production app runs
+<code>toasty-cli</code> migrations instead.</li>
+<li><strong><code>Panel::new("admin")</code></strong> mounts the panel at <code>/admin</code>. <strong><code>app_context(db)</code></strong> gives it the
+database; <code>Panel::build</code> fails without one.</li>
+<li><strong><code>resource::&lt;BookResource&gt;()</code></strong> registers the resource’s routes under <code>/admin/books</code>, adds its
+sidebar entry, and, because the panel has no home page, makes <code>/admin</code> redirect to the book
+list. <a href="./panel-and-routing.html">Panel and routing</a> lists every route.</li>
+<li><strong><code>build()</code></strong> checks every declaration and returns the <code>Router</code>, or an error naming the
+misdeclaration.</li>
+<li><strong><code>topcoat::start</code></strong> serves the router on <code>HOST</code>:<code>PORT</code> (default <code>127.0.0.1:3000</code>) until Ctrl+C
+or <code>SIGTERM</code>.</li>
 </ul>
-<p>The example sets <code>can_view_any</code> and leaves the other <code>can_*</code> predicates at their deny default: no
-Create link renders, the create and edit pages answer 403, and no row carries an Edit or Delete
-control. Declaring those is <a href="./policy-auth-tenancy.html">Policy, auth, tenancy</a>; the columns, filters
-and export are <a href="./tables.html">Tables</a>; the form is <a href="./forms.html">Forms</a>.</p>
-<p>The example also registers no asset bundle, so the shell falls back to <code>topcoat::dev::script()</code> and
-its theme script: the pages render and the forms submit, and <code>Panel::assets(..)</code> with
-<code>Panel::shell_assets(..)</code> adds the generated stylesheet, the font and the client scripts
-(<a href="./panel-and-routing.html">Panel and routing</a>).</p>
+<h2 id="what-the-example-leaves-out"><a class="header" href="#what-the-example-leaves-out">What the example leaves out</a></h2>
+<ul>
+<li><strong>Writes.</strong> Only <code>can_view_any</code> is allowed, so the create link is hidden, the create and edit
+pages answer 403, and rows show no Edit or Delete action.
+<a href="./policy-auth-tenancy.html">Policy, auth, tenancy</a> opens them.</li>
+<li><strong>Styling.</strong> The example registers no asset bundle, so pages render unstyled and without the
+shell’s scripts, but every page and form works. <code>Panel::assets</code> and <code>Panel::shell_assets</code> add
+the stylesheet, the font and the scripts; see
+<a href="./panel-and-routing.html#assets">Panel and routing</a>.</li>
+</ul>
 
                     </main>
 

@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b749a68.js";
+            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -179,63 +179,78 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
-<p>What Tablo is, what it deliberately is not, and the two upstream projects it is built on.</p>
-<p>Tablo is an <strong>admin toolkit for Rust</strong>, server-rendered on
-<a href="https://github.com/tokio-rs/topcoat">Topcoat</a> (UI and reactivity) and
-<a href="https://github.com/tokio-rs/toasty">Toasty</a> (ORM): a Filament-style <code>Panel</code> plus <code>Resource</code>,
-tables, and forms, with no SPA build step.</p>
-<h2 id="what-it-is"><a class="header" href="#what-it-is">What it is</a></h2>
+<p>Tablo is an admin toolkit for Rust. You declare, once per database model, its table, its form and
+who may see and change it; Tablo serves the list, create, edit, detail and delete pages for it,
+rendered on the server.</p>
+<p>Tablo is a layer over two upstream projects:</p>
 <ul>
-<li>Server-rendered HTML with <code>view!</code> and <code>#[component]</code>. No SPA, no WASM bundle.</li>
-<li>Typed end to end: Toasty model to query to table and form. A bad column name fails to compile.</li>
-<li>Fast by default: concurrent renders, preloaded relations, cursor pagination.</li>
-<li>A Topcoat app: layouts, <code>href!</code>, <code>Cx</code>, <code>#[memoize]</code>, small <code>$(...)</code> expressions.</li>
+<li><a href="https://github.com/tokio-rs/topcoat">Topcoat</a> renders the HTML and owns routing, the request
+context <code>Cx</code>, reactivity, assets, cookies and sessions. The panel’s pages are Topcoat views, and
+your own pages use the same <code>view!</code>, <code>#[component]</code> and <code>#[layout]</code>.</li>
+<li><a href="https://github.com/tokio-rs/toasty">Toasty</a> is the ORM. Tablo queries your Toasty models
+directly, so the model is the single source of truth for columns, relations and nullability.</li>
+</ul>
+<h2 id="what-you-get"><a class="header" href="#what-you-get">What you get</a></h2>
+<ul>
+<li><strong>Server-rendered pages, no SPA.</strong> There is no client build step and no WASM bundle. Search,
+sort, filters and pagination work without JavaScript; the shipped scripts add in-place updates
+on top.</li>
+<li><strong>Typed declarations.</strong> Columns, form fields and filters are built from Toasty field lenses
+such as <code>User::fields().email()</code>, so a renamed or retyped column is a compile error.</li>
+<li><strong>Checks at startup.</strong> <code>Panel::build</code> validates every declaration — a form struct that disagrees
+with its schema, two resources on one URL, a tenant-owned resource with no tenant column — and
+returns an error naming the mistake before the server takes a request.</li>
+<li><strong>Safe defaults.</strong> Every policy predicate denies until you allow it, authentication is on, every
+panel POST verifies a CSRF token, and a tenant-owned resource is scoped to the request’s tenant at
+every query.</li>
 </ul>
 <h2 id="what-it-is-not"><a class="header" href="#what-it-is-not">What it is not</a></h2>
 <ul>
-<li>Not a Livewire port. No string state paths, no reflection DI, no Blade partials.</li>
-<li>Not driver-agnostic in v1. The workspace targets Toasty over SQLite.</li>
-<li>Not a client framework. Anything that needs the DB renders on the server.</li>
+<li><strong>Not a client framework.</strong> Anything that reads the database renders on the server.</li>
+<li><strong>Not tested across databases.</strong> The test suites and benchmarks run on Toasty’s SQLite driver.</li>
 </ul>
-<h2 id="the-two-upstream-dependencies"><a class="header" href="#the-two-upstream-dependencies">The two upstream dependencies</a></h2>
-<p>Tablo is a thin, opinionated layer, not a framework of its own:</p>
-<ul>
-<li><strong>Topcoat</strong> owns rendering, routing, request context, reactivity, assets, cookies and sessions.
-Tablo adds the admin-shaped pieces on top — <code>Panel</code>, <code>Resource</code>, <code>Table</code>, <code>Schema</code> — and
-follows Topcoat’s idioms (<code>view!</code>, <code>#[component]</code>, <code>Cx</code>, <code>href!</code>, <code>#[memoize]</code>) rather than
-inventing parallel ones.</li>
-<li><strong>Toasty</strong> owns the data layer: models, queries, filters, sorting, preloading and migrations.
-Tablo queries Toasty directly, so the typed model is the single source of truth for columns,
-relations and nullability.</li>
-</ul>
-<p>Both track <code>main</code> and are pinned by <code>Cargo.lock</code>; bump them deliberately, never with a blanket
-<code>cargo update</code>.</p>
 <h2 id="how-to-read-this-guide"><a class="header" href="#how-to-read-this-guide">How to read this guide</a></h2>
-<ul>
-<li><a href="#your-first-panel">Your first panel</a>: a complete <code>main</code> that mounts a resource and serves it.</li>
-<li><a href="#panel-and-routing">Panel and routing</a>: mounting a panel and the routes a resource serves.</li>
-<li><a href="#resources">Resources</a>: the <code>Resource</code> trait, its contract, and tenancy.</li>
-<li><a href="#tables">Tables</a>, <a href="#forms">Forms</a>, <a href="#detail-pages">Detail pages</a>: the three views.</li>
-<li><a href="#policy-auth-tenancy">Policy, auth, tenancy</a>: who may see and change what.</li>
-<li><a href="#data-access">Data access</a>: querying Toasty from panel code.</li>
-<li><a href="#security">Security</a> and <a href="#testing-and-benchmarks">Testing and benchmarks</a>: defaults and
-the tooling around them.</li>
-</ul>
-<h2 id="where-this-guide-and-the-code-disagree"><a class="header" href="#where-this-guide-and-the-code-disagree">Where this guide and the code disagree</a></h2>
-<p>The vocabulary lives in <code>CONTEXT.md</code>, the decisions live in <code>docs/adr/</code> (one ADR per decision, and
-the ADRs record the <em>why</em>), and the runnable reference lives in <code>examples/showcase/</code>. Where this
-guide and the code disagree, the code and <code>docs/adr/</code> win — please open an issue or a PR so the
-guide catches up.</p>
+<p><a href="#your-first-panel">Your first panel</a> builds a complete, runnable admin in one file. Each later
+chapter covers one part of it:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Chapter</th><th>Covers</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="#panel-and-routing">Panel and routing</a></td><td>the panel builder, the routes it serves, custom and public pages</td></tr>
+<tr><td><a href="#resources">Resources</a></td><td>the <code>Resource</code> trait: naming, query scoping, writes</td></tr>
+<tr><td><a href="#tables">Tables</a></td><td>columns, search, sort, filters, export, live updates, deletes</td></tr>
+<tr><td><a href="#forms">Forms</a></td><td>the record form, controls, validation, uploads, embedded values</td></tr>
+<tr><td><a href="#detail-pages">Detail pages</a></td><td>the read-only record page and related tables</td></tr>
+<tr><td><a href="#policy-auth-tenancy">Policy, auth, tenancy</a></td><td>who may see and change what</td></tr>
+<tr><td><a href="#data-access">Data access</a></td><td>querying Toasty from your own pages</td></tr>
+<tr><td><a href="#security">Security</a></td><td>the defaults and what your deployment must provide</td></tr>
+<tr><td><a href="#testing-and-benchmarks">Testing and benchmarks</a></td><td>testing a panel over HTTP</td></tr>
+</tbody>
+</table>
+</div>
+<p>The runnable reference is
+<a href="https://github.com/y-l-g/tablo/tree/master/examples/showcase"><code>examples/showcase</code></a>: every
+feature in this guide is exercised there. Terms are defined in
+<a href="https://github.com/y-l-g/tablo/blob/master/CONTEXT.md"><code>CONTEXT.md</code></a> and design decisions are
+recorded in <a href="https://github.com/y-l-g/tablo/tree/master/docs/adr"><code>docs/adr/</code></a>. If this guide
+disagrees with the code, the code is right: please open an issue.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="your-first-panel"><a class="header" href="#your-first-panel">Your first panel</a></h1>
-<p>A complete panel: one Toasty model, one <code>Resource</code> over it, and the <code>main</code> that mounts them and
-serves the admin.</p>
+<p>This chapter builds a complete admin in one file: a <code>Book</code> model, a resource for it, and the
+<code>main</code> that serves it with a login page.</p>
 <pre class="playground"><code class="language-rust">use tablo_core::auth::{AdminUser, hash_password};
 use tablo_core::{Field, Panel, Resource, Schema, Table, TextColumn};
 use toasty::Db;
-use topcoat::{Result, context::Cx};
+use topcoat::{
+    Result,
+    context::Cx,
+    router::{Slot, layout},
+    view::View,
+};
 
-/// The persisted model: every column the panel renders comes from this type.
+/// The model: every column the panel renders comes from this type.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct Book {
     #[key]
@@ -257,7 +272,7 @@ impl Resource for BookResource {
     type Model = Book;
     type Form = BookForm;
 
-    // Policy defaults to deny, so the list answers 403 without this.
+    // Every policy predicate denies by default; this one opens the list.
     fn can_view_any(_cx: &amp;Cx) -&gt; bool {
         true
     }
@@ -276,22 +291,26 @@ impl Resource for BookResource {
     }
 }
 
+/// Frames every page under `/admin` in the panel's shell: sidebar, topbar, toasts.
+#[layout("/admin")]
+async fn admin_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
+    Panel::layout_shell(cx, slot).await
+}
+
 #[tokio::main]
 async fn main() -&gt; Result&lt;()&gt; {
     let mut db = Db::builder()
         .models(toasty::models!(
             Book,
-            // The shipped password auth reads these two tables, and
-            // `Panel::build` asserts both are registered.
+            // The built-in password login reads these two tables.
             tablo_core::auth::AdminUser,
             tablo_core::auth::AuthSession
         ))
         .connect("sqlite::memory:")
         .await?;
-
     db.push_schema().await?;
 
-    // One account to sign in with; the hash is an Argon2id PHC string.
+    // One account to sign in with.
     toasty::create!(AdminUser {
         email: "admin@example.com".to_string(),
         password_hash: hash_password("secret")?,
@@ -303,7 +322,6 @@ async fn main() -&gt; Result&lt;()&gt; {
     .exec(&amp;mut db)
     .await?;
 
-    // `app_context(db)` installs the Db `Panel::build` requires.
     let router = Panel::new("admin")
         .app_context(db)
         .resource::&lt;BookResource&gt;()
@@ -312,156 +330,204 @@ async fn main() -&gt; Result&lt;()&gt; {
     topcoat::start(router).await?;
     Ok(())
 }</code></pre>
+<p>Run it and sign in as <code>admin@example.com</code> / <code>secret</code>:</p>
 <pre><code class="language-sh">cargo run
-# then open http://127.0.0.1:3000/admin/books and sign in as admin@example.com / secret
+# open http://127.0.0.1:3000/admin/books
 </code></pre>
-<p>The sample needs <code>tablo-core</code>, <code>topcoat</code> (whose defaults cover <code>serve</code>), <code>toasty</code> with the <code>sqlite</code>
-and <code>jiff</code> features, <code>tokio</code> with <code>macros</code> and <code>rt-multi-thread</code>, and <code>uuid</code>; <code>jiff</code> is named
-directly for <code>Timestamp::now()</code>. The workspace’s own revisions and features are in <code>Cargo.toml</code>.</p>
-<h2 id="the-wiring"><a class="header" href="#the-wiring">The wiring</a></h2>
-<p>The one required call the other chapters leave implicit is <code>app_context(db)</code>: the panel reads its
-pooled <code>Db</code> from the app context, and <code>Panel::build</code> returns an error without one.</p>
+<p>The example depends on <code>tablo-core</code>, <code>topcoat</code> (its default features include the server),
+<code>toasty</code> with the <code>sqlite</code> and <code>jiff</code> features, <code>jiff</code> for <code>Timestamp::now()</code>, <code>tokio</code> with
+<code>macros</code> and <code>rt-multi-thread</code>, and <code>uuid</code>. The workspace <code>Cargo.toml</code> pins the revisions the
+toolkit is tested with.</p>
+<h2 id="what-each-part-does"><a class="header" href="#what-each-part-does">What each part does</a></h2>
 <ul>
-<li><code>Db::builder().models(..)</code> names every model Toasty maps. The shipped password auth reads
-<code>tablo_core::auth::AdminUser</code> and <code>tablo_core::auth::AuthSession</code>, so both are listed; with auth
-on, <code>Panel::build</code> asserts they are there, and the panel serves its login page at
-<code>/admin/login</code> (<a href="#policy-auth-tenancy">Policy, auth, tenancy</a>).</li>
-<li><code>db.push_schema().await</code> creates the tables for a prototype. Production uses <code>toasty-cli</code>
-migrations (<a href="#data-access">Data access</a>).</li>
-<li><code>Panel::new("admin")</code> mounts the panel at <code>/admin</code>. <code>resource::&lt;BookResource&gt;()</code> registers the
-resource’s list at <code>{prefix}/{slug}</code>, derives its sidebar entry from the same slug, and, with
-no home page registered, points the panel root at the first declared resource, so
-<code>BookResource</code> answers on <code>/admin/books</code>. The other routes — create, edit, detail, delete, bulk delete, export, relationship options — come
-from the same registration (<a href="#panel-and-routing">Panel and routing</a>).</li>
-<li><code>app_context(db)</code> registers the pooled <code>Db</code> on the panel’s app context. <code>Panel::build</code> requires
-it: without that call it returns <code>Err</code> (<code>Panel::build requires a Db via app_context</code>) instead of a
-router. <code>build</code> also uses that same database to run its declaration checks, with no request in
-hand.</li>
-<li><code>build()?</code> returns the <code>Router</code>, or an error naming the misdeclaration it found — a duplicate or
-malformed resource slug, a malformed panel prefix, a form that disagrees with the resource’s
-<code>form()</code> schema (<a href="#resources">Resources</a>).</li>
-<li><code>topcoat::start(router)</code> binds <code>HOST</code> and <code>PORT</code> (<code>127.0.0.1:3000</code> when unset) and serves until
-Ctrl+C or <code>SIGTERM</code>.</li>
+<li><strong><code>#[derive(RecordForm)]</code></strong> declares what a form submission parses into. Each field is named
+and typed like the model’s field, so a renamed column fails to compile. See
+<a href="#forms">Forms</a>.</li>
+<li><strong><code>impl Resource</code></strong> declares the admin for one model: its table, its form’s controls, and its
+policy. A resource must name <code>Model</code> and <code>Form</code> and declare <code>table()</code>; every other item has a
+default. See <a href="#resources">Resources</a>.</li>
+<li><strong><code>#[layout("/admin")]</code></strong> frames the panel’s pages. <code>Panel::layout_shell</code> renders the whole
+document around them; the layout’s path must match the panel’s prefix.</li>
+<li><strong><code>Db::builder().models(..)</code></strong> lists every model Toasty maps, including the two tables the
+built-in login uses. With authentication on, <code>Panel::build</code> panics if they are missing.</li>
+<li><strong><code>db.push_schema()</code></strong> creates the tables, which suits a prototype. A production app runs
+<code>toasty-cli</code> migrations instead.</li>
+<li><strong><code>Panel::new("admin")</code></strong> mounts the panel at <code>/admin</code>. <strong><code>app_context(db)</code></strong> gives it the
+database; <code>Panel::build</code> fails without one.</li>
+<li><strong><code>resource::&lt;BookResource&gt;()</code></strong> registers the resource’s routes under <code>/admin/books</code>, adds its
+sidebar entry, and, because the panel has no home page, makes <code>/admin</code> redirect to the book
+list. <a href="#panel-and-routing">Panel and routing</a> lists every route.</li>
+<li><strong><code>build()</code></strong> checks every declaration and returns the <code>Router</code>, or an error naming the
+misdeclaration.</li>
+<li><strong><code>topcoat::start</code></strong> serves the router on <code>HOST</code>:<code>PORT</code> (default <code>127.0.0.1:3000</code>) until Ctrl+C
+or <code>SIGTERM</code>.</li>
 </ul>
-<p>The example sets <code>can_view_any</code> and leaves the other <code>can_*</code> predicates at their deny default: no
-Create link renders, the create and edit pages answer 403, and no row carries an Edit or Delete
-control. Declaring those is <a href="#policy-auth-tenancy">Policy, auth, tenancy</a>; the columns, filters
-and export are <a href="#tables">Tables</a>; the form is <a href="#forms">Forms</a>.</p>
-<p>The example also registers no asset bundle, so the shell falls back to <code>topcoat::dev::script()</code> and
-its theme script: the pages render and the forms submit, and <code>Panel::assets(..)</code> with
-<code>Panel::shell_assets(..)</code> adds the generated stylesheet, the font and the client scripts
-(<a href="#panel-and-routing">Panel and routing</a>).</p>
+<h2 id="what-the-example-leaves-out"><a class="header" href="#what-the-example-leaves-out">What the example leaves out</a></h2>
+<ul>
+<li><strong>Writes.</strong> Only <code>can_view_any</code> is allowed, so the create link is hidden, the create and edit
+pages answer 403, and rows show no Edit or Delete action.
+<a href="#policy-auth-tenancy">Policy, auth, tenancy</a> opens them.</li>
+<li><strong>Styling.</strong> The example registers no asset bundle, so pages render unstyled and without the
+shell’s scripts, but every page and form works. <code>Panel::assets</code> and <code>Panel::shell_assets</code> add
+the stylesheet, the font and the scripts; see
+<a href="#assets">Panel and routing</a>.</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="panel-and-routing"><a class="header" href="#panel-and-routing">Panel and routing</a></h1>
-<p>How a panel is mounted, the routes a resource adds, and the panel options that shape the shell.</p>
-<p><code>Panel</code> owns the router, the <code>Db</code> in app context, and the shell layout. Registering a resource or a
-<a href="#pages">page</a> adds its routes and its sidebar item.</p>
-<p>Routes for a resource with slug <code>users</code> under prefix <code>admin</code>:</p>
-<ul>
-<li><code>GET /admin/users</code> : list</li>
-<li><code>GET + POST /admin/users/create</code> : create</li>
-<li><code>GET /admin/users/{id}</code> : detail page, read-only (GH #187) — 404 when the resource declares no
-<code>view</code> schema,
-see <a href="#detail-pages">Detail pages</a></li>
-<li><code>GET + POST /admin/users/{id}/edit</code> : edit</li>
-<li><code>POST /admin/users/{id}/delete</code> : delete with confirm step</li>
-<li><code>POST /admin/users/bulk-delete</code> : bulk delete</li>
-<li><code>GET /admin/users/export</code> : CSV export</li>
-<li><code>GET /admin/users/options</code> : relation option search for a searchable select (GH #150),
-see <a href="#forms">Forms</a></li>
-<li><code>GET /admin</code> serves the <a href="#pages">home page</a>, or redirects to the first resource when the panel
-has none</li>
-</ul>
-<p>Useful panel options:</p>
+<p><code>Panel</code> is the admin application. You configure it with builder calls, and <code>build()</code> turns it into
+a Topcoat <code>Router</code> that serves every registered resource and page, the login page, and the shell
+that frames them.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Panel::new("admin")
+</span>let router = Panel::new("admin")          // mounted at /admin
+    .app_context(db)                      // the toasty::Db every handler uses
     .brand(Brand::new("Acme"))
-    .dark_mode(true)
-    .login_hint("Demo: admin@example.com / password")
+    .home::&lt;Dashboard&gt;()                  // GET /admin
+    .resource::&lt;UserResource&gt;()           // /admin/users and its sub-routes
+    .page::&lt;ReportsPage&gt;()                // GET /admin/reports
+    .build()?;
 <span class="boring">}</span></code></pre>
-<p><code>brand</code> sets the name in the sidebar header and on the login card, and in the topbar below the <code>md</code>
-breakpoint,
-where the sidebar folds into a sheet. A brand without a logo shows its initial as the mark.
-<code>dark_mode</code> sets the theme a visitor sees <strong>before they
-have chosen one</strong> — the toggle is always rendered, and a stored choice wins in both directions
-(GH #184): picking light persists, and the next page stays light instead of falling back to this
-default. Omit <code>dark_mode</code> and the panel starts light.</p>
-<p>The panel owns the URL of each resource’s list page and resolves a resource’s sidebar entry to
-<code>{prefix}/{slug}</code>; the resource owns the label and the ordering. See
-<a href="#resources">Resources</a> for the <code>navigation()</code> override.</p>
+<h2 id="routes"><a class="header" href="#routes">Routes</a></h2>
+<p>A resource with the slug <code>users</code>, on a panel mounted at <code>/admin</code>, serves:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Serves</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/admin/users</code></td><td>the list</td></tr>
+<tr><td><code>GET</code></td><td><code>/admin/users/{id}</code></td><td>the <a href="#detail-pages">detail page</a>; 404 when the resource declares no <code>view()</code></td></tr>
+<tr><td><code>POST</code></td><td><code>/admin/users/{id}/delete</code></td><td>delete one record</td></tr>
+<tr><td><code>POST</code></td><td><code>/admin/users/bulk-delete</code></td><td>delete the selected records</td></tr>
+<tr><td><code>GET</code></td><td><code>/admin/users/export</code></td><td>the list as CSV</td></tr>
+<tr><td><code>GET</code>, <code>POST</code></td><td><code>/admin/users/create</code></td><td>the create form ¹</td></tr>
+<tr><td><code>GET</code>, <code>POST</code></td><td><code>/admin/users/{id}/edit</code></td><td>the edit form ¹</td></tr>
+<tr><td><code>GET</code></td><td><code>/admin/users/options</code></td><td>option search for a searchable relationship select ¹</td></tr>
+</tbody>
+</table>
+</div>
+<p>¹ Only for a resource whose <code>Form</code> is a record form; a list-only resource names <code>NoForm</code> and gets
+none of these. See <a href="#forms">Forms</a>.</p>
+<p><code>{id}</code> is the record’s primary key. Each route checks the resource’s policy, so a registered
+route is not an open one: see <a href="#policy-auth-tenancy">Policy, auth, tenancy</a>.</p>
+<p>The panel also serves:</p>
+<ul>
+<li><code>GET /admin</code>: the <a href="#pages">home page</a>, or a redirect to the first registered resource’s list
+when there is none.</li>
+<li><code>GET</code>, <code>POST /admin/login</code> and <code>POST /admin/logout</code>, unless authentication is disabled.</li>
+</ul>
+<h2 id="builder-reference"><a class="header" href="#builder-reference">Builder reference</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Call</th><th>Effect</th><th>See</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Panel::new(prefix)</code></td><td>mounts the panel at <code>/{prefix}</code></td><td></td></tr>
+<tr><td><code>app_context(db)</code></td><td>installs the <code>toasty::Db</code>; <code>build</code> fails without it</td><td><a href="#data-access">Data access</a></td></tr>
+<tr><td><code>resource::&lt;R&gt;()</code></td><td>registers a resource’s routes and sidebar entry</td><td><a href="#resources">Resources</a></td></tr>
+<tr><td><code>page::&lt;P&gt;()</code></td><td>registers a page at <code>/{prefix}/{slug}</code></td><td><a href="#pages">Pages</a></td></tr>
+<tr><td><code>home::&lt;P&gt;()</code></td><td>registers a page at <code>/{prefix}</code></td><td><a href="#pages">Pages</a></td></tr>
+<tr><td><code>brand(Brand)</code></td><td>sets the name and optional logo in the sidebar, the topbar and the login card</td><td><a href="#branding-and-theme">Branding</a></td></tr>
+<tr><td><code>dark_mode(bool)</code></td><td>sets the theme a first-time visitor sees</td><td><a href="#branding-and-theme">Branding</a></td></tr>
+<tr><td><code>login_hint(text)</code></td><td>adds a line under the login form</td><td><a href="#branding-and-theme">Branding</a></td></tr>
+<tr><td><code>auth(Auth)</code></td><td>replaces or disables the built-in password login</td><td><a href="#authentication">Policy, auth, tenancy</a></td></tr>
+<tr><td><code>uploads(uploader)</code></td><td>sets where file fields store their bytes</td><td><a href="#file-uploads">Forms</a></td></tr>
+<tr><td><code>serve_dir(path, dir)</code></td><td>serves a directory of files, publicly</td><td><a href="#file-uploads">Forms</a></td></tr>
+<tr><td><code>assets(bundle)</code>, <code>shell_assets(css, font)</code></td><td>adds the stylesheet, font and scripts</td><td><a href="#assets">Assets</a></td></tr>
+<tr><td><code>frame_ancestors(..)</code>, <code>without_frame_ancestors()</code></td><td>changes the anti-framing header</td><td><a href="#security">Security</a></td></tr>
+<tr><td><code>build()</code></td><td>checks every declaration and returns the <code>Router</code></td><td></td></tr>
+</tbody>
+</table>
+</div>
+<p>The builder calls never fail; <code>build()</code> returns an error naming what is wrong instead. It refuses a
+missing <code>Db</code>, two resources or pages with one slug, a slug the panel routes itself (<code>login</code>,
+<code>logout</code>), a slug that is not a single URL segment, a second home page, <code>shell_assets</code> without
+<code>assets</code>, and every resource declaration check described in
+<a href="#startup-checks">Resources</a>.</p>
+<h2 id="the-shell-layout"><a class="header" href="#the-shell-layout">The shell layout</a></h2>
+<p>The panel’s pages render inside your app’s <code>#[layout]</code> at the panel prefix. Delegate it to the
+panel to get the shell — sidebar, topbar, theme toggle and notification toasts:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[layout("/admin")]
+async fn admin_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
+    Panel::layout_shell(cx, slot).await
+}
+<span class="boring">}</span></code></pre>
+<h2 id="sidebar"><a class="header" href="#sidebar">Sidebar</a></h2>
+<p>Every resource and page gets one sidebar entry, labelled with its <code>navigation_label()</code> and linked
+to its list or page URL. Entries sort by <code>order</code> (lower first, default <code>0</code>); entries with the same
+<code>order</code> keep registration order, and the home page leads its <code>order</code>.</p>
+<p>Override <code>navigation()</code> on the resource or page to change the order or add an icon. Start from the
+default entry so the panel still resolves the URL:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn navigation() -&gt; NavigationItem {
+    NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }
+        .icon(tablo_ui::icons::USERS)
+}
+<span class="boring">}</span></code></pre>
+<p><code>NavigationItem::for_page::&lt;Self&gt;()</code> is the equivalent for a page. <code>NavigationItem::at(label, url)</code>
+links elsewhere; the panel keeps that URL as written. The entry whose URL is the longest match
+for the current path is marked active.</p>
 <h2 id="pages"><a class="header" href="#pages">Pages</a></h2>
-<p>A page that is not record CRUD — a dashboard, a report, a settings screen — implements <code>Page</code> and
-registers on the panel, which mounts it and lists it in the sidebar:</p>
+<p>A page that is not a record list — a dashboard, a report, a settings screen — implements <code>Page</code>:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use tablo_core::{Page, Panel};
-use topcoat::{
-    Result,
-    context::Cx,
-    view::{View, view},
-};
+use topcoat::{Result, context::Cx, view::{View, view}};
 
-struct Dashboard;
+struct ReportsPage;
 
-impl Page for Dashboard {
+impl Page for ReportsPage {
     async fn render(cx: &amp;Cx) -&gt; Result&lt;impl View&gt; {
-        Ok(view! { cx =&gt; tablo_ui::page(tablo_ui::page_header(tablo_ui::page_title("Dashboard"))) })
+        Ok(view! { cx =&gt;
+            tablo_ui::page(
+                tablo_ui::page_header(tablo_ui::page_title("Reports"))
+                tablo_ui::page_content(tablo_ui::card(tablo_ui::card_content("…")))
+            )
+        })
     }
 }
 
-// `ReportsPage` implements `Page` the same way.
-Panel::new("admin")
-    .home::&lt;Dashboard&gt;()        // GET /admin
-    .resource::&lt;UserResource&gt;()
-    .page::&lt;ReportsPage&gt;()      // GET /admin/reports
+Panel::new("admin").page::&lt;ReportsPage&gt;() // GET /admin/reports
 <span class="boring">}</span></code></pre>
-<p>The slug and the sidebar label default to the type name without a <code>Page</code> suffix: <code>ReportsPage</code>
-mounts at <code>reports</code> with the label <code>Reports</code>, and <code>MediaLibraryPage</code> at <code>media-library</code> with
-<code>Media library</code>. Override <code>slug()</code>, <code>navigation_label()</code>, or <code>navigation()</code> — the last sets the
-<code>order</code> and the icon, as a resource’s does. Every page has a sidebar entry. Pages and resources share one slug
-namespace, and <code>Panel::build</code> rejects a duplicate, a slug the panel routes itself (<code>login</code>,
-<code>logout</code>), and a slug that is not one URL segment.</p>
-<p><code>Panel::home</code> mounts its page at the prefix itself, in place of the redirect to the first resource,
-and a second <code>home</code> fails the build. Its sidebar entry leads the entries of the same <code>order</code> and
-points at the prefix, which every path under it matches, so the sidebar marks one entry active: the
-most specific match.</p>
-<p>The panel checks for a resolved user before <code>render</code> runs, and the app’s <code>#[layout]</code> at the prefix
-frames the page in the shell. A page serves one <code>GET</code>; a form it renders posts to an app <code>#[route]</code>
-under the prefix, which the auth gate covers. <code>examples/showcase</code> registers a dashboard, the media
-library and the live feed this way.</p>
-<p>A page lays itself out with the composites the panel’s own pages use, so it reads as one of them:
-<code>tablo_ui::page</code> owns the width and the padding, and <code>page_header</code> takes a <code>page_title</code>, an optional
-<code>page_description</code> under it and optional <code>page_actions</code> at the end of the title’s line. Content goes
-in <code>page_content</code>: <code>tablo_ui::card</code> for a panel, the same surface as a form section and a table, and
-<code>tablo_ui::empty_state</code> for a region with nothing to list. The surfaces draw from the tokens in the
-app’s <code>styles.css</code> (<code>--card</code>, <code>--border</code>, <code>--shadow-sm</code>, <code>--primary</code>…), so a theme restyles the
-panel’s pages and the app’s alike.</p>
+<ul>
+<li><strong>Slug and label</strong> default to the type name without its <code>Page</code> suffix: <code>ReportsPage</code> mounts at
+<code>reports</code> and is labelled “Reports”; <code>MediaLibraryPage</code> mounts at <code>media-library</code> and is
+labelled “Media library”. Override <code>slug()</code> and <code>navigation_label()</code> to change them. Pages and
+resources share one slug namespace.</li>
+<li><strong>The home page.</strong> <code>Panel::home::&lt;P&gt;()</code> mounts a page at the prefix itself instead of the
+redirect to the first resource. A panel has at most one; a second fails <code>build()</code>.</li>
+<li><strong>Access.</strong> With authentication on, the page renders only for a signed-in user with panel access,
+inside the shell layout.</li>
+<li><strong>Forms.</strong> A page serves one <code>GET</code>. A form it renders posts to an app <code>#[route]</code>; put that route
+under the panel prefix so the auth gate covers it.</li>
+</ul>
+<p>The <code>tablo_ui</code> composites give a page the same frame as the panel’s own pages: <code>page</code> sets the
+width and padding; <code>page_header</code> holds a <code>page_title</code>, an optional <code>page_description</code> and optional
+<code>page_actions</code>; <code>page_content</code> holds the body. Inside it, use <code>card</code> for a panel of content and
+<code>empty_state</code> for a region with nothing to show. They are styled by the design tokens in your
+<code>styles.css</code> (<code>--card</code>, <code>--border</code>, <code>--primary</code>, …), so one theme restyles the panel’s pages and
+yours.</p>
+<p>The showcase registers a dashboard as its home page, a media library and a live activity feed.</p>
 <h2 id="public-pages"><a class="header" href="#public-pages">Public pages</a></h2>
-<p>A public page is an app-level <code>#[page]</code> outside the panel prefix. The auth gate installs two layers
-— the panel prefix and <code>/_topcoat/runtime</code> — and a layer wraps only the routes under its path
-prefix, so no route under another prefix is gated. Route discovery is link-time over the binary, so
-the <code>discover()</code> call inside <code>Panel::build</code> collects these pages with no router change:</p>
+<p>A page outside the panel prefix is an ordinary Topcoat <code>#[page]</code>. The auth gate covers only the
+panel prefix and <code>/_topcoat/runtime</code>, so such a page is public. <code>build()</code> discovers it like any
+other Topcoat route; the panel needs no registration call.</p>
+<p><code>Panel::document</code> renders the same HTML document as the admin shell — head, assets, theme — around
+your own markup:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>use tablo_core::Panel;
-use topcoat::{
-    Result,
-    context::Cx,
-    router::{Slot, layout, page},
-    view::{View, view},
-};
-
-// The layout path is a prefix: `/blog` wraps `/blog` and `/blog/{id}`, and
-// nothing else. A layout at `/` would wrap `/admin` too.
+</span>// A layout wraps every route under its path: this one wraps /blog and /blog/{id}.
+// A layout at "/" would wrap /admin too.
 #[layout("/blog")]
 async fn blog_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
     Panel::document(
         cx,
         "Blog",
-        view! {
-            &lt;div class="mx-auto max-w-3xl px-6 py-10"&gt;(slot)&lt;/div&gt;
-        },
+        view! { &lt;div class="mx-auto max-w-3xl px-6 py-10"&gt;(slot)&lt;/div&gt; },
     )
     .await
 }
@@ -471,272 +537,305 @@ async fn blog() -&gt; Result&lt;impl View&gt; {
     Ok(view! { "Posts" })
 }
 <span class="boring">}</span></code></pre>
-<p><code>Panel::document</code> renders the document the admin shell renders — <code>topcoat::dev::script()</code>, the theme
-script, and, where the panel registered <code>Panel::shell_assets</code>, the runtime script, the font, the
-stylesheet and the shell scripts. The panel renders the <code>&lt;body&gt;</code> element and the dark-mode <code>&lt;html&gt;</code>
-class; the page owns its chrome inside, classes included.</p>
-<p>The runtime script, the font, the stylesheet and the shell scripts are <code>Asset</code> URLs, and an <code>Asset</code>
-panics where no asset config is registered: a layout that rendered them under a router built without
-<code>.assets(..)</code> — a markup test, say — fails instead of rendering. <code>Panel::document</code> leaves them out
-there, as the panel’s own shell does.</p>
-<p>The panel’s resource loaders are panel-scoped (auth, tenancy, chrome), so a public page queries the
-model directly: <code>Post::filter(Post::fields().status().eq("published".to_string()))</code>, with an explicit
-<code>.include(..)</code> for every relation the page reads. See <a href="#data-access">Data access</a>. The framework
-scopes a <code>Resource</code>’s loaders, not a page’s own query, so app code that loads rows outside those
-loaders calls <code>scoped_query</code> — a public page in a multi-tenant app states its tenant predicate in the
-query it writes (ADR-0002).</p>
+<p>A public page loads its rows with a plain Toasty query, not through a resource. The resource’s
+tenant scope applies only to the panel’s loaders, so in a multi-tenant app the page states its own
+tenant predicate. See <a href="#data-access">Data access</a>.</p>
+<h2 id="branding-and-theme"><a class="header" href="#branding-and-theme">Branding and theme</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>Panel::new("admin")
+    .brand(Brand::new("Acme").logo("/logo.svg"))
+    .dark_mode(true)
+    .login_hint("Demo: admin@example.com / password")
+<span class="boring">}</span></code></pre>
+<ul>
+<li><code>brand</code> names the panel in the sidebar header, on the login card, and in the topbar on narrow
+screens. A brand without a logo shows its first letter.</li>
+<li><code>dark_mode(true)</code> makes the panel start dark for a visitor who has not chosen a theme. The theme
+toggle always renders, and a visitor’s choice, light or dark, is remembered and wins over this
+default. Without the call the panel starts light.</li>
+<li><code>login_hint</code> renders a muted line under the login form, such as demo credentials.</li>
+</ul>
+<h2 id="assets"><a class="header" href="#assets">Assets</a></h2>
+<p>Without assets the panel renders unstyled HTML without the shell’s scripts, and every page and
+form still works. To style it, register the app’s Topcoat asset bundle, then the Tailwind stylesheet and
+the font the shell links:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>const GEIST: Font = fontsource_font!(GEIST, host: Asset);
+
+Panel::new("admin")
+    .assets(AssetBundle::load().expect("asset bundle"))
+    .shell_assets(tailwind::stylesheet!(), GEIST)
+<span class="boring">}</span></code></pre>
+<p><code>shell_assets</code> also makes the shell load <code>tablo-ui</code>’s scripts: live search, confirmation dialogs,
+searchable selects, toasts and the sidebar and theme toggles. <code>build()</code> refuses <code>shell_assets</code>
+without <code>assets</code>. <code>examples/showcase</code> has the complete setup, including the <code>build.rs</code> that
+generates the stylesheet.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="resources"><a class="header" href="#resources">Resources</a></h1>
-<p>The <code>Resource</code> trait: how one Toasty model maps to its admin UI, what the framework checks at boot,
-and how tenancy is declared.</p>
-<p>One resource maps one Toasty model to its admin UI:</p>
+<p>A resource is the admin for one Toasty model: which rows it lists, how its table and form look,
+who may see and change a record, and how a write runs. You implement the <code>Resource</code> trait on a
+unit struct and register it with <code>Panel::resource</code>.</p>
+<p>The smallest resource lists rows and nothing else:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>pub trait Resource: Sized + Send + Sync + 'static {
-    type Model: toasty::schema::Model + Send + Sync + Clone + 'static;
-    type Form: RecordForm&lt;Model = Self::Model&gt;;     // required: a record form, or NoForm
-    fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: Query::all()
-    fn view_query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: query(cx)
-    fn view_values(_cx: &amp;Cx, _record: &amp;Self::Model)
-        -&gt; HashMap&lt;String, String&gt;;                 // default: empty
-    fn table(_cx: &amp;Cx) -&gt; Table&lt;Self::Model&gt;;       // required: Table::new(key, columns)
-    // plus can_* policy fns (default deny), slug/navigation/requires_tenant
-    // defaults, form()/validate_record and the record fns
-}
-<span class="boring">}</span></code></pre>
-<p>Every resource registers with <code>Panel::resource</code>, which serves the list, the detail page, delete,
-bulk delete, and export. A resource whose <code>Form</code> is a <code>#[derive(RecordForm)]</code> struct also gets the
-create page, the edit page, and the relationship options
-(<a href="#the-record-form">Forms</a>); a list-only resource names
-<code>type Form = NoForm&lt;Self::Model&gt;;</code> and links to no create page.</p>
-<h2 id="the-contract"><a class="header" href="#the-contract">The contract</a></h2>
-<p>Every item except <code>Model</code>, <code>Form</code>, and <code>table()</code> is defaulted, so a resource names its model and
-its form and declares its list view, and any other omission has to fail loudly instead of quietly:</p>
-<ul>
-<li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): a
-<code>NoForm</code> resource whose <code>can_create</code> is on, or whose <code>form()</code> declares a schema,
-fails the build, since it serves no form; a record form must agree with its <code>form()</code> schema
-(<a href="#the-record-form">Forms</a>). <code>table()</code>, <code>form()</code> and
-<code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
-and each list and form request calls <code>table()</code> / <code>form()</code> again, so a declaration must not need
-request-scoped context.</li>
-<li><strong>Chrome follows the declarations, gated per record</strong>: the row Delete control, the bulk column,
-and the bulk bar render when <code>can_delete_any()</code> allows, the Edit link when the resource has a
-record form, and the View link when it declares <code>view()</code>. <code>can_delete_any()</code> defaults to <code>false</code>
-and the delete handlers check it too, so a resource that never mentions it renders no delete
-affordance and answers every delete POST with 403. <code>can_delete()</code> defaults to <code>can_delete_any()</code>;
-override it to refuse some rows. The panel applies the row predicates <strong>per row</strong> through the
-table’s row policy (GH #235), so a row <code>can_update()</code> refuses renders no Edit link, a row
-<code>can_delete()</code> refuses renders no Delete link and no bulk checkbox, and a row <code>can_view()</code>
-refuses renders no View link. Select-all therefore submits only the rows the handler will accept
-— the showcase’s SSO-guarded user is the worked example: its row keeps the View link and nothing
-else. The handler keeps its all-or-nothing check on the POST as the safety net for a hand-crafted
-request.</li>
-<li><strong>Default-deny stands</strong>: every <code>can_*</code> defaults to <code>false</code>, except <code>can_delete()</code>, which defaults
-to <code>can_delete_any()</code>; an unconfigured resource exposes no data and no mutation.</li>
-</ul>
-<h2 id="what-to-know"><a class="header" href="#what-to-know">What to know</a></h2>
-<ul>
-<li><code>slug()</code>, <code>label()</code>, and <code>navigation_label()</code> have working defaults. <code>label()</code> is one record’s
-name, used in the “Create” and “Edit” titles; <code>navigation_label()</code> pluralizes it for the sidebar
-and the list title. Override <code>label()</code> to rename, and <code>navigation_label()</code> only for a plural the
-rules cannot guess.</li>
-<li><code>navigation()</code> curates this resource’s sidebar entry: override it to change the label, the <code>order</code>
-(lower renders first, ties keep declaration order), the icon or the URL, e.g.
-<code>NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }</code> or
-<code>NavigationItem::for_resource::&lt;Self&gt;().icon(tablo_ui::icons::USERS)</code>. <code>tablo_ui::icons</code> carries
-a set of navigation icons; an app that stages an icon set of its own passes any <code>IconData</code>. The URL is the Panel’s
-call: <code>for_resource</code> names none, so the panel that mounts the resource resolves it to
-<code>{prefix}/{slug}</code>, and a resource never links at <code>/admin</code> on a panel mounted elsewhere. Spell a
-URL out instead (<code>NavigationItem::at(..)</code>) only to link somewhere other than the resource’s list
-page — the Panel keeps it verbatim.</li>
-<li><code>query()</code> is the seam for the resource’s <strong>own</strong> row scoping: soft deletes and row-level
-visibility. Every loader starts from it, as does app code that calls <code>scoped_query</code>. Tenancy is not
-its job: when <code>requires_tenant()</code> is <code>true</code> the framework derives the <code>tenant_id</code> filter from the
-model’s own schema and ANDs it onto whatever <code>query</code> returns, at every loader (GH #223), so
-restating it here is redundant. Relations are not its job either (ADR-0018): the list and the
-export load the relations their columns declare with <code>TextColumn::include(..)</code>, and the detail
-page loads <code>view_query</code>. Include a relation in <code>query</code> only when every loader needs it, such as one
-<code>can_view</code> reads. The option loaders run <code>query</code>, so an option label projects the related record’s
-own columns.</li>
-<li><code>view_query()</code> is the detail page’s query: <code>query</code> plus the relations <code>view_values</code> or
-<code>view_content</code> read off the record, e.g. <code>Self::query(cx).include(author)</code>. The framework ANDs
-the tenant scope onto it too. A <a href="#relations">relation</a> runs its own query.</li>
-<li><code>table()</code> and <code>form()</code> are hand-written, and so is the impl itself: a resource is <code>type Model</code> plus
-whichever hooks it uses. There is no <code>Resource</code> derive (GH #222); the macros crate ships
-<code>derive(EmbeddedForm)</code> (GH #191) and <code>derive(RecordForm)</code> (GH #369), which types the form’s
-values rather than declaring the resource.</li>
-</ul>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct UserResource;
+</span>pub struct AuditResource;
 
-impl Resource for UserResource {
-    type Model = User;
-    type Form = NoForm&lt;Self::Model&gt;;
-}
+impl Resource for AuditResource {
+    type Model = Audit;
+    type Form = NoForm&lt;Audit&gt;; // list-only: no create or edit pages
 
-struct PostResource;
-
-impl Resource for PostResource {
-    type Model = Post;
-    type Form = NoForm&lt;Self::Model&gt;;
-
-    // the resource's own scoping seam, spelled out where it is used
-    fn query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
-        // soft deletes, row-level visibility, includes — not the tenant filter
-    }
-}
-<span class="boring">}</span></code></pre>
-<ul>
-<li>Record fns (<code>create_record</code> / <code>update_record</code>, <code>delete_record</code>,
-<code>bulk_delete_records</code>) do the writes. Handlers load records, check policy, then call them in a
-transaction. <code>create_record</code> and <code>update_record</code> return the row they wrote — the create builder
-hands the created one back and a Toasty instance update reloads the model, so both are already in
-hand — because that is the only way the framework can name what a write committed (GH #112). The
-derived <code>write_update</code> ends with the reloaded record, and a model used by a <code>Resource</code> derives
-<code>Clone</code>. <code>delete_record</code> defaults to deleting the row by its record key through <code>scoped_query</code>,
-and <code>bulk_delete_records</code> loops over <code>delete_record</code>, so one override (a soft delete, say) covers
-both.</li>
-<li><code>after_commit(cx, committed)</code> is the post-commit seam (GH #112): called once per committed write,
-after the transaction and before the response, with a <code>Committed</code> naming the mutation
-(<code>Mutation::Create/Update/Delete</code>) and the rows it wrote (a bulk delete is one call with all of
-them). It is where email, webhooks, audit rows and cache invalidation belong — running them in a
-record fn leaks the effect on a rollback, and the transaction’s pool discipline forbids a second
-handle while it is open. The default is a no-op, a hook failure is logged without touching the
-committed write, and it never runs when nothing committed.</li>
-<li>The edit form hydrates from <code>RecordForm::hydrate</code>, which the derive generates.
-<code>view_values(cx, record)</code> is the detail page’s projection for a list-only resource, and adds any
-key only the view shows for a form resource. <code>cx</code> is the request’s: a scalar projection needs
-nothing from it, but an embedded value’s keys come from the compiled mapping (GH #191).</li>
-</ul>
-<h2 id="tenancy"><a class="header" href="#tenancy">Tenancy</a></h2>
-<p>Tenancy is declared, not restated per query. The pattern:</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>impl Resource for PostResource {
-    type Model = Post;
-    type Form = NoForm&lt;Self::Model&gt;;
-
-    // `Post` declares `tenant_id: uuid::Uuid`. Declaring this is the whole
-    // tenant contract: the gate is GH #87 — every handler 403s without a
-    // tenant — and the scope is GH #223 — every loader (list, edit, delete,
-    // bulk, export, relationship options) ANDs `tenant_id = &lt;request tenant&gt;`,
-    // derived from the model's own schema, onto whatever `query` returns.
-    fn requires_tenant() -&gt; bool {
+    fn can_view_any(_cx: &amp;Cx) -&gt; bool {
         true
     }
 
-    // The resource's *own* scoping only — a soft delete, row-level visibility,
-    // the includes a page loads. Writing the tenant filter here is redundant:
-    // the framework derives it at every loader, so a copy that disagreed with
-    // the derived column could only hide rows, never widen access.
-    fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
-        Query::&lt;List&lt;Post&gt;&gt;::all()
+    fn table(_cx: &amp;Cx) -&gt; Table&lt;Audit&gt; {
+        Table::new(
+            |a: &amp;Audit| a.id.to_string(),
+            TextColumn::r#for(Audit::fields().action(), |a: &amp;Audit| a.action.clone()),
+        )
     }
 }
 <span class="boring">}</span></code></pre>
-<p>App code that loads rows outside the framework’s loaders — a record fn double-checking a foreign
-key, a <code>Page</code> — calls <code>scoped_query::&lt;PostResource&gt;(cx)?</code> rather than <code>PostResource::query(cx)</code>:
-on a gated resource that method is the <strong>tenant-unscoped</strong> base, deliberately, so the
-tenant-unscoped case is visible at the call site (it still carries whatever the resource’s own
-<code>query</code> scopes — soft deletes included).</p>
-<p>Three shapes, one gate:</p>
-<ol>
-<li>
-<p><strong>The model carries the tenant</strong> (the common case): <code>requires_tenant() = true</code> and nothing else. The framework derives <code>tenant_id = &lt;request tenant&gt;</code>
-from the model’s own schema.</p>
-</li>
-<li>
-<p><strong>The row inherits its tenant</strong> — <code>Comment</code> has no <code>tenant_id</code>, it belongs to
-a post that does. Declare the predicate instead of the column:</p>
+<p>A resource with create and edit pages names a <code>#[derive(RecordForm)]</code> struct as its <code>Form</code> and
+declares the form’s controls in <code>form()</code>; see <a href="#forms">Forms</a>.</p>
+<h2 id="trait-items"><a class="header" href="#trait-items">Trait items</a></h2>
+<p>Only <code>Model</code>, <code>Form</code> and <code>table()</code> are required. Every other item has a default.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Item</th><th>Default</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td><code>type Model</code></td><td>required</td><td>the Toasty model; must be <code>Clone + Send + Sync</code></td></tr>
+<tr><td><code>type Form</code></td><td>required</td><td>a record form, or <code>NoForm&lt;Self::Model&gt;</code> for a list-only resource</td></tr>
+<tr><td><code>table(cx)</code></td><td>required</td><td>the list’s columns, filters and options: <a href="#tables">Tables</a></td></tr>
+<tr><td><code>form(cx)</code></td><td>no controls</td><td>the create and edit form’s controls: <a href="#forms">Forms</a></td></tr>
+<tr><td><code>validate_record(cx, form)</code></td><td>no errors</td><td>rules that need the whole parsed form</td></tr>
+<tr><td><code>view(cx)</code></td><td>nothing</td><td>the detail page’s fields; the page exists only when this declares some: <a href="#detail-pages">Detail pages</a></td></tr>
+<tr><td><code>view_values(cx, record)</code>, <code>view_content(cx, record)</code></td><td>none</td><td>what the detail page shows beyond the form’s fields</td></tr>
+<tr><td><code>view_query(cx)</code></td><td><code>query(cx)</code></td><td>the detail page’s query, with the relations it reads</td></tr>
+<tr><td><code>record_label(cx, record)</code></td><td><code>None</code></td><td>the detail page’s heading</td></tr>
+<tr><td><code>public_url(cx, record)</code></td><td><code>None</code></td><td>a link to the record’s public page on its detail and edit pages</td></tr>
+<tr><td><code>relations()</code></td><td>none</td><td>related resources shown as tables on the detail and edit pages</td></tr>
+<tr><td><code>query(cx)</code></td><td>every row</td><td>the base query every loader starts from: <a href="#scoping-the-query">Scoping</a></td></tr>
+<tr><td><code>requires_tenant()</code>, <code>tenant_scope(tenant)</code></td><td>not tenant-owned</td><td>tenancy: <a href="#tenancy">Policy, auth, tenancy</a></td></tr>
+<tr><td><code>can_view_any</code>, <code>can_view</code>, <code>can_create</code>, <code>can_update</code>, <code>can_delete_any</code></td><td><code>false</code></td><td>policy: <a href="#policy">Policy, auth, tenancy</a></td></tr>
+<tr><td><code>can_delete(cx, record)</code></td><td><code>can_delete_any(cx)</code></td><td>per-record delete policy</td></tr>
+<tr><td><code>create_record</code>, <code>update_record</code></td><td>the derived write</td><td>the create and update writes: <a href="#writes">Writes</a></td></tr>
+<tr><td><code>delete_record</code>, <code>bulk_delete_records</code></td><td>delete by primary key</td><td>the delete writes</td></tr>
+<tr><td><code>after_commit(cx, committed)</code></td><td>nothing</td><td>side effects after a write commits</td></tr>
+<tr><td><code>CREATE_COLUMNS</code></td><td>none</td><td>columns an overridden <code>create_record</code> sets itself</td></tr>
+<tr><td><code>slug()</code>, <code>label()</code>, <code>navigation_label()</code></td><td>from the type names</td><td>URLs and titles: <a href="#naming">Naming</a></td></tr>
+<tr><td><code>navigation()</code></td><td>the default entry</td><td>the sidebar entry: <a href="#sidebar">Sidebar</a></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="naming"><a class="header" href="#naming">Naming</a></h2>
+<p>The names default from the type names, following Filament’s conventions:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Item</th><th>Default</th><th><code>BlogPostResource</code> over <code>BlogPost</code></th></tr>
+</thead>
+<tbody>
+<tr><td><code>slug()</code></td><td>resource name without <code>Resource</code>, pluralized, kebab-cased</td><td><code>blog-posts</code></td></tr>
+<tr><td><code>label()</code></td><td>the model’s type name; used in “Create …” and “Edit …”</td><td><code>BlogPost</code></td></tr>
+<tr><td><code>navigation_label()</code></td><td><code>label()</code> pluralized; the sidebar entry and list title</td><td><code>BlogPosts</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Override <code>label()</code> to rename a record, and <code>navigation_label()</code> only when the plural rules guess
+wrong. Name resources in the singular: <code>UsersResource</code> pluralizes to <code>userses</code>.</p>
+<h2 id="scoping-the-query"><a class="header" href="#scoping-the-query">Scoping the query</a></h2>
+<p><code>query(cx)</code> is the base query of every loader: the list, the export, the edit and delete
+handlers, relationship options and the detail page. Use it for the resource’s own row scoping,
+such as hiding soft-deleted rows:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn requires_tenant() -&gt; bool {
-    true
-}
-
-fn tenant_scope(tenant: uuid::Uuid) -&gt; Option&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
-    // The framework ANDs this onto `query`/`view_query` at every loader,
-    // exactly as it ANDs the derived filter elsewhere.
-    Some(Comment::fields().post().tenant_id().eq(tenant))
+</span>fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
+    Query::&lt;List&lt;Post&gt;&gt;::all().filter(Post::fields().deleted_at().is_none())
 }
 <span class="boring">}</span></code></pre>
-<p>The gate is what matters: writing this filter inside <code>query</code> with
-<code>requires_tenant() = false</code> would <em>skip</em> it for a tenantless request rather
-than refuse it, serving every tenant’s rows to a tenantless admin.</p>
-</li>
-<li>
-<p><strong>The resource must serve more than one tenant</strong> (a deliberate cross-tenant
-view): <code>requires_tenant() = false</code> and scope in <code>query</code> by hand — the one
-explicit way out, and the gate goes with it.</p>
-</li>
-</ol>
-<p>A gated resource that supplies no predicate at all — no <code>tenant_id</code> column and
-no <code>tenant_scope</code> override — fails <code>Panel::build</code> (GH #231), the same boot
-failure any other misdeclaration gets, and every loader keeps answering an error
-naming itself rather than querying tenant-unscoped — the backstop for a
-predicate that is only <code>None</code> for some tenants. There is no override that
-removes the scope.</p>
-<p>The request’s tenant comes from the logged-in user; see
-<a href="#policy-auth-tenancy">Policy, auth, tenancy</a>.</p>
+<p>Two things do not belong in <code>query</code>:</p>
+<ul>
+<li><strong>The tenant filter.</strong> For a tenant-owned resource the framework adds it to <code>query</code> at every
+loader. See <a href="#tenancy">Tenancy</a>.</li>
+<li><strong>Relations.</strong> The list and the export load the relations their columns declare with
+<code>TextColumn::include</code>, and the detail page loads <code>view_query</code>. Include a relation in <code>query</code>
+only when every loader reads it, for example because <code>can_view</code> does.</li>
+</ul>
+<p>In your own code, load a resource’s rows with <code>scoped_query::&lt;R&gt;(cx)?</code>, not <code>R::query(cx)</code>:
+<code>scoped_query</code> is <code>query</code> with the tenant filter applied, and returns an error rather than an
+unscoped query when the request has no tenant.</p>
+<p>The unique-value check on forms probes through the same scoped query, so a <code>#[unique]</code> index
+wider than the scope is invisible to it: the check misses the collision and the database refuses
+the write with a 500. Scope such indexes to match, as in <code>#[unique(tenant_id, email)]</code>.</p>
+<h2 id="writes"><a class="header" href="#writes">Writes</a></h2>
+<p>Every create, update and delete runs in a transaction the framework opens. For an update or a
+delete, the handler first loads the target record through the scoped query inside that transaction
+and checks policy on it. It then calls the resource’s record function with the open transaction as
+<code>ex</code>.</p>
+<p><code>create_record</code> and <code>update_record</code> default to writing the record form’s fields
+(<code>write_create</code> and <code>write_update</code>), so most resources declare neither. To check something inside
+the transaction, override the function and delegate:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn update_record(
+    cx: &amp;Cx,
+    record: Comment,
+    posted: Posted&lt;CommentForm&gt;,
+    ex: &amp;mut dyn toasty::Executor,
+) -&gt; Result&lt;Comment&gt; {
+    // `Posted` derefs to the form.
+    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
+    tablo_core::write_update::&lt;Self&gt;(cx, record, posted, ex).await
+}
+<span class="boring">}</span></code></pre>
+<p>Run every statement through <code>ex</code>, and use the <code>record</code> you are given rather than loading it
+again: it is the row the policy check passed. Both functions return the written row. An error
+rolls the transaction back and nothing is written.</p>
+<p><code>delete_record</code> deletes the row by its primary key, and <code>bulk_delete_records</code> calls
+<code>delete_record</code> once per record in one transaction, so overriding <code>delete_record</code> — for a soft
+delete, say — covers both. A bulk delete is all-or-nothing.</p>
+<h3 id="after-the-commit"><a class="header" href="#after-the-commit">After the commit</a></h3>
+<p><code>after_commit</code> runs once per committed write, after the transaction and before the response. Put
+side effects there — email, webhooks, audit rows, cache invalidation — so a rolled-back write never
+triggers them:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn after_commit(cx: &amp;Cx, committed: Committed&lt;Post&gt;) -&gt; Result&lt;()&gt; {
+    for post in committed.records() {
+        notify_subscribers(cx, post).await?;
+    }
+    Ok(())
+}
+<span class="boring">}</span></code></pre>
+<p><code>Committed</code> names the mutation (<code>Mutation::Create</code>, <code>Update</code> or <code>Delete</code>) and the rows written: the
+created or updated row, or every deleted row in one call for a bulk delete. The hook is not called
+when nothing committed. An error it returns is logged; the write stays committed.</p>
+<h2 id="startup-checks"><a class="header" href="#startup-checks">Startup checks</a></h2>
+<p><code>Panel::build</code> calls each resource’s declarations once, with a context that holds only the
+database, and refuses the resource when:</p>
+<ul>
+<li><code>table()</code> or <code>view()</code> is malformed: a duplicate column or field name, a zero page size, a
+modifier on the wrong kind of field;</li>
+<li>the record form and <code>form()</code> disagree: a control no form field binds, a form field with no
+control, an optional control whose field has no blank value, a <code>unique()</code> field with no
+unique index, or a tenant-owned resource’s form claiming its tenant column;</li>
+<li><code>can_create</code> is allowed and a non-nullable column is set by nothing: not the form, not a Toasty
+default, not the tenant stamp, and not listed in <code>CREATE_COLUMNS</code>;</li>
+<li>a <code>NoForm</code> resource declares <code>form()</code> or allows <code>can_create</code>;</li>
+<li><code>requires_tenant()</code> is <code>true</code> and no tenant predicate can be derived;</li>
+<li>a relation names a resource the panel does not register, or names one twice.</li>
+</ul>
+<p>Because of this call, <code>table()</code>, <code>form()</code>, <code>view()</code> and <code>can_create()</code> must not depend on the
+request: a check that reads the current user or tenant sees an anonymous request at startup.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="tables"><a class="header" href="#tables">Tables</a></h1>
-<p>The list view: columns and the row key, search and sort, filters, grouping and CSV export, live
-updates, and row and bulk delete.</p>
-<p>Minimal table:</p>
+<p>A resource’s <code>table()</code> declares its list page: the columns, the row key, and the search, sort,
+filter, grouping and pagination the list offers. The same declaration drives the CSV export.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Table::new(
-    |u: &amp;User| u.id.to_string(),
-    (
-        TextColumn::r#for(User::fields().name(), |u: &amp;User| u.name.clone())
-            .searchable()
-            .sortable(),
-        TextColumn::computed("Status", |u: &amp;User| {
-            if u.active { "Active".into() } else { "Inactive".into() }
-        }),
-    ),
-)
-.paginate(20)
+</span>fn table(_cx: &amp;Cx) -&gt; Table&lt;User&gt; {
+    Table::new(
+        |u: &amp;User| u.id.to_string(),
+        (
+            TextColumn::r#for(User::fields().name(), |u: &amp;User| u.name.clone())
+                .searchable()
+                .sortable(),
+            TextColumn::r#for(User::fields().email(), |u: &amp;User| u.email.clone()).searchable(),
+            TextColumn::computed("Status", |u: &amp;User| {
+                if u.active { "Active" } else { "Inactive" }.to_string()
+            }),
+        ),
+    )
+    .paginate(20)
+}
 <span class="boring">}</span></code></pre>
-<p>Notes:</p>
+<h2 id="the-row-key"><a class="header" href="#the-row-key">The row key</a></h2>
+<p><code>Table::new(key, columns)</code> takes the row key first. It must be the model’s primary key as a
+string: the table uses it to identify rows for selection and in-place updates, and the action
+URLs and bulk checkboxes carry it, where handlers parse it back into the primary key. A key that
+is not the primary key makes every delete answer 404.</p>
+<p>When rows must be keyed by something else in the page, <code>Table::new_split(display, record, columns)</code> takes the two keys separately: <code>display</code> identifies rows in the page and <code>record</code> is the
+primary key the URLs carry. Either way, keys must be unique within a page.</p>
+<h2 id="columns"><a class="header" href="#columns">Columns</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Constructor</th><th>Cell</th><th>Search and sort</th></tr>
+</thead>
+<tbody>
+<tr><td><code>TextColumn::r#for(lens, project)</code></td><td><code>project(row)</code>, bound to a <code>String</code> field</td><td><code>.searchable()</code>, <code>.sortable()</code></td></tr>
+<tr><td><code>TextColumn::computed(label, project)</code></td><td><code>project(row)</code></td><td>not available: calling either panics</td></tr>
+</tbody>
+</table>
+</div>
 <ul>
-<li><code>Table::new(key, columns)</code> declares the row key and the record key together: the row key
-keys rows for selection and live updates — never use a loop index — and the record key is
-what action URLs and bulk checkbox values carry. Handlers resolve the record key as the
-model’s typed primary key, so declare the primary key, not a display label: a non-PK
-projection makes every delete and bulk submit 404. A table whose display must stay a
-non-PK value uses <code>Table::new_split(display, record, columns)</code>, which carries the typed
-primary key in the URLs instead.</li>
-<li><code>searchable()</code> searches with <code>?q=</code>: an escaped substring match (<code>like_with_escape</code>, OR across
-searchable columns), so a term containing <code>%</code> or <code>_</code> matches those characters literally. <code>LIKE</code> is
-ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. <code>sortable()</code> sorts with
-<code>?sort=</code> and <code>?dir=</code>. Both work without JS.</li>
-<li>The URL is the state: <code>?q=</code>, <code>?sort=</code>, <code>?dir=</code>, <code>?after=</code> or <code>?before=</code>, <code>?f.&lt;name&gt;=</code>, <code>?group_by=</code>
-parse into <code>TableState</code>. Every table paginates, at 25 rows unless <code>.paginate(n)</code> sets another
-size; pagination is cursor based, and Toasty appends the PK tie-breaker internally so cursors stay
-deterministic.</li>
-<li>Columns render in a fixed layout (<code>table-fixed</code>): a column’s width is the one its header declares, not
-the widest cell on the current page, so filtering, sorting or paging never re-measures the columns.
-Widths are percentages of the table, so what a table declares is a share of its container rather than a
-length that can outgrow it. The default follows the column’s kind: a field column
-(<code>TextColumn::r#for</code>) declares nothing and takes what the declared columns leave, a computed column
-(<code>TextColumn::computed</code>) claims a share (10% nominally). The chrome columns — bulk selection, row
-actions — claim shares too, and the kind defaults scale down together when their total would leave the
-field columns less than 40% of the table. <code>TextColumn::width(ColumnWidth::..)</code> overrides either; an
-explicit <code>Rem</code> does not shrink with the table, so a table narrower than its lengths leaves the field
-columns no space at all. The width is emitted as an inline <code>style</code> — Tailwind generates only the class
-literals it finds in source — and a value wider than its column truncates with an ellipsis.</li>
-<li>A <code>w-full</code> table never exceeds its container on its own, so on a narrow viewport the percentages
-would crush the cells instead of scrolling: the table carries a <code>min-width</code> summing its declared
-widths (shares as emitted, lengths verbatim, one readability floor per wide column, a content floor on
-the actions column), and the wrapper’s <code>overflow-x-auto</code> scrolls once the table is wider than its
-container. The actions column pairs its share with that floor on its header and cells, so the row
-buttons fit instead of spilling past the table.</li>
-<li>Computed columns render only. They do not affect search or sort.</li>
+<li>
+<p><strong>Labels.</strong> A field column is labelled from its field name (<code>created_at</code> → “Created at”); a
+computed column uses the label you pass.</p>
+</li>
+<li>
+<p><strong>Relations.</strong> A column whose closure reads a relation declares it with <code>.include(..)</code>, and the
+list and the export load it with the page’s rows in one query. A relation no column includes
+is not loaded. Guard the read so a missing include fails loudly instead of showing blank data:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>TextColumn::computed("Author", |p: &amp;Post| {
+    if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
+})
+.include(Post::fields().author())
+<span class="boring">}</span></code></pre>
+</li>
+<li>
+<p><strong>Widths.</strong> The table uses a fixed layout: a column’s width is what it declares, not the width of
+its widest cell, so paging and filtering never shift the columns. A field column takes an equal
+share of the space left over; a computed column defaults to a narrow share of the table (10%,
+scaled down when many columns claim one). Override with <code>.width(ColumnWidth::Percent(30))</code>,
+<code>Rem(8)</code>, <code>Narrow</code> or <code>Wide</code>. A cell wider than its column is truncated with an ellipsis. On a
+narrow screen the table keeps a minimum width and scrolls horizontally instead of crushing its
+columns.</p>
+</li>
 </ul>
-<p>Filters:</p>
+<p>Two columns with the same name, or a table with no columns, panic; <code>Panel::build</code> reports it as a
+startup error.</p>
+<h2 id="search-sort-and-pagination"><a class="header" href="#search-sort-and-pagination">Search, sort and pagination</a></h2>
+<p>The URL holds the list’s whole state, so every view of a list is a link you can share:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Parameter</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>?q=ada</code></td><td>search: each searchable column contains <code>ada</code>; any column may match</td></tr>
+<tr><td><code>?sort=name&amp;dir=desc</code></td><td>sort by a sortable column; <code>dir</code> is <code>asc</code> (default) or <code>desc</code></td></tr>
+<tr><td><code>?after=…</code>, <code>?before=…</code></td><td>the next or previous page, as an opaque cursor</td></tr>
+<tr><td><code>?f.status=published</code></td><td>a filter: see <a href="#filters">Filters</a></td></tr>
+<tr><td><code>?group_by=status</code></td><td>grouping: see <a href="#grouping">Grouping</a></td></tr>
+</tbody>
+</table>
+</div>
+<ul>
+<li>Search escapes <code>%</code> and <code>_</code>, so they match literally. Terms are trimmed and capped at 128
+characters. Matching follows the database’s <code>LIKE</code>: case-insensitive for ASCII on SQLite,
+case-sensitive on PostgreSQL.</li>
+<li>Pagination is cursor-based, 25 rows per page unless <code>.paginate(n)</code> sets another size. The
+primary key breaks ties, so a sort over duplicate values still pages deterministically.</li>
+<li>All of it works without JavaScript. <code>.hide_search()</code> removes the search box, and
+<code>.hide_filter_bar()</code> the filter controls.</li>
+</ul>
+<h3 id="live-updates"><a class="header" href="#live-updates">Live updates</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>Table::new(|u: &amp;User| u.id.to_string(), columns).live_search()
+<span class="boring">}</span></code></pre>
+<p>With <code>live_search()</code>, typing in the search box, sorting, filtering and paging update the table
+in place, without a page load, keeping focus and scroll position. The plain links and forms
+remain for visitors without JavaScript.</p>
+<h2 id="filters"><a class="header" href="#filters">Filters</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>.filters((
@@ -745,58 +844,66 @@ buttons fit instead of spilling past the table.</li>
     DateFilter::r#for(Post::fields().created_at()),
 ))
 <span class="boring">}</span></code></pre>
-<p>Active filters travel as one <code>?f.&lt;name&gt;=&lt;value&gt;</code> parameter each (<code>?f.status=published</code>) and
-combine with AND. At most 32 filters apply, each with a name and a value of at most 256 bytes.
-Unknown keys, rejected values, dropped filters and the retired <code>?filters=</code> spelling never fail
-silently: the list renders a <code>role=alert</code> banner (<code>Table::unapplied_filters</code>) while export refuses
-with 400.</p>
-<p>Grouping and export:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Filter</th><th>Field</th><th>Values</th></tr>
+</thead>
+<tbody>
+<tr><td><code>SelectFilter::r#for(lens, options)</code></td><td><code>String</code></td><td>one of <code>options</code>, matched exactly</td></tr>
+<tr><td><code>TernaryFilter::r#for(lens)</code></td><td><code>bool</code></td><td><code>true</code>, <code>false</code>, or <code>all</code> (no filter)</td></tr>
+<tr><td><code>DateFilter::r#for(lens)</code></td><td><code>jiff::Timestamp</code></td><td>a date <code>2024-01-15</code> matches that UTC day; an RFC 3339 timestamp matches that instant</td></tr>
+<tr><td><code>VariantFilter::r#for(name, label, options)</code></td><td>any</td><td>named options, each a Toasty predicate you build</td></tr>
+</tbody>
+</table>
+</div>
+<p>Each active filter is one parameter, <code>?f.&lt;name&gt;=&lt;value&gt;</code>, named after the field, and active
+filters combine with AND. At most 32 filters apply, each name and value at most 256 bytes.</p>
+<p>A filter that cannot apply — an unknown name, a value the filter rejects, or one over the limits —
+is never dropped silently: the list shows a warning banner naming it, and the export refuses the
+request with 400 rather than export more rows than asked.</p>
+<h2 id="grouping"><a class="header" href="#grouping">Grouping</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>.group_by("status", |p: &amp;Post| p.status.clone())
 <span class="boring">}</span></code></pre>
+<p><code>?group_by=status</code> groups the current page’s rows under headers with a row count. Grouping runs
+on the loaded page, so the counts cover that page, not the whole table. A <code>?group_by=</code> value the
+table does not declare is ignored.</p>
+<h2 id="export"><a class="header" href="#export">Export</a></h2>
+<p><code>GET /admin/{slug}/export</code> returns the list as a CSV file named <code>{slug}.csv</code>, with the current
+search, filters and sort applied, and the relations the columns include loaded.</p>
 <ul>
-<li>Grouping is page-local with a row count per group. Toasty has no <code>GROUP BY</code> yet, so grouping never
-claims full-table totals. Unknown <code>?group_by=</code> values render no headers and drop from nav links.</li>
-<li><code>GET /admin/{slug}/export</code> returns the filtered set as CSV (<code>text/csv; charset=utf-8</code> +
-<code>Content-Disposition</code>, RFC4180 with OWASP formula-defusing), reusing the same filters and sort over
-the tenant-scoped <code>query</code> with the relations its columns include (ADR-0018). Capped at 10k viewable rows: per-row <code>can_view</code> runs before the cap, so 413
-reflects what the caller may receive. An export whose filtered set runs past the 10,001-row scan
-window is a 413 too, even when fewer rows would be viewable: the export never returns a partial
-file. <code>?bom=1</code> opts into an Excel BOM.</li>
-<li>Failed table loads render the branded <code>ErrorState</code> in-region, not a blank page.</li>
+<li>Rows the caller may not view (<code>can_view</code>) are left out.</li>
+<li>The export delivers at most 10,000 rows. When the search and filters match more, it answers
+413 rather than a truncated file.</li>
+<li>Cells that a spreadsheet would read as a formula are escaped. Add <code>?bom=1</code> to prefix the file
+with a byte-order mark for Excel.</li>
 </ul>
-<p>Live updates:</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>Table::new(|u: &amp;User| u.id.to_string(), columns).live_search()
-<span class="boring">}</span></code></pre>
-<p>Search, sort, filter, and pager controls then refresh the table in place without a full page load.
-The plain links and forms stay as the no-JS fallback.</p>
-<p>Panel wires the bulk checkbox column when the resource’s <code>can_delete_any()</code> allows, the same
-predicate the delete handlers check. The column then follows <code>can_view</code> + <code>can_delete</code> per record
-(GH #235): a row either one refuses renders no checkbox,
-so select-all never submits a key the handler would refuse
-the whole batch over. A row refused every action keeps an empty actions cell,
-so the row keeps a cell per header. Bulk delete asks first: the bulk bar’s
-button opens an alert dialog that names how many rows are selected, and its confirm control is the
-only thing carrying the <code>confirm=1</code> the handler requires — a POST without that marker is a 400, so
-the safeguard does not depend on the script that opens the dialog (GH #184).</p>
-<p>Row delete asks first too, and the dialog opens in place (GH #233): the row control names the
-table’s one dialog and carries that record’s POST target. Confirming it needs no navigation
-(GH #234): the client follows the POST’s 303, mounts the flash toast the handler set, and refreshes
-the table through the shard — a delete costs the confirmed POST, the list render behind the redirect
-(whose body is discarded except the toast) and one <code>table_search</code> request. Cancel is a button, so
-dismissing never navigates; the control’s <code>?delete=&lt;key&gt;</code> href stays as the no-JS fallback, which
-renders the same dialog open with the action already set.</p>
+<h2 id="row-actions-and-deletes"><a class="header" href="#row-actions-and-deletes">Row actions and deletes</a></h2>
+<p>Each row shows the actions its record allows:</p>
+<ul>
+<li><strong>View</strong> when the resource declares a detail page (<code>view()</code>) and <code>can_view</code> allows the record;</li>
+<li><strong>Edit</strong> when the resource has a record form and <code>can_view</code> and <code>can_update</code> allow it;</li>
+<li><strong>Delete</strong> when <code>can_delete_any</code> allows deletes and <code>can_view</code> and <code>can_delete</code> allow the record.</li>
+</ul>
+<p>A row that allows none keeps an empty actions cell.</p>
+<p>When <code>can_delete_any</code> allows deletes, the list adds a checkbox column and a bulk bar. A row whose
+record may not be deleted gets no checkbox, so select-all only selects deletable rows. A bulk
+delete accepts at most 400 records and deletes all of them or none.</p>
+<p>Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
+confirming it deletes the row, shows a notification and refreshes the table without leaving the
+page. The bulk bar’s button opens a dialog stating how many rows are selected. The delete
+handlers refuse a POST that was not confirmed through the dialog with 400, and without
+JavaScript the Delete link renders the list with its dialog already open.</p>
+<p>If the table fails to load, the list shows an error state with a retry link in place of the rows;
+the rest of the page still renders.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="forms"><a class="header" href="#forms">Forms</a></h1>
-<p>Create and edit forms: the record form a submission parses into, typed lenses, layout blocks, the
-fields and what each one guarantees, file uploads, and how validation failures are reported.</p>
+<p>A resource with create and edit pages declares two things: a <strong>record form</strong>, the typed struct a
+submission parses into, and a <strong>schema</strong> in <code>form()</code>, the controls the page renders. <code>Panel::build</code>
+checks that the two agree.</p>
 <h2 id="the-record-form"><a class="header" href="#the-record-form">The record form</a></h2>
-<p>A resource with a create or edit form declares one struct, <code>#[derive(RecordForm)]</code>, with one field
-per model column the form writes. A field’s name is the model field’s name and its type is the
-model field’s type, so a renamed or retyped column is a compile error:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>#[derive(tablo_core::RecordForm)]
@@ -806,31 +913,36 @@ pub struct UserForm {
     pub email: String,
     #[form(blank = "member")]
     pub role: String,
-    #[form(blank = true)]
-    pub active: bool,
     #[form(blank = 0)]
     pub age: i64,
 }
 <span class="boring">}</span></code></pre>
-<p>A field is a <strong>scalar</strong> — <code>String</code>, a <code>TypedValue</code> type, or an <code>Option</code> of one — bound to the key
-its control posts, or an <strong>embedded value</strong> marked <code>#[form(embed)]</code> (an <code>EmbeddedForm</code>
-type, bound to every key it occupies and written whole). A column the form does not write stays
-off the struct: a gated resource’s <code>tenant_id</code> is stamped by the framework on create, and a column
-like <code>created_at</code> takes a toasty <code>#[default(..)]</code> on the model. The derive also emits
-<code>UserFormField</code>, one variant per field.</p>
-<p><code>#[form(blank = &lt;expr&gt;)]</code> is what an empty submission stores. <code>String</code> answers <code>""</code> and
-<code>Option&lt;T&gt;</code> answers <code>None</code> without one; any other type needs <code>blank</code> wherever its control may be
-left empty.</p>
-<p>The resource names the struct as its <code>Form</code> and declares the form’s schema in <code>form()</code>:</p>
+<p>Each field names a model field and has that field’s type, so renaming or retyping a column breaks
+the build. A field is either a <strong>scalar</strong> — <code>String</code>, a <a href="#typed-values">typed value</a>, or an
+<code>Option</code> of one — bound to the one key its control posts, or an <a href="#embedded-values">embedded value</a>
+marked <code>#[form(embed)]</code>.</p>
+<p>Leave out the columns the form does not write: the tenant column of a tenant-owned resource, which
+the framework sets on create, and columns with a Toasty <code>#[default(..)]</code> or <code>#[auto]</code>.</p>
+<p><strong>Blank values.</strong> <code>#[form(blank = &lt;expr&gt;)]</code> is what a field stores when its control is submitted
+empty. <code>String</code> stores <code>""</code> and <code>Option&lt;T&gt;</code> stores <code>None</code> without one; any other type needs
+<code>blank</code> when its control is optional.</p>
+<p>The resource names the struct as its <code>Form</code> and declares the controls:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    fn table(cx: &amp;Cx) -&gt; Table&lt;User&gt; { /* … */ }
-
-    fn form(_cx: &amp;Cx) -&gt; Schema { /* the controls, as below */ }
+    fn form(_cx: &amp;Cx) -&gt; Schema {
+        Schema::new(Section::new("Profile").schema((
+            Field::text(User::fields().name()),
+            Field::text(User::fields().email()).email(),
+            Field::choice(User::fields().role())
+                .options(vec!["admin".into(), "member".into()])
+                .optional(),
+            Field::text(User::fields().age()).optional(),
+        )))
+    }
 
     fn validate_record(_cx: &amp;Cx, form: &amp;UserForm) -&gt; FieldErrors {
         let mut errors = FieldErrors::new();
@@ -839,522 +951,675 @@ left empty.</p>
         }
         errors
     }
-}
 
-Panel::new("admin").resource::&lt;UserResource&gt;()
-<span class="boring">}</span></code></pre>
-<p>Each error names the key it renders under — the control’s own key, an embedded value’s flattened
-one, or a <code>Repeater</code> group’s label. A key the submitted form renders nowhere — one the schema
-declares no control for, or a field of a variant group the chosen variant hides — fails the submit
-as a declaration error instead of writing past the rule.</p>
-<p>A resource with a record form gets the create page, the edit page, and the relationship-options
-endpoint. A list-only resource names <code>type Form = NoForm&lt;Self::Model&gt;;</code> and leaves <code>form()</code> at its
-empty default; it gets none of them.</p>
-<p><code>create_record</code> and <code>update_record</code> default to the derived write, so a resource whose write is
-“store what the form says” declares neither. One that checks something inside the transaction
-overrides the record fn and delegates:</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>async fn update_record(
-    cx: &amp;Cx,
-    record: Comment,
-    posted: Posted&lt;CommentForm&gt;,
-    ex: &amp;mut dyn toasty::Executor,
-) -&gt; Result&lt;Comment&gt; {
-    // `Posted` derefs to the form: an unposted `post_id` reads as the stored one.
-    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
-    tablo_core::write_update::&lt;Self&gt;(cx, record, posted, ex).await
+    // table(), policy …
 }
 <span class="boring">}</span></code></pre>
-<p>A record fn that writes more than the form owns uses the builders: <code>form.into_create()</code> is the
-model’s create builder with every field set, and <code>posted.into_update(&amp;mut record)</code> is the instance
-update builder with one assignment per field the submission named, or <code>None</code> when it named none.</p>
-<p>What a submission does:</p>
-<ul>
-<li><strong>An unposted key keeps its value.</strong> On edit, every declared key the submission does not post is
-filled from the stored record before validation and the parse, and the write assigns only the
-fields the submission named, plus the model’s own <code>#[update(..)]</code> defaults and <code>#[version]</code> bump.
-An emptied control is posted, so it stores the field’s blank answer; an emptied leaf of an
-embedded value follows the same rule — the <code>#[form(blank = ..)]</code> answer it declares, else the
-type’s own (<code>""</code> for <code>String</code>, <code>None</code> for <code>Option&lt;T&gt;</code>) — and a leaf with neither is refused
-inline. A leaf of a variant group the discriminant hides is not read at all. An API client can
-post one field of an edit.</li>
-<li><strong>Errors render in one round.</strong> Schema rules, the unique probe, a value the form’s type refuses,
-and <code>validate_record</code> render inline with a 200 and write nothing. <code>validate_record</code> sees a whole
-form, so it runs once every field parses.</li>
-<li><strong><code>Panel::build</code> checks the struct against the schema</strong>: a <code>NoForm</code> resource declares no
-schema; every control is bound by exactly one
-field and every field’s key is a declared control; an optional control, or one inside a
-<code>Repeater</code>, binds a field with a blank answer, an embedded value answering when each of its leaves
-does — a control a submission can skip, an embedded enum’s discriminant or a variant group’s
-payload outside a <code>Repeater</code>, is not asked; a gated resource’s form does
-not claim its tenant column; and, where <code>can_create</code> allows it, every non-nullable column is a
-form field, filled by toasty (<code>#[auto]</code>, <code>#[default(..)]</code>), the stamped tenant column, or named in
-<code>Resource::CREATE_COLUMNS</code> by a create override that sets it.</li>
-</ul>
+<p><code>Panel::build</code> refuses the resource unless every control is bound by exactly one form field,
+every form field has a control, every optional control’s field has a blank value, and — when
+<code>can_create</code> is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
+stamp, or by an overridden <code>create_record</code> that lists it in <code>Resource::CREATE_COLUMNS</code>.</p>
 <h2 id="controls"><a class="header" href="#controls">Controls</a></h2>
-<p>Every control is a <code>Field</code>, built from a typed lens, never a string path:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>Schema::new((
     Section::new("Account").schema((
-        Field::text(User::fields().email()).email().unique(),
-        Field::choice(User::fields().role())
-            .options(vec!["admin".into(), "member".into()]),
+        Field::text(User::fields().email()).email(),
+        Field::choice(User::fields().role()).options(vec!["admin".into(), "member".into()]),
     )),
     Grid::new(2).schema((
         Field::text(User::fields().name()),
         Field::text(User::fields().bio()).multiline(4),
-        Field::file(MediaAsset::fields().path()),
     )),
 ))
 <span class="boring">}</span></code></pre>
-<p>What to know:</p>
+<p><strong>Layout blocks</strong> arrange fields: <code>Section::new(title)</code> is a titled card, <code>Group::new()</code> an untitled
+container, and <code>Grid::new(cols)</code> a grid of 1 to 12 columns. <code>Repeater::new(label)</code> is a titled group
+that may be left entirely empty: its fields’ rules apply once one of them is filled, and
+<code>.required()</code> refuses an all-empty group. A schema or block takes a tuple of at most eight children;
+nest a <code>Group</code> for more.</p>
+<p><strong>Fields</strong> are built from a Toasty field lens:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Constructor</th><th>Column</th><th>Control</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Field::text(lens)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td><code>&lt;input&gt;</code>, or <code>&lt;textarea&gt;</code> with <code>.multiline(rows)</code></td></tr>
+<tr><td><code>Field::choice(lens)</code></td><td>any</td><td><code>&lt;select&gt;</code> over static options or a relationship</td></tr>
+<tr><td><code>Field::file(lens)</code></td><td><code>String</code> holding the file’s path</td><td>file input: see <a href="#file-uploads">File uploads</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>Every field takes <code>.label(..)</code>, <code>.required()</code> and <code>.optional()</code>. The label defaults to the column
+name in sentence case, and <code>required</code> defaults to whether the column is non-nullable. The other
+modifiers belong to one kind of field and panic on another, which <code>Panel::build</code> reports:</p>
 <ul>
-<li>Layout blocks: <code>Section</code>, <code>Group</code>, <code>Grid</code>, <code>Repeater</code>. Fields: <code>Field::text</code>, <code>Field::choice</code>,
-<code>Field::file</code>. <code>.multiline(rows)</code> renders a text field as a <code>&lt;textarea&gt;</code>. A modifier belongs to one
-control — <code>email</code>, <code>unique</code>, <code>placeholder</code>, <code>multiline</code> to text; <code>options</code>, <code>options_with_labels</code>,
-<code>relationship</code>, <code>searchable</code> to choice — and on another control it panics, naming the field.</li>
-<li>A constructor takes a column’s lens (<code>User::fields().email()</code>) or a <code>ResolvedLens</code>:
-<code>ResolvedLens::new(cx, Post::fields().seo().title())</code> resolves a lens through an embedded struct, an
-enum variant, or a <code>#[document]</code> to its flattened storage column (<code>seo_title</code>), for every kind of
-field. An embedded leaf is optional by default; <code>.required()</code> opts in.</li>
-<li><code>required</code> defaults to the column nullability. Use <code>.optional()</code> to opt out. A bare choice over a
-non-nullable FK rejects <code>""</code> inline instead of failing at the driver.</li>
-<li><code>email()</code> applies the <code>email_address</code> grammar at the form edge: a text domain needs two labels
-(<code>a@b</code> and <code>a@b..c</code> are refused), a display name is a header rather than an address, and the whole
-address is capped at 254 octets (RFC 5321 §4.5.3.1.3). A quoted local part
-(<code>"a b"@example.com</code>), a unicode address (<code>用户@例え.jp</code>) and a bracketed domain literal
-(<code>a@[127.0.0.1]</code>) pass.</li>
-<li><strong><code>Field::text</code> binds any <code>FormScalar</code> column</strong>: <code>String</code>, a <code>TypedValue</code> type, or an <code>Option</code> of
-one (GH #192). <code>Field::text(User::fields().age())</code> over an <code>i64</code> renders the value’s <code>Display</code>,
-parses the submission through the type, and refuses what it cannot parse as an inline field error
-naming the input — <code>`twelve` is not a valid whole number</code> — instead of a 500 or a silent
-default. What is stored is the type’s own spelling of the parsed value, so a value re-submitted
-unchanged is written back in the shape it was read. <code>TypedValue</code> covers the integer types, <code>bool</code>,
-<code>f32</code>, <code>f64</code>, <code>Uuid</code> and <code>jiff::Timestamp</code>; an app type implements it (<code>NOUN</code> names it in the
-error, <code>INPUT_TYPE</code> sets the control’s <code>type</code>, and <code>parse_input</code> reads a submission). A
-<code>jiff::Timestamp</code> renders <code>type="datetime-local"</code>: the control carries no zone, so the stored
-instant renders in UTC and a submission is read back as UTC. Empty is the presence rule’s business,
-not the typed one: a typed column has no spelling for “no value”, so an empty submission on an
-optional typed field stores the record form field’s blank answer.</li>
-<li><code>unique()</code> does two things. It adds an app-level pre-check — Toasty exposes no unique-violation
-predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and on
-a non-nullable column it implies <strong>presence</strong>: an empty <code>String</code> stores <code>""</code>, so an empty value on
-a unique field is refused inline as <code>"&lt;Label&gt; is required"</code> instead of being written past an index
-that admits only one (GH #189). <code>.optional()</code> does not lift that rule there. An <code>Option</code> column
-stores NULL for an empty value, which the index admits many times, so a unique <code>Option</code> field
-follows its own <code>required</code>. <code>Panel::build</code> refuses a
-<code>unique()</code> marker on a column with no unique index (single-field or composite, <code>#[unique(a, b)]</code>
-included), so the declaration and the database cannot disagree about which fields are unique.</li>
-<li>A relationship choice validates the FK against the related resource query before the write runs:</li>
+<li>text: <code>.email()</code>, <code>.unique()</code>, <code>.placeholder(..)</code>, <code>.multiline(rows)</code>;</li>
+<li>choice: <code>.options(..)</code>, <code>.options_with_labels(..)</code>, <code>.relationship(..)</code>, <code>.searchable()</code>.</li>
 </ul>
+<h3 id="typed-values"><a class="header" href="#typed-values">Typed values</a></h3>
+<p><code>Field::text</code> binds more than strings. Over an integer, float, <code>bool</code>, <code>Uuid</code> or
+<code>jiff::Timestamp</code> column it renders the stored value and parses the submission back through the
+type. A value the type refuses is an inline error naming it: <code>`twelve` is not a valid whole number</code>. A <code>jiff::Timestamp</code> renders a <code>datetime-local</code> input, which carries no time zone, so
+values display and parse as UTC.</p>
+<p>Implement <code>TypedValue</code> to bind your own type: <code>NOUN</code> names it in errors, <code>INPUT_TYPE</code> sets the
+input’s <code>type</code>, and <code>parse_input</code> reads a submission (by default through <code>FromStr</code>).</p>
+<h3 id="email-and-uniqueness"><a class="header" href="#email-and-uniqueness">Email and uniqueness</a></h3>
+<p><code>.email()</code> renders <code>type="email"</code> and refuses what is not an address: a domain needs two labels
+(<code>a@b</code> is refused), a display name (<code>Ada &lt;ada@example.com&gt;</code>) is refused, and the address is capped
+at 254 bytes.</p>
+<p>A text field over a column with a unique index checks uniqueness before the write, and reports a
+taken value inline. <code>.unique()</code> states it explicitly; <code>Panel::build</code> refuses <code>.unique()</code> on a
+column without a unique index, single-column or composite. The check is a query before the write,
+so two concurrent submissions can both pass it; the database index stays the final guard.</p>
+<p>On a non-nullable column, uniqueness also makes the field required, even with <code>.optional()</code>:
+an empty <code>String</code> is stored as <code>""</code>, and the index admits only one. An <code>Option</code> column stores
+<code>NULL</code> for an empty value, so a unique <code>Option</code> field may stay optional.</p>
+<h3 id="relationships"><a class="header" href="#relationships">Relationships</a></h3>
+<p>A choice over a foreign key loads its options from the related resource:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>Field::choice(Post::fields().author_id())
     .relationship::&lt;AuthorResource&gt;(
-        AuthorResource::query,
-        |a: &amp;Author| a.id,
-        |a: &amp;Author| a.name.clone(),
+        AuthorResource::query,          // names the source; options load through its scoped query
+        |a: &amp;Author| a.id,              // the option value: the primary key
+        |a: &amp;Author| a.name.clone(),    // the option label
     )
+    .searchable()
     .label("Author")
 <span class="boring">}</span></code></pre>
 <ul>
-<li>
-<p>Relation options are bounded to 200 (<code>MAX_RELATIONSHIP_OPTIONS</code>) and memoized per
-<code>(request, tenant)</code>. Small tables validate against the bounded set; <code>can_view</code> filters before
-labels, <code>can_view_any</code>/tenant denial fails closed (<code>not available</code>).</p>
-</li>
-<li>
-<p>Large reference tables (10k+ rows) need <code>.searchable()</code> on the choice (GH #150): an over-cap
-searchable choice degrades to type-to-search instead of a retry error. Typing fetches
-<code>GET {parent_list_url}/options?field=&amp;q=</code> (debounced 200ms, abort in-flight, selection preserved),
-which reuses the related <code>Table</code>’s declared <code>searchable()</code> columns (<code>search_expr</code>), bounds to 200,
-and filters <code>can_view</code> before labels. No searchable columns → hard-cap path (non-searchable keeps
-the cap error). Overflowed submits validate via a targeted PK check (the tenant-scoped query +
-<code>can_view</code>): legitimate FKs beyond the cap pass, hidden → <code>invalid</code>, denied → <code>not available</code>, DB
-failure → retry. Initial render keeps the stored value + search input + “Too many options — type
-to search” hint; no-JS keeps the plain select (other fields still submit, relation cannot be
-changed past the cap).</p>
-</li>
-<li>
-<p><code>Field::file</code> binds a <code>String</code> path and owns the request half: no <code>value</code> on <code>type=file</code>,
-<code>enctype="multipart/form-data"</code> when a form has one, a 10 MiB body cap (413), a 400 for multipart
-without a boundary, and sanitized basenames (<code>.</code> / <code>..</code> / Windows reserved names surface as inline
-errors). On an edit the control drops native <code>required</code> (GH #184) — a <code>required</code> file input cannot
-be pre-filled, so it blocked every untouched save; <code>required</code> still holds on create. A value reaches
-the field only from a file part (the uploader’s own answer, a re-rendered form’s carried upload
-included), from the record on an untouched edit, or as empty on <code>clear_&lt;field&gt;</code>; text typed under
-the field’s name is dropped (GH #277).</p>
-</li>
-<li>
-<p><strong>Where the bytes go is the app’s</strong> (GH #188, ADR-0017): install an <code>Uploader</code> once with
-<code>Panel::uploads(store)</code>. <code>store(filename, bytes) -&gt; Result&lt;String, String&gt;</code> receives the sanitized
-name and the content (bounded by the cap) and returns the value the record stores; a refusal is an
-inline error (<code>"&lt;Label&gt; could not be uploaded: &lt;reason&gt;"</code>), not a 500. With no uploader installed
-the sanitized basename is stored — the default — and the bytes are drained rather than buffered.
-A form that re-renders with errors carries the path that store just returned in a hidden
-<code>keep_&lt;field&gt;</code> control, because the browser’s file input is empty on the next attempt: implement
-<code>Uploader::holds(path)</code> to make that carry survive the submit (GH #297). The framework re-uses a
-carried path only when <code>holds</code> confirms the store still has it — <code>holds</code> must answer <code>true</code> only
-for a path the store itself produced and resolves inside its own root — and it defaults to <code>false</code>,
-which keeps the behaviour of a store that does not implement it: no carry, so the next submit
-fails <code>required</code> (create) or an edit keeps the record’s stored file.</p>
-</li>
-<li>
-<p>The stored path renders as a link to the file, on the edit form and on the detail page (GH #242),
-only when it is a rooted path or an absolute <code>http(s)</code> URL (GH #277): the framework reads no
-extension and renders what the app stored, inventing no URL convention, and any other value — a
-bare basename, a <code>javascript:</code> scheme — renders as text rather than a clickable <code>href</code>.
-<code>Panel::serve_dir(path, dir)</code> mounts the directory an upload store writes to. A served directory is
-<strong>public</strong> (ADR-0017): its URLs answer whoever asks, with no session, because the auth gate covers
-only the panel prefix and <code>/_topcoat/runtime</code> (ADR-0013) and a served directory is mounted outside
-both. An app that needs protected files owns that route itself. Every stored value also offers a
-<code>clear_&lt;field&gt;</code> checkbox (“Remove the current file”), the one control that means “remove” rather
-than “keep”; an empty file input still means keep. Clearing does not waive <code>required</code> — a resource
-whose records may lose their file declares <code>.optional()</code>.</p>
-</li>
-<li>
-<p><code>Repeater</code> is a single-entry group. An all-empty group is skipped, so its inner required fields do
-not fail the submit. A <code>required</code> repeater yields one label-keyed error; a partially filled group
-still enforces inner <code>required</code>. An embedded enum’s variant groups follow the discriminant a
-submission names (GH #191): only the named variant’s fields validate, so a stale value in a group
-the user cannot see never blocks the submit (GH #297). A submission that names no variant hides
-nothing, because the value codec’s payload fallback may still read any group.</p>
-</li>
-<li>
-<p><code>unique()</code> exists on text fields; the probe parses the submission into the field’s type and
-compares it through the field’s own lens.</p>
-</li>
+<li>Options come from the related resource’s tenant-scoped query and follow its policy: the list is
+empty and the field shows “not available” unless the related resource allows <code>can_view_any</code>,
+and each record must pass its <code>can_view</code>.</li>
+<li>A submitted key must be one of those records, so a hand-crafted POST cannot point at another
+tenant’s row.</li>
+<li>At most 200 options load. Past that, a <code>.searchable()</code> choice turns into type-to-search against
+<code>GET {list_url}/options</code>, which searches the related table’s <code>searchable()</code> columns; a
+non-searchable choice shows an error instead. <code>.searchable()</code> also filters a short list as
+you type. Without JavaScript the plain select remains.</li>
 </ul>
-<p>Validation errors render inline per field. On create an absent key validates as <code>""</code>; on edit it
-validates as its stored value. Handlers reject unknown form keys with 400 (<code>role</code> / <code>tenant_id</code>
-smuggling fails closed; only <code>csrf_token</code>, <code>clear_&lt;field&gt;</code> and <code>keep_&lt;field&gt;</code> are exempt), and the
-record form parses declared keys only, so an extra posted key never reaches a write.</p>
-<p>Embedded values declare one form node and flatten their fields; see
-<a href="#embedded-values">Data access</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div>
-<h1 id="detail-pages"><a class="header" href="#detail-pages">Detail pages</a></h1>
-<p>A read-only page for one record (GH #187): the <code>view</code> schema, what renders, related rows, and the
-current limits.</p>
-<p>A resource can show one record read-only by declaring <code>view</code>, a <code>Schema</code> in the form’s vocabulary
-read the other way round (ADR-0016). Like Filament’s infolist it is its own declaration: it may show
-keys the form does not, and a resource with no form declares one too.</p>
+<h2 id="submitting"><a class="header" href="#submitting">Submitting</a></h2>
+<ul>
+<li><strong>Validation runs in one round.</strong> Required fields, email, relationships, uniqueness and typed
+parsing are checked together, and the form re-renders with every error inline, with status 200
+and nothing written. <code>validate_record</code> needs the parsed form, so it runs only when every field
+parses. Each error names the key it renders under: the control’s key, an embedded value’s
+flattened key, or a repeater’s label. An error keyed to something the form does not render
+fails the request instead of being dropped.</li>
+<li><strong>Unknown keys are refused.</strong> A POST carrying a key the form does not declare answers 400, so a
+client cannot smuggle in <code>role</code> or <code>tenant_id</code>. The CSRF token and the file fields’ <code>clear_</code> and
+<code>keep_</code> keys are the exceptions.</li>
+<li><strong>An edit writes only what was posted.</strong> On an edit, a declared key missing from the submission
+keeps its stored value, and the update assigns only the fields the submission named, plus the
+model’s own <code>#[update(..)]</code> defaults and <code>#[version]</code> bump. An API client can post a single
+field. A control submitted empty is posted, and stores its field’s blank value.</li>
+</ul>
+<p>To write more than the form holds, override <code>create_record</code> or <code>update_record</code>
+(<a href="#writes">Resources</a>) and use the builders: <code>form.into_create()</code> is the model’s
+create builder with every form field set, and <code>posted.into_update(&amp;mut record)</code> is the update
+builder with one assignment per posted field, or <code>None</code> when nothing was posted.</p>
+<h2 id="file-uploads"><a class="header" href="#file-uploads">File uploads</a></h2>
+<p><code>Field::file</code> binds a <code>String</code> column that stores the file’s path or URL, never its bytes. A form
+with a file field is sent as <code>multipart/form-data</code>, with a 10 MiB body limit (larger answers 413).
+Filenames are reduced to a safe basename before anything sees them.</p>
+<p>Where the bytes go is your app’s decision. Install an <code>Uploader</code> on the panel:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn view(cx: &amp;Cx) -&gt; Schema {
+</span>struct DirUploader { dir: PathBuf }
+
+impl Uploader for DirUploader {
+    async fn store(&amp;self, filename: &amp;str, bytes: &amp;[u8]) -&gt; Result&lt;String, String&gt; {
+        let name = format!("{}-{filename}", uuid::Uuid::new_v4());
+        tokio::fs::write(self.dir.join(&amp;name), bytes)
+            .await
+            .map_err(|_| "the upload could not be written".to_string())?;
+        Ok(format!("/uploads/{name}")) // the value the record stores
+    }
+}
+
+Panel::new("admin")
+    .uploads(DirUploader { dir: dir.clone() })
+    .serve_dir("/uploads/{*file}", dir)
+<span class="boring">}</span></code></pre>
+<ul>
+<li><code>store</code> returns the value to save. An <code>Err(reason)</code> is shown to the user inline as
+<code>&lt;Label&gt; could not be uploaded: &lt;reason&gt;</code>, so keep the reason free of paths and driver messages.
+Without an uploader the panel stores the sanitized filename and discards the bytes.</li>
+<li><strong>Keeping a file across a failed submit.</strong> When a form re-renders with errors, the file input is
+empty again. The form carries the path <code>store</code> just returned, and the panel reuses it on the next
+submit only when <code>Uploader::holds(path)</code> answers <code>true</code>. The default answers <code>false</code>, so the user
+uploads again. Answer <code>true</code> only for a path your store produced and still holds inside its own
+root; checking whether an arbitrary path exists would let a client pick any file.</li>
+<li><strong>Editing.</strong> The edit form shows the stored file as a link and an empty file input. Leaving it
+empty keeps the file; the “Remove the current file” checkbox (<code>clear_&lt;field&gt;</code>) empties the
+field. The input is required only while nothing is stored, and clearing a required field fails
+validation, so declare <code>.optional()</code> when a record may lose its file.</li>
+<li><strong>Links.</strong> The stored value renders as a link, on the edit form and the detail page, only when
+it is a root-relative path (<code>/uploads/a.png</code>, not <code>//host</code>) or an <code>http(s)</code> URL; anything else
+renders as text.</li>
+<li><strong>Serving.</strong> <code>Panel::serve_dir(path, dir)</code> serves a directory, and the served files are
+<strong>public</strong>: the auth gate does not cover them. An app that needs protected files serves them
+from its own route. See <a href="#security">Security</a> for the headers served files carry.</li>
+</ul>
+<h2 id="embedded-values"><a class="header" href="#embedded-values">Embedded values</a></h2>
+<p>A Toasty <code>#[derive(Embed)]</code> struct or enum is stored in its parent’s row as flattened columns
+(<code>seo_title</code>, <code>seo_description</code>). Derive <code>EmbeddedForm</code> on it and the form binds the whole value:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
+pub struct Seo {
+    pub title: String,
+    #[form(multiline = 3)]
+    pub description: String,
+}
+
+// In `form()`: one call renders a control per field.
+Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()))
+
+// In the record form: the value is one field.
+#[derive(tablo_core::RecordForm)]
+#[form(model = Post)]
+pub struct PostForm {
+    pub title: String,
+    #[form(embed)]
+    pub seo: Seo,
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li>Every field of the value is a scalar, or a nested value marked <code>#[form(embed)]</code>.
+<code>#[form(label = "…")]</code>, <code>#[form(multiline = N)]</code> and <code>#[form(blank = ..)]</code> customize a field;
+an unknown attribute is a compile error.</li>
+<li>Embedded fields are optional by default. An emptied field stores its blank value, and a field
+with no blank value refuses an empty submission inline.</li>
+<li><strong>Enums</strong> render a choice of variant plus one group of fields per variant; the page shows only
+the chosen variant’s group, and the variant can change on edit. The submission’s variant decides
+which fields are read and validated, so a stale value in a hidden group never blocks a submit.
+Without JavaScript every group renders, and the variant choice still decides.</li>
+<li>Not supported inside a value: a <code>#[document]</code> field, a relation, an enum nested inside an enum
+variant, and tuple structs.</li>
+</ul>
+<p>To bind a single embedded field on its own, pass a <code>ResolvedLens</code>:
+<code>Field::text(ResolvedLens::new(cx, Post::fields().seo().title()))</code> binds the flattened <code>seo_title</code>
+column. Such a field is optional unless you call <code>.required()</code>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="detail-pages"><a class="header" href="#detail-pages">Detail pages</a></h1>
+<p>A detail page shows one record, read-only, at <code>GET /admin/{slug}/{id}</code>. A resource gets one by
+declaring <code>view()</code>: a <code>Schema</code> built from the same fields and layout blocks as a form.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn view(_cx: &amp;Cx) -&gt; Schema {
     Schema::new(Section::new("Post").schema((
         Field::text(Post::fields().title()),
         Field::text(Post::fields().body()).multiline(6),
+        Field::choice(Post::fields().status()).options(vec!["draft".into(), "published".into()]),
     )))
 }
 <span class="boring">}</span></code></pre>
-<p>That registers <code>GET /admin/{slug}/{id}</code> — loaded through the tenant-scoped query, so an unknown id
-and one outside the tenant are the same 404, while <code>can_view</code> denial is a 403 — and adds a <code>View</code>
-control beside <code>Edit</code> on each row. A resource with no <code>view</code> declaration has no page and no link, and
-the route answers 404 rather than rendering an empty shell. The page’s header links back to the
-list, and to the edit form when the resource has one and <code>can_update</code> allows this record — the gate
-the row’s <code>Edit</code> control uses.</p>
-<p>The heading is the record’s label when the resource declares one:</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn record_label(cx: &amp;Cx, record: &amp;Post) -&gt; Option&lt;String&gt; {
-    Some(record.title.clone())
-}
-<span class="boring">}</span></code></pre>
-<p>The default returns <code>None</code>, and the heading is then <code>{label} {id}</code> — one record’s name and the URL’s
-record key. A label is display text, not a key: two records may share one, so it does not
-replace <code>Table::new</code>’s key, which must stay injective within a page for keyed diffs (GH #241).</p>
+<p>Declaring a view adds a View action to each row. A resource without one has no detail page: the
+route answers 404 and no row links to it. The view is its own declaration, so it may show fields
+the form does not, and a list-only resource can declare one too.</p>
+<h2 id="what-the-page-shows"><a class="header" href="#what-the-page-shows">What the page shows</a></h2>
+<p>The header carries the record’s title, a link back to the list, and an Edit link when the resource
+has a form and <code>can_update</code> allows this record. Below it come the view’s fields, then any
+<a href="#free-form-content">free-form content</a>, then the <a href="#related-tables">related tables</a>.</p>
+<p>Each field renders its label and its stored value, never a control:</p>
 <ul>
-<li><strong>Read-only is not a disabled form.</strong> Fields render labels and stored values:
-a text field shows text, a choice shows the option label the form offered (or the stored value
-when no option matches, a relationship key included), a file field shows the stored path as a link
-to the file (GH #242), an embedded enum shows its stored variant’s name and payload, and layout
-blocks keep their structure. No control, no CSRF field, no validation slot.</li>
-<li><strong>Values come from the form’s projection</strong> (<code>RecordForm::hydrate</code>), so a field that renders in
-the form renders here; <code>view_values</code> adds a key only the view shows. A <code>NoForm</code> resource
-supplies every key through <code>view_values</code>. A field whose key neither supplies renders <code>(missing)</code>
-and fails a <code>debug_assert!</code>, as a list column shows <code>(unloaded)</code> for a relation its query did not
-load (ADR-0011): a blank would read as an empty value.</li>
-<li><strong>Free-form content</strong> — anything read off the record that is not one of its fields, such as a
-word count — renders through <code>view_content(cx, record)</code>, below the fields. The page loads
-through <code>view_query</code>, so include there any relation the hook or <code>view_values</code> reads.</li>
-<li><strong>Related rows</strong> render as <a href="#relations">relations</a>, below the content.</li>
-<li>A typed column (<code>Uuid</code>, <code>jiff::Timestamp</code>) is readable: bind it with <code>Field::text</code> (GH #192)
-and the view renders its stored value as text. A foreign key therefore reads as its stored id
-rather than the related record’s label — show the label through <code>view_values</code> when a reader
-needs it.</li>
-<li><code>IntoSchema</code> takes at most eight top-level blocks; a longer view wraps a ninth in a <code>Group</code>.</li>
+<li>a text field shows the value as text, typed values included;</li>
+<li>a choice shows the label of the matching option, or the stored value when none matches, so a
+relationship choice shows the stored key, not the related record’s name;</li>
+<li>a file field shows the stored path as a link, under the rules in
+<a href="#file-uploads">File uploads</a>;</li>
+<li>an embedded enum shows its variant’s name and that variant’s fields;</li>
+<li>layout blocks keep their structure.</li>
 </ul>
-<h2 id="relations"><a class="header" href="#relations">Relations</a></h2>
-<p>A record’s related rows — a post’s comments — render on its detail and edit pages as the related
-resource’s own list table, narrowed to the record (Filament’s relation managers):</p>
+<p><strong>Where values come from.</strong> A field the record form binds shows the form’s value for it, the
+same value the edit form starts with. <code>view_values(cx, record)</code> supplies every other key, as a map
+from field name to display text; when both supply a key, the form’s value wins. A <code>NoForm</code>
+resource supplies every key there:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>impl Resource for PostResource {
-    fn relations() -&gt; Vec&lt;Relation&lt;Post&gt;&gt; {
-        vec![Relation::has_many::&lt;CommentResource, _&gt;(
-            Comment::fields().post_id(),
-            |post: &amp;Post| post.id,
-        )]
-    }
+</span>fn view_values(_cx: &amp;Cx, audit: &amp;Audit) -&gt; HashMap&lt;String, String&gt; {
+    HashMap::from([
+        ("action".to_string(), audit.action.clone()),
+        ("created_at".to_string(), audit.created_at.to_string()),
+    ])
 }
 <span class="boring">}</span></code></pre>
-<p><code>has_many</code> names the related resource and the binding between the two: the related model’s
-foreign-key column and the owner’s value for it (a nullable key takes the owner’s value in
-<code>Some</code>). The table is <code>CommentResource</code>’s: its columns, search, sort, filters and pager, over its
-tenant-scoped query plus <code>post_id = &lt;this post&gt;</code>. Its policies apply as on its list: a request
-<code>can_view_any</code> refuses, or one without a tenant the related resource requires, gets no section.
-The section is titled with the related resource’s navigation label; <code>.label(..)</code> overrides it.</p>
-<p>The detail page shows the rows read-only, as Filament’s view page does: each row keeps its View
-link. The edit page carries the writes: the row Edit and Delete actions, bulk delete, and the
-create link, each gated per row or by <code>can_create</code> as on the list.</p>
-<p>The relation’s URL parameters are prefixed with the related resource’s slug — <code>?comments.q=</code>,
-<code>?comments.sort=</code>, <code>?comments.after=</code> — so several relations share one page without colliding.
-A link or a form in one relation carries only that relation’s parameters.</p>
-<p>On the edit page, when the related resource has a form and <code>can_create</code> allows it, the section
-links a create button to that resource’s create page with the owner already chosen
-(<code>/admin/comments/create?post_id=…</code>): the create page seeds a relationship control a query
-parameter names, and nothing else. The seed is a prefill, and the write checks what is submitted
-as for any create.</p>
-<p>Writes started from the relation return to the page it is on: the create link, the row edit and
-delete actions and the bulk delete carry <code>?return=</code>, and the write redirects there instead of to
-the related resource’s list. The panel follows a <code>return</code> only to a path under its own prefix.</p>
-<p><code>Panel::build</code> rejects a relation to a resource the panel does not register — its row actions and
-create link would lead nowhere — and two relations of one resource to the same related resource.
-A table declared <code>live_search</code> stays live in a relation: sorting, searching, filtering and paging
-re-render that table in place, with its URL parameters prefixed by the relation’s key, and without
-JavaScript its links and forms fall back to full page loads.</p>
+<p>To show something that is not a column’s own value, such as the author’s name behind
+<code>author_id</code>, render it as <a href="#free-form-content">free-form content</a>.</p>
+<p>A field no source fills renders <code>(missing)</code>, and fails a <code>debug_assert!</code> in debug builds.</p>
+<p><strong>Loading.</strong> The record loads through <code>view_query</code> — <code>query</code> by default — with the tenant scope
+applied. Include there every relation <code>view_values</code> or <code>view_content</code> reads:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn view_query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
+    let author: Include&lt;Post, Author&gt; = Post::fields().author().into();
+    Self::query(cx).include(author)
+}
+<span class="boring">}</span></code></pre>
+<p>An unknown id and an id outside the request’s tenant are the same 404; a record <code>can_view</code> refuses
+is a 403.</p>
+<p><strong>Title.</strong> <code>record_label</code> sets the page title; without it the title is the resource’s <code>label()</code> and
+the record’s key, such as “Post 3f2a…”:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn record_label(_cx: &amp;Cx, post: &amp;Post) -&gt; Option&lt;String&gt; {
+    Some(post.title.clone())
+}
+<span class="boring">}</span></code></pre>
+<p><code>public_url(cx, record)</code> adds a “View public post” link to the header when it returns a URL.</p>
+<h2 id="free-form-content"><a class="header" href="#free-form-content">Free-form content</a></h2>
+<p><code>view_content(cx, record)</code> renders anything that is not a field, such as a word count, below the
+fields:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn view_content&lt;'a&gt;(cx: &amp;'a Cx, post: &amp;Post) -&gt; Option&lt;BoxView&lt;'a&gt;&gt; {
+    let words = post.body.split_whitespace().count();
+    Some(
+        view! { cx =&gt; &lt;p class="text-sm text-muted-foreground"&gt;(format!("{words} words"))&lt;/p&gt; }
+            .boxed(),
+    )
+}
+<span class="boring">}</span></code></pre>
+<p>The returned view may borrow <code>cx</code> but not the record: compute what you need from the record first.</p>
+<h2 id="related-tables"><a class="header" href="#related-tables">Related tables</a></h2>
+<p><code>relations()</code> lists the related resources whose rows belong to a record. Each renders on the
+record’s detail and edit pages as that resource’s own list table, narrowed to the record:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn relations() -&gt; Vec&lt;Relation&lt;Post&gt;&gt; {
+    vec![Relation::has_many::&lt;CommentResource, _&gt;(
+        Comment::fields().post_id(), // the related model's foreign key
+        |post: &amp;Post| post.id,       // the owner's value for it
+    )]
+}
+<span class="boring">}</span></code></pre>
+<p>For a nullable foreign key, the owner’s value is wrapped in <code>Some</code>. The table is
+<code>CommentResource</code>’s — its columns, search, sort, filters and pager — over its tenant-scoped query
+plus <code>post_id = &lt;this post&gt;</code>. It is titled with the related resource’s <code>navigation_label()</code>, or
+<code>.label(..)</code>.</p>
+<ul>
+<li><strong>Policy.</strong> The related resource’s policies apply as on its own list: no section renders when
+its <code>can_view_any</code> refuses, or when it requires a tenant the request lacks, and each row keeps
+only the actions its record allows.</li>
+<li><strong>Detail page versus edit page.</strong> On the detail page the table is read-only: rows keep only
+their View action. On the edit page rows also carry Edit and Delete, the table has bulk delete,
+and a create button appears when the related resource has a form and allows <code>can_create</code>.</li>
+<li><strong>Creating from the parent.</strong> The create button opens the related resource’s create page with
+the owner preselected, as in <code>/admin/comments/create?post_id=…</code>. The create page accepts such a
+parameter only for a relationship choice; the value is a default, and the submitted form is
+validated like any other create.</li>
+<li><strong>Returning.</strong> Writes started from a related table carry <code>?return=</code> and redirect back to the
+page they started on. The panel follows <code>return</code> only to a path under its own prefix.</li>
+<li><strong>URL parameters.</strong> Each related table’s parameters are prefixed with the related resource’s
+slug — <code>?comments.q=</code>, <code>?comments.sort=</code>, <code>?comments.after=</code> — so several tables share one page.</li>
+<li><strong>Live search.</strong> A related table whose resource declares <code>live_search()</code> stays live: sorting,
+searching, filtering and paging re-render that table in place. Without JavaScript its links and
+forms fall back to full page loads.</li>
+</ul>
+<p><code>Panel::build</code> refuses a relation to a resource the panel does not register, and two relations of
+one resource to the same related resource.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="policy-auth-tenancy"><a class="header" href="#policy-auth-tenancy">Policy, auth, tenancy</a></h1>
-<p>Who may see and change what: the <code>can_*</code> predicates, the auth gate and its seams, and where the
-request’s tenant comes from.</p>
-<p>Policy is <code>can_*</code> on the resource, default deny. Check both pages and handlers:</p>
+<p>Three layers decide what a request may do. <strong>Authentication</strong> decides who is signed in.
+<strong>Tenancy</strong> limits a signed-in user to their tenant’s rows. <strong>Policy</strong> — the resource’s <code>can_*</code>
+predicates — decides what that user may do with each resource and record.</p>
+<h2 id="policy"><a class="header" href="#policy">Policy</a></h2>
+<p>Every predicate defaults to <code>false</code>, so a new resource exposes nothing until you allow it:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>fn can_view_any(_cx: &amp;Cx) -&gt; bool { true }
-fn can_view(_cx: &amp;Cx, _r: &amp;User) -&gt; bool { true }
-fn can_create(_cx: &amp;Cx) -&gt; bool { false }
+fn can_view(_cx: &amp;Cx, _user: &amp;User) -&gt; bool { true }
+fn can_create(cx: &amp;Cx) -&gt; bool { is_admin(cx) }
+fn can_update(_cx: &amp;Cx, user: &amp;User) -&gt; bool { !user.sso_managed }
+fn can_delete_any(cx: &amp;Cx) -&gt; bool { is_admin(cx) }
 <span class="boring">}</span></code></pre>
-<p>List scope belongs in <code>query()</code>. Per-row <code>can_view</code> trims option lists and exports, but the list page
-itself checks only <code>can_view_any</code> so pagination stays honest. Edit GET and POST both require
-<code>can_view</code> + <code>can_update</code>; relation option loads fail closed when the related resource denies
-<code>can_view_any</code>.</p>
-<p>Mutations run in a framework-owned transaction: handlers load through <code>query()</code> and policy-check on
-that snapshot, then pass the checked records into the record fns with no silent re-loads. Bulk delete
-is all-or-nothing. Anything that must happen <em>after</em> the commit — a webhook, an email, an audit row —
-goes in <code>after_commit</code>, which runs once the transaction is gone; see <a href="#resources">Resources</a>.</p>
-<p>Auth is on by default and fails closed:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Predicate</th><th>Default</th><th>Checked by</th></tr>
+</thead>
+<tbody>
+<tr><td><code>can_view_any(cx)</code></td><td><code>false</code></td><td>the list and its live refresh, the export, related tables, relationship options</td></tr>
+<tr><td><code>can_view(cx, record)</code></td><td><code>false</code></td><td>the detail page, the edit page and POST, deletes, each exported row, each relationship option, each row’s actions</td></tr>
+<tr><td><code>can_create(cx)</code></td><td><code>false</code></td><td>the create page and POST, the Create button</td></tr>
+<tr><td><code>can_update(cx, record)</code></td><td><code>false</code></td><td>the edit page and POST, the row’s Edit action</td></tr>
+<tr><td><code>can_delete_any(cx)</code></td><td><code>false</code></td><td>the delete and bulk-delete POSTs, the Delete action and the bulk column</td></tr>
+<tr><td><code>can_delete(cx, record)</code></td><td><code>can_delete_any(cx)</code></td><td>each record a delete removes, the row’s Delete action and checkbox</td></tr>
+</tbody>
+</table>
+</div>
+<p>Handlers check the same predicates that decide which buttons render, so a hidden action is also a
+refused request. A denied request answers 403.</p>
 <ul>
-<li>Register the shipped models and seed one admin:</li>
+<li><strong>The list checks <code>can_view_any</code> only.</strong> <code>can_view</code> is Rust code that cannot run in the
+database, and filtering rows after pagination would leave pages short. Rows a user must not see
+on the list belong out of <code>query()</code>; see <a href="#scoping-the-query">Resources</a>.</li>
+<li><strong>Writes are checked against the stored row.</strong> The update and delete handlers load the record
+inside the write’s transaction and check the predicates on that row, not on the submitted id.
+A bulk delete fails as a whole if any selected record is refused.</li>
+<li><strong>Relationship options</strong> require both <code>can_view_any</code> and <code>can_view</code> on the related resource;
+overriding one does not imply the other.</li>
 </ul>
+<h2 id="authentication"><a class="header" href="#authentication">Authentication</a></h2>
+<p>Authentication is on by default. The built-in login checks an email and password against the
+<code>AdminUser</code> table and keeps sessions in the <code>AuthSession</code> table; register both models with
+Toasty and create a user with a hashed password:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>toasty::models!(crate::User, tablo_core::auth::AdminUser, tablo_core::auth::AuthSession)
+</span>toasty::models!(crate::Book, tablo_core::auth::AdminUser, tablo_core::auth::AuthSession)
 <span class="boring">}</span></code></pre>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let hash = tablo_core::auth::hash_password("secret").expect("hash password");
-// store in AdminUser.password_hash (Argon2id PHC string)
+</span>let password_hash = tablo_core::auth::hash_password("secret")?; // Argon2id
 <span class="boring">}</span></code></pre>
+<p><a href="#your-first-panel">Your first panel</a> shows the complete setup.</p>
+<h3 id="what-a-request-gets"><a class="header" href="#what-a-request-gets">What a request gets</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Request</th><th>Signed in with panel access</th><th>Signed in without panel access</th><th>Not signed in</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code> of a panel page</td><td>the page</td><td>403</td><td>redirect to <code>/admin/login?next=…</code></td></tr>
+<tr><td>any other panel request</td><td>handled</td><td>403</td><td>401</td></tr>
+<tr><td><code>/_topcoat/runtime</code></td><td>handled</td><td>403</td><td>401</td></tr>
+</tbody>
+</table>
+</div>
+<p>After login, the user returns to <code>next</code>, which must be a same-origin path. A user has panel access
+when their <code>AdminUser.active</code> is <code>true</code>. The gate covers only the panel prefix and
+<code>/_topcoat/runtime</code>; routes elsewhere, including directories served with <code>Panel::serve_dir</code>, are
+public.</p>
 <ul>
-<li>Unauthenticated <code>GET</code> pages redirect to <code>{prefix}/login</code> with a validated same-origin <code>next</code>.
-Runtime endpoints (<code>/_topcoat/runtime</code>) and all non-GET panel requests answer 401; users without
-panel access answer 403. The gate installs exactly two layers — the panel prefix and
-<code>/_topcoat/runtime</code> — so a route mounted outside them is ungated by construction;
-<code>Panel::serve_dir</code> is the shipped case, and served directories are public by decision (ADR-0017).</li>
-<li>Sessions are server-side <code>AuthSession</code> rows with a seven-day fixed lifetime, rotated on login and
-revoked on logout. Use <code>auth::revoke_sessions_for_user(cx, id)</code> to sign a user out everywhere. A
-successful login also drops up to 500 expired rows, so a session whose owner never returns does not
-keep its row forever.
-Logins verify Argon2id (dummy hash for unknown emails) and share one generic failure message.
-Handlers re-check the resolved user, including the panel root and live-search shard; logout accepts
-any resolved identity so a de-permitted session can still be cleared.</li>
+<li><strong>Login</strong> verifies Argon2id hashes. An unknown email costs the same work as a wrong password,
+and every failure shows the same message.</li>
+<li><strong>Sessions</strong> are rows in <code>AuthSession</code>, identified by a hash of the cookie’s token. A session
+lasts seven days from login, is replaced on each login and deleted on logout. Each successful
+login also deletes up to 500 expired sessions.</li>
+<li><strong>Revoking.</strong> Call <code>auth::revoke_sessions_for_user(cx, user_id)</code> when a user’s password changes
+or their account is deactivated; otherwise existing sessions stay valid until they expire.</li>
+<li><strong>Rate limiting</strong> is not built in. Limit login attempts at your proxy or firewall.</li>
 </ul>
-<p>Custom user table:</p>
+<p>Read the signed-in user in your own code with <code>auth::current_user(cx)</code>, which returns a
+<code>CurrentUser { id, login, display_name, tenant_id, can_access_panel }</code>, or with
+<code>auth::require_authenticated(cx)?</code>, which answers the request as the table above when there is
+none.</p>
+<h3 id="your-own-user-table"><a class="header" href="#your-own-user-table">Your own user table</a></h3>
+<p>Implement <code>Authenticator</code> for your user model and install it:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>Panel::new("admin").auth(Auth::custom(MyAuth))
 <span class="boring">}</span></code></pre>
-<p>Implement <code>verify</code> plus <code>find_by_id</code> for your model. Session storage stays framework-owned. Read the
-result with <code>current_user(cx)</code> or <code>require_authenticated(cx)</code>.</p>
-<p>Explicit opt-out:</p>
+<p><code>verify(cx, login, password)</code> checks credentials and returns the <code>CurrentUser</code>, and
+<code>find_by_id(cx, id)</code> reloads that user on every request, so deactivating a user takes effect
+immediately. Return <code>Ok(None)</code> for every credential failure; do comparable work for unknown and
+known accounts so response times do not reveal which exist. Sessions stay in <code>AuthSession</code>.</p>
+<h3 id="turning-it-off"><a class="header" href="#turning-it-off">Turning it off</a></h3>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>Panel::new("admin").auth(Auth::disabled())
 <span class="boring">}</span></code></pre>
-<p>Tenancy comes from the logged-in user. <code>tenant_id(cx)</code> reads the request <code>Tenant</code>, which the auth
-layer sets; a server-set <code>Tenant</code> request extension overrides deliberately (for middleware/tests).
-Mark tenant-owned resources with <code>requires_tenant()</code>: handlers fail closed (403) without a tenant,
-and the framework derives the <code>tenant_id</code> filter from the model and applies it at every loader
-(GH #223), so no <code>query()</code> override has to restate it. Never trust a tenant header from the client.
-See <a href="#resources">Resources</a> for the three shapes a resource can declare.</p>
-<p>No built-in rate limiter or lockout: enforce at the edge (proxy/WAF). <code>Notification</code> is a one-time
-<code>__Host-tablo_notification</code> flash cookie on the 303 Post/Redirect/Get response, consumed on
-follow-up so reloads never replay it.</p>
+<p>Every panel route is then public and the login routes are not registered. Use it for public
+demos and tests only.</p>
+<h2 id="tenancy"><a class="header" href="#tenancy">Tenancy</a></h2>
+<p>A tenant-owned resource shows each user only their tenant’s rows. The request’s tenant is the
+signed-in user’s <code>tenant_id</code>, read with <code>tenant_id(cx)</code>. No request header can set it; server code
+such as a middleware or a test can, by inserting a <code>Tenant</code> request extension.</p>
+<p>Mark the resource with <code>requires_tenant()</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl Resource for PostResource {
+    type Model = Post; // has `tenant_id: uuid::Uuid`
+    // …
+
+    fn requires_tenant() -&gt; bool {
+        true
+    }
+}
+<span class="boring">}</span></code></pre>
+<p>That one declaration does two things:</p>
+<ul>
+<li><strong>The gate.</strong> Every handler of the resource answers 403 when the request has no tenant.</li>
+<li><strong>The scope.</strong> Every loader — list, export, detail, edit, delete, bulk delete, relationship
+options, related tables — adds <code>tenant_id = &lt;request tenant&gt;</code> to the resource’s <code>query()</code>. A
+create sets the tenant column itself, so the record form leaves it out.</li>
+</ul>
+<p>The framework finds the column by name and type: a UUID field named <code>tenant_id</code>. Do not repeat the
+filter in <code>query()</code>.</p>
+<p><strong>A row that inherits its tenant.</strong> A comment has no <code>tenant_id</code> of its own; it belongs to a post
+that does. Override <code>tenant_scope</code> with the predicate through the relation, and the framework
+applies it wherever it would apply the derived filter:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn requires_tenant() -&gt; bool {
+    true
+}
+
+fn tenant_scope(tenant: uuid::Uuid) -&gt; Option&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
+    Some(Comment::fields().post().tenant_id().eq(tenant))
+}
+<span class="boring">}</span></code></pre>
+<p>Keep <code>requires_tenant()</code> <code>true</code> here: writing the same filter into <code>query()</code> without the gate
+would serve every tenant’s rows to a user who has no tenant.</p>
+<p><strong>A deliberately cross-tenant resource</strong> — a super-admin view — declares <code>requires_tenant()</code>
+<code>false</code> and filters in <code>query()</code> by hand. That gives up both the gate and the scope.</p>
+<p><code>Panel::build</code> refuses a resource with <code>requires_tenant()</code> <code>true</code> whose model has no <code>tenant_id</code>
+UUID field and which does not override <code>tenant_scope</code>.</p>
+<p><strong>In your own code</strong>, load rows with <code>scoped_query::&lt;PostResource&gt;(cx)?</code>. It applies the tenant
+scope and answers 403 when the request has no tenant. <code>PostResource::query(cx)</code> does not apply the
+tenant scope. A record function that writes a foreign key should re-check the target through
+<code>scoped_query</code> inside its transaction, since the tenant of the related row may have changed since
+the form was validated.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="data-access"><a class="header" href="#data-access">Data access</a></h1>
-<p>Querying Toasty from panel code: getting the <code>Db</code>, filters and sorting, preloading relations,
-embedded values, and the render and reactivity invariants any page has to respect.</p>
-<p>Get the DB from app context:</p>
+<p>The panel’s own pages load rows for you. This chapter covers querying Toasty from your code: a
+<a href="#pages">page</a>, a record function, or a public page. The
+<a href="https://tokio-rs.github.io/toasty/0.10.0/guide/">Toasty guide</a> covers the query API in full.</p>
+<h2 id="getting-the-database"><a class="header" href="#getting-the-database">Getting the database</a></h2>
+<p><code>app_context(db)</code> registers the <code>Db</code> on the panel; <code>tablo_core::db::db(cx)</code> returns it. Cloning a
+<code>Db</code> is cheap, and statements take it by <code>&amp;mut</code>:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let mut db = tablo_core::db::db(cx);
-let rows = User::all().exec(&amp;mut db).await?;
+let users = User::all().exec(&amp;mut db).await?;
 <span class="boring">}</span></code></pre>
-<p><code>Db</code> is <code>Arc</code>-pooled; cloning per request is cheap and <code>exec</code> needs <code>&amp;mut Db</code>.</p>
-<p>Filter and sort:</p>
+<p>Inside a record function, run statements through the transaction you were handed (<code>ex</code>), never
+through a second handle: a single-connection pool such as <code>sqlite::memory:</code> would wait forever for
+the connection the transaction holds.</p>
+<h2 id="querying"><a class="header" href="#querying">Querying</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>User::filter(User::fields().email().eq("alice@example.com"))
-User::filter(User::fields().name().starts_with(q))
-    .order_by(User::fields().name().asc())
+</span>User::filter(User::fields().email().eq("ada@example.com"))
+User::filter(User::fields().name().starts_with(prefix)).order_by(User::fields().name().asc())
 <span class="boring">}</span></code></pre>
-<p>Table search builds its pattern through <code>like_with_escape</code> with <code>%</code>, <code>_</code> and the escape character
-escaped (<code>escape_like_pattern</code>), so it is parameterised and portable. If you hand-write a pattern,
-escape <code>%</code> and <code>_</code> first, and never interpolate raw input into SQL.</p>
-<p>Preload relations in one trip:</p>
+<p>Toasty binds values as parameters. If you build a <code>LIKE</code> pattern from user input, escape <code>%</code>, <code>_</code>
+and your escape character first and pass it with <code>like_with_escape</code>, as the table search does.</p>
+<p><strong>Load a resource’s rows through <code>scoped_query</code>.</strong> <code>scoped_query::&lt;PostResource&gt;(cx)?</code> is the
+resource’s <code>query()</code> with its tenant scope applied, and answers 403 when the request has no
+tenant. <code>PostResource::query(cx)</code> has no tenant scope. See
+<a href="#tenancy">Tenancy</a>.</p>
+<p>A public page has no resource behind it, so it states its own filters, tenant included:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let posts = Post::all()
+</span>let posts = Post::filter(Post::fields().status().eq("published".to_string()))
     .include(Post::fields().author())
     .exec(&amp;mut db)
     .await?;
-// then `post.author.get()` with no extra query
 <span class="boring">}</span></code></pre>
-<p>Declare the relation a cell reads, typed on the model: the list and the CSV export load exactly the
-relations their columns include (ADR-0018). Guard the cell against a missing include so a dropped
-declaration fails loudly, not with blank data:</p>
+<h2 id="relations"><a class="header" href="#relations">Relations</a></h2>
+<p>Toasty loads a relation only when the query includes it. Include every relation you read, in
+the same query:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>TextColumn::computed("Author", |p: &amp;Post| {
-    if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
-})
-.include(Post::fields().author())
+</span>let posts = Post::all().include(Post::fields().author()).exec(&amp;mut db).await?;
+for post in &amp;posts {
+    let name = &amp;post.author.get().name; // no extra query
+}
 <span class="boring">}</span></code></pre>
-<h2 id="embedded-values"><a class="header" href="#embedded-values">Embedded values</a></h2>
-<p>Derive the codec and declare nothing per field (GH #191, ADR-0019). The derive reads the type’s
-shape, the framework names the columns:</p>
+<p>Reading a relation that was not included panics in <code>get()</code>; check <code>is_unloaded()</code> first where a
+missing include is possible. In a table column, declare the relation with <code>TextColumn::include</code>
+instead: see <a href="#columns">Tables</a>.</p>
+<h2 id="a-resources-table-on-your-own-page"><a class="header" href="#a-resources-table-on-your-own-page">A resource’s table on your own page</a></h2>
+<p>A page can render a resource’s list table over its own query — here, only featured posts — with
+the same columns, filters and row actions as the resource’s list:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
-pub enum Publication {
-    #[column(variant = 1)]
-    Scheduled { #[shared(timestamp)] scheduled_at: String, scheduled_for: String },
-    #[column(variant = 2)]
-    Published { #[shared(timestamp)] published_at: String, canonical_url: String },
-}
-
-// form declaration: controls, flattened names, and the variant control
-Section::new("Publication").schema(Publication::form(cx, Post::fields().publication()))
-
-// a record form binds the whole value, and the derive calls the codec
-#[derive(tablo_core::RecordForm)]
-#[form(model = Post)]
-pub struct PostForm {
-    #[form(embed)]
-    pub publication: Publication,
-    // …
-}
-
-// the codec by hand: the typed value, keys resolved from the schema
-record.publication.write_form(cx, Post::fields().publication(), &amp;mut values);
-let publication = Publication::read_form(cx, Post::fields().publication(), &amp;values)?;
+</span>let table = tablo_core::panel::wired_table::&lt;PostResource&gt;(cx);
+let state = TableState::from_cx(cx);
+let query = scoped_query::&lt;PostResource&gt;(cx)?.filter(Post::fields().featured().eq(true));
+let page = TablePage::load(cx, &amp;table, query, &amp;state).await?;
+let body = table.render_with_state(cx, page, &amp;state, "/admin/featured").await?;
 <span class="boring">}</span></code></pre>
-<p>An enum’s variant is its <strong>discriminant column</strong>, carried by the form as a choice over the
-schema’s variant list — each option submitting the variant’s stored value and reading as its name —
-and each variant’s payload renders inside its own marked group, so the client shows only the chosen
-variant’s, and a variant can be picked on create and changed on edit (a read-only page names the
-stored variant instead of printing its discriminant). A named discriminant always wins (and one the
-enum does not declare is refused on the discriminant’s key, never read as some other variant), so a stale payload is
-not a vote. Only when no discriminant is named at all — the create form, a hand-written POST — do
-payloads select one, by a variant’s own <strong>non-shared</strong> payload through resolved keys. The toggle is
-markup-only (<code>variant.js</code> hides the inactive groups): with JavaScript off every variant’s payload
-renders, so no field the server still parses is lost; a read-only page renders only the stored
-variant’s group and the shared columns it declares. <code>Publication::form</code> is one schema node: its fields join the form’s field list, and
-its keys are its fields’ keys. Inside a value, a field marked <code>#[form(embed)]</code> is a nested value and
-every other field is a scalar (<code>FormScalar</code>), which a derive checks at the field.
-<code>#[form(label = "…")]</code>, <code>#[form(multiline = N)]</code>, and <code>#[form(blank = ..)]</code> to declare a leaf’s
-blank answer are the per-field overrides; an unknown key is a compile error. A
-<code>#[document]</code> inside a value, a relation, an enum nested inside an enum variant, and a tuple struct
-are not covered.</p>
-<p>Schema setup: <code>db.push_schema().await</code> for prototypes, <code>toasty-cli</code> migrations for prod.</p>
-<h2 id="render-invariants"><a class="header" href="#render-invariants">Render invariants</a></h2>
-<p>Pages, layouts, and components are side-effect free and deterministic — no <code>HashMap</code> iteration,
-<code>Utc::now()</code>, or random IDs in a streamed region (breaks concurrent/streaming re-renders). Query
-Toasty directly with explicit <code>include</code> for relations, <code>#[index]</code> for filter columns, and
-<code>#[memoize]</code> for shared loads. <code>Cx</code>-scoped values (<code>Tenant</code>, auth), not middleware, carry request
-scope. Every value read on the server via <code>get()</code> / <code>read()</code> is untrusted client input.</p>
-<h2 id="reactivity"><a class="header" href="#reactivity">Reactivity</a></h2>
-<p><code>signal(cx, init)</code> runs only in a page/layout/component body; loop bodies need <code>#[key(...)]</code> and
-reorderable rows need a stable <code>id</code> from the row key. <code>get()</code> / <code>read()</code> re-runs track and morph in
-place; <code>get_untracked()</code> opts out. Page/layout guards do not run on shard requests — shards
-authorize themselves (<code>requires_tenant</code> + <code>can_view_any</code> + the tenant-scoped query).</p>
+<p><code>wired_table</code> adds the row actions the resource’s policy allows. The last argument of
+<code>render_with_state</code> is the URL the table’s search, sort and pager links point at: the page’s own.</p>
+<h2 id="schema-setup"><a class="header" href="#schema-setup">Schema setup</a></h2>
+<p><code>db.push_schema().await?</code> creates every registered table, which suits a prototype or a test. A
+production app manages its schema with <code>toasty-cli</code> migrations.</p>
+<h2 id="rendering-rules"><a class="header" href="#rendering-rules">Rendering rules</a></h2>
+<p>Topcoat may render a page’s regions concurrently and re-render them in place, so code that renders
+follows three rules:</p>
+<ul>
+<li><strong>No side effects.</strong> Pages, layouts and components only read. Writes belong in record functions
+or app routes.</li>
+<li><strong>Deterministic output.</strong> No <code>HashMap</code> iteration order, current time or random values in a
+region that re-renders: a re-render must produce the same markup for the same data.</li>
+<li><strong>Untrusted signals.</strong> A value read on the server with a signal’s <code>get()</code> or <code>read()</code> comes
+from the client. Validate it like any request input.</li>
+</ul>
+<p>Share a query between components of one request with Topcoat’s <code>#[memoize]</code>, and add a Toasty
+<code>#[index]</code> to columns you filter on.</p>
+<p>A table with <code>live_search()</code> refreshes through a Topcoat shard request. Page and layout guards do
+not run for shard requests, so the panel’s shard checks authentication, the tenant and
+<code>can_view_any</code> itself; a shard you write must do the same.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="security"><a class="header" href="#security">Security</a></h1>
-<p>The defaults Tablo ships with, and the deployment assumptions they depend on.</p>
+<p>What Tablo does by default, and what your deployment must provide for those defaults to hold.</p>
+<h2 id="your-deployment-must-provide"><a class="header" href="#your-deployment-must-provide">Your deployment must provide</a></h2>
 <ul>
-<li>All POSTs verify a double-submit <code>csrf_token</code> before any DB work. <code>confirm=1</code> is a UX step, not a
-boundary.</li>
-<li>A file field’s value comes only from a file part (the uploader’s answer, or the sanitized basename
-with no uploader), the record’s stored value on an untouched edit, or empty on <code>clear_&lt;field&gt;</code>. A
-re-rendered form’s <code>keep_&lt;field&gt;</code> candidate is re-used only when the installed uploader’s
-<code>holds(path)</code> confirms the store still has it, so a client-typed path is never stored. A stored
-value renders as a link only when it is rooted (<code>/…</code>, not <code>//host</code>) or an absolute
-<code>http(s)://…</code> URL; anything else renders as text (GH #277).</li>
-<li>Passwords use Argon2id. Unknown emails take the same code path, and login failures share one
-generic message.</li>
-<li>Deletes and bulk deletes re-fetch through <code>query()</code> and re-check policy inside the handler
-transaction.</li>
-<li>Table free-text is an escaped substring <code>LIKE</code> across the searchable columns (<code>like_with_escape</code> +
-<code>escape_like_pattern</code>), never a raw pattern. Do not interpolate raw input into SQL.</li>
-<li>Session, CSRF, and notification cookies use hardened <code>__Host-</code> + <code>Secure</code> settings. Localhost is
-exempt; non-localhost deploys need HTTPS or browsers drop them and mutations 403.</li>
-<li>Every response the panel’s layer chain produces, including the router’s own 404 and 405, carries
-<code>Content-Security-Policy: frame-ancestors 'self'</code>, so an admin page cannot be clickjacked from
-another origin. <code>Panel::frame_ancestors(..)</code> widens it for a deployment that frames the panel,
-<code>Panel::without_frame_ancestors()</code> sends none for a proxy that owns the whole policy, and an
-app’s own <code>Content-Security-Policy</code> on a handler response always wins — the layer only fills the
-gap. Three router responses are built outside every registered layer, so no layer can harden them: the 403 for a
-cross-site request, the 400 for a malformed <code>x-topcoat-identity</code> header, and the bare 500 for a
-panic.</li>
-<li>Redirects: <code>Err(redirect(..))</code> (307) for GETs, <code>Err(see_other(..))</code> (303 PRG) after mutations.
-Mid-stream they degrade to <code>window.location.replace</code>; streamed regions own their failure
-rendering. Wrap <code>Slot</code> in <code>error_boundary</code> for branded error pages.</li>
-<li>A served directory (<code>Panel::serve_dir</code>) shares the panel’s origin, so every file response the
-directory route serves carries <code>X-Content-Type-Options: nosniff</code>, a fixed sandboxing
-<code>Content-Security-Policy</code>, and <code>Content-Disposition: attachment</code> unless the file is a common raster
-image, audio/video or <code>text/plain</code>. An app that serves active documents mounts them on its own
-origin; the policy is not configurable. The directory route’s own failures keep Topcoat’s
-<code>text/plain</code> 404 page and an <code>Allow</code>-only empty 405, so they carry none of the served-file policy
-and no user content; the panel’s <code>frame-ancestors</code> layer still covers both.</li>
+<li><strong>HTTPS.</strong> The session, CSRF and notification cookies are <code>__Host-</code> cookies marked <code>Secure</code>.
+Browsers accept them over plain HTTP only on <code>localhost</code>; anywhere else, without HTTPS, the
+browser drops them and every form POST fails its CSRF check with 403.</li>
+<li><strong>Login rate limiting.</strong> Tablo has no rate limiter or account lockout. Limit login attempts at
+your proxy or firewall.</li>
+<li><strong>Session revocation.</strong> Call <code>auth::revoke_sessions_for_user</code> when a password changes or an
+account is deactivated; see <a href="#authentication">Authentication</a>.</li>
+</ul>
+<h2 id="requests-and-writes"><a class="header" href="#requests-and-writes">Requests and writes</a></h2>
+<ul>
+<li>Every panel POST, login and logout included, verifies a double-submit CSRF token before touching
+the database; a missing or wrong token answers 403.</li>
+<li>Delete and bulk-delete POSTs also require the <code>confirm=1</code> marker the confirmation dialog sends.
+It prevents accidental deletes; it is not a security boundary.</li>
+<li>A form POST with a key the form does not declare answers 400, so a client cannot write a
+field the form does not show, such as <code>role</code> or <code>tenant_id</code>.</li>
+<li>Update and delete handlers load the target through the resource’s scoped query inside the
+write’s transaction and check policy on that row. See <a href="#policy">Policy</a>.</li>
+<li>Table search escapes <code>%</code> and <code>_</code> and binds the term as a parameter; no user input is
+interpolated into SQL.</li>
+</ul>
+<h2 id="authentication-1"><a class="header" href="#authentication-1">Authentication</a></h2>
+<ul>
+<li>Passwords are hashed with Argon2id. A login for an unknown email verifies against a dummy hash,
+so it takes as long as a wrong password, and every failure shows the same message.</li>
+<li>Sessions are stored server-side, keyed by a hash of the cookie’s token, and replaced on login.</li>
+<li>A redirect after login follows <code>next</code> only to a same-origin path.</li>
+</ul>
+<h2 id="responses"><a class="header" href="#responses">Responses</a></h2>
+<ul>
+<li><strong>Framing.</strong> Every response the panel’s router produces, including its 404 and 405 pages,
+carries <code>Content-Security-Policy: frame-ancestors 'self'</code>, so another site cannot frame the
+admin. <code>Panel::frame_ancestors("'self' https://intranet.example")</code> changes the directive, and
+<code>Panel::without_frame_ancestors()</code> omits it for a proxy that sets its own policy. A
+<code>Content-Security-Policy</code> your own handler sets is kept. The router answers three errors before
+any layer runs, so they carry no header: the 403 for a cross-site request, the 400 for a
+malformed <code>x-topcoat-identity</code> header, and the 500 for a panic.</li>
+<li><strong>Redirects.</strong> Return <code>Err(redirect(..))</code> (307) from a <code>GET</code> and <code>Err(see_other(..))</code> (303) after
+a write, so a reload does not repeat it. A redirect raised after streaming started becomes a
+<code>window.location.replace</code>. Wrap a layout’s <code>Slot</code> in <code>error_boundary</code> for a branded error page.</li>
+<li><strong>Notifications</strong> are one-time flash cookies set on the redirect after a write and consumed by
+the next page, so a reload does not show them again.</li>
+</ul>
+<h2 id="uploaded-files"><a class="header" href="#uploaded-files">Uploaded files</a></h2>
+<ul>
+<li>A file field stores only a value that came from a file part: the uploader’s answer, the stored
+value on an untouched edit, or nothing when cleared. A path typed into the form is never stored.
+See <a href="#file-uploads">File uploads</a>.</li>
+<li>A stored value renders as a link only when it is a root-relative path (<code>/…</code>, not <code>//host</code>) or an
+<code>http(s)</code> URL; anything else, such as <code>javascript:</code>, renders as text.</li>
+<li>Files served with <code>Panel::serve_dir</code> share the panel’s origin, so every file response carries
+<code>X-Content-Type-Options: nosniff</code>, a sandboxing <code>Content-Security-Policy</code>, and
+<code>Content-Disposition: attachment</code> unless the file is a common image, audio or video type or
+plain text. An uploaded HTML or SVG file therefore downloads instead of running script. The
+policy is fixed; serve active documents from another origin.</li>
+<li>Served directories are <strong>public</strong>: the auth gate does not cover them.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="testing-and-benchmarks"><a class="header" href="#testing-and-benchmarks">Testing and benchmarks</a></h1>
-<p>How to test a panel, what the showcase covers, and the performance harness and its budget.</p>
-<p>Panel behavior is tested over HTTP through the shared harness in <code>crates/tablo-test</code>:
-<code>tablo_test::TestClient</code> drives a <code>Router</code> in memory and carries the cookies, tenant, and CSRF
-token a request needs, with body readers, form and multipart writers, and HTML scrapers alongside
-it. Cover each resource policy fn. Cover scoping in <code>query()</code>.</p>
-<p>The showcase has integration tests per area (list, create, edit, delete, bulk, filters, tenancy,
-uploads, export, auth) under <code>examples/showcase/tests/</code>.</p>
-<pre><code class="language-sh">cargo test -p showcase
-node --test crates/tablo-ui/assets/*.test.js   # the shell asset suites
-cargo run --manifest-path benchmarks/tablo/Cargo.toml -- --bench
-./benchmarks/scripts/bench.sh
+<h2 id="testing-a-panel"><a class="header" href="#testing-a-panel">Testing a panel</a></h2>
+<p>Test a panel over HTTP, in memory: build the router against a test database and send it requests.
+The <code>tablo-test</code> crate provides <code>TestClient</code>, which carries cookies, a tenant and a CSRF token, and
+helpers to build form bodies and read responses. It is not published; depend on it from the same
+source as <code>tablo-core</code>.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use tablo_test::{TestClient, form_body};
+
+#[tokio::test]
+async fn books_cannot_be_deleted() {
+    let db = seeded_db().await; // your fixture: an in-memory database with rows
+    let id = first_book_id(&amp;db).await;
+    let router = Panel::new("admin")
+        .app_context(db.clone())
+        .resource::&lt;BookResource&gt;()
+        .auth(Auth::disabled())
+        .build()
+        .unwrap();
+    let client = TestClient::new(&amp;router);
+
+    assert_eq!(client.get("/admin/books").await.status(), 200);
+
+    // A POST needs the CSRF cookie and a matching `csrf_token` field.
+    let token = uuid::Uuid::new_v4().to_string();
+    let response = client
+        .csrf(&amp;token)
+        .post_form(
+            &amp;format!("/admin/books/{id}/delete"),
+            form_body(&amp;[("csrf_token", &amp;token), ("confirm", "1")]),
+        )
+        .await;
+    assert_eq!(response.status(), 403); // `can_delete_any` is not overridden
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li><strong>Cover every policy predicate</strong> with a request that it allows and one that it refuses, and
+assert on the database as well as the status code.</li>
+<li><strong>Cover <code>query()</code> scoping</strong> by seeding a row the scope excludes and asserting that the list,
+the detail page and a delete all miss it.</li>
+<li><strong>Tenancy.</strong> <code>client.tenant(id)</code> scopes a request to a tenant, the way a signed-in user’s tenant
+would.</li>
+<li><strong>Signed-in requests.</strong> With authentication on, sign in through <code>POST /admin/login</code> once and
+reuse the client’s cookies, or insert an <code>AuthSession</code> row directly to skip the password hash.</li>
+</ul>
+<p><code>examples/showcase/tests/</code> is a complete suite covering lists, forms, deletes, filters, export,
+tenancy, uploads and authentication; its <code>common</code> module holds the fixtures above.</p>
+<h2 id="the-browser-scripts"><a class="header" href="#the-browser-scripts">The browser scripts</a></h2>
+<p><code>tablo-ui</code>’s client scripts are plain browser scripts with no build step. Their unit tests run on
+Node’s built-in runner:</p>
+<pre><code class="language-sh">node --test crates/tablo-ui/assets/*.test.js
 </code></pre>
-<p>The shell scripts under <code>crates/tablo-ui/assets/</code> are plain browser scripts loaded through
-<code>asset!</code>, so they have no build step and no runner of their own. Each carries a guarded
-<code>module.exports</code> at the bottom so Node’s built-in runner can reach it: <code>selects.test.js</code> covers the
-combobox filter rule (GH #184), the hide-and-drop-<code>required</code> wiring (GH #236, GH #249) and the
-single wiring pass (GH #237), and <code>bulk.test.js</code> covers the selection helpers and the disabled-box
-skip (GH #235). The Rust-side markup assertions cover what the scripts leave alone.</p>
-<p>Budget: 50-row list with 2 preloaded relations renders under 40ms p50 on local SQLite. <strong>This is a
-target, not a gate</strong> (GH #171): the harness prints it “for reference only; UNGATED” and never
-PASS/FAILs on it, and <code>benchmarks/results/</code> is gitignored, so no committed number exists on a fresh
-checkout. The skeleton ships first, rows stream in after.</p>
-<p>Setup details — the detached bench workspace, the <code>oha</code> methodology, and the compile-only
-axum-maud/leptos stubs — are in <code>benchmarks/README.md</code>.</p>
+<h2 id="benchmarks"><a class="header" href="#benchmarks">Benchmarks</a></h2>
+<p>The benchmark renders a 50-row list with two included relations, under tenancy and policy, through
+the same path as the panel’s list page:</p>
+<pre><code class="language-sh">cargo run --manifest-path benchmarks/tablo/Cargo.toml -- --bench
+./benchmarks/scripts/bench.sh   # adds an HTTP run with `oha`
+</code></pre>
+<p>The target is under 40 ms at the median on local SQLite. It is a reference, not a pass/fail gate:
+the harness prints the target beside the measurement. Results are written to
+<code>benchmarks/results/</code>, which is not committed. <code>benchmarks/README.md</code> covers the setup, the
+optional PostgreSQL run and the method.</p>
 
                     </main>
 

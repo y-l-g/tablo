@@ -535,66 +535,70 @@
 <a href=#535 id=535 data-nosnippet>535</a>        <span class="self">self
 <a href=#536 id=536 data-nosnippet>536</a>    </span>}
 <a href=#537 id=537 data-nosnippet>537</a>
-<a href=#538 id=538 data-nosnippet>538</a>    <span class="doccomment">/// Enable dark mode toggle persistence (cookie + localStorage via `theme.js`).
-<a href=#539 id=539 data-nosnippet>539</a>    </span><span class="kw">pub fn </span>dark_mode(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
-<a href=#540 id=540 data-nosnippet>540</a>        <span class="self">self</span>.dark_mode = <span class="prelude-val">Some</span>(enabled);
-<a href=#541 id=541 data-nosnippet>541</a>        <span class="self">self
-<a href=#542 id=542 data-nosnippet>542</a>    </span>}
-<a href=#543 id=543 data-nosnippet>543</a>
-<a href=#544 id=544 data-nosnippet>544</a>    <span class="doccomment">/// Configure authentication (ADR-0013).
-<a href=#545 id=545 data-nosnippet>545</a>    ///
-<a href=#546 id=546 data-nosnippet>546</a>    /// The default is the shipped [`Auth::password`](crate::auth::Auth::password)
-<a href=#547 id=547 data-nosnippet>547</a>    /// over [`AdminUser`](crate::auth::AdminUser); swap in an app-owned
-<a href=#548 id=548 data-nosnippet>548</a>    /// authenticator with `Panel::auth(Auth::custom(..))`, or opt a public
-<a href=#549 id=549 data-nosnippet>549</a>    /// demo out explicitly with `Panel::auth(Auth::disabled())`.
-<a href=#550 id=550 data-nosnippet>550</a>    </span><span class="kw">pub fn </span>auth(<span class="kw-2">mut </span><span class="self">self</span>, auth: <span class="kw">crate</span>::auth::Auth) -&gt; <span class="self">Self </span>{
-<a href=#551 id=551 data-nosnippet>551</a>        <span class="self">self</span>.auth = auth;
-<a href=#552 id=552 data-nosnippet>552</a>        <span class="self">self
-<a href=#553 id=553 data-nosnippet>553</a>    </span>}
-<a href=#554 id=554 data-nosnippet>554</a>
-<a href=#555 id=555 data-nosnippet>555</a>    <span class="doccomment">/// A muted line rendered under the login form, for demo credentials or
-<a href=#556 id=556 data-nosnippet>556</a>    /// deployment hints (e.g. `"Demo: admin@example.com / password"`).
-<a href=#557 id=557 data-nosnippet>557</a>    </span><span class="kw">pub fn </span>login_hint(<span class="kw-2">mut </span><span class="self">self</span>, hint: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
-<a href=#558 id=558 data-nosnippet>558</a>        <span class="self">self</span>.login_hint = <span class="prelude-val">Some</span>(hint.into());
-<a href=#559 id=559 data-nosnippet>559</a>        <span class="self">self
-<a href=#560 id=560 data-nosnippet>560</a>    </span>}
-<a href=#561 id=561 data-nosnippet>561</a>}
-<a href=#562 id=562 data-nosnippet>562</a>
-<a href=#563 id=563 data-nosnippet>563</a><span class="doccomment">/// The segments the panel routes under its prefix itself (the auth routes),
-<a href=#564 id=564 data-nosnippet>564</a>/// which no resource or page may take as its slug.
-<a href=#565 id=565 data-nosnippet>565</a></span><span class="kw">const </span>RESERVED_SLUGS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"login"</span>, <span class="string">"logout"</span>];
+<a href=#538 id=538 data-nosnippet>538</a>    <span class="doccomment">/// Set the theme a visitor who has not chosen one sees: dark when `true`.
+<a href=#539 id=539 data-nosnippet>539</a>    ///
+<a href=#540 id=540 data-nosnippet>540</a>    /// The shell always renders the theme toggle, and a visitor's stored
+<a href=#541 id=541 data-nosnippet>541</a>    /// choice wins over this default in both directions. Without this call
+<a href=#542 id=542 data-nosnippet>542</a>    /// the panel starts light.
+<a href=#543 id=543 data-nosnippet>543</a>    </span><span class="kw">pub fn </span>dark_mode(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
+<a href=#544 id=544 data-nosnippet>544</a>        <span class="self">self</span>.dark_mode = <span class="prelude-val">Some</span>(enabled);
+<a href=#545 id=545 data-nosnippet>545</a>        <span class="self">self
+<a href=#546 id=546 data-nosnippet>546</a>    </span>}
+<a href=#547 id=547 data-nosnippet>547</a>
+<a href=#548 id=548 data-nosnippet>548</a>    <span class="doccomment">/// Configure authentication (ADR-0013).
+<a href=#549 id=549 data-nosnippet>549</a>    ///
+<a href=#550 id=550 data-nosnippet>550</a>    /// The default is the shipped [`Auth::password`](crate::auth::Auth::password)
+<a href=#551 id=551 data-nosnippet>551</a>    /// over [`AdminUser`](crate::auth::AdminUser); swap in an app-owned
+<a href=#552 id=552 data-nosnippet>552</a>    /// authenticator with `Panel::auth(Auth::custom(..))`, or opt a public
+<a href=#553 id=553 data-nosnippet>553</a>    /// demo out explicitly with `Panel::auth(Auth::disabled())`.
+<a href=#554 id=554 data-nosnippet>554</a>    </span><span class="kw">pub fn </span>auth(<span class="kw-2">mut </span><span class="self">self</span>, auth: <span class="kw">crate</span>::auth::Auth) -&gt; <span class="self">Self </span>{
+<a href=#555 id=555 data-nosnippet>555</a>        <span class="self">self</span>.auth = auth;
+<a href=#556 id=556 data-nosnippet>556</a>        <span class="self">self
+<a href=#557 id=557 data-nosnippet>557</a>    </span>}
+<a href=#558 id=558 data-nosnippet>558</a>
+<a href=#559 id=559 data-nosnippet>559</a>    <span class="doccomment">/// A muted line rendered under the login form, for demo credentials or
+<a href=#560 id=560 data-nosnippet>560</a>    /// deployment hints (e.g. `"Demo: admin@example.com / password"`).
+<a href=#561 id=561 data-nosnippet>561</a>    </span><span class="kw">pub fn </span>login_hint(<span class="kw-2">mut </span><span class="self">self</span>, hint: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+<a href=#562 id=562 data-nosnippet>562</a>        <span class="self">self</span>.login_hint = <span class="prelude-val">Some</span>(hint.into());
+<a href=#563 id=563 data-nosnippet>563</a>        <span class="self">self
+<a href=#564 id=564 data-nosnippet>564</a>    </span>}
+<a href=#565 id=565 data-nosnippet>565</a>}
 <a href=#566 id=566 data-nosnippet>566</a>
-<a href=#567 id=567 data-nosnippet>567</a><span class="doccomment">/// What the panel serves at its prefix.
-<a href=#568 id=568 data-nosnippet>568</a></span><span class="kw">enum </span>Root {
-<a href=#569 id=569 data-nosnippet>569</a>    <span class="doccomment">/// A redirect to the first declared resource's list.
-<a href=#570 id=570 data-nosnippet>570</a>    </span>Redirect(String),
-<a href=#571 id=571 data-nosnippet>571</a>    <span class="doccomment">/// The [`Panel::home`] page.
-<a href=#572 id=572 data-nosnippet>572</a>    </span>Home,
-<a href=#573 id=573 data-nosnippet>573</a>}
-<a href=#574 id=574 data-nosnippet>574</a>
-<a href=#575 id=575 data-nosnippet>575</a><span class="kw">impl </span>Panel {
-<a href=#576 id=576 data-nosnippet>576</a>    <span class="doccomment">/// Derive a [`NavigationItem`] for `R` using this panel's mount prefix.
-<a href=#577 id=577 data-nosnippet>577</a>    ///
-<a href=#578 id=578 data-nosnippet>578</a>    /// The one panel-aware navigation seam for a [`Resource`]:
-<a href=#579 id=579 data-nosnippet>579</a>    /// [`Panel::resource`](Self::resource) calls it, so a resource's
-<a href=#580 id=580 data-nosnippet>580</a>    /// [`Resource::navigation`] override reaches the sidebar instead of being
-<a href=#581 id=581 data-nosnippet>581</a>    /// dead API. The override owns the **label, ordering and
-<a href=#582 id=582 data-nosnippet>582</a>    /// grouping**; the panel owns the **URL**, because it is the only party
-<a href=#583 id=583 data-nosnippet>583</a>    /// that knows where the resource is mounted. Concretely: an explicit
-<a href=#584 id=584 data-nosnippet>584</a>    /// [`NavTarget::Url`] in `R::navigation()` is taken as returned, and only
-<a href=#585 id=585 data-nosnippet>585</a>    /// a [`NavTarget::Derived`] target — the default, which names no URL
-<a href=#586 id=586 data-nosnippet>586</a>    /// because [`Resource::navigation`] takes no prefix — is resolved to
-<a href=#587 id=587 data-nosnippet>587</a>    /// `{prefix}/{slug}`.
-<a href=#588 id=588 data-nosnippet>588</a>    ///
-<a href=#589 id=589 data-nosnippet>589</a>    /// So `Panel::new("backoffice")` yields `"/backoffice/{slug}"` — never a
-<a href=#590 id=590 data-nosnippet>590</a>    /// hard-coded `"/admin"` — for default and overridden items alike, a URL an
-<a href=#591 id=591 data-nosnippet>591</a>    /// override spelled out stays exactly as written, and an override's `order`
-<a href=#592 id=592 data-nosnippet>592</a>    /// decides sidebar order.
-<a href=#593 id=593 data-nosnippet>593</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>nav_item&lt;R: Resource&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NavigationItem {
-<a href=#594 id=594 data-nosnippet>594</a>        R::navigation().resolved(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/{}"</span>, <span class="self">self</span>.prefix, R::slug()))
-<a href=#595 id=595 data-nosnippet>595</a>    }
-<a href=#596 id=596 data-nosnippet>596</a>}
-<a href=#597 id=597 data-nosnippet>597</a>
-<a href=#598 id=598 data-nosnippet>598</a><span class="attr">#[cfg(test)]
-<a href=#599 id=599 data-nosnippet>599</a></span><span class="kw">mod </span>tests;
+<a href=#567 id=567 data-nosnippet>567</a><span class="doccomment">/// The segments the panel routes under its prefix itself (the auth routes),
+<a href=#568 id=568 data-nosnippet>568</a>/// which no resource or page may take as its slug.
+<a href=#569 id=569 data-nosnippet>569</a></span><span class="kw">const </span>RESERVED_SLUGS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"login"</span>, <span class="string">"logout"</span>];
+<a href=#570 id=570 data-nosnippet>570</a>
+<a href=#571 id=571 data-nosnippet>571</a><span class="doccomment">/// What the panel serves at its prefix.
+<a href=#572 id=572 data-nosnippet>572</a></span><span class="kw">enum </span>Root {
+<a href=#573 id=573 data-nosnippet>573</a>    <span class="doccomment">/// A redirect to the first declared resource's list.
+<a href=#574 id=574 data-nosnippet>574</a>    </span>Redirect(String),
+<a href=#575 id=575 data-nosnippet>575</a>    <span class="doccomment">/// The [`Panel::home`] page.
+<a href=#576 id=576 data-nosnippet>576</a>    </span>Home,
+<a href=#577 id=577 data-nosnippet>577</a>}
+<a href=#578 id=578 data-nosnippet>578</a>
+<a href=#579 id=579 data-nosnippet>579</a><span class="kw">impl </span>Panel {
+<a href=#580 id=580 data-nosnippet>580</a>    <span class="doccomment">/// Derive a [`NavigationItem`] for `R` using this panel's mount prefix.
+<a href=#581 id=581 data-nosnippet>581</a>    ///
+<a href=#582 id=582 data-nosnippet>582</a>    /// The one panel-aware navigation seam for a [`Resource`]:
+<a href=#583 id=583 data-nosnippet>583</a>    /// [`Panel::resource`](Self::resource) calls it, so a resource's
+<a href=#584 id=584 data-nosnippet>584</a>    /// [`Resource::navigation`] override reaches the sidebar instead of being
+<a href=#585 id=585 data-nosnippet>585</a>    /// dead API. The override owns the **label, ordering and
+<a href=#586 id=586 data-nosnippet>586</a>    /// grouping**; the panel owns the **URL**, because it is the only party
+<a href=#587 id=587 data-nosnippet>587</a>    /// that knows where the resource is mounted. Concretely: an explicit
+<a href=#588 id=588 data-nosnippet>588</a>    /// [`NavTarget::Url`] in `R::navigation()` is taken as returned, and only
+<a href=#589 id=589 data-nosnippet>589</a>    /// a [`NavTarget::Derived`] target — the default, which names no URL
+<a href=#590 id=590 data-nosnippet>590</a>    /// because [`Resource::navigation`] takes no prefix — is resolved to
+<a href=#591 id=591 data-nosnippet>591</a>    /// `{prefix}/{slug}`.
+<a href=#592 id=592 data-nosnippet>592</a>    ///
+<a href=#593 id=593 data-nosnippet>593</a>    /// So `Panel::new("backoffice")` yields `"/backoffice/{slug}"` — never a
+<a href=#594 id=594 data-nosnippet>594</a>    /// hard-coded `"/admin"` — for default and overridden items alike, a URL an
+<a href=#595 id=595 data-nosnippet>595</a>    /// override spelled out stays exactly as written, and an override's `order`
+<a href=#596 id=596 data-nosnippet>596</a>    /// decides sidebar order.
+<a href=#597 id=597 data-nosnippet>597</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>nav_item&lt;R: Resource&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NavigationItem {
+<a href=#598 id=598 data-nosnippet>598</a>        R::navigation().resolved(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/{}"</span>, <span class="self">self</span>.prefix, R::slug()))
+<a href=#599 id=599 data-nosnippet>599</a>    }
+<a href=#600 id=600 data-nosnippet>600</a>}
+<a href=#601 id=601 data-nosnippet>601</a>
+<a href=#602 id=602 data-nosnippet>602</a><span class="attr">#[cfg(test)]
+<a href=#603 id=603 data-nosnippet>603</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

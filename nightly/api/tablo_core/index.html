@@ -1,286 +1,39 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Tablo — a server-rendered admin toolkit on Topcoat and Toasty."><title>tablo_core - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="tablo_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate tablo_core</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../tablo_core/index.html">tablo_<wbr>core</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#tablo" title="Tablo">Tablo</a><ul><li><a href="#language" title="Language">Language</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>tablo_<wbr>core</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/tablo_core/lib.rs.html#1-71">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Tablo — a server-rendered admin toolkit on Topcoat and Toasty.</p>
-<p>This crate holds the toolkit’s foundation: the <a href="resource/trait.Resource.html" title="trait tablo_core::resource::Resource"><code>Resource</code></a> trait and the
-types that compose an admin UI (Panel, Table, Schema, Action). See the
-workspace README and <code>CONTEXT.md</code> for the vocabulary.</p>
-<h2 id="tablo"><a class="doc-anchor" href="#tablo">§</a>Tablo</h2>
-<p>Admin toolkit for Rust — server-rendered on Topcoat, persisted with Toasty. Provides the CRUD
-core of Filament (Panel + Resource → Table + Schema, deletes via Resource record fns) with no
-Livewire port, explicit preloading and cursor pagination, and a narrow reactivity seam: streamed
-<code>suspense</code> regions render the list shell first and swap the loaded table in, while reruns morph in
-place (focus survives) and tables opting into <code>Table::live_search</code> re-render their table in place
-through the slug-dispatched <code>table_search</code> shard: search, sort, filters, and pagination write
-signals, and the table morphs without a navigation (ticket #104, GH #151). A confirmed delete rides
-the same seam: the POST still 303s, and the client that follows it re-runs the table’s shard instead
-of morphing the response (GH #234, ADR-0020).</p>
-<blockquote>
-<p><strong>Shipped vs spec:</strong> everything the terms below call shipped — Panel, Resource, Table, Schema,
-Policy, authentication, tenancy, and uploads — lives in <code>tablo-core</code>. <code>examples/showcase</code> is
-the runnable reference and <code>docs/guide</code> the user guide for what each seam does in detail. A term
-marked spec-level or future work is not implemented.</p>
-</blockquote>
-<h3 id="language"><a class="doc-anchor" href="#language">§</a>Language</h3><h4 id="panel"><a class="doc-anchor" href="#panel">§</a>Panel</h4>
-<p>The admin application. Owns the Router, the Db in app_context, the layout Shell, its declared
-Resources and Pages, and the default-on authentication gate (ADR-0013). Declaring a Panel with
-Resources and Pages yields their routes and navigation; an app’s layout delegates to
-<code>Panel::layout_shell</code> for the Shell with no manual document HTML.</p>
-<p><em>Avoid</em>: Admin, Dashboard, App, Site</p>
-<p><em>Documented exceptions</em>: shipped <code>AdminUser</code> model retains the <code>Admin</code> prefix (auth seam,
-ADR-0013); the <code>/admin</code> mount default is generic English for the URL prefix, not Panel vocabulary.</p>
-<h4 id="authenticator"><a class="doc-anchor" href="#authenticator">§</a>Authenticator</h4>
-<p>The one authentication seam (ADR-0013). An object-safe trait resolving credentials into the erased
-<code>CurrentUser</code> and a live session back to it; <code>PasswordAuth</code> is the shipped default over
-<code>AdminUser</code>, <code>Panel::auth(Auth::custom(..))</code> swaps in an app implementation over its own user
-table, and <code>Auth::disabled()</code> is the explicit, greppable opt-out. Sessions stay framework-owned
-(<code>AuthSession</code>) whichever implementation is in use.</p>
-<p><em>Avoid</em>: Provider, Guard, LoginManager, AuthDriver</p>
-<h4 id="currentuser"><a class="doc-anchor" href="#currentuser">§</a>CurrentUser</h4>
-<p>The erased identity resolution places in request <code>Cx</code>:
-<code>{ id, login, display_name, tenant_id, can_access_panel }</code>. Pages, shards, and app code read it
-only through <code>current_user(cx)</code> / <code>require_authenticated(cx)</code>; the concrete user model never leaks
-past the <code>Authenticator</code>. The optional <code>tenant_id</code> becomes the request <code>Tenant</code>.</p>
-<p><em>Avoid</em>: AuthUser, Principal, Account, SessionUser</p>
-<h4 id="session"><a class="doc-anchor" href="#session">§</a>Session</h4>
-<p>A server-side <code>AuthSession</code> row keyed by the SHA-256 hash of a client token carried in a hardened
-cookie (<code>__Host-</code>, HttpOnly, Secure, SameSite=Lax). Seven-day fixed lifetime, rotated on login,
-deleted on logout, revocable per user, and swept on a successful login (up to 500 expired rows), so a
-row whose owner never returns does not stay forever; the raw token is never stored.</p>
-<p><em>Avoid</em>: Token (the client half), SessionStore, Login, Cookie</p>
-<h4 id="resource"><a class="doc-anchor" href="#resource">§</a>Resource</h4>
-<p>A type that maps one Toasty Model to its admin UI: the base query, the table, the view
-(GH #187) and its values (<code>view_values(cx, record)</code>), the navigation entry, and the policy
-(<code>can_*</code> predicates), and its form: the record form (<code>type Form</code>), the form’s schema (<code>form()</code>),
-<code>validate_record</code>, and the create and update record fns. A list-only resource names
-<code>type Form = NoForm&lt;Self::Model&gt;;</code>. One Model → one Resource, registered once with
-<code>Panel::resource</code>: every resource gets the list, detail, delete, bulk delete, and export routes,
-and a resource with a record form also gets create, edit, and the relationship options — not a
-<code>pages()</code> declaration. A resource that declares no <code>view</code> has no detail page: <code>viewed()</code> is
-derived from the schema, so the route and the row’s <code>View</code> link cannot disagree. Tenancy,
-export scoping, and row chrome are covered in the guide; see
-<a href="docs/guide/src/resources.md">resources</a> and
-<a href="docs/guide/src/policy-auth-tenancy.md">policy, auth, tenancy</a>.</p>
-<p><em>Avoid</em>: Model, Entity, Collection, AdminModel, CRUD</p>
-<h4 id="schema"><a class="doc-anchor" href="#schema">§</a>Schema</h4>
-<p>The unified layout primitive for forms, infolists, and detail pages (GH #187, ADR-0016): one
-vocabulary read two ways — <code>render(cx, Source::form(..))</code> gives controls, <code>render(cx, Source::view(..))</code> gives the record’s stored values under the same labels and layout. A composition
-of layout blocks (Section, Group, Grid, Repeater), embedded values, and Fields bound via field lenses
-to a Model; building it resolves every Field once into one field list. See
-<a href="docs/guide/src/forms.md">forms</a> and <a href="docs/guide/src/detail-pages.md">detail pages</a>.</p>
-<p><em>Avoid</em>: Form, Infolist, Fieldset (as top-level term), statePath</p>
-<h4 id="table"><a class="doc-anchor" href="#table">§</a>Table</h4>
-<p>The declarative description of a list view. Declares columns, filters, search, sort, pagination,
-and row/bulk actions. It also declares how to query — searchable and filterable columns produce
-Toasty predicates, sortable columns map to order_by. Owns the row loop: row identity is mandatory
-and typed, declared once via the constructor (<code>Table::new(|u| u.id.to_string(), columns)</code>)
-until Toasty exposes instance→PK extraction — never a loop index.
-Identity is two projections: the display key (keyed diffs, DOM ids) and the
-record key (edit/delete URLs, bulk checkbox values), resolved by handlers as the
-typed PK. A table whose display projects a non-PK value uses
-<code>Table::new_split(display, record, columns)</code>.</p>
-<p>Row chrome follows the resource’s declarations (<code>TableChrome</code>, GH #383) and is gated per record by the table’s
-<strong>row policy</strong>, which the panel wires from the resource’s
-<code>can_view</code>/<code>can_update</code>/<code>can_delete</code>: a refused row renders no link, and a delete-refused row no
-bulk checkbox. The handler’s all-or-nothing check stays as
-the safety net for a hand-crafted POST.</p>
-<p>A <code>live_search()</code> table hands its chrome to the page’s <code>TableSignals</code>: the shard’s tracked
-reads re-render the table in place when search, sort, filters, or pagination write a signal
-(GH #151). See <a href="docs/guide/src/tables.md">tables</a> and ADR-0003.</p>
-<p><em>Avoid</em>: Grid, Listing, DataTable</p>
-<p><em>Documented exception</em>: <code>Grid</code> is also a shipped <strong>Schema layout block</strong> — <code>Grid::new(2)</code>, a column
-container for forms and detail pages (ADR-0016). It is a different artifact from the list view, and
-only the layout block keeps the name; the rendered list is a Table everywhere, including in code
-comments and locals.</p>
-<h4 id="column"><a class="doc-anchor" href="#column">§</a>Column</h4>
-<p>A typed projection of a Model field (or a computed value) displayed in a Table row, rendered through
-a lens-bound closure where typos fail at compile time. <code>searchable</code>/<code>sortable</code> map to Toasty
-predicates and order_by; computed columns render values but declare none. A column whose projection
-reads a relation declares it with <code>include(..)</code>, a typed path (ADR-0018). A column declares its
-width with <code>width(ColumnWidth::..)</code>; see <a href="docs/guide/src/tables.md">tables</a> (GH #240). <code>TextColumn</code>
-is the only column type; Badge, Number and the rest remain spec-level.</p>
-<p><em>Avoid</em>: Field (in table context), Cell, Attribute</p>
-<h4 id="detail-page"><a class="doc-anchor" href="#detail-page">§</a>Detail page</h4>
-<p><code>GET {prefix}/{slug}/{id}</code> (GH #187): one record — <code>Resource::view</code>’s Schema, read-only, then
-<code>Resource::view_content(cx, record)</code> for free-form content read off the record, then its
-Relations. Loading goes through the tenant-scoped query (<code>scoped_query</code>, GH #223) like every
-other record page, so an unknown id and one outside the request’s scope are the same 404, while a
-record the caller may not view is a 403.</p>
-<p><em>Avoid</em>: Show page, Infolist page, Record view</p>
-<h4 id="relation"><a class="doc-anchor" href="#relation">§</a>Relation</h4>
-<p>A related Resource’s rows that belong to a record, declared by the owner’s <code>Resource::relations</code>
-(<code>Relation::has_many</code>) and rendered on the owner’s detail and edit pages as the related Resource’s
-own list Table, narrowed by a foreign key, its URL parameters prefixed with the related slug. It is
-read-only on the detail page; on the edit page it carries the writes and a create link that seeds
-the key, and writes started there return to the owner’s page (GH #408).</p>
-<p><em>Avoid</em>: Relation manager, Sub-table, Nested resource</p>
-<h4 id="action"><a class="doc-anchor" href="#action">§</a>Action</h4>
-<p>A user-invoked delete/create/edit operation driven by a record fn (<code>Resource::delete_record</code> /
-<code>bulk_delete_records</code>, <code>create_record</code> / <code>update_record</code>) through a POST handler, inside a
-transaction, with authorization checked against the passed record inside the handler (ADR-0004).
-A non-CRUD operation (publish, archive) is still modelled as a record fn or a Page;
-an <code>Action</code> value with its own before/after hooks remains future work (GH #112).</p>
-<p><em>Avoid</em>: Command, Mutation, Operation, Modal</p>
-<h4 id="committed"><a class="doc-anchor" href="#committed">§</a>Committed</h4>
-<p>What one successful mutation wrote, handed to <code>Resource::after_commit</code> (GH #112, ADR-0004):
-the mutation kind plus the rows it wrote — the row a create or update returned, the rows a
-delete or bulk delete removed (gone by the time the hook sees them, so they arrive as they
-were). One <code>Committed</code> per write. The hook runs after <code>tx.commit()</code> and before the response;
-a failed hook is logged and never rolls the write back.</p>
-<p><em>Avoid</em>: CommittedSet, ChangeSet, Event, PostCommit</p>
-<h4 id="query"><a class="doc-anchor" href="#query">§</a>Query</h4>
-<p>The base filtered query for a Resource, returned by <code>Resource::query(cx)</code> and used by every
-loader through <code>scoped_query(cx)</code> — that base with the framework’s tenant filter ANDed on when
-the resource requires a tenant (GH #223). The list and the CSV export add the relations their
-columns include, and the detail page loads <code>Resource::view_query(cx)</code> (ADR-0018). See
-<a href="docs/guide/src/data-access.md">data access</a>.</p>
-<p><em>Avoid</em>: Scope, EloquentQuery, Builder (as domain term)</p>
-<h4 id="policy"><a class="doc-anchor" href="#policy">§</a>Policy</h4>
-<p>The per-Resource authorization rules, implemented as <code>Resource::can_view_any</code>/<code>can_view</code>/
-<code>can_create</code>/<code>can_update</code>/<code>can_delete_any</code>/<code>can_delete</code> — the one authorization vocabulary.
-Default-deny; checked in both page and POST handlers, and in relationship option loads (GH #108).
-The row chrome follows the declarations that also govern each route (GH #383): the row Delete
-control, the bulk column, and the bulk bar render when <code>can_delete_any</code> allows, the Edit link when
-the resource has a record form, and the View link when <code>Resource::viewed</code> holds. The panel then
-applies <code>can_view</code> + <code>can_update</code> / <code>can_delete</code> per row through the table’s row policy (GH #235):
-a refused row renders no link and an empty bulk cell. <code>can_delete</code> defaults to <code>can_delete_any</code>.
-See <a href="docs/guide/src/policy-auth-tenancy.md">policy, auth, tenancy</a>.</p>
-<p><em>Avoid</em>: Guard, Permission, Gate, Ability, Policy trait</p>
-<h4 id="navigationitem"><a class="doc-anchor" href="#navigationitem">§</a>NavigationItem</h4>
-<p>An entry in the Panel sidebar: a label, a NavTarget, a sort order, and an optional icon. Derived by
-default from a Resource or a Page, overridable to change the label, the order, the icon, or an
-explicit URL. The Panel that
-owns the entry owns the URL: a <code>Derived</code> target names none, so the panel resolves it from its own
-mount prefix plus the slug it mounts the resource or page at (the prefix itself for the home page),
-while an explicit URL is a link its author wrote and is kept
-verbatim (GH #165).</p>
-<p><em>Avoid</em>: MenuItem, NavLink, SidebarEntry</p>
-<h4 id="navtarget"><a class="doc-anchor" href="#navtarget">§</a>NavTarget</h4>
-<p>Where a NavigationItem points. <code>Derived</code> means the declaring Resource or Page cannot know its
-mount, so the owning Panel resolves the URL; <code>Url</code> names a URL outright. The distinction is the type rather
-than a convention, so prefix resolution can never touch a URL an author wrote (GH #165).</p>
-<p><em>Avoid</em>: Link, Route, Target, SidebarUrl</p>
-<h4 id="filter"><a class="doc-anchor" href="#filter">§</a>Filter</h4>
-<p>A predicate contributed to a Table’s query. A typed wrapper around a Toasty <code>Expr&lt;bool&gt;</code> produced
-from a UI control (SelectFilter, TernaryFilter, DateFilter, VariantFilter), composed with AND.</p>
-<p><em>Avoid</em>: Scope, Constraint, Where</p>
-<h4 id="field"><a class="doc-anchor" href="#field">§</a>Field</h4>
-<p>One input bound to a Model lens inside a Schema: <code>Field::text</code>, <code>Field::choice</code>, or <code>Field::file</code>,
-one type whose control is text (multi-line with <code>.multiline(rows)</code>), choice, or file. <code>Field::text</code>
-binds any <code>FormScalar</code> lens — <code>String</code>, a <code>TypedValue</code> type (<code>i64</code>, <code>Uuid</code>, <code>jiff::Timestamp</code>), or an
-<code>Option</code> of one (GH #192) — rendering the value’s spelling and parsing the submission through the
-type. A constructor takes a column’s lens or a <code>ResolvedLens</code>, which binds an embedded leaf to its
-flattened column. <code>required</code> defaults from Toasty column nullability (opt out with <code>.optional()</code>),
-and <code>unique()</code> on a non-nullable column implies <strong>presence</strong> (GH #189): an empty <code>String</code> stores
-<code>""</code> (GH #89), which a unique index admits once; an <code>Option</code> column stores NULL. Renders through the upstream <code>field</code>
-family (topcoat#420). See <a href="docs/guide/src/forms.md">forms</a> and ADR-0001.</p>
-<p><em>Avoid</em>: Input, Control, Widget (in form context), statePath</p>
-<h4 id="embedded-value"><a class="doc-anchor" href="#embedded-value">§</a>Embedded value</h4>
-<p>A <code>toasty::Embed</code> struct or enum stored in the parent row’s flattened columns, bound as a <strong>value</strong>
-rather than leaf by leaf (GH #191, ADR-0019). <code>#[derive(EmbeddedForm)]</code> generates the flat-map ↔
-typed conversion and a <code>form(cx, parent)</code>: one schema node holding the value’s resolved fields,
-whose keys are its fields’ keys. An enum’s variant is its <strong>discriminant column</strong>: hydration writes
-the stored variant into a visible choice, so a variant can be picked on create and changed on edit.
-A field marked <code>#[form(embed)]</code> is a nested value, every other field a scalar. Per-field overrides
-are <code>#[form(label = "…")]</code>, <code>#[form(multiline = N)]</code>, and <code>#[form(blank = ..)]</code> to declare a leaf’s
-blank answer; an unknown key is a compile error. See
-<a href="docs/guide/src/forms.md">forms</a>.</p>
-<p><em>Avoid</em>: Nested form, Sub-form, Composite field, Inline model</p>
-<h4 id="record-form"><a class="doc-anchor" href="#record-form">§</a>Record form</h4>
-<p>The typed value a resource’s form submission parses into (GH #369, ADR-0022):
-one struct, <code>#[derive(RecordForm)]</code>, with one field per model column the form writes, named
-and typed like the model’s field. A scalar binds the key its control posts; an embedded value
-(<code>#[form(embed)]</code>) binds every key it occupies. The panel parses every submission into it,
-hydrates the edit and detail pages from it, and writes it through toasty’s builders. See
-<a href="docs/guide/src/forms.md#the-record-form">forms</a>.</p>
-<p><em>Avoid</em>: Patch, Draft, Input, DTO, Form (alone: that is the <code>Schema</code>)</p>
-<h4 id="completion"><a class="doc-anchor" href="#completion">§</a>Completion</h4>
-<p>On an edit, filling every declared key the submission did not post from the stored record
-before the form parses, so the record fn receives a whole form and an unposted key keeps its
-value. The <strong>named</strong> keys are the ones the submission posted; a <strong>named field</strong> has at least one
-named key, and the write assigns only named fields (plus the model’s <code>#[update(..)]</code> defaults and
-<code>#[version]</code> bump). An untouched file input is not named.</p>
-<p><em>Avoid</em>: Presence, Backfill (as the general term), Merge, Default</p>
-<h4 id="posted"><a class="doc-anchor" href="#posted">§</a>Posted</h4>
-<p>What <code>Resource::update_record</code> receives: the parsed record form (it derefs to it) and the
-fields the submission named. <code>into_update(&amp;mut record)</code> is the instance update builder with one
-assignment per named field, or <code>None</code> when the submission named none.</p>
-<p><em>Avoid</em>: Patch, Changes, Diff, Submission</p>
-<h4 id="uploader"><a class="doc-anchor" href="#uploader">§</a>Uploader</h4>
-<p>Where a file field’s bytes go (GH #188, ADR-0017): a trait the app implements and installs once
-per Panel (<code>Panel::uploads</code>). <code>store(filename, bytes) -&gt; Result&lt;String, String&gt;</code> receives the
-part’s already-sanitized basename and returns the value the record stores; a refusal
-(<code>Err(reason)</code>) is an inline field error. With no uploader installed the sanitized basename is
-stored, and the bytes are drained rather than buffered. <code>Panel::serve_dir(path, dir)</code> mounts an
-app-owned filesystem directory on the panel’s router; a served directory is <strong>public</strong>. See
-<a href="docs/guide/src/forms.md">forms</a>.</p>
-<p><em>Avoid</em>: FileStore, Attachment, Blob store</p>
-<h4 id="streamed-region"><a class="doc-anchor" href="#streamed-region">§</a>Streamed region</h4>
-<p>A <code>suspense</code> region of the page whose content swaps in after the first render. The resource list
-streams its table: a skeleton of the table’s own header and pulsing rows first, then the loaded
-rows swap in without a client library. Later reruns (page/shard) morph in place per Topcoat #392 — focus, scroll, and typing
-survive. The table always renders inside a <code>data-boundary</code> region. See ADR-0003.</p>
-<p><em>Avoid</em>: Shard (as domain term), Region, Island, Boundary</p>
-<h4 id="notification"><a class="doc-anchor" href="#notification">§</a>Notification</h4>
-<p>A transient user-visible message (status + title + optional description, rendered as a
-shadcn/Sonner toast, auto-dismissed after ~4s by <code>notifications.js</code> with a close button) produced
-by a record operation’s result, rendered in a shell-level stack owned by the Panel layout so it
-survives table swaps. A page can also mount one in place — <code>notification::live_toast</code> signals plus
-the shell’s <code>live_toaster</code> shard — so a procedure’s result becomes a toast without a navigation
-(GH #154 §3).</p>
-<p><em>Avoid</em>: Toast (as domain term; the shadcn UI surface is a toast), Flash, Alert</p>
-<h4 id="emptystate"><a class="doc-anchor" href="#emptystate">§</a>EmptyState</h4>
-<p>The zero-data rendering of a content region (<code>tablo_ui::empty_state</code>: icon + title + optional detail</p>
-<ul>
-<li>optional action). The Table shows it for “no records” and “no search results”; an app page shows it
-for any region with nothing to list.</li>
-</ul>
-<p><em>Avoid</em>: NoResults, Placeholder, ZeroState</p>
-<h4 id="errorstate"><a class="doc-anchor" href="#errorstate">§</a>ErrorState</h4>
-<p>The Table’s failed-load rendering: a destructive-accented block (icon + title + optional detail +
-retry action) shown <strong>inside</strong> the streamed region when the load <code>Err</code>s — the load catches its own
-error so the page shell survives and the body is not truncated (GH #79). Distinct from EmptyState:
-zero rows is a result, a failed load is not.</p>
-<p><em>Avoid</em>: ErrorPage, Fallback</p>
-<h4 id="shell"><a class="doc-anchor" href="#shell">§</a>Shell</h4>
-<p>The top-level layout that frames every admin page. Owns the Sidebar, topbar, and main content area.</p>
-<p><em>Avoid</em>: Layout, Wrapper, Chrome</p>
-<h4 id="sidebar"><a class="doc-anchor" href="#sidebar">§</a>Sidebar</h4>
-<p>The persistent navigation region inside the Shell. The upstream Topcoat <code>sidebar</code> primitive (synced
-into <code>tablo-ui</code>, topcoat#419): header, content, footer, groups and menus, collapsing to
-offcanvas on desktop and to its own sheet drawer below <code>md</code>. Its open state is runtime signals —
-<code>Panel::render_shell</code> seeds <code>open</code> from the <code>sidebar_state</code> cookie, the trigger pair carries
-<code>@click</code> handlers, and <code>assets/sidebar.js</code> mirrors changes back to the cookie.</p>
-<p><em>Avoid</em>: Nav, Menu, Drawer</p>
-<h4 id="page"><a class="doc-anchor" href="#page">§</a>Page</h4>
-<p>A panel page that is not a Resource: a type implementing <code>tablo_core::Page</code>, registered with
-<code>Panel::page</code> at <code>{prefix}/{slug}</code> or with <code>Panel::home</code> at the prefix itself. The Panel owns its
-route and its NavigationItem; the page owns its markup, which the Shell frames like every panel
-page.</p>
-<p><em>Avoid</em>: CustomPage, Screen, View</p>
-<h4 id="page-container"><a class="doc-anchor" href="#page-container">§</a>Page container</h4>
-<p>The standard container for an admin page (<code>tablo_ui::page</code>). Owns max-width, padding and vertical rhythm so pages
-declare title and content, not Tailwind layout classes. Its header (<code>page_header</code>) lays out a title,
-an optional description, and optional page actions (<code>page_actions</code>) on the title’s line.</p>
-<p><em>Avoid</em>: Container, Wrapper, Layout</p>
-<h4 id="theme"><a class="doc-anchor" href="#theme">§</a>Theme</h4>
-<p>The named set of design tokens that determines the admin’s look. Tablo provides <strong>no stylesheet</strong>:
-the tokens are the app’s, declared in its <code>styles.css</code> as the per-app contract of ADR-0006, and
-<code>examples/showcase/styles.css</code> is the reference — a neutral set that re-tunes upstream’s
-<code>--primary</code>/<code>--ring</code>. The one theme component <code>tablo-ui</code> owns is <code>theme_init_script</code>, a free
-function (not a <code>Theme</code> type) that reconciles the <code>dark</code> class before first paint;
-<code>Panel::dark_mode</code> supplies its fallback for a visitor with no stored choice.</p>
-<p><em>Avoid</em>: Skin, Style, Palette</p>
-<h4 id="token"><a class="doc-anchor" href="#token">§</a>Token</h4>
-<p>A CSS variable (such as <code>--background</code>, <code>--primary</code>, <code>--border</code>) that components reference instead
-of raw colors, swapping between light and dark values.</p>
-<p><em>Avoid</em>: Variable, Color</p>
-<h4 id="primitive"><a class="doc-anchor" href="#primitive">§</a>Primitive</h4>
-<p>A re-exported Topcoat UI component (button, card, select, table, input…) vendored verbatim from
-<code>topcoat-ui-registry</code> into <code>tablo-ui/src/components/primitives/</code> and synced via
-<code>cargo xtask sync-topcoat-ui</code>.</p>
-<p><em>Avoid</em>: Component (when meaning synced primitive), Widget</p>
-<h4 id="component"><a class="doc-anchor" href="#component">§</a>Component</h4>
-<p>An owned Topcoat <code>#[component]</code> in <code>tablo-ui/src/components/composites/</code> (Page container,
-EmptyState, ErrorState, Theme, Toast) that composes Primitives and Tokens. Hand-written, never overwritten by sync.</p>
-<p><em>Avoid</em>: Primitive, Widget, Element, View</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Tablo: a server-rendered admin toolkit on Topcoat and Toasty."><title>tablo_core - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="tablo_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate tablo_core</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../tablo_core/index.html">tablo_<wbr>core</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>tablo_<wbr>core</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/tablo_core/lib.rs.html#1-105">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Tablo: a server-rendered admin toolkit on <a href="topcoat">Topcoat</a> and <a href="toasty">Toasty</a>.</p>
+<p>A <a href="panel/struct.Panel.html" title="struct tablo_core::panel::Panel"><code>Panel</code></a> serves one <a href="resource/trait.Resource.html" title="trait tablo_core::resource::Resource"><code>Resource</code></a> per Toasty model. A resource declares its list page as a
+<a href="resource/struct.Table.html" title="struct tablo_core::resource::Table"><code>Table</code></a>, its create and edit forms as a <a href="schema/struct.Schema.html" title="struct tablo_core::schema::Schema"><code>Schema</code></a> plus a
+<a href="derive.RecordForm.html" title="derive tablo_core::RecordForm"><code>RecordForm</code></a> struct the submission parses into, and its policy as <code>can_*</code>
+predicates that deny by default. <a href="panel/struct.Panel.html#method.build" title="method tablo_core::panel::Panel::build"><code>Panel::build</code></a> checks every declaration and returns the
+Topcoat router.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>BookResource;
+
+<span class="kw">impl </span>Resource <span class="kw">for </span>BookResource {
+    <span class="kw">type </span>Model = Book;
+    <span class="kw">type </span>Form = BookForm;
+
+    <span class="kw">fn </span>can_view_any(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
+        <span class="bool-val">true
+    </span>}
+
+    <span class="kw">fn </span>table(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; Table&lt;Book&gt; {
+        Table::new(
+            |b: <span class="kw-2">&amp;</span>Book| b.id.to_string(),
+            TextColumn::r#for(Book::fields().title(), |b: <span class="kw-2">&amp;</span>Book| b.title.clone()).searchable(),
+        )
+    }
+
+    <span class="kw">fn </span>form(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; Schema {
+        Schema::new(Field::text(Book::fields().title()))
+    }
+}
+
+<span class="kw">let </span>router = Panel::new(<span class="string">"admin"</span>)
+    .app_context(db)
+    .resource::&lt;BookResource&gt;()
+    .build()<span class="question-mark">?</span>;</code></pre></div>
+<p>The <a href="https://y-l.fr/tablo/nightly/guide/">user guide</a> walks through a complete panel and each
+part of it. <a href="resource/trait.Resource.html" title="trait tablo_core::resource::Resource"><code>Resource</code></a> lists every item a resource can declare, and <a href="panel/struct.Panel.html" title="struct tablo_core::panel::Panel"><code>Panel</code></a> every builder
+call.</p>
 </div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.Auth"><code>pub use auth::<a class="enum" href="auth/enum.Auth.html" title="enum tablo_core::auth::Auth">Auth</a>;</code></dt><dt id="reexport.Authenticator"><code>pub use auth::<a class="trait" href="auth/trait.Authenticator.html" title="trait tablo_core::auth::Authenticator">Authenticator</a>;</code></dt><dt id="reexport.CurrentUser"><code>pub use auth::<a class="struct" href="auth/struct.CurrentUser.html" title="struct tablo_core::auth::CurrentUser">CurrentUser</a>;</code></dt><dt id="reexport.PasswordAuth"><code>pub use auth::<a class="struct" href="auth/struct.PasswordAuth.html" title="struct tablo_core::auth::PasswordAuth">PasswordAuth</a>;</code></dt><dt id="reexport.FieldError"><code>pub use form::<a class="struct" href="form/struct.FieldError.html" title="struct tablo_core::form::FieldError">FieldError</a>;</code></dt><dt id="reexport.FieldErrorKind"><code>pub use form::<a class="enum" href="form/enum.FieldErrorKind.html" title="enum tablo_core::form::FieldErrorKind">FieldErrorKind</a>;</code></dt><dt id="reexport.FieldErrors"><code>pub use form::<a class="struct" href="form/struct.FieldErrors.html" title="struct tablo_core::form::FieldErrors">FieldErrors</a>;</code></dt><dt id="reexport.FormField"><code>pub use form::<a class="struct" href="form/struct.FormField.html" title="struct tablo_core::form::FormField">FormField</a>;</code></dt><dt id="reexport.FormScalar"><code>pub use form::<a class="trait" href="form/trait.FormScalar.html" title="trait tablo_core::form::FormScalar">FormScalar</a>;</code></dt><dt id="reexport.NoForm"><code>pub use form::<a class="struct" href="form/struct.NoForm.html" title="struct tablo_core::form::NoForm">NoForm</a>;</code></dt><dt id="reexport.Posted"><code>pub use form::<a class="struct" href="form/struct.Posted.html" title="struct tablo_core::form::Posted">Posted</a>;</code></dt><dt id="reexport.RecordForm"><code>pub use form::<a class="trait" href="form/trait.RecordForm.html" title="trait tablo_core::form::RecordForm">RecordForm</a>;</code></dt><dt id="reexport.write_create"><code>pub use form::<a class="fn" href="form/fn.write_create.html" title="fn tablo_core::form::write_create">write_create</a>;</code></dt><dt id="reexport.write_update"><code>pub use form::<a class="fn" href="form/fn.write_update.html" title="fn tablo_core::form::write_update">write_update</a>;</code></dt><dt id="reexport.Notification"><code>pub use notification::<a class="struct" href="notification/struct.Notification.html" title="struct tablo_core::notification::Notification">Notification</a>;</code></dt><dt id="reexport.NotificationStatus"><code>pub use notification::<a class="enum" href="notification/enum.NotificationStatus.html" title="enum tablo_core::notification::NotificationStatus">NotificationStatus</a>;</code></dt><dt id="reexport.Brand"><code>pub use panel::<a class="struct" href="panel/struct.Brand.html" title="struct tablo_core::panel::Brand">Brand</a>;</code></dt><dt id="reexport.DarkMode"><code>pub use panel::<a class="struct" href="panel/struct.DarkMode.html" title="struct tablo_core::panel::DarkMode">DarkMode</a>;</code></dt><dt id="reexport.Panel"><code>pub use panel::<a class="struct" href="panel/struct.Panel.html" title="struct tablo_core::panel::Panel">Panel</a>;</code></dt><dt id="reexport.ColumnWidth"><code>pub use resource::<a class="enum" href="resource/enum.ColumnWidth.html" title="enum tablo_core::resource::ColumnWidth">ColumnWidth</a>;</code></dt><dt id="reexport.Committed"><code>pub use resource::<a class="struct" href="resource/struct.Committed.html" title="struct tablo_core::resource::Committed">Committed</a>;</code></dt><dt id="reexport.Cursor"><code>pub use resource::<a class="enum" href="resource/enum.Cursor.html" title="enum tablo_core::resource::Cursor">Cursor</a>;</code></dt><dt id="reexport.DateFilter"><code>pub use resource::<a class="struct" href="resource/struct.DateFilter.html" title="struct tablo_core::resource::DateFilter">DateFilter</a>;</code></dt><dt id="reexport.Filter"><code>pub use resource::<a class="enum" href="resource/enum.Filter.html" title="enum tablo_core::resource::Filter">Filter</a>;</code></dt><dt id="reexport.IntoFilters"><code>pub use resource::<a class="trait" href="resource/trait.IntoFilters.html" title="trait tablo_core::resource::IntoFilters">IntoFilters</a>;</code></dt><dt id="reexport.Mutation"><code>pub use resource::<a class="enum" href="resource/enum.Mutation.html" title="enum tablo_core::resource::Mutation">Mutation</a>;</code></dt><dt id="reexport.NavTarget"><code>pub use resource::<a class="enum" href="resource/enum.NavTarget.html" title="enum tablo_core::resource::NavTarget">NavTarget</a>;</code></dt><dt id="reexport.NavigationItem"><code>pub use resource::<a class="struct" href="resource/struct.NavigationItem.html" title="struct tablo_core::resource::NavigationItem">NavigationItem</a>;</code></dt><dt id="reexport.Relation"><code>pub use resource::<a class="struct" href="resource/struct.Relation.html" title="struct tablo_core::resource::Relation">Relation</a>;</code></dt><dt id="reexport.Resource"><code>pub use resource::<a class="trait" href="resource/trait.Resource.html" title="trait tablo_core::resource::Resource">Resource</a>;</code></dt><dt id="reexport.RowKey"><code>pub use resource::<a class="type" href="resource/type.RowKey.html" title="type tablo_core::resource::RowKey">RowKey</a>;</code></dt><dt id="reexport.SelectFilter"><code>pub use resource::<a class="struct" href="resource/struct.SelectFilter.html" title="struct tablo_core::resource::SelectFilter">SelectFilter</a>;</code></dt><dt id="reexport.Sort"><code>pub use resource::<a class="struct" href="resource/struct.Sort.html" title="struct tablo_core::resource::Sort">Sort</a>;</code></dt><dt id="reexport.Table"><code>pub use resource::<a class="struct" href="resource/struct.Table.html" title="struct tablo_core::resource::Table">Table</a>;</code></dt><dt id="reexport.TablePage"><code>pub use resource::<a class="struct" href="resource/struct.TablePage.html" title="struct tablo_core::resource::TablePage">TablePage</a>;</code></dt><dt id="reexport.TableState"><code>pub use resource::<a class="struct" href="resource/struct.TableState.html" title="struct tablo_core::resource::TableState">TableState</a>;</code></dt><dt id="reexport.TernaryFilter"><code>pub use resource::<a class="struct" href="resource/struct.TernaryFilter.html" title="struct tablo_core::resource::TernaryFilter">TernaryFilter</a>;</code></dt><dt id="reexport.TextColumn"><code>pub use resource::<a class="struct" href="resource/struct.TextColumn.html" title="struct tablo_core::resource::TextColumn">TextColumn</a>;</code></dt><dt id="reexport.VariantFilter"><code>pub use resource::<a class="struct" href="resource/struct.VariantFilter.html" title="struct tablo_core::resource::VariantFilter">VariantFilter</a>;</code></dt><dt id="reexport.scoped_query"><code>pub use resource::<a class="fn" href="resource/fn.scoped_query.html" title="fn tablo_core::resource::scoped_query">scoped_query</a>;</code></dt><dt id="reexport.scoped_view_query"><code>pub use resource::<a class="fn" href="resource/fn.scoped_view_query.html" title="fn tablo_core::resource::scoped_view_query">scoped_view_query</a>;</code></dt><dt id="reexport.EmbeddedForm"><code>pub use schema::<a class="trait" href="schema/trait.EmbeddedForm.html" title="trait tablo_core::schema::EmbeddedForm">EmbeddedForm</a>;</code></dt><dt id="reexport.Field"><code>pub use schema::<a class="struct" href="schema/struct.Field.html" title="struct tablo_core::schema::Field">Field</a>;</code></dt><dt id="reexport.FieldLens"><code>pub use schema::<a class="type" href="schema/type.FieldLens.html" title="type tablo_core::schema::FieldLens">FieldLens</a>;</code></dt><dt id="reexport.Grid"><code>pub use schema::<a class="struct" href="schema/struct.Grid.html" title="struct tablo_core::schema::Grid">Grid</a>;</code></dt><dt id="reexport.Group"><code>pub use schema::<a class="struct" href="schema/struct.Group.html" title="struct tablo_core::schema::Group">Group</a>;</code></dt><dt id="reexport.IntoSchema"><code>pub use schema::<a class="trait" href="schema/trait.IntoSchema.html" title="trait tablo_core::schema::IntoSchema">IntoSchema</a>;</code></dt><dt id="reexport.Repeater"><code>pub use schema::<a class="struct" href="schema/struct.Repeater.html" title="struct tablo_core::schema::Repeater">Repeater</a>;</code></dt><dt id="reexport.ResolvedLens"><code>pub use schema::<a class="struct" href="schema/struct.ResolvedLens.html" title="struct tablo_core::schema::ResolvedLens">ResolvedLens</a>;</code></dt><dt id="reexport.Schema"><code>pub use schema::<a class="struct" href="schema/struct.Schema.html" title="struct tablo_core::schema::Schema">Schema</a>;</code></dt><dt id="reexport.Section"><code>pub use schema::<a class="struct" href="schema/struct.Section.html" title="struct tablo_core::schema::Section">Section</a>;</code></dt><dt id="reexport.Source"><code>pub use schema::<a class="struct" href="schema/struct.Source.html" title="struct tablo_core::schema::Source">Source</a>;</code></dt><dt id="reexport.Tenant"><code>pub use tenancy::<a class="struct" href="tenancy/struct.Tenant.html" title="struct tablo_core::tenancy::Tenant">Tenant</a>;</code></dt><dt id="reexport.require_tenant"><code>pub use tenancy::<a class="fn" href="tenancy/fn.require_tenant.html" title="fn tablo_core::tenancy::require_tenant">require_tenant</a>;</code></dt><dt id="reexport.tenant_id"><code>pub use tenancy::<a class="fn" href="tenancy/fn.tenant_id.html" title="fn tablo_core::tenancy::tenant_id">tenant_id</a>;</code></dt><dt id="reexport.Uploader"><code>pub use upload::<a class="trait" href="upload/trait.Uploader.html" title="trait tablo_core::upload::Uploader">Uploader</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="auth/index.html" title="mod tablo_core::auth">auth</a></dt><dd>Authentication — credentials, server-side sessions, and the panel gate
 (ADR-0013, spec #127).</dd><dt><a class="mod" href="csrf/index.html" title="mod tablo_core::csrf">csrf</a></dt><dd>CSRF protection via double-submit cookie.</dd><dt><a class="mod" href="cursor/index.html" title="mod tablo_core::cursor">cursor</a></dt><dd>URL-safe encoding for Toasty pagination cursors.</dd><dt><a class="mod" href="db/index.html" title="mod tablo_core::db">db</a></dt><dd>The <code>Db</code> glue: how Tablo code reaches the pooled Toasty database.</dd><dt><a class="mod" href="form/index.html" title="mod tablo_core::form">form</a></dt><dd>Record forms: the typed value a form submission parses into, and the write
 that stores it.</dd><dt><a class="mod" href="notification/index.html" title="mod tablo_core::notification">notification</a></dt><dd><code>Notification</code> — transient user-visible message (CONTEXT.md).</dd><dt><a class="mod" href="panel/index.html" title="mod tablo_core::panel">panel</a></dt><dd><code>Panel</code> — the admin application shell.</dd><dt><a class="mod" href="resource/index.html" title="mod tablo_core::resource">resource</a></dt><dd><code>Resource</code> — maps one Toasty <a href="toasty::schema::Model"><code>Model</code></a> to its admin UI.</dd><dt><a class="mod" href="schema/index.html" title="mod tablo_core::schema">schema</a></dt><dd>Unified Schema primitive — fields and layout blocks that compose via <code>view!</code>.</dd><dt><a class="mod" href="tenancy/index.html" title="mod tablo_core::tenancy">tenancy</a></dt><dd>Tenancy via the <code>Cx</code> scoped value <code>Tenant(id)</code>.</dd><dt><a class="mod" href="upload/index.html" title="mod tablo_core::upload">upload</a></dt><dd>Where uploaded bytes go: the <code>Uploader</code> seam, and the one place

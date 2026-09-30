@@ -4,718 +4,722 @@
 <a href=#4 id=4 data-nosnippet>4</a>//! scoping (`query`), the form and table declarations, and navigation. See
 <a href=#5 id=5 data-nosnippet>5</a>//! `CONTEXT.md` and ADR-0002.
 <a href=#6 id=6 data-nosnippet>6</a>//!
-<a href=#7 id=7 data-nosnippet>7</a>//! Facade over the cohesive submodules split out in GH #133: `filter`,
-<a href=#8 id=8 data-nosnippet>8</a>//! `column`, `state`, `table` (+ `table::render`/`table::export`),
-<a href=#9 id=9 data-nosnippet>9</a>//! `navigation`, and `naming`. The re-export surface is unchanged.
-<a href=#10 id=10 data-nosnippet>10</a>
-<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">use </span>std::collections::HashMap;
-<a href=#12 id=12 data-nosnippet>12</a>
-<a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>toasty::{
-<a href=#14 id=14 data-nosnippet>14</a>    Executor,
-<a href=#15 id=15 data-nosnippet>15</a>    stmt::{List, Query},
-<a href=#16 id=16 data-nosnippet>16</a>};
-<a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span>topcoat::{<span class="prelude-ty">Result</span>, context::Cx};
-<a href=#18 id=18 data-nosnippet>18</a>
-<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use crate</span>::{
-<a href=#20 id=20 data-nosnippet>20</a>    error::TabloError,
-<a href=#21 id=21 data-nosnippet>21</a>    form::{FieldErrors, Posted, RecordForm, write_create, write_update},
-<a href=#22 id=22 data-nosnippet>22</a>};
-<a href=#23 id=23 data-nosnippet>23</a>
-<a href=#24 id=24 data-nosnippet>24</a><span class="kw">mod </span>column;
-<a href=#25 id=25 data-nosnippet>25</a><span class="kw">mod </span>commit;
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">mod </span>filter;
-<a href=#27 id=27 data-nosnippet>27</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>naming;
-<a href=#28 id=28 data-nosnippet>28</a><span class="kw">mod </span>navigation;
-<a href=#29 id=29 data-nosnippet>29</a><span class="kw">mod </span>page;
-<a href=#30 id=30 data-nosnippet>30</a><span class="kw">mod </span>relation;
-<a href=#31 id=31 data-nosnippet>31</a><span class="kw">mod </span>state;
-<a href=#32 id=32 data-nosnippet>32</a><span class="kw">mod </span>table;
-<a href=#33 id=33 data-nosnippet>33</a>
-<a href=#34 id=34 data-nosnippet>34</a><span class="kw">pub use </span>column::{ColumnWidth, IntoColumns, TextColumn};
-<a href=#35 id=35 data-nosnippet>35</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>commit::run_after_commit;
-<a href=#36 id=36 data-nosnippet>36</a><span class="kw">pub use </span>commit::{Committed, Mutation};
-<a href=#37 id=37 data-nosnippet>37</a><span class="kw">pub use </span>filter::{DateFilter, Filter, IntoFilters, SelectFilter, TernaryFilter, VariantFilter};
-<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>naming::{kebab_case, pluralize, type_short_name, type_stem};
-<a href=#39 id=39 data-nosnippet>39</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>navigation::runtime_link;
-<a href=#40 id=40 data-nosnippet>40</a><span class="kw">pub use </span>navigation::{NavTarget, NavigationItem};
-<a href=#41 id=41 data-nosnippet>41</a><span class="kw">pub use </span>page::TablePage;
-<a href=#42 id=42 data-nosnippet>42</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>page::{Past, row_exists_past};
-<a href=#43 id=43 data-nosnippet>43</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>relation::BoundRelation;
-<a href=#44 id=44 data-nosnippet>44</a><span class="kw">pub use </span>relation::Relation;
-<a href=#45 id=45 data-nosnippet>45</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>state::{
-<a href=#46 id=46 data-nosnippet>46</a>    BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
-<a href=#47 id=47 data-nosnippet>47</a>    RECORD_ROUTE_PARAM, RETURN_PARAM, TableSignals, create_page_url, query_of, request_query,
-<a href=#48 id=48 data-nosnippet>48</a>    with_return,
-<a href=#49 id=49 data-nosnippet>49</a>};
-<a href=#50 id=50 data-nosnippet>50</a><span class="kw">pub use </span>state::{Cursor, Sort, TableState};
-<a href=#51 id=51 data-nosnippet>51</a><span class="kw">pub use </span>table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
-<a href=#52 id=52 data-nosnippet>52</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>table::{RowActions, TABLE_CARD_CLASS, TableChrome};
-<a href=#53 id=53 data-nosnippet>53</a>
-<a href=#54 id=54 data-nosnippet>54</a><span class="attr">#[cfg(test)]
-<a href=#55 id=55 data-nosnippet>55</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::query_term::MAX_QUERY_TERM;
-<a href=#56 id=56 data-nosnippet>56</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::query_term::clamp_query_term;
-<a href=#57 id=57 data-nosnippet>57</a>
-<a href=#58 id=58 data-nosnippet>58</a><span class="doccomment">/// Maps one Toasty `Model` to its admin UI.
-<a href=#59 id=59 data-nosnippet>59</a>///
-<a href=#60 id=60 data-nosnippet>60</a>/// # Contract
-<a href=#61 id=61 data-nosnippet>61</a>///
-<a href=#62 id=62 data-nosnippet>62</a>/// **Every item but [`Model`](Self::Model), [`Form`](Self::Form) and
-<a href=#63 id=63 data-nosnippet>63</a>/// [`table`](Self::table) has a default**, so a resource compiles as soon as it
-<a href=#64 id=64 data-nosnippet>64</a>/// declares its model, its record form (or [`NoForm`](crate::NoForm)) and its
-<a href=#65 id=65 data-nosnippet>65</a>/// list view — and an omission must fail loudly rather than silently:
-<a href=#66 id=66 data-nosnippet>66</a>///
-<a href=#67 id=67 data-nosnippet>67</a>/// - **Checked at [`Panel::build`](crate::panel::Panel::build)**: the declared table must serve a
-<a href=#68 id=68 data-nosnippet>68</a>///   list, and [`form`](Self::form) must agree with [`Form`](Self::Form): a record form's fields
-<a href=#69 id=69 data-nosnippet>69</a>///   are the schema's controls, and a [`NoForm`](crate::NoForm) resource declares no schema. A
-<a href=#70 id=70 data-nosnippet>70</a>///   resource with no form must not allow [`can_create`](Self::can_create). These are declarations,
-<a href=#71 id=71 data-nosnippet>71</a>///   checked with a Db-only context.
-<a href=#72 id=72 data-nosnippet>72</a>/// - **Loud at request time**: a record fn's error fails the write and rolls its transaction back,
-<a href=#73 id=73 data-nosnippet>73</a>///   never a partial write. [`delete_record`](Self::delete_record) defaults to deleting the row
-<a href=#74 id=74 data-nosnippet>74</a>///   through [`scoped_query`], filtered to the record's key, and refuses a table whose record key
-<a href=#75 id=75 data-nosnippet>75</a>///   does not parse back as the primary key — naming the override that fixes it — rather than
-<a href=#76 id=76 data-nosnippet>76</a>///   deleting the wrong row or nothing. [`bulk_delete_records`](Self::bulk_delete_records) loops
-<a href=#77 id=77 data-nosnippet>77</a>///   `delete_record` by default, so an override covers bulk delete too.
-<a href=#78 id=78 data-nosnippet>78</a>/// - **Chrome follows the declarations**: the row Delete control and the bulk column render when
-<a href=#79 id=79 data-nosnippet>79</a>///   [`can_delete_any`](Self::can_delete_any) allows, the Edit link when the resource has a record
-<a href=#80 id=80 data-nosnippet>80</a>///   form, and the View link when it declares [`view`](Self::view); the row predicates then gate
-<a href=#81 id=81 data-nosnippet>81</a>///   each row.
-<a href=#82 id=82 data-nosnippet>82</a>/// - **Default-deny is untouched**: every `can_*` defaults to `false`, except `can_delete`, which
-<a href=#83 id=83 data-nosnippet>83</a>///   defaults to `can_delete_any`; an unconfigured resource exposes no data and no mutation.
-<a href=#84 id=84 data-nosnippet>84</a></span><span class="kw">pub trait </span>Resource: Sized + Send + Sync + <span class="lifetime">'static </span>{
-<a href=#85 id=85 data-nosnippet>85</a>    <span class="doccomment">/// The persisted model this resource administers.
-<a href=#86 id=86 data-nosnippet>86</a>    ///
-<a href=#87 id=87 data-nosnippet>87</a>    /// `Send + Sync` holds for every data-only model struct and is required
-<a href=#88 id=88 data-nosnippet>88</a>    /// for concurrent rendering of the resource's pages.
-<a href=#89 id=89 data-nosnippet>89</a>    ///
-<a href=#90 id=90 data-nosnippet>90</a>    /// `Clone` is part of the contract because a committed mutation names its
-<a href=#91 id=91 data-nosnippet>91</a>    /// rows: a handler keeps a copy of the rows it loaded while the
-<a href=#92 id=92 data-nosnippet>92</a>    /// record fn consumes them, so the hook can be handed what was written.
-<a href=#93 id=93 data-nosnippet>93</a>    </span><span class="kw">type </span>Model: toasty::schema::Model + Send + Sync + Clone + <span class="lifetime">'static</span>;
-<a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a>    <span class="doccomment">/// The typed value the create and edit forms parse into.
-<a href=#96 id=96 data-nosnippet>96</a>    ///
-<a href=#97 id=97 data-nosnippet>97</a>    /// A resource with create and edit pages names its
-<a href=#98 id=98 data-nosnippet>98</a>    /// [`#[derive(RecordForm)]`](crate::RecordForm) struct; a list-only resource
-<a href=#99 id=99 data-nosnippet>99</a>    /// names [`NoForm&lt;Self::Model&gt;`](crate::NoForm), and
-<a href=#100 id=100 data-nosnippet>100</a>    /// [`Panel::resource`](crate::Panel::resource) registers no form route for
-<a href=#101 id=101 data-nosnippet>101</a>    /// it ([`RecordForm::HAS_FORM`]).
-<a href=#102 id=102 data-nosnippet>102</a>    </span><span class="kw">type </span>Form: RecordForm&lt;Model = <span class="self">Self</span>::Model&gt;;
-<a href=#103 id=103 data-nosnippet>103</a>
-<a href=#104 id=104 data-nosnippet>104</a>    <span class="doccomment">/// The columns an overriding [`Self::create_record`] sets itself, beyond
-<a href=#105 id=105 data-nosnippet>105</a>    /// the form's fields.
-<a href=#106 id=106 data-nosnippet>106</a>    ///
-<a href=#107 id=107 data-nosnippet>107</a>    /// [`Panel::build`](crate::Panel::build) refuses a resource that allows
-<a href=#108 id=108 data-nosnippet>108</a>    /// create when a non-nullable column is neither a form field, nor filled by
-<a href=#109 id=109 data-nosnippet>109</a>    /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
-<a href=#110 id=110 data-nosnippet>110</a>    /// create would fail at the driver on every submit. A record fn that sets
-<a href=#111 id=111 data-nosnippet>111</a>    /// such a column by hand names it here.
-<a href=#112 id=112 data-nosnippet>112</a>    </span><span class="kw">const </span>CREATE_COLUMNS: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str] = <span class="kw-2">&amp;</span>[];
-<a href=#113 id=113 data-nosnippet>113</a>
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="doccomment">/// Whether the current user may view the list page.
-<a href=#115 id=115 data-nosnippet>115</a>    ///
-<a href=#116 id=116 data-nosnippet>116</a>    /// Also gates relationship option loads: a related resource
-<a href=#117 id=117 data-nosnippet>117</a>    /// that denies this cannot offer its records as options at all.
-<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="kw">fn </span>can_view_any(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
-<a href=#119 id=119 data-nosnippet>119</a>        <span class="bool-val">false
-<a href=#120 id=120 data-nosnippet>120</a>    </span>}
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>    <span class="doccomment">/// Whether the current user may view the given record.
-<a href=#123 id=123 data-nosnippet>123</a>    ///
-<a href=#124 id=124 data-nosnippet>124</a>    /// Checked on the edit page (GET), the edit POST (which requires both
-<a href=#125 id=125 data-nosnippet>125</a>    /// `can_view` and `can_update`), per row in CSV export, on each
-<a href=#126 id=126 data-nosnippet>126</a>    /// record behind a relationship choice's options, on each row
-<a href=#127 id=127 data-nosnippet>127</a>    /// of a detail page's relation table, and on the list page as
-<a href=#128 id=128 data-nosnippet>128</a>    /// the per-row gate of every action link (GH #235: the View link, and the
-<a href=#129 id=129 data-nosnippet>129</a>    /// `can_view` half of Edit and Delete). Note both hooks default-deny: a
-<a href=#130 id=130 data-nosnippet>130</a>    /// resource used as a relationship target for option loads must allow
-<a href=#131 id=131 data-nosnippet>131</a>    /// `can_view_any` **and** `can_view` (overriding one does not imply the
-<a href=#132 id=132 data-nosnippet>132</a>    /// other), while a relation table consults `can_view` alone. The
-<a href=#133 id=133 data-nosnippet>133</a>    /// list page deliberately checks only
-<a href=#134 id=134 data-nosnippet>134</a>    /// `can_view_any` for *membership*: `can_view` is an in-memory Rust
-<a href=#135 id=135 data-nosnippet>135</a>    /// predicate that cannot run in SQL, and filtering rows after cursor
-<a href=#136 id=136 data-nosnippet>136</a>    /// pagination would mislabel pages. Row-level visibility that must hold on
-<a href=#137 id=137 data-nosnippet>137</a>    /// the list belongs in [`Self::query`].
-<a href=#138 id=138 data-nosnippet>138</a>    </span><span class="kw">fn </span>can_view(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; bool {
-<a href=#139 id=139 data-nosnippet>139</a>        <span class="bool-val">false
-<a href=#140 id=140 data-nosnippet>140</a>    </span>}
-<a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a>    <span class="doccomment">/// Whether the current user may create a new record.
-<a href=#143 id=143 data-nosnippet>143</a>    ///
-<a href=#144 id=144 data-nosnippet>144</a>    /// `Panel::build` calls this with a Db-only context to decide which
-<a href=#145 id=145 data-nosnippet>145</a>    /// declaration checks apply, so a predicate that reads the request (a
-<a href=#146 id=146 data-nosnippet>146</a>    /// tenant, a user) answers as it would for an anonymous request there. The
-<a href=#147 id=147 data-nosnippet>147</a>    /// list page links to the create page only for a resource with a record
-<a href=#148 id=148 data-nosnippet>148</a>    /// form ([`RecordForm::HAS_FORM`]), whatever this answers.
-<a href=#149 id=149 data-nosnippet>149</a>    </span><span class="kw">fn </span>can_create(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
-<a href=#150 id=150 data-nosnippet>150</a>        <span class="bool-val">false
-<a href=#151 id=151 data-nosnippet>151</a>    </span>}
-<a href=#152 id=152 data-nosnippet>152</a>
-<a href=#153 id=153 data-nosnippet>153</a>    <span class="doccomment">/// Whether the current user may update the given record.
-<a href=#154 id=154 data-nosnippet>154</a>    </span><span class="kw">fn </span>can_update(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; bool {
-<a href=#155 id=155 data-nosnippet>155</a>        <span class="bool-val">false
-<a href=#156 id=156 data-nosnippet>156</a>    </span>}
-<a href=#157 id=157 data-nosnippet>157</a>
-<a href=#158 id=158 data-nosnippet>158</a>    <span class="doccomment">/// Whether the current user may delete records of this resource at all.
-<a href=#159 id=159 data-nosnippet>159</a>    ///
-<a href=#160 id=160 data-nosnippet>160</a>    /// Decides whether the list renders the row Delete control, the bulk
-<a href=#161 id=161 data-nosnippet>161</a>    /// column, and the bulk bar, and gates the single-delete and bulk-delete
-<a href=#162 id=162 data-nosnippet>162</a>    /// POSTs before any record loads. The column decision takes no record, so
-<a href=#163 id=163 data-nosnippet>163</a>    /// the streamed skeleton and the table agree on their columns. The default
-<a href=#164 id=164 data-nosnippet>164</a>    /// [`can_delete`](Self::can_delete) also calls it once per row.
-<a href=#165 id=165 data-nosnippet>165</a>    </span><span class="kw">fn </span>can_delete_any(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
-<a href=#166 id=166 data-nosnippet>166</a>        <span class="bool-val">false
-<a href=#167 id=167 data-nosnippet>167</a>    </span>}
-<a href=#168 id=168 data-nosnippet>168</a>
-<a href=#169 id=169 data-nosnippet>169</a>    <span class="doccomment">/// Whether the current user may delete the given record.
-<a href=#170 id=170 data-nosnippet>170</a>    ///
-<a href=#171 id=171 data-nosnippet>171</a>    /// Defaults to [`can_delete_any`](Self::can_delete_any); override to
-<a href=#172 id=172 data-nosnippet>172</a>    /// refuse some rows. Checked on the single-delete and bulk-delete POSTs
-<a href=#173 id=173 data-nosnippet>173</a>    /// after `can_delete_any` and together with `can_view` — the edit
-<a href=#174 id=174 data-nosnippet>174</a>    /// contract: a record that cannot be viewed cannot be deleted by
-<a href=#175 id=175 data-nosnippet>175</a>    /// UUID-guessing the route. A row it refuses renders no Delete control and
-<a href=#176 id=176 data-nosnippet>176</a>    /// no bulk checkbox.
-<a href=#177 id=177 data-nosnippet>177</a>    </span><span class="kw">fn </span>can_delete(cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; bool {
-<a href=#178 id=178 data-nosnippet>178</a>        <span class="self">Self</span>::can_delete_any(cx)
-<a href=#179 id=179 data-nosnippet>179</a>    }
-<a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a>    <span class="doccomment">/// How one record is displayed on the detail page, read-only.
-<a href=#182 id=182 data-nosnippet>182</a>    ///
-<a href=#183 id=183 data-nosnippet>183</a>    /// The same [`Schema`](crate::schema::Schema) vocabulary a form uses,
-<a href=#184 id=184 data-nosnippet>184</a>    /// rendered for reading: a text field shows its stored value instead of an
-<a href=#185 id=185 data-nosnippet>185</a>    /// `&lt;input&gt;`, a choice shows the option label the form offered, and a
-<a href=#186 id=186 data-nosnippet>186</a>    /// layout block keeps the structure it declares. Like Filament's infolist,
-<a href=#187 id=187 data-nosnippet>187</a>    /// it is its own declaration: it may show keys the form does not, and a
-<a href=#188 id=188 data-nosnippet>188</a>    /// resource with no form declares one too. Declaring a view is what turns
-<a href=#189 id=189 data-nosnippet>189</a>    /// the detail page on — the default declares nothing, so the route 404s
-<a href=#190 id=190 data-nosnippet>190</a>    /// and no `View` row action renders.
-<a href=#191 id=191 data-nosnippet>191</a>    ///
-<a href=#192 id=192 data-nosnippet>192</a>    /// Values come from [`view_values`](Self::view_values) and the record
-<a href=#193 id=193 data-nosnippet>193</a>    /// form's `hydrate`. A field whose key neither supplies renders
-<a href=#194 id=194 data-nosnippet>194</a>    /// `(missing)` and fails a `debug_assert!`. A relation is not one of these
-<a href=#195 id=195 data-nosnippet>195</a>    /// fields — it is a list of records, not a string — and renders through
-<a href=#196 id=196 data-nosnippet>196</a>    /// [`relations`](Self::relations).
-<a href=#197 id=197 data-nosnippet>197</a>    ///
-<a href=#198 id=198 data-nosnippet>198</a>    /// Read-only is a promise, not a disabled form: nothing here validates or
-<a href=#199 id=199 data-nosnippet>199</a>    /// submits, and no field renders a required marker or an error slot.
-<a href=#200 id=200 data-nosnippet>200</a>    </span><span class="kw">fn </span>view(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="kw">crate</span>::schema::Schema {
-<a href=#201 id=201 data-nosnippet>201</a>        <span class="kw">crate</span>::schema::Schema::empty()
-<a href=#202 id=202 data-nosnippet>202</a>    }
-<a href=#203 id=203 data-nosnippet>203</a>
-<a href=#204 id=204 data-nosnippet>204</a>    <span class="doccomment">/// Free-form content on this resource's detail page, below the
-<a href=#205 id=205 data-nosnippet>205</a>    /// [`view`](Self::view) schema and above the [`relations`](Self::relations):
-<a href=#206 id=206 data-nosnippet>206</a>    /// anything computed from the loaded record that is not one of its fields,
-<a href=#207 id=207 data-nosnippet>207</a>    /// such as a word count.
-<a href=#208 id=208 data-nosnippet>208</a>    ///
-<a href=#209 id=209 data-nosnippet>209</a>    /// Returns `None` (the default) to render nothing. The two lifetimes are
-<a href=#210 id=210 data-nosnippet>210</a>    /// deliberately separate: the returned view may borrow the request context,
-<a href=#211 id=211 data-nosnippet>211</a>    /// never the record — a view holding the record would pin the handler's
-<a href=#212 id=212 data-nosnippet>212</a>    /// local binding for as long as the page, which does not compile.
-<a href=#213 id=213 data-nosnippet>213</a>    </span><span class="kw">fn </span>view_content&lt;<span class="lifetime">'a</span>&gt;(_cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; <span class="prelude-ty">Option</span>&lt;topcoat::view::BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
-<a href=#214 id=214 data-nosnippet>214</a>        <span class="prelude-val">None
-<a href=#215 id=215 data-nosnippet>215</a>    </span>}
-<a href=#216 id=216 data-nosnippet>216</a>
-<a href=#217 id=217 data-nosnippet>217</a>    <span class="doccomment">/// The related resources whose rows belong to a record: each renders on
-<a href=#218 id=218 data-nosnippet>218</a>    /// this resource's detail and edit pages as the related resource's own
-<a href=#219 id=219 data-nosnippet>219</a>    /// list table, narrowed to the record (Filament's relation managers) —
-<a href=#220 id=220 data-nosnippet>220</a>    /// read-only on the detail page, and on the edit page with its write
-<a href=#221 id=221 data-nosnippet>221</a>    /// actions and a create link that opens its form with the record already
-<a href=#222 id=222 data-nosnippet>222</a>    /// chosen.
-<a href=#223 id=223 data-nosnippet>223</a>    ///
-<a href=#224 id=224 data-nosnippet>224</a>    /// Takes no `Cx`, like [`navigation`](Self::navigation): the relations are
-<a href=#225 id=225 data-nosnippet>225</a>    /// a declaration, and each related resource's policies decide per request
-<a href=#226 id=226 data-nosnippet>226</a>    /// what its table shows. The default declares none.
-<a href=#227 id=227 data-nosnippet>227</a>    </span><span class="kw">fn </span>relations() -&gt; Vec&lt;Relation&lt;<span class="self">Self</span>::Model&gt;&gt; {
-<a href=#228 id=228 data-nosnippet>228</a>        Vec::new()
-<a href=#229 id=229 data-nosnippet>229</a>    }
-<a href=#230 id=230 data-nosnippet>230</a>
-<a href=#231 id=231 data-nosnippet>231</a>    <span class="doccomment">/// Whether this resource declares a detail page.
-<a href=#232 id=232 data-nosnippet>232</a>    ///
-<a href=#233 id=233 data-nosnippet>233</a>    /// Derived from [`view`](Self::view) rather than declared twice, so the
-<a href=#234 id=234 data-nosnippet>234</a>    /// route and the row link cannot disagree with the schema that renders
-<a href=#235 id=235 data-nosnippet>235</a>    /// them. The detail handler uses it to 404 a resource that declares
-<a href=#236 id=236 data-nosnippet>236</a>    /// nothing, and the row chrome uses it to leave the link off.
-<a href=#237 id=237 data-nosnippet>237</a>    </span><span class="kw">fn </span>viewed(cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
-<a href=#238 id=238 data-nosnippet>238</a>        !<span class="self">Self</span>::view(cx).is_empty()
-<a href=#239 id=239 data-nosnippet>239</a>    }
-<a href=#240 id=240 data-nosnippet>240</a>
-<a href=#241 id=241 data-nosnippet>241</a>    <span class="doccomment">/// The record's label in the detail page's title, or `None` when
-<a href=#242 id=242 data-nosnippet>242</a>    /// the record has no label to show.
-<a href=#243 id=243 data-nosnippet>243</a>    ///
-<a href=#244 id=244 data-nosnippet>244</a>    /// The detail page titles itself with this label when a resource returns
-<a href=#245 id=245 data-nosnippet>245</a>    /// `Some`, and with [`navigation_label`](Self::navigation_label) plus the
-<a href=#246 id=246 data-nosnippet>246</a>    /// URL's record key when it returns `None` — the default, so a resource
-<a href=#247 id=247 data-nosnippet>247</a>    /// that declares nothing keeps the title it has. The showcase's
-<a href=#248 id=248 data-nosnippet>248</a>    /// `PostResource` is the worked example: it returns the post's title, so
-<a href=#249 id=249 data-nosnippet>249</a>    /// its heading reads the title instead of `Blog Posts &lt;record key&gt;`.
-<a href=#250 id=250 data-nosnippet>250</a>    ///
-<a href=#251 id=251 data-nosnippet>251</a>    /// `cx` is the request's context — the same one [`view`](Self::view) and
-<a href=#252 id=252 data-nosnippet>252</a>    /// [`view_values`](Self::view_values) receive — so a label
-<a href=#253 id=253 data-nosnippet>253</a>    /// can read request state (a locale, a tenant). The default ignores both
-<a href=#254 id=254 data-nosnippet>254</a>    /// arguments and returns `None`.
-<a href=#255 id=255 data-nosnippet>255</a>    ///
-<a href=#256 id=256 data-nosnippet>256</a>    /// A label is display text, not a key. Two records can share one (two
-<a href=#257 id=257 data-nosnippet>257</a>    /// users named Ada), so it cannot replace the table key, whose projection
-<a href=#258 id=258 data-nosnippet>258</a>    /// must stay injective within a page for keyed diffs and bulk selection,
-<a href=#259 id=259 data-nosnippet>259</a>    /// or the record key, which the action routes resolve as the
-<a href=#260 id=260 data-nosnippet>260</a>    /// model's typed PK.
-<a href=#261 id=261 data-nosnippet>261</a>    </span><span class="kw">fn </span>record_label(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-<a href=#262 id=262 data-nosnippet>262</a>        <span class="prelude-val">None
-<a href=#263 id=263 data-nosnippet>263</a>    </span>}
-<a href=#264 id=264 data-nosnippet>264</a>
-<a href=#265 id=265 data-nosnippet>265</a>    <span class="doccomment">/// A public URL for one record, rendered as a "View public post"-style
-<a href=#266 id=266 data-nosnippet>266</a>    /// link on the detail and edit pages when `Some`.
-<a href=#267 id=267 data-nosnippet>267</a>    ///
-<a href=#268 id=268 data-nosnippet>268</a>    /// The default declares none, so no link renders. A resource whose records
-<a href=#269 id=269 data-nosnippet>269</a>    /// have a public page overrides this with its URL — the showcase's posts
-<a href=#270 id=270 data-nosnippet>270</a>    /// return their `/blog/{id}` page.
-<a href=#271 id=271 data-nosnippet>271</a>    </span><span class="kw">fn </span>public_url(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-<a href=#272 id=272 data-nosnippet>272</a>        <span class="prelude-val">None
-<a href=#273 id=273 data-nosnippet>273</a>    </span>}
-<a href=#274 id=274 data-nosnippet>274</a>
-<a href=#275 id=275 data-nosnippet>275</a>    <span class="doccomment">/// The URL slug for this resource's pages, e.g. `"users"` mounts the list
-<a href=#276 id=276 data-nosnippet>276</a>    /// at `{panel prefix}/users`.
-<a href=#277 id=277 data-nosnippet>277</a>    ///
-<a href=#278 id=278 data-nosnippet>278</a>    /// Defaults to the Filament convention (`HasRoutes::resolveDefaultSlug`):
-<a href=#279 id=279 data-nosnippet>279</a>    /// take the resource type's name, strip a trailing `Resource`, pluralize
-<a href=#280 id=280 data-nosnippet>280</a>    /// (`UserResource` → `Users`, `CategoryResource` → `Categories`), then
-<a href=#281 id=281 data-nosnippet>281</a>    /// kebab-case (`BlogPostResource` → `blog-posts`). Override for irregular
-<a href=#282 id=282 data-nosnippet>282</a>    /// naming the rules cannot guess (`UsersResource` pluralizes to
-<a href=#283 id=283 data-nosnippet>283</a>    /// `userses` — name resources singular, or override).
-<a href=#284 id=284 data-nosnippet>284</a>    </span><span class="kw">fn </span>slug() -&gt; String {
-<a href=#285 id=285 data-nosnippet>285</a>        kebab_case(<span class="kw-2">&amp;</span>pluralize(type_stem::&lt;<span class="self">Self</span>&gt;(<span class="string">"Resource"</span>)))
-<a href=#286 id=286 data-nosnippet>286</a>    }
-<a href=#287 id=287 data-nosnippet>287</a>
-<a href=#288 id=288 data-nosnippet>288</a>    <span class="doccomment">/// One record's name, e.g. `"User"`: the noun in the "Create {label}" and
-<a href=#289 id=289 data-nosnippet>289</a>    /// "Edit {label}" titles.
-<a href=#290 id=290 data-nosnippet>290</a>    ///
-<a href=#291 id=291 data-nosnippet>291</a>    /// Defaults to the `Model` type name (Filament's model label). Override for
-<a href=#292 id=292 data-nosnippet>292</a>    /// custom wording; [`navigation_label`](Self::navigation_label) pluralizes
-<a href=#293 id=293 data-nosnippet>293</a>    /// it.
-<a href=#294 id=294 data-nosnippet>294</a>    </span><span class="kw">fn </span>label() -&gt; String {
-<a href=#295 id=295 data-nosnippet>295</a>        type_short_name::&lt;<span class="self">Self</span>::Model&gt;().to_string()
-<a href=#296 id=296 data-nosnippet>296</a>    }
-<a href=#297 id=297 data-nosnippet>297</a>
-<a href=#298 id=298 data-nosnippet>298</a>    <span class="doccomment">/// The sidebar label and list title, e.g. `"Users"`.
-<a href=#299 id=299 data-nosnippet>299</a>    ///
-<a href=#300 id=300 data-nosnippet>300</a>    /// Defaults to the pluralized [`label`](Self::label) (Filament's plural
-<a href=#301 id=301 data-nosnippet>301</a>    /// model label): `User` → `Users`, `Category` → `Categories`, `Person` →
-<a href=#302 id=302 data-nosnippet>302</a>    /// `People`. Override for a plural the rules cannot guess.
-<a href=#303 id=303 data-nosnippet>303</a>    </span><span class="kw">fn </span>navigation_label() -&gt; String {
-<a href=#304 id=304 data-nosnippet>304</a>        pluralize(<span class="kw-2">&amp;</span><span class="self">Self</span>::label())
-<a href=#305 id=305 data-nosnippet>305</a>    }
-<a href=#306 id=306 data-nosnippet>306</a>
-<a href=#307 id=307 data-nosnippet>307</a>    <span class="doccomment">/// Base query — the seam for a resource's **own** row scoping (ADR-0002):
-<a href=#308 id=308 data-nosnippet>308</a>    /// soft deletes and row-level visibility. Every loader starts from it.
-<a href=#309 id=309 data-nosnippet>309</a>    ///
-<a href=#310 id=310 data-nosnippet>310</a>    /// **Relations are not this method's job.** The list and the export load
-<a href=#311 id=311 data-nosnippet>311</a>    /// the relations the table's columns declare ([`TextColumn::include`]), and
-<a href=#312 id=312 data-nosnippet>312</a>    /// the detail page loads [`Self::view_query`]. Include a relation here only
-<a href=#313 id=313 data-nosnippet>313</a>    /// when a closure no column covers reads it on every loader's rows: one
-<a href=#314 id=314 data-nosnippet>314</a>    /// [`can_view`](Self::can_view) reads, or one a table's `group_by` or row
-<a href=#315 id=315 data-nosnippet>315</a>    /// key reads without a column including it.
-<a href=#316 id=316 data-nosnippet>316</a>    ///
-<a href=#317 id=317 data-nosnippet>317</a>    /// **Tenancy is not this method's job either.** When
-<a href=#318 id=318 data-nosnippet>318</a>    /// [`requires_tenant`](Self::requires_tenant) is `true` the framework ANDs
-<a href=#319 id=319 data-nosnippet>319</a>    /// the tenant filter, derived from the model's `tenant_id` column, onto
-<a href=#320 id=320 data-nosnippet>320</a>    /// whatever this returns, at every loader through [`scoped_query`]. Do not
-<a href=#321 id=321 data-nosnippet>321</a>    /// re-state `tenant_id().eq(tenant_id(cx))`: the copy is redundant, and one
-<a href=#322 id=322 data-nosnippet>322</a>    /// that disagreed with the derived column would hide rows rather than widen
-<a href=#323 id=323 data-nosnippet>323</a>    /// access. Code outside the framework's loaders starts from
-<a href=#324 id=324 data-nosnippet>324</a>    /// [`scoped_query`].
-<a href=#325 id=325 data-nosnippet>325</a>    ///
-<a href=#326 id=326 data-nosnippet>326</a>    /// Returns the raw typed statement query, which composes generically —
-<a href=#327 id=327 data-nosnippet>327</a>    /// `filter`, `order_by` and `Paginate::new` work on the raw form for any
-<a href=#328 id=328 data-nosnippet>328</a>    /// `M: Model` — so one panel handler drives every resource's list page.
+<a href=#7 id=7 data-nosnippet>7</a>//! The declarations live in submodules — `table`, `column`, `filter`,
+<a href=#8 id=8 data-nosnippet>8</a>//! `state`, `relation`, `navigation` and `naming` — re-exported here.
+<a href=#9 id=9 data-nosnippet>9</a>
+<a href=#10 id=10 data-nosnippet>10</a></span><span class="kw">use </span>std::collections::HashMap;
+<a href=#11 id=11 data-nosnippet>11</a>
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>toasty::{
+<a href=#13 id=13 data-nosnippet>13</a>    Executor,
+<a href=#14 id=14 data-nosnippet>14</a>    stmt::{List, Query},
+<a href=#15 id=15 data-nosnippet>15</a>};
+<a href=#16 id=16 data-nosnippet>16</a><span class="kw">use </span>topcoat::{<span class="prelude-ty">Result</span>, context::Cx};
+<a href=#17 id=17 data-nosnippet>17</a>
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use crate</span>::{
+<a href=#19 id=19 data-nosnippet>19</a>    error::TabloError,
+<a href=#20 id=20 data-nosnippet>20</a>    form::{FieldErrors, Posted, RecordForm, write_create, write_update},
+<a href=#21 id=21 data-nosnippet>21</a>};
+<a href=#22 id=22 data-nosnippet>22</a>
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">mod </span>column;
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">mod </span>commit;
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">mod </span>filter;
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>naming;
+<a href=#27 id=27 data-nosnippet>27</a><span class="kw">mod </span>navigation;
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">mod </span>page;
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">mod </span>relation;
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">mod </span>state;
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">mod </span>table;
+<a href=#32 id=32 data-nosnippet>32</a>
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">pub use </span>column::{ColumnWidth, IntoColumns, TextColumn};
+<a href=#34 id=34 data-nosnippet>34</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>commit::run_after_commit;
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">pub use </span>commit::{Committed, Mutation};
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">pub use </span>filter::{DateFilter, Filter, IntoFilters, SelectFilter, TernaryFilter, VariantFilter};
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>naming::{kebab_case, pluralize, type_short_name, type_stem};
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>navigation::runtime_link;
+<a href=#39 id=39 data-nosnippet>39</a><span class="kw">pub use </span>navigation::{NavTarget, NavigationItem};
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">pub use </span>page::TablePage;
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>page::{Past, row_exists_past};
+<a href=#42 id=42 data-nosnippet>42</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>relation::BoundRelation;
+<a href=#43 id=43 data-nosnippet>43</a><span class="kw">pub use </span>relation::Relation;
+<a href=#44 id=44 data-nosnippet>44</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>state::{
+<a href=#45 id=45 data-nosnippet>45</a>    BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
+<a href=#46 id=46 data-nosnippet>46</a>    RECORD_ROUTE_PARAM, RETURN_PARAM, TableSignals, create_page_url, query_of, request_query,
+<a href=#47 id=47 data-nosnippet>47</a>    with_return,
+<a href=#48 id=48 data-nosnippet>48</a>};
+<a href=#49 id=49 data-nosnippet>49</a><span class="kw">pub use </span>state::{Cursor, Sort, TableState};
+<a href=#50 id=50 data-nosnippet>50</a><span class="kw">pub use </span>table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
+<a href=#51 id=51 data-nosnippet>51</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>table::{RowActions, TABLE_CARD_CLASS, TableChrome};
+<a href=#52 id=52 data-nosnippet>52</a>
+<a href=#53 id=53 data-nosnippet>53</a><span class="attr">#[cfg(test)]
+<a href=#54 id=54 data-nosnippet>54</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::query_term::MAX_QUERY_TERM;
+<a href=#55 id=55 data-nosnippet>55</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::query_term::clamp_query_term;
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a><span class="doccomment">/// Maps one Toasty `Model` to its admin UI.
+<a href=#58 id=58 data-nosnippet>58</a>///
+<a href=#59 id=59 data-nosnippet>59</a>/// # Contract
+<a href=#60 id=60 data-nosnippet>60</a>///
+<a href=#61 id=61 data-nosnippet>61</a>/// **Every item but [`Model`](Self::Model), [`Form`](Self::Form) and
+<a href=#62 id=62 data-nosnippet>62</a>/// [`table`](Self::table) has a default**, so a resource compiles as soon as it
+<a href=#63 id=63 data-nosnippet>63</a>/// declares its model, its record form (or [`NoForm`](crate::NoForm)) and its
+<a href=#64 id=64 data-nosnippet>64</a>/// list view — and an omission must fail loudly rather than silently:
+<a href=#65 id=65 data-nosnippet>65</a>///
+<a href=#66 id=66 data-nosnippet>66</a>/// - **Checked at [`Panel::build`](crate::panel::Panel::build)**: the declared table must serve a
+<a href=#67 id=67 data-nosnippet>67</a>///   list, and [`form`](Self::form) must agree with [`Form`](Self::Form): a record form's fields
+<a href=#68 id=68 data-nosnippet>68</a>///   are the schema's controls, and a [`NoForm`](crate::NoForm) resource declares no schema. A
+<a href=#69 id=69 data-nosnippet>69</a>///   resource with no form must not allow [`can_create`](Self::can_create). These are declarations,
+<a href=#70 id=70 data-nosnippet>70</a>///   checked with a Db-only context.
+<a href=#71 id=71 data-nosnippet>71</a>/// - **Loud at request time**: a record fn's error fails the write and rolls its transaction back,
+<a href=#72 id=72 data-nosnippet>72</a>///   never a partial write. [`delete_record`](Self::delete_record) defaults to deleting the row
+<a href=#73 id=73 data-nosnippet>73</a>///   through [`scoped_query`], filtered to the record's key, and refuses a table whose record key
+<a href=#74 id=74 data-nosnippet>74</a>///   does not parse back as the primary key — naming the override that fixes it — rather than
+<a href=#75 id=75 data-nosnippet>75</a>///   deleting the wrong row or nothing. [`bulk_delete_records`](Self::bulk_delete_records) loops
+<a href=#76 id=76 data-nosnippet>76</a>///   `delete_record` by default, so an override covers bulk delete too.
+<a href=#77 id=77 data-nosnippet>77</a>/// - **Chrome follows the declarations**: the row Delete control and the bulk column render when
+<a href=#78 id=78 data-nosnippet>78</a>///   [`can_delete_any`](Self::can_delete_any) allows, the Edit link when the resource has a record
+<a href=#79 id=79 data-nosnippet>79</a>///   form, and the View link when it declares [`view`](Self::view); the row predicates then gate
+<a href=#80 id=80 data-nosnippet>80</a>///   each row.
+<a href=#81 id=81 data-nosnippet>81</a>/// - **Default-deny is untouched**: every `can_*` defaults to `false`, except `can_delete`, which
+<a href=#82 id=82 data-nosnippet>82</a>///   defaults to `can_delete_any`; an unconfigured resource exposes no data and no mutation.
+<a href=#83 id=83 data-nosnippet>83</a></span><span class="kw">pub trait </span>Resource: Sized + Send + Sync + <span class="lifetime">'static </span>{
+<a href=#84 id=84 data-nosnippet>84</a>    <span class="doccomment">/// The persisted model this resource administers.
+<a href=#85 id=85 data-nosnippet>85</a>    ///
+<a href=#86 id=86 data-nosnippet>86</a>    /// `Send + Sync` holds for every data-only model struct and is required
+<a href=#87 id=87 data-nosnippet>87</a>    /// for concurrent rendering of the resource's pages.
+<a href=#88 id=88 data-nosnippet>88</a>    ///
+<a href=#89 id=89 data-nosnippet>89</a>    /// `Clone` is part of the contract because a committed mutation names its
+<a href=#90 id=90 data-nosnippet>90</a>    /// rows: a handler keeps a copy of the rows it loaded while the
+<a href=#91 id=91 data-nosnippet>91</a>    /// record fn consumes them, so the hook can be handed what was written.
+<a href=#92 id=92 data-nosnippet>92</a>    </span><span class="kw">type </span>Model: toasty::schema::Model + Send + Sync + Clone + <span class="lifetime">'static</span>;
+<a href=#93 id=93 data-nosnippet>93</a>
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="doccomment">/// The typed value the create and edit forms parse into.
+<a href=#95 id=95 data-nosnippet>95</a>    ///
+<a href=#96 id=96 data-nosnippet>96</a>    /// A resource with create and edit pages names its
+<a href=#97 id=97 data-nosnippet>97</a>    /// [`#[derive(RecordForm)]`](crate::RecordForm) struct; a list-only resource
+<a href=#98 id=98 data-nosnippet>98</a>    /// names [`NoForm&lt;Self::Model&gt;`](crate::NoForm), and
+<a href=#99 id=99 data-nosnippet>99</a>    /// [`Panel::resource`](crate::Panel::resource) registers no form route for
+<a href=#100 id=100 data-nosnippet>100</a>    /// it ([`RecordForm::HAS_FORM`]).
+<a href=#101 id=101 data-nosnippet>101</a>    </span><span class="kw">type </span>Form: RecordForm&lt;Model = <span class="self">Self</span>::Model&gt;;
+<a href=#102 id=102 data-nosnippet>102</a>
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="doccomment">/// The columns an overriding [`Self::create_record`] sets itself, beyond
+<a href=#104 id=104 data-nosnippet>104</a>    /// the form's fields.
+<a href=#105 id=105 data-nosnippet>105</a>    ///
+<a href=#106 id=106 data-nosnippet>106</a>    /// [`Panel::build`](crate::Panel::build) refuses a resource that allows
+<a href=#107 id=107 data-nosnippet>107</a>    /// create when a non-nullable column is neither a form field, nor filled by
+<a href=#108 id=108 data-nosnippet>108</a>    /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
+<a href=#109 id=109 data-nosnippet>109</a>    /// create would fail at the driver on every submit. A record fn that sets
+<a href=#110 id=110 data-nosnippet>110</a>    /// such a column by hand names it here.
+<a href=#111 id=111 data-nosnippet>111</a>    </span><span class="kw">const </span>CREATE_COLUMNS: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str] = <span class="kw-2">&amp;</span>[];
+<a href=#112 id=112 data-nosnippet>112</a>
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="doccomment">/// Whether the current user may view the list page.
+<a href=#114 id=114 data-nosnippet>114</a>    ///
+<a href=#115 id=115 data-nosnippet>115</a>    /// Also gates relationship option loads: a related resource
+<a href=#116 id=116 data-nosnippet>116</a>    /// that denies this cannot offer its records as options at all.
+<a href=#117 id=117 data-nosnippet>117</a>    </span><span class="kw">fn </span>can_view_any(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
+<a href=#118 id=118 data-nosnippet>118</a>        <span class="bool-val">false
+<a href=#119 id=119 data-nosnippet>119</a>    </span>}
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="doccomment">/// Whether the current user may view the given record.
+<a href=#122 id=122 data-nosnippet>122</a>    ///
+<a href=#123 id=123 data-nosnippet>123</a>    /// Checked on the edit page (GET), the edit POST (which requires both
+<a href=#124 id=124 data-nosnippet>124</a>    /// `can_view` and `can_update`), per row in CSV export, on each
+<a href=#125 id=125 data-nosnippet>125</a>    /// record behind a relationship choice's options, on each row
+<a href=#126 id=126 data-nosnippet>126</a>    /// of a detail page's relation table, and on the list page as
+<a href=#127 id=127 data-nosnippet>127</a>    /// the per-row gate of every action link (GH #235: the View link, and the
+<a href=#128 id=128 data-nosnippet>128</a>    /// `can_view` half of Edit and Delete). Note both hooks default-deny: a
+<a href=#129 id=129 data-nosnippet>129</a>    /// resource used as a relationship target for option loads must allow
+<a href=#130 id=130 data-nosnippet>130</a>    /// `can_view_any` **and** `can_view` (overriding one does not imply the
+<a href=#131 id=131 data-nosnippet>131</a>    /// other), while a relation table consults `can_view` alone. The
+<a href=#132 id=132 data-nosnippet>132</a>    /// list page deliberately checks only
+<a href=#133 id=133 data-nosnippet>133</a>    /// `can_view_any` for *membership*: `can_view` is an in-memory Rust
+<a href=#134 id=134 data-nosnippet>134</a>    /// predicate that cannot run in SQL, and filtering rows after cursor
+<a href=#135 id=135 data-nosnippet>135</a>    /// pagination would mislabel pages. Row-level visibility that must hold on
+<a href=#136 id=136 data-nosnippet>136</a>    /// the list belongs in [`Self::query`].
+<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">fn </span>can_view(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; bool {
+<a href=#138 id=138 data-nosnippet>138</a>        <span class="bool-val">false
+<a href=#139 id=139 data-nosnippet>139</a>    </span>}
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a>    <span class="doccomment">/// Whether the current user may create a new record.
+<a href=#142 id=142 data-nosnippet>142</a>    ///
+<a href=#143 id=143 data-nosnippet>143</a>    /// `Panel::build` calls this with a Db-only context to decide which
+<a href=#144 id=144 data-nosnippet>144</a>    /// declaration checks apply, so a predicate that reads the request (a
+<a href=#145 id=145 data-nosnippet>145</a>    /// tenant, a user) answers as it would for an anonymous request there. The
+<a href=#146 id=146 data-nosnippet>146</a>    /// list page links to the create page only for a resource with a record
+<a href=#147 id=147 data-nosnippet>147</a>    /// form ([`RecordForm::HAS_FORM`]), whatever this answers.
+<a href=#148 id=148 data-nosnippet>148</a>    </span><span class="kw">fn </span>can_create(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
+<a href=#149 id=149 data-nosnippet>149</a>        <span class="bool-val">false
+<a href=#150 id=150 data-nosnippet>150</a>    </span>}
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="doccomment">/// Whether the current user may update the given record.
+<a href=#153 id=153 data-nosnippet>153</a>    </span><span class="kw">fn </span>can_update(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; bool {
+<a href=#154 id=154 data-nosnippet>154</a>        <span class="bool-val">false
+<a href=#155 id=155 data-nosnippet>155</a>    </span>}
+<a href=#156 id=156 data-nosnippet>156</a>
+<a href=#157 id=157 data-nosnippet>157</a>    <span class="doccomment">/// Whether the current user may delete records of this resource at all.
+<a href=#158 id=158 data-nosnippet>158</a>    ///
+<a href=#159 id=159 data-nosnippet>159</a>    /// Decides whether the list renders the row Delete control, the bulk
+<a href=#160 id=160 data-nosnippet>160</a>    /// column, and the bulk bar, and gates the single-delete and bulk-delete
+<a href=#161 id=161 data-nosnippet>161</a>    /// POSTs before any record loads. The column decision takes no record, so
+<a href=#162 id=162 data-nosnippet>162</a>    /// the streamed skeleton and the table agree on their columns. The default
+<a href=#163 id=163 data-nosnippet>163</a>    /// [`can_delete`](Self::can_delete) also calls it once per row.
+<a href=#164 id=164 data-nosnippet>164</a>    </span><span class="kw">fn </span>can_delete_any(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
+<a href=#165 id=165 data-nosnippet>165</a>        <span class="bool-val">false
+<a href=#166 id=166 data-nosnippet>166</a>    </span>}
+<a href=#167 id=167 data-nosnippet>167</a>
+<a href=#168 id=168 data-nosnippet>168</a>    <span class="doccomment">/// Whether the current user may delete the given record.
+<a href=#169 id=169 data-nosnippet>169</a>    ///
+<a href=#170 id=170 data-nosnippet>170</a>    /// Defaults to [`can_delete_any`](Self::can_delete_any); override to
+<a href=#171 id=171 data-nosnippet>171</a>    /// refuse some rows. Checked on the single-delete and bulk-delete POSTs
+<a href=#172 id=172 data-nosnippet>172</a>    /// after `can_delete_any` and together with `can_view` — the edit
+<a href=#173 id=173 data-nosnippet>173</a>    /// contract: a record that cannot be viewed cannot be deleted by
+<a href=#174 id=174 data-nosnippet>174</a>    /// UUID-guessing the route. A row it refuses renders no Delete control and
+<a href=#175 id=175 data-nosnippet>175</a>    /// no bulk checkbox.
+<a href=#176 id=176 data-nosnippet>176</a>    </span><span class="kw">fn </span>can_delete(cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; bool {
+<a href=#177 id=177 data-nosnippet>177</a>        <span class="self">Self</span>::can_delete_any(cx)
+<a href=#178 id=178 data-nosnippet>178</a>    }
+<a href=#179 id=179 data-nosnippet>179</a>
+<a href=#180 id=180 data-nosnippet>180</a>    <span class="doccomment">/// How one record is displayed on the detail page, read-only.
+<a href=#181 id=181 data-nosnippet>181</a>    ///
+<a href=#182 id=182 data-nosnippet>182</a>    /// The same [`Schema`](crate::schema::Schema) vocabulary a form uses,
+<a href=#183 id=183 data-nosnippet>183</a>    /// rendered for reading: a text field shows its stored value instead of an
+<a href=#184 id=184 data-nosnippet>184</a>    /// `&lt;input&gt;`, a choice shows the option label the form offered, and a
+<a href=#185 id=185 data-nosnippet>185</a>    /// layout block keeps the structure it declares. Like Filament's infolist,
+<a href=#186 id=186 data-nosnippet>186</a>    /// it is its own declaration: it may show keys the form does not, and a
+<a href=#187 id=187 data-nosnippet>187</a>    /// resource with no form declares one too. Declaring a view is what turns
+<a href=#188 id=188 data-nosnippet>188</a>    /// the detail page on — the default declares nothing, so the route 404s
+<a href=#189 id=189 data-nosnippet>189</a>    /// and no `View` row action renders.
+<a href=#190 id=190 data-nosnippet>190</a>    ///
+<a href=#191 id=191 data-nosnippet>191</a>    /// Values come from [`view_values`](Self::view_values) and the record
+<a href=#192 id=192 data-nosnippet>192</a>    /// form's `hydrate`. A field whose key neither supplies renders
+<a href=#193 id=193 data-nosnippet>193</a>    /// `(missing)` and fails a `debug_assert!`. A relation is not one of these
+<a href=#194 id=194 data-nosnippet>194</a>    /// fields — it is a list of records, not a string — and renders through
+<a href=#195 id=195 data-nosnippet>195</a>    /// [`relations`](Self::relations).
+<a href=#196 id=196 data-nosnippet>196</a>    ///
+<a href=#197 id=197 data-nosnippet>197</a>    /// Read-only is a promise, not a disabled form: nothing here validates or
+<a href=#198 id=198 data-nosnippet>198</a>    /// submits, and no field renders a required marker or an error slot.
+<a href=#199 id=199 data-nosnippet>199</a>    </span><span class="kw">fn </span>view(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="kw">crate</span>::schema::Schema {
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">crate</span>::schema::Schema::empty()
+<a href=#201 id=201 data-nosnippet>201</a>    }
+<a href=#202 id=202 data-nosnippet>202</a>
+<a href=#203 id=203 data-nosnippet>203</a>    <span class="doccomment">/// Free-form content on this resource's detail page, below the
+<a href=#204 id=204 data-nosnippet>204</a>    /// [`view`](Self::view) schema and above the [`relations`](Self::relations):
+<a href=#205 id=205 data-nosnippet>205</a>    /// anything computed from the loaded record that is not one of its fields,
+<a href=#206 id=206 data-nosnippet>206</a>    /// such as a word count.
+<a href=#207 id=207 data-nosnippet>207</a>    ///
+<a href=#208 id=208 data-nosnippet>208</a>    /// Returns `None` (the default) to render nothing. The two lifetimes are
+<a href=#209 id=209 data-nosnippet>209</a>    /// deliberately separate: the returned view may borrow the request context,
+<a href=#210 id=210 data-nosnippet>210</a>    /// never the record — a view holding the record would pin the handler's
+<a href=#211 id=211 data-nosnippet>211</a>    /// local binding for as long as the page, which does not compile.
+<a href=#212 id=212 data-nosnippet>212</a>    </span><span class="kw">fn </span>view_content&lt;<span class="lifetime">'a</span>&gt;(_cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; <span class="prelude-ty">Option</span>&lt;topcoat::view::BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
+<a href=#213 id=213 data-nosnippet>213</a>        <span class="prelude-val">None
+<a href=#214 id=214 data-nosnippet>214</a>    </span>}
+<a href=#215 id=215 data-nosnippet>215</a>
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="doccomment">/// The related resources whose rows belong to a record: each renders on
+<a href=#217 id=217 data-nosnippet>217</a>    /// this resource's detail and edit pages as the related resource's own
+<a href=#218 id=218 data-nosnippet>218</a>    /// list table, narrowed to the record (Filament's relation managers) —
+<a href=#219 id=219 data-nosnippet>219</a>    /// read-only on the detail page, and on the edit page with its write
+<a href=#220 id=220 data-nosnippet>220</a>    /// actions and a create link that opens its form with the record already
+<a href=#221 id=221 data-nosnippet>221</a>    /// chosen.
+<a href=#222 id=222 data-nosnippet>222</a>    ///
+<a href=#223 id=223 data-nosnippet>223</a>    /// Takes no `Cx`, like [`navigation`](Self::navigation): the relations are
+<a href=#224 id=224 data-nosnippet>224</a>    /// a declaration, and each related resource's policies decide per request
+<a href=#225 id=225 data-nosnippet>225</a>    /// what its table shows. The default declares none.
+<a href=#226 id=226 data-nosnippet>226</a>    </span><span class="kw">fn </span>relations() -&gt; Vec&lt;Relation&lt;<span class="self">Self</span>::Model&gt;&gt; {
+<a href=#227 id=227 data-nosnippet>227</a>        Vec::new()
+<a href=#228 id=228 data-nosnippet>228</a>    }
+<a href=#229 id=229 data-nosnippet>229</a>
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="doccomment">/// Whether this resource declares a detail page.
+<a href=#231 id=231 data-nosnippet>231</a>    ///
+<a href=#232 id=232 data-nosnippet>232</a>    /// Derived from [`view`](Self::view) rather than declared twice, so the
+<a href=#233 id=233 data-nosnippet>233</a>    /// route and the row link cannot disagree with the schema that renders
+<a href=#234 id=234 data-nosnippet>234</a>    /// them. The detail handler uses it to 404 a resource that declares
+<a href=#235 id=235 data-nosnippet>235</a>    /// nothing, and the row chrome uses it to leave the link off.
+<a href=#236 id=236 data-nosnippet>236</a>    </span><span class="kw">fn </span>viewed(cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
+<a href=#237 id=237 data-nosnippet>237</a>        !<span class="self">Self</span>::view(cx).is_empty()
+<a href=#238 id=238 data-nosnippet>238</a>    }
+<a href=#239 id=239 data-nosnippet>239</a>
+<a href=#240 id=240 data-nosnippet>240</a>    <span class="doccomment">/// The record's label in the detail page's title, or `None` when
+<a href=#241 id=241 data-nosnippet>241</a>    /// the record has no label to show.
+<a href=#242 id=242 data-nosnippet>242</a>    ///
+<a href=#243 id=243 data-nosnippet>243</a>    /// The detail page titles itself with this label when a resource returns
+<a href=#244 id=244 data-nosnippet>244</a>    /// `Some`, and with [`label`](Self::label) plus the URL's record key when
+<a href=#245 id=245 data-nosnippet>245</a>    /// it returns `None`, the default. The showcase's `PostResource` returns
+<a href=#246 id=246 data-nosnippet>246</a>    /// the post's title, so its heading reads the title instead of
+<a href=#247 id=247 data-nosnippet>247</a>    /// `Blog Post &lt;record key&gt;`.
+<a href=#248 id=248 data-nosnippet>248</a>    ///
+<a href=#249 id=249 data-nosnippet>249</a>    /// `cx` is the request's context — the same one [`view`](Self::view) and
+<a href=#250 id=250 data-nosnippet>250</a>    /// [`view_values`](Self::view_values) receive — so a label
+<a href=#251 id=251 data-nosnippet>251</a>    /// can read request state (a locale, a tenant). The default ignores both
+<a href=#252 id=252 data-nosnippet>252</a>    /// arguments and returns `None`.
+<a href=#253 id=253 data-nosnippet>253</a>    ///
+<a href=#254 id=254 data-nosnippet>254</a>    /// A label is display text, not a key. Two records can share one (two
+<a href=#255 id=255 data-nosnippet>255</a>    /// users named Ada), so it cannot replace the table key, whose projection
+<a href=#256 id=256 data-nosnippet>256</a>    /// must stay injective within a page for keyed diffs and bulk selection,
+<a href=#257 id=257 data-nosnippet>257</a>    /// or the record key, which the action routes resolve as the
+<a href=#258 id=258 data-nosnippet>258</a>    /// model's typed PK.
+<a href=#259 id=259 data-nosnippet>259</a>    </span><span class="kw">fn </span>record_label(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="prelude-val">None
+<a href=#261 id=261 data-nosnippet>261</a>    </span>}
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a>    <span class="doccomment">/// A public URL for one record, rendered as a "View public post"-style
+<a href=#264 id=264 data-nosnippet>264</a>    /// link on the detail and edit pages when `Some`.
+<a href=#265 id=265 data-nosnippet>265</a>    ///
+<a href=#266 id=266 data-nosnippet>266</a>    /// The default declares none, so no link renders. A resource whose records
+<a href=#267 id=267 data-nosnippet>267</a>    /// have a public page overrides this with its URL — the showcase's posts
+<a href=#268 id=268 data-nosnippet>268</a>    /// return their `/blog/{id}` page.
+<a href=#269 id=269 data-nosnippet>269</a>    </span><span class="kw">fn </span>public_url(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#270 id=270 data-nosnippet>270</a>        <span class="prelude-val">None
+<a href=#271 id=271 data-nosnippet>271</a>    </span>}
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="doccomment">/// The URL slug for this resource's pages, e.g. `"users"` mounts the list
+<a href=#274 id=274 data-nosnippet>274</a>    /// at `{panel prefix}/users`.
+<a href=#275 id=275 data-nosnippet>275</a>    ///
+<a href=#276 id=276 data-nosnippet>276</a>    /// Defaults to the Filament convention (`HasRoutes::resolveDefaultSlug`):
+<a href=#277 id=277 data-nosnippet>277</a>    /// take the resource type's name, strip a trailing `Resource`, pluralize
+<a href=#278 id=278 data-nosnippet>278</a>    /// (`UserResource` → `Users`, `CategoryResource` → `Categories`), then
+<a href=#279 id=279 data-nosnippet>279</a>    /// kebab-case (`BlogPostResource` → `blog-posts`). Override for irregular
+<a href=#280 id=280 data-nosnippet>280</a>    /// naming the rules cannot guess (`UsersResource` pluralizes to
+<a href=#281 id=281 data-nosnippet>281</a>    /// `userses` — name resources singular, or override).
+<a href=#282 id=282 data-nosnippet>282</a>    </span><span class="kw">fn </span>slug() -&gt; String {
+<a href=#283 id=283 data-nosnippet>283</a>        kebab_case(<span class="kw-2">&amp;</span>pluralize(type_stem::&lt;<span class="self">Self</span>&gt;(<span class="string">"Resource"</span>)))
+<a href=#284 id=284 data-nosnippet>284</a>    }
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a>    <span class="doccomment">/// One record's name, e.g. `"User"`: the noun in the "Create {label}" and
+<a href=#287 id=287 data-nosnippet>287</a>    /// "Edit {label}" titles.
+<a href=#288 id=288 data-nosnippet>288</a>    ///
+<a href=#289 id=289 data-nosnippet>289</a>    /// Defaults to the `Model` type name (Filament's model label). Override for
+<a href=#290 id=290 data-nosnippet>290</a>    /// custom wording; [`navigation_label`](Self::navigation_label) pluralizes
+<a href=#291 id=291 data-nosnippet>291</a>    /// it.
+<a href=#292 id=292 data-nosnippet>292</a>    </span><span class="kw">fn </span>label() -&gt; String {
+<a href=#293 id=293 data-nosnippet>293</a>        type_short_name::&lt;<span class="self">Self</span>::Model&gt;().to_string()
+<a href=#294 id=294 data-nosnippet>294</a>    }
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>    <span class="doccomment">/// The sidebar label and list title, e.g. `"Users"`.
+<a href=#297 id=297 data-nosnippet>297</a>    ///
+<a href=#298 id=298 data-nosnippet>298</a>    /// Defaults to the pluralized [`label`](Self::label) (Filament's plural
+<a href=#299 id=299 data-nosnippet>299</a>    /// model label): `User` → `Users`, `Category` → `Categories`, `Person` →
+<a href=#300 id=300 data-nosnippet>300</a>    /// `People`. Override for a plural the rules cannot guess.
+<a href=#301 id=301 data-nosnippet>301</a>    </span><span class="kw">fn </span>navigation_label() -&gt; String {
+<a href=#302 id=302 data-nosnippet>302</a>        pluralize(<span class="kw-2">&amp;</span><span class="self">Self</span>::label())
+<a href=#303 id=303 data-nosnippet>303</a>    }
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a>    <span class="doccomment">/// Base query — the seam for a resource's **own** row scoping (ADR-0002):
+<a href=#306 id=306 data-nosnippet>306</a>    /// soft deletes and row-level visibility. Every loader starts from it.
+<a href=#307 id=307 data-nosnippet>307</a>    ///
+<a href=#308 id=308 data-nosnippet>308</a>    /// **Relations are not this method's job.** The list and the export load
+<a href=#309 id=309 data-nosnippet>309</a>    /// the relations the table's columns declare ([`TextColumn::include`]), and
+<a href=#310 id=310 data-nosnippet>310</a>    /// the detail page loads [`Self::view_query`]. Include a relation here only
+<a href=#311 id=311 data-nosnippet>311</a>    /// when a closure no column covers reads it on every loader's rows: one
+<a href=#312 id=312 data-nosnippet>312</a>    /// [`can_view`](Self::can_view) reads, or one a table's `group_by` or row
+<a href=#313 id=313 data-nosnippet>313</a>    /// key reads without a column including it.
+<a href=#314 id=314 data-nosnippet>314</a>    ///
+<a href=#315 id=315 data-nosnippet>315</a>    /// **Tenancy is not this method's job either.** When
+<a href=#316 id=316 data-nosnippet>316</a>    /// [`requires_tenant`](Self::requires_tenant) is `true` the framework ANDs
+<a href=#317 id=317 data-nosnippet>317</a>    /// the tenant filter, derived from the model's `tenant_id` column, onto
+<a href=#318 id=318 data-nosnippet>318</a>    /// whatever this returns, at every loader through [`scoped_query`]. Do not
+<a href=#319 id=319 data-nosnippet>319</a>    /// re-state `tenant_id().eq(tenant_id(cx))`: the copy is redundant, and one
+<a href=#320 id=320 data-nosnippet>320</a>    /// that disagreed with the derived column would hide rows rather than widen
+<a href=#321 id=321 data-nosnippet>321</a>    /// access. Code outside the framework's loaders starts from
+<a href=#322 id=322 data-nosnippet>322</a>    /// [`scoped_query`].
+<a href=#323 id=323 data-nosnippet>323</a>    ///
+<a href=#324 id=324 data-nosnippet>324</a>    /// Returns the raw typed statement query, which composes generically —
+<a href=#325 id=325 data-nosnippet>325</a>    /// `filter`, `order_by` and `Paginate::new` work on the raw form for any
+<a href=#326 id=326 data-nosnippet>326</a>    /// `M: Model` — so one panel handler drives every resource's list page.
+<a href=#327 id=327 data-nosnippet>327</a>    ///
+<a href=#328 id=328 data-nosnippet>328</a>    /// # Keep unique constraints in step with this scope
 <a href=#329 id=329 data-nosnippet>329</a>    ///
-<a href=#330 id=330 data-nosnippet>330</a>    /// # Keep unique constraints in step with this scope
-<a href=#331 id=331 data-nosnippet>331</a>    ///
-<a href=#332 id=332 data-nosnippet>332</a>    /// The app-side unique pre-check probes through the same tenant-scoped
-<a href=#333 id=333 data-nosnippet>333</a>    /// query, so a `#[unique]` index *broader* than the scope is invisible: the
-<a href=#334 id=334 data-nosnippet>334</a>    /// probe misses the colliding row and the user gets a 500 instead of the
-<a href=#335 id=335 data-nosnippet>335</a>    /// inline "has already been taken". Scope the constraint to match —
-<a href=#336 id=336 data-nosnippet>336</a>    /// `#[unique(tenant_id, email)]`. Not checkable at declaration time, since
-<a href=#337 id=337 data-nosnippet>337</a>    /// a query's filters are not introspectable; upstream #117 is the fix.
-<a href=#338 id=338 data-nosnippet>338</a>    </span><span class="kw">fn </span>query(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; toasty::stmt::Query&lt;List&lt;<span class="self">Self</span>::Model&gt;&gt; {
-<a href=#339 id=339 data-nosnippet>339</a>        toasty::stmt::Query::&lt;List&lt;<span class="self">Self</span>::Model&gt;&gt;::all()
-<a href=#340 id=340 data-nosnippet>340</a>    }
-<a href=#341 id=341 data-nosnippet>341</a>
-<a href=#342 id=342 data-nosnippet>342</a>    <span class="doccomment">/// The detail page's query: [`Self::query`] plus the relations the page
-<a href=#343 id=343 data-nosnippet>343</a>    /// reads off the loaded row — in [`view_values`](Self::view_values) or
-<a href=#344 id=344 data-nosnippet>344</a>    /// [`view_content`](Self::view_content) — so include them here:
-<a href=#345 id=345 data-nosnippet>345</a>    /// `Self::query(cx).include(Post::fields().author())`. A
-<a href=#346 id=346 data-nosnippet>346</a>    /// [`relation`](Self::relations) table runs its own query and needs none.
-<a href=#347 id=347 data-nosnippet>347</a>    ///
-<a href=#348 id=348 data-nosnippet>348</a>    /// The default is [`Self::query`] unchanged. The framework ANDs the tenant
-<a href=#349 id=349 data-nosnippet>349</a>    /// scope onto it, as it does onto [`Self::query`].
-<a href=#350 id=350 data-nosnippet>350</a>    </span><span class="kw">fn </span>view_query(cx: <span class="kw-2">&amp;</span>Cx) -&gt; toasty::stmt::Query&lt;List&lt;<span class="self">Self</span>::Model&gt;&gt; {
-<a href=#351 id=351 data-nosnippet>351</a>        <span class="self">Self</span>::query(cx)
-<a href=#352 id=352 data-nosnippet>352</a>    }
-<a href=#353 id=353 data-nosnippet>353</a>
-<a href=#354 id=354 data-nosnippet>354</a>    <span class="doccomment">/// Whether this resource requires a tenant in every handler.
-<a href=#355 id=355 data-nosnippet>355</a>    ///
-<a href=#356 id=356 data-nosnippet>356</a>    /// Opt-in and default-open: `false` preserves [`Self::query`] exactly as
-<a href=#357 id=357 data-nosnippet>357</a>    /// written. `true` means two things:
-<a href=#358 id=358 data-nosnippet>358</a>    ///
-<a href=#359 id=359 data-nosnippet>359</a>    /// 1. **The gate.** Every handler 403s when the request carries no tenant, instead of leaking
-<a href=#360 id=360 data-nosnippet>360</a>    ///    unscoped rows or minting nil-tenant orphans.
-<a href=#361 id=361 data-nosnippet>361</a>    /// 2. **The scope.** Every loader ANDs `tenant_id = &lt;request tenant&gt;` onto the base query,
-<a href=#362 id=362 data-nosnippet>362</a>    ///    deriving the column from the model's own schema or the resource's [`Self::tenant_scope`].
-<a href=#363 id=363 data-nosnippet>363</a>    ///    A gated resource that declares neither a `tenant_id` UUID column nor an override is
-<a href=#364 id=364 data-nosnippet>364</a>    ///    refused by [`Panel::build`](crate::Panel::build) at boot rather than served unscoped or
-<a href=#365 id=365 data-nosnippet>365</a>    ///    failing per request.
-<a href=#366 id=366 data-nosnippet>366</a>    ///
-<a href=#367 id=367 data-nosnippet>367</a>    /// A resource that must genuinely serve more than the request tenant
-<a href=#368 id=368 data-nosnippet>368</a>    /// declares `false` and scopes in [`Self::query`] by hand, giving up the
-<a href=#369 id=369 data-nosnippet>369</a>    /// gate above along with the derived filter.
-<a href=#370 id=370 data-nosnippet>370</a>    </span><span class="kw">fn </span>requires_tenant() -&gt; bool {
-<a href=#371 id=371 data-nosnippet>371</a>        <span class="bool-val">false
-<a href=#372 id=372 data-nosnippet>372</a>    </span>}
-<a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a>    <span class="doccomment">/// The predicate the framework ANDs onto this resource's base query to
-<a href=#375 id=375 data-nosnippet>375</a>    /// scope it to `tenant`, or `None` when there is nothing to AND.
-<a href=#376 id=376 data-nosnippet>376</a>    ///
-<a href=#377 id=377 data-nosnippet>377</a>    /// The default derives it from the model: `tenant_id = tenant`, on the
-<a href=#378 id=378 data-nosnippet>378</a>    /// field named `tenant_id` whose type is a UUID (see [`crate::tenancy`]).
-<a href=#379 id=379 data-nosnippet>379</a>    /// Override it when the resource's tenancy is not a column on its own
-<a href=#380 id=380 data-nosnippet>380</a>    /// model — a row that inherits its parent's tenant states the relation
-<a href=#381 id=381 data-nosnippet>381</a>    /// path here instead, and the framework applies it exactly as it applies
-<a href=#382 id=382 data-nosnippet>382</a>    /// the derived one. The showcase's comments are the worked example.
-<a href=#383 id=383 data-nosnippet>383</a>    ///
-<a href=#384 id=384 data-nosnippet>384</a>    /// Only consulted when [`requires_tenant`](Self::requires_tenant) is
-<a href=#385 id=385 data-nosnippet>385</a>    /// `true`. `None` from a gated resource is a **misdeclaration**, not a way
-<a href=#386 id=386 data-nosnippet>386</a>    /// to be unscoped: [`Panel::build`](crate::Panel::build) refuses it at boot
-<a href=#387 id=387 data-nosnippet>387</a>    /// and every loader keeps answering an error naming the resource
-<a href=#388 id=388 data-nosnippet>388</a>    /// rather than running its query without a tenant predicate — the backstop
-<a href=#389 id=389 data-nosnippet>389</a>    /// for a predicate that is only `None` for some tenants. There is
-<a href=#390 id=390 data-nosnippet>390</a>    /// deliberately no override that *removes* the scope — a resource that
-<a href=#391 id=391 data-nosnippet>391</a>    /// must serve more than one tenant declares `requires_tenant() = false`
-<a href=#392 id=392 data-nosnippet>392</a>    /// and owns the scope in [`Self::query`], visibly, with the gate given up.
-<a href=#393 id=393 data-nosnippet>393</a>    </span><span class="kw">fn </span>tenant_scope(tenant: uuid::Uuid) -&gt; <span class="prelude-ty">Option</span>&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
-<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw">crate</span>::tenancy::derived_tenant_filter::&lt;<span class="self">Self</span>::Model&gt;(tenant)
-<a href=#395 id=395 data-nosnippet>395</a>    }
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a>    <span class="doccomment">/// Description of the list view.
-<a href=#398 id=398 data-nosnippet>398</a>    ///
-<a href=#399 id=399 data-nosnippet>399</a>    /// Every resource declares its table with [`Table::new`]: columns and the
-<a href=#400 id=400 data-nosnippet>400</a>    /// row key the list renders (see [`Table::render`]).
-<a href=#401 id=401 data-nosnippet>401</a>    </span><span class="kw">fn </span>table(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; Table&lt;<span class="self">Self</span>::Model&gt;;
-<a href=#402 id=402 data-nosnippet>402</a>
-<a href=#403 id=403 data-nosnippet>403</a>    <span class="doccomment">/// The schema the create and edit forms render.
-<a href=#404 id=404 data-nosnippet>404</a>    ///
-<a href=#405 id=405 data-nosnippet>405</a>    /// [`Panel::build`](crate::Panel::build) refuses a record form field this
-<a href=#406 id=406 data-nosnippet>406</a>    /// schema does not declare, and a schema on a resource whose
-<a href=#407 id=407 data-nosnippet>407</a>    /// [`Form`](Self::Form) is [`NoForm`](crate::NoForm).
-<a href=#408 id=408 data-nosnippet>408</a>    </span><span class="kw">fn </span>form(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="kw">crate</span>::schema::Schema {
-<a href=#409 id=409 data-nosnippet>409</a>        <span class="kw">crate</span>::schema::Schema::empty()
-<a href=#410 id=410 data-nosnippet>410</a>    }
-<a href=#411 id=411 data-nosnippet>411</a>
-<a href=#412 id=412 data-nosnippet>412</a>    <span class="doccomment">/// App-level rules on the parsed form. The errors render inline with a
-<a href=#413 id=413 data-nosnippet>413</a>    /// 200 and nothing is written; a record fn error is a 500, so a range or
-<a href=#414 id=414 data-nosnippet>414</a>    /// cross-field rule belongs here.
-<a href=#415 id=415 data-nosnippet>415</a>    ///
-<a href=#416 id=416 data-nosnippet>416</a>    /// Each error names the key it renders under: a control's own key, or a
-<a href=#417 id=417 data-nosnippet>417</a>    /// [`Repeater`](crate::Repeater) group's label. A key the submitted form
-<a href=#418 id=418 data-nosnippet>418</a>    /// renders nowhere fails the submit as a declaration error instead of
-<a href=#419 id=419 data-nosnippet>419</a>    /// writing past the rule.
-<a href=#420 id=420 data-nosnippet>420</a>    </span><span class="kw">fn </span>validate_record(_cx: <span class="kw-2">&amp;</span>Cx, _form: <span class="kw-2">&amp;</span><span class="self">Self</span>::Form) -&gt; FieldErrors {
-<a href=#421 id=421 data-nosnippet>421</a>        FieldErrors::new()
-<a href=#422 id=422 data-nosnippet>422</a>    }
-<a href=#423 id=423 data-nosnippet>423</a>
-<a href=#424 id=424 data-nosnippet>424</a>    <span class="doccomment">/// Create a record from the parsed form, inside the handler's transaction.
-<a href=#425 id=425 data-nosnippet>425</a>    ///
-<a href=#426 id=426 data-nosnippet>426</a>    /// Defaults to the derived write, [`write_create`]; override to check
-<a href=#427 id=427 data-nosnippet>427</a>    /// something inside the transaction, then delegate. `ex` is the open
-<a href=#428 id=428 data-nosnippet>428</a>    /// transaction: run every statement through it. Return the created row; it
-<a href=#429 id=429 data-nosnippet>429</a>    /// is what [`Self::after_commit`] receives.
-<a href=#430 id=430 data-nosnippet>430</a>    </span><span class="kw">fn </span>create_record(
-<a href=#431 id=431 data-nosnippet>431</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#432 id=432 data-nosnippet>432</a>        form: <span class="self">Self</span>::Form,
-<a href=#433 id=433 data-nosnippet>433</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
-<a href=#434 id=434 data-nosnippet>434</a>    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Model&gt;&gt; + Send {
-<a href=#435 id=435 data-nosnippet>435</a>        write_create::&lt;<span class="self">Self</span>&gt;(cx, form, ex)
-<a href=#436 id=436 data-nosnippet>436</a>    }
-<a href=#437 id=437 data-nosnippet>437</a>
-<a href=#438 id=438 data-nosnippet>438</a>    <span class="doccomment">/// Update the already-authorized `record` from the posted form, inside the
-<a href=#439 id=439 data-nosnippet>439</a>    /// handler's transaction.
-<a href=#440 id=440 data-nosnippet>440</a>    ///
-<a href=#441 id=441 data-nosnippet>441</a>    /// Defaults to the derived write, [`write_update`]. `record` is the
-<a href=#442 id=442 data-nosnippet>442</a>    /// snapshot the handler loaded and policy-checked inside the transaction:
-<a href=#443 id=443 data-nosnippet>443</a>    /// use it, never re-query. Return the row as it now stands.
-<a href=#444 id=444 data-nosnippet>444</a>    </span><span class="kw">fn </span>update_record(
-<a href=#445 id=445 data-nosnippet>445</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#446 id=446 data-nosnippet>446</a>        record: <span class="self">Self</span>::Model,
-<a href=#447 id=447 data-nosnippet>447</a>        posted: Posted&lt;<span class="self">Self</span>::Form&gt;,
-<a href=#448 id=448 data-nosnippet>448</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
-<a href=#449 id=449 data-nosnippet>449</a>    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Model&gt;&gt; + Send {
-<a href=#450 id=450 data-nosnippet>450</a>        write_update::&lt;<span class="self">Self</span>&gt;(cx, record, posted, ex)
-<a href=#451 id=451 data-nosnippet>451</a>    }
-<a href=#452 id=452 data-nosnippet>452</a>
-<a href=#453 id=453 data-nosnippet>453</a>    <span class="doccomment">/// Sidebar entry for the resource.
-<a href=#454 id=454 data-nosnippet>454</a>    ///
-<a href=#455 id=455 data-nosnippet>455</a>    /// The default declares a label ([`Self::navigation_label`]) and no URL:
-<a href=#456 id=456 data-nosnippet>456</a>    /// the Panel that owns the resource resolves where it is mounted, so this
-<a href=#457 id=457 data-nosnippet>457</a>    /// entry never links at a mount the resource guessed.
+<a href=#330 id=330 data-nosnippet>330</a>    /// The app-side unique pre-check probes through the same tenant-scoped
+<a href=#331 id=331 data-nosnippet>331</a>    /// query, so a `#[unique]` index *broader* than the scope is invisible: the
+<a href=#332 id=332 data-nosnippet>332</a>    /// probe misses the colliding row and the user gets a 500 instead of the
+<a href=#333 id=333 data-nosnippet>333</a>    /// inline "has already been taken". Scope the constraint to match —
+<a href=#334 id=334 data-nosnippet>334</a>    /// `#[unique(tenant_id, email)]`. Not checkable at declaration time, since
+<a href=#335 id=335 data-nosnippet>335</a>    /// a query's filters are not introspectable; upstream #117 is the fix.
+<a href=#336 id=336 data-nosnippet>336</a>    </span><span class="kw">fn </span>query(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; toasty::stmt::Query&lt;List&lt;<span class="self">Self</span>::Model&gt;&gt; {
+<a href=#337 id=337 data-nosnippet>337</a>        toasty::stmt::Query::&lt;List&lt;<span class="self">Self</span>::Model&gt;&gt;::all()
+<a href=#338 id=338 data-nosnippet>338</a>    }
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>    <span class="doccomment">/// The detail page's query: [`Self::query`] plus the relations the page
+<a href=#341 id=341 data-nosnippet>341</a>    /// reads off the loaded row — in [`view_values`](Self::view_values) or
+<a href=#342 id=342 data-nosnippet>342</a>    /// [`view_content`](Self::view_content) — so include them here. A
+<a href=#343 id=343 data-nosnippet>343</a>    /// [`relation`](Self::relations) table runs its own query and needs none.
+<a href=#344 id=344 data-nosnippet>344</a>    ///
+<a href=#345 id=345 data-nosnippet>345</a>    /// ```ignore
+<a href=#346 id=346 data-nosnippet>346</a>    /// fn view_query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
+<a href=#347 id=347 data-nosnippet>347</a>    ///     let author: Include&lt;Post, Author&gt; = Post::fields().author().into();
+<a href=#348 id=348 data-nosnippet>348</a>    ///     Self::query(cx).include(author)
+<a href=#349 id=349 data-nosnippet>349</a>    /// }
+<a href=#350 id=350 data-nosnippet>350</a>    /// ```
+<a href=#351 id=351 data-nosnippet>351</a>    ///
+<a href=#352 id=352 data-nosnippet>352</a>    /// The default is [`Self::query`] unchanged. The framework ANDs the tenant
+<a href=#353 id=353 data-nosnippet>353</a>    /// scope onto it, as it does onto [`Self::query`].
+<a href=#354 id=354 data-nosnippet>354</a>    </span><span class="kw">fn </span>view_query(cx: <span class="kw-2">&amp;</span>Cx) -&gt; toasty::stmt::Query&lt;List&lt;<span class="self">Self</span>::Model&gt;&gt; {
+<a href=#355 id=355 data-nosnippet>355</a>        <span class="self">Self</span>::query(cx)
+<a href=#356 id=356 data-nosnippet>356</a>    }
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a>    <span class="doccomment">/// Whether this resource requires a tenant in every handler.
+<a href=#359 id=359 data-nosnippet>359</a>    ///
+<a href=#360 id=360 data-nosnippet>360</a>    /// Opt-in and default-open: `false` preserves [`Self::query`] exactly as
+<a href=#361 id=361 data-nosnippet>361</a>    /// written. `true` means two things:
+<a href=#362 id=362 data-nosnippet>362</a>    ///
+<a href=#363 id=363 data-nosnippet>363</a>    /// 1. **The gate.** Every handler 403s when the request carries no tenant, instead of leaking
+<a href=#364 id=364 data-nosnippet>364</a>    ///    unscoped rows or minting nil-tenant orphans.
+<a href=#365 id=365 data-nosnippet>365</a>    /// 2. **The scope.** Every loader ANDs `tenant_id = &lt;request tenant&gt;` onto the base query,
+<a href=#366 id=366 data-nosnippet>366</a>    ///    deriving the column from the model's own schema or the resource's [`Self::tenant_scope`].
+<a href=#367 id=367 data-nosnippet>367</a>    ///    A gated resource that declares neither a `tenant_id` UUID column nor an override is
+<a href=#368 id=368 data-nosnippet>368</a>    ///    refused by [`Panel::build`](crate::Panel::build) at boot rather than served unscoped or
+<a href=#369 id=369 data-nosnippet>369</a>    ///    failing per request.
+<a href=#370 id=370 data-nosnippet>370</a>    ///
+<a href=#371 id=371 data-nosnippet>371</a>    /// A resource that must genuinely serve more than the request tenant
+<a href=#372 id=372 data-nosnippet>372</a>    /// declares `false` and scopes in [`Self::query`] by hand, giving up the
+<a href=#373 id=373 data-nosnippet>373</a>    /// gate above along with the derived filter.
+<a href=#374 id=374 data-nosnippet>374</a>    </span><span class="kw">fn </span>requires_tenant() -&gt; bool {
+<a href=#375 id=375 data-nosnippet>375</a>        <span class="bool-val">false
+<a href=#376 id=376 data-nosnippet>376</a>    </span>}
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>    <span class="doccomment">/// The predicate the framework ANDs onto this resource's base query to
+<a href=#379 id=379 data-nosnippet>379</a>    /// scope it to `tenant`, or `None` when there is nothing to AND.
+<a href=#380 id=380 data-nosnippet>380</a>    ///
+<a href=#381 id=381 data-nosnippet>381</a>    /// The default derives it from the model: `tenant_id = tenant`, on the
+<a href=#382 id=382 data-nosnippet>382</a>    /// field named `tenant_id` whose type is a UUID (see [`crate::tenancy`]).
+<a href=#383 id=383 data-nosnippet>383</a>    /// Override it when the resource's tenancy is not a column on its own
+<a href=#384 id=384 data-nosnippet>384</a>    /// model — a row that inherits its parent's tenant states the relation
+<a href=#385 id=385 data-nosnippet>385</a>    /// path here instead, and the framework applies it exactly as it applies
+<a href=#386 id=386 data-nosnippet>386</a>    /// the derived one. The showcase's comments are the worked example.
+<a href=#387 id=387 data-nosnippet>387</a>    ///
+<a href=#388 id=388 data-nosnippet>388</a>    /// Only consulted when [`requires_tenant`](Self::requires_tenant) is
+<a href=#389 id=389 data-nosnippet>389</a>    /// `true`. `None` from a gated resource is a **misdeclaration**, not a way
+<a href=#390 id=390 data-nosnippet>390</a>    /// to be unscoped: [`Panel::build`](crate::Panel::build) refuses it at boot
+<a href=#391 id=391 data-nosnippet>391</a>    /// and every loader keeps answering an error naming the resource
+<a href=#392 id=392 data-nosnippet>392</a>    /// rather than running its query without a tenant predicate — the backstop
+<a href=#393 id=393 data-nosnippet>393</a>    /// for a predicate that is only `None` for some tenants. There is
+<a href=#394 id=394 data-nosnippet>394</a>    /// deliberately no override that *removes* the scope — a resource that
+<a href=#395 id=395 data-nosnippet>395</a>    /// must serve more than one tenant declares `requires_tenant() = false`
+<a href=#396 id=396 data-nosnippet>396</a>    /// and owns the scope in [`Self::query`], visibly, with the gate given up.
+<a href=#397 id=397 data-nosnippet>397</a>    </span><span class="kw">fn </span>tenant_scope(tenant: uuid::Uuid) -&gt; <span class="prelude-ty">Option</span>&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
+<a href=#398 id=398 data-nosnippet>398</a>        <span class="kw">crate</span>::tenancy::derived_tenant_filter::&lt;<span class="self">Self</span>::Model&gt;(tenant)
+<a href=#399 id=399 data-nosnippet>399</a>    }
+<a href=#400 id=400 data-nosnippet>400</a>
+<a href=#401 id=401 data-nosnippet>401</a>    <span class="doccomment">/// Description of the list view.
+<a href=#402 id=402 data-nosnippet>402</a>    ///
+<a href=#403 id=403 data-nosnippet>403</a>    /// Every resource declares its table with [`Table::new`]: columns and the
+<a href=#404 id=404 data-nosnippet>404</a>    /// row key the list renders (see [`Table::render`]).
+<a href=#405 id=405 data-nosnippet>405</a>    </span><span class="kw">fn </span>table(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; Table&lt;<span class="self">Self</span>::Model&gt;;
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a>    <span class="doccomment">/// The schema the create and edit forms render.
+<a href=#408 id=408 data-nosnippet>408</a>    ///
+<a href=#409 id=409 data-nosnippet>409</a>    /// [`Panel::build`](crate::Panel::build) refuses a record form field this
+<a href=#410 id=410 data-nosnippet>410</a>    /// schema does not declare, and a schema on a resource whose
+<a href=#411 id=411 data-nosnippet>411</a>    /// [`Form`](Self::Form) is [`NoForm`](crate::NoForm).
+<a href=#412 id=412 data-nosnippet>412</a>    </span><span class="kw">fn </span>form(_cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="kw">crate</span>::schema::Schema {
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="kw">crate</span>::schema::Schema::empty()
+<a href=#414 id=414 data-nosnippet>414</a>    }
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>    <span class="doccomment">/// App-level rules on the parsed form. The errors render inline with a
+<a href=#417 id=417 data-nosnippet>417</a>    /// 200 and nothing is written; a record fn error is a 500, so a range or
+<a href=#418 id=418 data-nosnippet>418</a>    /// cross-field rule belongs here.
+<a href=#419 id=419 data-nosnippet>419</a>    ///
+<a href=#420 id=420 data-nosnippet>420</a>    /// Each error names the key it renders under: a control's own key, or a
+<a href=#421 id=421 data-nosnippet>421</a>    /// [`Repeater`](crate::Repeater) group's label. A key the submitted form
+<a href=#422 id=422 data-nosnippet>422</a>    /// renders nowhere fails the submit as a declaration error instead of
+<a href=#423 id=423 data-nosnippet>423</a>    /// writing past the rule.
+<a href=#424 id=424 data-nosnippet>424</a>    </span><span class="kw">fn </span>validate_record(_cx: <span class="kw-2">&amp;</span>Cx, _form: <span class="kw-2">&amp;</span><span class="self">Self</span>::Form) -&gt; FieldErrors {
+<a href=#425 id=425 data-nosnippet>425</a>        FieldErrors::new()
+<a href=#426 id=426 data-nosnippet>426</a>    }
+<a href=#427 id=427 data-nosnippet>427</a>
+<a href=#428 id=428 data-nosnippet>428</a>    <span class="doccomment">/// Create a record from the parsed form, inside the handler's transaction.
+<a href=#429 id=429 data-nosnippet>429</a>    ///
+<a href=#430 id=430 data-nosnippet>430</a>    /// Defaults to the derived write, [`write_create`]; override to check
+<a href=#431 id=431 data-nosnippet>431</a>    /// something inside the transaction, then delegate. `ex` is the open
+<a href=#432 id=432 data-nosnippet>432</a>    /// transaction: run every statement through it. Return the created row; it
+<a href=#433 id=433 data-nosnippet>433</a>    /// is what [`Self::after_commit`] receives.
+<a href=#434 id=434 data-nosnippet>434</a>    </span><span class="kw">fn </span>create_record(
+<a href=#435 id=435 data-nosnippet>435</a>        cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#436 id=436 data-nosnippet>436</a>        form: <span class="self">Self</span>::Form,
+<a href=#437 id=437 data-nosnippet>437</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
+<a href=#438 id=438 data-nosnippet>438</a>    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Model&gt;&gt; + Send {
+<a href=#439 id=439 data-nosnippet>439</a>        write_create::&lt;<span class="self">Self</span>&gt;(cx, form, ex)
+<a href=#440 id=440 data-nosnippet>440</a>    }
+<a href=#441 id=441 data-nosnippet>441</a>
+<a href=#442 id=442 data-nosnippet>442</a>    <span class="doccomment">/// Update the already-authorized `record` from the posted form, inside the
+<a href=#443 id=443 data-nosnippet>443</a>    /// handler's transaction.
+<a href=#444 id=444 data-nosnippet>444</a>    ///
+<a href=#445 id=445 data-nosnippet>445</a>    /// Defaults to the derived write, [`write_update`]. `record` is the
+<a href=#446 id=446 data-nosnippet>446</a>    /// snapshot the handler loaded and policy-checked inside the transaction:
+<a href=#447 id=447 data-nosnippet>447</a>    /// use it, never re-query. Return the row as it now stands.
+<a href=#448 id=448 data-nosnippet>448</a>    </span><span class="kw">fn </span>update_record(
+<a href=#449 id=449 data-nosnippet>449</a>        cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#450 id=450 data-nosnippet>450</a>        record: <span class="self">Self</span>::Model,
+<a href=#451 id=451 data-nosnippet>451</a>        posted: Posted&lt;<span class="self">Self</span>::Form&gt;,
+<a href=#452 id=452 data-nosnippet>452</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Executor,
+<a href=#453 id=453 data-nosnippet>453</a>    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Model&gt;&gt; + Send {
+<a href=#454 id=454 data-nosnippet>454</a>        write_update::&lt;<span class="self">Self</span>&gt;(cx, record, posted, ex)
+<a href=#455 id=455 data-nosnippet>455</a>    }
+<a href=#456 id=456 data-nosnippet>456</a>
+<a href=#457 id=457 data-nosnippet>457</a>    <span class="doccomment">/// Sidebar entry for the resource.
 <a href=#458 id=458 data-nosnippet>458</a>    ///
-<a href=#459 id=459 data-nosnippet>459</a>    /// Override to curate this resource's sidebar entry: `Panel::resource`
-<a href=#460 id=460 data-nosnippet>460</a>    /// consumes the result through the panel-aware navigation seam, so a custom
-<a href=#461 id=461 data-nosnippet>461</a>    /// `order`, label or icon takes effect. Decorate the default with
-<a href=#462 id=462 data-nosnippet>462</a>    /// [`NavigationItem::for_resource`]
-<a href=#463 id=463 data-nosnippet>463</a>    /// (`NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }`,
-<a href=#464 id=464 data-nosnippet>464</a>    /// or `NavigationItem::for_resource::&lt;Self&gt;().icon(..)`)
-<a href=#465 id=465 data-nosnippet>465</a>    /// to keep the panel-owned URL; spell a URL out yourself
-<a href=#466 id=466 data-nosnippet>466</a>    /// ([`NavigationItem::at`]) only to link somewhere other than this
-<a href=#467 id=467 data-nosnippet>467</a>    /// resource's list page — the Panel keeps such a URL verbatim.
-<a href=#468 id=468 data-nosnippet>468</a>    </span><span class="kw">fn </span>navigation() -&gt; NavigationItem {
-<a href=#469 id=469 data-nosnippet>469</a>        NavigationItem::for_resource::&lt;<span class="self">Self</span>&gt;()
-<a href=#470 id=470 data-nosnippet>470</a>    }
-<a href=#471 id=471 data-nosnippet>471</a>
-<a href=#472 id=472 data-nosnippet>472</a>    <span class="doccomment">/// Delete the already-authorized `record` (#86).
-<a href=#473 id=473 data-nosnippet>473</a>    ///
-<a href=#474 id=474 data-nosnippet>474</a>    /// The handler loads `record` through the tenancy-scoped query inside the
-<a href=#475 id=475 data-nosnippet>475</a>    /// framework transaction and checks `can_delete` on that snapshot, then
-<a href=#476 id=476 data-nosnippet>476</a>    /// calls this with the same transaction as `ex`. The after-commit hook
-<a href=#477 id=477 data-nosnippet>477</a>    /// receives the snapshot once the delete commits.
-<a href=#478 id=478 data-nosnippet>478</a>    ///
-<a href=#479 id=479 data-nosnippet>479</a>    /// The default deletes the row through [`scoped_query`], filtered to the
-<a href=#480 id=480 data-nosnippet>480</a>    /// record's key: the table's record key, which is the model's primary key
-<a href=#481 id=481 data-nosnippet>481</a>    /// (see [`Table::new_split`]). Override to delete another way, such as a
-<a href=#482 id=482 data-nosnippet>482</a>    /// soft delete.
-<a href=#483 id=483 data-nosnippet>483</a>    </span><span class="kw">fn </span>delete_record(
-<a href=#484 id=484 data-nosnippet>484</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#485 id=485 data-nosnippet>485</a>        record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model,
-<a href=#486 id=486 data-nosnippet>486</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>toasty::Executor,
-<a href=#487 id=487 data-nosnippet>487</a>    ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;()&gt;&gt; + Send
-<a href=#488 id=488 data-nosnippet>488</a>    <span class="kw">where
-<a href=#489 id=489 data-nosnippet>489</a>        </span><span class="self">Self</span>: Sized,
-<a href=#490 id=490 data-nosnippet>490</a>    {
-<a href=#491 id=491 data-nosnippet>491</a>        <span class="kw">let </span>key = <span class="self">Self</span>::table(cx).record_key_of(record);
-<a href=#492 id=492 data-nosnippet>492</a>        <span class="kw">let </span>query = scoped_query::&lt;<span class="self">Self</span>&gt;(cx).and_then(|query| {
-<a href=#493 id=493 data-nosnippet>493</a>            <span class="kw">let </span>filter = <span class="kw">crate</span>::schema::pk_eq_expr::&lt;<span class="self">Self</span>::Model&gt;(<span class="kw-2">&amp;</span>key).ok_or_else(|| {
-<a href=#494 id=494 data-nosnippet>494</a>                <span class="comment">// The handler found the row by this key, so a key that does
-<a href=#495 id=495 data-nosnippet>495</a>                // not parse back is a table whose record key is not the
-<a href=#496 id=496 data-nosnippet>496</a>                // primary key (`Table::new_split`). The detail stays in the
-<a href=#497 id=497 data-nosnippet>497</a>                // log; the page gets the delete-failure toast.
-<a href=#498 id=498 data-nosnippet>498</a>                </span><span class="macro">tracing::error!</span>(
-<a href=#499 id=499 data-nosnippet>499</a>                    resource = <span class="self">Self</span>::slug(),
-<a href=#500 id=500 data-nosnippet>500</a>                    key,
-<a href=#501 id=501 data-nosnippet>501</a>                    <span class="string">"default delete_record: the table's record key does not parse as the primary \
-<a href=#502 id=502 data-nosnippet>502</a>                     key; declare the primary key as the record key or override delete_record"
-<a href=#503 id=503 data-nosnippet>503</a>                </span>);
-<a href=#504 id=504 data-nosnippet>504</a>                TabloError::Declaration(<span class="string">"delete failed"</span>.to_string())
-<a href=#505 id=505 data-nosnippet>505</a>            })<span class="question-mark">?</span>;
-<a href=#506 id=506 data-nosnippet>506</a>            <span class="prelude-val">Ok</span>(query.filter(filter))
-<a href=#507 id=507 data-nosnippet>507</a>        });
-<a href=#508 id=508 data-nosnippet>508</a>        <span class="kw">async move </span>{
-<a href=#509 id=509 data-nosnippet>509</a>            query<span class="question-mark">?
-<a href=#510 id=510 data-nosnippet>510</a>                </span>.delete()
-<a href=#511 id=511 data-nosnippet>511</a>                .exec(ex)
-<a href=#512 id=512 data-nosnippet>512</a>                .<span class="kw">await
-<a href=#513 id=513 data-nosnippet>513</a>                </span>.map_err(|error| -&gt; topcoat::Error { error.into() })<span class="question-mark">?</span>;
-<a href=#514 id=514 data-nosnippet>514</a>            <span class="prelude-val">Ok</span>(())
-<a href=#515 id=515 data-nosnippet>515</a>        }
-<a href=#516 id=516 data-nosnippet>516</a>    }
-<a href=#517 id=517 data-nosnippet>517</a>
-<a href=#518 id=518 data-nosnippet>518</a>    <span class="doccomment">/// Bulk-delete the already-authorized `records`: the handler
-<a href=#519 id=519 data-nosnippet>519</a>    /// fetches through the tenancy-scoped `IN` query inside the framework
-<a href=#520 id=520 data-nosnippet>520</a>    /// transaction and checks `can_delete` on every row before calling this.
-<a href=#521 id=521 data-nosnippet>521</a>    /// The default deletes each record through [`Self::delete_record`] in
-<a href=#522 id=522 data-nosnippet>522</a>    /// order, through the same `ex` — any error rolls the whole batch back,
-<a href=#523 id=523 data-nosnippet>523</a>    /// so mid-loop failures delete zero rows. An override of `delete_record`,
-<a href=#524 id=524 data-nosnippet>524</a>    /// such as a soft delete, therefore covers bulk delete too. Override this
-<a href=#525 id=525 data-nosnippet>525</a>    /// for a single-statement batch.
-<a href=#526 id=526 data-nosnippet>526</a>    </span><span class="kw">fn </span>bulk_delete_records(
-<a href=#527 id=527 data-nosnippet>527</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#528 id=528 data-nosnippet>528</a>        records: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::Model],
-<a href=#529 id=529 data-nosnippet>529</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>toasty::Executor,
-<a href=#530 id=530 data-nosnippet>530</a>    ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;()&gt;&gt; + Send
-<a href=#531 id=531 data-nosnippet>531</a>    <span class="kw">where
-<a href=#532 id=532 data-nosnippet>532</a>        </span><span class="self">Self</span>: Sized,
-<a href=#533 id=533 data-nosnippet>533</a>    {
-<a href=#534 id=534 data-nosnippet>534</a>        <span class="kw">async move </span>{
-<a href=#535 id=535 data-nosnippet>535</a>            <span class="kw">for </span>record <span class="kw">in </span>records {
-<a href=#536 id=536 data-nosnippet>536</a>                <span class="self">Self</span>::delete_record(cx, record, <span class="kw-2">&amp;mut *</span>ex).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#537 id=537 data-nosnippet>537</a>            }
-<a href=#538 id=538 data-nosnippet>538</a>            <span class="prelude-val">Ok</span>(())
-<a href=#539 id=539 data-nosnippet>539</a>        }
-<a href=#540 id=540 data-nosnippet>540</a>    }
-<a href=#541 id=541 data-nosnippet>541</a>
-<a href=#542 id=542 data-nosnippet>542</a>    <span class="doccomment">/// Post-commit work for a mutation this resource committed.
-<a href=#543 id=543 data-nosnippet>543</a>    ///
-<a href=#544 id=544 data-nosnippet>544</a>    /// The place for a side effect that must not survive a rollback: an email, a
-<a href=#545 id=545 data-nosnippet>545</a>    /// webhook, an audit row, cache invalidation. Called once per successful
-<a href=#546 id=546 data-nosnippet>546</a>    /// write, after `tx.commit()` and before the response — running it inside a
-<a href=#547 id=547 data-nosnippet>547</a>    /// record fn would leak the effect on rollback, and the write handlers' pool
-<a href=#548 id=548 data-nosnippet>548</a>    /// discipline forbids a second handle while the transaction is open.
-<a href=#549 id=549 data-nosnippet>549</a>    ///
-<a href=#550 id=550 data-nosnippet>550</a>    /// [`Committed`] names the mutation and the rows it wrote: the committed row
-<a href=#551 id=551 data-nosnippet>551</a>    /// a create or update returned, the rows a delete or bulk delete removed
-<a href=#552 id=552 data-nosnippet>552</a>    /// (one call with every row). It is never called when nothing committed: a
-<a href=#553 id=553 data-nosnippet>553</a>    /// validation error, a policy denial, a failed record fn, or a failed commit
-<a href=#554 id=554 data-nosnippet>554</a>    /// all leave the hook untouched, so a rollback cannot produce the effect. A
-<a href=#555 id=555 data-nosnippet>555</a>    /// hook that returns `Err` is logged and ignored — the write is committed,
-<a href=#556 id=556 data-nosnippet>556</a>    /// and retries are the app's to build; a panic surfaces as Topcoat's
-<a href=#557 id=557 data-nosnippet>557</a>    /// panic-isolated 500.
-<a href=#558 id=558 data-nosnippet>558</a>    ///
-<a href=#559 id=559 data-nosnippet>559</a>    /// ```ignore
-<a href=#560 id=560 data-nosnippet>560</a>    /// async fn after_commit(cx: &amp;Cx, committed: Committed&lt;Post&gt;) -&gt; Result&lt;()&gt; {
-<a href=#561 id=561 data-nosnippet>561</a>    ///     let mut db = db(cx); // a fresh handle is allowed here
-<a href=#562 id=562 data-nosnippet>562</a>    ///     for post in committed.records() { notify(post).await?; }
-<a href=#563 id=563 data-nosnippet>563</a>    ///     Ok(())
-<a href=#564 id=564 data-nosnippet>564</a>    /// }
-<a href=#565 id=565 data-nosnippet>565</a>    /// ```
-<a href=#566 id=566 data-nosnippet>566</a>    </span><span class="kw">fn </span>after_commit(
-<a href=#567 id=567 data-nosnippet>567</a>        _cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#568 id=568 data-nosnippet>568</a>        _committed: Committed&lt;<span class="self">Self</span>::Model&gt;,
-<a href=#569 id=569 data-nosnippet>569</a>    ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;()&gt;&gt; + Send
-<a href=#570 id=570 data-nosnippet>570</a>    <span class="kw">where
-<a href=#571 id=571 data-nosnippet>571</a>        </span><span class="self">Self</span>: Sized,
-<a href=#572 id=572 data-nosnippet>572</a>    {
-<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) }
-<a href=#574 id=574 data-nosnippet>574</a>    }
-<a href=#575 id=575 data-nosnippet>575</a>
-<a href=#576 id=576 data-nosnippet>576</a>    <span class="doccomment">/// The record's values for the detail page, keyed by the name each
-<a href=#577 id=577 data-nosnippet>577</a>    /// [`view`](Self::view) field binds.
-<a href=#578 id=578 data-nosnippet>578</a>    ///
-<a href=#579 id=579 data-nosnippet>579</a>    /// The detail page reads the form's keys from
-<a href=#580 id=580 data-nosnippet>580</a>    /// [`RecordForm::hydrate`], and this adds any
-<a href=#581 id=581 data-nosnippet>581</a>    /// key only the view shows; the form's keys win on a collision. A
-<a href=#582 id=582 data-nosnippet>582</a>    /// resource with no form ([`NoForm`](crate::NoForm)) supplies every key its
-<a href=#583 id=583 data-nosnippet>583</a>    /// view shows here.
-<a href=#584 id=584 data-nosnippet>584</a>    ///
-<a href=#585 id=585 data-nosnippet>585</a>    /// `cx` carries the app schema, which an embedded value's keys need
-<a href=#586 id=586 data-nosnippet>586</a>    /// ([`EmbeddedForm::write_form`](crate::schema::EmbeddedForm::write_form)).
-<a href=#587 id=587 data-nosnippet>587</a>    /// The default is empty.
-<a href=#588 id=588 data-nosnippet>588</a>    </span><span class="kw">fn </span>view_values(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; HashMap&lt;String, String&gt; {
-<a href=#589 id=589 data-nosnippet>589</a>        HashMap::new()
-<a href=#590 id=590 data-nosnippet>590</a>    }
-<a href=#591 id=591 data-nosnippet>591</a>}
-<a href=#592 id=592 data-nosnippet>592</a>
-<a href=#593 id=593 data-nosnippet>593</a><span class="doccomment">/// The tenant-scoped base query.
-<a href=#594 id=594 data-nosnippet>594</a>///
-<a href=#595 id=595 data-nosnippet>595</a>/// [`Resource::query`] with the predicate from [`Resource::tenant_scope`]
-<a href=#596 id=596 data-nosnippet>596</a>/// ANDed onto it, so a resource that overrides `query` for soft deletes cannot
-<a href=#597 id=597 data-nosnippet>597</a>/// drop the tenant scope by forgetting to re-state it. Every framework loader
-<a href=#598 id=598 data-nosnippet>598</a>/// and app code start here.
-<a href=#599 id=599 data-nosnippet>599</a>///
-<a href=#600 id=600 data-nosnippet>600</a>/// # Errors
-<a href=#601 id=601 data-nosnippet>601</a>///
-<a href=#602 id=602 data-nosnippet>602</a>/// - A gated resource and no tenant in `cx` → 403, the same fail-closed answer the handler gate
-<a href=#603 id=603 data-nosnippet>603</a>///   gives.
-<a href=#604 id=604 data-nosnippet>604</a>/// - A gated resource that supplies no tenant predicate — no discoverable `tenant_id` UUID column,
-<a href=#605 id=605 data-nosnippet>605</a>///   no [`Resource::tenant_scope`] override → an error naming the resource and the model.
-<a href=#606 id=606 data-nosnippet>606</a>///   [`Panel::build`](crate::Panel::build) refuses that declaration at boot, so this is the
-<a href=#607 id=607 data-nosnippet>607</a>///   backstop for a predicate that is `None` for the request's tenant, and for app code outside a
-<a href=#608 id=608 data-nosnippet>608</a>///   panel. It is deliberately **not** a fallback to the unscoped query: a silent miss would be the
-<a href=#609 id=609 data-nosnippet>609</a>///   leak [`Resource::requires_tenant`] exists to prevent.
-<a href=#610 id=610 data-nosnippet>610</a>///
-<a href=#611 id=611 data-nosnippet>611</a>/// App code that loads rows itself must call this — on a gated resource
-<a href=#612 id=612 data-nosnippet>612</a>/// [`Resource::query`] is the *tenant-unscoped* base by design, so calling it
-<a href=#613 id=613 data-nosnippet>613</a>/// directly is safe only for rows whose tenant membership is already settled (a
-<a href=#614 id=614 data-nosnippet>614</a>/// write by id against a record the framework loaded and authorized).
-<a href=#615 id=615 data-nosnippet>615</a></span><span class="kw">pub fn </span>scoped_query&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Result</span>&lt;Query&lt;List&lt;R::Model&gt;&gt;&gt; {
-<a href=#616 id=616 data-nosnippet>616</a>    apply_tenant_scope::&lt;R&gt;(cx, R::query(cx))
-<a href=#617 id=617 data-nosnippet>617</a>}
-<a href=#618 id=618 data-nosnippet>618</a>
-<a href=#619 id=619 data-nosnippet>619</a><span class="doccomment">/// [`Resource::view_query`] under the same tenant gate and predicate as
-<a href=#620 id=620 data-nosnippet>620</a>/// [`scoped_query`]: the detail page's loader, and the entry point for a page
-<a href=#621 id=621 data-nosnippet>621</a>/// that owns its own detail view.
-<a href=#622 id=622 data-nosnippet>622</a>///
-<a href=#623 id=623 data-nosnippet>623</a>/// # Errors
-<a href=#624 id=624 data-nosnippet>624</a>///
-<a href=#625 id=625 data-nosnippet>625</a>/// The same as [`scoped_query`].
-<a href=#626 id=626 data-nosnippet>626</a></span><span class="kw">pub fn </span>scoped_view_query&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Result</span>&lt;Query&lt;List&lt;R::Model&gt;&gt;&gt; {
-<a href=#627 id=627 data-nosnippet>627</a>    apply_tenant_scope::&lt;R&gt;(cx, R::view_query(cx))
-<a href=#628 id=628 data-nosnippet>628</a>}
-<a href=#629 id=629 data-nosnippet>629</a>
-<a href=#630 id=630 data-nosnippet>630</a><span class="doccomment">/// AND the framework's tenant predicate onto `query`.
-<a href=#631 id=631 data-nosnippet>631</a>///
-<a href=#632 id=632 data-nosnippet>632</a>/// The body of [`scoped_query`] and [`scoped_view_query`], split out so both
-<a href=#633 id=633 data-nosnippet>633</a>/// seeds share one gate, one predicate, and one fail-closed error.
-<a href=#634 id=634 data-nosnippet>634</a>/// It is crate-internal because a caller outside the crate always has a
-<a href=#635 id=635 data-nosnippet>635</a>/// `Resource`, and so always wants [`scoped_query`] or [`scoped_view_query`].
-<a href=#636 id=636 data-nosnippet>636</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>apply_tenant_scope&lt;R: Resource&gt;(
-<a href=#637 id=637 data-nosnippet>637</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#638 id=638 data-nosnippet>638</a>    query: Query&lt;List&lt;R::Model&gt;&gt;,
-<a href=#639 id=639 data-nosnippet>639</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Query&lt;List&lt;R::Model&gt;&gt;&gt; {
-<a href=#640 id=640 data-nosnippet>640</a>    <span class="kw">if </span>!R::requires_tenant() {
-<a href=#641 id=641 data-nosnippet>641</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(query);
-<a href=#642 id=642 data-nosnippet>642</a>    }
-<a href=#643 id=643 data-nosnippet>643</a>    <span class="kw">let </span>tenant = <span class="kw">crate</span>::tenancy::require_tenant(cx)<span class="question-mark">?</span>;
-<a href=#644 id=644 data-nosnippet>644</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(filter) = R::tenant_scope(tenant) <span class="kw">else </span>{
-<a href=#645 id=645 data-nosnippet>645</a>        <span class="comment">// Fail closed and loudly: the resource declared a gate whose scope the
-<a href=#646 id=646 data-nosnippet>646</a>        // framework cannot derive and the resource did not state, and running
-<a href=#647 id=647 data-nosnippet>647</a>        // the query unscoped is the one outcome that declaration exists to
-<a href=#648 id=648 data-nosnippet>648</a>        // prevent. `Panel::build` already refused the resource if *no* tenant
-<a href=#649 id=649 data-nosnippet>649</a>        // could scope it; this is the backstop for a `tenant_scope`
-<a href=#650 id=650 data-nosnippet>650</a>        // that answers `None` only for this tenant, and for callers outside a
-<a href=#651 id=651 data-nosnippet>651</a>        // panel.
-<a href=#652 id=652 data-nosnippet>652</a>        </span><span class="macro">tracing::error!</span>(
-<a href=#653 id=653 data-nosnippet>653</a>            resource = R::slug(),
-<a href=#654 id=654 data-nosnippet>654</a>            model = std::any::type_name::&lt;R::Model&gt;(),
-<a href=#655 id=655 data-nosnippet>655</a>            <span class="string">"requires_tenant is true but the resource supplies no tenant predicate: no `tenant_id` \
-<a href=#656 id=656 data-nosnippet>656</a>             UUID column on the model and no `tenant_scope` override (GH #223)"
-<a href=#657 id=657 data-nosnippet>657</a>        </span>);
-<a href=#658 id=658 data-nosnippet>658</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(TabloError::Declaration(<span class="macro">format!</span>(
-<a href=#659 id=659 data-nosnippet>659</a>            <span class="string">"resource '{}' requires a tenant, but the framework cannot scope it: {} declares no \
-<a href=#660 id=660 data-nosnippet>660</a>             `tenant_id` UUID column to derive the filter from, and the resource does not override \
-<a href=#661 id=661 data-nosnippet>661</a>             `tenant_scope` (GH #223); declare the column, override `tenant_scope`, or drop \
-<a href=#662 id=662 data-nosnippet>662</a>             `requires_tenant` and scope in `query`"</span>,
-<a href=#663 id=663 data-nosnippet>663</a>            R::slug(),
-<a href=#664 id=664 data-nosnippet>664</a>            std::any::type_name::&lt;R::Model&gt;(),
-<a href=#665 id=665 data-nosnippet>665</a>        ))
-<a href=#666 id=666 data-nosnippet>666</a>        .into());
-<a href=#667 id=667 data-nosnippet>667</a>    };
-<a href=#668 id=668 data-nosnippet>668</a>    <span class="prelude-val">Ok</span>(query.filter(filter))
-<a href=#669 id=669 data-nosnippet>669</a>}
-<a href=#670 id=670 data-nosnippet>670</a>
-<a href=#671 id=671 data-nosnippet>671</a><span class="doccomment">/// Every `Resource` is an [`OptionSource`](crate::schema::OptionSource) — the
-<a href=#672 id=672 data-nosnippet>672</a>/// bridge that lets the relationship option loaders be generic over the source
-<a href=#673 id=673 data-nosnippet>673</a>/// surface instead of over `Resource`, so `schema` does not depend on
-<a href=#674 id=674 data-nosnippet>674</a>/// `resource`.
-<a href=#675 id=675 data-nosnippet>675</a>///
-<a href=#676 id=676 data-nosnippet>676</a>/// A resource answers the loaders here, so the loaders never name `Resource`.
-<a href=#677 id=677 data-nosnippet>677</a>/// [`scoped_query`](crate::schema::OptionSource::scoped_query), the one required
-<a href=#678 id=678 data-nosnippet>678</a>/// method, forwards to [`scoped_query`], so an option load inherits the tenant
-<a href=#679 id=679 data-nosnippet>679</a>/// gate and the derived tenant predicate exactly as every other loader does; it
-<a href=#680 id=680 data-nosnippet>680</a>/// is deliberately not [`Resource::query`], which on a gated resource is the
-<a href=#681 id=681 data-nosnippet>681</a>/// *tenant-unscoped* base.
-<a href=#682 id=682 data-nosnippet>682</a>///
-<a href=#683 id=683 data-nosnippet>683</a>/// The policy predicates and the tenant declaration forward unchanged, and the
-<a href=#684 id=684 data-nosnippet>684</a>/// search expression and default ordering come from the resource's declared
-<a href=#685 id=685 data-nosnippet>685</a>/// [`table`](Resource::table), which is where "the option search searches the
-<a href=#686 id=686 data-nosnippet>686</a>/// related resource's searchable columns" lives.
-<a href=#687 id=687 data-nosnippet>687</a></span><span class="kw">impl</span>&lt;R: Resource&gt; <span class="kw">crate</span>::schema::OptionSource <span class="kw">for </span>R {
-<a href=#688 id=688 data-nosnippet>688</a>    <span class="kw">type </span>Model = R::Model;
-<a href=#689 id=689 data-nosnippet>689</a>
-<a href=#690 id=690 data-nosnippet>690</a>    <span class="kw">fn </span>scoped_query(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Result</span>&lt;Query&lt;List&lt;R::Model&gt;&gt;&gt; {
-<a href=#691 id=691 data-nosnippet>691</a>        scoped_query::&lt;R&gt;(cx)
-<a href=#692 id=692 data-nosnippet>692</a>    }
+<a href=#459 id=459 data-nosnippet>459</a>    /// The default declares a label ([`Self::navigation_label`]) and no URL:
+<a href=#460 id=460 data-nosnippet>460</a>    /// the Panel that owns the resource resolves where it is mounted, so this
+<a href=#461 id=461 data-nosnippet>461</a>    /// entry never links at a mount the resource guessed.
+<a href=#462 id=462 data-nosnippet>462</a>    ///
+<a href=#463 id=463 data-nosnippet>463</a>    /// Override to curate this resource's sidebar entry: `Panel::resource`
+<a href=#464 id=464 data-nosnippet>464</a>    /// consumes the result through the panel-aware navigation seam, so a custom
+<a href=#465 id=465 data-nosnippet>465</a>    /// `order`, label or icon takes effect. Decorate the default with
+<a href=#466 id=466 data-nosnippet>466</a>    /// [`NavigationItem::for_resource`]
+<a href=#467 id=467 data-nosnippet>467</a>    /// (`NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }`,
+<a href=#468 id=468 data-nosnippet>468</a>    /// or `NavigationItem::for_resource::&lt;Self&gt;().icon(..)`)
+<a href=#469 id=469 data-nosnippet>469</a>    /// to keep the panel-owned URL; spell a URL out yourself
+<a href=#470 id=470 data-nosnippet>470</a>    /// ([`NavigationItem::at`]) only to link somewhere other than this
+<a href=#471 id=471 data-nosnippet>471</a>    /// resource's list page — the Panel keeps such a URL verbatim.
+<a href=#472 id=472 data-nosnippet>472</a>    </span><span class="kw">fn </span>navigation() -&gt; NavigationItem {
+<a href=#473 id=473 data-nosnippet>473</a>        NavigationItem::for_resource::&lt;<span class="self">Self</span>&gt;()
+<a href=#474 id=474 data-nosnippet>474</a>    }
+<a href=#475 id=475 data-nosnippet>475</a>
+<a href=#476 id=476 data-nosnippet>476</a>    <span class="doccomment">/// Delete the already-authorized `record` (#86).
+<a href=#477 id=477 data-nosnippet>477</a>    ///
+<a href=#478 id=478 data-nosnippet>478</a>    /// The handler loads `record` through the tenancy-scoped query inside the
+<a href=#479 id=479 data-nosnippet>479</a>    /// framework transaction and checks `can_delete` on that snapshot, then
+<a href=#480 id=480 data-nosnippet>480</a>    /// calls this with the same transaction as `ex`. The after-commit hook
+<a href=#481 id=481 data-nosnippet>481</a>    /// receives the snapshot once the delete commits.
+<a href=#482 id=482 data-nosnippet>482</a>    ///
+<a href=#483 id=483 data-nosnippet>483</a>    /// The default deletes the row through [`scoped_query`], filtered to the
+<a href=#484 id=484 data-nosnippet>484</a>    /// record's key: the table's record key, which is the model's primary key
+<a href=#485 id=485 data-nosnippet>485</a>    /// (see [`Table::new_split`]). Override to delete another way, such as a
+<a href=#486 id=486 data-nosnippet>486</a>    /// soft delete.
+<a href=#487 id=487 data-nosnippet>487</a>    </span><span class="kw">fn </span>delete_record(
+<a href=#488 id=488 data-nosnippet>488</a>        cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#489 id=489 data-nosnippet>489</a>        record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model,
+<a href=#490 id=490 data-nosnippet>490</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>toasty::Executor,
+<a href=#491 id=491 data-nosnippet>491</a>    ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;()&gt;&gt; + Send
+<a href=#492 id=492 data-nosnippet>492</a>    <span class="kw">where
+<a href=#493 id=493 data-nosnippet>493</a>        </span><span class="self">Self</span>: Sized,
+<a href=#494 id=494 data-nosnippet>494</a>    {
+<a href=#495 id=495 data-nosnippet>495</a>        <span class="kw">let </span>key = <span class="self">Self</span>::table(cx).record_key_of(record);
+<a href=#496 id=496 data-nosnippet>496</a>        <span class="kw">let </span>query = scoped_query::&lt;<span class="self">Self</span>&gt;(cx).and_then(|query| {
+<a href=#497 id=497 data-nosnippet>497</a>            <span class="kw">let </span>filter = <span class="kw">crate</span>::schema::pk_eq_expr::&lt;<span class="self">Self</span>::Model&gt;(<span class="kw-2">&amp;</span>key).ok_or_else(|| {
+<a href=#498 id=498 data-nosnippet>498</a>                <span class="comment">// The handler found the row by this key, so a key that does
+<a href=#499 id=499 data-nosnippet>499</a>                // not parse back is a table whose record key is not the
+<a href=#500 id=500 data-nosnippet>500</a>                // primary key (`Table::new_split`). The detail stays in the
+<a href=#501 id=501 data-nosnippet>501</a>                // log; the page gets the delete-failure toast.
+<a href=#502 id=502 data-nosnippet>502</a>                </span><span class="macro">tracing::error!</span>(
+<a href=#503 id=503 data-nosnippet>503</a>                    resource = <span class="self">Self</span>::slug(),
+<a href=#504 id=504 data-nosnippet>504</a>                    key,
+<a href=#505 id=505 data-nosnippet>505</a>                    <span class="string">"default delete_record: the table's record key does not parse as the primary \
+<a href=#506 id=506 data-nosnippet>506</a>                     key; declare the primary key as the record key or override delete_record"
+<a href=#507 id=507 data-nosnippet>507</a>                </span>);
+<a href=#508 id=508 data-nosnippet>508</a>                TabloError::Declaration(<span class="string">"delete failed"</span>.to_string())
+<a href=#509 id=509 data-nosnippet>509</a>            })<span class="question-mark">?</span>;
+<a href=#510 id=510 data-nosnippet>510</a>            <span class="prelude-val">Ok</span>(query.filter(filter))
+<a href=#511 id=511 data-nosnippet>511</a>        });
+<a href=#512 id=512 data-nosnippet>512</a>        <span class="kw">async move </span>{
+<a href=#513 id=513 data-nosnippet>513</a>            query<span class="question-mark">?
+<a href=#514 id=514 data-nosnippet>514</a>                </span>.delete()
+<a href=#515 id=515 data-nosnippet>515</a>                .exec(ex)
+<a href=#516 id=516 data-nosnippet>516</a>                .<span class="kw">await
+<a href=#517 id=517 data-nosnippet>517</a>                </span>.map_err(|error| -&gt; topcoat::Error { error.into() })<span class="question-mark">?</span>;
+<a href=#518 id=518 data-nosnippet>518</a>            <span class="prelude-val">Ok</span>(())
+<a href=#519 id=519 data-nosnippet>519</a>        }
+<a href=#520 id=520 data-nosnippet>520</a>    }
+<a href=#521 id=521 data-nosnippet>521</a>
+<a href=#522 id=522 data-nosnippet>522</a>    <span class="doccomment">/// Bulk-delete the already-authorized `records`: the handler
+<a href=#523 id=523 data-nosnippet>523</a>    /// fetches through the tenancy-scoped `IN` query inside the framework
+<a href=#524 id=524 data-nosnippet>524</a>    /// transaction and checks `can_delete` on every row before calling this.
+<a href=#525 id=525 data-nosnippet>525</a>    /// The default deletes each record through [`Self::delete_record`] in
+<a href=#526 id=526 data-nosnippet>526</a>    /// order, through the same `ex` — any error rolls the whole batch back,
+<a href=#527 id=527 data-nosnippet>527</a>    /// so mid-loop failures delete zero rows. An override of `delete_record`,
+<a href=#528 id=528 data-nosnippet>528</a>    /// such as a soft delete, therefore covers bulk delete too. Override this
+<a href=#529 id=529 data-nosnippet>529</a>    /// for a single-statement batch.
+<a href=#530 id=530 data-nosnippet>530</a>    </span><span class="kw">fn </span>bulk_delete_records(
+<a href=#531 id=531 data-nosnippet>531</a>        cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#532 id=532 data-nosnippet>532</a>        records: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::Model],
+<a href=#533 id=533 data-nosnippet>533</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>toasty::Executor,
+<a href=#534 id=534 data-nosnippet>534</a>    ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;()&gt;&gt; + Send
+<a href=#535 id=535 data-nosnippet>535</a>    <span class="kw">where
+<a href=#536 id=536 data-nosnippet>536</a>        </span><span class="self">Self</span>: Sized,
+<a href=#537 id=537 data-nosnippet>537</a>    {
+<a href=#538 id=538 data-nosnippet>538</a>        <span class="kw">async move </span>{
+<a href=#539 id=539 data-nosnippet>539</a>            <span class="kw">for </span>record <span class="kw">in </span>records {
+<a href=#540 id=540 data-nosnippet>540</a>                <span class="self">Self</span>::delete_record(cx, record, <span class="kw-2">&amp;mut *</span>ex).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#541 id=541 data-nosnippet>541</a>            }
+<a href=#542 id=542 data-nosnippet>542</a>            <span class="prelude-val">Ok</span>(())
+<a href=#543 id=543 data-nosnippet>543</a>        }
+<a href=#544 id=544 data-nosnippet>544</a>    }
+<a href=#545 id=545 data-nosnippet>545</a>
+<a href=#546 id=546 data-nosnippet>546</a>    <span class="doccomment">/// Post-commit work for a mutation this resource committed.
+<a href=#547 id=547 data-nosnippet>547</a>    ///
+<a href=#548 id=548 data-nosnippet>548</a>    /// The place for a side effect that must not survive a rollback: an email, a
+<a href=#549 id=549 data-nosnippet>549</a>    /// webhook, an audit row, cache invalidation. Called once per successful
+<a href=#550 id=550 data-nosnippet>550</a>    /// write, after `tx.commit()` and before the response — running it inside a
+<a href=#551 id=551 data-nosnippet>551</a>    /// record fn would leak the effect on rollback, and the write handlers' pool
+<a href=#552 id=552 data-nosnippet>552</a>    /// discipline forbids a second handle while the transaction is open.
+<a href=#553 id=553 data-nosnippet>553</a>    ///
+<a href=#554 id=554 data-nosnippet>554</a>    /// [`Committed`] names the mutation and the rows it wrote: the committed row
+<a href=#555 id=555 data-nosnippet>555</a>    /// a create or update returned, the rows a delete or bulk delete removed
+<a href=#556 id=556 data-nosnippet>556</a>    /// (one call with every row). It is never called when nothing committed: a
+<a href=#557 id=557 data-nosnippet>557</a>    /// validation error, a policy denial, a failed record fn, or a failed commit
+<a href=#558 id=558 data-nosnippet>558</a>    /// all leave the hook untouched, so a rollback cannot produce the effect. A
+<a href=#559 id=559 data-nosnippet>559</a>    /// hook that returns `Err` is logged and ignored — the write is committed,
+<a href=#560 id=560 data-nosnippet>560</a>    /// and retries are the app's to build; a panic surfaces as Topcoat's
+<a href=#561 id=561 data-nosnippet>561</a>    /// panic-isolated 500.
+<a href=#562 id=562 data-nosnippet>562</a>    ///
+<a href=#563 id=563 data-nosnippet>563</a>    /// ```ignore
+<a href=#564 id=564 data-nosnippet>564</a>    /// async fn after_commit(cx: &amp;Cx, committed: Committed&lt;Post&gt;) -&gt; Result&lt;()&gt; {
+<a href=#565 id=565 data-nosnippet>565</a>    ///     let mut db = db(cx); // a fresh handle is allowed here
+<a href=#566 id=566 data-nosnippet>566</a>    ///     for post in committed.records() { notify(post).await?; }
+<a href=#567 id=567 data-nosnippet>567</a>    ///     Ok(())
+<a href=#568 id=568 data-nosnippet>568</a>    /// }
+<a href=#569 id=569 data-nosnippet>569</a>    /// ```
+<a href=#570 id=570 data-nosnippet>570</a>    </span><span class="kw">fn </span>after_commit(
+<a href=#571 id=571 data-nosnippet>571</a>        _cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#572 id=572 data-nosnippet>572</a>        _committed: Committed&lt;<span class="self">Self</span>::Model&gt;,
+<a href=#573 id=573 data-nosnippet>573</a>    ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;()&gt;&gt; + Send
+<a href=#574 id=574 data-nosnippet>574</a>    <span class="kw">where
+<a href=#575 id=575 data-nosnippet>575</a>        </span><span class="self">Self</span>: Sized,
+<a href=#576 id=576 data-nosnippet>576</a>    {
+<a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) }
+<a href=#578 id=578 data-nosnippet>578</a>    }
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>    <span class="doccomment">/// The record's values for the detail page, keyed by the name each
+<a href=#581 id=581 data-nosnippet>581</a>    /// [`view`](Self::view) field binds.
+<a href=#582 id=582 data-nosnippet>582</a>    ///
+<a href=#583 id=583 data-nosnippet>583</a>    /// The detail page reads the form's keys from
+<a href=#584 id=584 data-nosnippet>584</a>    /// [`RecordForm::hydrate`], and this adds any
+<a href=#585 id=585 data-nosnippet>585</a>    /// key only the view shows; the form's keys win on a collision. A
+<a href=#586 id=586 data-nosnippet>586</a>    /// resource with no form ([`NoForm`](crate::NoForm)) supplies every key its
+<a href=#587 id=587 data-nosnippet>587</a>    /// view shows here.
+<a href=#588 id=588 data-nosnippet>588</a>    ///
+<a href=#589 id=589 data-nosnippet>589</a>    /// `cx` carries the app schema, which an embedded value's keys need
+<a href=#590 id=590 data-nosnippet>590</a>    /// ([`EmbeddedForm::write_form`](crate::schema::EmbeddedForm::write_form)).
+<a href=#591 id=591 data-nosnippet>591</a>    /// The default is empty.
+<a href=#592 id=592 data-nosnippet>592</a>    </span><span class="kw">fn </span>view_values(_cx: <span class="kw-2">&amp;</span>Cx, _record: <span class="kw-2">&amp;</span><span class="self">Self</span>::Model) -&gt; HashMap&lt;String, String&gt; {
+<a href=#593 id=593 data-nosnippet>593</a>        HashMap::new()
+<a href=#594 id=594 data-nosnippet>594</a>    }
+<a href=#595 id=595 data-nosnippet>595</a>}
+<a href=#596 id=596 data-nosnippet>596</a>
+<a href=#597 id=597 data-nosnippet>597</a><span class="doccomment">/// The tenant-scoped base query.
+<a href=#598 id=598 data-nosnippet>598</a>///
+<a href=#599 id=599 data-nosnippet>599</a>/// [`Resource::query`] with the predicate from [`Resource::tenant_scope`]
+<a href=#600 id=600 data-nosnippet>600</a>/// ANDed onto it, so a resource that overrides `query` for soft deletes cannot
+<a href=#601 id=601 data-nosnippet>601</a>/// drop the tenant scope by forgetting to re-state it. Every framework loader
+<a href=#602 id=602 data-nosnippet>602</a>/// and app code start here.
+<a href=#603 id=603 data-nosnippet>603</a>///
+<a href=#604 id=604 data-nosnippet>604</a>/// # Errors
+<a href=#605 id=605 data-nosnippet>605</a>///
+<a href=#606 id=606 data-nosnippet>606</a>/// - A gated resource and no tenant in `cx` → 403, the same fail-closed answer the handler gate
+<a href=#607 id=607 data-nosnippet>607</a>///   gives.
+<a href=#608 id=608 data-nosnippet>608</a>/// - A gated resource that supplies no tenant predicate — no discoverable `tenant_id` UUID column,
+<a href=#609 id=609 data-nosnippet>609</a>///   no [`Resource::tenant_scope`] override → an error naming the resource and the model.
+<a href=#610 id=610 data-nosnippet>610</a>///   [`Panel::build`](crate::Panel::build) refuses that declaration at boot, so this is the
+<a href=#611 id=611 data-nosnippet>611</a>///   backstop for a predicate that is `None` for the request's tenant, and for app code outside a
+<a href=#612 id=612 data-nosnippet>612</a>///   panel. It is deliberately **not** a fallback to the unscoped query: a silent miss would be the
+<a href=#613 id=613 data-nosnippet>613</a>///   leak [`Resource::requires_tenant`] exists to prevent.
+<a href=#614 id=614 data-nosnippet>614</a>///
+<a href=#615 id=615 data-nosnippet>615</a>/// App code that loads rows itself must call this — on a gated resource
+<a href=#616 id=616 data-nosnippet>616</a>/// [`Resource::query`] is the *tenant-unscoped* base by design, so calling it
+<a href=#617 id=617 data-nosnippet>617</a>/// directly is safe only for rows whose tenant membership is already settled (a
+<a href=#618 id=618 data-nosnippet>618</a>/// write by id against a record the framework loaded and authorized).
+<a href=#619 id=619 data-nosnippet>619</a></span><span class="kw">pub fn </span>scoped_query&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Result</span>&lt;Query&lt;List&lt;R::Model&gt;&gt;&gt; {
+<a href=#620 id=620 data-nosnippet>620</a>    apply_tenant_scope::&lt;R&gt;(cx, R::query(cx))
+<a href=#621 id=621 data-nosnippet>621</a>}
+<a href=#622 id=622 data-nosnippet>622</a>
+<a href=#623 id=623 data-nosnippet>623</a><span class="doccomment">/// [`Resource::view_query`] under the same tenant gate and predicate as
+<a href=#624 id=624 data-nosnippet>624</a>/// [`scoped_query`]: the detail page's loader, and the entry point for a page
+<a href=#625 id=625 data-nosnippet>625</a>/// that owns its own detail view.
+<a href=#626 id=626 data-nosnippet>626</a>///
+<a href=#627 id=627 data-nosnippet>627</a>/// # Errors
+<a href=#628 id=628 data-nosnippet>628</a>///
+<a href=#629 id=629 data-nosnippet>629</a>/// The same as [`scoped_query`].
+<a href=#630 id=630 data-nosnippet>630</a></span><span class="kw">pub fn </span>scoped_view_query&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Result</span>&lt;Query&lt;List&lt;R::Model&gt;&gt;&gt; {
+<a href=#631 id=631 data-nosnippet>631</a>    apply_tenant_scope::&lt;R&gt;(cx, R::view_query(cx))
+<a href=#632 id=632 data-nosnippet>632</a>}
+<a href=#633 id=633 data-nosnippet>633</a>
+<a href=#634 id=634 data-nosnippet>634</a><span class="doccomment">/// AND the framework's tenant predicate onto `query`.
+<a href=#635 id=635 data-nosnippet>635</a>///
+<a href=#636 id=636 data-nosnippet>636</a>/// The body of [`scoped_query`] and [`scoped_view_query`], split out so both
+<a href=#637 id=637 data-nosnippet>637</a>/// seeds share one gate, one predicate, and one fail-closed error.
+<a href=#638 id=638 data-nosnippet>638</a>/// It is crate-internal because a caller outside the crate always has a
+<a href=#639 id=639 data-nosnippet>639</a>/// `Resource`, and so always wants [`scoped_query`] or [`scoped_view_query`].
+<a href=#640 id=640 data-nosnippet>640</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>apply_tenant_scope&lt;R: Resource&gt;(
+<a href=#641 id=641 data-nosnippet>641</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#642 id=642 data-nosnippet>642</a>    query: Query&lt;List&lt;R::Model&gt;&gt;,
+<a href=#643 id=643 data-nosnippet>643</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Query&lt;List&lt;R::Model&gt;&gt;&gt; {
+<a href=#644 id=644 data-nosnippet>644</a>    <span class="kw">if </span>!R::requires_tenant() {
+<a href=#645 id=645 data-nosnippet>645</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(query);
+<a href=#646 id=646 data-nosnippet>646</a>    }
+<a href=#647 id=647 data-nosnippet>647</a>    <span class="kw">let </span>tenant = <span class="kw">crate</span>::tenancy::require_tenant(cx)<span class="question-mark">?</span>;
+<a href=#648 id=648 data-nosnippet>648</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(filter) = R::tenant_scope(tenant) <span class="kw">else </span>{
+<a href=#649 id=649 data-nosnippet>649</a>        <span class="comment">// Fail closed and loudly: the resource declared a gate whose scope the
+<a href=#650 id=650 data-nosnippet>650</a>        // framework cannot derive and the resource did not state, and running
+<a href=#651 id=651 data-nosnippet>651</a>        // the query unscoped is the one outcome that declaration exists to
+<a href=#652 id=652 data-nosnippet>652</a>        // prevent. `Panel::build` already refused the resource if *no* tenant
+<a href=#653 id=653 data-nosnippet>653</a>        // could scope it; this is the backstop for a `tenant_scope`
+<a href=#654 id=654 data-nosnippet>654</a>        // that answers `None` only for this tenant, and for callers outside a
+<a href=#655 id=655 data-nosnippet>655</a>        // panel.
+<a href=#656 id=656 data-nosnippet>656</a>        </span><span class="macro">tracing::error!</span>(
+<a href=#657 id=657 data-nosnippet>657</a>            resource = R::slug(),
+<a href=#658 id=658 data-nosnippet>658</a>            model = std::any::type_name::&lt;R::Model&gt;(),
+<a href=#659 id=659 data-nosnippet>659</a>            <span class="string">"requires_tenant is true but the resource supplies no tenant predicate: no `tenant_id` \
+<a href=#660 id=660 data-nosnippet>660</a>             UUID column on the model and no `tenant_scope` override (GH #223)"
+<a href=#661 id=661 data-nosnippet>661</a>        </span>);
+<a href=#662 id=662 data-nosnippet>662</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(TabloError::Declaration(<span class="macro">format!</span>(
+<a href=#663 id=663 data-nosnippet>663</a>            <span class="string">"resource '{}' requires a tenant, but the framework cannot scope it: {} declares no \
+<a href=#664 id=664 data-nosnippet>664</a>             `tenant_id` UUID column to derive the filter from, and the resource does not override \
+<a href=#665 id=665 data-nosnippet>665</a>             `tenant_scope` (GH #223); declare the column, override `tenant_scope`, or drop \
+<a href=#666 id=666 data-nosnippet>666</a>             `requires_tenant` and scope in `query`"</span>,
+<a href=#667 id=667 data-nosnippet>667</a>            R::slug(),
+<a href=#668 id=668 data-nosnippet>668</a>            std::any::type_name::&lt;R::Model&gt;(),
+<a href=#669 id=669 data-nosnippet>669</a>        ))
+<a href=#670 id=670 data-nosnippet>670</a>        .into());
+<a href=#671 id=671 data-nosnippet>671</a>    };
+<a href=#672 id=672 data-nosnippet>672</a>    <span class="prelude-val">Ok</span>(query.filter(filter))
+<a href=#673 id=673 data-nosnippet>673</a>}
+<a href=#674 id=674 data-nosnippet>674</a>
+<a href=#675 id=675 data-nosnippet>675</a><span class="doccomment">/// Every `Resource` is an [`OptionSource`](crate::schema::OptionSource) — the
+<a href=#676 id=676 data-nosnippet>676</a>/// bridge that lets the relationship option loaders be generic over the source
+<a href=#677 id=677 data-nosnippet>677</a>/// surface instead of over `Resource`, so `schema` does not depend on
+<a href=#678 id=678 data-nosnippet>678</a>/// `resource`.
+<a href=#679 id=679 data-nosnippet>679</a>///
+<a href=#680 id=680 data-nosnippet>680</a>/// A resource answers the loaders here, so the loaders never name `Resource`.
+<a href=#681 id=681 data-nosnippet>681</a>/// [`scoped_query`](crate::schema::OptionSource::scoped_query), the one required
+<a href=#682 id=682 data-nosnippet>682</a>/// method, forwards to [`scoped_query`], so an option load inherits the tenant
+<a href=#683 id=683 data-nosnippet>683</a>/// gate and the derived tenant predicate exactly as every other loader does; it
+<a href=#684 id=684 data-nosnippet>684</a>/// is deliberately not [`Resource::query`], which on a gated resource is the
+<a href=#685 id=685 data-nosnippet>685</a>/// *tenant-unscoped* base.
+<a href=#686 id=686 data-nosnippet>686</a>///
+<a href=#687 id=687 data-nosnippet>687</a>/// The policy predicates and the tenant declaration forward unchanged, and the
+<a href=#688 id=688 data-nosnippet>688</a>/// search expression and default ordering come from the resource's declared
+<a href=#689 id=689 data-nosnippet>689</a>/// [`table`](Resource::table), which is where "the option search searches the
+<a href=#690 id=690 data-nosnippet>690</a>/// related resource's searchable columns" lives.
+<a href=#691 id=691 data-nosnippet>691</a></span><span class="kw">impl</span>&lt;R: Resource&gt; <span class="kw">crate</span>::schema::OptionSource <span class="kw">for </span>R {
+<a href=#692 id=692 data-nosnippet>692</a>    <span class="kw">type </span>Model = R::Model;
 <a href=#693 id=693 data-nosnippet>693</a>
-<a href=#694 id=694 data-nosnippet>694</a>    <span class="kw">fn </span>can_view_any(cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
-<a href=#695 id=695 data-nosnippet>695</a>        &lt;R <span class="kw">as </span>Resource&gt;::can_view_any(cx)
+<a href=#694 id=694 data-nosnippet>694</a>    <span class="kw">fn </span>scoped_query(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Result</span>&lt;Query&lt;List&lt;R::Model&gt;&gt;&gt; {
+<a href=#695 id=695 data-nosnippet>695</a>        scoped_query::&lt;R&gt;(cx)
 <a href=#696 id=696 data-nosnippet>696</a>    }
 <a href=#697 id=697 data-nosnippet>697</a>
-<a href=#698 id=698 data-nosnippet>698</a>    <span class="kw">fn </span>can_view(cx: <span class="kw-2">&amp;</span>Cx, record: <span class="kw-2">&amp;</span>R::Model) -&gt; bool {
-<a href=#699 id=699 data-nosnippet>699</a>        &lt;R <span class="kw">as </span>Resource&gt;::can_view(cx, record)
+<a href=#698 id=698 data-nosnippet>698</a>    <span class="kw">fn </span>can_view_any(cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
+<a href=#699 id=699 data-nosnippet>699</a>        &lt;R <span class="kw">as </span>Resource&gt;::can_view_any(cx)
 <a href=#700 id=700 data-nosnippet>700</a>    }
 <a href=#701 id=701 data-nosnippet>701</a>
-<a href=#702 id=702 data-nosnippet>702</a>    <span class="kw">fn </span>requires_tenant() -&gt; bool {
-<a href=#703 id=703 data-nosnippet>703</a>        &lt;R <span class="kw">as </span>Resource&gt;::requires_tenant()
+<a href=#702 id=702 data-nosnippet>702</a>    <span class="kw">fn </span>can_view(cx: <span class="kw-2">&amp;</span>Cx, record: <span class="kw-2">&amp;</span>R::Model) -&gt; bool {
+<a href=#703 id=703 data-nosnippet>703</a>        &lt;R <span class="kw">as </span>Resource&gt;::can_view(cx, record)
 <a href=#704 id=704 data-nosnippet>704</a>    }
 <a href=#705 id=705 data-nosnippet>705</a>
-<a href=#706 id=706 data-nosnippet>706</a>    <span class="kw">fn </span>slug() -&gt; String {
-<a href=#707 id=707 data-nosnippet>707</a>        &lt;R <span class="kw">as </span>Resource&gt;::slug()
+<a href=#706 id=706 data-nosnippet>706</a>    <span class="kw">fn </span>requires_tenant() -&gt; bool {
+<a href=#707 id=707 data-nosnippet>707</a>        &lt;R <span class="kw">as </span>Resource&gt;::requires_tenant()
 <a href=#708 id=708 data-nosnippet>708</a>    }
 <a href=#709 id=709 data-nosnippet>709</a>
-<a href=#710 id=710 data-nosnippet>710</a>    <span class="kw">fn </span>search_expr(cx: <span class="kw-2">&amp;</span>Cx, term: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
-<a href=#711 id=711 data-nosnippet>711</a>        &lt;R <span class="kw">as </span>Resource&gt;::table(cx).search_expr(term)
+<a href=#710 id=710 data-nosnippet>710</a>    <span class="kw">fn </span>slug() -&gt; String {
+<a href=#711 id=711 data-nosnippet>711</a>        &lt;R <span class="kw">as </span>Resource&gt;::slug()
 <a href=#712 id=712 data-nosnippet>712</a>    }
 <a href=#713 id=713 data-nosnippet>713</a>
-<a href=#714 id=714 data-nosnippet>714</a>    <span class="kw">fn </span>order_by(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Option</span>&lt;toasty::stmt::OrderByExpr&gt; {
-<a href=#715 id=715 data-nosnippet>715</a>        &lt;R <span class="kw">as </span>Resource&gt;::table(cx).order_by(<span class="bool-val">false</span>)
+<a href=#714 id=714 data-nosnippet>714</a>    <span class="kw">fn </span>search_expr(cx: <span class="kw-2">&amp;</span>Cx, term: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
+<a href=#715 id=715 data-nosnippet>715</a>        &lt;R <span class="kw">as </span>Resource&gt;::table(cx).search_expr(term)
 <a href=#716 id=716 data-nosnippet>716</a>    }
-<a href=#717 id=717 data-nosnippet>717</a>}
-<a href=#718 id=718 data-nosnippet>718</a>
-<a href=#719 id=719 data-nosnippet>719</a><span class="attr">#[cfg(test)]
-<a href=#720 id=720 data-nosnippet>720</a></span><span class="kw">mod </span>tests;
+<a href=#717 id=717 data-nosnippet>717</a>
+<a href=#718 id=718 data-nosnippet>718</a>    <span class="kw">fn </span>order_by(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Option</span>&lt;toasty::stmt::OrderByExpr&gt; {
+<a href=#719 id=719 data-nosnippet>719</a>        &lt;R <span class="kw">as </span>Resource&gt;::table(cx).order_by(<span class="bool-val">false</span>)
+<a href=#720 id=720 data-nosnippet>720</a>    }
+<a href=#721 id=721 data-nosnippet>721</a>}
+<a href=#722 id=722 data-nosnippet>722</a>
+<a href=#723 id=723 data-nosnippet>723</a><span class="attr">#[cfg(test)]
+<a href=#724 id=724 data-nosnippet>724</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>
