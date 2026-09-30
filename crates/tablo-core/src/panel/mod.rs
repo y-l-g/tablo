@@ -64,7 +64,7 @@ use crate::{
 ///
 /// The page-owned seam (GH #154 §2) pairs this with
 /// [`Table::load`](crate::resource::Table::load) and
-/// [`Table::render_live_normalized`](crate::resource::Table::render_live_normalized).
+/// [`Table::render_with_state`](crate::resource::Table::render_with_state).
 /// The table carries `R::table`'s columns, key, page size, search toolbar and
 /// filter bar, plus the action chrome `R`'s declarations imply — the row
 /// Delete link and bulk column from
@@ -74,10 +74,6 @@ use crate::{
 /// per row by `can_view`/`can_update`/`can_delete`, the wiring the panel's own
 /// list applies. The chrome has no other entry point: a page-owned table that
 /// must agree with the resource's routes takes its wiring from here.
-///
-/// This is the streamed page's variant, not the live shard's: the page owns the
-/// search and filter controls eagerly, and a live rerun re-renders the page
-/// unit (ADR-0020).
 pub fn wired_table<R: Resource>(cx: &topcoat::context::Cx) -> crate::resource::Table<R::Model> {
     self::list::wire_table_actions::<R>(cx, false)
 }
