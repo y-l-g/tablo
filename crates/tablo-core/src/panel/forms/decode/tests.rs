@@ -103,7 +103,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
         type Model = Dummy;
         type Form = DummyForm;
         fn form(_cx: &Cx) -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::FileUpload::r#for(Dummy::fields().name()))
+            crate::schema::Schema::new(crate::schema::Field::file(Dummy::fields().name()))
         }
 
         fn can_view_any(_cx: &Cx) -> bool {
@@ -117,7 +117,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct DummyForm {
         name: String,
     }

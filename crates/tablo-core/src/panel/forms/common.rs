@@ -92,7 +92,7 @@ pub(super) fn strip_transport_keys(
     schema: &crate::schema::Schema,
     values: &mut HashMap<String, String>,
 ) {
-    let declared: std::collections::HashSet<String> = schema.field_names().into_iter().collect();
+    let declared: HashSet<&str> = schema.fields().map(crate::schema::Field::name).collect();
     // A schema field literally named `csrf_token` (or `clear_<upload>`) is a
     // misconfiguration that would silently swallow its own value here — the
     // declared-name check keeps such a field's value flowing (the collision
@@ -103,7 +103,7 @@ pub(super) fn strip_transport_keys(
         }
         let field = k.strip_prefix("clear_").or_else(|| k.strip_prefix("keep_"));
         match field {
-            Some(field) if schema.file_uploads().contains_key(field) => {
+            Some(field) if schema.fields().any(|f| f.is_file() && f.name() == field) => {
                 declared.contains(k.as_str())
             }
             _ => true,
@@ -120,9 +120,9 @@ pub(super) fn drop_client_typed_uploads(
     file_part_names: &HashSet<String>,
     values: &mut HashMap<String, String>,
 ) {
-    for name in schema.file_uploads().keys() {
-        if !file_part_names.contains(name) {
-            values.remove(name);
+    for field in schema.fields().filter(|field| field.is_file()) {
+        if !file_part_names.contains(field.name()) {
+            values.remove(field.name());
         }
     }
 }
@@ -145,7 +145,8 @@ pub(super) async fn restore_pending_uploads(
     values: &mut HashMap<String, String>,
 ) -> HashSet<String> {
     let mut restored = HashSet::new();
-    for name in schema.file_uploads().keys() {
+    for field in schema.fields().filter(|field| field.is_file()) {
+        let name = field.name();
         let empty = values
             .get(name)
             .map(|value| value.trim().is_empty())
@@ -163,8 +164,8 @@ pub(super) async fn restore_pending_uploads(
         if candidate.is_empty() || !crate::upload::holds(cx, &candidate).await {
             continue;
         }
-        values.insert(name.clone(), candidate);
-        restored.insert(name.clone());
+        values.insert(name.to_string(), candidate);
+        restored.insert(name.to_string());
     }
     restored
 }

@@ -16,8 +16,8 @@ use crate::{
 ///
 /// `GET {parent_list_url}/options?field=&q=` — server-side narrowing for
 /// tables above the option cap. `field` allow-lists to a declared searchable
-/// relationship `Select` in `Resource::form` (400 otherwise); non-searchable
-/// selects keep today's cap error and never call here. `q` is trimmed and
+/// relationship choice in `Resource::form` (400 otherwise); a non-searchable
+/// choice keeps the cap error and never calls here. `q` is trimmed and
 /// clamped to the shared query bound; empty `q` returns the bounded head.
 ///
 /// Gates: `enforce_auth` + `enforce_tenant::<R>` (parent), then the related
@@ -39,8 +39,11 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
         }
         let q = clamp_query_term(&q);
         let form = R::form(cx);
-        let selects = form.select_inputs();
-        let Some(select) = selects.get(field) else {
+        let Some(select) = form
+            .fields()
+            .find(|declared| declared.name() == field)
+            .and_then(|declared| declared.as_choice())
+        else {
             return Err(topcoat::router::error::bad_request("unknown field").into());
         };
         if !select.is_relationship() {

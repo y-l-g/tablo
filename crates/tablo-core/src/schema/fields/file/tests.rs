@@ -6,7 +6,7 @@ use super::{
     super::test_support::{attributes_of, cx, opening_tag_at, tag_with},
     *,
 };
-use crate::schema::Schema;
+use crate::schema::{Schema, Source};
 
 #[tokio::test]
 async fn file_upload_renders_without_value_attr() {
@@ -18,11 +18,11 @@ async fn file_upload_renders_without_value_attr() {
         id: uuid::Uuid,
         path: String,
     }
-    let schema = Schema::new(FileUpload::r#for(Doc::fields().path()));
+    let schema = Schema::new(Field::file(Doc::fields().path()));
     let mut values = HashMap::new();
     values.insert("path".to_string(), "/tmp/old.jpg".to_string());
     let html = schema
-        .render_with(&cx, &values, &HashMap::new())
+        .render(&cx, Source::form(&values, &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -56,10 +56,7 @@ fn cx_and_doc_schema() -> (Cx, Schema) {
         id: uuid::Uuid,
         path: String,
     }
-    (
-        cx(),
-        Schema::new(FileUpload::r#for(Upload::fields().path())),
-    )
+    (cx(), Schema::new(Field::file(Upload::fields().path())))
 }
 
 async fn render_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String {
@@ -68,7 +65,7 @@ async fn render_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String 
         values.insert("path".to_string(), value.to_string());
     }
     schema
-        .render_with(cx, &values, &HashMap::new())
+        .render(cx, Source::form(&values, &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -84,7 +81,7 @@ async fn render_readonly_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -
         values.insert("path".to_string(), value.to_string());
     }
     schema
-        .render_readonly(cx, &values)
+        .render(cx, Source::view(&values))
         .await
         .unwrap()
         .single()
@@ -208,7 +205,7 @@ async fn file_upload_view_mode_links_the_stored_file() {
     );
 
     // Nothing stored is not a link to nowhere.
-    let empty = render_readonly_upload(&schema, &cx, None).await;
+    let empty = render_readonly_upload(&schema, &cx, Some("")).await;
     assert!(
         !empty.contains("href="),
         "an empty stored value must not render a link, got {empty}"

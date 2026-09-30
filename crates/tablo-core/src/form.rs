@@ -24,10 +24,10 @@
 //! }
 //!
 //! #[derive(tablo_core::RecordForm)]
-//! #[record_form(model = User)]
+//! #[form(model = User)]
 //! struct UserForm {
 //!     name: String,
-//!     #[record_form(blank = 0)]
+//!     #[form(blank = 0)]
 //!     age: i64,
 //! }
 //!
@@ -49,7 +49,7 @@
 //! # #[derive(Debug, Clone, toasty::Model)]
 //! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
 //! #[derive(tablo_core::RecordForm)]
-//! #[record_form(model = User)]
+//! #[form(model = User)]
 //! struct UserForm {
 //!     nickname: String,
 //! }
@@ -61,7 +61,7 @@
 //! # #[derive(Debug, Clone, toasty::Model)]
 //! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
 //! #[derive(tablo_core::RecordForm)]
-//! #[record_form(model = User)]
+//! #[form(model = User)]
 //! struct UserForm {
 //!     age: i32,
 //! }
@@ -79,7 +79,7 @@
 //! }
 //!
 //! #[derive(tablo_core::RecordForm)]
-//! #[record_form(model = Tagged)]
+//! #[form(model = Tagged)]
 //! struct TaggedForm {
 //!     tags: Vec<String>,
 //! }
@@ -91,9 +91,9 @@
 //! # #[derive(Debug, Clone, toasty::Model)]
 //! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
 //! #[derive(tablo_core::RecordForm)]
-//! #[record_form(model = User)]
+//! #[form(model = User)]
 //! struct UserForm {
-//!     #[record_form(embed)]
+//!     #[form(embed)]
 //!     name: String,
 //! }
 //! ```
@@ -119,7 +119,20 @@ use crate::{
 /// The value the parse sees is trimmed and non-empty; an empty submission is the
 /// field's **blank answer** instead (`""` for `String`, `None` for an `Option`,
 /// otherwise the `blank` a record form declares).
+///
+/// A text field binds a path of any `FormScalar` type
+/// ([`Field::text`](crate::Field::text)), and the form derives read and write
+/// every field that is not `#[form(embed)]` through it.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a form scalar",
+    label = "a form field of this type has no text spelling",
+    note = "a form scalar is `String`, a `TypedValue` type, or an `Option` of one; implement \
+            `TypedValue` for an app type, or mark an `EmbeddedForm` value `#[form(embed)]`"
+)]
 pub trait FormScalar: Sized {
+    /// The `type` attribute of the text control that edits it.
+    const INPUT_TYPE: &'static str = "text";
+
     /// The value an empty submission reads as, when the type has one.
     fn blank() -> Option<Self>;
 
@@ -145,15 +158,14 @@ impl FormScalar for String {
 }
 
 impl<T: TypedValue> FormScalar for T {
+    const INPUT_TYPE: &'static str = T::INPUT_TYPE;
+
     fn blank() -> Option<Self> {
         None
     }
 
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
-        match value.parse::<T>() {
-            Ok(parsed) if T::accepts(&parsed) => Ok(parsed),
-            _ => Err(format!("`{value}` is not a valid {}", T::NOUN)),
-        }
+        T::parse_input(value).ok_or_else(|| format!("`{value}` is not a valid {}", T::NOUN))
     }
 
     fn to_form(&self) -> String {
@@ -162,6 +174,8 @@ impl<T: TypedValue> FormScalar for T {
 }
 
 impl<T: TypedValue> FormScalar for Option<T> {
+    const INPUT_TYPE: &'static str = T::INPUT_TYPE;
+
     fn blank() -> Option<Self> {
         Some(None)
     }
@@ -188,6 +202,11 @@ impl FormScalar for Option<String> {
         self.clone().unwrap_or_default()
     }
 }
+
+/// Compiles only for a form scalar: the form derives call it, spanned on a
+/// field's type, so a field of another type fails there.
+#[doc(hidden)]
+pub fn assert_form_scalar<T: FormScalar>() {}
 
 /// Why a key failed to parse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

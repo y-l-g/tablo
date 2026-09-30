@@ -5,8 +5,8 @@ use super::*;
 /// A unit test carries no consumer manifest, so `proc_macro_crate` cannot
 /// resolve `tablo-core` and an input that passes the attribute checks
 /// expands to that error instead of the impl. Only inputs the checks
-/// themselves refuse produce a message to assert on; `label` and
-/// `field_label` are tested directly.
+/// themselves refuse produce a message to assert on; `label` and the member
+/// expansions are tested directly.
 fn expansion(source: &str) -> String {
     let input: DeriveInput = syn::parse_str(source).expect("the derive input parses");
     expand_tokens(input).to_string()
@@ -39,45 +39,63 @@ fn a_raw_identifier_keeps_its_spelling_without_the_raw_prefix() {
 /// the identifier's own spelling, and `#[form(label = ..)]` still wins.
 #[test]
 fn a_raw_identifier_field_is_labelled_without_the_raw_prefix() {
+    let krate = quote! { ::tablo_core };
+    let owner: syn::Ident = syn::parse_str("Seo").unwrap();
     let (_, field) = first_field("struct Seo { r#type: String }");
-    let ident = field.ident.as_ref().expect("a named field");
-    assert_eq!(field_label(&field, ident), "Type");
+    let member = &members([&field]).unwrap()[0];
+    let add = build_member(&krate, &owner, member, 0, None).to_string();
+    assert!(add.contains(r#"label ("Type")"#), "{add}");
 
     let (_, field) = first_field(r#"struct Seo { #[form(label = "Kind")] r#type: String }"#);
-    let ident = field.ident.as_ref().expect("a named field");
-    assert_eq!(field_label(&field, ident), "Kind");
+    let member = &members([&field]).unwrap()[0];
+    let add = build_member(&krate, &owner, member, 0, None).to_string();
+    assert!(add.contains(r#"label ("Kind")"#), "{add}");
 }
 
-/// `textarea` renders a `Textarea`, which binds a `String` leaf: on any
-/// other type the derive refuses it at the attribute rather than failing
-/// inside the generated code.
+/// A scalar of a type that is not a form scalar fails at a bound spanned on
+/// the field's type: the generated read asserts `FormScalar` for it.
 #[test]
-fn textarea_on_a_non_string_leaf_is_refused_at_the_attribute() {
-    let error = expansion("struct Seo { #[form(textarea)] rank: i64 }");
+fn a_scalar_carries_a_form_scalar_assertion() {
+    let member = Member {
+        ident: syn::parse_str("tags").unwrap(),
+        ty: syn::parse_str("Vec<String>").unwrap(),
+        attrs: FormAttrs::default(),
+        shared: false,
+    };
+    let krate = quote! { ::tablo_core };
+    let read = read_member(&krate, &member, 0, &quote! { None }).to_string();
     assert!(
-        error.contains("textarea") && error.contains("`String` field"),
-        "the refusal must name the attribute and the type it needs, got {error}"
+        read.contains("assert_form_scalar :: < Vec < String > >"),
+        "the read asserts the bound for the field's type, got {read}"
     );
 }
 
-/// The same attribute on a `String` leaf passes the check: whatever else
-/// the expansion emits, it is not the textarea refusal.
+/// An embedded member delegates to its own impl and asserts nothing.
 #[test]
-fn textarea_on_a_string_leaf_passes_the_attribute_check() {
-    let tokens = expansion("struct Seo { #[form(textarea)] body: String }");
-    assert!(
-        !tokens.contains("`String` field"),
-        "a `String` textarea must not be refused, got {tokens}"
-    );
+fn an_embedded_member_delegates_to_its_own_impl() {
+    let member = Member {
+        ident: syn::parse_str("seo").unwrap(),
+        ty: syn::parse_str("Seo").unwrap(),
+        attrs: FormAttrs {
+            embed: true,
+            ..FormAttrs::default()
+        },
+        shared: false,
+    };
+    let krate = quote! { ::tablo_core };
+    let read = read_member(&krate, &member, 0, &quote! { None }).to_string();
+    assert!(read.contains("read_node"), "{read}");
+    assert!(!read.contains("assert_form_scalar"), "{read}");
 }
 
-/// The refusal fires for a payload field of an enum variant too: the check
-/// walks every field the derive will bind.
+/// A misspelled key is refused whatever the field's type.
 #[test]
-fn textarea_on_a_non_string_enum_payload_is_refused() {
-    let error = expansion("enum Kind { Draft { #[form(textarea)] rank: i64 } }");
+fn an_unknown_form_key_is_refused() {
+    let error = expansion("struct Seo { #[form(textarea)] body: String }");
+    assert!(error.contains("unknown `#[form(..)]` key"), "got {error}");
+    let error = expansion("enum Kind { Draft { #[form(rows = 3)] body: String } }");
     assert!(
-        error.contains("`String` field"),
-        "an enum payload must be checked too, got {error}"
+        error.contains("unknown `#[form(..)]` key"),
+        "an enum payload is checked too, got {error}"
     );
 }

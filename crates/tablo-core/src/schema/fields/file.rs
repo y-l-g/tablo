@@ -1,115 +1,32 @@
+//! The file control: a file input storing the uploaded file's path.
+
 use tablo_ui::{checkbox as ui_checkbox, input as ui_input, label as ui_label};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    super::{
-        lenses::{lens_field, lens_label},
-        tree::Mode,
-        validation::Rules,
-    },
-    FieldChrome, ValueKind, render_field, render_value, render_value_view,
+    super::tree::Mode, Field, FieldChrome, ValueKind, render_field, render_value, render_value_view,
 };
 
-/// FileUpload field — stores a String path with file input handling.
-///
-/// Storage contract: the field always binds a `String` column
-/// holding a *path*, never bytes. Forms containing a `FileUpload` render
-/// `enctype="multipart/form-data"` (see `Panel`) and the POST parser extracts
-/// the file part; where the bytes go is the app's decision, expressed by the
-/// [`Uploader`](crate::Uploader) installed with
-/// [`Panel::uploads`](crate::Panel::uploads). An installed uploader receives
-/// the part's sanitized filename and bytes and returns the value to store; with
-/// none, the sanitized basename is stored. The file input renders no `value`
-/// attribute, which browsers ignore for security.
-///
-/// `render_with` and `validate` own the rest: the stored value as a link and
-/// its `clear_<field>` checkbox, and the edit-time
-/// `required` rule.
-#[derive(Debug, Clone)]
-pub struct FileUpload {
-    name: String,
-    label: String,
-    required: bool,
-}
-
-impl FileUpload {
-    /// Create a `FileUpload` bound to the given field lens.
-    ///
-    /// Required defaults from the lens's nullability,
-    /// same as `TextInput`/`Select`. The `String` lens type only binds
-    /// non-nullable columns (`Option<String>` fields do not typecheck), so
-    /// the default is always required and `.optional()` is the form-level
-    /// opt-out; the nullability walk stays correct if the lens widens
-    /// upstream (#183).
-    pub fn r#for<M>(path: toasty::stmt::Path<M, String>) -> Self
-    where
-        M: toasty::schema::Model,
-    {
-        let field = lens_field(path, &M::schema());
-        Self {
-            name: field.name.app_unwrap().to_string(),
-            label: lens_label(&field),
-            required: !field.nullable(),
-        }
-    }
-
-    pub fn required(mut self) -> Self {
-        self.required = true;
-        self
-    }
-
-    /// Opt out of the required default: `r#for` only binds
-    /// non-nullable `String` columns (an `Option<String>` field is
-    /// `Path<M, Option<String>>` and does not typecheck), so the default is
-    /// always required and this is the only way to treat a required-backed
-    /// column as form-optional — an empty submit then passes validation and
-    /// the record fn decides what to store.
-    pub fn optional(mut self) -> Self {
-        self.required = false;
-        self
-    }
-
-    pub fn label(mut self, l: impl Into<String>) -> Self {
-        self.label = l.into();
-        self
-    }
-
-    pub fn field_name(&self) -> &str {
-        &self.name
-    }
-
-    /// The label as the user sees it, for the errors the framework words
-    /// (: a failed upload is reported against this label).
-    ///
-    /// `pub(crate)`, unlike `TextInput::label_str`: the upload seam is what
-    /// needs it, and the issue's contract is that nothing about the `Schema`
-    /// surface changes when an app installs a store.
-    pub(crate) fn label_str(&self) -> &str {
-        &self.label
-    }
-
-    pub fn validate(&self, value: &str) -> Vec<String> {
-        Rules::new().validate(&self.label, self.required, value)
-    }
-
-    pub(crate) async fn render_with<'a>(
+impl Field {
+    /// Render a file field: the stored path as a link in `Mode::View`, the
+    /// file input with the stored path and its clear toggle otherwise.
+    pub(super) fn render_file<'a>(
         &self,
         cx: &'a Cx,
         value: Option<&str>,
         errors: &[String],
         mode: Mode,
     ) -> Result<BoxView<'a>> {
-        // The detail page shows the stored path, never a file control
-        // an empty `FileUpload` on an edit is the panel's "keep the
-        // stored file" affordance, which is a statement about a form, not about
-        // a record.
+        // The detail page shows the stored path, never a file control: an
+        // empty file input on an edit is the panel's "keep the stored file"
+        // affordance, which is a statement about a form, not about a record.
         if mode == Mode::View {
             return stored_upload_value(cx, &self.label, value);
         }
         let name = self.name.clone();
-        // An edit hydrates the stored path; a create does not. See
-        // the type docs: the control is required only when nothing is stored,
-        // since a file input cannot be pre-filled.
+        // An edit hydrates the stored path; a create does not. The control
+        // is required only when nothing is stored, since a file input cannot
+        // be pre-filled.
         let stored = stored_path(value);
         let is_edit = stored.is_some();
         let control_required = self.required && !is_edit;
@@ -189,7 +106,7 @@ impl FileUpload {
     }
 }
 
-/// The stored path a `FileUpload` shows, if it has one.
+/// The stored path a file field shows, if it has one.
 ///
 /// A value that is absent or only whitespace is not a file: the form renders a
 /// create rather than an edit with an empty "Current:" line, and the read-only
@@ -212,10 +129,10 @@ fn is_linkable(path: &str) -> bool {
         || lower.starts_with("http://")
 }
 
-/// The `Current: …` row a `FileUpload` shows for a stored value.
+/// The `Current: …` row a file field shows for a stored value.
 ///
 /// Takes the path by value: the rendered view has to outlive the field's
-/// `render_with`, and a rendering coroutine may not hold a borrow of it.
+/// render, and a rendering coroutine may not hold a borrow of it.
 fn stored_upload_row<'a>(cx: &'a Cx, path: String) -> BoxView<'a> {
     // The link is the only way to reach the file, and the path is what it
     // says; each node owns its own copy of it.
@@ -242,7 +159,7 @@ fn stored_upload_row<'a>(cx: &'a Cx, path: String) -> BoxView<'a> {
     .boxed()
 }
 
-/// A `FileUpload` read rather than edited: the label over the stored
+/// A file field read rather than edited: the label over the stored
 /// path, as a link to the file when it is one.
 ///
 /// The reader asks the same "is the stored value right?" question the editor

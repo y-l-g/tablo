@@ -11,8 +11,10 @@ struct DummyUser {
     email: String,
 }
 
+/// Building a schema resolves every field once into its field list, nested
+/// blocks included, so a question about the form's fields reads one list.
 #[test]
-fn has_file_upload_detects_nested() {
+fn the_field_list_holds_nested_fields_in_declaration_order() {
     #[derive(Debug, toasty::Model)]
     struct Doc {
         #[key]
@@ -21,33 +23,33 @@ fn has_file_upload_detects_nested() {
         path: String,
         title: String,
     }
-    let plain = Schema::new(TextInput::r#for(DummyUser::fields().name()));
-    assert!(!plain.has_file_upload());
-    let direct = Schema::new(FileUpload::r#for(Doc::fields().path()));
-    assert!(direct.has_file_upload());
-    // Nested inside Section/Grid/Repeater counts.
-    let nested = Schema::new(Section::new("S").schema(Grid::new(2).schema((
-        TextInput::r#for(DummyUser::fields().name()),
-        FileUpload::r#for(Doc::fields().path()),
-    ))));
-    assert!(nested.has_file_upload());
-    let in_repeater =
-        Schema::new(Repeater::new("R").schema(FileUpload::r#for(Doc::fields().path())));
-    assert!(in_repeater.has_file_upload());
+    let schema = Schema::new((
+        Field::text(Doc::fields().title()),
+        Section::new("S").schema(Grid::new(2).schema(Repeater::new("R").schema((
+            Field::text(DummyUser::fields().name()),
+            Field::file(Doc::fields().path()),
+        )))),
+    ));
+    let names: Vec<&str> = schema.fields().map(Field::name).collect();
+    assert_eq!(names, ["title", "name", "path"]);
+    assert!(
+        schema.fields().any(|field| field.is_file()),
+        "a file field nested in a repeater is in the list"
+    );
 }
 
 #[test]
 #[should_panic(expected = "duplicate field name")]
 fn schema_rejects_duplicate_field_names() {
     let _ = Schema::new((
-        TextInput::r#for(DummyUser::fields().name()),
-        TextInput::r#for(DummyUser::fields().name()),
+        Field::text(DummyUser::fields().name()),
+        Field::text(DummyUser::fields().name()),
     ));
 }
 
 #[test]
 fn unknown_keys_flags_undeclared_post_keys() {
-    let schema = Schema::new(TextInput::r#for(DummyUser::fields().name()));
+    let schema = Schema::new(Field::text(DummyUser::fields().name()));
     let mut values = HashMap::new();
     values.insert("name".to_string(), "Ada".to_string());
     values.insert("role".to_string(), "admin".to_string());
@@ -61,15 +63,15 @@ fn unknown_keys_flags_undeclared_post_keys() {
     assert!(schema.unknown_keys(&values).is_empty());
 }
 
-/// GH #297: a `Select`'s presence and option checks read `value.trim()`,
+/// GH #297: a choice's presence and option checks read `value.trim()`,
 /// so the trimmed spelling is the one validation authorises. Normalisation
 /// writes exactly that value, and a padded value no option matches is still
 /// refused rather than trimmed into one.
 #[tokio::test]
-async fn a_select_stores_the_value_its_check_authorised() {
+async fn a_choice_stores_the_value_its_check_authorised() {
     let cx = topcoat::context::CxTestBuilder::new().build();
     let schema = Schema::new(
-        Select::r#for(DummyUser::fields().name())
+        Field::choice(DummyUser::fields().name())
             .options(vec!["red".to_string(), "blue".to_string()]),
     );
 
@@ -94,12 +96,11 @@ async fn a_select_stores_the_value_its_check_authorised() {
     );
 }
 
-/// GH #191: a derived form is built by appending, so `extend` carries the
-/// same duplicate-name guard `Schema::new` does.
+/// `extend` carries the same duplicate-name guard `Schema::new` does.
 #[test]
 #[should_panic(expected = "duplicate field name 'name'")]
 fn extend_keeps_the_duplicate_field_guard() {
-    let input = || TextInput::r#for(DummyUser::fields().name());
+    let input = || Field::text(DummyUser::fields().name());
     let _ = Schema::empty()
         .extend(Schema::new(input()))
         .extend(Schema::new(input()));

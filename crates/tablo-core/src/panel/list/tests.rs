@@ -610,7 +610,7 @@ async fn list_header_renders_create_entry_point_when_allowed() {
         type Model = Dummy;
         type Form = CreatableForm;
         fn form(_cx: &Cx) -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
+            crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
         fn slug() -> String {
@@ -627,7 +627,7 @@ async fn list_header_renders_create_entry_point_when_allowed() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct CreatableForm {
         name: String,
     }
@@ -671,7 +671,7 @@ async fn non_editable_resource_hides_edit_links() {
         type Model = Dummy;
         type Form = WritableForm;
         fn form(_cx: &Cx) -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
+            crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
         fn slug() -> String {
@@ -697,7 +697,7 @@ async fn non_editable_resource_hides_edit_links() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct WritableForm {
         name: String,
     }
@@ -760,7 +760,7 @@ async fn denied_rows_render_no_edit_chrome() {
         type Model = Dummy;
         type Form = DeniedForm;
         fn form(_cx: &Cx) -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
+            crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
         fn slug() -> String {
@@ -774,7 +774,7 @@ async fn denied_rows_render_no_edit_chrome() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct DeniedForm {
         name: String,
     }
@@ -848,7 +848,7 @@ async fn denied_rows_render_no_edit_chrome() {
 async fn per_record_policy_narrows_the_wired_chrome() {
     use crate::{
         resource::Resource,
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     /// Chrome wired for all three actions, with a policy that refuses one
@@ -858,7 +858,7 @@ async fn per_record_policy_narrows_the_wired_chrome() {
         type Model = Dummy;
         type Form = RowPolicyForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Dummy::fields().name()))
+            Schema::new(Field::text(Dummy::fields().name()))
         }
 
         fn slug() -> String {
@@ -883,11 +883,11 @@ async fn per_record_policy_narrows_the_wired_chrome() {
             dummy_table(cx).paginate(25)
         }
         fn view(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Dummy::fields().name()))
+            Schema::new(Field::text(Dummy::fields().name()))
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct RowPolicyForm {
         name: String,
     }
@@ -1026,7 +1026,7 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
         type Model = Dummy;
         type Form = GatedForm;
         fn form(_cx: &Cx) -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::TextInput::r#for(Dummy::fields().name()))
+            crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
         fn slug() -> String {
@@ -1052,7 +1052,7 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct GatedForm {
         name: String,
     }

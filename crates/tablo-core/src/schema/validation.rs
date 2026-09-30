@@ -1,45 +1,47 @@
 //! The rules a field applies to a submitted string, and their messages.
 //!
 //! Presence, email and the typed parse are the rules a form applies without a
-//! `Cx`. `TextInput`, `Select`, `Textarea` and `FileUpload` each read their
-//! errors from one [`Rules`], and the repeater walk in `Schema::validate`
-//! words its own required error with [`required_error`]. The rules that need a
-//! `Cx` — `check_unique` in `panel::forms` and `Select`'s option-existence
-//! probe — stay with their callers.
+//! `Cx`. Every [`Field`](super::Field) reads its errors from one [`Rules`], and
+//! the repeater walk in `Schema::validate` words its own required error with
+//! [`required_error`]. The rules that need a `Cx` — `check_unique` in
+//! `panel::forms` and a choice field's option-existence probe — stay with
+//! their callers.
 
 use email_address::{EmailAddress, Options};
 
-/// A typed column's own spelling rules, for the typed constructors.
+use crate::form::FormScalar;
+
+/// A typed column's own spelling rules.
 ///
 /// The form edge is text: a control submits a `String`, so a column that is not
-/// a `String` needs a `Display` to render and a `FromStr` to read back. `NOUN`
+/// a `String` needs a `Display` to render and a parse to read back. `NOUN`
 /// names the type in the error a user sees (`` `2024-13-01` is not a valid
-/// date ``), because "invalid" alone does not tell them what was expected.
+/// timestamp ``), because "invalid" alone does not tell them what was expected.
 ///
-/// Implemented for the types a panel actually binds rather than as a blanket
-/// over `FromStr`: a blanket would let a field declare a parse only to have no
-/// sensible message for it, and the set is small.
+/// Implemented for the types a panel binds rather than as a blanket over
+/// `FromStr`: a blanket would let a field declare a parse only to have no
+/// sensible message for it. An app type implements it to bind as a text field
+/// and a record-form scalar ([`FormScalar`](crate::FormScalar)).
 pub trait TypedValue: std::fmt::Display + std::str::FromStr {
     /// What this type is called in a validation error.
     const NOUN: &'static str;
 
-    /// Whether a successful `FromStr` is a value the form accepts.
+    /// The `type` attribute of the text control that edits it.
+    const INPUT_TYPE: &'static str = "text";
+
+    /// Read a trimmed, non-empty submission, or `None` when the type refuses
+    /// it.
     ///
-    /// `FromStr` is the first word, not the last: `f32`/`f64` parse `NaN`,
-    /// `inf` and `-inf` (and a literal that overflows, like `1e400`), none of
-    /// which is a number a field can hand back — the stored spelling would be
-    /// one no user typed. The default accepts whatever `FromStr` produced, so
-    /// only a type with such a gap implements this.
-    fn accepts(value: &Self) -> bool {
-        let _ = value;
-        true
+    /// The default is `FromStr`. A type overrides it where `FromStr` accepts a
+    /// value no user typed (`f64` parses `NaN`) or refuses one its control
+    /// sends (a `datetime-local` value carries no zone).
+    fn parse_input(value: &str) -> Option<Self> {
+        value.parse().ok()
     }
 }
 
-/// The integer types a typed leaf can bind (GH #191 widened this from the three
-/// GH #192 shipped): a derived embedded value classifies a field as a leaf by
-/// its type, so the set of leaf-capable types has to be the whole integer
-/// family rather than the ones the showcase happened to use.
+/// The integer types a typed field binds: the whole family, so a derived
+/// embedded value can hold any of them.
 macro_rules! typed_whole_number {
     ($($ty:ty),* $(,)?) => {
         $(
@@ -58,19 +60,27 @@ impl TypedValue for bool {
     const NOUN: &'static str = "yes/no value";
 }
 
+/// `FromStr` parses `NaN`, `inf`, `-inf`, and an overflowing literal (`1e400`)
+/// into a float no field can hand back, so a float accepts finite values only.
 impl TypedValue for f32 {
     const NOUN: &'static str = "number";
 
-    fn accepts(value: &Self) -> bool {
-        value.is_finite()
+    fn parse_input(value: &str) -> Option<Self> {
+        value
+            .parse::<f32>()
+            .ok()
+            .filter(|parsed| parsed.is_finite())
     }
 }
 
 impl TypedValue for f64 {
     const NOUN: &'static str = "number";
 
-    fn accepts(value: &Self) -> bool {
-        value.is_finite()
+    fn parse_input(value: &str) -> Option<Self> {
+        value
+            .parse::<f64>()
+            .ok()
+            .filter(|parsed| parsed.is_finite())
     }
 }
 
@@ -78,31 +88,19 @@ impl TypedValue for uuid::Uuid {
     const NOUN: &'static str = "identifier";
 }
 
+/// A timestamp renders `type="datetime-local"`, whose value carries no zone:
+/// the stored instant renders in UTC, and a submission is read back as UTC.
 impl TypedValue for jiff::Timestamp {
     const NOUN: &'static str = "timestamp";
-}
+    const INPUT_TYPE: &'static str = "datetime-local";
 
-/// Whether `T` is the timestamp type a typed field renders as `datetime-local`.
-pub(crate) fn is_timestamp<T>() -> bool {
-    std::any::type_name::<T>() == std::any::type_name::<jiff::Timestamp>()
-}
-
-/// Parse a timestamp submission into its stored spelling.
-///
-/// Accepts what the type accepts (RFC 3339) plus the `datetime-local` shapes a
-/// browser sends (`YYYY-MM-DDTHH:MM`, with optional seconds and fraction),
-/// assumed UTC. Returns the type's canonical `Display`, so a re-read is a
-/// fixpoint.
-pub(crate) fn parse_timestamp_storage(value: &str) -> Result<String, String> {
-    let error = || format!("`{value}` is not a valid timestamp");
-    let trimmed = value.trim();
-    if let Ok(parsed) = trimmed.parse::<jiff::Timestamp>() {
-        return Ok(parsed.to_string());
-    }
-    let normalized = normalize_datetime_local(trimmed).ok_or_else(error)?;
-    match normalized.parse::<jiff::Timestamp>() {
-        Ok(parsed) => Ok(parsed.to_string()),
-        Err(_) => Err(error()),
+    /// RFC 3339, plus the `datetime-local` shapes a browser sends
+    /// (`YYYY-MM-DDTHH:MM`, with optional seconds and fraction), read as UTC.
+    fn parse_input(value: &str) -> Option<Self> {
+        if let Ok(parsed) = value.parse::<jiff::Timestamp>() {
+            return Some(parsed);
+        }
+        normalize_datetime_local(value)?.parse().ok()
     }
 }
 
@@ -112,8 +110,8 @@ fn normalize_datetime_local(value: &str) -> Option<String> {
     let t = value.find('T')?;
     let after_t = &value[t + 1..];
     // A zone offset after the `T` means the value already names its offset;
-    // the direct parse above refused it, so it is not a valid timestamp. A
-    // valid control value carries neither `+` nor `-` after the `T`.
+    // the direct parse refused it, so it is not a valid timestamp. A valid
+    // control value carries neither `+` nor `-` after the `T`.
     if after_t.contains('+') || after_t.contains('-') {
         return None;
     }
@@ -132,8 +130,7 @@ fn normalize_datetime_local(value: &str) -> Option<String> {
 /// A stored timestamp as the `datetime-local` value its control renders.
 ///
 /// The control carries no zone, so the instant renders in UTC truncated to the
-/// minute. Anything that is not a timestamp (empty, old free-text) renders
-/// empty: there is no back-compat spelling for free-text.
+/// minute. Anything that is not a timestamp (empty, free text) renders empty.
 pub(crate) fn format_timestamp_input(storage: &str) -> String {
     let trimmed = storage.trim();
     if trimmed.is_empty() {
@@ -145,26 +142,20 @@ pub(crate) fn format_timestamp_input(storage: &str) -> String {
     }
 }
 
-/// How a typed field reads a submitted string back.
-///
-/// A `String` field keeps the identity parser — store what was typed — so the
-/// untyped path stays byte-for-byte what it was. A typed field gets a parser
-/// that validates at the form edge and normalises through `Display`.
-type ValueParser = std::sync::Arc<dyn Fn(&str) -> Result<String, String> + Send + Sync>;
+/// How a field reads a submitted string back: the stored spelling, or the
+/// error message.
+type ValueParser = fn(&str) -> Result<String, String>;
 
-/// The parser a typed field binds: reject what `T` cannot parse — or parses
-/// into a value it does not accept — and store what `T`'s own
-/// `Display` produces for it.
+/// The parser a scalar field binds: reject what `T` refuses and store what
+/// `T`'s own form spelling produces for it.
 ///
-/// Normalising through `Display` is the point, not a side effect: it is what
-/// makes an edit that never touched the field write back a value of the same
-/// shape it read, rather than an unreviewed re-spelling. A `jiff::Timestamp`
-/// submitted as `2024-01-02T03:04:05Z` is stored as that type's canonical form.
-fn typed_parser<T: TypedValue>() -> ValueParser {
-    std::sync::Arc::new(|value: &str| match value.parse::<T>() {
-        Ok(parsed) if T::accepts(&parsed) => Ok(parsed.to_string()),
-        _ => Err(format!("`{value}` is not a valid {}", T::NOUN)),
-    })
+/// Normalising through the spelling is the point, not a side effect: it is
+/// what makes an edit that never touched the field write back a value of the
+/// same shape it read, rather than an unreviewed re-spelling. A
+/// `jiff::Timestamp` submitted as `2024-01-02T03:04` is stored as that
+/// type's canonical RFC 3339 form. A `String` stores what was typed.
+fn scalar_parser<T: FormScalar>(value: &str) -> Result<String, String> {
+    T::parse_form(value).map(|parsed| parsed.to_form())
 }
 
 /// The rules a field declares on top of presence, and the wording of every
@@ -174,7 +165,7 @@ fn typed_parser<T: TypedValue>() -> ValueParser {
 /// declaration on the field — a non-nullable column is required, a unique one
 /// is never empty — so [`Rules::validate`] takes the caller's
 /// resolved flag and a field with no other rule holds nothing at all.
-#[derive(Clone, Default)]
+#[derive(Clone, Copy, Default)]
 pub(crate) struct Rules {
     email: bool,
     parser: Option<ValueParser>,
@@ -186,13 +177,9 @@ impl Rules {
         Self::default()
     }
 
-    /// Add the typed parse rule for `T`.
-    pub(crate) fn typed<T: TypedValue>(mut self) -> Self {
-        if is_timestamp::<T>() {
-            self.parser = Some(std::sync::Arc::new(parse_timestamp_storage));
-        } else {
-            self.parser = Some(typed_parser::<T>());
-        }
+    /// Add the parse rule of the scalar type `T`.
+    pub(crate) fn scalar<T: FormScalar>(mut self) -> Self {
+        self.parser = Some(scalar_parser::<T>);
         self
     }
 
@@ -204,11 +191,6 @@ impl Rules {
     /// Whether the email rule is on — the control's `type` attribute reads it.
     pub(crate) fn is_email(&self) -> bool {
         self.email
-    }
-
-    /// Whether a typed parse rule is on.
-    pub(crate) fn is_typed(&self) -> bool {
-        self.parser.is_some()
     }
 
     /// Validate `value`, in rule order: presence, email, typed parse.
@@ -239,8 +221,8 @@ impl Rules {
 
     /// The stored spelling of a submission the caller has already validated.
     ///
-    /// The typed parse's `Display` for a typed field, the trimmed submission
-    /// for an untyped one — so a value the user left alone is written back in
+    /// The parse's form spelling for a scalar field, the trimmed submission
+    /// otherwise — so a value the user left alone is written back in
     /// the shape the record fn wrote it, not in whichever spelling the browser
     /// sent. Callers that have not validated must not use this: it reports a
     /// failure rather than guessing.

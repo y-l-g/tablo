@@ -9,24 +9,17 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{
-    EmbeddedForm, FieldErrorKind, Schema, enum_spec, leaf_key, read_embedded, value_keys,
-    write_embedded,
-};
+use tablo_core::{EmbeddedForm, Field, FieldErrorKind, ResolvedLens, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
 };
 
-/// Whether `values` carries any key of the value at `path`.
-fn mentions<M: toasty::schema::Model, T>(
-    cx: &topcoat::context::Cx,
-    path: impl Into<toasty::stmt::Path<M, T>>,
-    values: &HashMap<String, String>,
-) -> bool {
-    value_keys(cx, path)
-        .iter()
-        .any(|key| values.contains_key(key))
+/// Whether `values` carries any key of the value `schema` declares.
+fn mentions(schema: &Schema, values: &HashMap<String, String>) -> bool {
+    schema
+        .fields()
+        .any(|field| values.contains_key(field.name()))
 }
 
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
@@ -44,6 +37,7 @@ struct Credit {
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 struct Poster {
     url: String,
+    #[form(embed)]
     credit: Credit,
 }
 
@@ -77,7 +71,11 @@ enum Media {
     #[column(variant = 1)]
     Image { url: String, alt: String },
     #[column(variant = 2)]
-    Video { video_url: String, poster: Poster },
+    Video {
+        video_url: String,
+        #[form(embed)]
+        poster: Poster,
+    },
 }
 
 /// A unit variant carries no payload: the discriminant alone is the value.
@@ -94,6 +92,7 @@ enum Visibility {
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 struct Wrapper {
     label: String,
+    #[form(embed)]
     inner: Media,
 }
 
@@ -163,52 +162,44 @@ async fn keys_come_from_the_compiled_mapping() {
     let cx = post_cx().await;
 
     assert_eq!(
-        leaf_key(&cx, Post::fields().seo().title()),
+        ResolvedLens::new(&cx, Post::fields().seo().title()).name(),
         "seo_title",
         "an embedded struct's leaf is its flattened column"
     );
     assert_eq!(
-        leaf_key(&cx, Post::fields().post_stats().word_count()),
+        ResolvedLens::new(&cx, Post::fields().post_stats().word_count()).name(),
         "post_stats_word_count"
     );
 
-    let publication = enum_spec(&cx, Post::fields().publication()).expect("an embedded enum");
+    // The enum's variant control comes first, on the discriminant column
+    // named after the field; then the shared column, once, and each
+    // variant's own payload.
+    let publication = Publication::form(&cx, Post::fields().publication());
     assert_eq!(
-        publication.discriminant(),
-        "publication",
-        "the enum's discriminant column is named after the field"
+        publication.fields().map(Field::name).collect::<Vec<_>>(),
+        [
+            "publication",
+            "publication_timestamp",
+            "publication_scheduled_for",
+            "publication_canonical_url",
+            "publication_reason",
+        ]
     );
-    assert_eq!(publication.len(), 3, "three variants, in declaration order");
-    assert_eq!(publication.value_of_index(1), Some("2"));
-    assert_eq!(
-        publication.name_of_index(1),
-        Some("Published"),
-        "the value a variant stores and the name it is labelled with are two \
-         different things"
-    );
-    assert_eq!(publication.name_of_index(3), None);
-    assert_eq!(publication.index_of("3"), Some(2));
-    assert_eq!(publication.index_of("nope"), None);
 
     // A value knows which keys are its own: the discriminant and every leaf,
     // the shared column included (once — it is one column).
     assert!(mentions(
-        &cx,
-        Post::fields().publication(),
+        &Publication::form(&cx, Post::fields().publication()),
         &map(&[("publication", "1")])
     ));
     assert!(mentions(
-        &cx,
-        Post::fields().publication(),
+        &Publication::form(&cx, Post::fields().publication()),
         &map(&[("publication_timestamp", "t")])
     ));
     assert!(mentions(
-        &cx,
-        Post::fields().publication(),
+        &Publication::form(&cx, Post::fields().publication()),
         &map(&[("publication_canonical_url", "/x")])
     ));
-
-    assert!(enum_spec(&cx, Post::fields().seo()).is_none());
 }
 
 /// A struct: leaves in, leaves out, no discriminant.
@@ -221,14 +212,15 @@ async fn a_struct_round_trips_through_the_flat_map() {
     };
 
     let mut values = HashMap::new();
-    write_embedded(&cx, Post::fields().seo(), &seo, &mut values);
+    seo.write_form(&cx, Post::fields().seo(), &mut values);
     assert_eq!(
         values,
         map(&[("seo_title", "Hello"), ("seo_description", "World")]),
         "a struct writes exactly its leaves"
     );
 
-    let read: Seo = read_embedded(&cx, Post::fields().seo(), &values).expect("the value reads");
+    let read: Seo =
+        EmbeddedForm::read_form(&cx, Post::fields().seo(), &values).expect("the value reads");
     assert_eq!(read, seo);
 }
 
@@ -243,7 +235,7 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
     };
 
     let mut values = HashMap::new();
-    write_embedded(&cx, Post::fields().publication(), &published, &mut values);
+    published.write_form(&cx, Post::fields().publication(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -254,8 +246,8 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
         "an enum writes its discriminant and the active variant's leaves"
     );
 
-    let read: Publication =
-        read_embedded(&cx, Post::fields().publication(), &values).expect("the value reads");
+    let read: Publication = EmbeddedForm::read_form(&cx, Post::fields().publication(), &values)
+        .expect("the value reads");
     assert_eq!(read, published);
 
     // The discriminating case: a submission whose *payloads* say Published but
@@ -268,7 +260,8 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
         ("publication_reason", "superseded"),
     ]);
     let read: Publication =
-        read_embedded(&cx, Post::fields().publication(), &contradictory).expect("the value reads");
+        EmbeddedForm::read_form(&cx, Post::fields().publication(), &contradictory)
+            .expect("the value reads");
     assert_eq!(
         read,
         Publication::Archived {
@@ -293,8 +286,8 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
         ("publication_timestamp", "2026-09-22T00:00:00Z"),
         ("publication_canonical_url", "/hello"),
     ]);
-    let read: Publication =
-        read_embedded(&cx, Post::fields().publication(), &published).expect("the value reads");
+    let read: Publication = EmbeddedForm::read_form(&cx, Post::fields().publication(), &published)
+        .expect("the value reads");
     assert_eq!(
         read,
         Publication::Published {
@@ -308,8 +301,8 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
         ("publication_timestamp", "2026-09-22T00:00:00Z"),
         ("publication_reason", "superseded"),
     ]);
-    let read: Publication =
-        read_embedded(&cx, Post::fields().publication(), &archived).expect("the value reads");
+    let read: Publication = EmbeddedForm::read_form(&cx, Post::fields().publication(), &archived)
+        .expect("the value reads");
     assert_eq!(
         read,
         Publication::Archived {
@@ -323,7 +316,8 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
     // three), so on its own it infers nothing: the first variant.
     let shared_only = map(&[("publication_timestamp", "2026-09-22T00:00:00Z")]);
     let read: Publication =
-        read_embedded(&cx, Post::fields().publication(), &shared_only).expect("the value reads");
+        EmbeddedForm::read_form(&cx, Post::fields().publication(), &shared_only)
+            .expect("the value reads");
     assert_eq!(
         read,
         Publication::Scheduled {
@@ -344,7 +338,7 @@ async fn an_unknown_discriminant_is_refused() {
         ("publication", "99"),
         ("publication_canonical_url", "/hello"),
     ]);
-    let errors = read_embedded::<Post, Publication>(&cx, Post::fields().publication(), &values)
+    let errors = EmbeddedForm::read_form(&cx, Post::fields().publication(), &values)
         .expect_err("an undeclared variant is refused");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].key, "publication");
@@ -368,7 +362,7 @@ async fn nested_values_delegate_to_their_own_codec() {
     };
 
     let mut values = HashMap::new();
-    write_embedded(&cx, Post::fields().media(), &video, &mut values);
+    video.write_form(&cx, Post::fields().media(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -380,7 +374,8 @@ async fn nested_values_delegate_to_their_own_codec() {
         ])
     );
 
-    let read: Media = read_embedded(&cx, Post::fields().media(), &values).expect("the value reads");
+    let read: Media =
+        EmbeddedForm::read_form(&cx, Post::fields().media(), &values).expect("the value reads");
     assert_eq!(read, video);
 }
 
@@ -391,32 +386,23 @@ async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
     let cx = post_cx().await;
 
     let mut values = HashMap::new();
-    write_embedded(
-        &cx,
-        Post::fields().visibility(),
-        &Visibility::Public,
-        &mut values,
-    );
+    Visibility::Public.write_form(&cx, Post::fields().visibility(), &mut values);
     assert_eq!(values, map(&[("visibility", "1")]));
-    let read: Visibility =
-        read_embedded(&cx, Post::fields().visibility(), &values).expect("the value reads");
+    let read: Visibility = EmbeddedForm::read_form(&cx, Post::fields().visibility(), &values)
+        .expect("the value reads");
     assert_eq!(read, Visibility::Public);
 
     let mut values = HashMap::new();
-    write_embedded(
-        &cx,
-        Post::fields().visibility(),
-        &Visibility::Private {
-            reason: "draft".to_string(),
-        },
-        &mut values,
-    );
+    Visibility::Private {
+        reason: "draft".to_string(),
+    }
+    .write_form(&cx, Post::fields().visibility(), &mut values);
     assert_eq!(
         values,
         map(&[("visibility", "2"), ("visibility_reason", "draft")])
     );
-    let read: Visibility =
-        read_embedded(&cx, Post::fields().visibility(), &values).expect("the value reads");
+    let read: Visibility = EmbeddedForm::read_form(&cx, Post::fields().visibility(), &values)
+        .expect("the value reads");
     assert_eq!(
         read,
         Visibility::Private {
@@ -436,7 +422,7 @@ async fn typed_leaves_round_trip_and_default_when_empty() {
     };
 
     let mut values = HashMap::new();
-    write_embedded(&cx, Post::fields().post_stats(), &stats, &mut values);
+    stats.write_form(&cx, Post::fields().post_stats(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -444,8 +430,8 @@ async fn typed_leaves_round_trip_and_default_when_empty() {
             ("post_stats_read_minutes", "6"),
         ])
     );
-    let read: PostStats =
-        read_embedded(&cx, Post::fields().post_stats(), &values).expect("the value reads");
+    let read: PostStats = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &values)
+        .expect("the value reads");
     assert_eq!(read, stats);
 
     let empty = map(&[
@@ -453,7 +439,7 @@ async fn typed_leaves_round_trip_and_default_when_empty() {
         ("post_stats_read_minutes", ""),
     ]);
     let read: PostStats =
-        read_embedded(&cx, Post::fields().post_stats(), &empty).expect("the value reads");
+        EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &empty).expect("the value reads");
     assert_eq!(read, PostStats::default(), "an empty typed leaf defaults");
 }
 
@@ -463,7 +449,7 @@ async fn typed_leaves_round_trip_and_default_when_empty() {
 async fn an_unparseable_typed_leaf_is_refused() {
     let cx = post_cx().await;
     let values = map(&[("post_stats_word_count", "many")]);
-    let errors = read_embedded::<Post, PostStats>(&cx, Post::fields().post_stats(), &values)
+    let errors = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &values)
         .expect_err("an unparseable leaf is refused");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].key, "post_stats_word_count");
@@ -476,19 +462,16 @@ async fn an_unparseable_typed_leaf_is_refused() {
 async fn value_keys_name_every_key_of_a_value() {
     let cx = post_cx().await;
     assert!(mentions(
-        &cx,
-        Post::fields().seo(),
+        &Seo::form(&cx, Post::fields().seo()),
         &map(&[("seo_title", "x")])
     ));
     assert!(!mentions(
-        &cx,
-        Post::fields().seo(),
+        &Seo::form(&cx, Post::fields().seo()),
         &map(&[("title", "x")])
     ));
     // The discriminant counts: a form that only posts the variant mentioned it.
     assert!(mentions(
-        &cx,
-        Post::fields().publication(),
+        &Publication::form(&cx, Post::fields().publication()),
         &map(&[("publication", "1")])
     ));
 }
@@ -503,14 +486,16 @@ async fn a_nested_enum_contributes_its_discriminant() {
     // mentions the wrapper.
     assert!(
         mentions(
-            &cx,
-            Post::fields().wrapper(),
+            &Wrapper::form(&cx, Post::fields().wrapper()),
             &map(&[("wrapper_inner", "1")])
         ),
         "naming only the nested variant mentions the value"
     );
     assert!(
-        !mentions(&cx, Post::fields().wrapper(), &map(&[("title", "x")])),
+        !mentions(
+            &Wrapper::form(&cx, Post::fields().wrapper()),
+            &map(&[("title", "x")])
+        ),
         "a key outside the value does not mention it"
     );
 
@@ -522,7 +507,7 @@ async fn a_nested_enum_contributes_its_discriminant() {
         },
     };
     let mut values = HashMap::new();
-    write_embedded(&cx, Post::fields().wrapper(), &wrapper, &mut values);
+    wrapper.write_form(&cx, Post::fields().wrapper(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -533,7 +518,7 @@ async fn a_nested_enum_contributes_its_discriminant() {
         ])
     );
     let read: Wrapper =
-        read_embedded(&cx, Post::fields().wrapper(), &values).expect("the value reads");
+        EmbeddedForm::read_form(&cx, Post::fields().wrapper(), &values).expect("the value reads");
     assert_eq!(read, wrapper);
 }
 
@@ -550,15 +535,15 @@ async fn variant_casing_needs_no_normalisation() {
         Casing::Draft,
     ] {
         let mut values = HashMap::new();
-        write_embedded(&cx, Post::fields().casing(), &casing, &mut values);
-        let read: Casing =
-            read_embedded(&cx, Post::fields().casing(), &values).expect("the value reads");
+        casing.write_form(&cx, Post::fields().casing(), &mut values);
+        let read: Casing = EmbeddedForm::read_form(&cx, Post::fields().casing(), &values)
+            .expect("the value reads");
         assert_eq!(read, casing, "wrote {values:?}");
     }
 
     // And the derived form renders (a name mismatch would panic here).
     let html = Schema::new(Casing::form(&cx, Post::fields().casing()))
-        .render_with(&cx, &HashMap::new(), &HashMap::new())
+        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -589,7 +574,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
     };
 
     let mut values = HashMap::new();
-    write_embedded(&cx, Post::fields().flags(), &flags, &mut values);
+    flags.write_form(&cx, Post::fields().flags(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -598,7 +583,8 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
             ("flags_revision", "7"),
         ])
     );
-    let read: Flags = read_embedded(&cx, Post::fields().flags(), &values).expect("the value reads");
+    let read: Flags =
+        EmbeddedForm::read_form(&cx, Post::fields().flags(), &values).expect("the value reads");
     assert_eq!(read, flags);
 
     // A bad `bool` is refused by the typed control before a record fn runs, so
@@ -612,22 +598,19 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
     );
 }
 
-/// The generated form: the variant `Select`, every variant's payload in its own
-/// marked group, and no control at all in view mode.
+/// The generated form: the variant control, every variant's payload in its own
+/// marked group, and in view mode no control at all and only the stored
+/// variant's payload.
 #[tokio::test]
 async fn the_derived_form_renders_the_variant_select_and_every_payload() {
     let cx = post_cx().await;
     let schema = Schema::new(Publication::form(&cx, Post::fields().publication()));
     let mut values = HashMap::new();
-    write_embedded(
-        &cx,
-        Post::fields().publication(),
-        &Publication::Archived {
-            archived_at: "2026-09-22T00:00:00Z".to_string(),
-            reason: "superseded".to_string(),
-        },
-        &mut values,
-    );
+    Publication::Archived {
+        archived_at: "2026-09-22T00:00:00Z".to_string(),
+        reason: "superseded".to_string(),
+    }
+    .write_form(&cx, Post::fields().publication(), &mut values);
 
     let html = render_form(&cx, &schema, &values).await;
 
@@ -673,20 +656,19 @@ async fn the_derived_form_renders_the_variant_select_and_every_payload() {
         !view.contains(">3<"),
         "the view must print the variant's name, never its discriminant, got {view}"
     );
-
-    // A record with no stored variant has no name to show: the row is absent
-    // rather than blank.
-    let unnamed = render_view(&cx, &schema, &HashMap::new()).await;
+    // Only the stored variant's payload reads: the other variants hold no
+    // values on this record.
+    assert!(view.contains("superseded"), "got {view}");
     assert!(
-        !unnamed.contains(">Publication<"),
-        "an unset variant must not render a row, got {unnamed}"
+        !view.contains("Canonical Url") && !view.contains("Scheduled for"),
+        "another variant's payload must not render on the detail page, got {view}"
     );
 }
 
 /// The form's HTML, hydrated with `values` (empty for a create form).
 async fn render_form(cx: &Cx, schema: &Schema, values: &HashMap<String, String>) -> String {
     schema
-        .render_with(cx, values, &HashMap::new())
+        .render(cx, Source::form(values, &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -698,7 +680,7 @@ async fn render_form(cx: &Cx, schema: &Schema, values: &HashMap<String, String>)
 /// The form's read-only HTML, hydrated with `values`.
 async fn render_view(cx: &Cx, schema: &Schema, values: &HashMap<String, String>) -> String {
     schema
-        .render_readonly(cx, values)
+        .render(cx, Source::view(values))
         .await
         .unwrap()
         .single()
@@ -720,14 +702,14 @@ fn variant_markers(html: &str) -> Vec<String> {
         .collect()
 }
 
-/// The variant `Select`'s own markup: from its hook to the first `</select>`.
+/// The variant control's own markup: from its hook to the first `</select>`.
 fn variant_select(html: &str) -> &str {
     html.split_once("data-variant-select=")
         .and_then(|(_, rest)| rest.split_once("</select>").map(|(select, _)| select))
         .expect("a variant select")
 }
 
-/// The `value="…"` of every option in the first variant `Select` of `html`, in
+/// The `value="…"` of every option in the first variant control of `html`, in
 /// document order — the placeholder first, then one per variant.
 fn variant_options(html: &str) -> Vec<String> {
     let select = variant_select(html);
@@ -740,7 +722,7 @@ fn variant_options(html: &str) -> Vec<String> {
         .collect()
 }
 
-/// The text of every option in the first variant `Select` of `html`, in
+/// The text of every option in the first variant control of `html`, in
 /// document order — what a person reads, the placeholder included.
 fn variant_option_labels(html: &str) -> Vec<String> {
     let select = variant_select(html);
@@ -759,7 +741,7 @@ fn variant_option_labels(html: &str) -> Vec<String> {
 /// schema's variant list — so a variant added to the enum cannot silently lose
 /// its group, and no group can name a variant the schema does not declare.
 ///
-/// The markers are the discriminant values the `Select` offers, which is what
+/// The markers are the discriminant values the variant control offers, which is what
 /// makes `variant.js` able to compare them with the submitted value — so the
 /// control's options are asserted against the same list, values **and** labels:
 /// an option labelled with the value it submits (`3`) is the hidden input made
@@ -767,7 +749,6 @@ fn variant_option_labels(html: &str) -> Vec<String> {
 #[tokio::test]
 async fn the_variant_groups_are_exactly_the_schemas_variants() {
     let cx = post_cx().await;
-    let spec = enum_spec(&cx, Post::fields().publication()).expect("an embedded enum");
     let html = render_form(
         &cx,
         &Schema::new(Publication::form(&cx, Post::fields().publication())),
@@ -775,9 +756,8 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
     )
     .await;
 
-    let expected: Vec<String> = (0..spec.len())
-        .map(|index| spec.value_of_index(index).expect("declared").to_string())
-        .collect();
+    // `Publication` stores 1, 2, and 3 (`#[column(variant = N)]`).
+    let expected = ["1", "2", "3"];
     assert_eq!(
         variant_markers(&html),
         expected,
@@ -785,7 +765,7 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
     );
     assert_eq!(
         html.matches("data-variant-of=\"publication\"").count(),
-        spec.len(),
+        expected.len(),
         "every group must name the enum it belongs to, got {html}"
     );
     let mut offered = variant_options(&html);
@@ -802,14 +782,7 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
          order: the marker a group carries is the option that shows it, got {html}"
     );
 
-    let expected_names: Vec<String> = (0..spec.len())
-        .map(|index| spec.name_of_index(index).expect("declared").to_string())
-        .collect();
-    assert_eq!(
-        expected_names,
-        vec!["Scheduled", "Published", "Archived"],
-        "the schema's variant names are what the labels are built from"
-    );
+    let expected_names = ["Scheduled", "Published", "Archived"];
     let mut labels = variant_option_labels(&html);
     assert_eq!(
         labels.first().map(String::as_str),

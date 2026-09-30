@@ -7,7 +7,7 @@
 //! embedded value over a real model and a real panel — with a typed leaf in the
 //! inactive variant so a validated group would refuse the submission.
 
-use tablo_core::{Auth, Panel, Resource, Schema, Table, TextColumn, TextInput};
+use tablo_core::{Auth, Field, Panel, Resource, Schema, Table, TextColumn};
 use toasty::Db;
 use uuid::Uuid;
 
@@ -41,7 +41,7 @@ impl Resource for ClipResource {
     type Model = Clip;
     type Form = ClipForm;
     fn form(cx: &topcoat::context::Cx) -> Schema {
-        Schema::new(TextInput::r#for(Clip::fields().title()))
+        Schema::new(Field::text(Clip::fields().title()))
             .extend(Body::form(cx, Clip::fields().body()))
     }
 
@@ -65,10 +65,10 @@ impl Resource for ClipResource {
     }
 }
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Clip)]
+#[form(model = Clip)]
 struct ClipForm {
     title: String,
-    #[record_form(embed)]
+    #[form(embed)]
     body: Body,
 }
 #[tokio::test]

@@ -9,7 +9,7 @@ use topcoat::{context::Cx, router::Body};
 use crate::{
     Panel,
     resource::{Resource, Table, TextColumn},
-    schema::{Schema, TextInput},
+    schema::{Field, Schema},
 };
 
 /// The two-column model a panel test's resource renders.
@@ -82,8 +82,8 @@ impl crate::resource::Resource for TaggedResource {
 
     fn form(_cx: &Cx) -> Schema {
         Schema::new((
-            TextInput::r#for(Tagged::fields().name()),
-            TextInput::typed::<Tagged, uuid::Uuid>(Tagged::fields().token()).unique(),
+            Field::text(Tagged::fields().name()),
+            Field::text(Tagged::fields().token()).unique(),
         ))
     }
 
@@ -119,7 +119,7 @@ impl crate::resource::Resource for TaggedResource {
 
 /// [`Tagged`]'s record form: both columns, written through the derived write.
 #[derive(crate::RecordForm)]
-#[record_form(model = Tagged)]
+#[form(model = Tagged)]
 pub(crate) struct TaggedForm {
     pub(crate) name: String,
     pub(crate) token: uuid::Uuid,

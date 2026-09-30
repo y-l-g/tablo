@@ -349,9 +349,9 @@ async fn a_root_model_the_schema_does_not_carry_resolves_to_nothing() {
     );
     assert!(
         resolver
-            .resolve_embedded_value(LensPost::fields().seo().into())
+            .resolve_enum(LensPost::fields().publication().into())
             .is_none(),
-        "a value cannot resolve against a schema that has no LensPost"
+        "an enum cannot resolve against a schema that has no LensPost"
     );
 }
 
@@ -399,7 +399,7 @@ async fn an_id_that_names_another_model_resolves_to_nothing() {
     );
     assert!(
         resolver
-            .resolve_embedded_value(LensPost::fields().seo().into())
+            .resolve_enum(LensPost::fields().publication().into())
             .is_none(),
         "the root at this id is Impostor, so no index may be trusted"
     );
@@ -413,105 +413,65 @@ async fn an_id_that_names_another_model_refuses_a_leaf_lens() {
     let _ = FieldResolver::from_cx(&cx).resolve(LensPost::fields().seo().title());
 }
 
-/// A struct value: its leaf columns in declaration order, and no
-/// discriminant.
+/// An enum: its discriminant column, and each variant's stored value and
+/// name, in declaration order.
 #[tokio::test]
-async fn an_embedded_struct_value_lists_its_leaf_columns() {
+async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
     let cx = lens_cx().await;
-    let spec = FieldResolver::from_cx(&cx)
-        .resolve_embedded_value(LensPost::fields().seo().into())
-        .expect("an embedded struct is a value");
-    assert_eq!(spec.columns, ["seo_title", "seo_description"]);
-    assert!(
-        spec.enum_spec.is_none(),
-        "a struct has no variant to choose"
-    );
-}
-
-/// An enum value: the discriminant column first, then each variant's
-/// payload — the `#[shared]` column once, because it is one column.
-#[tokio::test]
-async fn an_embedded_enum_value_lists_its_discriminant_and_every_variant() {
-    let cx = lens_cx().await;
-    let spec = FieldResolver::from_cx(&cx)
-        .resolve_embedded_value(LensPost::fields().publication().into())
-        .expect("an embedded enum is a value");
+    let shape = FieldResolver::from_cx(&cx)
+        .resolve_enum(LensPost::fields().publication().into())
+        .expect("an embedded enum resolves");
+    assert_eq!(shape.discriminant, "publication");
     assert_eq!(
-        spec.columns,
+        shape.variants,
         [
-            "publication",
-            "publication_timestamp",
-            "publication_scheduled_for",
-            "publication_canonical_url",
-        ],
-        "the shared column appears once, and the discriminant is a key too"
-    );
-    let enum_spec = spec.enum_spec.expect("an enum has a variant to choose");
-    assert_eq!(enum_spec.discriminant(), "publication");
-    assert_eq!(enum_spec.len(), 2);
-    assert_eq!(enum_spec.value_of_index(0), Some("1"));
-    assert_eq!(enum_spec.name_of_index(1), Some("Published"));
-}
-
-/// A struct holding an enum: the nested enum's discriminant is a key of the
-/// value too, while the value itself stays a struct.
-#[tokio::test]
-async fn a_struct_value_lists_the_discriminant_of_an_enum_it_holds() {
-    let cx = lens_cx().await;
-    let spec = FieldResolver::from_cx(&cx)
-        .resolve_embedded_value(LensPost::fields().wrapper().into())
-        .expect("an embedded struct is a value");
-    assert_eq!(
-        spec.columns,
-        [
-            "wrapper_label",
-            "wrapper_inner",
-            "wrapper_inner_url",
-            "wrapper_inner_alt",
-            "wrapper_inner_video_url",
-            "wrapper_inner_poster_url",
-            "wrapper_inner_poster_credit_author",
+            ("1".to_string(), "Scheduled".to_string()),
+            ("2".to_string(), "Published".to_string()),
         ]
     );
-    assert!(
-        spec.enum_spec.is_none(),
-        "the value at the path is the struct, not the enum it holds"
-    );
 }
 
-/// A variant-rooted path names one variant, not the value: value binding
-/// starts at the embedded field itself.
+/// An enum nested in a struct resolves through the struct's path.
 #[tokio::test]
-async fn a_variant_rooted_path_is_not_an_embedded_value() {
+async fn an_enum_inside_a_struct_resolves_through_its_path() {
     let cx = lens_cx().await;
-    assert!(
-        FieldResolver::from_cx(&cx)
-            .resolve_embedded_value(LensPost::fields().media().video().video_url())
-            .is_none()
-    );
+    let shape = FieldResolver::from_cx(&cx)
+        .resolve_enum(LensPost::fields().wrapper().inner().into())
+        .expect("the nested enum resolves");
+    assert_eq!(shape.discriminant, "wrapper_inner");
 }
 
-/// A plain column and a `#[document]` are leaves, not values: neither has a
-/// per-field surface a codec could bind.
+/// A struct, a plain column, a `#[document]`, and a variant-rooted path are
+/// not enums.
 #[tokio::test]
-async fn a_leaf_is_not_an_embedded_value() {
+async fn anything_but_an_enum_resolves_to_nothing() {
     let cx = lens_cx().await;
     let resolver = FieldResolver::from_cx(&cx);
     assert!(
         resolver
-            .resolve_embedded_value(LensPost::fields().title())
+            .resolve_enum(LensPost::fields().seo().into())
             .is_none(),
+        "a struct has no variant"
+    );
+    assert!(
+        resolver.resolve_enum(LensPost::fields().title()).is_none(),
         "a primitive field is a leaf"
     );
     assert!(
         resolver
-            .resolve_embedded_value(LensPost::fields().stats().into())
+            .resolve_enum(LensPost::fields().stats().into())
             .is_none(),
-        "a #[document] stores as one column, so it has no per-field value"
+        "a #[document] stores as one column"
+    );
+    assert!(
+        resolver
+            .resolve_enum(LensPost::fields().media().video().video_url())
+            .is_none(),
+        "a variant-rooted path names one variant, not the value"
     );
 }
 
-/// Without a `Db` there is no schema, and a value binding has no fallback.
+/// Without a `Db` there is no schema, and an enum has no fallback.
 #[test]
 fn without_a_schema_there_is_no_walk() {
     let cx = CxTestBuilder::new().build();
@@ -519,8 +479,8 @@ fn without_a_schema_there_is_no_walk() {
     assert!(!resolver.has_schema(), "a bare Cx carries no Db");
     assert!(
         resolver
-            .resolve_embedded_value(LensPost::fields().seo().into())
+            .resolve_enum(LensPost::fields().publication().into())
             .is_none(),
-        "a value binding needs the app schema"
+        "an enum needs the app schema"
     );
 }

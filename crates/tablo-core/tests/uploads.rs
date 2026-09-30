@@ -14,9 +14,7 @@ use std::{
 use http::header::{
     CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, LOCATION, X_CONTENT_TYPE_OPTIONS,
 };
-use tablo_core::{
-    Auth, FileUpload, Panel, Resource, Schema, Table, TextColumn, TextInput, Uploader,
-};
+use tablo_core::{Auth, Field, Panel, Resource, Schema, Table, TextColumn, Uploader};
 use toasty::Db;
 use topcoat::{
     context::Cx,
@@ -85,9 +83,9 @@ impl Resource for DocResource {
     type Form = DocForm;
     fn form(_cx: &Cx) -> Schema {
         Schema::new((
-            TextInput::r#for(Doc::fields().title()),
-            FileUpload::r#for(Doc::fields().cover()).label("Cover"),
-            FileUpload::r#for(Doc::fields().attachment())
+            Field::text(Doc::fields().title()),
+            Field::file(Doc::fields().cover()).label("Cover"),
+            Field::file(Doc::fields().attachment())
                 .label("Attachment")
                 .optional(),
         ))
@@ -120,7 +118,7 @@ impl Resource for DocResource {
     }
 }
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Doc)]
+#[form(model = Doc)]
 struct DocForm {
     title: String,
     cover: String,

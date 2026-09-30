@@ -1,16 +1,17 @@
-//! Unified Schema primitive — layout blocks that compose via `view!`.
+//! Unified Schema primitive — fields and layout blocks that compose via `view!`.
 //!
-//! `Schema` is a container for `Section`, `Group`, `Grid`, `Tabs` and
-//! `Repeater` nodes. Each node renders through Topcoat's `view!` macro;
-//! `Schema::render` combines them. The API mirrors Filament's
-//! `Schema::new(( ... ))` tuple form via the `IntoSchema` trait.
+//! `Schema` holds a tree of `Section`, `Group`, `Grid`, and `Repeater`
+//! blocks, embedded values, and [`Field`] slots. Building it resolves every
+//! field once into one list, which rendering, validation, and the panel's
+//! checks read. The API mirrors Filament's `Schema::new(( ... ))` tuple form
+//! via the `IntoSchema` trait.
 //!
 //! Bridge note: `lens_field` is the one walk reaching into `toasty_core`
 //! (upstream issue #114), alongside the `pk_*` bridge helpers and `cursor.rs`
-//! cursor values. It hands back the built `app::Field`, so field metadata no
-//! longer needs a helper per property; uniqueness comes from
-//! `lens_field_unique`, since Toasty keeps it on the model's index list rather
-//! than the field. Retire the walk when Toasty exposes it (upstream #183).
+//! cursor values. It hands back the built `app::Field`, so field metadata
+//! needs no helper per property; uniqueness comes from `lens_field_unique`,
+//! since Toasty keeps it on the model's index list rather than the field.
+//! Retire the walk when Toasty exposes it (upstream #183).
 
 mod embedded;
 mod fields;
@@ -23,54 +24,45 @@ mod validation;
 
 use std::collections::{HashMap, HashSet};
 
-pub use embedded::{
-    EmbeddedForm, EnumSpec, discriminant_select, enum_spec, leaf_key, parse_leaf, read_embedded,
-    value_keys, write_embedded,
-};
+pub use embedded::EmbeddedForm;
 #[doc(hidden)]
-pub use embedded::{take_leaf, take_value};
-pub use fields::{FileUpload, Select, TextInput, Textarea};
-pub use layouts::{Grid, Group, Repeater, Section, Tabs};
-pub use lenses::FieldLens;
+pub use embedded::{Embedded, EmbeddedBuilder, embedded_keys, parse_leaf, take_leaf, take_value};
+pub use fields::Field;
+pub use layouts::{Grid, Group, Repeater, Section};
+pub use lenses::{FieldLens, ResolvedLens};
 pub(crate) use lenses::{capitalize, lens_field, lens_field_unique, lens_label};
 pub(crate) use pk::{pk_eq_expr, pk_in_expr, pk_is_composite};
 pub(crate) use relationship::OptionLoadError;
 pub use relationship::{MAX_RELATIONSHIP_OPTIONS, OptionSource};
 use topcoat::{Result, context::Cx, view::*};
-pub use tree::IntoSchema;
-pub(crate) use tree::{
-    Mode, Node, RenderSource, for_each_field, validate_leaf, walk_absent_groups,
-};
+pub use tree::{IntoSchema, Source};
+pub(crate) use tree::{Node, render_nodes, walk_absent_groups};
 pub use validation::TypedValue;
 
 /// One control as the record-form checks see it ([`Schema::controls`]).
 #[derive(Debug, Clone)]
-pub(crate) struct Control {
+pub(crate) struct ControlCheck {
     /// The key the control posts.
     pub(crate) name: String,
     /// Whether an empty submission fails the control's rules.
     pub(crate) required: bool,
     /// The message an empty submission produces, when it fails.
     pub(crate) required_error: Option<String>,
-    /// The container that can skip the control's requiredness, if any: a
-    /// submission may then reach the parse with the control empty.
-    pub(crate) skipped_by: Option<SkippedBy>,
+    /// Whether the control sits inside a `Repeater`, whose all-empty group
+    /// skips its requiredness: a submission may then reach the parse with the
+    /// control empty.
+    pub(crate) in_repeater: bool,
 }
 
-/// A container whose submission can leave its controls' requiredness
-/// unchecked.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SkippedBy {
-    /// An all-empty `Repeater` group.
-    Repeater,
-    /// A variant group the submission's discriminant does not name.
-    VariantGroup,
-}
-
-/// The container that composes layout blocks.
+/// The container that composes fields and layout blocks.
+///
+/// The field list is resolved once, when the schema is built: every
+/// [`Field`] a block or an embedded value holds moves into it, and the tree
+/// holds slots into it.
 #[derive(Debug, Default)]
 pub struct Schema {
     pub(crate) nodes: Vec<Node>,
+    pub(crate) fields: Vec<Field>,
 }
 
 impl Schema {
@@ -83,11 +75,12 @@ impl Schema {
         self.nodes.is_empty()
     }
 
-    /// Build a `Schema` from any `IntoSchema` (single node, tuple, or `Schema`).
+    /// Build a `Schema` from any `IntoSchema` (a field, a block, a tuple, or a
+    /// `Schema`).
     ///
     /// Panics on duplicate field names: two inputs sharing one name
     /// render two `<input name="x">`, POST one value to both, and collapse to
-    /// one validation rule via last-wins `map.insert`.
+    /// one validation rule.
     pub fn new(children: impl IntoSchema) -> Self {
         let schema = children.into_schema();
         schema.assert_unique_field_names();
@@ -96,38 +89,38 @@ impl Schema {
 
     /// An empty schema (no nodes).
     pub fn empty() -> Self {
-        Self { nodes: Vec::new() }
+        Self::default()
     }
 
-    /// Render the schema to a `View` (no DB access).
-    pub async fn render<'a>(&self, cx: &'a Cx) -> Result<BoxView<'a>> {
-        self.render_with(cx, &HashMap::new(), &HashMap::new()).await
+    /// Every field, in declaration order.
+    pub fn fields(&self) -> impl Iterator<Item = &Field> {
+        self.fields.iter()
     }
 
-    /// Render the schema read-only: the detail page's side of the
-    /// same declaration.
-    ///
-    /// Every field shows the record's stored value in place of its control, so
-    /// a detail page reuses the field types and layout blocks a form already
-    /// declares rather than a parallel infolist vocabulary. `values` is the
-    /// record hydrated exactly as the edit form hydrates it
-    /// ([`RecordForm::hydrate`](crate::RecordForm::hydrate) for a form
-    /// resource): what a user reads on the page is what the form would have
-    /// shown them.
-    pub async fn render_readonly<'a>(
-        &self,
-        cx: &'a Cx,
-        values: &HashMap<String, String>,
-    ) -> Result<BoxView<'a>> {
-        self.render_source(
-            cx,
-            &RenderSource {
-                values,
-                errors: &HashMap::new(),
-                mode: Mode::View,
-            },
-        )
-        .await
+    /// Render the schema from `source`: a form's controls
+    /// ([`Source::form`]) or a record's read-only values ([`Source::view`]).
+    pub async fn render<'a>(&self, cx: &'a Cx, source: Source<'_>) -> Result<BoxView<'a>> {
+        render_nodes(cx, &self.nodes, &self.fields, &source).await
+    }
+
+    /// Append `other`'s nodes and fields after this one's, re-slotting its
+    /// field slots past this schema's fields.
+    pub(crate) fn append(&mut self, other: Schema) {
+        let Schema { mut nodes, fields } = other;
+        let offset = self.fields.len();
+        for node in &mut nodes {
+            node.offset(offset);
+        }
+        self.fields.extend(fields);
+        self.nodes.extend(nodes);
+    }
+
+    /// The embedded node a derived value's schema holds.
+    pub(crate) fn embedded_root(&self) -> &embedded::Embedded {
+        match self.nodes.as_slice() {
+            [Node::Embedded(node)] => node,
+            _ => panic!("an embedded value's schema is its one embedded node"),
+        }
     }
 
     /// Rewrite submitted values into their fields' stored spelling.
@@ -138,7 +131,7 @@ impl Schema {
     /// stored value, the browser echoes it, and this puts back the same string
     /// the record fn would have produced.
     ///
-    /// A `Select` takes its trimmed submission: its presence rule and its
+    /// A choice takes its trimmed submission: its presence rule and its
     /// option-existence check both read `value.trim()`, so the trimmed value is
     /// the one that passed, and storing the untrimmed spelling would store a
     /// value no rule authorised.
@@ -151,24 +144,15 @@ impl Schema {
     /// `.required()` refuses it inline, and an optional typed field reaches the
     /// record form's parse as `""`, which reads it as the field's blank answer.
     pub fn normalize_values(&self, values: &mut HashMap<String, String>) {
-        for (name, input) in self.text_inputs() {
-            let Some(submitted) = values.get(&name) else {
+        for field in &self.fields {
+            let Some(submitted) = values.get_mut(field.name()) else {
                 continue;
             };
             if submitted.trim().is_empty() {
                 continue;
             }
-            if let Ok(normalized) = input.normalize(submitted) {
-                values.insert(name, normalized);
-            }
-        }
-        for name in self.select_inputs().keys() {
-            let Some(submitted) = values.get(name).cloned() else {
-                continue;
-            };
-            let trimmed = submitted.trim();
-            if trimmed.len() != submitted.len() {
-                values.insert(name.clone(), trimmed.to_string());
+            if let Ok(normalized) = field.normalize(submitted) {
+                *submitted = normalized;
             }
         }
     }
@@ -176,99 +160,51 @@ impl Schema {
     /// Append another schema's nodes after this one's.
     ///
     /// [`Schema::new`] composes through `IntoSchema`, whose tuple form stops at
-    /// eight nodes; a derived embedded form has one control per leaf column and
-    /// composes nested values, so it builds its schema by appending instead. The
-    /// nodes keep their order, so a form reads in declaration order either way.
+    /// eight nodes; a longer form appends instead. The nodes keep their order,
+    /// so a form reads in declaration order either way.
     pub fn extend(mut self, other: Schema) -> Schema {
-        self.nodes.extend(other.nodes);
-        // The same guard `Schema::new` runs: a derived form is built by
-        // appending, so this is the only check for the shapes `new` cannot see.
+        self.append(other);
+        // The same guard `Schema::new` runs: this is the only check for the
+        // shapes `new` cannot see.
         self.assert_unique_field_names();
         self
     }
 
-    /// Render with pre-filled values and inline errors.
-    pub async fn render_with<'a>(
-        &self,
-        cx: &'a Cx,
-        values: &HashMap<String, String>,
-        errors: &HashMap<String, Vec<String>>,
-    ) -> Result<BoxView<'a>> {
-        self.render_source(
-            cx,
-            &RenderSource {
-                values,
-                errors,
-                mode: Mode::Form,
-            },
-        )
-        .await
-    }
-
-    /// The one node walk: every node renders its static form.
-    pub(crate) async fn render_source<'a>(
-        &self,
-        cx: &'a Cx,
-        source: &RenderSource<'_>,
-    ) -> Result<BoxView<'a>> {
-        let mut views = Vec::with_capacity(self.nodes.len());
-        for node in &self.nodes {
-            views.push(Box::pin(node.render_source(cx, source)).await?.boxed());
-        }
-        Ok(view! {
-            cx =>
-            for v in views {
-                (v)
-            }
-        }
-        .boxed())
-    }
-
-    /// Every control, in declaration order, with what an empty submission
-    /// does to it: the schema's own required message when it refuses one, and
-    /// the container that can skip its requiredness — an all-empty `Repeater`
-    /// or a variant group the discriminant does not name
+    /// Every field, in declaration order, with what an empty submission
+    /// does to it: the field's own required message when it refuses one, and
+    /// whether an all-empty `Repeater` can skip its requiredness
     /// ([`walk_absent_groups`]).
-    pub(crate) fn controls(&self) -> Vec<Control> {
-        fn walk(nodes: &[Node], skipped_by: Option<SkippedBy>, out: &mut Vec<Control>) {
-            let empty = HashMap::new();
+    ///
+    /// A variant group can skip requiredness too, but only an embedded value's
+    /// fields sit in one, and its record-form field reads an empty key as
+    /// `Default`, so the checks have nothing to ask of it.
+    pub(crate) fn controls(&self) -> Vec<ControlCheck> {
+        fn mark(nodes: &[Node], inside: bool, out: &mut [bool]) {
             for node in nodes {
-                if let Some((name, errors)) = validate_leaf(node, &empty) {
-                    out.push(Control {
-                        name: name.to_string(),
-                        required: !errors.is_empty(),
-                        required_error: errors.into_iter().next(),
-                        skipped_by,
-                    });
-                }
-                if let Some(child) = node.children() {
-                    let inner = match node {
-                        Node::Repeater(_) => Some(SkippedBy::Repeater),
-                        Node::Group(group) if group.is_variant() => Some(SkippedBy::VariantGroup),
-                        _ => None,
-                    };
-                    walk(&child.nodes, skipped_by.or(inner), out);
+                match node {
+                    Node::Repeater(r) => mark(&r.children.nodes, true, out),
+                    Node::Field(_) | Node::Embedded(_) => {
+                        node.visit_fields(&mut |index, _| out[index] = inside)
+                    }
+                    _ => mark(node.children().unwrap_or_default(), inside, out),
                 }
             }
         }
-        let mut out = Vec::new();
-        walk(&self.nodes, None, &mut out);
-        out
-    }
-
-    /// Collect field names for validation (TextInput + Textarea + Select + FileUpload).
-    pub fn field_names(&self) -> Vec<String> {
-        let mut out = Vec::new();
-        for node in &self.nodes {
-            for_each_field(node, &mut |n| match n {
-                Node::TextInput(f) => out.push(f.field_name().to_string()),
-                Node::Textarea(f) => out.push(f.field_name().to_string()),
-                Node::Select(f) => out.push(f.field_name().to_string()),
-                Node::FileUpload(f) => out.push(f.field_name().to_string()),
-                _ => {}
-            });
-        }
-        out
+        let mut in_repeater = vec![false; self.fields.len()];
+        mark(&self.nodes, false, &mut in_repeater);
+        self.fields
+            .iter()
+            .zip(in_repeater)
+            .map(|(field, in_repeater)| {
+                let errors = field.validate("");
+                ControlCheck {
+                    name: field.name().to_string(),
+                    required: !errors.is_empty(),
+                    required_error: errors.into_iter().next(),
+                    in_repeater,
+                }
+            })
+            .collect()
     }
 
     /// Keys in `values` that no declared input owns, sorted.
@@ -284,8 +220,7 @@ impl Schema {
     /// Callers should reject or ignore the rest (at least `debug_assert!` in
     /// tests); handler keys must be filtered by the caller before calling this.
     pub fn unknown_keys(&self, values: &HashMap<String, String>) -> Vec<String> {
-        use std::collections::HashSet;
-        let known: HashSet<String> = self.field_names().into_iter().collect();
+        let known: HashSet<&str> = self.fields.iter().map(Field::name).collect();
         let mut out: Vec<String> = values
             .keys()
             .filter(|k| !known.contains(k.as_str()))
@@ -296,70 +231,14 @@ impl Schema {
     }
 
     fn assert_unique_field_names(&self) {
-        let names = self.field_names();
-        let mut seen = std::collections::HashSet::new();
-        for name in names {
+        let mut seen = HashSet::new();
+        for field in &self.fields {
             assert!(
-                seen.insert(name.clone()),
-                "duplicate field name '{name}': each Schema input needs a distinct field (GH #100)"
+                seen.insert(field.name()),
+                "duplicate field name '{}': each Schema input needs a distinct field (GH #100)",
+                field.name()
             );
         }
-    }
-
-    /// Every leaf `pick` selects, keyed by field name — the one walk behind the
-    /// per-kind accessors. `pick` answers a node's `(field name,
-    /// leaf)`, or `None` when the node is not that kind.
-    fn leaves<T>(&self, pick: impl Fn(&Node) -> Option<(&str, T)>) -> HashMap<String, T> {
-        let mut map = HashMap::new();
-        for node in &self.nodes {
-            for_each_field(node, &mut |n| {
-                if let Some((name, leaf)) = pick(n) {
-                    map.insert(name.to_string(), leaf);
-                }
-            });
-        }
-        map
-    }
-
-    /// Whether any leaf satisfies `pick` — the allocation-free counterpart of
-    /// [`Self::leaves`] for a yes/no question.
-    fn any_leaf(&self, pick: impl Fn(&Node) -> bool) -> bool {
-        let mut found = false;
-        for node in &self.nodes {
-            for_each_field(node, &mut |n| found |= pick(n));
-        }
-        found
-    }
-
-    /// Every [`TextInput`] this schema declares, keyed by field name.
-    pub fn text_inputs(&self) -> HashMap<String, TextInput> {
-        self.leaves(|n| match n {
-            Node::TextInput(f) => Some((f.field_name(), (**f).clone())),
-            _ => None,
-        })
-    }
-
-    /// Every [`Select`] this schema declares, keyed by field name.
-    pub fn select_inputs(&self) -> HashMap<String, Select> {
-        self.leaves(|n| match n {
-            Node::Select(f) => Some((f.field_name(), (**f).clone())),
-            _ => None,
-        })
-    }
-
-    /// Every [`FileUpload`] this schema declares, keyed by field name.
-    pub fn file_uploads(&self) -> HashMap<String, FileUpload> {
-        self.leaves(|n| match n {
-            Node::FileUpload(f) => Some((f.field_name(), (**f).clone())),
-            _ => None,
-        })
-    }
-
-    /// Whether this schema (including nested Section/Group/Grid/Repeater/Tabs)
-    /// contains a [`FileUpload`]. `Panel` uses it to emit
-    /// `enctype="multipart/form-data"` only on forms that need it.
-    pub fn has_file_upload(&self) -> bool {
-        self.any_leaf(|n| matches!(n, Node::FileUpload(_)))
     }
 
     /// Validate submitted values against declared inputs.
@@ -388,18 +267,23 @@ impl Schema {
         // makes validation agree with the render.
         let mut errors: HashMap<String, Vec<String>> = HashMap::new();
         let mut skip: HashSet<String> = HashSet::new();
-        walk_absent_groups(&self.nodes, values, &mut skip, &mut errors, false);
-        // One walk, one match per node (`validate_leaf`): the single place a
-        // field kind joins validation.
-        for node in &self.nodes {
-            for_each_field(node, &mut |n| {
-                let Some((name, errs)) = validate_leaf(n, values) else {
-                    return;
-                };
-                if !skip.contains(name) && !errs.is_empty() {
-                    errors.insert(name.to_string(), errs);
-                }
-            });
+        walk_absent_groups(
+            &self.nodes,
+            &self.fields,
+            values,
+            &mut skip,
+            &mut errors,
+            false,
+        );
+        for field in &self.fields {
+            if skip.contains(field.name()) {
+                continue;
+            }
+            let value = values.get(field.name()).map(String::as_str).unwrap_or("");
+            let errs = field.validate(value);
+            if !errs.is_empty() {
+                errors.insert(field.name().to_string(), errs);
+            }
         }
         errors
     }
@@ -414,15 +298,23 @@ impl Schema {
     pub(crate) fn absent_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
         let mut skip = HashSet::new();
         let mut discarded = HashMap::new();
-        walk_absent_groups(&self.nodes, values, &mut skip, &mut discarded, false);
+        walk_absent_groups(
+            &self.nodes,
+            &self.fields,
+            values,
+            &mut skip,
+            &mut discarded,
+            false,
+        );
         skip
     }
 
-    /// Async validation for Select relationship existence (tenancy-aware).
+    /// [`Self::validate`], then each choice's option existence
+    /// (tenancy-aware for a relationship).
     ///
     /// A field `validate` skipped is skipped here too: an absent
     /// repeater group or a hidden variant group holds no value the user can
-    /// see, so its select must not be probed for existence.
+    /// see, so its choice must not be probed for existence.
     pub async fn validate_async(
         &self,
         cx: &Cx,
@@ -430,20 +322,19 @@ impl Schema {
     ) -> HashMap<String, Vec<String>> {
         let mut errors = self.validate(values);
         let absent = self.absent_fields(values);
-        for (name, sel) in self.select_inputs() {
-            if errors.contains_key(&name) || absent.contains(&name) {
+        for field in &self.fields {
+            let name = field.name();
+            if errors.contains_key(name) || absent.contains(name) {
                 continue;
             }
-            if sel.relationship.is_some() || !sel.options_static.is_empty() {
-                let val = values.get(&name).map(|s| s.as_str()).unwrap_or("");
-                if !val.trim().is_empty() {
-                    // `validate` above already ran the required rule, so the
-                    // existence-only check is what is left to ask.
-                    let existence_errs = sel.validate_exists(cx, val).await;
-                    if !existence_errs.is_empty() {
-                        errors.insert(name, existence_errs);
-                    }
-                }
+            let Some(value) = values.get(name) else {
+                continue;
+            };
+            // `validate` above already ran the required rule, so the
+            // existence-only check is what is left to ask.
+            let existence = field.validate_exists(cx, value).await;
+            if !existence.is_empty() {
+                errors.insert(name.to_string(), existence);
             }
         }
         errors

@@ -2,19 +2,19 @@ use std::collections::HashMap;
 
 use super::{
     super::{
-        Select,
+        Field,
         test_support::{DummyUser, NullableRef, cx},
     },
     *,
 };
-use crate::schema::Schema;
+use crate::schema::{Schema, Source};
 
 #[tokio::test]
 async fn text_input_renders_with_label_and_ac_field() {
     let cx = cx();
-    let schema = Schema::new(TextInput::r#for(DummyUser::fields().name()));
+    let schema = Schema::new(Field::text(DummyUser::fields().name()));
     let html = schema
-        .render(&cx)
+        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -59,13 +59,11 @@ async fn text_input_renders_with_label_and_ac_field() {
 async fn a_typed_field_renders_its_stored_value_read_only() {
     const ID: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
     let cx = cx();
-    let schema = Schema::new(TextInput::typed::<DummyUser, uuid::Uuid>(
-        DummyUser::fields().id(),
-    ));
+    let schema = Schema::new(Field::text(DummyUser::fields().id()));
     let mut values = HashMap::new();
     values.insert("id".to_string(), ID.to_string());
     let html = schema
-        .render_readonly(&cx, &values)
+        .render(&cx, Source::view(&values))
         .await
         .unwrap()
         .single()
@@ -88,11 +86,11 @@ async fn text_input_error_marks_the_field_invalid() {
     // the label's destructive color; the reserved slot carries the id the
     // control describes itself with.
     let cx = cx();
-    let schema = Schema::new(TextInput::r#for(DummyUser::fields().name()).required());
+    let schema = Schema::new(Field::text(DummyUser::fields().name()).required());
     let mut errors = HashMap::new();
     errors.insert("name".to_string(), vec!["name is required".to_string()]);
     let html = schema
-        .render_with(&cx, &HashMap::new(), &errors)
+        .render(&cx, Source::form(&HashMap::new(), &errors))
         .await
         .unwrap()
         .single()
@@ -115,7 +113,7 @@ async fn text_input_error_marks_the_field_invalid() {
 
 #[test]
 fn text_input_required_validates_empty() {
-    let input = TextInput::r#for(DummyUser::fields().name()).required();
+    let input = Field::text(DummyUser::fields().name()).required();
     assert!(
         !input.validate("").is_empty(),
         "required should reject empty"
@@ -129,13 +127,13 @@ fn text_input_required_validates_empty() {
         "required should reject whitespace"
     );
     assert!(
-        !TextInput::r#for(DummyUser::fields().name())
+        !Field::text(DummyUser::fields().name())
             .validate("")
             .is_empty(),
         "non-nullable columns default to required (GH #100)"
     );
     assert!(
-        TextInput::r#for(DummyUser::fields().name())
+        Field::text(DummyUser::fields().name())
             .optional()
             .validate("")
             .is_empty(),
@@ -155,13 +153,13 @@ fn required_default_follows_lens_nullability() {
         nick: Option<String>,
     }
     assert!(
-        Select::r#for(NullableDoc::fields().nick())
+        Field::choice(NullableDoc::fields().nick())
             .validate("")
             .is_empty(),
         "nullable columns default to optional"
     );
     assert!(
-        !TextInput::r#for(DummyUser::fields().name())
+        !Field::text(DummyUser::fields().name())
             .validate("")
             .is_empty(),
         "String columns are non-nullable, empty must fail inline"
@@ -171,8 +169,8 @@ fn required_default_follows_lens_nullability() {
 #[tokio::test]
 async fn text_input_required_renders_star_and_email_type() {
     let cx = cx();
-    let html_req = Schema::new(TextInput::r#for(DummyUser::fields().name()).required())
-        .render(&cx)
+    let html_req = Schema::new(Field::text(DummyUser::fields().name()).required())
+        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -198,8 +196,8 @@ async fn text_input_required_renders_star_and_email_type() {
         html_req.contains("for=\"name\"") && html_req.contains("id=\"name\""),
         "for/id linking missing in {html_req}"
     );
-    let html_email = Schema::new(TextInput::r#for(DummyUser::fields().email()).email())
-        .render(&cx)
+    let html_email = Schema::new(Field::text(DummyUser::fields().email()).email())
+        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -213,8 +211,8 @@ async fn text_input_required_renders_star_and_email_type() {
         html_email.contains("type=\"email\"") && !html_email.contains("r#type"),
         "email should render type=email, not r#type=email, in {html_email}"
     );
-    let html_text = Schema::new(TextInput::r#for(DummyUser::fields().name()))
-        .render(&cx)
+    let html_text = Schema::new(Field::text(DummyUser::fields().name()))
+        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -234,9 +232,7 @@ async fn text_input_required_renders_star_and_email_type() {
 
 #[test]
 fn text_input_email_validates() {
-    let input = TextInput::r#for(DummyUser::fields().email())
-        .required()
-        .email();
+    let input = Field::text(DummyUser::fields().email()).required().email();
     assert!(
         !input.validate("not-an-email").is_empty(),
         "email should reject invalid"
@@ -253,14 +249,14 @@ fn text_input_email_validates() {
     // nullable column. `DummyUser.email` is `#[unique]`, so
     // there `.optional` cannot lift the required rule.
     assert!(
-        Select::r#for(NullableRef::fields().parent_id())
+        Field::choice(NullableRef::fields().parent_id())
             .optional()
             .validate("")
             .is_empty(),
         "an optional, non-unique field must still accept empty (GH #100)"
     );
     assert!(
-        TextInput::r#for(DummyUser::fields().email())
+        Field::text(DummyUser::fields().email())
             .email()
             .validate(" a@b.com ")
             .is_empty(),
@@ -273,16 +269,12 @@ fn text_input_email_validates() {
 #[test]
 fn unique_implies_required_in_either_declaration_order() {
     let mut declarations = vec![
-        TextInput::r#for(DummyUser::fields().email())
-            .optional()
-            .unique(),
-        TextInput::r#for(DummyUser::fields().email())
-            .unique()
-            .optional(),
+        Field::text(DummyUser::fields().email()).optional().unique(),
+        Field::text(DummyUser::fields().email()).unique().optional(),
     ];
     // Derived from the lens, with no `.unique()` call at all: the rule
     // follows the column, not the declaration style.
-    declarations.push(TextInput::r#for(DummyUser::fields().email()).optional());
+    declarations.push(Field::text(DummyUser::fields().email()).optional());
 
     for (nth, input) in declarations.iter().enumerate() {
         assert!(
@@ -313,18 +305,14 @@ fn unique_implies_required_in_either_declaration_order() {
 #[tokio::test]
 async fn unique_field_renders_the_required_marker() {
     let cx = cx();
-    let html = Schema::new(
-        TextInput::r#for(DummyUser::fields().email())
-            .unique()
-            .optional(),
-    )
-    .render(&cx)
-    .await
-    .unwrap()
-    .single()
-    .await
-    .unwrap()
-    .render(&cx);
+    let html = Schema::new(Field::text(DummyUser::fields().email()).unique().optional())
+        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .await
+        .unwrap()
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
     assert!(
         html.contains("required") && html.contains("aria-required"),
         "a unique field is required in the markup too"
@@ -338,7 +326,7 @@ async fn unique_field_renders_the_required_marker() {
 /// The email rule is `email_address`.
 #[test]
 fn text_input_email_edges() {
-    let input = TextInput::r#for(DummyUser::fields().email()).email();
+    let input = Field::text(DummyUser::fields().email()).email();
     for ok in [
         "a@b.com",
         "user+tag@sub.example.co",
@@ -395,9 +383,49 @@ fn text_input_email_edges() {
 /// it, and presence reports first.
 #[test]
 fn email_rule_leaves_an_empty_value_to_presence() {
-    let input = TextInput::r#for(DummyUser::fields().email())
-        .required()
-        .email();
+    let input = Field::text(DummyUser::fields().email()).required().email();
     assert_eq!(input.validate(""), vec!["Email is required".to_string()]);
     assert_eq!(input.validate("   "), vec!["Email is required".to_string()]);
+}
+
+#[tokio::test]
+async fn multiline_renders_a_textarea_with_the_stored_value() {
+    // GH #184: prose columns get a `<textarea>`, not a one-line input. The
+    // value is the control's child — a textarea has no `value` attribute.
+    let cx = cx();
+    let schema = Schema::new(Field::text(DummyUser::fields().name()).multiline(4));
+    let mut values = HashMap::new();
+    values.insert("name".to_string(), "Line one\nLine two".to_string());
+    let html = schema
+        .render(&cx, Source::form(&values, &HashMap::new()))
+        .await
+        .unwrap()
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    assert!(
+        html.contains("<textarea"),
+        "a multi-line field must render a textarea control, got {html}"
+    );
+    assert!(
+        !html.contains("<input"),
+        "a multi-line field must not render an input, got {html}"
+    );
+    assert!(
+        html.contains("Line one") && html.contains("Line two"),
+        "the stored value must be the control's content, got {html}"
+    );
+    assert!(
+        html.contains("rows=\"4\""),
+        "declared rows must reach the control, got {html}"
+    );
+    assert!(
+        html.contains(">Name"),
+        "label must still derive from the lens, got {html}"
+    );
+    assert!(
+        html.contains("data-slot=\"field\""),
+        "the field family chrome must match a one-line field, got {html}"
+    );
 }

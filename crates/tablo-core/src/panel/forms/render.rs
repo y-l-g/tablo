@@ -33,11 +33,14 @@ pub(super) async fn render_form_page<'a, R: Resource>(
     public_url: Option<String>,
 ) -> Result<BoxView<'a>> {
     let schema = R::form(cx);
-    let form_html = schema.render_with(cx, values, errors).await?;
+    let form_html = schema
+        .render(cx, crate::schema::Source::form(values, errors))
+        .await?;
     let action = topcoat::router::request::uri(cx).path().to_string();
     // Browsers only send `<input type="file">` content as multipart.
     let enctype: Option<String> = schema
-        .has_file_upload()
+        .fields()
+        .any(|field| field.is_file())
         .then(|| "multipart/form-data".to_string());
     let csrf = crate::csrf::current_token(cx);
     // The candidate paths, one hidden control each: the framework re-verifies

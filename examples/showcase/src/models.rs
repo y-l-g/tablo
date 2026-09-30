@@ -22,11 +22,11 @@ pub struct User {
     pub name: String,
     #[unique]
     pub email: String,
-    /// "admin" or "member" — the form renders them as a static-options Select.
+    /// "admin" or "member" — the form renders them as a static-options choice.
     pub role: String,
     pub active: bool,
-    /// A stored integer the form binds through `TextInput::typed`: optional,
-    /// zero or more.
+    /// A stored integer the form binds as a typed text field: optional, zero
+    /// or more.
     pub age: i64,
     #[default(jiff::Timestamp::now())]
     pub created_at: Timestamp,
@@ -60,9 +60,9 @@ pub struct Author {
 #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 pub struct Seo {
     pub title: String,
-    /// A multi-line control: the derive renders one `TextInput` per leaf, and
-    /// this is the one leaf the panel wants as a `Textarea`.
-    #[form(textarea, rows = 3)]
+    /// A multi-line control: the derive renders one text field per leaf, and
+    /// this is the one leaf the panel wants as a `<textarea>`.
+    #[form(multiline = 3)]
     pub description: String,
 }
 
@@ -75,7 +75,7 @@ pub struct Seo {
 /// `publication_reason`).
 ///
 /// The timestamps are `jiff::Timestamp`: the form binds them through
-/// `TextInput::typed`, which renders `type="datetime-local"` and reads the
+/// a typed text field, which renders `type="datetime-local"` and reads the
 /// submission back as UTC.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
 pub enum Publication {

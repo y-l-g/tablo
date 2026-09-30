@@ -5,7 +5,7 @@
 //! a `kind`, and a timestamp. Rows carry no owner: a post shows one row as its
 //! cover through its own `cover_id`, and the library lists one tenant's rows
 //! (ADR-0021). The page uploads through the app's own [`Uploader`] — the
-//! `DirUploader` the panel installs for `FileUpload` — writes the row, and
+//! `DirUploader` the panel installs for its file fields — writes the row, and
 //! lists what the library holds: a thumbnail for an image, a link for anything
 //! else.
 

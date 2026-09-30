@@ -162,7 +162,7 @@ pub(crate) async fn holds(cx: &Cx, path: &str) -> bool {
 /// returning `field_name -> inline errors` and the fields whose
 /// value is now the uploader's answer.
 ///
-/// For each declared [`FileUpload`](crate::schema::FileUpload) that carried
+/// For each declared file field ([`Field::file`](crate::schema::Field::file)) that carried
 /// bytes, the returned path replaces the sanitized basename the parser put in
 /// `values` — so the record fn sees the stored path and nothing else changes
 /// about its contract. The second half of the answer is those field names: a
@@ -195,7 +195,8 @@ pub(crate) async fn store_uploads(
     let mut stored = HashSet::new();
     // Declared uploads only: a file part the schema does not declare is not a
     // field this form may write (the unknown-key allow-list answers for it).
-    for (name, upload) in schema.file_uploads() {
+    for field in schema.fields().filter(|field| field.is_file()) {
+        let name = field.name().to_string();
         let Some(staged) = files.get(&name) else {
             continue;
         };
@@ -210,7 +211,7 @@ pub(crate) async fn store_uploads(
                     name,
                     vec![format!(
                         "{} could not be uploaded: {reason}",
-                        upload.label_str()
+                        field.label_str()
                     )],
                 );
             }

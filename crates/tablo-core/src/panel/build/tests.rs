@@ -133,7 +133,7 @@ async fn a_star_slug_builds_and_resolves() {
 async fn csrf_is_enforced_with_auth_disabled() {
     use crate::{
         resource::Resource,
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     struct DummyResource;
@@ -148,11 +148,11 @@ async fn csrf_is_enforced_with_auth_disabled() {
             dummy_table(cx)
         }
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Dummy::fields().name()))
+            Schema::new(Field::text(Dummy::fields().name()))
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct DummyForm {
         name: String,
     }
@@ -236,7 +236,7 @@ async fn dark_mode_sets_the_document_class() {
 async fn panel_build_accepts_unique_markers_with_a_backing_index() {
     use crate::{
         resource::{Resource, Table, TextColumn},
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -256,7 +256,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
         // set it.
         const CREATE_COLUMNS: &'static [&'static str] = &["tenant_id"];
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Author::fields().email()).unique())
+            Schema::new(Field::text(Author::fields().email()).unique())
         }
 
         fn slug() -> String {
@@ -276,7 +276,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Author)]
+    #[form(model = Author)]
     struct AuthorForm {
         email: String,
     }
@@ -430,7 +430,7 @@ fn panel_build_rejects_a_hostile_slug() {
 async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
     use crate::{
         resource::{Resource, Table, TextColumn},
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -445,7 +445,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
         type Model = Subscriber;
         type Form = UnbackedForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
+            Schema::new(Field::text(Subscriber::fields().nickname()).unique())
         }
 
         fn slug() -> String {
@@ -467,7 +467,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Subscriber)]
+    #[form(model = Subscriber)]
     struct UnbackedForm {
         nickname: String,
     }
@@ -496,7 +496,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
 async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
     use crate::{
         resource::{Resource, Table, TextColumn},
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -521,7 +521,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         type Model = Subscriber;
         type Form = ChromeForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
+            Schema::new(Field::text(Subscriber::fields().nickname()))
         }
 
         fn slug() -> String {
@@ -535,7 +535,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Subscriber)]
+    #[form(model = Subscriber)]
     struct ChromeForm {
         nickname: String,
     }
@@ -562,7 +562,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
             keyed_table()
         }
         fn view(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Subscriber::fields().nickname()))
+            Schema::new(Field::text(Subscriber::fields().nickname()))
         }
     }
 
@@ -599,7 +599,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
 async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denied() {
     use crate::{
         resource::{Resource, Table, TextColumn},
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -614,7 +614,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
         type Model = Subscriber;
         type Form = ReadOnlyForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Subscriber::fields().nickname()).unique())
+            Schema::new(Field::text(Subscriber::fields().nickname()).unique())
         }
 
         fn slug() -> String {
@@ -634,7 +634,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Subscriber)]
+    #[form(model = Subscriber)]
     struct ReadOnlyForm {
         nickname: String,
     }

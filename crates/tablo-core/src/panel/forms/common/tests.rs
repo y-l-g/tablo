@@ -11,7 +11,7 @@ fn truthy_accepts_one_vocabulary() {
 
 #[test]
 fn reject_unknown_form_keys_allows_declared_plus_csrf() {
-    use crate::schema::{Schema, TextInput};
+    use crate::schema::{Field, Schema};
 
     #[derive(Debug, toasty::Model)]
     struct Member {
@@ -20,7 +20,7 @@ fn reject_unknown_form_keys_allows_declared_plus_csrf() {
         id: uuid::Uuid,
         name: String,
     }
-    let schema = Schema::new(TextInput::r#for(Member::fields().name()));
+    let schema = Schema::new(Field::text(Member::fields().name()));
 
     // Declared keys + csrf_token pass.
     let values = HashMap::from([

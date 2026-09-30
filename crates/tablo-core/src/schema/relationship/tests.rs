@@ -5,7 +5,17 @@ use topcoat::{
 };
 
 use super::*;
-use crate::schema::{FieldLens, Mode, Select};
+use crate::schema::{Field, FieldLens, tree::Mode};
+
+/// What a submit reports for one choice: its rules, then — when they pass —
+/// its option existence, as `Schema::validate_async` asks per field.
+async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
+    let errors = field.validate(value);
+    if !errors.is_empty() {
+        return errors;
+    }
+    field.validate_exists(cx, value).await
+}
 /// Related-source fixtures shared by the option-policy tests.
 ///
 /// Each one implements only the [`OptionSource`] surface its test reads —
@@ -127,14 +137,14 @@ async fn relationship_loader_fails_past_option_cap() {
         .unwrap();
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(RefPost::fields().author_id()).relationship::<RefAuthorSource>(
+    let select = Field::choice(RefPost::fields().author_id()).relationship::<RefAuthorSource>(
         |_cx| Query::all(),
         |a: &RefAuthor| a.id,
         |a: &RefAuthor| a.name.clone(),
     );
     // Over the cap: bounded work, visible retry error — never an
     // empty-options passthrough.
-    let errs = select.validate_async(&cx, "whatever").await;
+    let errs = check(&select, &cx, "whatever").await;
     assert!(
         errs.iter().any(|e| e.contains("could not load options")),
         "overflow must surface retry error, got {errs:?}"
@@ -142,7 +152,7 @@ async fn relationship_loader_fails_past_option_cap() {
     // An overflowed load keeps the stored FK selectable: a
     // failed load must not blank the relation into a required-error.
     let html = select
-        .render_with(&cx, Some("stored-fk"), &[], Mode::Form)
+        .render(&cx, Some("stored-fk"), &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -197,19 +207,19 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
     .unwrap();
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(RefAuthor::fields().name()).relationship::<RefAuthorSource>(
+    let select = Field::choice(RefAuthor::fields().name()).relationship::<RefAuthorSource>(
         |_cx| Query::all(),
         |a: &RefAuthor| a.id,
         |a: &RefAuthor| a.name.clone(),
     );
     // The PK validates; the label never does.
-    assert!(select.validate_async(&cx, &pk).await.is_empty());
+    assert!(check(&select, &cx, &pk).await.is_empty());
     assert_eq!(
-        select.validate_async(&cx, "Ada").await,
+        check(&select, &cx, "Ada").await,
         vec!["Name is invalid".to_string()]
     );
     let html = select
-        .render_with(&cx, Some(&pk), &[], Mode::Form)
+        .render(&cx, Some(&pk), &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -246,17 +256,17 @@ async fn relationship_load_fails_closed_when_can_view_any_denies() {
     .unwrap();
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(PolicyAuthor::fields().id()).relationship::<DenyAllAuthors>(
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<DenyAllAuthors>(
         |_cx| Query::all(),
         |a: &PolicyAuthor| a.id,
         |a: &PolicyAuthor| a.name.clone(),
     );
     assert_eq!(
-        select.validate_async(&cx, &pk).await,
+        check(&select, &cx, &pk).await,
         vec!["Id is not available".to_string()]
     );
     let html = select
-        .render_with(&cx, Some(&pk), &[], Mode::Form)
+        .render(&cx, Some(&pk), &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -303,19 +313,19 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     .unwrap();
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(PolicyAuthor::fields().id()).relationship::<TenantScopedAuthors>(
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<TenantScopedAuthors>(
         |_cx| Query::all(),
         |a: &PolicyAuthor| a.id,
         |a: &PolicyAuthor| a.name.clone(),
     );
     assert_eq!(
-        select.validate_async(&cx, &pk).await,
+        check(&select, &cx, &pk).await,
         vec!["Id is not available".to_string()]
     );
     // A resolved tenant that owns the row loads normally (a separate
     // memoize key too).
     let tenanted = cx.with(crate::tenancy::Tenant(tenant));
-    assert!(select.validate_async(&tenanted, &pk).await.is_empty());
+    assert!(check(&select, &tenanted, &pk).await.is_empty());
     // Another tenant's request sees nothing: the option load runs the
     // source's `scoped_query` — the fixture spells it as the framework's
     // derived tenant filter, and `Resource`'s blanket impl spells it as
@@ -325,7 +335,7 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     // the "not available" the gate gives.
     let foreign = cx.with(crate::tenancy::Tenant(uuid::Uuid::new_v4()));
     assert_eq!(
-        select.validate_async(&foreign, &pk).await,
+        check(&select, &foreign, &pk).await,
         vec!["Id is invalid".to_string()]
     );
 }
@@ -355,23 +365,22 @@ async fn relationship_load_filters_rows_by_can_view() {
     .await
     .unwrap();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
         |_cx| Query::all(),
         |a: &PolicyAuthor| a.id,
         |a: &PolicyAuthor| a.name.clone(),
     );
     assert!(
-        select
-            .validate_async(&cx, &visible.id.to_string())
+        check(&select, &cx, &visible.id.to_string())
             .await
             .is_empty()
     );
     assert_eq!(
-        select.validate_async(&cx, &hidden.id.to_string()).await,
+        check(&select, &cx, &hidden.id.to_string()).await,
         vec!["Id is invalid".to_string()]
     );
     let html = select
-        .render_with(&cx, Some(&visible.id.to_string()), &[], Mode::Form)
+        .render(&cx, Some(&visible.id.to_string()), &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -416,7 +425,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
         }
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
         |_cx| Query::all(),
         |a: &PolicyAuthor| a.id,
         |a: &PolicyAuthor| a.name.clone(),
@@ -424,7 +433,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
     // The raw fetch sees MAX+1 rows: overflow fails visibly instead of
     // rendering the 200 viewable rows as if they were the whole table.
     assert_eq!(
-        select.validate_async(&cx, &hidden_pk).await,
+        check(&select, &cx, &hidden_pk).await,
         vec!["Id could not load options, retry".to_string()]
     );
 }
@@ -449,17 +458,17 @@ async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
     .unwrap();
     let pk = hidden.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
         |_cx| Query::all(),
         |a: &PolicyAuthor| a.id,
         |a: &PolicyAuthor| a.name.clone(),
     );
     assert_eq!(
-        select.validate_async(&cx, &pk).await,
+        check(&select, &cx, &pk).await,
         vec!["Id is invalid".to_string()]
     );
     let html = select
-        .render_with(&cx, Some(&pk), &[], Mode::Form)
+        .render(&cx, Some(&pk), &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -518,22 +527,22 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     let cx = CxTestBuilder::new().app_context(db).build();
 
     // Two selects, different labels, same source.
-    let s1 = Select::r#for(Ref::fields().name()).relationship::<CountingSource>(
+    let s1 = Field::choice(Ref::fields().name()).relationship::<CountingSource>(
         |_cx| Query::all(),
         |r: &Ref| r.id,
         |r: &Ref| r.name.clone(),
     );
-    let s2 = Select::r#for(Ref::fields().name()).relationship::<CountingSource>(
+    let s2 = Field::choice(Ref::fields().name()).relationship::<CountingSource>(
         |_cx| Query::all(),
         |r: &Ref| r.id,
         |r: &Ref| format!("{}!", r.name),
     );
 
     OPTION_LOADS.store(0, Ordering::SeqCst);
-    assert!(s1.validate_async(&cx, &id).await.is_empty());
-    assert!(s2.validate_async(&cx, &id).await.is_empty());
+    assert!(check(&s1, &cx, &id).await.is_empty());
+    assert!(check(&s2, &cx, &id).await.is_empty());
     let _ = s1
-        .render_with(&cx, Some(&id), &[], Mode::Form)
+        .render(&cx, Some(&id), &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -548,7 +557,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
 
     // Same cache, other tenant → separate load (no cross-tenant sharing).
     let cx_b = cx.with(crate::tenancy::Tenant(uuid::Uuid::new_v4()));
-    assert!(s1.validate_async(&cx_b, &id).await.is_empty());
+    assert!(check(&s1, &cx_b, &id).await.is_empty());
     assert_eq!(
         OPTION_LOADS.load(Ordering::SeqCst),
         2,
@@ -603,13 +612,13 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
         .unwrap_err();
     assert_eq!(err, &super::OptionLoadError::Overflow);
     // Non-searchable keeps the retry message.
-    let plain = Select::r#for(BigRef::fields().name()).relationship::<BigRefSource>(
+    let plain = Field::choice(BigRef::fields().name()).relationship::<BigRefSource>(
         |_cx| Query::all(),
         |r: &BigRef| r.id,
         |r: &BigRef| r.name.clone(),
     );
     assert_eq!(
-        plain.validate_async(&cx, "whatever-not-a-uuid").await,
+        check(&plain, &cx, "whatever-not-a-uuid").await,
         vec!["Name could not load options, retry".to_string()]
     );
 }
@@ -683,14 +692,19 @@ async fn relationship_search_narrows_past_the_cap() {
         .unwrap_err();
     assert_eq!(err, super::OptionLoadError::Overflow);
     // `Select::search_options` shares the same seam.
-    let select = Select::r#for(SearchRef::fields().name())
+    let select = Field::choice(SearchRef::fields().name())
         .searchable()
         .relationship::<SearchRefSource>(
             |_cx| Query::all(),
             |r: &SearchRef| r.id,
             |r: &SearchRef| r.name.clone(),
         );
-    let opts = select.search_options(&cx, "Zebra").await.unwrap();
+    let opts = select
+        .as_choice()
+        .expect("a choice")
+        .search_options(&cx, "Zebra")
+        .await
+        .unwrap();
     assert_eq!(opts.len(), 1);
     assert_eq!(opts[0].1, "Zebra Unique");
     assert_eq!(opts[0].0, unique.id.to_string());
@@ -803,7 +817,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
         .unwrap();
     let hidden_pk = hidden.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let searchable = Select::r#for(CheckRef::fields().name())
+    let searchable = Field::choice(CheckRef::fields().name())
         .searchable()
         .relationship::<CheckRefSource>(
             |_cx| Query::all(),
@@ -811,26 +825,24 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
             |r: &CheckRef| r.name.clone(),
         );
     // Legitimate FK beyond the cap passes via targeted check.
-    assert!(searchable.validate_async(&cx, &visible_pk).await.is_empty());
+    assert!(check(&searchable, &cx, &visible_pk).await.is_empty());
     // Hidden row → invalid (not leaked), unknown → invalid.
     assert_eq!(
-        searchable.validate_async(&cx, &hidden_pk).await,
+        check(&searchable, &cx, &hidden_pk).await,
         vec!["Name is invalid".to_string()]
     );
     assert_eq!(
-        searchable
-            .validate_async(&cx, &uuid::Uuid::new_v4().to_string())
-            .await,
+        check(&searchable, &cx, &uuid::Uuid::new_v4().to_string()).await,
         vec!["Name is invalid".to_string()]
     );
     // Non-searchable over the same source keeps the retry error.
-    let plain = Select::r#for(CheckRef::fields().name()).relationship::<CheckRefSource>(
+    let plain = Field::choice(CheckRef::fields().name()).relationship::<CheckRefSource>(
         |_cx| Query::all(),
         |r: &CheckRef| r.id,
         |r: &CheckRef| r.name.clone(),
     );
     assert_eq!(
-        plain.validate_async(&cx, &visible_pk).await,
+        check(&plain, &cx, &visible_pk).await,
         vec!["Name could not load options, retry".to_string()]
     );
 }
@@ -879,7 +891,7 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
         .unwrap();
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(HintRef::fields().name())
+    let select = Field::choice(HintRef::fields().name())
         .searchable()
         .relationship::<HintRefSource>(
             |_cx| Query::all(),
@@ -887,7 +899,7 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
             |r: &HintRef| r.name.clone(),
         );
     let html = select
-        .render_with(&cx, Some("stored-fk"), &[], Mode::Form)
+        .render(&cx, Some("stored-fk"), &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -955,7 +967,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
     .await
     .unwrap();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Select::r#for(SmallRef::fields().name())
+    let select = Field::choice(SmallRef::fields().name())
         .searchable()
         .relationship::<SmallRefSource>(
             |_cx| Query::all(),
@@ -963,7 +975,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
             |r: &SmallRef| r.name.clone(),
         );
     let html = select
-        .render_with(&cx, None, &[], Mode::Form)
+        .render(&cx, None, &[], Mode::Form)
         .await
         .unwrap()
         .single()
