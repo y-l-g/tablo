@@ -299,13 +299,14 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Base query — the seam for a resource's **own** row scoping (ADR-0002):
     /// soft deletes and row-level visibility. Every loader starts from it.
     ///
-    /// Relations are not this method's job either: the list and the export load
-    /// the relations the table's columns declare
-    /// ([`TextColumn::include`]), and the detail page loads
-    /// [`Self::view_query`]. Include a relation here only when every loader
-    /// needs it, such as one [`can_view`](Self::can_view) reads.
+    /// **Relations are not this method's job.** The list and the export load
+    /// the relations the table's columns declare ([`TextColumn::include`]), and
+    /// the detail page loads [`Self::view_query`]. Include a relation here only
+    /// when a closure no column covers reads it on every loader's rows: one
+    /// [`can_view`](Self::can_view) reads, or one a table's `group_by` or row
+    /// key reads without a column including it.
     ///
-    /// **Tenancy is not this method's job.** When
+    /// **Tenancy is not this method's job either.** When
     /// [`requires_tenant`](Self::requires_tenant) is `true` the framework ANDs
     /// the tenant filter, derived from the model's `tenant_id` column, onto
     /// whatever this returns, at every loader through [`scoped_query`]. Do not
@@ -595,8 +596,13 @@ pub fn scoped_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
 }
 
 /// [`Resource::view_query`] under the same tenant gate and predicate as
-/// [`scoped_query`]: the detail page's loader.
-pub(crate) fn scoped_view_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
+/// [`scoped_query`]: the detail page's loader, and the entry point for a page
+/// that owns its own detail view.
+///
+/// # Errors
+///
+/// The same as [`scoped_query`].
+pub fn scoped_view_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
     apply_tenant_scope::<R>(cx, R::view_query(cx))
 }
 
@@ -605,7 +611,7 @@ pub(crate) fn scoped_view_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Mo
 /// The body of [`scoped_query`] and [`scoped_view_query`], split out so both
 /// seeds share one gate, one predicate, and one fail-closed error.
 /// It is crate-internal because a caller outside the crate always has a
-/// `Resource`, and so always wants one of the `scoped_query*` entry points.
+/// `Resource`, and so always wants [`scoped_query`] or [`scoped_view_query`].
 pub(crate) fn apply_tenant_scope<R: Resource>(
     cx: &Cx,
     query: Query<List<R::Model>>,
@@ -653,11 +659,10 @@ pub(crate) fn apply_tenant_scope<R: Resource>(
 /// is deliberately not [`Resource::query`], which on a gated resource is the
 /// *tenant-unscoped* base.
 ///
-/// The policy predicates and
-/// the tenant declaration forward unchanged, and the search expression and
-/// default ordering come from the resource's declared [`table`](Resource::table),
-/// which is where "the option search searches the related resource's searchable
-/// columns" lives.
+/// The policy predicates and the tenant declaration forward unchanged, and the
+/// search expression and default ordering come from the resource's declared
+/// [`table`](Resource::table), which is where "the option search searches the
+/// related resource's searchable columns" lives.
 impl<R: Resource> crate::schema::OptionSource for R {
     type Model = R::Model;
 

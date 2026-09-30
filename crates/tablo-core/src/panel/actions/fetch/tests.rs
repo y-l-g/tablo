@@ -144,3 +144,87 @@ async fn composite_pk_edit_fails_loudly_not_404() {
         resp.status()
     );
 }
+
+/// The record pages split on the query they load: the edit page, delete and
+/// the write re-loads read the record's own columns through `find_by_key`,
+/// while the detail page loads `view_query`, which here includes `parent`.
+/// The edit load must not pay for the detail page's relations.
+#[tokio::test]
+async fn record_loads_skip_the_detail_pages_includes() {
+    use toasty::stmt::{Include, List, Query};
+    use topcoat::context::CxTestBuilder;
+
+    #[derive(Debug, toasty::Model, Clone)]
+    struct Parent {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        name: String,
+    }
+
+    #[derive(Debug, toasty::Model, Clone)]
+    struct Child {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        #[index]
+        parent_id: uuid::Uuid,
+        #[belongs_to(key = parent_id, references = id)]
+        parent: toasty::Deferred<Parent>,
+    }
+
+    struct ChildResource;
+    impl Resource for ChildResource {
+        type Model = Child;
+        type Form = crate::NoForm<Self::Model>;
+        fn view_query(_cx: &Cx) -> Query<List<Child>> {
+            let parent: Include<Child, Parent> = Child::fields().parent().into();
+            Query::<List<Child>>::all().include(parent)
+        }
+        fn table(_cx: &Cx) -> crate::resource::Table<Child> {
+            crate::resource::Table::new(
+                |c: &Child| c.id.to_string(),
+                crate::resource::TextColumn::computed("Id", |c: &Child| c.id.to_string()),
+            )
+        }
+    }
+
+    let mut db = Db::builder()
+        .models(toasty::models!(Parent, Child))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let parent = toasty::create!(Parent {
+        name: "Ada".to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let child = toasty::create!(Child {
+        parent_id: parent.id,
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let cx = CxTestBuilder::new().app_context(db).build();
+    let mut ex = crate::db::db(&cx);
+    let id = child.id.to_string();
+
+    let record = find_by_key::<ChildResource>(&cx, &id, &mut ex)
+        .await
+        .unwrap();
+    assert!(
+        record.parent.is_unloaded(),
+        "the edit and write loads read only the record's own columns"
+    );
+    let detail = find_by_key_in::<ChildResource>(&id, &mut ex, || {
+        crate::resource::scoped_view_query::<ChildResource>(&cx)
+    })
+    .await
+    .unwrap();
+    assert!(
+        !detail.parent.is_unloaded(),
+        "the detail load carries view_query's includes"
+    );
+}

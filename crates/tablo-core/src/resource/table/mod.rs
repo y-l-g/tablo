@@ -408,6 +408,10 @@ impl<M> Table<M> {
     /// dropped from pager/sort/filter links instead of silently
     /// grouping by the single declared key. Counts are page-local.
     ///
+    /// The key closure reads the loaded row, so a relation it reads must be
+    /// loaded: include it on a column ([`TextColumn::include`](super::TextColumn::include))
+    /// or in [`Resource::query`](crate::resource::Resource::query).
+    ///
     /// In live tables the page-load value seeds the `group_by` interaction
     /// signal and persists across in-place reruns; changing it is
     /// still a navigation (`?group_by=` links) until a live control ships.

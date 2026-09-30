@@ -107,3 +107,40 @@ fn text_column_width_defaults_by_kind() {
         Some("width: 30%")
     );
 }
+
+/// A column's includes accumulate across calls and keep each relation once, so
+/// the table's union loads every relation the columns read, once.
+#[test]
+fn text_column_includes_accumulate_once_per_relation() {
+    #[derive(Debug, toasty::Model, Clone)]
+    struct Owner {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+    }
+
+    #[derive(Debug, toasty::Model, Clone)]
+    struct Pet {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        #[index]
+        owner_id: uuid::Uuid,
+        #[belongs_to(key = owner_id, references = id)]
+        owner: toasty::Deferred<Owner>,
+        #[index]
+        vet_id: uuid::Uuid,
+        #[belongs_to(key = vet_id, references = id)]
+        vet: toasty::Deferred<Owner>,
+    }
+
+    let column = TextColumn::computed("Owner", |p: &Pet| p.id.to_string())
+        .include(Pet::fields().owner())
+        .include(Pet::fields().vet())
+        .include(Pet::fields().owner());
+    assert_eq!(
+        column.includes().len(),
+        2,
+        "two relations, one repeated: the column keeps each once"
+    );
+}

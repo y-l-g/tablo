@@ -174,7 +174,7 @@ pub(crate) enum Past {
 ///
 /// Toasty reports a cursor whenever a page comes back full, so a page that
 /// ends exactly at the table's edge carries one with nothing behind it
-/// (upstream #397). The list loader validates the cursor its links carry with
+/// (GH #397). The list loader validates the cursor its links carry with
 /// this, and the export asks it whether rows remain past its row cap.
 pub(crate) async fn row_exists_past<M>(
     db: &mut toasty::Db,

@@ -201,6 +201,11 @@ where
     ///
     /// Repeat calls accumulate:
     /// `.include(Post::fields().author()).include(Post::fields().comments())`.
+    ///
+    /// One query loads a relation once for the whole table: two includes of the
+    /// same relation merge, and an unfiltered one wins over a filtered one
+    /// (Toasty ORs their filters). A column that counts a filtered subset should
+    /// filter in its closure rather than rely on a filtered include.
     pub fn include<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
         let include: toasty_core::stmt::Include = relation.into().into();
         if !self.includes.contains(&include) {

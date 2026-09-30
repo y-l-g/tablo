@@ -114,12 +114,12 @@ comments and locals.
 
 ### Column
 
-A typed projection of a Model field (or a computed value) displayed in a Table row, rendered
-through a lens-bound closure where typos fail at compile time. `searchable`/`sortable` map to
-Toasty predicates and order_by; computed columns render values but declare none. A column whose
-projection reads a relation declares it with `needs(..)` (GH #177, ADR-0018). A column declares
-its width with `width(ColumnWidth::..)`; see [tables](docs/guide/src/tables.md) (GH #240).
-`TextColumn` is the only column type; Badge, Number and the rest remain spec-level.
+A typed projection of a Model field (or a computed value) displayed in a Table row, rendered through
+a lens-bound closure where typos fail at compile time. `searchable`/`sortable` map to Toasty
+predicates and order_by; computed columns render values but declare none. A column whose projection
+reads a relation declares it with `include(..)`, a typed path (ADR-0018). A column declares its
+width with `width(ColumnWidth::..)`; see [tables](docs/guide/src/tables.md) (GH #240). `TextColumn`
+is the only column type; Badge, Number and the rest remain spec-level.
 
 _Avoid_: Field (in table context), Cell, Attribute
 

@@ -81,7 +81,7 @@ pub(super) async fn check_unique<R: Resource>(
         // snapshot as the write that follows. A failing probe fails the
         // submit — swallowing it would write past a check that
         // never ran. The probe runs through the tenant-scoped query and reads
-        // only the record's own columns, so it passes an empty include set.
+        // only the record's own columns.
         let rows = crate::resource::scoped_query::<R>(cx)?
             .filter(filter)
             .limit(1)

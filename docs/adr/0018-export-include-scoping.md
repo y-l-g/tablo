@@ -18,13 +18,14 @@ the column and the resource.
 
 **3. `Resource::query` is row scoping only.** Soft deletes and row-level visibility live there, and
 every loader starts from it: the edit page, delete, bulk delete, the unique-value probe, the
-relationship option lists and their targeted existence check, and the pagination probes read only the
-record's own columns. A relation `can_view` reads is the one include that belongs in `query`, because
-every loader runs that predicate.
+relationship option lists and their targeted existence check, and the pagination probes read only
+the record's own columns. A relation a closure reads with no column including it belongs in `query`:
+one `can_view` reads, because every loader runs that predicate, or one a table's `group_by` or row
+key reads.
 
-**4. The detail page loads `Resource::view_query`.** `view_relations` is an opaque hook the framework
-cannot inspect, so the resource states the detail page's includes on `view_query`, which defaults to
-`query`. The framework ANDs the tenant scope onto it as it does onto `query` (ADR-0002).
+**4. The detail page loads `Resource::view_query`.** `view_relations` is an opaque hook the
+framework cannot inspect, so the resource states the detail page's includes on `view_query`, which
+defaults to `query`. The framework ANDs the tenant scope onto it as it does onto `query` (ADR-0002).
 
 **5. The unloaded-relation guard is the check for a missing declaration.** A column that reads a
 relation it did not declare renders against an unloaded `Deferred`, and its `is_unloaded` guard
@@ -37,8 +38,8 @@ relation it did not declare renders against an unloaded `Deferred`, and its `is_
 - The export's visibility scan renders no cell, so it loads none of the columns' relations; only the
   streaming pass does. `export_visibility_scan_loads_no_includes` and
   `export_loads_the_relations_its_columns_include` pin both halves with a real relation.
-- An option load renders a value and a label per row through opaque closures, so it loads no relation:
-  an option label projects the related record's own columns, and one that reads a relation panics in
-  `Deferred::get`.
-- An export column subset stays out of scope: this decides which relations the rendered columns load,
-  not which columns render.
+- An option load renders a value and a label per row through opaque closures, so it loads only what
+  `query` includes: an option label projects the related record's own columns, and one that reads a
+  relation `query` does not include panics in `Deferred::get`.
+- An export column subset stays out of scope: this decides which relations the rendered columns
+  load, not which columns render.

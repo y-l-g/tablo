@@ -7,7 +7,7 @@ stubs, not comparable (GH #159): they render no 50-row workload.
 
 Workload: **list with 50 rows, 2 includes (`author` + `comments`), tenancy set,
 `can_view_any` enforced**, measured on the real list path (`TableState::from_cx` →
-`Table::load` over the tenant-scoped `scoped_query` with the declared `.paginate(50)` →
+`TablePage::load` over the tenant-scoped `scoped_query` with the declared `.paginate(50)` →
 `render_with_state` → HTML). The raw query-only figure is kept as a labeled diagnostic
 alongside it. Budget: **< 40 ms p50** on local SQLite, with an opt-in Postgres leg
 (see below). The numbers are UNGATED
