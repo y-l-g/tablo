@@ -352,8 +352,9 @@ traits expand. Relation tables then follow the list's 60% budget for kind defaul
 `NormalizedState` (`table/mod.rs`) then doubles every render seam into a public method and a
 `_normalized` twin: `render/core.rs`, `skeleton.rs`, `dialog.rs`, `toolbar.rs`, `filterbar.rs`.
 
-**Change.** `cursor: Option<Cursor>` with `Cursor::{After, Before}`. The normalizer returns
-`TableState`; delete the `_normalized` methods.
+**Change.** `cursor: Option<Cursor>` with `Cursor::{After, Before}`; a URL naming both parses as
+the first page, the recovery the cursor retry gives. The normalizer returns `TableState`; delete
+`NormalizedState` and the `_normalized` methods.
 
 **Removes.** The unrepresentable pair, and half the table render surface.
 
@@ -380,10 +381,13 @@ The `filters` parameter (`resource/state.rs`) nests `key:value,key2:value2` in o
 needs its own escaping, a size cap, the `filters=overflow` sentinel, and a mirror in
 `tablo-ui/assets/filters.js`.
 
-**Change.** `?f.status=published`, one parameter per active filter, parsed by the S10 parser. Old
+**Change.** `?f.status=published`, one parameter per active filter, parsed by the S10 parser. The
+filter controls are real `f.<name>` form fields, so a static filter bar is an ordinary GET form. One
+cap stays: past 32 filters the rest are dropped and flagged, so the export still refuses. Old
 filtered URLs stop filtering.
 
-**Removes.** The nested grammar, its escaper, the overflow sentinel, and the script mirror.
+**Removes.** The nested grammar, its escaper, the byte cap, the overflow sentinel, the malformed
+channel, and the script mirror.
 
 **S18 — One live-or-plain link helper.**
 
@@ -421,7 +425,9 @@ use.
   CSRF field, a destructive submit, and a DOM-id formula. Extract one confirm dialog.
 - `schema/fields/select.rs` renders `<option>` with `view!`, `panel/actions/options.rs` builds the
   same markup as a string through `escape_option`, and `tablo-ui/assets/selects.js` builds it a
-  third time. The options endpoint renders through the field's renderer; delete `escape_option`.
+  third time. The field, the filter bar and the options endpoint share one `option_view`; delete
+  `escape_option`. `selects.js` keeps building the one option that preserves the current selection
+  across a swap.
 - The render layer repeats the bar class, the quiet link class, and `button_variants` as literals
   beside the `class!` constants. Use the constants.
 
