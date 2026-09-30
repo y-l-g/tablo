@@ -3,7 +3,7 @@
 use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::super::{NormalizedState, Table};
+use super::super::{super::state::TableState, Table};
 
 impl<M> Table<M> {
     /// The skeleton placeholder table — three pulsing rows under the real
@@ -17,10 +17,10 @@ impl<M> Table<M> {
     /// once per request and renders the streamed placeholder from that same
     /// state, so the placeholder header links never echo an unknown
     /// `?group_by=`.
-    pub(crate) async fn render_skeleton_normalized<'a>(
+    pub(crate) async fn render_skeleton<'a>(
         &self,
         cx: &'a Cx,
-        state: &NormalizedState,
+        state: &TableState,
     ) -> Result<BoxView<'a>>
     where
         M: toasty::schema::Model,

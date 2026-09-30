@@ -64,7 +64,7 @@ async fn admin_resource_list_page_serve_seeded_users() {
     // table with a filter, and it is the only arrangement that would highlight
     // two sidebar entries at once.
     assert!(
-        !html.contains("status:published"),
+        !html.contains("f.status=published"),
         "the redundant Published saved view must be gone: {html}"
     );
     assert!(

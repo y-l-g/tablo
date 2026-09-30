@@ -8,7 +8,7 @@ use topcoat::{Result, context::Cx, runtime::Event, view::*};
 
 use super::super::{
     super::state::{TableSignals, TableState, bulk_delete_url},
-    NormalizedState, Table,
+    Table,
 };
 
 /// Keystroke-quiet delay before a live search input reloads the table
@@ -23,7 +23,7 @@ pub(crate) const LIVE_SEARCH_DEBOUNCE_MS: u32 = 200;
 /// given; an input whose state holds no value renders nothing.
 pub(super) fn hidden_state_inputs<'a>(
     cx: &'a Cx,
-    inputs: Vec<(&'static str, Option<String>)>,
+    inputs: Vec<(String, Option<String>)>,
 ) -> BoxView<'a> {
     let fields: Vec<BoxView<'a>> = inputs
         .into_iter()
@@ -167,7 +167,7 @@ impl<M> Table<M> {
 
     /// The search toolbar (GET form); live tables instead render the host
     /// input eagerly and the shard invocation in the streamed region (see
-    /// [`Self::render_live_search_bar_normalized`] / [`Self::render_live_invocation`]).
+    /// [`Self::render_live_search_bar`] / [`Self::render_live_invocation`]).
     pub(super) async fn render_search_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -184,24 +184,26 @@ impl<M> Table<M> {
                 "asc".to_string()
             }
         });
-        let filters_hidden = state.filters_param();
         // Pre-normalized by the render seams: `state.group_by` is
         // the declared name or `None`, never an unknown value.
         let group_hidden = state.group_by.clone();
         // Clear only renders when something survives the search term; every
         // branch below projects the same URL, so one intent serves all three.
         let clear_url =
-            (state.sort.is_some() || filters_hidden.is_some() || group_hidden.is_some())
+            (state.sort.is_some() || !state.filters.is_empty() || group_hidden.is_some())
                 .then(|| state.without_search(path));
-        let hidden = hidden_state_inputs(
-            cx,
-            vec![
-                ("sort", sort_hidden),
-                ("dir", dir_hidden),
-                ("filters", filters_hidden),
-                ("group_by", group_hidden),
-            ],
+        let mut inputs = vec![
+            ("sort".to_string(), sort_hidden),
+            ("dir".to_string(), dir_hidden),
+        ];
+        inputs.extend(
+            state
+                .filters
+                .iter()
+                .map(|(name, value)| (crate::resource::filter_param(name), Some(value.clone()))),
         );
+        inputs.push(("group_by".to_string(), group_hidden));
+        let hidden = hidden_state_inputs(cx, inputs);
         Ok(view! {
             cx =>
             <form
@@ -247,24 +249,22 @@ impl<M> Table<M> {
     ///
     /// The visible input is deliberately unbound: typing stays
     /// local until it pauses for `LIVE_SEARCH_DEBOUNCE_MS`, then
-    /// `assets/live-search.js` forwards the value through the bound hidden
-    /// transport, whose `@change` writes `q` and clears the cursors (a new
-    /// term is a new result set). The shard re-renders in place.
+    /// `assets/live-search.js` rewrites `q` in the hidden transport bound to
+    /// the `query` signal and drops the cursor (a new term is a new result
+    /// set). The shard re-renders in place.
     ///
     /// The panel's live list page (`panel::resource_list_live`) renders it
     /// from the request's one normalized state.
-    pub(crate) async fn render_live_search_bar_normalized<'a>(
+    pub(crate) async fn render_live_search_bar<'a>(
         &self,
         cx: &'a Cx,
-        state: &NormalizedState,
+        state: &TableState,
         path: &str,
         signals: &TableSignals,
     ) -> Result<BoxView<'a>> {
         let fallback = self.render_search_bar(cx, state, path).await?;
         let q_display = state.search.clone().unwrap_or_default();
-        let q = signals.q.clone();
-        let cursor = signals.cursor.clone();
-        let none = crate::resource::cursor_none();
+        let query = signals.query.clone();
         Ok(view! {
             cx =>
             <div
@@ -282,11 +282,8 @@ impl<M> Table<M> {
                 >
                 <input
                     type="hidden"
-                    :value=$(q.get())
-                    @change=$(|e: Event| {
-                        q.set(e.target.value);
-                        cursor.set(none.clone());
-                    })
+                    :value=$(query.get())
+                    @change=$(|e: Event| query.set(e.target.value))
                     data-live-search-transport=""
                 >
                 <noscript>(fallback)</noscript>
@@ -308,29 +305,15 @@ impl<M> Table<M> {
     ) -> Result<BoxView<'a>> {
         use crate::panel::table_search;
 
-        // No snapshot here: grouping travels as the `group_by`
-        // live signal (seeded from the page state by the caller) and the
-        // shard normalizes on read.
+        // No snapshot here: grouping travels in the query (seeded from the page
+        // state by the caller) and the shard normalizes on read.
         let live_path = path.to_string();
-        let TableSignals {
-            q,
-            filters,
-            sort,
-            dir,
-            cursor,
-            group_by,
-            bulk,
-        } = signals;
+        let TableSignals { query, bulk } = signals;
         Ok(view! {
             cx =>
             table_search(
                 path: $(live_path.clone()),
-                q: $(q),
-                filters: $(filters),
-                sort: $(sort),
-                dir: $(dir),
-                cursor: $(cursor),
-                group_by: $(group_by),
+                query: $(query),
                 bulk: $(bulk)
             )
         }

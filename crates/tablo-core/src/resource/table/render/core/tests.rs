@@ -1017,8 +1017,8 @@ async fn table_render_reuses_one_filter_transport_base_across_rows() {
     let eight_rows = delete_bases(&eight_html);
     assert_eq!(one_row.len(), 1, "one row, one dialog opener");
     assert_eq!(eight_rows.len(), 8, "eight rows, eight dialog openers");
-    // The sorted, query-encoded transport every row's link must carry.
-    let transport = "filters=featured%3Atrue%2Cstatus%3Apublished";
+    // The sorted, query-encoded filters every row's link must carry.
+    let transport = "f.featured=true&amp;f.status=published";
     for base in one_row.iter().chain(eight_rows.iter()) {
         assert!(
             base.contains(transport),

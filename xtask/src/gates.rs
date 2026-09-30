@@ -44,6 +44,7 @@ pub const ASSET_SUITES: &[&str] = &[
     "crates/tablo-ui/assets/mutation-submit.test.js",
     "crates/tablo-ui/assets/notifications.test.js",
     "crates/tablo-ui/assets/filters.test.js",
+    "crates/tablo-ui/assets/live-search.test.js",
     "examples/showcase/assets/media.test.js",
 ];
 

@@ -3,6 +3,27 @@ use topcoat::router::Body;
 
 use super::{super::Panel, *};
 use crate::panel::test_support::{Dummy, panel_for};
+
+/// The shard's positional args as the browser sends them: the list path, the
+/// `query` signal holding the list's URL query built from `pairs`, and the
+/// `bulk` signal the table binds its selection transport to.
+fn shard_args(path: &str, pairs: &[(&str, &str)]) -> String {
+    let query = form_urlencoded::Serializer::new(String::new())
+        .extend_pairs(pairs)
+        .finish();
+    let sig = |n: u8, v: &str| {
+        format!(
+            r#"{{"t":"Signal","id":"{n:032x}","v":{}}}"#,
+            serde_json::to_string(v).unwrap()
+        )
+    };
+    format!(
+        "[{},{},{}]",
+        serde_json::to_string(path).unwrap(),
+        sig(1, &query),
+        sig(2, "")
+    )
+}
 /// The signal id the live retry link writes: read from the
 /// control's own `increment()` handler, which is the side that re-runs the
 /// shard. Locating it by offset from the marker instead would read whatever
@@ -189,22 +210,6 @@ async fn live_shard_malformed_cursor_renders_error_state() {
     .unwrap();
     let router = panel_for::<LiveResource>(db).build().expect("panel builds");
 
-    let sig = |n: u8, v: &str| format!(r#"{{"t":"Signal","id":"{:032x}","v":"{v}"}}"#, n);
-    // Positional shard args: q, filters, sort, dir, the single cursor wire
-    // group_by, and the bulk handle the table binds its
-    // selection transport to.
-    let shard_args = |cursor: &str, group_by: &str| {
-        format!(
-            r#"["/admin/dummies",{}, {}, {}, {}, {}, {}, {}]"#,
-            sig(1, ""),
-            sig(2, ""),
-            sig(3, ""),
-            sig(4, ""),
-            sig(5, cursor),
-            sig(6, group_by),
-            sig(7, ""),
-        )
-    };
     let response = router
         .handle(
             http::Request::builder()
@@ -214,7 +219,7 @@ async fn live_shard_malformed_cursor_renders_error_state() {
                 .header(topcoat::router::request::IDENTITY_HEADER, "A".repeat(22))
                 .body(Body::from(format!(
                     r#"{{"args":{},"signals":{{}}}}"#,
-                    shard_args(&crate::resource::cursor_after("zz-not-a-cursor"), "")
+                    shard_args("/admin/dummies", &[("after", "zz-not-a-cursor")])
                 )))
                 .unwrap(),
         )
@@ -288,7 +293,10 @@ async fn live_shard_malformed_cursor_renders_error_state() {
                 .header(topcoat::router::request::IDENTITY_HEADER, "A".repeat(22))
                 .body(Body::from(format!(
                     r#"{{"args":{},"signals":{{}}}}"#,
-                    shard_args(&crate::resource::cursor_before("zz-not-a-cursor"), "nope")
+                    shard_args(
+                        "/admin/dummies",
+                        &[("before", "zz-not-a-cursor"), ("group_by", "nope")]
+                    )
                 )))
                 .unwrap(),
         )
@@ -377,17 +385,7 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
         Value::I64(1),
     ])))
     .unwrap();
-    let sig = |n: u8, v: &str| format!(r#"{{"t":"Signal","id":"{:032x}","v":"{v}"}}"#, n);
-    let args = format!(
-        r#"["/admin/dummies",{}, {}, {}, {}, {}, {}, {}]"#,
-        sig(1, ""),
-        sig(2, ""),
-        sig(3, ""),
-        sig(4, ""),
-        sig(5, &crate::resource::cursor_after(&stale)),
-        sig(6, ""),
-        sig(7, ""),
-    );
+    let args = shard_args("/admin/dummies", &[("after", &stale)]);
     let response = router
         .handle(
             http::Request::builder()
@@ -478,16 +476,14 @@ async fn live_shard_retry_preserves_the_query() {
         .unwrap();
     let router = panel_for::<FailingLive>(db).build().expect("panel builds");
 
-    let sig = |n: u8, v: &str| format!(r#"{{"t":"Signal","id":"{:032x}","v":"{v}"}}"#, n);
-    let args = format!(
-        r#"["/admin/dummies",{}, {}, {}, {}, {}, {}, {}]"#,
-        sig(1, "Ada"),
-        sig(2, "featured:true"),
-        sig(3, "name"),
-        sig(4, "desc"),
-        sig(5, ""),
-        sig(6, ""),
-        sig(7, ""),
+    let args = shard_args(
+        "/admin/dummies",
+        &[
+            ("q", "Ada"),
+            ("f.featured", "true"),
+            ("sort", "name"),
+            ("dir", "desc"),
+        ],
     );
     let response = router
         .handle(
@@ -515,7 +511,7 @@ async fn live_shard_retry_preserves_the_query() {
         .unwrap_or_default()
         .to_string();
     assert!(
-        href.contains("q=Ada") && href.contains("filters=") && href.contains("sort=name"),
+        href.contains("q=Ada") && href.contains("f.featured=true") && href.contains("sort=name"),
         "the retry href must keep the failed query, got {href}"
     );
     assert!(
@@ -536,10 +532,10 @@ async fn live_shard_retry_preserves_the_query() {
 }
 
 #[tokio::test]
-async fn live_shard_group_by_signal_drives_grouping() {
-    // GH #157: grouping travels as a live signal, not a page-load
-    // snapshot — the shard groups by the signal value, so a rerun with
-    // the signal set renders headers and a rerun with it cleared does not.
+async fn live_shard_group_by_query_drives_grouping() {
+    // GH #157: grouping travels in the live query, not a page-load snapshot
+    // — the shard groups by the query's `group_by`, so a rerun with it set
+    // renders headers and a rerun without it does not.
 
     use http_body_util::BodyExt;
 
@@ -591,19 +587,7 @@ async fn live_shard_group_by_signal_drives_grouping() {
         .build()
         .expect("panel builds");
 
-    let sig = |n: u8, v: &str| format!(r#"{{"t":"Signal","id":"{:032x}","v":"{v}"}}"#, n);
-    let shard_args = |group_by: &str| {
-        format!(
-            r#"["/admin/dummies",{}, {}, {}, {}, {}, {}, {}]"#,
-            sig(1, ""),
-            sig(2, ""),
-            sig(3, ""),
-            sig(4, ""),
-            sig(5, ""),
-            sig(6, group_by),
-            sig(7, ""),
-        )
-    };
+    let grouped = |group_by: &str| shard_args("/admin/dummies", &[("group_by", group_by)]);
     let post_shard = |args: String| {
         router.handle(
             http::Request::builder()
@@ -616,7 +600,7 @@ async fn live_shard_group_by_signal_drives_grouping() {
         )
     };
 
-    let response = post_shard(shard_args("name")).await;
+    let response = post_shard(grouped("name")).await;
     assert_eq!(
         response.status(),
         http::StatusCode::OK,
@@ -627,10 +611,10 @@ async fn live_shard_group_by_signal_drives_grouping() {
     assert!(
         table_html.contains("Ada (1 on this page)")
             && table_html.contains("Grace (1 on this page)"),
-        "group_by signal must drive group headers in the shard output: {table_html}"
+        "the query's group_by must drive group headers in the shard output: {table_html}"
     );
 
-    let response = post_shard(shard_args("")).await;
+    let response = post_shard(grouped("")).await;
     assert_eq!(
         response.status(),
         http::StatusCode::OK,
@@ -640,7 +624,7 @@ async fn live_shard_group_by_signal_drives_grouping() {
     let table_html = String::from_utf8_lossy(&bytes).to_string();
     assert!(
         !table_html.contains("on this page"),
-        "cleared group_by signal must render no group headers: {table_html}"
+        "a query without group_by must render no group headers: {table_html}"
     );
 }
 
@@ -655,17 +639,7 @@ async fn post_table_shard(
     path: &str,
     tenant: Option<uuid::Uuid>,
 ) -> http::Response<Body> {
-    let sig = |n: u8, v: &str| format!(r#"{{"t":"Signal","id":"{:032x}","v":"{v}"}}"#, n);
-    let args = format!(
-        r#"["{path}",{}, {}, {}, {}, {}, {}, {}]"#,
-        sig(1, ""),
-        sig(2, ""),
-        sig(3, ""),
-        sig(4, ""),
-        sig(5, ""),
-        sig(6, ""),
-        sig(7, ""),
-    );
+    let args = shard_args(path, &[]);
     let request = http::Request::builder()
         .method(http::Method::POST)
         .uri(TABLE_SEARCH_PATH)

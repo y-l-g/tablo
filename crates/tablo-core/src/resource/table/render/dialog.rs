@@ -6,7 +6,10 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::super::{super::state::delete_action_url, NormalizedState, Table};
+use super::super::{
+    super::state::{TableState, delete_action_url},
+    Table,
+};
 
 impl<M> Table<M> {
     /// The row-delete confirmation dialog, rendered with the table the panel
@@ -32,10 +35,10 @@ impl<M> Table<M> {
     /// (ADR-0014). Without the document scripts Cancel is inert and Delete still
     /// POSTs; the dialog primitives are vendored under the ADR-0007 sync guard,
     /// so they carry no note themselves.
-    pub(crate) async fn render_delete_dialog_normalized<'a>(
+    pub(crate) async fn render_delete_dialog<'a>(
         &self,
         cx: &'a Cx,
-        state: &NormalizedState,
+        state: &TableState,
     ) -> Result<Option<BoxView<'a>>> {
         let Some(prefix) = self.delete_prefix.as_deref() else {
             return Ok(None);

@@ -8,16 +8,19 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
-use super::super::{
+use super::{
     super::{
-        column::{MinWidth, column_width_style, default_width_style, scaled_default_percent},
-        page::TablePage,
-        state::{
-            TableSignals, TableState, delete_action_url, group_header_dom_id, row_dom_id,
-            row_edit_url, row_view_url,
+        super::{
+            column::{MinWidth, column_width_style, default_width_style, scaled_default_percent},
+            page::TablePage,
+            state::{
+                TableSignals, TableState, delete_action_url, group_header_dom_id, row_dom_id,
+                row_edit_url, row_view_url,
+            },
         },
+        GroupKey, RowActions, RowKey, Table,
     },
-    GroupKey, NormalizedState, RowActions, RowKey, Table,
+    live_link,
 };
 
 /// The share of the table the bulk-selection column claims: one
@@ -82,10 +85,8 @@ impl<M> Table<M> {
     /// pass the page's state (or shard args rebuilt via
     /// [`TableSignals::to_state`]) and the list URL explicitly.
     ///
-    /// Normalizes the state it is handed, so a page calling this
-    /// directly needs no knowledge of `NormalizedState`; a caller that
-    /// already normalized once per request goes through
-    /// `Self::render_normalized` instead.
+    /// Normalizes the state it is handed, so an unknown `?group_by=` never
+    /// echoes through a link.
     pub async fn render_with_state<'a>(
         &self,
         cx: &'a Cx,
@@ -96,25 +97,8 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model + Send + Sync + 'static,
     {
-        self.render_normalized(cx, page, &self.normalize_state(state), path)
+        self.render_inner(cx, page, &self.normalize_state(state), path, None)
             .await
-    }
-
-    /// [`Self::render_with_state`] with the state already normalized
-    /// the request entry normalizes once and every seam below takes
-    /// the proof, so a live list request never normalizes the same state
-    /// twice.
-    pub(crate) async fn render_normalized<'a>(
-        &self,
-        cx: &'a Cx,
-        page: TablePage<M>,
-        state: &NormalizedState,
-        path: &str,
-    ) -> Result<BoxView<'a>>
-    where
-        M: toasty::schema::Model + Send + Sync + 'static,
-    {
-        self.render_inner(cx, page, state, path, None).await
     }
 
     /// Render the interactive body for a live table: the same
@@ -128,12 +112,12 @@ impl<M> Table<M> {
     /// The row-delete dialog is not part of this output: it lives
     /// outside the region a rerun swaps, rendered once by the page that owns
     /// the signals, so a caller rendering only through this method renders
-    /// [`Self::render_delete_dialog_normalized`] itself to keep the `?delete=` fallback.
-    pub(crate) async fn render_live_normalized<'a>(
+    /// [`Self::render_delete_dialog`] itself to keep the `?delete=` fallback.
+    pub(crate) async fn render_live<'a>(
         &self,
         cx: &'a Cx,
         page: TablePage<M>,
-        state: &NormalizedState,
+        state: &TableState,
         path: &str,
         signals: TableSignals,
     ) -> Result<BoxView<'a>>
@@ -148,7 +132,7 @@ impl<M> Table<M> {
         &self,
         cx: &'a Cx,
         page: TablePage<M>,
-        state: &NormalizedState,
+        state: &TableState,
         path: &str,
         signals: Option<TableSignals>,
     ) -> Result<BoxView<'a>>
@@ -203,7 +187,7 @@ impl<M> Table<M> {
         // `?delete=`, so without this gate every shard rerun would morph a
         // second copy — and its ids — into the page.
         let delete_dialog = if signals.is_none() {
-            self.render_delete_dialog_normalized(cx, state).await?
+            self.render_delete_dialog(cx, state).await?
         } else {
             None
         };
@@ -477,7 +461,7 @@ impl<M> Table<M> {
     /// and bulk selection.
     fn row_views(
         &self,
-        state: &NormalizedState,
+        state: &TableState,
         path: &str,
         page: &TablePage<M>,
         row_key: &RowKey<M>,
@@ -630,36 +614,11 @@ impl<M> Table<M> {
         // rows deleted under pagination) leaves an empty page with no pager —
         // link back to the first page instead of a dead end. State is
         // preserved, only the cursor is dropped.
-        let first_page_url =
-            (state.after.is_some() || state.before.is_some()).then(|| state.without_cursor(path));
-        // Live links write the signals in place (keeping the state the link
-        // does not name); `href` stays the no-JS fallback.
+        let first_page_url = state.cursor.is_some().then(|| state.without_cursor(path));
+        // Live links write their own query in place; `href` stays the no-JS
+        // fallback.
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
-            let attrs = match signals {
-                Some(signals) => {
-                    let none = crate::resource::cursor_none();
-                    let (q, filters, cursor) = (
-                        signals.q.clone(),
-                        signals.filters.clone(),
-                        signals.cursor.clone(),
-                    );
-                    let clearing_search = state.search.is_some();
-                    attributes! {
-                        cx =>
-                        href=(url)
-                        @click=$(|e: Event| {
-                            e.prevent_default();
-                            if clearing_search {
-                                q.set("".to_owned());
-                            } else {
-                                filters.set("".to_owned());
-                            }
-                            cursor.set(none.clone());
-                        })
-                    }
-                }
-                None => attributes! { cx => href=(url) },
-            };
+            let attrs = live_link(cx, url, signals);
             view! {
                 cx =>
                 <a class="text-sm text-primary hover:underline" (attrs)>
@@ -669,21 +628,7 @@ impl<M> Table<M> {
             .boxed()
         });
         let first_page_link: Option<BoxView<'a>> = first_page_url.map(|url| {
-            let attrs = match signals {
-                Some(signals) => {
-                    let cursor = signals.cursor.clone();
-                    let none = crate::resource::cursor_none();
-                    attributes! {
-                        cx =>
-                        href=(url)
-                        @click=$(|e: Event| {
-                            e.prevent_default();
-                            cursor.set(none.clone());
-                        })
-                    }
-                }
-                None => attributes! { cx => href=(url) },
-            };
+            let attrs = live_link(cx, url, signals);
             view! {
                 cx =>
                 <a class="text-sm text-primary hover:underline" (attrs)>
@@ -885,29 +830,7 @@ impl<M> Table<M> {
                     label,
                     if next_desc { "descending" } else { "ascending" }
                 );
-                let link_attrs = if let Some(signals) = signals {
-                    let none = crate::resource::cursor_none();
-                    let (sort, dir, cursor) = (
-                        signals.sort.clone(),
-                        signals.dir.clone(),
-                        signals.cursor.clone(),
-                    );
-                    let column = col.name().to_string();
-                    let next_dir = if next_desc { "desc" } else { "asc" }.to_owned();
-                    attributes! {
-                        cx =>
-                        href=(href)
-                        aria-label=(aria_label)
-                        @click=$(|e: Event| {
-                            e.prevent_default();
-                            sort.set(column.clone());
-                            dir.set(next_dir.clone());
-                            cursor.set(none.clone());
-                        })
-                    }
-                } else {
-                    attributes! { cx => href=(href) aria-label=(aria_label) }
-                };
+                let link_attrs = live_link(cx, href, signals);
                 (
                     "cursor-pointer hover:bg-foreground/5",
                     Some(aria),
@@ -915,6 +838,7 @@ impl<M> Table<M> {
                         cx =>
                         <a
                             class="inline-flex items-center gap-1 hover:text-foreground"
+                            aria-label=(aria_label)
                             (link_attrs)
                         >
                             (label.clone())

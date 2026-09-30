@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use topcoat::context::CxTestBuilder;
 
@@ -30,7 +30,7 @@ async fn filter_widgets_render_typed_controls() {
     ));
     let page: TablePage<Task> = Vec::new().into();
     // State with an active select value pre-selects it.
-    let mut filters = HashMap::new();
+    let mut filters = BTreeMap::new();
     filters.insert("status".to_string(), "published".to_string());
     let state = TableState {
         filters,
@@ -73,14 +73,15 @@ async fn filter_widgets_render_typed_controls() {
         html.contains("type=\"date\""),
         "missing date input in {html}"
     );
-    // The hidden transport carries the composed value for auto-apply; the
-    // free-text input + Apply button survive only as the `<noscript>`
-    // fallback.
+    // Each control is its own `f.<name>` form field, so the GET form submits
+    // the filters itself; only a live table carries a query transport.
     assert!(
-        html.contains("data-filters-transport")
-            && html.contains("name=\"filters\"")
-            && html.contains("status:published"),
-        "missing hidden filters transport in {html}"
+        html.contains("name=\"f.status\"") && html.contains("name=\"f.created_at\""),
+        "each filter control must be an f.<name> field in {html}"
+    );
+    assert!(
+        !html.contains("data-filters-transport"),
+        "a static table carries no query transport in {html}"
     );
     assert!(
         html.contains("<noscript>") && html.contains("Apply filters"),
@@ -126,7 +127,7 @@ async fn empty_with_filters_shows_filtered_message() {
         Task::fields().status(),
         vec!["draft".to_string()],
     ));
-    let mut filters = HashMap::new();
+    let mut filters = BTreeMap::new();
     filters.insert("status".to_string(), "draft".to_string());
     let state = TableState {
         filters,
@@ -192,7 +193,7 @@ async fn empty_clear_links_preserve_the_untouched_state() {
     .group_by("status", |t| t.status.clone());
     let state = TableState {
         search: Some("Hello".to_string()),
-        filters: HashMap::from([("status".to_string(), "published".to_string())]),
+        filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
         sort: Some(Sort {
             column: "title".to_string(),
             descending: true,
@@ -218,7 +219,7 @@ async fn empty_clear_links_preserve_the_untouched_state() {
         "clear search must keep dir: {clear}"
     );
     assert!(
-        clear.contains("filters="),
+        clear.contains("f.status=published"),
         "clear search must keep filters: {clear}"
     );
     assert!(
@@ -228,7 +229,7 @@ async fn empty_clear_links_preserve_the_untouched_state() {
     assert!(!clear.contains("q="), "clear search must drop q: {clear}");
 
     let state = TableState {
-        filters: HashMap::from([("status".to_string(), "published".to_string())]),
+        filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
         sort: Some(Sort {
             column: "title".to_string(),
             descending: true,

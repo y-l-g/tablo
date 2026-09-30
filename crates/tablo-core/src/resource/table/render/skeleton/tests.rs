@@ -14,7 +14,7 @@ async fn skeleton_shares_the_table_root_with_the_swapped_body() {
         TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
     );
     let html = tbl
-        .render_skeleton_normalized(&cx, &tbl.normalize_state(&TableState::default()))
+        .render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
         .await
         .unwrap()
         .single()
@@ -91,7 +91,7 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
     )
     .with_view("/admin/users".to_string());
     let skeleton = tbl
-        .render_skeleton_normalized(&cx, &tbl.normalize_state(&TableState::default()))
+        .render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
         .await
         .unwrap()
         .single()

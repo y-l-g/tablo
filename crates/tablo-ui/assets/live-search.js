@@ -3,10 +3,11 @@
 // The live search input (`data-live-search-input`) is deliberately unbound:
 // typing stays local until it pauses, so a burst like "published" triggers
 // one table reload instead of nine. After `data-debounce-ms` milliseconds of
-// quiet the script copies the value into the bound hidden transport
-// (`data-live-search-transport`) and dispatches a bubbling `change` into it,
-// which the runtime turns into signal writes — the shard re-renders the table
-// in place exactly as if the user had typed into a bound input, so the
+// quiet the script rewrites the list query held by the hidden transport
+// (`data-live-search-transport`, bound to the table's `query` signal): it sets
+// `q`, drops the cursor (a new term is a new result set), keeps every other
+// parameter, and dispatches a bubbling `change`, which the runtime turns into a
+// signal write. The shard re-renders the table in place, and the runtime's
 // abort-in-flight coalescing still applies to the resulting rerun. Pressing
 // Enter flushes the pending value immediately instead of waiting out the
 // timer. Without JS the `<noscript>` GET form is the search path and this
@@ -29,11 +30,27 @@ function transportFor(input) {
   return host.querySelector('[data-live-search-transport]');
 }
 
+// The list query with `q` set to `term` (dropped when blank) and the cursor
+// dropped; every other parameter kept as it stands.
+function withSearch(query, term) {
+  const params = new URLSearchParams(query);
+  const trimmed = term.trim();
+  if (trimmed) {
+    params.set('q', trimmed);
+  } else {
+    params.delete('q');
+  }
+  params.delete('after');
+  params.delete('before');
+  return params.toString();
+}
+
 function flush(input) {
   const transport = transportFor(input);
   if (!transport || !input.isConnected || !transport.isConnected) return;
-  if (transport.value !== input.value) {
-    transport.value = input.value;
+  const next = withSearch(transport.value, input.value);
+  if (transport.value !== next) {
+    transport.value = next;
     transport.dispatchEvent(new Event('change', { bubbles: true }));
   }
 }
@@ -70,4 +87,9 @@ document.addEventListener('keydown', (e) => {
   }
   flush(input);
 });
+
+// Exposed for the Node unit test (`live-search.test.js`); inert in the browser.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { withSearch };
+}
 })();

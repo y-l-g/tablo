@@ -140,17 +140,19 @@ pub(crate) fn table_error_view<'a, R: Resource>(
             // the query signals already hold the values that failed.
             // Keyed by the list, like the table's own signals.
             let attempt = topcoat::runtime::signal(&cx.keyed(path), || 0u64);
-            let cursor = signals.cursor.clone();
-            let none = crate::resource::cursor_none();
             let cursor_error = crate::cursor::is_cursor_error(error);
             let attrs = if cursor_error {
+                // The retry URL drops the cursor: write its query, so the rerun
+                // loads the first page of the same result set.
+                let query = signals.query.clone();
+                let next = crate::resource::query_of(&retry_url).to_string();
                 attributes! {
                     cx =>
                     href=(retry_url)
                     data-retry-attempt=(attempt.get())
                     @click=$(|e: Event| {
                         e.prevent_default();
-                        cursor.set(none.clone());
+                        query.set(next.clone());
                         attempt.increment();
                     })
                 }
@@ -244,7 +246,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             return Ok(resource_list_live::<R>(cx, table, state, title, list_path));
         }
 
-        // The skeleton table (`Table::render_skeleton_normalized`) streams
+        // The skeleton table (`Table::render_skeleton`) streams
         // while the rows load below.
         // The load catches its own errors: post-stream
         // the status line is fixed, so a failed load must render the branded
@@ -259,12 +261,12 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // so it normalizes here and every seam below takes the proof (GH
         // #153: the retry link must not echo an unknown `?group_by=`).
         let state = table.normalize_state(&state);
-        let skeleton = table.render_skeleton_normalized(cx, &state).await?;
+        let skeleton = table.render_skeleton(cx, &state).await?;
         let header = list_header::<R>(cx, &title, &list_path);
         let lazy_rows = ThenView::new(async move {
             let rendered = async {
                 let page = load_table_page::<R>(cx, &table, &state).await?;
-                table.render_normalized(cx, page, &state, &list_path).await
+                table.render_with_state(cx, page, &state, &list_path).await
             };
             match rendered.await {
                 Ok(view) => Ok(view),
@@ -320,7 +322,7 @@ pub(crate) fn resource_list_live<R: Resource>(
         let host = if table.search_enabled() {
             Some(
                 table
-                    .render_live_search_bar_normalized(cx, &state, &list_path, &signals)
+                    .render_live_search_bar(cx, &state, &list_path, &signals)
                     .await?,
             )
         } else {
@@ -332,17 +334,17 @@ pub(crate) fn resource_list_live<R: Resource>(
         let filter_bar = if table.filter_bar_enabled() {
             Some(
                 table
-                    .render_live_filter_bar_normalized(cx, &state, &list_path, &signals)
+                    .render_live_filter_bar(cx, &state, &list_path, &signals)
                     .await?,
             )
         } else {
             None
         };
-        let skeleton = table.render_skeleton_normalized(cx, &state).await?;
+        let skeleton = table.render_skeleton(cx, &state).await?;
         // The delete confirmation dialog is not part of the swapped table
         // region: a keystroke starts a new result set and must never carry
         // (or re-open) a dialog, so the live page renders it eagerly once.
-        let delete_dialog = table.render_delete_dialog_normalized(cx, &state).await?;
+        let delete_dialog = table.render_delete_dialog(cx, &state).await?;
         let header = list_header::<R>(cx, &title, &list_path);
         let lazy_rows = ThenView::new(async move {
             // The retry link inside the table writes the same signals the

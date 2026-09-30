@@ -752,7 +752,7 @@ async fn export_and_list_agree_on_rows_and_order() {
     // and miss the CSV. This drives the same state through both — the list
     // through `TablePage::load`, the export through `export_base_query` — and
     // compares the rows and their order.
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use crate::resource::{Resource, SelectFilter, Sort, TableState, TextColumn};
 
@@ -821,7 +821,7 @@ async fn export_and_list_agree_on_rows_and_order() {
     // resolve the same ordering without the PK fallback.
     let state = TableState {
         search: Some("a".to_string()),
-        filters: HashMap::from([("status".to_string(), "published".to_string())]),
+        filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
         sort: Some(Sort {
             column: "title".to_string(),
             descending: true,
