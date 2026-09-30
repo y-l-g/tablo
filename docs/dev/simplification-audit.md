@@ -98,24 +98,27 @@ body is the obvious default: a query-scoped delete by primary key. Policy alread
 reachability: `can_delete_any` defaults to `false`, and the handler answers 403 before reading the
 body.
 
-**Change.** Default `delete_record` to the query-scoped delete. `bulk_delete_records` already
-defaults to a loop over `delete_record`, so it works unchanged.
+**Change.** Default `delete_record` to a delete through `scoped_query`, filtered to the table's
+record key, which is the model's primary key. `bulk_delete_records` already defaults to a loop over
+`delete_record`, so it works unchanged and a soft-delete override covers both.
 
 **Removes.** The showcase macro and its four invocations, and a resource that builds and then fails
 on every delete.
 
-**S13 — Every table paginates; `paginate(NonZeroUsize)`.**
+**S13 — Every table paginates.**
 
 `Table::paginate(per_page: usize)` (`table/mod.rs`) documents zero as a programmer error, then
 guards it in `Table::missing_essentials`, the load path, the render path, and `panel/build.rs`. A
 table with no page size loads unbounded, and `load_table_page` (`panel/list.rs`) refuses it for a
 resource list.
 
-**Change.** A table paginates at 25 rows unless it declares otherwise, as Filament's tables do.
-`paginate` takes `NonZeroUsize`. Delete the zero guards, the unbounded branch, and the resource-list
-refusal, with their tests.
+**Change.** A table paginates at 25 rows unless it declares otherwise, as Filament's tables do. The
+page size is a `NonZeroUsize`; `paginate(usize)` panics on zero like `Table::new`'s other
+misdeclarations, and `Panel::build` calls `Resource::table`, so it surfaces at boot. Delete the zero
+guards, the unbounded branch, and the resource-list refusal, with their tests. Every table then
+falls back to PK order, so `OrderMode` goes.
 
-**Removes.** Four zero guards, one refusal, and the unbounded load.
+**Removes.** Four zero guards, one refusal, the unbounded load, and `OrderMode`.
 
 **S15 — One commit tail.**
 
@@ -152,7 +155,7 @@ build resolves.
 | `Table::render_live_filter_bar` | `render/filterbar.rs`; same | delete |
 | `Table::render_live_search_bar` | `render/toolbar.rs`; same, and its doc names a showcase caller that does not exist | delete |
 | `Table::render_live_with_state` | `render/core.rs`; same | delete |
-| `Table::render_skeleton` | `render/skeleton.rs`; called only by its own tests | `pub(crate)` |
+| `Table::render_skeleton` | `render/skeleton.rs`; called only by its own tests | delete; tests call the `_normalized` twin |
 | `Table::actions_for` | `table/mod.rs`; one caller, `render/core.rs` | `pub(crate)` |
 | `GroupDef` re-export | `resource/mod.rs`; private fields, built only inside `group_by` | drop from the re-export |
 | `RowActions` re-export | `lib.rs`; its only setter, `Table::row_actions`, is `pub(crate)` | drop from the re-export |
