@@ -1,4 +1,4 @@
-//! CSV export over the tenant-scoped `export_query`: a bounded visibility scan
+//! CSV export over the tenant-scoped `query`: a bounded visibility scan
 //! answers the cap before any byte is sent, then a cursor-chunked walk streams
 //! the file.
 
@@ -73,7 +73,7 @@ fn export_wants_bom(cx: &Cx) -> bool {
     form_urlencoded::parse(query.as_bytes()).any(|(k, v)| k == "bom" && v == "1")
 }
 
-/// CSV export — the tenant-scoped `export_query` + `Table` filters/sort,
+/// CSV export — the tenant-scoped `query` + `Table` filters/sort and includes,
 /// downloads `text/csv`.
 ///
 /// Streams the response as a chunked body: the filtered query is

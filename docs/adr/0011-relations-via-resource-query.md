@@ -8,9 +8,9 @@ Relations ride the resource query seam; there is no top-level `Relation` trait. 
 never write their own `#[shard]` or relation query, and `via` many-to-many stays SQL-only and out of
 scope for v1 tables (use the join model's query when it is needed).
 
-**Loader.** A page that needs a relation binds an explicit `include` on the resource's query, in two
-typed steps — `let inc: toasty::stmt::Include<Post, Author> = Post::fields().author().into();`
-(chaining `.into()` does not infer) — so a list of relation cells is one round trip (`NestedMerge` +
+**Loader.** A page that needs a relation declares an explicit, typed `include` where it reads it: a
+list column with `TextColumn::include(Post::fields().author())`, the detail page on
+`Resource::view_query` (ADR-0018). A list of relation cells is therefore one round trip (`NestedMerge` +
 correlated subquery, no N+1). A cell that reads an unloaded `Deferred` renders `"(unloaded)"` with a
 `debug_assert!` instead of silently reading data (GH #101).
 
@@ -32,9 +32,8 @@ whole load — no options and not the stored value, and the field surfaces `{lab
 is reported as invalid. The option cap counts the raw bounded fetch, before that filtering (GH #91).
 
 **Tenancy.** The option loaders are generic over `schema::OptionSource`, whose `scoped_query` is a
-required method; `option_query` runs `R::options_query(cx)`, which defaults to `R::scoped_query(cx)`
-and narrows to an empty include set for a `Resource` (2026-09-25 amendment, GH #298), so every
-related load carries the framework's tenant predicate and a related resource whose tenancy cannot be
+required method; `option_query` runs `R::scoped_query(cx)`, which for a `Resource` carries no
+relation (ADR-0018, GH #298), so every related load carries the framework's tenant predicate and a related resource whose tenancy cannot be
 scoped is a `Misdeclared` option error rather than an unscoped fetch (GH #208, ADR-0002).
 `Select::relationship` still takes the resource's `query` fn for type inference only; the loader does
 not call it directly.
@@ -47,7 +46,7 @@ no option-specific hook; zero searchable columns means the hard-cap fallback. Th
 `Select` in the parent's form (400 otherwise), `q` trimmed and clamped to the shared query bound,
 bounded at `limit(201)`, `can_view` before labels, `Denied` → 403, driver failure → 500, filtered
 overflow → 200 with a keep-typing hint option, and never a whole-table load. Validation for an
-overflowed searchable select is a targeted `pk_eq_expr` + `R::options_query` + `can_view` check
+overflowed searchable select is a targeted `pk_eq_expr` + `R::scoped_query` + `can_view` check
 (viewable → pass, hidden/not-found → `invalid`, denied → `not available`, DB failure → retry); bounded
 sets keep membership validation. The UI is a native `<select>` plus `selects.js` (debounced 200 ms,
 aborts in-flight requests, preserves selection and placeholder); without JavaScript the plain select

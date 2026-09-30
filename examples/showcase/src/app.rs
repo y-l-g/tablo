@@ -752,7 +752,7 @@ impl Resource for CommentResource {
 
     /// Inherit-through-the-relation: scope through the parent post's
     /// tenant. Toasty rewrites the relation-path comparison into a foreign-key
-    /// subquery, and the framework ANDs the result onto `query`/`export_query`
+    /// subquery, and the framework ANDs the result onto `query`/`view_query`
     /// exactly as it ANDs the derived `tenant_id` filter elsewhere.
     fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
         Some(Comment::fields().post().tenant_id().eq(tenant))

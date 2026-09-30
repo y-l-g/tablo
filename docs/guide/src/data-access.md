@@ -34,14 +34,15 @@ let posts = Post::all()
 // then `post.author.get()` with no extra query
 ```
 
-Guard computed cells against a missing preload so a query change fails loudly, not with blank data —
-and declare the relation, which is what the CSV export's narrowed query is built from (GH #177):
+Declare the relation a cell reads, typed on the model: the list and the CSV export load exactly the
+relations their columns include (ADR-0018). Guard the cell against a missing include so a dropped
+declaration fails loudly, not with blank data:
 
 ```rust
 TextColumn::computed("Author", |p: &Post| {
     if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
 })
-.needs(["author"])
+.include(Post::fields().author())
 ```
 
 ## Embedded values

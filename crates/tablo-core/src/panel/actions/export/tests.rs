@@ -750,7 +750,7 @@ async fn export_and_list_agree_on_rows_and_order() {
     // both loaders apply the table declaration through one shared
     // routine, so a search term, a filter and a sort cannot reach the list
     // and miss the CSV. This drives the same state through both — the list
-    // through `Table::load`, the export through `export_base_query` — and
+    // through `TablePage::load`, the export through `export_base_query` — and
     // compares the rows and their order.
     use std::collections::HashMap;
 

@@ -687,15 +687,11 @@ impl<M> Table<M> {
     /// Apply this table's declaration to `query` — the one routine that turns
     /// the search term, the filters and the ordering into a query.
     ///
-    /// `query` is the caller's seed, which is the one thing the two loaders
-    /// legitimately differ on: the list loads the tenant-scoped
-    /// [`Resource::query`](crate::resource::Resource::query) (the row-scoping
-    /// seam, ADR-0002) while the export loads the tenant-scoped
-    /// [`Resource::export_query`](crate::resource::Resource::export_query),
-    /// narrowed to the relations the rendered columns declared.
-    ///
-    /// Everything else is shared, so a new search or filter dimension cannot
-    /// reach the list and miss the CSV — the drift class GH #172 fixed.
+    /// `query` is the caller's seed: the list and the export both pass the
+    /// tenant-scoped [`Resource::query`](crate::resource::Resource::query) (the
+    /// row-scoping seam, ADR-0002), and a page-owned table passes its own. One
+    /// routine for both, so a new search or filter dimension cannot reach the
+    /// list and miss the CSV — the drift class GH #172 fixed.
     pub(crate) fn apply_declaration(
         &self,
         mut query: toasty::stmt::Query<List<M>>,

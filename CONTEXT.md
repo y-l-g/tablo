@@ -158,8 +158,8 @@ _Avoid_: CommittedSet, ChangeSet, Event, PostCommit
 
 The base filtered query for a Resource, returned by `Resource::query(cx)` and used by every
 loader through `scoped_query(cx)` — that base with the framework's tenant filter ANDed on when
-the resource requires a tenant (GH #223). The CSV export asks `Resource::export_query(cx, needs)`
-instead, which defaults to this query (GH #177). See
+the resource requires a tenant (GH #223). The list and the CSV export add the relations their
+columns include, and the detail page loads `Resource::view_query(cx)` (ADR-0018). See
 [data access](docs/guide/src/data-access.md).
 
 _Avoid_: Scope, EloquentQuery, Builder (as domain term)

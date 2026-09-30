@@ -31,8 +31,8 @@ query plus a PK filter, ADR-0002) like the edit GET, so tenancy, soft-delete sco
 an unknown *or* out-of-scope id come from the seam rather than a second implementation. `can_view` on
 the loaded record is a 403, not a 404: the record exists and this caller may not see it.
 
-**Relations render from the record, beside the Schema.** The query's `include` already loads the
-related rows for the list's computed columns, and the detail page reuses it. They cannot go *in* the
+**Relations render from the record, beside the Schema.** `Resource::view_query` includes the related
+rows the detail page renders (ADR-0018), so they arrive with the record. They cannot go *in* the
 Schema: `Resource::view(cx)` takes no record — it is a declaration, read at build time as well as per
 request — and a `Schema` renders the record's string projection (one `HashMap<String, String>`) while
 a relation is a list of records, so a relation node would need the render tree to carry a record of

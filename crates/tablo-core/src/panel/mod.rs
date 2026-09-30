@@ -63,7 +63,7 @@ use crate::{
 /// table instead of mounting the panel's list route.
 ///
 /// The page-owned seam (GH #154 §2) pairs this with
-/// [`Table::load`](crate::resource::Table::load) and
+/// [`TablePage::load`](crate::resource::TablePage::load) and
 /// [`Table::render_with_state`](crate::resource::Table::render_with_state).
 /// The table carries `R::table`'s columns, key, page size, search toolbar and
 /// filter bar, plus the action chrome `R`'s declarations imply — the row

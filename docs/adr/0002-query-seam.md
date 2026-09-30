@@ -12,8 +12,8 @@ there: the framework owns that half.
 
 For a resource whose `requires_tenant()` is `true`, every loader — list, edit/delete load, bulk
 fetch, unique pre-check, export, and the three relationship option loaders — runs
-`scoped_query::<R>(cx)`, which ANDs the tenant predicate onto whatever `query` (or `export_query`)
-returned. The predicate comes from `Resource::tenant_scope(tenant)`, whose default derives
+`scoped_query::<R>(cx)`, which ANDs the tenant predicate onto whatever `query` returned; the
+detail page's `view_query` gets the same predicate. The predicate comes from `Resource::tenant_scope(tenant)`, whose default derives
 `tenant_id = <request tenant>` from the model's own schema: a field named `tenant_id` whose type is
 a UUID. A resource whose rows inherit their tenant — the showcase's comments, which belong to a post
 that carries one — overrides `tenant_scope` with the relation path instead, so the derived default
