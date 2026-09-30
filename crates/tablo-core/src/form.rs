@@ -217,7 +217,12 @@ pub enum FieldErrorKind {
     Invalid,
 }
 
-/// One key a parse refused, with the message the form renders under it.
+/// One key a submission was refused under, with the sentence the form renders
+/// beneath it.
+///
+/// The entry type of [`FieldErrors`]. [`Self::required`] is what
+/// [`RecordForm::parse`] answers for an unanswered key, whose control supplies
+/// the rendered wording.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldError {
     /// The form key the error renders under.
@@ -440,20 +445,57 @@ impl<F: RecordForm> std::ops::Deref for Posted<F> {
     }
 }
 
-/// Field-keyed validation errors from [`Resource::validate_record`].
-pub struct FieldErrors<F: RecordForm> {
-    errors: Vec<(F::Field, String)>,
+/// A refused submission, keyed by the form key each error renders under.
+///
+/// One type for every source: the schema's own rules
+/// ([`Schema::validate`](crate::schema::Schema::validate)), a rejected upload, a
+/// failed uniqueness probe, and an app's
+/// [`validate_record`](crate::Resource::validate_record). The submit handler
+/// merges them without translating, and the form render reads each field's own
+/// key from the result.
+///
+/// A key that no field of the rendered schema owns has nowhere to render: the
+/// submit handler refuses it as a declaration error rather than writing past
+/// it.
+#[derive(Debug, Default)]
+pub struct FieldErrors {
+    errors: Vec<FieldError>,
 }
 
-impl<F: RecordForm> FieldErrors<F> {
+impl FieldErrors {
     /// No errors.
     pub fn new() -> Self {
-        Self { errors: Vec::new() }
+        Self::default()
     }
 
-    /// Refuse `field` with `message`.
-    pub fn add(&mut self, field: F::Field, message: impl Into<String>) {
-        self.errors.push((field, message.into()));
+    /// Refuse `key` with `message`.
+    pub fn add(&mut self, key: impl Into<String>, message: impl Into<String>) {
+        self.errors.push(FieldError::invalid(key, message));
+    }
+
+    /// Refuse `key` as unanswered, with the message its control renders.
+    pub fn add_required(&mut self, key: impl Into<String>, message: impl Into<String>) {
+        self.errors.push(FieldError {
+            key: key.into(),
+            kind: FieldErrorKind::Required,
+            message: message.into(),
+        });
+    }
+
+    /// Refuse `error`'s key with `error`, keeping the error's own kind.
+    pub fn push(&mut self, error: FieldError) {
+        self.errors.push(error);
+    }
+
+    /// Whether any error renders under `key`.
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.errors.iter().any(|error| error.key == key)
+    }
+
+    /// The error `key` renders: the first one added, like the render's own
+    /// first-message slot.
+    pub fn first(&self, key: &str) -> Option<&FieldError> {
+        self.errors.iter().find(|error| error.key == key)
     }
 
     /// Whether nothing was refused.
@@ -461,15 +503,30 @@ impl<F: RecordForm> FieldErrors<F> {
         self.errors.is_empty()
     }
 
-    /// The errors in the order they were added.
-    pub fn iter(&self) -> impl Iterator<Item = &(F::Field, String)> {
+    /// Every error, in the order it was added.
+    pub fn iter(&self) -> impl Iterator<Item = &FieldError> {
         self.errors.iter()
     }
-}
 
-impl<F: RecordForm> Default for FieldErrors<F> {
-    fn default() -> Self {
-        Self::new()
+    /// Append `other`'s errors after these.
+    pub fn extend(&mut self, other: Self) {
+        self.errors.extend(other.errors);
+    }
+
+    /// Take `other`'s errors, dropping this collection's own errors under every
+    /// key `other` names.
+    ///
+    /// A source that owns a key answers for it: a rejected upload replaces the
+    /// "required" the emptied control would otherwise report.
+    pub fn replace(&mut self, other: Self) {
+        let owned: HashSet<&str> = other
+            .errors
+            .iter()
+            .map(|error| error.key.as_str())
+            .collect();
+        self.errors
+            .retain(|kept| !owned.contains(kept.key.as_str()));
+        self.errors.extend(other.errors);
     }
 }
 

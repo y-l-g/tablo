@@ -66,10 +66,10 @@ impl Resource for ItemResource {
         item_schema()
     }
 
-    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemForm> {
+    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors {
         let mut errors = FieldErrors::new();
         if form.priority > 10 {
-            errors.add(ItemFormField::Priority, "Priority is at most 10");
+            errors.add("priority", "Priority is at most 10");
         }
         errors
     }
@@ -883,9 +883,9 @@ async fn an_unkeyable_record_rule_fails_closed() {
             Schema::empty()
         }
 
-        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<Keyless> {
+        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors {
             let mut errors = FieldErrors::new();
-            errors.add(PriorityFormField::Priority, "never");
+            errors.add("priority", "never");
             errors
         }
 

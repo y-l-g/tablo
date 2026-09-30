@@ -34,7 +34,7 @@ pub(crate) fn retry_url_for_error(
     error: &topcoat::Error,
     path: &str,
 ) -> String {
-    if crate::cursor::is_cursor_error(error) {
+    if crate::error::TabloError::is_cursor(error) {
         state.without_cursor(path)
     } else {
         state.list_url(path)
@@ -139,7 +139,7 @@ pub(crate) fn table_error_view<'a, R: Resource>(
             // the query signals already hold the values that failed.
             // Keyed by the list, like the table's own signals.
             let attempt = topcoat::runtime::signal(&cx.keyed(path), || 0u64);
-            let cursor_error = crate::cursor::is_cursor_error(error);
+            let cursor_error = crate::error::TabloError::is_cursor(error);
             let attrs = if cursor_error {
                 // The retry URL drops the cursor: write its query, so the rerun
                 // loads the first page of the same result set.

@@ -37,6 +37,7 @@ Both track `main` and are pinned by `Cargo.lock`; bump them deliberately, never 
 
 ## How to read this guide
 
+- [Your first panel](./first-panel.md): a complete `main` that mounts a resource and serves it.
 - [Panel and routing](./panel-and-routing.md): mounting a panel and the routes a resource serves.
 - [Resources](./resources.md): the `Resource` trait, its contract, and tenancy.
 - [Tables](./tables.md), [Forms](./forms.md), [Detail pages](./detail-pages.md): the three views.

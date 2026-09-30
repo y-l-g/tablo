@@ -152,7 +152,7 @@ async fn relationship_loader_fails_past_option_cap() {
     // An overflowed load keeps the stored FK selectable: a
     // failed load must not blank the relation into a required-error.
     let html = select
-        .render(&cx, Some("stored-fk"), &[], Mode::Form)
+        .render(&cx, Some("stored-fk"), None, Mode::Form)
         .await
         .unwrap()
         .single()
@@ -219,7 +219,7 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
         vec!["Name is invalid".to_string()]
     );
     let html = select
-        .render(&cx, Some(&pk), &[], Mode::Form)
+        .render(&cx, Some(&pk), None, Mode::Form)
         .await
         .unwrap()
         .single()
@@ -266,7 +266,7 @@ async fn relationship_load_fails_closed_when_can_view_any_denies() {
         vec!["Id is not available".to_string()]
     );
     let html = select
-        .render(&cx, Some(&pk), &[], Mode::Form)
+        .render(&cx, Some(&pk), None, Mode::Form)
         .await
         .unwrap()
         .single()
@@ -380,7 +380,7 @@ async fn relationship_load_filters_rows_by_can_view() {
         vec!["Id is invalid".to_string()]
     );
     let html = select
-        .render(&cx, Some(&visible.id.to_string()), &[], Mode::Form)
+        .render(&cx, Some(&visible.id.to_string()), None, Mode::Form)
         .await
         .unwrap()
         .single()
@@ -468,7 +468,7 @@ async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
         vec!["Id is invalid".to_string()]
     );
     let html = select
-        .render(&cx, Some(&pk), &[], Mode::Form)
+        .render(&cx, Some(&pk), None, Mode::Form)
         .await
         .unwrap()
         .single()
@@ -542,7 +542,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     assert!(check(&s1, &cx, &id).await.is_empty());
     assert!(check(&s2, &cx, &id).await.is_empty());
     let _ = s1
-        .render(&cx, Some(&id), &[], Mode::Form)
+        .render(&cx, Some(&id), None, Mode::Form)
         .await
         .unwrap()
         .single()
@@ -899,7 +899,7 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
             |r: &HintRef| r.name.clone(),
         );
     let html = select
-        .render(&cx, Some("stored-fk"), &[], Mode::Form)
+        .render(&cx, Some("stored-fk"), None, Mode::Form)
         .await
         .unwrap()
         .single()
@@ -975,7 +975,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
             |r: &SmallRef| r.name.clone(),
         );
     let html = select
-        .render(&cx, None, &[], Mode::Form)
+        .render(&cx, None, None, Mode::Form)
         .await
         .unwrap()
         .single()

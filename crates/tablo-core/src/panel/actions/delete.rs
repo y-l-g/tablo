@@ -65,7 +65,7 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
             // `can_delete` — a record that cannot be viewed cannot be deleted
             // by UUID-guessing the route.
             let mut db = db(cx);
-            let mut tx = db.transaction().await.map_err(crate::db::unavailable)?;
+            let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
             let id = topcoat::router::path_param_segment(cx, "id").to_string();
             // The delete path reads only the record's own columns:
             // `can_view`/`can_delete` are Rust predicates over those, and

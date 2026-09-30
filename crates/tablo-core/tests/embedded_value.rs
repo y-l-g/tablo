@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{EmbeddedForm, Field, FieldErrorKind, ResolvedLens, Schema, Source};
+use tablo_core::{EmbeddedForm, Field, FieldErrorKind, FieldErrors, ResolvedLens, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -543,7 +543,7 @@ async fn variant_casing_needs_no_normalisation() {
 
     // And the derived form renders (a name mismatch would panic here).
     let html = Schema::new(Casing::form(&cx, Post::fields().casing()))
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -668,7 +668,7 @@ async fn the_derived_form_renders_the_variant_select_and_every_payload() {
 /// The form's HTML, hydrated with `values` (empty for a create form).
 async fn render_form(cx: &Cx, schema: &Schema, values: &HashMap<String, String>) -> String {
     schema
-        .render(cx, Source::form(values, &HashMap::new()))
+        .render(cx, Source::form(values, &FieldErrors::new()))
         .await
         .unwrap()
         .single()

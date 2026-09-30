@@ -13,7 +13,11 @@ use super::{
     super::{actions::load_viewable, gate::gate},
     render::render_form_page,
 };
-use crate::{db::db, form::RecordForm, resource::Resource};
+use crate::{
+    db::db,
+    form::{FieldErrors, RecordForm},
+    resource::Resource,
+};
 
 /// A decoded form body: the text values plus any file parts.
 pub(crate) struct FormParts {
@@ -174,7 +178,7 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     title: String,
     submit_label: &'static str,
     values: &HashMap<String, String>,
-    errors: &HashMap<String, Vec<String>>,
+    errors: &FieldErrors,
     carried: &HashSet<String>,
     public_url: Option<String>,
 ) -> Result<BoxView<'a>> {
@@ -200,7 +204,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             format!("Edit {}", R::label()),
             "Save",
             &values,
-            &HashMap::new(),
+            &FieldErrors::new(),
             &HashSet::new(),
             public,
         )

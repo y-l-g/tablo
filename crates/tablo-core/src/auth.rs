@@ -171,42 +171,19 @@ pub trait Authenticator: Send + Sync + 'static {
     fn find_by_id<'a>(&'a self, cx: &'a Cx, id: &'a str) -> AuthFuture<'a, Option<CurrentUser>>;
 }
 
-/// The opaque error an infrastructure failure on an auth or session path
-/// carries.
+/// Map a failed auth or session operation to the error the response carries:
+/// [`crate::error::driver_failure`] with the sign-in outage copy.
 ///
-/// Its `Display` is [`UNAVAILABLE_ERROR`], so nothing driver-shaped can travel
-/// inside it, and its concrete type is what lets the login handler recognise
-/// the one case it answers with the outage page rather than a 500.
-#[derive(Debug)]
-struct Unavailable;
-
-impl std::fmt::Display for Unavailable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(UNAVAILABLE_ERROR)
-    }
-}
-
-impl std::error::Error for Unavailable {}
-
-/// Map a failed auth or session operation to the error the response carries
-/// The counterpart of [`crate::db::hook_failure`] for this module.
-///
-/// An error that is the driver's is an infrastructure failure: it becomes
-/// [`Unavailable`], and the driver's own text goes to the log under this
-/// event, never to the page. Anything else is app-authored (a custom
-/// [`Authenticator`]'s own error) and keeps its mapping, so the seam does not
-/// swallow it. Every auth and session path maps through here, which is what
-/// keeps a database outage from reading as a rejected password — and what
-/// makes the two distinguishable in the logs: a rejection is `Ok(None)`, the
-/// generic 403 and no error line, while an outage logs the driver's text.
+/// A driver failure becomes an infrastructure error whose `Display` is
+/// [`UNAVAILABLE_ERROR`], and the driver's own text goes to the log, never to
+/// the page; anything else is app-authored (a custom [`Authenticator`]'s own
+/// error) and keeps its mapping. Every auth and session path maps through
+/// here, which is what keeps a database outage from reading as a rejected
+/// password — and what makes the two distinguishable in the logs: a rejection
+/// is `Ok(None)`, the generic 403 and no error line, while an outage logs the
+/// driver's text.
 fn infrastructure_failure(error: impl Into<topcoat::Error>) -> topcoat::Error {
-    let error = error.into();
-    if error.is::<toasty::Error>() {
-        tracing::error!(error = %error, "auth infrastructure failure");
-        Unavailable.into()
-    } else {
-        error
-    }
+    crate::error::driver_failure(error, UNAVAILABLE_ERROR)
 }
 
 /// The shipped default authenticator: Argon2id verification against
@@ -740,7 +717,7 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                     // hands back an app-authored error untouched.
                     Err(error) => {
                         let error = infrastructure_failure(error);
-                        if error.is::<Unavailable>() {
+                        if crate::error::TabloError::is_infrastructure(&error) {
                             return login_response(cx, Some(LoginError::Unavailable), next).await;
                         }
                         return Err(error);
@@ -780,7 +757,7 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             // recorded. Same outage page as a failed verification — never the
             // driver's text.
             let error = infrastructure_failure(error);
-            if error.is::<Unavailable>() {
+            if crate::error::TabloError::is_infrastructure(&error) {
                 return login_response(cx, Some(LoginError::Unavailable), next).await;
             }
             return Err(error);

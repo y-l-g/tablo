@@ -38,6 +38,8 @@ pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, render_nodes, walk_absent_groups};
 pub use validation::TypedValue;
 
+use crate::form::FieldErrors;
+
 /// One control as the record-form checks see it ([`Schema::controls`]).
 #[derive(Debug, Clone)]
 pub(crate) struct ControlCheck {
@@ -252,7 +254,7 @@ impl Schema {
     /// Repeater group is absent, and a variant group the submission's
     /// discriminant does not name is not rendered by `variant.js`, so neither
     /// can fail the submit for a value the user cannot see.
-    pub fn validate(&self, values: &HashMap<String, String>) -> HashMap<String, Vec<String>> {
+    pub fn validate(&self, values: &HashMap<String, String>) -> FieldErrors {
         // Classify the groups first: an all-empty group is
         // "absent" — an untouched group submits empty strings (or omits the
         // keys), both treated as absent — so its inner inputs must not fail
@@ -264,7 +266,7 @@ impl Schema {
         // codebase-wide trim convention. A variant group the submission's
         // discriminant does not name is hidden with its subtree, which is what
         // makes validation agree with the render.
-        let mut errors: HashMap<String, Vec<String>> = HashMap::new();
+        let mut errors = FieldErrors::new();
         let mut skip: HashSet<String> = HashSet::new();
         walk_absent_groups(
             &self.nodes,
@@ -279,9 +281,8 @@ impl Schema {
                 continue;
             }
             let value = values.get(field.name()).map(String::as_str).unwrap_or("");
-            let errs = field.validate(value);
-            if !errs.is_empty() {
-                errors.insert(field.name().to_string(), errs);
+            for message in field.validate(value) {
+                errors.add(field.name(), message);
             }
         }
         errors
@@ -296,7 +297,7 @@ impl Schema {
     /// group's select is not probed for existence.
     pub(crate) fn absent_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
         let mut skip = HashSet::new();
-        let mut discarded = HashMap::new();
+        let mut discarded = FieldErrors::new();
         walk_absent_groups(
             &self.nodes,
             &self.fields,
@@ -314,11 +315,7 @@ impl Schema {
     /// A field `validate` skipped is skipped here too: an absent
     /// repeater group or a hidden variant group holds no value the user can
     /// see, so its choice must not be probed for existence.
-    pub async fn validate_async(
-        &self,
-        cx: &Cx,
-        values: &HashMap<String, String>,
-    ) -> HashMap<String, Vec<String>> {
+    pub async fn validate_async(&self, cx: &Cx, values: &HashMap<String, String>) -> FieldErrors {
         let mut errors = self.validate(values);
         let absent = self.absent_fields(values);
         for field in &self.fields {
@@ -331,9 +328,8 @@ impl Schema {
             };
             // `validate` above already ran the required rule, so the
             // existence-only check is what is left to ask.
-            let existence = field.validate_exists(cx, value).await;
-            if !existence.is_empty() {
-                errors.insert(name.to_string(), existence);
+            for message in field.validate_exists(cx, value).await {
+                errors.add(name, message);
             }
         }
         errors

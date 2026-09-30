@@ -227,8 +227,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                 http::header::CONTENT_DISPOSITION,
                 format!("attachment; filename=\"{}\"", filename),
             )
-            .body(Body::new(body))
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
+            .body(Body::new(body))?;
         Ok(res)
     })
 }
@@ -304,7 +303,7 @@ where
                     self.beyond_window =
                         row_exists_past(db, self.query.clone(), Past::After(cursor))
                             .await
-                            .map_err(crate::db::unavailable)?;
+                            .map_err(crate::error::unavailable)?;
                 }
                 self.exhausted = true;
                 return Ok(None);
@@ -314,7 +313,7 @@ where
             if let Some(cursor) = self.after.take() {
                 page = page.after(cursor);
             }
-            let loaded = page.exec(db).await.map_err(crate::db::unavailable)?;
+            let loaded = page.exec(db).await.map_err(crate::error::unavailable)?;
             if loaded.items.is_empty() {
                 // An empty page ends the walk only when the cursor is absent:
                 // Toasty preserves the cursor while filtering rows in-memory,

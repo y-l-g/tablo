@@ -79,13 +79,13 @@ impl TextControl {
 
 impl Field {
     /// Render a text field: a read-only value in `Mode::View`, the control
-    /// with `value` and `errors` otherwise.
+    /// with `value` and `error` otherwise.
     pub(super) fn render_text<'a>(
         &self,
         text: &TextControl,
         cx: &'a Cx,
         value: Option<&str>,
-        errors: &[String],
+        error: Option<&str>,
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View {
@@ -101,7 +101,7 @@ impl Field {
         // field is never refused for emptiness while rendering as optional.
         let required = self.is_required();
         let placeholder = text.placeholder.clone();
-        let chrome = FieldChrome::new(&self.name, errors, None);
+        let chrome = FieldChrome::new(&self.name, error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let control = if let Some(rows) = text.rows {

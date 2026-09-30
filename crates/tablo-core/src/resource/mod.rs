@@ -16,7 +16,10 @@ use toasty::{
 };
 use topcoat::{Result, context::Cx};
 
-use crate::form::{FieldErrors, Posted, RecordForm, write_create, write_update};
+use crate::{
+    error::TabloError,
+    form::{FieldErrors, Posted, RecordForm, write_create, write_update},
+};
 
 mod column;
 mod commit;
@@ -66,10 +69,12 @@ pub(crate) use crate::query_term::clamp_query_term;
 ///   are the schema's controls, and a [`NoForm`](crate::NoForm) resource declares no schema. A
 ///   resource with no form must not allow [`can_create`](Self::can_create). These are declarations,
 ///   checked with a Db-only context.
-/// - **Loud at request time**: [`delete_record`](Self::delete_record) defaults to an error naming
-///   the type, so a resource that never implemented delete says so instead of writing nothing
-///   quietly. [`bulk_delete_records`](Self::bulk_delete_records) loops `delete_record` by default,
-///   so it stays loud through the same stub.
+/// - **Loud at request time**: a record fn's error fails the write and rolls its transaction back,
+///   never a partial write. [`delete_record`](Self::delete_record) defaults to deleting the row
+///   through [`scoped_query`], filtered to the record's key, and refuses a table whose record key
+///   does not parse back as the primary key — naming the override that fixes it — rather than
+///   deleting the wrong row or nothing. [`bulk_delete_records`](Self::bulk_delete_records) loops
+///   `delete_record` by default, so an override covers bulk delete too.
 /// - **Chrome follows the declarations**: the row Delete control and the bulk column render when
 ///   [`can_delete_any`](Self::can_delete_any) allows, the Edit link when the resource has a record
 ///   form, and the View link when it declares [`view`](Self::view); the row predicates then gate
@@ -408,7 +413,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// App-level rules on the parsed form. The errors render inline with a
     /// 200 and nothing is written; a record fn error is a 500, so a range or
     /// cross-field rule belongs here.
-    fn validate_record(_cx: &Cx, _form: &Self::Form) -> FieldErrors<Self::Form> {
+    ///
+    /// Each error names the key its control renders under. A key no control of
+    /// [`form`](Self::form) owns cannot render, and the submit fails closed
+    /// instead of writing past the rule.
+    fn validate_record(_cx: &Cx, _form: &Self::Form) -> FieldErrors {
         FieldErrors::new()
     }
 
@@ -491,7 +500,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
                     "default delete_record: the table's record key does not parse as the primary \
                      key; declare the primary key as the record key or override delete_record"
                 );
-                std::io::Error::other("delete failed")
+                TabloError::Declaration("delete failed".to_string())
             })?;
             Ok(query.filter(filter))
         });
@@ -645,7 +654,7 @@ pub(crate) fn apply_tenant_scope<R: Resource>(
             "requires_tenant is true but the resource supplies no tenant predicate: no `tenant_id` \
              UUID column on the model and no `tenant_scope` override (GH #223)"
         );
-        return Err(std::io::Error::other(format!(
+        return Err(TabloError::Declaration(format!(
             "resource '{}' requires a tenant, but the framework cannot scope it: {} declares no \
              `tenant_id` UUID column to derive the filter from, and the resource does not override \
              `tenant_scope` (GH #223); declare the column, override `tenant_scope`, or drop \

@@ -15,7 +15,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{Field, ResolvedLens, Schema, Source};
+use tablo_core::{Field, FieldErrors, ResolvedLens, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -67,7 +67,7 @@ async fn article_cx() -> Cx {
 
 async fn render(schema: &Schema, cx: &Cx, values: HashMap<String, String>) -> String {
     schema
-        .render(cx, Source::form(&values, &HashMap::new()))
+        .render(cx, Source::form(&values, &FieldErrors::new()))
         .await
         .unwrap()
         .single()

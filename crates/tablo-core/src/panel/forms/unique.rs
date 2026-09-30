@@ -4,16 +4,16 @@ use std::collections::HashMap;
 
 use topcoat::{Result, context::Cx};
 
-use crate::resource::Resource;
+use crate::{form::FieldErrors, resource::Resource};
 
 /// App-side uniqueness check over the form's `unique()`-marked text fields.
 ///
 /// Generic over every marked field. Queries through the tenant-scoped query and
-/// returns `field_name → ["<Label> has already been taken"]` per duplicated
-/// value. `current` holds the record's own hydrated values on edit: a field
-/// whose submitted value normalises to the same stored value belongs to this
-/// record and is skipped, so a typed field's re-spelled equivalent is not a
-/// duplicate.
+/// refuses each duplicated value under its own field name, with
+/// `"<Label> has already been taken"`. `current` holds the record's own
+/// hydrated values on edit: a field whose submitted value normalises to the
+/// same stored value belongs to this record and is skipped, so a typed field's
+/// re-spelled equivalent is not a duplicate.
 ///
 /// Empty submits are never probed: a `unique()` field is required (see
 /// [`crate::schema::Field::unique`]), so `validate` has already answered
@@ -34,8 +34,8 @@ pub(super) async fn check_unique<R: Resource>(
     values: &HashMap<String, String>,
     current: &HashMap<String, String>,
     ex: &mut dyn toasty::Executor,
-) -> Result<HashMap<String, Vec<String>>, topcoat::Error> {
-    let mut errors: HashMap<String, Vec<String>> = HashMap::new();
+) -> Result<FieldErrors, topcoat::Error> {
+    let mut errors = FieldErrors::new();
     // Groups the submission leaves out are not checked:
     // `validate` treats an all-empty repeater group and a hidden variant group
     // as untouched through the same classification, so a stored value must not
@@ -88,11 +88,11 @@ pub(super) async fn check_unique<R: Resource>(
             .limit(1)
             .exec(&mut *ex)
             .await
-            .map_err(crate::db::unavailable)?;
+            .map_err(crate::error::unavailable)?;
         if !rows.is_empty() {
-            errors.insert(
-                name.to_string(),
-                vec![format!("{} has already been taken", field.label_str())],
+            errors.add(
+                name,
+                format!("{} has already been taken", field.label_str()),
             );
         }
     }

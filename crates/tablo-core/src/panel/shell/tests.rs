@@ -56,6 +56,52 @@ async fn layout_shell_renders_a_complete_document() {
     assert!(html.contains("hello"), "missing layout slot in {html}");
 }
 
+/// A page outside the panel takes the panel's document: the same head, around
+/// the body the page owns.
+#[tokio::test]
+async fn document_wraps_a_public_page() {
+    use topcoat::{context::CxTestBuilder, view::view};
+
+    let (parts, ()) = http::Request::builder()
+        .uri("/blog")
+        .body(())
+        .unwrap()
+        .into_parts();
+    let cx = CxTestBuilder::new().request_context(parts).build();
+    let cx_ref = &cx;
+    let html = Panel::document(
+        &cx,
+        "Tablo Blog",
+        view! { cx_ref => <body class="blog">"hello"</body> },
+    )
+    .await
+    .unwrap()
+    .single()
+    .await
+    .unwrap()
+    .render(&cx);
+
+    assert!(
+        html.starts_with("<!DOCTYPE html>"),
+        "missing doctype in {html}"
+    );
+    assert!(
+        html.contains("<title>Tablo Blog</title>"),
+        "missing document title in {html}"
+    );
+    assert!(
+        html.contains("<body class=\"blog\">"),
+        "missing the page's own body in {html}"
+    );
+    assert!(html.contains("hello"), "missing page content in {html}");
+    // No `ShellAssets` in app context: the head carries no asset URL, so a
+    // router built without `.assets(..)` renders instead of panicking.
+    assert!(
+        !html.contains("rel=\"stylesheet\""),
+        "no stylesheet without shell assets, got {html}"
+    );
+}
+
 #[tokio::test]
 async fn shell_escapes_brand_name_and_logo() {
     use topcoat::{context::CxTestBuilder, view::view};

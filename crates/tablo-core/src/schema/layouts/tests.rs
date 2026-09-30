@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::*;
 use crate::{
+    form::FieldErrors,
     schema::{Schema, Source},
     test_support::cx,
 };
@@ -44,7 +45,7 @@ async fn text_input_inside_section_and_grid() {
         Field::text(DummyUser::fields().email()).email(),
     ))));
     let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -71,7 +72,7 @@ async fn section_renders_title_and_child() {
     let schema =
         Schema::new(Section::new("Account").schema(Field::text(DummyUser::fields().name())));
     let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -105,7 +106,7 @@ async fn group_renders_children() {
         Group::new().schema(Field::text(DummyUser::fields().name()).label("Inside group")),
     );
     let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -138,7 +139,7 @@ async fn grid_renders_with_cols_and_children() {
             Field::text(DummyUser::fields().name()),
             Field::text(DummyUser::fields().email()),
         )))
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -164,7 +165,7 @@ async fn nested_grid_inside_section() {
         Field::text(DummyUser::fields().email()).label("Right"),
     ))));
     let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -302,13 +303,13 @@ fn optional_repeater_with_required_inner_allows_empty_group() {
     // group, so the label carries the whole story.
     let errors = required.validate(&HashMap::new());
     assert_eq!(
-        errors.len(),
+        errors.iter().count(),
         1,
         "required repeater + empty submit must yield one error, got {errors:?}"
     );
     assert_eq!(
-        errors.get("Tags").map(|errs| errs.as_slice()),
-        Some(["Tags is required".to_string()].as_slice()),
+        errors.first("Tags").map(|error| error.message.as_str()),
+        Some("Tags is required"),
         "the label-keyed error is the only one, got {errors:?}"
     );
 

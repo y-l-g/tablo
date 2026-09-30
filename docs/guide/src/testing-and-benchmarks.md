@@ -2,7 +2,10 @@
 
 How to test a panel, what the showcase covers, and the performance harness and its budget.
 
-Unit render with `CxTestBuilder`. Cover each resource policy fn. Cover scoping in `query()`.
+Panel behavior is tested over HTTP through the shared harness in `crates/tablo-test`:
+`tablo_test::TestClient` drives a `Router` in memory and carries the cookies, tenant, and CSRF
+token a request needs, with body readers, form and multipart writers, and HTML scrapers alongside
+it. Cover each resource policy fn. Cover scoping in `query()`.
 
 The showcase has integration tests per area (list, create, edit, delete, bulk, filters, tenancy,
 uploads, export, auth) under `examples/showcase/tests/`.

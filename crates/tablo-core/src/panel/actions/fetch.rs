@@ -6,7 +6,7 @@
 
 use topcoat::{Result, context::Cx};
 
-use crate::resource::Resource;
+use crate::{error::TabloError, resource::Resource};
 
 /// Fetch one record by its URL `id` through the tenancy-scoped query seam.
 ///
@@ -40,10 +40,13 @@ pub(super) fn composite_pk_error<R: Resource>() -> Option<topcoat::Error> {
         resource = R::slug(),
         "composite primary key has no URL representation"
     );
-    Some(topcoat::Error::from(std::io::Error::other(format!(
-        "resource '{}' has a composite primary key, which has no URL representation (GH #95)",
-        R::slug()
-    ))))
+    Some(
+        TabloError::Declaration(format!(
+            "resource '{}' has a composite primary key, which has no URL representation (GH #95)",
+            R::slug()
+        ))
+        .into(),
+    )
 }
 
 /// The shared body of [`find_by_key`] and [`load_detail`]: parse the URL id
@@ -69,7 +72,7 @@ async fn find_by_key_in<R: Resource>(
         .first()
         .exec(&mut *ex)
         .await
-        .map_err(crate::db::unavailable)?
+        .map_err(crate::error::unavailable)?
         .ok_or_else(topcoat::router::error::not_found)
         .map_err(Into::into)
 }

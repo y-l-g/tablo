@@ -36,6 +36,7 @@ pub mod auth;
 pub mod csrf;
 pub mod cursor;
 pub mod db;
+mod error;
 pub mod form;
 pub mod notification;
 pub mod panel;

@@ -7,14 +7,17 @@ use super::{
     },
     *,
 };
-use crate::schema::{Schema, Source};
+use crate::{
+    form::FieldErrors,
+    schema::{Schema, Source},
+};
 
 #[tokio::test]
 async fn text_input_renders_with_label_and_ac_field() {
     let cx = cx();
     let schema = Schema::new(Field::text(DummyUser::fields().name()));
     let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -86,8 +89,8 @@ async fn text_input_error_marks_the_field_invalid() {
     // control describes itself with.
     let cx = cx();
     let schema = Schema::new(Field::text(DummyUser::fields().name()).required());
-    let mut errors = HashMap::new();
-    errors.insert("name".to_string(), vec!["name is required".to_string()]);
+    let mut errors = FieldErrors::new();
+    errors.add("name", "name is required");
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &errors))
         .await
@@ -169,7 +172,7 @@ fn required_default_follows_lens_nullability() {
 async fn text_input_required_renders_star_and_email_type() {
     let cx = cx();
     let html_req = Schema::new(Field::text(DummyUser::fields().name()).required())
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -196,7 +199,7 @@ async fn text_input_required_renders_star_and_email_type() {
         "for/id linking missing in {html_req}"
     );
     let html_email = Schema::new(Field::text(DummyUser::fields().email()).email())
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -211,7 +214,7 @@ async fn text_input_required_renders_star_and_email_type() {
         "email should render type=email, not r#type=email, in {html_email}"
     );
     let html_text = Schema::new(Field::text(DummyUser::fields().name()))
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -305,7 +308,7 @@ fn unique_implies_required_in_either_declaration_order() {
 async fn unique_field_renders_the_required_marker() {
     let cx = cx();
     let html = Schema::new(Field::text(DummyUser::fields().email()).unique().optional())
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -396,7 +399,7 @@ async fn multiline_renders_a_textarea_with_the_stored_value() {
     let mut values = HashMap::new();
     values.insert("name".to_string(), "Line one\nLine two".to_string());
     let html = schema
-        .render(&cx, Source::form(&values, &HashMap::new()))
+        .render(&cx, Source::form(&values, &FieldErrors::new()))
         .await
         .unwrap()
         .single()

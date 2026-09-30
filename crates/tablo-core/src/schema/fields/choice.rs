@@ -190,7 +190,7 @@ impl Field {
         choice: &ChoiceControl,
         cx: &'a Cx,
         value: Option<&str>,
-        errors: &[String],
+        error: Option<&str>,
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View {
@@ -247,7 +247,7 @@ impl Field {
         }
         let chrome = FieldChrome::new(
             &name,
-            errors,
+            error,
             denied.then(|| format!("{} is not available", self.label)),
         );
         let mut option_views: Vec<BoxView<'a>> = vec![option_view(

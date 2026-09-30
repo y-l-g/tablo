@@ -3,7 +3,10 @@
 
 use std::collections::HashMap;
 
-use tablo_core::schema::{Field, Schema, Source};
+use tablo_core::{
+    FieldErrors,
+    schema::{Field, Schema, Source},
+};
 use toasty::Db;
 use topcoat::{
     context::{Cx, CxTestBuilder},
@@ -48,7 +51,7 @@ async fn a_typed_field_renders_the_values_display() {
         ),
     ]);
     let html = schema
-        .render(&cx, Source::form(&values, &HashMap::new()))
+        .render(&cx, Source::form(&values, &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -84,13 +87,17 @@ async fn a_bad_submission_is_an_inline_field_error() {
     ]);
     let errors = schema.validate(&values);
     assert_eq!(
-        errors.get("word_count"),
-        Some(&vec!["`lots` is not a valid whole number".to_string()]),
+        errors
+            .first("word_count")
+            .map(|error| error.message.as_str()),
+        Some("`lots` is not a valid whole number"),
         "an unparseable integer names the offending input, got {errors:?}"
     );
     assert_eq!(
-        errors.get("recorded_at"),
-        Some(&vec!["`2024-13-01` is not a valid timestamp".to_string()]),
+        errors
+            .first("recorded_at")
+            .map(|error| error.message.as_str()),
+        Some("`2024-13-01` is not a valid timestamp"),
         "an unparseable date names the offending input, got {errors:?}"
     );
 }
@@ -128,10 +135,9 @@ async fn an_empty_submission_stays_the_presence_rules_business() {
     assert_eq!(
         required
             .validate(&HashMap::new())
-            .get("word_count")
-            .cloned()
-            .unwrap_or_default(),
-        vec!["Word count is required".to_string()],
+            .first("word_count")
+            .map(|error| error.message.as_str()),
+        Some("Word count is required"),
         "a non-nullable typed field reports presence, not a parse failure"
     );
 }

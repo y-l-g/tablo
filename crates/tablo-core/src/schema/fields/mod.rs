@@ -425,7 +425,7 @@ impl Field {
         &self,
         cx: &'a Cx,
         value: Option<&str>,
-        errors: &[String],
+        error: Option<&str>,
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View && value.is_none() {
@@ -438,11 +438,11 @@ impl Field {
             return render_value(cx, &self.label, Some("(missing)"), ValueKind::Prose);
         }
         match &self.control {
-            Control::Text(text) => self.render_text(text, cx, value, errors, mode),
+            Control::Text(text) => self.render_text(text, cx, value, error, mode),
             Control::Choice(choice) => {
-                Box::pin(self.render_choice(choice, cx, value, errors, mode)).await
+                Box::pin(self.render_choice(choice, cx, value, error, mode)).await
             }
-            Control::File => self.render_file(cx, value, errors, mode),
+            Control::File => self.render_file(cx, value, error, mode),
         }
     }
 
@@ -542,13 +542,13 @@ pub(crate) struct FieldChrome {
 }
 
 impl FieldChrome {
-    pub(crate) fn new(name: &str, errors: &[String], fallback: Option<String>) -> Self {
-        let incoming = errors.first().cloned().unwrap_or_default();
-        let has_error = !errors.is_empty() || fallback.is_some();
-        let error_text = if incoming.is_empty() {
-            fallback.unwrap_or_default()
-        } else {
-            incoming
+    pub(crate) fn new(name: &str, error: Option<&str>, fallback: Option<String>) -> Self {
+        let has_error = error.is_some() || fallback.is_some();
+        // An empty message is no message: the field's own fallback wording
+        // renders instead, if it has one.
+        let error_text = match error {
+            Some(message) if !message.is_empty() => message.to_string(),
+            _ => fallback.unwrap_or_default(),
         };
         Self {
             name: name.to_string(),

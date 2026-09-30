@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use super::super::gate::{gate, list_url};
-use crate::resource::Resource;
+use crate::{form::FieldErrors, resource::Resource};
 
 /// Shared create/edit page shell (GH #73 multipart enctype, CSRF hidden
 /// input, inline error slot). Title and submit label are the only deltas.
@@ -28,7 +28,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
     title: String,
     submit_label: &'static str,
     values: &HashMap<String, String>,
-    errors: &HashMap<String, Vec<String>>,
+    errors: &FieldErrors,
     carried: &HashSet<String>,
     public_url: Option<String>,
 ) -> Result<BoxView<'a>> {
@@ -116,7 +116,7 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
             format!("Create {}", R::label()),
             "Create",
             &HashMap::new(),
-            &HashMap::new(),
+            &FieldErrors::new(),
             &HashSet::new(),
             None,
         )

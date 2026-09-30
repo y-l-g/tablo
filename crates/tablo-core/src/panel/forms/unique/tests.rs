@@ -57,8 +57,8 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
             .await
             .unwrap();
     assert_eq!(
-        errors.get("email"),
-        Some(&vec!["Email has already been taken".to_string()]),
+        errors.first("email").map(|error| error.message.as_str()),
+        Some("Email has already been taken"),
         "duplicate must be flagged, got {errors:?}"
     );
 
@@ -89,8 +89,8 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
             .await
             .unwrap();
     assert_eq!(
-        errors.get("email"),
-        Some(&vec!["Email has already been taken".to_string()]),
+        errors.first("email").map(|error| error.message.as_str()),
+        Some("Email has already been taken"),
         "changed-to-duplicate must be flagged, got {errors:?}"
     );
 
@@ -169,8 +169,11 @@ async fn unique_field_is_required_however_it_is_marked() {
     let mut first = HashMap::new();
     first.insert("email".to_string(), "   ".to_string());
     assert_eq!(
-        schema.validate(&first).get("email"),
-        Some(&vec!["Email is required".to_string()]),
+        schema
+            .validate(&first)
+            .first("email")
+            .map(|error| error.message.as_str()),
+        Some("Email is required"),
         "an empty unique field must fail validation as required"
     );
 
@@ -250,8 +253,11 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
     let mut empty = HashMap::new();
     empty.insert("email".to_string(), "".to_string());
     assert_eq!(
-        schema.validate(&empty).get("email"),
-        Some(&vec!["Email is required".to_string()]),
+        schema
+            .validate(&empty)
+            .first("email")
+            .map(|error| error.message.as_str()),
+        Some("Email is required"),
         "an empty submit must be refused inline, not probed"
     );
     let errors = check_unique::<SubscriberResource>(&cx, &schema, &empty, &HashMap::new(), &mut ex)
@@ -395,8 +401,8 @@ async fn unique_check_ignores_absent_repeater_groups() {
         .await
         .unwrap();
     assert_eq!(
-        errors.get("nickname"),
-        Some(&vec!["Nickname has already been taken".to_string()]),
+        errors.first("nickname").map(|error| error.message.as_str()),
+        Some("Nickname has already been taken"),
         "present group must still be unique-checked, got {errors:?}"
     );
 }

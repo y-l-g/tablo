@@ -937,22 +937,23 @@ async fn stale_cursor_is_marked_for_retry() {
     .await
     .expect_err("a cursor with too many fields must fail the load");
     assert!(
-        crate::cursor::is_cursor_error(&error),
+        crate::error::TabloError::is_cursor(&error),
         "a rejected cursor must carry the cursor marker, got {error}"
     );
     assert!(
-        error
-            .downcast_ref::<crate::cursor::CursorRejectedError>()
-            .is_some(),
+        matches!(
+            crate::error::TabloError::of(&error),
+            Some(crate::error::TabloError::CursorRejected(_))
+        ),
         "the refusal is not a decode failure, got {error}"
     );
 
     // A transient failure keeps the cursor: a failure the cursor
     // did not cause carries no marker, so `retry_url_for_error` keeps the
     // pagination it was given.
-    let transient = topcoat::Error::from(std::io::Error::other("database unavailable"));
+    let transient = crate::error::unavailable("connection reset");
     assert!(
-        !crate::cursor::is_cursor_error(&transient),
+        !crate::error::TabloError::is_cursor(&transient),
         "only cursor failures drop pagination on retry"
     );
 

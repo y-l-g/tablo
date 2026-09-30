@@ -204,7 +204,7 @@ fn reject_cursor(error: topcoat::Error, state: &TableState) -> topcoat::Error {
         .downcast_ref::<toasty::Error>()
         .is_some_and(toasty::Error::is_invalid_statement);
     if cursored && rejected {
-        crate::cursor::CursorRejectedError::rejected(&error)
+        crate::cursor::rejected(&error)
     } else {
         error
     }
