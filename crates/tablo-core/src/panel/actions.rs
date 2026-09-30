@@ -17,6 +17,6 @@ pub(crate) use self::{
     bulk::resource_bulk_delete,
     delete::resource_delete,
     export::resource_export,
-    fetch::{find_by_key_narrowed, load_viewable, load_viewable_narrowed},
+    fetch::{find_by_key, load_detail, load_viewable},
     options::resource_options,
 };

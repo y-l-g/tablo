@@ -118,16 +118,14 @@ async fn comments_create_form_shows_post_select() {
     assert!(html.contains("Hello Toasty"), "missing post option: {html}");
 }
 
-/// GH #298: a Comment form's Post options are loaded through the resource's
-/// needs-aware query, which asks for no relation includes, so the option load
-/// selects the posts' own columns and not every comment of every post. This
-/// pins the branch the loader runs: the empty set leaves both relations
-/// unloaded, while the list/detail `query` keeps the includes its columns and
-/// `view_relations` read.
+/// GH #298: a Comment form's Post options load through the resource's
+/// `query`, which carries no relation, so the option load selects the posts'
+/// own columns and not every comment of every post. The detail page's
+/// `view_query` keeps the comments `view_relations` reads.
 #[tokio::test]
 async fn post_options_do_not_load_every_posts_comments() {
     use showcase::app::PostResource;
-    use tablo_core::{IncludeNeeds, Resource, Tenant, db::db as db_handle};
+    use tablo_core::{Resource, Tenant, db::db as db_handle};
     use topcoat::context::CxTestBuilder;
 
     let (db, t1, _t2) = tenanted_db().await;
@@ -137,7 +135,7 @@ async fn post_options_do_not_load_every_posts_comments() {
         .build();
     let mut handle = db_handle(&cx);
 
-    let option_row = <PostResource as Resource>::query_with(&cx, &IncludeNeeds::default())
+    let option_row = <PostResource as Resource>::query(&cx)
         .first()
         .exec(&mut handle)
         .await
@@ -145,18 +143,18 @@ async fn post_options_do_not_load_every_posts_comments() {
         .expect("the tenant seeds a post");
     assert!(
         option_row.comments.is_unloaded() && option_row.author.is_unloaded(),
-        "the option-load branch must not carry the resource's relation includes"
+        "the option load must not carry the resource's relations"
     );
 
-    let list_row = <PostResource as Resource>::query(&cx)
+    let detail_row = <PostResource as Resource>::view_query(&cx)
         .first()
         .exec(&mut handle)
         .await
         .unwrap()
         .expect("the tenant seeds a post");
     assert!(
-        !list_row.comments.is_unloaded() && !list_row.author.is_unloaded(),
-        "the list/detail query keeps the includes its columns and view_relations read"
+        !detail_row.comments.is_unloaded(),
+        "the detail query keeps the comments view_relations reads"
     );
 }
 

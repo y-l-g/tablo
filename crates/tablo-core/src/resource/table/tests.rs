@@ -1,9 +1,11 @@
 use toasty::{Db, stmt::List};
-use topcoat::context::CxTestBuilder;
+use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
 use crate::{
-    resource::{Resource, SelectFilter, Sort, TableState, TernaryFilter, TextColumn},
+    resource::{
+        Resource, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn,
+    },
     test_support::User,
 };
 
@@ -149,9 +151,8 @@ async fn table_load_rejects_both_cursors() {
     )
     .paginate(1);
     // A valid cursor token: the first page of two rows has a next page.
-    let first = tbl
-        .load(
-            &cx,
+    let first = TablePage::load(
+            &cx, &tbl,
             toasty::stmt::Query::<List<User>>::all(),
             &TableState::default(),
         )
@@ -166,8 +167,7 @@ async fn table_load_rejects_both_cursors() {
         after: Some(cursor.clone()),
         ..TableState::default()
     };
-    let second = tbl
-        .load(&cx, toasty::stmt::Query::<List<User>>::all(), &state)
+    let second = TablePage::load(&cx, &tbl, toasty::stmt::Query::<List<User>>::all(), &state)
         .await
         .unwrap();
     assert_eq!(second.rows.len(), 1);
@@ -178,8 +178,7 @@ async fn table_load_rejects_both_cursors() {
         before: Some(cursor),
         ..TableState::default()
     };
-    let err = tbl
-        .load(&cx, toasty::stmt::Query::<List<User>>::all(), &state)
+    let err = TablePage::load(&cx, &tbl, toasty::stmt::Query::<List<User>>::all(), &state)
         .await
         .expect_err("after+before must fail loudly");
     assert!(
@@ -207,33 +206,6 @@ fn table_search_expr_ors_across_searchable_columns() {
         TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
     );
     assert!(table_none.search_expr("Ada").is_none());
-}
-
-/// the export asks its table which relations the rendered
-/// columns declared; the union across columns is that answer, and a table
-/// whose columns read no relation declares nothing (so the resource's
-/// `export_query` can drop every include).
-#[test]
-fn table_include_needs_unions_the_columns_declarations() {
-    let plain = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
-    assert!(plain.include_needs().is_empty());
-
-    let declared = Table::<Task>::new(
-        |t| t.id.to_string(),
-        (
-            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
-            TextColumn::computed("Owner", |t: &Task| t.title.clone()).needs(["author"]),
-            TextColumn::computed("Audit", |t: &Task| t.title.clone()).needs(["comments", "author"]),
-        ),
-    );
-    let needs = declared.include_needs();
-    assert!(needs.wants("author") && needs.wants("comments"));
-    // Only what a column declared: `author` declared twice is still a
-    // member, and an undeclared name is absent.
-    assert!(!needs.wants("tenant"));
 }
 
 #[test]
@@ -633,7 +605,7 @@ async fn full_walk_reaches_every_row_exactly_once_without_phantoms() {
     // Forward walk from the first page to exhaustion.
     let mut seen = Vec::new();
     let mut state = TableState::default();
-    let mut last = tbl.load(&cx, query(), &state).await.unwrap();
+    let mut last = TablePage::load(&cx, &tbl, query(), &state).await.unwrap();
     assert!(last.prev_cursor.is_none(), "first page has no prev");
     loop {
         seen.extend(last.rows.iter().map(|u| u.name.clone()));
@@ -643,7 +615,7 @@ async fn full_walk_reaches_every_row_exactly_once_without_phantoms() {
                     after: Some(cursor),
                     ..TableState::default()
                 };
-                last = tbl.load(&cx, query(), &state).await.unwrap();
+                last = TablePage::load(&cx, &tbl, query(), &state).await.unwrap();
             }
             None => break,
         }
@@ -656,7 +628,7 @@ async fn full_walk_reaches_every_row_exactly_once_without_phantoms() {
             before: Some(cursor),
             ..TableState::default()
         };
-        last = tbl.load(&cx, query(), &state).await.unwrap();
+        last = TablePage::load(&cx, &tbl, query(), &state).await.unwrap();
         back.push(last.rows.iter().map(|u| u.name.clone()).collect::<Vec<_>>());
     }
     back.reverse();
@@ -679,8 +651,7 @@ async fn exact_boundary_pages_carry_exact_cursors() {
     let cx = seeded_users(&["u01", "u02", "u03", "u04"]).await;
     let tbl = paged_users_table(2);
     let query = || toasty::stmt::Query::<List<User>>::all();
-    let first = tbl
-        .load(&cx, query(), &TableState::default())
+    let first = TablePage::load(&cx, &tbl, query(), &TableState::default())
         .await
         .unwrap();
     assert_eq!(first.rows.len(), 2);
@@ -689,7 +660,7 @@ async fn exact_boundary_pages_carry_exact_cursors() {
         after: Some(cursor),
         ..TableState::default()
     };
-    let second = tbl.load(&cx, query(), &state).await.unwrap();
+    let second = TablePage::load(&cx, &tbl, query(), &state).await.unwrap();
     assert_eq!(
         second
             .rows
@@ -865,9 +836,8 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     );
     // Full first page: main + exactly one next probe.
     count_around(true);
-    let first = tbl
-        .load(
-            &cx,
+    let first = TablePage::load(
+            &cx, &tbl,
             toasty::stmt::Query::<List<User>>::all(),
             &TableState::default(),
         )
@@ -883,9 +853,8 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     // rows ends on a 1-row page).
     let tbl3 = paged_users_table(3);
     count_around(true);
-    let head = tbl3
-        .load(
-            &cx,
+    let head = TablePage::load(
+            &cx, &tbl3,
             toasty::stmt::Query::<List<User>>::all(),
             &TableState::default(),
         )
@@ -897,8 +866,7 @@ async fn full_page_costs_main_plus_single_direction_probe() {
         ..TableState::default()
     };
     count_around(true);
-    let tail = tbl3
-        .load(&cx, toasty::stmt::Query::<List<User>>::all(), &tail_state)
+    let tail = TablePage::load(&cx, &tbl3, toasty::stmt::Query::<List<User>>::all(), &tail_state)
         .await
         .unwrap();
     assert_eq!(tail.rows.len(), 1);
@@ -913,9 +881,8 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     );
     // Backward landing on a full page: main + exactly one prev probe
     // (pp=2 table: page 2 [u03,u04], then back to full page 1).
-    let p1 = tbl
-        .load(
-            &cx,
+    let p1 = TablePage::load(
+            &cx, &tbl,
             toasty::stmt::Query::<List<User>>::all(),
             &TableState::default(),
         )
@@ -925,8 +892,7 @@ async fn full_page_costs_main_plus_single_direction_probe() {
         after: p1.next_cursor.clone(),
         ..TableState::default()
     };
-    let p2 = tbl
-        .load(&cx, toasty::stmt::Query::<List<User>>::all(), &p2_state)
+    let p2 = TablePage::load(&cx, &tbl, toasty::stmt::Query::<List<User>>::all(), &p2_state)
         .await
         .unwrap();
     assert_eq!(p2.rows.len(), 2);
@@ -935,9 +901,8 @@ async fn full_page_costs_main_plus_single_direction_probe() {
         ..TableState::default()
     };
     count_around(true);
-    let first_again = tbl
-        .load(
-            &cx,
+    let first_again = TablePage::load(
+            &cx, &tbl,
             toasty::stmt::Query::<List<User>>::all(),
             &back_to_first,
         )
@@ -1011,8 +976,7 @@ async fn stale_cursor_is_marked_for_retry() {
         after: Some(wide),
         ..TableState::default()
     };
-    let error = table()
-        .load(&cx, toasty::stmt::Query::<List<Task>>::all(), &state)
+    let error = TablePage::load(&cx, &table(), toasty::stmt::Query::<List<Task>>::all(), &state)
         .await
         .expect_err("a cursor with too many fields must fail the load");
     assert!(
@@ -1037,9 +1001,8 @@ async fn stale_cursor_is_marked_for_retry() {
 
     // A cursor cut from this query's own ordering round-trips: the guard
     // marks a rejected cursor, not every request that carries one.
-    let first = table()
-        .load(
-            &cx,
+    let first = TablePage::load(
+            &cx, &table(),
             toasty::stmt::Query::<List<Task>>::all(),
             &TableState::default(),
         )
@@ -1050,8 +1013,7 @@ async fn stale_cursor_is_marked_for_retry() {
         ..TableState::default()
     };
     assert!(
-        table()
-            .load(&cx, toasty::stmt::Query::<List<Task>>::all(), &state)
+        TablePage::load(&cx, &table(), toasty::stmt::Query::<List<Task>>::all(), &state)
             .await
             .is_ok(),
         "a matching cursor must keep loading"

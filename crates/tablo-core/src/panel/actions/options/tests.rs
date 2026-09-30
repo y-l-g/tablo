@@ -158,16 +158,16 @@ async fn options_endpoint_searches_and_gates() {
 }
 
 #[tokio::test]
-async fn option_load_asks_for_no_relation_includes() {
-    // an option load projects a value and a label off the related
-    // record's own columns, so it asks the source for no relation
-    // includes. The source's `query` loads `parent` and `can_view` keeps a
-    // row only while that relation is unloaded, so a rendered option
-    // proves the loader ran the needs-aware branch, not the full `query`.
+async fn option_load_loads_no_relation() {
+    // An option load projects a value and a label off the related record's
+    // own columns, so it loads no relation. The source's detail query and its
+    // list column both include `parent`, and `can_view` keeps a row only while
+    // that relation is unloaded, so a rendered option proves the loader ran
+    // the bare `scoped_query`, not either of those.
     use http_body_util::BodyExt;
     use toasty::stmt::{Include, List, Query};
 
-    use crate::resource::{IncludeNeeds, Resource};
+    use crate::resource::Resource;
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Parent {
@@ -207,22 +207,16 @@ async fn option_load_asks_for_no_relation_includes() {
         fn can_view(_cx: &Cx, record: &Child) -> bool {
             record.parent.is_unloaded()
         }
-        fn query(_cx: &Cx) -> Query<List<Child>> {
+        fn view_query(_cx: &Cx) -> Query<List<Child>> {
             with_parent()
-        }
-        fn query_with(_cx: &Cx, needs: &IncludeNeeds) -> Query<List<Child>> {
-            if needs.wants("parent") {
-                with_parent()
-            } else {
-                Query::<List<Child>>::all()
-            }
         }
         fn table(_cx: &Cx) -> crate::resource::Table<Child> {
             crate::resource::Table::new(
                 |c: &Child| c.id.to_string(),
                 crate::resource::TextColumn::r#for(Child::fields().name(), |c: &Child| {
                     c.name.clone()
-                }),
+                })
+                .include(Child::fields().parent()),
             )
         }
     }

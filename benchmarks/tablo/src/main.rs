@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use jiff::Timestamp;
-use tablo_core::{Panel, Resource, Schema, Table, TableState, Tenant, TextColumn, TextInput};
+use tablo_core::{Panel, Resource, Schema, Table, TablePage, TableState, Tenant, TextColumn, TextInput};
 use toasty::{Db, Deferred};
 use topcoat::{
     Result,
@@ -116,18 +116,6 @@ impl Resource for PostResource {
     fn requires_tenant() -> bool {
         true
     }
-    /// Includes only (GH #223): the tenant filter is the framework's now —
-    /// `scoped_query` derives it from `Post`'s own `tenant_id` column and ANDs
-    /// it onto this — so the harness must load through `scoped_query` to
-    /// measure the shipped, scoped path.
-    fn query(_cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
-        let inc_author: toasty::stmt::Include<Post, Author> = Post::fields().author().into();
-        let inc_comments: toasty::stmt::Include<Post, toasty::stmt::List<Comment>> =
-            Post::fields().comments().into();
-        toasty::stmt::Query::<toasty::stmt::List<Post>>::all()
-            .include(inc_author)
-            .include(inc_comments)
-    }
     fn table(_cx: &Cx) -> Table<Post> {
         Table::new(
             |p: &Post| p.id.to_string(),
@@ -142,7 +130,7 @@ impl Resource for PostResource {
                         p.author.get().name.clone()
                     }
                 })
-                .needs(["author"]),
+                .include(Post::fields().author()),
                 TextColumn::computed("Comments", |p: &Post| {
                     if p.comments.is_unloaded() {
                         "0".to_string()
@@ -150,7 +138,7 @@ impl Resource for PostResource {
                         p.comments.get().len().to_string()
                     }
                 })
-                .needs(["comments"]),
+                .include(Post::fields().comments()),
             ),
         )
         .paginate(50)
@@ -240,19 +228,15 @@ fn summarize(mut times: Vec<f64>) -> (f64, f64, f64, f64, f64) {
     )
 }
 
-/// The honest list path (GH #171): `TableState::from_cx` → `Table::load`
-/// (the tenant-scoped query + the declared `.paginate(50)`, tenancy set, policy
-/// enforced) → `render_with_state` → HTML. Fresh `Cx` per iteration.
+/// The honest list path (GH #171): `TableState::from_cx` → `TablePage::load`
+/// (the tenant-scoped query, the columns' includes, the declared
+/// `.paginate(50)`, tenancy set, policy enforced) → `render_with_state` →
+/// HTML. Fresh `Cx` per iteration.
 ///
-/// This mirrors the shipped `panel::load_table_page` (`table.load(cx,
-/// scoped_query::<R>(cx)?, state)` behind its paginate guard — `load_table_page`
-/// itself is `pub(crate)`, so the detached harness mirrors it rather than
-/// calling through). The shipped loader seeds through the needs-aware
-/// `scoped_query_with`; this resource overrides no `query_with`, so
-/// `scoped_query` is the branch it takes and the measured query is the same.
-/// The declared page size is asserted so the
-/// `.paginate(50)` on the resource table is genuinely exercised through the
-/// loader, not merely declared.
+/// `TablePage::load` over `scoped_query` is the loader the panel's list runs,
+/// so the harness measures the shipped path rather than a copy of it. The
+/// declared page size is asserted so the `.paginate(50)` on the resource table
+/// is genuinely exercised through the loader, not merely declared.
 async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<f64> {
     let mut times_ms = Vec::with_capacity(iterations);
     for _ in 0..iterations {
@@ -275,14 +259,14 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
             50,
             "declared .paginate(50) must reach the loader"
         );
-        let page = table
-            .load(
-                &cx,
-                tablo_core::scoped_query::<PostResource>(&cx).expect("tenant scope"),
-                &state,
-            )
-            .await
-            .expect("table load");
+        let page = TablePage::load(
+            &cx,
+            &table,
+            tablo_core::scoped_query::<PostResource>(&cx).expect("tenant scope"),
+            &state,
+        )
+        .await
+        .expect("table load");
         assert_eq!(page.rows.len(), 50, "expected first page of 50 rows");
         let html = table
             .render_with_state(&cx, page, &state, "/admin/posts")
@@ -301,8 +285,9 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
     times_ms
 }
 
-/// Query-only diagnostic (GH #171): tenant-scoped query exec + touching
-/// includes on a fresh `Cx` — no `Table::load`, no render. Kept as a labeled
+/// Query-only diagnostic (GH #171): the tenant-scoped query with the list's two
+/// includes, exec'd and touched on a fresh `Cx` — no `TablePage::load`, no
+/// render. Kept as a labeled
 /// diagnostic next to the list-path number; it is not the budget path and is
 /// not gated.
 async fn bench_query_only(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<f64> {
@@ -311,8 +296,13 @@ async fn bench_query_only(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec
         let cx = bench_cx(db, tenant);
         let start = Instant::now();
         let mut db2 = tablo_core::db::db(&cx);
+        let inc_author: toasty::stmt::Include<Post, Author> = Post::fields().author().into();
+        let inc_comments: toasty::stmt::Include<Post, toasty::stmt::List<Comment>> =
+            Post::fields().comments().into();
         let rows: Vec<Post> = tablo_core::scoped_query::<PostResource>(&cx)
             .expect("tenant scope")
+            .include(inc_author)
+            .include(inc_comments)
             .exec(&mut db2)
             .await
             .expect("query");
@@ -386,7 +376,7 @@ async fn run_bench(iterations: usize) {
     println!("=== Tablo bench (GH #171, UNGATED): real list path ===");
     println!("workload: 50 rows, 2 includes (author + comments), tenancy set, policy enforced");
     println!(
-        "path: TableState::from_cx -> Table::load (scoped_query + .paginate(50)) -> render_with_state -> HTML"
+        "path: TableState::from_cx -> TablePage::load (scoped_query + .paginate(50)) -> render_with_state -> HTML"
     );
     println!(
         "budget: <40ms p50 (50 rows, 2 includes) — reference only; UNGATED while GH #171 collects numbers, gating follows in a follow-up"

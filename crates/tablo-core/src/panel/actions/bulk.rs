@@ -89,10 +89,7 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             let mut tx = db.transaction().await.map_err(crate::db::unavailable)?;
             // The batch fetch reads only the records' own columns:
             // the policy predicates and the write below never touch a relation.
-            let rows = crate::resource::scoped_query_with::<R>(
-                cx,
-                &crate::resource::IncludeNeeds::default(),
-            )?
+            let rows = crate::resource::scoped_query::<R>(cx)?
             .filter(pk_filter)
             .exec(&mut tx)
             .await

@@ -1,65 +1,10 @@
 //! Table columns: [`TextColumn`] plus the [`IntoColumns`] seam.
 
-use std::{borrow::Cow, collections::BTreeSet, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 use toasty::stmt::{Expr, OrderByExpr};
 
 use crate::schema::{FieldLens, lens_field, lens_label};
-
-/// The relations a query must `include`, named in the resource's vocabulary.
-///
-/// A column's projection closure reads relations off the row (`|p| p.author
-/// .get().name.clone()`), and Toasty has no instance→field reflection
-/// (upstream #119), so the framework cannot see *which* relation a closure
-/// touches. Each column therefore **declares** the includes its closure reads
-/// ([`TextColumn::needs`]), a [`Table`](super::Table) gathers the declarations
-/// of the columns it renders into one `IncludeNeeds`, and
-/// [`Resource::export_query`](super::Resource::export_query) answers `wants`
-/// per `include(..)` call.
-///
-/// The names are an opaque vocabulary shared between the declaring column and
-/// the resource that maps them onto `include(..)` calls, because includes are
-/// typed (`Include<Post, Author>`) and a type-erased column cannot name one.
-/// Nothing else reads them: an unknown name is not an error, it just never
-/// matches a branch.
-#[derive(Clone, Debug, Default)]
-pub struct IncludeNeeds {
-    names: BTreeSet<&'static str>,
-}
-
-impl IncludeNeeds {
-    /// Whether `name` was declared by a rendered column.
-    ///
-    /// This is the one question a resource's
-    /// [`export_query`](super::Resource::export_query) asks, once per
-    /// `include(..)` it could add.
-    pub fn wants(&self, name: &str) -> bool {
-        self.names.contains(name)
-    }
-
-    /// Whether no column declared anything — the narrowed query needs no
-    /// relation at all.
-    pub fn is_empty(&self) -> bool {
-        self.names.is_empty()
-    }
-}
-
-impl FromIterator<&'static str> for IncludeNeeds {
-    fn from_iter<T: IntoIterator<Item = &'static str>>(iter: T) -> Self {
-        Self {
-            names: iter.into_iter().collect(),
-        }
-    }
-}
-
-/// `IncludeNeeds::from(["author", "comments"])` — the whole set up front, which
-/// is what a resource's `query` needs (its `export_query` gets the set handed
-/// to it instead).
-impl<const N: usize> From<[&'static str; N]> for IncludeNeeds {
-    fn from(names: [&'static str; N]) -> Self {
-        names.into_iter().collect()
-    }
-}
 
 /// The share of the table a [`ColumnWidth::Narrow`] column claims, in whole
 /// percent.
@@ -148,10 +93,9 @@ impl ColumnWidth {
 /// field-value extraction). A typo in the closure body fails at compile
 /// time — there is no string dispatch and no panic at render.
 ///
-/// A projection that reads a **relation** declares it with [`Self::needs`],
-/// because the closure is opaque to the framework and the export builds its
-/// query from those declarations. The `(unloaded)` guard in the
-/// closure is what catches a missed declaration, in test builds, at render.
+/// A projection that reads a **relation** declares it with [`Self::include`],
+/// because the closure is opaque to the framework: the list and the export
+/// load every relation the table's columns declared, and nothing else.
 #[derive(Clone)]
 pub struct TextColumn<M> {
     /// The query-side lens; `None` for [`Self::computed`] columns, which
@@ -164,8 +108,8 @@ pub struct TextColumn<M> {
     sortable: bool,
     /// The width this column claims in the table's fixed layout.
     width: ColumnWidth,
-    /// Relations this column's projection reads, in the resource's vocabulary.
-    needs: Vec<&'static str>,
+    /// Relations this column's projection reads, as includes on the model.
+    includes: Vec<toasty_core::stmt::Include>,
 }
 
 /// The escape character the search pattern declares to `LIKE`:
@@ -214,7 +158,7 @@ where
             searchable: false,
             sortable: false,
             width: ColumnWidth::Wide,
-            needs: Vec::new(),
+            includes: Vec::new(),
         }
     }
 
@@ -239,33 +183,35 @@ where
             searchable: false,
             sortable: false,
             width: ColumnWidth::Narrow,
-            needs: Vec::new(),
+            includes: Vec::new(),
         }
     }
 
-    /// Declare the relations this column's projection reads, under
-    /// the names the resource's
-    /// [`export_query`](super::Resource::export_query) matches on:
-    /// `.needs(["author"])` for `|p| p.author.get().name.clone()`.
+    /// Declare a relation this column's projection reads:
+    /// `.include(Post::fields().author())` for `|p| p.author.get().name.clone()`.
+    /// The path is typed on the table's model, so a relation the model does not
+    /// have is a compile error.
     ///
-    /// **Declare every relation the closure reads.** A missing name is not a
-    /// compile error: the export's query arrives without that relation, and
-    /// the closure's `is_unloaded` guard — the unloaded-relation contract of
-    /// ADR-0011, `"(unloaded)"` plus a `debug_assert!` — is what turns it
-    /// into a loud failure instead of a silent `"-"`. Declaring a name nothing
-    /// reads is harmless.
+    /// The list and the export load every relation the table's columns declared,
+    /// so **declare every relation the closure reads**. One it does not declare
+    /// arrives unloaded, and the closure's `is_unloaded` guard (the
+    /// unloaded-relation contract of ADR-0011, `"(unloaded)"` plus a
+    /// `debug_assert!`) turns that into a loud failure instead of a silent
+    /// `"-"`.
     ///
-    /// Repeat calls accumulate: `.needs(["author"]).needs(["comments"])`.
-    pub fn needs(mut self, names: impl IntoIterator<Item = &'static str>) -> Self {
-        self.needs.extend(names);
+    /// Repeat calls accumulate:
+    /// `.include(Post::fields().author()).include(Post::fields().comments())`.
+    pub fn include<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
+        let include: toasty_core::stmt::Include = relation.into().into();
+        if !self.includes.contains(&include) {
+            self.includes.push(include);
+        }
         self
     }
 
-    /// The relations this column declared, in declaration order. Internal: the
-    /// public read is [`Table::include_needs`](super::Table::include_needs),
-    /// the union the export hands its resource.
-    pub(crate) fn include_names(&self) -> &[&'static str] {
-        &self.needs
+    /// The relations this column declared, in declaration order.
+    pub(crate) fn includes(&self) -> &[toasty_core::stmt::Include] {
+        &self.includes
     }
 
     pub fn searchable(mut self) -> Self {
@@ -372,7 +318,7 @@ impl<M> std::fmt::Debug for TextColumn<M> {
             .field("searchable", &self.searchable)
             .field("sortable", &self.sortable)
             .field("width", &self.width)
-            .field("needs", &self.needs)
+            .field("includes", &self.includes.len())
             .finish_non_exhaustive()
     }
 }

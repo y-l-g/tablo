@@ -12,7 +12,7 @@ use super::{
         forms::{commit_write, parse_form_body, truthy},
         gate::gate,
     },
-    fetch::find_by_key_narrowed,
+    fetch::find_by_key,
 };
 use crate::{
     db::db,
@@ -69,7 +69,7 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
             // The delete path reads only the record's own columns:
             // `can_view`/`can_delete` are Rust predicates over those, and
             // `delete_record` reads the same snapshot.
-            let record = find_by_key_narrowed::<R>(cx, &id, &mut tx).await?;
+            let record = find_by_key::<R>(cx, &id, &mut tx).await?;
             if !R::can_view(cx, &record) {
                 return Err(forbidden().into());
             }

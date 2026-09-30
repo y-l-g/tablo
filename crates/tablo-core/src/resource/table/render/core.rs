@@ -12,9 +12,10 @@ use super::super::{
     super::{
         ColumnWidth,
         column::NARROW_DEFAULT_PERCENT,
+        page::TablePage,
         state::{
-            TablePage, TableSignals, TableState, delete_action_url, group_header_dom_id,
-            row_dom_id, row_edit_url, row_view_url,
+            TableSignals, TableState, delete_action_url, group_header_dom_id, row_dom_id,
+            row_edit_url, row_view_url,
         },
     },
     GroupKey, NormalizedState, RowActions, RowKey, Table,

@@ -107,33 +107,3 @@ fn text_column_width_defaults_by_kind() {
         Some("width: 30%")
     );
 }
-
-/// GH #177: a column that reads no relation declares nothing, and repeat
-/// `.needs(..)` calls accumulate in declaration order.
-#[test]
-fn text_column_include_declarations_accumulate() {
-    let plain = TextColumn::r#for(User::fields().name(), |u| u.name.clone());
-    assert!(plain.include_names().is_empty());
-
-    let declared = TextColumn::computed("Audit", |u: &User| u.name.clone())
-        .needs(["author"])
-        .needs(["comments", "post"]);
-    assert_eq!(declared.include_names(), ["author", "comments", "post"]);
-}
-
-/// GH #177: the gathered set is what a resource's `export_query` asks, so
-/// membership and the empty case are the whole contract.
-#[test]
-fn include_needs_gathers_declarations() {
-    let needs: IncludeNeeds = ["author", "comments"].into_iter().collect();
-    assert!(needs.wants("author") && needs.wants("comments"));
-    assert!(!needs.wants("post"));
-    assert!(!needs.is_empty());
-
-    // The whole set up front, as a resource's `query` declares it.
-    let declared = IncludeNeeds::from(["author", "comments"]);
-    assert!(declared.wants("author") && declared.wants("comments"));
-
-    assert!(IncludeNeeds::default().is_empty());
-    assert!(!IncludeNeeds::default().wants("author"));
-}

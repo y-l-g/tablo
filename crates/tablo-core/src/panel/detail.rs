@@ -14,7 +14,7 @@ use topcoat::{
 };
 
 use super::{
-    actions::load_viewable,
+    actions::load_detail,
     gate::{gate, list_url},
 };
 use crate::{db::db, form::RecordForm, resource::Resource};
@@ -40,7 +40,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         }
         let id = path_param_segment(cx, "id").to_string();
         let mut db = db(cx);
-        let record = load_viewable::<R>(cx, &mut db).await?;
+        let record = load_detail::<R>(cx, &mut db).await?;
         // The form's projection over `view_values`, so the page and the form
         // agree about what a field holds (ADR-0016); `NoForm` projects nothing.
         let mut values = R::view_values(cx, &record);

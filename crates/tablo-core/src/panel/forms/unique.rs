@@ -83,7 +83,7 @@ pub(super) async fn check_unique<R: Resource>(
         // never ran. The probe runs through the tenant-scoped query and reads
         // only the record's own columns, so it passes an empty include set.
         let rows =
-            crate::resource::scoped_query_with::<R>(cx, &crate::resource::IncludeNeeds::default())?
+            crate::resource::scoped_query::<R>(cx)?
                 .filter(filter)
                 .limit(1)
                 .exec(&mut *ex)
