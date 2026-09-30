@@ -4191,7 +4191,7 @@ dependencies = [
 [[package]]
 name = "topcoat-ui"
 version = "0.9.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=fb2e3b9687e423847509a939b82d9461ac552c8b#fb2e3b9687e423847509a939b82d9461ac552c8b"
+source = "git+https://github.com/tokio-rs/topcoat?rev=f7eb477242da9690458d183efa2e0aaa1b21b9da#f7eb477242da9690458d183efa2e0aaa1b21b9da"
 dependencies = [
  "serde",
  "serde_json",
