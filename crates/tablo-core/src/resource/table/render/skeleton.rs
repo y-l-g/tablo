@@ -71,17 +71,23 @@ impl<M> Table<M> {
                         table_row(
                             if with_bulk {
                                 table_cell(
-                                    <div class="animate-pulse rounded-md bg-foreground/10 h-4 w-4"></div>
+                                    <div
+                                        class="animate-pulse rounded-md bg-foreground/10 h-4 w-4"
+                                    ></div>
                                 )
                             }
                             for _ in 0..column_count {
                                 table_cell(
-                                    <div class="animate-pulse rounded-md bg-foreground/10 h-4 w-full"></div>
+                                    <div
+                                        class="animate-pulse rounded-md bg-foreground/10 h-4 w-full"
+                                    ></div>
                                 )
                             }
                             if with_actions {
                                 table_cell(
-                                    <div class="animate-pulse rounded-md bg-foreground/10 h-4 w-12"></div>
+                                    <div
+                                        class="animate-pulse rounded-md bg-foreground/10 h-4 w-12"
+                                    ></div>
                                 )
                             }
                         )

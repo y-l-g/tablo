@@ -289,12 +289,7 @@ impl<M> Table<M> {
         });
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
             let attrs = live_link(cx, url, signals);
-            view! {
-                cx =>
-                <a class=(QUIET_LINK_CLASS) (attrs)>
-                    "Clear filters"
-                </a>
-            }
+            view! { cx => <a class=(QUIET_LINK_CLASS) (attrs)>"Clear filters"</a> }
             .boxed()
         });
         Ok(view! {

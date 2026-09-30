@@ -177,11 +177,7 @@ impl<M> Table<M> {
         let hidden = hidden_state_inputs(cx, inputs);
         Ok(view! {
             cx =>
-            <form
-                method="get"
-                action=(action)
-                class=(BAR_CLASS)
-            >
+            <form method="get" action=(action) class=(BAR_CLASS)>
                 (hidden)
                 ui_input(
                     attrs: attributes! {
@@ -200,12 +196,7 @@ impl<M> Table<M> {
                     "Search"
                 )
                 if let Some(url) = clear_url {
-                    <a
-                        href=(url)
-                        class=(QUIET_LINK_CLASS)
-                    >
-                        "Clear"
-                    </a>
+                    <a href=(url) class=(QUIET_LINK_CLASS)>"Clear"</a>
                 }
             </form>
         }
@@ -238,10 +229,7 @@ impl<M> Table<M> {
         let query = signals.query.clone();
         Ok(view! {
             cx =>
-            <div
-                class=(BAR_CLASS)
-                data-live-search=""
-            >
+            <div class=(BAR_CLASS) data-live-search="">
                 <input
                     type="search"
                     value=(q_display)
@@ -282,11 +270,7 @@ impl<M> Table<M> {
         let TableSignals { query, bulk } = signals;
         Ok(view! {
             cx =>
-            table_search(
-                path: $(live_path.clone()),
-                query: $(query),
-                bulk: $(bulk)
-            )
+            table_search(path: $(live_path.clone()), query: $(query), bulk: $(bulk))
         }
         .boxed())
     }

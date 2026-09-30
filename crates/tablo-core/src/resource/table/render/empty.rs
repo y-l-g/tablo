@@ -70,22 +70,12 @@ impl<M> Table<M> {
         // fallback.
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
             let attrs = live_link(cx, url, signals);
-            view! {
-                cx =>
-                <a class=(EMPTY_LINK_CLASS) (attrs)>
-                    (clear_label)
-                </a>
-            }
+            view! { cx => <a class=(EMPTY_LINK_CLASS) (attrs)>(clear_label)</a> }
             .boxed()
         });
         let first_page_link: Option<BoxView<'a>> = first_page_url.map(|url| {
             let attrs = live_link(cx, url, signals);
-            view! {
-                cx =>
-                <a class=(EMPTY_LINK_CLASS) (attrs)>
-                    "Back to first page"
-                </a>
-            }
+            view! { cx => <a class=(EMPTY_LINK_CLASS) (attrs)>"Back to first page"</a> }
             .boxed()
         });
         Ok(view! {

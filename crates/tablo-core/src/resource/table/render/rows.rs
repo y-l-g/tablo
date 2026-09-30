@@ -79,7 +79,12 @@ fn render_row<'a>(cx: &'a Cx, row: RowView, chrome: &RowChrome) -> BoxView<'a> {
             view! {
                 cx =>
                 table_cell(
-                    <input type="checkbox" value=(value) aria-label="Select row" data-row-select="">
+                    <input
+                        type="checkbox"
+                        value=(value)
+                        aria-label="Select row"
+                        data-row-select=""
+                    >
                 )
             }
             .boxed()

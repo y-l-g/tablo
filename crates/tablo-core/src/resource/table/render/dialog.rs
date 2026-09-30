@@ -146,7 +146,10 @@ pub(super) fn confirm_dialog<'a>(cx: &'a Cx, dialog: ConfirmDialog<'a>) -> BoxVi
             dialog_content(
                 dialog_header(
                     dialog_title(attrs: attributes! { id=(title_id) }, (title))
-                    dialog_description(attrs: description_attrs, "This action cannot be undone.")
+                    dialog_description(
+                        attrs: description_attrs,
+                        "This action cannot be undone."
+                    )
                 )
                 dialog_footer((footer))
             )
