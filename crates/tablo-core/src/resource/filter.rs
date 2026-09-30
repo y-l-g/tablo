@@ -185,7 +185,7 @@ where
             return Some(self.lens.clone().eq(ts));
         }
         // Query decoding turns `+` into space, destroying numeric offsets
-        // (`?filters=created_at:2024-01-15T09:30:00+02:00` arrives with a
+        // (`?f.created_at=2024-01-15T09:30:00+02:00` arrives with a
         // space). A timestamp never legitimately contains a space, so retry
         // with `+` restored before giving up.
         if v.contains(' ')

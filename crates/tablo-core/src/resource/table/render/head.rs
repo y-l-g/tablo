@@ -18,8 +18,8 @@ impl<M> Table<M> {
     /// `arrow-up-down` when inactive). Every render branch (skeleton / empty
     /// / rows) composes it, so an a11y or styling change happens once.
     ///
-    /// With `signals` (a live table) the link also writes the sort signals and
-    /// clears the cursors; its `href` stays the no-JS fallback.
+    /// With `signals` (a live table) the link writes its own query, which drops
+    /// the cursor, to the `query` signal; its `href` stays the no-JS fallback.
     pub(super) async fn render_thead<'a>(
         &self,
         cx: &'a Cx,

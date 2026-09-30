@@ -289,14 +289,13 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     })))
 }
 
-/// Live list page for `Table::live_search` tables: the
-/// page owns the interaction signals (`q`, `filters`, `sort`, `dir`,
-/// `cursor`, `group_by`, `bulk`) and renders the search toolbar eagerly above
-/// the streamed region while the `table_search` shard invocation fills the
-/// table below — one table per response, so rows can never duplicate. Every
-/// interaction writes a signal, so search, sort, filters, and pagination
-/// re-render only the invocation output, morphing in place with focus and
-/// scroll surviving.
+/// Live list page for `Table::live_search` tables: the page owns the
+/// interaction signals (`query`, the list's URL query, and `bulk`, the
+/// selection) and renders the search and filter bars eagerly above the
+/// streamed region while the `table_search` shard invocation fills the table
+/// below — one table per response, so rows can never duplicate. Search, sort,
+/// filters, and pagination write the query, so they re-render only the
+/// invocation output, morphing in place with focus and scroll surviving.
 pub(crate) fn resource_list_live<R: Resource>(
     cx: &Cx,
     table: Table<R::Model>,

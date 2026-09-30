@@ -272,10 +272,9 @@ impl<M> Table<M> {
     /// Declare filters. Accepts a single filter or tuple of filters.
     ///
     /// Panics on duplicate [`Filter::name`], the same fail-loud
-    /// policy as [`Self::new`]: the `filters` transport is one
-    /// `name:value` pair per declared filter, and `parse_filters_param` keeps
-    /// the first value for a duplicated key, so two filters sharing a name
-    /// would silently drop one of them.
+    /// policy as [`Self::new`]: a filter travels as one `?f.<name>=` parameter,
+    /// and the parser keeps the first value for a repeated name, so two filters
+    /// sharing a name would silently drop one of them.
     pub fn filters(mut self, filters: impl IntoFilters<M>) -> Self
     where
         M: toasty::schema::Model,
@@ -385,9 +384,9 @@ impl<M> Table<M> {
     /// loaded: include it on a column ([`TextColumn::include`](super::TextColumn::include))
     /// or in [`Resource::query`](crate::resource::Resource::query).
     ///
-    /// In live tables the page-load value seeds the `group_by` interaction
-    /// signal and persists across in-place reruns; changing it is
-    /// still a navigation (`?group_by=` links) until a live control ships.
+    /// In live tables `group_by` travels in the query signal and persists
+    /// across in-place reruns; changing it is still a navigation
+    /// (`?group_by=` links) until a live control ships.
     pub fn group_by(
         mut self,
         name: impl Into<String>,

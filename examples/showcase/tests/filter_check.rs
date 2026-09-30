@@ -17,8 +17,7 @@ async fn posts_filter_widgets_render_typed_controls() {
     let resp = client.get("/admin/posts?f.status=published").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
-    // One typed control per declared filter, composed by filters.js into the
-    // hidden `filters` transport (the text fallback lives in `<noscript>`).
+    // One typed control per declared filter, each an `f.<name>` form field.
     for name in ["status", "featured", "created_at", "promoted"] {
         assert!(
             html.contains(&format!("data-filter-name=\"{name}\"")),

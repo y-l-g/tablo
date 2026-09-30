@@ -235,9 +235,9 @@ impl<M> Table<M> {
     /// A denied action emits no URL, and a row denied `delete` renders no bulk
     /// checkbox. The policy is consulted only when a prefix is wired.
     ///
-    /// The delete URL's shared parameters are encoded once for the whole page,
-    /// because the filter transport is the expensive half and rebuilding it per
-    /// row is work a client can inflate with one oversized `?filters=`.
+    /// The delete URL's shared parameters are encoded once for the whole page:
+    /// rebuilding them per row is work a client can inflate with an oversized
+    /// query.
     ///
     /// Page-local grouping is display-only: `group_by` is a bare key closure with
     /// no lens, so no `ORDER BY` is derivable and a group cannot span pages. The

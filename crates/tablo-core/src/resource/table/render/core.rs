@@ -47,11 +47,8 @@ impl<M> Table<M> {
     }
 
     /// Render with explicit list state and path instead of reading them from
-    /// `cx` — the seam a live-search shard needs: shard requests hit
-    /// the `table_search` shard's own endpoint, so `TableState::from_cx` would
-    /// see the endpoint URI, not the list page's `?q=/filters/sort`. Callers
-    /// pass the page's state (or shard args rebuilt via
-    /// [`TableSignals::to_state`]) and the list URL explicitly.
+    /// `cx`: a page that owns its table passes the state it parsed and the
+    /// list URL its links should target.
     ///
     /// Normalizes the state it is handed, so an unknown `?group_by=` never
     /// echoes through a link.
@@ -71,8 +68,8 @@ impl<M> Table<M> {
 
     /// Render the interactive body for a live table: the same
     /// presentation as [`Self::render_with_state`], with the sort links, the
-    /// pager, the filter transport, and the empty-state clear links bound to
-    /// `signals` — each interaction writes a signal and the browser morphs the
+    /// pager, the filter bar, and the empty-state clear links writing the
+    /// `query` signal — each interaction writes it and the browser morphs the
     /// shard's new output in place, without a navigation or a scroll jump.
     /// Every bound control keeps its real `href`/form, so a page without JS
     /// still navigates as before.
