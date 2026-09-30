@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b2a6e593.js";
+            window.path_to_searchindex_js = "searchindex-fd4c9170.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -261,8 +261,8 @@ renders, so no field the server still parses is lost; a read-only page renders o
 variant’s group and the shared columns it declares. <code>Publication::form</code> is one schema node: its fields join the form’s field list, and
 its keys are its fields’ keys. Inside a value, a field marked <code>#[form(embed)]</code> is a nested value and
 every other field is a scalar (<code>FormScalar</code>), which a derive checks at the field.
-<code>#[form(label = "…")]</code> and <code>#[form(multiline = N)]</code> are the per-field overrides; an unknown key is
-a compile error. A
+<code>#[form(label = "…")]</code>, <code>#[form(multiline = N)]</code>, and <code>#[form(blank = ..)]</code> to declare a leaf’s
+blank answer are the per-field overrides; an unknown key is a compile error. A
 <code>#[document]</code> inside a value, a relation, an enum nested inside an enum variant, and a tuple struct
 are not covered.</p>
 <p>Schema setup: <code>db.push_schema().await</code> for prototypes, <code>toasty-cli</code> migrations for prod.</p>

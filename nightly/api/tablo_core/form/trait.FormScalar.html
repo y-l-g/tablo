@@ -8,8 +8,8 @@
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A type one form key reads and writes: <code>String</code>, every <a href="../schema/trait.TypedValue.html" title="trait tablo_core::schema::TypedValue"><code>TypedValue</code></a> type,
 and an <code>Option</code> of either.</p>
 <p>The value the parse sees is trimmed and non-empty; an empty submission is the
-field’s <strong>blank answer</strong> instead (<code>""</code> for <code>String</code>, <code>None</code> for an <code>Option</code>,
-otherwise the <code>blank</code> a record form declares).</p>
+field’s <strong>blank answer</strong> instead (the <code>blank</code> a record form declares, else
+<code>""</code> for <code>String</code> or <code>None</code> for an <code>Option</code>).</p>
 <p>A text field binds a path of any <code>FormScalar</code> type
 (<a href="../schema/struct.Field.html#method.text" title="associated function tablo_core::schema::Field::text"><code>Field::text</code></a>), and the form derives read and write
 every field that is not <code>#[form(embed)]</code> through it.</p>
