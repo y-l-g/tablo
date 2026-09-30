@@ -8,7 +8,7 @@ use toasty::stmt::{List, Query};
 use toasty_core::stmt::Value;
 use topcoat::{Result, context::Cx};
 
-use super::{Table, TableState};
+use super::{Cursor, Table, TableState};
 
 /// One executed page of rows for `Table::render`.
 ///
@@ -76,7 +76,7 @@ where
     ///
     /// # Errors
     ///
-    /// A malformed or conflicting cursor, a cursor the engine rejects for this
+    /// A malformed cursor, a cursor the engine rejects for this
     /// ordering (both take the cursor-stripped retry contract), or a database
     /// failure.
     pub async fn load(
@@ -94,18 +94,16 @@ where
         let mut db = crate::db::db(cx);
         let per_page = table.page_size();
         let mut paginated = toasty::stmt::Paginate::new(query, per_page);
-        // Toasty cursor pagination takes exactly one cursor:
-        // a URL carrying both `?after=` and `?before=` must fail loudly
-        // instead of silently preferring `after` (the GH #93 fail-open
-        // family). The `CursorDecodeError` marker gives the failure the
-        // drop-pagination retry contract.
-        if state.after.is_some() && state.before.is_some() {
-            return Err(crate::cursor::CursorDecodeError::conflicting_cursors());
-        }
-        if let Some(cursor) = &state.after {
-            paginated = paginated.after(crate::cursor::decode(cursor)?);
-        } else if let Some(cursor) = &state.before {
-            paginated = paginated.before(crate::cursor::decode(cursor)?);
+        // Toasty cursor pagination takes exactly one cursor, and the state
+        // holds at most one.
+        match &state.cursor {
+            Some(Cursor::After(token)) => {
+                paginated = paginated.after(crate::cursor::decode(token)?);
+            }
+            Some(Cursor::Before(token)) => {
+                paginated = paginated.before(crate::cursor::decode(token)?);
+            }
+            None => {}
         }
         let loaded = paginated
             .exec(&mut db)
@@ -134,7 +132,7 @@ where
         // the main fetch and the click can still void a validated
         // cursor — that degrades to the void-window recovery link
         // never to silently skipped rows.
-        if state.before.is_some() {
+        if matches!(state.cursor, Some(Cursor::Before(_))) {
             if let Some(cursor) = page.prev_cursor.clone() {
                 let past = Past::Before(crate::cursor::decode(&cursor)?);
                 if !row_exists_past(&mut db, base_query, past)
@@ -201,7 +199,7 @@ where
 /// so it takes the cursor-stripped retry contract instead of re-requesting the
 /// identical URL forever; every other failure keeps the cursor.
 fn reject_cursor(error: topcoat::Error, state: &TableState) -> topcoat::Error {
-    let cursored = state.after.is_some() || state.before.is_some();
+    let cursored = state.cursor.is_some();
     let rejected = error
         .downcast_ref::<toasty::Error>()
         .is_some_and(toasty::Error::is_invalid_statement);

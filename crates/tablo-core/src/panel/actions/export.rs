@@ -104,7 +104,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         }
         let state = TableState::from_cx(cx);
         let table = R::table(cx);
-        // Fail closed on unapplied filters: a typo'd `?filters=`
+        // Fail closed on unapplied filters: a typo'd `?f.<name>=`
         // must not silently export the unfiltered table.
         if !table.unapplied_filters(&state).is_empty() {
             return Err(topcoat::router::error::bad_request(format!(

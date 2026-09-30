@@ -66,7 +66,7 @@ async fn void_window_links_back_to_first_page() {
         prev_cursor: None,
     };
     let state = TableState {
-        after: Some("abc".to_string()),
+        cursor: Some(crate::resource::Cursor::After("abc".to_string())),
         sort: Some(Sort {
             column: "name".to_string(),
             descending: false,

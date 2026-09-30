@@ -1,134 +1,9 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
 use crate::query_term::MAX_QUERY_TERM;
-
-#[test]
-fn from_live_args_builds_state() {
-    let state = TableState::from_live_args(
-        "  Ada ",
-        "status:published, featured:true",
-        "name",
-        "desc",
-        "",
-    );
-    assert_eq!(state.search.as_deref(), Some("Ada"));
-    assert_eq!(
-        state.filters.get("status").map(String::as_str),
-        Some("published")
-    );
-    assert_eq!(
-        state.filters.get("featured").map(String::as_str),
-        Some("true")
-    );
-    assert_eq!(
-        state.sort,
-        Some(Sort {
-            column: "name".to_string(),
-            descending: true,
-        })
-    );
-    assert!(state.after.is_none() && state.before.is_none());
-    // Blank inputs → neutral state.
-    assert_eq!(
-        TableState::from_live_args("", "", "", "", ""),
-        TableState::default()
-    );
-}
-
-#[test]
-fn live_and_url_constructors_share_one_contract() {
-    // `from_live_args` is the public seam a page owning its own
-    // signals is documented to call, so it must apply the GET path's
-    // bounds — `q` trimmed and clamped to `MAX_QUERY_TERM`, `dir` trimmed
-    // before comparing — instead of being the looser of the two.
-    let long = "x".repeat(MAX_QUERY_TERM + 10);
-    let live = TableState::from_live_args(&long, "", "name", " desc ", "");
-    let url = TableState::from_cx(&cx_with_query(&format!("q={long}&sort=name&dir=+desc+")));
-    assert_eq!(live, url, "the two entry points must agree field for field");
-    assert_eq!(
-        live.search.as_deref().map(str::len),
-        Some(MAX_QUERY_TERM),
-        "the live constructor must clamp `q` like the GET path"
-    );
-    assert_eq!(
-        live.sort,
-        Some(Sort {
-            column: "name".to_string(),
-            descending: true,
-        }),
-        "both paths trim `dir` before comparing"
-    );
-    // Blank inputs agree on neutral state too.
-    assert_eq!(
-        TableState::from_live_args("", "", "", "", ""),
-        TableState::default()
-    );
-    assert_eq!(
-        TableState::from_cx(&cx_with_query("")),
-        TableState::default()
-    );
-}
-
-#[test]
-fn oversized_filters_transport_is_refused_whole_and_flagged() {
-    // the live shard hands `parse_filters_param` a client-owned
-    // signal the router will buffer megabytes of. The transport is bounded
-    // where it is parsed, and an oversized one is refused *whole* — never
-    // partially applied — through the GH #148 malformed channel, so the
-    // list warns and the export 400s instead of running unfiltered.
-    let huge = format!("status:published,{}", "k:v,".repeat(2 * 1024 * 1024));
-    assert!(huge.len() > MAX_FILTERS_PARAM);
-    let state = TableState::from_live_args("", &huge, "", "", "");
-    assert!(
-        state.filters.is_empty(),
-        "an oversized transport must not be partially applied"
-    );
-    assert_eq!(
-        state.malformed_filters,
-        vec![FILTERS_OVERFLOW_SEGMENT.to_string()]
-    );
-    // The refusal is bounded and survives into every rebuilt link.
-    let param = state.filters_param().expect("the refusal must project");
-    assert_eq!(param, FILTERS_OVERFLOW_SEGMENT);
-    assert!(
-        param.len() < MAX_FILTERS_PARAM,
-        "the projected transport stays bounded, got {} bytes",
-        param.len()
-    );
-
-    // A segment flood under the byte cap is refused the same way: 32
-    // one-character pairs are small but would each cost a map entry.
-    let flood = vec!["k:v"; MAX_FILTER_SEGMENTS + 1].join(",");
-    assert!(flood.len() <= MAX_FILTERS_PARAM);
-    let state = TableState::from_cx(&cx_with_query(&format!("filters={flood}")));
-    assert!(state.filters.is_empty());
-    assert_eq!(
-        state.malformed_filters,
-        vec![FILTERS_OVERFLOW_SEGMENT.to_string()]
-    );
-
-    // A transport inside both bounds still applies, unchanged.
-    let ok = vec!["k:v"; MAX_FILTER_SEGMENTS].join(",");
-    let state = TableState::from_live_args("", &ok, "", "", "");
-    assert!(state.malformed_filters.is_empty());
-    assert_eq!(state.filters.get("k").map(String::as_str), Some("v"));
-}
-
-#[test]
-fn live_args_filters_round_trip_through_transport() {
-    // GH #136 §5: the live `filters` string is the same transport the URL
-    // parses — encode/decode round-trips without loss.
-    let state =
-        TableState::from_live_args("Ada", "status:published,featured:true", "name", "desc", "");
-    let param = state.filters_param().expect("live filters serialize");
-    let back = TableState::from_live_args("Ada", &param, "name", "desc", "");
-    assert_eq!(back.filters, state.filters);
-    assert_eq!(back.search, state.search);
-    assert_eq!(back.sort, state.sort);
-}
 
 fn cx_with_query(query: &str) -> Cx {
     let uri = if query.is_empty() {
@@ -160,25 +35,43 @@ fn table_state_parses_query_params() {
             descending: true,
         })
     );
-    assert_eq!(state.after.as_deref(), Some("abc123"));
-    assert!(state.before.is_none());
+    assert_eq!(state.cursor, Some(Cursor::After("abc123".to_string())));
 
     // Absent / blank / malformed → neutral state
-    let cx = cx_with_query("");
-    let state = TableState::from_cx(&cx);
-    assert_eq!(state, TableState::default());
-    let cx = cx_with_query("q=&sort=&dir=weird");
-    let state = TableState::from_cx(&cx);
-    assert_eq!(state, TableState::default());
+    assert_eq!(TableState::from_query(""), TableState::default());
+    assert_eq!(
+        TableState::from_query("q=&sort=&dir=weird"),
+        TableState::default()
+    );
+}
+
+/// The GET page and the live shard parse one query the same way: `from_cx`
+/// is `from_query` over the request URI.
+#[test]
+fn from_cx_is_from_query_over_the_request() {
+    let query = "q=Ada&sort=name&dir=desc&f.status=published&group_by=status&before=tok";
+    assert_eq!(
+        TableState::from_cx(&cx_with_query(query)),
+        TableState::from_query(query)
+    );
+}
+
+#[test]
+fn the_search_term_is_clamped() {
+    let long = "a".repeat(MAX_QUERY_TERM + 50);
+    let state = TableState::from_query(&format!("q={long}"));
+    assert_eq!(
+        state.search.as_deref().map(|s| s.chars().count()),
+        Some(MAX_QUERY_TERM)
+    );
 }
 
 #[test]
 fn table_state_duplicate_params_keep_first_and_never_fail_open() {
-    // a duplicate param keeps its first value and never fails
-    // open — answering empty state would drop every filter (and export's
-    // fail-closed guard along with it).
-    let cx = cx_with_query("filters=status:published&filters=status:draft&q=Ada&q=Grace");
-    let state = TableState::from_cx(&cx);
+    // A duplicate param keeps its first value and never fails open: answering
+    // empty state would drop every filter (and export's fail-closed guard
+    // along with it).
+    let state = TableState::from_query("f.status=published&f.status=draft&q=Ada&q=Grace");
     assert_eq!(
         state.filters.get("status").map(String::as_str),
         Some("published"),
@@ -188,119 +81,87 @@ fn table_state_duplicate_params_keep_first_and_never_fail_open() {
 }
 
 #[test]
-fn table_state_parses_filters_param() {
-    let cx = cx_with_query("filters=status:published,featured:true");
-    let state = TableState::from_cx(&cx);
+fn filters_are_one_parameter_each() {
+    let state = TableState::from_query("f.status=published&f.featured=true&f.empty=&f.=x");
     assert_eq!(
-        state.filters.get("status").map(String::as_str),
-        Some("published")
+        state.filters,
+        BTreeMap::from([
+            ("featured".to_string(), "true".to_string()),
+            ("status".to_string(), "published".to_string()),
+        ]),
+        "a blank value or a blank name is no filter"
     );
-    assert_eq!(
-        state.filters.get("featured").map(String::as_str),
-        Some("true")
-    );
-    assert!(state.malformed_filters.is_empty());
+    assert!(!state.filters_dropped);
 }
 
 #[test]
-fn filters_param_round_trips_reserved_chars() {
-    let mut filters = HashMap::new();
-    filters.insert("q".to_string(), "a,b".to_string());
-    filters.insert("tag".to_string(), "x:y%z".to_string());
-    let state = TableState {
-        filters,
-        ..TableState::default()
-    };
-    let param = state.filters_param().expect("must serialize");
-    assert!(param.contains("%2C") && param.contains("%3A") && param.contains("%25"));
-    let (back, malformed) = parse_filters_param(&param);
-    assert!(
-        malformed.is_empty(),
-        "round-trip must not invent malformed segments, got {malformed:?}"
-    );
-    assert_eq!(back.get("q").map(String::as_str), Some("a,b"));
-    assert_eq!(back.get("tag").map(String::as_str), Some("x:y%z"));
-    // Duplicate keys keep the first, never silent last-wins.
-    let (dup, dup_malformed) = parse_filters_param("k:a,k:b");
-    assert_eq!(dup.get("k").map(String::as_str), Some("a"));
-    assert!(dup_malformed.is_empty());
-    // Legacy plain values still parse.
-    let (legacy, legacy_malformed) = parse_filters_param("status:published, featured:true");
-    assert_eq!(legacy.get("status").map(String::as_str), Some("published"));
-    assert!(legacy_malformed.is_empty());
-    // Blank segments stay silent (the boundary between "skipped" and
-    // "malformed"); space-padded keys still parse.
-    let (blank, blank_bad) = parse_filters_param(",,status:draft");
-    assert!(
-        blank_bad.is_empty(),
-        "blank segments are skipped, got {blank_bad:?}"
-    );
-    assert_eq!(blank.get("status").map(String::as_str), Some("draft"));
-    // Colon-less and empty-value segments are malformed, not dropped.
-    let (ok, bad) = parse_filters_param("foobar,:val,key:,status:published");
-    assert_eq!(ok.get("status").map(String::as_str), Some("published"));
-    assert_eq!(
-        bad,
-        ["foobar".to_string(), ":val".to_string(), "key:".to_string()]
-    );
-    // Round-trip keeps them flagged: filters_param re-emits them verbatim
-    // (last, after the sorted pairs), so the next parse flags them again.
-    let state = TableState {
-        filters: ok,
-        malformed_filters: bad.clone(),
-        ..TableState::default()
-    };
-    let param = state.filters_param().expect("must serialize");
-    let (again_ok, again_bad) = parse_filters_param(&param);
-    assert_eq!(again_bad, bad, "malformed segments must round-trip");
-    assert_eq!(
-        again_ok.get("status").map(String::as_str),
-        Some("published")
-    );
-    // Percent-escape round-trips per component (case-insensitive decode).
-    for raw in ["a,b", "x:y%z", "100%", "a:b:c", "%3A%2C%25"] {
-        let enc = encode_filter_component(raw);
-        assert_eq!(decode_filter_component(&enc), raw, "round-trip {raw:?}");
-    }
+fn a_filter_value_with_separators_round_trips() {
+    let mut state = TableState::default();
+    state
+        .filters
+        .insert("author".to_string(), "Smith, John: 50% & co".to_string());
+    assert_eq!(TableState::from_query(&state.query()), state);
 }
 
 #[test]
-fn client_transport_parses_to_the_client_value() {
-    // The literals are the ones `filters.js` composes: the same fixtures
-    // run in `crates/tablo-ui/assets/filters.test.js`. Pinning them
-    // here joins the two halves — change `encode_filter_component` and the
-    // browser's literal stops decoding to its value, change the browser's
-    // encoder and the literal it emits stops matching this test.
-    let cases = [
-        ("name:Smith%2C John", "name", "Smith, John"),
-        ("name:a%3Ab", "name", "a:b"),
-        ("name:100%25", "name", "100%"),
-        ("name:Ada Lovelace", "name", "Ada Lovelace"),
-        ("name:%253A%252C%2525", "name", "%3A%2C%25"),
-        // The key is escaped with the value.
-        ("a%2Cb%3Ac:x", "a,b:c", "x"),
-    ];
-    for (transport, key, value) in cases {
-        let (filters, malformed) = parse_filters_param(transport);
-        assert!(
-            malformed.is_empty(),
-            "{transport:?} must parse clean, got {malformed:?}"
-        );
+fn filters_past_the_cap_are_dropped_and_flagged() {
+    let query = (0..MAX_FILTERS + 5)
+        .map(|i| format!("f.k{i}=v"))
+        .collect::<Vec<_>>()
+        .join("&");
+    let state = TableState::from_query(&query);
+    assert_eq!(state.filters.len(), MAX_FILTERS);
+    assert!(
+        state.filters_dropped,
+        "the dropped filters must be reported, so the export refuses"
+    );
+}
+
+#[test]
+fn oversized_filters_are_dropped_and_flagged() {
+    // Every link echoes every applied filter, so a filter is bounded where the
+    // query is parsed, like the count.
+    let long = "a".repeat(MAX_FILTER_LEN + 1);
+    for query in [format!("f.status={long}"), format!("f.{long}=v")] {
+        let state = TableState::from_query(&format!("{query}&f.featured=true"));
         assert_eq!(
-            filters.get(key).map(String::as_str),
-            Some(value),
-            "{transport:?} must decode to {value:?}"
+            state.filters,
+            BTreeMap::from([("featured".to_string(), "true".to_string())])
         );
+        assert!(state.filters_dropped);
     }
-    // The empty value clears the filter: `filters.js` emits no segment.
-    let (empty, malformed) = parse_filters_param("");
-    assert!(empty.is_empty() && malformed.is_empty());
-    // Several controls join with `,`, and a value's own comma stays inside
-    // its segment.
-    let (pair, malformed) = parse_filters_param("status:published,q:a%2Cb");
-    assert!(malformed.is_empty(), "got {malformed:?}");
-    assert_eq!(pair.get("status").map(String::as_str), Some("published"));
-    assert_eq!(pair.get("q").map(String::as_str), Some("a,b"));
+}
+
+#[test]
+fn the_retired_filters_parameter_is_flagged_not_ignored() {
+    // A saved `?filters=` link must warn, and its export refuse, rather than
+    // list the whole table as if it were unfiltered.
+    assert!(TableState::from_query("filters=status:draft").filters_dropped);
+    assert!(!TableState::from_query("filters=").filters_dropped);
+}
+
+#[test]
+fn unknown_keys_are_skipped_without_being_remembered() {
+    // The parse keeps nothing per unknown key, so a client-owned query of
+    // many distinct keys parses in time linear in its length.
+    let query = (0..20_000)
+        .map(|i| format!("x{i}=v"))
+        .chain(["q=Ada".to_string(), "q=Grace".to_string()])
+        .collect::<Vec<_>>()
+        .join("&");
+    let state = TableState::from_query(&query);
+    assert_eq!(state.search.as_deref(), Some("Ada"));
+}
+
+/// Toasty pages from one cursor: a URL naming both lands on the first page,
+/// the recovery the cursor retry gives.
+#[test]
+fn both_cursors_parse_as_the_first_page() {
+    assert_eq!(TableState::from_query("after=a&before=b").cursor, None);
+    assert_eq!(
+        TableState::from_query("before=b").cursor,
+        Some(Cursor::Before("b".to_string()))
+    );
 }
 
 #[test]
@@ -363,7 +224,7 @@ fn group_header_dom_ids_are_stable_and_distinct_from_row_ids() {
 }
 
 /// Fully populated projection source: every intent projects
-/// from this through the real parser (`from_cx`), asserting the typed
+/// from this through the real parser (`from_query`), asserting the typed
 /// delta — state, not URL bytes.
 fn populated_state() -> TableState {
     TableState {
@@ -372,10 +233,9 @@ fn populated_state() -> TableState {
             column: "name".to_string(),
             descending: true,
         }),
-        after: Some("after-cur".to_string()),
-        before: Some("before-cur".to_string()),
-        filters: HashMap::from([("status".to_string(), "published".to_string())]),
-        malformed_filters: vec!["bogus".to_string()],
+        cursor: Some(Cursor::After("after-cur".to_string())),
+        filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
+        filters_dropped: false,
         group_by: Some("status".to_string()),
         delete: Some("row-1".to_string()),
         open: Some(false),
@@ -384,104 +244,87 @@ fn populated_state() -> TableState {
 
 /// Project through an intent and re-parse the URL with the real parser.
 fn reparse(url: &str) -> TableState {
-    let query = url.split_once('?').map(|(_, q)| q).unwrap_or("");
-    TableState::from_cx(&cx_with_query(query))
+    TableState::from_query(query_of(url))
+}
+
+/// The state a link keeps: every link drops the dialog.
+fn without_dialog(mut state: TableState) -> TableState {
+    state.delete = None;
+    state.open = None;
+    state
 }
 
 #[test]
 fn projection_list_url_round_trips_full_state() {
-    // full state including cursors; never `delete`/`open`.
+    // Full state including the cursor; never `delete`/`open`.
     let source = populated_state();
-    let mut expected = source.clone();
-    expected.delete = None;
-    expected.open = None;
-    assert_eq!(reparse(&source.list_url("/admin/users")), expected);
+    assert_eq!(
+        reparse(&source.list_url("/admin/users")),
+        without_dialog(source.clone())
+    );
+    assert_eq!(
+        TableState::from_query(&source.query()),
+        without_dialog(source)
+    );
 }
 
 #[test]
 fn projection_without_search_drops_query() {
-    // drops `q` (and its result set's cursors + dialog); keeps
-    // the `filters` transport including malformed segments.
+    // Drops `q` (and its result set's cursor + dialog); keeps the filters.
     let source = populated_state();
-    let mut expected = source.clone();
+    let mut expected = without_dialog(source.clone());
     expected.search = None;
-    expected.after = None;
-    expected.before = None;
-    expected.delete = None;
-    expected.open = None;
+    expected.cursor = None;
     assert_eq!(reparse(&source.without_search("/admin/users")), expected);
 }
 
 #[test]
 fn projection_without_filters_drops_filters() {
-    // drops `filters` and malformed segments (and their result
-    // set's cursors + dialog); keeps the search term.
+    // Drops the filters (and their result set's cursor + dialog); keeps the
+    // search term.
     let source = populated_state();
-    let mut expected = source.clone();
-    expected.filters = HashMap::new();
-    expected.malformed_filters = Vec::new();
-    expected.after = None;
-    expected.before = None;
-    expected.delete = None;
-    expected.open = None;
+    let mut expected = without_dialog(source.clone());
+    expected.filters = BTreeMap::new();
+    expected.cursor = None;
     assert_eq!(reparse(&source.without_filters("/admin/users")), expected);
 }
 
 #[test]
 fn projection_without_cursor_drops_pagination() {
-    // GH #153: drops `after`/`before`; keeps everything else.
+    // GH #153: drops the cursor; keeps everything else.
     let source = populated_state();
-    let mut expected = source.clone();
-    expected.after = None;
-    expected.before = None;
-    expected.delete = None;
-    expected.open = None;
+    let mut expected = without_dialog(source.clone());
+    expected.cursor = None;
     assert_eq!(reparse(&source.without_cursor("/admin/users")), expected);
 }
 
 #[test]
-fn projection_with_after_sets_forward_cursor() {
-    // full state + `after`, drops `before` and the dialog.
+fn projection_with_cursor_replaces_the_cursor() {
+    // Full state with the new cursor, in either direction, and no dialog.
     let source = populated_state();
-    let mut expected = source.clone();
-    expected.after = Some("tok2".to_string());
-    expected.before = None;
-    expected.delete = None;
-    expected.open = None;
-    assert_eq!(
-        reparse(&source.with_after("/admin/users", "tok2")),
-        expected
-    );
-}
-
-#[test]
-fn projection_with_before_sets_backward_cursor() {
-    // full state + `before`, drops `after` and the dialog.
-    let source = populated_state();
-    let mut expected = source.clone();
-    expected.after = None;
-    expected.before = Some("tok2".to_string());
-    expected.delete = None;
-    expected.open = None;
-    assert_eq!(
-        reparse(&source.with_before("/admin/users", "tok2")),
-        expected
-    );
+    for cursor in [
+        Cursor::After("tok2".to_string()),
+        Cursor::Before("tok2".to_string()),
+    ] {
+        let mut expected = without_dialog(source.clone());
+        expected.cursor = Some(cursor.clone());
+        assert_eq!(
+            reparse(&source.with_cursor("/admin/users", &cursor)),
+            expected
+        );
+    }
 }
 
 #[test]
 fn projection_sorted_by_replaces_sort() {
-    // replaces `sort`/`dir`, drops cursors and the dialog.
+    // Replaces `sort`/`dir`, drops the cursor and the dialog.
     let source = populated_state();
-    let mut expected = source.clone();
+    let mut expected = without_dialog(source.clone());
     expected.sort = Some(Sort {
         column: "title".to_string(),
         descending: false,
     });
-    expected.after = None;
-    expected.before = None;
-    expected.delete = None;
-    expected.open = None;
+    expected.cursor = None;
     assert_eq!(
         reparse(&source.sorted_by("/admin/users", "title", false)),
         expected
@@ -490,8 +333,7 @@ fn projection_sorted_by_replaces_sort() {
 
 #[test]
 fn projection_row_url_base_adds_the_delete_dialog_key() {
-    // GH #153: full state including cursors + `delete=key`;
-    // never `open`.
+    // GH #153: full state including the cursor + `delete=key`; never `open`.
     let source = populated_state();
     let mut expected = source.clone();
     expected.delete = Some("row-9".to_string());
@@ -509,36 +351,6 @@ fn projection_row_url_base_adds_the_delete_dialog_key() {
             .delete_dialog("row-9"),
         "/admin/users?delete=row-9"
     );
-}
-/// the live cursor travels as one wire value, so the browser can
-/// never hold `after` and `before` at once — the pair Toasty rejects
-/// is unreachable from the live path.
-#[test]
-fn cursor_wire_carries_at_most_one_direction() {
-    assert_eq!(cursor_after("tok"), "after:tok");
-    assert_eq!(cursor_before("tok"), "before:tok");
-    assert_eq!(cursor_none(), "");
-    assert_eq!(
-        split_cursor(&cursor_after("tok")),
-        (Some("tok".into()), None)
-    );
-    assert_eq!(
-        split_cursor(&cursor_before("tok")),
-        (None, Some("tok".into()))
-    );
-    assert_eq!(split_cursor(&cursor_none()), (None, None));
-    // Whitespace from the signal is tolerated, like the GET path's trims.
-    assert_eq!(
-        split_cursor("  after: tok  "),
-        (Some("tok".to_string()), None)
-    );
-    // A tampered or half-written value degrades to no cursor (GH #110's
-    // drop-pagination retry contract) instead of erroring the table.
-    assert_eq!(split_cursor("tok"), (None, None));
-    assert_eq!(split_cursor("after:"), (None, None));
-    assert_eq!(split_cursor("before:"), (None, None));
-    // Only the prefix is a direction; a token may contain colons.
-    assert_eq!(split_cursor("after:a:b"), (Some("a:b".to_string()), None));
 }
 
 /// the bulk wire is delimited on both ends so membership is exact

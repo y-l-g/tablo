@@ -231,7 +231,12 @@ async fn live_search_host_and_shard_dispatch() {
     // identity header the browser sends): unknown path fails, registered
     // path renders rows and the live controls bound to the caller's
     // signals.
-    let sig = |n: u8, v: &str| format!(r#"{{"t":"Signal","id":"{:032x}","v":"{v}"}}"#, n);
+    let sig = |n: u8, v: &str| {
+        format!(
+            r#"{{"t":"Signal","id":"{n:032x}","v":{}}}"#,
+            serde_json::to_string(v).unwrap()
+        )
+    };
     /// The signal id a rendered refresh control writes: read
     /// from the control's own `data-topcoat-on:change` handler, which is
     /// the side that re-runs the shard. Locating it by offset from the
@@ -264,19 +269,18 @@ async fn live_search_host_and_shard_dispatch() {
         );
         id
     }
-    // Args are positional shard inputs: q, filters, sort, dir, the single
-    // cursor wire, group_by, and the bulk handle the table binds
-    // its selection transport to.
-    let shard_args = |path: &str, q: &str, filters: &str, sort: &str, dir: &str, cursor: &str| {
+    // Args are positional shard inputs: the list path, the `query` signal
+    // holding the list's URL query built from `pairs`, and the bulk handle
+    // the table binds its selection transport to.
+    let shard_args = |path: &str, pairs: &[(&str, &str)]| {
+        let query = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs(pairs)
+            .finish();
         format!(
-            r#"["{path}",{}, {}, {}, {}, {}, {}, {}]"#,
-            sig(1, q),
-            sig(2, filters),
-            sig(3, sort),
-            sig(4, dir),
-            sig(5, cursor),
-            sig(6, ""),
-            sig(7, "")
+            "[{},{},{}]",
+            serde_json::to_string(path).unwrap(),
+            sig(1, &query),
+            sig(2, "")
         )
     };
     async fn call_shard(router: &topcoat::router::Router, args: String) -> http::Response<Body> {
@@ -292,13 +296,13 @@ async fn live_search_host_and_shard_dispatch() {
             )
             .await
     }
-    let nope = call_shard(&router, shard_args("/admin/nope", "Ada", "", "", "", "")).await;
+    let nope = call_shard(&router, shard_args("/admin/nope", &[("q", "Ada")])).await;
     assert!(
         nope.status().is_client_error(),
         "unknown shard path must fail, got {}",
         nope.status()
     );
-    let response = call_shard(&router, shard_args("/admin/dummies", "Ada", "", "", "", "")).await;
+    let response = call_shard(&router, shard_args("/admin/dummies", &[("q", "Ada")])).await;
     let status = response.status();
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let table_html = String::from_utf8_lossy(&bytes).to_string();
@@ -317,7 +321,7 @@ async fn live_search_host_and_shard_dispatch() {
     // selection instead of dropping it...
     assert!(
         table_html.contains(
-            r#"data-topcoat-bind:value="(cx.hydrate({&quot;t&quot;:&quot;Signal&quot;,&quot;id&quot;:&quot;00000000000000000000000000000007&quot;})).get()""#
+            r#"data-topcoat-bind:value="(cx.hydrate({&quot;t&quot;:&quot;Signal&quot;,&quot;id&quot;:&quot;00000000000000000000000000000002&quot;})).get()""#
         ),
         "the table must bind the bulk transport to the selection signal, got {table_html}"
     );
@@ -331,8 +335,13 @@ async fn live_search_host_and_shard_dispatch() {
     );
     // ...while never reading it: selecting a row must not re-run the query.
     assert!(
-        !table_html.contains(r#"::topcoat::dep("00000000000000000000000000000007")"#),
+        !table_html.contains(r#"::topcoat::dep("00000000000000000000000000000002")"#),
         "the bulk signal must not become a shard dependency, got {table_html}"
+    );
+    // The query is the one the shard reads.
+    assert!(
+        table_html.contains(r#"::topcoat::dep("00000000000000000000000000000001")"#),
+        "the query signal must be a shard dependency, got {table_html}"
     );
     // the table's chrome is bound to the signals, so sort/pager
     // interactions re-render in place. `href` stays the no-JS fallback.
@@ -351,7 +360,7 @@ async fn live_search_host_and_shard_dispatch() {
     );
     let revision = revision_signal_id(&table_html);
     assert_ne!(
-        revision, "00000000000000000000000000000007",
+        revision, "00000000000000000000000000000002",
         "the refresh control must not reuse the bulk transport's signal"
     );
     assert!(
@@ -398,13 +407,11 @@ async fn live_search_host_and_shard_dispatch() {
             .unwrap();
     assert_eq!(page1.rows.len(), 1);
     let first_name = page1.rows[0].name.clone();
-    let wire = crate::resource::cursor_after(
-        &page1
-            .next_cursor
-            .clone()
-            .expect("page 1 must have a cursor"),
-    );
-    let response = call_shard(&router, shard_args("/admin/dummies", "", "", "", "", &wire)).await;
+    let cursor = page1
+        .next_cursor
+        .clone()
+        .expect("page 1 must have a cursor");
+    let response = call_shard(&router, shard_args("/admin/dummies", &[("after", &cursor)])).await;
     assert_eq!(response.status(), http::StatusCode::OK);
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let table_html = String::from_utf8_lossy(&bytes);
@@ -418,7 +425,7 @@ async fn live_search_host_and_shard_dispatch() {
         "live pager must bind its cursor handlers, got {table_html}"
     );
     // A fresh search with no cursor starts a new result set.
-    let response = call_shard(&router, shard_args("/admin/dummies", "Bob", "", "", "", "")).await;
+    let response = call_shard(&router, shard_args("/admin/dummies", &[("q", "Bob")])).await;
     assert_eq!(response.status(), http::StatusCode::OK);
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let table_html = String::from_utf8_lossy(&bytes);
@@ -426,12 +433,12 @@ async fn live_search_host_and_shard_dispatch() {
         table_html.contains("Bob"),
         "fresh search must match new query, got {table_html}"
     );
-    // the shard request carries no `?sort=`, so the sort the
-    // table is rendered with exists only in the signals it was invoked
-    // with; the sorted column must report that direction.
+    // the shard request's own URL carries no `?sort=`, so the sort the table
+    // is rendered with exists only in the query signal it was invoked with;
+    // the sorted column must report that direction.
     let response = call_shard(
         &router,
-        shard_args("/admin/dummies", "", "", "name", "desc", ""),
+        shard_args("/admin/dummies", &[("sort", "name"), ("dir", "desc")]),
     )
     .await;
     assert_eq!(response.status(), http::StatusCode::OK);
@@ -439,7 +446,7 @@ async fn live_search_host_and_shard_dispatch() {
     let sorted_html = String::from_utf8_lossy(&bytes);
     assert!(
         sorted_html.contains("aria-sort=\"descending\""),
-        "the live shard must report the signal's sort direction, got {sorted_html}"
+        "the live shard must report the query's sort direction, got {sorted_html}"
     );
 }
 
@@ -517,6 +524,14 @@ async fn live_search_input_debounces_keystrokes() {
         html.contains("data-live-search-transport"),
         "hidden transport must carry the bound write, got {html}"
     );
+    // The transport's value is bound to the query signal, so the script edits
+    // the current query, not the one the page loaded with.
+    let at = html.find("data-live-search-transport").unwrap();
+    let tag = &html[html[..at].rfind('<').unwrap()..at + html[at..].find('>').unwrap()];
+    assert!(
+        tag.contains("data-topcoat-bind:value"),
+        "the transport must bind its value to the query signal, got {tag}"
+    );
     assert!(
         html.contains("data-topcoat-on:change"),
         "transport must write signals on change, got {html}"
@@ -528,6 +543,34 @@ async fn live_search_input_debounces_keystrokes() {
     assert!(
         html.contains("<noscript>") && html.contains("name=\"q\""),
         "live table must keep the GET fallback, got {html}"
+    );
+
+    // The query signal is seeded with the request's query as written, so a
+    // filter the parse drops (here the retired spelling) still warns on the
+    // live table, and the empty table's Clear search is the script's to
+    // handle: written in place, it would leave the input showing the term.
+    let resp = router
+        .handle(
+            http::Request::builder()
+                .uri("/admin/dummies?q=zzz&filters=status:draft")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+    assert!(resp.status().is_success());
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8_lossy(&body);
+    assert!(
+        html.contains("role=\"alert\"") && html.contains("dropped filters"),
+        "a dropped filter must warn on the live table, got {html}"
+    );
+    let clear = html
+        .rsplit('<')
+        .find(|chunk| chunk.contains("Clear search"))
+        .expect("the empty table's Clear search link");
+    assert!(
+        clear.contains("data-search-clear") && !clear.contains("data-topcoat-on:click"),
+        "the live Clear search must be the script's, not a query write, got {clear}"
     );
 }
 
@@ -1361,9 +1404,10 @@ async fn list_renders_error_state_when_load_fails() {
 }
 
 #[tokio::test]
-async fn both_cursors_render_error_state_without_cursors() {
-    // `?after=` + `?before=` together must fail loudly instead of
-    // silently preferring `after`. Both tokens below are valid.
+async fn both_cursors_render_the_first_page() {
+    // Toasty pages from one cursor, so a URL naming `?after=` and `?before=`
+    // together parses as no cursor: the first page, which is where the
+    // cursor retry lands anyway. Both tokens below are valid.
     use topcoat::router::Body;
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -1451,16 +1495,16 @@ async fn both_cursors_render_error_state_without_cursors() {
         .to_bytes();
     let body = String::from_utf8(bytes.to_vec()).unwrap();
     assert!(
-        body.contains("Couldn't load Subscribers"),
-        "conflicting cursors must render the error state, not a page: {body}"
+        !body.contains("Couldn't load Subscribers"),
+        "a URL naming both cursors is no error: {body}"
     );
     assert!(
-        body.contains("href=\"/admin/subscribers\""),
-        "retry link must target the bare list (cursors dropped): {body}"
+        body.contains("a@b.c") && !body.contains("d@e.f"),
+        "a URL naming both cursors lands on the first page: {body}"
     );
     assert!(
-        !body.contains("after=") && !body.contains("before="),
-        "conflicting cursors must not travel into the retry link: {body}"
+        !body.contains("before="),
+        "the first page links forward only: {body}"
     );
 }
 
@@ -1470,7 +1514,7 @@ fn retry_url_for_error_drops_only_bad_cursors() {
     // pagination; any other failure keeps the full evidence.
     let state = TableState {
         search: Some("Ada".to_string()),
-        after: Some("cur".to_string()),
+        cursor: Some(crate::resource::Cursor::After("cur".to_string())),
         ..TableState::default()
     };
     let bad_cursor = crate::cursor::decode("zz").expect_err("malformed cursor must fail");

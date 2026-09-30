@@ -127,11 +127,11 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         }
 
         fn navigation() -> NavigationItem {
-            NavigationItem::at("Draft posts", "/admin/posts?filters=status:draft")
+            NavigationItem::at("Draft posts", "/admin/posts?f.status=draft")
         }
     }
     let spelled_out = Panel::new("backoffice").nav_item::<ReportsResource>();
-    assert_eq!(spelled_out.url(), Some("/admin/posts?filters=status:draft"));
+    assert_eq!(spelled_out.url(), Some("/admin/posts?f.status=draft"));
     assert_eq!(spelled_out.label, "Draft posts");
     assert!(matches!(spelled_out.target, NavTarget::Url(_)));
 

@@ -122,71 +122,6 @@ async fn wired_table_carries_the_declared_action_chrome() {
     );
 }
 
-#[tokio::test]
-async fn table_load_rejects_both_cursors() {
-    // `?after=` + `?before=` together must fail loudly instead of
-    // silently preferring `after` (the fail-open family). The
-    // failure carries the `CursorDecodeError` marker so the retry link
-    // drops pagination.
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    for name in ["Ada", "Bob"] {
-        toasty::create!(User {
-            name: name.to_string()
-        })
-        .exec(&mut db)
-        .await
-        .unwrap();
-    }
-    let cx = CxTestBuilder::new().app_context(db).build();
-    let tbl = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-    )
-    .paginate(1);
-    // A valid cursor token: the first page of two rows has a next page.
-    let first = TablePage::load(
-        &cx,
-        &tbl,
-        toasty::stmt::Query::<List<User>>::all(),
-        &TableState::default(),
-    )
-    .await
-    .unwrap();
-    let cursor = first
-        .next_cursor
-        .clone()
-        .expect("page 1 must have a cursor");
-    // Sanity: a single cursor still loads.
-    let state = TableState {
-        after: Some(cursor.clone()),
-        ..TableState::default()
-    };
-    let second = TablePage::load(&cx, &tbl, toasty::stmt::Query::<List<User>>::all(), &state)
-        .await
-        .unwrap();
-    assert_eq!(second.rows.len(), 1);
-    // Both cursors together fail with the cursor marker — no silent
-    // precedence for whichever comes first.
-    let state = TableState {
-        after: Some(cursor.clone()),
-        before: Some(cursor),
-        ..TableState::default()
-    };
-    let err = TablePage::load(&cx, &tbl, toasty::stmt::Query::<List<User>>::all(), &state)
-        .await
-        .expect_err("after+before must fail loudly");
-    assert!(
-        err.downcast_ref::<crate::cursor::CursorDecodeError>()
-            .is_some(),
-        "conflict must carry the cursor marker for the retry contract, got {err}"
-    );
-}
-
 #[test]
 fn table_search_expr_ors_across_searchable_columns() {
     // distinct names — title + status, not one field twice.
@@ -409,26 +344,30 @@ fn unapplied_filters_flags_unknown_keys_and_rejected_values() {
 }
 
 #[test]
-fn unapplied_filters_flags_a_refused_filters_transport() {
-    // an oversized `?filters=` is refused whole rather than
-    // partially applied, and it reads as its own reason — not as a
-    // malformed segment — so the list banner explains itself and the
-    // export's 400 is the fail-closed guard instead of a silent drop.
+fn unapplied_filters_flags_dropped_filters() {
+    // Filters the parse drops (past the cap, too long, or the retired
+    // `filters=` spelling) read as their own reason, so the list banner
+    // explains itself and the export's 400 is the fail-closed guard instead of
+    // a silent drop.
     let cx = CxTestBuilder::new().build();
     let tbl = status_table(&cx);
-    let huge = format!("status:published,{}", "k:v,".repeat(2 * 1024 * 1024));
-    let state = TableState::from_live_args("", &huge, "", "", "");
-    assert!(
-        state.filters.is_empty() && tbl.filter_expr(&state).is_none(),
-        "the refused transport must apply no predicate"
+    let too_many = std::iter::once("f.status=published".to_string())
+        .chain((0..crate::resource::state::MAX_FILTERS).map(|i| format!("f.k{i}=v")))
+        .collect::<Vec<_>>()
+        .join("&");
+    let too_long = format!(
+        "f.status={}",
+        "a".repeat(crate::resource::state::MAX_FILTER_LEN + 1)
     );
-    assert_eq!(
-        tbl.unapplied_filters(&state),
-        vec![(
-            "filters=overflow".to_string(),
-            "too many filters: refused whole (GH #205)".to_string()
-        )]
-    );
+    for query in [too_many.as_str(), too_long.as_str(), "filters=status:draft"] {
+        let state = TableState::from_query(query);
+        assert!(
+            tbl.unapplied_filters(&state)
+                .iter()
+                .any(|(pair, _)| pair == "dropped filters"),
+            "the dropped filters of {query:.40} must be reported"
+        );
+    }
 }
 
 #[test]
@@ -611,7 +550,7 @@ async fn full_walk_reaches_every_row_exactly_once_without_phantoms() {
         match last.next_cursor.clone() {
             Some(cursor) => {
                 state = TableState {
-                    after: Some(cursor),
+                    cursor: Some(crate::resource::Cursor::After(cursor)),
                     ..TableState::default()
                 };
                 last = TablePage::load(&cx, &tbl, query(), &state).await.unwrap();
@@ -624,7 +563,7 @@ async fn full_walk_reaches_every_row_exactly_once_without_phantoms() {
     let mut back = vec![last.rows.iter().map(|u| u.name.clone()).collect::<Vec<_>>()];
     while let Some(cursor) = last.prev_cursor.clone() {
         state = TableState {
-            before: Some(cursor),
+            cursor: Some(crate::resource::Cursor::Before(cursor)),
             ..TableState::default()
         };
         last = TablePage::load(&cx, &tbl, query(), &state).await.unwrap();
@@ -656,7 +595,7 @@ async fn exact_boundary_pages_carry_exact_cursors() {
     assert_eq!(first.rows.len(), 2);
     let cursor = first.next_cursor.clone().expect("page 1 of 2 has a next");
     let state = TableState {
-        after: Some(cursor),
+        cursor: Some(crate::resource::Cursor::After(cursor)),
         ..TableState::default()
     };
     let second = TablePage::load(&cx, &tbl, query(), &state).await.unwrap();
@@ -863,7 +802,7 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     .unwrap();
     assert_eq!(head.rows.len(), 3);
     let tail_state = TableState {
-        after: head.next_cursor.clone(),
+        cursor: head.next_cursor.clone().map(crate::resource::Cursor::After),
         ..TableState::default()
     };
     count_around(true);
@@ -896,7 +835,7 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     .await
     .unwrap();
     let p2_state = TableState {
-        after: p1.next_cursor.clone(),
+        cursor: p1.next_cursor.clone().map(crate::resource::Cursor::After),
         ..TableState::default()
     };
     let p2 = TablePage::load(
@@ -909,7 +848,7 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     .unwrap();
     assert_eq!(p2.rows.len(), 2);
     let back_to_first = TableState {
-        before: p2.prev_cursor.clone(),
+        cursor: p2.prev_cursor.clone().map(crate::resource::Cursor::Before),
         ..TableState::default()
     };
     count_around(true);
@@ -986,7 +925,7 @@ async fn stale_cursor_is_marked_for_retry() {
     ])))
     .unwrap();
     let state = TableState {
-        after: Some(wide),
+        cursor: Some(crate::resource::Cursor::After(wide)),
         ..TableState::default()
     };
     let error = TablePage::load(
@@ -1028,7 +967,10 @@ async fn stale_cursor_is_marked_for_retry() {
     .await
     .unwrap();
     let state = TableState {
-        after: first.next_cursor.clone(),
+        cursor: first
+            .next_cursor
+            .clone()
+            .map(crate::resource::Cursor::After),
         ..TableState::default()
     };
     assert!(

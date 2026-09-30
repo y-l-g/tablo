@@ -3,14 +3,17 @@
 use tablo_ui::{
     pagination, pagination_content, pagination_item, pagination_next, pagination_previous,
 };
-use topcoat::{Result, context::Cx, runtime::Event, view::*};
+use topcoat::{Result, context::Cx, view::*};
 
-use super::super::{
+use super::{
     super::{
-        page::TablePage,
-        state::{TableSignals, TableState},
+        super::{
+            page::TablePage,
+            state::{Cursor, TableSignals, TableState},
+        },
+        Table,
     },
-    Table,
+    live_link,
 };
 
 impl<M> Table<M> {
@@ -19,8 +22,8 @@ impl<M> Table<M> {
     /// no invented page numbers. Links preserve the search and sort state;
     /// cursors travel via `?after=`/`?before=`.
     ///
-    /// With `signals` (a live table) each link also writes its cursor signal
-    /// and clears the opposite one; `href` stays the no-JS fallback.
+    /// With `signals` (a live table) each link writes its own query to the
+    /// `query` signal; `href` stays the no-JS fallback.
     pub(super) async fn render_pager<'a>(
         &self,
         cx: &'a Cx,
@@ -34,48 +37,20 @@ impl<M> Table<M> {
         let next_href = page
             .next_cursor
             .as_ref()
-            .map(|cursor| state.with_after(path, cursor));
+            .map(|cursor| state.with_cursor(path, &Cursor::After(cursor.clone())));
         let prev_href = page
             .prev_cursor
             .as_ref()
-            .map(|cursor| state.with_before(path, cursor));
+            .map(|cursor| state.with_cursor(path, &Cursor::Before(cursor.clone())));
         if prev_href.is_none() && next_href.is_none() {
             return Ok(Vec::new());
         }
         let prev_item: Option<BoxView<'a>> = prev_href.map(|href| {
-            let attrs = match (signals, page.prev_cursor.as_deref()) {
-                (Some(signals), Some(cursor)) => {
-                    let wire = crate::resource::cursor_before(cursor);
-                    let signal = signals.cursor.clone();
-                    attributes! {
-                        cx =>
-                        href=(href.clone())
-                        @click=$(|e: Event| {
-                            e.prevent_default();
-                            signal.set(wire.clone());
-                        })
-                    }
-                }
-                _ => attributes! { cx => href=(href) },
-            };
+            let attrs = live_link(cx, href, signals);
             view! { cx => pagination_item(pagination_previous(attrs: attrs)) }.boxed()
         });
         let next_item: Option<BoxView<'a>> = next_href.map(|href| {
-            let attrs = match (signals, page.next_cursor.as_deref()) {
-                (Some(signals), Some(cursor)) => {
-                    let wire = crate::resource::cursor_after(cursor);
-                    let signal = signals.cursor.clone();
-                    attributes! {
-                        cx =>
-                        href=(href.clone())
-                        @click=$(|e: Event| {
-                            e.prevent_default();
-                            signal.set(wire.clone());
-                        })
-                    }
-                }
-                _ => attributes! { cx => href=(href) },
-            };
+            let attrs = live_link(cx, href, signals);
             view! { cx => pagination_item(pagination_next(attrs: attrs)) }.boxed()
         });
         let pager = view! {

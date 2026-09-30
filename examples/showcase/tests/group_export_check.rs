@@ -137,9 +137,7 @@ async fn posts_export_streams_csv_with_content_disposition() {
         csv
     );
     // A filter narrows the export: only the published post survives.
-    let resp = client
-        .get("/admin/posts/export?filters=status:published")
-        .await;
+    let resp = client.get("/admin/posts/export?f.status=published").await;
     let csv = body_string(resp).await;
     assert!(
         csv.contains("Hello Toasty"),

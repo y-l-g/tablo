@@ -33,7 +33,7 @@ Notes:
   searchable columns), so a term containing `%` or `_` matches those characters literally. `LIKE` is
   ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. `sortable()` sorts with
   `?sort=` and `?dir=`. Both work without JS.
-- The URL is the state: `?q=`, `?sort=`, `?dir=`, `?after=`, `?before=`, `?filters=`, `?group_by=`
+- The URL is the state: `?q=`, `?sort=`, `?dir=`, `?after=` or `?before=`, `?f.<name>=`, `?group_by=`
   parse into `TableState`. Every table paginates, at 25 rows unless `.paginate(n)` sets another
   size; pagination is cursor based, and Toasty appends the PK tie-breaker internally so cursors stay
   deterministic.
@@ -72,9 +72,11 @@ Filters:
 ))
 ```
 
-Active filters travel in `?filters=` and combine with AND. Unknown keys and rejected values never
-fail silently: the list renders a `role=alert` banner (`Table::unapplied_filters`) while export
-refuses with 400.
+Active filters travel as one `?f.<name>=<value>` parameter each (`?f.status=published`) and
+combine with AND. At most 32 filters apply, each with a name and a value of at most 256 bytes.
+Unknown keys, rejected values, dropped filters and the retired `?filters=` spelling never fail
+silently: the list renders a `role=alert` banner (`Table::unapplied_filters`) while export refuses
+with 400.
 
 Grouping and export:
 

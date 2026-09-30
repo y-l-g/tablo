@@ -94,29 +94,6 @@ pub(crate) struct TableChrome {
     pub(crate) view: bool,
 }
 
-/// A [`TableState`] whose `group_by` has already been checked against the
-/// table's declared grouping.
-///
-/// [`Table::normalize_state`] is the only constructor, so a seam that takes
-/// one reads the pre-normalized `group_by` directly and cannot normalize a
-/// second time — or forget to normalize at all. The request entry
-/// builds it once (the panel's list page, the `table_search` shard) and every
-/// seam below takes this proof; the public render seams keep accepting a raw
-/// `&TableState` and normalize it themselves, so an external page calling them
-/// directly is unaffected.
-///
-/// Derefs to [`TableState`], so the seams that only read state keep their
-/// `&TableState` signatures.
-pub(crate) struct NormalizedState(TableState);
-
-impl std::ops::Deref for NormalizedState {
-    type Target = TableState;
-
-    fn deref(&self) -> &TableState {
-        &self.0
-    }
-}
-
 /// The page size of a table that declares none with [`Table::paginate`], as
 /// Filament's tables default to paginating.
 pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
@@ -295,10 +272,9 @@ impl<M> Table<M> {
     /// Declare filters. Accepts a single filter or tuple of filters.
     ///
     /// Panics on duplicate [`Filter::name`], the same fail-loud
-    /// policy as [`Self::new`]: the `filters` transport is one
-    /// `name:value` pair per declared filter, and `parse_filters_param` keeps
-    /// the first value for a duplicated key, so two filters sharing a name
-    /// would silently drop one of them.
+    /// policy as [`Self::new`]: a filter travels as one `?f.<name>=` parameter,
+    /// and the parser keeps the first value for a repeated name, so two filters
+    /// sharing a name would silently drop one of them.
     pub fn filters(mut self, filters: impl IntoFilters<M>) -> Self
     where
         M: toasty::schema::Model,
@@ -367,10 +343,9 @@ impl<M> Table<M> {
     /// Documented no-op values are exempt: `TernaryFilter`'s `all`
     /// selects no predicate by contract, so it is never flagged.
     ///
-    /// An oversized `?filters=` transport arrives here as
-    /// `FILTERS_OVERFLOW_SEGMENT`, reported with its own reason so
-    /// the warning says the transport was refused rather than misdescribing it
-    /// as malformed.
+    /// Filter parameters the parse dropped ([`TableState::filters_dropped`]:
+    /// too many, too long, or the retired `?filters=` spelling) are reported
+    /// as one entry with their own reason.
     ///
     /// The list view renders these as a `role=alert` banner and keeps a 200;
     /// the export refuses the request with 400 instead of silently
@@ -389,13 +364,15 @@ impl<M> Table<M> {
                 Some(_) => {}
             }
         }
-        for segment in &state.malformed_filters {
-            let reason = if segment == super::state::FILTERS_OVERFLOW_SEGMENT {
-                "too many filters: refused whole (GH #205)"
-            } else {
-                "malformed: expected key:value"
-            };
-            out.push((segment.clone(), reason.to_string()));
+        if state.filters_dropped {
+            out.push((
+                "dropped filters".to_string(),
+                format!(
+                    "more than {}, over {} bytes, or the retired filters= form",
+                    super::state::MAX_FILTERS,
+                    super::state::MAX_FILTER_LEN
+                ),
+            ));
         }
         out.sort();
         out
@@ -412,9 +389,9 @@ impl<M> Table<M> {
     /// loaded: include it on a column ([`TextColumn::include`](super::TextColumn::include))
     /// or in [`Resource::query`](crate::resource::Resource::query).
     ///
-    /// In live tables the page-load value seeds the `group_by` interaction
-    /// signal and persists across in-place reruns; changing it is
-    /// still a navigation (`?group_by=` links) until a live control ships.
+    /// In live tables `group_by` travels in the query signal and persists
+    /// across in-place reruns; changing it is still a navigation
+    /// (`?group_by=` links) until a live control ships.
     pub fn group_by(
         mut self,
         name: impl Into<String>,
@@ -439,19 +416,17 @@ impl<M> Table<M> {
     /// #153): an unknown `?group_by=` value renders no group headers and is
     /// dropped from every link instead of round-tripping.
     ///
-    /// The request entry normalizes **once** and every render seam below takes
-    /// the proof ([`NormalizedState`]): the panel's list page and the
-    /// `table_search` shard normalize at the point they parse the state, and
-    /// pass the result down, so a live list request normalizes once instead of
-    /// once per seam. The public seams still normalize their own
-    /// `&TableState` argument, so a page calling them directly keeps the GH
-    /// #153 guarantee without knowing about this type.
-    pub(crate) fn normalize_state(&self, state: &TableState) -> NormalizedState {
+    /// The panel's list page and the `table_search` shard normalize where they
+    /// parse the state and render from the result; the public
+    /// [`render_with_state`](Self::render_with_state) normalizes the state it
+    /// is handed, so a page calling it directly keeps the GH #153 guarantee.
+    /// Normalizing twice is a no-op.
+    pub(crate) fn normalize_state(&self, state: &TableState) -> TableState {
         let mut out = state.clone();
         if self.group_by.as_ref().map(|def| def.name.as_str()) != out.group_by.as_deref() {
             out.group_by = None;
         }
-        NormalizedState(out)
+        out
     }
 
     /// Set the page size. Every table paginates with cursor pagination, at

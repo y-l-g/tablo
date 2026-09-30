@@ -1,6 +1,6 @@
 //! The filter bar, live filter bar, and unknown-filter warning.
 
-use tablo_ui::{ButtonSize, ButtonVariant, button, input as ui_input};
+use tablo_ui::{ButtonSize, ButtonVariant, button};
 use topcoat::{Result, context::Cx, runtime::Event, view::*};
 
 use super::{
@@ -9,12 +9,13 @@ use super::{
             filter::Filter,
             state::{TableSignals, TableState},
         },
-        NormalizedState, Table,
+        Table,
     },
+    BAR_CLASS, QUIET_LINK_CLASS,
     toolbar::hidden_state_inputs,
 };
 
-/// One filter control: a labelled `<select data-filter-name=…>` carrying the
+/// One filter control: a labelled `<select name="f.<name>">` carrying the
 /// `value`/`label` pairs, with the leading empty "All" option that clears the
 /// filter.
 ///
@@ -24,8 +25,9 @@ use super::{
 /// `"All"`, the label the empty value already carries, while
 /// [`Filter::Variant`] passes the key itself.
 ///
-/// The control has no `name`, so it never submits on its own; `filters.js`
-/// composes it into the hidden `filters` transport.
+/// The control is a real form field, so the GET form submits it as
+/// `?f.<name>=<value>`; an empty value is no filter. `data-filter-name` is the
+/// hook `filters.js` reads on a live table.
 fn filter_select<'a>(
     cx: &'a Cx,
     label: &str,
@@ -36,21 +38,25 @@ fn filter_select<'a>(
     let label = label.to_string();
     let name = name.to_string();
     let aria = label.clone();
-    let current = current.to_string();
+    let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
+        .chain(options)
+        .map(|(value, text)| {
+            let selected = current == value;
+            crate::schema::option_view(cx, value, text, selected)
+        })
+        .collect();
     view! {
         cx =>
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
             (label)
             <select
+                name=(crate::resource::filter_param(&name))
                 data-filter-name=(name)
                 aria-label=(aria)
                 class="flex h-9 rounded-md border border-border bg-background px-3 py-1 text-sm shadow-xs"
             >
-                <option value="" selected=(current.is_empty())>"All"</option>
-                for (value, text) in options {
-                    <option value=(value.clone()) selected=(current == value)>
-                        (text)
-                    </option>
+                for option in option_views {
+                    (option)
                 }
             </select>
         </label>
@@ -71,7 +77,7 @@ impl<M> Table<M> {
     pub(super) fn render_filter_warning<'a>(
         &self,
         cx: &'a Cx,
-        state: &NormalizedState,
+        state: &TableState,
         path: &str,
     ) -> Option<BoxView<'a>>
     where
@@ -110,17 +116,17 @@ impl<M> Table<M> {
     }
 
     /// The filter bar for a live table, rendered eagerly by the page that owns
-    /// the signals — the counterpart of [`Self::render_live_search_bar_normalized`].
+    /// the signals — the counterpart of [`Self::render_live_search_bar`].
     ///
-    /// Hoisting matters for focus: a `<select>` change writes the `filters`
+    /// Hoisting matters for focus: a `<select>` change writes the `query`
     /// signal, and a bar rebuilt by that rerun would collapse the native popup
     /// and drop keyboard context. The table renders without the bar
     /// (`Table::hide_filter_bar`), so the control the user touched is never
     /// replaced.
-    pub(crate) async fn render_live_filter_bar_normalized<'a>(
+    pub(crate) async fn render_live_filter_bar<'a>(
         &self,
         cx: &'a Cx,
-        state: &NormalizedState,
+        state: &TableState,
         path: &str,
         signals: &TableSignals,
     ) -> Result<BoxView<'a>>
@@ -130,11 +136,12 @@ impl<M> Table<M> {
         self.render_filter_bar(cx, state, path, Some(signals)).await
     }
 
-    /// The typed filter bar. For live tables (`signals`) the hidden `filters`
-    /// transport is bound to the `filters` signal and `filters.js` dispatches
-    /// a `change` into it instead of submitting, so the shard re-renders the
-    /// table in place; the GET form stays as the no-JS fallback and `href`s
-    /// remain real.
+    /// The typed filter bar: a GET form whose controls are the `f.<name>`
+    /// parameters. `filters.js` submits it on change. For live tables
+    /// (`signals`) a hidden transport is bound to the `query` signal instead,
+    /// and `filters.js` rewrites the query's filter parameters in it, so the
+    /// shard re-renders the table in place; the form stays the no-JS fallback
+    /// and `href`s remain real.
     pub(super) async fn render_filter_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -148,7 +155,6 @@ impl<M> Table<M> {
         // No `filters.is_empty()` early return: the caller (`render_inner`)
         // already guards on `show_filters`, so an empty bar is unreachable.
         let action = path.to_string();
-        let filters_display = state.filters_param().unwrap_or_default();
         let sort_hidden = state.sort.as_ref().map(|s| s.column.clone());
         let dir_hidden = state.sort.as_ref().map(|s| {
             if s.descending {
@@ -162,10 +168,10 @@ impl<M> Table<M> {
         let hidden = hidden_state_inputs(
             cx,
             vec![
-                ("q", q_hidden),
-                ("sort", sort_hidden),
-                ("dir", dir_hidden),
-                ("group_by", group_hidden),
+                ("q".to_string(), q_hidden),
+                ("sort".to_string(), sort_hidden),
+                ("dir".to_string(), dir_hidden),
+                ("group_by".to_string(), group_hidden),
             ],
         );
         let clear_url = if !state.filters.is_empty() {
@@ -173,13 +179,9 @@ impl<M> Table<M> {
         } else {
             None
         };
-        // One typed control per declared filter. Controls carry only
-        // `data-filter-name` (no `name`, so they never submit on their own);
-        // `filters.js` composes them into the hidden `filters` transport and
-        // submits on change, rewriting it even when every control is
-        // "All" so the stale value can never be resubmitted. The free-text
-        // input and Apply button survive only inside `<noscript>` as the
-        // no-JS fallback.
+        // One typed control per declared filter, each a real `f.<name>` field.
+        // `filters.js` submits on change; the Apply button survives only
+        // inside `<noscript>` as the no-JS path.
         let mut controls: Vec<BoxView<'_>> = Vec::with_capacity(self.filters.len());
         for f in &self.filters {
             let current = state.filters.get(f.name()).cloned().unwrap_or_default();
@@ -231,6 +233,7 @@ impl<M> Table<M> {
                                 (label)
                                 <input
                                     type="date"
+                                    name=(crate::resource::filter_param(&name))
                                     data-filter-name=(name)
                                     value=(date_value)
                                     aria-label=(aria)
@@ -261,56 +264,36 @@ impl<M> Table<M> {
             cx =>
             method="get"
             action=(action)
-            class="flex flex-wrap items-center gap-2 border-b border-border p-3"
+            class=(BAR_CLASS)
             data-filters-form=""
             if signals.is_some() {
                 data-filters-live=""
             }
         };
-        // Live tables bind the transport to the `filters` signal: `filters.js`
-        // composes and dispatches, the shard re-renders in place. Static
-        // tables keep the server-rendered value the GET form submits.
-        let transport_attrs = if let Some(signals) = signals {
-            let (filters, cursor) = (signals.filters.clone(), signals.cursor.clone());
-            let none = crate::resource::cursor_none();
-            attributes! {
-                cx =>
-                name="filters"
-                :value=$(filters.get())
-                @change=$(|e: Event| {
-                    filters.set(e.target.value);
-                    cursor.set(none.clone());
-                })
-                data-filters-transport=""
-            }
-        } else {
-            attributes! {
-                cx =>
-                name="filters"
-                value=(filters_display.clone())
-                data-filters-transport=""
-            }
-        };
-        let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
-            let attrs = match signals {
-                Some(signals) => {
-                    let (filters, cursor) = (signals.filters.clone(), signals.cursor.clone());
-                    let none = crate::resource::cursor_none();
-                    attributes! {
-                        cx =>
-                        href=(url.clone())
-                        @click=$(|e: Event| {
-                            e.prevent_default();
-                            filters.set("".to_owned());
-                            cursor.set(none.clone());
-                        })
-                    }
-                }
-                None => attributes! { cx => href=(url) },
-            };
+        // Live tables bind a transport to the `query` signal: `filters.js`
+        // rewrites the query's filter parameters in it and dispatches, and the
+        // shard re-renders in place. It has no `name`, so the GET form never
+        // submits it.
+        let transport: Option<BoxView<'a>> = signals.map(|signals| {
+            let query = signals.query.clone();
             view! {
                 cx =>
-                <a class="text-sm text-muted-foreground hover:text-foreground" (attrs)>
+                <input
+                    type="hidden"
+                    :value=$(query.get())
+                    @change=$(|e: Event| query.set(e.target.value))
+                    data-filters-transport=""
+                >
+            }
+            .boxed()
+        });
+        // A plain link: the bar is rendered once, so on a live table
+        // `filters.js` clears the filters from the transport's current query
+        // rather than writing this page-load URL over newer state.
+        let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
+            view! {
+                cx =>
+                <a class=(QUIET_LINK_CLASS) href=(url) data-filters-clear="">
                     "Clear filters"
                 </a>
             }
@@ -324,16 +307,6 @@ impl<M> Table<M> {
                     (ctl)
                 }
                 <noscript>
-                    ui_input(
-                        attrs: attributes! {
-                            type="text"
-                            name="filters"
-                            value=(filters_display)
-                            placeholder="filters e.g. status:published"
-                            aria-label="Filter table (free text)"
-                            class="w-64"
-                        }
-                    )
                     button(
                         variant: ButtonVariant::Secondary,
                         size: ButtonSize::Md,
@@ -341,7 +314,9 @@ impl<M> Table<M> {
                         "Apply filters"
                     )
                 </noscript>
-                <input type="hidden" (transport_attrs)>
+                if let Some(transport) = transport {
+                    (transport)
+                }
                 if let Some(link) = clear_link {
                     (link)
                 }

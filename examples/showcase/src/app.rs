@@ -1000,7 +1000,7 @@ fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -
         .resource::<PostResource>()
         .resource::<CommentResource>();
     // No "Published" saved-view entry: it would point at
-    // `/admin/posts?filters=status:published`, i.e. the Blog Posts table with a
+    // `/admin/posts?f.status=published`, i.e. the Blog Posts table with a
     // filter — the same page twice in the sidebar, and the one arrangement the
     // shell's path matching highlights twice at once.
     // Demo credentials stay available for local development via

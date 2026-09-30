@@ -14,7 +14,7 @@ async fn skeleton_shares_the_table_root_with_the_swapped_body() {
         TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
     );
     let html = tbl
-        .render_skeleton_normalized(&cx, &tbl.normalize_state(&TableState::default()))
+        .render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
         .await
         .unwrap()
         .single()
@@ -91,7 +91,7 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
     )
     .with_view("/admin/users".to_string());
     let skeleton = tbl
-        .render_skeleton_normalized(&cx, &tbl.normalize_state(&TableState::default()))
+        .render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
         .await
         .unwrap()
         .single()
@@ -119,5 +119,79 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
         skeleton.matches(">Actions</th>").count(),
         rendered.matches(">Actions</th>").count(),
         "the skeleton must match the swapped table's column count, got {skeleton}"
+    );
+}
+
+/// The skeleton pulses only the bars the loaded table renders: a table with
+/// no searchable column and no filters swaps in without a search or filter
+/// bar, so its skeleton must not show one that then disappears.
+#[tokio::test]
+async fn skeleton_pulses_only_the_bars_the_table_renders() {
+    async fn skeleton(tbl: Table<User>) -> String {
+        let cx = CxTestBuilder::new().build();
+        tbl.render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
+            .await
+            .unwrap()
+            .single()
+            .await
+            .unwrap()
+            .render(&cx)
+    }
+    let plain = Table::<User>::new(
+        |u| u.id.to_string(),
+        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+    );
+    let plain_bars = plain.search_enabled() || plain.filter_bar_enabled();
+    let html = skeleton(plain).await;
+    assert!(!plain_bars, "the plain table renders neither bar");
+    assert_eq!(
+        html.matches("border-b border-border p-3").count(),
+        0,
+        "no bar pulse for a table without bars, got {html}"
+    );
+
+    let searchable = Table::<User>::new(
+        |u| u.id.to_string(),
+        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable(),
+    );
+    assert!(searchable.search_enabled() && !searchable.filter_bar_enabled());
+    let html = skeleton(searchable).await;
+    assert_eq!(
+        html.matches("border-b border-border p-3").count(),
+        1,
+        "one pulse for the search bar the table renders, got {html}"
+    );
+}
+
+/// The bulk bar sits above the table like the search and filter bars, so it
+/// gets a pulse; and the live page renders its placeholder from the shard's
+/// table, whose search and filter bars are hoisted out of the swapped region.
+#[tokio::test]
+async fn skeleton_pulses_the_bulk_bar_and_not_the_hoisted_bars() {
+    let cx = CxTestBuilder::new().build();
+    let live_shape = Table::<User>::new(
+        |u| u.id.to_string(),
+        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable(),
+    )
+    .with_delete("/admin/users".to_string())
+    .with_bulk_delete(true)
+    .hide_search()
+    .hide_filter_bar();
+    let html = live_shape
+        .render_skeleton(&cx, &TableState::default())
+        .await
+        .unwrap()
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    assert_eq!(
+        html.matches("border-b border-border p-3").count(),
+        1,
+        "one pulse, for the bulk bar the shard's table renders, got {html}"
+    );
+    assert!(
+        html.contains("h-9 w-28"),
+        "the pulse is the bulk bar's, got {html}"
     );
 }

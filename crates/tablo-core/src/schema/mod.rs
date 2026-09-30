@@ -26,6 +26,7 @@ use std::collections::{HashMap, HashSet};
 
 pub use embedded::EmbeddedForm;
 pub use fields::Field;
+pub(crate) use fields::option_view;
 pub use layouts::{Grid, Group, Repeater, Section};
 pub use lenses::{FieldLens, ResolvedLens};
 pub(crate) use lenses::{capitalize, lens_field, lens_field_unique, lens_label};

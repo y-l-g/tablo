@@ -3,14 +3,17 @@
 // The live search input (`data-live-search-input`) is deliberately unbound:
 // typing stays local until it pauses, so a burst like "published" triggers
 // one table reload instead of nine. After `data-debounce-ms` milliseconds of
-// quiet the script copies the value into the bound hidden transport
-// (`data-live-search-transport`) and dispatches a bubbling `change` into it,
-// which the runtime turns into signal writes — the shard re-renders the table
-// in place exactly as if the user had typed into a bound input, so the
+// quiet the script rewrites the list query held by the hidden transport
+// (`data-live-search-transport`, bound to the table's `query` signal): it sets
+// `q`, drops the cursor (a new term is a new result set), keeps every other
+// parameter, and dispatches a bubbling `change`, which the runtime turns into a
+// signal write. The shard re-renders the table in place, and the runtime's
 // abort-in-flight coalescing still applies to the resulting rerun. Pressing
 // Enter flushes the pending value immediately instead of waiting out the
-// timer. Without JS the `<noscript>` GET form is the search path and this
-// script never runs.
+// timer. The empty table's "Clear search" link (`data-search-clear`) empties
+// the input and flushes, so the input never shows a term the query dropped;
+// its `href` is the fallback a page without a live input follows. Without JS
+// the `<noscript>` GET form is the search path and this script never runs.
 //
 // Document-level delegation (like filters.js) so streamed/shard swaps that
 // replace table markup need no re-installation. Per-input timers live in a
@@ -29,11 +32,27 @@ function transportFor(input) {
   return host.querySelector('[data-live-search-transport]');
 }
 
+// The list query with `q` set to `term` (dropped when blank) and the cursor
+// dropped; every other parameter kept as it stands.
+function withSearch(query, term) {
+  const params = new URLSearchParams(query);
+  const trimmed = term.trim();
+  if (trimmed) {
+    params.set('q', trimmed);
+  } else {
+    params.delete('q');
+  }
+  params.delete('after');
+  params.delete('before');
+  return params.toString();
+}
+
 function flush(input) {
   const transport = transportFor(input);
   if (!transport || !input.isConnected || !transport.isConnected) return;
-  if (transport.value !== input.value) {
-    transport.value = input.value;
+  const next = withSearch(transport.value, input.value);
+  if (transport.value !== next) {
+    transport.value = next;
     transport.dispatchEvent(new Event('change', { bubbles: true }));
   }
 }
@@ -70,4 +89,30 @@ document.addEventListener('keydown', (e) => {
   }
   flush(input);
 });
+
+// "Clear search" clears the input it names, not only the query. A modified
+// click opens the link's `href` the browser's way.
+document.addEventListener('click', (e) => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.defaultPrevented) {
+    return;
+  }
+  const link = e.target.closest('[data-search-clear]');
+  if (!link) return;
+  // One live table per page: the link sits in the table, the input above it.
+  const input = document.querySelector('[data-live-search-input]');
+  if (!input || !transportFor(input)) return;
+  e.preventDefault();
+  const pending = timers.get(input);
+  if (pending) {
+    clearTimeout(pending);
+    timers.delete(input);
+  }
+  input.value = '';
+  flush(input);
+});
+
+// Exposed for the Node unit test (`live-search.test.js`); inert in the browser.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { withSearch };
+}
 })();

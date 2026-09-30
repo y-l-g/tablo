@@ -1,9 +1,9 @@
 use topcoat::context::CxTestBuilder;
 
-use super::*;
+use super::{super::widths::BULK_COLUMN_PERCENT, *};
 use crate::resource::{
-    ColumnWidth, SelectFilter, Sort, TextColumn, VariantFilter,
-    column::DEFAULT_WIDTH_BUDGET_PERCENT,
+    ColumnWidth, RowActions, SelectFilter, Sort, TextColumn, VariantFilter,
+    column::DEFAULT_WIDTH_BUDGET_PERCENT, state::group_header_dom_id,
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -966,15 +966,15 @@ async fn group_by_orders_each_row_under_its_own_header() {
 }
 
 /// a table render builds the row-action URLs from one shared base
-/// — the encoded filter transport — before the row loop, so every row's
+/// — the page's encoded list URL — before the row loop, so every row's
 /// dialog opener is that base plus its own `delete=` key.
 ///
-/// The base cannot be observed as a count: `filters_param` is a pure
+/// The base cannot be observed as a count: the projection is a pure
 /// function of the state, so a per-row rebuild produces identical bytes.
 /// This pins the shape instead — every opener shares byte-identical bytes
 /// before `delete=`, independent of the page size.
 #[tokio::test]
-async fn table_render_reuses_one_filter_transport_base_across_rows() {
+async fn table_render_reuses_one_list_url_base_across_rows() {
     let cx = CxTestBuilder::new().build();
     let state = filters_state(&[("status", "published"), ("featured", "true")]);
     let tbl = Table::<User>::new(
@@ -1017,12 +1017,12 @@ async fn table_render_reuses_one_filter_transport_base_across_rows() {
     let eight_rows = delete_bases(&eight_html);
     assert_eq!(one_row.len(), 1, "one row, one dialog opener");
     assert_eq!(eight_rows.len(), 8, "eight rows, eight dialog openers");
-    // The sorted, query-encoded transport every row's link must carry.
-    let transport = "filters=featured%3Atrue%2Cstatus%3Apublished";
+    // The sorted, query-encoded filters every row's link must carry.
+    let transport = "f.featured=true&amp;f.status=published";
     for base in one_row.iter().chain(eight_rows.iter()) {
         assert!(
             base.contains(transport),
-            "every opener must carry the page's filter transport, got {base}"
+            "every opener must carry the page's filters, got {base}"
         );
         assert_eq!(
             *base, one_row[0],

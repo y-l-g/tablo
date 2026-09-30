@@ -1,14 +1,15 @@
 //! The search bar, live-search bar, and bulk-action bar.
 
-use tablo_ui::{
-    ButtonSize, ButtonVariant, alert_dialog, button, dialog_content, dialog_description,
-    dialog_footer, dialog_header, dialog_title, input as ui_input,
-};
+use tablo_ui::{ButtonSize, ButtonVariant, button, input as ui_input};
 use topcoat::{Result, context::Cx, runtime::Event, view::*};
 
-use super::super::{
-    super::state::{TableSignals, TableState, bulk_delete_url},
-    NormalizedState, Table,
+use super::{
+    super::{
+        super::state::{TableSignals, TableState, bulk_delete_url},
+        Table,
+    },
+    BAR_CLASS, QUIET_LINK_CLASS,
+    dialog::{ConfirmDialog, chrome_dom_id, confirm_controls, confirm_dialog},
 };
 
 /// Keystroke-quiet delay before a live search input reloads the table
@@ -23,7 +24,7 @@ pub(crate) const LIVE_SEARCH_DEBOUNCE_MS: u32 = 200;
 /// given; an input whose state holds no value renders nothing.
 pub(super) fn hidden_state_inputs<'a>(
     cx: &'a Cx,
-    inputs: Vec<(&'static str, Option<String>)>,
+    inputs: Vec<(String, Option<String>)>,
 ) -> BoxView<'a> {
     let fields: Vec<BoxView<'a>> = inputs
         .into_iter()
@@ -78,10 +79,21 @@ impl<M> Table<M> {
         let csrf = crate::csrf::current_token(cx);
         // Stable ids so the dialog's confirm button can submit this form
         // from inside the dialog.
-        let bulk_form_id = format!("{}-bulk-form", prefix.replace('/', "-"));
-        let bulk_dialog_id = format!("{bulk_form_id}-confirm");
-        let bulk_dialog_title_id = format!("{bulk_dialog_id}-title");
-        let bulk_dialog_description_id = format!("{bulk_dialog_id}-description");
+        let bulk_form_id = chrome_dom_id(&prefix, "bulk-form");
+        // Destructive confirm: a batch is the one place a misclick costs many
+        // rows, so it asks first — the same alert dialog the row delete uses.
+        // It sits inside the bulk form, so its controls submit that form.
+        let confirm = confirm_dialog(
+            cx,
+            ConfirmDialog {
+                id: chrome_dom_id(&prefix, "bulk-form-confirm"),
+                open: false,
+                title: "Delete the selected records?",
+                attrs: attributes! { cx => data-bulk-confirm-dialog="" },
+                description_attrs: attributes! { cx => data-bulk-confirm-description="" },
+                footer: confirm_controls(cx),
+            },
+        );
         // No visible `ids` field: the transport is fed by the row
         // checkboxes (`bulk.js`) and ships `,a,b,`-delimited. On a live
         // table the selection lives in a signal instead, so a
@@ -118,48 +130,7 @@ impl<M> Table<M> {
                     attrs: attributes! { type="button" data-bulk-confirm-trigger="" },
                     "Bulk Delete"
                 )
-                // Destructive confirm: a batch is the one place a
-                // misclick costs many rows, so it asks first — the same
-                // alert-dialog pattern the row delete already uses.
-                alert_dialog(
-                    open: false,
-                    attrs: attributes! {
-                        id=(bulk_dialog_id.clone())
-                        data-bulk-confirm-dialog=""
-                        aria-labelledby=(bulk_dialog_title_id.clone())
-                        aria-describedby=(bulk_dialog_description_id.clone())
-                    },
-                    dialog_content(
-                        dialog_header(
-                            dialog_title(
-                                attrs: attributes! { id=(bulk_dialog_title_id.clone()) },
-                                "Delete the selected records?"
-                            )
-                            dialog_description(
-                                attrs: attributes! {
-                                    id=(bulk_dialog_description_id.clone())
-                                    data-bulk-confirm-description=""
-                                },
-                                "This action cannot be undone."
-                            )
-                        )
-                        dialog_footer(
-                            button(
-                                variant: ButtonVariant::Outline,
-                                size: ButtonSize::Md,
-                                attrs: attributes! { type="button" data-dialog-close="" },
-                                "Cancel"
-                            )
-                            <input type="hidden" name="confirm" value="1">
-                            button(
-                                variant: ButtonVariant::Destructive,
-                                size: ButtonSize::Md,
-                                attrs: attributes! { type="submit" },
-                                "Delete"
-                            )
-                        )
-                    )
-                )
+                (confirm)
             </form>
         }
         .boxed()
@@ -167,7 +138,7 @@ impl<M> Table<M> {
 
     /// The search toolbar (GET form); live tables instead render the host
     /// input eagerly and the shard invocation in the streamed region (see
-    /// [`Self::render_live_search_bar_normalized`] / [`Self::render_live_invocation`]).
+    /// [`Self::render_live_search_bar`] / [`Self::render_live_invocation`]).
     pub(super) async fn render_search_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -184,31 +155,29 @@ impl<M> Table<M> {
                 "asc".to_string()
             }
         });
-        let filters_hidden = state.filters_param();
         // Pre-normalized by the render seams: `state.group_by` is
         // the declared name or `None`, never an unknown value.
         let group_hidden = state.group_by.clone();
         // Clear only renders when something survives the search term; every
         // branch below projects the same URL, so one intent serves all three.
         let clear_url =
-            (state.sort.is_some() || filters_hidden.is_some() || group_hidden.is_some())
+            (state.sort.is_some() || !state.filters.is_empty() || group_hidden.is_some())
                 .then(|| state.without_search(path));
-        let hidden = hidden_state_inputs(
-            cx,
-            vec![
-                ("sort", sort_hidden),
-                ("dir", dir_hidden),
-                ("filters", filters_hidden),
-                ("group_by", group_hidden),
-            ],
+        let mut inputs = vec![
+            ("sort".to_string(), sort_hidden),
+            ("dir".to_string(), dir_hidden),
+        ];
+        inputs.extend(
+            state
+                .filters
+                .iter()
+                .map(|(name, value)| (crate::resource::filter_param(name), Some(value.clone()))),
         );
+        inputs.push(("group_by".to_string(), group_hidden));
+        let hidden = hidden_state_inputs(cx, inputs);
         Ok(view! {
             cx =>
-            <form
-                method="get"
-                action=(action)
-                class="flex flex-wrap items-center gap-2 border-b border-border p-3"
-            >
+            <form method="get" action=(action) class=(BAR_CLASS)>
                 (hidden)
                 ui_input(
                     attrs: attributes! {
@@ -227,12 +196,7 @@ impl<M> Table<M> {
                     "Search"
                 )
                 if let Some(url) = clear_url {
-                    <a
-                        href=(url)
-                        class="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                        "Clear"
-                    </a>
+                    <a href=(url) class=(QUIET_LINK_CLASS)>"Clear"</a>
                 }
             </form>
         }
@@ -247,30 +211,25 @@ impl<M> Table<M> {
     ///
     /// The visible input is deliberately unbound: typing stays
     /// local until it pauses for `LIVE_SEARCH_DEBOUNCE_MS`, then
-    /// `assets/live-search.js` forwards the value through the bound hidden
-    /// transport, whose `@change` writes `q` and clears the cursors (a new
-    /// term is a new result set). The shard re-renders in place.
+    /// `assets/live-search.js` rewrites `q` in the hidden transport bound to
+    /// the `query` signal and drops the cursor (a new term is a new result
+    /// set). The shard re-renders in place.
     ///
     /// The panel's live list page (`panel::resource_list_live`) renders it
     /// from the request's one normalized state.
-    pub(crate) async fn render_live_search_bar_normalized<'a>(
+    pub(crate) async fn render_live_search_bar<'a>(
         &self,
         cx: &'a Cx,
-        state: &NormalizedState,
+        state: &TableState,
         path: &str,
         signals: &TableSignals,
     ) -> Result<BoxView<'a>> {
         let fallback = self.render_search_bar(cx, state, path).await?;
         let q_display = state.search.clone().unwrap_or_default();
-        let q = signals.q.clone();
-        let cursor = signals.cursor.clone();
-        let none = crate::resource::cursor_none();
+        let query = signals.query.clone();
         Ok(view! {
             cx =>
-            <div
-                class="flex flex-wrap items-center gap-2 border-b border-border p-3"
-                data-live-search=""
-            >
+            <div class=(BAR_CLASS) data-live-search="">
                 <input
                     type="search"
                     value=(q_display)
@@ -282,11 +241,8 @@ impl<M> Table<M> {
                 >
                 <input
                     type="hidden"
-                    :value=$(q.get())
-                    @change=$(|e: Event| {
-                        q.set(e.target.value);
-                        cursor.set(none.clone());
-                    })
+                    :value=$(query.get())
+                    @change=$(|e: Event| query.set(e.target.value))
                     data-live-search-transport=""
                 >
                 <noscript>(fallback)</noscript>
@@ -308,31 +264,13 @@ impl<M> Table<M> {
     ) -> Result<BoxView<'a>> {
         use crate::panel::table_search;
 
-        // No snapshot here: grouping travels as the `group_by`
-        // live signal (seeded from the page state by the caller) and the
-        // shard normalizes on read.
+        // No snapshot here: grouping travels in the query (seeded from the
+        // request's query by the caller) and the shard normalizes on read.
         let live_path = path.to_string();
-        let TableSignals {
-            q,
-            filters,
-            sort,
-            dir,
-            cursor,
-            group_by,
-            bulk,
-        } = signals;
+        let TableSignals { query, bulk } = signals;
         Ok(view! {
             cx =>
-            table_search(
-                path: $(live_path.clone()),
-                q: $(q),
-                filters: $(filters),
-                sort: $(sort),
-                dir: $(dir),
-                cursor: $(cursor),
-                group_by: $(group_by),
-                bulk: $(bulk)
-            )
+            table_search(path: $(live_path.clone()), query: $(query), bulk: $(bulk))
         }
         .boxed())
     }

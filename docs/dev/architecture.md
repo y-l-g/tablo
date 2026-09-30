@@ -46,7 +46,8 @@ A resource list page runs, in order:
 2. `enforce_tenant::<R>(cx)` — refuse with 403 when `R::requires_tenant()` and the request has no
    tenant.
 3. `R::can_view_any(cx)` — the list-level policy check, before any row is loaded.
-4. Parse `TableState` from the URL (`?q=`, `?sort=`, `?dir=`, `?after=`, `?filters=`, `?group_by=`).
+4. Parse `TableState` from the URL (`?q=`, `?sort=`, `?dir=`, `?after=`/`?before=`, `?f.<name>=`,
+   `?group_by=`).
 5. Load through `TablePage::load` over `scoped_query::<R>(cx)` — `R::query(cx)` with the
    framework's tenant filter ANDed on — which adds the relations the table's columns include.
 6. Render the table inside a `suspense` region: the skeleton is sent with the shell, the loaded rows

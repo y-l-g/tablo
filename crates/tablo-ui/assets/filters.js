@@ -1,78 +1,101 @@
 // Typed filter controls for Tablo tables.
 //
-// The filter form keeps one hidden `input[name=filters]` transport
-// (`key:value,key2:value2`, parsed by `TableState`). Typed controls carry only
-// `data-filter-name` (no `name`, so they never submit on their own): on change
-// the control values are composed into the transport.
+// Each control is a real form field named `f.<name>` (with `data-filter-name`
+// carrying `<name>`), so the filter form is an ordinary GET form: a static table
+// submits it on change, and the server reads one `?f.<name>=` parameter per
+// active filter. The "All" option is `value=""`, which is no filter.
 //
-// Keys and values are escaped with the server's own rule before they join the
-// transport: `%`, then `:`, then `,`. The server splits the
-// transport on `,` and the first `:`, so an unescaped `Smith, John` would
-// arrive as two segments and apply the wrong filter.
-//
-// A form marked `data-filters-live` belongs to a live table: the transport is
-// bound to the runtime's `filters` signal, so this script composes the value
-// and dispatches a bubbling `change` into the transport, which the runtime
-// turns into a signal write — the shard re-renders the table in place, no
-// navigation and no scroll jump. The rewritten transport is unconditional, so
-// selecting "All" clears the filter instead of resubmitting the stale value.
-// Without a live marker the composed transport is submitted as a GET form (a
-// full navigation, the no-JS behaviour), and the `<noscript>` free-text
-// fallback stays for scriptless readers.
+// A form marked `data-filters-live` belongs to a live table. Its hidden
+// transport (`data-filters-transport`) is bound to the table's `query` signal,
+// so the script rewrites that query instead of submitting: it replaces every
+// `f.*` parameter with the controls' current values, drops the cursor (a new
+// filter is a new result set), keeps every other parameter, and dispatches a
+// bubbling `change`, which the runtime turns into a signal write. The shard
+// re-renders the table in place, with no navigation and no scroll jump. A
+// "Clear filters" link (`data-filters-clear`: the bar's own, or the empty
+// table's) clears the controls and the query's filters the same way, so the
+// controls never show a filter the query dropped. Its `href` is the no-JS
+// fallback; a page without a live filter form follows it.
 //
 // Document-level delegation (like bulk.js) so streamed/shard swaps that
 // replace table markup need no re-installation.
-function composeFilters(form) {
-  const parts = [];
-  form.querySelectorAll('[data-filter-name]').forEach((el) => {
-    const name = el.getAttribute('data-filter-name');
-    const value = (el.value || '').trim();
-    // The All option is `value=""`, so the empty skip is the whole rule: a
-    // genuine filter value of `"all"` must round-trip.
-    if (name && value) {
-      parts.push(encodeFilterComponent(name) + ':' + encodeFilterComponent(value));
+(() => {
+// The list query with its filter parameters replaced by `filters` (pairs of
+// name and value; a blank value is no filter) and the cursor dropped. The
+// retired `filters` parameter goes with them.
+function withFilters(query, filters) {
+  const params = new URLSearchParams(query);
+  for (const key of [...params.keys()]) {
+    if (key.startsWith('f.') || key === 'filters') params.delete(key);
+  }
+  for (const [name, value] of filters) {
+    const trimmed = (value || '').trim();
+    if (name && trimmed) params.append(`f.${name}`, trimmed);
+  }
+  params.delete('after');
+  params.delete('before');
+  return params.toString();
+}
+
+function controlValues(form) {
+  return [...form.querySelectorAll('[data-filter-name]')].map((el) => [
+    el.getAttribute('data-filter-name'),
+    el.value,
+  ]);
+}
+
+// Write the live form's filters into its transport; false when the form has
+// none.
+function writeFilters(form, filters) {
+  const transport = form.querySelector('[data-filters-transport]');
+  if (!transport) return false;
+  transport.value = withFilters(transport.value, filters);
+  transport.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
+// A click the page may handle in place: a modified click opens the link's
+// `href` the browser's way.
+function isPlainClick(e) {
+  return (
+    e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.defaultPrevented
+  );
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('change', (e) => {
+    const control = e.target.closest('[data-filter-name]');
+    if (!control) return;
+    const form = control.closest('form[data-filters-form]');
+    if (!form) return;
+    if (form.hasAttribute('data-filters-live')) {
+      writeFilters(form, controlValues(form));
+      return;
+    }
+    if (typeof form.requestSubmit === 'function') {
+      form.requestSubmit();
+    } else {
+      form.submit();
     }
   });
-  return parts.join(',');
+  document.addEventListener('click', (e) => {
+    if (!isPlainClick(e)) return;
+    const link = e.target.closest('[data-filters-clear]');
+    if (!link) return;
+    // One live table per page: the empty table's link sits outside the bar.
+    const form =
+      link.closest('form[data-filters-live]') ||
+      document.querySelector('form[data-filters-live]');
+    if (!form || !writeFilters(form, [])) return;
+    e.preventDefault();
+    for (const control of form.querySelectorAll('[data-filter-name]')) {
+      control.value = '';
+    }
+  });
 }
 
-// Escape `%`, `:`, `,` inside a key or value, in that order, mirroring
-// `encode_filter_component` in `crates/tablo-core/src/resource/state.rs`
-// `%` first, so an escaped `%` is never re-escaped by the later
-// passes.
-function encodeFilterComponent(s) {
-  return s.replace(/%/g, '%25').replace(/:/g, '%3A').replace(/,/g, '%2C');
-}
-
-document.addEventListener('change', (e) => {
-  const control = e.target.closest('[data-filter-name]');
-  if (!control) return;
-  const form = control.closest('form[data-filters-form]');
-  if (!form) return;
-  const transport = form.querySelector('input[data-filters-transport]');
-  if (transport) transport.value = composeFilters(form);
-  if (form.hasAttribute('data-filters-live')) {
-    if (transport) transport.dispatchEvent(new Event('change', { bubbles: true }));
-    return;
-  }
-  if (typeof form.requestSubmit === 'function') {
-    form.requestSubmit();
-  } else {
-    form.submit();
-  }
-});
-
-// Implicit submits (e.g. Enter in a date field) compose too, so a stale
-// transport value can never ride along.
-document.addEventListener('submit', (e) => {
-  const form = e.target.closest('form[data-filters-form]');
-  if (!form) return;
-  const transport = form.querySelector('input[data-filters-transport]');
-  if (transport) transport.value = composeFilters(form);
-});
-
-// Exposed for the Node unit test (`filters.test.js`); see `bulk.js` for the
-// guard.
+// Exposed for the Node unit test (`filters.test.js`); inert in the browser.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { composeFilters, encodeFilterComponent };
+  module.exports = { withFilters };
 }
+})();

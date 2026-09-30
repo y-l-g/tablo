@@ -145,10 +145,10 @@ async fn no_js_fallbacks_cover_search_filter_sort_pager() {
         .await
         .unwrap();
     }
-    let page1 = body_string(client.get("/admin/posts?filters=status:published").await).await;
+    let page1 = body_string(client.get("/admin/posts?f.status=published").await).await;
     let next = find_href_with(&page1, "after=").expect("filtered Next link");
     assert!(
-        next.contains("filters="),
+        next.contains("f.status=published"),
         "pager must preserve filters without JS: {next}"
     );
     assert!(
