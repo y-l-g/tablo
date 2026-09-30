@@ -108,7 +108,7 @@ pub struct TableState {
     /// `?f.<name>=<value>`, one parameter per active filter, by name. A blank
     /// value is no filter.
     pub filters: BTreeMap<String, String>,
-    /// More than [`MAX_FILTERS`] filter parameters arrived and the rest were
+    /// More than `MAX_FILTERS` filter parameters arrived and the rest were
     /// dropped: `Table::unapplied_filters` reports it, so the list warns and
     /// the export refuses instead of exporting an over-broad CSV.
     pub filters_overflow: bool,
@@ -175,8 +175,8 @@ impl TableState {
     /// A blank or unknown query parses as neutral state rather than failing
     /// the request. A duplicate key keeps its first occurrence, so a repeated
     /// filter never vanishes. `q` is trimmed and clamped to
-    /// [`MAX_QUERY_TERM`](crate::query_term::MAX_QUERY_TERM), `dir` is trimmed
-    /// before comparing, and at most [`MAX_FILTERS`] filters apply. A cursor
+    /// `MAX_QUERY_TERM`, `dir` is trimmed
+    /// before comparing, and at most `MAX_FILTERS` filters apply. A cursor
     /// token is checked later, when it decodes.
     pub fn from_query(query: &str) -> Self {
         let mut state = Self::default();
