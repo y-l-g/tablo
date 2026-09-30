@@ -3437,7 +3437,7 @@ dependencies = [
  "tablo-macros",
  "tablo-ui",
  "toasty",
- "toasty-core",
+ "toasty-core 0.11.0 (git+https://github.com/tokio-rs/toasty?rev=d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf)",
  "tokio",
  "topcoat",
  "tracing",
@@ -3590,7 +3590,7 @@ dependencies = [
 [[package]]
 name = "toasty"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/toasty?rev=d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf#d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf"
+source = "git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790#f9272526a36aeb9bdbe9df57e0613a84e8ab9790"
 dependencies = [
  "async-trait",
  "bit-set",
@@ -3601,7 +3601,7 @@ dependencies = [
  "indexmap",
  "inventory",
  "jiff",
- "toasty-core",
+ "toasty-core 0.11.0 (git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790)",
  "toasty-driver-mysql",
  "toasty-driver-postgresql",
  "toasty-driver-sqlite",
@@ -3625,6 +3625,24 @@ dependencies = [
  "hashbrown 0.17.1",
  "heck",
  "indexmap",
+ "percent-encoding",
+ "tokio-stream",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "toasty-core"
+version = "0.11.0"
+source = "git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790#f9272526a36aeb9bdbe9df57e0613a84e8ab9790"
+dependencies = [
+ "async-trait",
+ "bit-set",
+ "fluent-uri",
+ "form_urlencoded",
+ "hashbrown 0.17.1",
+ "heck",
+ "indexmap",
  "jiff",
  "percent-encoding",
  "serde",
@@ -3637,14 +3655,14 @@ dependencies = [
 [[package]]
 name = "toasty-driver-mysql"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/toasty?rev=d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf#d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf"
+source = "git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790#f9272526a36aeb9bdbe9df57e0613a84e8ab9790"
 dependencies = [
  "async-trait",
  "jiff",
  "sqlx-core",
  "sqlx-mysql",
  "time",
- "toasty-core",
+ "toasty-core 0.11.0 (git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790)",
  "toasty-sql",
  "tokio",
  "tracing",
@@ -3654,7 +3672,7 @@ dependencies = [
 [[package]]
 name = "toasty-driver-postgresql"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/toasty?rev=d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf#d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf"
+source = "git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790#f9272526a36aeb9bdbe9df57e0613a84e8ab9790"
 dependencies = [
  "async-trait",
  "fallible-iterator 0.2.0",
@@ -3667,7 +3685,7 @@ dependencies = [
  "rustls-pemfile",
  "rustls-platform-verifier",
  "rustls-webpki",
- "toasty-core",
+ "toasty-core 0.11.0 (git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790)",
  "toasty-sql",
  "tokio",
  "tokio-postgres",
@@ -3679,12 +3697,12 @@ dependencies = [
 [[package]]
 name = "toasty-driver-sqlite"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/toasty?rev=d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf#d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf"
+source = "git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790#f9272526a36aeb9bdbe9df57e0613a84e8ab9790"
 dependencies = [
  "async-trait",
  "rusqlite",
  "serde",
- "toasty-core",
+ "toasty-core 0.11.0 (git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790)",
  "toasty-sql",
  "tracing",
  "uuid",
@@ -3693,11 +3711,11 @@ dependencies = [
 [[package]]
 name = "toasty-driver-turso"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/toasty?rev=d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf#d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf"
+source = "git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790#f9272526a36aeb9bdbe9df57e0613a84e8ab9790"
 dependencies = [
  "async-trait",
  "serde",
- "toasty-core",
+ "toasty-core 0.11.0 (git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790)",
  "toasty-sql",
  "tokio",
  "tracing",
@@ -3708,7 +3726,7 @@ dependencies = [
 [[package]]
 name = "toasty-macros"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/toasty?rev=d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf#d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf"
+source = "git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790#f9272526a36aeb9bdbe9df57e0613a84e8ab9790"
 dependencies = [
  "heck",
  "indexmap",
@@ -3716,18 +3734,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.6",
- "toasty-core",
+ "toasty-core 0.11.0 (git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790)",
 ]
 
 [[package]]
 name = "toasty-sql"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/toasty?rev=d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf#d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf"
+source = "git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790#f9272526a36aeb9bdbe9df57e0613a84e8ab9790"
 dependencies = [
  "jiff",
  "serde",
  "serde_json",
- "toasty-core",
+ "toasty-core 0.11.0 (git+https://github.com/tokio-rs/toasty?rev=f9272526a36aeb9bdbe9df57e0613a84e8ab9790)",
 ]
 
 [[package]]
