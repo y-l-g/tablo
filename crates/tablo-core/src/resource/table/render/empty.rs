@@ -16,8 +16,11 @@ impl<M> Table<M> {
     /// when unfiltered, "no results" with a Clear link when a search is
     /// active. The dead Create button is gone (create pages are not wired
     /// yet). Wrapped in a single cell spanning the table so it sits inside
-    /// the table. For live tables (`signals`) the clear/back links write the
-    /// signals instead of navigating; `href` stays the fallback.
+    /// the table. For live tables (`signals`) the back link writes its own
+    /// query in place, and the clear link is cleared by the script that owns
+    /// the hoisted control it names (`data-search-clear`, `live-search.js`;
+    /// `data-filters-clear`, `filters.js`), so that control and the query
+    /// agree; `href` stays the fallback.
     pub(super) async fn render_empty_cell<'a>(
         &self,
         cx: &'a Cx,
@@ -56,7 +59,8 @@ impl<M> Table<M> {
             None if !state.filters.is_empty() => "No results for these filters".to_string(),
             None => "No records yet".to_string(),
         };
-        let clear_label = if state.search.is_some() {
+        let clears_search = state.search.is_some();
+        let clear_label = if clears_search {
             "Clear search"
         } else {
             "Clear filters"
@@ -66,10 +70,20 @@ impl<M> Table<M> {
         // link back to the first page instead of a dead end. State is
         // preserved, only the cursor is dropped.
         let first_page_url = state.cursor.is_some().then(|| state.without_cursor(path));
-        // Live links write their own query in place; `href` stays the no-JS
-        // fallback.
+        // A clear link written in place would leave the hoisted control
+        // showing the value it cleared, so its script clears both; without a
+        // live control on the page the link navigates.
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
-            let attrs = live_link(cx, url, signals);
+            let attrs = attributes! {
+                cx =>
+                href=(url)
+                if clears_search {
+                    data-search-clear=""
+                }
+                if !clears_search {
+                    data-filters-clear=""
+                }
+            };
             view! { cx => <a class=(EMPTY_LINK_CLASS) (attrs)>(clear_label)</a> }.boxed()
         });
         let first_page_link: Option<BoxView<'a>> = first_page_url.map(|url| {

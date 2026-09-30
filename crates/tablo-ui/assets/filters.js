@@ -11,9 +11,11 @@
 // `f.*` parameter with the controls' current values, drops the cursor (a new
 // filter is a new result set), keeps every other parameter, and dispatches a
 // bubbling `change`, which the runtime turns into a signal write. The shard
-// re-renders the table in place, with no navigation and no scroll jump. Its
-// "Clear filters" link (`data-filters-clear`) clears the controls and the
-// query's filters the same way, since its `href` is the page-load URL.
+// re-renders the table in place, with no navigation and no scroll jump. A
+// "Clear filters" link (`data-filters-clear`: the bar's own, or the empty
+// table's) clears the controls and the query's filters the same way, so the
+// controls never show a filter the query dropped. Its `href` is the no-JS
+// fallback; a page without a live filter form follows it.
 //
 // Document-level delegation (like bulk.js) so streamed/shard swaps that
 // replace table markup need no re-installation.
@@ -52,6 +54,14 @@ function writeFilters(form, filters) {
   return true;
 }
 
+// A click the page may handle in place: a modified click opens the link's
+// `href` the browser's way.
+function isPlainClick(e) {
+  return (
+    e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.defaultPrevented
+  );
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('change', (e) => {
     const control = e.target.closest('[data-filter-name]');
@@ -69,9 +79,13 @@ if (typeof document !== 'undefined') {
     }
   });
   document.addEventListener('click', (e) => {
+    if (!isPlainClick(e)) return;
     const link = e.target.closest('[data-filters-clear]');
     if (!link) return;
-    const form = link.closest('form[data-filters-live]');
+    // One live table per page: the empty table's link sits outside the bar.
+    const form =
+      link.closest('form[data-filters-live]') ||
+      document.querySelector('form[data-filters-live]');
     if (!form || !writeFilters(form, [])) return;
     e.preventDefault();
     for (const control of form.querySelectorAll('[data-filter-name]')) {

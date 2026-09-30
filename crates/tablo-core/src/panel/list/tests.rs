@@ -544,6 +544,34 @@ async fn live_search_input_debounces_keystrokes() {
         html.contains("<noscript>") && html.contains("name=\"q\""),
         "live table must keep the GET fallback, got {html}"
     );
+
+    // The query signal is seeded with the request's query as written, so a
+    // filter the parse drops (here the retired spelling) still warns on the
+    // live table, and the empty table's Clear search is the script's to
+    // handle: written in place, it would leave the input showing the term.
+    let resp = router
+        .handle(
+            http::Request::builder()
+                .uri("/admin/dummies?q=zzz&filters=status:draft")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+    assert!(resp.status().is_success());
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8_lossy(&body);
+    assert!(
+        html.contains("role=\"alert\"") && html.contains("dropped filters"),
+        "a dropped filter must warn on the live table, got {html}"
+    );
+    let clear = html
+        .rsplit('<')
+        .find(|chunk| chunk.contains("Clear search"))
+        .expect("the empty table's Clear search link");
+    assert!(
+        clear.contains("data-search-clear") && !clear.contains("data-topcoat-on:click"),
+        "the live Clear search must be the script's, not a query write, got {clear}"
+    );
 }
 
 #[tokio::test]

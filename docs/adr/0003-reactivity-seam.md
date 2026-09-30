@@ -15,8 +15,9 @@ renders inside a `data-boundary` region.
 
 The `table_search` shard takes two signals besides `path`: `query`, the list's URL query, and
 `bulk`, the selection. The URL query is the one spelling of list state: every control already
-renders its target URL in its `href`, so a live control writes that URL's query, and the search and
-filter scripts edit their own keys of the current value. The shard parses it with
+renders its target URL in its `href`, so a live sort or pager link writes that URL's query, and the
+search and filter scripts edit their own keys of the current value. The clear links go through
+those scripts too, so the hoisted control they name clears with the query. The shard parses it with
 `TableState::from_query`, the GET page's parser, so the live table and the page cannot disagree
 about what a query means, and a new state dimension changes no shard signature. Two string signals
 need no struct-typed shard argument (#337). The selection is not URL state, so it keeps its own

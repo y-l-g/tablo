@@ -264,8 +264,8 @@ impl<M> Table<M> {
     ) -> Result<BoxView<'a>> {
         use crate::panel::table_search;
 
-        // No snapshot here: grouping travels in the query (seeded from the page
-        // state by the caller) and the shard normalizes on read.
+        // No snapshot here: grouping travels in the query (seeded from the
+        // request's query by the caller) and the shard normalizes on read.
         let live_path = path.to_string();
         let TableSignals { query, bulk } = signals;
         Ok(view! {

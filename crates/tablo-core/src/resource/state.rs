@@ -24,8 +24,9 @@ use crate::query_term::clamp_query_term;
 /// navigation and no scroll jump.
 ///
 /// `query` is the URL query every control already spells in its `href`: a sort
-/// link, a pager link or a clear link writes its own `href` query, and the
-/// search and filter scripts edit their own keys of the current value. The
+/// link or a pager link writes its own `href` query, and the search and filter
+/// scripts edit their own keys of the current value, clear links included, so
+/// the hoisted control a clear link names is cleared with the query. The
 /// shard parses it with [`TableState::from_query`], the GET path's parser, so
 /// the live table and the page cannot disagree about what a query means.
 /// `bulk` is the selection, which is not URL state and survives a rerun.
@@ -169,8 +170,9 @@ impl TableState {
     ///
     /// A blank or unknown query parses as neutral state rather than failing
     /// the request. A duplicate key keeps its first occurrence, so a repeated
-    /// filter never vanishes; a blank filter value is no filter, so a later
-    /// occurrence of the same filter applies. `q` is trimmed and clamped to
+    /// filter never vanishes. A blank or dropped filter occurrence is no
+    /// filter, so a later occurrence of the same filter applies (a dropped one
+    /// still flags [`Self::filters_dropped`]). `q` is trimmed and clamped to
     /// `MAX_QUERY_TERM`, `dir` is trimmed before comparing, and at most
     /// `MAX_FILTERS` filters of at most `MAX_FILTER_LEN` bytes apply. A cursor
     /// token is checked later, when it decodes.
@@ -256,7 +258,9 @@ impl TableState {
     /// The raw query, not a projection of the parsed state: the shard parses
     /// it with [`Self::from_query`] and normalizes it exactly as the GET path
     /// does, so an unknown `?group_by=` is dropped on the way back in and a
-    /// dropped filter still warns ([`Self::filters_dropped`]).
+    /// dropped filter still warns ([`Self::filters_dropped`]). Parameters the
+    /// list does not read ride along until a link replaces the query with its
+    /// own projection.
     ///
     /// Creates the signals, so it carries [`topcoat::runtime::signal`]'s
     /// contract: call it while a view is collecting signal declarations — the

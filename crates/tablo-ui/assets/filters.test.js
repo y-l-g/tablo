@@ -56,3 +56,68 @@ test('clearing drops every filter and keeps the newer search and sort', () => {
   assert.equal(params.has('f.status'), false);
   assert.equal(params.has('filters'), false, 'the retired spelling goes too');
 });
+
+// --- the Clear filters click -------------------------------------------------
+
+const { listenerDocument } = require('./test-dom');
+
+// Load a fresh copy of the script against a document stand-in whose one live
+// filter form holds `controls` and a transport carrying `query`.
+function liveClearHarness(query) {
+  const controls = [{ value: 'published' }, { value: 'true' }];
+  const transport = {
+    value: query,
+    events: [],
+    dispatchEvent(event) {
+      this.events.push(event.type);
+    },
+  };
+  const form = {
+    querySelector: (selector) => (selector === '[data-filters-transport]' ? transport : null),
+    querySelectorAll: (selector) => (selector === '[data-filter-name]' ? controls : []),
+  };
+  global.document = listenerDocument({
+    querySelector: (selector) => (selector === 'form[data-filters-live]' ? form : null),
+  });
+  delete require.cache[require.resolve('./filters.js')];
+  require('./filters.js');
+  const click = (modifiers = {}) => {
+    const event = {
+      button: 0,
+      defaultPrevented: false,
+      // The empty table's link: it sits outside the bar's form.
+      target: { closest: (s) => (s === '[data-filters-clear]' ? { closest: () => null } : null) },
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+      ...modifiers,
+    };
+    for (const listener of global.document.listeners('click')) listener(event);
+    return event;
+  };
+  return { controls, transport, click };
+}
+
+test('the empty table\'s Clear filters clears the hoisted controls and the current query', () => {
+  const { controls, transport, click } = liveClearHarness('q=hello&sort=title&f.status=published');
+  const event = click();
+  assert.equal(event.defaultPrevented, true, 'cleared in place, not navigated');
+  assert.deepEqual(
+    controls.map((c) => c.value),
+    ['', ''],
+    'the controls must not keep a filter the query dropped',
+  );
+  const params = new URLSearchParams(transport.value);
+  assert.equal(params.get('q'), 'hello');
+  assert.equal(params.has('f.status'), false);
+  assert.deepEqual(transport.events, ['change']);
+});
+
+test('a modified click on Clear filters follows the href', () => {
+  const { controls, transport, click } = liveClearHarness('f.status=published');
+  const event = click({ metaKey: true });
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(controls[0].value, 'published');
+  assert.equal(transport.value, 'f.status=published');
+  delete global.document;
+});
