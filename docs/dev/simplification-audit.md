@@ -56,11 +56,13 @@ the URL builder S10 and S27 keep.
 **T1 — Move inline test modules beside their subjects.**
 
 About half of `crates/tablo-core/src` is `#[cfg(test)] mod tests` blocks. `panel/list.rs`,
-`panel/actions/export.rs`, and `panel/build.rs` are between two thirds and four fifths tests.
+`panel/actions/export.rs`, and `panel/build.rs` are between two thirds and four fifths tests. The
+xtask asset-hook scanner (`production_sources`) cuts a bodiless `#[cfg(test)]` item such as
+`mod test_support;` at the next item's closing brace, so it drops production code from the check.
 
-**Change.** `#[cfg(test)] mod tests;` in a sibling `tests.rs` per module whose tests outweigh its
-code, reusing the fixtures that exist (`panel/test_support.rs`, `test_support.rs`,
-`tests/common/mod.rs`). No test changes.
+**Change.** Every inline test module in every crate becomes `#[cfg(test)] mod tests;` with its body
+in a sibling `tests.rs`: one rule, with no threshold to re-check. No test changes. The scanner cuts
+a bodiless item at its `;` and skips `tests.rs` files.
 
 **Removes.** Nothing. A source file reads as its production code.
 
