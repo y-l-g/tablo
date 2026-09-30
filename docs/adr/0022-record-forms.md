@@ -87,8 +87,8 @@ resolved lens's name, and an embedded value's keys are its schema node's.
 typed `FieldErrors<F>`, and the schema's `HashMap<String, Vec<String>>` — are one `FieldErrors`: a
 keyed list of `FieldError`, each carrying its key, its kind, and its message. `validate_record`
 returns it and names each error's key: a control's own name, or a repeater group's label. A key this
-submission renders nowhere — a control the schema does not declare, or a leaf of a variant group its
-discriminant hides (a submission naming no discriminant hides nothing: the payload may name the
-variant) — fails the submit as a declaration error, where point 8's last consequence left it failing
-closed silently. A rejected upload replaces the errors under its field's key, so its reason stands
-where "this field is required" would restate the symptom.
+submission renders nowhere — a leaf of a variant group its discriminant hides (a submission naming
+no discriminant hides nothing: the payload may name the variant) — fails the submit as a declaration
+error, where point 8's last consequence left that leaf failing closed silently. A rejected upload
+replaces the errors under its field's key, so its reason stands where "this field is required" would
+restate the symptom.

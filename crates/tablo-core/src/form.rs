@@ -234,8 +234,9 @@ pub struct FieldError {
 }
 
 impl FieldError {
-    /// `key` was posted empty and its field has no blank answer; `message` is
-    /// the wording the control renders in its place.
+    /// The submission left `key` unanswered — an empty field with no blank
+    /// answer, or a required group whose inputs were all empty; `message` is
+    /// the wording its control renders in the slot.
     pub fn unanswered(key: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             key: key.into(),
@@ -304,8 +305,8 @@ pub trait RecordForm: Sized + Send + 'static {
     /// The model the form writes.
     type Model: Model + Send + Sync + 'static;
 
-    /// One variant per form field: the key [`Posted`] uses. Each variant's
-    /// bound form keys are [`Self::fields`]'; [`FieldErrors`] keys on those.
+    /// One variant per form field: the key [`Posted`] uses. Its bound form keys
+    /// are [`Self::fields`]'.
     type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
 
     /// Every field, in declaration order, with the keys it binds.
@@ -462,9 +463,10 @@ impl<F: RecordForm> std::ops::Deref for Posted<F> {
 /// merges them without translating, and the form render reads each field's own
 /// key from the result.
 ///
-/// A key that no field of the rendered schema owns has nowhere to render: the
-/// submit handler refuses it as a declaration error rather than writing past
-/// it.
+/// A key the rendered form owns: a control's own key, or a
+/// [`Repeater`](crate::Repeater) group's label. A key no slot owns has nowhere
+/// to render, and the submit handler refuses it as a declaration error rather
+/// than writing past it.
 #[derive(Debug, Default)]
 pub struct FieldErrors {
     errors: Vec<FieldError>,
