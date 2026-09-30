@@ -120,8 +120,7 @@ async fn comments_create_form_shows_post_select() {
 
 /// GH #298: a Comment form's Post options load through the resource's
 /// `query`, which carries no relation, so the option load selects the posts'
-/// own columns and not every comment of every post. The detail page's
-/// `view_query` keeps the comments `view_relations` reads.
+/// own columns and not every comment of every post.
 #[tokio::test]
 async fn post_options_do_not_load_every_posts_comments() {
     use showcase::app::PostResource;
@@ -144,17 +143,6 @@ async fn post_options_do_not_load_every_posts_comments() {
     assert!(
         option_row.comments.is_unloaded() && option_row.author.is_unloaded(),
         "the option load must not carry the resource's relations"
-    );
-
-    let detail_row = <PostResource as Resource>::view_query(&cx)
-        .first()
-        .exec(&mut handle)
-        .await
-        .unwrap()
-        .expect("the tenant seeds a post");
-    assert!(
-        !detail_row.comments.is_unloaded(),
-        "the detail query keeps the comments view_relations reads"
     );
 }
 

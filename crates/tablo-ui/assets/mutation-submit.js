@@ -94,13 +94,20 @@ function pruneWire(wire, removed) {
 // the page's inline `topcoat.swap` moves into the region at parse time. This
 // reads the same content out of the parsed response, preferring the envelope
 // and never taking the busy placeholder for a table.
-function swapTargets(doc) {
+//
+// A page can hold several tables — a record page's relations — so a region
+// that carries a `data-table` name takes the response region of that name,
+// never merely the first one.
+function swapTargets(doc, name) {
+  const named = name
+    ? `[data-boundary="table"][data-table="${name.replace(/["\\]/g, '\\$&')}"]`
+    : '[data-boundary="table"]';
   const streamed = Array.from(doc.querySelectorAll('template[data-topcoat-swap]'))
     .map((template) => template.content)
-    .find((content) => content.querySelector('[data-boundary="table"]'));
+    .find((content) => content.querySelector(named));
   const root = streamed || doc;
   return {
-    table: root.querySelector('[data-boundary="table"]:not([aria-busy])'),
+    table: root.querySelector(`${named}:not([aria-busy])`),
     toasts: Array.from(
       doc.querySelectorAll('[data-sonner-toaster] > [data-sonner-toast]'),
     ),
@@ -225,7 +232,7 @@ async function send(form, action, submitter) {
   }
 
   const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
-  const { table, toasts } = swapTargets(doc);
+  const { table, toasts } = swapTargets(doc, region && region.getAttribute('data-table'));
   const revision = root ? root.querySelector('[data-table-revision]') : null;
   // The write landed and its response is in hand: the dialog is dismissible
   // again before the page starts applying it.

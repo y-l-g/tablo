@@ -292,7 +292,7 @@ impl<M> Table<M> {
                     .edit_prefix
                     .as_ref()
                     .filter(|_| actions.edit)
-                    .map(|prefix| row_edit_url(prefix, &record_id));
+                    .map(|prefix| self.action_url(row_edit_url(prefix, &record_id)));
                 let view_url = self
                     .view_prefix
                     .as_ref()
@@ -309,7 +309,7 @@ impl<M> Table<M> {
                     .delete_prefix
                     .as_ref()
                     .filter(|_| actions.delete)
-                    .map(|prefix| delete_action_url(prefix, &record_id));
+                    .map(|prefix| self.action_url(delete_action_url(prefix, &record_id)));
                 RowView {
                     key,
                     record_id,

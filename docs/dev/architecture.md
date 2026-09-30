@@ -54,9 +54,10 @@ A resource list page runs, in order:
    swap in.
 
 The list checks `can_view_any` only, so pagination stays honest; per-row `can_view` trims the export
-and the relationship option lists. A detail page loads through the tenant-scoped `view_query`, which
-carries the relations `view_relations` reads, so an unknown id and one outside the tenant are the same
-404, while a row the caller may not view is a 403.
+and the relationship option lists. A detail page loads through the tenant-scoped `view_query`, so an
+unknown id and one outside the tenant are the same 404, while a row the caller may not view is a 403.
+Each of its relations then loads the related resource's list through that resource's own scoped
+query, narrowed to the record.
 
 ## A write request
 
@@ -88,7 +89,8 @@ committed write, and a failure in it is logged without rolling the write back.
 | Seam | Where | What it decides |
 | --- | --- | --- |
 | `Resource::query` | `resource/mod.rs` | the resource's own row scoping: soft deletes, row-level visibility |
-| `Resource::view_query` | `resource/mod.rs` | the detail page's query: `query` plus the relations `view_relations` reads |
+| `Resource::view_query` | `resource/mod.rs` | the detail page's query: `query` plus the relations the page reads off the record |
+| `Resource::relations` | `resource/relation.rs` | the related resources rendered as tables on a record's detail and edit pages |
 | `Resource::tenant_scope` | `tenancy.rs` | the tenant predicate, derived from the model's `tenant_id` by default |
 | `TextColumn::include` | `resource/column.rs` | a relation a list column reads; the list and the export load it |
 | `Resource::can_*` | `resource/mod.rs` | authorization, default deny |
@@ -139,7 +141,7 @@ Tablo's own and are never overwritten.
 ```
 crates/tablo-core/src/
   panel/      mod, build, gate, list, forms, actions/{bulk, delete, export, fetch,
-              options}, detail, pages, search, shell, headers
+              options}, detail, pages, relations, search, shell, headers
   resource/   mod, table/{mod,render,export}, column, state, filter, relation,
               navigation, naming, commit
   schema/     mod, fields, layouts, lenses, tree, relationship, embedded, pk,

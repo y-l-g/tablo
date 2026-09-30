@@ -198,6 +198,21 @@ test('a response offering no rendered region hands over nothing', () => {
   assert.equal(swapTargets(docOf({})).table, null);
 });
 
+test('a named region takes the response region of its own name', () => {
+  // A record page renders one table per relation: a delete in the second
+  // must not swap in the first.
+  const own = nodeOf({});
+  const doc = {
+    querySelectorAll: () => [],
+    querySelector: (selector) =>
+      selector === '[data-boundary="table"][data-table="/admin/tags"]:not([aria-busy])'
+        ? own
+        : null,
+  };
+  assert.equal(swapTargets(doc, '/admin/tags').table, own);
+  assert.equal(swapTargets(doc, '/admin/comments').table, null);
+});
+
 test('every toast surface the response carries is handed over', () => {
   const toasts = [nodeOf({}), nodeOf({})];
   assert.deepEqual(swapTargets(docOf({ toasts })).toasts, toasts);

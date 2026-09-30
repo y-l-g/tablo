@@ -37,12 +37,6 @@ topcoat = { workspace = true, features = ["tailwind"] }
 http = "1"
 http-body-util = "0.1"
 tablo-test = { path = "../../crates/tablo-test" }
-# Query counting for the no-N+1 test (GH #187): toasty's sqlite driver emits a
-# `driver exec` tracing event per statement, so a subscriber scoped to the test
-# counts what one page render issues. `tracing` itself is already a dependency
-# of tablo-core.
-tracing = "0.1"
-tracing-subscriber = "0.3"
 
 [lints]
 workspace = true

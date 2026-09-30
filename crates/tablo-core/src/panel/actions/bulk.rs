@@ -13,7 +13,7 @@ use topcoat::{
 use super::{
     super::{
         forms::{parse_form_body, truthy},
-        gate::{gate, list_url},
+        gate::{gate, landing_url},
         write::commit_write,
     },
     fetch::composite_pk_error,
@@ -66,7 +66,7 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 // crafted (or stale) POST gets here — answer like any other
                 // mutation, with the list and the reason.
                 set_notification(cx, Notification::error("Select at least one row to delete"));
-                return Err(see_other(list_url(cx, &R::slug())).into());
+                return Err(see_other(landing_url(cx, &R::slug())).into());
             }
             if ids.len() > MAX_BULK_IDS {
                 return Err(topcoat::router::error::bad_request(format!(

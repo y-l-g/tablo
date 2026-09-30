@@ -16,6 +16,7 @@ use topcoat::{
 use super::{
     actions::load_detail,
     gate::{gate, list_url},
+    relations::render_relations,
 };
 use crate::{db::db, form::RecordForm, resource::Resource};
 
@@ -48,10 +49,10 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let body = R::view(cx)
             .render(cx, crate::schema::Source::view(&values))
             .await?;
-        // Relations render from the record itself: the `Schema`
-        // above carries only its string projection, and the related rows are
-        // already loaded by `query`'s `include`, so this adds no query.
-        let relations = R::view_relations(cx, &record);
+        // What the `Schema` above cannot carry: free-form content read off the
+        // record, then each relation's table, which runs its own query.
+        let content = R::view_content(cx, &record);
+        let relations = render_relations::<R>(cx, &record, true);
         // The record's own label titles the page when the resource declares
         // one. The fallback is the page's name plus the URL's record
         // key, which is what the route carries (the display key drives the list
@@ -82,8 +83,11 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
                 tablo_ui::page_content(
                     <div class="flex flex-col gap-4">
                         (body)
-                        if let Some(relations) = relations {
-                            (relations)
+                        if let Some(content) = content {
+                            (content)
+                        }
+                        for relation in relations {
+                            (relation)
                         }
                     </div>
                 )

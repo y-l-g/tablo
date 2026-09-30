@@ -48,11 +48,11 @@ impl<M> Table<M> {
             .as_deref()
             .filter(|_| state.open != Some(false));
         let server_open = key.is_some();
-        let action = key.map(|key| delete_action_url(prefix, key));
+        let action = key.map(|key| self.action_url(delete_action_url(prefix, key)));
         // Only the URL-driven dialog mirrors its dismissal into the URL: a
         // dialog a row control opens client-side has no `?delete=` to close,
         // so dismissing it leaves the URL alone (GH #154 §3).
-        let open_param = server_open.then_some("open");
+        let open_param = server_open.then(|| state.param("open"));
         let csrf = crate::csrf::current_token(cx);
         let footer = view! {
             cx =>

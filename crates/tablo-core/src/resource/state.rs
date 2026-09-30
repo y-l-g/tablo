@@ -5,7 +5,7 @@
 //! shard parse it with [`TableState::from_query`], and every link projects it
 //! back through one encoder.
 
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use topcoat::{
@@ -85,11 +85,17 @@ pub enum Cursor {
 ///
 /// The single parse point shared by loaders (the search term, ordering via
 /// `Table::order_bys_for`) and render (active sort, toolbar values,
-/// pagination links), so the URL is the one truth for list state. The fixed
-/// parameter names assume one table per page — per-table prefixes are deferred
-/// until a real page needs two tables.
+/// pagination links), so the URL is the one truth for list state. A page that
+/// holds several tables — a record page with its relations — gives each a
+/// [`prefix`](Self::prefix) for its parameters (`comments.q=`), so the
+/// tables' states share one query without colliding.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TableState {
+    /// The prefix every parameter of this table carries (`comments` →
+    /// `comments.q=`), or `None` for a page's own list, whose parameters are
+    /// bare. Set by the parse ([`Self::from_query_prefixed`]); every link and
+    /// form input this state builds spells the same names.
+    pub prefix: Option<String>,
     /// `?q=` — trimmed and clamped to `MAX_QUERY_TERM` chars; `None` when
     /// absent or blank.
     pub search: Option<String>,
@@ -152,17 +158,48 @@ pub(crate) const MAX_FILTER_LEN: usize = 256;
 /// The prefix that names a filter parameter: `?f.status=published`.
 const FILTER_PREFIX: &str = "f.";
 
-/// The URL parameter a filter named `name` travels as.
-pub(crate) fn filter_param(name: &str) -> String {
-    format!("{FILTER_PREFIX}{name}")
-}
-
 impl TableState {
     /// Parse the state from the request in `cx`: [`Self::from_query`] over
     /// the request URI's query. Renders without a request context (e.g. unit
     /// tests) get neutral state.
     pub fn from_cx(cx: &Cx) -> Self {
         Self::from_query(&request_query(cx))
+    }
+
+    /// [`Self::from_cx`] for the table whose parameters carry `prefix`, on a
+    /// page of several.
+    pub fn from_cx_prefixed(cx: &Cx, prefix: &str) -> Self {
+        Self::from_query_prefixed(&request_query(cx), prefix)
+    }
+
+    /// [`Self::from_query`] for the table whose parameters carry `prefix`:
+    /// only the parameters spelled `{prefix}.{name}` are read, as `name`, and
+    /// the parsed state carries the prefix so its links spell the same names.
+    pub fn from_query_prefixed(query: &str, prefix: &str) -> Self {
+        let dotted = format!("{prefix}.");
+        let own = form_urlencoded::parse(query.as_bytes()).filter_map(|(name, value)| {
+            name.strip_prefix(dotted.as_str())
+                .map(|name| (Cow::Owned(name.to_string()), value))
+        });
+        Self {
+            prefix: Some(prefix.to_string()),
+            ..Self::from_pairs(own)
+        }
+    }
+
+    /// The URL parameter this table spells `name` as: `name` itself, or
+    /// `{prefix}.{name}` for a prefixed table.
+    pub(crate) fn param(&self, name: &str) -> String {
+        match &self.prefix {
+            Some(prefix) => format!("{prefix}.{name}"),
+            None => name.to_string(),
+        }
+    }
+
+    /// The URL parameter the filter `name` travels as: `f.{name}`, prefixed
+    /// like every other parameter.
+    pub(crate) fn filter_param(&self, name: &str) -> String {
+        self.param(&format!("{FILTER_PREFIX}{name}"))
     }
 
     /// Parse the state from a URL query (without the leading `?`): the one
@@ -180,10 +217,16 @@ impl TableState {
     /// The live shard parses a client-owned query, so the parse is linear in
     /// its length: only the known keys are remembered.
     pub fn from_query(query: &str) -> Self {
+        Self::from_pairs(form_urlencoded::parse(query.as_bytes()))
+    }
+
+    /// The parse behind [`Self::from_query`] and [`Self::from_query_prefixed`],
+    /// over the query's decoded pairs with any table prefix already stripped.
+    fn from_pairs<'q>(pairs: impl Iterator<Item = (Cow<'q, str>, Cow<'q, str>)>) -> Self {
         let mut state = Self::default();
         let (mut sort, mut dir, mut after, mut before) = (None, None, None, None);
         let mut seen = [false; 8];
-        for (key, value) in form_urlencoded::parse(query.as_bytes()) {
+        for (key, value) in pairs {
             if let Some(name) = key.strip_prefix(FILTER_PREFIX) {
                 let value = value.trim();
                 if name.is_empty() || value.is_empty() || state.filters.contains_key(name) {
@@ -362,7 +405,10 @@ impl TableState {
     /// row; that pair is the full-state-plus-`delete` projection, which keeps
     /// the cursor and never emits `open`.
     pub(crate) fn row_url_base(&self, path: &str) -> RowUrlBase {
-        RowUrlBase(self.list_url(path))
+        RowUrlBase {
+            base: self.list_url(path),
+            delete_param: self.param("delete"),
+        }
     }
 
     /// `?sort=` column + `?dir=` value for the projection.
@@ -390,6 +436,7 @@ impl TableState {
     /// `TableState`, forcing the author to decide where it projects.
     fn project(&self, projection: UrlProjection<'_>) -> String {
         let TableState {
+            prefix: _,
             search: _,
             sort: _,
             cursor: _,
@@ -404,26 +451,26 @@ impl TableState {
             .then_some(&self.filters)
             .into_iter()
             .flatten()
-            .map(|(name, value)| (filter_param(name), Some(value.as_str())));
+            .map(|(name, value)| (self.filter_param(name), Some(value.as_str())));
         let cursor = match projection.cursor {
             Some(Cursor::After(token)) => ("after", Some(token.as_str())),
             Some(Cursor::Before(token)) => ("before", Some(token.as_str())),
             None => ("after", None),
         };
         let pairs: Vec<(String, &str)> = [
-            ("q".to_string(), projection.search),
+            (self.param("q"), projection.search),
             (
-                "sort".to_string(),
+                self.param("sort"),
                 projection.sort.map(|(column, _)| column),
             ),
-            ("dir".to_string(), projection.sort.map(|(_, dir)| dir)),
+            (self.param("dir"), projection.sort.map(|(_, dir)| dir)),
         ]
         .into_iter()
         .chain(filters)
         .chain([
-            ("group_by".to_string(), projection.group_by),
-            (cursor.0.to_string(), cursor.1),
-            ("delete".to_string(), projection.delete),
+            (self.param("group_by"), projection.group_by),
+            (self.param(cursor.0), cursor.1),
+            (self.param("delete"), projection.delete),
         ])
         .filter_map(|(key, value)| value.map(|value| (key, value)))
         .collect();
@@ -437,18 +484,27 @@ impl TableState {
 /// shares — so those parameters are encoded once per render, not once per
 /// row. Row-specific intents ([`Self::delete_dialog`]) append to it in the
 /// projection's own order.
-pub(crate) struct RowUrlBase(String);
+pub(crate) struct RowUrlBase {
+    base: String,
+    /// The table's `delete` parameter, prefixed like the rest.
+    delete_param: String,
+}
 
 impl RowUrlBase {
     /// The `?delete=<key>` confirmation-dialog opener for one row.
     ///
-    /// `self.0` is [`TableState::list_url`]'s output, which never carries
+    /// `base` is [`TableState::list_url`]'s output, which never carries
     /// `delete`, and `delete` is the projection's last parameter — so this is
     /// byte-for-byte what the one-pass projection builds, without re-encoding
     /// the parameters it shares with the rest of the page.
     pub(crate) fn delete_dialog(&self, key: &str) -> String {
-        let separator = if self.0.contains('?') { '&' } else { '?' };
-        format!("{}{separator}delete={}", self.0, encode_query_value(key))
+        let separator = if self.base.contains('?') { '&' } else { '?' };
+        format!(
+            "{}{separator}{}={}",
+            self.base,
+            encode_query_value(&self.delete_param),
+            encode_query_value(key)
+        )
     }
 }
 
@@ -504,6 +560,16 @@ pub(crate) fn create_page_url(list_path: &str) -> String {
 /// The bulk form's POST target: `{list_path}/bulk-delete`.
 pub(crate) fn bulk_delete_url(list_path: &str) -> String {
     format!("{list_path}/{BULK_DELETE_ROUTE_SEGMENT}")
+}
+
+/// The query parameter naming the page a write lands on after it commits,
+/// in place of the resource's list: `?return=/admin/posts/1`. The panel
+/// honours it only for a path under its own prefix.
+pub(crate) const RETURN_PARAM: &str = "return";
+
+/// `url`, which carries no query, with `?return={target}`.
+pub(crate) fn with_return(url: &str, target: &str) -> String {
+    format!("{url}?{RETURN_PARAM}={}", encode_query_value(target))
 }
 
 /// Every byte outside the RFC 3986 `unreserved` set (`A-Z a-z 0-9 - _ . ~`)

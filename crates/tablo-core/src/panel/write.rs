@@ -3,7 +3,7 @@
 
 use topcoat::{context::Cx, router::error::see_other, view::BoxView};
 
-use super::gate::list_url;
+use super::gate::landing_url;
 use crate::{
     notification::{Notification, notify_write_failure, set_notification},
     resource::{Committed, Resource},
@@ -53,11 +53,12 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
     }
 }
 
-/// Post/Redirect/Get with a flash notification. The browser follows with a
+/// Post/Redirect/Get with a flash notification, to the list or the page the
+/// write's `?return=` names ([`landing_url`]). The browser follows with a
 /// GET, and the flash cookie rides the error response (Topcoat flushes
 /// `Set-Cookie` on `Err` too, topcoat#408), so every mutation redirects the
 /// same way.
 fn redirect_after_write<R: Resource>(cx: &Cx, note: &'static str) -> topcoat::Error {
     set_notification(cx, Notification::success(note));
-    see_other(list_url(cx, &R::slug())).into()
+    see_other(landing_url(cx, &R::slug())).into()
 }

@@ -228,6 +228,7 @@ fn group_header_dom_ids_are_stable_and_distinct_from_row_ids() {
 /// delta — state, not URL bytes.
 fn populated_state() -> TableState {
     TableState {
+        prefix: None,
         search: Some("Ada".to_string()),
         sort: Some(Sort {
             column: "name".to_string(),
@@ -365,4 +366,57 @@ fn bulk_wire_membership_is_exact() {
     assert!(!bulk_wire_contains(wire, "row-1a"));
     assert!(!bulk_wire_contains(",row-12,", "row-1"));
     assert!(!bulk_wire_contains("", "row-1"));
+}
+
+/// A prefixed table reads only its own parameters, and every link it
+/// builds spells them back with the same prefix, so two tables share one
+/// query without colliding.
+#[test]
+fn prefixed_states_share_one_query_without_colliding() {
+    let query = "q=list&comments.q=ada&comments.sort=body&comments.dir=desc\
+                 &comments.f.status=open&tags.q=rust&comments.after=tok";
+    let comments = TableState::from_query_prefixed(query, "comments");
+    assert_eq!(comments.prefix.as_deref(), Some("comments"));
+    assert_eq!(comments.search.as_deref(), Some("ada"));
+    assert_eq!(
+        comments.sort,
+        Some(Sort {
+            column: "body".to_string(),
+            descending: true
+        })
+    );
+    assert_eq!(
+        comments.filters.get("status").map(String::as_str),
+        Some("open")
+    );
+    assert_eq!(comments.cursor, Some(Cursor::After("tok".to_string())));
+    assert_eq!(
+        TableState::from_query_prefixed(query, "tags")
+            .search
+            .as_deref(),
+        Some("rust")
+    );
+    // The bare list state ignores every keyed parameter.
+    assert_eq!(
+        TableState::from_query(query).search.as_deref(),
+        Some("list")
+    );
+
+    let url = comments.list_url("/admin/posts/1");
+    assert_eq!(
+        url,
+        "/admin/posts/1?comments.q=ada&comments.sort=body&comments.dir=desc\
+         &comments.f.status=open&comments.after=tok"
+    );
+    assert_eq!(
+        TableState::from_query_prefixed(query_of(&url), "comments"),
+        comments,
+        "a prefixed link round-trips"
+    );
+    assert!(
+        comments
+            .row_url_base("/admin/posts/1")
+            .delete_dialog("c1")
+            .ends_with("&comments.delete=c1")
+    );
 }

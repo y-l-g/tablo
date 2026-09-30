@@ -77,6 +77,12 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
 /// table as-is. The filter bar joins the search toolbar there: a control rebuilt
 /// by its own rerun loses focus.
 pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::Model> {
+    wire_table::<R>(cx, live, declared_chrome::<R>(cx))
+}
+
+/// [`wire_table_actions`] with the affordances `chrome` names, a subset of
+/// [`declared_chrome`]: a read-only relation keeps only the View link.
+pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) -> Table<R::Model> {
     let mut table = R::table(cx);
     if live {
         table = table.hide_search().hide_filter_bar();
@@ -94,7 +100,6 @@ pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::M
             delete: view && R::can_delete(&policy_cx, record),
         }
     });
-    let chrome = declared_chrome::<R>(cx);
     if chrome.delete {
         table = table
             .with_delete(list_url(cx, &R::slug()))
@@ -397,6 +402,18 @@ pub(crate) async fn load_table_page<R: Resource>(
     state: &TableState,
 ) -> Result<TablePage<R::Model>> {
     TablePage::load(cx, table, crate::resource::scoped_query::<R>(cx)?, state).await
+}
+
+/// [`load_table_page`] over the rows `scope` also admits: a relation table's
+/// rows that belong to its owner.
+pub(crate) async fn load_scoped_page<R: Resource>(
+    cx: &Cx,
+    table: &Table<R::Model>,
+    state: &TableState,
+    scope: toasty::stmt::Expr<bool>,
+) -> Result<TablePage<R::Model>> {
+    let query = crate::resource::scoped_query::<R>(cx)?.filter(scope);
+    TablePage::load(cx, table, query, state).await
 }
 
 #[cfg(test)]

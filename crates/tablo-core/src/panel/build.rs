@@ -49,6 +49,14 @@ impl Panel {
             ))
             .into());
         }
+        let relation_errors = self.relation_errors();
+        if !relation_errors.is_empty() {
+            return Err(TabloError::Declaration(format!(
+                "Panel::build: {}",
+                relation_errors.join("; ")
+            ))
+            .into());
+        }
         if self.shell_assets.is_some() && self.assets.is_none() {
             return Err(TabloError::Declaration(
                 "Panel::build requires assets when shell_assets are configured".to_string(),
@@ -67,6 +75,8 @@ impl Panel {
             routes,
             root,
             slugs: _,
+            resource_slugs: _,
+            relations: _,
             search_handlers,
             frame_ancestors,
             registration_errors: _,
@@ -213,6 +223,31 @@ impl Panel {
             .runtime()
             .prefetch(topcoat::runtime::PrefetchMode::Never)
             .build())
+    }
+}
+
+impl Panel {
+    /// Every relation must name a resource this panel registers — its table's
+    /// row actions and create link go to that resource's routes — and name it
+    /// once per owner, since the key prefixes the table's URL parameters.
+    fn relation_errors(&self) -> Vec<String> {
+        let mut errors = Vec::new();
+        for (owner, keys) in &self.relations {
+            for (index, key) in keys.iter().enumerate() {
+                if keys[..index].contains(key) {
+                    errors.push(format!(
+                        "resource `{owner}` declares two relations to `{key}`: each related \
+                         resource is one relation"
+                    ));
+                } else if !self.resource_slugs.contains(key) {
+                    errors.push(format!(
+                        "resource `{owner}` relates to `{key}`, which this panel does not \
+                         register: declare it with `Panel::resource`"
+                    ));
+                }
+            }
+        }
+        errors
     }
 }
 

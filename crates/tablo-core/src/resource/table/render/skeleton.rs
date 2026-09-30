@@ -103,7 +103,12 @@ impl<M> Table<M> {
                 <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-40"></div>
             </div>
         };
-        Ok(table_frame(cx, true, content.boxed()))
+        Ok(table_frame(
+            cx,
+            true,
+            self.delete_prefix.as_deref(),
+            content.boxed(),
+        ))
     }
 }
 #[cfg(test)]

@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use tablo_core::{
     Brand, ColumnWidth, Committed, DateFilter, Field, FieldErrors, Grid, Group, Panel, Posted,
-    RelationColumn, RelationColumns, Repeater, ResolvedLens, Resource, Schema, Section,
-    SelectFilter, Table, TernaryFilter, TextColumn, Uploader, VariantFilter, render_relation,
-    scoped_query, tenant_id, write_create, write_update,
+    Relation, Repeater, ResolvedLens, Resource, Schema, Section, SelectFilter, Table,
+    TernaryFilter, TextColumn, Uploader, VariantFilter, scoped_query, tenant_id, write_create,
+    write_update,
 };
 use toasty::Db;
 use topcoat::{
@@ -347,21 +347,6 @@ impl Resource for PostResource {
         "Blog Post".to_string()
     }
 
-    /// The detail page renders the post's comments through
-    /// [`view_relations`](Resource::view_relations), so its query includes
-    /// them. The list and the export load the relations their columns include,
-    /// and every other loader reads only the post's own columns.
-    ///
-    /// No tenant filter: `requires_tenant` is `true`, so the framework scopes
-    /// every loader by ANDing the filter it derives from `Post`'s own
-    /// `tenant_id` column onto this. Writing it by hand here was the GH #87
-    /// hole: one override that forgot the filter served every tenant's rows.
-    fn view_query(cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
-        let comments: toasty::stmt::Include<Post, toasty::stmt::List<Comment>> =
-            Post::fields().comments().into();
-        Self::query(cx).include(comments)
-    }
-
     /// The post's title, so the detail heading names the post rather than its
     /// record key.
     fn record_label(_cx: &Cx, record: &Post) -> Option<String> {
@@ -388,8 +373,8 @@ impl Resource for PostResource {
     ///
     /// What is absent, and why: the **author key** (`Uuid`) and the **cover key**
     /// (`Option<Uuid>`), because a key renders as an id rather than a name —
-    /// the cover renders as a thumbnail through [`Self::view_relations`] — and
-    /// the **comments**, which are a relation and so render there too.
+    /// the cover's key renders through [`Self::view_content`] — and the
+    /// **comments**, which render as a relation ([`Self::relations`]).
     fn view(cx: &Cx) -> Schema {
         Schema::new((
             Section::new("Post").schema((
@@ -427,49 +412,15 @@ impl Resource for PostResource {
         ))
     }
 
-    /// The post's computed reading stats, its cover, and its comments.
-    ///
-    /// `record.comments.get()` reads the included relation — no query, no
-    /// per-row load — which is the point #66's criterion made. `is_unloaded` is
-    /// the guard the list columns use: drop the include from `view_query` and this
-    /// says so instead of panicking inside `Deferred::get`, so
-    /// `detail_relation_check` fails on a message rather than a stack trace.
-    ///
-    /// The table names `CommentResource`, so the related resource's `can_view`
-    /// decides which loaded comments render.
-    fn view_relations<'a>(cx: &'a Cx, record: &Post) -> Option<topcoat::view::BoxView<'a>> {
+    /// The post's computed reading stats and its cover, above its comments.
+    fn view_content<'a>(cx: &'a Cx, record: &Post) -> Option<topcoat::view::BoxView<'a>> {
         let words = word_count(&record.body);
         let minutes = read_minutes(words);
         let cover_id = record.cover_id;
-        if record.comments.is_unloaded() {
-            return Some(
-                view! {
-                    cx =>
-                    <div class="flex flex-col gap-4">
-                        <p class="text-sm text-muted-foreground">
-                            (format!("{words} words · {minutes} min read"))
-                        </p>
-                        <p class="text-sm text-destructive">
-                            "Comments were not loaded by this query — add them to Resource::view_query's include."
-                        </p>
-                    </div>
-                }
-                .boxed(),
-            );
-        }
-        let columns = RelationColumns::columns((
-            RelationColumn::computed("Comment", |c: &Comment| c.body.clone()),
-            RelationColumn::computed("Post", |c: &Comment| c.post_id.to_string()),
-        ));
-        // `CommentResource` is named at the relation, so the table applies the
-        // related resource's `can_view` and the policy cannot drift from the
-        // comments queue's.
-        let comments =
-            render_relation::<CommentResource>(cx, "Comments", columns, record.comments.get());
         Some(
             view! {
                 cx =>
-                <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-1">
                     <p class="text-sm text-muted-foreground">
                         (format!("{words} words · {minutes} min read"))
                     </p>
@@ -478,11 +429,20 @@ impl Resource for PostResource {
                             (format!("Cover: {cover_id}"))
                         </p>
                     }
-                    (comments)
                 </div>
             }
             .boxed(),
         )
+    }
+
+    /// The post's comments: the comments list's own table, narrowed to this
+    /// post, on its detail and edit pages, with a create link that opens the
+    /// comment form with this post chosen.
+    fn relations() -> Vec<Relation<Post>> {
+        vec![Relation::has_many::<CommentResource, _>(
+            Comment::fields().post_id(),
+            |post: &Post| post.id,
+        )]
     }
 
     fn can_view_any(cx: &Cx) -> bool {

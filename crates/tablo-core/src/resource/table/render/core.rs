@@ -282,7 +282,12 @@ impl<M> Table<M> {
                 (dialog)
             }
         };
-        Ok(table_frame(cx, false, content.boxed()))
+        Ok(table_frame(
+            cx,
+            false,
+            self.delete_prefix.as_deref(),
+            content.boxed(),
+        ))
     }
 }
 
@@ -291,11 +296,22 @@ impl<M> Table<M> {
 /// swaps, and the bordered root inside it. A loading skeleton marks both
 /// `aria-busy`: the boundary so assistive tech sees the live region, the root
 /// so the busy state reads on the table itself.
-pub(super) fn table_frame<'a>(cx: &'a Cx, busy: bool, content: BoxView<'a>) -> BoxView<'a> {
+///
+/// `name` is the table's delete prefix — its resource's list path — when it
+/// has delete chrome: a page holding several tables (a record page's
+/// relations) names each region, so a mutation's response swaps into the
+/// table the mutation came from (`mutation-submit.js`).
+pub(super) fn table_frame<'a>(
+    cx: &'a Cx,
+    busy: bool,
+    name: Option<&str>,
+    content: BoxView<'a>,
+) -> BoxView<'a> {
     let busy = busy.then_some("true");
+    let name = name.map(str::to_string);
     view! {
         cx =>
-        <div data-boundary="table" aria-busy=(busy)>
+        <div data-boundary="table" data-table=(name) aria-busy=(busy)>
             <div
                 class="rounded-xl border border-border overflow-hidden"
                 data-table-root=""
