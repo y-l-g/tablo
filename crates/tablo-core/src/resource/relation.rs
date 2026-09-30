@@ -43,6 +43,7 @@ pub struct Relation<P> {
     foreign_key: String,
     bind: BindFn<P>,
     render: RenderFn,
+    search: crate::panel::RelationSearchFn,
 }
 
 /// An owner's rows filter on the child, and the owner's key as the child's
@@ -55,6 +56,8 @@ pub(crate) type RenderFn = for<'a> fn(&'a Cx, BoundRelation) -> BoxView<'a>;
 
 /// A relation resolved against one owner record, for the page at `page`.
 pub(crate) struct BoundRelation {
+    /// The slug of the resource that owns the record.
+    pub(crate) parent: String,
     /// The prefix of the table's URL parameters.
     pub(crate) key: String,
     /// The section title.
@@ -101,6 +104,7 @@ impl<P> Relation<P> {
             foreign_key.clone(),
             &<C::Model as toasty::schema::Model>::schema(),
         );
+        let search = crate::panel::relation_search_handler_for::<C, T>(foreign_key.clone());
         Self {
             key: C::slug(),
             label: C::navigation_label(),
@@ -111,6 +115,7 @@ impl<P> Relation<P> {
                 (foreign_key.clone().eq(value), seed)
             }),
             render: crate::panel::relation_table::<C>,
+            search,
         }
     }
 
@@ -125,19 +130,29 @@ impl<P> Relation<P> {
         &self.key
     }
 
+    /// The live-search loader of this relation's table, for the panel's
+    /// relation registry.
+    pub(crate) fn search_handler(&self) -> crate::panel::RelationSearchFn {
+        self.search.clone()
+    }
+
     /// Render this relation's table for `owner` on the page at `page`,
-    /// without write actions when `read_only`.
+    /// without write actions when `read_only`. `parent` is the slug of the
+    /// resource that owns the record, keying the relation's live-search
+    /// handler alongside `key`.
     pub(crate) fn render<'a>(
         &self,
         cx: &'a Cx,
         owner: &P,
         page: &str,
         read_only: bool,
+        parent: &str,
     ) -> BoxView<'a> {
         let (scope, value) = (self.bind)(owner);
         (self.render)(
             cx,
             BoundRelation {
+                parent: parent.to_string(),
                 key: self.key.clone(),
                 label: self.label.clone(),
                 scope,

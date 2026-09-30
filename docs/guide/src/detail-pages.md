@@ -98,4 +98,6 @@ the related resource's list. The panel follows a `return` only to a path under i
 
 `Panel::build` rejects a relation to a resource the panel does not register — its row actions and
 create link would lead nowhere — and two relations of one resource to the same related resource.
-A table declared `live_search` renders its server-side search in a relation.
+A table declared `live_search` stays live in a relation: sorting, searching, filtering and paging
+re-render that table in place, with its URL parameters prefixed by the relation's key, and without
+JavaScript its links and forms fall back to full page loads.

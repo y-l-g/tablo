@@ -57,6 +57,33 @@ test('clearing drops every filter and keeps the newer search and sort', () => {
   assert.equal(params.has('filters'), false, 'the retired spelling goes too');
 });
 
+test('a prefixed table reads and writes its own filter parameters', () => {
+  // A relation table's parameters carry the relation's prefix; the bare
+  // list's parameters ride the same query untouched.
+  const params = new URLSearchParams(
+    withFilters(
+      'q=ada&f.status=draft&comments.q=hi&comments.f.status=draft&comments.after=abc',
+      [['status', 'published']],
+      'comments.',
+    ),
+  );
+  assert.equal(params.get('comments.f.status'), 'published');
+  assert.equal(params.get('comments.q'), 'hi');
+  assert.equal(params.get('q'), 'ada');
+  assert.equal(params.get('f.status'), 'draft');
+  assert.equal(params.has('comments.after'), false);
+  assert.equal(params.has('after'), false, 'no bare cursor is invented');
+});
+
+test('a prefixed clear drops the retired spelling and keeps the list', () => {
+  const params = new URLSearchParams(
+    withFilters('f.status=draft&comments.f.status=draft&comments.filters=x', [], 'comments.'),
+  );
+  assert.equal(params.get('f.status'), 'draft');
+  assert.equal(params.has('comments.f.status'), false);
+  assert.equal(params.has('comments.filters'), false);
+});
+
 // --- the Clear filters click -------------------------------------------------
 
 const { listenerDocument } = require('./test-dom');
@@ -73,6 +100,7 @@ function liveClearHarness(query) {
     },
   };
   const form = {
+    getAttribute: () => null,
     querySelector: (selector) => (selector === '[data-filters-transport]' ? transport : null),
     querySelectorAll: (selector) => (selector === '[data-filter-name]' ? controls : []),
   };

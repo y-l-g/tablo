@@ -7,33 +7,40 @@
 //
 // A form marked `data-filters-live` belongs to a live table. Its hidden
 // transport (`data-filters-transport`) is bound to the table's `query` signal,
-// so the script rewrites that query instead of submitting: it replaces every
-// `f.*` parameter with the controls' current values, drops the cursor (a new
-// filter is a new result set), keeps every other parameter, and dispatches a
-// bubbling `change`, which the runtime turns into a signal write. The shard
-// re-renders the table in place, with no navigation and no scroll jump. A
-// "Clear filters" link (`data-filters-clear`: the bar's own, or the empty
-// table's) clears the controls and the query's filters the same way, so the
-// controls never show a filter the query dropped. Its `href` is the no-JS
-// fallback; a page without a live filter form follows it.
+// so the script rewrites that query instead of submitting: it replaces the
+// table's filter parameters with the controls' current values, drops the
+// cursor (a new filter is a new result set), keeps every other parameter, and
+// dispatches a bubbling `change`, which the runtime turns into a signal
+// write. The shard re-renders the table in place, with no navigation and no
+// scroll jump. A "Clear filters" link (`data-filters-clear`: the bar's own,
+// or the empty table's) clears the controls and the query's filters the same
+// way, so the controls never show a filter the query dropped. Its `href` is
+// the no-JS fallback; a page without a live filter form follows it.
+//
+// A relation table's parameters carry the relation's prefix (`comments.f.*`),
+// spelled on the form as `data-query-prefix`; a page-owned list has bare
+// parameters and no prefix. Each relation renders its bar inside its own
+// `section[data-relation]`, so a clear link clears the bar of its own section
+// rather than the first bar on the page.
 //
 // Document-level delegation (like bulk.js) so streamed/shard swaps that
 // replace table markup need no re-installation.
 (() => {
-// The list query with its filter parameters replaced by `filters` (pairs of
-// name and value; a blank value is no filter) and the cursor dropped. The
+// The table's query with its filter parameters replaced by `filters` (pairs
+// of name and value; a blank value is no filter) and the cursor dropped. The
 // retired `filters` parameter goes with them.
-function withFilters(query, filters) {
+function withFilters(query, filters, prefix) {
   const params = new URLSearchParams(query);
+  prefix = prefix || '';
   for (const key of [...params.keys()]) {
-    if (key.startsWith('f.') || key === 'filters') params.delete(key);
+    if (key.startsWith(`${prefix}f.`) || key === `${prefix}filters`) params.delete(key);
   }
   for (const [name, value] of filters) {
     const trimmed = (value || '').trim();
-    if (name && trimmed) params.append(`f.${name}`, trimmed);
+    if (name && trimmed) params.append(`${prefix}f.${name}`, trimmed);
   }
-  params.delete('after');
-  params.delete('before');
+  params.delete(`${prefix}after`);
+  params.delete(`${prefix}before`);
   return params.toString();
 }
 
@@ -49,7 +56,11 @@ function controlValues(form) {
 function writeFilters(form, filters) {
   const transport = form.querySelector('[data-filters-transport]');
   if (!transport) return false;
-  transport.value = withFilters(transport.value, filters);
+  transport.value = withFilters(
+    transport.value,
+    filters,
+    form.getAttribute('data-query-prefix') || '',
+  );
   transport.dispatchEvent(new Event('change', { bubbles: true }));
   return true;
 }
@@ -82,9 +93,13 @@ if (typeof document !== 'undefined') {
     if (!isPlainClick(e)) return;
     const link = e.target.closest('[data-filters-clear]');
     if (!link) return;
-    // One live table per page: the empty table's link sits outside the bar.
+    // The empty table's link sits outside the bar: the table's own section
+    // first, so one relation's clear never resets another's bar, then the
+    // bar the link sits in, then the page's single live bar.
+    const scope = link.closest('[data-relation]');
     const form =
       link.closest('form[data-filters-live]') ||
+      (scope && scope.querySelector('form[data-filters-live]')) ||
       document.querySelector('form[data-filters-live]');
     if (!form || !writeFilters(form, [])) return;
     e.preventDefault();

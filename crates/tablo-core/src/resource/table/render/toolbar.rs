@@ -238,9 +238,13 @@ impl<M> Table<M> {
         let fallback = self.render_search_bar(cx, state, path).await?;
         let q_display = state.search.clone().unwrap_or_default();
         let query = signals.query.clone();
+        // The query prefix a relation's parameters carry (`comments.`), so
+        // `live-search.js` rewrites the table's own `q` and cursor instead of
+        // the list's. Absent on a page-owned list, whose parameters are bare.
+        let query_prefix = state.prefix.as_deref().map(|prefix| format!("{prefix}."));
         Ok(view! {
             cx =>
-            <div class=(BAR_CLASS) data-live-search="">
+            <div class=(BAR_CLASS) data-live-search="" data-query-prefix=(query_prefix)>
                 <div class=(SEARCH_FIELD_CLASS)>
                     icon(
                         data: tablo_ui::icons::SEARCH,
@@ -290,6 +294,45 @@ impl<M> Table<M> {
         Ok(view! {
             cx =>
             table_search(path: $(live_path.clone()), query: $(query), bulk: $(bulk))
+        }
+        .boxed())
+    }
+
+    /// The `table_relation_search` shard invocation filling a live relation
+    /// table's streamed region. The signal handles travel as arguments; every
+    /// tracked read inside the shard becomes a `dep` marker the browser
+    /// watches, so sort/filter/pager/search changes re-render the table in
+    /// place.
+    pub(crate) async fn render_live_relation_invocation<'a>(
+        &self,
+        cx: &'a Cx,
+        parent: &str,
+        child: &str,
+        ctx: crate::panel::RelationRequest,
+        signals: TableSignals,
+    ) -> Result<BoxView<'a>> {
+        use crate::panel::table_relation_search;
+
+        // No snapshot here: grouping travels in the query (seeded from the
+        // request's query by the caller) and the shard normalizes on read.
+        // Slugs never carry `/`, so the pair and the seed travel as one wire
+        // arg, split off the front by the shard.
+        let crate::panel::RelationRequest {
+            seed,
+            page: live_page,
+            read_only,
+        } = ctx;
+        let scope = format!("{parent}/{child}/{seed}");
+        let TableSignals { query, bulk } = signals;
+        Ok(view! {
+            cx =>
+            table_relation_search(
+                scope: $(scope.clone()),
+                page: $(live_page.clone()),
+                read_only: $(read_only),
+                query: $(query),
+                bulk: $(bulk)
+            )
         }
         .boxed())
     }
