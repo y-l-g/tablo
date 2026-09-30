@@ -1,101 +1,131 @@
 # Detail pages
 
-A read-only page for one record (GH #187): the `view` schema, what renders, related rows, and the
-current limits.
-
-A resource can show one record read-only by declaring `view`, a `Schema` in the form's vocabulary
-read the other way round (ADR-0016). Like Filament's infolist it is its own declaration: it may show
-keys the form does not, and a resource with no form declares one too.
+A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource gets one by
+declaring `view()`: a `Schema` built from the same fields and layout blocks as a form.
 
 ```rust
-fn view(cx: &Cx) -> Schema {
+fn view(_cx: &Cx) -> Schema {
     Schema::new(Section::new("Post").schema((
         Field::text(Post::fields().title()),
         Field::text(Post::fields().body()).multiline(6),
+        Field::choice(Post::fields().status()).options(vec!["draft".into(), "published".into()]),
     )))
 }
 ```
 
-That registers `GET /admin/{slug}/{id}` — loaded through the tenant-scoped query, so an unknown id
-and one outside the tenant are the same 404, while `can_view` denial is a 403 — and adds a `View`
-control beside `Edit` on each row. A resource with no `view` declaration has no page and no link, and
-the route answers 404 rather than rendering an empty shell. The page's header links back to the
-list, and to the edit form when the resource has one and `can_update` allows this record — the gate
-the row's `Edit` control uses.
+Declaring a view adds a View action to each row. A resource without one has no detail page: the
+route answers 404 and no row links to it. The view is its own declaration, so it may show fields
+the form does not, and a list-only resource can declare one too.
 
-The heading is the record's label when the resource declares one:
+## What the page shows
+
+The header carries the record's title, a link back to the list, and an Edit link when the resource
+has a form and `can_update` allows this record. Below it come the view's fields, then any
+[free-form content](#free-form-content), then the [related tables](#related-tables).
+
+Each field renders its label and its stored value, never a control:
+
+- a text field shows the value as text, typed values included;
+- a choice shows the label of the matching option, or the stored value when none matches, so a
+  relationship choice shows the stored key, not the related record's name;
+- a file field shows the stored path as a link, under the rules in
+  [File uploads](./forms.md#file-uploads);
+- an embedded enum shows its variant's name and that variant's fields;
+- layout blocks keep their structure.
+
+**Where values come from.** A field the record form binds shows the form's value for it, the
+same value the edit form starts with. `view_values(cx, record)` supplies every other key, as a map
+from field name to display text; when both supply a key, the form's value wins. A `NoForm`
+resource supplies every key there:
 
 ```rust
-fn record_label(cx: &Cx, record: &Post) -> Option<String> {
-    Some(record.title.clone())
+fn view_values(_cx: &Cx, audit: &Audit) -> HashMap<String, String> {
+    HashMap::from([
+        ("action".to_string(), audit.action.clone()),
+        ("created_at".to_string(), audit.created_at.to_string()),
+    ])
 }
 ```
 
-The default returns `None`, and the heading is then `{label} {id}` — one record's name and the URL's
-record key. A label is display text, not a key: two records may share one, so it does not
-replace `Table::new`'s key, which must stay injective within a page for keyed diffs (GH #241).
+To show something that is not a column's own value, such as the author's name behind
+`author_id`, render it as [free-form content](#free-form-content).
 
-- **Read-only is not a disabled form.** Fields render labels and stored values:
-  a text field shows text, a choice shows the option label the form offered (or the stored value
-  when no option matches, a relationship key included), a file field shows the stored path as a link
-  to the file (GH #242), an embedded enum shows its stored variant's name and payload, and layout
-  blocks keep their structure. No control, no CSRF field, no validation slot.
-- **Values come from the form's projection** (`RecordForm::hydrate`), so a field that renders in
-  the form renders here; `view_values` adds a key only the view shows. A `NoForm` resource
-  supplies every key through `view_values`. A field whose key neither supplies renders `(missing)`
-  and fails a `debug_assert!`, as a list column shows `(unloaded)` for a relation its query did not
-  load (ADR-0011): a blank would read as an empty value.
-- **Free-form content** — anything read off the record that is not one of its fields, such as a
-  word count — renders through `view_content(cx, record)`, below the fields. The page loads
-  through `view_query`, so include there any relation the hook or `view_values` reads.
-- **Related rows** render as [relations](#relations), below the content.
-- A typed column (`Uuid`, `jiff::Timestamp`) is readable: bind it with `Field::text` (GH #192)
-  and the view renders its stored value as text. A foreign key therefore reads as its stored id
-  rather than the related record's label — show the label through `view_values` when a reader
-  needs it.
-- `IntoSchema` takes at most eight top-level blocks; a longer view wraps a ninth in a `Group`.
+A field no source fills renders `(missing)`, and fails a `debug_assert!` in debug builds.
 
-## Relations
-
-A record's related rows — a post's comments — render on its detail and edit pages as the related
-resource's own list table, narrowed to the record (Filament's relation managers):
+**Loading.** The record loads through `view_query` — `query` by default — with the tenant scope
+applied. Include there every relation `view_values` or `view_content` reads:
 
 ```rust
-impl Resource for PostResource {
-    fn relations() -> Vec<Relation<Post>> {
-        vec![Relation::has_many::<CommentResource, _>(
-            Comment::fields().post_id(),
-            |post: &Post| post.id,
-        )]
-    }
+fn view_query(cx: &Cx) -> Query<List<Post>> {
+    let author: Include<Post, Author> = Post::fields().author().into();
+    Self::query(cx).include(author)
 }
 ```
 
-`has_many` names the related resource and the binding between the two: the related model's
-foreign-key column and the owner's value for it (a nullable key takes the owner's value in
-`Some`). The table is `CommentResource`'s: its columns, search, sort, filters and pager, over its
-tenant-scoped query plus `post_id = <this post>`. Its policies apply as on its list: a request
-`can_view_any` refuses, or one without a tenant the related resource requires, gets no section.
-The section is titled with the related resource's navigation label; `.label(..)` overrides it.
+An unknown id and an id outside the request's tenant are the same 404; a record `can_view` refuses
+is a 403.
 
-The detail page shows the rows read-only, as Filament's view page does: each row keeps its View
-link. The edit page carries the writes: the row Edit and Delete actions, bulk delete, and the
-create link, each gated per row or by `can_create` as on the list.
+**Title.** `record_label` sets the page title; without it the title is the resource's `label()` and
+the record's key, such as "Post 3f2a…":
 
-The relation's URL parameters are prefixed with the related resource's slug — `?comments.q=`,
-`?comments.sort=`, `?comments.after=` — so several relations share one page without colliding.
-A link or a form in one relation carries only that relation's parameters.
+```rust
+fn record_label(_cx: &Cx, post: &Post) -> Option<String> {
+    Some(post.title.clone())
+}
+```
 
-On the edit page, when the related resource has a form and `can_create` allows it, the section
-links a create button to that resource's create page with the owner already chosen
-(`/admin/comments/create?post_id=…`): the create page seeds a relationship control a query
-parameter names, and nothing else. The seed is a prefill, and the write checks what is submitted
-as for any create.
+`public_url(cx, record)` adds a "View public post" link to the header when it returns a URL.
 
-Writes started from the relation return to the page it is on: the create link, the row edit and
-delete actions and the bulk delete carry `?return=`, and the write redirects there instead of to
-the related resource's list. The panel follows a `return` only to a path under its own prefix.
+## Free-form content
 
-`Panel::build` rejects a relation to a resource the panel does not register — its row actions and
-create link would lead nowhere — and two relations of one resource to the same related resource.
-A table declared `live_search` renders its server-side search in a relation.
+`view_content(cx, record)` renders anything that is not a field, such as a word count, below the
+fields:
+
+```rust
+fn view_content<'a>(cx: &'a Cx, post: &Post) -> Option<BoxView<'a>> {
+    let words = post.body.split_whitespace().count();
+    Some(
+        view! { cx => <p class="text-sm text-muted-foreground">(format!("{words} words"))</p> }
+            .boxed(),
+    )
+}
+```
+
+The returned view may borrow `cx` but not the record: compute what you need from the record first.
+
+## Related tables
+
+`relations()` lists the related resources whose rows belong to a record. Each renders on the
+record's detail and edit pages as that resource's own list table, narrowed to the record:
+
+```rust
+fn relations() -> Vec<Relation<Post>> {
+    vec![Relation::has_many::<CommentResource, _>(
+        Comment::fields().post_id(), // the related model's foreign key
+        |post: &Post| post.id,       // the owner's value for it
+    )]
+}
+```
+
+For a nullable foreign key, the owner's value is wrapped in `Some`. The table is
+`CommentResource`'s — its columns, search, sort, filters and pager — over its tenant-scoped query
+plus `post_id = <this post>`. It is titled with the related resource's `navigation_label()`, or
+`.label(..)`.
+
+- **Policy.** The related resource's policies apply as on its own list: no section renders when
+  its `can_view_any` refuses, or when it requires a tenant the request lacks, and each row keeps
+  only the actions its record allows.
+- **Detail page versus edit page.** On the detail page the table is read-only: rows keep only
+  their View action. On the edit page rows also carry Edit and Delete, the table has bulk delete,
+  and a create button appears when the related resource has a form and allows `can_create`.
+- **Creating from the parent.** The create button opens the related resource's create page with
+  the owner preselected, as in `/admin/comments/create?post_id=…`. The create page accepts such a
+  parameter only for a relationship choice; the value is a default, and the submitted form is
+  validated like any other create.
+- **Returning.** Writes started from a related table carry `?return=` and redirect back to the
+  page they started on. The panel follows `return` only to a path under its own prefix.
+- **URL parameters.** Each related table's parameters are prefixed with the related resource's
+  slug — `?comments.q=`, `?comments.sort=`, `?comments.after=` — so several tables share one page.
+
+`Panel::build` refuses a relation to a resource the panel does not register, and two relations of
+one resource to the same related resource.

@@ -1,198 +1,169 @@
 # Resources
 
-The `Resource` trait: how one Toasty model maps to its admin UI, what the framework checks at boot,
-and how tenancy is declared.
+A resource is the admin for one Toasty model: which rows it lists, how its table and form look,
+who may see and change a record, and how a write runs. You implement the `Resource` trait on a
+unit struct and register it with `Panel::resource`.
 
-One resource maps one Toasty model to its admin UI:
-
-```rust
-pub trait Resource: Sized + Send + Sync + 'static {
-    type Model: toasty::schema::Model + Send + Sync + Clone + 'static;
-    type Form: RecordForm<Model = Self::Model>;     // required: a record form, or NoForm
-    fn query(_cx: &Cx) -> Query<List<Self::Model>>; // default: Query::all()
-    fn view_query(_cx: &Cx) -> Query<List<Self::Model>>; // default: query(cx)
-    fn view_values(_cx: &Cx, _record: &Self::Model)
-        -> HashMap<String, String>;                 // default: empty
-    fn table(_cx: &Cx) -> Table<Self::Model>;       // required: Table::new(key, columns)
-    // plus can_* policy fns (default deny), slug/navigation/requires_tenant
-    // defaults, form()/validate_record and the record fns
-}
-```
-
-Every resource registers with `Panel::resource`, which serves the list, the detail page, delete,
-bulk delete, and export. A resource whose `Form` is a `#[derive(RecordForm)]` struct also gets the
-create page, the edit page, and the relationship options
-([Forms](./forms.md#the-record-form)); a list-only resource names
-`type Form = NoForm<Self::Model>;` and links to no create page.
-
-## The contract
-
-Every item except `Model`, `Form`, and `table()` is defaulted, so a resource names its model and
-its form and declares its list view, and any other omission has to fail loudly instead of quietly:
-
-- **At `Panel::build`** (which returns `Result<Router>`): a
-  `NoForm` resource whose `can_create` is on, or whose `form()` declares a schema,
-  fails the build, since it serves no form; a record form must agree with its `form()` schema
-  ([Forms](./forms.md#the-record-form)). `table()`, `form()` and
-  `can_create()` are declarations: `Panel::build` calls them with a Db-only context to check them,
-  and each list and form request calls `table()` / `form()` again, so a declaration must not need
-  request-scoped context.
-- **Chrome follows the declarations, gated per record**: the row Delete control, the bulk column,
-  and the bulk bar render when `can_delete_any()` allows, the Edit link when the resource has a
-  record form, and the View link when it declares `view()`. `can_delete_any()` defaults to `false`
-  and the delete handlers check it too, so a resource that never mentions it renders no delete
-  affordance and answers every delete POST with 403. `can_delete()` defaults to `can_delete_any()`;
-  override it to refuse some rows. The panel applies the row predicates **per row** through the
-  table's row policy (GH #235), so a row `can_update()` refuses renders no Edit link, a row
-  `can_delete()` refuses renders no Delete link and no bulk checkbox, and a row `can_view()`
-  refuses renders no View link. Select-all therefore submits only the rows the handler will accept
-  — the showcase's SSO-guarded user is the worked example: its row keeps the View link and nothing
-  else. The handler keeps its all-or-nothing check on the POST as the safety net for a hand-crafted
-  request.
-- **Default-deny stands**: every `can_*` defaults to `false`, except `can_delete()`, which defaults
-  to `can_delete_any()`; an unconfigured resource exposes no data and no mutation.
-
-## What to know
-
-- `slug()`, `label()`, and `navigation_label()` have working defaults. `label()` is one record's
-  name, used in the "Create" and "Edit" titles; `navigation_label()` pluralizes it for the sidebar
-  and the list title. Override `label()` to rename, and `navigation_label()` only for a plural the
-  rules cannot guess.
-- `navigation()` curates this resource's sidebar entry: override it to change the label, the `order`
-  (lower renders first, ties keep declaration order), the icon or the URL, e.g.
-  `NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }` or
-  `NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::USERS)`. `tablo_ui::icons` carries
-  a set of navigation icons; an app that stages an icon set of its own passes any `IconData`. The URL is the Panel's
-  call: `for_resource` names none, so the panel that mounts the resource resolves it to
-  `{prefix}/{slug}`, and a resource never links at `/admin` on a panel mounted elsewhere. Spell a
-  URL out instead (`NavigationItem::at(..)`) only to link somewhere other than the resource's list
-  page — the Panel keeps it verbatim.
-- `query()` is the seam for the resource's **own** row scoping: soft deletes and row-level
-  visibility. Every loader starts from it, as does app code that calls `scoped_query`. Tenancy is not
-  its job: when `requires_tenant()` is `true` the framework derives the `tenant_id` filter from the
-  model's own schema and ANDs it onto whatever `query` returns, at every loader (GH #223), so
-  restating it here is redundant. Relations are not its job either (ADR-0018): the list and the
-  export load the relations their columns declare with `TextColumn::include(..)`, and the detail
-  page loads `view_query`. Include a relation in `query` only when every loader needs it, such as one
-  `can_view` reads. The option loaders run `query`, so an option label projects the related record's
-  own columns.
-- `view_query()` is the detail page's query: `query` plus the relations `view_values` or
-  `view_content` read off the record, e.g. `Self::query(cx).include(author)`. The framework ANDs
-  the tenant scope onto it too. A [relation](./detail-pages.md#relations) runs its own query.
-- `table()` and `form()` are hand-written, and so is the impl itself: a resource is `type Model` plus
-  whichever hooks it uses. There is no `Resource` derive (GH #222); the macros crate ships
-  `derive(EmbeddedForm)` (GH #191) and `derive(RecordForm)` (GH #369), which types the form's
-  values rather than declaring the resource.
+The smallest resource lists rows and nothing else:
 
 ```rust
-struct UserResource;
+pub struct AuditResource;
 
-impl Resource for UserResource {
-    type Model = User;
-    type Form = NoForm<Self::Model>;
-}
+impl Resource for AuditResource {
+    type Model = Audit;
+    type Form = NoForm<Audit>; // list-only: no create or edit pages
 
-struct PostResource;
-
-impl Resource for PostResource {
-    type Model = Post;
-    type Form = NoForm<Self::Model>;
-
-    // the resource's own scoping seam, spelled out where it is used
-    fn query(cx: &Cx) -> Query<List<Post>> {
-        // soft deletes, row-level visibility, includes — not the tenant filter
-    }
-}
-```
-
-- Record fns (`create_record` / `update_record`, `delete_record`,
-  `bulk_delete_records`) do the writes. Handlers load records, check policy, then call them in a
-  transaction. `create_record` and `update_record` return the row they wrote — the create builder
-  hands the created one back and a Toasty instance update reloads the model, so both are already in
-  hand — because that is the only way the framework can name what a write committed (GH #112). The
-  derived `write_update` ends with the reloaded record, and a model used by a `Resource` derives
-  `Clone`. `delete_record` defaults to deleting the row by its record key through `scoped_query`,
-  and `bulk_delete_records` loops over `delete_record`, so one override (a soft delete, say) covers
-  both.
-- `after_commit(cx, committed)` is the post-commit seam (GH #112): called once per committed write,
-  after the transaction and before the response, with a `Committed` naming the mutation
-  (`Mutation::Create/Update/Delete`) and the rows it wrote (a bulk delete is one call with all of
-  them). It is where email, webhooks, audit rows and cache invalidation belong — running them in a
-  record fn leaks the effect on a rollback, and the transaction's pool discipline forbids a second
-  handle while it is open. The default is a no-op, a hook failure is logged without touching the
-  committed write, and it never runs when nothing committed.
-- The edit form hydrates from `RecordForm::hydrate`, which the derive generates.
-  `view_values(cx, record)` is the detail page's projection for a list-only resource, and adds any
-  key only the view shows for a form resource. `cx` is the request's: a scalar projection needs
-  nothing from it, but an embedded value's keys come from the compiled mapping (GH #191).
-
-## Tenancy
-
-Tenancy is declared, not restated per query. The pattern:
-
-```rust
-impl Resource for PostResource {
-    type Model = Post;
-    type Form = NoForm<Self::Model>;
-
-    // `Post` declares `tenant_id: uuid::Uuid`. Declaring this is the whole
-    // tenant contract: the gate is GH #87 — every handler 403s without a
-    // tenant — and the scope is GH #223 — every loader (list, edit, delete,
-    // bulk, export, relationship options) ANDs `tenant_id = <request tenant>`,
-    // derived from the model's own schema, onto whatever `query` returns.
-    fn requires_tenant() -> bool {
+    fn can_view_any(_cx: &Cx) -> bool {
         true
     }
 
-    // The resource's *own* scoping only — a soft delete, row-level visibility,
-    // the includes a page loads. Writing the tenant filter here is redundant:
-    // the framework derives it at every loader, so a copy that disagreed with
-    // the derived column could only hide rows, never widen access.
-    fn query(_cx: &Cx) -> Query<List<Post>> {
-        Query::<List<Post>>::all()
+    fn table(_cx: &Cx) -> Table<Audit> {
+        Table::new(
+            |a: &Audit| a.id.to_string(),
+            TextColumn::r#for(Audit::fields().action(), |a: &Audit| a.action.clone()),
+        )
     }
 }
 ```
 
-App code that loads rows outside the framework's loaders — a record fn double-checking a foreign
-key, a `Page` — calls `scoped_query::<PostResource>(cx)?` rather than `PostResource::query(cx)`:
-on a gated resource that method is the **tenant-unscoped** base, deliberately, so the
-tenant-unscoped case is visible at the call site (it still carries whatever the resource's own
-`query` scopes — soft deletes included).
+A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form` and
+declares the form's controls in `form()`; see [Forms](./forms.md).
 
-Three shapes, one gate:
+## Trait items
 
-1. **The model carries the tenant** (the common case): `requires_tenant() =
-   true` and nothing else. The framework derives `tenant_id = <request tenant>`
-   from the model's own schema.
-2. **The row inherits its tenant** — `Comment` has no `tenant_id`, it belongs to
-   a post that does. Declare the predicate instead of the column:
+Only `Model`, `Form` and `table()` are required. Every other item has a default.
 
-   ```rust
-   fn requires_tenant() -> bool {
-       true
-   }
+| Item | Default | Purpose |
+| --- | --- | --- |
+| `type Model` | required | the Toasty model; must be `Clone + Send + Sync` |
+| `type Form` | required | a record form, or `NoForm<Self::Model>` for a list-only resource |
+| `table(cx)` | required | the list's columns, filters and options: [Tables](./tables.md) |
+| `form(cx)` | no controls | the create and edit form's controls: [Forms](./forms.md) |
+| `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
+| `view(cx)` | nothing | the detail page's fields; the page exists only when this declares some: [Detail pages](./detail-pages.md) |
+| `view_values(cx, record)`, `view_content(cx, record)` | none | what the detail page shows beyond the form's fields |
+| `view_query(cx)` | `query(cx)` | the detail page's query, with the relations it reads |
+| `record_label(cx, record)` | `None` | the detail page's heading |
+| `public_url(cx, record)` | `None` | a link to the record's public page on its detail and edit pages |
+| `relations()` | none | related resources shown as tables on the detail and edit pages |
+| `query(cx)` | every row | the base query every loader starts from: [Scoping](#scoping-the-query) |
+| `requires_tenant()`, `tenant_scope(tenant)` | not tenant-owned | tenancy: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
+| `can_view_any`, `can_view`, `can_create`, `can_update`, `can_delete_any` | `false` | policy: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
+| `can_delete(cx, record)` | `can_delete_any(cx)` | per-record delete policy |
+| `create_record`, `update_record` | the derived write | the create and update writes: [Writes](#writes) |
+| `delete_record`, `bulk_delete_records` | delete by primary key | the delete writes |
+| `after_commit(cx, committed)` | nothing | side effects after a write commits |
+| `CREATE_COLUMNS` | none | columns an overridden `create_record` sets itself |
+| `slug()`, `label()`, `navigation_label()` | from the type names | URLs and titles: [Naming](#naming) |
+| `navigation()` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
 
-   fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
-       // The framework ANDs this onto `query`/`view_query` at every loader,
-       // exactly as it ANDs the derived filter elsewhere.
-       Some(Comment::fields().post().tenant_id().eq(tenant))
-   }
-   ```
+## Naming
 
-   The gate is what matters: writing this filter inside `query` with
-   `requires_tenant() = false` would *skip* it for a tenantless request rather
-   than refuse it, serving every tenant's rows to a tenantless admin.
-3. **The resource must serve more than one tenant** (a deliberate cross-tenant
-   view): `requires_tenant() = false` and scope in `query` by hand — the one
-   explicit way out, and the gate goes with it.
+The names default from the type names, following Filament's conventions:
 
-A gated resource that supplies no predicate at all — no `tenant_id` column and
-no `tenant_scope` override — fails `Panel::build` (GH #231), the same boot
-failure any other misdeclaration gets, and every loader keeps answering an error
-naming itself rather than querying tenant-unscoped — the backstop for a
-predicate that is only `None` for some tenants. There is no override that
-removes the scope.
+| Item | Default | `BlogPostResource` over `BlogPost` |
+| --- | --- | --- |
+| `slug()` | resource name without `Resource`, pluralized, kebab-cased | `blog-posts` |
+| `label()` | the model's type name; used in "Create …" and "Edit …" | `BlogPost` |
+| `navigation_label()` | `label()` pluralized; the sidebar entry and list title | `BlogPosts` |
 
-The request's tenant comes from the logged-in user; see
-[Policy, auth, tenancy](./policy-auth-tenancy.md).
+Override `label()` to rename a record, and `navigation_label()` only when the plural rules guess
+wrong. Name resources in the singular: `UsersResource` pluralizes to `userses`.
+
+## Scoping the query
+
+`query(cx)` is the base query of every loader: the list, the export, the edit and delete
+handlers, relationship options and the detail page. Use it for the resource's own row scoping,
+such as hiding soft-deleted rows:
+
+```rust
+fn query(_cx: &Cx) -> Query<List<Post>> {
+    Query::<List<Post>>::all().filter(Post::fields().deleted_at().is_none())
+}
+```
+
+Two things do not belong in `query`:
+
+- **The tenant filter.** For a tenant-owned resource the framework adds it to `query` at every
+  loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
+- **Relations.** The list and the export load the relations their columns declare with
+  `TextColumn::include`, and the detail page loads `view_query`. Include a relation in `query`
+  only when every loader reads it, for example because `can_view` does.
+
+In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
+`scoped_query` is `query` with the tenant filter applied, and returns an error rather than an
+unscoped query when the request has no tenant.
+
+The unique-value check on forms probes through the same scoped query, so a `#[unique]` index
+wider than the scope is invisible to it: the check misses the collision and the database refuses
+the write with a 500. Scope such indexes to match, as in `#[unique(tenant_id, email)]`.
+
+## Writes
+
+Every create, update and delete runs in a transaction the framework opens. For an update or a
+delete, the handler first loads the target record through the scoped query inside that transaction
+and checks policy on it. It then calls the resource's record function with the open transaction as
+`ex`.
+
+`create_record` and `update_record` default to writing the record form's fields
+(`write_create` and `write_update`), so most resources declare neither. To check something inside
+the transaction, override the function and delegate:
+
+```rust
+async fn update_record(
+    cx: &Cx,
+    record: Comment,
+    posted: Posted<CommentForm>,
+    ex: &mut dyn toasty::Executor,
+) -> Result<Comment> {
+    // `Posted` derefs to the form.
+    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
+    tablo_core::write_update::<Self>(cx, record, posted, ex).await
+}
+```
+
+Run every statement through `ex`, and use the `record` you are given rather than loading it
+again: it is the row the policy check passed. Both functions return the written row. An error
+rolls the transaction back and nothing is written.
+
+`delete_record` deletes the row by its primary key, and `bulk_delete_records` calls
+`delete_record` once per record in one transaction, so overriding `delete_record` — for a soft
+delete, say — covers both. A bulk delete is all-or-nothing.
+
+### After the commit
+
+`after_commit` runs once per committed write, after the transaction and before the response. Put
+side effects there — email, webhooks, audit rows, cache invalidation — so a rolled-back write never
+triggers them:
+
+```rust
+async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
+    for post in committed.records() {
+        notify_subscribers(cx, post).await?;
+    }
+    Ok(())
+}
+```
+
+`Committed` names the mutation (`Mutation::Create`, `Update` or `Delete`) and the rows written: the
+created or updated row, or every deleted row in one call for a bulk delete. The hook is not called
+when nothing committed. An error it returns is logged; the write stays committed.
+
+## Startup checks
+
+`Panel::build` calls each resource's declarations once, with a context that holds only the
+database, and refuses the resource when:
+
+- `table()` or `view()` is malformed: a duplicate column or field name, a zero page size, a
+  modifier on the wrong kind of field;
+- the record form and `form()` disagree: a control no form field binds, a form field with no
+  control, an optional control whose field has no blank value, a `unique()` field with no
+  unique index, or a tenant-owned resource's form claiming its tenant column;
+- `can_create` is allowed and a non-nullable column is set by nothing: not the form, not a Toasty
+  default, not the tenant stamp, and not listed in `CREATE_COLUMNS`;
+- a `NoForm` resource declares `form()` or allows `can_create`;
+- `requires_tenant()` is `true` and no tenant predicate can be derived;
+- a relation names a resource the panel does not register, or names one twice.
+
+Because of this call, `table()`, `form()`, `view()` and `can_create()` must not depend on the
+request: a check that reads the current user or tenant sees an anonymous request at startup.

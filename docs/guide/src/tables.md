@@ -1,62 +1,99 @@
 # Tables
 
-The list view: columns and the row key, search and sort, filters, grouping and CSV export, live
-updates, and row and bulk delete.
-
-Minimal table:
+A resource's `table()` declares its list page: the columns, the row key, and the search, sort,
+filter, grouping and pagination the list offers. The same declaration drives the CSV export.
 
 ```rust
-Table::new(
-    |u: &User| u.id.to_string(),
-    (
-        TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
-            .searchable()
-            .sortable(),
-        TextColumn::computed("Status", |u: &User| {
-            if u.active { "Active".into() } else { "Inactive".into() }
-        }),
-    ),
-)
-.paginate(20)
+fn table(_cx: &Cx) -> Table<User> {
+    Table::new(
+        |u: &User| u.id.to_string(),
+        (
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
+                .searchable()
+                .sortable(),
+            TextColumn::r#for(User::fields().email(), |u: &User| u.email.clone()).searchable(),
+            TextColumn::computed("Status", |u: &User| {
+                if u.active { "Active" } else { "Inactive" }.to_string()
+            }),
+        ),
+    )
+    .paginate(20)
+}
 ```
 
-Notes:
+## The row key
 
-- `Table::new(key, columns)` declares the row key and the record key together: the row key
-  keys rows for selection and live updates — never use a loop index — and the record key is
-  what action URLs and bulk checkbox values carry. Handlers resolve the record key as the
-  model's typed primary key, so declare the primary key, not a display label: a non-PK
-  projection makes every delete and bulk submit 404. A table whose display must stay a
-  non-PK value uses `Table::new_split(display, record, columns)`, which carries the typed
-  primary key in the URLs instead.
-- `searchable()` searches with `?q=`: an escaped substring match (`like_with_escape`, OR across
-  searchable columns), so a term containing `%` or `_` matches those characters literally. `LIKE` is
-  ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. `sortable()` sorts with
-  `?sort=` and `?dir=`. Both work without JS.
-- The URL is the state: `?q=`, `?sort=`, `?dir=`, `?after=` or `?before=`, `?f.<name>=`, `?group_by=`
-  parse into `TableState`. Every table paginates, at 25 rows unless `.paginate(n)` sets another
-  size; pagination is cursor based, and Toasty appends the PK tie-breaker internally so cursors stay
-  deterministic.
-- Columns render in a fixed layout (`table-fixed`): a column's width is the one its header declares, not
-  the widest cell on the current page, so filtering, sorting or paging never re-measures the columns.
-  Widths are percentages of the table, so what a table declares is a share of its container rather than a
-  length that can outgrow it. The default follows the column's kind: a field column
-  (`TextColumn::r#for`) declares nothing and takes what the declared columns leave, a computed column
-  (`TextColumn::computed`) claims a share (10% nominally). The chrome columns — bulk selection, row
-  actions — claim shares too, and the kind defaults scale down together when their total would leave the
-  field columns less than 40% of the table. `TextColumn::width(ColumnWidth::..)` overrides either; an
-  explicit `Rem` does not shrink with the table, so a table narrower than its lengths leaves the field
-  columns no space at all. The width is emitted as an inline `style` — Tailwind generates only the class
-  literals it finds in source — and a value wider than its column truncates with an ellipsis.
-- A `w-full` table never exceeds its container on its own, so on a narrow viewport the percentages
-  would crush the cells instead of scrolling: the table carries a `min-width` summing its declared
-  widths (shares as emitted, lengths verbatim, one readability floor per wide column, a content floor on
-  the actions column), and the wrapper's `overflow-x-auto` scrolls once the table is wider than its
-  container. The actions column pairs its share with that floor on its header and cells, so the row
-  buttons fit instead of spilling past the table.
-- Computed columns render only. They do not affect search or sort.
+`Table::new(key, columns)` takes the row key first. It must be the model's primary key as a
+string: the table uses it to identify rows for selection and in-place updates, and the action
+URLs and bulk checkboxes carry it, where handlers parse it back into the primary key. A key that
+is not the primary key makes every delete answer 404.
 
-Filters:
+When rows must be keyed by something else in the page, `Table::new_split(display, record,
+columns)` takes the two keys separately: `display` identifies rows in the page and `record` is the
+primary key the URLs carry. Either way, keys must be unique within a page.
+
+## Columns
+
+| Constructor | Cell | Search and sort |
+| --- | --- | --- |
+| `TextColumn::r#for(lens, project)` | `project(row)`, bound to a `String` field | `.searchable()`, `.sortable()` |
+| `TextColumn::computed(label, project)` | `project(row)` | not available: calling either panics |
+
+- **Labels.** A field column is labelled from its field name (`created_at` → "Created at"); a
+  computed column uses the label you pass.
+- **Relations.** A column whose closure reads a relation declares it with `.include(..)`, and the
+  list and the export load it with the page's rows in one query. A relation no column includes
+  is not loaded. Guard the read so a missing include fails loudly instead of showing blank data:
+
+  ```rust
+  TextColumn::computed("Author", |p: &Post| {
+      if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
+  })
+  .include(Post::fields().author())
+  ```
+
+- **Widths.** The table uses a fixed layout: a column's width is what it declares, not the width of
+  its widest cell, so paging and filtering never shift the columns. A field column takes an equal
+  share of the space left over; a computed column defaults to a narrow share of the table (10%,
+  scaled down when many columns claim one). Override with `.width(ColumnWidth::Percent(30))`,
+  `Rem(8)`, `Narrow` or `Wide`. A cell wider than its column is truncated with an ellipsis. On a
+  narrow screen the table keeps a minimum width and scrolls horizontally instead of crushing its
+  columns.
+
+Two columns with the same name, or a table with no columns, panic; `Panel::build` reports it as a
+startup error.
+
+## Search, sort and pagination
+
+The URL holds the list's whole state, so every view of a list is a link you can share:
+
+| Parameter | Effect |
+| --- | --- |
+| `?q=ada` | search: each searchable column contains `ada`; any column may match |
+| `?sort=name&dir=desc` | sort by a sortable column; `dir` is `asc` (default) or `desc` |
+| `?after=…`, `?before=…` | the next or previous page, as an opaque cursor |
+| `?f.status=published` | a filter: see [Filters](#filters) |
+| `?group_by=status` | grouping: see [Grouping](#grouping) |
+
+- Search escapes `%` and `_`, so they match literally. Terms are trimmed and capped at 128
+  characters. Matching follows the database's `LIKE`: case-insensitive for ASCII on SQLite,
+  case-sensitive on PostgreSQL.
+- Pagination is cursor-based, 25 rows per page unless `.paginate(n)` sets another size. The
+  primary key breaks ties, so a sort over duplicate values still pages deterministically.
+- All of it works without JavaScript. `.hide_search()` removes the search box, and
+  `.hide_filter_bar()` the filter controls.
+
+### Live updates
+
+```rust
+Table::new(|u: &User| u.id.to_string(), columns).live_search()
+```
+
+With `live_search()`, typing in the search box, sorting, filtering and paging update the table
+in place, without a page load, keeping focus and scroll position. The plain links and forms
+remain for visitors without JavaScript.
+
+## Filters
 
 ```rust
 .filters((
@@ -66,51 +103,60 @@ Filters:
 ))
 ```
 
-Active filters travel as one `?f.<name>=<value>` parameter each (`?f.status=published`) and
-combine with AND. At most 32 filters apply, each with a name and a value of at most 256 bytes.
-Unknown keys, rejected values, dropped filters and the retired `?filters=` spelling never fail
-silently: the list renders a `role=alert` banner (`Table::unapplied_filters`) while export refuses
-with 400.
+| Filter | Field | Values |
+| --- | --- | --- |
+| `SelectFilter::r#for(lens, options)` | `String` | one of `options`, matched exactly |
+| `TernaryFilter::r#for(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
+| `DateFilter::r#for(lens)` | `jiff::Timestamp` | a date `2024-01-15` matches that UTC day; an RFC 3339 timestamp matches that instant |
+| `VariantFilter::r#for(name, label, options)` | any | named options, each a Toasty predicate you build |
 
-Grouping and export:
+Each active filter is one parameter, `?f.<name>=<value>`, named after the field, and active
+filters combine with AND. At most 32 filters apply, each name and value at most 256 bytes.
+
+A filter that cannot apply — an unknown name, a value the filter rejects, or one over the limits —
+is never dropped silently: the list shows a warning banner naming it, and the export refuses the
+request with 400 rather than export more rows than asked.
+
+## Grouping
 
 ```rust
 .group_by("status", |p: &Post| p.status.clone())
 ```
 
-- Grouping is page-local with a row count per group. Toasty has no `GROUP BY` yet, so grouping never
-  claims full-table totals. Unknown `?group_by=` values render no headers and drop from nav links.
-- `GET /admin/{slug}/export` returns the filtered set as CSV (`text/csv; charset=utf-8` +
-  `Content-Disposition`, RFC4180 with OWASP formula-defusing), reusing the same filters and sort over
-  the tenant-scoped `query` with the relations its columns include (ADR-0018). Capped at 10k viewable rows: per-row `can_view` runs before the cap, so 413
-  reflects what the caller may receive. An export whose filtered set runs past the 10,001-row scan
-  window is a 413 too, even when fewer rows would be viewable: the export never returns a partial
-  file. `?bom=1` opts into an Excel BOM.
-- Failed table loads render the branded `ErrorState` in-region, not a blank page.
+`?group_by=status` groups the current page's rows under headers with a row count. Grouping runs
+on the loaded page, so the counts cover that page, not the whole table. A `?group_by=` value the
+table does not declare is ignored.
 
-Live updates:
+## Export
 
-```rust
-Table::new(|u: &User| u.id.to_string(), columns).live_search()
-```
+`GET /admin/{slug}/export` returns the list as a CSV file named `{slug}.csv`, with the current
+search, filters and sort applied, and the relations the columns include loaded.
 
-Search, sort, filter, and pager controls then refresh the table in place without a full page load.
-The plain links and forms stay as the no-JS fallback.
+- Rows the caller may not view (`can_view`) are left out.
+- The export delivers at most 10,000 rows. When the search and filters match more, it answers
+  413 rather than a truncated file.
+- Cells that a spreadsheet would read as a formula are escaped. Add `?bom=1` to prefix the file
+  with a byte-order mark for Excel.
 
-Panel wires the bulk checkbox column when the resource's `can_delete_any()` allows, the same
-predicate the delete handlers check. The column then follows `can_view` + `can_delete` per record
-(GH #235): a row either one refuses renders no checkbox,
-so select-all never submits a key the handler would refuse
-the whole batch over. A row refused every action keeps an empty actions cell,
-so the row keeps a cell per header. Bulk delete asks first: the bulk bar's
-button opens an alert dialog that names how many rows are selected, and its confirm control is the
-only thing carrying the `confirm=1` the handler requires — a POST without that marker is a 400, so
-the safeguard does not depend on the script that opens the dialog (GH #184).
+## Row actions and deletes
 
-Row delete asks first too, and the dialog opens in place (GH #233): the row control names the
-table's one dialog and carries that record's POST target. Confirming it needs no navigation
-(GH #234): the client follows the POST's 303, mounts the flash toast the handler set, and refreshes
-the table through the shard — a delete costs the confirmed POST, the list render behind the redirect
-(whose body is discarded except the toast) and one `table_search` request. Cancel is a button, so
-dismissing never navigates; the control's `?delete=<key>` href stays as the no-JS fallback, which
-renders the same dialog open with the action already set.
+Each row shows the actions its record allows:
+
+- **View** when the resource declares a detail page (`view()`) and `can_view` allows the record;
+- **Edit** when the resource has a record form and `can_view` and `can_update` allow it;
+- **Delete** when `can_delete_any` allows deletes and `can_view` and `can_delete` allow the record.
+
+A row that allows none keeps an empty actions cell.
+
+When `can_delete_any` allows deletes, the list adds a checkbox column and a bulk bar. A row whose
+record may not be deleted gets no checkbox, so select-all only selects deletable rows. A bulk
+delete accepts at most 400 records and deletes all of them or none.
+
+Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
+confirming it deletes the row, shows a notification and refreshes the table without leaving the
+page. The bulk bar's button opens a dialog stating how many rows are selected. The delete
+handlers refuse a POST that was not confirmed through the dialog with 400, and without
+JavaScript the Delete link renders the list with its dialog already open.
+
+If the table fails to load, the list shows an error state with a retry link in place of the rows;
+the rest of the page still renders.

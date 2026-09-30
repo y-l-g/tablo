@@ -520,7 +520,11 @@ impl Panel {
         self
     }
 
-    /// Enable dark mode toggle persistence (cookie + localStorage via `theme.js`).
+    /// Set the theme a visitor who has not chosen one sees: dark when `true`.
+    ///
+    /// The shell always renders the theme toggle, and a visitor's stored
+    /// choice wins over this default in both directions. Without this call
+    /// the panel starts light.
     pub fn dark_mode(mut self, enabled: bool) -> Self {
         self.dark_mode = Some(enabled);
         self

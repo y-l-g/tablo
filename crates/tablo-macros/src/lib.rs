@@ -1,4 +1,4 @@
-//! Procedural macros for Tablo.
+//! The `RecordForm` and `EmbeddedForm` derives, re-exported by `tablo-core`.
 
 mod embedded;
 mod fields;
