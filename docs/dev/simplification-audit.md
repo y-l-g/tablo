@@ -30,27 +30,28 @@ vocabulary. No `auth` cargo feature.
 
 ## 2. Order
 
-Each batch is independently mergeable, ends with the gate set for what it touched, and lands in this
-order. Items inside a batch are listed in the order they apply.
+Six PRs, grouped by the files that change together so no code is rewritten twice. Each ends with the
+gate set for what it touched.
 
-| Batch | Items | Why here |
+| PR | Items | Why together |
 | --- | --- | --- |
-| 1. Tests | T1 | Mechanical, and every later diff reviews smaller. Nothing else is in flight. |
-| 2. Fixes and removals | S22, S8, S16, S13, removal list, doc claims | Bugs and dead surface; no redesign. |
-| 3. Mutation | S15 | Small, and changes the record-fn signatures before the declaration batch. |
-| 4. Declaration | S4, S3, S6, S5, S7, S1 | S4's field list is what S3, S6, S7, and S1 build on. |
-| 5. List | S12, S14, S11, S10, S2, S27 | S12 gives one loader to change; S10 and S27 then own the URL. |
-| 6. View | S17, S18, S19, S28 | Renders the list state batch 5 settles. |
-| 7. Infrastructure | S20, S24, S25, S26 | Independent; last because it touches every module. |
-| 8. Guide | G1, G2 | Written against the API the batches above leave. |
+| 1. Tests out of source files | T1 | Mechanical and touches every file; alone and first, checked by an unchanged test count. |
+| 2. Fixes and dead code | S22, S8, S16, S13, S15, S20, removal list, doc claims | Small, independent, low risk; one review pass. |
+| 3. Field types and derives | S4, S3, S6, S5, S7, S1, S26 | S26 generates the field API S3 and S7 define; S4's field list underlies the rest. |
+| 4. Loader | S12, S14, S2, S25 | One file set: `table/mod.rs`, `column.rs`, `panel/list.rs`, `export.rs`; S2's includes plug into S12's loader. |
+| 5. List state and table rendering | S11, S10, S27, S18, S17, S19, S28 | The URL state, its links, and the render methods are one surface; S18 follows S10. |
+| 6. Errors and guide | S24, G1, G2 | S24 is cross-cutting, so it converts only the code the refactors left; the guide describes the final API. The spec is deleted here. |
 
-The upstream gaps #397, #398, and #399 are not blockers. Each removes more code when it lands: #397
-deletes the cursor probe in the S12 loader, #398 deletes `cursor.rs`, and #399 deletes the URL
-builder S10 and S27 keep.
+PR 1, then PR 2. PR 3 runs in parallel with PRs 4 and 5, which share only `resource/mod.rs`; PR 5
+follows PR 4, and PR 6 lands last.
+
+The upstream gaps #397, #398, and #399 block nothing. Each lands as its own follow-up when upstream
+ships: #397 deletes the cursor probe in the S12 loader, #398 deletes `cursor.rs`, and #399 deletes
+the URL builder S10 and S27 keep.
 
 ## 3. Items
 
-### Batch 1 — Tests
+### PR 1 — Tests out of source files
 
 **T1 — Move inline test modules beside their subjects.**
 
@@ -63,7 +64,7 @@ code, reusing the fixtures that exist (`panel/test_support.rs`, `test_support.rs
 
 **Removes.** Nothing. A source file reads as its production code.
 
-### Batch 2 — Fixes and removals
+### PR 2 — Fixes and dead code
 
 **S22 — Method-scope the login gate bypass.**
 
@@ -114,6 +115,32 @@ refusal, with their tests.
 
 **Removes.** Four zero guards, one refusal, and the unbounded load.
 
+**S15 — One commit tail.**
+
+`commit_write` (`panel/forms/submit.rs`) is the create and edit tail: commit, `run_after_commit`,
+flash, redirect. Delete and bulk delete (`panel/actions/delete.rs`, `panel/actions/bulk.rs`)
+re-implement it, and each clones the record set so the after-commit hook still has a snapshot once
+`delete_record` has consumed it.
+
+**Change.** Move `commit_write` to a shared module, generic over the written value, and call it from
+all four handlers. `delete_record` takes `&Self::Model` and `bulk_delete_records` takes
+`&[Self::Model]`, so the handlers pass the snapshot and then move it into `Committed`.
+
+**Removes.** Three tails to one, and the pre-delete clones.
+
+**S20 — Delete the `auth` cargo feature.**
+
+`crates/tablo-core/Cargo.toml` gates `argon2`, `password-hash`, and `topcoat/session` behind the
+default `auth` feature, and `auth_off.rs` stands in when it is off. No workspace member builds it
+off except `tablo-test`, which mirrors an empty `auth = []` feature to avoid Cargo feature
+unification (`crates/tablo-test/Cargo.toml`).
+
+**Change.** Delete the feature, `auth_off.rs`, and every `cfg(feature = "auth")`. `Auth::disabled()`
+stays the opt-out (ADR-0013).
+
+**Removes.** A parallel public API, the `tablo-test` workaround, and optional dependencies every
+build resolves.
+
 **Removal list.** Each item has no caller in `crates/`, `examples/`, `benchmarks/`, or `xtask/`.
 
 | Item | Evidence | Action |
@@ -135,22 +162,7 @@ refusal, with their tests.
 eleven. Its write-order list puts the `can_*` checks before the parse, but delete and bulk delete
 check `can_view`/`can_delete` inside the transaction after the scoped re-load.
 
-### Batch 3 — Mutation
-
-**S15 — One commit tail.**
-
-`commit_write` (`panel/forms/submit.rs`) is the create and edit tail: commit, `run_after_commit`,
-flash, redirect. Delete and bulk delete (`panel/actions/delete.rs`, `panel/actions/bulk.rs`)
-re-implement it, and each clones the record set so the after-commit hook still has a snapshot once
-`delete_record` has consumed it.
-
-**Change.** Move `commit_write` to a shared module, generic over the written value, and call it from
-all four handlers. `delete_record` takes `&Self::Model` and `bulk_delete_records` takes
-`&[Self::Model]`, so the handlers pass the snapshot and then move it into `Committed`.
-
-**Removes.** Three tails to one, and the pre-delete clones.
-
-### Batch 4 — Declaration
+### PR 3 — Field types and derives
 
 **S4 — Compile the field list once.**
 
@@ -225,7 +237,23 @@ shows keys the form does not, and exists for a list-only resource.
 
 **Removes.** The silent blank.
 
-### Batch 5 — List
+**S26 — One field classifier for both derives.**
+
+`tablo-macros/src/embedded.rs` classifies a leaf by type name against `PRIMITIVES`, which duplicates
+the `TypedValue` impls with no test linking the two and refuses an app type that implements
+`TypedValue`, which the guide invites. `record_form.rs` marks an embedded field with
+`#[record_form(embed)]` and binds every other field as a scalar unchecked, so a `Vec<String>` field
+reaches rustc as E0277 on generated tokens with no field span. Each record-form field emits and
+resolves its path and key three times.
+
+**Change.** One `tablo-macros/src/fields.rs` shared by both derives: a field is embedded when marked
+`#[form(embed)]`, and a scalar otherwise. A scalar emits a `FormScalar` bound assertion spanned on
+the field, so the error names the field and the fix. Delete `PRIMITIVES`. Bind each field's key and
+path once.
+
+**Removes.** The type-name table, one of two field walkers, and an unspanned E0277.
+
+### PR 4 — Loader
 
 **S12 — Split the loader out of `Table`.**
 
@@ -250,6 +278,35 @@ the scoped query, and a page-owned table and the benchmark pass their own. Delet
 the export wraps it for its row cap.
 
 **Removes.** One of the two encodings of Toasty's cursor semantics.
+
+**S2 — Typed column includes.**
+
+A column declares the relations it reads by name (`TextColumn::needs`, `resource/column.rs`). The
+list and the export gather them into `IncludeNeeds` and hand it to `Resource::query_with` or
+`export_query` (`resource/mod.rs`), and the resource matches the names back to includes by hand: the
+showcase's `base(needs)` helpers. Every other loader passes `IncludeNeeds::default()` through
+`scoped_query_with`. A wrong name is not a compile error: the cell renders `"(unloaded)"` or panics
+in `Deferred::get`.
+
+**Change.** A column declares a typed path, `.include(Post::fields().author())`, and the loader
+applies the list's includes itself, as Filament eager-loads a column's relationship. `query(cx)` is
+row scoping only, used by every loader; `view_query(cx)` defaults to it and adds the detail page's
+includes. Delete `IncludeNeeds`, `TextColumn::needs`, `include_names`, `Table::include_needs`,
+`query_with`, `export_query`, and `scoped_query_with`.
+
+**Removes.** Three trait methods to two, the name-matching helpers, and the wrong-name failure mode.
+
+**S25 — Share the column machinery.**
+
+`resource/relation.rs` redeclares `WIDE_COLUMN_MIN_REM` from `render/core.rs`, re-derives the width
+arithmetic in `relation_widths`, and duplicates `into_columns_tuples!` as
+`into_relation_columns_tuples!`.
+
+**Change.** Share the width arithmetic and the tuple macro.
+
+**Removes.** The second column implementation.
+
+### PR 5 — List state and table rendering
 
 **S11 — One cursor type.**
 
@@ -280,23 +337,6 @@ per-field signal plumbing. Two strings need no struct-typed signal, so this clos
 **Removes.** Two of the three state spellings, and the "GET and live agree" tests, since one parser
 serves both.
 
-**S2 — Typed column includes.**
-
-A column declares the relations it reads by name (`TextColumn::needs`, `resource/column.rs`). The
-list and the export gather them into `IncludeNeeds` and hand it to `Resource::query_with` or
-`export_query` (`resource/mod.rs`), and the resource matches the names back to includes by hand: the
-showcase's `base(needs)` helpers. Every other loader passes `IncludeNeeds::default()` through
-`scoped_query_with`. A wrong name is not a compile error: the cell renders `"(unloaded)"` or panics
-in `Deferred::get`.
-
-**Change.** A column declares a typed path, `.include(Post::fields().author())`, and the loader
-applies the list's includes itself, as Filament eager-loads a column's relationship. `query(cx)` is
-row scoping only, used by every loader; `view_query(cx)` defaults to it and adds the detail page's
-includes. Delete `IncludeNeeds`, `TextColumn::needs`, `include_names`, `Table::include_needs`,
-`query_with`, `export_query`, and `scoped_query_with`.
-
-**Removes.** Three trait methods to two, the name-matching helpers, and the wrong-name failure mode.
-
 **S27 — One URL parameter per filter.**
 
 The `filters` parameter (`resource/state.rs`) nests `key:value,key2:value2` in one value, which
@@ -308,7 +348,13 @@ filtered URLs stop filtering.
 
 **Removes.** The nested grammar, its escaper, the overflow sentinel, and the script mirror.
 
-### Batch 6 — View
+**S18 — One live-or-plain link helper.**
+
+`render/core.rs` (twice), `render/filterbar.rs`, and `render/pager.rs` (twice) each match on the
+signals to emit either `href` plus a click handler or `href` alone.
+
+**Change.** One `live_link(cx, url, signals) -> Attributes`. After S10 the handler writes the URL's
+query, so the helper takes no per-control write.
 
 **S17 — The skeleton derives its chrome from the loaded table.**
 
@@ -321,14 +367,6 @@ test compares only the `<table>` opening tag.
 table's predicate.
 
 **Removes.** The layout jump on swap and one class of unchecked drift.
-
-**S18 — One live-or-plain link helper.**
-
-`render/core.rs` (twice), `render/filterbar.rs`, and `render/pager.rs` (twice) each match on the
-signals to emit either `href` plus a click handler or `href` alone.
-
-**Change.** One `live_link(cx, url, signals) -> Attributes`. After S10 the handler writes the URL's
-query, so the helper takes no per-control write.
 
 **S19 — Split `render_inner`.**
 
@@ -350,20 +388,7 @@ use.
 - The render layer repeats the bar class, the quiet link class, and `button_variants` as literals
   beside the `class!` constants. Use the constants.
 
-### Batch 7 — Infrastructure
-
-**S20 — Delete the `auth` cargo feature.**
-
-`crates/tablo-core/Cargo.toml` gates `argon2`, `password-hash`, and `topcoat/session` behind the
-default `auth` feature, and `auth_off.rs` stands in when it is off. No workspace member builds it
-off except `tablo-test`, which mirrors an empty `auth = []` feature to avoid Cargo feature
-unification (`crates/tablo-test/Cargo.toml`).
-
-**Change.** Delete the feature, `auth_off.rs`, and every `cfg(feature = "auth")`. `Auth::disabled()`
-stays the opt-out (ADR-0013).
-
-**Removes.** A parallel public API, the `tablo-test` workaround, and optional dependencies every
-build resolves.
+### PR 6 — Errors and guide
 
 **S24 — One error vocabulary.**
 
@@ -378,34 +403,6 @@ infrastructure failures. A crate `TabloError` enum (`Cursor`, `CursorRejected`, 
 `Stub`, `Infrastructure`) with one conversion into `topcoat::Error`.
 
 **Removes.** Two error-map vocabularies, one duplicate mapping, and classification by downcast.
-
-**S25 — Share the column machinery.**
-
-`resource/relation.rs` redeclares `WIDE_COLUMN_MIN_REM` from `render/core.rs`, re-derives the width
-arithmetic in `relation_widths`, and duplicates `into_columns_tuples!` as
-`into_relation_columns_tuples!`.
-
-**Change.** Share the width arithmetic and the tuple macro.
-
-**Removes.** The second column implementation.
-
-**S26 — One field classifier for both derives.**
-
-`tablo-macros/src/embedded.rs` classifies a leaf by type name against `PRIMITIVES`, which duplicates
-the `TypedValue` impls with no test linking the two and refuses an app type that implements
-`TypedValue`, which the guide invites. `record_form.rs` marks an embedded field with
-`#[record_form(embed)]` and binds every other field as a scalar unchecked, so a `Vec<String>` field
-reaches rustc as E0277 on generated tokens with no field span. Each record-form field emits and
-resolves its path and key three times.
-
-**Change.** One `tablo-macros/src/fields.rs` shared by both derives: a field is embedded when marked
-`#[form(embed)]`, and a scalar otherwise. A scalar emits a `FormScalar` bound assertion spanned on
-the field, so the error names the field and the fix. Delete `PRIMITIVES`. Bind each field's key and
-path once.
-
-**Removes.** The type-name table, one of two field walkers, and an unspanned E0277.
-
-### Batch 8 — Guide
 
 **G1 — A first-panel chapter.**
 
