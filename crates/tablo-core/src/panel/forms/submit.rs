@@ -146,9 +146,9 @@ fn complete(
 /// # Errors
 ///
 /// An error keyed to something this submission renders nowhere — a control the
-/// schema does not declare, a repeater group's label misspelled, a field a
-/// variant group hides: it cannot reach the user, and the write must not
-/// proceed past it.
+/// schema does not declare, a repeater group's label the schema does not carry,
+/// or a field of a variant group the submission names hides. No slot owns the
+/// message, and the write must not proceed past it.
 fn parse_form<R: Resource>(
     cx: &Cx,
     schema: &Schema,
@@ -202,8 +202,8 @@ fn parse_form<R: Resource>(
     }
 }
 
-/// Refuse an error whose key this submission renders nowhere: there is nowhere
-/// for the message to reach the user, and writing anyway would drop it.
+/// Refuse an error whose key this submission renders nowhere: no slot would
+/// carry the message, and writing anyway would drop it.
 fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> topcoat::Error {
     TabloError::Declaration(format!(
         "{source} refused {key:?}, which `{}` renders nowhere for this submission: {message}",

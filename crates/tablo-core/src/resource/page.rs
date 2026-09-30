@@ -197,7 +197,8 @@ where
 /// query's `ORDER BY`). No other statement this paginated loader builds carries
 /// that error while the request names a cursor. Such a failure is the cursor's,
 /// so it takes the cursor-stripped retry contract instead of re-requesting the
-/// identical URL forever; every other failure keeps the cursor.
+/// identical URL forever; every other failure is the database's, and takes the
+/// opaque mapping that keeps the driver's text in the log.
 fn reject_cursor(error: topcoat::Error, state: &TableState) -> topcoat::Error {
     let cursored = state.cursor.is_some();
     let rejected = error
@@ -206,6 +207,6 @@ fn reject_cursor(error: topcoat::Error, state: &TableState) -> topcoat::Error {
     if cursored && rejected {
         crate::cursor::rejected(&error)
     } else {
-        error
+        crate::error::unavailable(error)
     }
 }

@@ -312,11 +312,11 @@ impl Schema {
     /// Whether a render reads an error under `key` for this submission: a
     /// field's own name, or a repeater group's label — the two keys
     /// [`Source::errors_for`] reads — and not a field a variant group the
-    /// submission's discriminant does not name hides.
+    /// submission's discriminant does not name hides. A submission naming no
+    /// discriminant hides nothing, because the payload may name the variant.
     ///
-    /// An error under any other key has nowhere to reach the user, so the submit
-    /// handlers refuse it as a declaration error instead of blocking the write
-    /// behind a message no page shows.
+    /// A key no slot owns is one the submit handlers refuse as a declaration
+    /// error rather than block the write behind an error the form cannot place.
     pub(crate) fn renders_error_key(&self, values: &HashMap<String, String>, key: &str) -> bool {
         // A repeater's own error slot is keyed by its label (see
         // `walk_absent_groups`), which no field carries.

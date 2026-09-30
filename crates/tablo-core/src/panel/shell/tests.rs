@@ -95,6 +95,11 @@ async fn document_wraps_a_public_page() {
         1,
         "exactly one body element, got {html}"
     );
+    assert_eq!(
+        html.matches("<head>").count(),
+        1,
+        "exactly one head element, got {html}"
+    );
     assert!(
         html.contains("<div class=\"blog\">"),
         "missing the page's own content in {html}"
