@@ -32,6 +32,7 @@ pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use filter::{DateFilter, Filter, IntoFilters, SelectFilter, TernaryFilter, VariantFilter};
 use naming::{kebab_case, pluralize, type_short_name};
+pub(crate) use navigation::runtime_link;
 pub use navigation::{NavTarget, NavigationItem};
 pub use relation::{
     IntoRelationColumns, MAX_RELATION_ROWS, RelationColumn, RelationColumns, render_relation,
@@ -60,17 +61,18 @@ pub(crate) use crate::query_term::clamp_query_term;
 /// - **Checked at [`Panel::build`](crate::panel::Panel::build)**: the declared table must serve a
 ///   list, and [`form`](Self::form) must agree with [`Form`](Self::Form): a record form's fields
 ///   are the schema's controls, and a [`NoForm`](crate::NoForm) resource declares no schema. A
-///   resource with no form must not allow [`can_create`](Self::can_create) or
-///   [`editable`](Self::editable). These are declarations, checked with a Db-only context.
+///   resource with no form must not allow [`can_create`](Self::can_create). These are declarations,
+///   checked with a Db-only context.
 /// - **Loud at request time**: [`delete_record`](Self::delete_record) defaults to an error naming
 ///   the type, so a resource that never implemented delete says so instead of writing nothing
 ///   quietly. [`bulk_delete_records`](Self::bulk_delete_records) loops `delete_record` by default,
 ///   so it stays loud through the same stub.
-/// - **Opt-in chrome, gated per record**: [`deletable`](Self::deletable) and
-///   [`editable`](Self::editable) are whole-resource flags, false by default; see
-///   [`deletable`](Self::deletable) for how the row predicates narrow them.
-/// - **Default-deny is untouched**: every `can_*` defaults to `false`, so an unconfigured resource
-///   exposes no data and no mutation.
+/// - **Chrome follows the declarations**: the row Delete control and the bulk column render when
+///   [`can_delete_any`](Self::can_delete_any) allows, the Edit link when the resource has a record
+///   form, and the View link when it declares [`view`](Self::view); the row predicates then gate
+///   each row.
+/// - **Default-deny is untouched**: every `can_*` defaults to `false`, except `can_delete`, which
+///   defaults to `can_delete_any`; an unconfigured resource exposes no data and no mutation.
 pub trait Resource: Sized + Send + Sync + 'static {
     /// The persisted model this resource administers.
     ///
@@ -145,37 +147,27 @@ pub trait Resource: Sized + Send + Sync + 'static {
         false
     }
 
+    /// Whether the current user may delete records of this resource at all.
+    ///
+    /// Decides whether the list renders the row Delete control, the bulk
+    /// column, and the bulk bar, and gates the single-delete and bulk-delete
+    /// POSTs before any record loads. The column decision takes no record, so
+    /// the streamed skeleton and the table agree on their columns. The default
+    /// [`can_delete`](Self::can_delete) also calls it once per row.
+    fn can_delete_any(_cx: &Cx) -> bool {
+        false
+    }
+
     /// Whether the current user may delete the given record.
     ///
-    /// Checked on the single-delete and bulk-delete POSTs together with
-    /// `can_view` — the edit contract: a record that cannot be
-    /// viewed cannot be deleted by UUID-guessing the route.
-    fn can_delete(_cx: &Cx, _record: &Self::Model) -> bool {
-        false
-    }
-
-    /// Whether this resource exposes row and bulk delete chrome.
-    ///
-    /// Chrome is opt-in: the default renders no Delete button, no bulk bar and
-    /// no confirmation dialog, because the server policy
-    /// ([`can_view`](Self::can_view) and [`can_delete`](Self::can_delete), both
-    /// default-deny) answers 403 to every one of them. Override to `true`
-    /// alongside those predicates.
-    ///
-    /// This flag is the whole-resource gate; the panel wires the predicates into
-    /// the table's row policy, so a row they refuse
-    /// renders no Delete link and a disabled bulk checkbox. The handler keeps
-    /// its all-or-nothing check as the safety net for a hand-crafted POST.
-    fn deletable() -> bool {
-        false
-    }
-
-    /// Whether this resource exposes row edit chrome.
-    ///
-    /// The same opt-in flag and per-row rule as [`Self::deletable`], gated by
-    /// [`can_view`](Self::can_view) + [`can_update`](Self::can_update).
-    fn editable() -> bool {
-        false
+    /// Defaults to [`can_delete_any`](Self::can_delete_any); override to
+    /// refuse some rows. Checked on the single-delete and bulk-delete POSTs
+    /// after `can_delete_any` and together with `can_view` — the edit
+    /// contract: a record that cannot be viewed cannot be deleted by
+    /// UUID-guessing the route. A row it refuses renders no Delete control and
+    /// no bulk checkbox.
+    fn can_delete(cx: &Cx, _record: &Self::Model) -> bool {
+        Self::can_delete_any(cx)
     }
 
     /// How one record is displayed on the detail page, read-only.

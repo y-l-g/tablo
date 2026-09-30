@@ -84,7 +84,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
                             (submit_label)
                         )
                         <a
-                            href=(list_url(cx, &R::slug()))
+                            (crate::resource::runtime_link(cx, &list_url(cx, &R::slug())))
                             class=(tablo_ui::button_variants(
                                 tablo_ui::ButtonVariant::Outline,
                                 tablo_ui::ButtonSize::Md,

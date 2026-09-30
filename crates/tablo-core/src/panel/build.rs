@@ -235,8 +235,14 @@ impl Panel {
         // The runtime layer registers last, outside every other pathless
         // layer: a page re-run is a marked POST the layer rewrites into a
         // GET for the page's own URL, and the layers it wraps must receive
-        // the rewritten GET rather than the discarded POST.
-        Ok(builder.runtime().build())
+        // the rewritten GET rather than the discarded POST. Panel links
+        // navigate through it without prefetching: a prefetch renders the
+        // destination, list queries included, for a page the user may never
+        // open.
+        Ok(builder
+            .runtime()
+            .prefetch(topcoat::runtime::PrefetchMode::Never)
+            .build())
     }
 }
 
@@ -402,7 +408,7 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
 /// A resource with a record form declares its schema and runs
 /// [`check_form_inner`]. A resource whose form serves no pages
 /// ([`RecordForm::HAS_FORM`] false) declares no schema, and a policy that
-/// allows create or an edit link would lead nowhere.
+/// allows create would link to a page that does not exist.
 fn check_form_declaration<R: Resource>(cx: &Cx) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
     let form = std::any::type_name::<R::Form>();
@@ -423,16 +429,13 @@ fn check_form_declaration<R: Resource>(cx: &Cx) -> Result<(), String> {
              form — name the record form in `type Form`"
         ));
     }
-    let declared = match (R::can_create(cx), R::editable()) {
-        (true, true) => "create and edit",
-        (true, false) => "create",
-        (false, true) => "edit",
-        (false, false) => return Ok(()),
-    };
-    Err(format!(
-        "resource `{resource}` allows {declared} but has no form — name its record form in `type \
-         Form` and declare `form()`"
-    ))
+    if R::can_create(cx) {
+        return Err(format!(
+            "resource `{resource}` allows create but has no form — name its record form in `type \
+             Form` and declare `form()`"
+        ));
+    }
+    Ok(())
 }
 
 fn check_form_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
@@ -1224,10 +1227,7 @@ mod tests {
             fn slug() -> String {
                 "subscribers".to_string()
             }
-            fn deletable() -> bool {
-                true
-            }
-            fn editable() -> bool {
+            fn can_delete_any(_cx: &Cx) -> bool {
                 true
             }
             fn table(_cx: &Cx) -> Table<Subscriber> {

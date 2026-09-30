@@ -30,7 +30,10 @@ function applyVariant(select) {
   const root = select.form || document;
   root.querySelectorAll('[data-variant-of]').forEach((group) => {
     if (group.getAttribute('data-variant-of') !== owner) return;
-    group.hidden = group.getAttribute('data-variant') !== select.value;
+    const hidden = group.getAttribute('data-variant') !== select.value;
+    // Write only a change: the observer below watches `hidden`, so an
+    // unconditional write would wake it again.
+    if (group.hidden !== hidden) group.hidden = hidden;
   });
 }
 
@@ -49,6 +52,18 @@ function install() {
   // Every asset is `defer`red (ADR-0014), so the markup is parsed by the time
   // this runs.
   applyVariants();
+  // Runtime navigation morphs the next page into this one without running
+  // this script again: it adds a form's markup, or reuses the old nodes and
+  // drops the `hidden` this script set, or moves a select's `selected`
+  // option. Re-apply after each; the write-on-change above makes it settle.
+  if (typeof MutationObserver !== 'undefined' && document.documentElement) {
+    new MutationObserver(() => applyVariants()).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden', 'selected'],
+    });
+  }
 }
 
 if (typeof document !== 'undefined') install();

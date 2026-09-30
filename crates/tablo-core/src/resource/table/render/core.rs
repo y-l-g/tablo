@@ -392,7 +392,7 @@ impl<M> Table<M> {
                                         <div class="flex gap-2">
                                             if let Some(url) = view_for_row {
                                                 <a
-                                                    href=(url)
+                                                    (crate::resource::runtime_link(cx, &url))
                                                     class=(button_variants(
                                                         ButtonVariant::Outline,
                                                         ButtonSize::Md,
@@ -403,7 +403,7 @@ impl<M> Table<M> {
                                             }
                                             if let Some(url) = edit_for_row {
                                                 <a
-                                                    href=(url)
+                                                    (crate::resource::runtime_link(cx, &url))
                                                     class=(button_variants(
                                                         ButtonVariant::Outline,
                                                         ButtonSize::Md,
@@ -449,9 +449,10 @@ impl<M> Table<M> {
         //
         // The signal is declared here, inside the shard's own output, so it
         // belongs to the shard's content scope: its id derives from the shard
-        // invocation's identity and this call site, so it is stable across
-        // reruns and distinct per shard, and the runtime keeps its value when
-        // the declaration renders again. Reading it for the input's initial
+        // invocation's identity, this call site, and the list path, so it is
+        // stable across reruns and distinct per list (every resource's list
+        // runs the same shard), and the runtime keeps its value when the
+        // declaration renders again. Reading it for the input's initial
         // value is what declares the dependency; the token itself is opaque.
         //
         // A static table renders no control at all: it has no shard to re-run,
@@ -459,7 +460,7 @@ impl<M> Table<M> {
         // So the control's presence *is* the page's answer to
         // "can this table refresh in place?".
         let revision_attrs = signals.as_ref().map(|_| {
-            let revision = topcoat::runtime::signal(cx, || "0".to_string());
+            let revision = topcoat::runtime::signal(&cx.keyed(path), || "0".to_string());
             attributes! {
                 cx =>
                 type="hidden"

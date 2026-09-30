@@ -94,7 +94,7 @@ impl Resource for AuditedResource {
         true
     }
 
-    fn can_delete(_cx: &Cx, _record: &Note) -> bool {
+    fn can_delete_any(_cx: &Cx) -> bool {
         true
     }
 

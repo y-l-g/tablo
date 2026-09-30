@@ -1,6 +1,18 @@
 //! Sidebar navigation: [`NavigationItem`] and the [`NavTarget`] it points with.
 
+use topcoat::{context::Cx, view::Attributes};
+
 use super::Resource;
+
+/// The `href` and runtime-navigation attributes of a link to another panel
+/// page (GH #395).
+///
+/// The runtime swaps the page in without a document load. The mode is the
+/// context's [`prefetch_mode`](topcoat::runtime::prefetch_mode), which the
+/// panel's router sets to never.
+pub(crate) fn runtime_link(cx: &Cx, href: &str) -> Attributes {
+    topcoat::runtime::link_attrs(cx, href.to_string(), topcoat::runtime::prefetch_mode(cx))
+}
 
 /// Where a sidebar entry points.
 ///

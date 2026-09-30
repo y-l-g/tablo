@@ -95,7 +95,7 @@ record key (edit/delete URLs, bulk checkbox values), resolved by handlers as the
 typed PK. A table whose display projects a non-PK value uses
 `Table::new_split(display, record, columns)`.
 
-Row chrome is opt-in per resource (`TableChrome`, GH #226) and gated per record by the table's
+Row chrome follows the resource's declarations (`TableChrome`, GH #383) and is gated per record by the table's
 **row policy**, which the panel wires from the resource's
 `can_view`/`can_update`/`can_delete`: a refused row renders no link, and a delete-refused row no
 bulk checkbox. The handler's all-or-nothing check stays as
@@ -167,35 +167,16 @@ _Avoid_: Scope, EloquentQuery, Builder (as domain term)
 ### Policy
 
 The per-Resource authorization rules, implemented as `Resource::can_view_any`/`can_view`/
-`can_create`/`can_update`/`can_delete` — the one authorization vocabulary. Default-deny; checked
-in both page and POST handlers, and in relationship option loads (GH #108). The row/bulk chrome
-that promises these actions is opt-in to match (GH #226): `Resource::editable`/`deletable` default
-to `false`, and the panel applies the predicates per row through the table's row policy (GH #235).
-`Resource::viewed` works the same way, derived from the declared `view` schema. See
-[policy, auth, tenancy](docs/guide/src/policy-auth-tenancy.md).
+`can_create`/`can_update`/`can_delete_any`/`can_delete` — the one authorization vocabulary.
+Default-deny; checked in both page and POST handlers, and in relationship option loads (GH #108).
+The row chrome follows the declarations that also govern each route (GH #383): the row Delete
+control, the bulk column, and the bulk bar render when `can_delete_any` allows, the Edit link when
+the resource has a record form, and the View link when `Resource::viewed` holds. The panel then
+applies `can_view` + `can_update` / `can_delete` per row through the table's row policy (GH #235):
+a refused row renders no link and an empty bulk cell. `can_delete` defaults to `can_delete_any`.
+See [policy, auth, tenancy](docs/guide/src/policy-auth-tenancy.md).
 
 _Avoid_: Guard, Permission, Gate, Ability, Policy trait
-
-### editable
-
-A **chrome switch**, not a policy predicate: `Resource::editable()` decides whether the per-row
-`Edit` link renders (GH #162). Defaults to `false` (GH #226). A resource that opts in overrides
-it to `true` alongside the predicate it promises (`can_view` + `can_update`), which the panel
-applies per record (GH #235). It grants nothing: the edit GET and POST always require
-`can_view` + `can_update`, and the routes exist whether or not the link renders.
-
-_Avoid_: Writable, Mutable, can_edit
-
-### deletable
-
-A **chrome switch**, not a policy predicate: `Resource::deletable()` decides whether the row
-Delete button and the bulk checkbox column render (GH #96). Defaults to `false` (GH #226).
-A resource that opts in overrides it to `true` alongside `can_view` + `can_delete`, which the
-panel applies per record (GH #235): a refused row renders no Delete link and a **disabled** bulk
-checkbox labelled with the reason. It grants nothing: `delete_record`/`bulk_delete_records`
-re-check `can_delete` on the loaded record inside the handler's transaction.
-
-_Avoid_: Destroyable, Removable, can_delete
 
 ### NavigationItem
 
