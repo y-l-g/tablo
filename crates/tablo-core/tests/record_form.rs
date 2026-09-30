@@ -66,10 +66,10 @@ impl Resource for ItemResource {
         item_schema()
     }
 
-    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemForm> {
+    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors {
         let mut errors = FieldErrors::new();
         if form.priority > 10 {
-            errors.add(ItemFormField::Priority, "Priority is at most 10");
+            errors.add("priority", "Priority is at most 10");
         }
         errors
     }
@@ -338,6 +338,71 @@ async fn schema_and_record_errors_render_in_one_round() {
     assert!(html.contains("Priority is at most 10"), "{html}");
     let stored = reload(&db, item.id).await;
     assert_eq!(stored.priority, 7, "a refused submission writes nothing");
+}
+
+/// A `validate_record` error keyed to a repeater group's label renders in the
+/// group's own slot, with a 200: the label is a key like any other.
+#[tokio::test]
+async fn a_repeater_label_keyed_rule_renders_in_the_group() {
+    struct Tagged;
+
+    impl Resource for Tagged {
+        type Model = Item;
+        type Form = ItemForm;
+
+        /// Every control `ItemForm` binds, with the tagged ones inside the
+        /// group the rule answers for.
+        fn form(_cx: &Cx) -> Schema {
+            Schema::new((
+                Field::text(Item::fields().title()),
+                Repeater::new("Tags").schema((
+                    Field::text(Item::fields().notes()).optional(),
+                    Field::text(Item::fields().priority()).optional(),
+                    Field::choice(Item::fields().done())
+                        .options(vec!["true".to_string(), "false".to_string()])
+                        .optional(),
+                )),
+            ))
+        }
+
+        fn validate_record(_cx: &Cx, _form: &ItemForm) -> FieldErrors {
+            let mut errors = FieldErrors::new();
+            errors.add("Tags", "At least one tag");
+            errors
+        }
+
+        fn slug() -> String {
+            "items".to_string()
+        }
+
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+
+        fn can_view(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn can_update(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn table(_cx: &Cx) -> Table<Item> {
+            item_table(_cx)
+        }
+    }
+
+    let db = item_db().await;
+    let item = seed_item(&db).await;
+    let router = panel_router::<Tagged>(db.clone());
+    let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
+    assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
+    let html = body_string(response).await;
+    assert!(
+        html.contains("At least one tag"),
+        "the group's label-keyed error must render in its slot, got {html}"
+    );
+    assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
 }
 
 /// The detail page of a form resource reads the form's projection, so the page
@@ -883,9 +948,9 @@ async fn an_unkeyable_record_rule_fails_closed() {
             Schema::empty()
         }
 
-        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<Keyless> {
+        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors {
             let mut errors = FieldErrors::new();
-            errors.add(PriorityFormField::Priority, "never");
+            errors.add("priority", "never");
             errors
         }
 
@@ -909,6 +974,90 @@ async fn an_unkeyable_record_rule_fails_closed() {
     let db = item_db().await;
     let item = seed_item(&db).await;
     let router = panel_router::<Refusing>(db.clone());
+    let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
+}
+
+/// A form whose own parse refuses a key the schema renders nowhere fails
+/// closed too: the message could never reach the page.
+#[tokio::test]
+async fn an_unkeyable_parse_failure_fails_closed() {
+    /// [`PriorityForm`] with no keys, refusing on a key nothing renders.
+    struct Unkeyable(PriorityForm);
+
+    impl RecordForm for Unkeyable {
+        type Model = Item;
+        type Field = PriorityFormField;
+
+        fn fields(_cx: &Cx) -> Vec<tablo_core::FormField<PriorityFormField>> {
+            Vec::new()
+        }
+
+        fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
+            PriorityForm::hydrate(cx, record)
+        }
+
+        fn parse(
+            _cx: &Cx,
+            _values: &HashMap<String, String>,
+        ) -> Result<Self, Vec<tablo_core::FieldError>> {
+            Err(vec![tablo_core::FieldError::invalid(
+                "never",
+                "never renders",
+            )])
+        }
+
+        fn into_create(self) -> <Item as toasty::schema::Model>::Create {
+            self.0.into_create()
+        }
+
+        fn into_update<'a>(
+            self,
+            record: &'a mut Item,
+            named: &HashSet<PriorityFormField>,
+        ) -> Option<<Item as toasty::schema::Model>::Update<'a>> {
+            self.0.into_update(record, named)
+        }
+
+        fn exec_update<'a>(
+            update: <Item as toasty::schema::Model>::Update<'a>,
+            ex: &'a mut dyn toasty::Executor,
+        ) -> impl std::future::Future<Output = toasty::Result<()>> + Send + 'a {
+            PriorityForm::exec_update(update, ex)
+        }
+    }
+
+    struct Parseless;
+
+    impl Resource for Parseless {
+        type Model = Item;
+        type Form = Unkeyable;
+
+        fn form(_cx: &Cx) -> Schema {
+            Schema::empty()
+        }
+
+        fn slug() -> String {
+            "items".to_string()
+        }
+
+        fn can_view(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn can_update(_cx: &Cx, _record: &Item) -> bool {
+            true
+        }
+
+        fn table(_cx: &Cx) -> Table<Item> {
+            item_table(_cx)
+        }
+    }
+
+    let db = item_db().await;
+    let item = seed_item(&db).await;
+    let router = panel_router::<Parseless>(db.clone());
     let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");

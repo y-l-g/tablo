@@ -16,7 +16,7 @@ use std::{
 
 use topcoat::context::{Cx, try_app_context};
 
-use crate::schema::Schema;
+use crate::{form::FieldErrors, schema::Schema};
 
 /// Store one uploaded file and name the value a record stores.
 ///
@@ -123,11 +123,6 @@ impl<U: Uploader> DynUploader for U {
     }
 }
 
-/// Inline errors from a failed store, keyed by field name: the shape
-/// [`Schema::validate`](crate::schema::Schema::validate) answers with, so the
-/// handler merges the two without translating.
-pub(crate) type UploadErrors = HashMap<String, Vec<String>>;
-
 /// Whether this panel has an uploader installed.
 ///
 /// The multipart parser asks before staging bytes: with no uploader they would
@@ -158,8 +153,8 @@ pub(crate) async fn holds(cx: &Cx, path: &str) -> bool {
     }
 }
 
-/// Run the installed uploader over the file parts this form submitted
-/// returning `field_name -> inline errors` and the fields whose
+/// Run the installed uploader over the file parts this form submitted,
+/// returning the inline errors keyed by field name and the fields whose
 /// value is now the uploader's answer.
 ///
 /// For each declared file field ([`Field::file`](crate::schema::Field::file)) that carried
@@ -187,11 +182,11 @@ pub(crate) async fn store_uploads(
     schema: &Schema,
     files: &HashMap<String, StagedUpload>,
     values: &mut HashMap<String, String>,
-) -> (UploadErrors, HashSet<String>) {
+) -> (FieldErrors, HashSet<String>) {
     let Some(uploader) = installed_uploader(cx) else {
-        return (UploadErrors::new(), HashSet::new());
+        return (FieldErrors::new(), HashSet::new());
     };
-    let mut errors = UploadErrors::new();
+    let mut errors = FieldErrors::new();
     let mut stored = HashSet::new();
     // Declared uploads only: a file part the schema does not declare is not a
     // field this form may write (the unknown-key allow-list answers for it).
@@ -207,12 +202,9 @@ pub(crate) async fn store_uploads(
             }
             Err(reason) => {
                 values.remove(&name);
-                errors.insert(
+                errors.add(
                     name,
-                    vec![format!(
-                        "{} could not be uploaded: {reason}",
-                        field.label_str()
-                    )],
+                    format!("{} could not be uploaded: {reason}", field.label_str()),
                 );
             }
         }

@@ -457,6 +457,28 @@ impl Panel {
         Self::render_document(cx, brand_title, shell).await
     }
 
+    /// The complete HTML document around a page the panel does not own.
+    ///
+    /// An app-level `#[layout]` outside the panel prefix takes the panel's
+    /// document from here, so a public page carries the same head as the admin
+    /// shell: the dev script, the theme init, and — where
+    /// [`Self::shell_assets`] registered them — the runtime script, the font,
+    /// the stylesheet, and the shell scripts. Without those values the head
+    /// degrades to the dev script and the theme init, which is what lets a
+    /// router built without `.assets(..)` render at all.
+    ///
+    /// `body` is the page's own content: the panel renders the `<body>` element,
+    /// its dark-mode `<html>` class, and the head; the page owns its chrome
+    /// inside. `title` is the page's own, where [`Self::layout_shell`] titles an
+    /// admin page with the panel's [`Brand`].
+    pub async fn document<'a>(
+        cx: &'a Cx,
+        title: impl Into<String>,
+        body: impl View + 'a,
+    ) -> Result<BoxView<'a>> {
+        Self::render_document(cx, title.into(), body.boxed()).await
+    }
+
     /// The complete HTML document around a rendered body: assets, dark-mode
     /// class, and title. [`Self::layout_shell`] frames the panel shell with
     /// it; the standalone login page (ADR-0013) uses the same document so

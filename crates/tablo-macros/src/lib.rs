@@ -84,7 +84,7 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The derive also emits `UserFormField`, one variant per field, which
-/// `FieldErrors` and `Posted` key on.
+/// `Posted` keys on and `RecordForm::fields` answers with each variant's keys.
 ///
 /// # Attributes
 ///

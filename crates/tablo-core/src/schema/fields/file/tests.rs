@@ -6,7 +6,10 @@ use super::{
     super::test_support::{attributes_of, cx, opening_tag_at, tag_with},
     *,
 };
-use crate::schema::{Schema, Source};
+use crate::{
+    form::FieldErrors,
+    schema::{Schema, Source},
+};
 
 #[tokio::test]
 async fn file_upload_renders_without_value_attr() {
@@ -22,7 +25,7 @@ async fn file_upload_renders_without_value_attr() {
     let mut values = HashMap::new();
     values.insert("path".to_string(), "/tmp/old.jpg".to_string());
     let html = schema
-        .render(&cx, Source::form(&values, &HashMap::new()))
+        .render(&cx, Source::form(&values, &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -65,7 +68,7 @@ async fn render_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String 
         values.insert("path".to_string(), value.to_string());
     }
     schema
-        .render(cx, Source::form(&values, &HashMap::new()))
+        .render(cx, Source::form(&values, &FieldErrors::new()))
         .await
         .unwrap()
         .single()

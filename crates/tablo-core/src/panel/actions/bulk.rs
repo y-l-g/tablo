@@ -87,14 +87,14 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 return Err(topcoat::router::error::not_found().into());
             };
             let mut db = db(cx);
-            let mut tx = db.transaction().await.map_err(crate::db::unavailable)?;
+            let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
             // The batch fetch reads only the records' own columns:
             // the policy predicates and the write below never touch a relation.
             let rows = crate::resource::scoped_query::<R>(cx)?
                 .filter(pk_filter)
                 .exec(&mut tx)
                 .await
-                .map_err(crate::db::unavailable)?;
+                .map_err(crate::error::unavailable)?;
             if rows.len() != ids.len() {
                 return Err(topcoat::router::error::not_found().into());
             }

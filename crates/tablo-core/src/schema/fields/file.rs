@@ -14,7 +14,7 @@ impl Field {
         &self,
         cx: &'a Cx,
         value: Option<&str>,
-        errors: &[String],
+        error: Option<&str>,
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         // The detail page shows the stored path, never a file control: an
@@ -30,7 +30,7 @@ impl Field {
         let stored = stored_path(value);
         let is_edit = stored.is_some();
         let control_required = self.required && !is_edit;
-        let chrome = FieldChrome::new(&name, errors, None);
+        let chrome = FieldChrome::new(&name, error, None);
         let hint_id = format!("{name}-hint");
         // The clear flag is a framework transport key, not a field:
         // it names the stored value's owner and is stripped before any record

@@ -34,7 +34,7 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
             }
             Err(error) => {
                 notify_write_failure(cx, failure);
-                Err(crate::db::unavailable(error))
+                Err(crate::error::unavailable(error))
             }
         },
         // A record fn's error is not echoed raw: the driver's text goes to the
@@ -45,7 +45,10 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
         // classified as an inline field error here.
         Err(error) => {
             notify_write_failure(cx, failure);
-            Err(crate::db::hook_failure(error))
+            Err(crate::error::driver_failure(
+                error,
+                crate::error::DATABASE_UNAVAILABLE,
+            ))
         }
     }
 }

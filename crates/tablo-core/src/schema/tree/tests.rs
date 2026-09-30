@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::*;
 use crate::{
+    form::FieldErrors,
     schema::{Group, Schema, Section},
     test_support::cx,
 };
@@ -24,7 +25,7 @@ async fn fields_compose_in_a_tuple() {
         Field::text(DummyUser::fields().email()),
     ));
     let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -50,7 +51,7 @@ async fn schema_composes_multiple_blocks() {
         Group::new().schema(Field::text(DummyUser::fields().email())),
     ));
     let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -81,7 +82,7 @@ async fn empty_schema_renders_empty() {
     let cx = cx();
     let schema = Schema::empty();
     let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
+        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -113,7 +114,7 @@ async fn nested_blocks_keep_their_field_slots() {
         ("email".to_string(), "ada@example.com".to_string()),
     ]);
     let html = schema
-        .render(&cx, Source::form(&values, &HashMap::new()))
+        .render(&cx, Source::form(&values, &FieldErrors::new()))
         .await
         .unwrap()
         .single()

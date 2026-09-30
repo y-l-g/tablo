@@ -1528,7 +1528,7 @@ fn retry_url_for_error_drops_only_bad_cursors() {
         "bad-cursor retry keeps the other state, got {retry}"
     );
 
-    let db_error = topcoat::Error::from(std::io::Error::other("db unavailable"));
+    let db_error = crate::error::unavailable("connection reset");
     let retry = retry_url_for_error(&state, &db_error, "/admin/users");
     assert!(
         retry.contains("after=cur"),

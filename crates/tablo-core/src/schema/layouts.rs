@@ -264,9 +264,9 @@ impl Repeater {
         // label is the only stable key until repeaters become field-bound.
         // `errors_for` is the one place "view mode has no errors" lives, so a
         // second layout that reads errors cannot forget it.
-        let own_errors: &[String] = source.errors_for(&self.label);
-        let has_error = !own_errors.is_empty();
-        let error_text = own_errors.first().cloned().unwrap_or_default();
+        let own_error = source.errors_for(&self.label);
+        let has_error = own_error.is_some();
+        let error_text = own_error.unwrap_or_default().to_string();
         // The group's error is described by the panel, so it needs an id to
         // be referenced by; the label is the key, and a label is not
         // usable as one (ids cannot carry whitespace).

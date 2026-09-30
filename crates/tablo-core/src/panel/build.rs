@@ -22,7 +22,7 @@ use super::{
     search::SearchRegistry,
     shell::DarkMode,
 };
-use crate::{form::RecordForm, resource::Resource};
+use crate::{error::TabloError, form::RecordForm, resource::Resource};
 
 impl Panel {
     /// Build the [`Router`], discovering all `#[page]` / `#[layout]` / `#[shard]`
@@ -41,15 +41,15 @@ impl Panel {
     /// back as an error the caller can log or exit on.
     pub fn build(self) -> topcoat::Result<Router> {
         if !self.registration_errors.is_empty() {
-            return Err(std::io::Error::other(format!(
+            return Err(TabloError::Declaration(format!(
                 "Panel::build: {}",
                 self.registration_errors.join("; ")
             ))
             .into());
         }
         if self.shell_assets.is_some() && self.assets.is_none() {
-            return Err(std::io::Error::other(
-                "Panel::build requires assets when shell_assets are configured",
+            return Err(TabloError::Declaration(
+                "Panel::build requires assets when shell_assets are configured".to_string(),
             )
             .into());
         }
@@ -75,9 +75,7 @@ impl Panel {
             auth,
         } = self;
         let db = db.ok_or_else(|| {
-            topcoat::Error::from(std::io::Error::other(
-                "Panel::build requires a Db via app_context",
-            ))
+            TabloError::Declaration("Panel::build requires a Db via app_context".to_string())
         })?;
         // Declaration checks: a resource whose table or form could
         // never render is a configuration error, and the declaration is
@@ -91,7 +89,7 @@ impl Panel {
                 .filter_map(|check| check(&cx).err())
                 .collect();
             if !failures.is_empty() {
-                return Err(std::io::Error::other(format!(
+                return Err(TabloError::Declaration(format!(
                     "Panel::build: {}",
                     failures.join("; ")
                 ))

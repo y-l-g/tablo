@@ -91,6 +91,35 @@ fn a_hidden_variant_group_is_not_validated() {
     );
 }
 
+/// The key space a submission renders: the discriminant, a shared column, and
+/// the named variant's leaves. A hidden variant's leaf renders nowhere.
+#[test]
+fn a_hidden_variants_leaf_is_not_an_error_key() {
+    let schema = Schema::new(two_variants());
+    let named = map(&[("kind", "1")]);
+    assert!(
+        schema.renders_error_key(&named, "kind") && schema.renders_error_key(&named, "name"),
+        "the discriminant and a shared column render under every variant"
+    );
+    assert!(
+        schema.renders_error_key(&named, "email"),
+        "the named variant's leaf renders"
+    );
+    assert!(
+        !schema.renders_error_key(&named, "id"),
+        "the other variant's leaf renders nowhere"
+    );
+    let unnamed = map(&[("kind", "")]);
+    assert!(
+        schema.renders_error_key(&unnamed, "email") && schema.renders_error_key(&unnamed, "id"),
+        "a submission naming no variant hides nothing"
+    );
+    assert!(
+        !schema.renders_error_key(&named, "bogus"),
+        "a key no field carries renders nowhere"
+    );
+}
+
 /// A shared column is one field and one key, whichever variants declare it.
 #[test]
 fn a_shared_column_is_one_field_and_one_key() {

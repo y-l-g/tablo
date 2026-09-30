@@ -28,9 +28,9 @@ use crate::{
 /// The theme's sans font, pulled from Fontsource and self-hosted as a Topcoat
 /// asset.
 ///
-/// `pub(crate)` so the public blog's layout links the same font as the admin
-/// shell: one document contract, one typeface.
-pub(crate) const GEIST: Font = fontsource_font!(GEIST, host: Asset);
+/// Registered as the panel's shell font, so the admin shell and every document
+/// `Panel::document` renders link the same typeface.
+const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
 /// How many words `body` holds: whitespace-separated tokens.
 ///
@@ -96,10 +96,10 @@ impl Resource for UserResource {
     /// A stored integer holds zero or more: a non-number is the typed rule's
     /// error, and a negative is this rule's. Both render inline with a 200 and
     /// write nothing, never a 500 from a record fn.
-    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserForm> {
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors {
         let mut errors = FieldErrors::new();
         if form.age < 0 {
-            errors.add(UserFormField::Age, "Age must be zero or more");
+            errors.add("age", "Age must be zero or more");
         }
         errors
     }

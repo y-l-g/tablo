@@ -17,6 +17,7 @@ use super::{
     layouts::{Grid, Group, Repeater, Section},
     validation::required_error,
 };
+use crate::form::FieldErrors;
 
 #[derive(Debug)]
 pub(crate) enum Node {
@@ -38,15 +39,12 @@ pub(crate) enum Node {
 /// declares.
 pub struct Source<'a> {
     values: &'a HashMap<String, String>,
-    errors: Option<&'a HashMap<String, Vec<String>>>,
+    errors: Option<&'a FieldErrors>,
 }
 
 impl<'a> Source<'a> {
     /// A form render: controls hydrated with `values`, with `errors` inline.
-    pub fn form(
-        values: &'a HashMap<String, String>,
-        errors: &'a HashMap<String, Vec<String>>,
-    ) -> Self {
+    pub fn form(values: &'a HashMap<String, String>, errors: &'a FieldErrors) -> Self {
         Self {
             values,
             errors: Some(errors),
@@ -77,13 +75,12 @@ impl<'a> Source<'a> {
         self.values.get(name).map(String::as_str)
     }
 
-    /// The errors for `name`. A view has none: it renders a stored record, so
-    /// a validation slot would describe a submit that cannot happen.
-    pub(crate) fn errors_for(&self, name: &str) -> &[String] {
+    /// The error `name` renders. A view has none: it renders a stored record,
+    /// so a validation slot would describe a submit that cannot happen.
+    pub(crate) fn errors_for(&self, name: &str) -> Option<&str> {
         self.errors
-            .and_then(|errors| errors.get(name))
-            .map(Vec::as_slice)
-            .unwrap_or(&[])
+            .and_then(|errors| errors.first(name))
+            .map(|error| error.message.as_str())
     }
 }
 
@@ -217,7 +214,7 @@ pub(crate) fn walk_absent_groups(
     fields: &[Field],
     values: &HashMap<String, String>,
     skip: &mut HashSet<String>,
-    errors: &mut HashMap<String, Vec<String>>,
+    errors: &mut FieldErrors,
     inside_absent: bool,
 ) {
     let name = |index: usize| fields[index].name().to_string();
@@ -237,10 +234,8 @@ pub(crate) fn walk_absent_groups(
                     .all(|n| values.get(n).map(|v| v.trim().is_empty()).unwrap_or(true));
                 if all_empty {
                     skip.extend(inner);
-                    if r.required && !inside_absent {
-                        errors
-                            .entry(r.label.clone())
-                            .or_insert_with(|| vec![required_error(&r.label)]);
+                    if r.required && !inside_absent && !errors.contains_key(&r.label) {
+                        errors.add_required(&r.label, required_error(&r.label));
                     }
                 }
                 walk_absent_groups(

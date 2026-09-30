@@ -46,10 +46,10 @@ impl Resource for UserResource {
 
     fn form(_cx: &Cx) -> Schema { /* the controls, as below */ }
 
-    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserForm> {
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors {
         let mut errors = FieldErrors::new();
         if form.age < 0 {
-            errors.add(UserFormField::Age, "Age must be zero or more");
+            errors.add("age", "Age must be zero or more");
         }
         errors
     }
@@ -57,6 +57,11 @@ impl Resource for UserResource {
 
 Panel::new("admin").resource::<UserResource>()
 ```
+
+Each error names the key it renders under — the control's own key, an embedded value's flattened
+one, or a `Repeater` group's label. A key the submitted form renders nowhere — one the schema
+declares no control for, or a field of a variant group the chosen variant hides — fails the submit
+as a declaration error instead of writing past the rule.
 
 A resource with a record form gets the create page, the edit page, and the relationship-options
 endpoint. A list-only resource names `type Form = NoForm<Self::Model>;` and leaves `form()` at its

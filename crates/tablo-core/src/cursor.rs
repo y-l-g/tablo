@@ -20,6 +20,8 @@
 use toasty_core::stmt::Value;
 use topcoat::Result;
 
+use crate::error::TabloError;
+
 /// Version tag byte — bump on an incompatible layout change.
 const VERSION: u8 = 1;
 
@@ -57,54 +59,24 @@ pub fn encode(value: &Value) -> Result<String> {
     Ok(hex_encode(&payload))
 }
 
-/// A malformed cursor token: the `?after=`/`?before=` value itself is bad.
-///
-/// One of the two markers [`is_cursor_error`] reads to drop the cursor from
-/// the retry link: retrying the identical URL can never succeed,
-/// while a transient failure must retry the same evidence. The
-/// message is the decode error's own `cursor: …` text.
-#[derive(Debug)]
-pub(crate) struct CursorDecodeError(String);
-
-impl std::fmt::Display for CursorDecodeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
+/// A malformed token: the request's `?after=`/`?before=` value is at fault,
+/// so the list's retry link drops it ([`TabloError::Cursor`]).
+fn malformed(message: impl Into<String>) -> topcoat::Error {
+    TabloError::Cursor(message.into()).into()
 }
 
-impl std::error::Error for CursorDecodeError {}
-
-/// A cursor the query's ordering refuses: the token decodes, but it
-/// was cut from a different `ORDER BY` — the sort changed since the link was
-/// built — so the engine rejects the statement. Distinct from
-/// [`CursorDecodeError`] because the token itself is well formed; the two share
-/// the retry contract below.
-#[derive(Debug)]
-pub(crate) struct CursorRejectedError(String);
-
-impl CursorRejectedError {
-    /// Attribute a failed paginated load to `error`, the engine's refusal of
-    /// the request's cursor.
-    pub(crate) fn rejected(error: &topcoat::Error) -> topcoat::Error {
-        topcoat::Error::from(CursorRejectedError(error.to_string()))
-    }
+/// A value the codec cannot frame: an ordering column of an unsupported type,
+/// or one longer than the frame's length field. The request's token is not at
+/// fault, so the retry keeps its pagination.
+fn unencodable(message: impl Into<String>) -> topcoat::Error {
+    TabloError::Declaration(message.into()).into()
 }
 
-impl std::fmt::Display for CursorRejectedError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for CursorRejectedError {}
-
-/// Whether `error` is the request's cursor's fault: a
-/// malformed token or a token the ordering rejects. Retrying the identical request can never
-/// succeed for any of them, so the list page drops the cursor from its retry link and the live
-/// retry resets it.
-pub(crate) fn is_cursor_error(error: &topcoat::Error) -> bool {
-    error.downcast_ref::<CursorDecodeError>().is_some()
-        || error.downcast_ref::<CursorRejectedError>().is_some()
+/// The engine refused a paginated load that carried a cursor: the token
+/// decodes, but was cut from a different `ORDER BY` (the sort changed since
+/// the link was built). It shares the malformed token's retry contract.
+pub(crate) fn rejected(error: &topcoat::Error) -> topcoat::Error {
+    TabloError::CursorRejected(error.to_string()).into()
 }
 
 /// Decode a token produced by [`encode`] back into a cursor [`Value`].
@@ -115,23 +87,18 @@ pub(crate) fn is_cursor_error(error: &topcoat::Error) -> bool {
 /// tampered or truncated `?after=`/`?before=` parameter fails loudly instead
 /// of silently restarting pagination. Record nesting is depth-capped
 /// so attacker-controlled tokens cannot drive unbounded recursion. Every
-/// failure carries the crate-private `CursorDecodeError` marker, letting the
-/// list page's retry link tell a tampered cursor (drop it) from a transient
-/// load failure (keep it, #98).
+/// failure is a cursor error, so the list page's retry link tells a tampered
+/// cursor (drop it) from a transient load failure (keep it, #98).
 pub fn decode(token: &str) -> Result<Value> {
-    decode_inner(token).map_err(|e| topcoat::Error::from(CursorDecodeError(e.to_string())))
-}
-
-fn decode_inner(token: &str) -> Result<Value> {
     let payload = hex_decode(token)?;
     let mut buf = &payload[..];
     let version = take::<1>(&mut buf)?[0];
     if version != VERSION {
-        return Err(std::io::Error::other(format!("cursor: unsupported version {version}")).into());
+        return Err(malformed(format!("cursor: unsupported version {version}")));
     }
     let (value, rest) = read_value_with_depth(buf, 0)?;
     if !rest.is_empty() {
-        return Err(std::io::Error::other("cursor: trailing bytes after value").into());
+        return Err(malformed("cursor: trailing bytes after value"));
     }
     Ok(value)
 }
@@ -184,10 +151,10 @@ macro_rules! cursor_tags {
                     $ttag => {
                         let s = read_len_prefixed(buf)?;
                         let text = std::str::from_utf8(&s).map_err(|e| {
-                            std::io::Error::other(format!("cursor: invalid {}: {e}", $tlabel))
+                            malformed(format!("cursor: invalid {}: {e}", $tlabel))
                         })?;
                         Value::$tv(text.parse::<$tty>().map_err(|e| {
-                            std::io::Error::other(format!("cursor: invalid {}: {e}", $tlabel))
+                            malformed(format!("cursor: invalid {}: {e}", $tlabel))
                         })?)
                     }
                 )*
@@ -234,7 +201,7 @@ fn write_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
             out.push(TAG_RECORD);
             out.extend_from_slice(
                 &u32::try_from(record.fields.len())
-                    .map_err(|e| std::io::Error::other(format!("cursor: record too long: {e}")))?
+                    .map_err(|e| unencodable(format!("cursor: record too long: {e}")))?
                     .to_le_bytes(),
             );
             for field in &record.fields {
@@ -242,9 +209,7 @@ fn write_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
             }
         }
         other => {
-            return Err(
-                std::io::Error::other(format!("cursor: unsupported value {other:?}")).into(),
-            );
+            return Err(unencodable(format!("cursor: unsupported value {other:?}")));
         }
     }
     Ok(())
@@ -253,7 +218,7 @@ fn write_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
 /// Reads one tagged value with depth tracking; returns it plus the remaining buffer.
 fn read_value_with_depth(buf: &[u8], depth: usize) -> Result<(Value, &[u8])> {
     if depth > MAX_CURSOR_DEPTH {
-        return Err(std::io::Error::other("cursor: record nesting too deep").into());
+        return Err(malformed("cursor: record nesting too deep"));
     }
     let mut buf = buf;
     let tag = take::<1>(&mut buf)?[0];
@@ -267,15 +232,16 @@ fn read_value_with_depth(buf: &[u8], depth: usize) -> Result<(Value, &[u8])> {
             match b {
                 0 => Ok((Value::Bool(false), buf)),
                 1 => Ok((Value::Bool(true), buf)),
-                _ => Err(std::io::Error::other("cursor: invalid bool byte").into()),
+                _ => Err(malformed("cursor: invalid bool byte")),
             }
         }
         TAG_STRING => {
             let s = read_len_prefixed(&mut buf)?;
             Ok((
-                Value::String(String::from_utf8(s).map_err(|e| {
-                    std::io::Error::other(format!("cursor: invalid utf-8 string: {e}"))
-                })?),
+                Value::String(
+                    String::from_utf8(s)
+                        .map_err(|e| malformed(format!("cursor: invalid utf-8 string: {e}")))?,
+                ),
                 buf,
             ))
         }
@@ -284,7 +250,7 @@ fn read_value_with_depth(buf: &[u8], depth: usize) -> Result<(Value, &[u8])> {
             Ok((
                 Value::Uuid(
                     uuid::Uuid::from_slice(&bytes)
-                        .map_err(|e| std::io::Error::other(format!("cursor: invalid uuid: {e}")))?,
+                        .map_err(|e| malformed(format!("cursor: invalid uuid: {e}")))?,
                 ),
                 buf,
             ))
@@ -306,7 +272,7 @@ fn read_value_with_depth(buf: &[u8], depth: usize) -> Result<(Value, &[u8])> {
                 buf,
             ))
         }
-        _ => Err(std::io::Error::other(format!("cursor: unknown tag byte {tag:#04x}")).into()),
+        _ => Err(malformed(format!("cursor: unknown tag byte {tag:#04x}"))),
     }
 }
 
@@ -317,7 +283,7 @@ fn read_value_with_depth(buf: &[u8], depth: usize) -> Result<(Value, &[u8])> {
 /// would decode as a different, shorter frame.
 fn write_len_prefixed(bytes: &[u8], out: &mut Vec<u8>) -> Result<()> {
     let len = u32::try_from(bytes.len())
-        .map_err(|e| std::io::Error::other(format!("cursor: value too long: {e}")))?;
+        .map_err(|e| unencodable(format!("cursor: value too long: {e}")))?;
     out.extend_from_slice(&len.to_le_bytes());
     out.extend_from_slice(bytes);
     Ok(())
@@ -336,7 +302,7 @@ fn read_len_prefixed(buf: &mut &[u8]) -> Result<Vec<u8>> {
 /// `from_le_bytes` conversions at the call sites need no fallible step.
 fn take<const N: usize>(buf: &mut &[u8]) -> Result<[u8; N]> {
     let Some((head, rest)) = buf.split_first_chunk::<N>() else {
-        return Err(std::io::Error::other("cursor: unexpected end of payload").into());
+        return Err(malformed("cursor: unexpected end of payload"));
     };
     *buf = rest;
     Ok(*head)
@@ -346,7 +312,7 @@ fn take<const N: usize>(buf: &mut &[u8]) -> Result<[u8; N]> {
 /// runtime length, which has no const to pin it.
 fn take_slice<'a>(buf: &mut &'a [u8], n: usize) -> Result<&'a [u8]> {
     if buf.len() < n {
-        return Err(std::io::Error::other("cursor: unexpected end of payload").into());
+        return Err(malformed("cursor: unexpected end of payload"));
     }
     let (head, rest) = buf.split_at(n);
     *buf = rest;
@@ -364,16 +330,16 @@ fn hex_encode(bytes: &[u8]) -> String {
 fn hex_decode(token: &str) -> Result<Vec<u8>> {
     let chars: Vec<char> = token.chars().collect();
     if !chars.len().is_multiple_of(2) {
-        return Err(std::io::Error::other("cursor: odd-length hex token").into());
+        return Err(malformed("cursor: odd-length hex token"));
     }
     let mut out = Vec::with_capacity(chars.len() / 2);
     for pair in chars.chunks(2) {
         let hi = pair[0]
             .to_digit(16)
-            .ok_or_else(|| std::io::Error::other("cursor: invalid hex digit"))?;
+            .ok_or_else(|| malformed("cursor: invalid hex digit"))?;
         let lo = pair[1]
             .to_digit(16)
-            .ok_or_else(|| std::io::Error::other("cursor: invalid hex digit"))?;
+            .ok_or_else(|| malformed("cursor: invalid hex digit"))?;
         out.push(((hi << 4) | lo) as u8);
     }
     Ok(out)

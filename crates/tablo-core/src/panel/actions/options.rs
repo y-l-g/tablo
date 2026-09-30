@@ -9,6 +9,7 @@ use topcoat::{
 
 use super::super::gate::gate;
 use crate::{
+    error::TabloError,
     resource::{Resource, clamp_query_term},
     schema::{OptionLoadError, option_view},
 };
@@ -72,21 +73,22 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
                     .status(200)
                     .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
                     .header("x-content-type-options", "nosniff")
-                    .body(Body::from(html))
-                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                    .body(Body::from(html))?;
                 Ok(res)
             }
             Err(OptionLoadError::Denied) => Err(forbidden().into()),
-            Err(OptionLoadError::LoadFailed) => Err(topcoat::Error::from(std::io::Error::other(
-                "option search failed",
-            ))),
+            Err(OptionLoadError::LoadFailed) => {
+                Err(TabloError::Infrastructure("option search failed").into())
+            }
             // Permanent: the related resource cannot be scoped at
             // all, so the search cannot succeed until the declaration is
             // fixed — a 500 that says so, not a retry.
-            Err(OptionLoadError::Misdeclared) => Err(topcoat::Error::from(std::io::Error::other(
+            Err(OptionLoadError::Misdeclared) => Err(TabloError::Declaration(
                 "option search unavailable: the related resource requires a tenant the framework \
-                 cannot scope (GH #223)",
-            ))),
+                 cannot scope (GH #223)"
+                    .to_string(),
+            )
+            .into()),
             Err(OptionLoadError::Overflow) => {
                 let html = "<option value=\"\" disabled>Too many results — keep typing</option>"
                     .to_string();
@@ -94,8 +96,7 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
                     .status(200)
                     .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
                     .header("x-content-type-options", "nosniff")
-                    .body(Body::from(html))
-                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                    .body(Body::from(html))?;
                 Ok(res)
             }
         }

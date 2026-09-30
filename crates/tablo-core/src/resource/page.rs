@@ -137,7 +137,7 @@ where
                 let past = Past::Before(crate::cursor::decode(&cursor)?);
                 if !row_exists_past(&mut db, base_query, past)
                     .await
-                    .map_err(topcoat::Error::from)?
+                    .map_err(crate::error::unavailable)?
                 {
                     page.prev_cursor = None;
                 }
@@ -147,7 +147,7 @@ where
                 let past = Past::After(crate::cursor::decode(&cursor)?);
                 if !row_exists_past(&mut db, base_query, past)
                     .await
-                    .map_err(topcoat::Error::from)?
+                    .map_err(crate::error::unavailable)?
                 {
                     page.next_cursor = None;
                 }
@@ -197,15 +197,16 @@ where
 /// query's `ORDER BY`). No other statement this paginated loader builds carries
 /// that error while the request names a cursor. Such a failure is the cursor's,
 /// so it takes the cursor-stripped retry contract instead of re-requesting the
-/// identical URL forever; every other failure keeps the cursor.
+/// identical URL forever; every other failure is the database's, and takes the
+/// opaque mapping that keeps the driver's text in the log.
 fn reject_cursor(error: topcoat::Error, state: &TableState) -> topcoat::Error {
     let cursored = state.cursor.is_some();
     let rejected = error
         .downcast_ref::<toasty::Error>()
         .is_some_and(toasty::Error::is_invalid_statement);
     if cursored && rejected {
-        crate::cursor::CursorRejectedError::rejected(&error)
+        crate::cursor::rejected(&error)
     } else {
-        error
+        crate::error::unavailable(error)
     }
 }

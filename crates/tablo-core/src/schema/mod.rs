@@ -38,6 +38,8 @@ pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, render_nodes, walk_absent_groups};
 pub use validation::TypedValue;
 
+use crate::form::FieldErrors;
+
 /// One control as the record-form checks see it ([`Schema::controls`]).
 #[derive(Debug, Clone)]
 pub(crate) struct ControlCheck {
@@ -199,7 +201,7 @@ impl Schema {
                 ControlCheck {
                     name: field.name().to_string(),
                     required: !errors.is_empty(),
-                    required_error: errors.into_iter().next(),
+                    required_error: errors.into_iter().next().map(|error| error.message),
                     in_repeater,
                 }
             })
@@ -252,7 +254,7 @@ impl Schema {
     /// Repeater group is absent, and a variant group the submission's
     /// discriminant does not name is not rendered by `variant.js`, so neither
     /// can fail the submit for a value the user cannot see.
-    pub fn validate(&self, values: &HashMap<String, String>) -> HashMap<String, Vec<String>> {
+    pub fn validate(&self, values: &HashMap<String, String>) -> FieldErrors {
         // Classify the groups first: an all-empty group is
         // "absent" — an untouched group submits empty strings (or omits the
         // keys), both treated as absent — so its inner inputs must not fail
@@ -264,7 +266,7 @@ impl Schema {
         // codebase-wide trim convention. A variant group the submission's
         // discriminant does not name is hidden with its subtree, which is what
         // makes validation agree with the render.
-        let mut errors: HashMap<String, Vec<String>> = HashMap::new();
+        let mut errors = FieldErrors::new();
         let mut skip: HashSet<String> = HashSet::new();
         walk_absent_groups(
             &self.nodes,
@@ -279,9 +281,8 @@ impl Schema {
                 continue;
             }
             let value = values.get(field.name()).map(String::as_str).unwrap_or("");
-            let errs = field.validate(value);
-            if !errs.is_empty() {
-                errors.insert(field.name().to_string(), errs);
+            for error in field.validate(value) {
+                errors.push(error);
             }
         }
         errors
@@ -296,7 +297,7 @@ impl Schema {
     /// group's select is not probed for existence.
     pub(crate) fn absent_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
         let mut skip = HashSet::new();
-        let mut discarded = HashMap::new();
+        let mut discarded = FieldErrors::new();
         walk_absent_groups(
             &self.nodes,
             &self.fields,
@@ -308,17 +309,67 @@ impl Schema {
         skip
     }
 
+    /// Whether a render reads an error under `key` for this submission: a
+    /// field's own name, or a repeater group's label — the two keys
+    /// [`Source::errors_for`] reads — and not a field a variant group the
+    /// submission's discriminant does not name hides. A submission naming no
+    /// discriminant hides nothing, because the payload may name the variant.
+    ///
+    /// A key no slot owns is one the submit handlers refuse as a declaration
+    /// error rather than block the write behind an error the form cannot place.
+    pub(crate) fn renders_error_key(&self, values: &HashMap<String, String>, key: &str) -> bool {
+        // A repeater's own error slot is keyed by its label (see
+        // `walk_absent_groups`), which no field carries.
+        fn labels(nodes: &[Node], key: &str) -> bool {
+            nodes.iter().any(|node| match node {
+                Node::Repeater(repeater) => {
+                    repeater.label == key || labels(&repeater.children.nodes, key)
+                }
+                node => node
+                    .children()
+                    .is_some_and(|children| labels(children, key)),
+            })
+        }
+        // Every field of the compiled list renders somewhere, except a leaf of a
+        // variant group this submission hides.
+        let hidden = self.hidden_fields(values);
+        let renders_field = self
+            .fields
+            .iter()
+            .any(|field| field.name() == key && !hidden.contains(key));
+        renders_field || labels(&self.nodes, key)
+    }
+
+    /// Field names this submission hides: every leaf of a variant group its
+    /// discriminant does not name (the classification `absent_fields` shares).
+    fn hidden_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
+        fn walk(nodes: &[Node], values: &HashMap<String, String>, out: &mut Vec<usize>) {
+            for node in nodes {
+                match node {
+                    Node::Embedded(embedded) => embedded.hidden_fields(values, out),
+                    node => {
+                        if let Some(children) = node.children() {
+                            walk(children, values, out);
+                        }
+                    }
+                }
+            }
+        }
+        let mut indices = Vec::new();
+        walk(&self.nodes, values, &mut indices);
+        indices
+            .into_iter()
+            .map(|index| self.fields[index].name().to_string())
+            .collect()
+    }
+
     /// [`Self::validate`], then each choice's option existence
     /// (tenancy-aware for a relationship).
     ///
     /// A field `validate` skipped is skipped here too: an absent
     /// repeater group or a hidden variant group holds no value the user can
     /// see, so its choice must not be probed for existence.
-    pub async fn validate_async(
-        &self,
-        cx: &Cx,
-        values: &HashMap<String, String>,
-    ) -> HashMap<String, Vec<String>> {
+    pub async fn validate_async(&self, cx: &Cx, values: &HashMap<String, String>) -> FieldErrors {
         let mut errors = self.validate(values);
         let absent = self.absent_fields(values);
         for field in &self.fields {
@@ -331,9 +382,8 @@ impl Schema {
             };
             // `validate` above already ran the required rule, so the
             // existence-only check is what is left to ask.
-            let existence = field.validate_exists(cx, value).await;
-            if !existence.is_empty() {
-                errors.insert(name.to_string(), existence);
+            for message in field.validate_exists(cx, value).await {
+                errors.add(name, message);
             }
         }
         errors

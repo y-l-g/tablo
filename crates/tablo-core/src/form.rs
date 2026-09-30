@@ -217,7 +217,12 @@ pub enum FieldErrorKind {
     Invalid,
 }
 
-/// One key a parse refused, with the message the form renders under it.
+/// One key a submission was refused under, with the sentence the form renders
+/// beneath it.
+///
+/// The entry type of [`FieldErrors`]. [`Self::required`] is what
+/// [`RecordForm::parse`] answers for an unanswered key, whose control supplies
+/// the rendered wording.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldError {
     /// The form key the error renders under.
@@ -229,15 +234,23 @@ pub struct FieldError {
 }
 
 impl FieldError {
-    /// `key` was posted empty and its field has no blank answer.
+    /// The submission left `key` unanswered — an empty field with no blank
+    /// answer, or a required group whose inputs were all empty; `message` is
+    /// the wording its control renders in the slot.
+    pub fn unanswered(key: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            kind: FieldErrorKind::Required,
+            message: message.into(),
+        }
+    }
+
+    /// `key` was posted empty and has no blank answer, worded as its own key
+    /// names it.
     pub fn required(key: impl Into<String>) -> Self {
         let key = key.into();
         let message = format!("{key} is required");
-        Self {
-            key,
-            kind: FieldErrorKind::Required,
-            message,
-        }
+        Self::unanswered(key, message)
     }
 
     /// `key` carried a value its type refuses; `message` says why.
@@ -292,7 +305,8 @@ pub trait RecordForm: Sized + Send + 'static {
     /// The model the form writes.
     type Model: Model + Send + Sync + 'static;
 
-    /// One variant per form field: the key [`FieldErrors`] and [`Posted`] use.
+    /// One variant per form field: the key [`Posted`] uses. Its bound form keys
+    /// are [`Self::fields`]'.
     type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
 
     /// Every field, in declaration order, with the keys it binds.
@@ -440,20 +454,54 @@ impl<F: RecordForm> std::ops::Deref for Posted<F> {
     }
 }
 
-/// Field-keyed validation errors from [`Resource::validate_record`].
-pub struct FieldErrors<F: RecordForm> {
-    errors: Vec<(F::Field, String)>,
+/// A refused submission, keyed by the form key each error renders under.
+///
+/// One type for every source: the schema's own rules
+/// ([`Schema::validate`](crate::schema::Schema::validate)), a rejected upload, a
+/// failed uniqueness probe, and an app's
+/// [`validate_record`](crate::Resource::validate_record). The submit handler
+/// merges them without translating, and the form render reads each field's own
+/// key from the result.
+///
+/// A key the rendered form owns: a control's own key, or a
+/// [`Repeater`](crate::Repeater) group's label. A key no slot owns has nowhere
+/// to render, and the submit handler refuses it as a declaration error rather
+/// than writing past it.
+#[derive(Debug, Default)]
+pub struct FieldErrors {
+    errors: Vec<FieldError>,
 }
 
-impl<F: RecordForm> FieldErrors<F> {
+impl FieldErrors {
     /// No errors.
     pub fn new() -> Self {
-        Self { errors: Vec::new() }
+        Self::default()
     }
 
-    /// Refuse `field` with `message`.
-    pub fn add(&mut self, field: F::Field, message: impl Into<String>) {
-        self.errors.push((field, message.into()));
+    /// Refuse `key` with `message`.
+    pub fn add(&mut self, key: impl Into<String>, message: impl Into<String>) {
+        self.errors.push(FieldError::invalid(key, message));
+    }
+
+    /// Refuse `key` as unanswered, with the message its control renders.
+    pub fn add_required(&mut self, key: impl Into<String>, message: impl Into<String>) {
+        self.errors.push(FieldError::unanswered(key, message));
+    }
+
+    /// Refuse `error`'s key with `error`, keeping the error's own kind.
+    pub fn push(&mut self, error: FieldError) {
+        self.errors.push(error);
+    }
+
+    /// Whether any error renders under `key`.
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.errors.iter().any(|error| error.key == key)
+    }
+
+    /// The error `key` renders: the first one added, like the render's own
+    /// first-message slot.
+    pub fn first(&self, key: &str) -> Option<&FieldError> {
+        self.errors.iter().find(|error| error.key == key)
     }
 
     /// Whether nothing was refused.
@@ -461,15 +509,30 @@ impl<F: RecordForm> FieldErrors<F> {
         self.errors.is_empty()
     }
 
-    /// The errors in the order they were added.
-    pub fn iter(&self) -> impl Iterator<Item = &(F::Field, String)> {
+    /// Every error, in the order it was added.
+    pub fn iter(&self) -> impl Iterator<Item = &FieldError> {
         self.errors.iter()
     }
-}
 
-impl<F: RecordForm> Default for FieldErrors<F> {
-    fn default() -> Self {
-        Self::new()
+    /// Append `other`'s errors after these.
+    pub fn extend(&mut self, other: Self) {
+        self.errors.extend(other.errors);
+    }
+
+    /// Take `other`'s errors, dropping this collection's own errors under every
+    /// key `other` names.
+    ///
+    /// A source that owns a key answers for it: a rejected upload replaces the
+    /// "required" the emptied control would otherwise report.
+    pub fn replace(&mut self, other: Self) {
+        let owned: HashSet<&str> = other
+            .errors
+            .iter()
+            .map(|error| error.key.as_str())
+            .collect();
+        self.errors
+            .retain(|kept| !owned.contains(kept.key.as_str()));
+        self.errors.extend(other.errors);
     }
 }
 

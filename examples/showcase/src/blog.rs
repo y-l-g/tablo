@@ -11,25 +11,20 @@
 //! loaders are panel-scoped (auth, tenancy, chrome) and would drag the admin
 //! shell's assumptions into a page that has no session to resolve them from.
 
-use tablo_core::db::db;
+use tablo_core::{Panel, db::db};
 use toasty::stmt::Include;
 use topcoat::{
     Result,
-    asset::AssetConfig,
-    context::{Cx, try_app_context},
+    context::Cx,
     router::{
         Slot,
         error::{RouterErrorExt, not_found},
         href, layout, page, path_param,
     },
-    tailwind,
     view::{View, class, view},
 };
 
-use crate::{
-    app::GEIST,
-    models::{Author, MediaAsset, Post},
-};
+use crate::models::{Author, MediaAsset, Post};
 
 // The status a post carries once it is visible to the public.
 const PUBLISHED: &str = "published";
@@ -37,39 +32,25 @@ const PUBLISHED: &str = "published";
 // The record key in `/blog/{id}`: the post's `Uuid`, parsed from the segment.
 path_param!(pub id: uuid::Uuid);
 
-/// The public shell: a complete document, rendered by the layout itself.
+/// The public shell: the panel's document around the blog's own body.
 ///
-/// The panel's `render_document` is `pub(crate)` and its `layout_shell` is the
-/// admin chrome, so a public page renders its own document from public APIs —
-/// the shape the Topcoat demo's root shell uses.
+/// [`Panel::document`] renders the document the admin shell renders — the dev
+/// script, the theme init, and, where the panel registered shell assets, the
+/// runtime script, the font, the stylesheet and the shell scripts — around the
+/// body content the page owns. The test router builds without assets
+/// (`router_for_tests`), and the document degrades to the dev script and the
+/// theme init there instead of panicking.
 ///
 /// The path is explicit (`/blog`) rather than `/`: layout paths are prefixes,
 /// so a root layout would wrap `/admin` too and nest a document inside the
 /// admin's own document.
 #[layout("/blog")]
 async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    // The stylesheet, the font and the browser runtime are `Asset` URLs, and an
-    // `Asset` renders only where an asset config is registered. The test router
-    // builds without one (`router_for_tests`), so the head degrades to the dev
-    // script alone instead of panicking — the same fallback the panel's shell
-    // takes when it has no `ShellAssets`.
-    let assets = try_app_context::<AssetConfig>(cx).is_some();
-
-    Ok(view! {
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>"Tablo Blog"</title>
-                topcoat::dev::script()
-                if assets {
-                    topcoat::runtime::script()
-                    topcoat::font::link(font: GEIST)
-                    <link rel="stylesheet" href=(tailwind::stylesheet!())>
-                }
-            </head>
-            <body class="flex min-h-screen flex-col bg-background text-foreground">
+    Panel::document(
+        cx,
+        "Tablo Blog",
+        view! {
+            <div class="flex min-h-screen flex-col bg-background text-foreground">
                 <header class="border-b border-border">
                     <nav
                         class="mx-auto flex w-full max-w-3xl items-center gap-6 px-6 py-4"
@@ -105,9 +86,10 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                         "Published with Tablo."
                     </p>
                 </footer>
-            </body>
-        </html>
-    })
+            </div>
+        },
+    )
+    .await
 }
 
 /// The list: published posts only, newest first, each linking to its page.

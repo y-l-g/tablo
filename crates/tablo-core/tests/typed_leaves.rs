@@ -3,7 +3,10 @@
 
 use std::collections::HashMap;
 
-use tablo_core::schema::{Field, Schema, Source};
+use tablo_core::{
+    FieldErrors,
+    schema::{Field, Schema, Source},
+};
 use toasty::Db;
 use topcoat::{
     context::{Cx, CxTestBuilder},
@@ -18,6 +21,15 @@ struct Measurement {
     label: String,
     word_count: i64,
     recorded_at: jiff::Timestamp,
+}
+
+/// The messages `errors` carries for `key`, in the order it added them.
+fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
+    errors
+        .iter()
+        .filter(|error| error.key == key)
+        .map(|error| error.message.as_str())
+        .collect()
 }
 
 async fn cx() -> Cx {
@@ -48,7 +60,7 @@ async fn a_typed_field_renders_the_values_display() {
         ),
     ]);
     let html = schema
-        .render(&cx, Source::form(&values, &HashMap::new()))
+        .render(&cx, Source::form(&values, &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -84,13 +96,13 @@ async fn a_bad_submission_is_an_inline_field_error() {
     ]);
     let errors = schema.validate(&values);
     assert_eq!(
-        errors.get("word_count"),
-        Some(&vec!["`lots` is not a valid whole number".to_string()]),
+        messages(&errors, "word_count"),
+        ["`lots` is not a valid whole number"],
         "an unparseable integer names the offending input, got {errors:?}"
     );
     assert_eq!(
-        errors.get("recorded_at"),
-        Some(&vec!["`2024-13-01` is not a valid timestamp".to_string()]),
+        messages(&errors, "recorded_at"),
+        ["`2024-13-01` is not a valid timestamp"],
         "an unparseable date names the offending input, got {errors:?}"
     );
 }
@@ -126,12 +138,8 @@ async fn an_empty_submission_stays_the_presence_rules_business() {
     );
     let required = Schema::new(Field::text(Measurement::fields().word_count()));
     assert_eq!(
-        required
-            .validate(&HashMap::new())
-            .get("word_count")
-            .cloned()
-            .unwrap_or_default(),
-        vec!["Word count is required".to_string()],
+        messages(&required.validate(&HashMap::new()), "word_count"),
+        ["Word count is required"],
         "a non-nullable typed field reports presence, not a parse failure"
     );
 }

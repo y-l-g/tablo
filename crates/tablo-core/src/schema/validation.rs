@@ -9,7 +9,7 @@
 
 use email_address::{EmailAddress, Options};
 
-use crate::form::FormScalar;
+use crate::form::{FieldError, FormScalar};
 
 /// A typed column's own spelling rules.
 ///
@@ -198,14 +198,25 @@ impl Rules {
     /// `required` is the caller's resolved presence flag. An empty submit is
     /// the presence rule's business alone: the email and parse rules skip it,
     /// so an optional field accepts empty whatever else it declares.
-    pub(crate) fn validate(&self, label: &str, required: bool, value: &str) -> Vec<String> {
+    ///
+    /// `key` is the field's own key, `label` the wording its message uses.
+    pub(crate) fn validate(
+        &self,
+        key: &str,
+        label: &str,
+        required: bool,
+        value: &str,
+    ) -> Vec<FieldError> {
         let v = value.trim();
         let mut errs = Vec::new();
         if required && v.is_empty() {
-            errs.push(required_error(label));
+            errs.push(FieldError::unanswered(key, required_error(label)));
         }
         if self.email && !v.is_empty() && !is_email(v) {
-            errs.push(format!("{label} must be a valid email"));
+            errs.push(FieldError::invalid(
+                key,
+                format!("{label} must be a valid email"),
+            ));
         }
         // The typed rule runs last and only on a value the rules
         // above accepted.
@@ -214,7 +225,7 @@ impl Rules {
             && let Some(parser) = &self.parser
             && let Err(message) = parser(v)
         {
-            errs.push(message);
+            errs.push(FieldError::invalid(key, message));
         }
         errs
     }

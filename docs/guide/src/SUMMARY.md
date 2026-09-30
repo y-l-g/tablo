@@ -1,6 +1,7 @@
 # Summary
 
 - [Introduction](./introduction.md)
+- [Your first panel](./first-panel.md)
 - [Panel and routing](./panel-and-routing.md)
 - [Resources](./resources.md)
 - [Tables](./tables.md)

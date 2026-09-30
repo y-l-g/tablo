@@ -20,7 +20,8 @@ use super::{
 };
 use crate::{
     db::db,
-    form::{FieldErrorKind, Posted, RecordForm},
+    error::TabloError,
+    form::{FieldErrorKind, FieldErrors, Posted, RecordForm},
     resource::{Committed, Resource},
     schema::Schema,
 };
@@ -36,7 +37,7 @@ const WRITE_UPDATE: &str = "save the changes";
 struct Submission {
     schema: Schema,
     values: HashMap<String, String>,
-    errors: HashMap<String, Vec<String>>,
+    errors: FieldErrors,
     carried: HashSet<String>,
     named: HashSet<String>,
 }
@@ -104,7 +105,7 @@ async fn prepare_submission<R: Resource>(
     let mut errors = schema.validate_async(cx, &values).await;
     // A rejected upload owns its field's error slot: "required" would restate
     // the symptom (nothing was stored) and hide the reason.
-    errors.extend(upload_errors);
+    errors.replace(upload_errors);
     Ok(Submission {
         schema,
         values,
@@ -144,60 +145,71 @@ fn complete(
 ///
 /// # Errors
 ///
-/// A `validate_record` error on a field `RecordForm::fields` binds to no key:
-/// it cannot render, and the write must not proceed past it.
+/// An error keyed to something this submission renders nowhere — a control the
+/// schema does not declare, a repeater group's label the schema does not carry,
+/// or a field of a variant group the submission names hides. No slot owns the
+/// message, and the write must not proceed past it.
 fn parse_form<R: Resource>(
     cx: &Cx,
     schema: &Schema,
     values: &HashMap<String, String>,
-    errors: &mut HashMap<String, Vec<String>>,
+    errors: &mut FieldErrors,
 ) -> Result<Option<R::Form>, topcoat::Error> {
     // Typed fields parse their own spelling, not the browser's.
     let mut normalized = values.clone();
     schema.normalize_values(&mut normalized);
     match <R::Form as RecordForm>::parse(cx, &normalized) {
         Ok(form) => {
-            let fields = <R::Form as RecordForm>::fields(cx);
-            for (field, message) in R::validate_record(cx, &form).iter() {
-                // A field's errors render under its first key: a scalar's own,
-                // an embedded enum's discriminant.
-                let Some(key) = fields
-                    .iter()
-                    .find(|claim| claim.field == *field)
-                    .and_then(|claim| claim.keys.first())
-                else {
-                    // A rule refused a field the form lists no key for: there is
-                    // nowhere to render it, and writing anyway would drop it.
-                    return Err(std::io::Error::other(format!(
-                        "validate_record refused {field:?}, which `{}::fields` binds to no key: \
-                         {message}",
-                        std::any::type_name::<R::Form>()
-                    ))
-                    .into());
-                };
-                errors.entry(key.clone()).or_default().push(message.clone());
+            for error in R::validate_record(cx, &form).iter() {
+                if !schema.renders_error_key(values, &error.key) {
+                    return Err(unrenderable_error::<R>(
+                        "validate_record",
+                        &error.key,
+                        &error.message,
+                    ));
+                }
+                errors.push(error.clone());
             }
             Ok(Some(form))
         }
         Err(failures) => {
             let controls = schema.controls();
-            for failure in failures {
+            for mut failure in failures {
+                if !schema.renders_error_key(values, &failure.key) {
+                    return Err(unrenderable_error::<R>(
+                        "the parse",
+                        &failure.key,
+                        &failure.message,
+                    ));
+                }
                 if errors.contains_key(&failure.key) {
                     continue;
                 }
-                let message = match failure.kind {
-                    FieldErrorKind::Required => controls
+                // A blank required control shows the wording the schema
+                // declares for it, when it declares one.
+                if failure.kind == FieldErrorKind::Required
+                    && let Some(wording) = controls
                         .iter()
                         .find(|control| control.name == failure.key)
                         .and_then(|control| control.required_error.clone())
-                        .unwrap_or(failure.message),
-                    FieldErrorKind::Invalid => failure.message,
-                };
-                errors.insert(failure.key, vec![message]);
+                {
+                    failure.message = wording;
+                }
+                errors.push(failure);
             }
             Ok(None)
         }
     }
+}
+
+/// Refuse an error whose key this submission renders nowhere: no slot would
+/// carry the message, and writing anyway would drop it.
+fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> topcoat::Error {
+    TabloError::Declaration(format!(
+        "{source} refused {key:?}, which `{}` renders nowhere for this submission: {message}",
+        std::any::type_name::<R::Form>()
+    ))
+    .into()
 }
 
 /// The form fields with at least one key the submission named.
@@ -231,15 +243,11 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // pool discipline). The unique check and the write observe one snapshot
         // and commit atomically; dropping `tx` without commit rolls back.
         let mut db = db(cx);
-        let mut tx = db.transaction().await.map_err(crate::db::unavailable)?;
+        let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
         // App-side unique check over every `unique()`-marked input — the only
         // error layer until toasty exposes a unique-violation predicate
         // (upstream gap #117; never string-match driver error messages).
-        for (name, errs) in
-            check_unique::<R>(cx, &schema, &values, &HashMap::new(), &mut tx).await?
-        {
-            errors.entry(name).or_default().extend(errs);
-        }
+        errors.extend(check_unique::<R>(cx, &schema, &values, &HashMap::new(), &mut tx).await?);
         let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form::<R>(
@@ -298,7 +306,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // policy is checked on this snapshot and the same record flows into
         // the write — never a silent re-load outside the checked snapshot.
         let mut db = db(cx);
-        let mut tx = db.transaction().await.map_err(crate::db::unavailable)?;
+        let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
         let record = find_by_key::<R>(cx, &id, &mut tx).await?;
         if !R::can_view(cx, &record) {
             return Err(forbidden().into());
@@ -311,9 +319,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // written back.
         let stored = <R::Form as RecordForm>::hydrate(cx, &record);
         complete(&schema, &mut values, &named, &stored);
-        for (name, errs) in check_unique::<R>(cx, &schema, &values, &stored, &mut tx).await? {
-            errors.entry(name).or_default().extend(errs);
-        }
+        errors.extend(check_unique::<R>(cx, &schema, &values, &stored, &mut tx).await?);
         let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             let public = R::public_url(cx, &record);
