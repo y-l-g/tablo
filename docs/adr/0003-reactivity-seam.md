@@ -20,5 +20,5 @@ filter scripts edit their own keys of the current value. The shard parses it wit
 `TableState::from_query`, the GET page's parser, so the live table and the page cannot disagree
 about what a query means, and a new state dimension changes no shard signature. Two string signals
 need no struct-typed shard argument (#337). The selection is not URL state, so it keeps its own
-signal and survives a rerun. `TableState::to_signals` seeds both from the parsed state, and a
-request normalizes the parsed state once, through `Table::normalize_state`.
+signal and survives a rerun. `TableState::signals_for` seeds the query with the request's query as
+written, and a request normalizes the parsed state once, through `Table::normalize_state`.

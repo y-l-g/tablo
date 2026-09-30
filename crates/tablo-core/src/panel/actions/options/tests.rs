@@ -151,9 +151,9 @@ async fn options_endpoint_searches_and_gates() {
         )
         .await;
     assert_eq!(resp.status(), http::StatusCode::BAD_REQUEST);
-    // Escaping itself is pinned where it can fail: `escape_option`'s unit
-    // test feeds characters that must be escaped and asserts the exact
-    // output. These fixtures are "Ada"/"Grace"/"Alan", so a
+    // Escaping itself is pinned where it can fail:
+    // `an_option_escapes_its_value_and_label` feeds characters that must be
+    // escaped and asserts the exact output. These fixtures are "Ada"/"Grace"/"Alan", so a
     // `!html.contains("<script")` here could never fail.
 }
 

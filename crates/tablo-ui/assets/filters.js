@@ -11,17 +11,20 @@
 // `f.*` parameter with the controls' current values, drops the cursor (a new
 // filter is a new result set), keeps every other parameter, and dispatches a
 // bubbling `change`, which the runtime turns into a signal write. The shard
-// re-renders the table in place, with no navigation and no scroll jump.
+// re-renders the table in place, with no navigation and no scroll jump. Its
+// "Clear filters" link (`data-filters-clear`) clears the controls and the
+// query's filters the same way, since its `href` is the page-load URL.
 //
 // Document-level delegation (like bulk.js) so streamed/shard swaps that
 // replace table markup need no re-installation.
 (() => {
 // The list query with its filter parameters replaced by `filters` (pairs of
-// name and value; a blank value is no filter) and the cursor dropped.
+// name and value; a blank value is no filter) and the cursor dropped. The
+// retired `filters` parameter goes with them.
 function withFilters(query, filters) {
   const params = new URLSearchParams(query);
   for (const key of [...params.keys()]) {
-    if (key.startsWith('f.')) params.delete(key);
+    if (key.startsWith('f.') || key === 'filters') params.delete(key);
   }
   for (const [name, value] of filters) {
     const trimmed = (value || '').trim();
@@ -39,6 +42,16 @@ function controlValues(form) {
   ]);
 }
 
+// Write the live form's filters into its transport; false when the form has
+// none.
+function writeFilters(form, filters) {
+  const transport = form.querySelector('[data-filters-transport]');
+  if (!transport) return false;
+  transport.value = withFilters(transport.value, filters);
+  transport.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('change', (e) => {
     const control = e.target.closest('[data-filter-name]');
@@ -46,16 +59,23 @@ if (typeof document !== 'undefined') {
     const form = control.closest('form[data-filters-form]');
     if (!form) return;
     if (form.hasAttribute('data-filters-live')) {
-      const transport = form.querySelector('[data-filters-transport]');
-      if (!transport) return;
-      transport.value = withFilters(transport.value, controlValues(form));
-      transport.dispatchEvent(new Event('change', { bubbles: true }));
+      writeFilters(form, controlValues(form));
       return;
     }
     if (typeof form.requestSubmit === 'function') {
       form.requestSubmit();
     } else {
       form.submit();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('[data-filters-clear]');
+    if (!link) return;
+    const form = link.closest('form[data-filters-live]');
+    if (!form || !writeFilters(form, [])) return;
+    e.preventDefault();
+    for (const control of form.querySelectorAll('[data-filter-name]')) {
+      control.value = '';
     }
   });
 }

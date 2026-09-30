@@ -73,9 +73,9 @@ Filters:
 ```
 
 Active filters travel as one `?f.<name>=<value>` parameter each (`?f.status=published`) and
-combine with AND. Unknown keys and rejected values never
-fail silently: the list renders a `role=alert` banner (`Table::unapplied_filters`) while export
-refuses with 400.
+combine with AND. At most 32 filters of at most 256 bytes each apply. Unknown keys, rejected
+values, dropped filters and the retired `?filters=` spelling never fail silently: the list renders
+a `role=alert` banner (`Table::unapplied_filters`) while export refuses with 400.
 
 Grouping and export:
 

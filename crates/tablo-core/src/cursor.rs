@@ -99,10 +99,9 @@ impl std::fmt::Display for CursorRejectedError {
 impl std::error::Error for CursorRejectedError {}
 
 /// Whether `error` is the request's cursor's fault: a
-/// malformed token, a conflicting cursor pair, or a token the ordering
-/// rejects. Retrying the identical request can never succeed for any of them,
-/// so the list page drops the cursor from its retry link and the live retry
-/// resets it.
+/// malformed token or a token the ordering rejects. Retrying the identical request can never
+/// succeed for any of them, so the list page drops the cursor from its retry link and the live
+/// retry resets it.
 pub(crate) fn is_cursor_error(error: &topcoat::Error) -> bool {
     error.downcast_ref::<CursorDecodeError>().is_some()
         || error.downcast_ref::<CursorRejectedError>().is_some()

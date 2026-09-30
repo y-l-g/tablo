@@ -162,3 +162,36 @@ async fn skeleton_pulses_only_the_bars_the_table_renders() {
         "one pulse for the search bar the table renders, got {html}"
     );
 }
+
+/// The bulk bar sits above the table like the search and filter bars, so it
+/// gets a pulse; and the live page renders its placeholder from the shard's
+/// table, whose search and filter bars are hoisted out of the swapped region.
+#[tokio::test]
+async fn skeleton_pulses_the_bulk_bar_and_not_the_hoisted_bars() {
+    let cx = CxTestBuilder::new().build();
+    let live_shape = Table::<User>::new(
+        |u| u.id.to_string(),
+        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable(),
+    )
+    .with_delete("/admin/users".to_string())
+    .with_bulk_delete(true)
+    .hide_search()
+    .hide_filter_bar();
+    let html = live_shape
+        .render_skeleton(&cx, &TableState::default())
+        .await
+        .unwrap()
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    assert_eq!(
+        html.matches("border-b border-border p-3").count(),
+        1,
+        "one pulse, for the bulk bar the shard's table renders, got {html}"
+    );
+    assert!(
+        html.contains("h-9 w-28"),
+        "the pulse is the bulk bar's, got {html}"
+    );
+}

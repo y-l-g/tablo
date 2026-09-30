@@ -11,7 +11,7 @@ use super::{
         },
         Table,
     },
-    BAR_CLASS, QUIET_LINK_CLASS, live_link,
+    BAR_CLASS, QUIET_LINK_CLASS,
     toolbar::hidden_state_inputs,
 };
 
@@ -287,9 +287,17 @@ impl<M> Table<M> {
             }
             .boxed()
         });
+        // A plain link: the bar is rendered once, so on a live table
+        // `filters.js` clears the filters from the transport's current query
+        // rather than writing this page-load URL over newer state.
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
-            let attrs = live_link(cx, url, signals);
-            view! { cx => <a class=(QUIET_LINK_CLASS) (attrs)>"Clear filters"</a> }.boxed()
+            view! {
+                cx =>
+                <a class=(QUIET_LINK_CLASS) href=(url) data-filters-clear="">
+                    "Clear filters"
+                </a>
+            }
+            .boxed()
         });
         Ok(view! {
             cx =>

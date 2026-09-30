@@ -80,6 +80,10 @@ async fn filter_widgets_render_typed_controls() {
         "each filter control must be an f.<name> field in {html}"
     );
     assert!(
+        html.contains("data-filters-clear"),
+        "the Clear link is the one filters.js clears in place on a live table, in {html}"
+    );
+    assert!(
         !html.contains("data-filters-transport"),
         "a static table carries no query transport in {html}"
     );

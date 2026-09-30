@@ -44,3 +44,15 @@ test('a value with separators round-trips through the query encoding', () => {
   const params = new URLSearchParams(withFilters('', [['author', 'Smith, John: 50%']]));
   assert.equal(params.get('f.author'), 'Smith, John: 50%');
 });
+
+test('clearing drops every filter and keeps the newer search and sort', () => {
+  // The hoisted "Clear filters" link edits the transport's current query,
+  // not the page-load URL its href carries.
+  const params = new URLSearchParams(
+    withFilters('q=hello&sort=title&dir=asc&f.status=published&filters=status:draft', []),
+  );
+  assert.equal(params.get('q'), 'hello');
+  assert.equal(params.get('sort'), 'title');
+  assert.equal(params.has('f.status'), false);
+  assert.equal(params.has('filters'), false, 'the retired spelling goes too');
+});

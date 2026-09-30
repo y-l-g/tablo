@@ -966,15 +966,15 @@ async fn group_by_orders_each_row_under_its_own_header() {
 }
 
 /// a table render builds the row-action URLs from one shared base
-/// — the encoded filter transport — before the row loop, so every row's
+/// — the page's encoded list URL — before the row loop, so every row's
 /// dialog opener is that base plus its own `delete=` key.
 ///
-/// The base cannot be observed as a count: `filters_param` is a pure
+/// The base cannot be observed as a count: the projection is a pure
 /// function of the state, so a per-row rebuild produces identical bytes.
 /// This pins the shape instead — every opener shares byte-identical bytes
 /// before `delete=`, independent of the page size.
 #[tokio::test]
-async fn table_render_reuses_one_filter_transport_base_across_rows() {
+async fn table_render_reuses_one_list_url_base_across_rows() {
     let cx = CxTestBuilder::new().build();
     let state = filters_state(&[("status", "published"), ("featured", "true")]);
     let tbl = Table::<User>::new(
@@ -1022,7 +1022,7 @@ async fn table_render_reuses_one_filter_transport_base_across_rows() {
     for base in one_row.iter().chain(eight_rows.iter()) {
         assert!(
             base.contains(transport),
-            "every opener must carry the page's filter transport, got {base}"
+            "every opener must carry the page's filters, got {base}"
         );
         assert_eq!(
             *base, one_row[0],

@@ -76,7 +76,7 @@ where
     ///
     /// # Errors
     ///
-    /// A malformed or conflicting cursor, a cursor the engine rejects for this
+    /// A malformed cursor, a cursor the engine rejects for this
     /// ordering (both take the cursor-stripped retry contract), or a database
     /// failure.
     pub async fn load(

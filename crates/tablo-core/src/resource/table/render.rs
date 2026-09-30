@@ -1,7 +1,7 @@
 //! [`Table`](super::Table) HTML rendering: the entry points plus the chrome.
 //!
-//! Grouping is page-local and interleaved and a page encodes the
-//! filter transport once.
+//! Grouping is page-local and interleaved and a page encodes its row-action
+//! URL base once.
 //!
 //! The entry points and the table chrome live in `core`, the header row in
 //! `head`, row projection and rendering in `rows`, the zero-rows cell in

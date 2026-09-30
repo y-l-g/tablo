@@ -343,8 +343,9 @@ impl<M> Table<M> {
     /// Documented no-op values are exempt: `TernaryFilter`'s `all`
     /// selects no predicate by contract, so it is never flagged.
     ///
-    /// A query with more than `MAX_FILTERS` filter parameters is reported with
-    /// its own reason, since the extra filters were dropped at parse time.
+    /// Filter parameters the parse dropped ([`TableState::filters_dropped`]:
+    /// too many, too long, or the retired `?filters=` spelling) are reported
+    /// as one entry with their own reason.
     ///
     /// The list view renders these as a `role=alert` banner and keeps a 200;
     /// the export refuses the request with 400 instead of silently
@@ -363,10 +364,14 @@ impl<M> Table<M> {
                 Some(_) => {}
             }
         }
-        if state.filters_overflow {
+        if state.filters_dropped {
             out.push((
-                format!("more than {}", super::state::MAX_FILTERS),
-                "too many filters (GH #205)".to_string(),
+                "dropped filters".to_string(),
+                format!(
+                    "more than {}, over {} bytes, or the retired filters= form",
+                    super::state::MAX_FILTERS,
+                    super::state::MAX_FILTER_LEN
+                ),
             ));
         }
         out.sort();

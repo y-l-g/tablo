@@ -82,7 +82,7 @@ fn derived_targets_resolve_against_the_owning_panel() {
     // old origin-mount heuristic could not tell from a derived default.
     for url in [
         "/admin/users",
-        "/admin/posts?filters=status:draft",
+        "/admin/posts?f.status=draft",
         "/backoffice/users/drafts",
         "/reports/users",
     ] {

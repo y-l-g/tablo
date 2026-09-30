@@ -345,23 +345,29 @@ fn unapplied_filters_flags_unknown_keys_and_rejected_values() {
 
 #[test]
 fn unapplied_filters_flags_dropped_filters() {
-    // Filters past the parse cap are dropped, and that reads as its own
-    // reason, so the list banner explains itself and the export's 400 is the
-    // fail-closed guard instead of a silent drop.
+    // Filters the parse drops (past the cap, too long, or the retired
+    // `filters=` spelling) read as their own reason, so the list banner
+    // explains itself and the export's 400 is the fail-closed guard instead of
+    // a silent drop.
     let cx = CxTestBuilder::new().build();
     let tbl = status_table(&cx);
-    let query = std::iter::once("f.status=published".to_string())
+    let too_many = std::iter::once("f.status=published".to_string())
         .chain((0..crate::resource::state::MAX_FILTERS).map(|i| format!("f.k{i}=v")))
         .collect::<Vec<_>>()
         .join("&");
-    let state = TableState::from_query(&query);
-    assert!(
-        tbl.unapplied_filters(&state).contains(&(
-            format!("more than {}", crate::resource::state::MAX_FILTERS),
-            "too many filters (GH #205)".to_string()
-        )),
-        "the dropped filters must be reported"
+    let too_long = format!(
+        "f.status={}",
+        "a".repeat(crate::resource::state::MAX_FILTER_LEN + 1)
     );
+    for query in [too_many.as_str(), too_long.as_str(), "filters=status:draft"] {
+        let state = TableState::from_query(query);
+        assert!(
+            tbl.unapplied_filters(&state)
+                .iter()
+                .any(|(pair, _)| pair == "dropped filters"),
+            "the dropped filters of {query:.40} must be reported"
+        );
+    }
 }
 
 #[test]

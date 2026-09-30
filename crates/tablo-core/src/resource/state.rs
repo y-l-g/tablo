@@ -80,15 +80,6 @@ pub enum Cursor {
     Before(String),
 }
 
-impl Cursor {
-    /// The encoded token.
-    pub fn token(&self) -> &str {
-        match self {
-            Self::After(token) | Self::Before(token) => token,
-        }
-    }
-}
-
 /// Request-scoped table state, parsed from the list's URL query.
 ///
 /// The single parse point shared by loaders (the search term, ordering via
@@ -108,10 +99,13 @@ pub struct TableState {
     /// `?f.<name>=<value>`, one parameter per active filter, by name. A blank
     /// value is no filter.
     pub filters: BTreeMap<String, String>,
-    /// More than `MAX_FILTERS` filter parameters arrived and the rest were
-    /// dropped: `Table::unapplied_filters` reports it, so the list warns and
-    /// the export refuses instead of exporting an over-broad CSV.
-    pub filters_overflow: bool,
+    /// Filter parameters arrived that the parse dropped: more than
+    /// `MAX_FILTERS`, a name or value over `MAX_FILTER_LEN` bytes, or the
+    /// retired `?filters=` spelling. `Table::unapplied_filters` reports it, so
+    /// the list warns and the export refuses instead of exporting an
+    /// over-broad CSV. No link carries it: a link rebuilds the query from the
+    /// filters that applied.
+    pub filters_dropped: bool,
     /// `?group_by=` — field name to group by (in-memory, `count` summarizer).
     pub group_by: Option<String>,
     /// `?delete=` — the row key whose delete confirmation dialog opens on the
@@ -150,6 +144,10 @@ struct UrlProjection<'a> {
 /// count is bounded where the query is parsed.
 pub(crate) const MAX_FILTERS: usize = 32;
 
+/// Longest filter name or value one query applies, in bytes: the bound on
+/// what every rebuilt link echoes per filter.
+pub(crate) const MAX_FILTER_LEN: usize = 256;
+
 /// The prefix that names a filter parameter: `?f.status=published`.
 const FILTER_PREFIX: &str = "f.";
 
@@ -163,10 +161,7 @@ impl TableState {
     /// the request URI's query. Renders without a request context (e.g. unit
     /// tests) get neutral state.
     pub fn from_cx(cx: &Cx) -> Self {
-        let Some(parts) = topcoat::context::try_request_context::<http::request::Parts>(cx) else {
-            return Self::default();
-        };
-        Self::from_query(parts.uri.query().unwrap_or(""))
+        Self::from_query(&request_query(cx))
     }
 
     /// Parse the state from a URL query (without the leading `?`): the one
@@ -174,51 +169,73 @@ impl TableState {
     ///
     /// A blank or unknown query parses as neutral state rather than failing
     /// the request. A duplicate key keeps its first occurrence, so a repeated
-    /// filter never vanishes. `q` is trimmed and clamped to
-    /// `MAX_QUERY_TERM`, `dir` is trimmed
-    /// before comparing, and at most `MAX_FILTERS` filters apply. A cursor
+    /// filter never vanishes; a blank filter value is no filter, so a later
+    /// occurrence of the same filter applies. `q` is trimmed and clamped to
+    /// `MAX_QUERY_TERM`, `dir` is trimmed before comparing, and at most
+    /// `MAX_FILTERS` filters of at most `MAX_FILTER_LEN` bytes apply. A cursor
     /// token is checked later, when it decodes.
+    ///
+    /// The live shard parses a client-owned query, so the parse is linear in
+    /// its length: only the known keys are remembered.
     pub fn from_query(query: &str) -> Self {
         let mut state = Self::default();
-        let mut seen: Vec<String> = Vec::new();
         let (mut sort, mut dir, mut after, mut before) = (None, None, None, None);
+        let mut seen = [false; 8];
         for (key, value) in form_urlencoded::parse(query.as_bytes()) {
             if let Some(name) = key.strip_prefix(FILTER_PREFIX) {
                 let value = value.trim();
                 if name.is_empty() || value.is_empty() || state.filters.contains_key(name) {
                     continue;
                 }
-                if state.filters.len() == MAX_FILTERS {
-                    state.filters_overflow = true;
+                if state.filters.len() == MAX_FILTERS
+                    || name.len() > MAX_FILTER_LEN
+                    || value.len() > MAX_FILTER_LEN
+                {
+                    state.filters_dropped = true;
                     continue;
                 }
                 state.filters.insert(name.to_string(), value.to_string());
                 continue;
             }
-            if seen.iter().any(|k| *k == key) {
+            let slot = match key.as_ref() {
+                "q" => 0,
+                "sort" => 1,
+                "dir" => 2,
+                "after" => 3,
+                "before" => 4,
+                "group_by" => 5,
+                "delete" => 6,
+                "open" => 7,
+                // The retired single-parameter filter spelling: a saved link
+                // must warn (and its export refuse), not list everything.
+                "filters" => {
+                    state.filters_dropped |= !value.trim().is_empty();
+                    continue;
+                }
+                _ => continue,
+            };
+            if std::mem::replace(&mut seen[slot], true) {
                 continue;
             }
-            seen.push(key.to_string());
             let non_empty = || Some(value.trim().to_string()).filter(|v| !v.is_empty());
-            match key.as_ref() {
-                "q" => state.search = Some(clamp_query_term(&value)).filter(|t| !t.is_empty()),
-                "sort" => sort = non_empty(),
-                "dir" => dir = Some(value.trim() == "desc"),
-                "after" => after = non_empty(),
-                "before" => before = non_empty(),
-                "group_by" => state.group_by = non_empty(),
+            match slot {
+                0 => state.search = Some(clamp_query_term(&value)).filter(|t| !t.is_empty()),
+                1 => sort = non_empty(),
+                2 => dir = Some(value.trim() == "desc"),
+                3 => after = non_empty(),
+                4 => before = non_empty(),
+                5 => state.group_by = non_empty(),
                 // The delete dialog is opt-in through `?delete=`;
                 // `?open=false` is the dismissal mirror `dialog.js` writes.
                 // Any other `open` value stays neutral (open).
-                "delete" => state.delete = non_empty(),
-                "open" => {
+                6 => state.delete = non_empty(),
+                _ => {
                     state.open = match value.as_ref() {
                         "false" => Some(false),
                         "true" => Some(true),
                         _ => None,
                     }
                 }
-                _ => {}
             }
         }
         state.sort = sort.map(|column| Sort {
@@ -233,20 +250,22 @@ impl TableState {
         state
     }
 
-    /// Seed the live page's signals from this state: `query` from the state's
-    /// full query, the selection empty.
+    /// The live page's signals: `query` seeded with the request's query as
+    /// written, the selection empty.
     ///
-    /// Call it with the *parsed* state, before normalizing: an unknown
-    /// `?group_by=` seeds the query as written, and the shard's normalizer
-    /// drops it on the way back in, exactly as the GET path does.
+    /// The raw query, not a projection of the parsed state: the shard parses
+    /// it with [`Self::from_query`] and normalizes it exactly as the GET path
+    /// does, so an unknown `?group_by=` is dropped on the way back in and a
+    /// dropped filter still warns ([`Self::filters_dropped`]).
     ///
     /// Creates the signals, so it carries [`topcoat::runtime::signal`]'s
     /// contract: call it while a view is collecting signal declarations — the
     /// panel calls it from the live page's render, and the declarations ride
     /// that page's hoisted parts.
-    pub(crate) fn to_signals(&self, cx: &Cx) -> TableSignals {
+    pub(crate) fn signals_for(cx: &Cx, query: &str) -> TableSignals {
+        let query = query.to_string();
         TableSignals {
-            query: signal(cx, || self.query()),
+            query: signal(cx, move || query),
             bulk: signal(cx, String::new),
         }
     }
@@ -371,7 +390,7 @@ impl TableState {
             sort: _,
             cursor: _,
             filters: _,
-            filters_overflow: _,
+            filters_dropped: _,
             group_by: _,
             delete: _,
             open: _,
@@ -411,7 +430,7 @@ impl TableState {
 /// One page's shared row-action URL parameters, encoded once.
 ///
 /// The base is [`TableState::list_url`] — every parameter a row's action URL
-/// shares — so the filter transport is encoded once per render, not once per
+/// shares — so those parameters are encoded once per render, not once per
 /// row. Row-specific intents ([`Self::delete_dialog`]) append to it in the
 /// projection's own order.
 pub(crate) struct RowUrlBase(String);
@@ -568,6 +587,14 @@ fn with_query(path: &str, query: &str) -> String {
     } else {
         format!("{path}?{query}")
     }
+}
+
+/// The request's URL query, without the leading `?`; empty without a
+/// request context.
+pub(crate) fn request_query(cx: &Cx) -> String {
+    topcoat::context::try_request_context::<http::request::Parts>(cx)
+        .and_then(|parts| parts.uri.query().map(str::to_string))
+        .unwrap_or_default()
 }
 
 /// The query part of a URL this module built: what follows the `?`, or empty.

@@ -18,15 +18,14 @@ use crate::{
     form::RecordForm,
     resource::{
         Resource, RowActions, Table, TableChrome, TablePage, TableSignals, TableState,
-        create_page_url,
+        create_page_url, request_query,
     },
 };
 
 /// Retry link for a failed streamed table load.
 ///
-/// A malformed `?after=`/`?before=` cursor, a conflicting `after` + `before`
-/// pair, or a cursor the query's ordering refuses is the
-/// failure itself: retrying the identical URL loops forever, so drop
+/// A malformed `?after=`/`?before=` cursor, or a cursor the query's ordering
+/// refuses, is the failure itself: retrying the identical URL loops forever, so drop
 /// pagination from the link and keep the rest of the state
 /// (search/sort/filters/grouping). Every other failure keeps pagination too
 /// so a transient blip retries the same evidence.
@@ -304,15 +303,14 @@ pub(crate) fn resource_list_live<R: Resource>(
     list_path: String,
 ) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
-        // One state→signal conversion, seeded from the state the
-        // page parsed — before normalizing, so an unknown `?group_by=` seeds
-        // the signal as written and is dropped on the way back in.
+        // Seeded with the request's query as written: the shard parses and
+        // normalizes it as this page did.
         //
         // Keyed by the list: runtime navigation carries every signal the next
         // page shares with this one, and one call site would otherwise give
         // every resource's list the same ids — one list's search would filter
         // the next.
-        let signals = state.to_signals(&cx.keyed(list_path.as_str()));
+        let signals = TableState::signals_for(&cx.keyed(list_path.as_str()), &request_query(cx));
         // One normalization per request: the toolbar, the hoisted
         // filter bar, the skeleton, the dialog and the retry link all read
         // the state this page parsed, so it normalizes here and every seam
@@ -339,6 +337,9 @@ pub(crate) fn resource_list_live<R: Resource>(
         } else {
             None
         };
+        // The shard's table renders neither bar (`wire_table_actions(cx,
+        // true)`), so neither does the placeholder it replaces.
+        let table = table.hide_search().hide_filter_bar();
         let skeleton = table.render_skeleton(cx, &state).await?;
         // The delete confirmation dialog is not part of the swapped table
         // region: a keystroke starts a new result set and must never carry

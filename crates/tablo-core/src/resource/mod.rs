@@ -42,7 +42,7 @@ pub use relation::{
 };
 pub(crate) use state::{
     BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
-    RECORD_ROUTE_PARAM, TableSignals, create_page_url, filter_param, query_of,
+    RECORD_ROUTE_PARAM, TableSignals, create_page_url, filter_param, query_of, request_query,
 };
 pub use state::{Cursor, Sort, TableState};
 pub use table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};

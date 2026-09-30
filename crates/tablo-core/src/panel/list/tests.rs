@@ -335,8 +335,13 @@ async fn live_search_host_and_shard_dispatch() {
     );
     // ...while never reading it: selecting a row must not re-run the query.
     assert!(
-        !table_html.contains(r#"::topcoat::dep("00000000000000000000000000000007")"#),
+        !table_html.contains(r#"::topcoat::dep("00000000000000000000000000000002")"#),
         "the bulk signal must not become a shard dependency, got {table_html}"
+    );
+    // The query is the one the shard reads.
+    assert!(
+        table_html.contains(r#"::topcoat::dep("00000000000000000000000000000001")"#),
+        "the query signal must be a shard dependency, got {table_html}"
     );
     // the table's chrome is bound to the signals, so sort/pager
     // interactions re-render in place. `href` stays the no-JS fallback.
@@ -355,7 +360,7 @@ async fn live_search_host_and_shard_dispatch() {
     );
     let revision = revision_signal_id(&table_html);
     assert_ne!(
-        revision, "00000000000000000000000000000007",
+        revision, "00000000000000000000000000000002",
         "the refresh control must not reuse the bulk transport's signal"
     );
     assert!(
@@ -518,6 +523,14 @@ async fn live_search_input_debounces_keystrokes() {
     assert!(
         html.contains("data-live-search-transport"),
         "hidden transport must carry the bound write, got {html}"
+    );
+    // The transport's value is bound to the query signal, so the script edits
+    // the current query, not the one the page loaded with.
+    let at = html.find("data-live-search-transport").unwrap();
+    let tag = &html[html[..at].rfind('<').unwrap()..at + html[at..].find('>').unwrap()];
+    assert!(
+        tag.contains("data-topcoat-bind:value"),
+        "the transport must bind its value to the query signal, got {tag}"
     );
     assert!(
         html.contains("data-topcoat-on:change"),

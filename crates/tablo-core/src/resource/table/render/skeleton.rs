@@ -44,8 +44,8 @@ impl<M> Table<M> {
         let table_min_width = self.column_widths().table_min_width;
         let column_count = self.columns.len();
         // The chrome pulses follow the loaded table's own predicates, so a
-        // table with no searchable column or no filters shows no pulse for a
-        // bar it will never render. The pager pulse always shows: every table
+        // table with no searchable column, no filters or no bulk delete shows
+        // no pulse for a bar it will never render. The pager pulse always shows: every table
         // paginates, and whether this page has neighbors is only known once it
         // loads.
         let search_pulse = self.search_enabled();
@@ -60,6 +60,11 @@ impl<M> Table<M> {
             if filter_pulse {
                 <div class="border-b border-border p-3" aria-hidden="true">
                     <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-96"></div>
+                </div>
+            }
+            if with_bulk {
+                <div class="border-b border-border p-3" aria-hidden="true">
+                    <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-28"></div>
                 </div>
             }
             table(

@@ -91,7 +91,7 @@ fn filters_are_one_parameter_each() {
         ]),
         "a blank value or a blank name is no filter"
     );
-    assert!(!state.filters_overflow);
+    assert!(!state.filters_dropped);
 }
 
 #[test]
@@ -112,9 +112,45 @@ fn filters_past_the_cap_are_dropped_and_flagged() {
     let state = TableState::from_query(&query);
     assert_eq!(state.filters.len(), MAX_FILTERS);
     assert!(
-        state.filters_overflow,
+        state.filters_dropped,
         "the dropped filters must be reported, so the export refuses"
     );
+}
+
+#[test]
+fn oversized_filters_are_dropped_and_flagged() {
+    // Every link echoes every applied filter, so a filter is bounded where the
+    // query is parsed, like the count.
+    let long = "a".repeat(MAX_FILTER_LEN + 1);
+    for query in [format!("f.status={long}"), format!("f.{long}=v")] {
+        let state = TableState::from_query(&format!("{query}&f.featured=true"));
+        assert_eq!(
+            state.filters,
+            BTreeMap::from([("featured".to_string(), "true".to_string())])
+        );
+        assert!(state.filters_dropped);
+    }
+}
+
+#[test]
+fn the_retired_filters_parameter_is_flagged_not_ignored() {
+    // A saved `?filters=` link must warn, and its export refuse, rather than
+    // list the whole table as if it were unfiltered.
+    assert!(TableState::from_query("filters=status:draft").filters_dropped);
+    assert!(!TableState::from_query("filters=").filters_dropped);
+}
+
+#[test]
+fn unknown_keys_are_skipped_without_being_remembered() {
+    // The parse keeps nothing per unknown key, so a client-owned query of
+    // many distinct keys parses in time linear in its length.
+    let query = (0..20_000)
+        .map(|i| format!("x{i}=v"))
+        .chain(["q=Ada".to_string(), "q=Grace".to_string()])
+        .collect::<Vec<_>>()
+        .join("&");
+    let state = TableState::from_query(&query);
+    assert_eq!(state.search.as_deref(), Some("Ada"));
 }
 
 /// Toasty pages from one cursor: a URL naming both lands on the first page,
@@ -199,7 +235,7 @@ fn populated_state() -> TableState {
         }),
         cursor: Some(Cursor::After("after-cur".to_string())),
         filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
-        filters_overflow: false,
+        filters_dropped: false,
         group_by: Some("status".to_string()),
         delete: Some("row-1".to_string()),
         open: Some(false),
