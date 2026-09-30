@@ -41,8 +41,8 @@ let hash = tablo_core::auth::hash_password("secret").expect("hash password");
   `Panel::serve_dir` is the shipped case, and served directories are public by decision (ADR-0017).
 - Sessions are server-side `AuthSession` rows with a seven-day fixed lifetime, rotated on login and
   revoked on logout. Use `auth::revoke_sessions_for_user(cx, id)` to sign a user out everywhere. A
-  login also drops up to 500 expired rows, so a session whose owner never returns does not keep its
-  row forever.
+  successful login also drops up to 500 expired rows, so a session whose owner never returns does not
+  keep its row forever.
   Logins verify Argon2id (dummy hash for unknown emails) and share one generic failure message.
   Handlers re-check the resolved user, including the panel root and live-search shard; logout accepts
   any resolved identity so a de-permitted session can still be cleared.

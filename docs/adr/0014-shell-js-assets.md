@@ -7,7 +7,8 @@ Date: 2026-09-18 — Status: accepted — Amended: 2026-09-19, 2026-09-22, 2026-
 **Ownership.** `crates/tablo-ui/assets/` holds eleven hand-written JS assets (`sidebar.js`,
 `theme.js`, `dialog.js`, `wire.js`, `bulk.js`, `filters.js`, `live-search.js`, `selects.js`, `variant.js`,
 `notifications.js`, `mutation-submit.js`; `selects.test.js`, `bulk.test.js`, `wire.test.js`, `dialog.test.js`,
-`mutation-submit.test.js`, `notifications.test.js` and `filters.test.js` are the Node tests, not
+`mutation-submit.test.js`, `notifications.test.js`, `filters.test.js`, and `live-search.test.js` are
+the Node tests, not
 shipped, and `examples/showcase/assets/media.test.js` tests the showcase's `media.js` — ~71.8 KB
 unminified, ~27.4 KB gzipped summed per asset (`gzip -9 -n`), with no build or minify step). They
 are declared as `Asset` constants in
@@ -27,10 +28,13 @@ not shrink the bundle because all eleven handles stay referenced. The "hook ⇒ 
 therefore holds only for documents rendered through `render_document` with `ShellAssets` configured:
 a `Panel` built without `.shell_assets(..)` renders sidebar/toaster hooks with no scripts, as do apps
 using `tablo-ui` components directly. Each asset is served from a content-hashed URL with an
-immutable `Cache-Control`, so the set is one cold fetch per browser per build rather than a
-per-document cost: the first page a visitor loads carries it and the rest read the cache. A per-page
-declaration would buy a lighter first paint on the login page, not a lighter site, and it would turn
-the guarantee into a declaration no test checks (GH #312).
+immutable `Cache-Control`, so the set costs one cold fetch per browser per build rather than a fetch
+per document: the first page a visitor loads carries it and the rest read the cache. Every
+document still parses and runs all eleven, so the cache removes the fetch, not the work. A set
+decided from the panel's own declarations needs no new view input, but it would carry the panel's
+set onto the login page, and a per-page declaration would rest on a guarantee
+`verify_asset_hooks` cannot see, because it greps sources rather than rendered documents
+(GH #312).
 
 **Hook contract.** Each asset consumes an explicit hook list, guarded by `xtask/tests/it.rs`
 (via `xtask::verify_asset_hooks`, alongside the registry-sync guard): the test fails when an asset file is

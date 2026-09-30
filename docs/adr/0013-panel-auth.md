@@ -17,9 +17,13 @@ default:
 - **Server-side sessions.** Topcoat's token transport plus an `AuthSession` Toasty table keyed by the
   token hash: seven-day fixed lifetime, rotated on login, deleted on logout, revocable per user so
   deactivation and a future password-reset spec have a correct revoke-all path. A successful login
-  also sweeps up to `SESSION_SWEEP_BATCH` (500) expired rows, whoever owns them (GH #302): resolution
-  purges the row it looks up, so without the sweep a row whose owner never returns stays forever. The
-  batch bounds the delete, and the sweep runs on the one write path every returning user takes.
+  also sweeps up to `SESSION_SWEEP_BATCH` (500) expired rows, whoever owns them (GH #302):
+  resolution purges the row it looks up, so without the sweep a row whose owner never returns stays
+  forever. The sweep rides login — the write path a user takes once their session has lapsed — so
+  cleanup costs one bounded delete per sign-in rather than work on every request, and it is
+  best-effort: a failure is logged and does not fail the login. `AuthSession` indexes `expires_at`,
+  so the sweep is a range scan and the batch bounds the delete; a migrated table needs that index
+  added with the model's schema change.
 - **Fail closed.** The panel is gated by default. Unauthenticated page requests redirect to
   `{prefix}/login?next=` (same-origin relative only); runtime endpoints answer 401; valid credentials
   without panel access get the same 403 as a bad password. An auth layer covers the panel prefix and

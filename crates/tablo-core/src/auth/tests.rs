@@ -338,9 +338,10 @@ async fn an_oversized_login_post_is_refused() {
     );
 }
 
-/// GH #302: login sweeps expired session rows, whoever owns them. A row whose
-/// token is never presented again would otherwise stay in the table forever,
-/// because [`resolve`] only purges a row it looks up.
+/// GH #302: login sweeps expired session rows, whoever owns them, the
+/// signing-in user's included (GH #295). A row whose token is never presented
+/// again would otherwise stay in the table forever, because [`resolve`] only
+/// purges a row it looks up.
 #[tokio::test]
 async fn login_sweeps_every_expired_session() {
     let mut db = db_with_admin("ada@example.com").await;
@@ -463,17 +464,17 @@ async fn login_sweeps_at_most_a_batch() {
     let expired = "2000-01-01T00:00:00Z"
         .parse::<Timestamp>()
         .expect("a past timestamp");
+    let mut seed = AuthSession::create_many();
     for index in 0..=SESSION_SWEEP_BATCH {
-        toasty::create!(AuthSession {
-            token_hash: format!("expired-{index}"),
-            user_id: ada.id.to_string(),
-            expires_at: expired,
-            created_at: Timestamp::now(),
-        })
-        .exec(&mut db)
-        .await
-        .expect("seed a session row");
+        seed = seed.item(
+            AuthSession::create()
+                .token_hash(format!("expired-{index}"))
+                .user_id(ada.id.to_string())
+                .expires_at(expired)
+                .created_at(Timestamp::now()),
+        );
     }
+    seed.exec(&mut db).await.expect("seed the expired rows");
 
     let router = auth_router(db.clone());
     let token = Uuid::new_v4().to_string();
@@ -498,6 +499,26 @@ async fn login_sweeps_at_most_a_batch() {
     assert_eq!(
         remaining, 2,
         "one expired row past the batch, plus the session this login created"
+    );
+}
+
+/// The sweep's own failure maps through the same opaque seam as the rest of the
+/// session paths, so a login whose cleanup cannot run reports sign-in trouble
+/// rather than driver text (GH #230).
+#[tokio::test]
+async fn a_sweep_failure_maps_to_the_opaque_sign_in_copy() {
+    let cx = login_cx(schema_less_db().await, "token");
+    let error = super::sweep_expired_sessions(&cx)
+        .await
+        .expect_err("a schema-less database fails the sweep");
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains(UNAVAILABLE_ERROR),
+        "the opaque message must survive, got {rendered}"
+    );
+    assert!(
+        !rendered.contains("no such table"),
+        "driver text must not leak, got {rendered}"
     );
 }
 

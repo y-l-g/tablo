@@ -107,6 +107,10 @@ pub struct AuthSession {
     /// [`CurrentUser::id`] of the authenticated user.
     #[index]
     pub user_id: String,
+    /// Indexed for the login sweep, whose filter is a range scan on this
+    /// column; an app migrating an existing table adds the index with the
+    /// model's own schema change.
+    #[index]
     pub expires_at: Timestamp,
     pub created_at: Timestamp,
 }
@@ -488,18 +492,18 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
     Ok(())
 }
 
-/// How many expired session rows one sweep drops: the bound that keeps login's
-/// cleanup from growing with the table.
+/// How many expired session rows one sweep drops: the bound that keeps one
+/// login from deleting an unbounded number of rows.
 const SESSION_SWEEP_BATCH: usize = 500;
 
 /// Drop up to [`SESSION_SWEEP_BATCH`] expired session rows, whoever owns them.
 ///
 /// [`resolve`] purges a row when its token is looked up expired, so a row whose
-/// token is never presented again stays in the table (GH #302). Login is where
-/// the sweep runs: the table is already open on a write path, a visitor who
-/// never signs in does not reach it, and the batch keeps one login from
-/// deleting an unbounded number of rows. Toasty's `Delete` carries no `LIMIT`,
-/// so the bound comes from selecting the keys first.
+/// token is never presented again stays in the table (GH #302). A successful
+/// login is where the sweep runs, before the new row: a visitor who never signs
+/// in does not reach it. Toasty's `Delete` carries no `LIMIT`, so the bound
+/// comes from selecting the keys first, and the select rides `expires_at`'s
+/// index.
 async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     let now = Timestamp::now();
     let mut db = crate::db::db(cx);
@@ -514,11 +518,18 @@ async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     if expired.is_empty() {
         return Ok(());
     }
-    AuthSession::filter(AuthSession::fields().token_hash().in_list(expired))
-        .delete()
-        .exec(&mut db)
-        .await
-        .map_err(infrastructure_failure)?;
+    // The expiry is re-read here: the select and the delete are two statements,
+    // so a row whose lifetime was extended between them is no longer expired.
+    AuthSession::filter(
+        AuthSession::fields()
+            .token_hash()
+            .in_list(expired)
+            .and(AuthSession::fields().expires_at().le(now)),
+    )
+    .delete()
+    .exec(&mut db)
+    .await
+    .map_err(infrastructure_failure)?;
     Ok(())
 }
 
