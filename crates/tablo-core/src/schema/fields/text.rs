@@ -24,7 +24,7 @@ pub(crate) struct TextControl {
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
     pub(super) unique: bool,
-    probe: EqProbe,
+    probe: Option<EqProbe>,
 }
 
 impl TextControl {
@@ -33,8 +33,7 @@ impl TextControl {
     ///
     /// The probe parses a submission into `T` and compares it through `path`,
     /// so a value unique as text but not as the type (`01` and `1` to an
-    /// integer column) is checked for what the record will store, and an
-    /// embedded leaf compares its own flattened column.
+    /// integer column) is checked for what the record will store.
     pub(super) fn new<M, T>(path: FieldLens<M, T>, unique: bool) -> Self
     where
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
@@ -54,14 +53,27 @@ impl TextControl {
             rows: None,
             placeholder: None,
             unique,
-            probe,
+            probe: Some(probe),
+        }
+    }
+
+    /// The control of a derived embedded leaf: no unique probe, because
+    /// `Panel::build` refuses a `unique()` marker on anything but a column
+    /// of the model, so `T` needs no expression form.
+    pub(super) fn leaf<T: FormScalar>() -> Self {
+        Self {
+            input_type: T::INPUT_TYPE,
+            rows: None,
+            placeholder: None,
+            unique: false,
+            probe: None,
         }
     }
 
     /// The equality expression the app-side unique check probes with, or
-    /// `None` when the submission does not parse.
+    /// `None` when the submission does not parse or the field has no probe.
     pub(crate) fn eq_filter(&self, value: &str) -> Option<toasty::stmt::Expr<bool>> {
-        (self.probe)(value)
+        self.probe.as_ref().and_then(|probe| probe(value))
     }
 }
 

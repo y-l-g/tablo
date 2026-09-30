@@ -151,10 +151,12 @@ What to know:
   not the typed one: a typed column has no spelling for "no value", so an empty submission on an
   optional typed field stores the record form field's blank answer.
 - `unique()` does two things. It adds an app-level pre-check — Toasty exposes no unique-violation
-  predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and it
-  implies **presence**: the framework stores `""` rather than NULL, so an empty value on a unique
-  field is refused inline as `"<Label> is required"` instead of being written past an index that
-  admits only one (GH #189). `.optional()` does not lift that rule, and `Panel::build` refuses a
+  predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and on
+  a non-nullable column it implies **presence**: an empty `String` stores `""`, so an empty value on
+  a unique field is refused inline as `"<Label> is required"` instead of being written past an index
+  that admits only one (GH #189). `.optional()` does not lift that rule there. An `Option` column
+  stores NULL for an empty value, which the index admits many times, so a unique `Option` field
+  follows its own `required`. `Panel::build` refuses a
   `unique()` marker on a column with no unique index (single-field or composite, `#[unique(a, b)]`
   included), so the declaration and the database cannot disagree about which fields are unique.
 - A relationship choice validates the FK against the related resource query before the write runs:
@@ -221,7 +223,7 @@ Field::choice(Post::fields().author_id())
   the user cannot see never blocks the submit (GH #297). A submission that names no variant hides
   nothing, because the value codec's payload fallback may still read any group.
 - `unique()` exists on text fields; the probe parses the submission into the field's type and
-  compares it through the field's own lens, so an embedded leaf compares its flattened column.
+  compares it through the field's own lens.
 
 Validation errors render inline per field. On create an absent key validates as `""`; on edit it
 validates as its stored value. Handlers reject unknown form keys with 400 (`role` / `tenant_id`

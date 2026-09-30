@@ -380,7 +380,8 @@ impl Embedded {
     /// A form renders every variant group, each marked with `data-variant`
     /// (the value it stores) and `data-variant-of` (the discriminant column),
     /// which `variant.js` reads to keep only the chosen one visible. A view
-    /// renders only the stored variant's group: the others hold no values.
+    /// renders only the stored variant's group and the shared columns it
+    /// declares: the rest hold no values.
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
@@ -391,10 +392,32 @@ impl Embedded {
             Shape::Struct(members) => render_members(cx, members, fields, source).await,
             Shape::Enum(e) => {
                 let mut views = Vec::with_capacity(e.shared.len() + e.variants.len() + 1);
-                for index in std::iter::once(&e.discriminant).chain(&e.shared) {
+                views.push(
+                    Node::Field(e.discriminant)
+                        .render(cx, fields, source)
+                        .await?,
+                );
+                let stored = source.value(&e.key).map(str::trim);
+                let stored_variant = e
+                    .variants
+                    .iter()
+                    .find(|variant| stored == Some(variant.value.as_str()));
+                for index in &e.shared {
+                    // A view shows a shared column only when the stored
+                    // variant declares it: another variant's column holds no
+                    // value on this record.
+                    let key = fields[*index].name();
+                    let declared = stored_variant.is_some_and(|variant| {
+                        variant
+                            .members
+                            .iter()
+                            .any(|member| matches!(member, Member::Leaf { key: k, .. } if k == key))
+                    });
+                    if source.mode() == Mode::View && !declared {
+                        continue;
+                    }
                     views.push(Node::Field(*index).render(cx, fields, source).await?);
                 }
-                let stored = source.value(&e.key).map(str::trim);
                 for variant in &e.variants {
                     if source.mode() == Mode::View && stored != Some(variant.value.as_str()) {
                         continue;

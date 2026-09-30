@@ -23,8 +23,10 @@ pub mod __macro {
     pub use crate::{
         form::{FieldError, FormField, FormScalar, RecordForm, assert_form_scalar, parse_scalar},
         schema::{
-            Embedded, EmbeddedBuilder, EmbeddedForm, Field, ResolvedLens, Schema, embedded_keys,
-            parse_leaf, take_leaf, take_value,
+            EmbeddedForm, Field, ResolvedLens, Schema,
+            embedded::{
+                Embedded, EmbeddedBuilder, embedded_keys, parse_leaf, take_leaf, take_value,
+            },
         },
     };
 }

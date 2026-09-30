@@ -1084,3 +1084,40 @@ fn serve_dir_accepts_only_a_catch_all_pattern() {
     assert!(!is_directory_pattern("/uploads//{*file}"));
     assert!(!is_directory_pattern("/uploads/{*fi-le}"));
 }
+
+/// A view's misdeclaration — here a text modifier on a choice — fails the
+/// build, as a table's does, rather than the first detail request.
+#[tokio::test]
+async fn panel_build_rejects_a_misdeclared_view() {
+    use crate::{
+        resource::Resource,
+        schema::{Field, Schema},
+    };
+
+    struct BadView;
+    impl Resource for BadView {
+        type Model = Dummy;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
+            dummy_table(cx)
+        }
+
+        fn view(_cx: &Cx) -> Schema {
+            Schema::new(Field::choice(Dummy::fields().name()).email())
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Dummy))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let Err(error) = panel_for::<BadView>(db).build() else {
+        panic!("a view with a modifier on the wrong control must not build");
+    };
+    assert!(
+        format!("{error}").contains("`.email()` applies to a text field"),
+        "the error names the modifier, got {error}"
+    );
+}

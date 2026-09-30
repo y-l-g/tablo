@@ -111,9 +111,12 @@ field, and for an enum the variant control, the `#[shared(..)]` columns once, an
 variant. The node holds its keys, so the codec reads and writes through them and a record form's
 keys are the node's; variant hiding is a property of the node rather than of a marked `Group`.
 `leaf_key`, `value_keys`, `read_embedded`, `write_embedded`, `parse_leaf`, `enum_spec`,
-`discriminant_select`, `EnumSpec`, and `Group::variant` are removed from the public API; only
-`EmbeddedForm::{write_form, read_form}` and the generated `form` remain. A field is classified by
+`discriminant_select`, `EnumSpec`, and `Group::variant` leave the public API: the app-facing
+surface is `EmbeddedForm::{write_form, read_form}` and the generated `form`, and the derive reaches
+its builder and parse helpers through the hidden `__macro` module (macro support). Each codec call
+builds the node once, from the request's app schema. A field is classified by
 attribute, never by type name: `#[form(embed)]` marks a nested value, and every other field is a
 scalar asserted `FormScalar` at the field, so an app type implementing `TypedValue` is a leaf.
 `#[form(textarea, rows = N)]` is `#[form(multiline = N)]`, and a leaf binds as `Field::text`,
-multi-line with `.multiline(rows)`. A view renders only the stored variant's group.
+multi-line with `.multiline(rows)`. A view renders only the stored variant's group and the
+shared columns that variant declares.

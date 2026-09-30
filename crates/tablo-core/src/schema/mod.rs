@@ -13,7 +13,7 @@
 //! since Toasty keeps it on the model's index list rather than the field.
 //! Retire the walk when Toasty exposes it (upstream #183).
 
-mod embedded;
+pub(crate) mod embedded;
 mod fields;
 mod layouts;
 mod lenses;
@@ -25,8 +25,6 @@ mod validation;
 use std::collections::{HashMap, HashSet};
 
 pub use embedded::EmbeddedForm;
-#[doc(hidden)]
-pub use embedded::{Embedded, EmbeddedBuilder, embedded_keys, parse_leaf, take_leaf, take_value};
 pub use fields::Field;
 pub use layouts::{Grid, Group, Repeater, Section};
 pub use lenses::{FieldLens, ResolvedLens};

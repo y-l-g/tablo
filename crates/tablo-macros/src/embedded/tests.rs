@@ -53,9 +53,10 @@ fn a_raw_identifier_field_is_labelled_without_the_raw_prefix() {
 }
 
 /// A scalar of a type that is not a form scalar fails at a bound spanned on
-/// the field's type: the generated read asserts `FormScalar` for it.
+/// the field's type: the generated schema asserts `FormScalar` for it before
+/// the leaf's field, whose only bound is `FormScalar` too.
 #[test]
-fn a_scalar_carries_a_form_scalar_assertion() {
+fn a_scalar_carries_a_form_scalar_assertion_first() {
     let member = Member {
         ident: syn::parse_str("tags").unwrap(),
         ty: syn::parse_str("Vec<String>").unwrap(),
@@ -63,11 +64,13 @@ fn a_scalar_carries_a_form_scalar_assertion() {
         shared: false,
     };
     let krate = quote! { ::tablo_core };
-    let read = read_member(&krate, &member, 0, &quote! { None }).to_string();
-    assert!(
-        read.contains("assert_form_scalar :: < Vec < String > >"),
-        "the read asserts the bound for the field's type, got {read}"
-    );
+    let owner: syn::Ident = syn::parse_str("Seo").unwrap();
+    let add = build_member(&krate, &owner, &member, 0, None).to_string();
+    let assert = add
+        .find("assert_form_scalar :: < Vec < String > >")
+        .unwrap_or_else(|| panic!("the schema asserts the bound, got {add}"));
+    let leaf = add.find("embedded_leaf").expect("the leaf's field");
+    assert!(assert < leaf, "the assertion comes first, got {add}");
 }
 
 /// An embedded member delegates to its own impl and asserts nothing.
@@ -85,7 +88,9 @@ fn an_embedded_member_delegates_to_its_own_impl() {
     let krate = quote! { ::tablo_core };
     let read = read_member(&krate, &member, 0, &quote! { None }).to_string();
     assert!(read.contains("read_node"), "{read}");
-    assert!(!read.contains("assert_form_scalar"), "{read}");
+    let owner: syn::Ident = syn::parse_str("Holder").unwrap();
+    let add = build_member(&krate, &owner, &member, 0, None).to_string();
+    assert!(!add.contains("assert_form_scalar"), "{add}");
 }
 
 /// A misspelled key is refused whatever the field's type.

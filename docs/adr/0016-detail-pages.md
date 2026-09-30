@@ -89,6 +89,7 @@ per-kind field types are one `Field` whose control is text, choice, or file, so 
 `Field::text`, `Field::choice`, and `Field::file`. A view field whose key the values lack renders
 `(missing)` and fails a `debug_assert!`, the contract a list column keeps for an unloaded relation
 (ADR-0011), so the "view of empty labels" consequence above is detected rather than rendered. An
-embedded enum renders only its stored variant's group on a view. `view`, `view_values`, and
+embedded enum renders only its stored variant's group, and the shared columns that variant declares,
+on a view. `view`, `view_values`, and
 `viewed` stay: like Filament's infolist, the detail page has its own layout, shows keys the form does
 not, and exists for a list-only resource.

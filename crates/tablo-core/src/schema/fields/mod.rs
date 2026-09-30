@@ -54,6 +54,9 @@ pub struct Field {
     name: String,
     label: String,
     required: bool,
+    /// Whether the column stores NULL for an empty submission, which a unique
+    /// index admits any number of times.
+    nullable: bool,
     /// The email and scalar-parse rules, with their messages.
     rules: Rules,
     control: Control,
@@ -117,8 +120,29 @@ impl Field {
             name: lens.name,
             label: lens.label,
             required: !lens.nullable,
+            nullable: lens.nullable,
             rules: Rules::new().scalar::<T>(),
             control: Control::Text(control),
+        }
+    }
+
+    /// The text field `#[derive(EmbeddedForm)]` renders for a leaf: bound
+    /// through the request's app schema, and bounded by `FormScalar` alone so
+    /// a leaf of another type fails at the derive's `FormScalar` assertion.
+    #[doc(hidden)]
+    pub fn embedded_leaf<M, T>(cx: &Cx, path: toasty::stmt::Path<M, T>) -> Self
+    where
+        M: toasty::schema::Model,
+        T: FormScalar,
+    {
+        let lens = ResolvedLens::new(cx, path);
+        Self {
+            name: lens.name,
+            label: lens.label,
+            required: !lens.nullable,
+            nullable: lens.nullable,
+            rules: Rules::new().scalar::<T>(),
+            control: Control::Text(TextControl::leaf::<T>()),
         }
     }
 
@@ -138,6 +162,7 @@ impl Field {
             name: lens.name,
             label: lens.label,
             required: !lens.nullable,
+            nullable: lens.nullable,
             rules: Rules::new(),
             control: Control::Choice(ChoiceControl::default()),
         }
@@ -163,6 +188,7 @@ impl Field {
             name: lens.name,
             label: lens.label,
             required: !lens.nullable,
+            nullable: lens.nullable,
             rules: Rules::new(),
             control: Control::File,
         }
@@ -180,6 +206,7 @@ impl Field {
             label: capitalize(&name),
             name,
             required: false,
+            nullable: true,
             rules: Rules::new(),
             control: Control::Choice(ChoiceControl {
                 discriminant: true,
@@ -221,11 +248,13 @@ impl Field {
     /// Mark the field as backed by a unique index, which the app-side
     /// pre-check probes before the write (text).
     ///
-    /// **Uniqueness implies presence**: the framework stores `""`, never NULL,
-    /// so an empty value is one the index admits only once — an empty submit
-    /// is refused inline as `"<Label> is required"` instead of being written,
-    /// and the probe never sees it. `.optional()` does not lift that rule,
-    /// whichever order the two are called in (ADR-0010).
+    /// **Uniqueness implies presence on a non-nullable column**: an empty
+    /// `String` stores `""`, which the index admits only once, so an empty
+    /// submit is refused inline as `"<Label> is required"` instead of being
+    /// written, and the probe never sees it. `.optional()` does not lift that
+    /// rule, whichever order the two are called in (ADR-0010). A nullable
+    /// column (`Option<T>`) stores NULL for an empty submit, which the index
+    /// admits any number of times, so it stays optional when declared so.
     pub fn unique(mut self) -> Self {
         self.text_mut("unique").unique = true;
         self
@@ -352,10 +381,11 @@ impl Field {
     }
 
     /// Whether an empty submit fails validation and the control renders as
-    /// required: `required`, or a unique text field (GH #189). `validate` and
-    /// the render read it, so the rule and the marker cannot disagree.
+    /// required: `required`, or a unique text field over a non-nullable
+    /// column (GH #189). `validate` and the render read it, so the rule and
+    /// the marker cannot disagree.
     pub(crate) fn is_required(&self) -> bool {
-        self.required || self.is_unique()
+        self.required || (self.is_unique() && !self.nullable)
     }
 
     /// Validate a raw submitted value against the field's rules.
@@ -459,8 +489,8 @@ pub(crate) enum ValueKind {
 /// uniformly. The label is the same `field_label` the form uses, inside the
 /// same `field` family, so a field is recognisable across the two pages.
 ///
-/// An empty value renders empty: the framework stores `""` rather than NULL,
-/// so a stored record cannot tell "no value" from an empty one.
+/// An empty value renders empty: a `String` column stores `""` and a NULL
+/// hydrates as `""`, so the page cannot tell "no value" from an empty one.
 fn render_value<'a>(
     cx: &'a Cx,
     label: &str,

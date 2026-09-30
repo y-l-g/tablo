@@ -363,12 +363,14 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             std::any::type_name::<R::Model>(),
         ));
     }
-    // Declaring the table runs its own misdeclaration checks (a duplicate
-    // column name, a zero page size, a lens that is not a single field), which
-    // panic; the `catch_unwind` around this body turns them into this
-    // resource's registration error instead of a failure on the first list
+    // Declaring the table and the view runs their own misdeclaration checks
+    // (a duplicate column or field name, a zero page size, a lens that is not
+    // a single field, a modifier on the wrong control), which panic; the
+    // `catch_unwind` around this body turns them into this resource's
+    // registration error instead of a failure on the first list or detail
     // request.
     let _ = R::table(cx);
+    let _ = R::view(cx);
     check_form_declaration::<R>(cx)
 }
 

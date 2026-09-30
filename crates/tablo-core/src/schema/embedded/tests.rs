@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
+use crate::schema::Source;
 
 #[derive(Debug, toasty::Model)]
 struct DummyUser {
@@ -141,4 +142,49 @@ fn an_embedded_node_keeps_its_slots_when_appended() {
     let mut slots = Vec::new();
     schema.nodes[1].visit_fields(&mut |index, _| slots.push(schema.fields[index].name()));
     assert_eq!(slots, ["kind", "name"], "the node reads its own fields");
+}
+
+/// A view renders a shared column only when the stored variant declares it:
+/// a unit variant stores nothing in the column, so its key is absent from the
+/// record's values and must not read as a missing field.
+#[tokio::test]
+async fn a_view_renders_a_shared_column_only_for_a_variant_declaring_it() {
+    let cx = crate::test_support::cx();
+    let mut builder = enumeration(&["1", "2", "3"]);
+    builder.variant();
+    builder.variant();
+    builder.shared(Field::text(DummyUser::fields().name()).label("Stamp"));
+    builder.variant();
+    builder.shared(Field::text(DummyUser::fields().name()).label("Stamp"));
+    let schema = Schema::new(builder.finish());
+    let render = |values: HashMap<String, String>| {
+        let schema = &schema;
+        let cx = &cx;
+        async move {
+            schema
+                .render(cx, Source::view(&values))
+                .await
+                .unwrap()
+                .single()
+                .await
+                .unwrap()
+                .render(cx)
+        }
+    };
+
+    let unit = render(map(&[("kind", "1")])).await;
+    assert!(
+        unit.contains("Variant 1"),
+        "the stored variant is named: {unit}"
+    );
+    assert!(
+        !unit.contains("Stamp") && !unit.contains("(missing)"),
+        "a unit variant declares no shared column: {unit}"
+    );
+
+    let stamped = render(map(&[("kind", "3"), ("name", "noon")])).await;
+    assert!(
+        stamped.contains("Stamp") && stamped.contains("noon"),
+        "{stamped}"
+    );
 }

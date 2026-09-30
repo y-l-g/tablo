@@ -176,3 +176,36 @@ async fn without_a_schema_a_traversal_lens_still_fails_loudly() {
     let cx = CxTestBuilder::new().build();
     let _ = Field::text(ResolvedLens::new(&cx, Article::fields().meta().note()));
 }
+
+/// Every kind of field binds an embedded leaf through `ResolvedLens::new`,
+/// and posts its flattened column.
+#[tokio::test]
+async fn a_choice_and_a_file_bind_an_embedded_leaf() {
+    let cx = article_cx().await;
+    let choice = Field::choice(ResolvedLens::new(
+        &cx,
+        Article::fields().meta().seo().title(),
+    ))
+    .options(vec!["draft".to_string()]);
+    let file = Field::file(ResolvedLens::new(
+        &cx,
+        Article::fields().meta().seo().description(),
+    ));
+    assert_eq!(choice.name(), "meta_seo_title");
+    assert_eq!(file.name(), "meta_seo_description");
+
+    let schema = Schema::new((choice, file));
+    let html = render(&schema, &cx, HashMap::new()).await;
+    assert!(
+        html.contains("<select") && html.contains("name=\"meta_seo_title\""),
+        "the choice posts the flattened column, got {html}"
+    );
+    assert!(
+        html.contains("type=\"file\"") && html.contains("name=\"meta_seo_description\""),
+        "the file field posts the flattened column, got {html}"
+    );
+    assert!(
+        schema.validate(&HashMap::new()).is_empty(),
+        "an embedded leaf is optional by default, for every kind"
+    );
+}

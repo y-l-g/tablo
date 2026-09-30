@@ -180,8 +180,8 @@ fn expand_struct(
         let variant = &field.variant;
         let name_str = name.to_string();
         let name_str = name_str.trim_start_matches("r#");
-        // The field's path and key, bound once: each generated fn resolves the
-        // key through the same tokens.
+        // The field's path and key tokens, built once per field here; each
+        // generated fn resolves the key from them at run time.
         let path = quote! { <#model>::fields().#name() };
         let key = quote_spanned! {ty.span()=>
             #krate::__macro::ResolvedLens::<#model, #ty>::from(#path).name().to_string()

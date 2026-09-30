@@ -212,7 +212,8 @@ binds any `FormScalar` lens — `String`, a `TypedValue` type (`i64`, `Uuid`, `j
 `Option` of one (GH #192) — rendering the value's spelling and parsing the submission through the
 type. A constructor takes a column's lens or a `ResolvedLens`, which binds an embedded leaf to its
 flattened column. `required` defaults from Toasty column nullability (opt out with `.optional()`),
-and `unique()` implies **presence** (GH #189): the framework stores `""`, never NULL (GH #89). Renders through the upstream `field`
+and `unique()` on a non-nullable column implies **presence** (GH #189): an empty `String` stores
+`""` (GH #89), which a unique index admits once; an `Option` column stores NULL. Renders through the upstream `field`
 family (topcoat#420). See [forms](docs/guide/src/forms.md) and ADR-0001.
 
 _Avoid_: Input, Control, Widget (in form context), statePath

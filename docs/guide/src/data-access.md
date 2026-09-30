@@ -86,7 +86,7 @@ not a vote. Only when no discriminant is named at all — the create form, a han
 payloads select one, by a variant's own **non-shared** payload through resolved keys. The toggle is
 markup-only (`variant.js` hides the inactive groups): with JavaScript off every variant's payload
 renders, so no field the server still parses is lost; a read-only page renders only the stored
-variant's group. `Publication::form` is one schema node: its fields join the form's field list, and
+variant's group and the shared columns it declares. `Publication::form` is one schema node: its fields join the form's field list, and
 its keys are its fields' keys. Inside a value, a field marked `#[form(embed)]` is a nested value and
 every other field is a scalar (`FormScalar`), which a derive checks at the field.
 `#[form(label = "…")]` and `#[form(multiline = N)]` are the per-field overrides; an unknown key is

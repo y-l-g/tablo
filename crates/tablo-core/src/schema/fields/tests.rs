@@ -52,3 +52,45 @@ fn a_text_modifier_on_a_choice_panics() {
 fn a_choice_modifier_on_a_text_field_panics() {
     let _ = Field::text(DummyUser::fields().name()).options(vec!["a".to_string()]);
 }
+
+#[derive(Debug, toasty::Model)]
+struct Coded {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[unique]
+    code: i64,
+    #[unique]
+    nickname: Option<String>,
+}
+
+/// A unique index marks the field unique by default, whatever the scalar
+/// type, so a typed column is probed like a `String` one.
+#[test]
+fn a_typed_unique_column_defaults_to_unique() {
+    assert!(Field::text(Coded::fields().code()).is_unique());
+    assert!(Field::text(Coded::fields().nickname()).is_unique());
+    assert!(!Field::text(DummyUser::fields().name()).is_unique());
+}
+
+/// Uniqueness implies presence only where an empty submit stores a value: a
+/// nullable column stores NULL, which a unique index admits many times.
+#[test]
+fn a_nullable_unique_column_may_be_left_empty() {
+    let nullable = Field::text(Coded::fields().nickname());
+    assert!(
+        nullable.validate("").is_empty(),
+        "an `Option` column stays optional: {:?}",
+        nullable.validate("")
+    );
+    assert!(!nullable.is_required(), "and renders no required marker");
+
+    let non_nullable = Field::text(DummyUser::fields().email()).optional();
+    assert!(
+        non_nullable
+            .validate("")
+            .iter()
+            .any(|e| e.contains("is required")),
+        "a non-nullable unique column stays required even when optional"
+    );
+}

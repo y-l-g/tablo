@@ -202,10 +202,14 @@ fn build_member(
     } else {
         quote! { leaf }
     };
+    // The assertion comes first and the leaf's only bound is `FormScalar`, so
+    // a field of another type fails once, at the field.
+    let assert = assert_scalar(krate, ty);
     let field = quote_spanned! {ty.span()=>
-        #krate::__macro::Field::text(#krate::__macro::ResolvedLens::new(cx, #path))
+        #krate::__macro::Field::embedded_leaf::<_, #ty>(cx, #path)
     };
     quote! {
+        #assert
         builder.#add(#field.label(#text)#rows);
     }
 }
@@ -255,15 +259,11 @@ fn read_member(
             )
         };
     }
-    let assert = assert_scalar(krate, ty);
     let read = quote_spanned! {ty.span()=>
         #krate::__macro::parse_leaf::<#ty>(node.key(#variant, #index), values)
     };
     quote! {
-        {
-            #assert
-            #krate::__macro::take_leaf(#read, &mut errors)
-        }
+        #krate::__macro::take_leaf(#read, &mut errors)
     }
 }
 
