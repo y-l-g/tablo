@@ -57,7 +57,7 @@ async fn layout_shell_renders_a_complete_document() {
 }
 
 /// A page outside the panel takes the panel's document: the same head, around
-/// the body the page owns.
+/// the body content the page owns.
 #[tokio::test]
 async fn document_wraps_a_public_page() {
     use topcoat::{context::CxTestBuilder, view::view};
@@ -72,7 +72,7 @@ async fn document_wraps_a_public_page() {
     let html = Panel::document(
         &cx,
         "Tablo Blog",
-        view! { cx_ref => <body class="blog">"hello"</body> },
+        view! { cx_ref => <div class="blog">"hello"</div> },
     )
     .await
     .unwrap()
@@ -89,9 +89,15 @@ async fn document_wraps_a_public_page() {
         html.contains("<title>Tablo Blog</title>"),
         "missing document title in {html}"
     );
+    // The panel renders the one `<body>`; the page's content sits inside it.
+    assert_eq!(
+        html.matches("<body").count(),
+        1,
+        "exactly one body element, got {html}"
+    );
     assert!(
-        html.contains("<body class=\"blog\">"),
-        "missing the page's own body in {html}"
+        html.contains("<div class=\"blog\">"),
+        "missing the page's own content in {html}"
     );
     assert!(html.contains("hello"), "missing page content in {html}");
     // No `ShellAssets` in app context: the head carries no asset URL, so a

@@ -62,7 +62,7 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
         cx,
         "Blog",
         view! {
-            <body class="mx-auto max-w-3xl px-6 py-10">(slot)</body>
+            <div class="mx-auto max-w-3xl px-6 py-10">(slot)</div>
         },
     )
     .await
@@ -76,7 +76,8 @@ async fn blog() -> Result<impl View> {
 
 `Panel::document` renders the document the admin shell renders — `topcoat::dev::script()`, the theme
 script, and, where the panel registered `Panel::shell_assets`, the runtime script, the font, the
-stylesheet and the shell scripts. The body is the page's own: its chrome, its classes and the slot.
+stylesheet and the shell scripts. The panel renders the `<body>` element and its dark-mode `<html>`
+class; the page owns the content inside, its chrome and its classes.
 The runtime script, the font and the stylesheet are `Asset` URLs, and an `Asset` panics where no
 asset config is registered, so a router built without `.assets(..)` — a markup test, say — would not
 render them at all; `Panel::document` leaves them out there, as the panel's own shell does.

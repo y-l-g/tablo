@@ -34,11 +34,12 @@ path_param!(pub id: uuid::Uuid);
 
 /// The public shell: the panel's document around the blog's own body.
 ///
-/// [`Panel::document`] renders the head the admin shell renders — the dev
+/// [`Panel::document`] renders the document the admin shell renders — the dev
 /// script, the theme init, and, where the panel registered shell assets, the
-/// runtime script, the font, the stylesheet and the shell scripts. The test
-/// router builds without assets (`router_for_tests`), and the document degrades
-/// to the dev script and the theme init there instead of panicking.
+/// runtime script, the font, the stylesheet and the shell scripts — around the
+/// body content the page owns. The test router builds without assets
+/// (`router_for_tests`), and the document degrades to the dev script and the
+/// theme init there instead of panicking.
 ///
 /// The path is explicit (`/blog`) rather than `/`: layout paths are prefixes,
 /// so a root layout would wrap `/admin` too and nest a document inside the
@@ -49,7 +50,7 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
         cx,
         "Tablo Blog",
         view! {
-            <body class="flex min-h-screen flex-col bg-background text-foreground">
+            <div class="flex min-h-screen flex-col bg-background text-foreground">
                 <header class="border-b border-border">
                     <nav
                         class="mx-auto flex w-full max-w-3xl items-center gap-6 px-6 py-4"
@@ -85,7 +86,7 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                         "Published with Tablo."
                     </p>
                 </footer>
-            </body>
+            </div>
         },
     )
     .await
