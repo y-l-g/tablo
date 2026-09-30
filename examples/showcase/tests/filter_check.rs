@@ -360,7 +360,7 @@ async fn create_fixture_post(
         },
         publication: showcase::models::Publication::Scheduled {
             scheduled_at: "2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
-            scheduled_for: String::new(),
+            scheduled_for: None,
         },
         author_id: author.id,
     })

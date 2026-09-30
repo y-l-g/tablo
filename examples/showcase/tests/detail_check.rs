@@ -23,6 +23,31 @@ async fn a_post_id(db: &mut toasty::Db) -> String {
         .to_string()
 }
 
+/// A published post id — the blog serves published posts only, so this is the
+/// fixture whose record pages carry a public link.
+async fn a_published_post_id(db: &mut toasty::Db) -> String {
+    Post::filter(Post::fields().status().eq("published".to_string()))
+        .order_by(Post::fields().title().asc())
+        .exec(db)
+        .await
+        .unwrap()
+        .remove(0)
+        .id
+        .to_string()
+}
+
+/// An unpublished post id — the fixture whose record pages link nothing.
+async fn an_unpublished_post_id(db: &mut toasty::Db) -> String {
+    Post::filter(Post::fields().status().eq("draft".to_string()))
+        .order_by(Post::fields().title().asc())
+        .exec(db)
+        .await
+        .unwrap()
+        .remove(0)
+        .id
+        .to_string()
+}
+
 /// The detail page's `<h1>` text — the title line.
 fn page_heading(html: &str) -> String {
     let heading = html
@@ -103,10 +128,6 @@ async fn post_detail_renders_the_record_read_only() {
         "detail page must offer a way back: {html}"
     );
     assert!(
-        html.contains("View public post") && html.contains(&format!("/blog/{}", post.id)),
-        "detail page must link the public post: {html}"
-    );
-    assert!(
         html.contains("words ·") && html.contains("min read"),
         "detail page must show the computed reading stats: {html}"
     );
@@ -137,19 +158,47 @@ async fn post_detail_renders_the_record_read_only() {
 }
 
 #[tokio::test]
-async fn post_edit_page_links_the_public_post() {
-    // The edit header carries the same public link as the detail header, so
-    // an editor reaches the published page without returning to the list.
+async fn an_unpublished_post_links_no_public_page() {
+    // The blog serves published posts only, so a draft's record pages must
+    // link nothing: the URL the link would name answers not-found.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
-    let id = a_post_id(&mut db_q).await;
+    let id = an_unpublished_post_id(&mut db_q).await;
 
-    let html = body_string(client.get(&format!("/admin/posts/{id}/edit")).await).await;
+    for path in [
+        format!("/admin/posts/{id}"),
+        format!("/admin/posts/{id}/edit"),
+    ] {
+        let html = body_string(client.get(&path).await).await;
+        assert!(
+            !html.contains("View public post") && !html.contains(&format!("/blog/{id}")),
+            "{path} must not link a public page for a draft: {html}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn post_record_pages_link_the_public_post() {
+    // A published post's public page is linked from both record headers, so an
+    // editor reaches it without returning to the list.
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let id = a_published_post_id(&mut db_q).await;
+
+    let edit = body_string(client.get(&format!("/admin/posts/{id}/edit")).await).await;
     assert!(
-        html.contains("View public post") && html.contains(&format!("/blog/{id}")),
-        "edit page must link the public post: {html}"
+        edit.contains("View public post") && edit.contains(&format!("/blog/{id}")),
+        "edit page must link the public post: {edit}"
+    );
+
+    let detail = body_string(client.get(&format!("/admin/posts/{id}")).await).await;
+    assert!(
+        detail.contains("View public post") && detail.contains(&format!("/blog/{id}")),
+        "detail page must link the public post: {detail}"
     );
 }
 
