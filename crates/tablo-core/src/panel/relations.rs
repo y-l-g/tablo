@@ -70,47 +70,35 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
         if enforce_tenant::<C>(cx).is_err() || !C::can_view_any(cx) {
             return Ok(().boxed());
         }
+        let table = wire_table::<C>(cx, false, relation_chrome::<C>(cx, relation.read_only));
+        let state = table.normalize_state(&TableState::from_cx_prefixed(cx, &relation.key));
         let BoundRelation {
-            parent,
-            key,
-            label,
-            scope,
-            seed,
-            page,
+            ref seed,
+            ref page,
             read_only,
+            ..
         } = relation;
-        let table = wire_table::<C>(cx, false, relation_chrome::<C>(cx, read_only));
-        let state = table.normalize_state(&TableState::from_cx_prefixed(cx, &key));
         // A write returns to the page as the table shows it, without a
         // dialog left open on a row the write removed.
-        let table = table.returning_to(state.list_url(&page));
+        let table = table.returning_to(state.list_url(page));
         let create_url = (!read_only && <C::Form as RecordForm>::HAS_FORM && C::can_create(cx))
             .then(|| {
                 let query = form_urlencoded::Serializer::new(String::new())
                     .append_pair(&seed.0, &seed.1)
-                    .append_pair(RETURN_PARAM, &state.list_url(&page))
+                    .append_pair(RETURN_PARAM, &state.list_url(page))
                     .finish();
                 format!("{}?{query}", create_page_url(&list_url(cx, &C::slug())))
             });
         if table.is_live_search() {
-            return Ok(relation_table_live::<C>(
-                cx,
-                table,
-                state,
-                BoundRelation {
-                    parent,
-                    key,
-                    label,
-                    scope,
-                    seed,
-                    page,
-                    read_only,
-                },
-                create_url,
-            )
-            .await?
-            .boxed());
+            return relation_table_live::<C>(cx, table, state, relation, create_url).await;
         }
+        let BoundRelation {
+            key,
+            label,
+            scope,
+            page,
+            ..
+        } = relation;
         let body = match load_scoped_page::<C>(cx, &table, &state, scope).await {
             Ok(rows) => table.render_with_state(cx, rows, &state, &page).await?,
             Err(error) => table_error_view::<C>(cx, &state, &error, &page, None),
