@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use tablo_core::{
     Brand, ColumnWidth, Committed, DateFilter, Field, FieldErrors, Grid, Group, Panel, Posted,
-    RelationColumn, RelationColumns, Repeater, ResolvedLens, Resource, Schema, Section, SelectFilter,
-    Table, TernaryFilter, TextColumn, Uploader, VariantFilter,
-    render_relation, scoped_query, tenant_id, write_create, write_update,
+    RelationColumn, RelationColumns, Repeater, ResolvedLens, Resource, Schema, Section,
+    SelectFilter, Table, TernaryFilter, TextColumn, Uploader, VariantFilter, render_relation,
+    scoped_query, tenant_id, write_create, write_update,
 };
 use toasty::Db;
 use topcoat::{

@@ -1,7 +1,9 @@
 use std::time::Instant;
 
 use jiff::Timestamp;
-use tablo_core::{Field, Panel, Resource, Schema, Table, TablePage, TableState, Tenant, TextColumn};
+use tablo_core::{
+    Field, Panel, Resource, Schema, Table, TablePage, TableState, Tenant, TextColumn,
+};
 use toasty::{Db, Deferred};
 use topcoat::{
     Result,
