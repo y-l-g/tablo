@@ -594,6 +594,127 @@ async fn build_refuses_a_repeater_control_with_no_blank_answer() {
 }
 
 #[tokio::test]
+async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
+    /// A shared column: it renders outside the variant groups, whichever
+    /// variant is chosen, so a blank submission always reaches it.
+    #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
+    enum Life {
+        #[column(variant = 1)]
+        Draft { note: String },
+        #[column(variant = 2)]
+        Live {
+            #[shared(stamp)]
+            published_at: i64,
+        },
+    }
+
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Dated {
+        #[key]
+        #[auto]
+        id: Uuid,
+        title: String,
+        life: Life,
+    }
+
+    #[derive(tablo_core::RecordForm)]
+    #[form(model = Dated)]
+    struct DatedForm {
+        #[form(embed)]
+        life: Life,
+    }
+
+    struct DatedResource;
+
+    impl Resource for DatedResource {
+        type Model = Dated;
+        type Form = DatedForm;
+
+        fn form(cx: &Cx) -> Schema {
+            Schema::new(Life::form(cx, Dated::fields().life()))
+        }
+
+        fn slug() -> String {
+            "dated".to_string()
+        }
+
+        fn table(_cx: &Cx) -> Table<Dated> {
+            Table::new(
+                |row: &Dated| row.id.to_string(),
+                TextColumn::r#for(Dated::fields().title(), |row: &Dated| row.title.clone()),
+            )
+        }
+    }
+
+    let error = form_build_error::<DatedResource>(memory_db(toasty::models!(Dated)).await);
+    assert!(
+        error.contains("`life_stamp` is optional") && error.contains("no blank answer"),
+        "{error}"
+    );
+}
+
+#[tokio::test]
+async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
+    /// A variant payload leaf with no blank answer.
+    #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
+    enum Body {
+        #[column(variant = 1)]
+        Text { note: String },
+        #[column(variant = 2)]
+        Video { seconds: i64 },
+    }
+
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Clip {
+        #[key]
+        #[auto]
+        id: Uuid,
+        title: String,
+        body: Body,
+    }
+
+    #[derive(tablo_core::RecordForm)]
+    #[form(model = Clip)]
+    struct ClipForm {
+        #[form(embed)]
+        body: Body,
+    }
+
+    struct ClipResource;
+
+    impl Resource for ClipResource {
+        type Model = Clip;
+        type Form = ClipForm;
+
+        fn form(cx: &Cx) -> Schema {
+            Schema::new(Repeater::new("Clips").schema(Body::form(cx, Clip::fields().body())))
+        }
+
+        fn slug() -> String {
+            "clips".to_string()
+        }
+
+        fn table(_cx: &Cx) -> Table<Clip> {
+            Table::new(
+                |row: &Clip| row.id.to_string(),
+                TextColumn::r#for(Clip::fields().title(), |row: &Clip| row.title.clone()),
+            )
+        }
+    }
+
+    // An all-empty `Repeater` group skips its controls' requiredness, so the
+    // parse reaches the payload of the row's first variant: the leaf needs an
+    // answer like any control the submission can post empty.
+    let error = form_build_error::<ClipResource>(memory_db(toasty::models!(Clip)).await);
+    assert!(
+        error.contains("record form field `body`")
+            && error.contains("inside a `Repeater`")
+            && error.contains("no blank answer"),
+        "{error}"
+    );
+}
+
+#[tokio::test]
 async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
     #[derive(tablo_core::RecordForm)]
     #[form(model = Owned)]

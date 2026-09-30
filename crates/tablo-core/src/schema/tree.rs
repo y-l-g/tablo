@@ -30,6 +30,27 @@ pub(crate) enum Node {
     Embedded(Box<Embedded>),
 }
 
+/// Where a field's control sits in the form, for the record form's
+/// blank-agreement check (`Panel::build` refuses an optional control, or one
+/// inside a `Repeater`, whose record-form field has no blank answer).
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum LeafPlace {
+    /// The form renders the control wherever the value is submitted, so an
+    /// empty submission reaches the field's rule.
+    Rendered,
+    /// A variant group's payload: `variant.js` hides the group of a variant the
+    /// discriminant does not name, so a hidden payload is never read and a live
+    /// one is the parse's blank to refuse and word. Inside a `Repeater` the
+    /// group can be absent for another reason — an all-empty repeater group
+    /// skips requiredness while the parse still reads it — so the leaf is asked
+    /// for an answer there.
+    Payload,
+    /// An embedded enum's discriminant: an empty submission reaches the read's
+    /// fallback (a submitted payload, else the first variant), never a leaf's
+    /// rule.
+    Discriminant,
+}
+
 /// Where a schema render reads field values and errors from, and which side of
 /// the record the render is for.
 ///
@@ -156,12 +177,12 @@ impl Node {
         }
     }
 
-    /// Visit every field slot under this node, with whether it sits inside an
-    /// embedded enum's variant group.
-    pub(crate) fn visit_fields(&self, f: &mut impl FnMut(usize, bool)) {
+    /// Visit every field slot under this node, with where its control sits in
+    /// the form.
+    pub(crate) fn visit_fields(&self, f: &mut impl FnMut(usize, LeafPlace)) {
         match self {
-            Node::Field(index) => f(*index, false),
-            Node::Embedded(e) => e.visit_fields(false, f),
+            Node::Field(index) => f(*index, LeafPlace::Rendered),
+            Node::Embedded(e) => e.visit_fields(LeafPlace::Rendered, f),
             _ => {
                 for child in self.children().unwrap_or_default() {
                     child.visit_fields(f);

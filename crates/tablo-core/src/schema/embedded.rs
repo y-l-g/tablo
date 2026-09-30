@@ -48,7 +48,7 @@ use super::{
     Schema,
     fields::Field,
     lenses::FieldResolver,
-    tree::{Mode, Node, Source},
+    tree::{LeafPlace, Mode, Node, Source},
 };
 use crate::form::{FieldError, FormScalar};
 
@@ -103,6 +103,17 @@ pub trait EmbeddedForm: Sized {
     fn build_schema<M>(cx: &Cx, parent: Path<M, Self>) -> Schema
     where
         M: toasty::schema::Model;
+
+    /// Whether every leaf answers a blank submission: a declared
+    /// `#[form(blank = ..)]`, the scalar's own blank answer, or — for a nested
+    /// value — every leaf of that value's.
+    ///
+    /// The panel's build check reads it: a control a submission can post empty
+    /// (an optional one, a variant group's payload, or a control inside a
+    /// `Repeater`) whose field answers none is a declaration the panel refuses
+    /// rather than a blank the parse would refuse at submit.
+    #[doc(hidden)]
+    fn answers_blank() -> bool;
 
     /// Write through a built node.
     #[doc(hidden)]
@@ -311,28 +322,28 @@ impl Embedded {
         }
     }
 
-    /// Visit every field slot, with whether it sits inside a variant group.
-    pub(crate) fn visit_fields(&self, in_variant: bool, f: &mut impl FnMut(usize, bool)) {
-        fn members(members: &[Member], in_variant: bool, f: &mut impl FnMut(usize, bool)) {
+    /// Visit every field slot, with where the leaf sits in the form.
+    pub(crate) fn visit_fields(&self, place: LeafPlace, f: &mut impl FnMut(usize, LeafPlace)) {
+        fn members(members: &[Member], place: LeafPlace, f: &mut impl FnMut(usize, LeafPlace)) {
             for member in members {
                 match member {
                     Member::Leaf {
                         field: Some(index), ..
-                    } => f(*index, in_variant),
+                    } => f(*index, place),
                     Member::Leaf { field: None, .. } => {}
-                    Member::Nested(nested) => nested.visit_fields(in_variant, f),
+                    Member::Nested(nested) => nested.visit_fields(place, f),
                 }
             }
         }
         match &self.shape {
-            Shape::Struct(list) => members(list, in_variant, f),
+            Shape::Struct(list) => members(list, place, f),
             Shape::Enum(e) => {
-                f(e.discriminant, in_variant);
+                f(e.discriminant, LeafPlace::Discriminant);
                 for index in &e.shared {
-                    f(*index, in_variant);
+                    f(*index, place);
                 }
                 for variant in &e.variants {
-                    members(&variant.members, true, f);
+                    members(&variant.members, LeafPlace::Payload, f);
                 }
             }
         }
@@ -361,9 +372,10 @@ impl Embedded {
                                     field: Some(index), ..
                                 } => out.push(*index),
                                 Member::Leaf { field: None, .. } => {}
-                                Member::Nested(nested) => {
-                                    nested.visit_fields(true, &mut |index, _| out.push(index))
-                                }
+                                Member::Nested(nested) => nested
+                                    .visit_fields(LeafPlace::Payload, &mut |index, _| {
+                                        out.push(index)
+                                    }),
                             }
                         }
                     } else {
@@ -639,24 +651,28 @@ where
 
 /// Read one leaf out of a submission, by its resolved key.
 ///
-/// Trimmed; an absent or empty value is the type's `Default`, which is the
-/// panel's rule for a typed column with no spelling for "no value" — an
-/// optional typed leaf left blank reaches its record fn as that default.
+/// Trimmed; an absent or empty value is the member's declared blank answer,
+/// else the type's own, and a type with neither is refused inline — the rule
+/// ADR-0022 gives a record form's scalar.
 ///
 /// # Errors
 ///
-/// A value the type cannot parse, worded as the typed rule words it.
+/// A blank the leaf has no answer for, and a value the type cannot parse,
+/// worded as the typed rule words it.
 #[doc(hidden)]
 pub fn parse_leaf<T>(
     key: &str,
     values: &HashMap<String, String>,
+    blank: Option<T>,
 ) -> std::result::Result<T, FieldError>
 where
-    T: FormScalar + Default,
+    T: FormScalar,
 {
     let trimmed = values.get(key).map(|raw| raw.trim()).unwrap_or("");
     if trimmed.is_empty() {
-        return Ok(T::default());
+        return blank
+            .or_else(T::blank)
+            .ok_or_else(|| FieldError::required(key));
     }
     T::parse_form(trimmed).map_err(|message| FieldError::invalid(key, message))
 }

@@ -116,7 +116,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
             description: String::new(),
         },
         publication: showcase::models::Publication::Published {
-            published_at: "2024-01-15T09:30:00Z".parse::<jiff::Timestamp>().unwrap(),
+            published_at: Some("2024-01-15T09:30:00Z".parse::<jiff::Timestamp>().unwrap()),
             canonical_url: String::new(),
         },
         author_id: a1.id,
@@ -138,7 +138,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
             description: String::new(),
         },
         publication: showcase::models::Publication::Scheduled {
-            scheduled_at: "2024-07-01T09:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+            scheduled_at: Some("2024-07-01T09:00:00Z".parse::<jiff::Timestamp>().unwrap()),
             scheduled_for: None,
         },
         author_id: a2.id,

@@ -94,15 +94,19 @@ What a submission does:
   filled from the stored record before validation and the parse, and the write assigns only the
   fields the submission named, plus the model's own `#[update(..)]` defaults and `#[version]` bump.
   An emptied control is posted, so it stores the field's blank answer; an emptied leaf of an
-  embedded value stores the leaf type's `Default` (ADR-0019), so an emptied `jiff::Timestamp` leaf
-  stores the Unix epoch. An API client can post one field of an edit.
+  embedded value follows the same rule — the `#[form(blank = ..)]` answer it declares, else the
+  type's own (`""` for `String`, `None` for `Option<T>`) — and a leaf with neither is refused
+  inline. A leaf of a variant group the discriminant hides is not read at all. An API client can
+  post one field of an edit.
 - **Errors render in one round.** Schema rules, the unique probe, a value the form's type refuses,
   and `validate_record` render inline with a 200 and write nothing. `validate_record` sees a whole
   form, so it runs once every field parses.
 - **`Panel::build` checks the struct against the schema**: a `NoForm` resource declares no
   schema; every control is bound by exactly one
   field and every field's key is a declared control; an optional control, or one inside a
-  `Repeater`, binds a field with a blank answer; a gated resource's form does
+  `Repeater`, binds a field with a blank answer, an embedded value answering when each of its leaves
+  does — a control a submission can skip, an embedded enum's discriminant or a variant group's
+  payload outside a `Repeater`, is not asked; a gated resource's form does
   not claim its tenant column; and, where `can_create` allows it, every non-nullable column is a
   form field, filled by toasty (`#[auto]`, `#[default(..)]`), the stamped tenant column, or named in
   `Resource::CREATE_COLUMNS` by a create override that sets it.

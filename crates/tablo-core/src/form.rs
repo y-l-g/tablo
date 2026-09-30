@@ -117,8 +117,8 @@ use crate::{
 /// and an `Option` of either.
 ///
 /// The value the parse sees is trimmed and non-empty; an empty submission is the
-/// field's **blank answer** instead (`""` for `String`, `None` for an `Option`,
-/// otherwise the `blank` a record form declares).
+/// field's **blank answer** instead (the `blank` a record form declares, else
+/// `""` for `String` or `None` for an `Option`).
 ///
 /// A text field binds a path of any `FormScalar` type
 /// ([`Field::text`](crate::Field::text)), and the form derives read and write
@@ -292,8 +292,11 @@ pub struct FormField<K> {
     /// The keys the field binds: one for a scalar, every key of an embedded
     /// value (an enum's discriminant first).
     pub keys: Vec<String>,
-    /// Whether an empty submission has an answer. Always `true` for an
-    /// embedded value, whose leaves read an empty key as `Default`.
+    /// Whether an empty submission has an answer. The build check refuses the
+    /// field only where one of its keys can be posted empty with nothing to
+    /// resolve it; a scalar's answer is its declared `#[form(blank = ..)]` or
+    /// its type's own, and an embedded value answers when every leaf does
+    /// (`EmbeddedForm::answers_blank`).
     pub answers_blank: bool,
 }
 

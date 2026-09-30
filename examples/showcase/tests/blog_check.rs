@@ -67,7 +67,7 @@ async fn create_published(
             description: excerpt.to_string(),
         },
         publication: Publication::Published {
-            published_at: created_at.parse::<jiff::Timestamp>().expect("a timestamp"),
+            published_at: Some(created_at.parse::<jiff::Timestamp>().expect("a timestamp")),
             canonical_url: String::new(),
         },
         author_id: author.id,

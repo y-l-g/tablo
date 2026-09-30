@@ -120,6 +120,7 @@ struct Flags {
 struct PostStats {
     #[form(label = "Word count")]
     word_count: i64,
+    #[form(blank = 0)]
     read_minutes: i64,
 }
 
@@ -411,10 +412,9 @@ async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
     );
 }
 
-/// A typed leaf keeps its own spelling rule: `Display` out, `FromStr`
-/// back, and an empty submit is the type's default rather than a panic.
+/// A typed leaf keeps its own spelling rule: `Display` out, `FromStr` back.
 #[tokio::test]
-async fn typed_leaves_round_trip_and_default_when_empty() {
+async fn typed_leaves_round_trip() {
     let cx = post_cx().await;
     let stats = PostStats {
         word_count: 1200,
@@ -433,14 +433,55 @@ async fn typed_leaves_round_trip_and_default_when_empty() {
     let read: PostStats = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &values)
         .expect("the value reads");
     assert_eq!(read, stats);
+}
+
+/// A blank leaf takes its own answer, or is refused on its key: the scalar
+/// rule (ADR-0022 rule 4), never a silent `Default`.
+#[tokio::test]
+async fn a_blank_leaf_takes_its_answer_or_is_refused() {
+    let cx = post_cx().await;
+
+    // `read_minutes` declares `#[form(blank = 0)]`; `word_count` declares none.
+    let declared = map(&[
+        ("post_stats_word_count", "1200"),
+        ("post_stats_read_minutes", "  "),
+    ]);
+    let read: PostStats = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &declared)
+        .expect("the value reads");
+    assert_eq!(
+        read,
+        PostStats {
+            word_count: 1200,
+            read_minutes: 0,
+        },
+        "a declared blank answers itself"
+    );
 
     let empty = map(&[
-        ("post_stats_word_count", "  "),
+        ("post_stats_word_count", ""),
         ("post_stats_read_minutes", ""),
     ]);
-    let read: PostStats =
-        EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &empty).expect("the value reads");
-    assert_eq!(read, PostStats::default(), "an empty typed leaf defaults");
+    let errors = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &empty)
+        .expect_err("a leaf with no blank answer is refused");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].key, "post_stats_word_count");
+    assert_eq!(errors[0].kind, FieldErrorKind::Required);
+}
+
+/// A value answers a blank when every leaf does: the panel's build check reads
+/// this to refuse a declaration whose control can be posted empty with nothing
+/// to resolve it.
+#[tokio::test]
+async fn a_value_answers_a_blank_when_every_leaf_does() {
+    assert!(Seo::answers_blank());
+    assert!(
+        Media::answers_blank(),
+        "a nested value's leaves answer with their own"
+    );
+    assert!(
+        !PostStats::answers_blank(),
+        "a bare `i64` leaf answers none"
+    );
 }
 
 /// A value the type cannot parse is refused on its own key, worded as the

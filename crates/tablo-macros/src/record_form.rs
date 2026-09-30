@@ -13,7 +13,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
 
-use crate::fields::{Derive, assert_scalar, form_attrs};
+use crate::fields::{Derive, assert_scalar, form_attrs, last_segment};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
@@ -113,14 +113,6 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
         ));
     }
     let attrs = form_attrs(field, Derive::Record)?;
-    if let Some(expr) = &attrs.blank
-        && last_segment(&field.ty).is_some_and(|name| name == "Option")
-    {
-        return Err(syn::Error::new_spanned(
-            expr,
-            "an `Option` field's blank answer is `None`",
-        ));
-    }
     let variant = format_ident!("{}", pascal_case(&ident.to_string()));
     Ok(FieldSpec {
         ident,
@@ -129,14 +121,6 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
         embed: attrs.embed,
         blank: attrs.blank,
     })
-}
-
-/// The last path segment of `ty`, when it is a path.
-fn last_segment(ty: &Type) -> Option<String> {
-    match ty {
-        Type::Path(path) => path.path.segments.last().map(|s| s.ident.to_string()),
-        _ => None,
-    }
 }
 
 /// `author_id` → `AuthorId`; a raw identifier drops its `r#`.
@@ -201,7 +185,7 @@ fn expand_struct(
                     field: #field_enum::#variant,
                     name: #name_str,
                     keys: #krate::__macro::embedded_keys::<#model, #ty>(cx, #path),
-                    answers_blank: true,
+                    answers_blank: <#ty as #krate::__macro::EmbeddedForm>::answers_blank(),
                 }
             });
             hydrates.push(quote! {

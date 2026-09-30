@@ -281,7 +281,7 @@ async fn posts_filter_with_cursor_paginates_filtered_rows() {
                 description: String::new(),
             },
             publication: showcase::models::Publication::Published {
-                published_at: "2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+                published_at: Some("2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap()),
                 canonical_url: String::new(),
             },
             author_id: author_id,
@@ -359,7 +359,7 @@ async fn create_fixture_post(
             description: String::new(),
         },
         publication: showcase::models::Publication::Scheduled {
-            scheduled_at: "2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+            scheduled_at: Some("2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap()),
             scheduled_for: None,
         },
         author_id: author.id,

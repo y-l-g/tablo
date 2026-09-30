@@ -151,4 +151,20 @@ async fn the_named_variants_fields_still_validate() {
         Clip::all().exec(&mut db_q).await.unwrap().is_empty(),
         "a refused create writes nothing"
     );
+
+    // An emptied visible leaf carries the control's label, not the flattened
+    // column: no rule makes the leaf required, so the refusal words itself.
+    let response = client
+        .csrf(&csrf)
+        .post_form(
+            "/admin/clips/create",
+            format!("title=Clip&body=2&body_seconds=&csrf_token={csrf}"),
+        )
+        .await;
+    assert_eq!(response.status(), 200, "the refused blank re-renders");
+    let html = body_string(response).await;
+    assert!(
+        html.contains("Seconds is required") && !html.contains("body_seconds is required"),
+        "the refusal must be worded with the control's label, got {html}"
+    );
 }

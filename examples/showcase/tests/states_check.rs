@@ -136,7 +136,7 @@ async fn no_js_fallbacks_cover_search_filter_sort_pager() {
                 description: String::new(),
             },
             publication: showcase::models::Publication::Published {
-                published_at: "2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+                published_at: Some("2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap()),
                 canonical_url: String::new(),
             },
             author_id: authors[0].id,

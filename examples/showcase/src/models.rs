@@ -74,10 +74,9 @@ pub struct Seo {
 /// nullable column (`publication_scheduled_for`, `publication_canonical_url`,
 /// `publication_reason`).
 ///
-/// The timestamps are `jiff::Timestamp`: the form binds them through
-/// a typed text field, which renders `type="datetime-local"` and reads the
-/// submission back as UTC. `scheduled_for` is optional, so an empty control
-/// stores no time instead of the epoch a bare `Timestamp` decodes to.
+/// The timestamps are `Option<jiff::Timestamp>`: the form binds them through
+/// a typed text field, which renders `type="datetime-local"`, reads the
+/// submission back as UTC, and stores no time for an empty control.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
 pub enum Publication {
     #[column(variant = 1)]
@@ -86,20 +85,20 @@ pub enum Publication {
         /// declares it, so its label is written there.
         #[shared(timestamp)]
         #[form(label = "Publication timestamp")]
-        scheduled_at: Timestamp,
+        scheduled_at: Option<Timestamp>,
         scheduled_for: Option<Timestamp>,
     },
     #[column(variant = 2)]
     Published {
         #[shared(timestamp)]
-        published_at: Timestamp,
+        published_at: Option<Timestamp>,
         #[form(label = "Canonical URL")]
         canonical_url: String,
     },
     #[column(variant = 3)]
     Archived {
         #[shared(timestamp)]
-        archived_at: Timestamp,
+        archived_at: Option<Timestamp>,
         #[form(label = "Archive reason")]
         reason: String,
     },

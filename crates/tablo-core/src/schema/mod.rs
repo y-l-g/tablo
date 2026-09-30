@@ -35,8 +35,9 @@ pub(crate) use relationship::OptionLoadError;
 pub use relationship::{MAX_RELATIONSHIP_OPTIONS, OptionSource};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
-pub(crate) use tree::{Node, render_nodes, walk_absent_groups};
+pub(crate) use tree::{LeafPlace, Node, render_nodes, walk_absent_groups};
 pub use validation::TypedValue;
+pub(crate) use validation::required_error;
 
 use crate::form::FieldErrors;
 
@@ -53,6 +54,26 @@ pub(crate) struct ControlCheck {
     /// skips its requiredness: a submission may then reach the parse with the
     /// control empty.
     pub(crate) in_repeater: bool,
+    /// Where the control sits in the form ([`LeafPlace`]).
+    pub(crate) place: LeafPlace,
+}
+
+impl ControlCheck {
+    /// Whether an empty submission reaches this control's rule.
+    ///
+    /// A rendered control always does; a variant group's payload does when the
+    /// group sits inside a `Repeater`, whose absent group skips requiredness
+    /// while the parse still reads the payload (a hidden group is not read at
+    /// all, and a live one is the parse's refused blank to word); an enum's
+    /// discriminant never does, because an empty one reaches the payload
+    /// fallback.
+    pub(crate) fn needs_answer(&self) -> bool {
+        match self.place {
+            LeafPlace::Rendered => true,
+            LeafPlace::Payload => self.in_repeater,
+            LeafPlace::Discriminant => false,
+        }
+    }
 }
 
 /// The container that composes fields and layout blocks.
@@ -173,36 +194,51 @@ impl Schema {
 
     /// Every field, in declaration order, with what an empty submission
     /// does to it: the field's own required message when it refuses one, and
-    /// whether an all-empty `Repeater` can skip its requiredness
-    /// ([`walk_absent_groups`]).
-    ///
-    /// A variant group can skip requiredness too, but only an embedded value's
-    /// fields sit in one, and its record-form field reads an empty key as
-    /// `Default`, so the checks have nothing to ask of it.
+    /// where its control sits — inside an all-empty `Repeater`, whose group
+    /// skips requiredness ([`walk_absent_groups`]), or where a submission can
+    /// skip the control at all.
     pub(crate) fn controls(&self) -> Vec<ControlCheck> {
-        fn mark(nodes: &[Node], inside: bool, out: &mut [bool]) {
+        fn mark(nodes: &[Node], inside: bool, in_repeater: &mut [bool], place: &mut [LeafPlace]) {
             for node in nodes {
                 match node {
-                    Node::Repeater(r) => mark(&r.children.nodes, true, out),
+                    Node::Repeater(r) => mark(&r.children.nodes, true, in_repeater, place),
                     Node::Field(_) | Node::Embedded(_) => {
-                        node.visit_fields(&mut |index, _| out[index] = inside)
+                        node.visit_fields(&mut |index, leaf_place| {
+                            in_repeater[index] = inside;
+                            place[index] = leaf_place;
+                        });
                     }
-                    _ => mark(node.children().unwrap_or_default(), inside, out),
+                    _ => mark(
+                        node.children().unwrap_or_default(),
+                        inside,
+                        in_repeater,
+                        place,
+                    ),
                 }
             }
         }
         let mut in_repeater = vec![false; self.fields.len()];
-        mark(&self.nodes, false, &mut in_repeater);
+        let mut place = vec![LeafPlace::Rendered; self.fields.len()];
+        mark(&self.nodes, false, &mut in_repeater, &mut place);
         self.fields
             .iter()
             .zip(in_repeater)
-            .map(|(field, in_repeater)| {
+            .zip(place)
+            .map(|((field, in_repeater), place)| {
                 let errors = field.validate("");
                 ControlCheck {
                     name: field.name().to_string(),
                     required: !errors.is_empty(),
-                    required_error: errors.into_iter().next().map(|error| error.message),
+                    // A control no rule makes required has no declared wording;
+                    // the label names it for the parse's own refusal, which an
+                    // embedded leaf can reach where the check exempts it.
+                    required_error: errors
+                        .into_iter()
+                        .next()
+                        .map(|error| error.message)
+                        .or_else(|| Some(required_error(field.label_str()))),
                     in_repeater,
+                    place,
                 }
             })
             .collect()

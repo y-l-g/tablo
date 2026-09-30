@@ -473,7 +473,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
             description: String::new(),
         },
         publication: Publication::Published {
-            published_at: "2024-01-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+            published_at: Some("2024-01-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap()),
             canonical_url: String::new(),
         },
         author_id: blocked_author.id,

@@ -480,12 +480,17 @@ fn check_form_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             }
         }
         // Blank agreement: an empty submission must resolve wherever the
-        // schema lets one through.
+        // schema lets one through. The discriminant is not asked — an empty one
+        // reaches the read's fallback — and a variant group's payload only
+        // where the group sits inside a `Repeater`, whose all-empty group skips
+        // requiredness while the parse still reads the payload.
         if field.answers_blank {
             continue;
         }
         if let Some(control) = controls.iter().find(|control| {
-            field.keys.contains(&control.name) && (!control.required || control.in_repeater)
+            field.keys.contains(&control.name)
+                && control.needs_answer()
+                && (!control.required || control.in_repeater)
         }) {
             let place = if control.in_repeater {
                 "sits inside a `Repeater`, so it may be posted empty"
