@@ -107,6 +107,10 @@ pub struct AuthSession {
     /// [`CurrentUser::id`] of the authenticated user.
     #[index]
     pub user_id: String,
+    /// Indexed for the login sweep, whose filter is a range scan on this
+    /// column; an app migrating an existing table adds the index with the
+    /// model's own schema change.
+    #[index]
     pub expires_at: Timestamp,
     pub created_at: Timestamp,
 }
@@ -488,21 +492,38 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
     Ok(())
 }
 
-/// Drop the expired session rows of `user_id`.
+/// How many expired session rows one sweep drops: the bound that keeps one
+/// login from deleting an unbounded number of rows.
+const SESSION_SWEEP_BATCH: usize = 500;
+
+/// Drop up to [`SESSION_SWEEP_BATCH`] expired session rows, whoever owns them.
 ///
-/// [`resolve`] purges a session row when its token is looked up expired, so
-/// without this a row whose token is never presented again would stay in the
-/// table; a sweep that does not wait for the owner is tracked in GH #302.
-/// Login is the bounded sweep: the user is present, the table is already open,
-/// and only their rows are touched. Revocation ([`revoke_sessions_for_user`]) is the
-/// unbounded counterpart that drops the live rows too.
-async fn purge_expired_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result<()> {
+/// [`resolve`] purges a row when its token is looked up expired, so a row whose
+/// token is never presented again stays in the table (GH #302). A successful
+/// login is where the sweep runs, before the new row: a visitor who never signs
+/// in does not reach it. Toasty's `Delete` carries no `LIMIT`, so the bound
+/// comes from selecting the keys first, and the select rides `expires_at`'s
+/// index.
+async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     let now = Timestamp::now();
     let mut db = crate::db::db(cx);
+    let expired: Vec<String> = AuthSession::filter(AuthSession::fields().expires_at().le(now))
+        .limit(SESSION_SWEEP_BATCH)
+        .exec(&mut db)
+        .await
+        .map_err(infrastructure_failure)?
+        .into_iter()
+        .map(|row| row.token_hash)
+        .collect();
+    if expired.is_empty() {
+        return Ok(());
+    }
+    // The expiry is re-read here: the select and the delete are two statements,
+    // so a row whose lifetime was extended between them is no longer expired.
     AuthSession::filter(
         AuthSession::fields()
-            .user_id()
-            .eq(user_id.to_string())
+            .token_hash()
+            .in_list(expired)
             .and(AuthSession::fields().expires_at().le(now)),
     )
     .delete()
@@ -735,12 +756,11 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         if let Some(hash) = session::token_hash(cx).await? {
             delete_session(cx, &hash).await?;
         }
-        // Bounded housekeeping: the expired rows of the user signing
-        // in go with the rotation. A failure is logged rather than fatal — a
-        // credential that verified must not become a 503 because cleanup could
-        // not run.
-        if let Err(error) = purge_expired_sessions_for_user(cx, &user.id).await {
-            tracing::error!(error = %error, "expired-session purge failed");
+        // Bounded housekeeping: the sweep goes with the rotation. A failure is
+        // logged rather than fatal — a credential that verified must not become
+        // a 503 because cleanup could not run.
+        if let Err(error) = sweep_expired_sessions(cx).await {
+            tracing::error!(error = %error, "expired-session sweep failed");
         }
         let session = session::start(cx).await?;
         let mut db = crate::db::db(cx);

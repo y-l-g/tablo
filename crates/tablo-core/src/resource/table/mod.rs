@@ -1,8 +1,8 @@
 //! The [`Table`] builder plus query planning (`filter_expr`/`search_expr`/`order_bys_for`).
 //!
 //! Rendering lives in [`render`](self::render), CSV export in [`export`](self::export).
-//! One routine applies the declaration for both loaders, and the essentials
-//! check refuses a table whose page size cannot serve a list.
+//! One routine applies the declaration for both loaders, and [`Table::paginate`]
+//! refuses a page size of zero where it is declared.
 
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 

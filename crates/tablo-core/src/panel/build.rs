@@ -304,10 +304,11 @@ pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
 /// The trait defaults every method but `table`, so a resource that overrides
 /// nothing else compiles and only fails when a user reaches the page that needs
 /// the missing piece. The essentials that are *declarations* — a tenant
-/// predicate for a gated resource and a page size the list can serve — are
-/// checked here, at build, and reported with the
-/// resource's type name, together with the agreement between the resource's
-/// `Form` and its `form()` schema ([`check_form_declaration`]).
+/// predicate for a gated resource — are checked here, at build, and reported
+/// with the resource's type name, together with the agreement between the
+/// resource's `Form` and its `form()` schema ([`check_form_declaration`]); a page
+/// size the list cannot serve panics in `Table::paginate`, and the caught panic
+/// becomes the same build error.
 /// Runtime essentials (the record fns) keep their loud failure.
 ///
 /// A declaration that panics is a boot failure too: `Resource::table` and

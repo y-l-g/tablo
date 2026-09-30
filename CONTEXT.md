@@ -52,7 +52,8 @@ _Avoid_: AuthUser, Principal, Account, SessionUser
 
 A server-side `AuthSession` row keyed by the SHA-256 hash of a client token carried in a hardened
 cookie (`__Host-`, HttpOnly, Secure, SameSite=Lax). Seven-day fixed lifetime, rotated on login,
-deleted on logout, revocable per user; the raw token is never stored.
+deleted on logout, revocable per user, and swept on a successful login (up to 500 expired rows), so a
+row whose owner never returns does not stay forever; the raw token is never stored.
 
 _Avoid_: Token (the client half), SessionStore, Login, Cookie
 
