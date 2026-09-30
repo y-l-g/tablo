@@ -82,8 +82,8 @@ nothing here reads or rewrites the bytes after the store returns.
 - The list is one unpaginated query: a `Table` paginates, and this page is not one. A library that
   outgrows a page wants its own loader and pager.
 - The library is a `Page` (`MediaLibraryPage`) the panel registers with `Panel::page` (GH #407),
-  so it has a sidebar entry and serves `/admin/media`; its upload stays an app `#[route]` on the
-  same path.
+  so it has a sidebar entry and serves `/admin/media`; its upload is an app `#[route]` on the same
+  path.
 - The page builds the app's store from the same `upload_dir()` the panel is configured with, because
   the `Uploader` `Panel::uploads` installs lives on the app context for the framework's form parser
   and is not readable from a page. An app whose store is configured elsewhere gives the page the same

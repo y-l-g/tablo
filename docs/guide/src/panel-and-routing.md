@@ -46,14 +46,11 @@ registers on the panel, which mounts it and lists it in the sidebar:
 
 ```rust
 use tablo_core::{Page, Panel};
-
-struct ReportsPage;
-
-impl Page for ReportsPage {
-    async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => tablo_ui::page(tablo_ui::page_header(tablo_ui::page_title("Reports"))) })
-    }
-}
+use topcoat::{
+    Result,
+    context::Cx,
+    view::{View, view},
+};
 
 struct Dashboard;
 
@@ -63,6 +60,7 @@ impl Page for Dashboard {
     }
 }
 
+// `ReportsPage` implements `Page` the same way.
 Panel::new("admin")
     .home::<Dashboard>()        // GET /admin
     .resource::<UserResource>()
@@ -71,16 +69,17 @@ Panel::new("admin")
 
 The slug and the sidebar label default to the type name without a `Page` suffix: `ReportsPage`
 mounts at `reports` with the label `Reports`, and `MediaLibraryPage` at `media-library` with
-`Media library`. Override `slug()`, `label()`, or `navigation()` — the last sets the `order`, as a
-resource's does. Pages and resources share one slug namespace, and `Panel::build` rejects a
-duplicate or a slug that is not one URL segment.
+`Media library`. Override `slug()`, `navigation_label()`, or `navigation()` — the last sets the
+`order`, as a resource's does. Every page has a sidebar entry. Pages and resources share one slug
+namespace, and `Panel::build` rejects a duplicate, a slug the panel routes itself (`login`,
+`logout`), and a slug that is not one URL segment.
 
 `Panel::home` mounts its page at the prefix itself, in place of the redirect to the first resource,
 and a second `home` fails the build. Its sidebar entry leads the entries of the same `order` and
-points at the prefix, which every panel path
-starts with, so the sidebar marks only the most specific matching entry active.
+points at the prefix, which every path under it matches, so the sidebar marks one entry active: the
+most specific match.
 
-The panel checks the signed-in user before `render` runs, and the app's `#[layout]` at the prefix
+The panel checks for a resolved user before `render` runs, and the app's `#[layout]` at the prefix
 frames the page in the shell. A page serves one `GET`; a form it renders posts to an app `#[route]`
 under the prefix, which the auth gate covers. `examples/showcase` registers a dashboard, the media
 library and the live feed this way.

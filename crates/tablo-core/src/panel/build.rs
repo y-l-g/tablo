@@ -36,8 +36,9 @@ impl Panel {
     /// # Errors
     ///
     /// Reports what the declarative builders could only record:
-    /// a missing [`Db`], a duplicate or malformed resource slug, a malformed
-    /// panel prefix, or `shell_assets` declared without `assets`. Configuring
+    /// a missing [`Db`], a resource or page slug that is malformed, reserved
+    /// or already held, a second home page, a malformed panel prefix, or
+    /// `shell_assets` declared without `assets`. Configuring
     /// a panel wrong is a boot failure, not a request-time panic, so it comes
     /// back as an error the caller can log or exit on.
     pub fn build(self) -> topcoat::Result<Router> {
@@ -253,8 +254,8 @@ pub(super) fn is_directory_pattern(path: &str) -> bool {
         .is_some_and(|segment| segment.as_catch_all().is_some())
 }
 
-/// Validate one path segment a panel derives routes from: a
-/// `Resource::slug()` override, or a segment of the panel prefix.
+/// Validate one path segment a panel derives routes from: a resource's or a
+/// page's `slug()`, or a segment of the panel prefix.
 ///
 /// Both reach a route path and, through the panel, a response body. A hostile
 /// value — quote, backslash, CR/LF, `..`, slash, URL punctuation, a route
@@ -584,7 +585,7 @@ fn validation_cx(db: &Db) -> Cx {
 }
 
 /// Parse a panel route path, panicking on malformed input — the paths are
-/// built from the panel prefix and the resource slug, both validated at
+/// built from the panel prefix and a resource or page slug, both validated at
 /// registration ([`validate_route_segment`]), so a malformed path here is a
 /// framework bug rather than user input.
 pub(crate) fn route_path(path: &str) -> topcoat::router::PathBuf {

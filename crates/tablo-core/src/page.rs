@@ -7,7 +7,7 @@ use topcoat::{Result, context::Cx, view::View};
 
 use crate::resource::{
     NavigationItem,
-    naming::{kebab_case, type_short_name},
+    naming::{kebab_case, sentence_case, type_stem},
 };
 
 /// A page the [`Panel`](crate::Panel) mounts and lists in its sidebar.
@@ -15,8 +15,9 @@ use crate::resource::{
 /// Registered with [`Panel::page`](crate::Panel::page) at `{prefix}/{slug}`,
 /// or with [`Panel::home`](crate::Panel::home) at the panel prefix itself.
 /// The panel owns the route and the sidebar entry, the way it owns a
-/// [`Resource`](crate::Resource)'s; the page owns its markup. The panel's
-/// `#[layout]` frames it like every other panel page.
+/// [`Resource`](crate::Resource)'s; the page owns its markup. The app's
+/// `#[layout]` at the panel prefix frames it in the shell, as it frames every
+/// panel page.
 ///
 /// ```ignore
 /// struct ReportsPage;
@@ -30,22 +31,23 @@ use crate::resource::{
 /// Panel::new("admin").page::<ReportsPage>() // GET /admin/reports
 /// ```
 ///
-/// A page serves one `GET`. A form it renders posts to a route the app
-/// declares with `#[route]`; under the panel prefix, the auth gate covers it.
-pub trait Page: 'static {
+/// A page serves one `GET` and always has a sidebar entry. A form it renders
+/// posts to a route the app declares with `#[route]`; under the panel prefix,
+/// the auth gate covers it.
+pub trait Page: Sized + Send + Sync + 'static {
     /// The URL segment under the panel prefix. Default: the type name without
     /// a `Page` suffix, kebab-cased (`MediaLibraryPage` → `media-library`).
     ///
     /// [`Panel::home`](crate::Panel::home) mounts the page at the prefix and
     /// does not read it.
     fn slug() -> String {
-        kebab_case(page_stem::<Self>())
+        kebab_case(type_stem::<Self>("Page"))
     }
 
-    /// The sidebar label. Default: the type name without a `Page` suffix, as
-    /// words (`MediaLibraryPage` → `Media library`).
-    fn label() -> String {
-        crate::schema::capitalize(&kebab_case(page_stem::<Self>()).replace('-', " "))
+    /// The sidebar label. Default: the type name without a `Page` suffix, in
+    /// sentence case (`MediaLibraryPage` → `Media library`).
+    fn navigation_label() -> String {
+        sentence_case(type_stem::<Self>("Page"))
     }
 
     /// The sidebar entry. Override it to set the `order`; the panel resolves
@@ -54,44 +56,10 @@ pub trait Page: 'static {
         NavigationItem::for_page::<Self>()
     }
 
-    /// Render the page body. The panel checks the signed-in user before
+    /// Render the page body. The panel checks for a resolved user before
     /// calling it.
     fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send;
 }
 
-/// The type name a page's defaults derive from, without its `Page` suffix.
-fn page_stem<P: ?Sized>() -> &'static str {
-    let name = type_short_name::<P>();
-    name.strip_suffix("Page")
-        .filter(|stem| !stem.is_empty())
-        .unwrap_or(name)
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct MediaLibraryPage;
-    impl Page for MediaLibraryPage {
-        async fn render(_cx: &Cx) -> Result<impl View> {
-            Ok(())
-        }
-    }
-
-    struct Dashboard;
-    impl Page for Dashboard {
-        async fn render(_cx: &Cx) -> Result<impl View> {
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn defaults_derive_from_the_type_name() {
-        assert_eq!(MediaLibraryPage::slug(), "media-library");
-        assert_eq!(MediaLibraryPage::label(), "Media library");
-        assert_eq!(Dashboard::slug(), "dashboard");
-        assert_eq!(Dashboard::label(), "Dashboard");
-        assert_eq!(Dashboard::navigation().label, "Dashboard");
-        assert_eq!(Dashboard::navigation().url(), None);
-    }
-}
+mod tests;

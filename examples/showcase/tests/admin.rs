@@ -195,22 +195,37 @@ async fn admin_root_serves_the_dashboard_with_the_page_entries() {
         html.contains("Dashboard</h1>"),
         "the home page renders: {html}"
     );
+    // Each sidebar link, whole: an attribute value can hold a `>`.
+    let links: Vec<&str> = html
+        .match_indices("data-sidebar=\"menu-button\"")
+        .map(|(at, _)| {
+            let start = html[..at].rfind('<').unwrap();
+            let end = at + html[at..].find("</a>").unwrap();
+            &html[start..end]
+        })
+        .collect();
+    let link = |label: &str| {
+        links
+            .iter()
+            .find(|link| link.contains(&format!("title=\"{label}\"")))
+            .unwrap_or_else(|| panic!("the sidebar lists {label}: {links:?}"))
+    };
     for (label, href) in [
         ("Dashboard", "/admin"),
         ("Media library", "/admin/media"),
         ("Live activity", "/admin/live"),
     ] {
         assert!(
-            html.contains(label) && html.contains(&format!("href=\"{href}\"")),
-            "the sidebar lists {label} at {href}: {html}"
+            link(label).contains(&format!("href=\"{href}\"")),
+            "{label} links to {href}: {links:?}"
         );
     }
     // The home entry prefix-matches every panel path; only it is active here.
-    assert_eq!(
-        html.matches("data-active=\"true\"").count(),
-        1,
-        "one active sidebar entry: {html}"
-    );
+    let active: Vec<_> = links
+        .iter()
+        .filter(|link| link.contains("data-active=\"true\""))
+        .collect();
+    assert_eq!(active, [link("Dashboard")], "one active sidebar entry");
 }
 
 #[tokio::test]

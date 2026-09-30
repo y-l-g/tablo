@@ -15,18 +15,19 @@ document HTML or `AssetConfig` fallback; `shell_assets(tailwind::stylesheet!(), 
 call-site assets the app's Tailwind scan needs, and `Panel::render_shell` stays the low-level
 primitive for custom layouts.
 
-`Panel::nav_item` is the one panel-aware navigation seam, and it consumes the resource's
-`Resource::navigation()`: the resource owns label, order and grouping, the Panel owns the URL. The
-default entry names no URL at all — `NavTarget::Derived` — and the Panel that owns the item resolves
-that target from its own mount prefix plus the resource's slug (`{prefix}/{slug}`). An explicit
+The Panel resolves every sidebar entry, and for a resource it consumes `Resource::navigation()`:
+the resource owns label, order and grouping, the Panel owns the URL. The default entry names no URL
+at all — `NavTarget::Derived` — and the Panel that owns the item resolves that target to the URL it
+registers the route at (`{prefix}/{slug}`). An explicit
 target (`NavTarget::Url`, which `NavigationItem::at` builds) is kept verbatim, so resolution can
 never rewrite a link its author wrote, not even one shaped like `/admin/{slug}`.
 `NavigationItem::for_resource` and `for_page` are the derived constructors and `at` the explicit
 one, so no public constructor can emit a wrong mount. A `Page` declares its entry through
 `Page::navigation()` the same way, and the home page's entry resolves to the prefix itself.
 `is_current_path` matches exact paths or slash-boundary prefixes; since the home entry matches every
-panel path, the sidebar marks only the matching entry with the longest URL active. An override that
-wants a different order sets the `order` field.
+path under the prefix, the sidebar marks one entry active: the first, in sidebar order, of the
+matches with the longest URL. An override that wants a different order sets the `order` field. A
+page always has a sidebar entry; there is no hidden page.
 
 ## Consequences
 

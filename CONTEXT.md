@@ -21,8 +21,8 @@ of morphing the response (GH #234, ADR-0020).
 
 The admin application. Owns the Router, the Db in app_context, the layout Shell, its declared
 Resources and Pages, and the default-on authentication gate (ADR-0013). Declaring a Panel with
-Resources and Pages yields their routes and navigation; an app's layout delegates to `Panel::layout_shell` for the
-Shell with no manual document HTML.
+Resources and Pages yields their routes and navigation; an app's layout delegates to
+`Panel::layout_shell` for the Shell with no manual document HTML.
 
 _Avoid_: Admin, Dashboard, App, Site
 
@@ -140,7 +140,7 @@ _Avoid_: Show page, Infolist page, Record view
 A user-invoked delete/create/edit operation driven by a record fn (`Resource::delete_record` /
 `bulk_delete_records`, `create_record` / `update_record`) through a POST handler, inside a
 transaction, with authorization checked against the passed record inside the handler (ADR-0004).
-A non-CRUD operation (publish, archive) is still modelled as a record fn or a hand-written page;
+A non-CRUD operation (publish, archive) is still modelled as a record fn or a Page;
 an `Action` value with its own before/after hooks remains future work (GH #112).
 
 _Avoid_: Command, Mutation, Operation, Modal
@@ -192,8 +192,8 @@ _Avoid_: MenuItem, NavLink, SidebarEntry
 
 ### NavTarget
 
-Where a NavigationItem points. `Derived` means the declaring Resource or Page cannot know its mount, so
-the owning Panel resolves the URL; `Url` names a URL outright. The distinction is the type rather
+Where a NavigationItem points. `Derived` means the declaring Resource or Page cannot know its
+mount, so the owning Panel resolves the URL; `Url` names a URL outright. The distinction is the type rather
 than a convention, so prefix resolution can never touch a URL an author wrote (GH #165).
 
 _Avoid_: Link, Route, Target, SidebarUrl

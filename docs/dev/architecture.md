@@ -29,7 +29,7 @@ Panel  ──declares──▶  Resource  ──declares──▶  Table   (the 
 ```
 
 A `Panel` owns the router, the `Db` in app context, the shell layout, and the authentication gate.
-Registering a `Resource` on it adds that resource's routes and its sidebar entry. A `Resource` maps
+Registering a `Resource` or a `Page` on it adds its routes and its sidebar entry. A `Resource` maps
 one Toasty model to its admin UI: a base query, a `Table`, a `Schema`, a policy, and the record
 functions that perform writes.
 
@@ -77,7 +77,7 @@ Create, update, delete, and bulk delete run the same shape:
 
 Every POST carries a double-submit CSRF token, and a bulk delete additionally requires the
 `confirm=1` marker that only the confirm control emits. The record functions are the mutation
-vocabulary; a non-CRUD operation is a record function or a hand-written page.
+vocabulary; a non-CRUD operation is a record function or a `Page`.
 
 `after_commit` is the only place for a side effect that must not survive a rollback — email, a
 webhook, an audit row. It runs after the transaction and before the response, it runs once per
@@ -139,12 +139,12 @@ Tablo's own and are never overwritten.
 ```
 crates/tablo-core/src/
   panel/      mod, build, gate, list, forms, actions/{bulk, delete, export, fetch,
-              options}, detail, search, shell, headers
+              options}, detail, pages, search, shell, headers
   resource/   mod, table/{mod,render,export}, column, state, filter, relation,
               navigation, naming, commit
   schema/     mod, fields, layouts, lenses, tree, relationship, embedded, pk,
               validation
-  auth, csrf, cursor, db, notification, query_term, tenancy, upload
+  auth, csrf, cursor, db, notification, page, query_term, tenancy, upload
 ```
 
 The three largest modules split along the request shape rather than by type: `panel/` holds the

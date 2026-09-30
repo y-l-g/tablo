@@ -19,16 +19,16 @@ pub(crate) fn runtime_link(cx: &Cx, href: &str) -> Attributes {
 /// A [`Resource`] or a [`Page`](crate::Page) cannot name its own URL: its
 /// `navigation()` takes no `Cx` and no prefix, so the entry it declares by
 /// default carries no URL at all — [`NavTarget::Derived`] — and the
-/// [`Panel`](crate::panel::Panel) that owns the item resolves it from its own
-/// mount prefix plus the slug it mounts the resource or page at. [`NavTarget::Url`] is a URL its
-/// author wrote out, and a Panel passes it through untouched.
+/// [`Panel`](crate::panel::Panel) that owns the item resolves it to the URL it
+/// mounts the resource or page at. [`NavTarget::Url`] is a URL its author wrote
+/// out, and a Panel passes it through untouched.
 #[derive(Clone, Default, PartialEq, Eq)]
 pub enum NavTarget {
     /// No URL yet: the owning Panel resolves it to `{prefix}/{slug}` of the
     /// resource or page whose `navigation()` declared this item (the prefix
-    /// itself for the home page). What
-    /// [`NavigationItem::for_resource`] — and so the default
-    /// [`Resource::navigation`] — returns.
+    /// itself for the home page). What [`NavigationItem::for_resource`] and
+    /// [`NavigationItem::for_page`] — and so the default `navigation()` —
+    /// return.
     #[default]
     Derived,
     /// An explicit URL: a custom path, a query view, another panel's mount.
@@ -63,8 +63,7 @@ pub struct NavigationItem {
     /// Where this entry points. [`NavTarget::Derived`] until the owning Panel
     /// resolves it — see [`NavTarget`]. Build items with
     /// [`NavigationItem::for_resource`], [`NavigationItem::for_page`] or
-    /// [`NavigationItem::at`] rather than
-    /// spelling the variant out.
+    /// [`NavigationItem::at`] rather than spelling the variant out.
     pub target: NavTarget,
     /// Sort key for the sidebar: items render in stable `order`
     /// order, so declaration order breaks ties. Resources and pages declare in
@@ -95,11 +94,12 @@ impl NavigationItem {
     }
 
     /// The default sidebar entry for the [`Page`](crate::Page) `P`: its
-    /// [`label`](crate::Page::label), and no URL yet — the owning
-    /// [`Panel`](crate::panel::Panel) resolves it where it mounts the page.
-    pub fn for_page<P: crate::Page + ?Sized>() -> Self {
+    /// [`navigation_label`](crate::Page::navigation_label), and no URL yet —
+    /// the owning [`Panel`](crate::panel::Panel) resolves it where it mounts
+    /// the page.
+    pub fn for_page<P: crate::Page>() -> Self {
         Self {
-            label: P::label(),
+            label: P::navigation_label(),
             target: NavTarget::Derived,
             order: 0,
         }
@@ -117,27 +117,20 @@ impl NavigationItem {
         }
     }
 
-    /// Resolve a [`NavTarget::Derived`] entry against the Panel that owns it
-    /// leaving an explicit target untouched.
+    /// Resolve a [`NavTarget::Derived`] entry to `url`, the route its Panel
+    /// mounts the resource or page at, leaving an explicit target untouched.
     ///
     /// [`Resource::navigation`] and [`Page::navigation`](crate::Page::navigation)
     /// cannot know their panel — they take no `Cx` and no prefix — so the entry
-    /// they declare carries no URL. The Panel consumes it through
-    /// `Panel::resource` or `Panel::page`, which pass its own prefix and the
-    /// mount slug, or through `Panel::home`, which passes an empty slug: the
-    /// entry then points at the prefix itself.
+    /// they declare carries no URL. The Panel passes the same URL it registers
+    /// the route at, so the sidebar and the router cannot disagree.
     ///
     /// There is no guessing here: a URL an author wrote out — including one
     /// that happens to look like `/admin/{slug}` — is a different
     /// [`NavTarget`] variant and is never rewritten.
-    pub(crate) fn resolved(mut self, prefix: &str, slug: &str) -> Self {
+    pub(crate) fn resolved(mut self, url: &str) -> Self {
         if matches!(self.target, NavTarget::Derived) {
-            let mount = mount(prefix);
-            self.target = NavTarget::Url(if slug.is_empty() {
-                mount
-            } else {
-                format!("{mount}/{slug}")
-            });
+            self.target = NavTarget::Url(url.to_string());
         }
         self
     }
@@ -156,9 +149,9 @@ impl NavigationItem {
     /// `/admin/userships`).
     ///
     /// Several items can match one path — a home entry at the bare prefix
-    /// matches every panel page — so the sidebar marks only the matching item
-    /// with the longest URL active. `Panel::render_shell` takes the request
-    /// path as a parameter, so it can judge an item without a `Cx` (and the
+    /// matches every page under it — so the sidebar marks one item active: the
+    /// first, in sidebar order, of the matches with the longest URL. `Panel::render_shell` takes
+    /// the request path as a parameter, so it can judge an item without a `Cx` (and the
     /// shell stays testable without a full `http::request::Parts` in `Cx`).
     pub fn is_current_path(&self, current_path: &str) -> bool {
         let Some(url) = self.url() else {
@@ -171,17 +164,6 @@ impl NavigationItem {
         current_path
             .strip_prefix(url)
             .is_some_and(|rest| rest.starts_with('/'))
-    }
-}
-
-/// The mount a panel prefix normalises to: `/admin` when it is empty — the same
-/// rule [`Panel::new`](crate::panel::Panel::new) applies.
-fn mount(prefix: &str) -> String {
-    let trimmed = prefix.trim_matches('/').trim();
-    if trimmed.is_empty() {
-        "/admin".to_string()
-    } else {
-        format!("/{trimmed}")
     }
 }
 

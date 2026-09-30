@@ -1,5 +1,5 @@
-//! Naming helpers behind [`Resource::slug`](crate::resource::Resource::slug)
-//! and [`Resource::navigation_label`](crate::resource::Resource::navigation_label).
+//! Naming helpers behind the default slugs and sidebar labels of a
+//! [`Resource`](crate::resource::Resource) and a [`Page`](crate::Page).
 
 use crate::schema::capitalize;
 
@@ -8,6 +8,21 @@ use crate::schema::capitalize;
 pub(crate) fn type_short_name<T: ?Sized>() -> &'static str {
     let name = std::any::type_name::<T>();
     name.rsplit("::").next().unwrap_or(name)
+}
+
+/// A type's short name without `suffix` (`UserResource` → `User`), or the
+/// whole name when stripping it would leave nothing.
+pub(crate) fn type_stem<T: ?Sized>(suffix: &str) -> &'static str {
+    let name = type_short_name::<T>();
+    name.strip_suffix(suffix)
+        .filter(|stem| !stem.is_empty())
+        .unwrap_or(name)
+}
+
+/// A CamelCase identifier as a sentence-case phrase: `MediaLibrary` →
+/// `Media library`.
+pub(crate) fn sentence_case(name: &str) -> String {
+    capitalize(&kebab_case(name).replace('-', " "))
 }
 
 /// Pluralize a capitalized English word with a compact ruleset (Filament
@@ -100,8 +115,7 @@ fn pluralize_word(word: &str) -> String {
 ///
 /// Delegates to `heck::ToKebabCase`: digits split words
 /// (`User2FA` → `user2-fa`) and so do underscores (`Audit_Log` → `audit-log`).
-/// Name resources without underscores or override
-/// [`Resource::slug`](crate::Resource::slug).
+/// Name resources and pages without underscores or override their `slug()`.
 pub(crate) fn kebab_case(name: &str) -> String {
     use heck::ToKebabCase;
     name.to_kebab_case()

@@ -136,9 +136,7 @@ fn a_page_slug_that_a_resource_holds_does_not_build() {
         panic!("a resource over a page's slug must not build");
     };
     assert!(
-        error
-            .to_string()
-            .contains("duplicate resource slug 'dummies'"),
+        error.to_string().contains("duplicate slug 'dummies'"),
         "got {error}"
     );
 }
@@ -176,5 +174,92 @@ fn a_second_home_page_does_not_build() {
             .to_string()
             .contains("a home page is already registered"),
         "got {error}"
+    );
+}
+
+/// The panel routes `{prefix}/login` and `{prefix}/logout` itself: a page
+/// named after either is a registration error, not a duplicate-route panic
+/// inside the router build.
+#[test]
+fn a_page_slug_the_panel_routes_itself_does_not_build() {
+    struct LoginPage;
+    impl Page for LoginPage {
+        async fn render(cx: &Cx) -> Result<impl View> {
+            Ok(view! { cx => "login" })
+        }
+    }
+
+    let Err(error) = Panel::new("admin").page::<LoginPage>().build() else {
+        panic!("a page at the login route must not build");
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("the panel routes `/admin/login` itself"),
+        "got {error}"
+    );
+}
+
+/// Without a home page, the root still redirects to the first resource, and
+/// the redirect carries the clickjacking directive like every response.
+#[tokio::test]
+async fn without_a_home_page_the_root_redirects_to_the_first_resource() {
+    let router = Panel::new("admin")
+        .app_context(db().await)
+        .auth(crate::Auth::disabled())
+        .resource::<DummyResource>()
+        .page::<ReportsPage>()
+        .build()
+        .expect("the panel builds");
+    let request = http::Request::builder()
+        .uri("/admin")
+        .body(Body::empty())
+        .unwrap();
+    let response = router.handle(request).await;
+    assert_eq!(response.status(), http::StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(
+        response.headers().get(http::header::LOCATION).unwrap(),
+        "/admin/dummies"
+    );
+    assert!(
+        response
+            .headers()
+            .get(http::header::CONTENT_SECURITY_POLICY)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|policy| policy.contains("frame-ancestors")),
+        "the root redirect must carry the directive"
+    );
+}
+
+/// A page re-checks the resolved user before rendering: with auth enforced
+/// and no user, it answers the login redirect and never renders.
+#[tokio::test]
+async fn a_page_redirects_to_login_without_a_resolved_user() {
+    use topcoat::{context::CxTestBuilder, router::response::IntoResponse, view::ViewExt};
+
+    let (parts, ()) = http::Request::builder()
+        .uri("/admin/reports")
+        .body(())
+        .unwrap()
+        .into_parts();
+    let cx = CxTestBuilder::new()
+        .request_context(parts)
+        .app_context(crate::Auth::password())
+        .build();
+    let Err(error) = super::page_handler::<ReportsPage>(&cx, Body::empty())
+        .single()
+        .await
+    else {
+        panic!("a page must not render without a resolved user");
+    };
+    let response = error.into_response(&cx).expect("the gate redirect renders");
+    let location = response
+        .headers()
+        .get(http::header::LOCATION)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    assert!(
+        location.starts_with("/admin/login"),
+        "an anonymous page request redirects to login, got {location}"
     );
 }

@@ -152,7 +152,7 @@ impl Resource for PostResource {
 ```
 
 App code that loads rows outside the framework's loaders — a record fn double-checking a foreign
-key, a custom page — calls `scoped_query::<PostResource>(cx)?` rather than `PostResource::query(cx)`:
+key, a `Page` — calls `scoped_query::<PostResource>(cx)?` rather than `PostResource::query(cx)`:
 on a gated resource that method is the **tenant-unscoped** base, deliberately, so the
 tenant-unscoped case is visible at the call site (it still carries whatever the resource's own
 `query` scopes — soft deletes included).
