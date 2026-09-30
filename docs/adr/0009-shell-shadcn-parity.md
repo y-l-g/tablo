@@ -7,7 +7,7 @@ Date: 2026-08-28 — Status: accepted — Amended: 2026-09-16
 The Shell is sticky/fixed and collapsible, following the shadcn `sidebar.tsx` pattern through Topcoat
 conventions and the upstream `sidebar` primitive (topcoat#419, ADR-0007). It uses the shadcn CSS
 variables (`--sidebar-width:16rem`, `--sidebar-width-icon:3rem`, `--sidebar-width-mobile:18rem`), a
-fixed container with `SidebarContent` scrolling inside it, a `shrink-0` sticky header/footer, and
+fixed container with `SidebarContent` scrolling inside it, a `shrink-0` sticky header, and
 `data-state=expanded|collapsed`; below `md` the component renders its own sheet drawer. The icon rail
 stays intentionally unrendered.
 

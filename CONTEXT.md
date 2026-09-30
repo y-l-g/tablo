@@ -191,8 +191,9 @@ _Avoid_: Guard, Permission, Gate, Ability, Policy trait
 
 ### NavigationItem
 
-An entry in the Panel sidebar: a label, a NavTarget, and a sort order. Derived by default from a
-Resource or a Page, overridable to change the label, the order, or an explicit URL. The Panel that
+An entry in the Panel sidebar: a label, a NavTarget, a sort order, and an optional icon. Derived by
+default from a Resource or a Page, overridable to change the label, the order, the icon, or an
+explicit URL. The Panel that
 owns the entry owns the URL: a `Derived` target names none, so the panel resolves it from its own
 mount prefix plus the slug it mounts the resource or page at (the prefix itself for the home page),
 while an explicit URL is a link its author wrote and is kept
@@ -306,8 +307,9 @@ _Avoid_: Toast (as domain term; the shadcn UI surface is a toast), Flash, Alert
 
 ### EmptyState
 
-The Table's zero-rows rendering (icon + title + optional action), shown for "no records" and "no
-search results".
+The zero-data rendering of a content region (`tablo_ui::empty_state`: icon + title + optional detail
++ optional action). The Table shows it for "no records" and "no search results"; an app page shows it
+for any region with nothing to list.
 
 _Avoid_: NoResults, Placeholder, ZeroState
 
@@ -348,7 +350,8 @@ _Avoid_: CustomPage, Screen, View
 ### Page container
 
 The standard container for an admin page (`tablo_ui::page`). Owns max-width, padding and vertical rhythm so pages
-declare title and content, not Tailwind layout classes.
+declare title and content, not Tailwind layout classes. Its header (`page_header`) lays out a title,
+an optional description, and optional page actions (`page_actions`) on the title's line.
 
 _Avoid_: Container, Wrapper, Layout
 
@@ -381,6 +384,6 @@ _Avoid_: Component (when meaning synced primitive), Widget
 ### Component
 
 An owned Topcoat `#[component]` in `tablo-ui/src/components/composites/` (Page container,
-ErrorState, Theme, Toast) that composes Primitives and Tokens. Hand-written, never overwritten by sync.
+EmptyState, ErrorState, Theme, Toast) that composes Primitives and Tokens. Hand-written, never overwritten by sync.
 
 _Avoid_: Primitive, Widget, Element, View

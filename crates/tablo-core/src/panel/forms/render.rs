@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use topcoat::{
     Result,
     context::Cx,
+    icon::icon,
     router::{Body, error::forbidden},
     view::{BoxView, HoistView, ViewExt, attributes, internal::ThenView, view},
 };
@@ -107,9 +108,18 @@ pub(super) async fn render_form_page<'a, R: Resource>(
             tablo_ui::page_header(
                 tablo_ui::page_title((title.clone()))
                 if let Some(public) = public_url {
-                    <a href=(public) class="text-sm text-muted-foreground underline">
-                        "View public post"
-                    </a>
+                    tablo_ui::page_actions(
+                        <a
+                            href=(public)
+                            class=(tablo_ui::button_variants(
+                                tablo_ui::ButtonVariant::Outline,
+                                tablo_ui::ButtonSize::Md,
+                            ))
+                        >
+                            icon(data: tablo_ui::icons::EXTERNAL_LINK)
+                            "View public post"
+                        </a>
+                    )
                 }
             )
             tablo_ui::page_content(
@@ -124,7 +134,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
                         (carried)
                     }
                     (form_html)
-                    <div class="flex gap-2">
+                    <div class="flex items-center gap-2">
                         tablo_ui::button(
                             variant: tablo_ui::ButtonVariant::Primary,
                             attrs: attributes! { type="submit" },

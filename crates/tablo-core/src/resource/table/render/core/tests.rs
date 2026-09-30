@@ -123,7 +123,7 @@ pub(crate) fn table_attr(tag: &str, name: &str) -> String {
 
 /// Every whole-percent width a rendered table declares, in document order.
 /// A length declaration is skipped: those carry a unit. A share paired
-/// with a content floor (`width: 18%; min-width: 11rem`) still parses: the
+/// with a content floor (`width: 12%; min-width: 7rem`) still parses: the
 /// share ends at the `;`, not at the attribute's closing quote.
 pub(crate) fn declared_percents(html: &str) -> Vec<u32> {
     html.match_indices("style=\"width: ")
@@ -312,7 +312,7 @@ async fn kind_defaults_claim_a_share_of_the_table() {
 /// the chrome columns declare a share of the table too — the
 /// header row is the row `table-fixed` measures — and the share grows with
 /// the number of row links, which sit side by side. The actions column
-/// pairs its share with a content floor (`min-width: 11rem`), on the
+/// pairs its share with a content floor (`min-width: 7rem`), on the
 /// header and on every row's cell, so the buttons fit instead of spilling
 /// past the table on a narrow viewport.
 #[tokio::test]
@@ -320,7 +320,7 @@ async fn chrome_columns_declare_their_widths() {
     // Each case: the row links to wire, the share Actions claims, and the
     // floor that holds its buttons.
     let cases: [(usize, &str, &str); 3] =
-        [(1, "12%", "7rem"), (2, "18%", "11rem"), (3, "25%", "15rem")];
+        [(1, "8%", "4rem"), (2, "12%", "7rem"), (3, "15%", "9rem")];
     for (links, expected, floor) in cases {
         let cx = CxTestBuilder::new().build();
         let mut chrome_table = Table::<User>::new(
@@ -478,7 +478,8 @@ async fn edit_links_render_beside_delete_in_actions_column() {
         .render(&cx);
     assert!(html.contains("Actions"), "missing Actions header in {html}");
     assert!(
-        html.contains(&format!("href=\"/admin/users/{id}/edit\"")) && html.contains(">Edit<"),
+        html.contains(&format!("href=\"/admin/users/{id}/edit\""))
+            && html.contains("aria-label=\"Edit\""),
         "missing Edit link for {id} in {html}"
     );
     assert!(

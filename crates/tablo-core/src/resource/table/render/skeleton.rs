@@ -52,19 +52,26 @@ impl<M> Table<M> {
         let filter_pulse = self.filter_bar_enabled();
         let content = view! {
             cx =>
-            if search_pulse {
-                <div class="border-b border-border p-3" aria-hidden="true">
-                    <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-64"></div>
+            // One row for the search and the bulk control, as the loaded
+            // toolbar draws them.
+            if search_pulse || with_bulk {
+                <div
+                    class="flex items-center gap-2 border-b border-border p-3"
+                    aria-hidden="true"
+                >
+                    if search_pulse {
+                        <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-72"></div>
+                    }
+                    if with_bulk {
+                        <div
+                            class="ml-auto animate-pulse rounded-md bg-foreground/10 h-9 w-36"
+                        ></div>
+                    }
                 </div>
             }
             if filter_pulse {
                 <div class="border-b border-border p-3" aria-hidden="true">
                     <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-96"></div>
-                </div>
-            }
-            if with_bulk {
-                <div class="border-b border-border p-3" aria-hidden="true">
-                    <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-28"></div>
                 </div>
             }
             table(
@@ -106,6 +113,7 @@ impl<M> Table<M> {
         Ok(table_frame(
             cx,
             true,
+            self.framed,
             self.delete_prefix.as_deref(),
             content.boxed(),
         ))

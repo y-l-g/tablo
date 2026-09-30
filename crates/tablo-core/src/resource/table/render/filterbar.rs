@@ -15,6 +15,10 @@ use super::{
     toolbar::hidden_state_inputs,
 };
 
+/// A filter control's label, beside its control.
+const FILTER_LABEL_CLASS: StaticClass =
+    class!("flex items-center gap-2 text-sm font-medium whitespace-nowrap text-muted-foreground");
+
 /// One filter control: a labelled `<select name="f.<name>">` (prefixed like the
 /// table's other parameters, `param`) carrying the
 /// `value`/`label` pairs, with the leading empty "All" option that clears the
@@ -49,18 +53,19 @@ fn filter_select<'a>(
         .collect();
     view! {
         cx =>
-        <label class="flex items-center gap-2 text-sm text-muted-foreground">
+        <label class=(FILTER_LABEL_CLASS)>
             (label)
-            <select
-                name=(param)
-                data-filter-name=(name)
-                aria-label=(aria)
-                class="flex h-9 rounded-md border border-border bg-background px-3 py-1 text-sm shadow-xs"
-            >
+            tablo_ui::select(
+                attrs: attributes! {
+                    class="min-w-32"
+                    name=(param)
+                    data-filter-name=(name)
+                    aria-label=(aria)
+                },
                 for option in option_views {
                     (option)
                 }
-            </select>
+            )
         </label>
     }
     .boxed()
@@ -105,12 +110,14 @@ impl<M> Table<M> {
             view! {
                 cx =>
                 <div
-                    class="border-b border-destructive/30 bg-muted px-4 py-2 text-sm"
+                    class="border-b border-border bg-destructive/10 px-4 py-2 text-sm text-destructive"
                     role="alert"
                 >
                     (text)
                     " "
-                    <a href=(clear) class="underline">"Clear filters"</a>
+                    <a href=(clear) class="font-medium underline underline-offset-4">
+                        "Clear filters"
+                    </a>
                 </div>
             }
             .boxed(),
@@ -232,18 +239,18 @@ impl<M> Table<M> {
                     controls.push(
                         view! {
                             cx =>
-                            <label
-                                class="flex items-center gap-2 text-sm text-muted-foreground"
-                            >
+                            <label class=(FILTER_LABEL_CLASS)>
                                 (label)
-                                <input
-                                    type="date"
-                                    name=(param)
-                                    data-filter-name=(name)
-                                    value=(date_value)
-                                    aria-label=(aria)
-                                    class="flex h-9 rounded-md border border-border bg-background px-3 py-1 text-sm shadow-xs"
-                                >
+                                tablo_ui::input(
+                                    attrs: attributes! {
+                                        type="date"
+                                        name=(param)
+                                        data-filter-name=(name)
+                                        value=(date_value)
+                                        aria-label=(aria)
+                                        class="w-auto!"
+                                    }
+                                )
                             </label>
                         }
                         .boxed(),
@@ -314,7 +321,7 @@ impl<M> Table<M> {
                 }
                 <noscript>
                     button(
-                        variant: ButtonVariant::Secondary,
+                        variant: ButtonVariant::Outline,
                         size: ButtonSize::Md,
                         attrs: attributes! { type="submit" },
                         "Apply filters"

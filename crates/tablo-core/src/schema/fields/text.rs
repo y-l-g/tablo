@@ -89,12 +89,9 @@ impl Field {
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View {
-            let kind = if text.rows.is_some() {
-                ValueKind::Prose
-            } else {
-                ValueKind::Machine
-            };
-            return render_value(cx, &self.label, value, kind);
+            // Free text reads as prose, single line or not; the prose class
+            // still breaks a long token (an address) rather than overflow.
+            return render_value(cx, &self.label, value, ValueKind::Prose);
         }
         let name = self.name.clone();
         // The marker reads the same predicate validation uses, so a unique

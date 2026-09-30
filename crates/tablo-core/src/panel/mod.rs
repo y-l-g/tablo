@@ -487,7 +487,8 @@ impl Panel {
         P::navigation().resolved(url)
     }
 
-    /// Set branding for the shell (header + sidebar). Additive `class` stays the only Shell seam.
+    /// Set branding for the shell (sidebar header, login card, and the topbar below `md`). Additive
+    /// `class` stays the only Shell seam.
     pub fn brand(mut self, brand: Brand) -> Self {
         self.brand = Some(brand);
         self

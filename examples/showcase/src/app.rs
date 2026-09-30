@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Brand, ColumnWidth, Committed, DateFilter, Field, FieldErrors, Grid, Group, Panel, Posted,
-    Relation, Repeater, ResolvedLens, Resource, Schema, Section, SelectFilter, Table,
-    TernaryFilter, TextColumn, Uploader, VariantFilter, scoped_query, tenant_id, write_create,
-    write_update,
+    Brand, ColumnWidth, Committed, DateFilter, Field, FieldErrors, Grid, Group, NavigationItem,
+    Panel, Posted, Relation, Repeater, ResolvedLens, Resource, Schema, Section, SelectFilter,
+    Table, TernaryFilter, TextColumn, Uploader, VariantFilter, scoped_query, tenant_id,
+    write_create, write_update,
 };
 use toasty::Db;
 use topcoat::{
@@ -65,6 +65,10 @@ pub struct UserResource;
 impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
+
+    fn navigation() -> NavigationItem {
+        NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::USERS)
+    }
 
     fn form(_cx: &Cx) -> Schema {
         Schema::new(
@@ -140,9 +144,12 @@ impl Resource for UserResource {
                 TextColumn::computed("Status", |u: &User| {
                     if u.active { "Active" } else { "Inactive" }.to_string()
                 }),
+                // A date's length is known: the column declares it rather
+                // than take a narrow share that clips it on a smaller window.
                 TextColumn::computed("Created", |u: &User| {
                     u.created_at.strftime("%Y-%m-%d").to_string()
-                }),
+                })
+                .width(ColumnWidth::Rem(8)),
             ),
         )
         .live_search()
@@ -196,6 +203,10 @@ pub struct AuthorResource;
 impl Resource for AuthorResource {
     type Model = Author;
     type Form = AuthorForm;
+
+    fn navigation() -> NavigationItem {
+        NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::PEN_LINE)
+    }
 
     fn form(_cx: &Cx) -> Schema {
         Schema::new((
@@ -266,6 +277,10 @@ impl Resource for PostResource {
     type Model = Post;
     type Form = PostForm;
 
+    fn navigation() -> NavigationItem {
+        NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::FILE_TEXT)
+    }
+
     fn form(cx: &Cx) -> Schema {
         Schema::new((
             Section::new("Content").schema((
@@ -277,40 +292,43 @@ impl Resource for PostResource {
                     .placeholder("The full story…")
                     .optional(),
             )),
-            // Grouped metadata: lifecycle selects beside the author picker.
+            // Grouped metadata: lifecycle selects beside the author picker,
+            // titled like the detail page's "Details" panel.
             Group::new().schema((
-                Grid::new(2).schema((
-                    Field::choice(Post::fields().status())
-                        .options(vec!["draft".to_string(), "published".to_string()])
-                        .label("Status")
-                        .optional(),
-                    Field::choice(Post::fields().featured())
-                        .options_with_labels(vec![
-                            ("true".to_string(), "Featured".to_string()),
-                            ("false".to_string(), "Regular".to_string()),
-                        ])
-                        .label("Featured")
+                Section::new("Details").schema((
+                    Grid::new(2).schema((
+                        Field::choice(Post::fields().status())
+                            .options(vec!["draft".to_string(), "published".to_string()])
+                            .label("Status")
+                            .optional(),
+                        Field::choice(Post::fields().featured())
+                            .options_with_labels(vec![
+                                ("true".to_string(), "Featured".to_string()),
+                                ("false".to_string(), "Regular".to_string()),
+                            ])
+                            .label("Featured")
+                            .optional(),
+                    )),
+                    Field::choice(Post::fields().author_id())
+                        .relationship::<AuthorResource>(
+                            AuthorResource::query,
+                            |a: &Author| a.id,
+                            |a: &Author| a.name.clone(),
+                        )
+                        .searchable()
+                        .label("Author"),
+                    // One media source: the cover is a picked library row, not an
+                    // upload. Optional and single: empty clears the cover.
+                    Field::choice(Post::fields().cover_id())
+                        .relationship::<MediaLibrary>(
+                            |_cx| toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all(),
+                            |m: &MediaAsset| m.id,
+                            |m: &MediaAsset| m.filename.clone(),
+                        )
+                        .searchable()
+                        .label("Cover")
                         .optional(),
                 )),
-                Field::choice(Post::fields().author_id())
-                    .relationship::<AuthorResource>(
-                        AuthorResource::query,
-                        |a: &Author| a.id,
-                        |a: &Author| a.name.clone(),
-                    )
-                    .searchable()
-                    .label("Author"),
-                // One media source: the cover is a picked library row, not an
-                // upload. Optional and single: empty clears the cover.
-                Field::choice(Post::fields().cover_id())
-                    .relationship::<MediaLibrary>(
-                        |_cx| toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all(),
-                        |m: &MediaAsset| m.id,
-                        |m: &MediaAsset| m.filename.clone(),
-                    )
-                    .searchable()
-                    .label("Cover")
-                    .optional(),
                 Repeater::new("Tags").schema(Field::text(Post::fields().tags()).label("Tag")),
             )),
             // Embedded **values**. One declaration per value: the
@@ -656,6 +674,10 @@ async fn ensure_post_in_tenant(
 impl Resource for CommentResource {
     type Model = Comment;
     type Form = CommentForm;
+
+    fn navigation() -> NavigationItem {
+        NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::MESSAGE_SQUARE)
+    }
 
     fn form(_cx: &Cx) -> Schema {
         Schema::new((

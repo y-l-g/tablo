@@ -124,7 +124,7 @@ async fn bulk_checkboxes_render_with_keys_and_select_all() {
         "the dialog must live inside the bulk form, got {html}"
     );
     assert!(
-        html.contains("Bulk Delete"),
+        html.contains("Delete selected"),
         "missing bulk button in {html}"
     );
     assert!(

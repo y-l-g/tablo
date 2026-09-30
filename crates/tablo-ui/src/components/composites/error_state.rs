@@ -5,8 +5,9 @@ use topcoat::{
 };
 
 const ERROR_STATE: StaticClass = class!(
-    "flex flex-col items-center gap-3 rounded-lg border border-destructive/30 \
-     bg-background px-6 py-12 text-center [&>svg]:size-5 [&>svg]:text-destructive"
+    "flex flex-col items-center gap-2 rounded-xl border border-destructive/30 \
+     bg-card px-6 py-12 text-center text-card-foreground \
+     [&>svg]:mb-1 [&>svg]:size-6 [&>svg]:text-destructive"
 );
 const ERROR_STATE_TITLE: StaticClass = class!("text-sm font-medium text-destructive");
 const ERROR_STATE_DETAIL: StaticClass = class!("text-sm text-muted-foreground");
@@ -17,9 +18,9 @@ const ERROR_STATE_ACTION: StaticClass = class!("text-sm font-medium text-primary
 /// A destructive-accented block — icon, title, optional muted detail, and an
 /// optional action (typically a retry link) — rendered *inside* the region
 /// that failed, so the surrounding page (shell, header, toolbar) survives.
-/// Deliberately distinct from the zero-rows EmptyState rendering
-/// (`Table::render_empty_cell`): EmptyState says "no data", ErrorState says
-/// "no answer".
+/// Deliberately distinct from [`empty_state`](super::empty_state::empty_state),
+/// which it mirrors in shape: EmptyState says "no data", ErrorState says "no
+/// answer".
 ///
 /// The `detail` line must stay generic: never interpolate error internals
 /// (driver messages, SQL, paths) into the page. Log the error at the call

@@ -17,6 +17,8 @@ use super::{
 mod export;
 mod render;
 
+pub(crate) use render::TABLE_CARD_CLASS;
+
 /// Row-key projection: reads the row identity off one model instance
 /// (typically `|u| u.id.to_string()`). Toasty models are plain structs with
 /// no instance→field reflection, so the key cannot be extracted generically
@@ -120,6 +122,9 @@ pub struct Table<M> {
     view_prefix: Option<String>,
     bulk_delete: bool,
     live_search: bool,
+    /// Whether the table draws its own card: `false` where the page draws the
+    /// card around the table and the controls it hoists (the live list).
+    framed: bool,
     /// Where a write this table's row and bulk actions start lands:
     /// `None` for the resource's own list, the default.
     return_to: Option<String>,
@@ -141,6 +146,7 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("view_prefix", &self.view_prefix)
             .field("bulk_delete", &self.bulk_delete)
             .field("live_search", &self.live_search)
+            .field("framed", &self.framed)
             .field("return_to", &self.return_to)
             .finish()
     }
@@ -241,6 +247,7 @@ impl<M> Table<M> {
             view_prefix: None,
             bulk_delete: false,
             live_search: false,
+            framed: true,
             return_to: None,
             _marker: PhantomData,
         }
@@ -486,6 +493,14 @@ impl<M> Table<M> {
     /// focus and collapses its native popup.
     pub fn hide_filter_bar(mut self) -> Self {
         self.hide_filter_bar = true;
+        self
+    }
+
+    /// Render the table without its own card, for a page that draws one
+    /// around it: the live list puts the hoisted search and filter bars in the
+    /// same card as the table they drive.
+    pub(crate) fn unframed(mut self) -> Self {
+        self.framed = false;
         self
     }
 

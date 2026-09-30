@@ -626,7 +626,7 @@ async fn read_only_resource_hides_delete_chrome() {
         "the grid must render the seeded row, or the negative assertions below are vacuous, got {html}"
     );
     assert!(
-        !html.contains("data-bulk-form") && !html.contains("Bulk Delete"),
+        !html.contains("data-bulk-form") && !html.contains("Delete selected"),
         "read-only list must not render bulk chrome, got {html}"
     );
     assert!(
@@ -761,7 +761,7 @@ async fn non_editable_resource_hides_edit_links() {
 
     let html = list_html::<WritableResource>().await;
     assert!(
-        html.contains("/edit") && html.contains(">Edit<"),
+        html.contains("/edit") && html.contains("aria-label=\"Edit\""),
         "editable list must link rows to their edit pages, got {html}"
     );
     // The row and Create links navigate through the runtime, and the
@@ -857,7 +857,7 @@ async fn denied_rows_render_no_edit_chrome() {
         "a row the policy denies must render no Edit link, got {html}"
     );
     assert!(
-        !html.contains("Bulk Delete")
+        !html.contains("Delete selected")
             && !html.contains("data-bulk-form")
             && !html.contains("/delete"),
         "a resource that allows no delete must render no delete affordance, got {html}"

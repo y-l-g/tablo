@@ -50,14 +50,15 @@ impl<M> Table<M> {
     /// widest set at a 1280px window and the narrower sets inside it.
     fn actions_percent(&self) -> u8 {
         match self.action_link_count() {
-            2 => 18,
-            3.. => 25,
-            _ => 12,
+            2 => 12,
+            3.. => 15,
+            _ => 8,
         }
     }
 
     /// The content floor of the row-actions column, in whole rem: one row of
-    /// `Md` buttons plus the cell's `p-3` padding, by link count. The share
+    /// `Icon` buttons (2.25rem each, 0.25rem apart) plus the cell's `p-3`
+    /// padding, by link count. The share
     /// above is a fraction of the table and shrinks with it, so on a narrow
     /// viewport the buttons would spill past the table and clip against the
     /// chrome's `overflow-hidden`; the floor keeps the column as wide as its
@@ -65,9 +66,9 @@ impl<M> Table<M> {
     /// columns, so the wrapper scrolls instead.
     fn actions_min_rem(&self) -> u8 {
         match self.action_link_count() {
-            2 => 11,
-            3.. => 15,
-            _ => 7,
+            2 => 7,
+            3.. => 9,
+            _ => 4,
         }
     }
 

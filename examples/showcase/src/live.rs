@@ -17,7 +17,7 @@
 
 use std::sync::LazyLock;
 
-use tablo_core::{Page, Resource, db::db};
+use tablo_core::{NavigationItem, Page, Resource, db::db};
 use topcoat::{
     Result,
     context::Cx,
@@ -84,6 +84,10 @@ fn subscribe() -> tokio::sync::broadcast::Receiver<()> {
 pub struct LiveActivityPage;
 
 impl Page for LiveActivityPage {
+    fn navigation() -> NavigationItem {
+        NavigationItem::for_page::<Self>().icon(tablo_ui::icons::ACTIVITY)
+    }
+
     fn slug() -> String {
         "live".to_string()
     }
@@ -137,9 +141,18 @@ async fn live_feed(cx: &Cx) -> Result<impl View> {
                         "No users yet."
                     </p>
                 } else {
-                    <ul class="flex flex-col gap-2" data-live-feed="">
+                    <ul class="flex flex-col divide-y divide-border" data-live-feed="">
                         for user in users {
-                            <li class="text-sm">(user.name)</li>
+                            <li
+                                class="flex items-center justify-between gap-4 py-2.5 text-sm"
+                            >
+                                <span class="font-medium text-foreground">
+                                    (user.name)
+                                </span>
+                                <span class="truncate text-muted-foreground">
+                                    (user.email)
+                                </span>
+                            </li>
                         }
                     </ul>
                 }

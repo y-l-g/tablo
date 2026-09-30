@@ -18,8 +18,10 @@ fn view(cx: &Cx) -> Schema {
 
 That registers `GET /admin/{slug}/{id}` — loaded through the tenant-scoped query, so an unknown id
 and one outside the tenant are the same 404, while `can_view` denial is a 403 — and adds a `View`
-link beside `Edit` on each row. A resource with no `view` declaration has no page and no link, and
-the route answers 404 rather than rendering an empty shell.
+control beside `Edit` on each row. A resource with no `view` declaration has no page and no link, and
+the route answers 404 rather than rendering an empty shell. The page's header links back to the
+list, and to the edit form when the resource has one and `can_update` allows this record — the gate
+the row's `Edit` control uses.
 
 The heading is the record's label when the resource declares one:
 

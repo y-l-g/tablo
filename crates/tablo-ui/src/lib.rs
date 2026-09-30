@@ -14,8 +14,9 @@ pub mod icons;
 // `components/composites/`.
 pub use components::{
     composites::{
+        empty_state::empty_state,
         error_state::error_state,
-        page::{page, page_content, page_description, page_header, page_title},
+        page::{page, page_actions, page_content, page_description, page_header, page_title},
         theme::theme_init_script,
         toast::{
             toast, toast_close, toast_content, toast_description, toast_icon, toast_title, toaster,

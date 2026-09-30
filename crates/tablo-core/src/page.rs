@@ -50,7 +50,7 @@ pub trait Page: Sized + Send + Sync + 'static {
         sentence_case(type_stem::<Self>("Page"))
     }
 
-    /// The sidebar entry. Override it to set the `order`; the panel resolves
+    /// The sidebar entry. Override it to set the `order` or the icon; the panel resolves
     /// its URL, as it does for [`Resource::navigation`](crate::Resource::navigation).
     fn navigation() -> NavigationItem {
         NavigationItem::for_page::<Self>()

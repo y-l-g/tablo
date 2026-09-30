@@ -49,7 +49,7 @@ pub(crate) use state::{
 };
 pub use state::{Cursor, Sort, TableState};
 pub use table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
-pub(crate) use table::{RowActions, TableChrome};
+pub(crate) use table::{RowActions, TABLE_CARD_CLASS, TableChrome};
 
 #[cfg(test)]
 pub(crate) use crate::query_term::MAX_QUERY_TERM;
@@ -458,9 +458,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///
     /// Override to curate this resource's sidebar entry: `Panel::resource`
     /// consumes the result through the panel-aware navigation seam, so a custom
-    /// `order` or a custom label takes effect. Decorate the default with
+    /// `order`, label or icon takes effect. Decorate the default with
     /// [`NavigationItem::for_resource`]
-    /// (`NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }`)
+    /// (`NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }`,
+    /// or `NavigationItem::for_resource::<Self>().icon(..)`)
     /// to keep the panel-owned URL; spell a URL out yourself
     /// ([`NavigationItem::at`]) only to link somewhere other than this
     /// resource's list page — the Panel keeps such a URL verbatim.

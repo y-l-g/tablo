@@ -474,13 +474,13 @@ impl Field {
 /// How a read-only value is presented.
 ///
 /// Two shapes, because the difference is content, not styling: prose wraps at
-/// spaces, and an identifier (a stored path, an address) has no spaces to break
-/// at, so it breaks anywhere and sets in mono.
+/// spaces (and breaks a token too long for its line), and a stored path has no
+/// spaces to break at, so it breaks anywhere and sets in mono.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ValueKind {
-    /// Wrapping text: a title, a body, a description.
+    /// Wrapping text: a title, a body, an address.
     Prose,
-    /// A path, a key, an address — no spaces to break at.
+    /// A stored path — no spaces to break at.
     Machine,
 }
 
@@ -501,8 +501,8 @@ fn render_value<'a>(
 ) -> Result<BoxView<'a>> {
     let text = value.unwrap_or_default().to_string();
     let value_class = match kind {
-        ValueKind::Prose => "text-sm break-words whitespace-pre-wrap",
-        ValueKind::Machine => "text-sm font-mono break-all whitespace-pre-wrap",
+        ValueKind::Prose => "text-sm text-foreground wrap-anywhere whitespace-pre-wrap",
+        ValueKind::Machine => "text-sm text-foreground font-mono break-all whitespace-pre-wrap",
     };
     let value = view! { cx => <div class=(value_class)>(text)</div> }.boxed();
     render_value_view(cx, label, value)

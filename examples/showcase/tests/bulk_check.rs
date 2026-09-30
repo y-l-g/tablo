@@ -23,12 +23,12 @@ async fn bulk_delete_deletes_selected() {
     let ids: Vec<String> = users.iter().take(2).map(|u| u.id.to_string()).collect();
     let ids_param = ids.join(",");
 
-    // Check that list page contains Bulk Delete
+    // Check that list page contains Delete selected
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
     assert!(
-        html.contains("Bulk Delete"),
-        "list should contain Bulk Delete, got {}",
+        html.contains("Delete selected"),
+        "list should contain Delete selected, got {}",
         html
     );
     assert!(
