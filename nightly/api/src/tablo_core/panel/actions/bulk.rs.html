@@ -13,7 +13,7 @@
 <a href=#13 id=13 data-nosnippet>13</a><span class="kw">use super</span>::{
 <a href=#14 id=14 data-nosnippet>14</a>    <span class="kw">super</span>::{
 <a href=#15 id=15 data-nosnippet>15</a>        forms::{parse_form_body, truthy},
-<a href=#16 id=16 data-nosnippet>16</a>        gate::{gate, list_url},
+<a href=#16 id=16 data-nosnippet>16</a>        gate::{gate, landing_url},
 <a href=#17 id=17 data-nosnippet>17</a>        write::commit_write,
 <a href=#18 id=18 data-nosnippet>18</a>    },
 <a href=#19 id=19 data-nosnippet>19</a>    fetch::composite_pk_error,
@@ -66,7 +66,7 @@
 <a href=#66 id=66 data-nosnippet>66</a>                // crafted (or stale) POST gets here — answer like any other
 <a href=#67 id=67 data-nosnippet>67</a>                // mutation, with the list and the reason.
 <a href=#68 id=68 data-nosnippet>68</a>                </span>set_notification(cx, Notification::error(<span class="string">"Select at least one row to delete"</span>));
-<a href=#69 id=69 data-nosnippet>69</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(see_other(list_url(cx, <span class="kw-2">&amp;</span>R::slug())).into());
+<a href=#69 id=69 data-nosnippet>69</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(see_other(landing_url(cx, <span class="kw-2">&amp;</span>R::slug())).into());
 <a href=#70 id=70 data-nosnippet>70</a>            }
 <a href=#71 id=71 data-nosnippet>71</a>            <span class="kw">if </span>ids.len() &gt; MAX_BULK_IDS {
 <a href=#72 id=72 data-nosnippet>72</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(topcoat::router::error::bad_request(<span class="macro">format!</span>(

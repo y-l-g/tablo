@@ -282,32 +282,48 @@
 <a href=#282 id=282 data-nosnippet>282</a>                (dialog)
 <a href=#283 id=283 data-nosnippet>283</a>            }
 <a href=#284 id=284 data-nosnippet>284</a>        };
-<a href=#285 id=285 data-nosnippet>285</a>        <span class="prelude-val">Ok</span>(table_frame(cx, <span class="bool-val">false</span>, content.boxed()))
-<a href=#286 id=286 data-nosnippet>286</a>    }
-<a href=#287 id=287 data-nosnippet>287</a>}
-<a href=#288 id=288 data-nosnippet>288</a>
-<a href=#289 id=289 data-nosnippet>289</a><span class="doccomment">/// The table's two wrappers, shared by the loaded table and its skeleton so
-<a href=#290 id=290 data-nosnippet>290</a>/// the swap lands on the same shape: the `data-boundary` region the morph
-<a href=#291 id=291 data-nosnippet>291</a>/// swaps, and the bordered root inside it. A loading skeleton marks both
-<a href=#292 id=292 data-nosnippet>292</a>/// `aria-busy`: the boundary so assistive tech sees the live region, the root
-<a href=#293 id=293 data-nosnippet>293</a>/// so the busy state reads on the table itself.
-<a href=#294 id=294 data-nosnippet>294</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>table_frame&lt;<span class="lifetime">'a</span>&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, busy: bool, content: BoxView&lt;<span class="lifetime">'a</span>&gt;) -&gt; BoxView&lt;<span class="lifetime">'a</span>&gt; {
-<a href=#295 id=295 data-nosnippet>295</a>    <span class="kw">let </span>busy = busy.then_some(<span class="string">"true"</span>);
-<a href=#296 id=296 data-nosnippet>296</a>    <span class="macro">view!</span> {
-<a href=#297 id=297 data-nosnippet>297</a>        cx =&gt;
-<a href=#298 id=298 data-nosnippet>298</a>        &lt;div data-boundary=<span class="string">"table" </span>aria-busy=(busy)&gt;
-<a href=#299 id=299 data-nosnippet>299</a>            &lt;div
-<a href=#300 id=300 data-nosnippet>300</a>                class=<span class="string">"rounded-xl border border-border overflow-hidden"
-<a href=#301 id=301 data-nosnippet>301</a>                </span>data-table-root=<span class="string">""
-<a href=#302 id=302 data-nosnippet>302</a>                </span>aria-busy=(busy)
-<a href=#303 id=303 data-nosnippet>303</a>            &gt;
-<a href=#304 id=304 data-nosnippet>304</a>                (content)
-<a href=#305 id=305 data-nosnippet>305</a>            &lt;/div&gt;
-<a href=#306 id=306 data-nosnippet>306</a>        &lt;/div&gt;
-<a href=#307 id=307 data-nosnippet>307</a>    }
-<a href=#308 id=308 data-nosnippet>308</a>    .boxed()
-<a href=#309 id=309 data-nosnippet>309</a>}
-<a href=#310 id=310 data-nosnippet>310</a>
-<a href=#311 id=311 data-nosnippet>311</a><span class="attr">#[cfg(test)]
-<a href=#312 id=312 data-nosnippet>312</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">mod </span>tests;
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="prelude-val">Ok</span>(table_frame(
+<a href=#286 id=286 data-nosnippet>286</a>            cx,
+<a href=#287 id=287 data-nosnippet>287</a>            <span class="bool-val">false</span>,
+<a href=#288 id=288 data-nosnippet>288</a>            <span class="self">self</span>.delete_prefix.as_deref(),
+<a href=#289 id=289 data-nosnippet>289</a>            content.boxed(),
+<a href=#290 id=290 data-nosnippet>290</a>        ))
+<a href=#291 id=291 data-nosnippet>291</a>    }
+<a href=#292 id=292 data-nosnippet>292</a>}
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a><span class="doccomment">/// The table's two wrappers, shared by the loaded table and its skeleton so
+<a href=#295 id=295 data-nosnippet>295</a>/// the swap lands on the same shape: the `data-boundary` region the morph
+<a href=#296 id=296 data-nosnippet>296</a>/// swaps, and the bordered root inside it. A loading skeleton marks both
+<a href=#297 id=297 data-nosnippet>297</a>/// `aria-busy`: the boundary so assistive tech sees the live region, the root
+<a href=#298 id=298 data-nosnippet>298</a>/// so the busy state reads on the table itself.
+<a href=#299 id=299 data-nosnippet>299</a>///
+<a href=#300 id=300 data-nosnippet>300</a>/// `name` is the table's delete prefix — its resource's list path — when it
+<a href=#301 id=301 data-nosnippet>301</a>/// has delete chrome: a page holding several tables (a record page's
+<a href=#302 id=302 data-nosnippet>302</a>/// relations) names each region, so a mutation's response swaps into the
+<a href=#303 id=303 data-nosnippet>303</a>/// table the mutation came from (`mutation-submit.js`).
+<a href=#304 id=304 data-nosnippet>304</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>table_frame&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#305 id=305 data-nosnippet>305</a>    cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
+<a href=#306 id=306 data-nosnippet>306</a>    busy: bool,
+<a href=#307 id=307 data-nosnippet>307</a>    name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+<a href=#308 id=308 data-nosnippet>308</a>    content: BoxView&lt;<span class="lifetime">'a</span>&gt;,
+<a href=#309 id=309 data-nosnippet>309</a>) -&gt; BoxView&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#310 id=310 data-nosnippet>310</a>    <span class="kw">let </span>busy = busy.then_some(<span class="string">"true"</span>);
+<a href=#311 id=311 data-nosnippet>311</a>    <span class="kw">let </span>name = name.map(str::to_string);
+<a href=#312 id=312 data-nosnippet>312</a>    <span class="macro">view!</span> {
+<a href=#313 id=313 data-nosnippet>313</a>        cx =&gt;
+<a href=#314 id=314 data-nosnippet>314</a>        &lt;div data-boundary=<span class="string">"table" </span>data-table=(name) aria-busy=(busy)&gt;
+<a href=#315 id=315 data-nosnippet>315</a>            &lt;div
+<a href=#316 id=316 data-nosnippet>316</a>                class=<span class="string">"rounded-xl border border-border overflow-hidden"
+<a href=#317 id=317 data-nosnippet>317</a>                </span>data-table-root=<span class="string">""
+<a href=#318 id=318 data-nosnippet>318</a>                </span>aria-busy=(busy)
+<a href=#319 id=319 data-nosnippet>319</a>            &gt;
+<a href=#320 id=320 data-nosnippet>320</a>                (content)
+<a href=#321 id=321 data-nosnippet>321</a>            &lt;/div&gt;
+<a href=#322 id=322 data-nosnippet>322</a>        &lt;/div&gt;
+<a href=#323 id=323 data-nosnippet>323</a>    }
+<a href=#324 id=324 data-nosnippet>324</a>    .boxed()
+<a href=#325 id=325 data-nosnippet>325</a>}
+<a href=#326 id=326 data-nosnippet>326</a>
+<a href=#327 id=327 data-nosnippet>327</a><span class="attr">#[cfg(test)]
+<a href=#328 id=328 data-nosnippet>328</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

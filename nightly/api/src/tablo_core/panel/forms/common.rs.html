@@ -11,7 +11,7 @@
 <a href=#11 id=11 data-nosnippet>11</a>
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use super</span>::{
 <a href=#13 id=13 data-nosnippet>13</a>    <span class="kw">super</span>::{actions::load_viewable, gate::gate},
-<a href=#14 id=14 data-nosnippet>14</a>    render::render_form_page,
+<a href=#14 id=14 data-nosnippet>14</a>    render::{FormChrome, render_form_page},
 <a href=#15 id=15 data-nosnippet>15</a>};
 <a href=#16 id=16 data-nosnippet>16</a><span class="kw">use crate</span>::{
 <a href=#17 id=17 data-nosnippet>17</a>    db::db,
@@ -168,50 +168,41 @@
 <a href=#168 id=168 data-nosnippet>168</a>/// rendering — the re-rendered form reloads relationship options on
 <a href=#169 id=169 data-nosnippet>169</a>/// its own handle, which would block on the pool while the tx holds it —
 <a href=#170 id=170 data-nosnippet>170</a>/// so the drop is enforced here rather than trusted at each call site.
-<a href=#171 id=171 data-nosnippet>171</a></span><span class="comment">//
-<a href=#172 id=172 data-nosnippet>172</a>// The public link rides through to the re-rendered form for the same reason
-<a href=#173 id=173 data-nosnippet>173</a>// as above.
-<a href=#174 id=174 data-nosnippet>174</a></span><span class="attr">#[allow(clippy::too_many_arguments)]
-<a href=#175 id=175 data-nosnippet>175</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">async fn </span>rerender_invalid_form&lt;<span class="lifetime">'a</span>, R: Resource&gt;(
-<a href=#176 id=176 data-nosnippet>176</a>    cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
-<a href=#177 id=177 data-nosnippet>177</a>    tx: toasty::Transaction&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#178 id=178 data-nosnippet>178</a>    title: String,
-<a href=#179 id=179 data-nosnippet>179</a>    submit_label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
-<a href=#180 id=180 data-nosnippet>180</a>    values: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
-<a href=#181 id=181 data-nosnippet>181</a>    errors: <span class="kw-2">&amp;</span>FieldErrors,
-<a href=#182 id=182 data-nosnippet>182</a>    carried: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;,
-<a href=#183 id=183 data-nosnippet>183</a>    public_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#184 id=184 data-nosnippet>184</a>) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
-<a href=#185 id=185 data-nosnippet>185</a>    drop(tx);
-<a href=#186 id=186 data-nosnippet>186</a>    render_form_page::&lt;R&gt;(cx, title, submit_label, values, errors, carried, public_url).<span class="kw">await
-<a href=#187 id=187 data-nosnippet>187</a></span>}
-<a href=#188 id=188 data-nosnippet>188</a>
-<a href=#189 id=189 data-nosnippet>189</a><span class="doccomment">/// Edit page GET — hydrates the form from the record the tenant-scoped
-<a href=#190 id=190 data-nosnippet>190</a>/// load returned.
-<a href=#191 id=191 data-nosnippet>191</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_edit&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
-<a href=#192 id=192 data-nosnippet>192</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
-<a href=#193 id=193 data-nosnippet>193</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
-<a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span>record = load_viewable::&lt;R&gt;(cx, <span class="kw-2">&amp;mut </span>db).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">if </span>!R::can_update(cx, <span class="kw-2">&amp;</span>record) {
-<a href=#197 id=197 data-nosnippet>197</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#198 id=198 data-nosnippet>198</a>        }
-<a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">crate</span>::csrf::ensure_token(cx);
-<a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">let </span>values = &lt;R::Form <span class="kw">as </span>RecordForm&gt;::hydrate(cx, <span class="kw-2">&amp;</span>record);
-<a href=#201 id=201 data-nosnippet>201</a>        <span class="kw">let </span>public = R::public_url(cx, <span class="kw-2">&amp;</span>record);
-<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">let </span>html = render_form_page::&lt;R&gt;(
-<a href=#203 id=203 data-nosnippet>203</a>            cx,
-<a href=#204 id=204 data-nosnippet>204</a>            <span class="macro">format!</span>(<span class="string">"Edit {}"</span>, R::label()),
-<a href=#205 id=205 data-nosnippet>205</a>            <span class="string">"Save"</span>,
-<a href=#206 id=206 data-nosnippet>206</a>            <span class="kw-2">&amp;</span>values,
-<a href=#207 id=207 data-nosnippet>207</a>            <span class="kw-2">&amp;</span>FieldErrors::new(),
-<a href=#208 id=208 data-nosnippet>208</a>            <span class="kw-2">&amp;</span>HashSet::new(),
-<a href=#209 id=209 data-nosnippet>209</a>            public,
-<a href=#210 id=210 data-nosnippet>210</a>        )
-<a href=#211 id=211 data-nosnippet>211</a>        .<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#212 id=212 data-nosnippet>212</a>        <span class="prelude-val">Ok</span>(html)
-<a href=#213 id=213 data-nosnippet>213</a>    })))
-<a href=#214 id=214 data-nosnippet>214</a>}
-<a href=#215 id=215 data-nosnippet>215</a><span class="attr">#[cfg(test)]
-<a href=#216 id=216 data-nosnippet>216</a></span><span class="kw">mod </span>tests;
+<a href=#171 id=171 data-nosnippet>171</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">async fn </span>rerender_invalid_form&lt;<span class="lifetime">'a</span>, R: Resource&gt;(
+<a href=#172 id=172 data-nosnippet>172</a>    cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
+<a href=#173 id=173 data-nosnippet>173</a>    tx: toasty::Transaction&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#174 id=174 data-nosnippet>174</a>    chrome: FormChrome&lt;<span class="lifetime">'a</span>&gt;,
+<a href=#175 id=175 data-nosnippet>175</a>    values: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
+<a href=#176 id=176 data-nosnippet>176</a>    errors: <span class="kw-2">&amp;</span>FieldErrors,
+<a href=#177 id=177 data-nosnippet>177</a>    carried: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;,
+<a href=#178 id=178 data-nosnippet>178</a>) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
+<a href=#179 id=179 data-nosnippet>179</a>    drop(tx);
+<a href=#180 id=180 data-nosnippet>180</a>    render_form_page::&lt;R&gt;(cx, chrome, values, errors, carried).<span class="kw">await
+<a href=#181 id=181 data-nosnippet>181</a></span>}
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a><span class="doccomment">/// Edit page GET — hydrates the form from the record the tenant-scoped
+<a href=#184 id=184 data-nosnippet>184</a>/// load returned.
+<a href=#185 id=185 data-nosnippet>185</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_edit&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#186 id=186 data-nosnippet>186</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
+<a href=#187 id=187 data-nosnippet>187</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#188 id=188 data-nosnippet>188</a>        <span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="kw">let </span>record = load_viewable::&lt;R&gt;(cx, <span class="kw-2">&amp;mut </span>db).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#190 id=190 data-nosnippet>190</a>        <span class="kw">if </span>!R::can_update(cx, <span class="kw-2">&amp;</span>record) {
+<a href=#191 id=191 data-nosnippet>191</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#192 id=192 data-nosnippet>192</a>        }
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">crate</span>::csrf::ensure_token(cx);
+<a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span>values = &lt;R::Form <span class="kw">as </span>RecordForm&gt;::hydrate(cx, <span class="kw-2">&amp;</span>record);
+<a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span>html = render_form_page::&lt;R&gt;(
+<a href=#196 id=196 data-nosnippet>196</a>            cx,
+<a href=#197 id=197 data-nosnippet>197</a>            FormChrome::edit::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>record),
+<a href=#198 id=198 data-nosnippet>198</a>            <span class="kw-2">&amp;</span>values,
+<a href=#199 id=199 data-nosnippet>199</a>            <span class="kw-2">&amp;</span>FieldErrors::new(),
+<a href=#200 id=200 data-nosnippet>200</a>            <span class="kw-2">&amp;</span>HashSet::new(),
+<a href=#201 id=201 data-nosnippet>201</a>        )
+<a href=#202 id=202 data-nosnippet>202</a>        .<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#203 id=203 data-nosnippet>203</a>        <span class="prelude-val">Ok</span>(html)
+<a href=#204 id=204 data-nosnippet>204</a>    })))
+<a href=#205 id=205 data-nosnippet>205</a>}
+<a href=#206 id=206 data-nosnippet>206</a><span class="attr">#[cfg(test)]
+<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

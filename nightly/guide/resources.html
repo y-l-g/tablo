@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-333678c4.js";
+            window.path_to_searchindex_js = "searchindex-b2a6e593.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -251,8 +251,9 @@ export load the relations their columns declare with <code>TextColumn::include(.
 page loads <code>view_query</code>. Include a relation in <code>query</code> only when every loader needs it, such as one
 <code>can_view</code> reads. The option loaders run <code>query</code>, so an option label projects the related record’s
 own columns.</li>
-<li><code>view_query()</code> is the detail page’s query: <code>query</code> plus the relations <code>view_relations</code> reads,
-e.g. <code>Self::query(cx).include(comments)</code>. The framework ANDs the tenant scope onto it too.</li>
+<li><code>view_query()</code> is the detail page’s query: <code>query</code> plus the relations <code>view_values</code> or
+<code>view_content</code> read off the record, e.g. <code>Self::query(cx).include(author)</code>. The framework ANDs
+the tenant scope onto it too. A <a href="./detail-pages.html#relations">relation</a> runs its own query.</li>
 <li><code>table()</code> and <code>form()</code> are hand-written, and so is the impl itself: a resource is <code>type Model</code> plus
 whichever hooks it uses. There is no <code>Resource</code> derive (GH #222); the macros crate ships
 <code>derive(EmbeddedForm)</code> (GH #191) and <code>derive(RecordForm)</code> (GH #369), which types the form’s

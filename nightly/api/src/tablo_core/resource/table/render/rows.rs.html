@@ -292,7 +292,7 @@
 <a href=#292 id=292 data-nosnippet>292</a>                    </span>.edit_prefix
 <a href=#293 id=293 data-nosnippet>293</a>                    .as_ref()
 <a href=#294 id=294 data-nosnippet>294</a>                    .filter(|<span class="kw">_</span>| actions.edit)
-<a href=#295 id=295 data-nosnippet>295</a>                    .map(|prefix| row_edit_url(prefix, <span class="kw-2">&amp;</span>record_id));
+<a href=#295 id=295 data-nosnippet>295</a>                    .map(|prefix| <span class="self">self</span>.action_url(row_edit_url(prefix, <span class="kw-2">&amp;</span>record_id)));
 <a href=#296 id=296 data-nosnippet>296</a>                <span class="kw">let </span>view_url = <span class="self">self
 <a href=#297 id=297 data-nosnippet>297</a>                    </span>.view_prefix
 <a href=#298 id=298 data-nosnippet>298</a>                    .as_ref()
@@ -309,7 +309,7 @@
 <a href=#309 id=309 data-nosnippet>309</a>                    </span>.delete_prefix
 <a href=#310 id=310 data-nosnippet>310</a>                    .as_ref()
 <a href=#311 id=311 data-nosnippet>311</a>                    .filter(|<span class="kw">_</span>| actions.delete)
-<a href=#312 id=312 data-nosnippet>312</a>                    .map(|prefix| delete_action_url(prefix, <span class="kw-2">&amp;</span>record_id));
+<a href=#312 id=312 data-nosnippet>312</a>                    .map(|prefix| <span class="self">self</span>.action_url(delete_action_url(prefix, <span class="kw-2">&amp;</span>record_id)));
 <a href=#313 id=313 data-nosnippet>313</a>                RowView {
 <a href=#314 id=314 data-nosnippet>314</a>                    key,
 <a href=#315 id=315 data-nosnippet>315</a>                    record_id,

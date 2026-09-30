@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-333678c4.js";
+            window.path_to_searchindex_js = "searchindex-b2a6e593.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -547,8 +547,9 @@ export load the relations their columns declare with <code>TextColumn::include(.
 page loads <code>view_query</code>. Include a relation in <code>query</code> only when every loader needs it, such as one
 <code>can_view</code> reads. The option loaders run <code>query</code>, so an option label projects the related record’s
 own columns.</li>
-<li><code>view_query()</code> is the detail page’s query: <code>query</code> plus the relations <code>view_relations</code> reads,
-e.g. <code>Self::query(cx).include(comments)</code>. The framework ANDs the tenant scope onto it too.</li>
+<li><code>view_query()</code> is the detail page’s query: <code>query</code> plus the relations <code>view_values</code> or
+<code>view_content</code> read off the record, e.g. <code>Self::query(cx).include(author)</code>. The framework ANDs
+the tenant scope onto it too. A <a href="#relations">relation</a> runs its own query.</li>
 <li><code>table()</code> and <code>form()</code> are hand-written, and so is the impl itself: a resource is <code>type Model</code> plus
 whichever hooks it uses. There is no <code>Resource</code> derive (GH #222); the macros crate ships
 <code>derive(EmbeddedForm)</code> (GH #191) and <code>derive(RecordForm)</code> (GH #369), which types the form’s
@@ -721,12 +722,6 @@ widths (shares as emitted, lengths verbatim, one readability floor per wide colu
 the actions column), and the wrapper’s <code>overflow-x-auto</code> scrolls once the table is wider than its
 container. The actions column pairs its share with that floor on its header and cells, so the row
 buttons fit instead of spilling past the table.</li>
-<li>Relation tables on detail pages follow the same fixed-layout rule: <code>table-fixed</code>, a <code>ColumnWidth</code>
-per column (default <code>Wide</code>, so a default table declares no widths and splits evenly),
-<code>truncate</code> on every cell, and a <code>min-width</code> summing the shares plus one readability floor per wide
-column, so the wrapper scrolls on a narrow viewport instead of collapsing an undeclared column.
-<code>RelationColumn::width(ColumnWidth::..)</code> overrides the default; an explicit <code>Rem</code> behaves as on
-the list, leaving wide columns no space when the lengths exceed the table.</li>
 <li>Computed columns render only. They do not affect search or sort.</li>
 </ul>
 <p>Filters:</p>
@@ -1063,60 +1058,53 @@ the form renders here; <code>view_values</code> adds a key only the view shows. 
 supplies every key through <code>view_values</code>. A field whose key neither supplies renders <code>(missing)</code>
 and fails a <code>debug_assert!</code>, as a list column shows <code>(unloaded)</code> for a relation its query did not
 load (ADR-0011): a blank would read as an empty value.</li>
-<li><strong>Related rows</strong> render through <code>view_relations(cx, record)</code>, the page’s second half. The page
-loads through <code>view_query</code>, so include what the hook reads there:</li>
-</ul>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn view_query(cx: &amp;Cx) -&gt; Query&lt;List&lt;Post&gt;&gt; {
-    let comments: Include&lt;Post, List&lt;Comment&gt;&gt; = Post::fields().comments().into();
-    Self::query(cx).include(comments)
-}
-<span class="boring">}</span></code></pre>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn view_relations&lt;'a&gt;(cx: &amp;'a Cx, record: &amp;Post) -&gt; Option&lt;BoxView&lt;'a&gt;&gt; {
-    // The relation comes from `Resource::view_query`'s include, so this is the guard
-    // the list columns use: drop the include and the page says so instead of
-    // panicking inside `Deferred::get`.
-    if record.comments.is_unloaded() {
-        return Some(
-            view! {
-                cx =&gt;
-                &lt;p class="text-sm text-destructive"&gt;
-                    "Comments were not loaded by this query — add them to Resource::view_query's include."
-                &lt;/p&gt;
-            }
-            .boxed(),
-        );
-    }
-    Some(render_relation::&lt;CommentResource&gt;(
-        cx,
-        "Comments",
-        RelationColumns::columns(RelationColumn::computed("Comment", |c: &amp;Comment| c.body.clone())),
-        record.comments.get(),
-    ))
-}
-<span class="boring">}</span></code></pre>
-<p>It is a typed method and not a Schema field because a Schema renders the record’s <em>string
-projection</em> while a relation is a list of records — and <code>Resource::view(cx)</code> is handed no record at
-all, so a Schema node could not read one. Reading <code>record.comments.get()</code> issues no query: it is the
-row the include loaded, and a test counts the statements a detail page runs to hold that
-(<code>the_relation_issues_no_query_of_its_own</code>). The call names the related <code>Resource</code>
-(<code>render_relation::&lt;CommentResource&gt;</code>), so the table applies that resource’s <code>can_view</code> to every
-loaded row, and it renders at most <code>MAX_RELATION_ROWS</code> rows, printing a line that names the cap and
-the total when it truncates. Related rows render read-only: no pager, no search, no bulk column, no
-row actions. The table follows the list’s fixed-layout rule: <code>table-fixed</code>, one <code>ColumnWidth</code> per
-relation column (default <code>Wide</code>), <code>truncate</code> on every cell, and a <code>min-width</code> carrying one
-readability floor per wide column, so long values clip to an ellipsis and a narrow viewport scrolls
-instead of collapsing a column.</p>
-<ul>
+<li><strong>Free-form content</strong> — anything read off the record that is not one of its fields, such as a
+word count — renders through <code>view_content(cx, record)</code>, below the fields. The page loads
+through <code>view_query</code>, so include there any relation the hook or <code>view_values</code> reads.</li>
+<li><strong>Related rows</strong> render as <a href="#relations">relations</a>, below the content.</li>
 <li>A typed column (<code>Uuid</code>, <code>jiff::Timestamp</code>) is readable: bind it with <code>Field::text</code> (GH #192)
 and the view renders its stored value as text. A foreign key therefore reads as its stored id
-rather than the related record’s label — render the relation through <code>view_relations</code> when the
-label is what a reader needs.</li>
+rather than the related record’s label — show the label through <code>view_values</code> when a reader
+needs it.</li>
 <li><code>IntoSchema</code> takes at most eight top-level blocks; a longer view wraps a ninth in a <code>Group</code>.</li>
 </ul>
+<h2 id="relations"><a class="header" href="#relations">Relations</a></h2>
+<p>A record’s related rows — a post’s comments — render on its detail and edit pages as the related
+resource’s own list table, narrowed to the record (Filament’s relation managers):</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl Resource for PostResource {
+    fn relations() -&gt; Vec&lt;Relation&lt;Post&gt;&gt; {
+        vec![Relation::has_many::&lt;CommentResource, _&gt;(
+            Comment::fields().post_id(),
+            |post: &amp;Post| post.id,
+        )]
+    }
+}
+<span class="boring">}</span></code></pre>
+<p><code>has_many</code> names the related resource and the binding between the two: the related model’s
+foreign-key column and the owner’s value for it (a nullable key takes the owner’s value in
+<code>Some</code>). The table is <code>CommentResource</code>’s: its columns, search, sort, filters and pager, over its
+tenant-scoped query plus <code>post_id = &lt;this post&gt;</code>. Its policies apply as on its list: a request
+<code>can_view_any</code> refuses, or one without a tenant the related resource requires, gets no section.
+The section is titled with the related resource’s navigation label; <code>.label(..)</code> overrides it.</p>
+<p>The detail page shows the rows read-only, as Filament’s view page does: each row keeps its View
+link. The edit page carries the writes: the row Edit and Delete actions, bulk delete, and the
+create link, each gated per row or by <code>can_create</code> as on the list.</p>
+<p>The relation’s URL parameters are prefixed with the related resource’s slug — <code>?comments.q=</code>,
+<code>?comments.sort=</code>, <code>?comments.after=</code> — so several relations share one page without colliding.
+A link or a form in one relation carries only that relation’s parameters.</p>
+<p>On the edit page, when the related resource has a form and <code>can_create</code> allows it, the section
+links a create button to that resource’s create page with the owner already chosen
+(<code>/admin/comments/create?post_id=…</code>): the create page seeds a relationship control a query
+parameter names, and nothing else. The seed is a prefill, and the write checks what is submitted
+as for any create.</p>
+<p>Writes started from the relation return to the page it is on: the create link, the row edit and
+delete actions and the bulk delete carry <code>?return=</code>, and the write redirects there instead of to
+the related resource’s list. The panel follows a <code>return</code> only to a path under its own prefix.</p>
+<p><code>Panel::build</code> rejects a relation to a resource the panel does not register — its row actions and
+create link would lead nowhere — and two relations of one resource to the same related resource.
+A table declared <code>live_search</code> renders its server-side search in a relation.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="policy-auth-tenancy"><a class="header" href="#policy-auth-tenancy">Policy, auth, tenancy</a></h1>
 <p>Who may see and change what: the <code>can_*</code> predicates, the auth gate and its seams, and where the
