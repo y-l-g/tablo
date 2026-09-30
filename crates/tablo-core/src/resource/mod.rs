@@ -481,11 +481,17 @@ pub trait Resource: Sized + Send + Sync + 'static {
         let key = Self::table(cx).record_key_of(record);
         let query = scoped_query::<Self>(cx).and_then(|query| {
             let filter = crate::schema::pk_eq_expr::<Self::Model>(&key).ok_or_else(|| {
-                std::io::Error::other(format!(
-                    "{}: record key `{key}` is not a single-column primary key; override \
-                     delete_record",
-                    std::any::type_name::<Self>()
-                ))
+                // The handler found the row by this key, so a key that does
+                // not parse back is a table whose record key is not the
+                // primary key (`Table::new_split`). The detail stays in the
+                // log; the page gets the delete-failure toast.
+                tracing::error!(
+                    resource = Self::slug(),
+                    key,
+                    "default delete_record: the table's record key does not parse as the primary \
+                     key; declare the primary key as the record key or override delete_record"
+                );
+                std::io::Error::other("delete failed")
             })?;
             Ok(query.filter(filter))
         });

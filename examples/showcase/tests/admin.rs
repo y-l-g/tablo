@@ -323,7 +323,7 @@ async fn admin_list_pagination_walks_cursor_links() {
     // the seeded roster plus `extra - 1` filler rows and exactly one filler row
     // spills to page 2.
     let seeded = user_count(&db).await;
-    let page_size = 25usize;
+    let page_size = tablo_core::resource::DEFAULT_PAGE_SIZE.get();
     let extra = page_size - seeded + 1;
     let last = format!("User {:02}", extra - 1);
     {
@@ -432,7 +432,7 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
-    let page_size = 25usize;
+    let page_size = tablo_core::resource::DEFAULT_PAGE_SIZE.get();
     // One row past a full page, so the walk spans exactly two pages.
     let extra = page_size - seeded + 1;
     {
@@ -503,7 +503,7 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
-    let page_size = 25usize;
+    let page_size = tablo_core::resource::DEFAULT_PAGE_SIZE.get();
     let tied = 30usize;
     {
         let mut db_q = db.clone();

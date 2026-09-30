@@ -16,7 +16,19 @@ pub(crate) fn type_short_name<T: ?Sized>() -> &'static str {
 /// (`Category` → `Categories`), sibilant endings → `es` (`Box` → `Boxes`),
 /// `f`/`fe` → `ves` (`Knife` → `Knives`) with a few `+s` exceptions, and the
 /// default `+s`.
-pub(crate) fn pluralize(word: &str) -> String {
+///
+/// A multi-word label pluralizes its last word only, so a noun phrase keeps its
+/// head noun's rules: `Sales Person` → `Sales People`, `Blog Post` →
+/// `Blog Posts`.
+pub(crate) fn pluralize(label: &str) -> String {
+    match label.rsplit_once(' ') {
+        Some((head, last)) => format!("{head} {}", pluralize_word(last)),
+        None => pluralize_word(label),
+    }
+}
+
+/// [`pluralize`] for one word.
+fn pluralize_word(word: &str) -> String {
     if word.is_empty() {
         return word.to_string();
     }

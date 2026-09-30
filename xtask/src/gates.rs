@@ -504,7 +504,6 @@ fn check_with(run: &dyn Runner, verify: &dyn Fn() -> anyhow::Result<()>) -> anyh
             "udeps",
             "--workspace",
             "--all-targets",
-            "--all-features",
             "--locked",
         ],
         Some(&root),

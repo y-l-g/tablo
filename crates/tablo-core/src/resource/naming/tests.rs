@@ -51,3 +51,16 @@ fn naming_invariants_hold() {
     // kebab round-trips through slug vocabulary (no underscores).
     assert!(!kebab_case("Audit_Log").contains('_'));
 }
+
+/// A multi-word label keeps its head noun's rules: only the last word
+/// inflects, so an irregular, uncountable or `f`-exception noun at the end of
+/// a label pluralizes as it would alone.
+#[test]
+fn pluralize_inflects_the_last_word_of_a_label() {
+    use super::pluralize;
+    assert_eq!(pluralize("Sales Person"), "Sales People");
+    assert_eq!(pluralize("Company News"), "Company News");
+    assert_eq!(pluralize("Staff Chief"), "Staff Chiefs");
+    assert_eq!(pluralize("Blog Post"), "Blog Posts");
+    assert_eq!(pluralize("Product Category"), "Product Categories");
+}

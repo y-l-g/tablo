@@ -1,0 +1,60 @@
+//! The write tail every mutation shares: create, update, delete, and bulk
+//! delete end in [`commit_write`].
+
+use topcoat::{context::Cx, router::error::see_other, view::BoxView};
+
+use super::gate::list_url;
+use crate::{
+    notification::{Notification, notify_write_failure, set_notification},
+    resource::{Committed, Resource},
+};
+
+/// Commit the transaction, run the after-commit hook on what the record fn
+/// wrote, and redirect to the list with the success flash. A failed write or
+/// commit maps to the caller's failure toast and an opaque error.
+///
+/// `written` is the record fn's result, carrying what the hook receives;
+/// `committed` names the mutation, `note` the success flash, and `failure`
+/// the toast.
+pub(crate) async fn commit_write<'a, R: Resource, T>(
+    cx: &'a Cx,
+    tx: toasty::Transaction<'_>,
+    written: Result<T, topcoat::Error>,
+    committed: impl FnOnce(T) -> Committed<R::Model>,
+    note: &'static str,
+    failure: &'static str,
+) -> Result<BoxView<'a>, topcoat::Error> {
+    match written {
+        Ok(value) => match tx.commit().await {
+            Ok(()) => {
+                // Post-commit, so the effect cannot survive a rollback, and
+                // the tx is gone, so the hook may open its own handle.
+                crate::resource::run_after_commit::<R>(cx, committed(value)).await;
+                Err(redirect_after_write::<R>(cx, note))
+            }
+            Err(error) => {
+                notify_write_failure(cx, failure);
+                Err(crate::db::unavailable(error))
+            }
+        },
+        // A record fn's error is not echoed raw: the driver's text goes to the
+        // log through the opaque mapping, and an app-authored error keeps its
+        // own. On a create or update this includes a unique violation that
+        // slipped past the app-side check (a concurrent write): Toasty exposes
+        // no unique-violation predicate (upstream gap #117), so it cannot be
+        // classified as an inline field error here.
+        Err(error) => {
+            notify_write_failure(cx, failure);
+            Err(crate::db::hook_failure(error))
+        }
+    }
+}
+
+/// Post/Redirect/Get with a flash notification. The browser follows with a
+/// GET, and the flash cookie rides the error response (Topcoat flushes
+/// `Set-Cookie` on `Err` too, topcoat#408), so every mutation redirects the
+/// same way.
+fn redirect_after_write<R: Resource>(cx: &Cx, note: &'static str) -> topcoat::Error {
+    set_notification(cx, Notification::success(note));
+    see_other(list_url(cx, &R::slug())).into()
+}

@@ -5,26 +5,15 @@ use std::collections::{HashMap, HashSet};
 use topcoat::{
     Result,
     context::Cx,
-    router::{
-        Body,
-        error::{forbidden, see_other},
-    },
+    router::{Body, error::forbidden},
     view::{BoxView, HoistView, internal::ThenView},
 };
 
 use super::{
-    super::{
-        actions::load_viewable,
-        gate::{gate, list_url},
-    },
+    super::{actions::load_viewable, gate::gate},
     render::render_form_page,
 };
-use crate::{
-    db::db,
-    form::RecordForm,
-    notification::{Notification, notify_write_failure, set_notification},
-    resource::{Committed, Resource},
-};
+use crate::{db::db, form::RecordForm, resource::Resource};
 
 /// A decoded form body: the text values plus any file parts.
 pub(crate) struct FormParts {
@@ -191,58 +180,6 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
 ) -> Result<BoxView<'a>> {
     drop(tx);
     render_form_page::<R>(cx, title, submit_label, values, errors, carried, public_url).await
-}
-
-/// Shared create/edit POST success tail: Post/Redirect/Get with a
-/// flash notification. The browser follows with a GET, and the flash cookie
-/// rides the error response (Topcoat flushes `Set-Cookie` on `Err` too,
-/// topcoat#408). Redirect target and notification are the caller's only
-/// deltas, so the redirect behavior cannot drift between create and edit.
-pub(super) fn redirect_after_write<R: Resource>(cx: &Cx, note: &'static str) -> topcoat::Error {
-    set_notification(cx, Notification::success(note));
-    see_other(list_url(cx, &R::slug())).into()
-}
-
-/// The write tail every mutation shares: commit the transaction, run the
-/// after-commit hook on what the record fn wrote, and redirect to the list
-/// with the success flash. A failed write or commit maps to the caller's
-/// failure toast and an opaque error.
-///
-/// `written` is the record fn's result, carrying what the hook receives;
-/// `committed` names the mutation, `note` the success flash, and `failure`
-/// the toast.
-pub(crate) async fn commit_write<'a, R: Resource, T>(
-    cx: &'a Cx,
-    tx: toasty::Transaction<'_>,
-    written: Result<T, topcoat::Error>,
-    committed: impl FnOnce(T) -> Committed<R::Model>,
-    note: &'static str,
-    failure: &'static str,
-) -> Result<BoxView<'a>, topcoat::Error> {
-    match written {
-        Ok(value) => match tx.commit().await {
-            Ok(()) => {
-                // Post-commit, so the effect cannot survive a rollback, and
-                // the tx is gone, so the hook may open its own handle.
-                crate::resource::run_after_commit::<R>(cx, committed(value)).await;
-                Err(redirect_after_write::<R>(cx, note))
-            }
-            Err(error) => {
-                notify_write_failure(cx, failure);
-                Err(crate::db::unavailable(error))
-            }
-        },
-        // A unique violation that slipped past the app-side check (a
-        // concurrent write) surfaces as an error, not a string-matched inline
-        // message: Toasty exposes no unique-violation predicate (upstream gap
-        // #117), so the failure cannot be classified here. It is still not
-        // echoed raw: the driver's text goes to the log through the
-        // opaque mapping, and an app-authored hook error keeps its own.
-        Err(error) => {
-            notify_write_failure(cx, failure);
-            Err(crate::db::hook_failure(error))
-        }
-    }
 }
 
 /// Edit page GET — hydrates the form from the record the tenant-scoped

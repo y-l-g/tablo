@@ -47,7 +47,7 @@ pub(crate) type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
 /// with the same predicates its route checks, so a rendered affordance and the
 /// route that answers it cannot disagree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RowActions {
+pub(crate) struct RowActions {
     /// Whether the row renders its `View` link — the detail route's
     /// `can_view`.
     pub view: bool,
@@ -71,7 +71,7 @@ impl RowActions {
 
 /// A named grouping a `Table` can render: `name` is the `?group_by=` value
 /// the table accepts, `key` projects a row to its group label.
-pub struct GroupDef<M> {
+pub(crate) struct GroupDef<M> {
     name: String,
     key: GroupKey<M>,
 }
