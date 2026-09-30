@@ -1,6 +1,7 @@
 //! Procedural macros for Tablo.
 
 mod embedded;
+mod fields;
 mod record_form;
 
 use proc_macro::TokenStream;
@@ -8,11 +9,13 @@ use syn::DeriveInput;
 
 /// Derive `EmbeddedForm` for an embedded struct or enum.
 ///
-/// The generated impl converts the value to and from the panel's flat form map,
-/// answers whether a submission mentions it, and generates a `form(cx, parent)`
-/// returning the value's controls, all driven by the columns the app schema
-/// resolves for the parent path. The framework supplies the storage names, the
-/// derive supplies the Rust shape.
+/// The generated impl builds the value's schema node from the columns the app
+/// schema resolves for the parent path — one text field per leaf, a nested
+/// node per `#[form(embed)]` value, and for an enum the variant control plus
+/// one group per variant — and converts the value to and from the panel's flat
+/// form map through that node's keys. It also generates `form(cx, parent)`,
+/// the value's schema. The framework supplies the storage names, the derive
+/// supplies the Rust shape.
 ///
 /// ```ignore
 /// #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
@@ -34,28 +37,27 @@ use syn::DeriveInput;
 ///
 /// # How a field is classified
 ///
-/// A type this panel can spell — `String`, the integer family, `bool`,
-/// `f32`/`f64`, `Uuid`, `jiff::Timestamp` — is a **leaf**: one column, read and
-/// written as text (typed leaves parse through `TypedValue`). Any other type is
-/// another **embedded value**, delegated to that type's own `EmbeddedForm`. A
-/// relation, an `Option<T>`, a `Vec<T>` and a `#[document]` inside a value do
-/// not compile, or are refused at the schema (the `tablo-core`
-/// `schema::embedded` module docs list what is not covered).
+/// A field marked `#[form(embed)]` is another **embedded value**, delegated to
+/// its own `EmbeddedForm`. Every other field is a **scalar**: one column, read
+/// and written through `FormScalar` (`String`, a `TypedValue` type, or an
+/// `Option` of one). A scalar of another type fails to compile at the field,
+/// naming the trait.
 ///
 /// # Which variant an enum reads
 ///
-/// A named discriminant always wins, and an undeclared one is refused loudly;
+/// A named discriminant always wins, and an undeclared one is refused;
 /// otherwise the first variant, in declaration order, with a **payload of its
 /// own** submitted — a `#[shared(..)]` column belongs to several variants and
 /// never selects one; otherwise the first variant.
 ///
-/// # Per-field overrides
+/// # Per-field attributes
 ///
+/// - `#[form(embed)]` — a nested `EmbeddedForm` value.
 /// - `#[form(label = "Canonical URL")]` — the control's label (default: the field name, humanized).
-/// - `#[form(textarea)]` / `#[form(textarea, rows = 3)]` — a multi-line control for a `String`
-///   leaf, and its height.
+/// - `#[form(multiline = 3)]` — a `<textarea>` of 3 rows.
 ///
-/// Anything else in `#[form(..)]` is a compile error.
+/// Anything else in `#[form(..)]` is a compile error, as are `label` and
+/// `multiline` on an embedded value.
 #[proc_macro_derive(EmbeddedForm, attributes(form))]
 pub fn embedded_form(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
@@ -66,17 +68,17 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 ///
 /// One field per model column the form writes, named and typed like the
 /// model's field. A scalar (`String`, a `TypedValue` type, or an `Option` of
-/// one) binds the key its control posts; a `#[record_form(embed)]` field binds
-/// every key of an `EmbeddedForm` value and is written whole.
+/// one) binds the key its control posts; a `#[form(embed)]` field binds every
+/// key of an `EmbeddedForm` value and is written whole.
 ///
 /// ```ignore
 /// #[derive(tablo_core::RecordForm)]
-/// #[record_form(model = User)]
+/// #[form(model = User)]
 /// pub struct UserForm {
 ///     pub name: String,
-///     #[record_form(blank = "member")]
+///     #[form(blank = "member")]
 ///     pub role: String,
-///     #[record_form(blank = 0)]
+///     #[form(blank = 0)]
 ///     pub age: i64,
 /// }
 /// ```
@@ -86,16 +88,16 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 ///
 /// # Attributes
 ///
-/// - `#[record_form(model = User)]` on the struct: the model the form writes.
-/// - `#[record_form(blank = <expr>)]` on a scalar: the value an empty submission reads as. `String`
+/// - `#[form(model = User)]` on the struct: the model the form writes.
+/// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as. `String`
 ///   answers `""` and `Option<T>` answers `None` without one.
-/// - `#[record_form(embed)]` on an `EmbeddedForm` value.
+/// - `#[form(embed)]` on an `EmbeddedForm` value.
 ///
 /// A generic struct, a tuple struct, an empty struct, a `Deferred<_>` field,
 /// `blank` on an `Option` or an embedded value, and an unknown key are compile
-/// errors. So are a field the model lacks and a type the model's field does not
-/// have.
-#[proc_macro_derive(RecordForm, attributes(record_form))]
+/// errors. So are a field the model lacks, a type the model's field does not
+/// have, and a scalar that is not a `FormScalar`.
+#[proc_macro_derive(RecordForm, attributes(form))]
 pub fn record_form(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
     record_form::expand_tokens(input).into()

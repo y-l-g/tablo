@@ -1,21 +1,21 @@
 //! Embedded lens resolution through the request's app schema.
 //!
-//! `TextInput::r#for` binds a top-level field: it resolves against the owned
+//! A plain lens binds a top-level field: it resolves against the owned
 //! `app::Model`, which cannot see embedded models, so a path through an
-//! embedded struct is rejected as a traversal lens. `r#for_context`
+//! embedded struct is rejected as a traversal lens. `ResolvedLens::new`
 //! resolves through the request's app schema instead, so the leaf arrives as
 //! its flattened storage column.
 //!
 //! This is the render-path proof: the flattened name is what the form posts
-//! and what `field_names()` allow-lists, or a bound embedded field would
-//! render blank and then be refused as an unknown key. The resolver walk
+//! and what the unknown-key allow-list accepts, or a bound embedded field
+//! would render blank and then be refused as an unknown key. The resolver walk
 //! itself is covered by `schema::lenses`'s own tests; the two refusals at the
 //! bottom drive the panicking entry a form binding uses, which that module
 //! does not.
 
 use std::collections::HashMap;
 
-use tablo_core::{Schema, TextInput};
+use tablo_core::{Field, ResolvedLens, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -67,7 +67,7 @@ async fn article_cx() -> Cx {
 
 async fn render(schema: &Schema, cx: &Cx, values: HashMap<String, String>) -> String {
     schema
-        .render_with(cx, &values, &HashMap::new())
+        .render(cx, Source::form(&values, &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -80,9 +80,12 @@ async fn render(schema: &Schema, cx: &Cx, values: HashMap<String, String>) -> St
 async fn embedded_leaf_resolves_to_its_flattened_column() {
     let cx = article_cx().await;
     // Two levels deep: Article.meta.seo.title -> meta_seo_title.
-    let input = TextInput::r#for_context(&cx, Article::fields().meta().seo().title());
+    let input = Field::text(ResolvedLens::new(
+        &cx,
+        Article::fields().meta().seo().title(),
+    ));
     assert_eq!(
-        input.field_name(),
+        input.name(),
         "meta_seo_title",
         "an embedded leaf must resolve to its flattened storage column"
     );
@@ -106,8 +109,11 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
 async fn the_flattened_name_participates_in_allow_list_and_validation() {
     let cx = article_cx().await;
     let schema = Schema::new((
-        TextInput::r#for_context(&cx, Article::fields().title()),
-        TextInput::r#for_context(&cx, Article::fields().meta().seo().title()),
+        Field::text(ResolvedLens::new(&cx, Article::fields().title())),
+        Field::text(ResolvedLens::new(
+            &cx,
+            Article::fields().meta().seo().title(),
+        )),
     ));
 
     let mut values = HashMap::new();
@@ -133,7 +139,11 @@ async fn the_flattened_name_participates_in_allow_list_and_validation() {
 
     // ...but a required one is still required when asked for explicitly.
     let required = Schema::new(
-        TextInput::r#for_context(&cx, Article::fields().meta().seo().description()).required(),
+        Field::text(ResolvedLens::new(
+            &cx,
+            Article::fields().meta().seo().description(),
+        ))
+        .required(),
     );
     assert!(
         required
@@ -153,16 +163,49 @@ async fn the_flattened_name_participates_in_allow_list_and_validation() {
 #[should_panic(expected = "only embedded steps")]
 async fn a_relation_traversal_is_refused_rather_than_misbound() {
     let cx = article_cx().await;
-    let _ = TextInput::r#for_context(&cx, Article::fields().author().name());
+    let _ = Field::text(ResolvedLens::new(&cx, Article::fields().author().name()));
 }
 
 /// Without a `Db` there is no app schema, and the single-segment rule must
 /// still refuse a traversal lens loudly rather than bind the wrong column.
-/// `lenses.rs` covers `resolve_embedded_value` against a bare `Cx`, which
-/// returns `None`; this pins the panicking `resolve` entry a form binding uses.
+/// `lenses.rs` covers `resolve_enum` against a bare `Cx`, which returns
+/// `None`; this pins the panicking `resolve` entry a form binding uses.
 #[tokio::test]
 #[should_panic(expected = "single-field lens")]
 async fn without_a_schema_a_traversal_lens_still_fails_loudly() {
     let cx = CxTestBuilder::new().build();
-    let _ = TextInput::r#for_context(&cx, Article::fields().meta().note());
+    let _ = Field::text(ResolvedLens::new(&cx, Article::fields().meta().note()));
+}
+
+/// Every kind of field binds an embedded leaf through `ResolvedLens::new`,
+/// and posts its flattened column.
+#[tokio::test]
+async fn a_choice_and_a_file_bind_an_embedded_leaf() {
+    let cx = article_cx().await;
+    let choice = Field::choice(ResolvedLens::new(
+        &cx,
+        Article::fields().meta().seo().title(),
+    ))
+    .options(vec!["draft".to_string()]);
+    let file = Field::file(ResolvedLens::new(
+        &cx,
+        Article::fields().meta().seo().description(),
+    ));
+    assert_eq!(choice.name(), "meta_seo_title");
+    assert_eq!(file.name(), "meta_seo_description");
+
+    let schema = Schema::new((choice, file));
+    let html = render(&schema, &cx, HashMap::new()).await;
+    assert!(
+        html.contains("<select") && html.contains("name=\"meta_seo_title\""),
+        "the choice posts the flattened column, got {html}"
+    );
+    assert!(
+        html.contains("type=\"file\"") && html.contains("name=\"meta_seo_description\""),
+        "the file field posts the flattened column, got {html}"
+    );
+    assert!(
+        schema.validate(&HashMap::new()).is_empty(),
+        "an embedded leaf is optional by default, for every kind"
+    );
 }

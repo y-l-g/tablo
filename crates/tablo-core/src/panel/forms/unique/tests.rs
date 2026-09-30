@@ -8,7 +8,7 @@ use crate::panel::test_support::{Tagged, TaggedResource, panel_for, response_htm
 async fn unique_check_flags_duplicates_for_marked_fields() {
     use topcoat::context::CxTestBuilder;
 
-    use crate::schema::{Schema, TextInput};
+    use crate::schema::{Field, Schema};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Subscriber {
@@ -47,7 +47,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let mut ex = crate::db::db(&cx);
 
-    let schema = Schema::new(TextInput::r#for(Subscriber::fields().email()).unique());
+    let schema = Schema::new(Field::text(Subscriber::fields().email()).unique());
     let mut values = HashMap::new();
     values.insert("email".to_string(), "a@b.c".to_string());
 
@@ -100,7 +100,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
     let mut empty = HashMap::new();
     empty.insert("email".to_string(), "   ".to_string());
     let optional_schema = Schema::new(
-        TextInput::r#for(Subscriber::fields().email())
+        Field::text(Subscriber::fields().email())
             .optional()
             .unique(),
     );
@@ -123,7 +123,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
 async fn unique_field_is_required_however_it_is_marked() {
     use topcoat::context::CxTestBuilder;
 
-    use crate::schema::{Schema, TextInput};
+    use crate::schema::{Field, Schema};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Subscriber {
@@ -162,7 +162,7 @@ async fn unique_field_is_required_however_it_is_marked() {
     // presence, so the declaration cannot promise an empty value the index
     // refuses to hold twice.
     let schema = Schema::new(
-        TextInput::r#for(Subscriber::fields().email())
+        Field::text(Subscriber::fields().email())
             .unique()
             .optional(),
     );
@@ -204,7 +204,7 @@ async fn unique_field_is_required_however_it_is_marked() {
 async fn lens_derived_unique_is_required_without_a_unique_call() {
     use topcoat::context::CxTestBuilder;
 
-    use crate::schema::{Schema, TextInput};
+    use crate::schema::{Field, Schema};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Subscriber {
@@ -239,7 +239,7 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let mut ex = crate::db::db(&cx);
 
-    let input = TextInput::r#for(Subscriber::fields().email());
+    let input = Field::text(Subscriber::fields().email());
     assert!(
         input.is_unique(),
         "the index must be recognized without a `.unique()` call (GH #183)"
@@ -267,7 +267,7 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
 async fn unique_check_propagates_probe_errors() {
     use topcoat::context::CxTestBuilder;
 
-    use crate::schema::{Schema, TextInput};
+    use crate::schema::{Field, Schema};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Probe {
@@ -302,7 +302,7 @@ async fn unique_check_propagates_probe_errors() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let mut ex = crate::db::db(&cx);
 
-    let schema = Schema::new(TextInput::r#for(Probe::fields().email()).unique());
+    let schema = Schema::new(Field::text(Probe::fields().email()).unique());
     let mut values = HashMap::new();
     values.insert("email".to_string(), "a@b.c".to_string());
     let result =
@@ -317,7 +317,7 @@ async fn unique_check_propagates_probe_errors() {
 async fn unique_check_ignores_absent_repeater_groups() {
     use topcoat::context::CxTestBuilder;
 
-    use crate::schema::{Repeater, Schema, TextInput};
+    use crate::schema::{Field, Repeater, Schema};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Nicknamed {
@@ -360,7 +360,7 @@ async fn unique_check_ignores_absent_repeater_groups() {
 
     let schema = Schema::new(
         Repeater::new("Tags").schema(
-            TextInput::r#for(Nicknamed::fields().nickname())
+            Field::text(Nicknamed::fields().nickname())
                 .unique()
                 .optional(),
         ),

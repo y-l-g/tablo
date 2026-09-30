@@ -80,3 +80,16 @@ table spells its columns in one list; a nested tuple such as `(a, (b, c))` does 
 `RecordForm::hydrate`, extended with `Resource::view_values` for keys only the view shows
 (ADR-0022); the form's keys win. A `NoForm` resource's projection is empty, so it supplies every key
 through `view_values`, which is `hydrate_form_values` renamed.
+
+## Amendment — 2026-09-30
+
+**One render entry, and a checked key set (GH #392).** `Schema::render(cx, Source::view(values))`
+is the read-only render, and `Schema::render(cx, Source::form(values, errors))` the form's; the
+per-kind field types are one `Field` whose control is text, choice, or file, so a view binds
+`Field::text`, `Field::choice`, and `Field::file`. A view field whose key the values lack renders
+`(missing)` and fails a `debug_assert!`, the contract a list column keeps for an unloaded relation
+(ADR-0011), so the "view of empty labels" consequence above is detected rather than rendered. An
+embedded enum renders only its stored variant's group, and the shared columns that variant declares,
+on a view. `view`, `view_values`, and
+`viewed` stay: like Filament's infolist, the detail page has its own layout, shows keys the form does
+not, and exists for a list-only resource.

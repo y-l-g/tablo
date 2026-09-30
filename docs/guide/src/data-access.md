@@ -59,25 +59,24 @@ pub enum Publication {
     Published { #[shared(timestamp)] published_at: String, canonical_url: String },
 }
 
-// form declaration: controls, flattened names, and the variant Select
+// form declaration: controls, flattened names, and the variant control
 Section::new("Publication").schema(Publication::form(cx, Post::fields().publication()))
 
 // a record form binds the whole value, and the derive calls the codec
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Post)]
+#[form(model = Post)]
 pub struct PostForm {
-    #[record_form(embed)]
+    #[form(embed)]
     pub publication: Publication,
     // …
 }
 
 // the codec by hand: the typed value, keys resolved from the schema
-write_embedded(cx, Post::fields().publication(), &record.publication, &mut values);
-let publication = read_embedded(cx, Post::fields().publication(), &values)?;
-let keys = value_keys(cx, Post::fields().publication()); // the discriminant, then every leaf
+record.publication.write_form(cx, Post::fields().publication(), &mut values);
+let publication = Publication::read_form(cx, Post::fields().publication(), &values)?;
 ```
 
-An enum's variant is its **discriminant column**, carried by the form as a `Select` over the
+An enum's variant is its **discriminant column**, carried by the form as a choice over the
 schema's variant list — each option submitting the variant's stored value and reading as its name —
 and each variant's payload renders inside its own marked group, so the client shows only the chosen
 variant's, and a variant can be picked on create and changed on edit (a read-only page names the
@@ -86,8 +85,12 @@ enum does not declare is refused on the discriminant's key, never read as some o
 not a vote. Only when no discriminant is named at all — the create form, a hand-written POST — do
 payloads select one, by a variant's own **non-shared** payload through resolved keys. The toggle is
 markup-only (`variant.js` hides the inactive groups): with JavaScript off every variant's payload
-renders, so no field the server still parses is lost. `#[form(label = "…")]`, `#[form(textarea)]`
-and `#[form(textarea, rows = N)]` are the per-field overrides; an unknown key is a compile error. A
+renders, so no field the server still parses is lost; a read-only page renders only the stored
+variant's group and the shared columns it declares. `Publication::form` is one schema node: its fields join the form's field list, and
+its keys are its fields' keys. Inside a value, a field marked `#[form(embed)]` is a nested value and
+every other field is a scalar (`FormScalar`), which a derive checks at the field.
+`#[form(label = "…")]` and `#[form(multiline = N)]` are the per-field overrides; an unknown key is
+a compile error. A
 `#[document]` inside a value, a relation, an enum nested inside an enum variant, and a tuple struct
 are not covered.
 

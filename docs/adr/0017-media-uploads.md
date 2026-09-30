@@ -22,7 +22,7 @@ printed to the user, so never a driver message or a path. **The framework stores
 verbatim and renders it verbatim:** the field still binds a `String`, the record fn's contract is
 unchanged, and a stored value renders as a link to the file — on the edit form and on the detail
 page. The field reads no extension and owns no image pipeline, so it neither previews a path nor
-guesses a URL convention (GH #242). **A `FileUpload` value comes only from a file part** — the
+guesses a URL convention (GH #242). **A file field's value comes only from a file part** — the
 uploader's answer, or the sanitized basename with no uploader — from the stored value on an untouched
 edit, or empty on `clear_<field>`; text a client typed under the field's name is dropped (GH #277).
 **A form that re-renders with errors carries the path its store just answered** in a hidden
@@ -40,7 +40,7 @@ and the preview, drag-and-drop and upload progress are media-library work: the s
 first two (GH #248, ADR-0021) from its own `medias` table and its own asset, drag-and-drop and
 progress stay unbuilt, and a generic `String`-bound field is the wrong place to guess any of them.
 
-**The clear control is a declared transport key.** `FileUpload` renders a `clear_<field>` checkbox
+**The clear control is a declared transport key.** A file field renders a `clear_<field>` checkbox
 whenever a value is stored, alongside the hint that an empty file input keeps what is there.
 Strip-before-record-fn (GH #148) is unchanged, so a generic `Resource` impl still cannot be handed the
 flag as a write. Clearing does not waive `required`: the value is empty, the ordinary required error

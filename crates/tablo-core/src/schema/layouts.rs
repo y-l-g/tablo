@@ -1,9 +1,7 @@
-//! Layout containers — `Section`, `Group`, `Grid`, `Repeater`, `Tabs`.
+//! Layout containers — `Section`, `Group`, `Grid`, `Repeater`.
 //!
-//! The compositional seams for form layout; each holds an optional child
-//! `Schema` rendered through the tree walk.
-
-use std::collections::HashMap;
+//! The compositional seams for form layout; each holds a child `Schema`
+//! rendered through the tree walk.
 
 use tablo_ui::{
     card_content, card_header, card_title, field_error as ui_field_error,
@@ -17,7 +15,8 @@ use topcoat::{
 
 use super::{
     Schema,
-    tree::{IntoSchema, Mode, RenderSource},
+    fields::Field,
+    tree::{IntoSchema, Mode, Source, render_nodes},
 };
 
 /// The one titled-group container: `Section` and `Repeater` render the same
@@ -39,7 +38,7 @@ const PANEL: StaticClass =
 #[derive(Debug)]
 pub struct Section {
     title: String,
-    pub(crate) children: Option<Schema>,
+    pub(crate) children: Schema,
     extra_class: Option<String>,
 }
 
@@ -47,13 +46,13 @@ impl Section {
     pub fn new(title: impl Into<String>) -> Self {
         Self {
             title: title.into(),
-            children: None,
+            children: Schema::empty(),
             extra_class: None,
         }
     }
 
     pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = Some(children.into_schema());
+        self.children = children.into_schema();
         self
     }
 
@@ -64,15 +63,16 @@ impl Section {
         self
     }
 
-    pub(crate) async fn render_source<'a>(
+    pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
-        source: &RenderSource<'_>,
+        fields: &[Field],
+        source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
         let title = self.title.clone();
         let extra = self.extra_class.clone();
-        if let Some(schema) = &self.children {
-            let child_view = schema.render_source(cx, source).await?;
+        if !self.children.nodes.is_empty() {
+            let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
             Ok(view! {
                 cx =>
                 <div class=(class!(PANEL, extra.clone()))>
@@ -102,113 +102,29 @@ impl Section {
 }
 
 /// Group — unlabelled container, useful for grouping fields.
-///
-/// A group can be marked as one embedded enum **variant's** payload
-/// ([`Group::variant`]): it then renders `data-variant` / `data-variant-of`,
-/// the hooks `variant.js` reads to keep only the chosen variant's group
-/// visible. The marker rides the existing block rather than a new schema node,
-/// and it is **markup only**: with JavaScript off every group renders, so no
-/// field the server still parses is lost.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Group {
-    pub(crate) children: Option<Schema>,
-    variant: Option<VariantMarker>,
-}
-
-/// Which embedded value a group holds a variant of, and which variant.
-#[derive(Debug)]
-struct VariantMarker {
-    /// The discriminant column (`publication`) — the enum's identity, so two
-    /// enums whose variants share a value never toggle each other's groups.
-    owner: String,
-    /// The discriminant value the variant stores (`2`) — exactly what the
-    /// variant `Select` submits, so the client compares like with like.
-    value: String,
-}
-
-impl Default for Group {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub(crate) children: Schema,
 }
 
 impl Group {
     pub fn new() -> Self {
-        Self {
-            children: None,
-            variant: None,
-        }
+        Self::default()
     }
 
     pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = Some(children.into_schema());
+        self.children = children.into_schema();
         self
     }
 
-    /// Mark this group as variant `value` of the embedded value whose
-    /// discriminant column is `owner`.
-    ///
-    /// The derived form of an embedded enum calls this once per variant, with
-    /// the same value the discriminant `Select` offers as an option, so the
-    /// marker set and the schema's variant list cannot drift.
-    pub fn variant(mut self, owner: impl Into<String>, value: impl Into<String>) -> Self {
-        self.variant = Some(VariantMarker {
-            owner: owner.into(),
-            value: value.into(),
-        });
-        self
-    }
-
-    /// Whether this group holds one embedded enum variant's payload.
-    pub(crate) fn is_variant(&self) -> bool {
-        self.variant.is_some()
-    }
-
-    /// Whether a submission leaves this variant group unrendered.
-    ///
-    /// A group with no variant marker is never hidden. A marked group is hidden
-    /// when the submission names a discriminant — `values[owner]`, trimmed and
-    /// non-empty — other than this group's variant, which is the comparison
-    /// `variant.js` makes against the driver's value. A submission that names
-    /// no variant hides nothing: the value codec's payload fallback may still
-    /// read any of the groups, so validation has to see all of them.
-    pub(crate) fn hidden(&self, values: &HashMap<String, String>) -> bool {
-        let Some(variant) = &self.variant else {
-            return false;
-        };
-        let chosen = values
-            .get(&variant.owner)
-            .map(|value| value.trim())
-            .unwrap_or_default();
-        !chosen.is_empty() && chosen != variant.value
-    }
-
-    pub(crate) async fn render_source<'a>(
+    pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
-        source: &RenderSource<'_>,
+        fields: &[Field],
+        source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
-        let owner = self.variant.as_ref().map(|mark| mark.owner.clone());
-        let value = self.variant.as_ref().map(|mark| mark.value.clone());
-        if let Some(schema) = &self.children {
-            let child_view = schema.render_source(cx, source).await?;
-            Ok(view! {
-                cx =>
-                ui_field_group(
-                    attrs: attributes! { data-variant=(value) data-variant-of=(owner) },
-                    (child_view)
-                )
-            }
-            .boxed())
-        } else {
-            Ok(view! {
-                cx =>
-                ui_field_group(
-                    attrs: attributes! { data-variant=(value) data-variant-of=(owner) }
-                )
-            }
-            .boxed())
-        }
+        let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
+        Ok(view! { cx => ui_field_group((child_view)) }.boxed())
     }
 }
 
@@ -216,26 +132,27 @@ impl Group {
 #[derive(Debug)]
 pub struct Grid {
     cols: u8,
-    pub(crate) children: Option<Schema>,
+    pub(crate) children: Schema,
 }
 
 impl Grid {
     pub fn new(cols: u8) -> Self {
         Self {
             cols: cols.clamp(1, 12),
-            children: None,
+            children: Schema::empty(),
         }
     }
 
     pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = Some(children.into_schema());
+        self.children = children.into_schema();
         self
     }
 
-    pub(crate) async fn render_source<'a>(
+    pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
-        source: &RenderSource<'_>,
+        fields: &[Field],
+        source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
         // Static literals for Tailwind scanner — `format!("grid grid-cols-{}")` would be
         // purged because Tailwind only sees literal substrings. See ADR-0006.
@@ -253,12 +170,8 @@ impl Grid {
             11 => "grid grid-cols-11 gap-4",
             _ => "grid grid-cols-12 gap-4",
         };
-        if let Some(schema) = &self.children {
-            let child_view = schema.render_source(cx, source).await?;
-            Ok(view! { cx => <div class=(class)>(child_view)</div> }.boxed())
-        } else {
-            Ok(view! { cx => <div class=(class)></div> }.boxed())
-        }
+        let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
+        Ok(view! { cx => <div class=(class)>(child_view)</div> }.boxed())
     }
 }
 
@@ -273,11 +186,11 @@ impl Grid {
 ///
 /// The panel is `Section`'s panel: one container style for every titled group,
 /// with the title inside the box. A `Section` is the titled group; the
-/// repeater is only the repeat mechanism. `Group` and `Tabs` draw no box.
+/// repeater is only the repeat mechanism. `Group` draws no box.
 #[derive(Debug)]
 pub struct Repeater {
     pub(crate) label: String,
-    pub(crate) children: Option<Schema>,
+    pub(crate) children: Schema,
     pub(crate) required: bool,
 }
 
@@ -285,13 +198,13 @@ impl Repeater {
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             label: label.into(),
-            children: None,
+            children: Schema::empty(),
             required: false,
         }
     }
 
     pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = Some(children.into_schema());
+        self.children = children.into_schema();
         self
     }
 
@@ -304,20 +217,23 @@ impl Repeater {
         &self.label
     }
 
-    pub(crate) async fn render_source<'a>(
+    pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
-        source: &RenderSource<'_>,
+        fields: &[Field],
+        source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
         let title = self.label.clone();
         let title_id = repeater_title_id(&self.label);
+        let has_children = !self.children.nodes.is_empty();
         // A view renders the group's label over its children's values:
         // a required group is a statement about a submit that cannot happen
         // here, so no `*`, no `aria-invalid`, no error slot.
-        if source.mode == Mode::View {
-            let child_view = match &self.children {
-                Some(schema) => Some(schema.render_source(cx, source).await?),
-                None => None,
+        if source.mode() == Mode::View {
+            let child_view = if has_children {
+                Some(render_nodes(cx, &self.children.nodes, fields, source).await?)
+            } else {
+                None
             };
             return Ok(view! {
                 cx =>
@@ -363,8 +279,8 @@ impl Repeater {
         // `card_title` has no invalid state of its own, so the group colors
         // its title when it is invalid.
         let title_class = if has_error { "text-destructive" } else { "" };
-        if let Some(schema) = &self.children {
-            let child_view = schema.render_source(cx, source).await?;
+        if has_children {
+            let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
             Ok(view! {
                 cx =>
                 <div
@@ -470,47 +386,6 @@ fn repeater_slug(label: &str) -> String {
         }
     }
     slug.trim_matches('-').to_string()
-}
-
-/// Tabs — layout primitive for tabbed content (in-memory for v1, no JS).
-///
-/// Static `div` grouping for v1: a stacked column until tab JS lands.
-/// Documented, not a placeholder bug. The container is layout-only: a
-/// flex column carrying the vertical rhythm, with no border, background or
-/// padding — only titled groups (`Section` and `Repeater`) draw a panel.
-#[derive(Debug)]
-pub struct Tabs {
-    pub(crate) children: Option<Schema>,
-}
-
-impl Tabs {
-    pub fn new() -> Self {
-        Self { children: None }
-    }
-
-    pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = Some(children.into_schema());
-        self
-    }
-
-    pub(crate) async fn render_source<'a>(
-        &self,
-        cx: &'a Cx,
-        source: &RenderSource<'_>,
-    ) -> Result<BoxView<'a>> {
-        if let Some(schema) = &self.children {
-            let child_view = schema.render_source(cx, source).await?;
-            Ok(view! { cx => <div class="flex flex-col gap-4">(child_view)</div> }.boxed())
-        } else {
-            Ok(view! { cx => <div class="flex flex-col gap-4"></div> }.boxed())
-        }
-    }
-}
-
-impl Default for Tabs {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 #[cfg(test)]

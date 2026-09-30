@@ -45,7 +45,9 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // agree about what a field holds (ADR-0016); `NoForm` projects nothing.
         let mut values = R::view_values(cx, &record);
         values.extend(<R::Form as RecordForm>::hydrate(cx, &record));
-        let body = R::view(cx).render_readonly(cx, &values).await?;
+        let body = R::view(cx)
+            .render(cx, crate::schema::Source::view(&values))
+            .await?;
         // Relations render from the record itself: the `Schema`
         // above carries only its string projection, and the related rows are
         // already loaded by `query`'s `include`, so this adds no query.

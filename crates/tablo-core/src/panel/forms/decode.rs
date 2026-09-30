@@ -15,7 +15,7 @@ use topcoat::{
 use super::common::{FormParts, MAX_FORM_BYTES};
 
 /// Helper: parse form bodies into a [`FormParts`] — `application/x-www-form-urlencoded`
-/// buffered, plus `multipart/form-data` streamed when a `FileUpload` is present.
+/// buffered, plus `multipart/form-data` streamed when a file field is present.
 /// urlencoded decoding is delegated to `form_urlencoded` (already in the tree
 /// via topcoat): it splits pairs, decodes `+` as space, assembles multi-byte
 /// UTF-8 from `%XX` sequences (`%C3%A9` → `é`, not `Ã©`), and keeps encoded
@@ -136,7 +136,7 @@ async fn parse_multipart_values(
                 } else {
                     read_bounded(&mut field, &mut bytes_seen, None).await?;
                 }
-                // A chosen file is the one thing that may set a `FileUpload`
+                // A chosen file is the one thing that may set a file field's value
                 // value.
                 out.file_part_names.insert(name.clone());
                 out.values.insert(name, sanitized);

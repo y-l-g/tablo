@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::schema::{Schema, TextInput};
+use tablo_core::schema::{Field, Schema, Source};
 use toasty::Db;
 use topcoat::{
     context::{Cx, CxTestBuilder},
@@ -37,8 +37,8 @@ async fn cx() -> Cx {
 async fn a_typed_field_renders_the_values_display() {
     let cx = cx().await;
     let schema = Schema::new((
-        TextInput::typed::<Measurement, i64>(Measurement::fields().word_count()),
-        TextInput::typed::<Measurement, jiff::Timestamp>(Measurement::fields().recorded_at()),
+        Field::text(Measurement::fields().word_count()),
+        Field::text(Measurement::fields().recorded_at()),
     ));
     let values = HashMap::from([
         ("word_count".to_string(), "1240".to_string()),
@@ -48,7 +48,7 @@ async fn a_typed_field_renders_the_values_display() {
         ),
     ]);
     let html = schema
-        .render_with(&cx, &values, &HashMap::new())
+        .render(&cx, Source::form(&values, &HashMap::new()))
         .await
         .unwrap()
         .single()
@@ -75,8 +75,8 @@ async fn a_typed_field_renders_the_values_display() {
 #[tokio::test]
 async fn a_bad_submission_is_an_inline_field_error() {
     let schema = Schema::new((
-        TextInput::typed::<Measurement, i64>(Measurement::fields().word_count()),
-        TextInput::typed::<Measurement, jiff::Timestamp>(Measurement::fields().recorded_at()),
+        Field::text(Measurement::fields().word_count()),
+        Field::text(Measurement::fields().recorded_at()),
     ));
     let values = HashMap::from([
         ("word_count".to_string(), "lots".to_string()),
@@ -97,9 +97,7 @@ async fn a_bad_submission_is_an_inline_field_error() {
 
 #[tokio::test]
 async fn a_valid_submission_is_stored_in_the_types_spelling() {
-    let schema = Schema::new(TextInput::typed::<Measurement, jiff::Timestamp>(
-        Measurement::fields().recorded_at(),
-    ));
+    let schema = Schema::new(Field::text(Measurement::fields().recorded_at()));
     // A spelling the browser may send that is not what `Display` produces.
     let mut values = HashMap::from([(
         "recorded_at".to_string(),
@@ -121,16 +119,12 @@ async fn a_valid_submission_is_stored_in_the_types_spelling() {
 
 #[tokio::test]
 async fn an_empty_submission_stays_the_presence_rules_business() {
-    let schema = Schema::new(
-        TextInput::typed::<Measurement, i64>(Measurement::fields().word_count()).optional(),
-    );
+    let schema = Schema::new(Field::text(Measurement::fields().word_count()).optional());
     assert!(
         schema.validate(&HashMap::new()).is_empty(),
         "an optional typed field accepts empty, as a text field does"
     );
-    let required = Schema::new(TextInput::typed::<Measurement, i64>(
-        Measurement::fields().word_count(),
-    ));
+    let required = Schema::new(Field::text(Measurement::fields().word_count()));
     assert_eq!(
         required
             .validate(&HashMap::new())
@@ -144,7 +138,7 @@ async fn an_empty_submission_stays_the_presence_rules_business() {
 
 #[tokio::test]
 async fn a_text_field_is_untouched_by_the_typed_path() {
-    let schema = Schema::new(TextInput::r#for(Measurement::fields().label()));
+    let schema = Schema::new(Field::text(Measurement::fields().label()));
     let mut values = HashMap::from([("label".to_string(), "  spaced  ".to_string())]);
     assert!(schema.validate(&values).is_empty());
     schema.normalize_values(&mut values);
@@ -178,9 +172,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         type Model = Reading;
         type Form = ReadingForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::typed::<Reading, i64>(
-                Reading::fields().word_count(),
-            ))
+            Schema::new(Field::text(Reading::fields().word_count()))
         }
 
         fn slug() -> String {
@@ -203,7 +195,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         }
     }
     #[derive(tablo_core::RecordForm)]
-    #[record_form(model = Reading)]
+    #[form(model = Reading)]
     struct ReadingForm {
         word_count: i64,
     }
@@ -276,9 +268,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
 /// alone rather than inventing a value the user never gave.
 #[tokio::test]
 async fn an_empty_submission_is_left_for_the_record_fn_to_default() {
-    let schema = Schema::new(
-        TextInput::typed::<Measurement, i64>(Measurement::fields().word_count()).optional(),
-    );
+    let schema = Schema::new(Field::text(Measurement::fields().word_count()).optional());
     let mut values = HashMap::from([("word_count".to_string(), String::new())]);
     assert!(
         schema.validate(&values).is_empty(),
@@ -298,9 +288,7 @@ async fn an_empty_submission_is_left_for_the_record_fn_to_default() {
 /// precision corrupts data on an edit the user never touched.
 #[tokio::test]
 async fn a_timestamp_round_trips_offset_and_subsecond_precision() {
-    let schema = Schema::new(TextInput::typed::<Measurement, jiff::Timestamp>(
-        Measurement::fields().recorded_at(),
-    ));
+    let schema = Schema::new(Field::text(Measurement::fields().recorded_at()));
     for input in [
         "2024-01-02T03:04:05.123456789Z",
         "2024-01-02T03:04:05+05:30",

@@ -22,7 +22,7 @@ use super::{
     search::SearchRegistry,
     shell::DarkMode,
 };
-use crate::{form::RecordForm, resource::Resource, schema::SkippedBy};
+use crate::{form::RecordForm, resource::Resource};
 
 impl Panel {
     /// Build the [`Router`], discovering all `#[page]` / `#[layout]` / `#[shard]`
@@ -363,12 +363,14 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             std::any::type_name::<R::Model>(),
         ));
     }
-    // Declaring the table runs its own misdeclaration checks (a duplicate
-    // column name, a zero page size, a lens that is not a single field), which
-    // panic; the `catch_unwind` around this body turns them into this
-    // resource's registration error instead of a failure on the first list
+    // Declaring the table and the view runs their own misdeclaration checks
+    // (a duplicate column or field name, a zero page size, a lens that is not
+    // a single field, a modifier on the wrong control), which panic; the
+    // `catch_unwind` around this body turns them into this resource's
+    // registration error instead of a failure on the first list or detail
     // request.
     let _ = R::table(cx);
+    let _ = R::view(cx);
     check_form_declaration::<R>(cx)
 }
 
@@ -447,20 +449,16 @@ fn check_form_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             continue;
         }
         if let Some(control) = controls.iter().find(|control| {
-            field.keys.contains(&control.name)
-                && (!control.required || control.skipped_by.is_some())
+            field.keys.contains(&control.name) && (!control.required || control.in_repeater)
         }) {
-            let place = match control.skipped_by {
-                Some(SkippedBy::Repeater) => "sits inside a `Repeater`, so it may be posted empty",
-                Some(SkippedBy::VariantGroup) => {
-                    "sits inside a variant group, which a submission naming another variant \
-                     leaves unchecked"
-                }
-                None => "is optional",
+            let place = if control.in_repeater {
+                "sits inside a `Repeater`, so it may be posted empty"
+            } else {
+                "is optional"
             };
             return Err(format!(
                 "resource `{resource}`'s form control `{}` {place}, but record form field `{}` has \
-                 no blank answer — declare `#[record_form(blank = ..)]`, make the field an \
+                 no blank answer — declare `#[form(blank = ..)]`, make the field an \
                  `Option`, or make the control required",
                 control.name, field.name
             ));
@@ -496,10 +494,8 @@ fn check_form_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
     // documents — pass.
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
-    for (name, input) in form.text_inputs() {
-        if !input.is_unique() {
-            continue;
-        }
+    for field in form.fields().filter(|field| field.is_unique()) {
+        let name = field.name();
         // A bound lens always resolves, so a name with no field at all is a
         // mis-declared schema — but it is not worth a second error string: it
         // fails the same way, one message below.

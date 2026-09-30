@@ -103,7 +103,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
         type Model = Dummy;
         type Form = DummyForm;
         fn form(_cx: &Cx) -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::FileUpload::r#for(Dummy::fields().name()))
+            crate::schema::Schema::new(crate::schema::Field::file(Dummy::fields().name()))
         }
 
         fn can_view_any(_cx: &Cx) -> bool {
@@ -117,7 +117,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct DummyForm {
         name: String,
     }
@@ -163,7 +163,7 @@ async fn multipart_stream_stores_text_and_filenames() {
         .await
         .unwrap();
     assert_eq!(got.get("title").map(String::as_str), Some("Hello"));
-    // v1 stores the filename, not the bytes (FileUpload contract).
+    // v1 stores the filename, not the bytes (file field contract).
     assert_eq!(got.get("image_path").map(String::as_str), Some("photo.jpg"));
     assert_eq!(got.get("tags").map(String::as_str), Some("second-wins"));
 

@@ -6,8 +6,8 @@ use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
 use tablo_core::{
-    FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm, Repeater, Resource, Schema, Select,
-    Table, Tenant, TextColumn, TextInput, write_create,
+    Field, FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm, Repeater, Resource, Schema,
+    Table, Tenant, TextColumn, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -28,22 +28,22 @@ struct Item {
 
 /// Every column, with the blank answers the optional controls need.
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Item)]
+#[form(model = Item)]
 struct ItemForm {
     title: String,
     notes: String,
-    #[record_form(blank = 3)]
+    #[form(blank = 3)]
     priority: i64,
-    #[record_form(blank = false)]
+    #[form(blank = false)]
     done: bool,
 }
 
 fn item_schema() -> Schema {
     Schema::new((
-        TextInput::r#for(Item::fields().title()),
-        TextInput::r#for(Item::fields().notes()).optional(),
-        TextInput::typed::<Item, i64>(Item::fields().priority()).optional(),
-        Select::r#for(Item::fields().done())
+        Field::text(Item::fields().title()),
+        Field::text(Item::fields().notes()).optional(),
+        Field::text(Item::fields().priority()).optional(),
+        Field::choice(Item::fields().done())
             .options(vec!["true".to_string(), "false".to_string()])
             .optional(),
     ))
@@ -99,7 +99,7 @@ impl Resource for ItemResource {
     }
 
     fn view(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Item::fields().title()))
+        Schema::new(Field::text(Item::fields().title()))
     }
 }
 
@@ -205,7 +205,7 @@ async fn blank_keys_take_each_fields_blank_answer() {
 #[tokio::test]
 async fn a_blank_with_no_answer_and_a_bad_value_are_refused_by_key() {
     #[derive(tablo_core::RecordForm)]
-    #[record_form(model = Item)]
+    #[form(model = Item)]
     struct StrictForm {
         priority: i64,
         done: bool,
@@ -364,7 +364,7 @@ struct Owned {
 }
 
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Owned)]
+#[form(model = Owned)]
 struct OwnedForm {
     title: String,
 }
@@ -376,7 +376,7 @@ impl Resource for OwnedResource {
     type Form = OwnedForm;
 
     fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Owned::fields().title()))
+        Schema::new(Field::text(Owned::fields().title()))
     }
 
     fn slug() -> String {
@@ -461,13 +461,13 @@ macro_rules! item_resource {
 }
 
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Item)]
+#[form(model = Item)]
 struct TitleForm {
     title: String,
 }
 
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Item)]
+#[form(model = Item)]
 struct PriorityForm {
     priority: i64,
 }
@@ -478,8 +478,8 @@ async fn build_refuses_a_control_no_field_binds() {
         Unbound,
         TitleForm,
         Schema::new((
-            TextInput::r#for(Item::fields().title()),
-            TextInput::r#for(Item::fields().notes()),
+            Field::text(Item::fields().title()),
+            Field::text(Item::fields().notes()),
         ))
     );
     let error = form_build_error::<Unbound>(item_db().await);
@@ -494,7 +494,7 @@ async fn build_refuses_a_field_no_control_declares() {
     item_resource!(
         Unclaimed,
         ItemForm,
-        Schema::new(TextInput::r#for(Item::fields().title()))
+        Schema::new(Field::text(Item::fields().title()))
     );
     let error = form_build_error::<Unclaimed>(item_db().await);
     assert!(
@@ -508,7 +508,7 @@ async fn build_refuses_an_optional_control_with_no_blank_answer() {
     item_resource!(
         Unanswered,
         PriorityForm,
-        Schema::new(TextInput::typed::<Item, i64>(Item::fields().priority()).optional())
+        Schema::new(Field::text(Item::fields().priority()).optional())
     );
     let error = form_build_error::<Unanswered>(item_db().await);
     assert!(
@@ -522,10 +522,7 @@ async fn build_refuses_a_repeater_control_with_no_blank_answer() {
     item_resource!(
         Repeated,
         PriorityForm,
-        Schema::new(
-            Repeater::new("Priorities")
-                .schema(TextInput::typed::<Item, i64>(Item::fields().priority()))
-        )
+        Schema::new(Repeater::new("Priorities").schema(Field::text(Item::fields().priority())))
     );
     let error = form_build_error::<Repeated>(item_db().await);
     assert!(error.contains("inside a `Repeater`"), "{error}");
@@ -534,7 +531,7 @@ async fn build_refuses_a_repeater_control_with_no_blank_answer() {
 #[tokio::test]
 async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
     #[derive(tablo_core::RecordForm)]
-    #[record_form(model = Owned)]
+    #[form(model = Owned)]
     struct ClaimingForm {
         tenant_id: Uuid,
         title: String,
@@ -548,8 +545,8 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
 
         fn form(_cx: &Cx) -> Schema {
             Schema::new((
-                TextInput::typed::<Owned, Uuid>(Owned::fields().tenant_id()),
-                TextInput::r#for(Owned::fields().title()),
+                Field::text(Owned::fields().tenant_id()),
+                Field::text(Owned::fields().title()),
             ))
         }
 
@@ -676,7 +673,7 @@ async fn a_list_only_detail_page_reads_view_values() {
         }
 
         fn view(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Item::fields().title()))
+            Schema::new(Field::text(Item::fields().title()))
         }
 
         fn view_values(_cx: &Cx, record: &Item) -> HashMap<String, String> {
@@ -722,36 +719,6 @@ async fn a_form_resource_serves_create_and_edit() {
     );
 }
 
-#[tokio::test]
-async fn build_refuses_a_variant_group_control_with_no_blank_answer() {
-    // A submission naming another variant leaves the group's requiredness
-    // unchecked, so an empty value reaches the parse with no visible control
-    // to fix it on.
-    #[derive(tablo_core::RecordForm)]
-    #[record_form(model = Item)]
-    struct VariantForm {
-        title: String,
-        priority: i64,
-    }
-
-    item_resource!(
-        Variant,
-        VariantForm,
-        Schema::new((
-            TextInput::r#for(Item::fields().title()),
-            tablo_core::Group::new()
-                .variant("title", "a")
-                .schema(TextInput::typed::<Item, i64>(Item::fields().priority())),
-        ))
-    );
-    let error = form_build_error::<Variant>(item_db().await);
-    assert!(
-        error.contains("`priority` sits inside a variant group")
-            && error.contains("no blank answer"),
-        "{error}"
-    );
-}
-
 /// A resource over [`Item`] that allows create through `F`, whose form writes
 /// only `title`.
 macro_rules! title_only_resource {
@@ -777,7 +744,7 @@ macro_rules! title_only_resource {
             }
 
             fn form(_cx: &Cx) -> Schema {
-                Schema::new(TextInput::r#for(Item::fields().title()))
+                Schema::new(Field::text(Item::fields().title()))
             }
         }
     };
@@ -819,7 +786,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
         fn form(_cx: &Cx) -> Schema {
             // A static-options select checks membership, not the column's type.
             Schema::new(
-                Select::r#for(Item::fields().priority())
+                Field::choice(Item::fields().priority())
                     .options(vec!["1".to_string(), "lots".to_string()]),
             )
         }

@@ -2,56 +2,19 @@
 //!
 //! The derive knows the Rust shape (which fields exist, their types, which
 //! variants there are); the framework knows the storage (which column each leaf
-//! occupies, what the discriminant column is called). Neither alone can bind a
-//! value, so this derive calls the framework once per leaf with a typed path and
-//! never spells a flattened name itself.
+//! occupies, what the discriminant column is called). The derive builds the
+//! value's schema node through the framework's builder, one resolved field per
+//! leaf, and reads and writes through that node's keys, so it never spells a
+//! flattened name itself.
 //!
 //! See `tablo-core`'s `schema::embedded` module for the contract.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
-use syn::{Data, DeriveInput, Fields, Type, ext::IdentExt};
+use quote::{format_ident, quote, quote_spanned};
+use syn::{Data, DeriveInput, Fields, Type, ext::IdentExt, spanned::Spanned};
 
-/// Field types this derive binds as a **leaf** (one column, read and written as
-/// text).
-///
-/// Everything else is another embedded value, delegated to that type's own
-/// `EmbeddedForm` impl, so a relation, an `Option<T>`, or a `#[document]` fails
-/// at that bound rather than binding quietly. The list is exactly the types the
-/// panel can *spell*: `String`, plus every type with a
-/// [`TypedValue`](tablo_core::TypedValue) impl — the integer family, `bool`,
-/// `f32`/`f64`, `Uuid`, `jiff::Timestamp`. A newtype over one of them is not a
-/// leaf: it needs its own `TypedValue` impl (then it is one) or is treated as an
-/// embedded value.
-const PRIMITIVES: &[&str] = &[
-    "String",
-    "bool",
-    "i8",
-    "i16",
-    "i32",
-    "i64",
-    "i128",
-    "isize",
-    "u8",
-    "u16",
-    "u32",
-    "u64",
-    "u128",
-    "usize",
-    "f32",
-    "f64",
-    "Uuid",
-    "Timestamp",
-];
-
-/// How one field is bound.
-enum Kind {
-    /// One column: read/written as text.
-    Leaf,
-    /// Another embedded value: delegated to its own impl.
-    Embedded,
-}
+use crate::fields::{Derive, FormAttrs, assert_scalar, form_attrs};
 
 pub fn expand(input: DeriveInput) -> TokenStream {
     expand_tokens(input).into()
@@ -61,66 +24,118 @@ pub fn expand(input: DeriveInput) -> TokenStream {
 /// its result once, and the attribute checks stay unit-testable without a
 /// proc-macro context.
 fn expand_tokens(input: DeriveInput) -> TokenStream2 {
-    if let Err(error) = validate_form_attrs(&input) {
-        return error.to_compile_error();
-    }
-    let krate = match crate::tablo_core_path(&input.ident, "EmbeddedForm") {
-        Ok(krate) => krate,
-        Err(error) => return error.to_compile_error(),
-    };
-
-    match &input.data {
-        Data::Struct(data) => match &data.fields {
-            Fields::Named(named) => expand_struct(&krate, &input, named),
-            _ => unsupported(&input, "a struct with named fields"),
-        },
-        Data::Enum(data) => expand_enum(&krate, &input, data),
-        _ => unsupported(&input, "a struct or enum"),
+    match expand_checked(&input) {
+        Ok(tokens) => tokens,
+        Err(error) => error.to_compile_error(),
     }
 }
 
-fn unsupported(input: &DeriveInput, expected: &str) -> TokenStream2 {
-    syn::Error::new_spanned(
-        &input.ident,
-        format!(
-            "#[derive(EmbeddedForm)] supports {expected}: an embedded value's fields are read \
-             and written by name (GH #191)"
-        ),
-    )
-    .to_compile_error()
+fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
+    // The attributes first: a misspelled key is reported whether or not the
+    // consumer's manifest resolves.
+    let shape = Shape::read(input)?;
+    let krate = crate::tablo_core_path(&input.ident, "EmbeddedForm")?;
+    Ok(match shape {
+        Shape::Struct(fields) => expand_struct(&krate, input, &fields),
+        Shape::Enum(variants) => expand_enum(&krate, input, &variants),
+    })
 }
 
-/// The path to field `index` of `owner`, relative to `owner`'s type root.
+/// One named field as the derive binds it.
+struct Member {
+    ident: syn::Ident,
+    ty: Type,
+    attrs: FormAttrs,
+    /// `#[shared(..)]` (enum payloads): a column several variants declare.
+    shared: bool,
+}
+
+struct VariantSpec {
+    ident: syn::Ident,
+    /// `None` for a unit variant.
+    members: Option<Vec<Member>>,
+}
+
+enum Shape {
+    Struct(Vec<Member>),
+    Enum(Vec<VariantSpec>),
+}
+
+impl Shape {
+    fn read(input: &DeriveInput) -> syn::Result<Self> {
+        let unsupported = |expected: &str| {
+            syn::Error::new_spanned(
+                &input.ident,
+                format!(
+                    "#[derive(EmbeddedForm)] supports {expected}: an embedded value's fields are \
+                     read and written by name (GH #191)"
+                ),
+            )
+        };
+        match &input.data {
+            Data::Struct(data) => match &data.fields {
+                Fields::Named(named) => Ok(Shape::Struct(members(&named.named)?)),
+                _ => Err(unsupported("a struct with named fields")),
+            },
+            Data::Enum(data) => data
+                .variants
+                .iter()
+                .map(|variant| {
+                    let members = match &variant.fields {
+                        Fields::Named(named) => Some(members(&named.named)?),
+                        Fields::Unit => None,
+                        Fields::Unnamed(_) => {
+                            return Err(unsupported("a struct or enum with named fields"));
+                        }
+                    };
+                    Ok(VariantSpec {
+                        ident: variant.ident.clone(),
+                        members,
+                    })
+                })
+                .collect::<syn::Result<Vec<_>>>()
+                .map(Shape::Enum),
+            Data::Union(_) => Err(unsupported("a struct or enum")),
+        }
+    }
+}
+
+fn members<'a>(fields: impl IntoIterator<Item = &'a syn::Field>) -> syn::Result<Vec<Member>> {
+    fields
+        .into_iter()
+        .map(|field| {
+            Ok(Member {
+                ident: field.ident.clone().expect("named field"),
+                ty: field.ty.clone(),
+                attrs: form_attrs(field, Derive::Embedded)?,
+                shared: field
+                    .attrs
+                    .iter()
+                    .any(|attr| attr.path().is_ident("shared")),
+            })
+        })
+        .collect()
+}
+
+/// The path to field `index` of `owner`, chained onto `parent`, rooted at
+/// variant `variant` when it is `Some`.
 ///
-/// The value type is left to inference: `path_field` returns a typed path whose
-/// leaf type comes from how it is used, and the chain it feeds is typed by the
-/// caller's `Path<M, Self>`.
-///
+/// The field's value type is the member's own, so the chained path is typed.
 /// `Path::chain` drops the chained path's root, so this composes under whatever
-/// parent it is chained onto.
-fn field_path(krate: &TokenStream2, owner: &TokenStream2, ty: &Type, index: usize) -> TokenStream2 {
-    quote! {
-        <#owner as #krate::__macro::Embed>::path_field::<#ty>(#index)
-    }
-}
-
-/// `parent.chain(<owner>::path_field(index))`, variant-rooted when `variant` is
-/// `Some`.
+/// parent it is chained onto. A variant payload is addressed from the variant
+/// root: the enum's payload index is variant-local, so the variant step comes
+/// first.
 fn chained(
     krate: &TokenStream2,
-    parent: &TokenStream2,
-    owner: &TokenStream2,
+    owner: &syn::Ident,
     ty: &Type,
     index: usize,
     variant: Option<usize>,
 ) -> TokenStream2 {
-    let field = field_path(krate, owner, ty, index);
+    let field = quote! { <#owner as #krate::__macro::Embed>::path_field::<#ty>(#index) };
     match variant {
-        // A variant payload is addressed from the variant root: the enum's own
-        // payload index is variant-local, so the variant step comes first and
-        // `chain` rebases it onto the parent path.
         Some(variant) => quote! {
-            #parent.chain(
+            parent.clone().chain(
                 <#owner as #krate::__macro::Embed>::path_root()
                     .into_variant(#krate::__macro::VariantId {
                         model: <#owner as #krate::__macro::Embed>::id(),
@@ -129,7 +144,7 @@ fn chained(
                     .chain(#field)
             )
         },
-        None => quote! { #parent.chain(#field) },
+        None => quote! { parent.clone().chain(#field) },
     }
 }
 
@@ -156,210 +171,103 @@ fn label(ident: &syn::Ident) -> String {
     out
 }
 
-/// Whether the field's type names a primitive this derive binds as a leaf.
-fn is_primitive(ty: &Type) -> bool {
-    if let Type::Path(path) = ty
-        && let Some(segment) = path.path.segments.last()
-    {
-        return PRIMITIVES.contains(&segment.ident.to_string().as_str());
-    }
-    false
-}
-
-fn is_string(ty: &Type) -> bool {
-    matches!(ty, Type::Path(path) if path.path.segments.last().is_some_and(|s| s.ident == "String"))
-}
-
-/// What `#[form(..)]` says about one field.
-#[derive(Default)]
-struct FormAttrs {
-    label: Option<String>,
-    /// Render a `Textarea` instead of a `TextInput` — for a multi-line `String`
-    /// leaf, which is a UI choice the type cannot make.
-    textarea: bool,
-    /// Rows for a textarea, when the default is not what the app wants.
-    rows: Option<u32>,
-}
-
-/// Every `#[form(..)]` attribute on the type, checked once up front.
-///
-/// An unknown key or a misplaced one is a compile error rather than a silent
-/// no-op: a typo'd `#[form(text_area)]` that quietly rendered a one-line input
-/// is the quiet failure this repo refuses elsewhere. A key whose type the
-/// expansion cannot honour — `textarea` on a non-`String` leaf — is refused
-/// here too, at the attribute, rather than inside the generated code.
-fn validate_form_attrs(input: &DeriveInput) -> syn::Result<()> {
-    let fields: Vec<&syn::Field> = match &input.data {
-        Data::Struct(data) => data.fields.iter().collect(),
-        Data::Enum(data) => data
-            .variants
-            .iter()
-            .flat_map(|variant| variant.fields.iter())
-            .collect(),
-        Data::Union(_) => return Ok(()),
-    };
-    for field in fields {
-        for attr in &field.attrs {
-            if !attr.path().is_ident("form") {
-                continue;
-            }
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("label") {
-                    let _: syn::LitStr = meta.value()?.parse()?;
-                } else if meta.path.is_ident("textarea") {
-                    // A flag: nothing to read.
-                } else if meta.path.is_ident("rows") {
-                    let _: syn::LitInt = meta.value()?.parse()?;
-                } else {
-                    return Err(meta.error(
-                        "unknown `#[form(..)]` key: expected `label = \"…\"`, `textarea`, or \
-                         `rows = N`",
-                    ));
-                }
-                Ok(())
-            })?;
-        }
-        let attrs = form_attrs(&field.attrs);
-        if !is_string(&field.ty)
-            && let Some(attr) = textarea_attr(&field.attrs)
-        {
-            // The control `leaf_control` renders for `textarea` is a
-            // `Textarea`, which binds a `String` leaf; on any other type the
-            // failure belongs here, at the attribute, not inside the expansion.
-            return Err(syn::Error::new_spanned(
-                attr,
-                "`#[form(textarea)]` renders a multi-line control for a `String` field: a \
-                 non-`String` leaf keeps its typed `TextInput` (GH #297)",
-            ));
-        }
-        if attrs.rows.is_some() && !attrs.textarea {
-            return Err(syn::Error::new_spanned(
-                field,
-                "`#[form(rows = N)]` only means something with `#[form(textarea)]`",
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// The `#[form(textarea)]` attribute of a field, for the span its misuse is
-/// reported at.
-fn textarea_attr(attrs: &[syn::Attribute]) -> Option<&syn::Attribute> {
-    attrs.iter().find(|attr| {
-        if !attr.path().is_ident("form") {
-            return false;
-        }
-        let mut found = false;
-        let _ = attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("textarea") {
-                found = true;
-            }
-            Ok(())
-        });
-        found
-    })
-}
-
-/// `#[form(label = "Canonical URL")]` overrides the humanized label; the rest is
-/// read here. Unknown keys never reach this reader — [`validate_form_attrs`]
-/// rejects them first.
-fn form_attrs(attrs: &[syn::Attribute]) -> FormAttrs {
-    let mut out = FormAttrs::default();
-    for attr in attrs {
-        if !attr.path().is_ident("form") {
-            continue;
-        }
-        let _ = attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("label") {
-                let value = meta.value()?;
-                let text: syn::LitStr = value.parse()?;
-                out.label = Some(text.value());
-            } else if meta.path.is_ident("textarea") {
-                out.textarea = true;
-            } else if meta.path.is_ident("rows") {
-                let value = meta.value()?;
-                let rows: syn::LitInt = value.parse()?;
-                out.rows = Some(rows.base10_parse()?);
-            }
-            Ok(())
-        });
-    }
-    out
-}
-
-/// A field is a leaf when its type is one the panel can spell (see
-/// [`PRIMITIVES`]); everything else is another embedded value.
-fn kind_of(field: &syn::Field) -> Kind {
-    if is_primitive(&field.ty) {
-        Kind::Leaf
-    } else {
-        Kind::Embedded
-    }
-}
-
-/// `values` carries a non-empty value for this leaf's column.
-fn leaf_present(krate: &TokenStream2, path: &TokenStream2) -> TokenStream2 {
-    quote! {
-        values
-            .get(&#krate::schema::leaf_key(cx, #path))
-            .is_some_and(|value| !value.trim().is_empty())
-    }
-}
-
-/// The nested value at `path` was mentioned at all.
-///
-/// Asked of the value itself rather than of a key list: inside an enum variant
-/// the path is variant-rooted, and the nested type resolves its own leaves from
-/// it (`leaf_key` follows variant roots; whole-value resolution starts at a
-/// model root).
-fn nested_present(krate: &TokenStream2, ty: &Type, path: &TokenStream2) -> TokenStream2 {
-    quote! {
-        <#ty as #krate::schema::EmbeddedForm>::any_present(cx, #path, values)
-    }
-}
-
-/// The control one leaf renders: a `Textarea` when the app asks for one, a
-/// `TextInput` otherwise — typed when the leaf is not a `String`.
-fn leaf_control(
+/// The builder call adding member `index`: a nested value's schema, or a
+/// leaf's text field — labelled, multi-line when asked, and shared when
+/// several variants declare its column.
+fn build_member(
     krate: &TokenStream2,
-    path: &TokenStream2,
-    text: &str,
-    ty: &Type,
-    field: &syn::Field,
+    owner: &syn::Ident,
+    member: &Member,
+    index: usize,
+    variant: Option<usize>,
 ) -> TokenStream2 {
-    let attrs = form_attrs(&field.attrs);
-    if attrs.textarea {
-        let rows = attrs.rows.map(|rows| quote! { .rows(#rows) });
+    let ty = &member.ty;
+    let path = chained(krate, owner, ty, index, variant);
+    if member.attrs.embed {
         return quote! {
-            #krate::schema::Schema::new(
-                #krate::schema::Textarea::r#for_context(cx, #path).label(#text)#rows
+            builder.nested(<#ty as #krate::__macro::EmbeddedForm>::build_schema(cx, #path));
+        };
+    }
+    let text = member
+        .attrs
+        .label
+        .clone()
+        .unwrap_or_else(|| label(&member.ident));
+    let rows = member
+        .attrs
+        .multiline
+        .map(|rows| quote! { .multiline(#rows) });
+    let add = if member.shared {
+        quote! { shared }
+    } else {
+        quote! { leaf }
+    };
+    // The assertion comes first and the leaf's only bound is `FormScalar`, so
+    // a field of another type fails once, at the field.
+    let assert = assert_scalar(krate, ty);
+    let field = quote_spanned! {ty.span()=>
+        #krate::__macro::Field::embedded_leaf::<_, #ty>(cx, #path)
+    };
+    quote! {
+        #assert
+        builder.#add(#field.label(#text)#rows);
+    }
+}
+
+/// The write of member `index`, held in `binding`, through `node`.
+fn write_member(
+    krate: &TokenStream2,
+    member: &Member,
+    binding: &TokenStream2,
+    index: usize,
+    variant: &TokenStream2,
+) -> TokenStream2 {
+    let ty = &member.ty;
+    if member.attrs.embed {
+        return quote! {
+            <#ty as #krate::__macro::EmbeddedForm>::write_node(
+                #binding,
+                node.nested(#variant, #index),
+                out,
+            );
+        };
+    }
+    quote_spanned! {ty.span()=>
+        out.insert(
+            node.key(#variant, #index).to_string(),
+            <#ty as #krate::__macro::FormScalar>::to_form(#binding),
+        );
+    }
+}
+
+/// The read of member `index` through `node`, its errors collected.
+fn read_member(
+    krate: &TokenStream2,
+    member: &Member,
+    index: usize,
+    variant: &TokenStream2,
+) -> TokenStream2 {
+    let ty = &member.ty;
+    if member.attrs.embed {
+        return quote! {
+            #krate::__macro::take_value(
+                <#ty as #krate::__macro::EmbeddedForm>::read_node(
+                    node.nested(#variant, #index),
+                    values,
+                ),
+                &mut errors,
             )
         };
     }
-    if is_string(ty) {
-        quote! {
-            #krate::schema::Schema::new(
-                #krate::schema::TextInput::r#for_context(cx, #path).label(#text)
-            )
-        }
-    } else {
-        quote! {
-            #krate::schema::Schema::new(
-                #krate::schema::TextInput::typed_context(cx, #path).label(#text)
-            )
-        }
+    let read = quote_spanned! {ty.span()=>
+        #krate::__macro::parse_leaf::<#ty>(node.key(#variant, #index), values)
+    };
+    quote! {
+        #krate::__macro::take_leaf(#read, &mut errors)
     }
 }
 
-/// The label a derived control renders: `#[form(label = ..)]`, else the Rust
-/// field name humanized.
-fn field_label(field: &syn::Field, ident: &syn::Ident) -> String {
-    form_attrs(&field.attrs)
-        .label
-        .unwrap_or_else(|| label(ident))
-}
-
-/// A `read_form` body: read every field, collecting each one's errors into
+/// A read body: read every member, collecting each one's errors into
 /// `errors`, and build `ctor` only when none failed.
 ///
 /// Each value binds under a prefixed name, so a field called `values` or
@@ -367,17 +275,17 @@ fn field_label(field: &syn::Field, ident: &syn::Ident) -> String {
 fn collected_read(
     krate: &TokenStream2,
     ctor: &TokenStream2,
-    reads: &[(syn::Ident, TokenStream2)],
+    members: &[Member],
+    reads: &[TokenStream2],
 ) -> TokenStream2 {
-    let names: Vec<&syn::Ident> = reads.iter().map(|(name, _)| name).collect();
+    let names: Vec<&syn::Ident> = members.iter().map(|member| &member.ident).collect();
     let bindings: Vec<syn::Ident> = names
         .iter()
-        .map(|name| quote::format_ident!("__read_{}", name))
+        .map(|name| format_ident!("__read_{}", name.unraw()))
         .collect();
-    let exprs = reads.iter().map(|(_, expr)| expr);
     quote! {
-        let mut errors: ::std::vec::Vec<#krate::form::FieldError> = ::std::vec::Vec::new();
-        #( let #bindings = #exprs; )*
+        let mut errors: ::std::vec::Vec<#krate::__macro::FieldError> = ::std::vec::Vec::new();
+        #( let #bindings = #reads; )*
         match (#(#bindings,)*) {
             (#(::std::option::Option::Some(#bindings),)*) if errors.is_empty() => {
                 ::std::result::Result::Ok(#ctor { #(#names: #bindings),* })
@@ -387,467 +295,177 @@ fn collected_read(
     }
 }
 
-/// One write, read, presence check, and control per named field.
-fn expand_struct(
+/// The trait impl plus the `form` constructor, around the three bodies.
+fn wrap(
     krate: &TokenStream2,
     input: &DeriveInput,
-    fields: &syn::FieldsNamed,
+    build: TokenStream2,
+    write: TokenStream2,
+    read: TokenStream2,
 ) -> TokenStream2 {
     let ident = &input.ident;
-    let owner = quote! { #ident };
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-
-    let mut writes = Vec::new();
-    let mut reads = Vec::new();
-    let mut controls = Vec::new();
-    let mut present_checks = Vec::new();
-
-    for (index, field) in fields.named.iter().enumerate() {
-        let name = field.ident.as_ref().expect("named field");
-        let ty = &field.ty;
-        let parent = quote! { parent.clone() };
-        match kind_of(field) {
-            Kind::Leaf => {
-                let path = chained(krate, &parent, &owner, ty, index, None);
-                writes.push(quote! {
-                    out.insert(
-                        #krate::schema::leaf_key(cx, #path),
-                        ::std::string::ToString::to_string(&self.#name),
-                    );
-                });
-                present_checks.push(leaf_present(krate, &path));
-                let path = chained(krate, &parent, &owner, ty, index, None);
-                reads.push((
-                    name.clone(),
-                    quote! {
-                        #krate::schema::take_leaf(
-                            #krate::schema::parse_leaf(&#krate::schema::leaf_key(cx, #path), values),
-                            &mut errors,
-                        )
-                    },
-                ));
-                let text = field_label(field, name);
-                controls.push(leaf_control(krate, &path, &text, ty, field));
+    quote! {
+        impl #impl_generics #krate::__macro::EmbeddedForm for #ident #ty_generics #where_clause {
+            fn build_schema<M>(
+                cx: &#krate::__macro::Cx,
+                parent: #krate::__macro::Path<M, Self>,
+            ) -> #krate::__macro::Schema
+            where
+                M: #krate::__macro::Model,
+            {
+                #build
             }
-            Kind::Embedded => {
-                let path = chained(krate, &parent, &owner, ty, index, None);
-                writes.push(quote! {
-                    #krate::schema::EmbeddedForm::write_form(&self.#name, cx, #path, out);
-                });
-                present_checks.push(nested_present(krate, ty, &path));
-                let path = chained(krate, &parent, &owner, ty, index, None);
-                reads.push((
-                    name.clone(),
-                    quote! {
-                        #krate::schema::take_value(
-                            <#ty as #krate::schema::EmbeddedForm>::read_form(cx, #path, values),
-                            &mut errors,
-                        )
-                    },
-                ));
-                let path = chained(krate, &parent, &owner, ty, index, None);
-                controls.push(quote! { <#ty>::form(cx, #path) });
-            }
-        }
-    }
 
-    let read_body = collected_read(krate, &quote! { Self }, &reads);
-    let expanded = quote! {
-        impl #impl_generics #krate::schema::EmbeddedForm for #ident #ty_generics #where_clause {
-            fn write_form<M>(
+            fn write_node(
                 &self,
-                cx: &#krate::__macro::Cx,
-                parent: #krate::__macro::Path<M, Self>,
-                out: &mut ::std::collections::HashMap<String, String>,
-            ) where
-                M: #krate::__macro::Model,
-            {
-                #(#writes)*
+                node: &#krate::__macro::Embedded,
+                out: &mut ::std::collections::HashMap<::std::string::String, ::std::string::String>,
+            ) {
+                #write
             }
 
-            fn read_form<M>(
-                cx: &#krate::__macro::Cx,
-                parent: #krate::__macro::Path<M, Self>,
-                values: &::std::collections::HashMap<String, String>,
-            ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::form::FieldError>>
-            where
-                M: #krate::__macro::Model,
-            {
-                #read_body
-            }
-
-            fn any_present<M>(
-                cx: &#krate::__macro::Cx,
-                parent: #krate::__macro::Path<M, Self>,
-                values: &::std::collections::HashMap<String, String>,
-            ) -> bool
-            where
-                M: #krate::__macro::Model,
-            {
-                false #(|| #present_checks)*
+            fn read_node(
+                node: &#krate::__macro::Embedded,
+                values: &::std::collections::HashMap<::std::string::String, ::std::string::String>,
+            ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::__macro::FieldError>> {
+                #read
             }
         }
 
         impl #impl_generics #ident #ty_generics #where_clause {
-            /// The form controls for this embedded value, derived
-            /// from the app schema: one per leaf column, under this value's
-            /// parent path.
+            /// The form schema for this embedded value under `parent`: one
+            /// control per leaf column, resolved from the app schema.
             ///
-            /// The app composes it into a layout — `Section::new("SEO")
-            /// .schema(Seo::form(cx, Post::fields().seo()))` — and declares no
-            /// field bindings of its own.
+            /// The app composes it into a layout —
+            /// `Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()))`
+            /// — and declares no field bindings of its own.
             pub fn form<M>(
                 cx: &#krate::__macro::Cx,
-                parent: impl Into<#krate::__macro::Path<M, Self>>,
-            ) -> #krate::schema::Schema
+                parent: impl ::std::convert::Into<#krate::__macro::Path<M, Self>>,
+            ) -> #krate::__macro::Schema
             where
                 M: #krate::__macro::Model,
             {
-                let parent: #krate::__macro::Path<M, Self> = parent.into();
-                let mut schema = #krate::schema::Schema::empty();
-                #( schema = schema.extend(#controls); )*
-                schema
+                <Self as #krate::__macro::EmbeddedForm>::build_schema(cx, parent.into())
             }
         }
-    };
-    expanded
+    }
 }
 
-/// The variant control plus one control per payload leaf.
-fn expand_enum(krate: &TokenStream2, input: &DeriveInput, data: &syn::DataEnum) -> TokenStream2 {
-    let ident = &input.ident;
-    let owner = quote! { #ident };
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+/// One builder call, write, and read per named field.
+fn expand_struct(krate: &TokenStream2, input: &DeriveInput, members: &[Member]) -> TokenStream2 {
+    let owner = &input.ident;
+    let none = quote! { ::std::option::Option::None };
+    let adds = members
+        .iter()
+        .enumerate()
+        .map(|(index, member)| build_member(krate, owner, member, index, None));
+    let writes = members.iter().enumerate().map(|(index, member)| {
+        let name = &member.ident;
+        write_member(krate, member, &quote! { &self.#name }, index, &none)
+    });
+    let reads: Vec<TokenStream2> = members
+        .iter()
+        .enumerate()
+        .map(|(index, member)| read_member(krate, member, index, &none))
+        .collect();
+    let build = quote! {
+        let mut builder = #krate::__macro::EmbeddedBuilder::structure();
+        #(#adds)*
+        builder.finish()
+    };
+    let write = quote! { #(#writes)* };
+    let read = collected_read(krate, &quote! { Self }, members, &reads);
+    wrap(krate, input, build, write, read)
+}
 
+/// The variant control, then per variant its members, its write arm, and its
+/// read arm.
+fn expand_enum(
+    krate: &TokenStream2,
+    input: &DeriveInput,
+    variants: &[VariantSpec],
+) -> TokenStream2 {
+    let owner = &input.ident;
+    let mut adds = Vec::new();
     let mut write_arms = Vec::new();
     let mut read_arms = Vec::new();
-    // The controls a `#[shared(..)]` column renders: **one** control, outside
-    // every variant group. The column belongs to several variants, so it cannot
-    // live in one variant's group — the group is hidden when its variant is not
-    // chosen, and the shared column must stay editable whichever one is — and
-    // rendering it inside each group would post the same name several times.
-    let mut shared_controls = Vec::new();
-    // One group per variant, marked with the discriminant value that variant
-    // stores. The marker *is* the value the app schema declares, so the group
-    // set and `EnumSpec`'s variants cannot drift.
-    let mut variant_groups = Vec::new();
-    // A `#[shared(..)]` column is declared by several variants and is one
-    // column: its control renders once, from the first variant that declares
-    // it. The codec still writes and reads each variant's own spelling.
-    let mut seen_shared: Vec<String> = Vec::new();
-    // `(variant index, any of its own payloads submitted)`, through resolved
-    // keys. Only reached when a submission carries no discriminant at all.
-    let mut inferred: Vec<(usize, TokenStream2)> = Vec::new();
-    // `any_present`: any variant's payload, shared columns included.
-    let mut variant_presence: Vec<TokenStream2> = Vec::new();
-
-    for (variant_index, variant) in data.variants.iter().enumerate() {
-        let variant_name = &variant.ident;
-        // The discriminant a variant stores is addressed by declaration index:
-        // that is the handle the schema itself uses, and a Rust ident is not
-        // recoverable from it (Toasty normalises names, so `OK` reads `Ok`).
-        let discriminant_value = quote! {
-            spec.value_of_index(#variant_index)
-                .expect("the app schema declares every variant this type has")
-                .to_string()
+    for (variant_index, variant) in variants.iter().enumerate() {
+        let name = &variant.ident;
+        let selector = quote! { ::std::option::Option::Some(#variant_index) };
+        adds.push(quote! { builder.variant(); });
+        let Some(members) = &variant.members else {
+            // A unit variant carries no payload: only its discriminant names
+            // it, and its group is empty.
+            write_arms.push(quote! {
+                Self::#name => node.write_variant(#variant_index, out),
+            });
+            read_arms.push(quote! {
+                #variant_index => ::std::result::Result::Ok(Self::#name),
+            });
+            continue;
         };
-
-        match &variant.fields {
-            Fields::Named(named) => {
-                let mut writes = vec![quote! {
-                    out.insert(spec.discriminant().to_string(), #discriminant_value);
-                }];
-                let mut reads = Vec::new();
-                // This variant's own controls — the ones that go in its group.
-                let mut controls = Vec::new();
-                // What the *fallback* may read: a variant's own, non-shared
-                // payloads.
-                let mut present_checks = Vec::new();
-                // What `any_present` reports for the whole enum: every payload,
-                // shared ones included.
-                let mut presence_checks = Vec::new();
-                for (index, field) in named.named.iter().enumerate() {
-                    let name = field.ident.as_ref().expect("named field");
-                    let ty = &field.ty;
-                    let parent = quote! { parent.clone() };
-                    let shared = shared_id(&field.attrs);
-                    match kind_of(field) {
-                        Kind::Leaf => {
-                            let path =
-                                chained(krate, &parent, &owner, ty, index, Some(variant_index));
-                            writes.push(quote! {
-                                out.insert(
-                                    #krate::schema::leaf_key(cx, #path),
-                                    ::std::string::ToString::to_string(&#name),
-                                );
-                            });
-                            // A shared column belongs to several variants, so
-                            // it cannot say *which* one was meant: it never
-                            // drives the fallback.
-                            if shared.is_none() {
-                                present_checks.push(leaf_present(krate, &path));
-                            } else {
-                                // Still part of the value's own presence.
-                                presence_checks.push(leaf_present(krate, &path));
-                            }
-                            let path =
-                                chained(krate, &parent, &owner, ty, index, Some(variant_index));
-                            reads.push((
-                                name.clone(),
-                                quote! {
-                                    #krate::schema::take_leaf(
-                                        #krate::schema::parse_leaf(
-                                            &#krate::schema::leaf_key(cx, #path),
-                                            values,
-                                        ),
-                                        &mut errors,
-                                    )
-                                },
-                            ));
-                            let text = field_label(field, name);
-                            let control = leaf_control(krate, &path, &text, ty, field);
-                            match shared {
-                                Some(id) if seen_shared.contains(&id) => {}
-                                Some(id) => {
-                                    seen_shared.push(id);
-                                    shared_controls.push(control);
-                                }
-                                None => controls.push(control),
-                            }
-                        }
-                        Kind::Embedded => {
-                            let path =
-                                chained(krate, &parent, &owner, ty, index, Some(variant_index));
-                            writes.push(quote! {
-                                #name.write_form(cx, #path, out);
-                            });
-                            // A nested value counts as submitted when any of
-                            // its own keys is — its discriminant included — and
-                            // it answers that itself.
-                            present_checks.push(nested_present(krate, ty, &path));
-                            presence_checks.push(nested_present(krate, ty, &path));
-                            let path =
-                                chained(krate, &parent, &owner, ty, index, Some(variant_index));
-                            reads.push((
-                                name.clone(),
-                                quote! {
-                                    #krate::schema::take_value(
-                                        <#ty as #krate::schema::EmbeddedForm>::read_form(cx, #path, values),
-                                        &mut errors,
-                                    )
-                                },
-                            ));
-                            let path =
-                                chained(krate, &parent, &owner, ty, index, Some(variant_index));
-                            controls.push(quote! { <#ty>::form(cx, #path) });
-                        }
-                    }
-                }
-                if !present_checks.is_empty() {
-                    inferred.push((variant_index, quote! { #(#present_checks)||* }));
-                }
-                if !presence_checks.is_empty() {
-                    variant_presence.push(quote! { #(#presence_checks)||* });
-                }
-                let bindings = named.named.iter().map(|f| f.ident.as_ref().unwrap());
-                write_arms.push(quote! {
-                    Self::#variant_name { #(#bindings),* } => {
-                        #(#writes)*
-                    }
-                });
-                let read_body = collected_read(krate, &quote! { Self::#variant_name }, &reads);
-                read_arms.push(quote! {
-                    #variant_index => { #read_body }
-                });
-                variant_groups.push(variant_group(krate, &discriminant_value, &controls));
-            }
-            Fields::Unit => {
-                // A unit variant carries no payload, so nothing can infer it:
-                // only its discriminant names it. It still gets its group: the
-                // marker set must stay the schema's variant list, so a unit
-                // variant added later cannot silently lose one.
-                write_arms.push(quote! {
-                    Self::#variant_name => {
-                        out.insert(spec.discriminant().to_string(), #discriminant_value);
-                    }
-                });
-                read_arms.push(quote! {
-                    #variant_index => ::std::result::Result::Ok(Self::#variant_name),
-                });
-                variant_groups.push(variant_group(krate, &discriminant_value, &[]));
-            }
-            Fields::Unnamed(_) => {
-                return unsupported(input, "a struct or enum with named fields");
-            }
+        for (index, member) in members.iter().enumerate() {
+            adds.push(build_member(
+                krate,
+                owner,
+                member,
+                index,
+                Some(variant_index),
+            ));
         }
+        // Bound under prefixed names, so a payload called `node` or `out`
+        // cannot shadow the writer's own arguments.
+        let fields: Vec<&syn::Ident> = members.iter().map(|member| &member.ident).collect();
+        let bindings: Vec<syn::Ident> = fields
+            .iter()
+            .map(|field| format_ident!("__field_{}", field.unraw()))
+            .collect();
+        let writes = members
+            .iter()
+            .zip(&bindings)
+            .enumerate()
+            .map(|(index, (member, binding))| {
+                write_member(krate, member, &quote! { #binding }, index, &selector)
+            });
+        write_arms.push(quote! {
+            Self::#name { #(#fields: #bindings),* } => {
+                node.write_variant(#variant_index, out);
+                #(#writes)*
+            }
+        });
+        let reads: Vec<TokenStream2> = members
+            .iter()
+            .enumerate()
+            .map(|(index, member)| read_member(krate, member, index, &selector))
+            .collect();
+        let read_body = collected_read(krate, &quote! { Self::#name }, members, &reads);
+        read_arms.push(quote! {
+            #variant_index => { #read_body }
+        });
     }
-
-    // The fallback chain, in declaration order: the first variant with a
-    // submitted payload of its own, else the first variant. This is what the
-    // panel did before the discriminant existed, now driven by the
-    // keys the schema resolves instead of remembered column names.
-    let mut fallback = quote! { 0usize };
-    for (index, check) in inferred.iter().rev() {
-        fallback = quote! { if #check { #index } else { #fallback } };
-    }
-
-    let expanded = quote! {
-        impl #impl_generics #krate::schema::EmbeddedForm for #ident #ty_generics #where_clause {
-            fn write_form<M>(
-                &self,
-                cx: &#krate::__macro::Cx,
-                parent: #krate::__macro::Path<M, Self>,
-                out: &mut ::std::collections::HashMap<String, String>,
-            ) where
-                M: #krate::__macro::Model,
-            {
-                let spec = #krate::schema::enum_spec(cx, parent.clone())
-                    .expect("an embedded enum has a discriminant column");
-                match self {
-                    #(#write_arms)*
-                }
-            }
-
-            fn read_form<M>(
-                cx: &#krate::__macro::Cx,
-                parent: #krate::__macro::Path<M, Self>,
-                values: &::std::collections::HashMap<String, String>,
-            ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::form::FieldError>>
-            where
-                M: #krate::__macro::Model,
-            {
-                let spec = #krate::schema::enum_spec(cx, parent.clone())
-                    .expect("an embedded enum has a discriminant column");
-                let submitted = values
-                    .get(spec.discriminant())
-                    .map(|value| value.trim())
-                    .unwrap_or_default();
-                // A discriminant the submission **names** always wins. Only a
-                // submission that carries none at all falls back to the payload
-                // rule; one that names an unknown variant is refused rather
-                // than silently read as some other variant.
-                let variant: usize = if submitted.is_empty() {
-                    #fallback
-                } else {
-                    match spec.index_of(submitted) {
-                        ::std::option::Option::Some(index) => index,
-                        ::std::option::Option::None => {
-                            return ::std::result::Result::Err(::std::vec![
-                                #krate::form::FieldError::invalid(
-                                    spec.discriminant(),
-                                    ::std::format!("`{submitted}` is not a valid variant"),
-                                ),
-                            ]);
-                        }
-                    }
-                };
-                match variant {
-                    #(#read_arms)*
-                    other => unreachable!(
-                        "variant index {other} is outside {}: the app schema and this type \
-                         disagree about the variants",
-                        stringify!(#ident),
-                    ),
-                }
-            }
-
-            fn any_present<M>(
-                cx: &#krate::__macro::Cx,
-                parent: #krate::__macro::Path<M, Self>,
-                values: &::std::collections::HashMap<String, String>,
-            ) -> bool
-            where
-                M: #krate::__macro::Model,
-            {
-                let spec = #krate::schema::enum_spec(cx, parent.clone())
-                    .expect("an embedded enum has a discriminant column");
-                // The discriminant is the value's own key: a submission that
-                // names the variant has mentioned the value even with every
-                // payload empty.
-                !values
-                    .get(spec.discriminant())
-                    .map(|value| value.trim())
-                    .unwrap_or_default()
-                    .is_empty()
-                    #(|| #variant_presence)*
-            }
-        }
-
-        impl #impl_generics #ident #ty_generics #where_clause {
-            /// The form controls for this embedded value: the variant
-            /// `Select`, then the controls a `#[shared(..)]` column declares,
-            /// then one marked group per variant.
-            ///
-            /// **Every** variant's payload renders, which is what the panel has
-            /// always done; `assets/variant.js` is what shows only the chosen
-            /// one, so a no-JS form keeps every field the server still parses.
-            pub fn form<M>(
-                cx: &#krate::__macro::Cx,
-                parent: impl Into<#krate::__macro::Path<M, Self>>,
-            ) -> #krate::schema::Schema
-            where
-                M: #krate::__macro::Model,
-            {
-                let parent: #krate::__macro::Path<M, Self> = parent.into();
-                let spec = #krate::schema::enum_spec(cx, parent.clone())
-                    .expect("an embedded enum has a discriminant column");
-                let mut schema = #krate::schema::Schema::new(
-                    #krate::schema::discriminant_select(cx, parent.clone())
-                        .expect("an embedded enum has a discriminant column"),
-                );
-                #( schema = schema.extend(#shared_controls); )*
-                #( schema = schema.extend(#variant_groups); )*
-                schema
-            }
+    let build = quote! {
+        let mut builder = #krate::__macro::EmbeddedBuilder::enumeration(cx, parent.clone());
+        #(#adds)*
+        builder.finish()
+    };
+    let write = quote! {
+        match self {
+            #(#write_arms)*
         }
     };
-    expanded
-}
-
-/// One variant's group: its own controls, marked with the discriminant value
-/// the variant stores.
-///
-/// The marker is the same value [`discriminant_select`](tablo_core) offers
-/// as that variant's option, and both come from the app schema's variant list,
-/// so the group set and the schema cannot drift. The group renders whether or
-/// not JavaScript runs — `variant.js` is what hides the inactive ones — so a
-/// no-JS form keeps showing every variant's payload.
-fn variant_group(
-    krate: &TokenStream2,
-    value: &TokenStream2,
-    controls: &[TokenStream2],
-) -> TokenStream2 {
-    quote! {
-        {
-            let mut variant_schema = #krate::schema::Schema::empty();
-            #( variant_schema = variant_schema.extend(#controls); )*
-            #krate::schema::Schema::new(
-                #krate::schema::Group::new()
-                    .variant(spec.discriminant(), #value)
-                    .schema(variant_schema),
-            )
+    let read = quote! {
+        match node.variant_index(values)? {
+            #(#read_arms)*
+            other => ::std::unreachable!(
+                "variant index {other} is outside {}: the app schema and this type disagree \
+                 about the variants",
+                ::std::stringify!(#owner),
+            ),
         }
-    }
-}
-
-/// The `#[shared(ident)]` identifier a field declares, if any.
-fn shared_id(attrs: &[syn::Attribute]) -> Option<String> {
-    for attr in attrs {
-        if !attr.path().is_ident("shared") {
-            continue;
-        }
-        let mut id = None;
-        let _ = attr.parse_nested_meta(|meta| {
-            if let Some(ident) = meta.path.get_ident() {
-                id = Some(ident.to_string());
-            }
-            Ok(())
-        });
-        if id.is_some() {
-            return id;
-        }
-    }
-    None
+    };
+    wrap(krate, input, build, write, read)
 }
 
 #[cfg(test)]

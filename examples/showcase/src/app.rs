@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Brand, ColumnWidth, Committed, DateFilter, FieldErrors, Grid, Group, Panel, Posted,
-    RelationColumn, RelationColumns, Repeater, Resource, Schema, Section, Select, SelectFilter,
-    Table, TernaryFilter, TextColumn, TextInput, Textarea, Uploader, VariantFilter,
-    render_relation, scoped_query, tenant_id, write_create, write_update,
+    Brand, ColumnWidth, Committed, DateFilter, Field, FieldErrors, Grid, Group, Panel, Posted,
+    RelationColumn, RelationColumns, Repeater, ResolvedLens, Resource, Schema, Section,
+    SelectFilter, Table, TernaryFilter, TextColumn, Uploader, VariantFilter, render_relation,
+    scoped_query, tenant_id, write_create, write_update,
 };
 use toasty::Db;
 use topcoat::{
@@ -67,20 +67,20 @@ impl Resource for UserResource {
     fn form(_cx: &Cx) -> Schema {
         Schema::new(
             Section::new("Profile").schema((
-                TextInput::r#for(User::fields().name()).placeholder("Ada Lovelace"),
-                TextInput::r#for(User::fields().email())
+                Field::text(User::fields().name()).placeholder("Ada Lovelace"),
+                Field::text(User::fields().email())
                     .email()
                     .unique()
                     .placeholder("ada@example.com"),
-                // Static-options Select (the non-relationship kind): role
+                // A static-options choice (the non-relationship kind): role
                 // vocabulary with presence defaulting from the column.
-                Select::r#for(User::fields().role())
+                Field::choice(User::fields().role())
                     .options(vec!["admin".to_string(), "member".to_string()])
                     .label("Role")
                     .optional(),
-                // Bool lens via static options: the shipped Field set has no
-                // checkbox, so Active renders as a Yes/No select.
-                Select::r#for(User::fields().active())
+                // Bool lens via static options: a field has no checkbox
+                // control, so Active renders as a Yes/No choice.
+                Field::choice(User::fields().active())
                     .options_with_labels(vec![
                         ("true".to_string(), "Active".to_string()),
                         ("false".to_string(), "Inactive".to_string()),
@@ -88,9 +88,7 @@ impl Resource for UserResource {
                     .label("Active")
                     .optional(),
                 // A stored integer: optional, zero or more.
-                TextInput::typed::<User, i64>(User::fields().age())
-                    .label("Age")
-                    .optional(),
+                Field::text(User::fields().age()).label("Age").optional(),
             )),
         )
     }
@@ -151,18 +149,18 @@ impl Resource for UserResource {
     fn view(_cx: &Cx) -> Schema {
         Schema::new(
             Section::new("Profile").schema((
-                TextInput::r#for(User::fields().name()),
-                TextInput::r#for(User::fields().email()),
-                Select::r#for(User::fields().role())
+                Field::text(User::fields().name()),
+                Field::text(User::fields().email()),
+                Field::choice(User::fields().role())
                     .options(vec!["admin".to_string(), "member".to_string()])
                     .label("Role"),
-                Select::r#for(User::fields().active())
+                Field::choice(User::fields().active())
                     .options_with_labels(vec![
                         ("true".to_string(), "Active".to_string()),
                         ("false".to_string(), "Inactive".to_string()),
                     ])
                     .label("Active"),
-                TextInput::typed::<User, i64>(User::fields().age()).label("Age"),
+                Field::text(User::fields().age()).label("Age"),
             )),
         )
     }
@@ -179,15 +177,15 @@ impl Resource for UserResource {
 /// controls, so each declares what an emptied control stores: the create
 /// defaults, and zero for a stored integer.
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = User)]
+#[form(model = User)]
 pub struct UserForm {
     pub name: String,
     pub email: String,
-    #[record_form(blank = "member")]
+    #[form(blank = "member")]
     pub role: String,
-    #[record_form(blank = true)]
+    #[form(blank = true)]
     pub active: bool,
-    #[record_form(blank = 0)]
+    #[form(blank = 0)]
     pub age: i64,
 }
 
@@ -199,8 +197,8 @@ impl Resource for AuthorResource {
 
     fn form(_cx: &Cx) -> Schema {
         Schema::new((
-            TextInput::r#for(Author::fields().name()),
-            TextInput::r#for(Author::fields().email()).email().unique(),
+            Field::text(Author::fields().name()),
+            Field::text(Author::fields().email()).email().unique(),
         ))
     }
 
@@ -254,7 +252,7 @@ impl Resource for AuthorResource {
 /// What the author form writes. The tenant is the framework's to stamp on
 /// create, so it is not a field.
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Author)]
+#[form(model = Author)]
 pub struct AuthorForm {
     pub name: String,
     pub email: String,
@@ -269,22 +267,22 @@ impl Resource for PostResource {
     fn form(cx: &Cx) -> Schema {
         Schema::new((
             Section::new("Content").schema((
-                TextInput::r#for(Post::fields().title()).placeholder("A title editors click"),
+                Field::text(Post::fields().title()).placeholder("A title editors click"),
                 // Prose, so a textarea rather than a one-line input.
                 // Optional so quick draft stubs submit; full stories fill it.
-                Textarea::r#for(Post::fields().body())
+                Field::text(Post::fields().body())
+                    .multiline(6)
                     .placeholder("The full story…")
-                    .rows(6)
                     .optional(),
             )),
             // Grouped metadata: lifecycle selects beside the author picker.
             Group::new().schema((
                 Grid::new(2).schema((
-                    Select::r#for(Post::fields().status())
+                    Field::choice(Post::fields().status())
                         .options(vec!["draft".to_string(), "published".to_string()])
                         .label("Status")
                         .optional(),
-                    Select::r#for(Post::fields().featured())
+                    Field::choice(Post::fields().featured())
                         .options_with_labels(vec![
                             ("true".to_string(), "Featured".to_string()),
                             ("false".to_string(), "Regular".to_string()),
@@ -292,7 +290,7 @@ impl Resource for PostResource {
                         .label("Featured")
                         .optional(),
                 )),
-                Select::r#for(Post::fields().author_id())
+                Field::choice(Post::fields().author_id())
                     .relationship::<AuthorResource>(
                         AuthorResource::query,
                         |a: &Author| a.id,
@@ -302,7 +300,7 @@ impl Resource for PostResource {
                     .label("Author"),
                 // One media source: the cover is a picked library row, not an
                 // upload. Optional and single: empty clears the cover.
-                Select::r#for(Post::fields().cover_id())
+                Field::choice(Post::fields().cover_id())
                     .relationship::<MediaLibrary>(
                         |_cx| toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all(),
                         |m: &MediaAsset| m.id,
@@ -311,7 +309,7 @@ impl Resource for PostResource {
                     .searchable()
                     .label("Cover")
                     .optional(),
-                Repeater::new("Tags").schema(TextInput::r#for(Post::fields().tags()).label("Tag")),
+                Repeater::new("Tags").schema(Field::text(Post::fields().tags()).label("Tag")),
             )),
             // Embedded **values**. One declaration per value: the
             // controls, their flattened names, and the enum's discriminant all
@@ -386,34 +384,34 @@ impl Resource for PostResource {
     fn view(cx: &Cx) -> Schema {
         Schema::new((
             Section::new("Post").schema((
-                TextInput::r#for(Post::fields().title()),
-                Textarea::r#for(Post::fields().body()).rows(6),
+                Field::text(Post::fields().title()),
+                Field::text(Post::fields().body()).multiline(6),
             )),
             Section::new("Details").schema(
                 Group::new().schema((
                     Grid::new(2).schema((
-                        Select::r#for(Post::fields().status())
+                        Field::choice(Post::fields().status())
                             .options(vec!["draft".to_string(), "published".to_string()])
                             .label("Status"),
-                        Select::r#for(Post::fields().featured())
+                        Field::choice(Post::fields().featured())
                             .options_with_labels(vec![
                                 ("true".to_string(), "Featured".to_string()),
                                 ("false".to_string(), "Regular".to_string()),
                             ])
                             .label("Featured"),
                     )),
-                    TextInput::r#for(Post::fields().tags()).label("Tags"),
+                    Field::text(Post::fields().tags()).label("Tags"),
                 )),
             ),
             Section::new("SEO").schema((
-                TextInput::r#for_context(cx, Post::fields().seo().title()),
-                Textarea::r#for_context(cx, Post::fields().seo().description()).rows(3),
+                Field::text(ResolvedLens::new(cx, Post::fields().seo().title())),
+                Field::text(ResolvedLens::new(cx, Post::fields().seo().description())).multiline(3),
             )),
             Section::new("Publication").schema(
-                TextInput::typed_context(
+                Field::text(ResolvedLens::new(
                     cx,
                     Post::fields().publication().published().published_at(),
-                )
+                ))
                 .label("Published at")
                 .optional(),
             ),
@@ -592,20 +590,20 @@ impl Resource for PostResource {
 /// framework), `created_at` (a model default), and the relations. The embedded
 /// values are written whole.
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Post)]
+#[form(model = Post)]
 pub struct PostForm {
     pub title: String,
     pub body: String,
-    #[record_form(blank = "draft")]
+    #[form(blank = "draft")]
     pub status: String,
-    #[record_form(blank = false)]
+    #[form(blank = false)]
     pub featured: bool,
     pub author_id: uuid::Uuid,
     pub cover_id: Option<uuid::Uuid>,
     pub tags: String,
-    #[record_form(embed)]
+    #[form(embed)]
     pub seo: Seo,
-    #[record_form(embed)]
+    #[form(embed)]
     pub publication: Publication,
 }
 
@@ -657,8 +655,8 @@ pub struct CommentResource;
 
 /// Re-resolve a comment's parent post through the tenant-scoped
 /// [`scoped_query::<PostResource>`] inside the caller's open transaction.
-/// `Schema::validate_async` / `Select::validate_async` already reject a
-/// `post_id` outside the tenant-scoped option set before the tx opens, but that
+/// `Schema::validate_async` already rejects a `post_id` outside the
+/// tenant-scoped option set before the tx opens, but that
 /// is a pre-write check in a different window: a policy or tenant change between
 /// the two would slip through, and a direct `create_record` / `update_record`
 /// caller never ran it at all. Mirroring `PostResource`'s author double-check,
@@ -694,10 +692,10 @@ impl Resource for CommentResource {
         Schema::new((
             // Prose, so a textarea rather than a one-line input — the same
             // shape the post body uses.
-            Textarea::r#for(Comment::fields().body())
-                .placeholder("Write a reply…")
-                .rows(4),
-            Select::r#for(Comment::fields().post_id())
+            Field::text(Comment::fields().body())
+                .multiline(4)
+                .placeholder("Write a reply…"),
+            Field::choice(Comment::fields().post_id())
                 .relationship::<PostResource>(
                     PostResource::query,
                     |p: &Post| p.id,
@@ -809,7 +807,7 @@ impl Resource for CommentResource {
 
 /// What the comment form writes.
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Comment)]
+#[form(model = Comment)]
 pub struct CommentForm {
     pub body: String,
     pub post_id: uuid::Uuid,
@@ -831,7 +829,7 @@ pub fn router(db: Db) -> Router {
 /// server-rendered markup without pretending an asset bundle exists.
 ///
 /// It installs **no uploader** either, which pins the framework's default for
-/// a `FileUpload` with no store. A test that needs the demo store uses
+/// a file field with no store. A test that needs the demo store uses
 /// [`router_with_app_uploads`].
 pub fn router_for_tests(db: Db) -> Router {
     build_router(db, None, None)

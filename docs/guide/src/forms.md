@@ -11,27 +11,27 @@ model field's type, so a renamed or retyped column is a compile error:
 
 ```rust
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = User)]
+#[form(model = User)]
 pub struct UserForm {
     pub name: String,
     pub email: String,
-    #[record_form(blank = "member")]
+    #[form(blank = "member")]
     pub role: String,
-    #[record_form(blank = true)]
+    #[form(blank = true)]
     pub active: bool,
-    #[record_form(blank = 0)]
+    #[form(blank = 0)]
     pub age: i64,
 }
 ```
 
 A field is a **scalar** — `String`, a `TypedValue` type, or an `Option` of one — bound to the key
-its control posts, or an **embedded value** marked `#[record_form(embed)]` (an `EmbeddedForm`
+its control posts, or an **embedded value** marked `#[form(embed)]` (an `EmbeddedForm`
 type, bound to every key it occupies and written whole). A column the form does not write stays
 off the struct: a gated resource's `tenant_id` is stamped by the framework on create, and a column
 like `created_at` takes a toasty `#[default(..)]` on the model. The derive also emits
 `UserFormField`, one variant per field.
 
-`#[record_form(blank = <expr>)]` is what an empty submission stores. `String` answers `""` and
+`#[form(blank = <expr>)]` is what an empty submission stores. `String` answers `""` and
 `Option<T>` answers `None` without one; any other type needs `blank` wherever its control may be
 left empty.
 
@@ -97,66 +97,72 @@ What a submission does:
 - **`Panel::build` checks the struct against the schema**: a `NoForm` resource declares no
   schema; every control is bound by exactly one
   field and every field's key is a declared control; an optional control, or one inside a
-  `Repeater` or a variant group, binds a field with a blank answer; a gated resource's form does
+  `Repeater`, binds a field with a blank answer; a gated resource's form does
   not claim its tenant column; and, where `can_create` allows it, every non-nullable column is a
   form field, filled by toasty (`#[auto]`, `#[default(..)]`), the stamped tenant column, or named in
   `Resource::CREATE_COLUMNS` by a create override that sets it.
 
 ## Controls
 
-Forms use typed lenses, not string paths:
+Every control is a `Field`, built from a typed lens, never a string path:
 
 ```rust
 Schema::new((
     Section::new("Account").schema((
-        TextInput::r#for(User::fields().email()).email().unique(),
-        Select::r#for(User::fields().role())
+        Field::text(User::fields().email()).email().unique(),
+        Field::choice(User::fields().role())
             .options(vec!["admin".into(), "member".into()]),
     )),
     Grid::new(2).schema((
-        TextInput::r#for(User::fields().name()),
-        FileUpload::r#for(MediaAsset::fields().path()),
+        Field::text(User::fields().name()),
+        Field::text(User::fields().bio()).multiline(4),
+        Field::file(MediaAsset::fields().path()),
     )),
 ))
 ```
 
 What to know:
 
-- Layout blocks: `Section`, `Group`, `Grid`, `Tabs`. Fields: `TextInput`, `Textarea`, `Select`,
-  `FileUpload`, `Repeater`. Every field takes a typed lens (`User::fields().email()`), never a string
-  path. `Textarea` is the multi-line half of `TextInput` — same lens, same required default, same
-  error contract, a `<textarea>` control instead, and no `unique()` (the app-side probe is built from
-  `TextInput`, GH #184).
-- `required` defaults to the column nullability. Use `.optional()` to opt out. A bare `Select` over a
+- Layout blocks: `Section`, `Group`, `Grid`, `Repeater`. Fields: `Field::text`, `Field::choice`,
+  `Field::file`. `.multiline(rows)` renders a text field as a `<textarea>`. A modifier belongs to one
+  control — `email`, `unique`, `placeholder`, `multiline` to text; `options`, `options_with_labels`,
+  `relationship`, `searchable` to choice — and on another control it panics, naming the field.
+- A constructor takes a column's lens (`User::fields().email()`) or a `ResolvedLens`:
+  `ResolvedLens::new(cx, Post::fields().seo().title())` resolves a lens through an embedded struct, an
+  enum variant, or a `#[document]` to its flattened storage column (`seo_title`), for every kind of
+  field. An embedded leaf is optional by default; `.required()` opts in.
+- `required` defaults to the column nullability. Use `.optional()` to opt out. A bare choice over a
   non-nullable FK rejects `""` inline instead of failing at the driver.
 - `email()` applies the `email_address` grammar at the form edge: a text domain needs two labels
   (`a@b` and `a@b..c` are refused), a display name is a header rather than an address, and the whole
   address is capped at 254 octets (RFC 5321 §4.5.3.1.3). A quoted local part
   (`"a b"@example.com`), a unicode address (`用户@例え.jp`) and a bracketed domain literal
   (`a@[127.0.0.1]`) pass.
-- **A non-`String` column binds through `TextInput::typed`** (GH #192):
-  `TextInput::typed::<User, i64>(User::fields().age())` renders the value's
-  `Display`, parses the submission through the type's own `FromStr`, and refuses what it cannot parse
-  as an inline field error naming the input — `` `twelve` is not a valid whole number `` — instead of
-  a 500 or a silent default. What is stored is `Display` of the parsed value, so a value re-submitted
-  unchanged is written back in the shape it was read. `typed_context(cx, path)` is the
-  embedded/document sibling, as `r#for_context` is to `r#for`. `TypedValue` covers the integer types,
-  `f64`, `Uuid` and `jiff::Timestamp`; a type needing its own words implements the trait. A
-  `jiff::Timestamp` leaf renders `type="datetime-local"`: the control carries no zone, so the stored
-  instant renders in UTC and a submission is read back as UTC. Empty is
-  the presence rule's business, not the typed one: a typed column has no spelling for "no value", so
-  an empty submission on an optional typed field stores the record form field's blank answer.
+- **`Field::text` binds any `FormScalar` column**: `String`, a `TypedValue` type, or an `Option` of
+  one (GH #192). `Field::text(User::fields().age())` over an `i64` renders the value's `Display`,
+  parses the submission through the type, and refuses what it cannot parse as an inline field error
+  naming the input — `` `twelve` is not a valid whole number `` — instead of a 500 or a silent
+  default. What is stored is the type's own spelling of the parsed value, so a value re-submitted
+  unchanged is written back in the shape it was read. `TypedValue` covers the integer types, `bool`,
+  `f32`, `f64`, `Uuid` and `jiff::Timestamp`; an app type implements it (`NOUN` names it in the
+  error, `INPUT_TYPE` sets the control's `type`, and `parse_input` reads a submission). A
+  `jiff::Timestamp` renders `type="datetime-local"`: the control carries no zone, so the stored
+  instant renders in UTC and a submission is read back as UTC. Empty is the presence rule's business,
+  not the typed one: a typed column has no spelling for "no value", so an empty submission on an
+  optional typed field stores the record form field's blank answer.
 - `unique()` does two things. It adds an app-level pre-check — Toasty exposes no unique-violation
-  predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and it
-  implies **presence**: the framework stores `""` rather than NULL, so an empty value on a unique
-  field is refused inline as `"<Label> is required"` instead of being written past an index that
-  admits only one (GH #189). `.optional()` does not lift that rule, and `Panel::build` refuses a
+  predicate yet, so the DB constraint stays the final guard and concurrent writes can race — and on
+  a non-nullable column it implies **presence**: an empty `String` stores `""`, so an empty value on
+  a unique field is refused inline as `"<Label> is required"` instead of being written past an index
+  that admits only one (GH #189). `.optional()` does not lift that rule there. An `Option` column
+  stores NULL for an empty value, which the index admits many times, so a unique `Option` field
+  follows its own `required`. `Panel::build` refuses a
   `unique()` marker on a column with no unique index (single-field or composite, `#[unique(a, b)]`
   included), so the declaration and the database cannot disagree about which fields are unique.
-- Relation select validates the FK against the related resource query before the write runs:
+- A relationship choice validates the FK against the related resource query before the write runs:
 
 ```rust
-Select::r#for(Post::fields().author_id())
+Field::choice(Post::fields().author_id())
     .relationship::<AuthorResource>(
         AuthorResource::query,
         |a: &Author| a.id,
@@ -168,8 +174,8 @@ Select::r#for(Post::fields().author_id())
 - Relation options are bounded to 200 (`MAX_RELATIONSHIP_OPTIONS`) and memoized per
   `(request, tenant)`. Small tables validate against the bounded set; `can_view` filters before
   labels, `can_view_any`/tenant denial fails closed (`not available`).
-- Large reference tables (10k+ rows) need `.searchable()` on the `Select` (GH #150): over-cap
-  searchable selects degrade to type-to-search instead of a retry error. Typing fetches
+- Large reference tables (10k+ rows) need `.searchable()` on the choice (GH #150): an over-cap
+  searchable choice degrades to type-to-search instead of a retry error. Typing fetches
   `GET {parent_list_url}/options?field=&q=` (debounced 200ms, abort in-flight, selection preserved),
   which reuses the related `Table`'s declared `searchable()` columns (`search_expr`), bounds to 200,
   and filters `can_view` before labels. No searchable columns → hard-cap path (non-searchable keeps
@@ -179,7 +185,7 @@ Select::r#for(Post::fields().author_id())
   to search” hint; no-JS keeps the plain select (other fields still submit, relation cannot be
   changed past the cap).
 
-- `FileUpload` binds a `String` path and owns the request half: no `value` on `type=file`,
+- `Field::file` binds a `String` path and owns the request half: no `value` on `type=file`,
   `enctype="multipart/form-data"` when a form has one, a 10 MiB body cap (413), a 400 for multipart
   without a boundary, and sanitized basenames (`.` / `..` / Windows reserved names surface as inline
   errors). On an edit the control drops native `required` (GH #184) — a `required` file input cannot
@@ -216,6 +222,8 @@ Select::r#for(Post::fields().author_id())
   submission names (GH #191): only the named variant's fields validate, so a stale value in a group
   the user cannot see never blocks the submit (GH #297). A submission that names no variant hides
   nothing, because the value codec's payload fallback may still read any group.
+- `unique()` exists on text fields; the probe parses the submission into the field's type and
+  compares it through the field's own lens.
 
 Validation errors render inline per field. On create an absent key validates as `""`; on edit it
 validates as its stored value. Handlers reject unknown form keys with 400 (`role` / `tenant_id`

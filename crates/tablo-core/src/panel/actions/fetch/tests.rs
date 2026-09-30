@@ -93,7 +93,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
         type Model = Pair;
         type Form = PairForm;
         fn form(_cx: &Cx) -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::TextInput::r#for(Pair::fields().name()))
+            crate::schema::Schema::new(crate::schema::Field::text(Pair::fields().name()))
         }
 
         fn slug() -> String {
@@ -118,7 +118,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Pair)]
+    #[form(model = Pair)]
     struct PairForm {
         name: String,
     }

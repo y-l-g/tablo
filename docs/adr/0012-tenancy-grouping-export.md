@@ -34,7 +34,7 @@ loads the tenant-scoped `query` with the relations the exported columns include
 ## Consequences
 
 The showcase's posts list demonstrates tenancy (tenant 1 vs 2 rows),
-`SelectFilter`/`TernaryFilter`/`DateFilter`, grouping, export, `FileUpload`/`Repeater` and
+`SelectFilter`/`TernaryFilter`/`DateFilter`, grouping, export, file fields, `Repeater` and
 `Panel::brand`. It paints light by default: the stored `theme` preference wins in both directions, the
 header toggle is the only thing that turns dark on, and `dark_mode(true)` remains available for a
 dark-first panel. The `benchmarks/` `<40ms p50` figure is a target, not a gate — the harness

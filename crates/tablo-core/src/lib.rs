@@ -19,6 +19,16 @@ pub mod __macro {
     };
     pub use toasty_core::schema::app::VariantId;
     pub use topcoat::context::Cx;
+
+    pub use crate::{
+        form::{FieldError, FormField, FormScalar, RecordForm, assert_form_scalar, parse_scalar},
+        schema::{
+            EmbeddedForm, Field, ResolvedLens, Schema,
+            embedded::{
+                Embedded, EmbeddedBuilder, embedded_keys, parse_leaf, take_leaf, take_value,
+            },
+        },
+    };
 }
 // The toolkit surface: Panel, Resource, Table, Schema, Notification,
 // Tenancy, CSRF, and the `Db` glue.
@@ -51,9 +61,8 @@ pub use resource::{
     TernaryFilter, TextColumn, VariantFilter, render_relation, scoped_query, scoped_view_query,
 };
 pub use schema::{
-    EmbeddedForm, EnumSpec, FieldLens, FileUpload, Grid, Group, IntoSchema, Repeater, Schema,
-    Section, Select, Tabs, TextInput, Textarea, TypedValue, discriminant_select, enum_spec,
-    leaf_key, parse_leaf, read_embedded, value_keys, write_embedded,
+    EmbeddedForm, Field, FieldLens, Grid, Group, IntoSchema, Repeater, ResolvedLens, Schema,
+    Section, Source,
 };
 pub use tablo_macros::{EmbeddedForm, RecordForm};
 pub use tenancy::{Tenant, require_tenant, tenant_id};

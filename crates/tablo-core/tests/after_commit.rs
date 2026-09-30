@@ -8,7 +8,7 @@
 //! could show that.
 
 use http::header::LOCATION;
-use tablo_core::{Committed, Mutation, Resource, Schema, Table, TextColumn, TextInput};
+use tablo_core::{Committed, Field, Mutation, Resource, Schema, Table, TextColumn};
 use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
@@ -71,7 +71,7 @@ impl Resource for AuditedResource {
     type Model = Note;
     type Form = AuditedForm;
     fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
+        Schema::new(Field::text(Note::fields().title()))
     }
 
     fn slug() -> String {
@@ -111,7 +111,7 @@ impl Resource for AuditedResource {
     }
 }
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Note)]
+#[form(model = Note)]
 struct AuditedForm {
     title: String,
 }
@@ -123,7 +123,7 @@ impl Resource for PlainResource {
     type Model = Note;
     type Form = PlainForm;
     fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
+        Schema::new(Field::text(Note::fields().title()))
     }
 
     fn slug() -> String {
@@ -146,7 +146,7 @@ impl Resource for PlainResource {
     }
 }
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Note)]
+#[form(model = Note)]
 struct PlainForm {
     title: String,
 }
@@ -157,7 +157,7 @@ impl Resource for FailingWriteResource {
     type Model = Note;
     type Form = FailingWriteForm;
     fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
+        Schema::new(Field::text(Note::fields().title()))
     }
     async fn create_record(
         _cx: &Cx,
@@ -191,7 +191,7 @@ impl Resource for FailingWriteResource {
     }
 }
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Note)]
+#[form(model = Note)]
 struct FailingWriteForm {
     title: String,
 }
@@ -204,7 +204,7 @@ impl Resource for FailingHookResource {
     type Model = Note;
     type Form = FailingHookForm;
     fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Note::fields().title()))
+        Schema::new(Field::text(Note::fields().title()))
     }
 
     fn slug() -> String {
@@ -233,7 +233,7 @@ impl Resource for FailingHookResource {
     }
 }
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Note)]
+#[form(model = Note)]
 struct FailingHookForm {
     title: String,
 }

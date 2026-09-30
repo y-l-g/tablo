@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use jiff::Timestamp;
 use tablo_core::{
-    Panel, Resource, Schema, Table, TablePage, TableState, Tenant, TextColumn, TextInput,
+    Field, Panel, Resource, Schema, Table, TablePage, TableState, Tenant, TextColumn,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
@@ -93,7 +93,7 @@ impl Resource for PostResource {
     type Model = Post;
     type Form = PostForm;
     fn form(_cx: &Cx) -> Schema {
-        Schema::new(TextInput::r#for(Post::fields().title()).required())
+        Schema::new(Field::text(Post::fields().title()).required())
     }
 
     // Bench policy (GH #171): the shipped list 403s unless `can_view_any`
@@ -150,7 +150,7 @@ impl Resource for PostResource {
 /// The post form: the title alone, so the edit chrome the list measures has a
 /// page to link to.
 #[derive(tablo_core::RecordForm)]
-#[record_form(model = Post)]
+#[form(model = Post)]
 pub struct PostForm {
     pub title: String,
 }

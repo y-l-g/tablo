@@ -19,11 +19,11 @@ A `Resource` registered on a `Panel` is fully writable on the framework's existi
   record form → Edit link, `Resource::viewed` → View link) as the table's delete, edit and view
   action prefixes (GH #383, GH #384); the delete handlers check `can_delete_any` too.
 - **Schema** hydrates and dehydrates through typed lenses:
-  `TextInput::r#for(User::fields().name()).required().email().unique()` fails to compile on a bad
+  `Field::text(User::fields().name()).required().email().unique()` fails to compile on a bad
   field; `Schema::hydrate` fills `value` attrs from the Model through `Resource::hydrate_form_values`,
   and validation collects `required`/`email` inline per field in the reserved destructive slot. Unique
   is checked app-side until Toasty exposes a unique-violation signal, so a concurrent write that
-  violates the index still surfaces as a 500 (GH #88, open). `TextInput::unique()` implies **presence**
+  violates the index still surfaces as a 500 (GH #88, open). `Field::unique()` implies **presence**
   (GH #189): an empty unique field reports `"<Label> is required"` inline, `.optional()` does not lift
   it, and `Panel::build` refuses a `.unique()` marker on a column with no unique index.
 - **Notification** is a transient status + title (`success`/`error`, ~4s) produced by a mutation's

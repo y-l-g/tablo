@@ -95,7 +95,7 @@ committed write, and a failure in it is logged without rolling the write back.
 | `schema::OptionSource` | `schema/relationship.rs` | what a relationship select offers, and who may see it |
 | `EmbeddedForm` | `tablo-macros` | the flat form map ↔ a typed embedded value |
 | `RecordForm` / `NoForm` | `form.rs` | the typed value a form writes, and the form of a resource with none |
-| `Uploader` | `upload.rs` | where a `FileUpload`'s bytes go |
+| `Uploader` | `upload.rs` | where a file field's bytes go |
 | `Authenticator` | `auth.rs` | how credentials resolve to a `CurrentUser` |
 | `Table::new` / `Table::new_split` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
 | `panel::wired_table` | `panel/mod.rs` | the wired list table a page-owned table renders |

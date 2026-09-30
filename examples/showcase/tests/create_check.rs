@@ -188,7 +188,7 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
 
 #[tokio::test]
 async fn create_policy_deny() {
-    use tablo_core::{Resource, Schema, Table, TextColumn, TextInput};
+    use tablo_core::{Field, Resource, Schema, Table, TextColumn};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct DummyUser {
@@ -204,7 +204,7 @@ async fn create_policy_deny() {
         type Model = DummyUser;
         type Form = DenyCreateForm;
         fn form(_cx: &topcoat::context::Cx) -> Schema {
-            Schema::new(TextInput::r#for(DummyUser::fields().name()).required())
+            Schema::new(Field::text(DummyUser::fields().name()).required())
         }
 
         fn can_create(_cx: &topcoat::context::Cx) -> bool {
@@ -221,7 +221,7 @@ async fn create_policy_deny() {
         }
     }
     #[derive(tablo_core::RecordForm)]
-    #[record_form(model = DummyUser)]
+    #[form(model = DummyUser)]
     struct DenyCreateForm {
         name: String,
     }
@@ -374,7 +374,7 @@ async fn users_create_static_selects_set_role_and_active() {
 /// `notify_write_failure`'s doc comment describes this delivery.
 #[tokio::test]
 async fn a_failed_write_toasts_on_the_next_panel_page() {
-    use tablo_core::{Resource, Schema, Table, TextColumn, TextInput};
+    use tablo_core::{Field, Resource, Schema, Table, TextColumn};
     use topcoat::context::Cx;
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -389,7 +389,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         type Model = Widget;
         type Form = FailingForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Widget::fields().name()))
+            Schema::new(Field::text(Widget::fields().name()))
         }
         async fn create_record(
             _cx: &Cx,
@@ -418,7 +418,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         }
     }
     #[derive(tablo_core::RecordForm)]
-    #[record_form(model = Widget)]
+    #[form(model = Widget)]
     struct FailingForm {
         name: String,
     }

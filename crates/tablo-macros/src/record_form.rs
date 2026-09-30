@@ -2,15 +2,18 @@
 //!
 //! The derive binds each field by its ident: `M::fields().<ident>()` names the
 //! model field, so a field the model lacks is a rustc error at that ident, and
-//! a type assertion against the model's field refuses a mismatched type. Keys
-//! come from the framework at run time (`leaf_key`, `value_keys`), never from a
-//! name this derive spells.
+//! a type assertion against the model's field refuses a mismatched type. A
+//! field is classified by `#[form(embed)]` (the shared `fields` module); a
+//! scalar's key is its resolved lens's, an embedded value's keys its schema's,
+//! never a name this derive spells.
 //!
 //! See `tablo-core`'s `form` module for the contract.
 
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote};
-use syn::{Data, DeriveInput, Fields, Type};
+use quote::{format_ident, quote, quote_spanned};
+use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
+
+use crate::fields::{Derive, assert_scalar, form_attrs};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
@@ -24,13 +27,13 @@ struct FieldSpec {
     ident: syn::Ident,
     ty: Type,
     variant: syn::Ident,
-    /// `#[record_form(embed)]`: an `EmbeddedForm` value, bound whole.
+    /// `#[form(embed)]`: an `EmbeddedForm` value, bound whole.
     embed: bool,
-    /// `#[record_form(blank = <expr>)]`.
+    /// `#[form(blank = <expr>)]`.
     blank: Option<syn::Expr>,
 }
 
-/// What `#[record_form(..)]` says on the struct.
+/// What `#[form(..)]` says on the struct.
 struct StructAttrs {
     model: syn::Path,
 }
@@ -79,7 +82,7 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
 fn struct_attrs(input: &DeriveInput) -> syn::Result<StructAttrs> {
     let mut model = None;
     for attr in &input.attrs {
-        if !attr.path().is_ident("record_form") {
+        if !attr.path().is_ident("form") {
             continue;
         }
         attr.parse_nested_meta(|meta| {
@@ -87,14 +90,14 @@ fn struct_attrs(input: &DeriveInput) -> syn::Result<StructAttrs> {
                 model = Some(meta.value()?.parse::<syn::Path>()?);
                 Ok(())
             } else {
-                Err(meta.error("unknown `#[record_form(..)]` key: expected `model = <Model>`"))
+                Err(meta.error("unknown `#[form(..)]` key: expected `model = <Model>`"))
             }
         })?;
     }
     let model = model.ok_or_else(|| {
         syn::Error::new_spanned(
             &input.ident,
-            "#[derive(RecordForm)] needs `#[record_form(model = <Model>)]`",
+            "#[derive(RecordForm)] needs `#[form(model = <Model>)]`",
         )
     })?;
     Ok(StructAttrs { model })
@@ -109,48 +112,22 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
              control posts a relation expression",
         ));
     }
-    let mut embed = false;
-    let mut blank = None;
-    for attr in &field.attrs {
-        if !attr.path().is_ident("record_form") {
-            continue;
-        }
-        attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("embed") {
-                embed = true;
-                Ok(())
-            } else if meta.path.is_ident("blank") {
-                blank = Some(meta.value()?.parse::<syn::Expr>()?);
-                Ok(())
-            } else {
-                Err(meta.error(
-                    "unknown `#[record_form(..)]` key: expected `embed` or `blank = <expr>`",
-                ))
-            }
-        })?;
-    }
-    if let Some(expr) = &blank {
-        if embed {
-            return Err(syn::Error::new_spanned(
-                expr,
-                "`blank` does not apply to an embedded value: its leaves read an empty key as \
-                 `Default`",
-            ));
-        }
-        if last_segment(&field.ty).is_some_and(|name| name == "Option") {
-            return Err(syn::Error::new_spanned(
-                expr,
-                "an `Option` field's blank answer is `None`",
-            ));
-        }
+    let attrs = form_attrs(field, Derive::Record)?;
+    if let Some(expr) = &attrs.blank
+        && last_segment(&field.ty).is_some_and(|name| name == "Option")
+    {
+        return Err(syn::Error::new_spanned(
+            expr,
+            "an `Option` field's blank answer is `None`",
+        ));
     }
     let variant = format_ident!("{}", pascal_case(&ident.to_string()));
     Ok(FieldSpec {
         ident,
         ty: field.ty.clone(),
         variant,
-        embed,
-        blank,
+        embed: attrs.embed,
+        blank: attrs.blank,
     })
 }
 
@@ -203,7 +180,12 @@ fn expand_struct(
         let variant = &field.variant;
         let name_str = name.to_string();
         let name_str = name_str.trim_start_matches("r#");
+        // The field's path and key tokens, built once per field here; each
+        // generated fn resolves the key from them at run time.
         let path = quote! { <#model>::fields().#name() };
+        let key = quote_spanned! {ty.span()=>
+            #krate::__macro::ResolvedLens::<#model, #ty>::from(#path).name().to_string()
+        };
         let setter = format_ident!("set_{}", name_str);
         let binding = format_ident!("__read_{}", name);
         asserts.push(quote! { let _: &#ty = &record.#name; });
@@ -215,19 +197,19 @@ fn expand_struct(
         });
         if field.embed {
             claims.push(quote! {
-                #krate::form::FormField {
+                #krate::__macro::FormField {
                     field: #field_enum::#variant,
                     name: #name_str,
-                    keys: #krate::schema::value_keys::<#model, #ty>(cx, #path),
+                    keys: #krate::__macro::embedded_keys::<#model, #ty>(cx, #path),
                     answers_blank: true,
                 }
             });
             hydrates.push(quote! {
-                #krate::schema::write_embedded::<#model, #ty>(cx, #path, &record.#name, &mut out);
+                #krate::__macro::EmbeddedForm::write_form(&record.#name, cx, #path, &mut out);
             });
             reads.push(quote! {
-                let #binding = #krate::schema::take_value(
-                    #krate::schema::read_embedded::<#model, #ty>(cx, #path, values),
+                let #binding = #krate::__macro::take_value(
+                    <#ty as #krate::__macro::EmbeddedForm>::read_form(cx, #path, values),
                     &mut errors,
                 );
             });
@@ -241,29 +223,28 @@ fn expand_struct(
             let answers_blank = if field.blank.is_some() {
                 quote! { true }
             } else {
-                quote! { <#ty as #krate::form::FormScalar>::blank().is_some() }
+                quote_spanned! {ty.span()=>
+                    <#ty as #krate::__macro::FormScalar>::blank().is_some()
+                }
             };
+            let assert = assert_scalar(krate, ty);
             claims.push(quote! {
-                #krate::form::FormField {
-                    field: #field_enum::#variant,
-                    name: #name_str,
-                    keys: ::std::vec![#krate::schema::leaf_key::<#model, #ty>(cx, #path)],
-                    answers_blank: #answers_blank,
+                {
+                    #assert
+                    #krate::__macro::FormField {
+                        field: #field_enum::#variant,
+                        name: #name_str,
+                        keys: ::std::vec![#key],
+                        answers_blank: #answers_blank,
+                    }
                 }
             });
-            hydrates.push(quote! {
-                out.insert(
-                    #krate::schema::leaf_key::<#model, #ty>(cx, #path),
-                    #krate::form::FormScalar::to_form(&record.#name),
-                );
+            hydrates.push(quote_spanned! {ty.span()=>
+                out.insert(#key, #krate::__macro::FormScalar::to_form(&record.#name));
             });
-            reads.push(quote! {
-                let #binding = #krate::schema::take_leaf(
-                    #krate::form::parse_scalar::<#ty>(
-                        &#krate::schema::leaf_key::<#model, #ty>(cx, #path),
-                        values,
-                        #declared,
-                    ),
+            reads.push(quote_spanned! {ty.span()=>
+                let #binding = #krate::__macro::take_leaf(
+                    #krate::__macro::parse_scalar::<#ty>(&#key, values, #declared),
                     &mut errors,
                 );
             });
@@ -282,13 +263,13 @@ fn expand_struct(
             #(#[allow(missing_docs)] #variants,)*
         }
 
-        impl #krate::form::RecordForm for #ident {
+        impl #krate::__macro::RecordForm for #ident {
             type Model = #model;
             type Field = #field_enum;
 
             fn fields(
                 cx: &#krate::__macro::Cx,
-            ) -> ::std::vec::Vec<#krate::form::FormField<#field_enum>> {
+            ) -> ::std::vec::Vec<#krate::__macro::FormField<#field_enum>> {
                 ::std::vec![#(#claims),*]
             }
 
@@ -306,8 +287,8 @@ fn expand_struct(
             fn parse(
                 cx: &#krate::__macro::Cx,
                 values: &::std::collections::HashMap<::std::string::String, ::std::string::String>,
-            ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::form::FieldError>> {
-                let mut errors: ::std::vec::Vec<#krate::form::FieldError> = ::std::vec::Vec::new();
+            ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::__macro::FieldError>> {
+                let mut errors: ::std::vec::Vec<#krate::__macro::FieldError> = ::std::vec::Vec::new();
                 #(#reads)*
                 match (#(#bindings,)*) {
                     (#(::std::option::Option::Some(#bindings),)*) if errors.is_empty() => {

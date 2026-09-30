@@ -65,7 +65,7 @@ async fn prepare_submission<R: Resource>(
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
-    // A declared `FileUpload` takes its value only from a file part:
+    // A declared file field takes its value only from a file part:
     // a text part or a url-encoded pair under the same name is client-typed,
     // not an upload, and would otherwise reach the record and render as the
     // file's link.
@@ -84,7 +84,8 @@ async fn prepare_submission<R: Resource>(
     // input (browsers never pre-fill it), so an empty part means "keep", not
     // "clear". An explicit `clear_<field>=1` names it empty; a chosen file
     // still wins over the clear, because a replacement is not a removal.
-    for name in schema.file_uploads().keys() {
+    for field in schema.fields().filter(|field| field.is_file()) {
+        let name = field.name();
         let cleared = values
             .get(&format!("clear_{name}"))
             .is_some_and(|v| truthy(v));
@@ -122,13 +123,14 @@ fn complete(
     named: &HashSet<String>,
     stored: &HashMap<String, String>,
 ) {
-    for name in schema.field_names() {
-        if named.contains(&name) {
+    for field in schema.fields() {
+        let name = field.name();
+        if named.contains(name) {
             continue;
         }
-        match stored.get(&name) {
-            Some(value) => values.insert(name, value.clone()),
-            None => values.remove(&name),
+        match stored.get(name) {
+            Some(value) => values.insert(name.to_string(), value.clone()),
+            None => values.remove(name),
         };
     }
 }

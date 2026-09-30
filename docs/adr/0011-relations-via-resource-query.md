@@ -19,7 +19,7 @@ list column with `TextColumn::include(Post::fields().author())`, the detail page
 a.name.clone()).unwrap_or_default())`: typed, and `searchable`/`sortable` only on local columns,
 since a computed column declares no predicate.
 
-**Schema.** `Select::r#for(Post::fields().author_id()).relationship(..)` is a thin helper over the
+**Schema.** `Field::choice(Post::fields().author_id()).relationship(..)` is a thin helper over the
 same seam, not a second query vocabulary. It takes a **typed primary-key projection**
 (`Fn(&R::Model) -> R::Model::PrimaryKey`) whose `Display` string becomes the `<option value>`; a
 wrong projection fails to compile where the type differs from the PK, and the related PK must be a
@@ -37,7 +37,7 @@ value is reported as invalid. The option cap counts the raw bounded fetch, befor
 required method; `option_query` runs `R::scoped_query(cx)`, which carries only the relations the
 resource's `query` includes (ADR-0018, GH #298), so every related load carries the framework's
 tenant predicate and a related resource whose tenancy cannot be scoped is a `Misdeclared` option
-error rather than an unscoped fetch (GH #208, ADR-0002). `Select::relationship` still takes the
+error rather than an unscoped fetch (GH #208, ADR-0002). `Field::relationship` still takes the
 resource's `query` fn for type inference only; the loader does not call it directly.
 
 **Option search (GH #150).** Above the cap the failure splits into `Overflow` (distinct from a
@@ -45,7 +45,7 @@ driver `LoadFailed`): a searchable select degrades to type-to-search, a non-sear
 retry error. Search reuses the related `Table`'s declared `searchable()` columns through
 `search_expr(q)` — no option-specific hook; zero searchable columns means the hard-cap fallback. The
 endpoint is `GET {parent_list_url}/options?field=&q=`, `field` allow-listed to a declared searchable
-relationship `Select` in the parent's form (400 otherwise), `q` trimmed and clamped to the shared
+relationship choice in the parent's form (400 otherwise), `q` trimmed and clamped to the shared
 query bound, bounded at `limit(201)`, `can_view` before labels, `Denied` → 403, driver failure →
 500, filtered overflow → 200 with a keep-typing hint option, and never a whole-table load.
 Validation for an overflowed searchable select is a targeted `pk_eq_expr` + `R::scoped_query` +

@@ -1,8 +1,8 @@
 //! Where uploaded bytes go: the `Uploader` seam, and the one place
 //! the framework hands bytes to it.
 //!
-//! `FileUpload` binds a `String` column, the panel renders a file input, and
-//! the form parser decodes the multipart body — but *where* the bytes live and
+//! A file field ([`Field::file`](crate::Field::file)) binds a `String` column, the panel renders a
+//! file input, and the form parser decodes the multipart body — but *where* the bytes live and
 //! what path the record stores is the app's decision: an object store, a
 //! directory on disk, a CDN. The framework owns everything up to the bytes and
 //! nothing after them, so this module is deliberately small: a trait, the app
@@ -21,9 +21,9 @@ use crate::schema::Schema;
 /// Store one uploaded file and name the value a record stores.
 ///
 /// Installed once per panel with [`Panel::uploads`](crate::Panel::uploads) —
-/// the way `Db` is — and found on the app context wherever a `FileUpload`
+/// the way `Db` is — and found on the app context wherever a file field
 /// stores, because an object store is an app-level dependency: threading it
-/// through every `.for(..)` call site would put it in the schema declaration.
+/// through every field declaration would put it in the schema declaration.
 ///
 /// `filename` arrives already sanitized to a basename: no directory
 /// components, no control characters, capped at 255 bytes, and never empty (an
@@ -162,7 +162,7 @@ pub(crate) async fn holds(cx: &Cx, path: &str) -> bool {
 /// returning `field_name -> inline errors` and the fields whose
 /// value is now the uploader's answer.
 ///
-/// For each declared [`FileUpload`](crate::schema::FileUpload) that carried
+/// For each declared file field ([`Field::file`](crate::schema::Field::file)) that carried
 /// bytes, the returned path replaces the sanitized basename the parser put in
 /// `values` — so the record fn sees the stored path and nothing else changes
 /// about its contract. The second half of the answer is those field names: a
@@ -195,7 +195,8 @@ pub(crate) async fn store_uploads(
     let mut stored = HashSet::new();
     // Declared uploads only: a file part the schema does not declare is not a
     // field this form may write (the unknown-key allow-list answers for it).
-    for (name, upload) in schema.file_uploads() {
+    for field in schema.fields().filter(|field| field.is_file()) {
+        let name = field.name().to_string();
         let Some(staged) = files.get(&name) else {
             continue;
         };
@@ -210,7 +211,7 @@ pub(crate) async fn store_uploads(
                     name,
                     vec![format!(
                         "{} could not be uploaded: {reason}",
-                        upload.label_str()
+                        field.label_str()
                     )],
                 );
             }

@@ -8,9 +8,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::schema::{
-    FileUpload, Grid, Group, Repeater, Schema, Section, Select, TextInput, Textarea,
-};
+use tablo_core::schema::{Field, Grid, Group, Repeater, Schema, Section, Source};
 use toasty::Db;
 use topcoat::{
     context::{Cx, CxTestBuilder},
@@ -50,7 +48,7 @@ fn values() -> HashMap<String, String> {
 async fn render(schema: &Schema, values: &HashMap<String, String>) -> String {
     let cx = cx().await;
     schema
-        .render_readonly(&cx, values)
+        .render(&cx, Source::view(values))
         .await
         .unwrap()
         .single()
@@ -62,11 +60,11 @@ async fn render(schema: &Schema, values: &HashMap<String, String>) -> String {
 #[tokio::test]
 async fn a_view_renders_values_not_controls() {
     let schema = Schema::new((
-        TextInput::r#for(Doc::fields().title()),
-        Textarea::r#for(Doc::fields().body()),
-        Select::r#for(Doc::fields().status())
+        Field::text(Doc::fields().title()),
+        Field::text(Doc::fields().body()).multiline(4),
+        Field::choice(Doc::fields().status())
             .options(vec!["draft".to_string(), "published".to_string()]),
-        FileUpload::r#for(Doc::fields().path()),
+        Field::file(Doc::fields().path()),
     ));
     let html = render(&schema, &values()).await;
 
@@ -91,11 +89,11 @@ async fn a_view_renders_values_not_controls() {
 }
 
 #[tokio::test]
-async fn a_select_renders_its_option_label() {
+async fn a_choice_renders_its_option_label() {
     // A stored key reads as the label the form offered, so the page shows what
     // the user chose rather than the wire value behind it.
     let schema = Schema::new(
-        Select::r#for(Doc::fields().status())
+        Field::choice(Doc::fields().status())
             .options_with_labels(vec![("published".to_string(), "Live".to_string())]),
     );
     let html = render(&schema, &values()).await;
@@ -106,12 +104,12 @@ async fn a_select_renders_its_option_label() {
 }
 
 #[tokio::test]
-async fn a_select_without_a_matching_option_shows_the_stored_value() {
+async fn a_choice_without_a_matching_option_shows_the_stored_value() {
     // A value the options do not cover (a stale row, a relationship key) still
     // renders: a detail page shows what is stored, and must not blank a field
     // because it cannot name it.
     let schema =
-        Schema::new(Select::r#for(Doc::fields().status()).options(vec!["draft".to_string()]));
+        Schema::new(Field::choice(Doc::fields().status()).options(vec!["draft".to_string()]));
     let html = render(&schema, &values()).await;
     assert!(
         html.contains("published"),
@@ -122,13 +120,13 @@ async fn a_select_without_a_matching_option_shows_the_stored_value() {
 /// A group is a layout, so a view renders its label over its children's
 /// values — and none of a form's affordances. A required group emits no `*`
 /// marker and no `aria-invalid` on the detail page, because the repeater
-/// renders through its own path rather than a field's `render_with`.
+/// renders through its own path rather than a field's.
 #[tokio::test]
 async fn a_repeater_renders_its_children_without_form_affordances() {
     let schema = Schema::new(
         Repeater::new("Tags")
             .required()
-            .schema(TextInput::r#for(Doc::fields().status())),
+            .schema(Field::text(Doc::fields().status())),
     );
     let html = render(&schema, &values()).await;
     assert!(html.contains("Tags"), "the group label renders: {html}");
@@ -147,17 +145,11 @@ async fn a_repeater_renders_its_children_without_form_affordances() {
 
 #[tokio::test]
 async fn an_empty_value_renders_as_empty() {
-    // The framework stores `""` rather than NULL, so a stored record
-    // cannot distinguish absent from empty — and the page must not imply it
-    // can (no "(none)", no dash, no placeholder text).
-    let schema = Schema::new(TextInput::r#for(Doc::fields().title()));
-    let absent = render(&schema, &HashMap::new()).await;
-    // The framework stores `""`, never NULL, so a *present* empty value and an
-    // absent key are the same record state and must read the same.
-    // Compare the value node rather than the whole markup: topcoat renders
-    // attributes in no guaranteed order (topcoat#122), so two identical
-    // renderings differ in attribute order.
-    let present_empty = render(
+    // The framework stores `""` rather than NULL, so a stored record cannot
+    // tell "no value" from an empty one — and the page must not imply it can
+    // (no "(none)", no dash, no placeholder text).
+    let schema = Schema::new(Field::text(Doc::fields().title()));
+    let html = render(
         &schema,
         &HashMap::from([("title".to_string(), String::new())]),
     )
@@ -165,37 +157,47 @@ async fn an_empty_value_renders_as_empty() {
     // The value node is the innermost `<div>` of the rendered field: located
     // structurally rather than by its utility classes, so a restyle cannot
     // silently turn the lookup into an empty string.
-    let value = |html: &str| {
-        let start = html.rfind("<div").expect("each render has the value node");
-        let open_end = html[start..].find('>').expect("its tag's end") + start + 1;
-        let close = html[open_end..].find("</div>").expect("its closing tag") + open_end;
-        html[open_end..close].to_string()
-    };
-    assert_eq!(
-        value(&absent),
-        value(&present_empty),
-        "an absent key and a stored empty value are one rendering"
+    let start = html.rfind("<div").expect("the render has the value node");
+    let open_end = html[start..].find('>').expect("its tag's end") + start + 1;
+    let close = html[open_end..].find("</div>").expect("its closing tag") + open_end;
+    assert!(
+        html[open_end..close].is_empty(),
+        "the value is empty: {html}"
     );
-    assert!(value(&absent).is_empty(), "both are empty: {absent}");
-    let html = absent;
     assert!(html.contains("Title"), "the label still renders: {html}");
     assert!(
         !html.contains("(none)")
-            && !html.contains("(unloaded)")
+            && !html.contains("(missing)")
             && !html.contains("placeholder")
             && !html.contains("—"),
         "an empty value is empty, with no invented marker: {html}"
     );
 }
 
+/// A field whose key the view values lack is a declaration bug — neither
+/// `view_values` nor the record form supplies it — so the page does not
+/// render it as an empty value: a debug build fails its `debug_assert!`, and
+/// a release build shows `(missing)`, as a list column shows `(unloaded)` for a
+/// relation its query did not load (ADR-0011).
+#[tokio::test]
+#[cfg_attr(
+    debug_assertions,
+    should_panic(expected = "view field `title` has no value")
+)]
+async fn a_field_whose_key_the_values_lack_renders_missing() {
+    let schema = Schema::new(Field::text(Doc::fields().title()));
+    let html = render(&schema, &HashMap::new()).await;
+    assert!(html.contains("(missing)"), "got {html}");
+}
+
 #[tokio::test]
 async fn layout_blocks_keep_their_structure_around_values() {
     let schema = Schema::new(Section::new("Content").schema((
         Group::new().schema(Grid::new(2).schema((
-            TextInput::r#for(Doc::fields().title()),
-            TextInput::r#for(Doc::fields().status()),
+            Field::text(Doc::fields().title()),
+            Field::text(Doc::fields().status()),
         ))),
-        Textarea::r#for(Doc::fields().body()),
+        Field::text(Doc::fields().body()).multiline(4),
     )));
     let html = render(&schema, &values()).await;
     assert!(html.contains("Content"), "section title survives: {html}");

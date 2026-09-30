@@ -1,24 +1,26 @@
+use std::collections::HashMap;
+
 use topcoat::context::CxTestBuilder;
 
 use super::{
     super::test_support::{DummyUser, FkRef, attributes_of, opening_tag_at},
     *,
 };
-use crate::schema::Schema;
+use crate::schema::{Schema, Source};
 
-/// A bare `Select` over a non-nullable FK rejects an empty submit inline
+/// A bare choice over a non-nullable FK rejects an empty submit inline
 /// an empty submit fails here with `is required`, so it never
 /// reaches the driver's `parse::<Uuid>("")`.
 #[test]
 fn bare_non_nullable_fk_select_rejects_empty_inline() {
-    let select = Select::r#for(FkRef::fields().author_id());
+    let select = Field::choice(FkRef::fields().author_id());
     let errs = select.validate("");
     assert!(
         errs.iter().any(|e| e.contains("is required")),
         "bare non-nullable FK must reject empty inline, got {errs:?}"
     );
     // `.optional()` opts back out.
-    let errs = Select::r#for(FkRef::fields().author_id())
+    let errs = Field::choice(FkRef::fields().author_id())
         .optional()
         .validate("");
     assert!(errs.is_empty(), "opt-out must clear required, got {errs:?}");
@@ -28,9 +30,9 @@ fn bare_non_nullable_fk_select_rejects_empty_inline() {
 async fn searchable_select_renders_filter_input() {
     // GH #91: opt-in client-side option search; default selects stay bare.
     let cx = CxTestBuilder::new().build();
-    let plain = Select::r#for(DummyUser::fields().name()).options(vec!["a".to_string()]);
+    let plain = Field::choice(DummyUser::fields().name()).options(vec!["a".to_string()]);
     let html = plain
-        .render_with(&cx, None, &[], Mode::Form)
+        .render(&cx, None, &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -41,11 +43,11 @@ async fn searchable_select_renders_filter_input() {
         !html.contains("data-options-filter"),
         "default select must stay bare, got {html}"
     );
-    let searchable = Select::r#for(DummyUser::fields().name())
+    let searchable = Field::choice(DummyUser::fields().name())
         .options(vec!["a".to_string()])
         .searchable();
     let html = searchable
-        .render_with(&cx, None, &[], Mode::Form)
+        .render(&cx, None, &[], Mode::Form)
         .await
         .unwrap()
         .single()
@@ -115,9 +117,9 @@ async fn select_renders_through_the_select_primitive() {
     // control inside the filterable field.
     let cx = CxTestBuilder::new().build();
     let schema =
-        Schema::new(Select::r#for(DummyUser::fields().name()).options(vec!["a".to_string()]));
+        Schema::new(Field::choice(DummyUser::fields().name()).options(vec!["a".to_string()]));
     let html = schema
-        .render(&cx)
+        .render(&cx, Source::form(&HashMap::new(), &HashMap::new()))
         .await
         .unwrap()
         .single()

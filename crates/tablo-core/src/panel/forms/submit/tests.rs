@@ -5,7 +5,7 @@ use super::*;
 use crate::{
     Panel,
     panel::test_support::{Dummy, dummy_table, panel_for, response_html},
-    schema::{FileUpload, Schema, TextInput},
+    schema::{Field, Schema},
 };
 
 /// Completion fills an unnamed key from the stored projection it is
@@ -13,7 +13,7 @@ use crate::{
 /// named key as posted, and drops an unnamed key the projection lacks.
 #[test]
 fn completion_fills_unnamed_keys_from_the_stored_projection() {
-    let schema = Schema::new(TextInput::r#for(Dummy::fields().name()));
+    let schema = Schema::new(Field::text(Dummy::fields().name()));
     let named = HashSet::new();
     let mut values = HashMap::from([("name".to_string(), "advisory".to_string())]);
     let stored = HashMap::from([("name".to_string(), "authoritative".to_string())]);
@@ -45,7 +45,7 @@ async fn edit_post_requires_can_view_as_well_as_can_update() {
         type Model = Dummy;
         type Form = ViewDeniedForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Dummy::fields().name()))
+            Schema::new(Field::text(Dummy::fields().name()))
         }
 
         fn slug() -> String {
@@ -62,7 +62,7 @@ async fn edit_post_requires_can_view_as_well_as_can_update() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct ViewDeniedForm {
         name: String,
     }
@@ -139,7 +139,7 @@ async fn edit_post_requires_can_view_as_well_as_can_update() {
 /// strips before the parse, and the client-typed candidate is never stored.
 #[tokio::test]
 async fn transport_keys_never_reach_the_write() {
-    use crate::schema::{FileUpload, Schema, TextInput};
+    use crate::schema::{Field, Schema};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Doc {
@@ -156,8 +156,8 @@ async fn transport_keys_never_reach_the_write() {
         type Form = CapturingForm;
         fn form(_cx: &Cx) -> Schema {
             Schema::new((
-                TextInput::r#for(Doc::fields().title()),
-                FileUpload::r#for(Doc::fields().path()),
+                Field::text(Doc::fields().title()),
+                Field::file(Doc::fields().path()),
             ))
         }
 
@@ -180,7 +180,7 @@ async fn transport_keys_never_reach_the_write() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Doc)]
+    #[form(model = Doc)]
     struct CapturingForm {
         title: String,
         path: String,
@@ -195,7 +195,7 @@ async fn transport_keys_never_reach_the_write() {
         .build()
         .expect("panel builds");
     let csrf = uuid::Uuid::new_v4().to_string();
-    // `path` is a `FileUpload`, so it arrives as a file part;
+    // `path` is a file field, so it arrives as a file part;
     // `clear_path`, the client-typed `keep_path` candidate and
     // `csrf_token` are the transport keys under test.
     let boundary = "----TransportBoundary";
@@ -256,7 +256,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
 
     use crate::{
         resource::Resource,
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     struct WritingResource;
@@ -264,7 +264,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
         type Model = Dummy;
         type Form = WritingForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Dummy::fields().name()))
+            Schema::new(Field::text(Dummy::fields().name()))
         }
 
         fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
@@ -286,7 +286,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct WritingForm {
         name: String,
     }
@@ -372,7 +372,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
 
     use crate::{
         resource::Resource,
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     // The hook's own write targets this model: its unique column is not
@@ -392,7 +392,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         type Model = Dummy;
         type Form = EditingForm;
         fn form(_cx: &Cx) -> Schema {
-            Schema::new(TextInput::r#for(Dummy::fields().name()))
+            Schema::new(Field::text(Dummy::fields().name()))
         }
         async fn update_record(
             _cx: &Cx,
@@ -432,7 +432,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct EditingForm {
         name: String,
     }
@@ -547,7 +547,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
             // passes validation: the record form's field needs a control
             // to bind (the key-agreement build check).
             crate::schema::Schema::new(
-                crate::schema::TextInput::r#for(Dummy::fields().name()).optional(),
+                crate::schema::Field::text(Dummy::fields().name()).optional(),
             )
         }
         async fn create_record(
@@ -584,7 +584,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Dummy)]
+    #[form(model = Dummy)]
     struct NotifyingForm {
         name: String,
     }
@@ -660,7 +660,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
 async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     use crate::{
         resource::{Resource, Table, TextColumn},
-        schema::{Schema, TextInput},
+        schema::{Field, Schema},
     };
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -679,7 +679,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
             // `.optional()` lets an empty submit probe instead of failing
             // on presence: uniqueness wins.
             Schema::new(
-                TextInput::r#for(Subscriber::fields().email())
+                Field::text(Subscriber::fields().email())
                     .unique()
                     .optional(),
             )
@@ -704,7 +704,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Subscriber)]
+    #[form(model = Subscriber)]
     struct SubscriberForm {
         email: String,
     }
@@ -800,8 +800,8 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         type Form = DocForm;
         fn form(_cx: &Cx) -> Schema {
             Schema::new((
-                TextInput::r#for(Doc::fields().title()),
-                FileUpload::r#for(Doc::fields().path()),
+                Field::text(Doc::fields().title()),
+                Field::file(Doc::fields().path()),
             ))
         }
 
@@ -827,7 +827,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         }
     }
     #[derive(crate::RecordForm)]
-    #[record_form(model = Doc)]
+    #[form(model = Doc)]
     struct DocForm {
         title: String,
         path: String,

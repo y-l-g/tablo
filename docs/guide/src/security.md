@@ -4,7 +4,7 @@ The defaults Tablo ships with, and the deployment assumptions they depend on.
 
 - All POSTs verify a double-submit `csrf_token` before any DB work. `confirm=1` is a UX step, not a
   boundary.
-- A `FileUpload` value comes only from a file part (the uploader's answer, or the sanitized basename
+- A file field's value comes only from a file part (the uploader's answer, or the sanitized basename
   with no uploader), the record's stored value on an untouched edit, or empty on `clear_<field>`. A
   re-rendered form's `keep_<field>` candidate is re-used only when the installed uploader's
   `holds(path)` confirms the store still has it, so a client-typed path is never stored. A stored

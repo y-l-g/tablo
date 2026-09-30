@@ -76,9 +76,10 @@ _Avoid_: Model, Entity, Collection, AdminModel, CRUD
 ### Schema
 
 The unified layout primitive for forms, infolists, and detail pages (GH #187, ADR-0016): one
-declaration read two ways — `render_with` gives controls, `render_readonly` gives the record's
-stored values under the same labels and layout. A composition of layout blocks (Section, Group,
-Grid, Tabs) and typed fields bound via field lenses to a Model. See
+vocabulary read two ways — `render(cx, Source::form(..))` gives controls, `render(cx,
+Source::view(..))` gives the record's stored values under the same labels and layout. A composition
+of layout blocks (Section, Group, Grid, Repeater), embedded values, and Fields bound via field lenses
+to a Model; building it resolves every Field once into one field list. See
 [forms](docs/guide/src/forms.md) and [detail pages](docs/guide/src/detail-pages.md).
 
 _Avoid_: Form, Infolist, Fieldset (as top-level term), statePath
@@ -205,12 +206,14 @@ _Avoid_: Scope, Constraint, Where
 
 ### Field
 
-A typed input bound to a Model lens inside a Schema. A `String` lens binds with `TextInput::r#for`;
-a lens whose leaf is another type (`i64`, `Uuid`, `jiff::Timestamp`) binds with `TextInput::typed`
-(GH #192), which renders the value's `Display` and parses the submission through the type's own
-`FromStr`. Bound via its field lens and column name; `required` defaults from Toasty column
-nullability (opt out with `.optional()`), and `TextInput::unique()` implies **presence**
-(GH #189): the framework stores `""`, never NULL (GH #89). Renders through the upstream `field`
+One input bound to a Model lens inside a Schema: `Field::text`, `Field::choice`, or `Field::file`,
+one type whose control is text (multi-line with `.multiline(rows)`), choice, or file. `Field::text`
+binds any `FormScalar` lens — `String`, a `TypedValue` type (`i64`, `Uuid`, `jiff::Timestamp`), or an
+`Option` of one (GH #192) — rendering the value's spelling and parsing the submission through the
+type. A constructor takes a column's lens or a `ResolvedLens`, which binds an embedded leaf to its
+flattened column. `required` defaults from Toasty column nullability (opt out with `.optional()`),
+and `unique()` on a non-nullable column implies **presence** (GH #189): an empty `String` stores
+`""` (GH #89), which a unique index admits once; an `Option` column stores NULL. Renders through the upstream `field`
 family (topcoat#420). See [forms](docs/guide/src/forms.md) and ADR-0001.
 
 _Avoid_: Input, Control, Widget (in form context), statePath
@@ -219,10 +222,11 @@ _Avoid_: Input, Control, Widget (in form context), statePath
 
 A `toasty::Embed` struct or enum stored in the parent row's flattened columns, bound as a **value**
 rather than leaf by leaf (GH #191, ADR-0019). `#[derive(EmbeddedForm)]` generates the flat-map ↔
-typed conversion and a `form(cx, parent)` of controls. An enum's variant is its **discriminant
-column**: hydration writes the stored variant into a visible `Select`, so a variant can be picked
-on create and changed on edit. Per-field overrides are `#[form(label = "…")]`,
-`#[form(textarea)]` and `#[form(textarea, rows = N)]`; an unknown key is a compile error. See
+typed conversion and a `form(cx, parent)`: one schema node holding the value's resolved fields,
+whose keys are its fields' keys. An enum's variant is its **discriminant column**: hydration writes
+the stored variant into a visible choice, so a variant can be picked on create and changed on edit.
+A field marked `#[form(embed)]` is a nested value, every other field a scalar. Per-field overrides
+are `#[form(label = "…")]` and `#[form(multiline = N)]`; an unknown key is a compile error. See
 [forms](docs/guide/src/forms.md).
 
 _Avoid_: Nested form, Sub-form, Composite field, Inline model
@@ -232,7 +236,7 @@ _Avoid_: Nested form, Sub-form, Composite field, Inline model
 The typed value a resource's form submission parses into (GH #369, ADR-0022):
 one struct, `#[derive(RecordForm)]`, with one field per model column the form writes, named
 and typed like the model's field. A scalar binds the key its control posts; an embedded value
-(`#[record_form(embed)]`) binds every key it occupies. The panel parses every submission into it,
+(`#[form(embed)]`) binds every key it occupies. The panel parses every submission into it,
 hydrates the edit and detail pages from it, and writes it through toasty's builders. See
 [forms](docs/guide/src/forms.md#the-record-form).
 
@@ -258,7 +262,7 @@ _Avoid_: Patch, Changes, Diff, Submission
 
 ### Uploader
 
-Where a `FileUpload`'s bytes go (GH #188, ADR-0017): a trait the app implements and installs once
+Where a file field's bytes go (GH #188, ADR-0017): a trait the app implements and installs once
 per Panel (`Panel::uploads`). `store(filename, bytes) -> Result<String, String>` receives the
 part's already-sanitized basename and returns the value the record stores; a refusal
 (`Err(reason)`) is an inline field error. With no uploader installed the sanitized basename is
