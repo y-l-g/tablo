@@ -270,10 +270,18 @@ path once.
   `accepts` for `parse_input` and gains `INPUT_TYPE`, which replaces the type-name timestamp check;
   it stays public as `tablo_core::schema::TypedValue`. A modifier on another control panics, naming
   the field. The unique probe compares through the field's own lens.
-- S7: `Group::variant` is removed with the per-request rebuild; the derive builds the node through a
-  hidden `EmbeddedBuilder`, and a view renders only the stored variant's group.
+- S7: `Group::variant` is removed. The derive builds the node through `EmbeddedBuilder`, and the
+  builder and parse helpers stay hidden (macro support) behind `__macro`, not removed. The node is
+  still built per request — once per codec call — so the "per-request rebuild" in *Removes* above
+  becomes one build per call rather than none. A view renders only the stored variant's group and the
+  shared columns it declares.
 - S26: both derives read one attribute, `#[form(..)]`: `#[form(model = ..)]`, `#[form(embed)]`,
-  `#[form(blank = ..)]`, `#[form(label = ..)]`, and `#[form(multiline = N)]`.
+  `#[form(blank = ..)]`, `#[form(label = ..)]`, and `#[form(multiline = N)]`. A derived leaf binds
+  through a hidden `Field::embedded_leaf` whose only bound is `FormScalar`, so a bad leaf type fails
+  once, at the field. A record-form field's path and key tokens are built once in the macro; each
+  generated fn still resolves the key at run time.
+- `unique()` implies presence only on a non-nullable column: an `Option` column stores NULL, which a
+  unique index admits many times.
 
 ### PR 4 — Loader
 
