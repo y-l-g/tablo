@@ -99,7 +99,7 @@ impl Page for LiveActivityPage {
                     )
                 )
                 tablo_ui::page_content(
-                    tablo_ui::card(
+                    tablo_ui::panel(
                         tablo_ui::card_header(tablo_ui::card_title("Newest users"))
                         tablo_ui::card_content(live_feed())
                     )

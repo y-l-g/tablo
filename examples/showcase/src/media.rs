@@ -180,7 +180,7 @@ impl Page for MediaLibraryPage {
                     )
                 )
                 tablo_ui::page_content(
-                    tablo_ui::card(
+                    tablo_ui::panel(
                         tablo_ui::card_header(tablo_ui::card_title("Upload"))
                         tablo_ui::card_content(
                             <form
@@ -235,7 +235,7 @@ impl Page for MediaLibraryPage {
                             </form>
                         )
                     )
-                    tablo_ui::card(
+                    tablo_ui::panel(
                         tablo_ui::card_header(tablo_ui::card_title("Stored media"))
                         tablo_ui::card_content(
                             <div class="flex flex-col gap-3">

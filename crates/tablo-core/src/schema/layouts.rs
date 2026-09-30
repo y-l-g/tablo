@@ -5,30 +5,15 @@
 
 use tablo_ui::{
     card_content, card_header, card_title, field_error as ui_field_error,
-    field_group as ui_field_group,
+    field_group as ui_field_group, panel,
 };
-use topcoat::{
-    Result,
-    context::Cx,
-    view::{StaticClass, class, *},
-};
+use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     Schema,
     fields::Field,
     tree::{IntoSchema, Mode, Source, render_nodes},
 };
-
-/// The one titled-group container: `Section` and `Repeater` render the same
-/// border-only panel, so every titled group on a form looks alike.
-///
-/// The shape is the `card` primitive's — rounded panel with header/content
-/// rhythm — without its opaque paint: no `bg-card`, no `shadow-sm`. Overlays
-/// keep the primitive as-is (dialogs, sheets and popovers sit above the page
-/// and need the fill and the shadow); a form panel sits on the page
-/// background, so it draws only its border.
-const PANEL: StaticClass =
-    class!("flex flex-col gap-5 rounded-xl border border-border py-6 text-card-foreground");
 
 /// Section — titled container with an optional child `Schema`.
 ///
@@ -75,13 +60,14 @@ impl Section {
             let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
             Ok(view! {
                 cx =>
-                <div class=(class!(PANEL, extra.clone()))>
+                panel(
+                    attrs: attributes! { class=(extra.clone().unwrap_or_default()) },
                     card_header(card_title((title)))
                     card_content(
                         attrs: attributes! { class="flex flex-col gap-6" },
                         (child_view)
                     )
-                </div>
+                )
             }
             .boxed())
         } else {
@@ -92,9 +78,10 @@ impl Section {
             // are children to space.
             Ok(view! {
                 cx =>
-                <div class=(class!(PANEL, extra.clone()))>
+                panel(
+                    attrs: attributes! { class=(extra.clone().unwrap_or_default()) },
                     card_header(card_title((title)))
-                </div>
+                )
             }
             .boxed())
         }
@@ -184,7 +171,8 @@ impl Grid {
 /// `required` means "the inner fields must not all be empty" and its error is
 /// keyed by label and rendered inline.
 ///
-/// The panel is `Section`'s panel: one container style for every titled group,
+/// The panel is the `tablo_ui::panel` composite `Section` renders: one
+/// container style for every titled group,
 /// with the title inside the box. A `Section` is the titled group; the
 /// repeater is only the repeat mechanism. `Group` draws no box.
 #[derive(Debug)]
@@ -237,11 +225,12 @@ impl Repeater {
             };
             return Ok(view! {
                 cx =>
-                <div
-                    class=(class!(PANEL, "ac-field"))
-                    role="group"
-                    aria-labelledby=(title_id.clone())
-                >
+                panel(
+                    attrs: attributes! {
+                        class="ac-field"
+                        role="group"
+                        aria-labelledby=(title_id.clone())
+                    },
                     card_header(
                         card_title(
                             attrs: attributes! { id=(title_id.clone()) },
@@ -254,7 +243,7 @@ impl Repeater {
                             <div class="grid gap-4">(child_view)</div>
                         )
                     }
-                </div>
+                )
             }
             .boxed());
         }
@@ -283,14 +272,15 @@ impl Repeater {
             let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
             Ok(view! {
                 cx =>
-                <div
-                    class=(class!(PANEL, container_class))
-                    role="group"
-                    aria-labelledby=(title_id.clone())
-                    data-invalid=(has_error.then_some("true"))
-                    aria-invalid=(if has_error { "true" } else { "false" })
-                    aria-describedby=(has_error.then_some(error_id.clone()))
-                >
+                panel(
+                    attrs: attributes! {
+                        class=(container_class)
+                        role="group"
+                        aria-labelledby=(title_id.clone())
+                        data-invalid=(has_error.then_some("true"))
+                        aria-invalid=(if has_error { "true" } else { "false" })
+                        aria-describedby=(has_error.then_some(error_id.clone()))
+                    },
                     card_header(
                         card_title(
                             attrs: attributes! { id=(title_id.clone()) class=(title_class) },
@@ -316,20 +306,21 @@ impl Repeater {
                             )
                         }
                     )
-                </div>
+                )
             }
             .boxed())
         } else {
             Ok(view! {
                 cx =>
-                <div
-                    class=(class!(PANEL, container_class))
-                    role="group"
-                    aria-labelledby=(title_id.clone())
-                    data-invalid=(has_error.then_some("true"))
-                    aria-invalid=(if has_error { "true" } else { "false" })
-                    aria-describedby=(has_error.then_some(error_id.clone()))
-                >
+                panel(
+                    attrs: attributes! {
+                        class=(container_class)
+                        role="group"
+                        aria-labelledby=(title_id.clone())
+                        data-invalid=(has_error.then_some("true"))
+                        aria-invalid=(if has_error { "true" } else { "false" })
+                        aria-describedby=(has_error.then_some(error_id.clone()))
+                    },
                     card_header(
                         card_title(
                             attrs: attributes! { id=(title_id.clone()) class=(title_class) },
@@ -354,7 +345,7 @@ impl Repeater {
                             )
                         )
                     }
-                </div>
+                )
             }
             .boxed())
         }
