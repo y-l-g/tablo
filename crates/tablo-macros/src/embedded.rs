@@ -259,11 +259,40 @@ fn read_member(
             )
         };
     }
+    let blank = declared_blank(member);
     let read = quote_spanned! {ty.span()=>
-        #krate::__macro::parse_leaf::<#ty>(node.key(#variant, #index), values)
+        #krate::__macro::parse_leaf::<#ty>(node.key(#variant, #index), values, #blank)
     };
     quote! {
         #krate::__macro::take_leaf(#read, &mut errors)
+    }
+}
+
+/// Member's declared blank answer, or `None` when it declares none.
+fn declared_blank(member: &Member) -> TokenStream2 {
+    let ty = &member.ty;
+    match &member.attrs.blank {
+        Some(expr) => quote_spanned! {ty.span()=>
+            ::std::option::Option::Some(::std::convert::Into::<#ty>::into(#expr))
+        },
+        None => quote! { ::std::option::Option::None },
+    }
+}
+
+/// Whether member's blank submission has an answer: a declared one, the
+/// scalar's own, or — for a nested value — every leaf of that value's.
+fn answers_blank(krate: &TokenStream2, member: &Member) -> TokenStream2 {
+    let ty = &member.ty;
+    if member.attrs.embed {
+        return quote_spanned! {ty.span()=>
+            <#ty as #krate::__macro::EmbeddedForm>::answers_blank()
+        };
+    }
+    if member.attrs.blank.is_some() {
+        return quote! { true };
+    }
+    quote_spanned! {ty.span()=>
+        <#ty as #krate::__macro::FormScalar>::blank().is_some()
     }
 }
 
@@ -295,13 +324,14 @@ fn collected_read(
     }
 }
 
-/// The trait impl plus the `form` constructor, around the three bodies.
+/// The trait impl plus the `form` constructor, around the four bodies.
 fn wrap(
     krate: &TokenStream2,
     input: &DeriveInput,
     build: TokenStream2,
     write: TokenStream2,
     read: TokenStream2,
+    answers_blank: TokenStream2,
 ) -> TokenStream2 {
     let ident = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -315,6 +345,10 @@ fn wrap(
                 M: #krate::__macro::Model,
             {
                 #build
+            }
+
+            fn answers_blank() -> bool {
+                #answers_blank
             }
 
             fn write_node(
@@ -377,7 +411,16 @@ fn expand_struct(krate: &TokenStream2, input: &DeriveInput, members: &[Member]) 
     };
     let write = quote! { #(#writes)* };
     let read = collected_read(krate, &quote! { Self }, members, &reads);
-    wrap(krate, input, build, write, read)
+    let blank = answers_blank_body(members.iter().map(|member| answers_blank(krate, member)));
+    wrap(krate, input, build, write, read, blank)
+}
+
+/// The conjunction of every leaf a submission always reaches: a value answers a
+/// blank submission when each of those leaves does. An empty conjunction is
+/// `true`, for a value with no such leaf.
+fn answers_blank_body(members: impl Iterator<Item = TokenStream2>) -> TokenStream2 {
+    let checks: Vec<TokenStream2> = members.collect();
+    quote! { true #(&& #checks)* }
 }
 
 /// The variant control, then per variant its members, its write arm, and its
@@ -465,7 +508,15 @@ fn expand_enum(
             ),
         }
     };
-    wrap(krate, input, build, write, read)
+    let blank = answers_blank_body(
+        variants
+            .iter()
+            .filter_map(|variant| variant.members.as_deref())
+            .flatten()
+            .filter(|member| member.shared)
+            .map(|member| answers_blank(krate, member)),
+    );
+    wrap(krate, input, build, write, read, blank)
 }
 
 #[cfg(test)]

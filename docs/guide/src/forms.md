@@ -94,8 +94,9 @@ What a submission does:
   filled from the stored record before validation and the parse, and the write assigns only the
   fields the submission named, plus the model's own `#[update(..)]` defaults and `#[version]` bump.
   An emptied control is posted, so it stores the field's blank answer; an emptied leaf of an
-  embedded value stores the leaf type's `Default` (ADR-0019), so an emptied `jiff::Timestamp` leaf
-  stores the Unix epoch. An API client can post one field of an edit.
+  embedded value follows the same rule — `""` for `String`, `None` for `Option<T>`, otherwise the
+  `#[form(blank = ..)]` answer the leaf declares, and a refusal inline when it declares none. An
+  API client can post one field of an edit.
 - **Errors render in one round.** Schema rules, the unique probe, a value the form's type refuses,
   and `validate_record` render inline with a 200 and write nothing. `validate_record` sees a whole
   form, so it runs once every field parses.

@@ -1,6 +1,6 @@
 # Record forms: a derived typed value, completed from the stored record
 
-Date: 2026-09-28 — Status: accepted — Amended: 2026-09-29
+Date: 2026-09-28 — Status: accepted — Amended: 2026-09-29, 2026-09-30
 
 ## Decision
 
@@ -10,7 +10,7 @@ typed like the model's field (GH #369). The derive binds each field through
 `M::fields().<ident>()` and asserts the field's type against the model's, so a renamed or retyped
 column is a compile error. Keys come from the framework at run time (`leaf_key`, `value_keys`),
 because an embedded leaf's key is its flattened storage column. A scalar (`String`, a `TypedValue`
-type, or an `Option` of one) binds one key; `#[record_form(embed)]` binds every key of an
+type, or an `Option` of one) binds one key; `#[form(embed)]` binds every key of an
 `EmbeddedForm` value and writes it whole.
 
 **2. The form lives on `Resource`, registered once (GH #382).** `type Form`, `CREATE_COLUMNS`,
@@ -31,9 +31,10 @@ and a concurrent write to it survives.
 
 **4. A blank resolves to the field's blank answer.** An emptied control is posted, so it is named
 and stores the field's blank answer: `""` for `String`, `None` for `Option<T>`, otherwise the
-`#[record_form(blank = ..)]` expression. With no answer the parse refuses the key inline. There is
-no `T::default()` answer for a scalar: `Uuid::default()` is the nil UUID. An embedded value keeps
-ADR-0019's leaf rule, so an emptied leaf stores its type's `Default`.
+`#[form(blank = ..)]` expression. With no answer the parse refuses the key inline. There is
+no `T::default()` answer for a scalar: `Uuid::default()` is the nil UUID. An embedded value's leaves
+take the same rule, the declared answer included (GH #371), so an emptied leaf of a type with no
+answer is refused on its key rather than storing the type's `Default`.
 
 **5. The record fns default to the derived write.** `write_create` stamps a gated resource's
 tenant column (found by `tenant_field_index`) with `Insert::set` and executes the create builder;
@@ -42,10 +43,13 @@ toasty asserts on an update with no assignment. An override that checks somethin
 transaction delegates to them.
 
 **6. `Panel::build` checks the struct against the schema.** Every control is bound by exactly one
-field and every field's key is a declared control; an optional control, or one inside a `Repeater`
-or a variant group (whose requiredness a submission can skip), binds a field that answers blank; a
+field and every field's key is a declared control; an optional control, or one inside a `Repeater`,
+binds a field that answers blank, an embedded value answering when each of its leaves does; a
 gated resource's form does not claim its tenant column; a resource with a record form overrides
-`form()`; and a `NoForm` resource declares no schema and allows neither create nor edit.
+`form()`; and a `NoForm` resource declares no schema and allows neither create nor edit. A control a
+submission can skip — an embedded enum's discriminant, which reaches the payload fallback, or a
+variant group's payload, which `variant.js` hides — is exempt: an empty one is not the submission's
+to answer for.
 
 **7. A create sets every non-nullable column.** Where `can_create` allows it, each non-nullable,
 non-relation column must be a form field, filled by toasty, the stamped tenant column, or named in
@@ -92,3 +96,10 @@ no discriminant hides nothing: the payload may name the variant) — fails the s
 error, where point 8's last consequence left that leaf failing closed silently. A rejected upload
 replaces the errors under its field's key, so its reason stands where "this field is required" would
 restate the symptom.
+
+**An embedded leaf takes the blank rule (GH #371).** Point 4's rule is the leaf's, wherever the leaf
+sits: `EmbeddedForm::answers_blank` reports whether every leaf has an answer, and
+`#[derive(EmbeddedForm)]` reads `#[form(blank = ..)]` on a leaf the way the record form reads it on a
+scalar. The derive's parse refuses a blank leaf with no answer on the leaf's own key, and point 6's
+check refuses the declaration. ADR-0019's `Default` rule for a blank leaf goes; an `Option<T>` leaf
+is the answer for a column that stores no value.

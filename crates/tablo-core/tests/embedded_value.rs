@@ -120,7 +120,14 @@ struct Flags {
 struct PostStats {
     #[form(label = "Word count")]
     word_count: i64,
+    #[form(blank = 0)]
     read_minutes: i64,
+}
+
+/// A leaf whose type answers a blank itself.
+#[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
+struct Caption {
+    text: Option<String>,
 }
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -133,6 +140,7 @@ struct Post {
     publication: Publication,
     media: Media,
     post_stats: PostStats,
+    caption: Caption,
     visibility: Visibility,
     wrapper: Wrapper,
     casing: Casing,
@@ -411,10 +419,9 @@ async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
     );
 }
 
-/// A typed leaf keeps its own spelling rule: `Display` out, `FromStr`
-/// back, and an empty submit is the type's default rather than a panic.
+/// A typed leaf keeps its own spelling rule: `Display` out, `FromStr` back.
 #[tokio::test]
-async fn typed_leaves_round_trip_and_default_when_empty() {
+async fn typed_leaves_round_trip() {
     let cx = post_cx().await;
     let stats = PostStats {
         word_count: 1200,
@@ -433,14 +440,67 @@ async fn typed_leaves_round_trip_and_default_when_empty() {
     let read: PostStats = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &values)
         .expect("the value reads");
     assert_eq!(read, stats);
+}
+
+/// A blank leaf takes its own answer, or is refused on its key: the scalar
+/// rule (ADR-0022 rule 4), never a silent `Default`.
+#[tokio::test]
+async fn a_blank_leaf_takes_its_answer_or_is_refused() {
+    let cx = post_cx().await;
+
+    // `read_minutes` declares `#[form(blank = 0)]`; `word_count` declares none.
+    let declared = map(&[
+        ("post_stats_word_count", "1200"),
+        ("post_stats_read_minutes", "  "),
+    ]);
+    let read: PostStats = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &declared)
+        .expect("the value reads");
+    assert_eq!(
+        read,
+        PostStats {
+            word_count: 1200,
+            read_minutes: 0,
+        },
+        "a declared blank answers itself"
+    );
 
     let empty = map(&[
-        ("post_stats_word_count", "  "),
+        ("post_stats_word_count", ""),
         ("post_stats_read_minutes", ""),
     ]);
-    let read: PostStats =
-        EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &empty).expect("the value reads");
-    assert_eq!(read, PostStats::default(), "an empty typed leaf defaults");
+    let errors = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &empty)
+        .expect_err("a leaf with no blank answer is refused");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].key, "post_stats_word_count");
+    assert_eq!(errors[0].kind, FieldErrorKind::Required);
+}
+
+/// A leaf type with a blank answer of its own: `Option` reads a blank as
+/// `None`.
+#[tokio::test]
+async fn an_optional_leaf_reads_a_blank_as_none() {
+    let cx = post_cx().await;
+
+    let read: Caption = EmbeddedForm::read_form(
+        &cx,
+        Post::fields().caption(),
+        &map(&[("caption_text", "  ")]),
+    )
+    .expect("the value reads");
+    assert_eq!(read, Caption { text: None });
+
+    let read: Caption = EmbeddedForm::read_form(
+        &cx,
+        Post::fields().caption(),
+        &map(&[("caption_text", "hi")]),
+    )
+    .expect("the value reads");
+    assert_eq!(
+        read,
+        Caption {
+            text: Some("hi".to_string())
+        }
+    );
 }
 
 /// A value the type cannot parse is refused on its own key, worded as the

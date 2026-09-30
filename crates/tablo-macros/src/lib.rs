@@ -41,7 +41,8 @@ use syn::DeriveInput;
 /// its own `EmbeddedForm`. Every other field is a **scalar**: one column, read
 /// and written through `FormScalar` (`String`, a `TypedValue` type, or an
 /// `Option` of one). A scalar of another type fails to compile at the field,
-/// naming the trait.
+/// naming the trait. An empty scalar is its `FormScalar::blank()` or its
+/// `#[form(blank = ..)]`; with neither, the parse refuses its key.
 ///
 /// # Which variant an enum reads
 ///
@@ -55,9 +56,11 @@ use syn::DeriveInput;
 /// - `#[form(embed)]` — a nested `EmbeddedForm` value.
 /// - `#[form(label = "Canonical URL")]` — the control's label (default: the field name, humanized).
 /// - `#[form(multiline = 3)]` — a `<textarea>` of 3 rows.
+/// - `#[form(blank = ..)]` — what an empty submission reads as, for a leaf whose type has no blank
+///   answer of its own.
 ///
-/// Anything else in `#[form(..)]` is a compile error, as are `label` and
-/// `multiline` on an embedded value.
+/// Anything else in `#[form(..)]` is a compile error, as are `label`, `multiline`, and `blank` on
+/// an embedded value.
 #[proc_macro_derive(EmbeddedForm, attributes(form))]
 pub fn embedded_form(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);

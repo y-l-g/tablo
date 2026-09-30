@@ -608,7 +608,7 @@ async fn post_edit_switches_the_publication_variant_explicitly() {
         } => {
             assert_eq!(
                 archived_at,
-                "2026-01-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap()
+                Some("2026-01-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap())
             );
             assert_eq!(reason, "superseded");
         }
@@ -678,7 +678,7 @@ async fn post_create_keeps_the_variant_its_payload_names() {
     assert_eq!(
         created.publication,
         Publication::Published {
-            published_at: "2026-03-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+            published_at: Some("2026-03-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap()),
             canonical_url: "https://example.com/new".to_string(),
         },
         "the submitted payload names the variant when no discriminant is posted"

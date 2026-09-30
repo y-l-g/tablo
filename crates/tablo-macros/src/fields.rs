@@ -13,7 +13,8 @@ use syn::{Type, spanned::Spanned};
 /// Which derive reads the attributes: each accepts its own keys.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Derive {
-    /// `#[derive(EmbeddedForm)]`: `embed`, `label = ".."`, `multiline = N`.
+    /// `#[derive(EmbeddedForm)]`: `embed`, `label = ".."`, `multiline = N`,
+    /// `blank = <expr>`.
     Embedded,
     /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`.
     Record,
@@ -52,11 +53,13 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             } else if meta.path.is_ident("multiline") && derive == Derive::Embedded {
                 let rows: syn::LitInt = meta.value()?.parse()?;
                 out.multiline = Some(rows.base10_parse()?);
-            } else if meta.path.is_ident("blank") && derive == Derive::Record {
+            } else if meta.path.is_ident("blank") {
                 out.blank = Some(meta.value()?.parse()?);
             } else {
                 let expected = match derive {
-                    Derive::Embedded => "`embed`, `label = \"…\"`, or `multiline = N`",
+                    Derive::Embedded => {
+                        "`embed`, `label = \"…\"`, `multiline = N`, or `blank = <expr>`"
+                    }
                     Derive::Record => "`embed` or `blank = <expr>`",
                 };
                 return Err(meta.error(format!("unknown `#[form(..)]` key: expected {expected}")));
@@ -75,10 +78,16 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                 field,
                 format!(
                     "{key} does not apply to an embedded value: its own fields declare their \
-                     controls, and its leaves read an empty key as `Default`"
+                     controls and their blank answers"
                 ),
             ));
         }
+    }
+    if out.blank.is_some() && last_segment(&field.ty).is_some_and(|name| name == "Option") {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            "an `Option` field's blank answer is `None`",
+        ));
     }
     Ok(out)
 }
@@ -88,6 +97,14 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
 pub(crate) fn assert_scalar(krate: &TokenStream2, ty: &Type) -> TokenStream2 {
     quote_spanned! {ty.span()=>
         #krate::__macro::assert_form_scalar::<#ty>();
+    }
+}
+
+/// The last path segment of `ty`, when it is a path.
+pub(crate) fn last_segment(ty: &Type) -> Option<String> {
+    match ty {
+        Type::Path(path) => path.path.segments.last().map(|s| s.ident.to_string()),
+        _ => None,
     }
 }
 

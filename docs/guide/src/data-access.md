@@ -89,8 +89,8 @@ renders, so no field the server still parses is lost; a read-only page renders o
 variant's group and the shared columns it declares. `Publication::form` is one schema node: its fields join the form's field list, and
 its keys are its fields' keys. Inside a value, a field marked `#[form(embed)]` is a nested value and
 every other field is a scalar (`FormScalar`), which a derive checks at the field.
-`#[form(label = "…")]` and `#[form(multiline = N)]` are the per-field overrides; an unknown key is
-a compile error. A
+`#[form(label = "…")]`, `#[form(multiline = N)]`, and `#[form(blank = ..)]` for a leaf whose type
+has no blank answer are the per-field overrides; an unknown key is a compile error. A
 `#[document]` inside a value, a relation, an enum nested inside an enum variant, and a tuple struct
 are not covered.
 

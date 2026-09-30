@@ -480,12 +480,16 @@ fn check_form_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             }
         }
         // Blank agreement: an empty submission must resolve wherever the
-        // schema lets one through.
+        // schema lets one through. A control a submission can skip — an
+        // embedded enum's discriminant, or a variant group's payload — is not
+        // asked for an answer.
         if field.answers_blank {
             continue;
         }
         if let Some(control) = controls.iter().find(|control| {
-            field.keys.contains(&control.name) && (!control.required || control.in_repeater)
+            field.keys.contains(&control.name)
+                && !control.skippable
+                && (!control.required || control.in_repeater)
         }) {
             let place = if control.in_repeater {
                 "sits inside a `Repeater`, so it may be posted empty"

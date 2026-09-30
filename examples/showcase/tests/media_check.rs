@@ -397,7 +397,7 @@ async fn a_picked_cover_renders_on_the_blog_post_page() {
             description: String::new(),
         },
         publication: Publication::Published {
-            published_at: "2024-03-01T09:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+            published_at: Some("2024-03-01T09:00:00Z".parse::<jiff::Timestamp>().unwrap()),
             canonical_url: String::new(),
         },
         author_id: author.id,

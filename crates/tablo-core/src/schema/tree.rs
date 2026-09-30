@@ -30,6 +30,21 @@ pub(crate) enum Node {
     Embedded(Box<Embedded>),
 }
 
+/// Where a field's control sits in the form, for the record form's
+/// blank-agreement check (`Panel::build` refuses an optional control whose
+/// record-form field has no blank answer).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum LeafPlace {
+    /// The form renders the control wherever the value is submitted, so an
+    /// empty submission reaches the field's rule.
+    #[default]
+    Rendered,
+    /// A submission can leave the control out: an embedded enum's discriminant
+    /// (empty reaches the payload fallback) or a variant group's payload
+    /// (`variant.js` hides the group).
+    Skippable,
+}
+
 /// Where a schema render reads field values and errors from, and which side of
 /// the record the render is for.
 ///
@@ -156,12 +171,12 @@ impl Node {
         }
     }
 
-    /// Visit every field slot under this node, with whether it sits inside an
-    /// embedded enum's variant group.
-    pub(crate) fn visit_fields(&self, f: &mut impl FnMut(usize, bool)) {
+    /// Visit every field slot under this node, with where its control sits in
+    /// the form.
+    pub(crate) fn visit_fields(&self, f: &mut impl FnMut(usize, LeafPlace)) {
         match self {
-            Node::Field(index) => f(*index, false),
-            Node::Embedded(e) => e.visit_fields(false, f),
+            Node::Field(index) => f(*index, LeafPlace::Rendered),
+            Node::Embedded(e) => e.visit_fields(LeafPlace::Rendered, f),
             _ => {
                 for child in self.children().unwrap_or_default() {
                     child.visit_fields(f);

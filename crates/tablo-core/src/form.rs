@@ -292,8 +292,10 @@ pub struct FormField<K> {
     /// The keys the field binds: one for a scalar, every key of an embedded
     /// value (an enum's discriminant first).
     pub keys: Vec<String>,
-    /// Whether an empty submission has an answer. Always `true` for an
-    /// embedded value, whose leaves read an empty key as `Default`.
+    /// Whether an empty submission has an answer: the field's refused only
+    /// where one of its keys can be posted empty with nothing to resolve it.
+    /// A scalar's is its type's or its declared `#[form(blank = ..)]`; an
+    /// embedded value's is its leaves' (`EmbeddedForm::answers_blank`).
     pub answers_blank: bool,
 }
 

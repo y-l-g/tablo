@@ -12,11 +12,13 @@ where it hydrates and writes. It never spells a column: each leaf is addressed b
 (`path_field`, variant-rooted for payloads) and resolved by the framework (`leaf_key`, `enum_spec`).
 The derive supplies the Rust shape, the schema supplies the storage, and neither re-derives the other.
 
-**2. A field is a leaf or a value, decided at macro time.** A type the panel can spell — `String`, plus
-every type with a `TypedValue` impl (`i8`…`i128`, `isize`, `u8`…`u128`, `usize`, `f32`, `f64`, `bool`,
-`Uuid`, `jiff::Timestamp`) — is one column; anything else (a relation, an `Option<T>`, a `#[document]`)
-fails at that bound rather than binding quietly. Per-field overrides are `#[form(label = "…")]`,
-`#[form(textarea)]` and `#[form(textarea, rows = N)]`; an unknown `#[form(..)]` key is a compile error.
+**2. A field is a leaf or a value, decided at macro time.** A type the panel can spell — `String`, a
+type with a `TypedValue` impl (`i8`…`i128`, `isize`, `u8`…`u128`, `usize`, `f32`, `f64`, `bool`,
+`Uuid`, `jiff::Timestamp`), or an `Option` of one — is one column; anything else (a relation, a
+nested value without `#[form(embed)]`, a `#[document]`) fails at that bound rather than binding
+quietly. Per-field overrides are `#[form(label = "…")]`, `#[form(multiline = N)]`, and
+`#[form(blank = ..)]` on a leaf whose type has no blank answer of its own; an unknown `#[form(..)]`
+key is a compile error.
 
 **3. The variant is the discriminant column.** An enum's `write_form` writes the discriminant and the
 active variant's leaves; its `read_form` reads the variant from the submitted discriminant in this
@@ -54,8 +56,9 @@ every resource, mechanical (`_cx` where unused) and documented as the upgrade co
 
 **6. What is not covered is part of the decision.** A `#[document]` inside an embedded value (its
 fields share one column: the walk refuses rather than hand one column back for several fields), a
-relation inside one, an `Option<T>`, an embedded enum nested inside an enum *variant* (value resolution
-starts at a model root; nesting inside structs works at any depth), and a tuple or unit struct. A
+relation inside one, an `Option` of a nested value, an embedded enum nested inside an enum *variant*
+(value resolution starts at a model root; nesting inside structs works at any depth), and a tuple or
+unit struct. A
 derived form's labels default to the humanized Rust field name (`Seo Title` → `Title`) and are
 overridable per field, and `Schema::extend` exists because `IntoSchema`'s tuple form stops at four
 nodes.
@@ -126,3 +129,9 @@ shared columns that variant declares.
 **`IntoRelationColumns` is gone.** A relation renders the related resource's list table (ADR-0016,
 2026-09-30 amendment), so the tuple ceiling of eight is shared by `IntoSchema`, `IntoColumns` and
 `IntoFilters`.
+
+**A blank leaf takes the scalar rule (GH #371).** Point 2's leaf decides a blank submission the way a
+record form's scalar does (ADR-0022 point 4): `String` answers `""`, `Option<T>` answers `None`,
+`#[form(blank = ..)]` declares any other answer, and a leaf with none refuses its key inline instead
+of storing its type's `Default`. `EmbeddedForm::answers_blank` reports the value's answer to
+`Panel::build`, which refuses a declaration whose optional control has none.

@@ -280,7 +280,7 @@ fn filler_embedded() -> (Seo, Publication) {
             description: String::new(),
         },
         Publication::Scheduled {
-            scheduled_at: "2024-07-01T09:00:00Z".parse::<Timestamp>().unwrap(),
+            scheduled_at: Some("2024-07-01T09:00:00Z".parse::<Timestamp>().unwrap()),
             scheduled_for: None,
         },
     )
@@ -347,7 +347,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
                 description: "How we render admin tables over Toasty.".to_string(),
             },
             publication: Publication::Published {
-                published_at: "2024-01-15T09:30:00Z".parse::<Timestamp>().unwrap(),
+                published_at: Some("2024-01-15T09:30:00Z".parse::<Timestamp>().unwrap()),
                 canonical_url: "https://example.com/hello-toasty".to_string(),
             },
             author_id: ada_author.id,
@@ -369,7 +369,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
                 description: "Draft notes on cursor pagination.".to_string(),
             },
             publication: Publication::Scheduled {
-                scheduled_at: "2024-07-01T09:00:00Z".parse::<Timestamp>().unwrap(),
+                scheduled_at: Some("2024-07-01T09:00:00Z".parse::<Timestamp>().unwrap()),
                 scheduled_for: Some("2024-08-01T09:00:00Z".parse::<Timestamp>().unwrap()),
             },
             author_id: alan_author.id,
