@@ -328,10 +328,11 @@ stored one.
   `TypedValue::NOUN`, as the schema's typed rule words it
   (`schema/validation.rs`).
 - **An embedded value** calls `EmbeddedForm::read_form`, which now returns
-  `Result<Self, Vec<FieldError>>`. A leaf takes the scalar rule: its declared
-  `#[form(blank = ..)]`, the type's own answer (`""` for `String`, `None` for
-  `Option<T>`), or a `Required` error on the leaf's key. A parse failure or an
-  undeclared discriminant is an `Invalid` error rather than a panic.
+  `Result<Self, Vec<FieldError>>`. A leaf keeps ADR-0019's rule: empty reads
+  as the leaf type's `Default`. A parse failure or an undeclared discriminant
+  is an `Invalid` error rather than a panic. An emptied leaf therefore stores
+  its type's `Default`: an emptied `jiff::Timestamp` leaf stores the Unix
+  epoch.
 
 A blank reaches the parse without a schema error in two designed cases:
 `walk_absent_groups` suppresses requiredness inside an all-empty `Repeater`
@@ -396,11 +397,9 @@ compiled schema an embedded key needs (`panel/build.rs:457`):
    one form field, and every claimed key is a declared field name. A control
    no field binds is reported first: that is the direction that silently drops
    data.
-2. **Blank agreement.** A field whose control is optional, or whose control
-   sits inside a `Repeater`, answers blank; an embedded value answers when
-   every leaf does (`EmbeddedForm::answers_blank`). A control a submission can
-   skip — an embedded enum's discriminant, or a variant group's payload — is
-   not asked, except that a payload inside a `Repeater` is.
+2. **Blank agreement.** A scalar field whose control is optional, or whose
+   control sits inside a `Repeater` or a variant group, answers blank.
+   Embedded fields are exempt because their leaves answer with `Default`.
 3. **Tenant ownership.** On a gated resource, no form field claims the column
    `tenant_field_index` finds.
 4. **Create columns.** Where `can_create` allows it, every non-nullable,
@@ -684,5 +683,6 @@ methods, and blank answers equal to the showcase's create defaults.
   `Comment` keep their own, with their distinct 500 and 404 classes.
 - **Request-dependent key sets.** Nothing in the `Schema` produces them today.
 - **Form-level errors** not tied to a field.
+- **A blank answer for embedded leaves.** They keep ADR-0019's `Default` rule.
 - **`#[document]` columns in a record form.**
 - **A `Resource` derive** (GH #222).

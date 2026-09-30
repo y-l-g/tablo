@@ -594,59 +594,6 @@ async fn build_refuses_a_repeater_control_with_no_blank_answer() {
 }
 
 #[tokio::test]
-async fn build_refuses_an_embedded_leaf_with_no_blank_answer() {
-    /// A leaf type with no blank answer of its own.
-    #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
-    struct Stats {
-        count: i64,
-    }
-
-    #[derive(Debug, Clone, toasty::Model)]
-    struct Counted {
-        #[key]
-        #[auto]
-        id: Uuid,
-        title: String,
-        stats: Stats,
-    }
-
-    #[derive(tablo_core::RecordForm)]
-    #[form(model = Counted)]
-    struct CountedForm {
-        #[form(embed)]
-        stats: Stats,
-    }
-
-    struct CountedResource;
-
-    impl Resource for CountedResource {
-        type Model = Counted;
-        type Form = CountedForm;
-
-        fn form(cx: &Cx) -> Schema {
-            Schema::new(Stats::form(cx, Counted::fields().stats()))
-        }
-
-        fn slug() -> String {
-            "counted".to_string()
-        }
-
-        fn table(_cx: &Cx) -> Table<Counted> {
-            Table::new(
-                |row: &Counted| row.id.to_string(),
-                TextColumn::r#for(Counted::fields().title(), |row: &Counted| row.title.clone()),
-            )
-        }
-    }
-
-    let error = form_build_error::<CountedResource>(memory_db(toasty::models!(Counted)).await);
-    assert!(
-        error.contains("`stats_count` is optional") && error.contains("no blank answer"),
-        "{error}"
-    );
-}
-
-#[tokio::test]
 async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
     /// A shared column: it renders outside the variant groups, whichever
     /// variant is chosen, so a blank submission always reaches it.

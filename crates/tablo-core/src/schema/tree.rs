@@ -33,11 +33,10 @@ pub(crate) enum Node {
 /// Where a field's control sits in the form, for the record form's
 /// blank-agreement check (`Panel::build` refuses an optional control, or one
 /// inside a `Repeater`, whose record-form field has no blank answer).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum LeafPlace {
     /// The form renders the control wherever the value is submitted, so an
     /// empty submission reaches the field's rule.
-    #[default]
     Rendered,
     /// A variant group's payload: `variant.js` hides the group of a variant the
     /// discriminant does not name, so a hidden payload is never read and a live

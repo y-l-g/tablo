@@ -124,25 +124,6 @@ struct PostStats {
     read_minutes: i64,
 }
 
-/// A leaf whose type answers a blank itself.
-#[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
-struct Caption {
-    text: Option<String>,
-}
-
-/// A leaf with no blank answer of its own, nested one value deep.
-#[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
-struct Span {
-    width: i64,
-}
-
-#[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
-struct Frame {
-    label: String,
-    #[form(embed)]
-    span: Span,
-}
-
 #[derive(Debug, Clone, toasty::Model)]
 struct Post {
     #[key]
@@ -153,8 +134,6 @@ struct Post {
     publication: Publication,
     media: Media,
     post_stats: PostStats,
-    caption: Caption,
-    frame: Frame,
     visibility: Visibility,
     wrapper: Wrapper,
     casing: Casing,
@@ -489,43 +468,12 @@ async fn a_blank_leaf_takes_its_answer_or_is_refused() {
     assert_eq!(errors[0].kind, FieldErrorKind::Required);
 }
 
-/// A leaf type with a blank answer of its own: `Option` reads a blank as
-/// `None`.
-#[tokio::test]
-async fn an_optional_leaf_reads_a_blank_as_none() {
-    let cx = post_cx().await;
-
-    let read: Caption = EmbeddedForm::read_form(
-        &cx,
-        Post::fields().caption(),
-        &map(&[("caption_text", "  ")]),
-    )
-    .expect("the value reads");
-    assert_eq!(read, Caption { text: None });
-
-    let read: Caption = EmbeddedForm::read_form(
-        &cx,
-        Post::fields().caption(),
-        &map(&[("caption_text", "hi")]),
-    )
-    .expect("the value reads");
-    assert_eq!(
-        read,
-        Caption {
-            text: Some("hi".to_string())
-        }
-    );
-}
-
-/// A value answers a blank when every leaf does, the nested ones included: the
-/// panel's build check reads this to refuse a declaration whose control can be
-/// posted empty with nothing to resolve it.
+/// A value answers a blank when every leaf does: the panel's build check reads
+/// this to refuse a declaration whose control can be posted empty with nothing
+/// to resolve it.
 #[tokio::test]
 async fn a_value_answers_a_blank_when_every_leaf_does() {
-    let cx = post_cx().await;
-
     assert!(Seo::answers_blank());
-    assert!(Caption::answers_blank(), "an `Option` leaf answers `None`");
     assert!(
         Media::answers_blank(),
         "a nested value's leaves answer with their own"
@@ -533,14 +481,6 @@ async fn a_value_answers_a_blank_when_every_leaf_does() {
     assert!(
         !PostStats::answers_blank(),
         "a bare `i64` leaf answers none"
-    );
-    assert!(!Frame::answers_blank(), "a nested value's bare leaf counts");
-    assert_eq!(
-        Frame::form(&cx, Post::fields().frame())
-            .fields()
-            .map(Field::name)
-            .collect::<Vec<_>>(),
-        ["frame_label", "frame_span_width"]
     );
 }
 
