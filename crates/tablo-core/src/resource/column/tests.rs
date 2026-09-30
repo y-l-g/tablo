@@ -1,0 +1,139 @@
+use super::*;
+use crate::test_support::User;
+
+/// GH #116: `%` and `_` in a search term are literal characters, not
+/// wildcards, and the term is wrapped for a substring match.
+#[test]
+fn search_pattern_escapes_like_metacharacters() {
+    assert_eq!(escape_like_pattern("Ada"), "%Ada%");
+    assert_eq!(escape_like_pattern("100%"), "%100\\%%");
+    assert_eq!(escape_like_pattern("a_b"), "%a\\_b%");
+    assert_eq!(escape_like_pattern("back\\slash"), "%back\\\\slash%");
+}
+
+#[test]
+fn text_column_searchable_produces_a_substring_pattern() {
+    let col = TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable();
+    assert!(
+        col.to_search_expr("Ada").is_some(),
+        "searchable should produce expr"
+    );
+    assert!(
+        TextColumn::r#for(User::fields().name(), |u| u.name.clone())
+            .to_search_expr("Ada")
+            .is_none(),
+        "non-searchable should be None"
+    );
+}
+
+#[test]
+fn text_column_sortable_produces_order_by() {
+    let col = TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable();
+    assert!(
+        col.to_order_by(false).is_some(),
+        "sortable should produce order_by"
+    );
+    assert!(
+        TextColumn::r#for(User::fields().name(), |u| u.name.clone())
+            .to_order_by(false)
+            .is_none(),
+        "non-sortable should be None"
+    );
+}
+
+#[test]
+fn text_column_renders_cells_via_typed_projection() {
+    let plain = TextColumn::r#for(User::fields().name(), |u| u.name.clone());
+    let decorated = TextColumn::r#for(User::fields().name(), |u| format!("{}!", u.name));
+    let row = User {
+        id: uuid::Uuid::nil(),
+        name: "Ada".to_string(),
+    };
+    assert_eq!(plain.render_cell(&row), "Ada");
+    assert_eq!(decorated.render_cell(&row), "Ada!");
+    assert_eq!(plain.name(), "name");
+    assert_eq!(plain.label(), "Name");
+}
+
+#[test]
+#[should_panic(expected = "searchable() on computed column")]
+fn computed_searchable_panics_loudly() {
+    let _ = TextColumn::computed("Status", |u: &User| u.name.clone()).searchable();
+}
+
+#[test]
+#[should_panic(expected = "sortable() on computed column")]
+fn computed_sortable_panics_loudly() {
+    let _ = TextColumn::computed("Status", |u: &User| u.name.clone()).sortable();
+}
+
+#[test]
+fn computed_columns_declare_no_predicate_chrome_agreement() {
+    let col = TextColumn::computed("Status", |u: &User| u.name.clone());
+    assert!(!col.is_searchable() && !col.is_sortable());
+    assert!(col.to_search_expr("x").is_none());
+    assert!(col.to_order_by(false).is_none());
+}
+
+/// GH #240: a column's kind picks its default width, `.width(..)`
+/// overrides it, and the declaration reaches the renderer as data — the
+/// CSS it writes on the `th`/`td`, never a Tailwind class.
+#[test]
+fn text_column_width_defaults_by_kind() {
+    let field = TextColumn::r#for(User::fields().name(), |u| u.name.clone());
+    assert_eq!(field.column_width(), ColumnWidth::Wide);
+
+    let computed = TextColumn::computed("Status", |u: &User| u.name.clone());
+    assert_eq!(computed.column_width(), ColumnWidth::Narrow);
+
+    let declared = computed.width(ColumnWidth::Percent(30));
+    assert_eq!(declared.column_width(), ColumnWidth::Percent(30));
+
+    // A wide column declares nothing at all: it takes the share the
+    // declared columns leave.
+    assert!(ColumnWidth::Wide.explicit_css().is_none());
+    assert!(ColumnWidth::Wide.default_percent().is_none());
+
+    // A kind default is a nominal share of the table, resolved by the
+    // renderer; an explicit width is emitted as written.
+    assert_eq!(ColumnWidth::Narrow.default_percent(), Some(10));
+    assert!(ColumnWidth::Narrow.explicit_css().is_none());
+    assert_eq!(
+        ColumnWidth::Rem(14).explicit_css().as_deref(),
+        Some("width: 14rem")
+    );
+    assert_eq!(
+        ColumnWidth::Percent(30).explicit_css().as_deref(),
+        Some("width: 30%")
+    );
+}
+
+/// GH #177: a column that reads no relation declares nothing, and repeat
+/// `.needs(..)` calls accumulate in declaration order.
+#[test]
+fn text_column_include_declarations_accumulate() {
+    let plain = TextColumn::r#for(User::fields().name(), |u| u.name.clone());
+    assert!(plain.include_names().is_empty());
+
+    let declared = TextColumn::computed("Audit", |u: &User| u.name.clone())
+        .needs(["author"])
+        .needs(["comments", "post"]);
+    assert_eq!(declared.include_names(), ["author", "comments", "post"]);
+}
+
+/// GH #177: the gathered set is what a resource's `export_query` asks, so
+/// membership and the empty case are the whole contract.
+#[test]
+fn include_needs_gathers_declarations() {
+    let needs: IncludeNeeds = ["author", "comments"].into_iter().collect();
+    assert!(needs.wants("author") && needs.wants("comments"));
+    assert!(!needs.wants("post"));
+    assert!(!needs.is_empty());
+
+    // The whole set up front, as a resource's `query` declares it.
+    let declared = IncludeNeeds::from(["author", "comments"]);
+    assert!(declared.wants("author") && declared.wants("comments"));
+
+    assert!(IncludeNeeds::default().is_empty());
+    assert!(!IncludeNeeds::default().wants("author"));
+}
