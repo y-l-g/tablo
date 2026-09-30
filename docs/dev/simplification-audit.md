@@ -9,24 +9,24 @@ Tablo is experimental: an item may break the public API, and none keeps a compat
 ## 1. Target state
 
 **Declaration.** One `Resource` trait declares a resource: its model, its record form, its list
-table, its policy, and its record functions. The form's schema also renders the detail page. One
-field type with a control discriminant covers text, multi-line text, choice, and file. Field
-metadata is resolved once when the schema is built.
+table, its policy, and its record functions. The detail page renders its own schema, whose keys are
+checked against the values it renders. One field type with a control discriminant covers text,
+multi-line text, choice, and file. Field metadata is resolved once when the schema is built.
 
 **List.** The URL query string is the only list state; the live shard and the GET path parse it with
-one function. One cursor type. One loader, used by the list, the shard, the export, and the
-benchmark. `Table` is a declaration plus pure planning, with no `Cx` and no `Db`. A page size cannot
-be zero by construction.
+one function. One cursor type. One public loader, used by the list, the shard, the export, a
+page-owned table, and the benchmark. `Table` is a declaration plus pure planning, with no `Cx` and
+no `Db`. A column declares the relations it reads as typed paths. Every table paginates, and a page
+size cannot be zero.
 
 **Mutation.** One write pipeline: auth, body, CSRF, transaction, scoped re-load, policy, record fn,
-commit, `after_commit`. Create and update customize it through a check hook. Delete and bulk delete
-share the create and update tail.
+commit, `after_commit`. Delete and bulk delete share the create and update tail.
 
 **View.** One render entry per widget, taking the state it renders. The skeleton and the loaded
 table derive their chrome from one source. One `<option>` renderer.
 
 **Infrastructure.** One authentication configuration (`Auth::disabled()` is the opt-out). One error
-vocabulary. One option source. No `auth` cargo feature.
+vocabulary. No `auth` cargo feature.
 
 ## 2. Order
 
@@ -37,8 +37,8 @@ order. Items inside a batch are listed in the order they apply.
 | --- | --- | --- |
 | 1. Tests | T1 | Mechanical, and every later diff reviews smaller. Nothing else is in flight. |
 | 2. Fixes and removals | S22, S8, S16, S13, removal list, doc claims | Bugs and dead surface; no redesign. |
-| 3. Mutation | S15, S9 | Small, and S9 settles the record-fn surface the declaration batch builds on. |
-| 4. Declaration | S4, S3, S6, S5, S7, S1 | S4's field list is what S3, S6, and S7 build on; S1 needs S3's modifier. |
+| 3. Mutation | S15 | Small, and changes the record-fn signatures before the declaration batch. |
+| 4. Declaration | S4, S3, S6, S5, S7, S1 | S4's field list is what S3, S6, S7, and S1 build on. |
 | 5. List | S12, S14, S11, S10, S2, S27 | S12 gives one loader to change; S10 and S27 then own the URL. |
 | 6. View | S17, S18, S19, S28 | Renders the list state batch 5 settles. |
 | 7. Infrastructure | S20, S24, S25, S26 | Independent; last because it touches every module. |
@@ -73,19 +73,19 @@ unauthenticated.
 
 **Change.** Pass through only GET and POST at the login path.
 
-**S8 — One name per resource.**
+**S8 — A singular label.**
 
 `navigation_label()` (`resource/mod.rs`) is plural and titles singular actions:
 `panel/list.rs`, `panel/forms/render.rs`, and `panel/forms/submit.rs` render `Create {label}`, and
 `panel/forms/submit.rs` and `panel/forms/common.rs` render `Edit {label}`, so the showcase serves
-"Create Blog Posts". `slug()` derives from the resource type and the label from the model type, so
-`StaffResource` over `User` is `/staff` labelled "Users".
+"Create Blog Posts".
 
-**Change.** Add `fn label() -> String`, singular, defaulted from the model type name. Derive
-`navigation_label()` as its plural and use `label()` in the action titles. A wrong plural costs one
-override, so the irregular, f-exception, and uncountable tables in `resource/naming.rs` go.
+**Change.** Add `fn label() -> String`, singular, defaulted from the model type name, as Filament's
+model label is. Derive `navigation_label()` as its plural through `pluralize`
+(`resource/naming.rs`), and use `label()` in the action titles. `slug()` keeps deriving from the resource type, so two
+resources over one model keep distinct routes.
 
-**Removes.** The wrong titles, the naming tables, and the two-source naming split.
+**Removes.** The wrong titles.
 
 **S16 — A working `delete_record` default.**
 
@@ -101,12 +101,18 @@ defaults to a loop over `delete_record`, so it works unchanged.
 **Removes.** The showcase macro and its four invocations, and a resource that builds and then fails
 on every delete.
 
-**S13 — `paginate(NonZeroUsize)`.**
+**S13 — Every table paginates; `paginate(NonZeroUsize)`.**
 
 `Table::paginate(per_page: usize)` (`table/mod.rs`) documents zero as a programmer error, then
-guards it in `Table::missing_essentials`, the load path, the render path, and `panel/build.rs`.
+guards it in `Table::missing_essentials`, the load path, the render path, and `panel/build.rs`. A
+table with no page size loads unbounded, and `load_table_page` (`panel/list.rs`) refuses it for a
+resource list.
 
-**Change.** Take `NonZeroUsize`. Delete the four guards and their tests.
+**Change.** A table paginates at 25 rows unless it declares otherwise, as Filament's tables do.
+`paginate` takes `NonZeroUsize`. Delete the zero guards, the unbounded branch, and the resource-list
+refusal, with their tests.
+
+**Removes.** Four zero guards, one refusal, and the unbounded load.
 
 **Removal list.** Each item has no caller in `crates/`, `examples/`, `benchmarks/`, or `xtask/`.
 
@@ -123,7 +129,6 @@ guards it in `Table::missing_essentials`, the load path, the render path, and `p
 | `RowActions` re-export | `lib.rs`; its only setter, `Table::row_actions`, is `pub(crate)` | drop from the re-export |
 | `live_search(bool)` | every call passes `true`; the default is `false` | `live_search()` |
 | `search(bool)` / `filter_bar(bool)` | only `search(false).filter_bar(false)` is called | `hide_search()` / `hide_filter_bar()` |
-| Unreferenced `tablo-ui` re-exports | `tablo-ui/src/lib.rs`; no reference outside `primitives/` | delete |
 | CI bench `cargo check` | `ci.yml` runs clippy `--all-targets` on the same manifest next | drop the step |
 
 **Doc claims.** `docs/dev/architecture.md` says `tablo-ui` owns ten browser scripts; there are
@@ -144,20 +149,6 @@ all four handlers. `delete_record` takes `&Self::Model` and `bulk_delete_records
 `&[Self::Model]`, so the handlers pass the snapshot and then move it into `Committed`.
 
 **Removes.** Three tails to one, and the pre-delete clones.
-
-**S9 — A check hook replaces the write delegation pair.**
-
-`create_record` and `update_record` (`resource/mod.rs`) default to the free functions
-`write_create`/`write_update` (`form.rs`). A resource that needs a check inside the transaction
-overrides the whole method and ends by calling the free function, because an override cannot call
-the default. The showcase does this for posts and comments.
-
-**Change.** `fn check_create(cx, &Self::Form, ex) -> Result<()>` and
-`fn check_update(cx, &Self::Model, &Posted<Self::Form>, ex) -> Result<()>`, defaulting to `Ok(())`,
-called inside the transaction after the parse and the unique probe. Delete `create_record`,
-`update_record`, `write_create`, and `write_update` from the public surface.
-
-**Removes.** Four public names to two, and the override-then-delegate pattern in the guide.
 
 ### Batch 4 — Declaration
 
@@ -181,10 +172,11 @@ read-only head, and the `required`/`optional`/`label` builders, across nine cons
 cannot bind. The `EmbeddedForm` derive already treats a textarea as a modifier
 (`#[form(textarea, rows = N)]`).
 
-**Change.** `Field { name, label, required, rules, control }` with
-`Control::{Text { input_type, rows }, Choice { .. }, File }`. Constructors: `Field::text(path)`,
-`Field::choice(path)`, `Field::file(path)`, each taking a resolved lens so the `_context` split
-disappears; `.multiline(rows)` replaces `Textarea`.
+**Change.** `Field { name, label, required, rules, control }` with `Control::{Text { input_type,
+rows }, Choice { .. }, File }`. Constructors: `Field::text(path)` for any `FormScalar` path
+(`String`, a `TypedValue`, or an `Option` of one), `Field::choice(path)`, and `Field::file(path)`,
+each taking a resolved lens so the `_context` split disappears. `.multiline(rows)` replaces
+`Textarea`; `.email()`, `.unique()`, and `.placeholder()` stay text-control modifiers.
 
 **Removes.** Four field types to one, nine constructors to three, and the `_context` asymmetry.
 
@@ -221,35 +213,33 @@ node property. Only `EmbeddedForm::{read_form, write_form}` stays public.
 
 **Removes.** Nine public items to one trait, and the per-request rebuild.
 
-**S1 — The form renders the detail page.**
+**S1 — Check the detail page's keys.**
 
-`Resource::view`, `view_values`, and `viewed` (`resource/mod.rs`) sit beside `Resource::form`.
-`view_values` has no override in the tree; `panel/detail.rs` renders `view()` from `view_values`
-extended by `R::Form::hydrate`, and nothing ties the map's keys to the schema's, so a renamed field
-renders blank. The showcase repeats its selects in `view` and `form` for users and posts.
+`panel/detail.rs` renders `R::view(cx)` from `view_values` extended by `R::Form::hydrate`. Nothing
+ties the map's keys to the schema's, so a field whose key neither supplies renders blank, silently.
 
-**Change.** Delete `view`, `view_values`, and `viewed`. The detail page renders `form(cx)` read-only
-from `R::Form::hydrate`; a `.detail_hidden()` field modifier omits a key, such as a foreign key the
-page shows through `view_relations`. A resource has a detail page when its form is not empty, and
-`can_view` gates it; a `NoForm` resource has none. Amend ADR-0016 and ADR-0022.
+**Change.** A view field whose key is absent from the map renders `(missing)` and trips a
+`debug_assert!`, the contract the list columns keep for an unloaded relation (ADR-0011). `view`,
+`view_values`, and `viewed` stay: like Filament's infolist, the detail page has its own layout,
+shows keys the form does not, and exists for a list-only resource.
 
-**Removes.** Three trait methods, the showcase's second schemas, and the view/values drift.
+**Removes.** The silent blank.
 
 ### Batch 5 — List
 
 **S12 — Split the loader out of `Table`.**
 
 `Table<M>` (`table/mod.rs`) holds its declaration beside `apply_declaration`, `load`, and
-`load_with_probe`. `pub Table::load`'s only non-test caller is the benchmark, which pairs it with
-`scoped_query` to mirror `panel::load_table_page`, a `pub(crate)` function it cannot call. Every
-production path paginates: the panel refuses a table with no page size (`panel/list.rs`), so the
-unpaginated branch serves only `pub Table::load`.
+`load_with_probe`. The panel calls the `pub(crate)` `load_with_probe` through `load_table_page`
+(`panel/list.rs`); a page-owned table and the benchmark call `pub Table::load`, and the benchmark
+pairs it with `scoped_query` to mirror `load_table_page`.
 
 **Change.** `Table` keeps the declaration and pure planning, with no `Cx` and no `Db`. The loader
-moves to the panel and is published as `ListPage::<R>::load(cx)`, which the list, the shard, and the
-benchmark call. Delete `pub Table::load` and the unpaginated branch.
+moves beside the list as one public `ListPage::load(cx, &table, query, &state)`; the panel passes
+the scoped query, and a page-owned table and the benchmark pass their own. Delete `Table::load` and
+`load_with_probe`.
 
-**Removes.** One public method, the benchmark's mirror, and the `Db` a `Table` test needs.
+**Removes.** The loader's second entry, the benchmark's mirror, and the `Db` a `Table` test needs.
 
 **S14 — One pager for the list and the export.**
 
@@ -281,28 +271,31 @@ hidden transport, the signals, the shard arguments, `from_live_args`, and the no
 every control already renders the complete URL in its `href`. The state has three spellings: URL
 parameter, signal field, and the `after:`/`before:` wire.
 
-**Change.** `TableSignals` becomes one `Signal<String>` holding the list's query string, still keyed
-by list path. A control writes its own `href` query; the shard takes `(path, query)` and parses it
-with `TableState::from_query`, the GET path's parser. Delete `from_live_args`, the cursor-wire
-helpers, `TableSearchArgs`, and the per-field signal plumbing. One string needs no struct-typed
-signal, so this closes #337.
+**Change.** `TableSignals` becomes two signals, still keyed by list path: `query`, the list's query
+string, and `bulk`, the selection, which is not URL state and survives a rerun. A control writes its
+own `href` query; the shard takes `(path, query)` and parses it with `TableState::from_query`, the
+GET path's parser. Delete `from_live_args`, the cursor-wire helpers, `TableSearchArgs`, and the
+per-field signal plumbing. Two strings need no struct-typed signal, so this closes #337.
 
 **Removes.** Two of the three state spellings, and the "GET and live agree" tests, since one parser
 serves both.
 
-**S2 — Name the two loader queries; delete the include declaration.**
+**S2 — Typed column includes.**
 
-`IncludeNeeds` (`resource/column.rs`) is non-empty at two call sites, the list (`panel/list.rs`) and
-the export (`panel/actions/export.rs`), and both pass the union of every column's `needs`. Every
-other loader passes `IncludeNeeds::default()`. A wrong name in `TextColumn::needs` is not a compile
-error: it renders `"(unloaded)"` or panics in `Deferred::get`.
+A column declares the relations it reads by name (`TextColumn::needs`, `resource/column.rs`). The
+list and the export gather them into `IncludeNeeds` and hand it to `Resource::query_with` or
+`export_query` (`resource/mod.rs`), and the resource matches the names back to includes by hand: the
+showcase's `base(needs)` helpers. Every other loader passes `IncludeNeeds::default()` through
+`scoped_query_with`. A wrong name is not a compile error: the cell renders `"(unloaded)"` or panics
+in `Deferred::get`.
 
-**Change.** Keep the narrowing, which is real, and name it: `fn query(cx)` for the list, detail, and
-export, and `fn query_record(cx)` for options, probes, and write re-loads. Delete `IncludeNeeds`,
-`TextColumn::needs`, `include_names`, `Table::include_needs`, `query_with`, `export_query`, and
-`scoped_query_with`.
+**Change.** A column declares a typed path, `.include(Post::fields().author())`, and the loader
+applies the list's includes itself, as Filament eager-loads a column's relationship. `query(cx)` is
+row scoping only, used by every loader; `view_query(cx)` defaults to it and adds the detail page's
+includes. Delete `IncludeNeeds`, `TextColumn::needs`, `include_names`, `Table::include_needs`,
+`query_with`, `export_query`, and `scoped_query_with`.
 
-**Removes.** Two trait methods, the include declaration, and its runtime failure mode.
+**Removes.** Three trait methods to two, the name-matching helpers, and the wrong-name failure mode.
 
 **S27 — One URL parameter per filter.**
 
@@ -386,32 +379,31 @@ infrastructure failures. A crate `TabloError` enum (`Cursor`, `CursorRejected`, 
 
 **Removes.** Two error-map vocabularies, one duplicate mapping, and classification by downcast.
 
-**S25 — Delete the `OptionSource` shim; share the column machinery.**
+**S25 — Share the column machinery.**
 
-`OptionSource` (`schema/relationship.rs`) and its blanket impl (`resource/mod.rs`) forward
-`can_view_any`, `can_view`, `requires_tenant`, and `slug`, and derive `search_expr` and `order_by`
-from `R::table()`. It exists so `schema` does not depend on `resource`, for one non-`Resource`
-implementor (`examples/showcase/src/media.rs`). Separately, `resource/relation.rs` redeclares
-`WIDE_COLUMN_MIN_REM` from `render/core.rs`, re-derives the width arithmetic in `relation_widths`,
-and duplicates `into_columns_tuples!` as `into_relation_columns_tuples!`.
+`resource/relation.rs` redeclares `WIDE_COLUMN_MIN_REM` from `render/core.rs`, re-derives the width
+arithmetic in `relation_widths`, and duplicates `into_columns_tuples!` as
+`into_relation_columns_tuples!`.
 
-**Change.** Make the media library a `Resource` and let `Select::relationship` take `R: Resource`;
-delete the shim. Share the width arithmetic and the tuple macro.
+**Change.** Share the width arithmetic and the tuple macro.
 
-**Removes.** One trait, its blanket impl, and the second column implementation.
+**Removes.** The second column implementation.
 
 **S26 — One field classifier for both derives.**
 
-`tablo-macros/src/embedded.rs` hardcodes the leaf type names, duplicating the `TypedValue` impls in
-`schema/validation.rs` with no test linking the two. `record_form.rs` never classifies a field, so a
-`Vec<String>` form field reaches rustc as E0277 on generated tokens with no field span. Each
-record-form field emits and resolves its path and key three times.
+`tablo-macros/src/embedded.rs` classifies a leaf by type name against `PRIMITIVES`, which duplicates
+the `TypedValue` impls with no test linking the two and refuses an app type that implements
+`TypedValue`, which the guide invites. `record_form.rs` marks an embedded field with
+`#[record_form(embed)]` and binds every other field as a scalar unchecked, so a `Vec<String>` field
+reaches rustc as E0277 on generated tokens with no field span. Each record-form field emits and
+resolves its path and key three times.
 
-**Change.** One `tablo-macros/src/fields.rs` with `enum FieldKind { Scalar, Embedded, Other }` and
-shared attribute parsing. Both derives refuse `Other` with a spanned error naming the fix. Bind each
-field's key and path once.
+**Change.** One `tablo-macros/src/fields.rs` shared by both derives: a field is embedded when marked
+`#[form(embed)]`, and a scalar otherwise. A scalar emits a `FormScalar` bound assertion spanned on
+the field, so the error names the field and the fix. Delete `PRIMITIVES`. Bind each field's key and
+path once.
 
-**Removes.** One of two field walkers, and an unspanned E0277.
+**Removes.** The type-name table, one of two field walkers, and an unspanned E0277.
 
 ### Batch 8 — Guide
 
@@ -440,6 +432,14 @@ Each of these looks like a simplification until it is read.
   `Sec-Fetch-Site`, and it costs one hidden field.
 - **Carrying an upload across a re-render.** `Uploader::holds` and the `keep_` control keep a chosen
   file when a validation error re-renders the form; dropping them makes the user pick it again.
+- **The record fns.** `create_record` and `update_record` are the full override of a write, as
+  Filament's `handleRecordCreation` is: an app sets server-side fields, writes related rows, or
+  checks inside the transaction, then delegates to `write_create`/`write_update`. A check-only hook
+  would cover the showcase and lose the rest.
+- **`OptionSource`.** A relationship select draws from any source, not only a `Resource`: the
+  showcase's cover picker reads the media library, a custom page with no list or form.
+- **The `tablo-ui` re-exports.** An app builds its own pages from them (the showcase's live page
+  uses `tablo_ui::page`), so an unused one is an unused building block, not dead code.
 - **The security boundaries.** `sanitize_filename`, `is_windows_reserved_name`, and the RFC 5987
   decoder (`panel/forms/decode.rs`) cover a surface no crate in the tree covers; the CSRF compare is
   constant-time; `infrastructure_failure` keeps driver text out of responses.
