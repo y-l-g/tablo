@@ -27,13 +27,17 @@ contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
 - `examples/showcase/tests/` — the integration suite: HTTP requests against the
   runnable admin, asserting status codes, redirects, rendered structure, and
   database state.
-- `#[cfg(test)] mod tests` at the bottom of a source file — unit tests for pure
-  decisions (escaping, state decoding, hook contracts).
+- `tests.rs` beside a source file — unit tests for pure decisions (escaping,
+  state decoding, hook contracts). The source file ends with
+  `#[cfg(test)] mod tests;`, and the module's body lives in `foo/tests.rs` for
+  `foo.rs`, or in `tests.rs` beside a `mod.rs` or `lib.rs`. Every crate follows
+  this; `crates/tablo-ui/src/components/primitives/` is vendored and carries no
+  tests.
 - `crates/tablo-ui/assets/*.test.js` — the browser-asset suites, run with
   `node --test`. Each suite's header names the behavior it protects; DOM halves
   are covered by the integration suite instead.
 - `xtask/tests/it.rs` — the two contract guards (asset hooks, registry sync);
-  edge cases live as unit tests in `xtask/src/lib.rs`.
+  edge cases live as unit tests in `xtask/src/tests.rs`.
 
 ## Shared harness
 

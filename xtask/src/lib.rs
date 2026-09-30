@@ -715,7 +715,8 @@ fn contains_hook(haystack: &str, needle: &str) -> bool {
 
 /// Source text with test modules and comment-only lines dropped.
 ///
-/// `#[cfg(test)]` sections are cut out by brace nesting, and any line whose
+/// `#[cfg(test)]` items are cut out: a braced one by brace nesting, a bodiless
+/// one (`mod tests;`, a `use`, a `const`) at its `;`. Any line whose
 /// first non-space characters are `//` (or `//!`, `///`, `/*`, `*`) is dropped:
 /// a hook named in an assertion or a doc comment is not a hook the markup
 /// renders. Only whole-line comments are removed, so trailing `// data-x`
@@ -724,7 +725,7 @@ fn contains_hook(haystack: &str, needle: &str) -> bool {
 fn production_sources(src: &str) -> String {
     let mut out = String::with_capacity(src.len());
     let mut rest = src;
-    // Drop `#[cfg(test)]` modules, brace-counted from the attribute.
+    // Drop `#[cfg(test)]` items: to the matching brace, or to a bodiless `;`.
     while let Some(at) = rest.find("#[cfg(test)]") {
         out.push_str(&rest[..at]);
         let after = &rest[at + "#[cfg(test)]".len()..];
@@ -734,6 +735,10 @@ fn production_sources(src: &str) -> String {
         let mut seen_open = false;
         for (i, c) in chars.by_ref() {
             match c {
+                ';' if !seen_open => {
+                    end = i + 1;
+                    break;
+                }
                 '{' => {
                     depth += 1;
                     seen_open = true;
@@ -748,13 +753,7 @@ fn production_sources(src: &str) -> String {
                 _ => {}
             }
         }
-        // No opening brace (a bare `#[cfg(test)]` on one item): drop that one
-        // item's line rather than the rest of the file.
-        rest = if seen_open {
-            &after[end..]
-        } else {
-            after.split_once('\n').map(|(_, tail)| tail).unwrap_or("")
-        };
+        rest = &after[end..];
     }
     out.push_str(rest);
     out.lines()
@@ -767,13 +766,17 @@ fn production_sources(src: &str) -> String {
 }
 
 /// Concatenate the workspace's Rust sources with test modules and comment lines
-/// removed, for the hook contract's Rust half.
+/// removed, for the hook contract's Rust half. A `tests.rs` file is a test
+/// module declared `#[cfg(test)] mod tests;`, so it is skipped whole.
 fn rust_sources(root: &Path) -> anyhow::Result<String> {
     let mut out = String::new();
     for dir in ["crates/tablo-ui/src", "crates/tablo-core/src"] {
         let mut files = Vec::new();
         collect_rs(&root.join(dir), &mut files)?;
         for path in files {
+            if path.file_name().is_some_and(|name| name == "tests.rs") {
+                continue;
+            }
             let src = std::fs::read_to_string(&path)?;
             out.push_str(&production_sources(&src));
             out.push('\n');
@@ -889,65 +892,4 @@ pub fn verify_asset_hooks() -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The strip that makes the Rust half mean something: a hook kept alive only
-    /// by an assertion, a doc comment or a trailing annotation must not count.
-    #[test]
-    fn production_sources_drops_test_modules_and_comment_lines() {
-        let src = r#"
-attrs: attributes! { data-real-hook="" },
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn marks_the_hook() {
-        assert!(html.contains("data-test-only-hook"));
-        // data-comment-only-hook
-    }
-}
-
-// A trailing note about data-line-comment-hook.
-fn after() { render("data-after-hook") }
-"#;
-        let stripped = production_sources(src);
-        assert!(
-            contains_hook(&stripped, "data-real-hook"),
-            "a render-site hook must survive the strip: {stripped}"
-        );
-        assert!(
-            contains_hook(&stripped, "data-after-hook"),
-            "code after a test module must survive it: {stripped}"
-        );
-        assert!(
-            !contains_hook(&stripped, "data-test-only-hook"),
-            "a hook named only in an assertion must not count: {stripped}"
-        );
-        assert!(
-            !contains_hook(&stripped, "data-comment-only-hook"),
-            "a hook named only in an indented comment must not count: {stripped}"
-        );
-        assert!(
-            !contains_hook(&stripped, "data-line-comment-hook"),
-            "a hook named only in a whole-line comment must not count: {stripped}"
-        );
-    }
-
-    /// A test module is cut by brace nesting, not by "everything after the
-    /// attribute" — otherwise one `#[cfg(test)]` would hide the rest of the
-    /// file and every hook below it would read as retired.
-    #[test]
-    fn production_sources_keeps_code_after_a_nested_test_module() {
-        let src = "fn a() {}\n#[cfg(test)]\nmod tests {\n    fn b() { let x = \"}\"; }\n}\nfn tail() { \"data-tail\" }\n";
-        let stripped = production_sources(src);
-        assert!(
-            contains_hook(&stripped, "data-tail"),
-            "the module must close at its own brace: {stripped}"
-        );
-        assert!(
-            !stripped.contains("mod tests"),
-            "module must be gone: {stripped}"
-        );
-    }
-}
+mod tests;
