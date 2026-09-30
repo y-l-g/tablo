@@ -85,13 +85,7 @@ the shard's wire arguments and `TableSignals` are unchanged, and a mutation carr
 in addition to the POST it always made. `mutation-submit.js` joins the shell assets (ADR-0014) with
 `data-mutation-submit`, `data-table-revision`, `data-boundary` and `data-sonner-toaster` as its hook
 contract, and its pure decisions — which region a response hands over, which keys a write removed,
-which submits it answers — are covered by `node --test`. `Table::live_search` defaults to false, so
+which submits it answers — are covered by `node --test`. `Table::live_search` is opt-in, so
 the shard path is the one a resource opts into: all four showcase resources do, and every other
 table — a downstream app's included — takes the wholesale replacement, which is exercised only by
 suppressing the control on a live page.
-
-A page that renders a live table without a shard around it (`Table::render_live_with_state`, GH #154
-§2) carries the same control, but its dependency attaches to the page unit instead: writing it
-re-runs the page, not a shard. That rerun re-renders the whole document, and its morph drops the
-toast the client just inserted — the response carries none (the flash was consumed), and the toast
-sits before the toaster shard's start marker, outside the content the morph keeps.

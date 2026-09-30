@@ -72,7 +72,7 @@ async fn live_lists_declare_distinct_signal_ids() {
                     true
                 }
                 fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                    dummy_table(cx).paginate(25).live_search(true)
+                    dummy_table(cx).paginate(25).live_search()
                 }
             }
         };
@@ -172,7 +172,7 @@ async fn live_search_host_and_shard_dispatch() {
                 Dummy::fields().featured(),
             ))
             .paginate(1)
-            .live_search(true)
+            .live_search()
         }
     }
 
@@ -477,7 +477,7 @@ async fn live_search_input_debounces_keystrokes() {
                 .sortable(),
             )
             .paginate(25)
-            .live_search(true)
+            .live_search()
         }
     }
 
@@ -595,111 +595,6 @@ async fn read_only_resource_hides_delete_chrome() {
     assert!(
         !html.contains("/edit") && !html.contains(">Edit<"),
         "read-only list must not render edit actions, got {html}"
-    );
-}
-
-#[tokio::test]
-async fn unpaginated_resource_list_fails_loud_without_loading() {
-    // a resource list without `Table::paginate` fails loudly in
-    // the table region instead of unbounded-loading the whole table — the
-    // seeded row must not render, and the branded error state must.
-
-    use http_body_util::BodyExt;
-
-    use crate::resource::Resource;
-
-    struct UnpaginatedResource;
-    impl Resource for UnpaginatedResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
-        }
-    }
-
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    toasty::create!(Dummy {
-        name: "Ada".to_string(),
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let router = panel_for::<UnpaginatedResource>(db)
-        .build()
-        .expect("panel builds");
-    let resp = router
-        .handle(
-            http::Request::builder()
-                .uri("/admin/dummies")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert!(resp.status().is_success());
-    let body = resp.into_body().collect().await.unwrap().to_bytes();
-    let html = String::from_utf8_lossy(&body);
-    assert!(
-        html.contains("Couldn't load Dummies"),
-        "unpaginated list must render the error state, got {html}"
-    );
-    assert!(
-        !html.contains("Ada"),
-        "unpaginated list must not load rows, got {html}"
-    );
-}
-
-#[tokio::test]
-async fn unpaginated_table_load_stays_unbounded() {
-    // the guard lives on the list path (`load_table_page`), not
-    // the `None` branch itself — page-owned tables keep loading
-    // unbounded through `Table::load` directly.
-    use topcoat::context::CxTestBuilder;
-
-    use crate::resource::{Table, TableState, TextColumn};
-
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    for name in ["Ada", "Bob", "Cara"] {
-        toasty::create!(Dummy {
-            name: name.to_string(),
-        })
-        .exec(&mut db)
-        .await
-        .unwrap();
-    }
-    let cx = CxTestBuilder::new().app_context(db).build();
-    let table = Table::<Dummy>::new(
-        |d: &Dummy| d.id.to_string(),
-        TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
-    );
-    assert!(table.page_size().is_none());
-    let page = table
-        .load(
-            &cx,
-            toasty::stmt::Query::<toasty::stmt::List<Dummy>>::all(),
-            &TableState::default(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        page.rows.len(),
-        3,
-        "unpaginated tables keep the unbounded branch"
     );
 }
 

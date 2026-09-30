@@ -50,33 +50,6 @@ pub fn read_minutes(words: usize) -> i64 {
     }
 }
 
-/// Generate `delete_record` for a resource whose record fns delete through the
-/// resource's own tenant-scoped query, one row at a time, inside the handler's
-/// transaction. Bulk delete rides the framework default, which loops this fn.
-macro_rules! delete_through_query {
-    ($model:ident) => {
-        fn delete_record(
-            cx: &Cx,
-            record: $model,
-            ex: &mut dyn toasty::Executor,
-        ) -> impl std::future::Future<Output = Result<()>> + Send
-        where
-            Self: Sized,
-        {
-            let cx = cx.clone();
-            async move {
-                Self::query(&cx)
-                    .filter($model::fields().id().eq(record.id))
-                    .delete()
-                    .exec(&mut *ex)
-                    .await
-                    .map_err(|e| -> topcoat::Error { e.into() })?;
-                Ok(())
-            }
-        }
-    };
-}
-
 // ---------------------------------------------------------------------------
 // Resource — single Model → Resource, see CONTEXT.md
 // ---------------------------------------------------------------------------
@@ -172,8 +145,7 @@ impl Resource for UserResource {
                 }),
             ),
         )
-        .paginate(25)
-        .live_search(true)
+        .live_search()
     }
 
     fn view(_cx: &Cx) -> Schema {
@@ -201,8 +173,6 @@ impl Resource for UserResource {
         crate::live::notify();
         Ok(())
     }
-
-    delete_through_query!(User);
 }
 
 /// What the user form writes. `role`, `active`, and `age` are optional
@@ -234,8 +204,8 @@ impl Resource for AuthorResource {
         ))
     }
 
-    fn navigation_label() -> String {
-        "Writers".to_string()
+    fn label() -> String {
+        "Writer".to_string()
     }
 
     // No `query` override: the framework ANDs `tenant_id = <tenant>`
@@ -277,11 +247,8 @@ impl Resource for AuthorResource {
                     .searchable(),
             ),
         )
-        .paginate(25)
-        .live_search(true)
+        .live_search()
     }
-
-    delete_through_query!(Author);
 }
 
 /// What the author form writes. The tenant is the framework's to stamp on
@@ -408,8 +375,8 @@ impl Resource for PostResource {
         write_update::<Self>(cx, record, posted, ex).await
     }
 
-    fn navigation_label() -> String {
-        "Blog Posts".to_string()
+    fn label() -> String {
+        "Blog Post".to_string()
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
@@ -648,11 +615,8 @@ impl Resource for PostResource {
             ),
         ))
         .group_by("status", |p: &Post| p.status.clone())
-        .paginate(25)
-        .live_search(true)
+        .live_search()
     }
-
-    delete_through_query!(Post);
 }
 
 /// What the post form writes: every column but the tenant (stamped by the
@@ -906,11 +870,8 @@ impl Resource for CommentResource {
                 .needs(["post"]),
             ),
         )
-        .paginate(25)
-        .live_search(true)
+        .live_search()
     }
-
-    delete_through_query!(Comment);
 }
 
 /// What the comment form writes.

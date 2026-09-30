@@ -106,19 +106,6 @@ impl Resource for AuditedResource {
         .paginate(25)
     }
 
-    async fn delete_record(
-        _cx: &Cx,
-        record: Note,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        Note::filter(Note::fields().id().eq(record.id))
-            .delete()
-            .exec(&mut *ex)
-            .await
-            .map_err(|error| -> topcoat::Error { error.into() })?;
-        Ok(())
-    }
-
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
         audit(cx, &committed).await
     }

@@ -61,11 +61,14 @@ the same 404, while a row the caller may not view is a 403.
 
 Create, update, delete, and bulk delete run the same shape:
 
-1. `enforce_auth`, `enforce_tenant`, and the matching `can_*` check.
+1. `enforce_auth`, `enforce_tenant`, and the policy check that needs no transaction: `can_create`
+   for a create, `can_delete_any` for a delete or bulk delete, and `can_view` plus `can_update` on
+   the stored record for an update.
 2. For a form: on an edit, complete the keys the submission did not post from the stored record;
    then validate, which also resolves relationship fields against the related resource's query.
-3. Open a framework-owned transaction and re-load the target through the scoped query, so policy is
-   checked against the row that is about to be written rather than the submitted id.
+3. Open a framework-owned transaction, re-load the target through the scoped query, and check
+   `can_view` plus `can_update` or `can_delete` on that row, so policy is checked against the row
+   that is about to be written rather than the submitted id.
 4. For a form: re-complete the unposted keys from that row, run the unique probe, parse the values
    into the resource's record form, and run `validate_record`; any error re-renders the form.
 5. Call the resource's record function inside that transaction.
@@ -107,7 +110,7 @@ The toolkit ships no client framework. Two Topcoat mechanisms cover the interact
 
 - **`suspense`** streams a region's content after the first render. The resource list uses it so the
   page shell and skeleton arrive first and the table swaps in.
-- **Shards** re-render a region in place. A table with `Table::live_search(true)` hands its chrome to
+- **Shards** re-render a region in place. A table with `Table::live_search()` hands its chrome to
   the page's `TableSignals`: search, sort, filters, and pagination write signals, the shard re-renders
   the table, and Topcoat morphs the result in place so focus and scroll survive.
 
@@ -117,7 +120,7 @@ streamed region.
 
 ## Assets
 
-`tablo-ui` owns ten browser scripts under `crates/tablo-ui/assets/`. They are loaded through
+`tablo-ui` owns eleven browser scripts under `crates/tablo-ui/assets/`. They are loaded through
 `asset!`, so they have no build step. Each one is wired to a constant in `tablo-ui/src/lib.rs`,
 and a test guards the pairing: `cargo test -p xtask` runs `shell_assets_match_hook_contract`, which
 fails when an asset is missing or a hook no longer appears in both its JavaScript and the Rust that

@@ -33,16 +33,13 @@ create page, the edit page, and the relationship options
 Every item except `Model`, `Form`, and `table()` is defaulted, so a resource names its model and
 its form and declares its list view, and any other omission has to fail loudly instead of quietly:
 
-- **At `Panel::build`** (which returns `Result<Router>`): the declared table must serve a list, so
-  `paginate(0)` fails the build. A
+- **At `Panel::build`** (which returns `Result<Router>`): a
   `NoForm` resource whose `can_create` is on, or whose `form()` declares a schema,
   fails the build, since it serves no form; a record form must agree with its `form()` schema
   ([Forms](./forms.md#the-record-form)). `table()`, `form()` and
   `can_create()` are declarations: `Panel::build` calls them with a Db-only context to check them,
   and each list and form request calls `table()` / `form()` again, so a declaration must not need
   request-scoped context.
-- **At request time, loudly**: `delete_record` defaults to an error naming the type ("delete not
-  implemented for …"), so a missing implementation never looks like a successful no-op.
 - **Chrome follows the declarations, gated per record**: the row Delete control, the bulk column,
   and the bulk bar render when `can_delete_any()` allows, the Edit link when the resource has a
   record form, and the View link when it declares `view()`. `can_delete_any()` defaults to `false`
@@ -60,7 +57,10 @@ its form and declares its list view, and any other omission has to fail loudly i
 
 ## What to know
 
-- `slug()` and `navigation_label()` have working defaults. Override only to rename.
+- `slug()`, `label()`, and `navigation_label()` have working defaults. `label()` is one record's
+  name, used in the "Create" and "Edit" titles; `navigation_label()` pluralizes it for the sidebar
+  and the list title. Override `label()` to rename, and `navigation_label()` only for a plural the
+  rules cannot guess.
 - `navigation()` curates this resource's sidebar entry: override it to change the label, the `order`
   (lower renders first, ties keep declaration order) or the URL, e.g.
   `NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }`. The URL is the Panel's
@@ -119,7 +119,9 @@ impl Resource for PostResource {
   hands the created one back and a Toasty instance update reloads the model, so both are already in
   hand — because that is the only way the framework can name what a write committed (GH #112). The
   derived `write_update` ends with the reloaded record, and a model used by a `Resource` derives
-  `Clone`.
+  `Clone`. `delete_record` defaults to deleting the row by its record key through `scoped_query`,
+  and `bulk_delete_records` loops over `delete_record`, so one override (a soft delete, say) covers
+  both.
 - `after_commit(cx, committed)` is the post-commit seam (GH #112): called once per committed write,
   after the transaction and before the response, with a `Committed` naming the mutation
   (`Mutation::Create/Update/Delete`) and the rows it wrote (a bulk delete is one call with all of

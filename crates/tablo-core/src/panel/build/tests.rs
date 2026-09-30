@@ -126,75 +126,11 @@ async fn a_star_slug_builds_and_resolves() {
     );
 }
 
-/// The explicit opt-out is the acknowledgement `build` requires, so an app
-/// that asks for an ungated panel gets one.
-#[cfg(not(feature = "auth"))]
+/// CSRF does not depend on authentication: with `Auth::disabled()` there is
+/// no gate, and a create POST without a matching `csrf_token` is still 403,
+/// so opting out of sessions does not drop the double-submit check.
 #[tokio::test]
-async fn build_accepts_the_explicit_opt_out() {
-    use crate::resource::Resource;
-
-    struct DummyResource;
-    impl Resource for DummyResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
-        }
-    }
-
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    panel_for::<DummyResource>(db)
-        .build()
-        .expect("the explicit opt-out builds the panel");
-}
-
-/// The feature-off build has no gate, so it refuses a panel that has not
-/// acknowledged that (ADR-0013): serving ungated stays a line of app code,
-/// never a side effect of trimming dependencies.
-#[cfg(not(feature = "auth"))]
-#[tokio::test]
-async fn build_refuses_an_unacknowledged_ungated_panel() {
-    use crate::resource::Resource;
-
-    struct DummyResource;
-    impl Resource for DummyResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
-        }
-    }
-
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    let Err(error) = Panel::new("admin")
-        .app_context(db)
-        .resource::<DummyResource>()
-        .build()
-    else {
-        panic!("an ungated panel must not build without the auth feature");
-    };
-    assert!(
-        format!("{error}").contains("auth"),
-        "the error must name the missing auth feature, got {error}"
-    );
-}
-
-/// CSRF does not depend on the `auth` feature: with the gate
-/// compiled out, a create POST without a matching `csrf_token` is still
-/// 403, so dropping sessions does not drop the double-submit check.
-#[cfg(not(feature = "auth"))]
-#[tokio::test]
-async fn csrf_is_enforced_without_the_auth_feature() {
+async fn csrf_is_enforced_with_auth_disabled() {
     use crate::{
         resource::Resource,
         schema::{Schema, TextInput},
@@ -252,7 +188,6 @@ async fn csrf_is_enforced_without_the_auth_feature() {
 
 /// GH #102: `Panel::dark_mode` is the theme a first-time visitor gets. It
 /// must reach the rendered document's `<html class>`.
-#[cfg(feature = "auth")]
 #[tokio::test]
 async fn dark_mode_sets_the_document_class() {
     let db = Db::builder()
@@ -656,62 +591,6 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         .expect("a keyed table with a detail view builds");
 }
 
-/// A keyed table can still misdeclare the one essential the constructor
-/// does not settle: a page size no list can serve. The build refuses it,
-/// naming the resource, rather than letting the first request carry it.
-#[tokio::test]
-async fn panel_build_rejects_a_table_that_cannot_serve_its_list() {
-    use crate::resource::{Resource, Table, TextColumn};
-
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        nickname: String,
-    }
-
-    struct ZeroPageResource;
-    impl Resource for ZeroPageResource {
-        type Model = Subscriber;
-        type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "subscribers".to_string()
-        }
-        fn table(_cx: &Cx) -> Table<Subscriber> {
-            Table::new(
-                |s: &Subscriber| s.id.to_string(),
-                TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
-                    s.nickname.clone()
-                }),
-            )
-            .paginate(0)
-        }
-    }
-
-    let db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    let panel = Panel::new("admin")
-        .app_context(db)
-        .auth(crate::Auth::disabled());
-
-    let Err(error) = panel.resource::<ZeroPageResource>().build() else {
-        panic!("a table that paginates at zero must not build");
-    };
-    let message = format!("{error}");
-    assert!(
-        message.contains("ZeroPageResource"),
-        "the error must name the resource whose table cannot serve a list, got {error}"
-    );
-    assert!(
-        message.contains("per_page > 0"),
-        "the error must name the page-size contract, got {error}"
-    );
-}
-
 /// The marker is a property of the declaration, not of the policy serving
 /// it: a read-only resource — `can_create` denied, the default —
 /// still fails the build on an unbacked `unique()`, so fixing the policy
@@ -953,6 +832,23 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
         }
     }
 
+    /// A page of no rows: `Table::paginate` asserts on zero.
+    struct ZeroPageResource;
+    impl Resource for ZeroPageResource {
+        type Model = Doc;
+        type Form = crate::NoForm<Self::Model>;
+        fn slug() -> String {
+            "docs".to_string()
+        }
+        fn table(_cx: &Cx) -> Table<Doc> {
+            Table::new(
+                |d: &Doc| d.id.to_string(),
+                TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
+            )
+            .paginate(0)
+        }
+    }
+
     let db = Db::builder()
         .models(toasty::models!(Doc))
         .connect("sqlite::memory:")
@@ -979,6 +875,15 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
     let error = format!("{error}");
     assert!(
         error.contains("panicked while declaring") && error.contains("single-field lens"),
+        "the panic's own message must survive into the registration error, got {error}"
+    );
+
+    let Err(error) = panel().resource::<ZeroPageResource>().build() else {
+        panic!("a zero page size must not build");
+    };
+    let error = format!("{error}");
+    assert!(
+        error.contains("panicked while declaring") && error.contains("page size"),
         "the panic's own message must survive into the registration error, got {error}"
     );
 }
@@ -1020,7 +925,6 @@ async fn panel_mounts_runtime_page_rerun_routes() {
 /// The panel root answers the gate before reading `RootRedirect`
 /// (defense in depth): a mis-mounted gate must not leak the
 /// first resource's slug via the redirect target.
-#[cfg(feature = "auth")]
 #[tokio::test]
 async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
     use topcoat::{context::CxTestBuilder, router::response::IntoResponse};

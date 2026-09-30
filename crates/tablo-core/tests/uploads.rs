@@ -11,9 +11,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[cfg(feature = "auth")]
-use http::header::LOCATION;
-use http::header::{CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, X_CONTENT_TYPE_OPTIONS};
+use http::header::{
+    CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, LOCATION, X_CONTENT_TYPE_OPTIONS,
+};
 use tablo_core::{
     Auth, FileUpload, Panel, Resource, Schema, Table, TextColumn, TextInput, Uploader,
 };
@@ -133,7 +133,6 @@ async fn seeded_db() -> Db {
 /// The same DB, with the shipped auth models registered so a panel can be
 /// built with the gate **on** (the default): `Panel::build` refuses a panel
 /// whose `AdminUser`/`AuthSession` pair is missing.
-#[cfg(feature = "auth")]
 async fn auth_seeded_db() -> Db {
     memory_db(toasty::models!(
         Doc,
@@ -848,7 +847,6 @@ async fn serve_dir_serves_the_upload_directory_through_the_panel() {
     assert_eq!(missing.status(), 404);
 }
 
-#[cfg(feature = "auth")]
 #[tokio::test]
 async fn a_served_directory_is_reachable_without_a_session() {
     // ADR-0017 (decision 2026-09-22): a served directory is **public**. The

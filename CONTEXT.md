@@ -101,7 +101,7 @@ Row chrome follows the resource's declarations (`TableChrome`, GH #383) and is g
 bulk checkbox. The handler's all-or-nothing check stays as
 the safety net for a hand-crafted POST.
 
-A `live_search(true)` table hands its chrome to the page's `TableSignals`: the shard's tracked
+A `live_search()` table hands its chrome to the page's `TableSignals`: the shard's tracked
 reads re-render the table in place when search, sort, filters, or pagination write a signal
 (GH #151). See [tables](docs/guide/src/tables.md) and ADR-0003.
 

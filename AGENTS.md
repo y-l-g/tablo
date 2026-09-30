@@ -2,9 +2,9 @@
 
 ## Commands
 
-The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): ten commands
+The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): eight commands
 mirroring `.github/workflows/ci.yml`. Run it via `cargo xtask check` (fail-fast),
-or the ones covering your change; all ten before merging. CI also runs the extra
+or the ones covering your change; all eight before merging. CI also runs the extra
 checks listed there (docs, detached-bench fmt, bench-check).
 
 ```sh

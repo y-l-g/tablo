@@ -22,10 +22,7 @@ pub mod __macro {
 }
 // The toolkit surface: Panel, Resource, Table, Schema, Notification,
 // Tenancy, CSRF, and the `Db` glue.
-#[cfg(feature = "auth")]
 pub mod auth;
-#[cfg(not(feature = "auth"))]
-mod auth_off;
 pub mod csrf;
 pub mod cursor;
 pub mod db;
@@ -40,10 +37,7 @@ pub mod tenancy;
 mod test_support;
 pub mod upload;
 
-#[cfg(feature = "auth")]
 pub use auth::{Auth, Authenticator, CurrentUser, PasswordAuth};
-#[cfg(not(feature = "auth"))]
-pub use auth_off::Auth;
 pub use form::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
     write_create, write_update,
@@ -53,7 +47,7 @@ pub use panel::{Brand, DarkMode, Panel};
 pub use resource::{
     ColumnWidth, Committed, DateFilter, Filter, IncludeNeeds, IntoFilters, IntoRelationColumns,
     MAX_RELATION_ROWS, Mutation, NavTarget, NavigationItem, RelationColumn, RelationColumns,
-    Resource, RowActions, RowKey, SelectFilter, Sort, Table, TablePage, TableSignals, TableState,
+    Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableSignals, TableState,
     TernaryFilter, TextColumn, VariantFilter, render_relation, scoped_query,
 };
 pub use schema::{

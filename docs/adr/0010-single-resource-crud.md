@@ -34,7 +34,8 @@ A `Resource` registered on a `Panel` is fully writable on the framework's existi
   (`notification::live_toast` plus the shell's `live_toaster`).
 - **Table** parses `?q=`/`?sort=`/`?dir=`/`?after=`/`?before=` into `TableState` once. The declared
   default ordering and `?sort=` resolution are one entry point,
-  `Table::order_bys_for(state, OrderMode)`, whose mode selects the list or export PK fallback, and
+  `Table::order_bys_for(state)`, which falls back to the primary key so cursor pagination has a
+  deterministic order, and
   `Table::apply_declaration` is the one routine that turns search, filters and ordering into a query
   for both loaders. The live shard is the slug-dispatched `table_search` behind `Table::live_search`,
   fed by the page's `TableSignals`. Row identity in `view!` loops is a loop-level `#[key(...)]` taken

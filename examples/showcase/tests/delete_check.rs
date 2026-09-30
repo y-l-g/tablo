@@ -276,18 +276,6 @@ async fn forged_delete_runs_no_record_query() {
                 TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
             )
         }
-        async fn delete_record(
-            _cx: &topcoat::context::Cx,
-            record: Dummy,
-            ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<()> {
-            Dummy::filter(Dummy::fields().id().eq(record.id))
-                .delete()
-                .exec(&mut *ex)
-                .await
-                .map_err(|e| -> topcoat::Error { e.into() })?;
-            Ok(())
-        }
     }
 
     let mut db = Db::builder()

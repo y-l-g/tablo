@@ -110,32 +110,13 @@ impl<M> Table<M> {
     }
 
     /// The filter bar for a live table, rendered eagerly by the page that owns
-    /// the signals — the counterpart of [`Self::render_live_search_bar`].
+    /// the signals — the counterpart of [`Self::render_live_search_bar_normalized`].
     ///
     /// Hoisting matters for focus: a `<select>` change writes the `filters`
     /// signal, and a bar rebuilt by that rerun would collapse the native popup
     /// and drop keyboard context. The table renders without the bar
-    /// (`Table::filter_bar(false)`), so the control the user touched is never
+    /// (`Table::hide_filter_bar`), so the control the user touched is never
     /// replaced.
-    pub async fn render_live_filter_bar<'a>(
-        &self,
-        cx: &'a Cx,
-        state: &TableState,
-        path: &str,
-        signals: &TableSignals,
-    ) -> Result<BoxView<'a>>
-    where
-        M: toasty::schema::Model,
-    {
-        // Called with raw page state: normalize so the no-JS
-        // fallback form carries the same normalized values the GET path would.
-        self.render_live_filter_bar_normalized(cx, &self.normalize_state(state), path, signals)
-            .await
-    }
-
-    /// [`Self::render_live_filter_bar`] with the state already normalized
-    /// the panel's live page renders the hoisted bar from the
-    /// request's one normalized state.
     pub(crate) async fn render_live_filter_bar_normalized<'a>(
         &self,
         cx: &'a Cx,

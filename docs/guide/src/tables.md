@@ -34,8 +34,9 @@ Notes:
   ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. `sortable()` sorts with
   `?sort=` and `?dir=`. Both work without JS.
 - The URL is the state: `?q=`, `?sort=`, `?dir=`, `?after=`, `?before=`, `?filters=`, `?group_by=`
-  parse into `TableState`. Pagination is cursor based; Toasty appends the PK tie-breaker internally
-  so cursors stay deterministic.
+  parse into `TableState`. Every table paginates, at 25 rows unless `.paginate(n)` sets another
+  size; pagination is cursor based, and Toasty appends the PK tie-breaker internally so cursors stay
+  deterministic.
 - Columns render in a fixed layout (`table-fixed`): a column's width is the one its header declares, not
   the widest cell on the current page, so filtering, sorting or paging never re-measures the columns.
   Widths are percentages of the table, so what a table declares is a share of its container rather than a
@@ -95,7 +96,7 @@ Grouping and export:
 Live updates:
 
 ```rust
-Table::new(|u: &User| u.id.to_string(), columns).live_search(true)
+Table::new(|u: &User| u.id.to_string(), columns).live_search()
 ```
 
 Search, sort, filter, and pager controls then refresh the table in place without a full page load.

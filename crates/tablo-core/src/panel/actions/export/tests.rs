@@ -800,7 +800,7 @@ async fn export_and_list_agree_on_rows_and_order() {
     // compares the rows and their order.
     use std::collections::HashMap;
 
-    use crate::resource::{OrderMode, Resource, SelectFilter, Sort, TableState, TextColumn};
+    use crate::resource::{Resource, SelectFilter, Sort, TableState, TextColumn};
 
     #[derive(Debug, Clone, toasty::Model)]
     struct Task {
@@ -901,23 +901,6 @@ async fn export_and_list_agree_on_rows_and_order() {
     assert_eq!(
         listed, exported,
         "the export must agree with the list on rows and order"
-    );
-
-    // The two modes differ only where they must: an unordered table pins
-    // the export to the PK, while the list keeps the query unordered.
-    let unsorted = crate::resource::Table::<Task>::new(
-        |t: &Task| t.id.to_string(),
-        TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
-    );
-    let neutral = TableState::default();
-    assert!(
-        unsorted.order_bys_for(&neutral, OrderMode::List).is_empty(),
-        "an unpaginated list keeps its query unordered"
-    );
-    assert_eq!(
-        unsorted.order_bys_for(&neutral, OrderMode::Export).len(),
-        1,
-        "the chunked export walk needs a deterministic order"
     );
 }
 

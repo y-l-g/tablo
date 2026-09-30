@@ -12,7 +12,7 @@ use super::super::{
 
 impl<M> Table<M> {
     /// Previous/Next pagination links from the executed page's real cursors.
-    /// Empty when the table is not paginated or the page has no neighbors —
+    /// Empty when the page has no neighbors —
     /// no invented page numbers. Links preserve the search and sort state;
     /// cursors travel via `?after=`/`?before=`.
     ///
@@ -26,9 +26,6 @@ impl<M> Table<M> {
         page: &TablePage<M>,
         signals: Option<&TableSignals>,
     ) -> Result<Vec<BoxView<'a>>> {
-        if self.page_size.is_none() {
-            return Ok(Vec::new());
-        }
         // Cursors only carry ordering values; the loader re-applies search and
         // sort, so the links must carry that state along.
         let next_href = page

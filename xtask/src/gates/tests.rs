@@ -269,8 +269,8 @@ fn check_runs_gates_in_order_then_docs_fmt_and_lockstep() {
     assert_eq!(
         progs,
         vec![
-            "cargo", "cargo", "cargo", "cargo", "topcoat", "git", "cargo", "cargo", "cargo",
-            "node", "cargo", "cargo", "cargo", "mdbook", "cargo", "cargo", "cargo",
+            "cargo", "cargo", "cargo", "topcoat", "git", "cargo", "cargo", "node", "cargo",
+            "cargo", "cargo", "mdbook", "cargo", "cargo", "cargo",
         ]
     );
 }

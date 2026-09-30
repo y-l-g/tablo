@@ -7,34 +7,6 @@ use crate::{
 };
 
 #[tokio::test]
-async fn paginate_zero_is_a_render_error_not_a_panic() {
-    let cx = CxTestBuilder::new().build();
-    let rows = vec![User {
-        id: uuid::Uuid::nil(),
-        name: "Ada".to_string(),
-    }];
-    // Zero page size is a programmer error: a descriptive error
-    // the streamed list renders in-region, never a per-request panic.
-    let zero = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .paginate(0);
-    let page: TablePage<User> = rows.into();
-    let err = match zero
-        .render_with_state(&cx, page, &TableState::default(), "/admin/users")
-        .await
-    {
-        Ok(_) => panic!("paginate(0) must error"),
-        Err(err) => err,
-    };
-    assert!(
-        err.to_string().contains("per_page > 0"),
-        "error must name the contract, got {err}"
-    );
-}
-
-#[tokio::test]
 async fn group_by_survives_pager_and_labels_page_local_counts() {
     let cx = CxTestBuilder::new().build();
     let grouped = Table::<User>::new(

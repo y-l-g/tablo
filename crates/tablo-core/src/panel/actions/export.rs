@@ -11,7 +11,7 @@ use topcoat::{
 use super::super::gate::gate;
 use crate::{
     db::db,
-    resource::{OrderMode, Resource, Table, TableState},
+    resource::{Resource, Table, TableState},
 };
 
 /// Max receivable rows an export will deliver: the chunked walk
@@ -248,12 +248,9 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
 /// The visibility scan passes an empty `needs`; the streaming pass passes
 /// [`Table::include_needs`], the relations its columns declared.
 ///
-/// The list and the export differ only in the seed query and the ordering mode:
-/// the list loads the tenant-scoped `Resource::query_with` with
-/// [`OrderMode::List`], the export the tenant-scoped narrowed `export_query`
-/// with [`OrderMode::Export`] — whose PK fallback applies whether or not the
-/// table paginates, because the chunked cursor walk needs a deterministic order
-/// either way. Both pay the same scope, so a gated resource cannot export
+/// The list and the export differ only in the seed query: the list loads the
+/// tenant-scoped `Resource::query_with`, the export the tenant-scoped narrowed
+/// `export_query`. Both pay the same scope, so a gated resource cannot export
 /// unscoped.
 fn export_base_query<R: Resource>(
     cx: &Cx,
@@ -262,7 +259,7 @@ fn export_base_query<R: Resource>(
     needs: &crate::resource::IncludeNeeds,
 ) -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>> {
     let seed = crate::resource::apply_tenant_scope::<R>(cx, R::export_query(cx, needs))?;
-    Ok(table.apply_declaration(seed, state, OrderMode::Export))
+    Ok(table.apply_declaration(seed, state))
 }
 
 /// One cursor-chunked pass over an export base query.

@@ -12,14 +12,14 @@ use topcoat::{
 
 use super::{
     super::{
-        forms::{parse_form_body, truthy},
+        forms::{commit_write, parse_form_body, truthy},
         gate::{gate, list_url},
     },
     fetch::composite_pk_error,
 };
 use crate::{
     db::db,
-    notification::{Notification, notify_write_failure, set_notification},
+    notification::{Notification, set_notification},
     resource::{Committed, Resource},
 };
 
@@ -112,25 +112,20 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             }
             // All checks passed — perform bulk delete inside the tx, then
             // commit once. Any error drops `tx` uncommitted: zero rows
-            // deleted, never half-applied.
-            // The hook names the whole batch: a bulk delete is one
-            // write, so it is one `after_commit` call, not one per row. Keeping
-            // a copy is the price of that (bounded by `MAX_BULK_IDS`); handing
-            // the rows over by reference would mean changing two record-fn
-            // signatures for a copy this small.
-            let committed_rows = rows.clone();
-            if let Err(error) = R::bulk_delete_records(cx, rows, &mut tx).await {
-                notify_write_failure(cx, WRITE_BULK_DELETE);
-                // Same seam as the row delete.
-                return Err(crate::db::hook_failure(error));
-            }
-            if let Err(error) = tx.commit().await {
-                notify_write_failure(cx, WRITE_BULK_DELETE);
-                return Err(crate::db::unavailable(error));
-            }
-            crate::resource::run_after_commit::<R>(cx, Committed::deleted(committed_rows)).await;
-            set_notification(cx, Notification::success("Bulk deleted"));
-            Err(see_other(list_url(cx, &R::slug())).into())
+            // deleted, never half-applied. The hook names the whole batch: a
+            // bulk delete is one write, so it is one `after_commit` call.
+            let written = R::bulk_delete_records(cx, &rows, &mut tx)
+                .await
+                .map(|()| rows);
+            commit_write::<R, _>(
+                cx,
+                tx,
+                written,
+                Committed::deleted,
+                "Bulk deleted",
+                WRITE_BULK_DELETE,
+            )
+            .await
         },
     )))
 }

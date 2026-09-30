@@ -40,7 +40,6 @@ fn retry_signal_id(html: &str) -> &str {
 /// The live-search shard answers the gate before the registry lookup
 /// an unauthenticated probe cannot distinguish a registered
 /// slug from an unregistered one.
-#[cfg(feature = "auth")]
 #[tokio::test]
 async fn search_shard_answers_auth_before_the_registry_lookup() {
     use topcoat::{context::CxTestBuilder, router::response::IntoResponse};
@@ -172,7 +171,7 @@ async fn live_shard_malformed_cursor_renders_error_state() {
                 .sortable(),
             )
             .paginate(1)
-            .live_search(true)
+            .live_search()
         }
     }
 
@@ -350,7 +349,7 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
                 .sortable(),
             )
             .paginate(1)
-            .live_search(true)
+            .live_search()
         }
     }
 
@@ -428,8 +427,8 @@ async fn live_shard_retry_preserves_the_query() {
     // re-runs through the token it increments, so it is not inert when the
     // query signals already hold the values the failed request used.
     //
-    // The unpaginated table is the deterministic non-cursor failure: the
-    // list loader refuses it before any cursor is decoded.
+    // A database with no schema pushed is the deterministic non-cursor
+    // failure: the list query fails in the driver, whatever the cursor.
 
     use http_body_util::BodyExt;
 
@@ -443,8 +442,8 @@ async fn live_shard_retry_preserves_the_query() {
         name: String,
         featured: bool,
     }
-    struct UnpaginatedLive;
-    impl Resource for UnpaginatedLive {
+    struct FailingLive;
+    impl Resource for FailingLive {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
         fn slug() -> String {
@@ -468,26 +467,16 @@ async fn live_shard_retry_preserves_the_query() {
             .filters(crate::resource::TernaryFilter::r#for(
                 Dummy::fields().featured(),
             ))
-            .live_search(true)
+            .live_search()
         }
     }
 
-    let mut db = Db::builder()
+    let db = Db::builder()
         .models(toasty::models!(Dummy))
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    db.push_schema().await.unwrap();
-    toasty::create!(Dummy {
-        name: "Ada".to_string(),
-        featured: false,
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let router = panel_for::<UnpaginatedLive>(db)
-        .build()
-        .expect("panel builds");
+    let router = panel_for::<FailingLive>(db).build().expect("panel builds");
 
     let sig = |n: u8, v: &str| format!(r#"{{"t":"Signal","id":"{:032x}","v":"{v}"}}"#, n);
     let args = format!(
@@ -516,7 +505,7 @@ async fn live_shard_retry_preserves_the_query() {
     let table_html = String::from_utf8_lossy(&bytes).to_string();
     assert!(
         table_html.contains("Couldn't load Dummies"),
-        "the unpaginated live load must render the error state: {table_html}"
+        "the failed live load must render the error state: {table_html}"
     );
     // The href keeps the failed query; the no-JS fallback retries it.
     let href = table_html
@@ -580,7 +569,7 @@ async fn live_shard_group_by_signal_drives_grouping() {
             )
             .group_by("name", |d: &Dummy| d.name.clone())
             .paginate(25)
-            .live_search(true)
+            .live_search()
         }
     }
 
@@ -739,7 +728,7 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
                 .sortable(),
             )
             .paginate(10)
-            .live_search(true)
+            .live_search()
         }
     }
 
@@ -767,7 +756,7 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
                 .sortable(),
             )
             .paginate(10)
-            .live_search(true)
+            .live_search()
         }
     }
 

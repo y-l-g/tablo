@@ -411,11 +411,6 @@ impl<F: RecordForm> Posted<F> {
     pub fn into_update(self, record: &mut F::Model) -> Option<<F::Model as Model>::Update<'_>> {
         self.form.into_update(record, &self.named)
     }
-
-    /// The parsed form alone.
-    pub fn into_form(self) -> F {
-        self.form
-    }
 }
 
 impl<F: RecordForm> std::ops::Deref for Posted<F> {

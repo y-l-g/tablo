@@ -42,8 +42,8 @@ pub(crate) use state::{
     RECORD_ROUTE_PARAM, create_page_url, cursor_after, cursor_before, cursor_none,
 };
 pub use state::{Sort, TablePage, TableSignals, TableState};
-pub(crate) use table::TableChrome;
-pub use table::{GroupDef, GroupKey, OrderMode, RowActions, RowKey, Table};
+pub use table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
+pub(crate) use table::{RowActions, TableChrome};
 
 #[cfg(test)]
 pub(crate) use crate::query_term::MAX_QUERY_TERM;
@@ -274,13 +274,23 @@ pub trait Resource: Sized + Send + Sync + 'static {
         kebab_case(&pluralize(singular))
     }
 
-    /// The sidebar label, e.g. `"Users"`.
+    /// One record's name, e.g. `"User"`: the noun in the "Create {label}" and
+    /// "Edit {label}" titles.
     ///
-    /// Defaults to the pluralized `Model` type name (Filament's plural model
-    /// label): `User` → `Users`, `Category` → `Categories`, `Person` →
-    /// `People`. Override for custom wording.
+    /// Defaults to the `Model` type name (Filament's model label). Override for
+    /// custom wording; [`navigation_label`](Self::navigation_label) pluralizes
+    /// it.
+    fn label() -> String {
+        type_short_name::<Self::Model>().to_string()
+    }
+
+    /// The sidebar label and list title, e.g. `"Users"`.
+    ///
+    /// Defaults to the pluralized [`label`](Self::label) (Filament's plural
+    /// model label): `User` → `Users`, `Category` → `Categories`, `Person` →
+    /// `People`. Override for a plural the rules cannot guess.
     fn navigation_label() -> String {
-        pluralize(type_short_name::<Self::Model>())
+        pluralize(&Self::label())
     }
 
     /// Base query — the seam for a resource's **own** row scoping (ADR-0002):
@@ -479,22 +489,40 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Delete the already-authorized `record` (#86).
     ///
     /// The handler loads `record` through the tenancy-scoped query inside the
-    /// framework transaction and checks `can_delete` on that snapshot: use it,
-    /// never re-query by id, and write through `ex`.
+    /// framework transaction and checks `can_delete` on that snapshot, then
+    /// calls this with the same transaction as `ex`. The after-commit hook
+    /// receives the snapshot once the delete commits.
+    ///
+    /// The default deletes the row through [`scoped_query`], filtered to the
+    /// record's key: the table's record key, which is the model's primary key
+    /// (see [`Table::new_split`]). Override to delete another way, such as a
+    /// soft delete.
     fn delete_record(
-        _cx: &Cx,
-        _record: Self::Model,
-        _ex: &mut dyn toasty::Executor,
+        cx: &Cx,
+        record: &Self::Model,
+        ex: &mut dyn toasty::Executor,
     ) -> impl std::future::Future<Output = Result<()>> + Send
     where
         Self: Sized,
     {
+        let key = Self::table(cx).record_key_of(record);
+        let query = scoped_query::<Self>(cx).and_then(|query| {
+            let filter = crate::schema::pk_eq_expr::<Self::Model>(&key).ok_or_else(|| {
+                std::io::Error::other(format!(
+                    "{}: record key `{key}` is not a single-column primary key; override \
+                     delete_record",
+                    std::any::type_name::<Self>()
+                ))
+            })?;
+            Ok(query.filter(filter))
+        });
         async move {
-            Err(std::io::Error::other(format!(
-                "delete not implemented for {}",
-                std::any::type_name::<Self>()
-            ))
-            .into())
+            query?
+                .delete()
+                .exec(ex)
+                .await
+                .map_err(|error| -> topcoat::Error { error.into() })?;
+            Ok(())
         }
     }
 
@@ -503,11 +531,12 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// transaction and checks `can_delete` on every row before calling this.
     /// The default deletes each record through [`Self::delete_record`] in
     /// order, through the same `ex` — any error rolls the whole batch back,
-    /// so mid-loop failures delete zero rows. Override for a single-statement
-    /// batch.
+    /// so mid-loop failures delete zero rows. An override of `delete_record`,
+    /// such as a soft delete, therefore covers bulk delete too. Override this
+    /// for a single-statement batch.
     fn bulk_delete_records(
         cx: &Cx,
-        records: Vec<Self::Model>,
+        records: &[Self::Model],
         ex: &mut dyn toasty::Executor,
     ) -> impl std::future::Future<Output = Result<()>> + Send
     where

@@ -163,25 +163,7 @@ impl<M> Table<M> {
     /// The row-delete dialog is not part of this output: it lives
     /// outside the region a rerun swaps, rendered once by the page that owns
     /// the signals, so a caller rendering only through this method renders
-    /// [`Self::render_delete_dialog`] itself to keep the `?delete=` fallback.
-    pub async fn render_live_with_state<'a>(
-        &self,
-        cx: &'a Cx,
-        page: TablePage<M>,
-        state: &TableState,
-        path: &str,
-        signals: TableSignals,
-    ) -> Result<BoxView<'a>>
-    where
-        M: toasty::schema::Model + Send + Sync + 'static,
-    {
-        self.render_live_normalized(cx, page, &self.normalize_state(state), path, signals)
-            .await
-    }
-
-    /// [`Self::render_live_with_state`] with the state already normalized
-    /// the `table_search` shard normalizes once and renders
-    /// through here.
+    /// [`Self::render_delete_dialog_normalized`] itself to keep the `?delete=` fallback.
     pub(crate) async fn render_live_normalized<'a>(
         &self,
         cx: &'a Cx,
@@ -208,12 +190,6 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model + Send + Sync + 'static,
     {
-        if self.page_size == Some(0) {
-            return Err(std::io::Error::other(
-                "Table::render: paginate requires per_page > 0 (GH #96)",
-            )
-            .into());
-        }
         let row_key = self.row_key.clone();
         let delete_prefix = self.delete_prefix.clone();
         let with_actions = self.with_actions();

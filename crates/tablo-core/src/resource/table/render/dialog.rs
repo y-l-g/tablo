@@ -6,10 +6,7 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::super::{
-    super::state::{TableState, delete_action_url},
-    NormalizedState, Table,
-};
+use super::super::{super::state::delete_action_url, NormalizedState, Table};
 
 impl<M> Table<M> {
     /// The row-delete confirmation dialog, rendered with the table the panel
@@ -21,8 +18,9 @@ impl<M> Table<M> {
     /// before opening it in place. The control keeps its `?delete=<row key>`
     /// href, so a page without the script opens the dialog through the URL —
     /// and that render ships it open. `?open=false`, the mirror `dialog.js`
-    /// writes on dismissal ([`TableState::open`]), leaves it closed. Cancel is a
-    /// `data-dialog-close` button on both paths, so dismissal never navigates.
+    /// writes on dismissal ([`TableState::open`](crate::resource::TableState::open)), leaves it
+    /// closed. Cancel is a `data-dialog-close` button on both paths, so dismissal never
+    /// navigates.
     ///
     /// [`Self::render_with_state`] renders it with the table; the live-search
     /// page (`panel::resource_list_live`) calls this separately because the
@@ -34,18 +32,6 @@ impl<M> Table<M> {
     /// (ADR-0014). Without the document scripts Cancel is inert and Delete still
     /// POSTs; the dialog primitives are vendored under the ADR-0007 sync guard,
     /// so they carry no note themselves.
-    pub async fn render_delete_dialog<'a>(
-        &self,
-        cx: &'a Cx,
-        state: &TableState,
-    ) -> Result<Option<BoxView<'a>>> {
-        self.render_delete_dialog_normalized(cx, &self.normalize_state(state))
-            .await
-    }
-
-    /// [`Self::render_delete_dialog`] with the state already normalized
-    /// `render_inner` and the panel's live page both render the
-    /// dialog from the one state the request normalized.
     pub(crate) async fn render_delete_dialog_normalized<'a>(
         &self,
         cx: &'a Cx,

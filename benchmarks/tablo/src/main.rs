@@ -272,7 +272,7 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
         let table = tablo_core::panel::wired_table::<PostResource>(&cx);
         assert_eq!(
             table.page_size(),
-            Some(50),
+            50,
             "declared .paginate(50) must reach the loader"
         );
         let page = table

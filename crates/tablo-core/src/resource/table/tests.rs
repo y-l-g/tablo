@@ -67,36 +67,6 @@ async fn table_search_filters_via_column() {
     assert!(col.to_search_expr("   ").is_none());
 }
 
-#[tokio::test]
-async fn table_load_rejects_a_zero_page_size() {
-    // `paginate(0)` is a declaration no list can serve: the load half of
-    // the guard refuses it before the query reaches the engine (GH #96),
-    // so a page-owned table cannot bypass the build-time check either.
-    let db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
-    let tbl = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-    )
-    .paginate(0);
-    let err = tbl
-        .load(
-            &cx,
-            toasty::stmt::Query::<List<User>>::all(),
-            &TableState::default(),
-        )
-        .await
-        .expect_err("paginate(0) must fail the load loudly");
-    assert!(
-        format!("{err}").contains("per_page > 0"),
-        "the load error must name the page-size contract, got {err}"
-    );
-}
-
 /// The panel's page-owned seam must attach the chrome the resource
 /// declares. `bulk_enabled` is the witness and is private to this module,
 /// which is why the test lives here.
@@ -145,7 +115,11 @@ async fn wired_table_carries_the_declared_action_chrome() {
         wired.bulk_enabled(),
         "wired_table must attach the delete/bulk chrome the resource declares"
     );
-    assert_eq!(wired.page_size(), Some(25));
+    assert_eq!(
+        wired.page_size(),
+        ChromeResource::table(&cx).page_size(),
+        "wired_table must keep the declared page size"
+    );
 }
 
 #[tokio::test]
@@ -280,27 +254,39 @@ fn table_order_by_returns_first_sortable() {
     assert!(table_none.order_by(false).is_none());
 }
 
+/// A page of no rows is a misdeclaration, refused where it is written: the
+/// panel calls `Resource::table` at build, so this surfaces at boot.
+#[test]
+#[should_panic(expected = "a page size must be at least 1")]
+fn paginate_refuses_a_zero_page_size() {
+    let _ = Table::<User>::new(
+        |u| u.id.to_string(),
+        TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+    )
+    .paginate(0);
+}
+
 #[test]
 fn table_order_bys_single_sort_column() {
     let users_table = Table::<User>::new(
         |u| u.id.to_string(),
         TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
     );
-    let orders = users_table.order_bys_for(&TableState::default(), OrderMode::List);
+    let orders = users_table.order_bys_for(&TableState::default());
     // Single sortable column, no app-level PK suffix — toasty's engine
     // appends the physical PK columns to ambiguous cursor orderings
     // internally.
     assert_eq!(orders.len(), 1, "sortable column only, got {orders:?}");
-    // No sortable → empty
+    // No sortable column → the PK alone, the deterministic order cursor
+    // pagination needs.
     let table_none = Table::<User>::new(
         |u| u.id.to_string(),
         TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
     );
-    assert!(
-        table_none
-            .order_bys_for(&TableState::default(), OrderMode::List)
-            .is_empty(),
-        "non-sortable should have no order_bys"
+    assert_eq!(
+        table_none.order_bys_for(&TableState::default()).len(),
+        1,
+        "an unsorted table falls back to the PK"
     );
 }
 
@@ -320,7 +306,7 @@ fn order_bys_for_resolves_sort_param_with_fallbacks() {
         }),
         ..TableState::default()
     };
-    let orders = sorted.order_bys_for(&state, OrderMode::List);
+    let orders = sorted.order_bys_for(&state);
     assert_eq!(orders.len(), 1, "sort column only, got {orders:?}");
 
     // Unknown sort column → declared default (name asc)
@@ -331,49 +317,22 @@ fn order_bys_for_resolves_sort_param_with_fallbacks() {
         }),
         ..TableState::default()
     };
-    assert_eq!(sorted.order_bys_for(&state, OrderMode::List).len(), 1);
+    assert_eq!(sorted.order_bys_for(&state).len(), 1);
 
     // No sort at all → declared default
-    assert_eq!(
-        sorted
-            .order_bys_for(&TableState::default(), OrderMode::List)
-            .len(),
-        1
-    );
+    assert_eq!(sorted.order_bys_for(&TableState::default()).len(), 1);
 
-    // Paginated table with no sortable column → PK-only deterministic order
+    // No sortable column → PK-only deterministic order
     let unsorted = Table::<User>::new(
         |u| u.id.to_string(),
         TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
     )
     .paginate(25);
-    let orders = unsorted.order_bys_for(&TableState::default(), OrderMode::List);
+    let orders = unsorted.order_bys_for(&TableState::default());
     assert_eq!(
         orders.len(),
         1,
         "PK-only for paginated unsorted, got {orders:?}"
-    );
-
-    // Unpaginated and unsorted → empty (query stays unordered)
-    let plain = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
-    assert!(
-        plain
-            .order_bys_for(&TableState::default(), OrderMode::List)
-            .is_empty()
-    );
-
-    // The export mode pins an unordered table to PK order:
-    // the chunked cursor walk needs a deterministic order whether or not
-    // the table paginates.
-    assert_eq!(
-        plain
-            .order_bys_for(&TableState::default(), OrderMode::Export)
-            .len(),
-        1,
-        "export mode must fall back to the PK for an unordered table"
     );
 }
 
@@ -397,7 +356,7 @@ async fn table_page_round_trips_real_cursors() {
 
     // Page 1 of 1-per-page: full page → real next cursor.
     let page1 = users_table
-        .order_bys_for(&TableState::default(), OrderMode::List)
+        .order_bys_for(&TableState::default())
         .iter()
         .fold(User::all(), |q, ord| q.order_by(ord.clone()))
         .paginate(1)

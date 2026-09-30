@@ -74,13 +74,13 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
 /// `live` selects the shard variant: the swapped region is everything except the
 /// toolbar the page owns eagerly (the live host owns those slots, so a swap must
 /// never nest invocations or duplicate inputs), hence the shard forces
-/// `.search(false).filter_bar(false)` while the streamed page keeps the declared
+/// `.hide_search().hide_filter_bar()` while the streamed page keeps the declared
 /// table as-is. The filter bar joins the search toolbar there: a control rebuilt
 /// by its own rerun loses focus.
 pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::Model> {
     let mut table = R::table(cx);
     if live {
-        table = table.search(false).filter_bar(false);
+        table = table.hide_search().hide_filter_bar();
     }
     // `Cx` is Arc-backed and `Clone`, so the projection owns one: the policy
     // outlives the request borrow without copying request state.
@@ -192,7 +192,7 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
     let title = title.to_string();
     let create_url = (<R::Form as RecordForm>::HAS_FORM && R::can_create(cx))
         .then(|| create_page_url(list_path));
-    let create_label = format!("Create {}", R::navigation_label());
+    let create_label = format!("Create {}", R::label());
     view! {
         cx =>
         tablo_ui::page_header(
@@ -397,22 +397,12 @@ pub(crate) fn resource_list_live<R: Resource>(
 /// [`query`](crate::resource::Resource::query) at both, the same safe default
 /// the export takes.
 ///
-/// Resource lists must declare a page size: without
-/// [`Table::paginate`] the load would be an unbounded `exec`, so the missing
-/// declaration fails loudly here instead of silently loading the whole table.
-/// Page-owned tables (GH #154 §2) load through [`Table::load`] directly and
-/// keep the unbounded branch for previews.
+/// Page-owned tables (GH #154 §2) load through [`Table::load`] directly.
 pub(crate) async fn load_table_page<R: Resource>(
     cx: &Cx,
     table: &Table<R::Model>,
     state: &TableState,
 ) -> Result<TablePage<R::Model>> {
-    if table.page_size().is_none() {
-        return Err(std::io::Error::other(
-            "resource list requires Table::paginate(..) — unbounded tables are previews only (GH #172)",
-        )
-        .into());
-    }
     table
         .load_with_probe(
             cx,

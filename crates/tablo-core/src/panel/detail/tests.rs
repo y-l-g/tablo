@@ -57,7 +57,7 @@ fn a_resource_without_a_label_titles_the_page_with_the_record_key() {
     let cx = CxTestBuilder::new().build();
     assert_eq!(
         detail_title::<Unlabelled>(&cx, &note(), "8f14e45f"),
-        "Notes 8f14e45f"
+        "Note 8f14e45f"
     );
 }
 

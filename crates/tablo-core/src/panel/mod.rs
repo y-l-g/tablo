@@ -33,10 +33,6 @@ use topcoat::{
     router::{PageFn, RouteFn},
 };
 
-#[cfg(feature = "auth")]
-pub(crate) use self::forms::parse_form_body;
-#[cfg(feature = "auth")]
-pub(crate) use self::gate::{LoginHint, PanelPrefix};
 #[cfg(test)]
 pub(crate) use self::search::TABLE_SEARCH_PATH;
 pub use self::shell::{Brand, DarkMode};
@@ -49,7 +45,12 @@ use self::{
     search::{SearchFn, search_handler_for},
     shell::ShellAssets,
 };
-pub(crate) use self::{build::route_path, search::table_search};
+pub(crate) use self::{
+    build::route_path,
+    forms::parse_form_body,
+    gate::{LoginHint, PanelPrefix},
+    search::table_search,
+};
 use crate::{
     form::RecordForm,
     resource::{
@@ -63,7 +64,7 @@ use crate::{
 ///
 /// The page-owned seam (GH #154 §2) pairs this with
 /// [`Table::load`](crate::resource::Table::load) and
-/// [`Table::render_live_with_state`](crate::resource::Table::render_live_with_state).
+/// [`Table::render_live_normalized`](crate::resource::Table::render_live_normalized).
 /// The table carries `R::table`'s columns, key, page size, search toolbar and
 /// filter bar, plus the action chrome `R`'s declarations imply — the row
 /// Delete link and bulk column from
@@ -117,14 +118,8 @@ pub struct Panel {
     /// App-owned filesystem directories served from this panel's router
     /// `(route pattern, directory)`.
     served_dirs: Vec<(String, PathBuf)>,
-    #[cfg(feature = "auth")]
     login_hint: Option<String>,
-    #[cfg(feature = "auth")]
     auth: crate::auth::Auth,
-    /// `true` once the app acknowledged the feature-off build with
-    /// [`Panel::auth`]; [`Panel::build`] refuses the panel otherwise.
-    #[cfg(not(feature = "auth"))]
-    auth_disabled: bool,
 }
 
 impl Panel {
@@ -163,12 +158,8 @@ impl Panel {
             resource_checks: Vec::new(),
             uploads: None,
             served_dirs: Vec::new(),
-            #[cfg(feature = "auth")]
             login_hint: None,
-            #[cfg(feature = "auth")]
             auth: crate::auth::Auth::default(),
-            #[cfg(not(feature = "auth"))]
-            auth_disabled: false,
         }
     }
 
@@ -452,24 +443,13 @@ impl Panel {
     /// over [`AdminUser`](crate::auth::AdminUser); swap in an app-owned
     /// authenticator with `Panel::auth(Auth::custom(..))`, or opt a public
     /// demo out explicitly with `Panel::auth(Auth::disabled())`.
-    #[cfg(feature = "auth")]
     pub fn auth(mut self, auth: crate::auth::Auth) -> Self {
         self.auth = auth;
         self
     }
 
-    /// Acknowledge that this build has no authentication (ADR-0013): with the
-    /// `auth` feature off, [`build`](Self::build) refuses a panel that has not
-    /// been handed [`Auth::disabled`](crate::Auth::disabled).
-    #[cfg(not(feature = "auth"))]
-    pub fn auth(mut self, _auth: crate::Auth) -> Self {
-        self.auth_disabled = true;
-        self
-    }
-
     /// A muted line rendered under the login form, for demo credentials or
     /// deployment hints (e.g. `"Demo: admin@example.com / password"`).
-    #[cfg(feature = "auth")]
     pub fn login_hint(mut self, hint: impl Into<String>) -> Self {
         self.login_hint = Some(hint.into());
         self

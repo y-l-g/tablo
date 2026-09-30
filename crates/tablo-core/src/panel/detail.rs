@@ -95,7 +95,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
 /// declares one ([`Resource::record_label`]), else the page's name and the
 /// URL's record key.
 fn detail_title<R: Resource>(cx: &Cx, record: &R::Model, id: &str) -> String {
-    R::record_label(cx, record).unwrap_or_else(|| format!("{} {id}", R::navigation_label()))
+    R::record_label(cx, record).unwrap_or_else(|| format!("{} {id}", R::label()))
 }
 
 #[cfg(test)]

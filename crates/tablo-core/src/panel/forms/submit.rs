@@ -12,7 +12,7 @@ use topcoat::{
 use super::{
     super::{actions::find_by_key_narrowed, gate::gate},
     common::{
-        FormParts, drop_client_typed_uploads, redirect_after_write, reject_unknown_form_keys,
+        FormParts, commit_write, drop_client_typed_uploads, reject_unknown_form_keys,
         rerender_invalid_form, restore_pending_uploads, strip_transport_keys, truthy,
     },
     decode::parse_form_body,
@@ -21,7 +21,6 @@ use super::{
 use crate::{
     db::db,
     form::{FieldErrorKind, Posted, RecordForm},
-    notification::notify_write_failure,
     resource::{Committed, Resource},
     schema::Schema,
 };
@@ -208,48 +207,6 @@ fn named_fields<F: RecordForm>(cx: &Cx, named: &HashSet<String>) -> Vec<F::Field
         .collect()
 }
 
-/// The shared write tail: commit the transaction,
-/// run the after-commit hook on the row the record fn wrote, and redirect with
-/// the success flash; a failed write or commit maps to the caller's operation
-/// toast and the opaque error.
-///
-/// `committed` names the mutation, `note` the success flash, and `failure` the
-/// toast.
-async fn commit_write<'a, R: Resource>(
-    cx: &'a Cx,
-    tx: toasty::Transaction<'_>,
-    written: Result<R::Model, topcoat::Error>,
-    committed: impl FnOnce(R::Model) -> Committed<R::Model>,
-    note: &'static str,
-    failure: &'static str,
-) -> Result<BoxView<'a>, topcoat::Error> {
-    match written {
-        Ok(record) => match tx.commit().await {
-            Ok(()) => {
-                // Post-commit, so the effect cannot survive a rollback
-                // the tx is gone, so the hook may open its own
-                // handle.
-                crate::resource::run_after_commit::<R>(cx, committed(record)).await;
-                Err(redirect_after_write::<R>(cx, note))
-            }
-            Err(error) => {
-                notify_write_failure(cx, failure);
-                Err(crate::db::unavailable(error))
-            }
-        },
-        // A unique violation that slipped past the app-side check (a
-        // concurrent write) surfaces as an error, not a string-matched inline
-        // message: Toasty exposes no unique-violation predicate (upstream gap
-        // #117), so the failure cannot be classified here. It is still not
-        // echoed raw: the driver's text goes to the log through the
-        // opaque mapping, and an app-authored hook error keeps its own.
-        Err(error) => {
-            notify_write_failure(cx, failure);
-            Err(crate::db::hook_failure(error))
-        }
-    }
-}
-
 pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
@@ -286,7 +243,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             return rerender_invalid_form::<R>(
                 cx,
                 tx,
-                format!("Create {}", R::navigation_label()),
+                format!("Create {}", R::label()),
                 "Create",
                 &values,
                 &errors,
@@ -299,7 +256,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // write — the key is the database's to generate, so the row is the
         // only place the framework can learn it.
         let written = R::create_record(cx, form, &mut tx).await;
-        commit_write::<R>(cx, tx, written, Committed::created, "Created", WRITE_CREATE).await
+        commit_write::<R, _>(cx, tx, written, Committed::created, "Created", WRITE_CREATE).await
     })))
 }
 
@@ -361,7 +318,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             return rerender_invalid_form::<R>(
                 cx,
                 tx,
-                format!("Edit {}", R::navigation_label()),
+                format!("Edit {}", R::label()),
                 "Save",
                 &values,
                 &errors,
@@ -372,7 +329,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         };
         let posted = Posted::new(form, named_fields::<R::Form>(cx, &named));
         let written = R::update_record(cx, record, posted, &mut tx).await;
-        commit_write::<R>(cx, tx, written, Committed::updated, "Updated", WRITE_UPDATE).await
+        commit_write::<R, _>(cx, tx, written, Committed::updated, "Updated", WRITE_UPDATE).await
     })))
 }
 

@@ -43,9 +43,8 @@ contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
 
 `crates/tablo-test` holds the protocol helpers both integration suites share:
 `TestClient`, the body readers, the form and multipart writers, the cookie
-jar and `Set-Cookie` parsing, and the robust `input_value`. The `auth`
-feature (on by default, mirroring `tablo-core`) exposes the cookie and
-session helpers the auth suites use. What names crate-local models stays per
+jar and `Set-Cookie` parsing, the session-cookie helpers the auth suites use,
+and the robust `input_value`. What names crate-local models stays per
 crate: the seed and database fixtures, the showcase login and session-mint
 flow, the core panel builders and free POST/GET helpers, and the
 showcase-only scrapers.

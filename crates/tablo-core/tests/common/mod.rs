@@ -12,11 +12,8 @@
 
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
 use tablo_core::{Auth, Panel, Resource};
-#[cfg(feature = "auth")]
 use tablo_test::cookie_header;
-pub use tablo_test::{body_bytes, body_string, multipart_body};
-#[cfg(feature = "auth")]
-pub use tablo_test::{input_value, response_cookies};
+pub use tablo_test::{body_bytes, body_string, input_value, multipart_body, response_cookies};
 use toasty::Db;
 use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
@@ -39,7 +36,6 @@ pub fn panel(db: Db) -> Panel {
 }
 
 /// [`panel`] with one resource registered and built under `auth`.
-#[cfg(feature = "auth")]
 pub fn router_with<R: Resource>(db: Db, auth: Auth) -> Router {
     Panel::new("admin")
         .app_context(db)
@@ -100,7 +96,6 @@ pub async fn get(router: &Router, uri: &str) -> Response<Body> {
 }
 
 /// A GET carrying `cookies` as one `Cookie` header.
-#[cfg(feature = "auth")]
 pub async fn get_with_cookies(
     router: &Router,
     uri: &str,
@@ -114,7 +109,6 @@ pub async fn get_with_cookies(
 }
 
 /// A url-encoded POST carrying `cookies`.
-#[cfg(feature = "auth")]
 pub async fn post_form(
     router: &Router,
     uri: &str,

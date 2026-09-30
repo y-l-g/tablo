@@ -197,14 +197,14 @@ async fn delete_resolves_record_key_not_display_key() {
         }
         async fn delete_record(
             _cx: &Cx,
-            _record: Dummy,
+            _record: &Dummy,
             _ex: &mut dyn toasty::Executor,
         ) -> Result<()> {
             Ok(())
         }
         async fn bulk_delete_records(
             _cx: &Cx,
-            _records: Vec<Dummy>,
+            _records: &[Dummy],
             _ex: &mut dyn toasty::Executor,
         ) -> Result<()> {
             Ok(())

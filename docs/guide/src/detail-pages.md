@@ -28,8 +28,8 @@ fn record_label(cx: &Cx, record: &Post) -> Option<String> {
 }
 ```
 
-The default returns `None`, and the heading is then `{navigation_label} {id}` — the page's name and
-the URL's record key. A label is display text, not a key: two records may share one, so it does not
+The default returns `None`, and the heading is then `{label} {id}` — one record's name and the URL's
+record key. A label is display text, not a key: two records may share one, so it does not
 replace `Table::new`'s key, which must stay injective within a page for keyed diffs (GH #241).
 
 - **Read-only is not a disabled form.** Fields render labels and stored values:

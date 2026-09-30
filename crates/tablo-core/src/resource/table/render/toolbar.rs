@@ -167,7 +167,7 @@ impl<M> Table<M> {
 
     /// The search toolbar (GET form); live tables instead render the host
     /// input eagerly and the shard invocation in the streamed region (see
-    /// [`Self::render_live_search_bar`] / [`Self::render_live_invocation`]).
+    /// [`Self::render_live_search_bar_normalized`] / [`Self::render_live_invocation`]).
     pub(super) async fn render_search_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -251,25 +251,8 @@ impl<M> Table<M> {
     /// transport, whose `@change` writes `q` and clears the cursors (a new
     /// term is a new result set). The shard re-renders in place.
     ///
-    /// Public so a page owning its own signals can render the same toolbar
-    /// above its own shard (the showcase demos, GH #154 §2); resource lists
-    /// reach it through `panel::resource_list_live`.
-    pub async fn render_live_search_bar<'a>(
-        &self,
-        cx: &'a Cx,
-        state: &TableState,
-        path: &str,
-        signals: &TableSignals,
-    ) -> Result<BoxView<'a>> {
-        // Called directly with raw state (panel live page, showcase demos):
-        // normalize for the `<noscript>` fallback links.
-        self.render_live_search_bar_normalized(cx, &self.normalize_state(state), path, signals)
-            .await
-    }
-
-    /// [`Self::render_live_search_bar`] with the state already normalized
-    /// the panel's live page renders the toolbar from the request's
-    /// one normalized state.
+    /// The panel's live list page (`panel::resource_list_live`) renders it
+    /// from the request's one normalized state.
     pub(crate) async fn render_live_search_bar_normalized<'a>(
         &self,
         cx: &'a Cx,

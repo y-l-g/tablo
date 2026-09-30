@@ -82,7 +82,7 @@ COMMANDS:
                        disagree. The xtask test suite runs this on
                        every `cargo test`.
     check              The gate set as a local fail-fast convenience runner:
-                       the ten CONTRIBUTING gates in order, then docs,
+                       the eight CONTRIBUTING gates in order, then docs,
                        detached-bench fmt, and the lockstep check. CI keeps
                        one subcommand per parallel job instead.
     bump-upstream      Rewrite the `rev =` pins for both upstream repos in

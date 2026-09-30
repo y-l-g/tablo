@@ -597,8 +597,15 @@ impl Layer for AuthGate {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
-            // The login page must answer while logged out.
-            if uri(cx).path() == login_url(cx) {
+            // The login page must answer while logged out. Only the methods
+            // the login routes serve (GET, its HEAD, and POST) pass: an app
+            // route at the same path under another method stays gated.
+            if uri(cx).path() == login_url(cx)
+                && matches!(
+                    *method(cx),
+                    http::Method::GET | http::Method::HEAD | http::Method::POST
+                )
+            {
                 return next.run(cx, body).await;
             }
             let auth = app_context::<Auth>(cx);
