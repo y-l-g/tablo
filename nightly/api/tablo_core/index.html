@@ -204,8 +204,8 @@ app-owned filesystem directory on the panel’s router; a served directory is <s
 <p><em>Avoid</em>: FileStore, Attachment, Blob store</p>
 <h4 id="streamed-region"><a class="doc-anchor" href="#streamed-region">§</a>Streamed region</h4>
 <p>A <code>suspense</code> region of the page whose content swaps in after the first render. The resource list
-streams its table: skeleton first (<code>Table::render_skeleton</code>), loaded rows swap in without a client
-library. Later reruns (page/shard) morph in place per Topcoat #392 — focus, scroll, and typing
+streams its table: a skeleton of the table’s own header and pulsing rows first, then the loaded
+rows swap in without a client library. Later reruns (page/shard) morph in place per Topcoat #392 — focus, scroll, and typing
 survive. The table always renders inside a <code>data-boundary</code> region. See ADR-0003.</p>
 <p><em>Avoid</em>: Shard (as domain term), Region, Island, Boundary</p>
 <h4 id="notification"><a class="doc-anchor" href="#notification">§</a>Notification</h4>

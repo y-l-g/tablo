@@ -504,23 +504,22 @@
 <a href=#504 id=504 data-nosnippet>504</a>            <span class="string">"udeps"</span>,
 <a href=#505 id=505 data-nosnippet>505</a>            <span class="string">"--workspace"</span>,
 <a href=#506 id=506 data-nosnippet>506</a>            <span class="string">"--all-targets"</span>,
-<a href=#507 id=507 data-nosnippet>507</a>            <span class="string">"--all-features"</span>,
-<a href=#508 id=508 data-nosnippet>508</a>            <span class="string">"--locked"</span>,
-<a href=#509 id=509 data-nosnippet>509</a>        ],
-<a href=#510 id=510 data-nosnippet>510</a>        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>root),
-<a href=#511 id=511 data-nosnippet>511</a>        <span class="kw-2">&amp;</span>[],
-<a href=#512 id=512 data-nosnippet>512</a>    )<span class="question-mark">?</span>;
-<a href=#513 id=513 data-nosnippet>513</a>    run.run(
-<a href=#514 id=514 data-nosnippet>514</a>        <span class="string">"cargo"</span>,
-<a href=#515 id=515 data-nosnippet>515</a>        <span class="kw-2">&amp;</span>[<span class="string">"doc"</span>, <span class="string">"--workspace"</span>, <span class="string">"--no-deps"</span>, <span class="string">"--locked"</span>],
-<a href=#516 id=516 data-nosnippet>516</a>        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>root),
-<a href=#517 id=517 data-nosnippet>517</a>        <span class="kw-2">&amp;</span>[(<span class="string">"RUSTDOCFLAGS"</span>, <span class="string">"-D warnings"</span>)],
-<a href=#518 id=518 data-nosnippet>518</a>    )<span class="question-mark">?</span>;
-<a href=#519 id=519 data-nosnippet>519</a>    run.run(<span class="string">"mdbook"</span>, <span class="kw-2">&amp;</span>[<span class="string">"build"</span>, <span class="string">"docs/guide"</span>], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>root), <span class="kw-2">&amp;</span>[])<span class="question-mark">?</span>;
-<a href=#520 id=520 data-nosnippet>520</a>    detached_fmt(run, <span class="kw-2">&amp;</span>root)<span class="question-mark">?</span>;
-<a href=#521 id=521 data-nosnippet>521</a>    verify()
-<a href=#522 id=522 data-nosnippet>522</a>}
-<a href=#523 id=523 data-nosnippet>523</a>
-<a href=#524 id=524 data-nosnippet>524</a><span class="attr">#[cfg(test)]
-<a href=#525 id=525 data-nosnippet>525</a></span><span class="kw">mod </span>tests;
+<a href=#507 id=507 data-nosnippet>507</a>            <span class="string">"--locked"</span>,
+<a href=#508 id=508 data-nosnippet>508</a>        ],
+<a href=#509 id=509 data-nosnippet>509</a>        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>root),
+<a href=#510 id=510 data-nosnippet>510</a>        <span class="kw-2">&amp;</span>[],
+<a href=#511 id=511 data-nosnippet>511</a>    )<span class="question-mark">?</span>;
+<a href=#512 id=512 data-nosnippet>512</a>    run.run(
+<a href=#513 id=513 data-nosnippet>513</a>        <span class="string">"cargo"</span>,
+<a href=#514 id=514 data-nosnippet>514</a>        <span class="kw-2">&amp;</span>[<span class="string">"doc"</span>, <span class="string">"--workspace"</span>, <span class="string">"--no-deps"</span>, <span class="string">"--locked"</span>],
+<a href=#515 id=515 data-nosnippet>515</a>        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>root),
+<a href=#516 id=516 data-nosnippet>516</a>        <span class="kw-2">&amp;</span>[(<span class="string">"RUSTDOCFLAGS"</span>, <span class="string">"-D warnings"</span>)],
+<a href=#517 id=517 data-nosnippet>517</a>    )<span class="question-mark">?</span>;
+<a href=#518 id=518 data-nosnippet>518</a>    run.run(<span class="string">"mdbook"</span>, <span class="kw-2">&amp;</span>[<span class="string">"build"</span>, <span class="string">"docs/guide"</span>], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>root), <span class="kw-2">&amp;</span>[])<span class="question-mark">?</span>;
+<a href=#519 id=519 data-nosnippet>519</a>    detached_fmt(run, <span class="kw-2">&amp;</span>root)<span class="question-mark">?</span>;
+<a href=#520 id=520 data-nosnippet>520</a>    verify()
+<a href=#521 id=521 data-nosnippet>521</a>}
+<a href=#522 id=522 data-nosnippet>522</a>
+<a href=#523 id=523 data-nosnippet>523</a><span class="attr">#[cfg(test)]
+<a href=#524 id=524 data-nosnippet>524</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>
