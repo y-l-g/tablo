@@ -383,11 +383,12 @@ needs its own escaping, a size cap, the `filters=overflow` sentinel, and a mirro
 
 **Change.** `?f.status=published`, one parameter per active filter, parsed by the S10 parser. The
 filter controls are real `f.<name>` form fields, so a static filter bar is an ordinary GET form. One
-cap stays: past 32 filters the rest are dropped and flagged, so the export still refuses. Old
-filtered URLs stop filtering.
+bound stays, on count and length: past 32 filters, or past 256 bytes in a name or value, the
+filter is dropped and flagged, so the export still refuses. An old `?filters=` URL no longer
+filters; it is flagged the same way, so a saved link warns and its export refuses.
 
-**Removes.** The nested grammar, its escaper, the byte cap, the overflow sentinel, the malformed
-channel, and the script mirror.
+**Removes.** The nested grammar, its escaper, the overflow sentinel, the malformed channel, and the
+script mirror.
 
 **S18 — One live-or-plain link helper.**
 
