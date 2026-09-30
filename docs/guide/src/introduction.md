@@ -1,54 +1,56 @@
 # Introduction
 
-What Tablo is, what it deliberately is not, and the two upstream projects it is built on.
+Tablo is an admin toolkit for Rust. You declare, once per database model, its table, its form and
+who may see and change it; Tablo serves the list, create, edit, detail and delete pages for it,
+rendered on the server.
 
-Tablo is an **admin toolkit for Rust**, server-rendered on
-[Topcoat](https://github.com/tokio-rs/topcoat) (UI and reactivity) and
-[Toasty](https://github.com/tokio-rs/toasty) (ORM): a Filament-style `Panel` plus `Resource`,
-tables, and forms, with no SPA build step.
+Tablo is a layer over two upstream projects:
 
-## What it is
+- [Topcoat](https://github.com/tokio-rs/topcoat) renders the HTML and owns routing, the request
+  context `Cx`, reactivity, assets, cookies and sessions. The panel's pages are Topcoat views, and
+  your own pages use the same `view!`, `#[component]` and `#[layout]`.
+- [Toasty](https://github.com/tokio-rs/toasty) is the ORM. Tablo queries your Toasty models
+  directly, so the model is the single source of truth for columns, relations and nullability.
 
-- Server-rendered HTML with `view!` and `#[component]`. No SPA, no WASM bundle.
-- Typed end to end: Toasty model to query to table and form. A bad column name fails to compile.
-- Fast by default: concurrent renders, preloaded relations, cursor pagination.
-- A Topcoat app: layouts, `href!`, `Cx`, `#[memoize]`, small `$(...)` expressions.
+## What you get
+
+- **Server-rendered pages, no SPA.** There is no client build step and no WASM bundle. Search,
+  sort, filters and pagination work without JavaScript; the shipped scripts add in-place updates
+  on top.
+- **Typed declarations.** Columns, form fields and filters are built from Toasty field lenses
+  such as `User::fields().email()`, so a renamed or retyped column is a compile error.
+- **Checks at startup.** `Panel::build` validates every declaration — a form struct that disagrees
+  with its schema, two resources on one URL, a tenant-owned resource with no tenant column — and
+  returns an error naming the mistake before the server takes a request.
+- **Safe defaults.** Every policy predicate denies until you allow it, authentication is on, every
+  panel POST verifies a CSRF token, and a tenant-owned resource is scoped to the request's tenant at
+  every query.
 
 ## What it is not
 
-- Not a Livewire port. No string state paths, no reflection DI, no Blade partials.
-- Not driver-agnostic in v1. The workspace targets Toasty over SQLite.
-- Not a client framework. Anything that needs the DB renders on the server.
-
-## The two upstream dependencies
-
-Tablo is a thin, opinionated layer, not a framework of its own:
-
-- **Topcoat** owns rendering, routing, request context, reactivity, assets, cookies and sessions.
-  Tablo adds the admin-shaped pieces on top — `Panel`, `Resource`, `Table`, `Schema` — and
-  follows Topcoat's idioms (`view!`, `#[component]`, `Cx`, `href!`, `#[memoize]`) rather than
-  inventing parallel ones.
-- **Toasty** owns the data layer: models, queries, filters, sorting, preloading and migrations.
-  Tablo queries Toasty directly, so the typed model is the single source of truth for columns,
-  relations and nullability.
-
-Both track `main` and are pinned by `Cargo.lock`; bump them deliberately, never with a blanket
-`cargo update`.
+- **Not a client framework.** Anything that reads the database renders on the server.
+- **Not tested across databases.** The test suites and benchmarks run on Toasty's SQLite driver.
 
 ## How to read this guide
 
-- [Your first panel](./first-panel.md): a complete `main` that mounts a resource and serves it.
-- [Panel and routing](./panel-and-routing.md): mounting a panel and the routes a resource serves.
-- [Resources](./resources.md): the `Resource` trait, its contract, and tenancy.
-- [Tables](./tables.md), [Forms](./forms.md), [Detail pages](./detail-pages.md): the three views.
-- [Policy, auth, tenancy](./policy-auth-tenancy.md): who may see and change what.
-- [Data access](./data-access.md): querying Toasty from panel code.
-- [Security](./security.md) and [Testing and benchmarks](./testing-and-benchmarks.md): defaults and
-  the tooling around them.
+[Your first panel](./first-panel.md) builds a complete, runnable admin in one file. Each later
+chapter covers one part of it:
 
-## Where this guide and the code disagree
+| Chapter | Covers |
+| --- | --- |
+| [Panel and routing](./panel-and-routing.md) | the panel builder, the routes it serves, custom and public pages |
+| [Resources](./resources.md) | the `Resource` trait: naming, query scoping, writes |
+| [Tables](./tables.md) | columns, search, sort, filters, export, live updates, deletes |
+| [Forms](./forms.md) | the record form, controls, validation, uploads, embedded values |
+| [Detail pages](./detail-pages.md) | the read-only record page and related tables |
+| [Policy, auth, tenancy](./policy-auth-tenancy.md) | who may see and change what |
+| [Data access](./data-access.md) | querying Toasty from your own pages |
+| [Security](./security.md) | the defaults and what your deployment must provide |
+| [Testing and benchmarks](./testing-and-benchmarks.md) | testing a panel over HTTP |
 
-The vocabulary lives in `CONTEXT.md`, the decisions live in `docs/adr/` (one ADR per decision, and
-the ADRs record the *why*), and the runnable reference lives in `examples/showcase/`. Where this
-guide and the code disagree, the code and `docs/adr/` win — please open an issue or a PR so the
-guide catches up.
+The runnable reference is
+[`examples/showcase`](https://github.com/y-l-g/tablo/tree/master/examples/showcase): every
+feature in this guide is exercised there. Terms are defined in
+[`CONTEXT.md`](https://github.com/y-l-g/tablo/blob/master/CONTEXT.md) and design decisions are
+recorded in [`docs/adr/`](https://github.com/y-l-g/tablo/tree/master/docs/adr). If this guide
+disagrees with the code, the code is right: please open an issue.

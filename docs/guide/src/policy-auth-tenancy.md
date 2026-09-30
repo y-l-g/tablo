@@ -1,74 +1,161 @@
 # Policy, auth, tenancy
 
-Who may see and change what: the `can_*` predicates, the auth gate and its seams, and where the
-request's tenant comes from.
+Three layers decide what a request may do. **Authentication** decides who is signed in.
+**Tenancy** limits a signed-in user to their tenant's rows. **Policy** — the resource's `can_*`
+predicates — decides what that user may do with each resource and record.
 
-Policy is `can_*` on the resource, default deny. Check both pages and handlers:
+## Policy
+
+Every predicate defaults to `false`, so a new resource exposes nothing until you allow it:
 
 ```rust
 fn can_view_any(_cx: &Cx) -> bool { true }
-fn can_view(_cx: &Cx, _r: &User) -> bool { true }
-fn can_create(_cx: &Cx) -> bool { false }
+fn can_view(_cx: &Cx, _user: &User) -> bool { true }
+fn can_create(cx: &Cx) -> bool { is_admin(cx) }
+fn can_update(_cx: &Cx, user: &User) -> bool { !user.sso_managed }
+fn can_delete_any(cx: &Cx) -> bool { is_admin(cx) }
 ```
 
-List scope belongs in `query()`. Per-row `can_view` trims option lists and exports, but the list page
-itself checks only `can_view_any` so pagination stays honest. Edit GET and POST both require
-`can_view` + `can_update`; relation option loads fail closed when the related resource denies
-`can_view_any`.
+| Predicate | Default | Checked by |
+| --- | --- | --- |
+| `can_view_any(cx)` | `false` | the list and its live refresh, the export, related tables, relationship options |
+| `can_view(cx, record)` | `false` | the detail page, the edit page and POST, deletes, each exported row, each relationship option, each row's actions |
+| `can_create(cx)` | `false` | the create page and POST, the Create button |
+| `can_update(cx, record)` | `false` | the edit page and POST, the row's Edit action |
+| `can_delete_any(cx)` | `false` | the delete and bulk-delete POSTs, the Delete action and the bulk column |
+| `can_delete(cx, record)` | `can_delete_any(cx)` | each record a delete removes, the row's Delete action and checkbox |
 
-Mutations run in a framework-owned transaction: handlers load through `query()` and policy-check on
-that snapshot, then pass the checked records into the record fns with no silent re-loads. Bulk delete
-is all-or-nothing. Anything that must happen *after* the commit — a webhook, an email, an audit row —
-goes in `after_commit`, which runs once the transaction is gone; see [Resources](./resources.md).
+Handlers check the same predicates that decide which buttons render, so a hidden action is also a
+refused request. A denied request answers 403.
 
-Auth is on by default and fails closed:
+- **The list checks `can_view_any` only.** `can_view` is Rust code that cannot run in the
+  database, and filtering rows after pagination would leave pages short. Rows a user must not see
+  on the list belong out of `query()`; see [Resources](./resources.md#scoping-the-query).
+- **Writes are checked against the stored row.** The update and delete handlers load the record
+  inside the write's transaction and check the predicates on that row, not on the submitted id.
+  A bulk delete fails as a whole if any selected record is refused.
+- **Relationship options** require both `can_view_any` and `can_view` on the related resource;
+  overriding one does not imply the other.
 
-- Register the shipped models and seed one admin:
+## Authentication
+
+Authentication is on by default. The built-in login checks an email and password against the
+`AdminUser` table and keeps sessions in the `AuthSession` table; register both models with
+Toasty and create a user with a hashed password:
 
 ```rust
-toasty::models!(crate::User, tablo_core::auth::AdminUser, tablo_core::auth::AuthSession)
+toasty::models!(crate::Book, tablo_core::auth::AdminUser, tablo_core::auth::AuthSession)
 ```
 
 ```rust
-let hash = tablo_core::auth::hash_password("secret").expect("hash password");
-// store in AdminUser.password_hash (Argon2id PHC string)
+let password_hash = tablo_core::auth::hash_password("secret")?; // Argon2id
 ```
 
-- Unauthenticated `GET` pages redirect to `{prefix}/login` with a validated same-origin `next`.
-  Runtime endpoints (`/_topcoat/runtime`) and all non-GET panel requests answer 401; users without
-  panel access answer 403. The gate installs exactly two layers — the panel prefix and
-  `/_topcoat/runtime` — so a route mounted outside them is ungated by construction;
-  `Panel::serve_dir` is the shipped case, and served directories are public by decision (ADR-0017).
-- Sessions are server-side `AuthSession` rows with a seven-day fixed lifetime, rotated on login and
-  revoked on logout. Use `auth::revoke_sessions_for_user(cx, id)` to sign a user out everywhere. A
-  successful login also drops up to 500 expired rows, so a session whose owner never returns does not
-  keep its row forever.
-  Logins verify Argon2id (dummy hash for unknown emails) and share one generic failure message.
-  Handlers re-check the resolved user, including the panel root and live-search shard; logout accepts
-  any resolved identity so a de-permitted session can still be cleared.
+[Your first panel](./first-panel.md) shows the complete setup.
 
-Custom user table:
+### What a request gets
+
+| Request | Signed in with panel access | Signed in without panel access | Not signed in |
+| --- | --- | --- | --- |
+| `GET` of a panel page | the page | 403 | redirect to `/admin/login?next=…` |
+| any other panel request | handled | 403 | 401 |
+| `/_topcoat/runtime` | handled | 403 | 401 |
+
+After login, the user returns to `next`, which must be a same-origin path. A user has panel access
+when their `AdminUser.active` is `true`. The gate covers only the panel prefix and
+`/_topcoat/runtime`; routes elsewhere, including directories served with `Panel::serve_dir`, are
+public.
+
+- **Login** verifies Argon2id hashes. An unknown email costs the same work as a wrong password,
+  and every failure shows the same message.
+- **Sessions** are rows in `AuthSession`, identified by a hash of the cookie's token. A session
+  lasts seven days from login, is replaced on each login and deleted on logout. Each successful
+  login also deletes up to 500 expired sessions.
+- **Revoking.** Call `auth::revoke_sessions_for_user(cx, user_id)` when a user's password changes
+  or their account is deactivated; otherwise existing sessions stay valid until they expire.
+- **Rate limiting** is not built in. Limit login attempts at your proxy or firewall.
+
+Read the signed-in user in your own code with `auth::current_user(cx)`, which returns a
+`CurrentUser { id, login, display_name, tenant_id, can_access_panel }`, or with
+`auth::require_authenticated(cx)?`, which answers the request as the table above when there is
+none.
+
+### Your own user table
+
+Implement `Authenticator` for your user model and install it:
 
 ```rust
 Panel::new("admin").auth(Auth::custom(MyAuth))
 ```
 
-Implement `verify` plus `find_by_id` for your model. Session storage stays framework-owned. Read the
-result with `current_user(cx)` or `require_authenticated(cx)`.
+`verify(cx, login, password)` checks credentials and returns the `CurrentUser`, and
+`find_by_id(cx, id)` reloads that user on every request, so deactivating a user takes effect
+immediately. Return `Ok(None)` for every credential failure; do comparable work for unknown and
+known accounts so response times do not reveal which exist. Sessions stay in `AuthSession`.
 
-Explicit opt-out:
+### Turning it off
 
 ```rust
 Panel::new("admin").auth(Auth::disabled())
 ```
 
-Tenancy comes from the logged-in user. `tenant_id(cx)` reads the request `Tenant`, which the auth
-layer sets; a server-set `Tenant` request extension overrides deliberately (for middleware/tests).
-Mark tenant-owned resources with `requires_tenant()`: handlers fail closed (403) without a tenant,
-and the framework derives the `tenant_id` filter from the model and applies it at every loader
-(GH #223), so no `query()` override has to restate it. Never trust a tenant header from the client.
-See [Resources](./resources.md) for the three shapes a resource can declare.
+Every panel route is then public and the login routes are not registered. Use it for public
+demos and tests only.
 
-No built-in rate limiter or lockout: enforce at the edge (proxy/WAF). `Notification` is a one-time
-`__Host-tablo_notification` flash cookie on the 303 Post/Redirect/Get response, consumed on
-follow-up so reloads never replay it.
+## Tenancy
+
+A tenant-owned resource shows each user only their tenant's rows. The request's tenant is the
+signed-in user's `tenant_id`, read with `tenant_id(cx)`. No request header can set it; server code
+such as a middleware or a test can, by inserting a `Tenant` request extension.
+
+Mark the resource with `requires_tenant()`:
+
+```rust
+impl Resource for PostResource {
+    type Model = Post; // has `tenant_id: uuid::Uuid`
+    // …
+
+    fn requires_tenant() -> bool {
+        true
+    }
+}
+```
+
+That one declaration does two things:
+
+- **The gate.** Every handler of the resource answers 403 when the request has no tenant.
+- **The scope.** Every loader — list, export, detail, edit, delete, bulk delete, relationship
+  options, related tables — adds `tenant_id = <request tenant>` to the resource's `query()`. A
+  create sets the tenant column itself, so the record form leaves it out.
+
+The framework finds the column by name and type: a UUID field named `tenant_id`. Do not repeat the
+filter in `query()`.
+
+**A row that inherits its tenant.** A comment has no `tenant_id` of its own; it belongs to a post
+that does. Override `tenant_scope` with the predicate through the relation, and the framework
+applies it wherever it would apply the derived filter:
+
+```rust
+fn requires_tenant() -> bool {
+    true
+}
+
+fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
+    Some(Comment::fields().post().tenant_id().eq(tenant))
+}
+```
+
+Keep `requires_tenant()` `true` here: writing the same filter into `query()` without the gate
+would serve every tenant's rows to a user who has no tenant.
+
+**A deliberately cross-tenant resource** — a super-admin view — declares `requires_tenant()`
+`false` and filters in `query()` by hand. That gives up both the gate and the scope.
+
+`Panel::build` refuses a resource with `requires_tenant()` `true` whose model has no `tenant_id`
+UUID field and which does not override `tenant_scope`.
+
+**In your own code**, load rows with `scoped_query::<PostResource>(cx)?`. It applies the tenant
+scope and answers 403 when the request has no tenant. `PostResource::query(cx)` does not apply the
+tenant scope. A record function that writes a foreign key should re-check the target through
+`scoped_query` inside its transaction, since the tenant of the related row may have changed since
+the form was validated.

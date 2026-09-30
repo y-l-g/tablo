@@ -1,112 +1,99 @@
 # Data access
 
-Querying Toasty from panel code: getting the `Db`, filters and sorting, preloading relations,
-embedded values, and the render and reactivity invariants any page has to respect.
+The panel's own pages load rows for you. This chapter covers querying Toasty from your code: a
+[page](./panel-and-routing.md#pages), a record function, or a public page. The
+[Toasty guide](https://tokio-rs.github.io/toasty/0.10.0/guide/) covers the query API in full.
 
-Get the DB from app context:
+## Getting the database
+
+`app_context(db)` registers the `Db` on the panel; `tablo_core::db::db(cx)` returns it. Cloning a
+`Db` is cheap, and statements take it by `&mut`:
 
 ```rust
 let mut db = tablo_core::db::db(cx);
-let rows = User::all().exec(&mut db).await?;
+let users = User::all().exec(&mut db).await?;
 ```
 
-`Db` is `Arc`-pooled; cloning per request is cheap and `exec` needs `&mut Db`.
+Inside a record function, run statements through the transaction you were handed (`ex`), never
+through a second handle: a single-connection pool such as `sqlite::memory:` would wait forever for
+the connection the transaction holds.
 
-Filter and sort:
+## Querying
 
 ```rust
-User::filter(User::fields().email().eq("alice@example.com"))
-User::filter(User::fields().name().starts_with(q))
-    .order_by(User::fields().name().asc())
+User::filter(User::fields().email().eq("ada@example.com"))
+User::filter(User::fields().name().starts_with(prefix)).order_by(User::fields().name().asc())
 ```
 
-Table search builds its pattern through `like_with_escape` with `%`, `_` and the escape character
-escaped (`escape_like_pattern`), so it is parameterised and portable. If you hand-write a pattern,
-escape `%` and `_` first, and never interpolate raw input into SQL.
+Toasty binds values as parameters. If you build a `LIKE` pattern from user input, escape `%`, `_`
+and your escape character first and pass it with `like_with_escape`, as the table search does.
 
-Preload relations in one trip:
+**Load a resource's rows through `scoped_query`.** `scoped_query::<PostResource>(cx)?` is the
+resource's `query()` with its tenant scope applied, and answers 403 when the request has no
+tenant. `PostResource::query(cx)` has no tenant scope. See
+[Tenancy](./policy-auth-tenancy.md#tenancy).
+
+A public page has no resource behind it, so it states its own filters, tenant included:
 
 ```rust
-let posts = Post::all()
+let posts = Post::filter(Post::fields().status().eq("published".to_string()))
     .include(Post::fields().author())
     .exec(&mut db)
     .await?;
-// then `post.author.get()` with no extra query
 ```
 
-Declare the relation a cell reads, typed on the model: the list and the CSV export load exactly the
-relations their columns include (ADR-0018). Guard the cell against a missing include so a dropped
-declaration fails loudly, not with blank data:
+## Relations
+
+Toasty loads a relation only when the query includes it. Include every relation you read, in
+the same query:
 
 ```rust
-TextColumn::computed("Author", |p: &Post| {
-    if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
-})
-.include(Post::fields().author())
+let posts = Post::all().include(Post::fields().author()).exec(&mut db).await?;
+for post in &posts {
+    let name = &post.author.get().name; // no extra query
+}
 ```
 
-## Embedded values
+Reading a relation that was not included panics in `get()`; check `is_unloaded()` first where a
+missing include is possible. In a table column, declare the relation with `TextColumn::include`
+instead: see [Tables](./tables.md#columns).
 
-Derive the codec and declare nothing per field (GH #191, ADR-0019). The derive reads the type's
-shape, the framework names the columns:
+## A resource's table on your own page
+
+A page can render a resource's list table over its own query — here, only featured posts — with
+the same columns, filters and row actions as the resource's list:
 
 ```rust
-#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
-pub enum Publication {
-    #[column(variant = 1)]
-    Scheduled { #[shared(timestamp)] scheduled_at: String, scheduled_for: String },
-    #[column(variant = 2)]
-    Published { #[shared(timestamp)] published_at: String, canonical_url: String },
-}
-
-// form declaration: controls, flattened names, and the variant control
-Section::new("Publication").schema(Publication::form(cx, Post::fields().publication()))
-
-// a record form binds the whole value, and the derive calls the codec
-#[derive(tablo_core::RecordForm)]
-#[form(model = Post)]
-pub struct PostForm {
-    #[form(embed)]
-    pub publication: Publication,
-    // …
-}
-
-// the codec by hand: the typed value, keys resolved from the schema
-record.publication.write_form(cx, Post::fields().publication(), &mut values);
-let publication = Publication::read_form(cx, Post::fields().publication(), &values)?;
+let table = tablo_core::panel::wired_table::<PostResource>(cx);
+let state = TableState::from_cx(cx);
+let query = scoped_query::<PostResource>(cx)?.filter(Post::fields().featured().eq(true));
+let page = TablePage::load(cx, &table, query, &state).await?;
+let body = table.render_with_state(cx, page, &state, "/admin/featured").await?;
 ```
 
-An enum's variant is its **discriminant column**, carried by the form as a choice over the
-schema's variant list — each option submitting the variant's stored value and reading as its name —
-and each variant's payload renders inside its own marked group, so the client shows only the chosen
-variant's, and a variant can be picked on create and changed on edit (a read-only page names the
-stored variant instead of printing its discriminant). A named discriminant always wins (and one the
-enum does not declare is refused on the discriminant's key, never read as some other variant), so a stale payload is
-not a vote. Only when no discriminant is named at all — the create form, a hand-written POST — do
-payloads select one, by a variant's own **non-shared** payload through resolved keys. The toggle is
-markup-only (`variant.js` hides the inactive groups): with JavaScript off every variant's payload
-renders, so no field the server still parses is lost; a read-only page renders only the stored
-variant's group and the shared columns it declares. `Publication::form` is one schema node: its fields join the form's field list, and
-its keys are its fields' keys. Inside a value, a field marked `#[form(embed)]` is a nested value and
-every other field is a scalar (`FormScalar`), which a derive checks at the field.
-`#[form(label = "…")]`, `#[form(multiline = N)]`, and `#[form(blank = ..)]` to declare a leaf's
-blank answer are the per-field overrides; an unknown key is a compile error. A
-`#[document]` inside a value, a relation, an enum nested inside an enum variant, and a tuple struct
-are not covered.
+`wired_table` adds the row actions the resource's policy allows. The last argument of
+`render_with_state` is the URL the table's search, sort and pager links point at: the page's own.
 
-Schema setup: `db.push_schema().await` for prototypes, `toasty-cli` migrations for prod.
+## Schema setup
 
-## Render invariants
+`db.push_schema().await?` creates every registered table, which suits a prototype or a test. A
+production app manages its schema with `toasty-cli` migrations.
 
-Pages, layouts, and components are side-effect free and deterministic — no `HashMap` iteration,
-`Utc::now()`, or random IDs in a streamed region (breaks concurrent/streaming re-renders). Query
-Toasty directly with explicit `include` for relations, `#[index]` for filter columns, and
-`#[memoize]` for shared loads. `Cx`-scoped values (`Tenant`, auth), not middleware, carry request
-scope. Every value read on the server via `get()` / `read()` is untrusted client input.
+## Rendering rules
 
-## Reactivity
+Topcoat may render a page's regions concurrently and re-render them in place, so code that renders
+follows three rules:
 
-`signal(cx, init)` runs only in a page/layout/component body; loop bodies need `#[key(...)]` and
-reorderable rows need a stable `id` from the row key. `get()` / `read()` re-runs track and morph in
-place; `get_untracked()` opts out. Page/layout guards do not run on shard requests — shards
-authorize themselves (`requires_tenant` + `can_view_any` + the tenant-scoped query).
+- **No side effects.** Pages, layouts and components only read. Writes belong in record functions
+  or app routes.
+- **Deterministic output.** No `HashMap` iteration order, current time or random values in a
+  region that re-renders: a re-render must produce the same markup for the same data.
+- **Untrusted signals.** A value read on the server with a signal's `get()` or `read()` comes
+  from the client. Validate it like any request input.
+
+Share a query between components of one request with Topcoat's `#[memoize]`, and add a Toasty
+`#[index]` to columns you filter on.
+
+A table with `live_search()` refreshes through a Topcoat shard request. Page and layout guards do
+not run for shard requests, so the panel's shard checks authentication, the tenant and
+`can_view_any` itself; a shard you write must do the same.

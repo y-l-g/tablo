@@ -4,9 +4,8 @@
 //! scoping (`query`), the form and table declarations, and navigation. See
 //! `CONTEXT.md` and ADR-0002.
 //!
-//! Facade over the cohesive submodules split out in GH #133: `filter`,
-//! `column`, `state`, `table` (+ `table::render`/`table::export`),
-//! `navigation`, and `naming`. The re-export surface is unchanged.
+//! The declarations live in submodules — `table`, `column`, `filter`,
+//! `state`, `relation`, `navigation` and `naming` — re-exported here.
 
 use std::collections::HashMap;
 
@@ -242,11 +241,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// the record has no label to show.
     ///
     /// The detail page titles itself with this label when a resource returns
-    /// `Some`, and with [`navigation_label`](Self::navigation_label) plus the
-    /// URL's record key when it returns `None` — the default, so a resource
-    /// that declares nothing keeps the title it has. The showcase's
-    /// `PostResource` is the worked example: it returns the post's title, so
-    /// its heading reads the title instead of `Blog Posts <record key>`.
+    /// `Some`, and with [`label`](Self::label) plus the URL's record key when
+    /// it returns `None`, the default. The showcase's `PostResource` returns
+    /// the post's title, so its heading reads the title instead of
+    /// `Blog Post <record key>`.
     ///
     /// `cx` is the request's context — the same one [`view`](Self::view) and
     /// [`view_values`](Self::view_values) receive — so a label
@@ -341,9 +339,15 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// The detail page's query: [`Self::query`] plus the relations the page
     /// reads off the loaded row — in [`view_values`](Self::view_values) or
-    /// [`view_content`](Self::view_content) — so include them here:
-    /// `Self::query(cx).include(Post::fields().author())`. A
+    /// [`view_content`](Self::view_content) — so include them here. A
     /// [`relation`](Self::relations) table runs its own query and needs none.
+    ///
+    /// ```ignore
+    /// fn view_query(cx: &Cx) -> Query<List<Post>> {
+    ///     let author: Include<Post, Author> = Post::fields().author().into();
+    ///     Self::query(cx).include(author)
+    /// }
+    /// ```
     ///
     /// The default is [`Self::query`] unchanged. The framework ANDs the tenant
     /// scope onto it, as it does onto [`Self::query`].

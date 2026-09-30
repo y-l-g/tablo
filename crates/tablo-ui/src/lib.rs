@@ -1,8 +1,9 @@
-//! Tablo UI — beautiful Topcoat primitives owned as a library.
+//! The styled Topcoat components `tablo-core` renders: the vendored primitives
+//! (table, field, sidebar, dialog, …) and the composites an app's own pages
+//! use (page container, empty and error states, toasts).
 //!
-//! This crate owns the styled `#[component]`s that `tablo-core` renders
-//! (Table, Schema, Panel Shell). Apps never run `topcoat ui add`; they
-//! depend on this crate and get the components as a library. See ADR-0006.
+//! Apps depend on this crate instead of running `topcoat ui add`. The
+//! components read the design tokens the app declares in its `styles.css`.
 
 pub mod components;
 pub mod icons;

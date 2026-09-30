@@ -91,7 +91,7 @@ committed write, and a failure in it is logged without rolling the write back.
 | `Resource::query` | `resource/mod.rs` | the resource's own row scoping: soft deletes, row-level visibility |
 | `Resource::view_query` | `resource/mod.rs` | the detail page's query: `query` plus the relations the page reads off the record |
 | `Resource::relations` | `resource/relation.rs` | the related resources rendered as tables on a record's detail and edit pages |
-| `Resource::tenant_scope` | `tenancy.rs` | the tenant predicate, derived from the model's `tenant_id` by default |
+| `Resource::tenant_scope` | `resource/mod.rs` | the tenant predicate, derived from the model's `tenant_id` by default (`tenancy.rs`) |
 | `TextColumn::include` | `resource/column.rs` | a relation a list column reads; the list and the export load it |
 | `Resource::can_*` | `resource/mod.rs` | authorization, default deny |
 | `Resource::can_delete_any` | `resource/mod.rs` | whether delete is allowed at all: the delete chrome and the delete handlers' policy gate |
@@ -140,13 +140,14 @@ Tablo's own and are never overwritten.
 
 ```
 crates/tablo-core/src/
-  panel/      mod, build, gate, list, forms, actions/{bulk, delete, export, fetch,
-              options}, detail, pages, relations, search, shell, headers
-  resource/   mod, table/{mod,render,export}, column, state, filter, relation,
-              navigation, naming, commit
+  panel/      mod, build, gate, list, forms, write, actions/{bulk, delete, export,
+              fetch, options}, detail, pages, relations, search, shell, headers
+  resource/   mod, table/{mod,render,export}, column, page, state, filter,
+              relation, navigation, naming, commit
   schema/     mod, fields, layouts, lenses, tree, relationship, embedded, pk,
               validation
-  auth, csrf, cursor, db, notification, page, query_term, tenancy, upload
+  auth, csrf, cursor, db, error, form, notification, page, query_term, tenancy,
+  upload
 ```
 
 The three largest modules split along the request shape rather than by type: `panel/` holds the

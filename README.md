@@ -1,27 +1,33 @@
 # Tablo
 
-**Admin toolkit for Rust**, server-rendered on **Topcoat** (UI and reactivity) and **Toasty** (ORM). Filament-style Panel plus Resource, tables, and forms, with no SPA build step.
+**Admin toolkit for Rust**, server-rendered on **Topcoat** (UI and reactivity) and **Toasty**
+(ORM). Declare a resource per model and get its list, create, edit, detail and delete pages, with
+no SPA build step.
 
 [![CI](https://github.com/y-l-g/tablo/actions/workflows/ci.yml/badge.svg)](https://github.com/y-l-g/tablo/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Quick start
 
-Run the showcase:
+Run the showcase, a blog admin that exercises every feature:
 
 ```sh
 cargo run -p showcase
 # open http://localhost:3000/admin/users
 ```
 
-Define a resource, register it on a panel, delegate the layout:
+A resource declares its model, its form and its list:
 
 ```rust
 pub struct UserResource;
 
 impl Resource for UserResource {
     type Model = User;
-    type Form = NoForm<Self::Model>;
-    fn can_view_any(_cx: &Cx) -> bool { true }
+    type Form = NoForm<Self::Model>; // list-only: no create or edit pages
+
+    fn can_view_any(_cx: &Cx) -> bool {
+        true // every policy predicate denies until allowed
+    }
+
     fn table(_cx: &Cx) -> Table<User> {
         Table::new(
             |u: &User| u.id.to_string(),
@@ -34,9 +40,7 @@ impl Resource for UserResource {
 }
 ```
 
-List-only minimal: writes stay 403 until you add `can_create` / `can_update` / `can_delete`, a
-`#[derive(RecordForm)]` struct named as the resource's `type Form`, and its `form()` schema
-(see the [forms chapter](docs/guide/src/forms.md#the-record-form)).
+The panel registers it, and the app's layout delegates to the panel's shell:
 
 ```rust
 #[layout("/admin")]
@@ -48,42 +52,38 @@ fn router(db: toasty::Db) -> Router {
     Panel::new("admin")
         .app_context(db)
         .resource::<UserResource>()
-        // Minimal example: auth off. With default auth on, register
-        // `AdminUser` + `AuthSession` in `toasty::models!` instead
-        // (see the policy, auth, tenancy chapter).
-        .auth(Auth::disabled())
-        .build().expect("panel builds")
+        .auth(Auth::disabled()) // drop this line to require a login
+        .build()
+        .expect("panel builds")
 }
 ```
 
-See `examples/showcase/src/app.rs` for the full version with forms, filters, and tenancy.
-
-## Layout
-
-Crate roles live in [`docs/dev/architecture.md`](docs/dev/architecture.md#crates). The user
-guide is [`docs/guide/`](docs/guide/) (mdBook), decisions are in [`docs/adr/`](docs/adr/),
-contributor specs in [`docs/dev/`](docs/dev/), domain vocabulary in
-[`CONTEXT.md`](CONTEXT.md), and the runnable reference in
-[`examples/showcase/`](examples/showcase/).
+To add create and edit pages, give the resource a `#[derive(RecordForm)]` struct as its `Form`, a
+`form()` schema, and `can_create` / `can_update`. The
+[first panel](docs/guide/src/first-panel.md) chapter builds a complete app with forms and login.
 
 ## Documentation
 
-- **Guide**: [`docs/guide/`](docs/guide/) — build with `mdbook build docs/guide`, or read the
-  published copy at <https://y-l.fr/tablo/nightly/guide/>. The rustdoc reference is published
-  beside it at <https://y-l.fr/tablo/nightly/api/tablo_core/>.
-- [`CONTEXT.md`](CONTEXT.md) — the vocabulary.
-- [`docs/adr/`](docs/adr/) — the decisions, one note each.
-- [`examples/showcase/`](examples/showcase/) — the runnable reference.
-- [`benchmarks/README.md`](benchmarks/README.md) — the perf harness setup.
-- Upstream: the [Toasty guide](https://tokio-rs.github.io/toasty/0.10.0/guide/) (queries, filters,
-  sorting, preloading, migrations) and the [Topcoat docs](https://docs.rs/topcoat) (`view!` and
-  `#[component]`, router, cookie and session).
+- **[User guide](https://y-l.fr/tablo/nightly/guide/)**, from [`docs/guide/`](docs/guide/); build
+  it locally with `mdbook build docs/guide`.
+- **[API reference](https://y-l.fr/tablo/nightly/api/tablo_core/)**, the rustdoc of the
+  workspace.
+- [`examples/showcase/`](examples/showcase/): the runnable reference.
+- [`CONTEXT.md`](CONTEXT.md): the project's vocabulary.
+- [`docs/adr/`](docs/adr/): the design decisions, one record each.
+- [`docs/dev/architecture.md`](docs/dev/architecture.md): how the crates and a request fit
+  together.
+- [`benchmarks/README.md`](benchmarks/README.md): the performance harness.
+- Upstream: the [Toasty guide](https://tokio-rs.github.io/toasty/0.10.0/guide/) (queries,
+  relations, migrations) and the [Topcoat docs](https://docs.rs/topcoat) (`view!`,
+  `#[component]`, routing, cookies and sessions).
 
 ## Contributing
 
-Small fixes can go straight to a PR; larger changes are worth an issue first.
-[`CONTRIBUTING.md`](CONTRIBUTING.md) covers the build, the [CI gate set](CONTRIBUTING.md#the-gate-set),
-and the commit rules; [`AGENTS.md`](AGENTS.md) is the short version for agents.
+Small fixes can go straight to a pull request; open an issue first for larger changes.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) covers the build, the [CI gate
+set](CONTRIBUTING.md#the-gate-set) and the commit rules; [`AGENTS.md`](AGENTS.md) is the short
+version for agents.
 
 ## License
 

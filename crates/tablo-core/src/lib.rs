@@ -1,9 +1,43 @@
-//! Tablo — a server-rendered admin toolkit on Topcoat and Toasty.
+//! Tablo: a server-rendered admin toolkit on [Topcoat](topcoat) and [Toasty](toasty).
 //!
-//! This crate holds the toolkit's foundation: the [`Resource`] trait and the
-//! types that compose an admin UI (Panel, Table, Schema, Action). See the
-//! workspace README and `CONTEXT.md` for the vocabulary.
-#![doc = include_str!("../../../CONTEXT.md")]
+//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource declares its list page as a
+//! [`Table`], its create and edit forms as a [`Schema`] plus a
+//! [`RecordForm`](derive@RecordForm) struct the submission parses into, and its policy as `can_*`
+//! predicates that deny by default. [`Panel::build`] checks every declaration and returns the
+//! Topcoat router.
+//!
+//! ```ignore
+//! pub struct BookResource;
+//!
+//! impl Resource for BookResource {
+//!     type Model = Book;
+//!     type Form = BookForm;
+//!
+//!     fn can_view_any(_cx: &Cx) -> bool {
+//!         true
+//!     }
+//!
+//!     fn table(_cx: &Cx) -> Table<Book> {
+//!         Table::new(
+//!             |b: &Book| b.id.to_string(),
+//!             TextColumn::r#for(Book::fields().title(), |b: &Book| b.title.clone()).searchable(),
+//!         )
+//!     }
+//!
+//!     fn form(_cx: &Cx) -> Schema {
+//!         Schema::new(Field::text(Book::fields().title()))
+//!     }
+//! }
+//!
+//! let router = Panel::new("admin")
+//!     .app_context(db)
+//!     .resource::<BookResource>()
+//!     .build()?;
+//! ```
+//!
+//! The [user guide](https://y-l.fr/tablo/nightly/guide/) walks through a complete panel and each
+//! part of it. [`Resource`] lists every item a resource can declare, and [`Panel`] every builder
+//! call.
 
 // The derives emit `tablo_core::` paths; this lets them expand inside this
 // crate's own tests too.
