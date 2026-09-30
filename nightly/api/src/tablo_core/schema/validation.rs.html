@@ -297,40 +297,5 @@
 <a href=#297 id=297 data-nosnippet>297</a>}
 <a href=#298 id=298 data-nosnippet>298</a>
 <a href=#299 id=299 data-nosnippet>299</a><span class="attr">#[cfg(test)]
-<a href=#300 id=300 data-nosnippet>300</a></span><span class="kw">mod </span>tests {
-<a href=#301 id=301 data-nosnippet>301</a>    <span class="kw">use </span><span class="kw">super</span>::Rules;
-<a href=#302 id=302 data-nosnippet>302</a>
-<a href=#303 id=303 data-nosnippet>303</a>    <span class="doccomment">/// The typed rule words one message for a value the type cannot parse and
-<a href=#304 id=304 data-nosnippet>304</a>    /// for one it parses into a value it does not accept.
-<a href=#305 id=305 data-nosnippet>305</a>    </span><span class="kw">fn </span>rejected(input: <span class="kw-2">&amp;</span>str) -&gt; String {
-<a href=#306 id=306 data-nosnippet>306</a>        <span class="macro">format!</span>(<span class="string">"`{input}` is not a valid number"</span>)
-<a href=#307 id=307 data-nosnippet>307</a>    }
-<a href=#308 id=308 data-nosnippet>308</a>
-<a href=#309 id=309 data-nosnippet>309</a>    <span class="doccomment">/// GH #297: `f32`/`f64` `FromStr` accepts `NaN`, `inf` and `-inf`, and the
-<a href=#310 id=310 data-nosnippet>310</a>    /// typed rule passed them through as stored values. They are refused like
-<a href=#311 id=311 data-nosnippet>311</a>    /// any other unparseable submission.
-<a href=#312 id=312 data-nosnippet>312</a>    </span><span class="attr">#[test]
-<a href=#313 id=313 data-nosnippet>313</a>    </span><span class="kw">fn </span>a_float_refuses_a_non_finite_parse() {
-<a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">for </span>input <span class="kw">in </span>[<span class="string">"NaN"</span>, <span class="string">"nan"</span>, <span class="string">"inf"</span>, <span class="string">"-inf"</span>, <span class="string">"infinity"</span>, <span class="string">"1e400"</span>] {
-<a href=#315 id=315 data-nosnippet>315</a>            <span class="kw">let </span>f64_errs = Rules::new().typed::&lt;f64&gt;().validate(<span class="string">"Amount"</span>, <span class="bool-val">true</span>, input);
-<a href=#316 id=316 data-nosnippet>316</a>            <span class="kw">let </span>f32_errs = Rules::new().typed::&lt;f32&gt;().validate(<span class="string">"Amount"</span>, <span class="bool-val">true</span>, input);
-<a href=#317 id=317 data-nosnippet>317</a>            <span class="macro">assert_eq!</span>(f64_errs, <span class="macro">vec!</span>[rejected(input)], <span class="string">"f64 accepted {input}"</span>);
-<a href=#318 id=318 data-nosnippet>318</a>            <span class="macro">assert_eq!</span>(f32_errs, <span class="macro">vec!</span>[rejected(input)], <span class="string">"f32 accepted {input}"</span>);
-<a href=#319 id=319 data-nosnippet>319</a>        }
-<a href=#320 id=320 data-nosnippet>320</a>    }
-<a href=#321 id=321 data-nosnippet>321</a>
-<a href=#322 id=322 data-nosnippet>322</a>    <span class="doccomment">/// The same field keeps accepting a finite number, and normalises it
-<a href=#323 id=323 data-nosnippet>323</a>    /// through `f64`'s `Display` as any typed rule does.
-<a href=#324 id=324 data-nosnippet>324</a>    </span><span class="attr">#[test]
-<a href=#325 id=325 data-nosnippet>325</a>    </span><span class="kw">fn </span>a_float_accepts_and_normalises_a_finite_number() {
-<a href=#326 id=326 data-nosnippet>326</a>        <span class="kw">let </span>rules = Rules::new().typed::&lt;f64&gt;();
-<a href=#327 id=327 data-nosnippet>327</a>        <span class="macro">assert!</span>(rules.validate(<span class="string">"Amount"</span>, <span class="bool-val">true</span>, <span class="string">"-0.25"</span>).is_empty());
-<a href=#328 id=328 data-nosnippet>328</a>        <span class="macro">assert!</span>(rules.validate(<span class="string">"Amount"</span>, <span class="bool-val">true</span>, <span class="string">"1e3"</span>).is_empty());
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="macro">assert_eq!</span>(
-<a href=#330 id=330 data-nosnippet>330</a>            rules.normalize(<span class="string">" 12.50 "</span>).expect(<span class="string">"12.50 parses"</span>),
-<a href=#331 id=331 data-nosnippet>331</a>            <span class="string">"12.5"</span>,
-<a href=#332 id=332 data-nosnippet>332</a>            <span class="string">"a finite value stores its own spelling"
-<a href=#333 id=333 data-nosnippet>333</a>        </span>);
-<a href=#334 id=334 data-nosnippet>334</a>    }
-<a href=#335 id=335 data-nosnippet>335</a>}
+<a href=#300 id=300 data-nosnippet>300</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

@@ -1171,57 +1171,5 @@
 <a href=#1171 id=1171 data-nosnippet>1171</a>}
 <a href=#1172 id=1172 data-nosnippet>1172</a>
 <a href=#1173 id=1173 data-nosnippet>1173</a><span class="attr">#[cfg(test)]
-<a href=#1174 id=1174 data-nosnippet>1174</a></span><span class="kw">mod </span>tests {
-<a href=#1175 id=1175 data-nosnippet>1175</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#1176 id=1176 data-nosnippet>1176</a>
-<a href=#1177 id=1177 data-nosnippet>1177</a>    <span class="attr">#[test]
-<a href=#1178 id=1178 data-nosnippet>1178</a>    </span><span class="kw">fn </span>a_client_filename_is_reduced_to_a_basename() {
-<a href=#1179 id=1179 data-nosnippet>1179</a>        <span class="macro">assert_eq!</span>(basename(<span class="string">"../../etc/passwd"</span>), <span class="string">"passwd"</span>);
-<a href=#1180 id=1180 data-nosnippet>1180</a>        <span class="macro">assert_eq!</span>(basename(<span class="string">"/abs/path/cover.png"</span>), <span class="string">"cover.png"</span>);
-<a href=#1181 id=1181 data-nosnippet>1181</a>        <span class="macro">assert_eq!</span>(basename(<span class="string">"C:\\fakepath\\cover.png"</span>), <span class="string">"cover.png"</span>);
-<a href=#1182 id=1182 data-nosnippet>1182</a>        <span class="macro">assert_eq!</span>(basename(<span class="string">"  cover.png  "</span>), <span class="string">"cover.png"</span>);
-<a href=#1183 id=1183 data-nosnippet>1183</a>        <span class="macro">assert_eq!</span>(basename(<span class="string">"cover\u{7}.png"</span>), <span class="string">"cover.png"</span>);
-<a href=#1184 id=1184 data-nosnippet>1184</a>        <span class="macro">assert_eq!</span>(basename(<span class="string">"   "</span>), <span class="string">""</span>);
-<a href=#1185 id=1185 data-nosnippet>1185</a>        <span class="comment">// Capped by bytes, keeping the tail so the extension survives.
-<a href=#1186 id=1186 data-nosnippet>1186</a>        </span><span class="kw">let </span>long = <span class="macro">format!</span>(<span class="string">"{}{}"</span>, <span class="string">"a"</span>.repeat(<span class="number">300</span>), <span class="string">".png"</span>);
-<a href=#1187 id=1187 data-nosnippet>1187</a>        <span class="kw">let </span>capped = basename(<span class="kw-2">&amp;</span>long);
-<a href=#1188 id=1188 data-nosnippet>1188</a>        <span class="macro">assert_eq!</span>(capped.len(), MAX_BASENAME_BYTES);
-<a href=#1189 id=1189 data-nosnippet>1189</a>        <span class="macro">assert!</span>(capped.ends_with(<span class="string">".png"</span>), <span class="string">"got {capped}"</span>);
-<a href=#1190 id=1190 data-nosnippet>1190</a>    }
-<a href=#1191 id=1191 data-nosnippet>1191</a>
-<a href=#1192 id=1192 data-nosnippet>1192</a>    <span class="attr">#[test]
-<a href=#1193 id=1193 data-nosnippet>1193</a>    </span><span class="kw">fn </span>a_multibyte_filename_caps_on_a_char_boundary() {
-<a href=#1194 id=1194 data-nosnippet>1194</a>        <span class="kw">let </span>long = <span class="macro">format!</span>(<span class="string">"{}.png"</span>, <span class="string">"é"</span>.repeat(<span class="number">300</span>));
-<a href=#1195 id=1195 data-nosnippet>1195</a>        <span class="kw">let </span>capped = basename(<span class="kw-2">&amp;</span>long);
-<a href=#1196 id=1196 data-nosnippet>1196</a>        <span class="macro">assert!</span>(capped.len() &lt;= MAX_BASENAME_BYTES);
-<a href=#1197 id=1197 data-nosnippet>1197</a>        <span class="macro">assert!</span>(capped.ends_with(<span class="string">".png"</span>), <span class="string">"got {capped}"</span>);
-<a href=#1198 id=1198 data-nosnippet>1198</a>        <span class="macro">assert!</span>(
-<a href=#1199 id=1199 data-nosnippet>1199</a>            capped
-<a href=#1200 id=1200 data-nosnippet>1200</a>                .chars()
-<a href=#1201 id=1201 data-nosnippet>1201</a>                .all(|c| c == <span class="string">'é' </span>|| c == <span class="string">'.' </span>|| c == <span class="string">'p' </span>|| c == <span class="string">'n' </span>|| c == <span class="string">'g'</span>)
-<a href=#1202 id=1202 data-nosnippet>1202</a>        );
-<a href=#1203 id=1203 data-nosnippet>1203</a>    }
-<a href=#1204 id=1204 data-nosnippet>1204</a>
-<a href=#1205 id=1205 data-nosnippet>1205</a>    <span class="attr">#[test]
-<a href=#1206 id=1206 data-nosnippet>1206</a>    </span><span class="kw">fn </span>a_stored_name_becomes_a_url_path_segment() {
-<a href=#1207 id=1207 data-nosnippet>1207</a>        <span class="macro">assert_eq!</span>(url_segment(<span class="string">"cover.png"</span>), <span class="string">"cover.png"</span>);
-<a href=#1208 id=1208 data-nosnippet>1208</a>        <span class="macro">assert_eq!</span>(url_segment(<span class="string">"cover #1.png"</span>), <span class="string">"cover%20%231.png"</span>);
-<a href=#1209 id=1209 data-nosnippet>1209</a>        <span class="macro">assert_eq!</span>(
-<a href=#1210 id=1210 data-nosnippet>1210</a>            url_segment(<span class="string">"quote%22 onerror=%22boom.png"</span>),
-<a href=#1211 id=1211 data-nosnippet>1211</a>            <span class="string">"quote%2522%20onerror%3D%2522boom.png"
-<a href=#1212 id=1212 data-nosnippet>1212</a>        </span>);
-<a href=#1213 id=1213 data-nosnippet>1213</a>        <span class="macro">assert_eq!</span>(url_segment(<span class="string">"100%.png"</span>), <span class="string">"100%25.png"</span>);
-<a href=#1214 id=1214 data-nosnippet>1214</a>        <span class="macro">assert_eq!</span>(url_segment(<span class="string">"a+b&amp;c.png"</span>), <span class="string">"a%2Bb%26c.png"</span>);
-<a href=#1215 id=1215 data-nosnippet>1215</a>        <span class="comment">// Nothing a browser sends reaches the URL as a delimiter.
-<a href=#1216 id=1216 data-nosnippet>1216</a>        </span><span class="kw">for </span>name <span class="kw">in </span>[<span class="string">"#"</span>, <span class="string">"?"</span>, <span class="string">"\""</span>, <span class="string">" "</span>, <span class="string">"%"</span>, <span class="string">"&amp;"</span>, <span class="string">"+"</span>, <span class="string">"/"</span>, <span class="string">"\\"</span>] {
-<a href=#1217 id=1217 data-nosnippet>1217</a>            <span class="kw">let </span>encoded = url_segment(name);
-<a href=#1218 id=1218 data-nosnippet>1218</a>            <span class="macro">assert!</span>(
-<a href=#1219 id=1219 data-nosnippet>1219</a>                encoded
-<a href=#1220 id=1220 data-nosnippet>1220</a>                    .bytes()
-<a href=#1221 id=1221 data-nosnippet>1221</a>                    .all(|b| b.is_ascii_alphanumeric() || <span class="string">b"%.-_~"</span>.contains(<span class="kw-2">&amp;</span>b)),
-<a href=#1222 id=1222 data-nosnippet>1222</a>                <span class="string">"{name:?} encoded to {encoded}"
-<a href=#1223 id=1223 data-nosnippet>1223</a>            </span>);
-<a href=#1224 id=1224 data-nosnippet>1224</a>        }
-<a href=#1225 id=1225 data-nosnippet>1225</a>    }
-<a href=#1226 id=1226 data-nosnippet>1226</a>}
+<a href=#1174 id=1174 data-nosnippet>1174</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>
