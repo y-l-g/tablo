@@ -35,6 +35,8 @@ pub use filter::{DateFilter, Filter, IntoFilters, SelectFilter, TernaryFilter, V
 use naming::{kebab_case, pluralize, type_short_name};
 pub(crate) use navigation::runtime_link;
 pub use navigation::{NavTarget, NavigationItem};
+pub use page::TablePage;
+pub(crate) use page::{Past, row_exists_past};
 pub use relation::{
     IntoRelationColumns, MAX_RELATION_ROWS, RelationColumn, RelationColumns, render_relation,
 };
@@ -42,8 +44,6 @@ pub(crate) use state::{
     BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
     RECORD_ROUTE_PARAM, create_page_url, cursor_after, cursor_before, cursor_none,
 };
-pub(crate) use page::{Past, row_exists_past};
-pub use page::TablePage;
 pub use state::{Sort, TableSignals, TableState};
 pub use table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
 pub(crate) use table::{RowActions, TableChrome};

@@ -3,9 +3,7 @@ use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
 use crate::{
-    resource::{
-        Resource, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn,
-    },
+    resource::{Resource, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
     test_support::User,
 };
 
@@ -152,12 +150,13 @@ async fn table_load_rejects_both_cursors() {
     .paginate(1);
     // A valid cursor token: the first page of two rows has a next page.
     let first = TablePage::load(
-            &cx, &tbl,
-            toasty::stmt::Query::<List<User>>::all(),
-            &TableState::default(),
-        )
-        .await
-        .unwrap();
+        &cx,
+        &tbl,
+        toasty::stmt::Query::<List<User>>::all(),
+        &TableState::default(),
+    )
+    .await
+    .unwrap();
     let cursor = first
         .next_cursor
         .clone()
@@ -837,12 +836,13 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     // Full first page: main + exactly one next probe.
     count_around(true);
     let first = TablePage::load(
-            &cx, &tbl,
-            toasty::stmt::Query::<List<User>>::all(),
-            &TableState::default(),
-        )
-        .await
-        .unwrap();
+        &cx,
+        &tbl,
+        toasty::stmt::Query::<List<User>>::all(),
+        &TableState::default(),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         count_around(false),
         bare_main_cost + bare_probe_cost,
@@ -854,21 +854,27 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     let tbl3 = paged_users_table(3);
     count_around(true);
     let head = TablePage::load(
-            &cx, &tbl3,
-            toasty::stmt::Query::<List<User>>::all(),
-            &TableState::default(),
-        )
-        .await
-        .unwrap();
+        &cx,
+        &tbl3,
+        toasty::stmt::Query::<List<User>>::all(),
+        &TableState::default(),
+    )
+    .await
+    .unwrap();
     assert_eq!(head.rows.len(), 3);
     let tail_state = TableState {
         after: head.next_cursor.clone(),
         ..TableState::default()
     };
     count_around(true);
-    let tail = TablePage::load(&cx, &tbl3, toasty::stmt::Query::<List<User>>::all(), &tail_state)
-        .await
-        .unwrap();
+    let tail = TablePage::load(
+        &cx,
+        &tbl3,
+        toasty::stmt::Query::<List<User>>::all(),
+        &tail_state,
+    )
+    .await
+    .unwrap();
     assert_eq!(tail.rows.len(), 1);
     assert!(tail.next_cursor.is_none());
     let short_cost = count_around(false);
@@ -882,19 +888,25 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     // Backward landing on a full page: main + exactly one prev probe
     // (pp=2 table: page 2 [u03,u04], then back to full page 1).
     let p1 = TablePage::load(
-            &cx, &tbl,
-            toasty::stmt::Query::<List<User>>::all(),
-            &TableState::default(),
-        )
-        .await
-        .unwrap();
+        &cx,
+        &tbl,
+        toasty::stmt::Query::<List<User>>::all(),
+        &TableState::default(),
+    )
+    .await
+    .unwrap();
     let p2_state = TableState {
         after: p1.next_cursor.clone(),
         ..TableState::default()
     };
-    let p2 = TablePage::load(&cx, &tbl, toasty::stmt::Query::<List<User>>::all(), &p2_state)
-        .await
-        .unwrap();
+    let p2 = TablePage::load(
+        &cx,
+        &tbl,
+        toasty::stmt::Query::<List<User>>::all(),
+        &p2_state,
+    )
+    .await
+    .unwrap();
     assert_eq!(p2.rows.len(), 2);
     let back_to_first = TableState {
         before: p2.prev_cursor.clone(),
@@ -902,12 +914,13 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     };
     count_around(true);
     let first_again = TablePage::load(
-            &cx, &tbl,
-            toasty::stmt::Query::<List<User>>::all(),
-            &back_to_first,
-        )
-        .await
-        .unwrap();
+        &cx,
+        &tbl,
+        toasty::stmt::Query::<List<User>>::all(),
+        &back_to_first,
+    )
+    .await
+    .unwrap();
     assert_eq!(
         first_again
             .rows
@@ -976,9 +989,14 @@ async fn stale_cursor_is_marked_for_retry() {
         after: Some(wide),
         ..TableState::default()
     };
-    let error = TablePage::load(&cx, &table(), toasty::stmt::Query::<List<Task>>::all(), &state)
-        .await
-        .expect_err("a cursor with too many fields must fail the load");
+    let error = TablePage::load(
+        &cx,
+        &table(),
+        toasty::stmt::Query::<List<Task>>::all(),
+        &state,
+    )
+    .await
+    .expect_err("a cursor with too many fields must fail the load");
     assert!(
         crate::cursor::is_cursor_error(&error),
         "a rejected cursor must carry the cursor marker, got {error}"
@@ -1002,20 +1020,26 @@ async fn stale_cursor_is_marked_for_retry() {
     // A cursor cut from this query's own ordering round-trips: the guard
     // marks a rejected cursor, not every request that carries one.
     let first = TablePage::load(
-            &cx, &table(),
-            toasty::stmt::Query::<List<Task>>::all(),
-            &TableState::default(),
-        )
-        .await
-        .unwrap();
+        &cx,
+        &table(),
+        toasty::stmt::Query::<List<Task>>::all(),
+        &TableState::default(),
+    )
+    .await
+    .unwrap();
     let state = TableState {
         after: first.next_cursor.clone(),
         ..TableState::default()
     };
     assert!(
-        TablePage::load(&cx, &table(), toasty::stmt::Query::<List<Task>>::all(), &state)
-            .await
-            .is_ok(),
+        TablePage::load(
+            &cx,
+            &table(),
+            toasty::stmt::Query::<List<Task>>::all(),
+            &state
+        )
+        .await
+        .is_ok(),
         "a matching cursor must keep loading"
     );
 }

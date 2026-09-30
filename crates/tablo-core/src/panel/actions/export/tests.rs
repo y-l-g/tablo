@@ -94,6 +94,7 @@ async fn export_drops_rows_failing_can_view() {
 #[tokio::test]
 async fn export_loads_the_relations_its_columns_include() {
     use http_body_util::BodyExt;
+
     use crate::resource::Resource;
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -413,6 +414,7 @@ async fn export_visibility_scan_loads_no_includes() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use http_body_util::BodyExt;
+
     use crate::resource::Resource;
 
     static SCAN_UNLOADED: AtomicUsize = AtomicUsize::new(0);
@@ -686,8 +688,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
     let table = ChunkerDummyResource::table(&cx);
     let state = crate::resource::TableState::default();
     let mut chunker = ExportChunker::new(
-        export_base_query::<ChunkerDummyResource>(&cx, &table, &state)
-            .expect("tenant scope"),
+        export_base_query::<ChunkerDummyResource>(&cx, &table, &state).expect("tenant scope"),
     );
     let first = chunker
         .next_chunk(&mut db)
@@ -726,8 +727,7 @@ async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
     let table = ChunkerDummyResource::table(&cx);
     let state = crate::resource::TableState::default();
     let mut chunker = ExportChunker::new(
-        export_base_query::<ChunkerDummyResource>(&cx, &table, &state)
-            .expect("tenant scope"),
+        export_base_query::<ChunkerDummyResource>(&cx, &table, &state).expect("tenant scope"),
     );
     let first = chunker
         .next_chunk(&mut db)
@@ -833,11 +833,11 @@ async fn export_and_list_agree_on_rows_and_order() {
     let listed: Vec<String> =
         crate::resource::TablePage::load(&cx, &table, TaskResource::query(&cx), &state)
             .await
-        .unwrap()
-        .rows
-        .iter()
-        .map(|t| t.title.clone())
-        .collect();
+            .unwrap()
+            .rows
+            .iter()
+            .map(|t| t.title.clone())
+            .collect();
     assert_eq!(
         listed,
         ["charlie".to_string(), "bravo".to_string()],
@@ -845,8 +845,7 @@ async fn export_and_list_agree_on_rows_and_order() {
     );
 
     let mut chunker = ExportChunker::new(
-        export_base_query::<TaskResource>(&cx, &table, &state)
-            .expect("tenant scope"),
+        export_base_query::<TaskResource>(&cx, &table, &state).expect("tenant scope"),
     );
     let mut exported: Vec<String> = Vec::new();
     while let Some(rows) = chunker.next_chunk(&mut db).await.unwrap() {

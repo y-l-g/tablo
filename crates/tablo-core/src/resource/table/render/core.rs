@@ -10,8 +10,7 @@ use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::super::{
     super::{
-        ColumnWidth,
-        column::NARROW_DEFAULT_PERCENT,
+        column::{MinWidth, column_width_style, default_width_style, scaled_default_percent},
         page::TablePage,
         state::{
             TableSignals, TableState, delete_action_url, group_header_dom_id, row_dom_id,
@@ -21,46 +20,11 @@ use super::super::{
     GroupKey, NormalizedState, RowActions, RowKey, Table,
 };
 
-/// The readability floor one [`ColumnWidth::Wide`](super::super::ColumnWidth::Wide)
-/// column contributes to the table's `min-width`, in whole rem.
-///
-/// A wide column declares no width — it takes what the declared columns leave —
-/// so a sum of declared widths alone would let it crush to zero on a narrow
-/// viewport (the measured 38px cells at 480px). Six rem keeps body text
-/// readable and, summed across the wide columns, trips the wrapper's
-/// horizontal scroll before the fixed layout crushes them.
-const WIDE_COLUMN_MIN_REM: u8 = 6;
-
 /// The share of the table the bulk-selection column claims: one
 /// checkbox plus the cell's `p-3` padding at the widths a list is read at. A
 /// percentage, not a length: the column keeps its share as the table narrows,
 /// and the columns that declare none keep theirs.
 const BULK_COLUMN_PERCENT: u8 = 5;
-
-/// The most of the table the kind defaults claim together.
-///
-/// The defaults are shares of the table, and the columns that declare none
-/// take what they leave: a total over 100% gives those columns no space at
-/// all, and `table-fixed` renders a column with no space at zero width, header
-/// text included. The budget keeps the rest of the table for them whatever the
-/// column set.
-const DEFAULT_WIDTH_BUDGET_PERCENT: u8 = 60;
-
-/// The share a kind default claims, scaled down when the table's defaults
-/// together exceed [`DEFAULT_WIDTH_BUDGET_PERCENT`].
-fn scaled_default_percent(nominal: u8, total: u32) -> u8 {
-    if total <= u32::from(DEFAULT_WIDTH_BUDGET_PERCENT) {
-        return nominal;
-    }
-    let scaled = u32::from(nominal) * u32::from(DEFAULT_WIDTH_BUDGET_PERCENT) / total;
-    // `scaled` is at most the budget, so the conversion cannot fail.
-    u8::try_from(scaled).unwrap_or(DEFAULT_WIDTH_BUDGET_PERCENT)
-}
-
-/// The `style` value a kind default emits.
-fn default_width_style(percent: u8) -> Cow<'static, str> {
-    Cow::Owned(format!("width: {percent}%"))
-}
 
 /// The width every column of one render declares: one `style` value
 /// per declared column, in column order, plus the two chrome columns.
@@ -794,14 +758,14 @@ impl<M> Table<M> {
     /// The kind defaults — a [`ColumnWidth::Narrow`] column, the bulk
     /// checkbox, the row actions — are shares of the table, scaled down
     /// together when their nominal total exceeds
-    /// [`DEFAULT_WIDTH_BUDGET_PERCENT`]: the wide columns take what the
+    /// `DEFAULT_WIDTH_BUDGET_PERCENT`: the wide columns take what the
     /// declared ones leave, and a table that spends every percent on declared
     /// columns leaves them none. An explicit `Rem`/`Percent` is emitted as
     /// declared.
     ///
     /// The table-level `min-width` is the sum of those declarations: every
     /// share as emitted, every `Rem` verbatim, the actions column's content
-    /// floor, and one [`WIDE_COLUMN_MIN_REM`] per wide column (which declares
+    /// floor, and one `WIDE_COLUMN_MIN_REM` per wide column (which declares
     /// nothing and would otherwise crush to zero). With `w-full` the table
     /// never exceeds its container on its own, so without the floor the
     /// wrapper's `overflow-x-auto` never scrolls; with it the table keeps its
@@ -825,66 +789,35 @@ impl<M> Table<M> {
             .chain(actions)
             .map(u32::from)
             .sum();
-        let default_style =
-            |nominal: u8| default_width_style(scaled_default_percent(nominal, total));
-
         let cells = self
             .columns
             .iter()
-            .map(|col| {
-                let width = col.column_width();
-                // `Wide` declares nothing; a kind default is resolved against
-                // the rest of the table; `Rem`/`Percent` are verbatim.
-                width
-                    .explicit_css()
-                    .or_else(|| width.default_percent().map(default_style))
-            })
+            .map(|col| column_width_style(col.column_width(), total))
             .collect();
-        // The `min-width` terms, in layout order: the shares first, then the
-        // lengths as one rem total. A scaled share is the emitted one, so the
-        // floor and the column agree.
-        let mut percent_terms: Vec<u8> = Vec::new();
+        // The `min-width` terms, in layout order. A scaled share is the
+        // emitted one, so the floor and the column agree.
+        let mut min_width = MinWidth::default();
         if let Some(share) = bulk {
-            percent_terms.push(scaled_default_percent(share, total));
+            min_width.share(scaled_default_percent(share, total));
         }
-        let mut rem_total: u32 = 0;
         for col in &self.columns {
-            match col.column_width() {
-                ColumnWidth::Wide => rem_total += u32::from(WIDE_COLUMN_MIN_REM),
-                ColumnWidth::Narrow => {
-                    percent_terms.push(scaled_default_percent(NARROW_DEFAULT_PERCENT, total));
-                }
-                ColumnWidth::Rem(rem) => rem_total += u32::from(rem),
-                ColumnWidth::Percent(share) => percent_terms.push(share),
-            }
+            min_width.column(col.column_width(), total);
         }
         let mut actions_style = None;
         if let (Some(share), Some(floor)) = (actions, actions_floor) {
             let scaled = scaled_default_percent(share, total);
-            percent_terms.push(scaled);
-            rem_total += u32::from(floor);
+            min_width.share(scaled);
+            min_width.rem(floor);
             actions_style = Some(Cow::Owned(format!(
                 "width: {scaled}%; min-width: {floor}rem"
             )));
         }
-        let table_min_width = (rem_total > 0).then(|| {
-            let mut parts: Vec<String> = percent_terms
-                .iter()
-                .map(|share| format!("{share}%"))
-                .collect();
-            parts.push(format!("{rem_total}rem"));
-            if parts.len() == 1 {
-                Cow::Owned(format!("min-width: {}", parts[0]))
-            } else {
-                Cow::Owned(format!("min-width: calc({})", parts.join(" + ")))
-            }
-        });
         ColumnWidths {
             cells,
-            bulk: bulk.map(default_style),
+            bulk: bulk.map(|share| default_width_style(scaled_default_percent(share, total))),
             actions: actions_style,
             actions_min: actions_floor.map(|floor| Cow::Owned(format!("min-width: {floor}rem"))),
-            table_min_width,
+            table_min_width: min_width.style(),
         }
     }
 

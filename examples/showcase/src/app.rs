@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Brand, ColumnWidth, Committed, DateFilter, FieldErrors, Grid, Group, Panel,
-    Posted, RelationColumn, RelationColumns, Repeater, Resource, Schema, Section, Select,
-    SelectFilter, Table, TernaryFilter, TextColumn, TextInput, Textarea, Uploader, VariantFilter,
+    Brand, ColumnWidth, Committed, DateFilter, FieldErrors, Grid, Group, Panel, Posted,
+    RelationColumn, RelationColumns, Repeater, Resource, Schema, Section, Select, SelectFilter,
+    Table, TernaryFilter, TextColumn, TextInput, Textarea, Uploader, VariantFilter,
     render_relation, scoped_query, tenant_id, write_create, write_update,
 };
 use toasty::Db;
