@@ -4,7 +4,7 @@
 //! One routine applies the declaration for both loaders, and the essentials
 //! check refuses a table whose page size cannot serve a list.
 
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use toasty::stmt::{Expr, List, OrderByExpr};
 use topcoat::{Result, context::Cx};
@@ -118,29 +118,9 @@ impl std::ops::Deref for NormalizedState {
     }
 }
 
-/// How [`Table::order_bys_for`] falls back when `?sort=` names no sortable
-/// column: the one axis the list loader and the CSV export
-/// legitimately disagree on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OrderMode {
-    /// List loading: the PK fallback applies only to a paginated
-    /// table, where toasty's cursor pagination needs a deterministic order.
-    List,
-    /// CSV export: the chunked cursor walk needs a deterministic
-    /// order whether or not the table paginates, so the PK fallback applies
-    /// whenever no sortable column is declared.
-    Export,
-}
-
-impl OrderMode {
-    /// Whether the PK fallback applies, given whether the table paginates.
-    fn falls_back_to_pk(self, paginated: bool) -> bool {
-        match self {
-            Self::List => paginated,
-            Self::Export => true,
-        }
-    }
-}
+/// The page size of a table that declares none with [`Table::paginate`], as
+/// Filament's tables default to paginating.
+pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
 
 /// Table description of a `Resource`'s list view. Declares columns and how they
 /// map to queries.
@@ -156,9 +136,9 @@ pub struct Table<M> {
     row_key: RowKey<M>,
     record_key: RowKey<M>,
     row_policy: Option<RowPolicy<M>>,
-    page_size: Option<usize>,
-    search_ui: Option<bool>,
-    filters_ui: Option<bool>,
+    page_size: NonZeroUsize,
+    hide_search: bool,
+    hide_filter_bar: bool,
     delete_prefix: Option<String>,
     edit_prefix: Option<String>,
     view_prefix: Option<String>,
@@ -175,8 +155,8 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("group_by", &self.group_by.is_some())
             .field("row_policy", &self.row_policy.is_some())
             .field("page_size", &self.page_size)
-            .field("search_ui", &self.search_ui)
-            .field("filters_ui", &self.filters_ui)
+            .field("hide_search", &self.hide_search)
+            .field("hide_filter_bar", &self.hide_filter_bar)
             .field("delete_prefix", &self.delete_prefix)
             .field("edit_prefix", &self.edit_prefix)
             .field("view_prefix", &self.view_prefix)
@@ -241,6 +221,12 @@ impl<M> Table<M> {
         Self::from_keys(Arc::new(display), Arc::new(record), cols)
     }
 
+    /// The record key of `record`: the model's primary key as the action URLs
+    /// carry it.
+    pub(crate) fn record_key_of(&self, record: &M) -> String {
+        (self.record_key)(record)
+    }
+
     /// The one constructor body: rejects duplicate column names, then builds
     /// the table around the two declared projections.
     fn from_keys(row_key: RowKey<M>, record_key: RowKey<M>, cols: impl IntoColumns<M>) -> Self
@@ -267,9 +253,9 @@ impl<M> Table<M> {
             row_key,
             record_key,
             row_policy: None,
-            page_size: None,
-            search_ui: None,
-            filters_ui: None,
+            page_size: DEFAULT_PAGE_SIZE,
+            hide_search: false,
+            hide_filter_bar: false,
             delete_prefix: None,
             edit_prefix: None,
             view_prefix: None,
@@ -465,24 +451,27 @@ impl<M> Table<M> {
         NormalizedState(out)
     }
 
-    /// Enable real cursor pagination with the given page size.
+    /// Set the page size. Every table paginates with cursor pagination, at
+    /// [`DEFAULT_PAGE_SIZE`] rows unless it declares otherwise; the render
+    /// shows Previous/Next links built from the executed page's cursors, never
+    /// page numbers.
     ///
-    /// Loaders pair this with toasty's `.paginate(per_page)` (via
-    /// [`TablePage::from_toasty_page`]); the render then shows Previous/Next
-    /// links built from the executed page's cursors — never fake page
-    /// numbers. Also implies a deterministic PK ordering when the table
-    /// declares no sortable column (see [`Self::order_bys_for`]).
+    /// # Panics
     ///
-    /// A zero page size is a programmer error: it fails loudly at render/load
-    /// time with a descriptive error, never a bare panic.
+    /// Panics on zero, like the other misdeclarations [`Self::new`] refuses: a
+    /// page of no rows is a programmer error, and [`Panel::build`] calls the
+    /// table declaration, so it surfaces at boot.
+    ///
+    /// [`Panel::build`]: crate::panel::Panel::build
     pub fn paginate(mut self, per_page: usize) -> Self {
-        self.page_size = Some(per_page);
+        self.page_size = NonZeroUsize::new(per_page)
+            .expect("Table::paginate: a page size must be at least 1 (GH #96)");
         self
     }
 
-    /// Whether the page size was declared via [`Self::paginate`].
-    pub fn page_size(&self) -> Option<usize> {
-        self.page_size
+    /// The page size: [`DEFAULT_PAGE_SIZE`] unless [`Self::paginate`] set one.
+    pub fn page_size(&self) -> usize {
+        self.page_size.get()
     }
 
     /// Which row actions `record` allows: the panel-wired policy, or
@@ -490,36 +479,36 @@ impl<M> Table<M> {
     ///
     /// The renderer reads this per row to decide the View/Edit/Delete links and
     /// whether the bulk checkbox is enabled.
-    pub fn actions_for(&self, record: &M) -> RowActions {
+    pub(crate) fn actions_for(&self, record: &M) -> RowActions {
         self.row_policy
             .as_ref()
             .map_or(RowActions::ALL, |policy| policy(record))
     }
 
-    /// Force the search toolbar on or off.
+    /// Render no search toolbar in the table.
     ///
-    /// Defaults to showing the toolbar whenever at least one column is
-    /// `searchable()`, so the toolbar and the query stay in step.
-    pub fn search(mut self, enabled: bool) -> Self {
-        self.search_ui = Some(enabled);
+    /// The toolbar shows whenever at least one column is `searchable()`, so the
+    /// toolbar and the query stay in step. The live list hides it here and
+    /// renders its own above the swapped region.
+    pub fn hide_search(mut self) -> Self {
+        self.hide_search = true;
         self
     }
 
-    /// Force the filter bar on or off.
+    /// Render no filter bar in the table.
     ///
-    /// Defaults to showing the bar whenever the table declares filters. The
-    /// live list hoists the bar out of the swapped table and turns it off here
-    /// mirroring how `search(false)` hands the search toolbar to the
-    /// page: a `<select>` that is rebuilt by its own rerun loses focus and
-    /// collapses its native popup.
-    pub fn filter_bar(mut self, enabled: bool) -> Self {
-        self.filters_ui = Some(enabled);
+    /// The bar shows whenever the table declares filters. The live list hoists
+    /// the bar out of the swapped table and hides it here, as it does the
+    /// search toolbar: a `<select>` that is rebuilt by its own rerun loses
+    /// focus and collapses its native popup.
+    pub fn hide_filter_bar(mut self) -> Self {
+        self.hide_filter_bar = true;
         self
     }
 
     /// Keystroke-live search via the `table_search` shard.
     ///
-    /// When enabled, the toolbar renders a signal-backed input that
+    /// The toolbar renders a signal-backed input that
     /// re-renders the table after a short keystroke-quiet delay (GH #172,
     /// `LIVE_SEARCH_DEBOUNCE_MS`), morphing in place so focus
     /// and typing survive, instead of a GET submit. The `?q=` GET form stays
@@ -532,8 +521,8 @@ impl<M> Table<M> {
     /// Note: Topcoat coalesces same-tick keystrokes and aborts in-flight
     /// reruns (latest wins); the time-based debounce above composes with
     /// that (delayed writes rerun normally).
-    pub fn live_search(mut self, enabled: bool) -> Self {
-        self.live_search = enabled;
+    pub fn live_search(mut self) -> Self {
+        self.live_search = true;
         self
     }
 
@@ -669,15 +658,14 @@ impl<M> Table<M> {
     ///    column's direction (toasty appends the PK tie-breakers internally, see
     ///    [`Self::order_by`]);
     /// 2. otherwise the declared default (first sortable column asc);
-    /// 3. otherwise, when `mode` asks for it, the PK alone — cursor pagination requires a
-    ///    deterministic order even with no sortable column, and toasty only *extends* an existing
-    ///    non-empty ordering.
+    /// 3. otherwise the PK alone — cursor pagination requires a deterministic order even with no
+    ///    sortable column, and toasty only *extends* an existing non-empty ordering.
     ///
     /// Loaders that also need the search term parse the state once with
     /// [`TableState::from_cx`] and apply the declaration through
     /// `Self::apply_declaration` (see `crate::panel::Panel`'s generic
     /// resource list handler).
-    pub fn order_bys_for(&self, state: &TableState, mode: OrderMode) -> Vec<OrderByExpr>
+    pub fn order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
     where
         M: toasty::schema::Model,
     {
@@ -691,7 +679,7 @@ impl<M> Table<M> {
             return vec![ord];
         }
         let out: Vec<OrderByExpr> = self.order_by(false).into_iter().collect();
-        if out.is_empty() && mode.falls_back_to_pk(self.page_size.is_some()) {
+        if out.is_empty() {
             return Self::pk_order_bys();
         }
         out
@@ -706,7 +694,6 @@ impl<M> Table<M> {
     /// seam, ADR-0002) while the export loads the tenant-scoped
     /// [`Resource::export_query`](crate::resource::Resource::export_query),
     /// narrowed to the relations the rendered columns declared.
-    /// `mode` picks the ordering fallback each caller needs.
     ///
     /// Everything else is shared, so a new search or filter dimension cannot
     /// reach the list and miss the CSV — the drift class GH #172 fixed.
@@ -714,7 +701,6 @@ impl<M> Table<M> {
         &self,
         mut query: toasty::stmt::Query<List<M>>,
         state: &TableState,
-        mode: OrderMode,
     ) -> toasty::stmt::Query<List<M>>
     where
         M: toasty::schema::Model,
@@ -727,7 +713,7 @@ impl<M> Table<M> {
         if let Some(expr) = self.filter_expr(state) {
             query = query.filter(expr);
         }
-        for ord in self.order_bys_for(state, mode) {
+        for ord in self.order_bys_for(state) {
             query = query.order_by(ord);
         }
         query
@@ -777,124 +763,96 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model + Send + Sync + 'static,
     {
-        if self.page_size == Some(0) {
-            return Err(std::io::Error::other(
-                "Table::load: paginate requires per_page > 0 (GH #96)",
-            )
-            .into());
-        }
         // The declaration becomes predicates and an ordering through the one
         // shared routine — the export loader applies the same one to
         // its own seed query.
-        let query = self.apply_declaration(query, state, OrderMode::List);
+        let query = self.apply_declaration(query, state);
         let mut db = crate::db::db(cx);
-        match self.page_size {
-            Some(per_page) => {
-                // Keep a cursor-free copy of the filtered+ordered probe seed for
-                // cursor validation: Toasty's `Page` sets `next_cursor`
-                // optimistically whenever `len == page_size`, which leaves a
-                // phantom cursor when the page sits exactly at a boundary. The
-                // probe seed carries no relation includes because the
-                // probes only ask whether a row exists.
-                let base_query = self.apply_declaration(probe_query, state, OrderMode::List);
-                let mut paginated = toasty::stmt::Paginate::new(query, per_page);
-                // Toasty cursor pagination takes exactly one cursor:
-                // a URL carrying both `?after=` and `?before=` must fail loudly
-                // instead of silently preferring `after` (the GH #93 fail-open
-                // family). The `CursorDecodeError` marker gives the failure the
-                // drop-pagination retry contract.
-                if state.after.is_some() && state.before.is_some() {
-                    return Err(crate::cursor::CursorDecodeError::conflicting_cursors());
-                }
-                if let Some(cursor) = &state.after {
-                    paginated = paginated.after(crate::cursor::decode(cursor)?);
-                } else if let Some(cursor) = &state.before {
-                    paginated = paginated.before(crate::cursor::decode(cursor)?);
-                }
-                let loaded = paginated
+        let per_page = self.page_size.get();
+        // Keep a cursor-free copy of the filtered+ordered probe seed for
+        // cursor validation: Toasty's `Page` sets `next_cursor`
+        // optimistically whenever `len == page_size`, which leaves a
+        // phantom cursor when the page sits exactly at a boundary. The
+        // probe seed carries no relation includes because the
+        // probes only ask whether a row exists.
+        let base_query = self.apply_declaration(probe_query, state);
+        let mut paginated = toasty::stmt::Paginate::new(query, per_page);
+        // Toasty cursor pagination takes exactly one cursor:
+        // a URL carrying both `?after=` and `?before=` must fail loudly
+        // instead of silently preferring `after` (the GH #93 fail-open
+        // family). The `CursorDecodeError` marker gives the failure the
+        // drop-pagination retry contract.
+        if state.after.is_some() && state.before.is_some() {
+            return Err(crate::cursor::CursorDecodeError::conflicting_cursors());
+        }
+        if let Some(cursor) = &state.after {
+            paginated = paginated.after(crate::cursor::decode(cursor)?);
+        } else if let Some(cursor) = &state.before {
+            paginated = paginated.before(crate::cursor::decode(cursor)?);
+        }
+        let loaded = paginated
+            .exec(&mut db)
+            .await
+            .map_err(|error| reject_cursor(error.into(), state))?;
+        let mut page = TablePage::from_toasty_page(loaded)?;
+        // Cursor-existence probes, one per landing direction:
+        // the engine sets `next_cursor`/`prev_cursor` optimistically,
+        // so a page sitting exactly at a boundary carries a phantom
+        // cursor without validation. Each direction probes only the
+        // edge that can lie:
+        // - forward/first landing: prev is exact (absent on the first page; otherwise the page we
+        //   came from exists), next may be phantom at the end boundary → probe next on full pages.
+        //   A short page cannot have a next page.
+        // - backward landing: next is exact (the page we came from follows), prev may be phantom
+        //   when the fetch lands on the first page → probe prev whenever one is reported.
+        //
+        // Deliberately NOT a `LIMIT per_page+1` fold: the engine
+        // derives `next_cursor` from the last *fetched* row, so
+        // trimming the extra row would anchor the next link past it —
+        // every `(per_page+1)`th row would vanish from forward walks.
+        // The probes keep the main fetch's cursors (which point at
+        // displayed rows) as the link anchors.
+        //
+        // Residual (same as ever): a concurrent delete landing between
+        // the main fetch and the click can still void a validated
+        // cursor — that degrades to the void-window recovery link
+        // never to silently skipped rows.
+        if state.before.is_some() {
+            if let Some(cursor) = page.prev_cursor.clone() {
+                let probe = toasty::stmt::Paginate::new(base_query, 1)
+                    .before(crate::cursor::decode(&cursor)?)
                     .exec(&mut db)
                     .await
-                    .map_err(|error| reject_cursor(error.into(), state))?;
-                let mut page = TablePage::from_toasty_page(loaded)?;
-                // Cursor-existence probes, one per landing direction:
-                // the engine sets `next_cursor`/`prev_cursor` optimistically,
-                // so a page sitting exactly at a boundary carries a phantom
-                // cursor without validation. Each direction probes only the
-                // edge that can lie:
-                // - forward/first landing: prev is exact (absent on the first page; otherwise the
-                //   page we came from exists), next may be phantom at the end boundary → probe next
-                //   on full pages. A short page cannot have a next page.
-                // - backward landing: next is exact (the page we came from follows), prev may be
-                //   phantom when the fetch lands on the first page → probe prev whenever one is
-                //   reported.
-                //
-                // Deliberately NOT a `LIMIT per_page+1` fold: the engine
-                // derives `next_cursor` from the last *fetched* row, so
-                // trimming the extra row would anchor the next link past it —
-                // every `(per_page+1)`th row would vanish from forward walks.
-                // The probes keep the main fetch's cursors (which point at
-                // displayed rows) as the link anchors.
-                //
-                // Residual (same as ever): a concurrent delete landing between
-                // the main fetch and the click can still void a validated
-                // cursor — that degrades to the void-window recovery link
-                // never to silently skipped rows.
-                if state.before.is_some() {
-                    if let Some(cursor) = page.prev_cursor.clone() {
-                        let probe = toasty::stmt::Paginate::new(base_query, 1)
-                            .before(crate::cursor::decode(&cursor)?)
-                            .exec(&mut db)
-                            .await
-                            .map_err(topcoat::Error::from)?;
-                        if probe.items.is_empty() {
-                            page.prev_cursor = None;
-                        }
-                    }
-                } else if page.rows.len() == per_page {
-                    if let Some(cursor) = page.next_cursor.clone() {
-                        let probe = toasty::stmt::Paginate::new(base_query, 1)
-                            .after(crate::cursor::decode(&cursor)?)
-                            .exec(&mut db)
-                            .await
-                            .map_err(topcoat::Error::from)?;
-                        if probe.items.is_empty() {
-                            page.next_cursor = None;
-                        }
-                    }
-                } else {
-                    // Short page → no next, keep prev as-is (has_previous already correct).
+                    .map_err(topcoat::Error::from)?;
+                if probe.items.is_empty() {
+                    page.prev_cursor = None;
+                }
+            }
+        } else if page.rows.len() == per_page {
+            if let Some(cursor) = page.next_cursor.clone() {
+                let probe = toasty::stmt::Paginate::new(base_query, 1)
+                    .after(crate::cursor::decode(&cursor)?)
+                    .exec(&mut db)
+                    .await
+                    .map_err(topcoat::Error::from)?;
+                if probe.items.is_empty() {
                     page.next_cursor = None;
                 }
-                Ok(page)
             }
-            None => {
-                let rows: Vec<M> = query.exec(&mut db).await.map_err(topcoat::Error::from)?;
-                Ok(rows.into())
-            }
+        } else {
+            // Short page → no next, keep prev as-is (has_previous already correct).
+            page.next_cursor = None;
         }
+        Ok(page)
     }
 
-    /// The first declaration this table is missing, if any.
-    ///
-    /// The same check [`Self::render`](Self::render_with_state) enforces per
-    /// request, lifted so [`Panel::build`](crate::panel::Panel::build) can
-    /// refuse to serve a resource whose table could never render — the
-    /// declaration is knowable at boot, so a request is too late to report it.
-    pub(crate) fn missing_essentials(&self) -> Option<String> {
-        if self.page_size == Some(0) {
-            return Some("paginate requires per_page > 0".to_string());
-        }
-        None
-    }
-
-    /// Whether the search toolbar renders: the explicit `search(bool)` value,
-    /// or auto — at least one `searchable()` column.
+    /// Whether the search toolbar renders: at least one `searchable()` column,
+    /// unless [`Self::hide_search`] hid it.
     pub(crate) fn search_enabled(&self) -> bool
     where
         M: toasty::schema::Model,
     {
-        self.search_ui
-            .unwrap_or_else(|| self.columns.iter().any(|c| c.is_searchable()))
+        !self.hide_search && self.columns.iter().any(|c| c.is_searchable())
     }
 
     /// Whether this table renders the keystroke-live search host.
@@ -902,14 +860,14 @@ impl<M> Table<M> {
         self.live_search
     }
 
-    /// Whether the filter bar renders inside the table: the explicit
-    /// `filter_bar(bool)` value, or auto — the table declares at least one filter.
+    /// Whether the filter bar renders inside the table: the table declares at
+    /// least one filter, unless [`Self::hide_filter_bar`] hid it.
     ///
     /// Live tables turn it off: the list page hoists the bar out of
     /// the swapped region, the same way it owns the search toolbar, so a filter
     /// change cannot rebuild the control the user is interacting with.
     pub(crate) fn filter_bar_enabled(&self) -> bool {
-        self.filters_ui.unwrap_or(!self.filters.is_empty())
+        !self.hide_filter_bar && !self.filters.is_empty()
     }
 }
 

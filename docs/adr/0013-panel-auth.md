@@ -45,11 +45,8 @@ A fresh app registers the shipped models, seeds an `AdminUser`, and gets a worki
 panel; an existing app implements one trait and swaps it in. The showcase proves the default path
 end-to-end, and a core integration test proves the override path. Tenant-scoped pages become reachable
 by logging in — the tenant comes from the user. `tablo-core` grows its first production Toasty
-models and its first feature flag, with the Argon2 and session dependencies opt-out via
-`default-features = false`. With the feature off the panel has no gate and no login routes, so
-`Panel::build` refuses to build it unless the app hands it `Auth::disabled()` — the same explicit
-opt-out the default build uses — and an ungated panel stays a line of app code rather than a side
-effect of trimming dependencies. Password reset, registration, 2FA, multi-panel guards, and roles/RBAC
+models, and the Argon2 and session dependencies are unconditional: `Auth::disabled()` is the one
+opt-out, so an ungated panel is always a line of app code. Password reset, registration, 2FA, multi-panel guards, and roles/RBAC
 remain open, each with a seam that does not need reopening: per-user session revocation, per-`Panel`
 `Auth` values, and `can_access_panel`.
 

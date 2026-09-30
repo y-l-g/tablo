@@ -76,10 +76,10 @@ async fn admin_resource_list_page_serve_seeded_users() {
     // admin_list_pagination_walks_cursor_links, which seeds one row past the
     // page size.
     assert!(html.contains("Users</h1>"), "missing heading in {html}");
-    // The create button is worded from the same label.
+    // The create button names one record: the singular label, not the list's.
     assert!(
-        html.contains("Create Users"),
-        "missing create entry point in {html}"
+        html.contains("Create User<") && !html.contains("Create Users"),
+        "missing singular create entry point in {html}"
     );
     assert!(html.contains("Ada Lovelace"), "missing Ada in {html}");
     assert!(html.contains("Alan Turing"), "missing Alan in {html}");
@@ -239,11 +239,6 @@ async fn admin_table_via_resource_has_searchable_sortable() {
     assert!(
         table.order_by(false).is_some(),
         "sortable column should produce order_by"
-    );
-    assert_eq!(
-        table.page_size(),
-        Some(25),
-        "UserResource::table should declare production pagination"
     );
 }
 

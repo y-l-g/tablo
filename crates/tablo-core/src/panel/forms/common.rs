@@ -22,8 +22,8 @@ use super::{
 use crate::{
     db::db,
     form::RecordForm,
-    notification::{Notification, set_notification},
-    resource::Resource,
+    notification::{Notification, notify_write_failure, set_notification},
+    resource::{Committed, Resource},
 };
 
 /// A decoded form body: the text values plus any file parts.
@@ -202,6 +202,48 @@ pub(super) fn redirect_after_write<R: Resource>(cx: &Cx, note: &'static str) -> 
     see_other(list_url(cx, &R::slug())).into()
 }
 
+/// The write tail every mutation shares: commit the transaction, run the
+/// after-commit hook on what the record fn wrote, and redirect to the list
+/// with the success flash. A failed write or commit maps to the caller's
+/// failure toast and an opaque error.
+///
+/// `written` is the record fn's result, carrying what the hook receives;
+/// `committed` names the mutation, `note` the success flash, and `failure`
+/// the toast.
+pub(crate) async fn commit_write<'a, R: Resource, T>(
+    cx: &'a Cx,
+    tx: toasty::Transaction<'_>,
+    written: Result<T, topcoat::Error>,
+    committed: impl FnOnce(T) -> Committed<R::Model>,
+    note: &'static str,
+    failure: &'static str,
+) -> Result<BoxView<'a>, topcoat::Error> {
+    match written {
+        Ok(value) => match tx.commit().await {
+            Ok(()) => {
+                // Post-commit, so the effect cannot survive a rollback, and
+                // the tx is gone, so the hook may open its own handle.
+                crate::resource::run_after_commit::<R>(cx, committed(value)).await;
+                Err(redirect_after_write::<R>(cx, note))
+            }
+            Err(error) => {
+                notify_write_failure(cx, failure);
+                Err(crate::db::unavailable(error))
+            }
+        },
+        // A unique violation that slipped past the app-side check (a
+        // concurrent write) surfaces as an error, not a string-matched inline
+        // message: Toasty exposes no unique-violation predicate (upstream gap
+        // #117), so the failure cannot be classified here. It is still not
+        // echoed raw: the driver's text goes to the log through the
+        // opaque mapping, and an app-authored hook error keeps its own.
+        Err(error) => {
+            notify_write_failure(cx, failure);
+            Err(crate::db::hook_failure(error))
+        }
+    }
+}
+
 /// Edit page GET — hydrates the form from the record the tenant-scoped
 /// load returned.
 pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
@@ -217,7 +259,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let public = R::public_url(cx, &record);
         let html = render_form_page::<R>(
             cx,
-            format!("Edit {}", R::navigation_label()),
+            format!("Edit {}", R::label()),
             "Save",
             &values,
             &HashMap::new(),

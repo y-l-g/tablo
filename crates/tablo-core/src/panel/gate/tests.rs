@@ -1,12 +1,7 @@
-#[cfg(feature = "auth")]
 use toasty::Db;
-#[cfg(feature = "auth")]
 use topcoat::router::Body;
 
-#[cfg(feature = "auth")]
-use super::super::search::TABLE_SEARCH_PATH;
-use super::*;
-#[cfg(feature = "auth")]
+use super::{super::search::TABLE_SEARCH_PATH, *};
 use crate::Panel;
 
 #[test]
@@ -52,7 +47,6 @@ fn list_url_prefers_panel_prefix_over_request_path() {
 /// without a session to a shard's fixed path is refused with 401, not a
 /// login redirect and not the shard's content. The path is stable, so the
 /// refusal is the only thing that keeps it from being probed.
-#[cfg(feature = "auth")]
 #[tokio::test]
 async fn named_shard_endpoints_answer_401_without_a_session() {
     let db = Db::builder()

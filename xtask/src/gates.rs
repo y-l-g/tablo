@@ -99,7 +99,7 @@ impl Runner for RealRunner {
     }
 }
 
-/// The pinned-nightly workspace fmt check (CONTRIBUTING gate 4).
+/// The pinned-nightly workspace fmt check (CONTRIBUTING gate 3).
 pub fn nightly_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     let toolchain = format!("+{NIGHTLY_FMT}");
     run.run(
@@ -126,7 +126,7 @@ pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
 /// Where the locked-rev CLI install the `topcoat fmt` check needs lives.
 const TOPCOAT_INSTALL: &str = "REV=$(grep -A 2 '^name = \"topcoat\"$' Cargo.lock | grep -o '#[0-9a-f]\\{40\\}' | head -1 | cut -c2-) && cargo install --git https://github.com/tokio-rs/topcoat --rev \"$REV\" topcoat-cli --locked";
 
-/// The locked-rev `topcoat fmt` check plus diff guard (CONTRIBUTING gate 5).
+/// The locked-rev `topcoat fmt` check plus diff guard (CONTRIBUTING gate 4).
 /// Check-half only: installing the CLI (~4 min build) stays in CI's cache-keyed
 /// step, so a missing or wrong-rev CLI fails here with the install command.
 pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
@@ -436,7 +436,7 @@ pub fn bump_upstream(run: &dyn Runner, topcoat_rev: &str, toasty_rev: &str) -> a
     verify_locks()
 }
 
-/// The gate set as a local fail-fast convenience runner: the ten CONTRIBUTING
+/// The gate set as a local fail-fast convenience runner: the eight CONTRIBUTING
 /// gates in order, then docs, detached-bench fmt, and the lockstep check.
 pub fn check(run: &dyn Runner) -> anyhow::Result<()> {
     check_with(run, &verify_locks)
@@ -464,31 +464,8 @@ fn check_with(run: &dyn Runner, verify: &dyn Fn() -> anyhow::Result<()>) -> anyh
         Some(&root),
         &[],
     )?;
-    run.run(
-        "cargo",
-        &[
-            "test",
-            "-p",
-            "tablo-core",
-            "--no-default-features",
-            "--locked",
-        ],
-        Some(&root),
-        &[],
-    )?;
     nightly_fmt(run, &root)?;
     topcoat_fmt(run, &root)?;
-    run.run(
-        "cargo",
-        &[
-            "check",
-            "--locked",
-            "--manifest-path",
-            "benchmarks/tablo/Cargo.toml",
-        ],
-        Some(&root),
-        &[],
-    )?;
     run.run(
         "cargo",
         &[

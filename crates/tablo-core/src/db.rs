@@ -47,7 +47,7 @@ pub(crate) fn unavailable(source: impl std::fmt::Display) -> topcoat::Error {
 ///
 /// A hook (`create_record`, `update_record`, `delete_record`, …) is app code,
 /// so its error is one of two things: the app's own — a guard's 404, a config
-/// error, the default stub's "not implemented" — or the driver's.
+/// error — or the driver's. The app's own
 /// keeps the app's mapping (a guard must still answer 404, not a 500), while
 /// the driver's is an infra failure and takes [`unavailable`]: its text goes
 /// to the log, and the page never echoes it. The error's own type settles

@@ -29,17 +29,17 @@ cargo run -p showcase
 `crates/tablo-core` is the framework. `examples/showcase` is the runnable admin, the reference
 for panel and resource declarations, and the home of the integration tests (`cargo test -p
 showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.test.js`
-(the explicit suite list is gate 9 in the gate set below).
+(the explicit suite list is gate 7 in the gate set below).
 
 ## The gate set
 
-CI runs ten gates plus four extra checks (mirroring `.github/workflows/ci.yml`;
+CI runs eight gates plus four extra checks (mirroring `.github/workflows/ci.yml`;
 this list is the canonical copy — `AGENTS.md` and the `check` skill point here).
 The fast path is the xtask runner: gates are mutually independent, and `check`
 runs each command below in order, stopping at the first failure.
 
 ```sh
-cargo xtask check   # the ten gates plus the extras
+cargo xtask check   # the eight gates plus the extras
 cargo xtask fmt     # the formatting subset: nightly fmt, detached-bench fmt, locked-rev topcoat fmt
 ```
 
@@ -47,23 +47,20 @@ The raw commands — the expansion of `cargo xtask check`:
 
 1. `cargo test --workspace --locked`
 2. `cargo clippy --workspace --all-targets --locked -- -D warnings`
-3. `cargo test -p tablo-core --no-default-features --locked`
-4. `cargo +nightly-2026-08-24 fmt --all -- --check`
-5. `topcoat fmt`, then `git diff --exit-code`
-6. `cargo check --locked --manifest-path benchmarks/tablo/Cargo.toml`
-7. `cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings`
-8. `cargo +1.98 check --workspace --locked`
-9. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js examples/showcase/assets/media.test.js`
-10. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --all-features --locked`
+3. `cargo +nightly-2026-08-24 fmt --all -- --check`
+4. `topcoat fmt`, then `git diff --exit-code`
+5. `cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings`
+6. `cargo +1.98 check --workspace --locked`
+7. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js examples/showcase/assets/media.test.js`
+8. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --all-features --locked`
 
-Gate 3 keeps the opt-out auth feature compiling and tested (GH #129, GH #282).
-Gate 4 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
-nightly-only (GH #269). Gate 8 is the MSRV floor in `Cargo.toml` (GH #175).
-Gate 10 guards unused dependencies (GH #271); `--all-features` keeps a feature-gated
+Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
+nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
+Gate 8 guards unused dependencies (GH #271); `--all-features` keeps a feature-gated
 dependency from looking unused. Rustup installs a missing toolchain on first use.
 
-CI runs four more checks outside the ten, and a change touching what they cover
-has to pass them too (`cargo xtask check` runs all four after the ten):
+CI runs four more checks outside the eight, and a change touching what they cover
+has to pass them too (`cargo xtask check` runs all four after the eight):
 
 - the `docs` job builds rustdoc with
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`, then
@@ -71,7 +68,7 @@ has to pass them too (`cargo xtask check` runs all four after the ten):
 - the `fmt` job runs `cargo fmt -- --check` inside each detached `benchmarks/*`
   workspace (`benchmarks/tablo`, `benchmarks/axum-maud`, `benchmarks/leptos`) —
   part of `cargo xtask fmt`;
-- the `bench-check` job compiles the detached harness (gates 6–7 above) and
+- the `bench-check` job compiles the detached harness (gate 5 above) and
   verifies that `Cargo.lock` and `benchmarks/tablo/Cargo.lock` pin identical
   `topcoat` and `toasty` revs and that both manifests' `rev =` pins agree
   (`cargo xtask verify-locks`, also run by the

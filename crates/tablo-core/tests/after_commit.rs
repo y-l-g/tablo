@@ -106,19 +106,6 @@ impl Resource for AuditedResource {
         .paginate(25)
     }
 
-    async fn delete_record(
-        _cx: &Cx,
-        record: Note,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        Note::filter(Note::fields().id().eq(record.id))
-            .delete()
-            .exec(&mut *ex)
-            .await
-            .map_err(|error| -> topcoat::Error { error.into() })?;
-        Ok(())
-    }
-
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
         audit(cx, &committed).await
     }
@@ -452,6 +439,13 @@ async fn a_resource_without_the_hook_writes_exactly_as_before() {
     assert!(
         response.headers().get(LOCATION).is_none(),
         "a plain GET is not a redirect"
+    );
+    // The rows stream in the body: read it, as a client does, so the render
+    // releases its connection before the check below queries the same pool.
+    let html = tablo_test::body_string(response).await;
+    assert!(
+        html.contains("Alpha"),
+        "the list shows the created row: {html}"
     );
 
     assert_eq!(notes(&db).await.len(), 1);

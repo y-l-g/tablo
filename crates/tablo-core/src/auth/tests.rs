@@ -484,3 +484,49 @@ async fn a_driver_session_delete_failure_does_not_echo_driver_text() {
         "driver text must not reach the response: the driver said {driver:?}, the response said {rendered:?}"
     );
 }
+
+/// An app route mounted at the login path under a method the login routes do
+/// not serve. Discovery installs it in every test router; only the test below
+/// requests it.
+#[topcoat::router::route(PUT "/admin/login")]
+async fn app_put_at_the_login_path() -> topcoat::Result<&'static str> {
+    Ok("app route ran")
+}
+
+/// The login bypass admits only the methods the login routes serve: a
+/// logged-out PUT at the login path is answered by the gate, so the app route
+/// above never runs unauthenticated.
+#[tokio::test]
+async fn the_login_bypass_is_scoped_to_the_login_methods() {
+    let db = db_with_admin("ada@example.com").await;
+    let router = auth_router(db);
+
+    let put = router
+        .handle(
+            http::Request::builder()
+                .method(http::Method::PUT)
+                .uri("/admin/login")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+    assert_eq!(
+        put.status(),
+        http::StatusCode::UNAUTHORIZED,
+        "a logged-out PUT at the login path must stop at the gate"
+    );
+
+    let get = router
+        .handle(
+            http::Request::builder()
+                .uri("/admin/login")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+    assert_eq!(
+        get.status(),
+        http::StatusCode::OK,
+        "the login page must still answer while logged out"
+    );
+}

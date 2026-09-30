@@ -9,7 +9,6 @@
 mod common;
 
 mod after_commit;
-#[cfg(feature = "auth")]
 mod auth_override;
 mod resource_query_override;
 mod sqlite;

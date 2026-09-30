@@ -110,7 +110,7 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
         crate::csrf::ensure_token(cx);
         let html = render_form_page::<R>(
             cx,
-            format!("Create {}", R::navigation_label()),
+            format!("Create {}", R::label()),
             "Create",
             &HashMap::new(),
             &HashMap::new(),

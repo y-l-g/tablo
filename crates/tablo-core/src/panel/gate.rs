@@ -13,8 +13,7 @@ use crate::resource::Resource;
 #[derive(Debug, Clone)]
 pub(crate) struct PanelPrefix(pub(crate) String);
 
-/// Demo/deployment hint rendered under the login form (auth feature).
-#[cfg(feature = "auth")]
+/// Demo/deployment hint rendered under the login form.
 #[derive(Debug, Clone)]
 pub(crate) struct LoginHint(pub(crate) String);
 
@@ -22,17 +21,10 @@ pub(crate) struct LoginHint(pub(crate) String);
 /// panel handler and the live-search shard re-check the resolved user, so a
 /// missing or mis-mounted gate cannot silently open a handler. A no-op when
 /// the panel explicitly disabled auth.
-#[cfg(feature = "auth")]
 pub(crate) fn enforce_auth(cx: &Cx) -> Result<(), topcoat::Error> {
     if crate::auth::enforced(cx) {
         crate::auth::require_authenticated(cx)?;
     }
-    Ok(())
-}
-
-/// Auth compiled out: the gate does not exist either, so nothing to enforce.
-#[cfg(not(feature = "auth"))]
-pub(crate) fn enforce_auth(_cx: &Cx) -> Result<(), topcoat::Error> {
     Ok(())
 }
 

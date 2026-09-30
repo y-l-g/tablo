@@ -8,13 +8,13 @@ description: Always use this skill to verify a change locally before committing 
 Run `cargo xtask check`: the gates in
 [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set), run in order with a
 stop at the first failure. To run one gate by hand, that list is the canonical
-copy (it mirrors `.github/workflows/ci.yml`); the extra checks outside the ten
+copy (it mirrors `.github/workflows/ci.yml`); the extra checks outside the eight
 (docs, detached-bench fmt, bench-check) are listed there too. `cargo xtask fmt`
 covers the formatting subset alone.
 
 The asset suites are named rather than globbed, exactly as the CI `assets` job
 names them: a glob would silently shrink the run when a suite is renamed, while
-a missing path fails the job. Gate 4's nightly date is recorded in
+a missing path fails the job. Gate 3's nightly date is recorded in
 `rust-toolchain.toml`'s comment, so the nightly-only rustfmt keys `rustfmt.toml`
 sets cannot move under the gate (GH #269).
 
@@ -38,6 +38,6 @@ Rules that catch the recurring failures:
 - `cargo udeps` needs `cargo-udeps` on nightly for `-Z binary-dep-depinfo`:
   `cargo +nightly install cargo-udeps --locked`, then the udeps gate in
   [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set).
-- A gate whose command names a toolchain installs it on demand; gate 4's dated
+- A gate whose command names a toolchain installs it on demand; gate 3's dated
   nightly install is the `rustup toolchain install` step of the `fmt` job in
   `.github/workflows/ci.yml`.

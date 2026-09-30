@@ -47,7 +47,7 @@ async fn bulk_delete_caps_ids_and_ignores_display_key() {
         }
         async fn bulk_delete_records(
             _cx: &Cx,
-            _records: Vec<Dummy>,
+            _records: &[Dummy],
             _ex: &mut dyn toasty::Executor,
         ) -> Result<()> {
             Ok(())
@@ -164,12 +164,12 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
         }
         async fn bulk_delete_records(
             _cx: &Cx,
-            records: Vec<Dummy>,
+            records: &[Dummy],
             ex: &mut dyn toasty::Executor,
         ) -> Result<()> {
             // Delete the first row, then blow up: without the
             // framework tx the first delete would stick.
-            let first = records.into_iter().next().unwrap();
+            let first = &records[0];
             Dummy::filter(Dummy::fields().id().eq(first.id))
                 .delete()
                 .exec(&mut *ex)

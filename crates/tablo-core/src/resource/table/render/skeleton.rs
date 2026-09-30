@@ -3,7 +3,7 @@
 use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::super::{super::state::TableState, NormalizedState, Table};
+use super::super::{NormalizedState, Table};
 
 impl<M> Table<M> {
     /// The skeleton placeholder table — three pulsing rows under the real
@@ -12,20 +12,11 @@ impl<M> Table<M> {
     /// so the markup shape matches when the swap arrives.
     /// Carries `aria-busy` while loading plus toolbar/pager pulse placeholders
     /// so the streamed chrome lands without a layout shift.
-    pub async fn render_skeleton<'a>(&self, cx: &'a Cx) -> Result<BoxView<'a>>
-    where
-        M: toasty::schema::Model,
-    {
-        let state = TableState::from_cx(cx);
-        // Same normalization as the table seams: the placeholder
-        // header links must not echo an unknown `?group_by=`.
-        self.render_skeleton_normalized(cx, &self.normalize_state(&state))
-            .await
-    }
-
-    /// [`Self::render_skeleton`] with the state already normalized:
-    /// the panel parses and normalizes once per request and renders the
-    /// streamed placeholder from that same state.
+    ///
+    /// Takes the state already normalized: the panel parses and normalizes
+    /// once per request and renders the streamed placeholder from that same
+    /// state, so the placeholder header links never echo an unknown
+    /// `?group_by=`.
     pub(crate) async fn render_skeleton_normalized<'a>(
         &self,
         cx: &'a Cx,

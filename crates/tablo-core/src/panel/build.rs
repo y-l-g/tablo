@@ -14,12 +14,10 @@ use topcoat::{
     runtime::RouterBuilderRuntimeExt,
 };
 
-#[cfg(feature = "auth")]
-use super::gate::LoginHint;
 use super::{
     Panel,
     forms::MAX_FORM_BYTES,
-    gate::{PanelPrefix, enforce_auth},
+    gate::{LoginHint, PanelPrefix, enforce_auth},
     headers,
     search::SearchRegistry,
     shell::DarkMode,
@@ -41,11 +39,6 @@ impl Panel {
     /// panel prefix, or `shell_assets` declared without `assets`. Configuring
     /// a panel wrong is a boot failure, not a request-time panic, so it comes
     /// back as an error the caller can log or exit on.
-    ///
-    /// With the `auth` feature off nothing authenticates requests, so a panel
-    /// that has not acknowledged that with
-    /// [`Panel::auth(Auth::disabled())`](Self::auth) is also an error
-    /// (ADR-0013).
     pub fn build(self) -> topcoat::Result<Router> {
         if !self.registration_errors.is_empty() {
             return Err(std::io::Error::other(format!(
@@ -78,12 +71,8 @@ impl Panel {
             resource_checks,
             uploads,
             served_dirs,
-            #[cfg(feature = "auth")]
             login_hint,
-            #[cfg(feature = "auth")]
             auth,
-            #[cfg(not(feature = "auth"))]
-            auth_disabled,
         } = self;
         let db = db.ok_or_else(|| {
             topcoat::Error::from(std::io::Error::other(
@@ -109,19 +98,6 @@ impl Panel {
                 .into());
             }
         }
-        // Auth compiled out (ADR-0013): `enforce_auth` is a no-op and no gate
-        // is installed, so a panel that reaches here would serve every page and
-        // mutation to anyone. The opt-out stays a line of app code.
-        #[cfg(not(feature = "auth"))]
-        if !auth_disabled {
-            return Err(std::io::Error::other(
-                "Panel::build: tablo-core is built without the `auth` feature, so nothing \
-                 authenticates requests; call `.auth(Auth::disabled())` to serve the panel \
-                 ungated, or enable the feature",
-            )
-            .into());
-        }
-        #[cfg(feature = "auth")]
         crate::auth::assert_models_registered(&db, &auth);
         let mut builder = Router::builder()
             .discover()
@@ -141,36 +117,33 @@ impl Panel {
         // Auth (ADR-0013): sessions plus the resolving gate under the panel
         // and runtime prefixes, and the login/logout routes. Disabled skips
         // all three but still installs the `Auth` value for the shell.
-        #[cfg(feature = "auth")]
-        {
-            if !auth.is_disabled() {
-                builder = crate::auth::install(builder, &prefix);
-                let login_path = route_path(&format!("{prefix}/login"));
-                let logout_path = route_path(&format!("{prefix}/logout"));
-                // A credential POST carries no upload: the login route
-                // gets its own cap, scoped by path so it wins over the panel's
-                // 10 MiB form cap.
-                builder = builder.layer(
-                    topcoat::router::BodyLimit::max(crate::auth::MAX_LOGIN_BYTES)
-                        .at(login_path.clone()),
-                );
-                builder = builder
-                    .route(RouteFn::new(
-                        http::Method::GET,
-                        login_path.clone(),
-                        crate::auth::login_page,
-                    ))
-                    .route(RouteFn::new(
-                        http::Method::POST,
-                        login_path,
-                        crate::auth::login_post,
-                    ))
-                    .route(RouteFn::new(
-                        http::Method::POST,
-                        logout_path,
-                        crate::auth::logout_post,
-                    ));
-            }
+        if !auth.is_disabled() {
+            builder = crate::auth::install(builder, &prefix);
+            let login_path = route_path(&format!("{prefix}/login"));
+            let logout_path = route_path(&format!("{prefix}/logout"));
+            // A credential POST carries no upload: the login route
+            // gets its own cap, scoped by path so it wins over the panel's
+            // 10 MiB form cap.
+            builder = builder.layer(
+                topcoat::router::BodyLimit::max(crate::auth::MAX_LOGIN_BYTES)
+                    .at(login_path.clone()),
+            );
+            builder = builder
+                .route(RouteFn::new(
+                    http::Method::GET,
+                    login_path.clone(),
+                    crate::auth::login_page,
+                ))
+                .route(RouteFn::new(
+                    http::Method::POST,
+                    login_path,
+                    crate::auth::login_post,
+                ))
+                .route(RouteFn::new(
+                    http::Method::POST,
+                    logout_path,
+                    crate::auth::logout_post,
+                ));
         }
         if !search_handlers.is_empty() {
             builder = builder.app_context(SearchRegistry(search_handlers));
@@ -225,12 +198,9 @@ impl Panel {
                     panel_root_redirect,
                 ));
         }
-        #[cfg(feature = "auth")]
-        {
-            builder = builder.app_context(auth);
-            if let Some(hint) = login_hint {
-                builder = builder.app_context(LoginHint(hint));
-            }
+        builder = builder.app_context(auth);
+        if let Some(hint) = login_hint {
+            builder = builder.app_context(LoginHint(hint));
         }
         // The runtime layer registers last, outside every other pathless
         // layer: a page re-run is a marked POST the layer rewrites into a
@@ -380,7 +350,7 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
     // stays as the backstop for a resource whose predicate is only `None` for
     // some tenants, and for app code that calls `scoped_query` outside a panel.
     //
-    // Checked before the page essentials below because the gate and the scope
+    // Checked before the declarations below because the gate and the scope
     // govern every handler this resource registers, not just the list and
     // create pages those checks are about.
     if R::requires_tenant() && R::tenant_scope(uuid::Uuid::nil()).is_none() {
@@ -393,15 +363,12 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             std::any::type_name::<R::Model>(),
         ));
     }
-    // The table carries its key and columns by construction; only the page
-    // size can still misdeclare, so the build refuses that here rather than
-    // at request time.
-    if let Some(missing) = R::table(cx).missing_essentials() {
-        return Err(format!(
-            "resource `{}` cannot serve its list: {missing}",
-            std::any::type_name::<R>()
-        ));
-    }
+    // Declaring the table runs its own misdeclaration checks (a duplicate
+    // column name, a zero page size, a lens that is not a single field), which
+    // panic; the `catch_unwind` around this body turns them into this
+    // resource's registration error instead of a failure on the first list
+    // request.
+    let _ = R::table(cx);
     check_form_declaration::<R>(cx)
 }
 

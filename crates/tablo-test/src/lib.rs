@@ -5,10 +5,6 @@
 //! so the request client, the body readers, the form writers, and the HTML
 //! scrapers live here instead of drifting as two copies. Seed and database
 //! fixtures stay per crate: they name crate-local models.
-//!
-//! The `auth` feature exposes the cookie and session helpers the auth suites
-//! use, mirroring the gate on the same helpers in `tablo-core`. It pulls no
-//! extra dependencies.
 
 use http::header::{CONTENT_TYPE, COOKIE};
 use http_body_util::BodyExt;
@@ -239,11 +235,9 @@ pub fn input_value(html: &str, name: &str) -> Option<String> {
 
 /// The session cookie name Topcoat's default token store writes (`__Host-`
 /// prefix plus the `session` name, per its hardened cookie contract).
-#[cfg(feature = "auth")]
 pub const SESSION_COOKIE: &str = "__Host-session";
 
 /// The `(name, value)` pairs a response's `Set-Cookie` headers carry.
-#[cfg(feature = "auth")]
 pub fn response_cookies(response: &http::Response<Body>) -> Vec<(String, String)> {
     response
         .headers()
@@ -257,7 +251,6 @@ pub fn response_cookies(response: &http::Response<Body>) -> Vec<(String, String)
 }
 
 /// The full `Set-Cookie` header for `name`, so tests can assert attributes.
-#[cfg(feature = "auth")]
 pub fn set_cookie_header(response: &http::Response<Body>, name: &str) -> Option<String> {
     response
         .headers()
@@ -269,7 +262,6 @@ pub fn set_cookie_header(response: &http::Response<Body>, name: &str) -> Option<
 }
 
 /// The session cookie value a response set, if any.
-#[cfg(feature = "auth")]
 pub fn session_cookie_value(response: &http::Response<Body>) -> Option<String> {
     response_cookies(response)
         .into_iter()

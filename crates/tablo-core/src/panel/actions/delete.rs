@@ -3,23 +3,19 @@
 
 use topcoat::{
     context::Cx,
-    router::{
-        Body,
-        error::{forbidden, see_other},
-    },
+    router::{Body, error::forbidden},
     view::{BoxView, HoistView, internal::ThenView},
 };
 
 use super::{
     super::{
-        forms::{parse_form_body, truthy},
-        gate::{gate, list_url},
+        forms::{commit_write, parse_form_body, truthy},
+        gate::gate,
     },
     fetch::find_by_key_narrowed,
 };
 use crate::{
     db::db,
-    notification::{Notification, notify_write_failure, set_notification},
     resource::{Committed, Resource},
 };
 
@@ -72,7 +68,7 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
             let id = topcoat::router::path_param_segment(cx, "id").to_string();
             // The delete path reads only the record's own columns:
             // `can_view`/`can_delete` are Rust predicates over those, and
-            // `delete_record` consumes the snapshot.
+            // `delete_record` reads the same snapshot.
             let record = find_by_key_narrowed::<R>(cx, &id, &mut tx).await?;
             if !R::can_view(cx, &record) {
                 return Err(forbidden().into());
@@ -80,26 +76,12 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
             if !R::can_delete(cx, &record) {
                 return Err(forbidden().into());
             }
-            // `delete_record` consumes the record, and the hook names what was
-            // removed: the pre-delete snapshot, since the row is gone
-            // by the time it runs.
-            let committed_record = record.clone();
-            if let Err(error) = R::delete_record(cx, record, &mut tx).await {
-                notify_write_failure(cx, WRITE_DELETE);
-                // Same seam as create/update: the driver's text
-                // stays in the log, an app-authored hook error keeps its own.
-                return Err(crate::db::hook_failure(error));
-            }
-            if let Err(error) = tx.commit().await {
-                notify_write_failure(cx, WRITE_DELETE);
-                return Err(crate::db::unavailable(error));
-            }
-            // Post-commit: the tx is gone, so the hook may open its
-            // own handle, and a rollback above never reaches this line.
-            crate::resource::run_after_commit::<R>(cx, Committed::deleted(vec![committed_record]))
-                .await;
-            set_notification(cx, Notification::success("Deleted"));
-            Err(see_other(list_url(cx, &R::slug())).into())
+            // The hook names what was removed: the pre-delete snapshot, since
+            // the row is gone by the time it runs.
+            let written = R::delete_record(cx, &record, &mut tx)
+                .await
+                .map(|()| vec![record]);
+            commit_write::<R, _>(cx, tx, written, Committed::deleted, "Deleted", WRITE_DELETE).await
         },
     )))
 }

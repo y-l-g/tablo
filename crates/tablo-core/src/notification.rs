@@ -300,7 +300,6 @@ async fn render_live_toaster<'a>(
     // Runtime endpoints bypass page guards (topcoat shard contract), so the
     // shard restates the panel gate; a slot with no live toast needs no auth
     // to render empty, but a direct POST must not mount toasts unauthenticated.
-    #[cfg(feature = "auth")]
     if crate::auth::enforced(cx) {
         crate::auth::require_authenticated(cx)?;
     }

@@ -19,7 +19,7 @@ path = "tests/it.rs"
 [dependencies]
 tablo-macros = { path = "../tablo-macros" }
 tablo-ui = { path = "../tablo-ui" }
-argon2 = { version = "0.6", optional = true }
+argon2 = "0.6"
 bytes = "1"
 # The email rule (GH #243). `default-features = false` matches how `lettre`
 # already pulls the crate in through `topcoat-mail`: the serde support is unused
@@ -30,7 +30,7 @@ heck = "0.5"
 http = "1"
 http-body-util = { version = "0.1", features = ["channel"] }
 jiff.workspace = true
-password-hash = { version = "0.6", optional = true, features = ["getrandom"] }
+password-hash = { version = "0.6", features = ["getrandom"] }
 percent-encoding.workspace = true
 subtle = "2"
 serde.workspace = true
@@ -39,13 +39,9 @@ toasty.workspace = true
 toasty-core.workspace = true
 # `fs` is for `Panel::serve_dir` (GH #188): serving an upload directory is a
 # panel-level route, and upstream the directory route lives behind that feature.
-topcoat = { workspace = true, features = ["view", "router", "discover", "asset", "font", "runtime", "cookie", "multipart", "icon", "fs"] }
+topcoat = { workspace = true, features = ["view", "router", "discover", "asset", "font", "runtime", "cookie", "multipart", "icon", "fs", "session"] }
 tracing = "0.1"
 uuid.workspace = true
-
-[features]
-default = ["auth"]
-auth = ["dep:argon2", "dep:password-hash", "topcoat/session"]
 
 [dev-dependencies]
 serde_json = "1"

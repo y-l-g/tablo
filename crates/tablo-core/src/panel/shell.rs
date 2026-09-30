@@ -287,7 +287,6 @@ impl Panel {
         // Signed-in identity + logout control, present only with a session
         // (ADR-0013). `ensure_token` runs before any streaming starts so the
         // logout form always carries a matching CSRF pair.
-        #[cfg(feature = "auth")]
         let account_view: BoxView<'_> = match crate::auth::current_user(cx) {
             Some(user) => {
                 let csrf = crate::csrf::ensure_token(cx);
@@ -313,8 +312,6 @@ impl Panel {
             }
             None => view! { cx => <span></span> }.boxed(),
         };
-        #[cfg(not(feature = "auth"))]
-        let account_view: BoxView<'_> = view! { cx => <span></span> }.boxed();
         let notification_view: BoxView<'_> = match take_notification(cx) {
             Some(notification) => {
                 crate::notification::render_notification(cx, notification, Default::default())

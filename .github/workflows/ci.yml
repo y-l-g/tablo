@@ -33,12 +33,6 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --locked
-      # The auth feature ships on by default and is opt-out; the opt-out path
-      # must compile *and* pass its tests (GH #129). `Panel::build` refuses a
-      # panel that has not called `.auth(Auth::disabled())`, so
-      # `default-features = false` stays a real escape hatch an app asks for
-      # explicitly (GH #282).
-      - run: cargo test -p tablo-core --no-default-features --locked
 
   # The JS assets are plain browser scripts loaded through `asset!`: no build
   # step, no dependencies, nothing to install, and the runner's Node runs them
@@ -176,12 +170,10 @@ jobs:
           # The bench workspace is detached (see workspace `exclude`), so it
           # has its own target dir and lockfile.
           workspaces: benchmarks/tablo
-      # Compile the harness locked: it rotted once (#103) and nothing else in
-      # CI would notice, because `cargo test --workspace` never sees it.
-      - name: Check detached bench workspace (locked)
-        run: cargo check --locked --manifest-path benchmarks/tablo/Cargo.toml
-      # Same blind spot as fmt had (GH #175): `clippy --workspace` never sees
-      # the detached bench, so lint it by manifest path.
+      # Compile and lint the harness locked: it rotted once (#103), and
+      # neither `cargo test --workspace` nor `clippy --workspace` sees the
+      # detached bench (GH #175), so lint it by manifest path. Clippy compiles
+      # every target, so it is the compile check too.
       - name: Clippy detached bench workspace (locked)
         run: cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings
       # Pin policy (Cargo.toml comment / ADR-0003): the bench must measure the

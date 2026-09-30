@@ -17,7 +17,7 @@ use crate::query_term::clamp_query_term;
 /// The live table's browser state.
 ///
 /// The page owns these signals and hands their handles to the `table_search`
-/// shard through `Table::render_live_with_state`; each tracked read inside
+/// shard through `Table::render_live_normalized`; each tracked read inside
 /// the shard becomes a `dep` marker the browser watches, so writing any signal
 /// re-renders the table in place — no navigation, no scroll jump. Sort links,
 /// the pager, the filter transport, the bulk selection, and the clear links
@@ -127,10 +127,10 @@ pub(crate) fn bulk_wire_contains(wire: &str, key: &str) -> bool {
 
 /// One executed page of rows for `Table::render`.
 ///
-/// For paginated tables build it from toasty's `Page` via
-/// [`Self::from_toasty_page`] (which URL-encodes the engine cursors); for
-/// unpaginated tables `Vec<M>` converts directly. An absent cursor simply
-/// means no Previous/Next link is rendered — the chrome never invents pages.
+/// Build it from toasty's `Page` via [`Self::from_toasty_page`], which
+/// URL-encodes the engine cursors; a `Vec<M>` converts directly into a page
+/// with no neighbors. An absent cursor simply means no Previous/Next link is
+/// rendered — the chrome never invents pages.
 #[derive(Debug, Clone)]
 pub struct TablePage<M> {
     /// The rows of this page.
