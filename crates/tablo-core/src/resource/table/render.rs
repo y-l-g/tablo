@@ -58,7 +58,7 @@ const QUIET_LINK_CLASS: StaticClass = class!("text-sm text-muted-foreground hove
 
 /// A link in the empty-table message ("Clear search", "Back to first page").
 const EMPTY_LINK_CLASS: StaticClass =
-    class!("text-sm font-medium text-foreground underline-offset-4 hover:underline");
+    class!("text-sm font-medium text-foreground underline underline-offset-4");
 
 /// A table link's attributes: `href` always, and on a live table (`signals`) a
 /// click that writes the link's own query to the `query` signal instead of

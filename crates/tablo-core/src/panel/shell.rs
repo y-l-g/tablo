@@ -50,7 +50,8 @@ fn request_cookie(cx: &Cx, name: &str) -> Option<String> {
     })
 }
 
-/// Branding for the admin shell (panel header + sidebar header).
+/// Branding for the admin shell: the sidebar header, the login card, and the
+/// topbar below `md`, where the sidebar folds into a sheet.
 #[derive(Debug, Clone)]
 pub struct Brand {
     /// Display name (e.g. `"Acme"`).
@@ -110,8 +111,8 @@ impl Panel {
     async fn theme_toggle(cx: &Cx) -> Result<BoxView<'_>> {
         use tablo_ui::{ButtonSize, ButtonVariant, button};
 
-        // Both icons ship; the `dark` class on `<html>` picks the visible one,
-        // so the control is right before any script runs.
+        // Both icons ship and the `dark` class on `<html>` picks the visible
+        // one, so the control needs no script of its own to show the theme.
         Ok(view! {
             cx =>
             button(
@@ -454,19 +455,16 @@ impl Panel {
                             }
                         )
                         // The sidebar carries the brand on desktop; below md
-                        // it hides in the sheet, so the header names the
+                        // it hides in the sheet, so the topbar names the
                         // panel there.
                         <div class="md:hidden font-semibold text-foreground">
                             (header_title)
                         </div>
-                        <div class="ml-auto flex items-center gap-1">
-                            (theme_toggle)
-                            separator(
-                                orientation: SeparatorOrientation::Vertical,
-                                attrs: attributes! { class="mx-1 h-5" }
-                            )
-                            (account_view)
-                        </div>
+                        // The separator stays a direct child of the topbar,
+                        // where `sidebar_inset` sizes a vertical rule.
+                        <div class="ml-auto">(theme_toggle)</div>
+                        separator(orientation: SeparatorOrientation::Vertical)
+                        (account_view)
                     )
                     // `sidebar_inset` is the document's one `<main>`; a second
                     // nested landmark is invalid and confuses landmark

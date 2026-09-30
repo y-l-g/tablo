@@ -14,8 +14,7 @@ use super::{
 impl<M> Table<M> {
     /// The zero-rows cell, a [`tablo_ui::empty_state`] — one honest message, not two: "no records
     /// yet" when unfiltered, "no results" with a Clear link when a search is
-    /// active. The dead Create button is gone (create pages are not wired
-    /// yet). Wrapped in a single cell spanning the table so it sits inside
+    /// active. Wrapped in a single cell spanning the table so it sits inside
     /// the table. For live tables (`signals`) the back link writes its own
     /// query in place, and the clear link is cleared by the script that owns
     /// the hoisted control it names (`data-search-clear`, `live-search.js`;
@@ -109,7 +108,7 @@ impl<M> Table<M> {
             table_body(
                 table_row(
                     table_cell(
-                        attrs: attributes! { colspan=(colspan) class="whitespace-normal" },
+                        attrs: attributes! { colspan=(colspan) class="whitespace-normal!" },
                         tablo_ui::empty_state(title: message, action: action)
                     )
                 )

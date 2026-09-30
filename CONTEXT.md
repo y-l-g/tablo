@@ -191,8 +191,9 @@ _Avoid_: Guard, Permission, Gate, Ability, Policy trait
 
 ### NavigationItem
 
-An entry in the Panel sidebar: a label, a NavTarget, and a sort order. Derived by default from a
-Resource or a Page, overridable to change the label, the order, or an explicit URL. The Panel that
+An entry in the Panel sidebar: a label, a NavTarget, a sort order, and an optional icon. Derived by
+default from a Resource or a Page, overridable to change the label, the order, the icon, or an
+explicit URL. The Panel that
 owns the entry owns the URL: a `Derived` target names none, so the panel resolves it from its own
 mount prefix plus the slug it mounts the resource or page at (the prefix itself for the home page),
 while an explicit URL is a link its author wrote and is kept

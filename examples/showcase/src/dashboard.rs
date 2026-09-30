@@ -1,6 +1,6 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
-use tablo_core::{NavigationItem, Page, Resource, db::db, scoped_query};
+use tablo_core::{NavigationItem, Page, Resource, db::db, scoped_query, tenant_id};
 use topcoat::{
     Result,
     context::Cx,
@@ -19,15 +19,16 @@ struct Stat {
     label: String,
     url: String,
     icon: IconData,
-    /// `None` when the count could not be read (a tenant-scoped resource on a
-    /// tenantless request): the tile shows a dash rather than a wrong zero.
+    /// `None` when the count could not be read: the tile shows a dash rather
+    /// than a wrong zero.
     count: Option<u64>,
 }
 
-/// `R`'s tile, or `None` when the caller may not list `R` at all — the list
-/// would answer 403, so the dashboard links to nothing it would refuse.
+/// `R`'s tile, or `None` when the caller may not list `R` — a tenantless
+/// request on a tenant-scoped resource, or `can_view_any` refusing — so the
+/// dashboard links to no list that would answer 403.
 async fn stat<R: Resource>(cx: &Cx, glyph: IconData) -> Option<Stat> {
-    if !R::can_view_any(cx) {
+    if (R::requires_tenant() && tenant_id(cx).is_none()) || !R::can_view_any(cx) {
         return None;
     }
     // The list's own scoped query, so the tile counts exactly the rows the

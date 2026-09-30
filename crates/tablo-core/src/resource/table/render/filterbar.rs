@@ -248,7 +248,7 @@ impl<M> Table<M> {
                                         data-filter-name=(name)
                                         value=(date_value)
                                         aria-label=(aria)
-                                        class="w-auto"
+                                        class="w-auto!"
                                     }
                                 )
                             </label>

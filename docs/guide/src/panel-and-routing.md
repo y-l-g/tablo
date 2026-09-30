@@ -30,7 +30,8 @@ Panel::new("admin")
     .login_hint("Demo: admin@example.com / password")
 ```
 
-`brand` sets the name in the sidebar header, and in the page header below the `md` breakpoint,
+`brand` sets the name in the sidebar header and on the login card, and in the topbar below the `md`
+breakpoint,
 where the sidebar folds into a sheet. A brand without a logo shows its initial as the mark.
 `dark_mode` sets the theme a visitor sees **before they
 have chosen one** — the toggle is always rendered, and a stored choice wins in both directions
