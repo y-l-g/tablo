@@ -31,10 +31,6 @@ impl<M> Table<M> {
     /// (`border-border` on the chrome, `bg-background`/`shadow-xs` on the
     /// toolbar controls, `text-muted-foreground` on the captions) — no raw
     /// colors, no `ac-*`.
-    ///
-    /// # Errors
-    ///
-    /// Errors when pagination declares `per_page = 0`.
     pub async fn render<'a>(&self, cx: &'a Cx, page: TablePage<M>) -> Result<BoxView<'a>>
     where
         M: toasty::schema::Model + Send + Sync + 'static,

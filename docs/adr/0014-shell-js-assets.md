@@ -1,6 +1,6 @@
 # Shell JS assets: ownership, all-load policy, and the hook contract
 
-Date: 2026-09-18 — Status: accepted — Amended: 2026-09-19, 2026-09-22, 2026-09-23, 2026-09-25, 2026-09-27
+Date: 2026-09-18 — Status: accepted — Amended: 2026-09-19, 2026-09-22, 2026-09-23, 2026-09-25, 2026-09-27, 2026-09-30
 
 ## Decision
 
@@ -8,8 +8,8 @@ Date: 2026-09-18 — Status: accepted — Amended: 2026-09-19, 2026-09-22, 2026-
 `theme.js`, `dialog.js`, `wire.js`, `bulk.js`, `filters.js`, `live-search.js`, `selects.js`, `variant.js`,
 `notifications.js`, `mutation-submit.js`; `selects.test.js`, `bulk.test.js`, `wire.test.js`, `dialog.test.js`,
 `mutation-submit.test.js`, `notifications.test.js` and `filters.test.js` are the Node tests, not
-shipped, and `examples/showcase/assets/media.test.js` tests the showcase's `media.js` — ~68.7 KB
-unminified, ~26.2 KB gzipped summed per asset (`gzip -9 -n`), with no build or minify step). They
+shipped, and `examples/showcase/assets/media.test.js` tests the showcase's `media.js` — ~71.8 KB
+unminified, ~27.4 KB gzipped summed per asset (`gzip -9 -n`), with no build or minify step). They
 are declared as `Asset` constants in
 `crates/tablo-ui/src/lib.rs` and emitted by `Panel::render_document` in `tablo-core` on every
 document with `ShellAssets`, including the login page, where all but `theme.js`'s backstop apply are
@@ -26,7 +26,11 @@ observe what was rendered; scoping emission to page content needs a new declarat
 not shrink the bundle because all eleven handles stay referenced. The "hook ⇒ script" guarantee
 therefore holds only for documents rendered through `render_document` with `ShellAssets` configured:
 a `Panel` built without `.shell_assets(..)` renders sidebar/toaster hooks with no scripts, as do apps
-using `tablo-ui` components directly.
+using `tablo-ui` components directly. Each asset is served from a content-hashed URL with an
+immutable `Cache-Control`, so the set is one cold fetch per browser per build rather than a
+per-document cost: the first page a visitor loads carries it and the rest read the cache. A per-page
+declaration would buy a lighter first paint on the login page, not a lighter site, and it would turn
+the guarantee into a declaration no test checks (GH #312).
 
 **Hook contract.** Each asset consumes an explicit hook list, guarded by `xtask/tests/it.rs`
 (via `xtask::verify_asset_hooks`, alongside the registry-sync guard): the test fails when an asset file is

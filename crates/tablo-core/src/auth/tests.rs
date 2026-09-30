@@ -338,11 +338,11 @@ async fn an_oversized_login_post_is_refused() {
     );
 }
 
-/// GH #295: login drops the signing-in user's expired session rows. A row
-/// whose token is never presented again would otherwise stay in the table
-/// forever, because [`resolve`] only purges a row it looks up.
+/// GH #302: login sweeps expired session rows, whoever owns them. A row whose
+/// token is never presented again would otherwise stay in the table forever,
+/// because [`resolve`] only purges a row it looks up.
 #[tokio::test]
-async fn login_purges_the_users_expired_sessions() {
+async fn login_sweeps_every_expired_session() {
     let mut db = db_with_admin("ada@example.com").await;
     let other = toasty::create!(AdminUser {
         email: "grace@example.com".to_string(),
@@ -440,8 +440,64 @@ async fn login_purges_the_users_expired_sessions() {
         .exec(&mut check)
         .await
         .expect("query")
-        .is_some(),
-        "another user's expired session is out of the sweep's scope"
+        .is_none(),
+        "the sweep does not wait for the expired row's owner to sign in"
+    );
+}
+
+/// The sweep is bounded: one login drops at most [`SESSION_SWEEP_BATCH`] rows,
+/// so a large table cannot turn a login into an unbounded delete.
+#[tokio::test]
+async fn login_sweeps_at_most_a_batch() {
+    let mut db = db_with_admin("ada@example.com").await;
+    let ada = AdminUser::filter(
+        AdminUser::fields()
+            .email()
+            .eq("ada@example.com".to_string()),
+    )
+    .first()
+    .exec(&mut db)
+    .await
+    .expect("look up ada")
+    .expect("ada exists");
+    let expired = "2000-01-01T00:00:00Z"
+        .parse::<Timestamp>()
+        .expect("a past timestamp");
+    for index in 0..=SESSION_SWEEP_BATCH {
+        toasty::create!(AuthSession {
+            token_hash: format!("expired-{index}"),
+            user_id: ada.id.to_string(),
+            expires_at: expired,
+            created_at: Timestamp::now(),
+        })
+        .exec(&mut db)
+        .await
+        .expect("seed a session row");
+    }
+
+    let router = auth_router(db.clone());
+    let token = Uuid::new_v4().to_string();
+    let resp = router
+        .handle(login_request(
+            format!("email=ada@example.com&password=opensesame&csrf_token={token}"),
+            &token,
+        ))
+        .await;
+    assert_eq!(
+        resp.status(),
+        http::StatusCode::SEE_OTHER,
+        "the login must succeed"
+    );
+
+    let mut check = db.clone();
+    let remaining = AuthSession::all()
+        .exec(&mut check)
+        .await
+        .expect("query")
+        .len();
+    assert_eq!(
+        remaining, 2,
+        "one expired row past the batch, plus the session this login created"
     );
 }
 
