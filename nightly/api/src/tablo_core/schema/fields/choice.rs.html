@@ -190,7 +190,7 @@
 <a href=#190 id=190 data-nosnippet>190</a>        choice: <span class="kw-2">&amp;</span>ChoiceControl,
 <a href=#191 id=191 data-nosnippet>191</a>        cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
 <a href=#192 id=192 data-nosnippet>192</a>        value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-<a href=#193 id=193 data-nosnippet>193</a>        errors: <span class="kw-2">&amp;</span>[String],
+<a href=#193 id=193 data-nosnippet>193</a>        error: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 <a href=#194 id=194 data-nosnippet>194</a>        mode: Mode,
 <a href=#195 id=195 data-nosnippet>195</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
 <a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">if </span>mode == Mode::View {
@@ -247,7 +247,7 @@
 <a href=#247 id=247 data-nosnippet>247</a>        }
 <a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>chrome = FieldChrome::new(
 <a href=#249 id=249 data-nosnippet>249</a>            <span class="kw-2">&amp;</span>name,
-<a href=#250 id=250 data-nosnippet>250</a>            errors,
+<a href=#250 id=250 data-nosnippet>250</a>            error,
 <a href=#251 id=251 data-nosnippet>251</a>            denied.then(|| <span class="macro">format!</span>(<span class="string">"{} is not available"</span>, <span class="self">self</span>.label)),
 <a href=#252 id=252 data-nosnippet>252</a>        );
 <a href=#253 id=253 data-nosnippet>253</a>        <span class="kw">let </span><span class="kw-2">mut </span>option_views: Vec&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; = <span class="macro">vec!</span>[option_view(

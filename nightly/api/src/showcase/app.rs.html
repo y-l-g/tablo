@@ -28,9 +28,9 @@
 <a href=#28 id=28 data-nosnippet>28</a><span class="doccomment">/// The theme's sans font, pulled from Fontsource and self-hosted as a Topcoat
 <a href=#29 id=29 data-nosnippet>29</a>/// asset.
 <a href=#30 id=30 data-nosnippet>30</a>///
-<a href=#31 id=31 data-nosnippet>31</a>/// `pub(crate)` so the public blog's layout links the same font as the admin
-<a href=#32 id=32 data-nosnippet>32</a>/// shell: one document contract, one typeface.
-<a href=#33 id=33 data-nosnippet>33</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>GEIST: Font = <span class="macro">fontsource_font!</span>(GEIST, host: Asset);
+<a href=#31 id=31 data-nosnippet>31</a>/// Registered as the panel's shell font, so the admin shell and every document
+<a href=#32 id=32 data-nosnippet>32</a>/// `Panel::document` renders link the same typeface.
+<a href=#33 id=33 data-nosnippet>33</a></span><span class="kw">const </span>GEIST: Font = <span class="macro">fontsource_font!</span>(GEIST, host: Asset);
 <a href=#34 id=34 data-nosnippet>34</a>
 <a href=#35 id=35 data-nosnippet>35</a><span class="doccomment">/// How many words `body` holds: whitespace-separated tokens.
 <a href=#36 id=36 data-nosnippet>36</a>///
@@ -96,10 +96,10 @@
 <a href=#96 id=96 data-nosnippet>96</a>    <span class="doccomment">/// A stored integer holds zero or more: a non-number is the typed rule's
 <a href=#97 id=97 data-nosnippet>97</a>    /// error, and a negative is this rule's. Both render inline with a 200 and
 <a href=#98 id=98 data-nosnippet>98</a>    /// write nothing, never a 500 from a record fn.
-<a href=#99 id=99 data-nosnippet>99</a>    </span><span class="kw">fn </span>validate_record(_cx: <span class="kw-2">&amp;</span>Cx, form: <span class="kw-2">&amp;</span>UserForm) -&gt; FieldErrors&lt;UserForm&gt; {
+<a href=#99 id=99 data-nosnippet>99</a>    </span><span class="kw">fn </span>validate_record(_cx: <span class="kw-2">&amp;</span>Cx, form: <span class="kw-2">&amp;</span>UserForm) -&gt; FieldErrors {
 <a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span><span class="kw-2">mut </span>errors = FieldErrors::new();
 <a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">if </span>form.age &lt; <span class="number">0 </span>{
-<a href=#102 id=102 data-nosnippet>102</a>            errors.add(UserFormField::Age, <span class="string">"Age must be zero or more"</span>);
+<a href=#102 id=102 data-nosnippet>102</a>            errors.add(<span class="string">"age"</span>, <span class="string">"Age must be zero or more"</span>);
 <a href=#103 id=103 data-nosnippet>103</a>        }
 <a href=#104 id=104 data-nosnippet>104</a>        errors
 <a href=#105 id=105 data-nosnippet>105</a>    }

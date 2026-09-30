@@ -79,13 +79,13 @@
 <a href=#79 id=79 data-nosnippet>79</a>
 <a href=#80 id=80 data-nosnippet>80</a><span class="kw">impl </span>Field {
 <a href=#81 id=81 data-nosnippet>81</a>    <span class="doccomment">/// Render a text field: a read-only value in `Mode::View`, the control
-<a href=#82 id=82 data-nosnippet>82</a>    /// with `value` and `errors` otherwise.
+<a href=#82 id=82 data-nosnippet>82</a>    /// with `value` and `error` otherwise.
 <a href=#83 id=83 data-nosnippet>83</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>render_text&lt;<span class="lifetime">'a</span>&gt;(
 <a href=#84 id=84 data-nosnippet>84</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#85 id=85 data-nosnippet>85</a>        text: <span class="kw-2">&amp;</span>TextControl,
 <a href=#86 id=86 data-nosnippet>86</a>        cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
 <a href=#87 id=87 data-nosnippet>87</a>        value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-<a href=#88 id=88 data-nosnippet>88</a>        errors: <span class="kw-2">&amp;</span>[String],
+<a href=#88 id=88 data-nosnippet>88</a>        error: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 <a href=#89 id=89 data-nosnippet>89</a>        mode: Mode,
 <a href=#90 id=90 data-nosnippet>90</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
 <a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">if </span>mode == Mode::View {
@@ -101,7 +101,7 @@
 <a href=#101 id=101 data-nosnippet>101</a>        // field is never refused for emptiness while rendering as optional.
 <a href=#102 id=102 data-nosnippet>102</a>        </span><span class="kw">let </span>required = <span class="self">self</span>.is_required();
 <a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">let </span>placeholder = text.placeholder.clone();
-<a href=#104 id=104 data-nosnippet>104</a>        <span class="kw">let </span>chrome = FieldChrome::new(<span class="kw-2">&amp;</span><span class="self">self</span>.name, errors, <span class="prelude-val">None</span>);
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="kw">let </span>chrome = FieldChrome::new(<span class="kw-2">&amp;</span><span class="self">self</span>.name, error, <span class="prelude-val">None</span>);
 <a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>aria_invalid = chrome.aria_invalid();
 <a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">let </span>described_by = chrome.described_by();
 <a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">let </span>control = <span class="kw">if let </span><span class="prelude-val">Some</span>(rows) = text.rows {

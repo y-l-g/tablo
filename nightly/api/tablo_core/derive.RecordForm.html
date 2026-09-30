@@ -19,7 +19,7 @@ key of an <code>EmbeddedForm</code> value and is written whole.</p>
     </span><span class="kw">pub </span>age: i64,
 }</code></pre></div>
 <p>The derive also emits <code>UserFormField</code>, one variant per field, which
-<code>FieldErrors</code> and <code>Posted</code> key on.</p>
+<code>Posted</code> keys on and <code>RecordForm::fields</code> answers with each variant’s keys.</p>
 <h2 id="attributes"><a class="doc-anchor" href="#attributes">§</a>Attributes</h2>
 <ul>
 <li><code>#[form(model = User)]</code> on the struct: the model the form writes.</li>

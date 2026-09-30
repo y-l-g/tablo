@@ -14,7 +14,7 @@
 <a href=#14 id=14 data-nosnippet>14</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#15 id=15 data-nosnippet>15</a>        cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
 <a href=#16 id=16 data-nosnippet>16</a>        value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-<a href=#17 id=17 data-nosnippet>17</a>        errors: <span class="kw-2">&amp;</span>[String],
+<a href=#17 id=17 data-nosnippet>17</a>        error: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 <a href=#18 id=18 data-nosnippet>18</a>        mode: Mode,
 <a href=#19 id=19 data-nosnippet>19</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
 <a href=#20 id=20 data-nosnippet>20</a>        <span class="comment">// The detail page shows the stored path, never a file control: an
@@ -30,7 +30,7 @@
 <a href=#30 id=30 data-nosnippet>30</a>        </span><span class="kw">let </span>stored = stored_path(value);
 <a href=#31 id=31 data-nosnippet>31</a>        <span class="kw">let </span>is_edit = stored.is_some();
 <a href=#32 id=32 data-nosnippet>32</a>        <span class="kw">let </span>control_required = <span class="self">self</span>.required &amp;&amp; !is_edit;
-<a href=#33 id=33 data-nosnippet>33</a>        <span class="kw">let </span>chrome = FieldChrome::new(<span class="kw-2">&amp;</span>name, errors, <span class="prelude-val">None</span>);
+<a href=#33 id=33 data-nosnippet>33</a>        <span class="kw">let </span>chrome = FieldChrome::new(<span class="kw-2">&amp;</span>name, error, <span class="prelude-val">None</span>);
 <a href=#34 id=34 data-nosnippet>34</a>        <span class="kw">let </span>hint_id = <span class="macro">format!</span>(<span class="string">"{name}-hint"</span>);
 <a href=#35 id=35 data-nosnippet>35</a>        <span class="comment">// The clear flag is a framework transport key, not a field:
 <a href=#36 id=36 data-nosnippet>36</a>        // it names the stored value's owner and is stripped before any record

@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d6cad7ad.js";
+            window.path_to_searchindex_js = "searchindex-b108b4e6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-da1679ae.js"></script>
+        <script src="toc-bb41c840.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -212,6 +212,7 @@ relations and nullability.</li>
 <code>cargo update</code>.</p>
 <h2 id="how-to-read-this-guide"><a class="header" href="#how-to-read-this-guide">How to read this guide</a></h2>
 <ul>
+<li><a href="#your-first-panel">Your first panel</a>: a complete <code>main</code> that mounts a resource and serves it.</li>
 <li><a href="#panel-and-routing">Panel and routing</a>: mounting a panel and the routes a resource serves.</li>
 <li><a href="#resources">Resources</a>: the <code>Resource</code> trait, its contract, and tenancy.</li>
 <li><a href="#tables">Tables</a>, <a href="#forms">Forms</a>, <a href="#detail-pages">Detail pages</a>: the three views.</li>
@@ -225,6 +226,131 @@ the tooling around them.</li>
 the ADRs record the <em>why</em>), and the runnable reference lives in <code>examples/showcase/</code>. Where this
 guide and the code disagree, the code and <code>docs/adr/</code> win — please open an issue or a PR so the
 guide catches up.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="your-first-panel"><a class="header" href="#your-first-panel">Your first panel</a></h1>
+<p>A complete panel: one Toasty model, one <code>Resource</code> over it, and the <code>main</code> that mounts them and
+serves the admin.</p>
+<pre class="playground"><code class="language-rust">use tablo_core::auth::{AdminUser, hash_password};
+use tablo_core::{Field, Panel, Resource, Schema, Table, TextColumn};
+use toasty::Db;
+use topcoat::{Result, context::Cx};
+
+/// The persisted model: every column the panel renders comes from this type.
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Book {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub title: String,
+}
+
+/// What the create and edit forms parse into.
+#[derive(tablo_core::RecordForm)]
+#[form(model = Book)]
+pub struct BookForm {
+    pub title: String,
+}
+
+pub struct BookResource;
+
+impl Resource for BookResource {
+    type Model = Book;
+    type Form = BookForm;
+
+    // Policy defaults to deny, so the list answers 403 without this.
+    fn can_view_any(_cx: &amp;Cx) -&gt; bool {
+        true
+    }
+
+    fn table(_cx: &amp;Cx) -&gt; Table&lt;Book&gt; {
+        Table::new(
+            |b: &amp;Book| b.id.to_string(),
+            TextColumn::r#for(Book::fields().title(), |b: &amp;Book| b.title.clone())
+                .searchable()
+                .sortable(),
+        )
+    }
+
+    fn form(_cx: &amp;Cx) -&gt; Schema {
+        Schema::new(Field::text(Book::fields().title()))
+    }
+}
+
+#[tokio::main]
+async fn main() -&gt; Result&lt;()&gt; {
+    let mut db = Db::builder()
+        .models(toasty::models!(
+            Book,
+            // The shipped password auth reads these two tables, and
+            // `Panel::build` asserts both are registered.
+            tablo_core::auth::AdminUser,
+            tablo_core::auth::AuthSession
+        ))
+        .connect("sqlite::memory:")
+        .await?;
+
+    db.push_schema().await?;
+
+    // One account to sign in with; the hash is an Argon2id PHC string.
+    toasty::create!(AdminUser {
+        email: "admin@example.com".to_string(),
+        password_hash: hash_password("secret")?,
+        display_name: "Admin".to_string(),
+        active: true,
+        tenant_id: None,
+        created_at: jiff::Timestamp::now(),
+    })
+    .exec(&amp;mut db)
+    .await?;
+
+    // `app_context(db)` installs the Db `Panel::build` requires.
+    let router = Panel::new("admin")
+        .app_context(db)
+        .resource::&lt;BookResource&gt;()
+        .build()?;
+
+    topcoat::start(router).await?;
+    Ok(())
+}</code></pre>
+<pre><code class="language-sh">cargo run
+# then open http://127.0.0.1:3000/admin/books and sign in as admin@example.com / secret
+</code></pre>
+<p>The sample needs <code>tablo-core</code>, <code>topcoat</code> (whose defaults cover <code>serve</code>), <code>toasty</code> with the <code>sqlite</code>
+and <code>jiff</code> features, <code>tokio</code> with <code>macros</code> and <code>rt-multi-thread</code>, and <code>uuid</code>; <code>jiff</code> is named
+directly for <code>Timestamp::now()</code>. The workspace’s own revisions and features are in <code>Cargo.toml</code>.</p>
+<h2 id="the-wiring"><a class="header" href="#the-wiring">The wiring</a></h2>
+<p>The one required call the other chapters leave implicit is <code>app_context(db)</code>: the panel reads its
+pooled <code>Db</code> from the app context, and <code>Panel::build</code> returns an error without one.</p>
+<ul>
+<li><code>Db::builder().models(..)</code> names every model Toasty maps. The shipped password auth reads
+<code>tablo_core::auth::AdminUser</code> and <code>tablo_core::auth::AuthSession</code>, so both are listed; with auth
+on, <code>Panel::build</code> asserts they are there, and the panel serves its login page at
+<code>/admin/login</code> (<a href="#policy-auth-tenancy">Policy, auth, tenancy</a>).</li>
+<li><code>db.push_schema().await</code> creates the tables for a prototype. Production uses <code>toasty-cli</code>
+migrations (<a href="#data-access">Data access</a>).</li>
+<li><code>Panel::new("admin")</code> mounts the panel at <code>/admin</code>. <code>resource::&lt;BookResource&gt;()</code> registers the
+resource’s list at <code>{prefix}/{slug}</code>, derives its sidebar entry from the same slug, and points
+the panel root at the first declared resource, so <code>BookResource</code> answers on <code>/admin/books</code>. The
+other routes — create, edit, detail, delete, bulk delete, export, relationship options — come
+from the same registration (<a href="#panel-and-routing">Panel and routing</a>).</li>
+<li><code>app_context(db)</code> registers the pooled <code>Db</code> on the panel’s app context. <code>Panel::build</code> requires
+it: without that call it returns <code>Err</code> (<code>Panel::build requires a Db via app_context</code>) instead of a
+router. <code>build</code> also uses that same database to run its declaration checks, with no request in
+hand.</li>
+<li><code>build()?</code> returns the <code>Router</code>, or an error naming the misdeclaration it found — a duplicate or
+malformed resource slug, a malformed panel prefix, a form that disagrees with the resource’s
+<code>form()</code> schema (<a href="#resources">Resources</a>).</li>
+<li><code>topcoat::start(router)</code> binds <code>HOST</code> and <code>PORT</code> (<code>127.0.0.1:3000</code> when unset) and serves until
+Ctrl+C or <code>SIGTERM</code>.</li>
+</ul>
+<p>The example sets <code>can_view_any</code> and leaves the other <code>can_*</code> predicates at their deny default: no
+Create link renders, the create and edit pages answer 403, and no row carries an Edit or Delete
+control. Declaring those is <a href="#policy-auth-tenancy">Policy, auth, tenancy</a>; the columns, filters
+and export are <a href="#tables">Tables</a>; the form is <a href="#forms">Forms</a>.</p>
+<p>The example also registers no asset bundle, so the shell falls back to <code>topcoat::dev::script()</code> and
+its theme script: the pages render and the forms submit, and <code>Panel::assets(..)</code> with
+<code>Panel::shell_assets(..)</code> adds the generated stylesheet, the font and the client scripts
+(<a href="#panel-and-routing">Panel and routing</a>).</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="panel-and-routing"><a class="header" href="#panel-and-routing">Panel and routing</a></h1>
 <p>How a panel is mounted, the routes a resource adds, and the panel options that shape the shell.</p>
@@ -267,30 +393,26 @@ prefix, so no route under another prefix is gated. Route discovery is link-time 
 the <code>discover()</code> call inside <code>Panel::build</code> collects these pages with no router change:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>use topcoat::{
+</span>use tablo_core::Panel;
+use topcoat::{
     Result,
+    context::Cx,
     router::{Slot, layout, page},
-    tailwind,
     view::{View, view},
 };
 
 // The layout path is a prefix: `/blog` wraps `/blog` and `/blog/{id}`, and
 // nothing else. A layout at `/` would wrap `/admin` too.
 #[layout("/blog")]
-async fn blog_layout(slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
-    Ok(view! {
-        &lt;!DOCTYPE html&gt;
-        &lt;html&gt;
-            &lt;head&gt;
-                topcoat::dev::script()
-                topcoat::runtime::script()
-                &lt;link rel="stylesheet" href=(tailwind::stylesheet!())&gt;
-            &lt;/head&gt;
-            &lt;body&gt;
-                (slot)
-            &lt;/body&gt;
-        &lt;/html&gt;
-    })
+async fn blog_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
+    Panel::document(
+        cx,
+        "Blog",
+        view! {
+            &lt;div class="mx-auto max-w-3xl px-6 py-10"&gt;(slot)&lt;/div&gt;
+        },
+    )
+    .await
 }
 
 #[page("/blog")]
@@ -298,15 +420,14 @@ async fn blog() -&gt; Result&lt;impl View&gt; {
     Ok(view! { "Posts" })
 }
 <span class="boring">}</span></code></pre>
-<p>A public page renders its own document: <code>Panel::render_document</code> and <code>Panel::layout_shell</code> are the
-admin shell, so the layout carries the head — <code>topcoat::dev::script()</code>,
-<code>topcoat::runtime::script()</code>, <code>topcoat::font::link(font: …)</code> and
-<code>&lt;link rel="stylesheet" href=(tailwind::stylesheet!())&gt;</code> — the same way the panel’s shell does. The
-runtime script, the font and the stylesheet are <code>Asset</code> URLs, and an <code>Asset</code> panics where no asset
-config is registered, so a router built without <code>.assets(..)</code> — a markup test, say — needs a layout
-that leaves them out: the panel’s shell drops back to <code>topcoat::dev::script()</code> and its theme script
-in that case, and a layout takes the same fallback by guarding on
-<code>try_app_context::&lt;AssetConfig&gt;(cx).is_some()</code>.</p>
+<p><code>Panel::document</code> renders the document the admin shell renders — <code>topcoat::dev::script()</code>, the theme
+script, and, where the panel registered <code>Panel::shell_assets</code>, the runtime script, the font, the
+stylesheet and the shell scripts. The panel renders the <code>&lt;body&gt;</code> element and the dark-mode <code>&lt;html&gt;</code>
+class; the page owns its chrome inside, classes included.</p>
+<p>The runtime script, the font, the stylesheet and the shell scripts are <code>Asset</code> URLs, and an <code>Asset</code>
+panics where no asset config is registered: a layout that rendered them under a router built without
+<code>.assets(..)</code> — a markup test, say — fails instead of rendering. <code>Panel::document</code> leaves them out
+there, as the panel’s own shell does.</p>
 <p>The panel’s resource loaders are panel-scoped (auth, tenancy, chrome), so a public page queries the
 model directly: <code>Post::filter(Post::fields().status().eq("published".to_string()))</code>, with an explicit
 <code>.include(..)</code> for every relation the page reads. See <a href="#data-access">Data access</a>. The framework
@@ -321,7 +442,7 @@ and how tenancy is declared.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>pub trait Resource: Sized + Send + Sync + 'static {
-    type Model: toasty::schema::Model + Send + Sync + 'static;
+    type Model: toasty::schema::Model + Send + Sync + Clone + 'static;
     type Form: RecordForm&lt;Model = Self::Model&gt;;     // required: a record form, or NoForm
     fn query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: Query::all()
     fn view_query(_cx: &amp;Cx) -&gt; Query&lt;List&lt;Self::Model&gt;&gt;; // default: query(cx)
@@ -663,10 +784,10 @@ left empty.</p>
 
     fn form(_cx: &amp;Cx) -&gt; Schema { /* the controls, as below */ }
 
-    fn validate_record(_cx: &amp;Cx, form: &amp;UserForm) -&gt; FieldErrors&lt;UserForm&gt; {
+    fn validate_record(_cx: &amp;Cx, form: &amp;UserForm) -&gt; FieldErrors {
         let mut errors = FieldErrors::new();
         if form.age &lt; 0 {
-            errors.add(UserFormField::Age, "Age must be zero or more");
+            errors.add("age", "Age must be zero or more");
         }
         errors
     }
@@ -674,6 +795,10 @@ left empty.</p>
 
 Panel::new("admin").resource::&lt;UserResource&gt;()
 <span class="boring">}</span></code></pre>
+<p>Each error names the key it renders under — the control’s own key, an embedded value’s flattened
+one, or a <code>Repeater</code> group’s label. A key the submitted form renders nowhere — one the schema
+declares no control for, or a field of a variant group the chosen variant hides — fails the submit
+as a declaration error instead of writing past the rule.</p>
 <p>A resource with a record form gets the create page, the edit page, and the relationship-options
 endpoint. A list-only resource names <code>type Form = NoForm&lt;Self::Model&gt;;</code> and leaves <code>form()</code> at its
 empty default; it gets none of them.</p>
@@ -1156,7 +1281,10 @@ and no user content; the panel’s <code>frame-ancestors</code> layer still cove
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="testing-and-benchmarks"><a class="header" href="#testing-and-benchmarks">Testing and benchmarks</a></h1>
 <p>How to test a panel, what the showcase covers, and the performance harness and its budget.</p>
-<p>Unit render with <code>CxTestBuilder</code>. Cover each resource policy fn. Cover scoping in <code>query()</code>.</p>
+<p>Panel behavior is tested over HTTP through the shared harness in <code>crates/tablo-test</code>:
+<code>tablo_test::TestClient</code> drives a <code>Router</code> in memory and carries the cookies, tenant, and CSRF
+token a request needs, with body readers, form and multipart writers, and HTML scrapers alongside
+it. Cover each resource policy fn. Cover scoping in <code>query()</code>.</p>
 <p>The showcase has integration tests per area (list, create, edit, delete, bulk, filters, tenancy,
 uploads, export, auth) under <code>examples/showcase/tests/</code>.</p>
 <pre><code class="language-sh">cargo test -p showcase

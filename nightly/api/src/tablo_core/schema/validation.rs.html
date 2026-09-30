@@ -9,7 +9,7 @@
 <a href=#9 id=9 data-nosnippet>9</a>
 <a href=#10 id=10 data-nosnippet>10</a></span><span class="kw">use </span>email_address::{EmailAddress, Options};
 <a href=#11 id=11 data-nosnippet>11</a>
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span><span class="kw">crate</span>::form::FormScalar;
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span><span class="kw">crate</span>::form::{FieldError, FormScalar};
 <a href=#13 id=13 data-nosnippet>13</a>
 <a href=#14 id=14 data-nosnippet>14</a><span class="doccomment">/// A typed column's own spelling rules.
 <a href=#15 id=15 data-nosnippet>15</a>///
@@ -198,86 +198,97 @@
 <a href=#198 id=198 data-nosnippet>198</a>    /// `required` is the caller's resolved presence flag. An empty submit is
 <a href=#199 id=199 data-nosnippet>199</a>    /// the presence rule's business alone: the email and parse rules skip it,
 <a href=#200 id=200 data-nosnippet>200</a>    /// so an optional field accepts empty whatever else it declares.
-<a href=#201 id=201 data-nosnippet>201</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, label: <span class="kw-2">&amp;</span>str, required: bool, value: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
-<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">let </span>v = value.trim();
-<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">let </span><span class="kw-2">mut </span>errs = Vec::new();
-<a href=#204 id=204 data-nosnippet>204</a>        <span class="kw">if </span>required &amp;&amp; v.is_empty() {
-<a href=#205 id=205 data-nosnippet>205</a>            errs.push(required_error(label));
-<a href=#206 id=206 data-nosnippet>206</a>        }
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">if </span><span class="self">self</span>.email &amp;&amp; !v.is_empty() &amp;&amp; !is_email(v) {
-<a href=#208 id=208 data-nosnippet>208</a>            errs.push(<span class="macro">format!</span>(<span class="string">"{label} must be a valid email"</span>));
-<a href=#209 id=209 data-nosnippet>209</a>        }
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="comment">// The typed rule runs last and only on a value the rules
-<a href=#211 id=211 data-nosnippet>211</a>        // above accepted.
-<a href=#212 id=212 data-nosnippet>212</a>        </span><span class="kw">if </span>!v.is_empty()
-<a href=#213 id=213 data-nosnippet>213</a>            &amp;&amp; errs.is_empty()
-<a href=#214 id=214 data-nosnippet>214</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(parser) = <span class="kw-2">&amp;</span><span class="self">self</span>.parser
-<a href=#215 id=215 data-nosnippet>215</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Err</span>(message) = parser(v)
-<a href=#216 id=216 data-nosnippet>216</a>        {
-<a href=#217 id=217 data-nosnippet>217</a>            errs.push(message);
-<a href=#218 id=218 data-nosnippet>218</a>        }
-<a href=#219 id=219 data-nosnippet>219</a>        errs
-<a href=#220 id=220 data-nosnippet>220</a>    }
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a>    <span class="doccomment">/// The stored spelling of a submission the caller has already validated.
-<a href=#223 id=223 data-nosnippet>223</a>    ///
-<a href=#224 id=224 data-nosnippet>224</a>    /// The parse's form spelling for a scalar field, the trimmed submission
-<a href=#225 id=225 data-nosnippet>225</a>    /// otherwise — so a value the user left alone is written back in
-<a href=#226 id=226 data-nosnippet>226</a>    /// the shape the record fn wrote it, not in whichever spelling the browser
-<a href=#227 id=227 data-nosnippet>227</a>    /// sent. Callers that have not validated must not use this: it reports a
-<a href=#228 id=228 data-nosnippet>228</a>    /// failure rather than guessing.
-<a href=#229 id=229 data-nosnippet>229</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>normalize(<span class="kw-2">&amp;</span><span class="self">self</span>, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
-<a href=#230 id=230 data-nosnippet>230</a>        <span class="kw">let </span>v = value.trim();
-<a href=#231 id=231 data-nosnippet>231</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.parser {
-<a href=#232 id=232 data-nosnippet>232</a>            <span class="prelude-val">Some</span>(parser) =&gt; parser(v),
-<a href=#233 id=233 data-nosnippet>233</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(v.to_string()),
-<a href=#234 id=234 data-nosnippet>234</a>        }
-<a href=#235 id=235 data-nosnippet>235</a>    }
-<a href=#236 id=236 data-nosnippet>236</a>}
-<a href=#237 id=237 data-nosnippet>237</a>
-<a href=#238 id=238 data-nosnippet>238</a><span class="doccomment">/// The message for an empty submit, shared with the repeater walk in
-<a href=#239 id=239 data-nosnippet>239</a>/// `Schema::validate`.
-<a href=#240 id=240 data-nosnippet>240</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>required_error(label: <span class="kw-2">&amp;</span>str) -&gt; String {
-<a href=#241 id=241 data-nosnippet>241</a>    <span class="macro">format!</span>(<span class="string">"{label} is required"</span>)
-<a href=#242 id=242 data-nosnippet>242</a>}
-<a href=#243 id=243 data-nosnippet>243</a>
-<a href=#244 id=244 data-nosnippet>244</a><span class="doccomment">/// The longest address the rule accepts. RFC 5321 §4.5.3.1.3 carries 256
-<a href=#245 id=245 data-nosnippet>245</a>/// octets including the angle brackets, and `email_address` bounds the local
-<a href=#246 id=246 data-nosnippet>246</a>/// part and the domain separately rather than their sum.
-<a href=#247 id=247 data-nosnippet>247</a></span><span class="kw">const </span>EMAIL_MAX_LENGTH: usize = <span class="number">254</span>;
+<a href=#201 id=201 data-nosnippet>201</a>    ///
+<a href=#202 id=202 data-nosnippet>202</a>    /// `key` is the field's own key, `label` the wording its message uses.
+<a href=#203 id=203 data-nosnippet>203</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate(
+<a href=#204 id=204 data-nosnippet>204</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#205 id=205 data-nosnippet>205</a>        key: <span class="kw-2">&amp;</span>str,
+<a href=#206 id=206 data-nosnippet>206</a>        label: <span class="kw-2">&amp;</span>str,
+<a href=#207 id=207 data-nosnippet>207</a>        required: bool,
+<a href=#208 id=208 data-nosnippet>208</a>        value: <span class="kw-2">&amp;</span>str,
+<a href=#209 id=209 data-nosnippet>209</a>    ) -&gt; Vec&lt;FieldError&gt; {
+<a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">let </span>v = value.trim();
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span><span class="kw-2">mut </span>errs = Vec::new();
+<a href=#212 id=212 data-nosnippet>212</a>        <span class="kw">if </span>required &amp;&amp; v.is_empty() {
+<a href=#213 id=213 data-nosnippet>213</a>            errs.push(FieldError::unanswered(key, required_error(label)));
+<a href=#214 id=214 data-nosnippet>214</a>        }
+<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">if </span><span class="self">self</span>.email &amp;&amp; !v.is_empty() &amp;&amp; !is_email(v) {
+<a href=#216 id=216 data-nosnippet>216</a>            errs.push(FieldError::invalid(
+<a href=#217 id=217 data-nosnippet>217</a>                key,
+<a href=#218 id=218 data-nosnippet>218</a>                <span class="macro">format!</span>(<span class="string">"{label} must be a valid email"</span>),
+<a href=#219 id=219 data-nosnippet>219</a>            ));
+<a href=#220 id=220 data-nosnippet>220</a>        }
+<a href=#221 id=221 data-nosnippet>221</a>        <span class="comment">// The typed rule runs last and only on a value the rules
+<a href=#222 id=222 data-nosnippet>222</a>        // above accepted.
+<a href=#223 id=223 data-nosnippet>223</a>        </span><span class="kw">if </span>!v.is_empty()
+<a href=#224 id=224 data-nosnippet>224</a>            &amp;&amp; errs.is_empty()
+<a href=#225 id=225 data-nosnippet>225</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(parser) = <span class="kw-2">&amp;</span><span class="self">self</span>.parser
+<a href=#226 id=226 data-nosnippet>226</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Err</span>(message) = parser(v)
+<a href=#227 id=227 data-nosnippet>227</a>        {
+<a href=#228 id=228 data-nosnippet>228</a>            errs.push(FieldError::invalid(key, message));
+<a href=#229 id=229 data-nosnippet>229</a>        }
+<a href=#230 id=230 data-nosnippet>230</a>        errs
+<a href=#231 id=231 data-nosnippet>231</a>    }
+<a href=#232 id=232 data-nosnippet>232</a>
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="doccomment">/// The stored spelling of a submission the caller has already validated.
+<a href=#234 id=234 data-nosnippet>234</a>    ///
+<a href=#235 id=235 data-nosnippet>235</a>    /// The parse's form spelling for a scalar field, the trimmed submission
+<a href=#236 id=236 data-nosnippet>236</a>    /// otherwise — so a value the user left alone is written back in
+<a href=#237 id=237 data-nosnippet>237</a>    /// the shape the record fn wrote it, not in whichever spelling the browser
+<a href=#238 id=238 data-nosnippet>238</a>    /// sent. Callers that have not validated must not use this: it reports a
+<a href=#239 id=239 data-nosnippet>239</a>    /// failure rather than guessing.
+<a href=#240 id=240 data-nosnippet>240</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>normalize(<span class="kw-2">&amp;</span><span class="self">self</span>, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
+<a href=#241 id=241 data-nosnippet>241</a>        <span class="kw">let </span>v = value.trim();
+<a href=#242 id=242 data-nosnippet>242</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.parser {
+<a href=#243 id=243 data-nosnippet>243</a>            <span class="prelude-val">Some</span>(parser) =&gt; parser(v),
+<a href=#244 id=244 data-nosnippet>244</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(v.to_string()),
+<a href=#245 id=245 data-nosnippet>245</a>        }
+<a href=#246 id=246 data-nosnippet>246</a>    }
+<a href=#247 id=247 data-nosnippet>247</a>}
 <a href=#248 id=248 data-nosnippet>248</a>
-<a href=#249 id=249 data-nosnippet>249</a><span class="doccomment">/// Whether `value` is an address the email rule accepts.
-<a href=#250 id=250 data-nosnippet>250</a>///
-<a href=#251 id=251 data-nosnippet>251</a>/// `email_address` parses the RFC 5322 grammar. `with_required_tld` gives a
-<a href=#252 id=252 data-nosnippet>252</a>/// text domain two labels, so `a@b` and `a@b..c` are refused; a bracketed
-<a href=#253 id=253 data-nosnippet>253</a>/// literal takes the crate's other domain path and passes whatever its label
-<a href=#254 id=254 data-nosnippet>254</a>/// count, so `a@[127.0.0.1]` and `a@[IPv6:::1]` are accepted.
-<a href=#255 id=255 data-nosnippet>255</a>/// `without_display_text` refuses `Ada &lt;ada@example.com&gt;`, a header rather
-<a href=#256 id=256 data-nosnippet>256</a>/// than an address.
-<a href=#257 id=257 data-nosnippet>257</a>///
-<a href=#258 id=258 data-nosnippet>258</a>/// The rest of the accepted set is the crate's:
-<a href=#259 id=259 data-nosnippet>259</a>///
-<a href=#260 id=260 data-nosnippet>260</a>/// - a quoted local part, `"a b"@example.com`;
-<a href=#261 id=261 data-nosnippet>261</a>/// - a unicode local part or domain, `用户@例え.jp`;
-<a href=#262 id=262 data-nosnippet>262</a>/// - an unquoted local part refuses `(`, `)`, `,`, `:`, `;`, `&lt;`, `&gt;`, `[`, `]`, `\`, `"` and
-<a href=#263 id=263 data-nosnippet>263</a>///   space, so `a,b@b.com`, `a(b@b.com` and `a:b@b.com` are refused;
-<a href=#264 id=264 data-nosnippet>264</a>/// - a domain label starts and ends with a letter or digit, so `user@my_host.com` is accepted and
-<a href=#265 id=265 data-nosnippet>265</a>///   `a@b!.com` is refused;
-<a href=#266 id=266 data-nosnippet>266</a>/// - a single-character TLD, `a@b.c`.
-<a href=#267 id=267 data-nosnippet>267</a>///
-<a href=#268 id=268 data-nosnippet>268</a>/// The crate bounds the local part at 64 octets and the domain at 254;
-<a href=#269 id=269 data-nosnippet>269</a>/// [`EMAIL_MAX_LENGTH`] caps their sum.
-<a href=#270 id=270 data-nosnippet>270</a></span><span class="kw">fn </span>is_email(value: <span class="kw-2">&amp;</span>str) -&gt; bool {
-<a href=#271 id=271 data-nosnippet>271</a>    value.len() &lt;= EMAIL_MAX_LENGTH
-<a href=#272 id=272 data-nosnippet>272</a>        &amp;&amp; EmailAddress::parse_with_options(
-<a href=#273 id=273 data-nosnippet>273</a>            value,
-<a href=#274 id=274 data-nosnippet>274</a>            Options::default()
-<a href=#275 id=275 data-nosnippet>275</a>                .with_required_tld()
-<a href=#276 id=276 data-nosnippet>276</a>                .without_display_text(),
-<a href=#277 id=277 data-nosnippet>277</a>        )
-<a href=#278 id=278 data-nosnippet>278</a>        .is_ok()
-<a href=#279 id=279 data-nosnippet>279</a>}
-<a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a><span class="attr">#[cfg(test)]
-<a href=#282 id=282 data-nosnippet>282</a></span><span class="kw">mod </span>tests;
+<a href=#249 id=249 data-nosnippet>249</a><span class="doccomment">/// The message for an empty submit, shared with the repeater walk in
+<a href=#250 id=250 data-nosnippet>250</a>/// `Schema::validate`.
+<a href=#251 id=251 data-nosnippet>251</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>required_error(label: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#252 id=252 data-nosnippet>252</a>    <span class="macro">format!</span>(<span class="string">"{label} is required"</span>)
+<a href=#253 id=253 data-nosnippet>253</a>}
+<a href=#254 id=254 data-nosnippet>254</a>
+<a href=#255 id=255 data-nosnippet>255</a><span class="doccomment">/// The longest address the rule accepts. RFC 5321 §4.5.3.1.3 carries 256
+<a href=#256 id=256 data-nosnippet>256</a>/// octets including the angle brackets, and `email_address` bounds the local
+<a href=#257 id=257 data-nosnippet>257</a>/// part and the domain separately rather than their sum.
+<a href=#258 id=258 data-nosnippet>258</a></span><span class="kw">const </span>EMAIL_MAX_LENGTH: usize = <span class="number">254</span>;
+<a href=#259 id=259 data-nosnippet>259</a>
+<a href=#260 id=260 data-nosnippet>260</a><span class="doccomment">/// Whether `value` is an address the email rule accepts.
+<a href=#261 id=261 data-nosnippet>261</a>///
+<a href=#262 id=262 data-nosnippet>262</a>/// `email_address` parses the RFC 5322 grammar. `with_required_tld` gives a
+<a href=#263 id=263 data-nosnippet>263</a>/// text domain two labels, so `a@b` and `a@b..c` are refused; a bracketed
+<a href=#264 id=264 data-nosnippet>264</a>/// literal takes the crate's other domain path and passes whatever its label
+<a href=#265 id=265 data-nosnippet>265</a>/// count, so `a@[127.0.0.1]` and `a@[IPv6:::1]` are accepted.
+<a href=#266 id=266 data-nosnippet>266</a>/// `without_display_text` refuses `Ada &lt;ada@example.com&gt;`, a header rather
+<a href=#267 id=267 data-nosnippet>267</a>/// than an address.
+<a href=#268 id=268 data-nosnippet>268</a>///
+<a href=#269 id=269 data-nosnippet>269</a>/// The rest of the accepted set is the crate's:
+<a href=#270 id=270 data-nosnippet>270</a>///
+<a href=#271 id=271 data-nosnippet>271</a>/// - a quoted local part, `"a b"@example.com`;
+<a href=#272 id=272 data-nosnippet>272</a>/// - a unicode local part or domain, `用户@例え.jp`;
+<a href=#273 id=273 data-nosnippet>273</a>/// - an unquoted local part refuses `(`, `)`, `,`, `:`, `;`, `&lt;`, `&gt;`, `[`, `]`, `\`, `"` and
+<a href=#274 id=274 data-nosnippet>274</a>///   space, so `a,b@b.com`, `a(b@b.com` and `a:b@b.com` are refused;
+<a href=#275 id=275 data-nosnippet>275</a>/// - a domain label starts and ends with a letter or digit, so `user@my_host.com` is accepted and
+<a href=#276 id=276 data-nosnippet>276</a>///   `a@b!.com` is refused;
+<a href=#277 id=277 data-nosnippet>277</a>/// - a single-character TLD, `a@b.c`.
+<a href=#278 id=278 data-nosnippet>278</a>///
+<a href=#279 id=279 data-nosnippet>279</a>/// The crate bounds the local part at 64 octets and the domain at 254;
+<a href=#280 id=280 data-nosnippet>280</a>/// [`EMAIL_MAX_LENGTH`] caps their sum.
+<a href=#281 id=281 data-nosnippet>281</a></span><span class="kw">fn </span>is_email(value: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#282 id=282 data-nosnippet>282</a>    value.len() &lt;= EMAIL_MAX_LENGTH
+<a href=#283 id=283 data-nosnippet>283</a>        &amp;&amp; EmailAddress::parse_with_options(
+<a href=#284 id=284 data-nosnippet>284</a>            value,
+<a href=#285 id=285 data-nosnippet>285</a>            Options::default()
+<a href=#286 id=286 data-nosnippet>286</a>                .with_required_tld()
+<a href=#287 id=287 data-nosnippet>287</a>                .without_display_text(),
+<a href=#288 id=288 data-nosnippet>288</a>        )
+<a href=#289 id=289 data-nosnippet>289</a>        .is_ok()
+<a href=#290 id=290 data-nosnippet>290</a>}
+<a href=#291 id=291 data-nosnippet>291</a>
+<a href=#292 id=292 data-nosnippet>292</a><span class="attr">#[cfg(test)]
+<a href=#293 id=293 data-nosnippet>293</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

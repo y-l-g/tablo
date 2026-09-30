@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d6cad7ad.js";
+            window.path_to_searchindex_js = "searchindex-b108b4e6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-da1679ae.js"></script>
+        <script src="toc-bb41c840.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -221,30 +221,26 @@ prefix, so no route under another prefix is gated. Route discovery is link-time 
 the <code>discover()</code> call inside <code>Panel::build</code> collects these pages with no router change:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>use topcoat::{
+</span>use tablo_core::Panel;
+use topcoat::{
     Result,
+    context::Cx,
     router::{Slot, layout, page},
-    tailwind,
     view::{View, view},
 };
 
 // The layout path is a prefix: `/blog` wraps `/blog` and `/blog/{id}`, and
 // nothing else. A layout at `/` would wrap `/admin` too.
 #[layout("/blog")]
-async fn blog_layout(slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
-    Ok(view! {
-        &lt;!DOCTYPE html&gt;
-        &lt;html&gt;
-            &lt;head&gt;
-                topcoat::dev::script()
-                topcoat::runtime::script()
-                &lt;link rel="stylesheet" href=(tailwind::stylesheet!())&gt;
-            &lt;/head&gt;
-            &lt;body&gt;
-                (slot)
-            &lt;/body&gt;
-        &lt;/html&gt;
-    })
+async fn blog_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
+    Panel::document(
+        cx,
+        "Blog",
+        view! {
+            &lt;div class="mx-auto max-w-3xl px-6 py-10"&gt;(slot)&lt;/div&gt;
+        },
+    )
+    .await
 }
 
 #[page("/blog")]
@@ -252,15 +248,14 @@ async fn blog() -&gt; Result&lt;impl View&gt; {
     Ok(view! { "Posts" })
 }
 <span class="boring">}</span></code></pre>
-<p>A public page renders its own document: <code>Panel::render_document</code> and <code>Panel::layout_shell</code> are the
-admin shell, so the layout carries the head — <code>topcoat::dev::script()</code>,
-<code>topcoat::runtime::script()</code>, <code>topcoat::font::link(font: …)</code> and
-<code>&lt;link rel="stylesheet" href=(tailwind::stylesheet!())&gt;</code> — the same way the panel’s shell does. The
-runtime script, the font and the stylesheet are <code>Asset</code> URLs, and an <code>Asset</code> panics where no asset
-config is registered, so a router built without <code>.assets(..)</code> — a markup test, say — needs a layout
-that leaves them out: the panel’s shell drops back to <code>topcoat::dev::script()</code> and its theme script
-in that case, and a layout takes the same fallback by guarding on
-<code>try_app_context::&lt;AssetConfig&gt;(cx).is_some()</code>.</p>
+<p><code>Panel::document</code> renders the document the admin shell renders — <code>topcoat::dev::script()</code>, the theme
+script, and, where the panel registered <code>Panel::shell_assets</code>, the runtime script, the font, the
+stylesheet and the shell scripts. The panel renders the <code>&lt;body&gt;</code> element and the dark-mode <code>&lt;html&gt;</code>
+class; the page owns its chrome inside, classes included.</p>
+<p>The runtime script, the font, the stylesheet and the shell scripts are <code>Asset</code> URLs, and an <code>Asset</code>
+panics where no asset config is registered: a layout that rendered them under a router built without
+<code>.assets(..)</code> — a markup test, say — fails instead of rendering. <code>Panel::document</code> leaves them out
+there, as the panel’s own shell does.</p>
 <p>The panel’s resource loaders are panel-scoped (auth, tenancy, chrome), so a public page queries the
 model directly: <code>Post::filter(Post::fields().status().eq("published".to_string()))</code>, with an explicit
 <code>.include(..)</code> for every relation the page reads. See <a href="./data-access.html">Data access</a>. The framework
@@ -272,7 +267,7 @@ query it writes (ADR-0002).</p>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="introduction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="first-panel.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -286,7 +281,7 @@ query it writes (ADR-0002).</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="introduction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="first-panel.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

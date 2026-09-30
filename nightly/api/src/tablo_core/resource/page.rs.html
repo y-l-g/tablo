@@ -137,7 +137,7 @@
 <a href=#137 id=137 data-nosnippet>137</a>                <span class="kw">let </span>past = Past::Before(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>);
 <a href=#138 id=138 data-nosnippet>138</a>                <span class="kw">if </span>!row_exists_past(<span class="kw-2">&amp;mut </span>db, base_query, past)
 <a href=#139 id=139 data-nosnippet>139</a>                    .<span class="kw">await
-<a href=#140 id=140 data-nosnippet>140</a>                    </span>.map_err(topcoat::Error::from)<span class="question-mark">?
+<a href=#140 id=140 data-nosnippet>140</a>                    </span>.map_err(<span class="kw">crate</span>::error::unavailable)<span class="question-mark">?
 <a href=#141 id=141 data-nosnippet>141</a>                </span>{
 <a href=#142 id=142 data-nosnippet>142</a>                    page.prev_cursor = <span class="prelude-val">None</span>;
 <a href=#143 id=143 data-nosnippet>143</a>                }
@@ -147,7 +147,7 @@
 <a href=#147 id=147 data-nosnippet>147</a>                <span class="kw">let </span>past = Past::After(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>);
 <a href=#148 id=148 data-nosnippet>148</a>                <span class="kw">if </span>!row_exists_past(<span class="kw-2">&amp;mut </span>db, base_query, past)
 <a href=#149 id=149 data-nosnippet>149</a>                    .<span class="kw">await
-<a href=#150 id=150 data-nosnippet>150</a>                    </span>.map_err(topcoat::Error::from)<span class="question-mark">?
+<a href=#150 id=150 data-nosnippet>150</a>                    </span>.map_err(<span class="kw">crate</span>::error::unavailable)<span class="question-mark">?
 <a href=#151 id=151 data-nosnippet>151</a>                </span>{
 <a href=#152 id=152 data-nosnippet>152</a>                    page.next_cursor = <span class="prelude-val">None</span>;
 <a href=#153 id=153 data-nosnippet>153</a>                }
@@ -197,16 +197,17 @@
 <a href=#197 id=197 data-nosnippet>197</a>/// query's `ORDER BY`). No other statement this paginated loader builds carries
 <a href=#198 id=198 data-nosnippet>198</a>/// that error while the request names a cursor. Such a failure is the cursor's,
 <a href=#199 id=199 data-nosnippet>199</a>/// so it takes the cursor-stripped retry contract instead of re-requesting the
-<a href=#200 id=200 data-nosnippet>200</a>/// identical URL forever; every other failure keeps the cursor.
-<a href=#201 id=201 data-nosnippet>201</a></span><span class="kw">fn </span>reject_cursor(error: topcoat::Error, state: <span class="kw-2">&amp;</span>TableState) -&gt; topcoat::Error {
-<a href=#202 id=202 data-nosnippet>202</a>    <span class="kw">let </span>cursored = state.cursor.is_some();
-<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">let </span>rejected = error
-<a href=#204 id=204 data-nosnippet>204</a>        .downcast_ref::&lt;toasty::Error&gt;()
-<a href=#205 id=205 data-nosnippet>205</a>        .is_some_and(toasty::Error::is_invalid_statement);
-<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">if </span>cursored &amp;&amp; rejected {
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">crate</span>::cursor::CursorRejectedError::rejected(<span class="kw-2">&amp;</span>error)
-<a href=#208 id=208 data-nosnippet>208</a>    } <span class="kw">else </span>{
-<a href=#209 id=209 data-nosnippet>209</a>        error
-<a href=#210 id=210 data-nosnippet>210</a>    }
-<a href=#211 id=211 data-nosnippet>211</a>}
+<a href=#200 id=200 data-nosnippet>200</a>/// identical URL forever; every other failure is the database's, and takes the
+<a href=#201 id=201 data-nosnippet>201</a>/// opaque mapping that keeps the driver's text in the log.
+<a href=#202 id=202 data-nosnippet>202</a></span><span class="kw">fn </span>reject_cursor(error: topcoat::Error, state: <span class="kw-2">&amp;</span>TableState) -&gt; topcoat::Error {
+<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">let </span>cursored = state.cursor.is_some();
+<a href=#204 id=204 data-nosnippet>204</a>    <span class="kw">let </span>rejected = error
+<a href=#205 id=205 data-nosnippet>205</a>        .downcast_ref::&lt;toasty::Error&gt;()
+<a href=#206 id=206 data-nosnippet>206</a>        .is_some_and(toasty::Error::is_invalid_statement);
+<a href=#207 id=207 data-nosnippet>207</a>    <span class="kw">if </span>cursored &amp;&amp; rejected {
+<a href=#208 id=208 data-nosnippet>208</a>        <span class="kw">crate</span>::cursor::rejected(<span class="kw-2">&amp;</span>error)
+<a href=#209 id=209 data-nosnippet>209</a>    } <span class="kw">else </span>{
+<a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">crate</span>::error::unavailable(error)
+<a href=#211 id=211 data-nosnippet>211</a>    }
+<a href=#212 id=212 data-nosnippet>212</a>}
 </code></pre></div></section></main></body></html>

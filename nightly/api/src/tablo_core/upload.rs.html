@@ -16,7 +16,7 @@
 <a href=#16 id=16 data-nosnippet>16</a>
 <a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span>topcoat::context::{Cx, try_app_context};
 <a href=#18 id=18 data-nosnippet>18</a>
-<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span><span class="kw">crate</span>::schema::Schema;
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use crate</span>::{form::FieldErrors, schema::Schema};
 <a href=#20 id=20 data-nosnippet>20</a>
 <a href=#21 id=21 data-nosnippet>21</a><span class="doccomment">/// Store one uploaded file and name the value a record stores.
 <a href=#22 id=22 data-nosnippet>22</a>///
@@ -123,100 +123,92 @@
 <a href=#123 id=123 data-nosnippet>123</a>    }
 <a href=#124 id=124 data-nosnippet>124</a>}
 <a href=#125 id=125 data-nosnippet>125</a>
-<a href=#126 id=126 data-nosnippet>126</a><span class="doccomment">/// Inline errors from a failed store, keyed by field name: the shape
-<a href=#127 id=127 data-nosnippet>127</a>/// [`Schema::validate`](crate::schema::Schema::validate) answers with, so the
-<a href=#128 id=128 data-nosnippet>128</a>/// handler merges the two without translating.
-<a href=#129 id=129 data-nosnippet>129</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>UploadErrors = HashMap&lt;String, Vec&lt;String&gt;&gt;;
-<a href=#130 id=130 data-nosnippet>130</a>
-<a href=#131 id=131 data-nosnippet>131</a><span class="doccomment">/// Whether this panel has an uploader installed.
-<a href=#132 id=132 data-nosnippet>132</a>///
-<a href=#133 id=133 data-nosnippet>133</a>/// The multipart parser asks before staging bytes: with no uploader they would
-<a href=#134 id=134 data-nosnippet>134</a>/// be buffered only to be dropped, and today's drain-and-discard is what keeps
-<a href=#135 id=135 data-nosnippet>135</a>/// a large upload off the heap for every app that never installs one.
-<a href=#136 id=136 data-nosnippet>136</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>installed(cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
-<a href=#137 id=137 data-nosnippet>137</a>    try_app_context::&lt;InstalledUploader&gt;(cx).is_some()
-<a href=#138 id=138 data-nosnippet>138</a>}
-<a href=#139 id=139 data-nosnippet>139</a>
-<a href=#140 id=140 data-nosnippet>140</a><span class="doccomment">/// The installed uploader, if this panel has one.
-<a href=#141 id=141 data-nosnippet>141</a>///
-<a href=#142 id=142 data-nosnippet>142</a>/// The concrete boxed trait object keeps its auto traits: dropping `Send +
-<a href=#143 id=143 data-nosnippet>143</a>/// Sync` from the reference is not a coercion the compiler performs here.
-<a href=#144 id=144 data-nosnippet>144</a></span><span class="kw">type </span>DynUploaderRef&lt;<span class="lifetime">'a</span>&gt; = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">dyn </span>DynUploader + Send + Sync);
-<a href=#145 id=145 data-nosnippet>145</a>
-<a href=#146 id=146 data-nosnippet>146</a><span class="kw">fn </span>installed_uploader&lt;<span class="lifetime">'a</span>&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx) -&gt; <span class="prelude-ty">Option</span>&lt;DynUploaderRef&lt;<span class="lifetime">'a</span>&gt;&gt; {
-<a href=#147 id=147 data-nosnippet>147</a>    try_app_context::&lt;InstalledUploader&gt;(cx).map(|installed| <span class="kw-2">&amp;*</span>installed.<span class="number">0</span>)
-<a href=#148 id=148 data-nosnippet>148</a>}
-<a href=#149 id=149 data-nosnippet>149</a>
-<a href=#150 id=150 data-nosnippet>150</a><span class="doccomment">/// Whether the installed uploader still holds `path`.
-<a href=#151 id=151 data-nosnippet>151</a>///
-<a href=#152 id=152 data-nosnippet>152</a>/// `false` without an installed uploader: nothing stored the bytes, so nothing
-<a href=#153 id=153 data-nosnippet>153</a>/// can vouch for a path a re-rendered form carried.
-<a href=#154 id=154 data-nosnippet>154</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>holds(cx: <span class="kw-2">&amp;</span>Cx, path: <span class="kw-2">&amp;</span>str) -&gt; bool {
-<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">match </span>installed_uploader(cx) {
-<a href=#156 id=156 data-nosnippet>156</a>        <span class="prelude-val">Some</span>(uploader) =&gt; uploader.holds(path).<span class="kw">await</span>,
-<a href=#157 id=157 data-nosnippet>157</a>        <span class="prelude-val">None </span>=&gt; <span class="bool-val">false</span>,
-<a href=#158 id=158 data-nosnippet>158</a>    }
-<a href=#159 id=159 data-nosnippet>159</a>}
-<a href=#160 id=160 data-nosnippet>160</a>
-<a href=#161 id=161 data-nosnippet>161</a><span class="doccomment">/// Run the installed uploader over the file parts this form submitted
-<a href=#162 id=162 data-nosnippet>162</a>/// returning `field_name -&gt; inline errors` and the fields whose
-<a href=#163 id=163 data-nosnippet>163</a>/// value is now the uploader's answer.
-<a href=#164 id=164 data-nosnippet>164</a>///
-<a href=#165 id=165 data-nosnippet>165</a>/// For each declared file field ([`Field::file`](crate::schema::Field::file)) that carried
-<a href=#166 id=166 data-nosnippet>166</a>/// bytes, the returned path replaces the sanitized basename the parser put in
-<a href=#167 id=167 data-nosnippet>167</a>/// `values` — so the record fn sees the stored path and nothing else changes
-<a href=#168 id=168 data-nosnippet>168</a>/// about its contract. The second half of the answer is those field names: a
-<a href=#169 id=169 data-nosnippet>169</a>/// form that re-renders carries them so the next submit can keep the upload.
-<a href=#170 id=170 data-nosnippet>170</a>/// Without an installed uploader this is a no-op: the sanitized basename stays
-<a href=#171 id=171 data-nosnippet>171</a>/// and nothing is carried, because a client's filename is not a stored file.
-<a href=#172 id=172 data-nosnippet>172</a>///
-<a href=#173 id=173 data-nosnippet>173</a>/// A failed store becomes an inline field error and **drops the submitted
-<a href=#174 id=174 data-nosnippet>174</a>/// value**, because there is no path to store: nothing was written, and the
-<a href=#175 id=175 data-nosnippet>175</a>/// client's filename is not a stored file. Dropping it is what lets the caller
-<a href=#176 id=176 data-nosnippet>176</a>/// re-render honestly — run this *before* the edit handler's untouched-value
-<a href=#177 id=177 data-nosnippet>177</a>/// backfill, which then restores the path that is actually stored, while a
-<a href=#178 id=178 data-nosnippet>178</a>/// create renders the field empty beside the reason. Files stored earlier in
-<a href=#179 id=179 data-nosnippet>179</a>/// the same call are *not* rolled back — their paths never reach the record, so
-<a href=#180 id=180 data-nosnippet>180</a>/// they are unreferenced rather than wrong; a store with a real write cost
-<a href=#181 id=181 data-nosnippet>181</a>/// wants its own janitor, which is the app's call, not the framework's.
-<a href=#182 id=182 data-nosnippet>182</a>///
-<a href=#183 id=183 data-nosnippet>183</a>/// Call this outside the write transaction: an upload is a side effect in
-<a href=#184 id=184 data-nosnippet>184</a>/// another system, and a rolled-back transaction must not have to undo it.
-<a href=#185 id=185 data-nosnippet>185</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>store_uploads(
-<a href=#186 id=186 data-nosnippet>186</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#187 id=187 data-nosnippet>187</a>    schema: <span class="kw-2">&amp;</span>Schema,
-<a href=#188 id=188 data-nosnippet>188</a>    files: <span class="kw-2">&amp;</span>HashMap&lt;String, StagedUpload&gt;,
-<a href=#189 id=189 data-nosnippet>189</a>    values: <span class="kw-2">&amp;mut </span>HashMap&lt;String, String&gt;,
-<a href=#190 id=190 data-nosnippet>190</a>) -&gt; (UploadErrors, HashSet&lt;String&gt;) {
-<a href=#191 id=191 data-nosnippet>191</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(uploader) = installed_uploader(cx) <span class="kw">else </span>{
-<a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">return </span>(UploadErrors::new(), HashSet::new());
-<a href=#193 id=193 data-nosnippet>193</a>    };
-<a href=#194 id=194 data-nosnippet>194</a>    <span class="kw">let </span><span class="kw-2">mut </span>errors = UploadErrors::new();
-<a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">let </span><span class="kw-2">mut </span>stored = HashSet::new();
-<a href=#196 id=196 data-nosnippet>196</a>    <span class="comment">// Declared uploads only: a file part the schema does not declare is not a
-<a href=#197 id=197 data-nosnippet>197</a>    // field this form may write (the unknown-key allow-list answers for it).
-<a href=#198 id=198 data-nosnippet>198</a>    </span><span class="kw">for </span>field <span class="kw">in </span>schema.fields().filter(|field| field.is_file()) {
-<a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">let </span>name = field.name().to_string();
-<a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(staged) = files.get(<span class="kw-2">&amp;</span>name) <span class="kw">else </span>{
-<a href=#201 id=201 data-nosnippet>201</a>            <span class="kw">continue</span>;
-<a href=#202 id=202 data-nosnippet>202</a>        };
-<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">match </span>uploader.store(<span class="kw-2">&amp;</span>staged.filename, <span class="kw-2">&amp;</span>staged.bytes).<span class="kw">await </span>{
-<a href=#204 id=204 data-nosnippet>204</a>            <span class="prelude-val">Ok</span>(path) =&gt; {
-<a href=#205 id=205 data-nosnippet>205</a>                values.insert(name.clone(), path);
-<a href=#206 id=206 data-nosnippet>206</a>                stored.insert(name);
-<a href=#207 id=207 data-nosnippet>207</a>            }
-<a href=#208 id=208 data-nosnippet>208</a>            <span class="prelude-val">Err</span>(reason) =&gt; {
-<a href=#209 id=209 data-nosnippet>209</a>                values.remove(<span class="kw-2">&amp;</span>name);
-<a href=#210 id=210 data-nosnippet>210</a>                errors.insert(
-<a href=#211 id=211 data-nosnippet>211</a>                    name,
-<a href=#212 id=212 data-nosnippet>212</a>                    <span class="macro">vec!</span>[<span class="macro">format!</span>(
-<a href=#213 id=213 data-nosnippet>213</a>                        <span class="string">"{} could not be uploaded: {reason}"</span>,
-<a href=#214 id=214 data-nosnippet>214</a>                        field.label_str()
-<a href=#215 id=215 data-nosnippet>215</a>                    )],
-<a href=#216 id=216 data-nosnippet>216</a>                );
-<a href=#217 id=217 data-nosnippet>217</a>            }
-<a href=#218 id=218 data-nosnippet>218</a>        }
-<a href=#219 id=219 data-nosnippet>219</a>    }
-<a href=#220 id=220 data-nosnippet>220</a>    (errors, stored)
-<a href=#221 id=221 data-nosnippet>221</a>}
+<a href=#126 id=126 data-nosnippet>126</a><span class="doccomment">/// Whether this panel has an uploader installed.
+<a href=#127 id=127 data-nosnippet>127</a>///
+<a href=#128 id=128 data-nosnippet>128</a>/// The multipart parser asks before staging bytes: with no uploader they would
+<a href=#129 id=129 data-nosnippet>129</a>/// be buffered only to be dropped, and today's drain-and-discard is what keeps
+<a href=#130 id=130 data-nosnippet>130</a>/// a large upload off the heap for every app that never installs one.
+<a href=#131 id=131 data-nosnippet>131</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>installed(cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
+<a href=#132 id=132 data-nosnippet>132</a>    try_app_context::&lt;InstalledUploader&gt;(cx).is_some()
+<a href=#133 id=133 data-nosnippet>133</a>}
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a><span class="doccomment">/// The installed uploader, if this panel has one.
+<a href=#136 id=136 data-nosnippet>136</a>///
+<a href=#137 id=137 data-nosnippet>137</a>/// The concrete boxed trait object keeps its auto traits: dropping `Send +
+<a href=#138 id=138 data-nosnippet>138</a>/// Sync` from the reference is not a coercion the compiler performs here.
+<a href=#139 id=139 data-nosnippet>139</a></span><span class="kw">type </span>DynUploaderRef&lt;<span class="lifetime">'a</span>&gt; = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">dyn </span>DynUploader + Send + Sync);
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a><span class="kw">fn </span>installed_uploader&lt;<span class="lifetime">'a</span>&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx) -&gt; <span class="prelude-ty">Option</span>&lt;DynUploaderRef&lt;<span class="lifetime">'a</span>&gt;&gt; {
+<a href=#142 id=142 data-nosnippet>142</a>    try_app_context::&lt;InstalledUploader&gt;(cx).map(|installed| <span class="kw-2">&amp;*</span>installed.<span class="number">0</span>)
+<a href=#143 id=143 data-nosnippet>143</a>}
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a><span class="doccomment">/// Whether the installed uploader still holds `path`.
+<a href=#146 id=146 data-nosnippet>146</a>///
+<a href=#147 id=147 data-nosnippet>147</a>/// `false` without an installed uploader: nothing stored the bytes, so nothing
+<a href=#148 id=148 data-nosnippet>148</a>/// can vouch for a path a re-rendered form carried.
+<a href=#149 id=149 data-nosnippet>149</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>holds(cx: <span class="kw-2">&amp;</span>Cx, path: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">match </span>installed_uploader(cx) {
+<a href=#151 id=151 data-nosnippet>151</a>        <span class="prelude-val">Some</span>(uploader) =&gt; uploader.holds(path).<span class="kw">await</span>,
+<a href=#152 id=152 data-nosnippet>152</a>        <span class="prelude-val">None </span>=&gt; <span class="bool-val">false</span>,
+<a href=#153 id=153 data-nosnippet>153</a>    }
+<a href=#154 id=154 data-nosnippet>154</a>}
+<a href=#155 id=155 data-nosnippet>155</a>
+<a href=#156 id=156 data-nosnippet>156</a><span class="doccomment">/// Run the installed uploader over the file parts this form submitted,
+<a href=#157 id=157 data-nosnippet>157</a>/// returning the inline errors keyed by field name and the fields whose
+<a href=#158 id=158 data-nosnippet>158</a>/// value is now the uploader's answer.
+<a href=#159 id=159 data-nosnippet>159</a>///
+<a href=#160 id=160 data-nosnippet>160</a>/// For each declared file field ([`Field::file`](crate::schema::Field::file)) that carried
+<a href=#161 id=161 data-nosnippet>161</a>/// bytes, the returned path replaces the sanitized basename the parser put in
+<a href=#162 id=162 data-nosnippet>162</a>/// `values` — so the record fn sees the stored path and nothing else changes
+<a href=#163 id=163 data-nosnippet>163</a>/// about its contract. The second half of the answer is those field names: a
+<a href=#164 id=164 data-nosnippet>164</a>/// form that re-renders carries them so the next submit can keep the upload.
+<a href=#165 id=165 data-nosnippet>165</a>/// Without an installed uploader this is a no-op: the sanitized basename stays
+<a href=#166 id=166 data-nosnippet>166</a>/// and nothing is carried, because a client's filename is not a stored file.
+<a href=#167 id=167 data-nosnippet>167</a>///
+<a href=#168 id=168 data-nosnippet>168</a>/// A failed store becomes an inline field error and **drops the submitted
+<a href=#169 id=169 data-nosnippet>169</a>/// value**, because there is no path to store: nothing was written, and the
+<a href=#170 id=170 data-nosnippet>170</a>/// client's filename is not a stored file. Dropping it is what lets the caller
+<a href=#171 id=171 data-nosnippet>171</a>/// re-render honestly — run this *before* the edit handler's untouched-value
+<a href=#172 id=172 data-nosnippet>172</a>/// backfill, which then restores the path that is actually stored, while a
+<a href=#173 id=173 data-nosnippet>173</a>/// create renders the field empty beside the reason. Files stored earlier in
+<a href=#174 id=174 data-nosnippet>174</a>/// the same call are *not* rolled back — their paths never reach the record, so
+<a href=#175 id=175 data-nosnippet>175</a>/// they are unreferenced rather than wrong; a store with a real write cost
+<a href=#176 id=176 data-nosnippet>176</a>/// wants its own janitor, which is the app's call, not the framework's.
+<a href=#177 id=177 data-nosnippet>177</a>///
+<a href=#178 id=178 data-nosnippet>178</a>/// Call this outside the write transaction: an upload is a side effect in
+<a href=#179 id=179 data-nosnippet>179</a>/// another system, and a rolled-back transaction must not have to undo it.
+<a href=#180 id=180 data-nosnippet>180</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>store_uploads(
+<a href=#181 id=181 data-nosnippet>181</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#182 id=182 data-nosnippet>182</a>    schema: <span class="kw-2">&amp;</span>Schema,
+<a href=#183 id=183 data-nosnippet>183</a>    files: <span class="kw-2">&amp;</span>HashMap&lt;String, StagedUpload&gt;,
+<a href=#184 id=184 data-nosnippet>184</a>    values: <span class="kw-2">&amp;mut </span>HashMap&lt;String, String&gt;,
+<a href=#185 id=185 data-nosnippet>185</a>) -&gt; (FieldErrors, HashSet&lt;String&gt;) {
+<a href=#186 id=186 data-nosnippet>186</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(uploader) = installed_uploader(cx) <span class="kw">else </span>{
+<a href=#187 id=187 data-nosnippet>187</a>        <span class="kw">return </span>(FieldErrors::new(), HashSet::new());
+<a href=#188 id=188 data-nosnippet>188</a>    };
+<a href=#189 id=189 data-nosnippet>189</a>    <span class="kw">let </span><span class="kw-2">mut </span>errors = FieldErrors::new();
+<a href=#190 id=190 data-nosnippet>190</a>    <span class="kw">let </span><span class="kw-2">mut </span>stored = HashSet::new();
+<a href=#191 id=191 data-nosnippet>191</a>    <span class="comment">// Declared uploads only: a file part the schema does not declare is not a
+<a href=#192 id=192 data-nosnippet>192</a>    // field this form may write (the unknown-key allow-list answers for it).
+<a href=#193 id=193 data-nosnippet>193</a>    </span><span class="kw">for </span>field <span class="kw">in </span>schema.fields().filter(|field| field.is_file()) {
+<a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span>name = field.name().to_string();
+<a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(staged) = files.get(<span class="kw-2">&amp;</span>name) <span class="kw">else </span>{
+<a href=#196 id=196 data-nosnippet>196</a>            <span class="kw">continue</span>;
+<a href=#197 id=197 data-nosnippet>197</a>        };
+<a href=#198 id=198 data-nosnippet>198</a>        <span class="kw">match </span>uploader.store(<span class="kw-2">&amp;</span>staged.filename, <span class="kw-2">&amp;</span>staged.bytes).<span class="kw">await </span>{
+<a href=#199 id=199 data-nosnippet>199</a>            <span class="prelude-val">Ok</span>(path) =&gt; {
+<a href=#200 id=200 data-nosnippet>200</a>                values.insert(name.clone(), path);
+<a href=#201 id=201 data-nosnippet>201</a>                stored.insert(name);
+<a href=#202 id=202 data-nosnippet>202</a>            }
+<a href=#203 id=203 data-nosnippet>203</a>            <span class="prelude-val">Err</span>(reason) =&gt; {
+<a href=#204 id=204 data-nosnippet>204</a>                values.remove(<span class="kw-2">&amp;</span>name);
+<a href=#205 id=205 data-nosnippet>205</a>                errors.add(
+<a href=#206 id=206 data-nosnippet>206</a>                    name,
+<a href=#207 id=207 data-nosnippet>207</a>                    <span class="macro">format!</span>(<span class="string">"{} could not be uploaded: {reason}"</span>, field.label_str()),
+<a href=#208 id=208 data-nosnippet>208</a>                );
+<a href=#209 id=209 data-nosnippet>209</a>            }
+<a href=#210 id=210 data-nosnippet>210</a>        }
+<a href=#211 id=211 data-nosnippet>211</a>    }
+<a href=#212 id=212 data-nosnippet>212</a>    (errors, stored)
+<a href=#213 id=213 data-nosnippet>213</a>}
 </code></pre></div></section></main></body></html>

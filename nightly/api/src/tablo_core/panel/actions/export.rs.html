@@ -227,120 +227,119 @@
 <a href=#227 id=227 data-nosnippet>227</a>                http::header::CONTENT_DISPOSITION,
 <a href=#228 id=228 data-nosnippet>228</a>                <span class="macro">format!</span>(<span class="string">"attachment; filename=\"{}\""</span>, filename),
 <a href=#229 id=229 data-nosnippet>229</a>            )
-<a href=#230 id=230 data-nosnippet>230</a>            .body(Body::new(body))
-<a href=#231 id=231 data-nosnippet>231</a>            .map_err(|e| std::io::Error::other(e.to_string()))<span class="question-mark">?</span>;
-<a href=#232 id=232 data-nosnippet>232</a>        <span class="prelude-val">Ok</span>(res)
-<a href=#233 id=233 data-nosnippet>233</a>    })
-<a href=#234 id=234 data-nosnippet>234</a>}
-<a href=#235 id=235 data-nosnippet>235</a>
-<a href=#236 id=236 data-nosnippet>236</a><span class="doccomment">/// The export's filtered and ordered base query: the resource's tenant-scoped
-<a href=#237 id=237 data-nosnippet>237</a>/// [`scoped_query`](crate::resource::scoped_query) with the table's
-<a href=#238 id=238 data-nosnippet>238</a>/// declaration applied through the one routine the list loader uses, so a
-<a href=#239 id=239 data-nosnippet>239</a>/// gated resource cannot export unscoped and the CSV cannot drift from the
-<a href=#240 id=240 data-nosnippet>240</a>/// list. The streaming pass adds the relations the columns include; the
-<a href=#241 id=241 data-nosnippet>241</a>/// visibility scan reads no column and loads none.
-<a href=#242 id=242 data-nosnippet>242</a></span><span class="kw">fn </span>export_base_query&lt;R: Resource&gt;(
-<a href=#243 id=243 data-nosnippet>243</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#244 id=244 data-nosnippet>244</a>    table: <span class="kw-2">&amp;</span>Table&lt;R::Model&gt;,
-<a href=#245 id=245 data-nosnippet>245</a>    state: <span class="kw-2">&amp;</span>TableState,
-<a href=#246 id=246 data-nosnippet>246</a>) -&gt; <span class="prelude-ty">Result</span>&lt;toasty::stmt::Query&lt;toasty::stmt::List&lt;R::Model&gt;&gt;&gt; {
-<a href=#247 id=247 data-nosnippet>247</a>    <span class="prelude-val">Ok</span>(table.apply_declaration(<span class="kw">crate</span>::resource::scoped_query::&lt;R&gt;(cx)<span class="question-mark">?</span>, state))
-<a href=#248 id=248 data-nosnippet>248</a>}
-<a href=#249 id=249 data-nosnippet>249</a>
-<a href=#250 id=250 data-nosnippet>250</a><span class="doccomment">/// One cursor-chunked pass over an export base query.
-<a href=#251 id=251 data-nosnippet>251</a>///
-<a href=#252 id=252 data-nosnippet>252</a>/// Yields the raw `MAX_EXPORT_ROWS + 1` window (the bounded over-fetch the
-<a href=#253 id=253 data-nosnippet>253</a>/// cap counts within) a chunk at a time and stops when `next_cursor` is `None`,
-<a href=#254 id=254 data-nosnippet>254</a>/// so callers hold one chunk instead of the window. Each chunk after the
-<a href=#255 id=255 data-nosnippet>255</a>/// first resumes from the previous chunk's `next_cursor`; the walk ends when
-<a href=#256 id=256 data-nosnippet>256</a>/// the cursor is absent, because re-fetching cursor-free would rescan from the
-<a href=#257 id=257 data-nosnippet>257</a>/// start. Toasty's `per_page` is an upper bound, not a guarantee, so a chunk
-<a href=#258 id=258 data-nosnippet>258</a>/// shorter than the requested size still continues when it carries a cursor —
-<a href=#259 id=259 data-nosnippet>259</a>/// and an empty page with a cursor continues too, because Toasty may filter a
-<a href=#260 id=260 data-nosnippet>260</a>/// full SQL page down to zero rows in-memory while preserving the cursor.
-<a href=#261 id=261 data-nosnippet>261</a>/// A full window is probed one row past itself, so
-<a href=#262 id=262 data-nosnippet>262</a>/// [`beyond_window`](Self::beyond_window) distinguishes "the table ended" from
-<a href=#263 id=263 data-nosnippet>263</a>/// "the window did".
-<a href=#264 id=264 data-nosnippet>264</a></span><span class="kw">struct </span>ExportChunker&lt;M&gt; {
-<a href=#265 id=265 data-nosnippet>265</a>    query: toasty::stmt::Query&lt;toasty::stmt::List&lt;M&gt;&gt;,
-<a href=#266 id=266 data-nosnippet>266</a>    after: <span class="prelude-ty">Option</span>&lt;toasty_core::stmt::Value&gt;,
-<a href=#267 id=267 data-nosnippet>267</a>    raw_scanned: usize,
-<a href=#268 id=268 data-nosnippet>268</a>    exhausted: bool,
-<a href=#269 id=269 data-nosnippet>269</a>    beyond_window: bool,
-<a href=#270 id=270 data-nosnippet>270</a>}
-<a href=#271 id=271 data-nosnippet>271</a>
-<a href=#272 id=272 data-nosnippet>272</a><span class="kw">impl</span>&lt;M&gt; ExportChunker&lt;M&gt;
-<a href=#273 id=273 data-nosnippet>273</a><span class="kw">where
-<a href=#274 id=274 data-nosnippet>274</a>    </span>M: toasty::schema::Model + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#275 id=275 data-nosnippet>275</a>{
-<a href=#276 id=276 data-nosnippet>276</a>    <span class="kw">fn </span>new(query: toasty::stmt::Query&lt;toasty::stmt::List&lt;M&gt;&gt;) -&gt; <span class="self">Self </span>{
-<a href=#277 id=277 data-nosnippet>277</a>        <span class="self">Self </span>{
-<a href=#278 id=278 data-nosnippet>278</a>            query,
-<a href=#279 id=279 data-nosnippet>279</a>            after: <span class="prelude-val">None</span>,
-<a href=#280 id=280 data-nosnippet>280</a>            raw_scanned: <span class="number">0</span>,
-<a href=#281 id=281 data-nosnippet>281</a>            exhausted: <span class="bool-val">false</span>,
-<a href=#282 id=282 data-nosnippet>282</a>            beyond_window: <span class="bool-val">false</span>,
-<a href=#283 id=283 data-nosnippet>283</a>        }
-<a href=#284 id=284 data-nosnippet>284</a>    }
-<a href=#285 id=285 data-nosnippet>285</a>
-<a href=#286 id=286 data-nosnippet>286</a>    <span class="doccomment">/// Whether the window filled with rows left past it, so the raw
-<a href=#287 id=287 data-nosnippet>287</a>    /// walk stopped early rather than at the table's end.
-<a href=#288 id=288 data-nosnippet>288</a>    </span><span class="kw">fn </span>beyond_window(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#289 id=289 data-nosnippet>289</a>        <span class="self">self</span>.beyond_window
-<a href=#290 id=290 data-nosnippet>290</a>    }
-<a href=#291 id=291 data-nosnippet>291</a>
-<a href=#292 id=292 data-nosnippet>292</a>    <span class="kw">async fn </span>next_chunk(<span class="kw-2">&amp;mut </span><span class="self">self</span>, db: <span class="kw-2">&amp;mut </span>toasty::Db) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;M&gt;&gt;, topcoat::Error&gt; {
-<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">if </span><span class="self">self</span>.exhausted {
-<a href=#294 id=294 data-nosnippet>294</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
-<a href=#295 id=295 data-nosnippet>295</a>        }
-<a href=#296 id=296 data-nosnippet>296</a>        <span class="kw">loop </span>{
-<a href=#297 id=297 data-nosnippet>297</a>            <span class="kw">let </span>remaining = (MAX_EXPORT_ROWS + <span class="number">1</span>).saturating_sub(<span class="self">self</span>.raw_scanned);
-<a href=#298 id=298 data-nosnippet>298</a>            <span class="kw">if </span>remaining == <span class="number">0 </span>{
-<a href=#299 id=299 data-nosnippet>299</a>                <span class="comment">// The window is full: one probe row past it says whether
-<a href=#300 id=300 data-nosnippet>300</a>                // the walk stopped on the table's end or on the window's. A full
-<a href=#301 id=301 data-nosnippet>301</a>                // chunk without a cursor cannot be probed and is treated
-<a href=#302 id=302 data-nosnippet>302</a>                // as the end.
-<a href=#303 id=303 data-nosnippet>303</a>                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = <span class="self">self</span>.after.clone() {
-<a href=#304 id=304 data-nosnippet>304</a>                    <span class="self">self</span>.beyond_window =
-<a href=#305 id=305 data-nosnippet>305</a>                        row_exists_past(db, <span class="self">self</span>.query.clone(), Past::After(cursor))
-<a href=#306 id=306 data-nosnippet>306</a>                            .<span class="kw">await
-<a href=#307 id=307 data-nosnippet>307</a>                            </span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
-<a href=#308 id=308 data-nosnippet>308</a>                }
-<a href=#309 id=309 data-nosnippet>309</a>                <span class="self">self</span>.exhausted = <span class="bool-val">true</span>;
-<a href=#310 id=310 data-nosnippet>310</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
-<a href=#311 id=311 data-nosnippet>311</a>            }
-<a href=#312 id=312 data-nosnippet>312</a>            <span class="kw">let </span>take = remaining.min(EXPORT_CHUNK_ROWS);
-<a href=#313 id=313 data-nosnippet>313</a>            <span class="kw">let </span><span class="kw-2">mut </span>page = toasty::stmt::Paginate::new(<span class="self">self</span>.query.clone(), take);
-<a href=#314 id=314 data-nosnippet>314</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = <span class="self">self</span>.after.take() {
-<a href=#315 id=315 data-nosnippet>315</a>                page = page.after(cursor);
-<a href=#316 id=316 data-nosnippet>316</a>            }
-<a href=#317 id=317 data-nosnippet>317</a>            <span class="kw">let </span>loaded = page.exec(db).<span class="kw">await</span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
-<a href=#318 id=318 data-nosnippet>318</a>            <span class="kw">if </span>loaded.items.is_empty() {
-<a href=#319 id=319 data-nosnippet>319</a>                <span class="comment">// An empty page ends the walk only when the cursor is absent:
-<a href=#320 id=320 data-nosnippet>320</a>                // Toasty preserves the cursor while filtering rows in-memory,
-<a href=#321 id=321 data-nosnippet>321</a>                // so an empty page with a cursor has more rows past it.
-<a href=#322 id=322 data-nosnippet>322</a>                </span><span class="self">self</span>.after = loaded.next_cursor;
-<a href=#323 id=323 data-nosnippet>323</a>                <span class="kw">if </span><span class="self">self</span>.after.is_none() {
-<a href=#324 id=324 data-nosnippet>324</a>                    <span class="self">self</span>.exhausted = <span class="bool-val">true</span>;
-<a href=#325 id=325 data-nosnippet>325</a>                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
-<a href=#326 id=326 data-nosnippet>326</a>                }
-<a href=#327 id=327 data-nosnippet>327</a>                <span class="kw">continue</span>;
-<a href=#328 id=328 data-nosnippet>328</a>            }
-<a href=#329 id=329 data-nosnippet>329</a>            <span class="self">self</span>.raw_scanned += loaded.items.len();
-<a href=#330 id=330 data-nosnippet>330</a>            <span class="self">self</span>.after = loaded.next_cursor;
-<a href=#331 id=331 data-nosnippet>331</a>            <span class="kw">let </span>items = loaded.items;
-<a href=#332 id=332 data-nosnippet>332</a>            <span class="kw">if </span><span class="self">self</span>.after.is_none() {
-<a href=#333 id=333 data-nosnippet>333</a>                <span class="comment">// Absent cursor: the table is exhausted — re-fetching cursor-free
-<a href=#334 id=334 data-nosnippet>334</a>                // would rescan from the start, so stop here. A short chunk with a
-<a href=#335 id=335 data-nosnippet>335</a>                // cursor still continues: `per_page` is an upper bound.
-<a href=#336 id=336 data-nosnippet>336</a>                </span><span class="self">self</span>.exhausted = <span class="bool-val">true</span>;
-<a href=#337 id=337 data-nosnippet>337</a>                <span class="self">self</span>.after = <span class="prelude-val">None</span>;
-<a href=#338 id=338 data-nosnippet>338</a>            }
-<a href=#339 id=339 data-nosnippet>339</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(items));
-<a href=#340 id=340 data-nosnippet>340</a>        }
-<a href=#341 id=341 data-nosnippet>341</a>    }
-<a href=#342 id=342 data-nosnippet>342</a>}
-<a href=#343 id=343 data-nosnippet>343</a>
-<a href=#344 id=344 data-nosnippet>344</a><span class="attr">#[cfg(test)]
-<a href=#345 id=345 data-nosnippet>345</a></span><span class="kw">mod </span>tests;
+<a href=#230 id=230 data-nosnippet>230</a>            .body(Body::new(body))<span class="question-mark">?</span>;
+<a href=#231 id=231 data-nosnippet>231</a>        <span class="prelude-val">Ok</span>(res)
+<a href=#232 id=232 data-nosnippet>232</a>    })
+<a href=#233 id=233 data-nosnippet>233</a>}
+<a href=#234 id=234 data-nosnippet>234</a>
+<a href=#235 id=235 data-nosnippet>235</a><span class="doccomment">/// The export's filtered and ordered base query: the resource's tenant-scoped
+<a href=#236 id=236 data-nosnippet>236</a>/// [`scoped_query`](crate::resource::scoped_query) with the table's
+<a href=#237 id=237 data-nosnippet>237</a>/// declaration applied through the one routine the list loader uses, so a
+<a href=#238 id=238 data-nosnippet>238</a>/// gated resource cannot export unscoped and the CSV cannot drift from the
+<a href=#239 id=239 data-nosnippet>239</a>/// list. The streaming pass adds the relations the columns include; the
+<a href=#240 id=240 data-nosnippet>240</a>/// visibility scan reads no column and loads none.
+<a href=#241 id=241 data-nosnippet>241</a></span><span class="kw">fn </span>export_base_query&lt;R: Resource&gt;(
+<a href=#242 id=242 data-nosnippet>242</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#243 id=243 data-nosnippet>243</a>    table: <span class="kw-2">&amp;</span>Table&lt;R::Model&gt;,
+<a href=#244 id=244 data-nosnippet>244</a>    state: <span class="kw-2">&amp;</span>TableState,
+<a href=#245 id=245 data-nosnippet>245</a>) -&gt; <span class="prelude-ty">Result</span>&lt;toasty::stmt::Query&lt;toasty::stmt::List&lt;R::Model&gt;&gt;&gt; {
+<a href=#246 id=246 data-nosnippet>246</a>    <span class="prelude-val">Ok</span>(table.apply_declaration(<span class="kw">crate</span>::resource::scoped_query::&lt;R&gt;(cx)<span class="question-mark">?</span>, state))
+<a href=#247 id=247 data-nosnippet>247</a>}
+<a href=#248 id=248 data-nosnippet>248</a>
+<a href=#249 id=249 data-nosnippet>249</a><span class="doccomment">/// One cursor-chunked pass over an export base query.
+<a href=#250 id=250 data-nosnippet>250</a>///
+<a href=#251 id=251 data-nosnippet>251</a>/// Yields the raw `MAX_EXPORT_ROWS + 1` window (the bounded over-fetch the
+<a href=#252 id=252 data-nosnippet>252</a>/// cap counts within) a chunk at a time and stops when `next_cursor` is `None`,
+<a href=#253 id=253 data-nosnippet>253</a>/// so callers hold one chunk instead of the window. Each chunk after the
+<a href=#254 id=254 data-nosnippet>254</a>/// first resumes from the previous chunk's `next_cursor`; the walk ends when
+<a href=#255 id=255 data-nosnippet>255</a>/// the cursor is absent, because re-fetching cursor-free would rescan from the
+<a href=#256 id=256 data-nosnippet>256</a>/// start. Toasty's `per_page` is an upper bound, not a guarantee, so a chunk
+<a href=#257 id=257 data-nosnippet>257</a>/// shorter than the requested size still continues when it carries a cursor —
+<a href=#258 id=258 data-nosnippet>258</a>/// and an empty page with a cursor continues too, because Toasty may filter a
+<a href=#259 id=259 data-nosnippet>259</a>/// full SQL page down to zero rows in-memory while preserving the cursor.
+<a href=#260 id=260 data-nosnippet>260</a>/// A full window is probed one row past itself, so
+<a href=#261 id=261 data-nosnippet>261</a>/// [`beyond_window`](Self::beyond_window) distinguishes "the table ended" from
+<a href=#262 id=262 data-nosnippet>262</a>/// "the window did".
+<a href=#263 id=263 data-nosnippet>263</a></span><span class="kw">struct </span>ExportChunker&lt;M&gt; {
+<a href=#264 id=264 data-nosnippet>264</a>    query: toasty::stmt::Query&lt;toasty::stmt::List&lt;M&gt;&gt;,
+<a href=#265 id=265 data-nosnippet>265</a>    after: <span class="prelude-ty">Option</span>&lt;toasty_core::stmt::Value&gt;,
+<a href=#266 id=266 data-nosnippet>266</a>    raw_scanned: usize,
+<a href=#267 id=267 data-nosnippet>267</a>    exhausted: bool,
+<a href=#268 id=268 data-nosnippet>268</a>    beyond_window: bool,
+<a href=#269 id=269 data-nosnippet>269</a>}
+<a href=#270 id=270 data-nosnippet>270</a>
+<a href=#271 id=271 data-nosnippet>271</a><span class="kw">impl</span>&lt;M&gt; ExportChunker&lt;M&gt;
+<a href=#272 id=272 data-nosnippet>272</a><span class="kw">where
+<a href=#273 id=273 data-nosnippet>273</a>    </span>M: toasty::schema::Model + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#274 id=274 data-nosnippet>274</a>{
+<a href=#275 id=275 data-nosnippet>275</a>    <span class="kw">fn </span>new(query: toasty::stmt::Query&lt;toasty::stmt::List&lt;M&gt;&gt;) -&gt; <span class="self">Self </span>{
+<a href=#276 id=276 data-nosnippet>276</a>        <span class="self">Self </span>{
+<a href=#277 id=277 data-nosnippet>277</a>            query,
+<a href=#278 id=278 data-nosnippet>278</a>            after: <span class="prelude-val">None</span>,
+<a href=#279 id=279 data-nosnippet>279</a>            raw_scanned: <span class="number">0</span>,
+<a href=#280 id=280 data-nosnippet>280</a>            exhausted: <span class="bool-val">false</span>,
+<a href=#281 id=281 data-nosnippet>281</a>            beyond_window: <span class="bool-val">false</span>,
+<a href=#282 id=282 data-nosnippet>282</a>        }
+<a href=#283 id=283 data-nosnippet>283</a>    }
+<a href=#284 id=284 data-nosnippet>284</a>
+<a href=#285 id=285 data-nosnippet>285</a>    <span class="doccomment">/// Whether the window filled with rows left past it, so the raw
+<a href=#286 id=286 data-nosnippet>286</a>    /// walk stopped early rather than at the table's end.
+<a href=#287 id=287 data-nosnippet>287</a>    </span><span class="kw">fn </span>beyond_window(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#288 id=288 data-nosnippet>288</a>        <span class="self">self</span>.beyond_window
+<a href=#289 id=289 data-nosnippet>289</a>    }
+<a href=#290 id=290 data-nosnippet>290</a>
+<a href=#291 id=291 data-nosnippet>291</a>    <span class="kw">async fn </span>next_chunk(<span class="kw-2">&amp;mut </span><span class="self">self</span>, db: <span class="kw-2">&amp;mut </span>toasty::Db) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;M&gt;&gt;, topcoat::Error&gt; {
+<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">if </span><span class="self">self</span>.exhausted {
+<a href=#293 id=293 data-nosnippet>293</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+<a href=#294 id=294 data-nosnippet>294</a>        }
+<a href=#295 id=295 data-nosnippet>295</a>        <span class="kw">loop </span>{
+<a href=#296 id=296 data-nosnippet>296</a>            <span class="kw">let </span>remaining = (MAX_EXPORT_ROWS + <span class="number">1</span>).saturating_sub(<span class="self">self</span>.raw_scanned);
+<a href=#297 id=297 data-nosnippet>297</a>            <span class="kw">if </span>remaining == <span class="number">0 </span>{
+<a href=#298 id=298 data-nosnippet>298</a>                <span class="comment">// The window is full: one probe row past it says whether
+<a href=#299 id=299 data-nosnippet>299</a>                // the walk stopped on the table's end or on the window's. A full
+<a href=#300 id=300 data-nosnippet>300</a>                // chunk without a cursor cannot be probed and is treated
+<a href=#301 id=301 data-nosnippet>301</a>                // as the end.
+<a href=#302 id=302 data-nosnippet>302</a>                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = <span class="self">self</span>.after.clone() {
+<a href=#303 id=303 data-nosnippet>303</a>                    <span class="self">self</span>.beyond_window =
+<a href=#304 id=304 data-nosnippet>304</a>                        row_exists_past(db, <span class="self">self</span>.query.clone(), Past::After(cursor))
+<a href=#305 id=305 data-nosnippet>305</a>                            .<span class="kw">await
+<a href=#306 id=306 data-nosnippet>306</a>                            </span>.map_err(<span class="kw">crate</span>::error::unavailable)<span class="question-mark">?</span>;
+<a href=#307 id=307 data-nosnippet>307</a>                }
+<a href=#308 id=308 data-nosnippet>308</a>                <span class="self">self</span>.exhausted = <span class="bool-val">true</span>;
+<a href=#309 id=309 data-nosnippet>309</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+<a href=#310 id=310 data-nosnippet>310</a>            }
+<a href=#311 id=311 data-nosnippet>311</a>            <span class="kw">let </span>take = remaining.min(EXPORT_CHUNK_ROWS);
+<a href=#312 id=312 data-nosnippet>312</a>            <span class="kw">let </span><span class="kw-2">mut </span>page = toasty::stmt::Paginate::new(<span class="self">self</span>.query.clone(), take);
+<a href=#313 id=313 data-nosnippet>313</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = <span class="self">self</span>.after.take() {
+<a href=#314 id=314 data-nosnippet>314</a>                page = page.after(cursor);
+<a href=#315 id=315 data-nosnippet>315</a>            }
+<a href=#316 id=316 data-nosnippet>316</a>            <span class="kw">let </span>loaded = page.exec(db).<span class="kw">await</span>.map_err(<span class="kw">crate</span>::error::unavailable)<span class="question-mark">?</span>;
+<a href=#317 id=317 data-nosnippet>317</a>            <span class="kw">if </span>loaded.items.is_empty() {
+<a href=#318 id=318 data-nosnippet>318</a>                <span class="comment">// An empty page ends the walk only when the cursor is absent:
+<a href=#319 id=319 data-nosnippet>319</a>                // Toasty preserves the cursor while filtering rows in-memory,
+<a href=#320 id=320 data-nosnippet>320</a>                // so an empty page with a cursor has more rows past it.
+<a href=#321 id=321 data-nosnippet>321</a>                </span><span class="self">self</span>.after = loaded.next_cursor;
+<a href=#322 id=322 data-nosnippet>322</a>                <span class="kw">if </span><span class="self">self</span>.after.is_none() {
+<a href=#323 id=323 data-nosnippet>323</a>                    <span class="self">self</span>.exhausted = <span class="bool-val">true</span>;
+<a href=#324 id=324 data-nosnippet>324</a>                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+<a href=#325 id=325 data-nosnippet>325</a>                }
+<a href=#326 id=326 data-nosnippet>326</a>                <span class="kw">continue</span>;
+<a href=#327 id=327 data-nosnippet>327</a>            }
+<a href=#328 id=328 data-nosnippet>328</a>            <span class="self">self</span>.raw_scanned += loaded.items.len();
+<a href=#329 id=329 data-nosnippet>329</a>            <span class="self">self</span>.after = loaded.next_cursor;
+<a href=#330 id=330 data-nosnippet>330</a>            <span class="kw">let </span>items = loaded.items;
+<a href=#331 id=331 data-nosnippet>331</a>            <span class="kw">if </span><span class="self">self</span>.after.is_none() {
+<a href=#332 id=332 data-nosnippet>332</a>                <span class="comment">// Absent cursor: the table is exhausted — re-fetching cursor-free
+<a href=#333 id=333 data-nosnippet>333</a>                // would rescan from the start, so stop here. A short chunk with a
+<a href=#334 id=334 data-nosnippet>334</a>                // cursor still continues: `per_page` is an upper bound.
+<a href=#335 id=335 data-nosnippet>335</a>                </span><span class="self">self</span>.exhausted = <span class="bool-val">true</span>;
+<a href=#336 id=336 data-nosnippet>336</a>                <span class="self">self</span>.after = <span class="prelude-val">None</span>;
+<a href=#337 id=337 data-nosnippet>337</a>            }
+<a href=#338 id=338 data-nosnippet>338</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(items));
+<a href=#339 id=339 data-nosnippet>339</a>        }
+<a href=#340 id=340 data-nosnippet>340</a>    }
+<a href=#341 id=341 data-nosnippet>341</a>}
+<a href=#342 id=342 data-nosnippet>342</a>
+<a href=#343 id=343 data-nosnippet>343</a><span class="attr">#[cfg(test)]
+<a href=#344 id=344 data-nosnippet>344</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

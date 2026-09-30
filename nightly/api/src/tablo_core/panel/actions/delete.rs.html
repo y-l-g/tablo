@@ -65,7 +65,7 @@
 <a href=#65 id=65 data-nosnippet>65</a>            // `can_delete` — a record that cannot be viewed cannot be deleted
 <a href=#66 id=66 data-nosnippet>66</a>            // by UUID-guessing the route.
 <a href=#67 id=67 data-nosnippet>67</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
-<a href=#68 id=68 data-nosnippet>68</a>            <span class="kw">let </span><span class="kw-2">mut </span>tx = db.transaction().<span class="kw">await</span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
+<a href=#68 id=68 data-nosnippet>68</a>            <span class="kw">let </span><span class="kw-2">mut </span>tx = db.transaction().<span class="kw">await</span>.map_err(<span class="kw">crate</span>::error::unavailable)<span class="question-mark">?</span>;
 <a href=#69 id=69 data-nosnippet>69</a>            <span class="kw">let </span>id = topcoat::router::path_param_segment(cx, <span class="string">"id"</span>).to_string();
 <a href=#70 id=70 data-nosnippet>70</a>            <span class="comment">// The delete path reads only the record's own columns:
 <a href=#71 id=71 data-nosnippet>71</a>            // `can_view`/`can_delete` are Rust predicates over those, and

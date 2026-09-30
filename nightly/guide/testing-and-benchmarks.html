@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d6cad7ad.js";
+            window.path_to_searchindex_js = "searchindex-b108b4e6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-da1679ae.js"></script>
+        <script src="toc-bb41c840.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,7 +182,10 @@
                     <main>
                         <h1 id="testing-and-benchmarks"><a class="header" href="#testing-and-benchmarks">Testing and benchmarks</a></h1>
 <p>How to test a panel, what the showcase covers, and the performance harness and its budget.</p>
-<p>Unit render with <code>CxTestBuilder</code>. Cover each resource policy fn. Cover scoping in <code>query()</code>.</p>
+<p>Panel behavior is tested over HTTP through the shared harness in <code>crates/tablo-test</code>:
+<code>tablo_test::TestClient</code> drives a <code>Router</code> in memory and carries the cookies, tenant, and CSRF
+token a request needs, with body readers, form and multipart writers, and HTML scrapers alongside
+it. Cover each resource policy fn. Cover scoping in <code>query()</code>.</p>
 <p>The showcase has integration tests per area (list, create, edit, delete, bulk, filters, tenancy,
 uploads, export, auth) under <code>examples/showcase/tests/</code>.</p>
 <pre><code class="language-sh">cargo test -p showcase

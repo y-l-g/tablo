@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d6cad7ad.js";
+            window.path_to_searchindex_js = "searchindex-b108b4e6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-da1679ae.js"></script>
+        <script src="toc-bb41c840.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -222,10 +222,10 @@ left empty.</p>
 
     fn form(_cx: &amp;Cx) -&gt; Schema { /* the controls, as below */ }
 
-    fn validate_record(_cx: &amp;Cx, form: &amp;UserForm) -&gt; FieldErrors&lt;UserForm&gt; {
+    fn validate_record(_cx: &amp;Cx, form: &amp;UserForm) -&gt; FieldErrors {
         let mut errors = FieldErrors::new();
         if form.age &lt; 0 {
-            errors.add(UserFormField::Age, "Age must be zero or more");
+            errors.add("age", "Age must be zero or more");
         }
         errors
     }
@@ -233,6 +233,10 @@ left empty.</p>
 
 Panel::new("admin").resource::&lt;UserResource&gt;()
 <span class="boring">}</span></code></pre>
+<p>Each error names the key it renders under — the control’s own key, an embedded value’s flattened
+one, or a <code>Repeater</code> group’s label. A key the submitted form renders nowhere — one the schema
+declares no control for, or a field of a variant group the chosen variant hides — fails the submit
+as a declaration error instead of writing past the rule.</p>
 <p>A resource with a record form gets the create page, the edit page, and the relationship-options
 endpoint. A list-only resource names <code>type Form = NoForm&lt;Self::Model&gt;;</code> and leaves <code>form()</code> at its
 empty default; it gets none of them.</p>

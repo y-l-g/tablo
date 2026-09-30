@@ -34,7 +34,7 @@
 <a href=#34 id=34 data-nosnippet>34</a>    error: <span class="kw-2">&amp;</span>topcoat::Error,
 <a href=#35 id=35 data-nosnippet>35</a>    path: <span class="kw-2">&amp;</span>str,
 <a href=#36 id=36 data-nosnippet>36</a>) -&gt; String {
-<a href=#37 id=37 data-nosnippet>37</a>    <span class="kw">if </span><span class="kw">crate</span>::cursor::is_cursor_error(error) {
+<a href=#37 id=37 data-nosnippet>37</a>    <span class="kw">if </span><span class="kw">crate</span>::error::TabloError::is_cursor(error) {
 <a href=#38 id=38 data-nosnippet>38</a>        state.without_cursor(path)
 <a href=#39 id=39 data-nosnippet>39</a>    } <span class="kw">else </span>{
 <a href=#40 id=40 data-nosnippet>40</a>        state.list_url(path)
@@ -139,7 +139,7 @@
 <a href=#139 id=139 data-nosnippet>139</a>            // the query signals already hold the values that failed.
 <a href=#140 id=140 data-nosnippet>140</a>            // Keyed by the list, like the table's own signals.
 <a href=#141 id=141 data-nosnippet>141</a>            </span><span class="kw">let </span>attempt = topcoat::runtime::signal(<span class="kw-2">&amp;</span>cx.keyed(path), || <span class="number">0u64</span>);
-<a href=#142 id=142 data-nosnippet>142</a>            <span class="kw">let </span>cursor_error = <span class="kw">crate</span>::cursor::is_cursor_error(error);
+<a href=#142 id=142 data-nosnippet>142</a>            <span class="kw">let </span>cursor_error = <span class="kw">crate</span>::error::TabloError::is_cursor(error);
 <a href=#143 id=143 data-nosnippet>143</a>            <span class="kw">let </span>attrs = <span class="kw">if </span>cursor_error {
 <a href=#144 id=144 data-nosnippet>144</a>                <span class="comment">// The retry URL drops the cursor: write its query, so the rerun
 <a href=#145 id=145 data-nosnippet>145</a>                // loads the first page of the same result set.
