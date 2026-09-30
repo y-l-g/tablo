@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["LIVE_PATH"]};
+window.SIDEBAR_ITEMS = {"constant":["LIVE_PATH"],"struct":["LiveActivityPage"]};

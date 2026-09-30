@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b108b4e6.js";
+            window.path_to_searchindex_js = "searchindex-fab350c8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -328,7 +328,7 @@ nothing from it, but an embedded value’s keys come from the compiled mapping (
 }
 <span class="boring">}</span></code></pre>
 <p>App code that loads rows outside the framework’s loaders — a record fn double-checking a foreign
-key, a custom page — calls <code>scoped_query::&lt;PostResource&gt;(cx)?</code> rather than <code>PostResource::query(cx)</code>:
+key, a <code>Page</code> — calls <code>scoped_query::&lt;PostResource&gt;(cx)?</code> rather than <code>PostResource::query(cx)</code>:
 on a gated resource that method is the <strong>tenant-unscoped</strong> base, deliberately, so the
 tenant-unscoped case is visible at the call site (it still carries whatever the resource’s own
 <code>query</code> scopes — soft deletes included).</p>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["app","blog","live","media","models"]};
+window.SIDEBAR_ITEMS = {"mod":["app","blog","dashboard","live","media","models"]};

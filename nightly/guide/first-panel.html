@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b108b4e6.js";
+            window.path_to_searchindex_js = "searchindex-fab350c8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -282,9 +282,9 @@ on, <code>Panel::build</code> asserts they are there, and the panel serves its l
 <li><code>db.push_schema().await</code> creates the tables for a prototype. Production uses <code>toasty-cli</code>
 migrations (<a href="./data-access.html">Data access</a>).</li>
 <li><code>Panel::new("admin")</code> mounts the panel at <code>/admin</code>. <code>resource::&lt;BookResource&gt;()</code> registers the
-resource’s list at <code>{prefix}/{slug}</code>, derives its sidebar entry from the same slug, and points
-the panel root at the first declared resource, so <code>BookResource</code> answers on <code>/admin/books</code>. The
-other routes — create, edit, detail, delete, bulk delete, export, relationship options — come
+resource’s list at <code>{prefix}/{slug}</code>, derives its sidebar entry from the same slug, and, with
+no home page registered, points the panel root at the first declared resource, so
+<code>BookResource</code> answers on <code>/admin/books</code>. The other routes — create, edit, detail, delete, bulk delete, export, relationship options — come
 from the same registration (<a href="./panel-and-routing.html">Panel and routing</a>).</li>
 <li><code>app_context(db)</code> registers the pooled <code>Db</code> on the panel’s app context. <code>Panel::build</code> requires
 it: without that call it returns <code>Err</code> (<code>Panel::build requires a Db via app_context</code>) instead of a
