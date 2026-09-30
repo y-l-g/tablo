@@ -126,6 +126,9 @@ plus `post_id = <this post>`. It is titled with the related resource's `navigati
   page they started on. The panel follows `return` only to a path under its own prefix.
 - **URL parameters.** Each related table's parameters are prefixed with the related resource's
   slug — `?comments.q=`, `?comments.sort=`, `?comments.after=` — so several tables share one page.
+- **Live search.** A related table whose resource declares `live_search()` stays live: sorting,
+  searching, filtering and paging re-render that table in place. Without JavaScript its links and
+  forms fall back to full page loads.
 
 `Panel::build` refuses a relation to a resource the panel does not register, and two relations of
 one resource to the same related resource.

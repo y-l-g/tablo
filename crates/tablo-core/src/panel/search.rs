@@ -5,6 +5,7 @@
 
 use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
+use toasty::stmt::IntoExpr;
 use topcoat::{
     Result,
     context::Cx,
@@ -14,10 +15,14 @@ use topcoat::{
 };
 
 use super::{
-    gate::{enforce_auth, gate},
+    gate::{enforce_auth, gate, panel_prefix},
     list::{load_table_page, table_error_view, wire_table_actions},
 };
-use crate::resource::{Resource, TableSignals, TableState};
+use crate::{
+    form::FormScalar,
+    resource::{Resource, TableSignals, TableState},
+    schema::FieldLens,
+};
 
 /// A monomorphized live-search table loader, one per declared resource.
 ///
@@ -37,6 +42,39 @@ pub(crate) type SearchFn = Arc<
 /// Live-search handlers installed on the app context by [`Panel::build`].
 #[derive(Clone, Default)]
 pub(crate) struct SearchRegistry(pub(crate) HashMap<String, SearchFn>);
+
+/// A relation table's live-search request: the owner's key in form spelling
+/// (`seed`), the record page the table renders on (`page`, the links' target
+/// and the writes' return), and whether that page shows rows without write
+/// actions (`read_only`, the detail page).
+pub(crate) struct RelationRequest {
+    pub(crate) seed: String,
+    pub(crate) page: String,
+    pub(crate) read_only: bool,
+}
+
+/// A monomorphized live-search relation loader, one per declared relation.
+///
+/// Built by [`Relation::has_many`](crate::resource::Relation::has_many), which
+/// is the one site that names both the child resource and the typed foreign
+/// key, and keyed by `(parent slug, child slug)`. The seed travels as a string
+/// because shard arguments cross the browser; the handler parses it back
+/// through the key's [`FormScalar`] spelling, so a tampered seed that does not
+/// parse is refused rather than loaded.
+pub(crate) type RelationSearchFn = Arc<
+    dyn for<'a> Fn(
+            &'a Cx,
+            RelationRequest,
+            TableSignals,
+        ) -> Pin<Box<dyn Future<Output = Result<BoxView<'a>>> + Send + 'a>>
+        + Send
+        + Sync,
+>;
+
+/// Live-search relation handlers installed on the app context by
+/// [`Panel::build`].
+#[derive(Clone, Default)]
+pub(crate) struct RelationRegistry(pub(crate) HashMap<(String, String), RelationSearchFn>);
 
 /// Monomorphize `R`'s table loader into a [`SearchFn`]: tenancy + policy gate,
 /// then the same load + render the streamed list uses.
@@ -81,6 +119,81 @@ pub(crate) fn search_handler_for<R: Resource>() -> SearchFn {
                         &state,
                         &error,
                         &path,
+                        Some(&retry_signals),
+                    )),
+                }
+            })
+        },
+    )
+}
+
+/// Monomorphize `C`'s relation loader over the typed foreign key into a
+/// [`RelationSearchFn`]: tenancy + policy gate, then the same scoped load +
+/// live render the streamed relation uses.
+///
+/// `read_only` selects the row chrome, exactly as the page does: a tampered
+/// flag only changes which links render, never what the routes answer — every
+/// write route re-checks its own policy. `page` must sit under the panel
+/// prefix, like every page the panel serves; anything else is refused rather
+/// than reflected into the table's links. The scope narrows the child rows to
+/// the owner, so the output is a subset of what `C`'s list serves the same
+/// caller — a tampered seed discloses no row the list hides.
+pub(crate) fn relation_search_handler_for<C: Resource, T>(
+    foreign_key: FieldLens<C::Model, T>,
+) -> RelationSearchFn
+where
+    T: IntoExpr<T> + FormScalar + Send + Sync + 'static,
+{
+    Arc::new(
+        move |cx: &Cx,
+              ctx: RelationRequest,
+              signals: TableSignals|
+              -> Pin<Box<dyn Future<Output = Result<BoxView<'_>>> + Send + '_>> {
+            let foreign_key = foreign_key.clone();
+            Box::pin(async move {
+                gate::<C>(cx)?;
+                if !C::can_view_any(cx) {
+                    return Err(forbidden().into());
+                }
+                let prefix = panel_prefix(cx);
+                if ctx
+                    .page
+                    .strip_prefix(prefix.as_str())
+                    .is_none_or(|rest| !rest.is_empty() && !rest.starts_with(['/', '?']))
+                {
+                    return Err(topcoat::router::error::bad_request("unknown relation page").into());
+                }
+                let owner = T::parse_form(ctx.seed.trim())
+                    .map_err(|_| topcoat::router::error::bad_request("unknown relation owner"))?;
+                let scope = foreign_key.eq(owner);
+                let chrome = super::relations::relation_chrome::<C>(cx, ctx.read_only);
+                let table = super::list::wire_table::<C>(cx, true, chrome);
+                // The GET path's prefixed parser over the client-owned query,
+                // then one normalization: an unknown `group_by` must not echo
+                // through the retry link. The page renders the delete dialog
+                // outside the swapped region, so the shard drops it.
+                let mut state = TableState::from_query_prefixed(&signals.query.get(), &C::slug());
+                state.delete = None;
+                state.open = None;
+                let state = table.normalize_state(&state);
+                let table = table.returning_to(state.list_url(&ctx.page));
+                // The retry link inside a failed table writes the same query
+                // signal the controls do, so keep a handle for it.
+                let retry_signals = signals.clone();
+                let rendered = async {
+                    let rows =
+                        super::list::load_scoped_page::<C>(cx, &table, &state, scope).await?;
+                    table
+                        .render_live(cx, rows, &state, &ctx.page, signals)
+                        .await
+                };
+                match rendered.await {
+                    Ok(view) => Ok(view),
+                    Err(error) => Ok(table_error_view::<C>(
+                        cx,
+                        &state,
+                        &error,
+                        &ctx.page,
                         Some(&retry_signals),
                     )),
                 }
@@ -138,6 +251,77 @@ pub(crate) async fn table_search(
 /// `table_search_endpoint_is_the_named_path` pins the two together.
 #[cfg(test)]
 pub(crate) const TABLE_SEARCH_PATH: &str = "/_topcoat/runtime/shards/tablo-table-search";
+
+/// Resolve the registered live-search relation handler for the
+/// (`parent`, `child`) pair, answering the gate first (defense in depth):
+/// the registry lookup runs only for an authenticated request, so an unknown
+/// pair cannot be distinguished from a registered one by an unauthenticated
+/// probe (404-vs-401 oracle).
+fn relation_entry(cx: &Cx, parent: &str, child: &str) -> Result<RelationSearchFn> {
+    enforce_auth(cx)?;
+    topcoat::context::try_app_context::<RelationRegistry>(cx)
+        .and_then(|reg| reg.0.get(&(parent.to_string(), child.to_string())).cloned())
+        .ok_or_else(|| topcoat::router::error::not_found().into())
+}
+
+/// Live relation-table interactions: re-renders one record page's relation
+/// table as its signals change, morphing in place per Topcoat #392 (focus,
+/// scroll and typing survive; rows carry stable `id`s).
+///
+/// The shard owns no state: the page creates the signals ([`TableSignals`])
+/// keyed by page and relation key, renders the search and filter bars against
+/// them above the swapped region, and passes their handles here. Search, sort,
+/// filters and pagination all write the `query` signal, so one dependency
+/// re-renders the table without a navigation or a scroll jump.
+///
+/// Every arg is untrusted shard input: `scope` must name a registered
+/// (`parent`, `child`) pair and the owner's seed as `{parent}/{child}/{seed}`,
+/// `page` must sit under the panel prefix, and the query is parsed by
+/// [`TableState::from_query_prefixed`] with the GET path's bounds.
+/// Authorization mirrors the relation table (`requires_tenant` +
+/// `can_view_any`, row scoping via the tenant-scoped query plus the owner's
+/// scope); shard POSTs carry no CSRF token, and none is needed for this
+/// read-only rerun.
+#[shard("/_topcoat/runtime/shards/tablo-table-relation-search")]
+pub(crate) async fn table_relation_search(
+    cx: &Cx,
+    scope: String,
+    page: String,
+    read_only: bool,
+    query: topcoat::runtime::Signal<String>,
+    bulk: topcoat::runtime::Signal<String>,
+) -> Result<impl View> {
+    // Slugs never carry `/` (the panel refuses them at registration), so the
+    // pair splits off the front and the seed keeps the rest, slashes
+    // included; anything else misses the registry as 404.
+    let mut parts = scope.splitn(3, '/');
+    let (parent, child, seed) = (
+        parts.next().unwrap_or_default(),
+        parts.next().unwrap_or_default(),
+        parts.next().unwrap_or_default(),
+    );
+    let entry = relation_entry(cx, parent, child)?;
+    entry(
+        cx,
+        RelationRequest {
+            seed: seed.to_string(),
+            page,
+            read_only,
+        },
+        TableSignals { query, bulk },
+    )
+    .await
+}
+
+/// The endpoint [`table_relation_search`] is served at.
+///
+/// The same stability and gate coverage contract as
+/// [`TABLE_SEARCH_PATH`](self::TABLE_SEARCH_PATH): the literal in
+/// [`table_relation_search`]'s attribute is the same path;
+/// `table_relation_search_endpoint_is_the_named_path` pins the two together.
+#[cfg(test)]
+pub(crate) const TABLE_RELATION_SEARCH_PATH: &str =
+    "/_topcoat/runtime/shards/tablo-table-relation-search";
 
 #[cfg(test)]
 mod tests;

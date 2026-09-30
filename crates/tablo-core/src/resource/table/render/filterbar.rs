@@ -191,6 +191,10 @@ impl<M> Table<M> {
         // One typed control per declared filter, each a real `f.<name>` field.
         // `filters.js` submits on change; the Apply button survives only
         // inside `<noscript>` as the no-JS path.
+        // The query prefix a relation's parameters carry (`comments.`), so
+        // `filters.js` rewrites the table's own filters and cursor instead of
+        // the list's. Absent on a page-owned list, whose parameters are bare.
+        let query_prefix = state.prefix.as_deref().map(|prefix| format!("{prefix}."));
         let mut controls: Vec<BoxView<'_>> = Vec::with_capacity(self.filters.len());
         for f in &self.filters {
             let current = state.filters.get(f.name()).cloned().unwrap_or_default();
@@ -279,6 +283,7 @@ impl<M> Table<M> {
             action=(action)
             class=(BAR_CLASS)
             data-filters-form=""
+            data-query-prefix=(query_prefix)
             if signals.is_some() {
                 data-filters-live=""
             }

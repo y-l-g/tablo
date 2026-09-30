@@ -37,3 +37,22 @@ test('a blank term removes the search', () => {
   assert.equal(params.has('q'), false);
   assert.equal(params.get('sort'), 'name');
 });
+
+test('a prefixed table reads and writes its own search parameter', () => {
+  // A relation table's parameters carry the relation's prefix; the bare
+  // list's parameters ride the same query untouched.
+  const params = new URLSearchParams(
+    withSearch('q=ada&sort=name&comments.q=old&comments.after=abc', 'hi', 'comments.'),
+  );
+  assert.equal(params.get('comments.q'), 'hi');
+  assert.equal(params.get('q'), 'ada');
+  assert.equal(params.get('sort'), 'name');
+  assert.equal(params.has('comments.after'), false);
+  assert.equal(params.has('after'), false, 'no bare cursor is invented');
+});
+
+test('a prefixed blank term removes the prefixed search only', () => {
+  const params = new URLSearchParams(withSearch('q=ada&comments.q=old', '   ', 'comments.'));
+  assert.equal(params.has('comments.q'), false);
+  assert.equal(params.get('q'), 'ada');
+});
