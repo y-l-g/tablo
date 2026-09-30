@@ -1,6 +1,6 @@
 # Embedded values: a derived codec, and the discriminant column as the variant rule
 
-Date: 2026-09-22 — Status: accepted — Amended: 2026-09-22, 2026-09-25, 2026-09-28
+Date: 2026-09-22 — Status: accepted — Amended: 2026-09-22, 2026-09-25, 2026-09-28, 2026-09-30
 
 ## Decision
 
@@ -120,3 +120,9 @@ scalar asserted `FormScalar` at the field, so an app type implementing `TypedVal
 `#[form(textarea, rows = N)]` is `#[form(multiline = N)]`, and a leaf binds as `Field::text`,
 multi-line with `.multiline(rows)`. A view renders only the stored variant's group and the
 shared columns that variant declares.
+
+## Amendment — 2026-09-30
+
+**`IntoRelationColumns` is gone.** A relation renders the related resource's list table (ADR-0016,
+2026-09-30 amendment), so the tuple ceiling of eight is shared by `IntoSchema`, `IntoColumns` and
+`IntoFilters`.

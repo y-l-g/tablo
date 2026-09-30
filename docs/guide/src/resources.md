@@ -74,8 +74,9 @@ its form and declares its list view, and any other omission has to fail loudly i
   page loads `view_query`. Include a relation in `query` only when every loader needs it, such as one
   `can_view` reads. The option loaders run `query`, so an option label projects the related record's
   own columns.
-- `view_query()` is the detail page's query: `query` plus the relations `view_relations` reads,
-  e.g. `Self::query(cx).include(comments)`. The framework ANDs the tenant scope onto it too.
+- `view_query()` is the detail page's query: `query` plus the relations `view_values` or
+  `view_content` read off the record, e.g. `Self::query(cx).include(author)`. The framework ANDs
+  the tenant scope onto it too. A [relation](./detail-pages.md#relations) runs its own query.
 - `table()` and `form()` are hand-written, and so is the impl itself: a resource is `type Model` plus
   whichever hooks it uses. There is no `Resource` derive (GH #222); the macros crate ships
   `derive(EmbeddedForm)` (GH #191) and `derive(RecordForm)` (GH #369), which types the form's

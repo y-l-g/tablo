@@ -43,3 +43,10 @@ relation it did not declare renders against an unloaded `Deferred`, and its `is_
   relation `query` does not include panics in `Deferred::get`.
 - An export column subset stays out of scope: this decides which relations the rendered columns
   load, not which columns render.
+
+## Amendment — 2026-09-30
+
+**The detail page's relations load themselves.** Point 4 names the detail page's related rows as the
+reason for `view_query`. A relation table runs the related resource's own loader (ADR-0016,
+2026-09-30 amendment), so `view_query` carries only the relations `view_values` and `view_content`
+read off the record.

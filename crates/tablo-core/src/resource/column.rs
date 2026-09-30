@@ -335,8 +335,8 @@ impl<M> std::fmt::Debug for TextColumn<M> {
 /// one-element tuple.
 ///
 /// Tuple arities stop at eight, the ceiling every tuple-collection trait
-/// shares: `IntoFilters` in `resource/filter.rs`, `IntoSchema` in
-/// `schema/tree.rs`, and `IntoRelationColumns` in `resource/relation.rs`.
+/// shares: `IntoFilters` in `resource/filter.rs` and `IntoSchema` in
+/// `schema/tree.rs`.
 /// Without variadic generics the idiom is one `macro_rules!` invocation per
 /// arity, and eight covers the widest tuple a Resource declares. Extend every
 /// list together when a real Resource needs more.
@@ -352,11 +352,8 @@ impl<M> IntoColumns<M> for TextColumn<M> {
 
 /// Generate the tuple impls of a column-list trait, arities two to eight:
 /// `$trait::$method` collects a tuple of `$col<T>` into a `Vec` and hands it to
-/// `$wrap`. [`IntoColumns`] and
-/// [`IntoRelationColumns`](super::IntoRelationColumns) share it, so the two
-/// column lists accept the same tuple shapes. Every element is one column type,
-/// so `(a, (b, c))` is not a column list: a table's columns sit in one flat
-/// tuple.
+/// `$wrap`. Every element is one column type, so `(a, (b, c))` is not a
+/// column list: a table's columns sit in one flat tuple.
 macro_rules! column_tuples {
     ($trait:ident, $method:ident, $col:ident, $out:ty, $wrap:expr) => {
         column_tuples!(@arity $trait, $method, $col, $out, $wrap; a, b);
@@ -377,7 +374,6 @@ macro_rules! column_tuples {
     };
     (@element $col:ident $v:ident) => { $col<T> };
 }
-pub(crate) use column_tuples;
 
 column_tuples!(
     IntoColumns,

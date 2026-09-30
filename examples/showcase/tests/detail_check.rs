@@ -133,13 +133,14 @@ async fn post_detail_renders_the_record_read_only() {
     );
 
     // Read-only means read-only. The shell carries its own chrome (the sign-out
-    // form), so the claim is scoped to the page body: everything from the page
-    // heading to the end of `main`.
+    // form), and the comments relation is the comments table with its own
+    // controls, so the claim is scoped to the record: everything from the page
+    // heading to the first relation section.
     let body = html
         .split("<h1")
         .nth(1)
-        .and_then(|rest| rest.split("</main>").next())
-        .expect("the detail page renders inside the shell's main");
+        .and_then(|rest| rest.split("data-relation=").next())
+        .expect("the detail page renders its record before its relations");
     assert!(
         !body.contains("<input") && !body.contains("<select") && !body.contains("<form"),
         "a detail page must not render form controls: {body}"

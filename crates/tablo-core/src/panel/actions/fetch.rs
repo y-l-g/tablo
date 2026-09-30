@@ -94,8 +94,8 @@ pub(crate) async fn load_viewable<R: Resource>(
 }
 
 /// [`load_viewable`] for the detail page: the same key, scope and policy, over
-/// [`Resource::view_query`] so the relations
-/// [`view_relations`](Resource::view_relations) reads arrive loaded. The caller
+/// [`Resource::view_query`] so the relations the page reads off the record
+/// arrive loaded. The caller
 /// 404s a resource that declares no detail page (`R::viewed`).
 pub(crate) async fn load_detail<R: Resource>(
     cx: &Cx,

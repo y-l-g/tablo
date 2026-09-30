@@ -3,7 +3,7 @@
 
 use topcoat::{Result, context::Cx};
 
-use crate::resource::Resource;
+use crate::resource::{RETURN_PARAM, Resource};
 
 /// The mount prefix of the [`Panel`] that built this Router (e.g. `/admin`).
 /// Installed by [`Panel::build`](super::Panel::build) so generic handlers can derive every
@@ -69,6 +69,29 @@ pub(crate) fn panel_prefix(cx: &Cx) -> String {
 /// The list URL for a resource: `{panel prefix}/{slug}`.
 pub(crate) fn list_url(cx: &Cx, slug: &str) -> String {
     format!("{}/{slug}", panel_prefix(cx))
+}
+
+/// The request's `?return=` target, when it is a same-origin path under the
+/// panel prefix ([`safe_next`](crate::auth::safe_next) plus the prefix
+/// check): a relation table's actions carry it so a write lands back on the
+/// record page it started from. Anything else is ignored, never followed.
+pub(crate) fn return_target(cx: &Cx) -> Option<String> {
+    let query = topcoat::router::request::uri(cx).query()?;
+    let prefix = panel_prefix(cx);
+    form_urlencoded::parse(query.as_bytes())
+        .find(|(key, _)| key == RETURN_PARAM)
+        .and_then(|(_, value)| crate::auth::safe_next(&value).map(str::to_string))
+        .filter(|target| {
+            target
+                .strip_prefix(prefix.as_str())
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(['/', '?']))
+        })
+}
+
+/// Where a write on the resource `slug` lands: the request's
+/// [`return_target`], else the resource's list.
+pub(crate) fn landing_url(cx: &Cx, slug: &str) -> String {
+    return_target(cx).unwrap_or_else(|| list_url(cx, slug))
 }
 
 #[cfg(test)]

@@ -16,6 +16,7 @@ use super::{
         restore_pending_uploads, strip_transport_keys, truthy,
     },
     decode::parse_form_body,
+    render::FormChrome,
     unique::check_unique,
 };
 use crate::{
@@ -253,12 +254,10 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             return rerender_invalid_form::<R>(
                 cx,
                 tx,
-                format!("Create {}", R::label()),
-                "Create",
+                FormChrome::create::<R>(),
                 &values,
                 &errors,
                 &carried,
-                None,
             )
             .await;
         };
@@ -322,16 +321,13 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         errors.extend(check_unique::<R>(cx, &schema, &values, &stored, &mut tx).await?);
         let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
-            let public = R::public_url(cx, &record);
             return rerender_invalid_form::<R>(
                 cx,
                 tx,
-                format!("Edit {}", R::label()),
-                "Save",
+                FormChrome::edit::<R>(cx, &record),
                 &values,
                 &errors,
                 &carried,
-                public,
             )
             .await;
         };

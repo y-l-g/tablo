@@ -11,7 +11,7 @@ use toasty::stmt::{Expr, List, OrderByExpr};
 use super::{
     column::{IntoColumns, TextColumn},
     filter::{Filter, IntoFilters},
-    state::TableState,
+    state::{TableState, with_return},
 };
 
 mod export;
@@ -120,6 +120,9 @@ pub struct Table<M> {
     view_prefix: Option<String>,
     bulk_delete: bool,
     live_search: bool,
+    /// Where a write this table's row and bulk actions start lands:
+    /// `None` for the resource's own list, the default.
+    return_to: Option<String>,
     _marker: PhantomData<M>,
 }
 
@@ -138,6 +141,7 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("view_prefix", &self.view_prefix)
             .field("bulk_delete", &self.bulk_delete)
             .field("live_search", &self.live_search)
+            .field("return_to", &self.return_to)
             .finish()
     }
 }
@@ -237,6 +241,7 @@ impl<M> Table<M> {
             view_prefix: None,
             bulk_delete: false,
             live_search: false,
+            return_to: None,
             _marker: PhantomData,
         }
     }
@@ -555,6 +560,22 @@ impl<M> Table<M> {
     pub(crate) fn with_bulk_delete(mut self, enabled: bool) -> Self {
         self.bulk_delete = enabled;
         self
+    }
+
+    /// Send the writes this table's Edit, Delete and bulk actions start back
+    /// to `url`, a page under the panel prefix, instead of the resource's
+    /// list: a relation table on a record page returns to that page.
+    pub(crate) fn returning_to(mut self, url: String) -> Self {
+        self.return_to = Some(url);
+        self
+    }
+
+    /// `url` carrying this table's return target, when it has one.
+    fn action_url(&self, url: String) -> String {
+        match &self.return_to {
+            Some(target) => with_return(&url, target),
+            None => url,
+        }
     }
 
     /// Whether the bulk checkbox column renders: bulk selection plus a delete

@@ -126,14 +126,22 @@ _Avoid_: Field (in table context), Cell, Attribute
 
 ### Detail page
 
-`GET {prefix}/{slug}/{id}` (GH #187): one record in two halves — `Resource::view`'s Schema,
-read-only, plus `Resource::view_relations(cx, record)` for the related rows the query's `include`
-loaded. The Schema renders the record's string projection, so a relation (a list of records) needs
-the typed half; loading goes through the tenant-scoped query (`scoped_query`, GH #223) like every
+`GET {prefix}/{slug}/{id}` (GH #187): one record — `Resource::view`'s Schema, read-only, then
+`Resource::view_content(cx, record)` for free-form content read off the record, then its
+Relations. Loading goes through the tenant-scoped query (`scoped_query`, GH #223) like every
 other record page, so an unknown id and one outside the request's scope are the same 404, while a
 record the caller may not view is a 403.
 
 _Avoid_: Show page, Infolist page, Record view
+
+### Relation
+
+A related Resource's rows that belong to a record, declared by the owner's `Resource::relations`
+(`Relation::has_many`) and rendered on the owner's detail and edit pages as the related Resource's
+own list Table, narrowed by a foreign key, its URL state keyed by the related slug, with a create
+link that seeds the key. Writes started there return to the owner's page (GH #408).
+
+_Avoid_: Relation manager, Sub-table, Nested resource
 
 ### Action
 

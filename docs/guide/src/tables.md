@@ -54,12 +54,6 @@ Notes:
   the actions column), and the wrapper's `overflow-x-auto` scrolls once the table is wider than its
   container. The actions column pairs its share with that floor on its header and cells, so the row
   buttons fit instead of spilling past the table.
-- Relation tables on detail pages follow the same fixed-layout rule: `table-fixed`, a `ColumnWidth`
-  per column (default `Wide`, so a default table declares no widths and splits evenly),
-  `truncate` on every cell, and a `min-width` summing the shares plus one readability floor per wide
-  column, so the wrapper scrolls on a narrow viewport instead of collapsing an undeclared column.
-  `RelationColumn::width(ColumnWidth::..)` overrides the default; an explicit `Rem` behaves as on
-  the list, leaving wide columns no space when the lengths exceed the table.
 - Computed columns render only. They do not affect search or sort.
 
 Filters:

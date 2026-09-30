@@ -399,5 +399,17 @@ pub(crate) async fn load_table_page<R: Resource>(
     TablePage::load(cx, table, crate::resource::scoped_query::<R>(cx)?, state).await
 }
 
+/// [`load_table_page`] over the rows `scope` also admits: a relation table's
+/// rows that belong to its owner.
+pub(crate) async fn load_scoped_page<R: Resource>(
+    cx: &Cx,
+    table: &Table<R::Model>,
+    state: &TableState,
+    scope: toasty::stmt::Expr<bool>,
+) -> Result<TablePage<R::Model>> {
+    let query = crate::resource::scoped_query::<R>(cx)?.filter(scope);
+    TablePage::load(cx, table, query, state).await
+}
+
 #[cfg(test)]
 mod tests;

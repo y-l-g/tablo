@@ -58,10 +58,9 @@ pub use notification::{Notification, NotificationStatus};
 pub use page::Page;
 pub use panel::{Brand, DarkMode, Panel};
 pub use resource::{
-    ColumnWidth, Committed, Cursor, DateFilter, Filter, IntoFilters, IntoRelationColumns,
-    MAX_RELATION_ROWS, Mutation, NavTarget, NavigationItem, RelationColumn, RelationColumns,
-    Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
-    VariantFilter, render_relation, scoped_query, scoped_view_query,
+    ColumnWidth, Committed, Cursor, DateFilter, Filter, IntoFilters, Mutation, NavTarget,
+    NavigationItem, Relation, Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableState,
+    TernaryFilter, TextColumn, VariantFilter, scoped_query, scoped_view_query,
 };
 pub use schema::{
     EmbeddedForm, Field, FieldLens, Grid, Group, IntoSchema, Repeater, ResolvedLens, Schema,

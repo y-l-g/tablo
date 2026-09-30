@@ -40,12 +40,12 @@ pub(crate) use navigation::runtime_link;
 pub use navigation::{NavTarget, NavigationItem};
 pub use page::TablePage;
 pub(crate) use page::{Past, row_exists_past};
-pub use relation::{
-    IntoRelationColumns, MAX_RELATION_ROWS, RelationColumn, RelationColumns, render_relation,
-};
+pub(crate) use relation::BoundRelation;
+pub use relation::Relation;
 pub(crate) use state::{
     BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
-    RECORD_ROUTE_PARAM, TableSignals, create_page_url, filter_param, query_of, request_query,
+    RECORD_ROUTE_PARAM, RETURN_PARAM, TableSignals, create_page_url, query_of, request_query,
+    with_return,
 };
 pub use state::{Cursor, Sort, TableState};
 pub use table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
@@ -193,7 +193,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// form's `hydrate`. A field whose key neither supplies renders
     /// `(missing)` and fails a `debug_assert!`. A relation is not one of these
     /// fields — it is a list of records, not a string — and renders through
-    /// [`view_relations`](Self::view_relations).
+    /// [`relations`](Self::relations).
     ///
     /// Read-only is a promise, not a disabled form: nothing here validates or
     /// submits, and no field renders a required marker or an error slot.
@@ -201,31 +201,29 @@ pub trait Resource: Sized + Send + Sync + 'static {
         crate::schema::Schema::empty()
     }
 
-    /// The related records on this resource's detail page.
+    /// Free-form content on this resource's detail page, below the
+    /// [`view`](Self::view) schema and above the [`relations`](Self::relations):
+    /// anything computed from the loaded record that is not one of its fields,
+    /// such as a word count.
     ///
-    /// [`view`](Self::view) renders from the record's *string projection* — one
-    /// `HashMap<String, String>` — because that is what every field binds. A
-    /// relation is not a string and may be a list of records, so it cannot ride
-    /// that map; this hook renders it instead, with the loaded record in hand.
-    ///
-    /// This is the half that makes [`Self::query`]'s `include` pay: the related
-    /// rows are already loaded on the record, so a hook that reads
-    /// `record.comments.get()` issues no query at all. Touching an un-included
-    /// relation panics ([`Deferred::get`](toasty::Deferred)), so check
-    /// [`Deferred::is_unloaded`](toasty::Deferred::is_unloaded) — the same marker
-    /// the list columns check.
-    ///
-    /// Returns `None` (the default) for a resource with no related records to
-    /// show, which renders nothing. The two lifetimes are deliberately separate:
-    /// the returned view may borrow the request context, never the record — a
-    /// view holding the record would pin the handler's local binding for as long
-    /// as the page, which does not compile, and the projections return owned
-    /// strings ([`render_relation`]), so nothing needs to.
-    fn view_relations<'a>(
-        _cx: &'a Cx,
-        _record: &Self::Model,
-    ) -> Option<topcoat::view::BoxView<'a>> {
+    /// Returns `None` (the default) to render nothing. The two lifetimes are
+    /// deliberately separate: the returned view may borrow the request context,
+    /// never the record — a view holding the record would pin the handler's
+    /// local binding for as long as the page, which does not compile.
+    fn view_content<'a>(_cx: &'a Cx, _record: &Self::Model) -> Option<topcoat::view::BoxView<'a>> {
         None
+    }
+
+    /// The related resources whose rows belong to a record: each renders on
+    /// this resource's detail and edit pages as the related resource's own
+    /// list table, narrowed to the record, with a create link that opens its
+    /// form with the record already chosen (Filament's relation managers).
+    ///
+    /// Takes no `Cx`, like [`navigation`](Self::navigation): the relations are
+    /// a declaration, and each related resource's policies decide per request
+    /// what its table shows. The default declares none.
+    fn relations() -> Vec<Relation<Self::Model>> {
+        Vec::new()
     }
 
     /// Whether this resource declares a detail page.
@@ -340,9 +338,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
     }
 
     /// The detail page's query: [`Self::query`] plus the relations the page
-    /// reads. [`view_relations`](Self::view_relations) renders related records
-    /// off the loaded row, so include them here:
-    /// `Self::query(cx).include(Post::fields().comments())`.
+    /// reads off the loaded row — in [`view_values`](Self::view_values) or
+    /// [`view_content`](Self::view_content) — so include them here:
+    /// `Self::query(cx).include(Post::fields().author())`. A
+    /// [`relation`](Self::relations) table runs its own query and needs none.
     ///
     /// The default is [`Self::query`] unchanged. The framework ANDs the tenant
     /// scope onto it, as it does onto [`Self::query`].

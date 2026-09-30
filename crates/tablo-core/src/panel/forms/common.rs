@@ -11,7 +11,7 @@ use topcoat::{
 
 use super::{
     super::{actions::load_viewable, gate::gate},
-    render::render_form_page,
+    render::{FormChrome, render_form_page},
 };
 use crate::{
     db::db,
@@ -168,22 +168,16 @@ pub(super) async fn restore_pending_uploads(
 /// rendering — the re-rendered form reloads relationship options on
 /// its own handle, which would block on the pool while the tx holds it —
 /// so the drop is enforced here rather than trusted at each call site.
-//
-// The public link rides through to the re-rendered form for the same reason
-// as above.
-#[allow(clippy::too_many_arguments)]
 pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     cx: &'a Cx,
     tx: toasty::Transaction<'_>,
-    title: String,
-    submit_label: &'static str,
+    chrome: FormChrome<'a>,
     values: &HashMap<String, String>,
     errors: &FieldErrors,
     carried: &HashSet<String>,
-    public_url: Option<String>,
 ) -> Result<BoxView<'a>> {
     drop(tx);
-    render_form_page::<R>(cx, title, submit_label, values, errors, carried, public_url).await
+    render_form_page::<R>(cx, chrome, values, errors, carried).await
 }
 
 /// Edit page GET — hydrates the form from the record the tenant-scoped
@@ -198,15 +192,12 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         }
         crate::csrf::ensure_token(cx);
         let values = <R::Form as RecordForm>::hydrate(cx, &record);
-        let public = R::public_url(cx, &record);
         let html = render_form_page::<R>(
             cx,
-            format!("Edit {}", R::label()),
-            "Save",
+            FormChrome::edit::<R>(cx, &record),
             &values,
             &FieldErrors::new(),
             &HashSet::new(),
-            public,
         )
         .await?;
         Ok(html)

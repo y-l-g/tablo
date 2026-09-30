@@ -75,7 +75,7 @@ impl<M> Table<M> {
             .delete_prefix
             .clone()
             .expect("bulk chrome rides the delete prefix (see bulk_enabled)");
-        let bulk_action = bulk_delete_url(&prefix);
+        let bulk_action = self.action_url(bulk_delete_url(&prefix));
         let csrf = crate::csrf::current_token(cx);
         // Stable ids so the dialog's confirm button can submit this form
         // from inside the dialog.
@@ -164,17 +164,18 @@ impl<M> Table<M> {
             (state.sort.is_some() || !state.filters.is_empty() || group_hidden.is_some())
                 .then(|| state.without_search(path));
         let mut inputs = vec![
-            ("sort".to_string(), sort_hidden),
-            ("dir".to_string(), dir_hidden),
+            (state.param("sort"), sort_hidden),
+            (state.param("dir"), dir_hidden),
         ];
         inputs.extend(
             state
                 .filters
                 .iter()
-                .map(|(name, value)| (crate::resource::filter_param(name), Some(value.clone()))),
+                .map(|(name, value)| (state.filter_param(name), Some(value.clone()))),
         );
-        inputs.push(("group_by".to_string(), group_hidden));
+        inputs.push((state.param("group_by"), group_hidden));
         let hidden = hidden_state_inputs(cx, inputs);
+        let search_name = state.param("q");
         Ok(view! {
             cx =>
             <form method="get" action=(action) class=(BAR_CLASS)>
@@ -182,7 +183,7 @@ impl<M> Table<M> {
                 ui_input(
                     attrs: attributes! {
                         type="search"
-                        name="q"
+                        name=(search_name)
                         value=(q_display)
                         placeholder="Search…"
                         aria-label="Search table"

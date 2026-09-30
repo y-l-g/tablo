@@ -21,6 +21,7 @@ mod gate;
 mod headers;
 mod list;
 mod pages;
+mod relations;
 mod search;
 mod shell;
 #[cfg(test)]
@@ -53,6 +54,7 @@ pub(crate) use self::{
     build::route_path,
     forms::parse_form_body,
     gate::{LoginHint, PanelPrefix},
+    relations::relation_table,
     search::table_search,
 };
 use crate::{
@@ -105,6 +107,11 @@ pub struct Panel {
     /// Every slug a resource or a page mounts at: one namespace, since both
     /// mount at `{prefix}/{slug}`.
     slugs: Vec<String>,
+    /// The slugs of the registered resources, a subset of `slugs`.
+    resource_slugs: Vec<String>,
+    /// Each registered resource's relation keys, by resource type name:
+    /// `build` checks that each names a registered resource, once.
+    relations: Vec<(&'static str, Vec<String>)>,
     search_handlers: HashMap<String, SearchFn>,
     /// `Content-Security-Policy: frame-ancestors …` for every response
     /// `None` opts out. Defaults to `'self'`.
@@ -155,6 +162,8 @@ impl Panel {
             routes: Vec::new(),
             root: None,
             slugs: Vec::new(),
+            resource_slugs: Vec::new(),
+            relations: Vec::new(),
             search_handlers: HashMap::new(),
             frame_ancestors: Some(headers::DEFAULT_FRAME_ANCESTORS.to_string()),
             registration_errors,
@@ -283,6 +292,13 @@ impl Panel {
             self.register_form_routes::<R>(&url);
         }
         self.finish_registration::<R>(url);
+        let keys = R::relations()
+            .iter()
+            .map(|relation| relation.key().to_string())
+            .collect::<Vec<_>>();
+        if !keys.is_empty() {
+            self.relations.push((std::any::type_name::<R>(), keys));
+        }
         self
     }
 
@@ -329,6 +345,7 @@ impl Panel {
     /// or `None` when the slug was refused.
     fn register_common<R: Resource>(&mut self) -> Option<String> {
         let url = self.claim_slug::<R>("Resource::slug", R::slug())?;
+        self.resource_slugs.push(R::slug());
         self.resource_checks.push(check_resource::<R>);
         self.pages.push(PageFn::new(
             http::Method::GET,

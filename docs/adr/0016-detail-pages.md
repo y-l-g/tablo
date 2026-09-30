@@ -1,6 +1,6 @@
 # Detail pages: `Resource::view` and one Schema, read two ways
 
-Date: 2026-09-21 — Status: accepted — Amended: 2026-09-25, 2026-09-28, 2026-09-29
+Date: 2026-09-21 — Status: accepted — Amended: 2026-09-25, 2026-09-28, 2026-09-29, 2026-09-30
 
 ## Decision
 
@@ -93,3 +93,17 @@ embedded enum renders only its stored variant's group, and the shared columns th
 on a view. `view`, `view_values`, and
 `viewed` stay: like Filament's infolist, the detail page has its own layout, shows keys the form does
 not, and exists for a list-only resource.
+
+## Amendment — 2026-09-30
+
+**Relations are the related resource's list table (GH #408).** The typed second half above —
+`view_relations` rendering an included relation through `render_relation`, `RelationColumn` and
+`MAX_RELATION_ROWS`, with no query of its own — is superseded by this amendment. A resource declares
+`Resource::relations() -> Vec<Relation<Self::Model>>`, each a `Relation::has_many` naming the
+related resource and its foreign key. The panel renders each on the owner's detail and edit pages as
+the related resource's own `Table`, loaded through its scoped query narrowed to the owner, with its
+search, sort, filters, pager and row actions; the rows no longer render twice in two vocabularies
+that drift. The relation's URL parameters are prefixed with the related slug, a create link seeds
+the foreign key, and writes started there return to the owner's page through a `?return=` the panel
+follows only under its own prefix. Free-form content read off the record renders through
+`view_content`, which is what remains of the typed half.

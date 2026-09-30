@@ -15,7 +15,8 @@ use super::{
     toolbar::hidden_state_inputs,
 };
 
-/// One filter control: a labelled `<select name="f.<name>">` carrying the
+/// One filter control: a labelled `<select name="f.<name>">` (keyed like the
+/// table's other parameters, `param`) carrying the
 /// `value`/`label` pairs, with the leading empty "All" option that clears the
 /// filter.
 ///
@@ -32,6 +33,7 @@ fn filter_select<'a>(
     cx: &'a Cx,
     label: &str,
     name: &str,
+    param: String,
     options: Vec<(String, String)>,
     current: &str,
 ) -> BoxView<'a> {
@@ -50,7 +52,7 @@ fn filter_select<'a>(
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
             (label)
             <select
-                name=(crate::resource::filter_param(&name))
+                name=(param)
                 data-filter-name=(name)
                 aria-label=(aria)
                 class="flex h-9 rounded-md border border-border bg-background px-3 py-1 text-sm shadow-xs"
@@ -168,10 +170,10 @@ impl<M> Table<M> {
         let hidden = hidden_state_inputs(
             cx,
             vec![
-                ("q".to_string(), q_hidden),
-                ("sort".to_string(), sort_hidden),
-                ("dir".to_string(), dir_hidden),
-                ("group_by".to_string(), group_hidden),
+                (state.param("q"), q_hidden),
+                (state.param("sort"), sort_hidden),
+                (state.param("dir"), dir_hidden),
+                (state.param("group_by"), group_hidden),
             ],
         );
         let clear_url = if !state.filters.is_empty() {
@@ -201,6 +203,7 @@ impl<M> Table<M> {
                         cx,
                         s.label_str(),
                         s.name(),
+                        state.filter_param(s.name()),
                         options,
                         &current,
                     ));
@@ -214,12 +217,14 @@ impl<M> Table<M> {
                         cx,
                         t.label_str(),
                         t.name(),
+                        state.filter_param(t.name()),
                         options,
                         &current,
                     ));
                 }
                 Filter::Date(d) => {
                     let name = d.name().to_string();
+                    let param = state.filter_param(&name);
                     let label = d.label_str().to_string();
                     let aria = label.clone();
                     // `<input type=date>` needs YYYY-MM-DD; truncate RFC3339.
@@ -233,7 +238,7 @@ impl<M> Table<M> {
                                 (label)
                                 <input
                                     type="date"
-                                    name=(crate::resource::filter_param(&name))
+                                    name=(param)
                                     data-filter-name=(name)
                                     value=(date_value)
                                     aria-label=(aria)
@@ -254,6 +259,7 @@ impl<M> Table<M> {
                         cx,
                         v.label_str(),
                         v.name(),
+                        state.filter_param(v.name()),
                         options,
                         &current,
                     ));
