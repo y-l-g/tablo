@@ -17,7 +17,7 @@
 <a href=#17 id=17 data-nosnippet>17</a><span class="doccomment">/// The live table's browser state.
 <a href=#18 id=18 data-nosnippet>18</a>///
 <a href=#19 id=19 data-nosnippet>19</a>/// The page owns these signals and hands their handles to the `table_search`
-<a href=#20 id=20 data-nosnippet>20</a>/// shard through `Table::render_live_with_state`; each tracked read inside
+<a href=#20 id=20 data-nosnippet>20</a>/// shard through `Table::render_live_normalized`; each tracked read inside
 <a href=#21 id=21 data-nosnippet>21</a>/// the shard becomes a `dep` marker the browser watches, so writing any signal
 <a href=#22 id=22 data-nosnippet>22</a>/// re-renders the table in place — no navigation, no scroll jump. Sort links,
 <a href=#23 id=23 data-nosnippet>23</a>/// the pager, the filter transport, the bulk selection, and the clear links
@@ -127,10 +127,10 @@
 <a href=#127 id=127 data-nosnippet>127</a>
 <a href=#128 id=128 data-nosnippet>128</a><span class="doccomment">/// One executed page of rows for `Table::render`.
 <a href=#129 id=129 data-nosnippet>129</a>///
-<a href=#130 id=130 data-nosnippet>130</a>/// For paginated tables build it from toasty's `Page` via
-<a href=#131 id=131 data-nosnippet>131</a>/// [`Self::from_toasty_page`] (which URL-encodes the engine cursors); for
-<a href=#132 id=132 data-nosnippet>132</a>/// unpaginated tables `Vec&lt;M&gt;` converts directly. An absent cursor simply
-<a href=#133 id=133 data-nosnippet>133</a>/// means no Previous/Next link is rendered — the chrome never invents pages.
+<a href=#130 id=130 data-nosnippet>130</a>/// Build it from toasty's `Page` via [`Self::from_toasty_page`], which
+<a href=#131 id=131 data-nosnippet>131</a>/// URL-encodes the engine cursors; a `Vec&lt;M&gt;` converts directly into a page
+<a href=#132 id=132 data-nosnippet>132</a>/// with no neighbors. An absent cursor simply means no Previous/Next link is
+<a href=#133 id=133 data-nosnippet>133</a>/// rendered — the chrome never invents pages.
 <a href=#134 id=134 data-nosnippet>134</a></span><span class="attr">#[derive(Debug, Clone)]
 <a href=#135 id=135 data-nosnippet>135</a></span><span class="kw">pub struct </span>TablePage&lt;M&gt; {
 <a href=#136 id=136 data-nosnippet>136</a>    <span class="doccomment">/// The rows of this page.

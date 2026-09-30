@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e918a8d8.js";
+            window.path_to_searchindex_js = "searchindex-a8719c81.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -210,16 +210,13 @@ create page, the edit page, and the relationship options
 <p>Every item except <code>Model</code>, <code>Form</code>, and <code>table()</code> is defaulted, so a resource names its model and
 its form and declares its list view, and any other omission has to fail loudly instead of quietly:</p>
 <ul>
-<li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): the declared table must serve a list, so
-<code>paginate(0)</code> fails the build. A
+<li><strong>At <code>Panel::build</code></strong> (which returns <code>Result&lt;Router&gt;</code>): a
 <code>NoForm</code> resource whose <code>can_create</code> is on, or whose <code>form()</code> declares a schema,
 fails the build, since it serves no form; a record form must agree with its <code>form()</code> schema
 (<a href="./forms.html#the-record-form">Forms</a>). <code>table()</code>, <code>form()</code> and
 <code>can_create()</code> are declarations: <code>Panel::build</code> calls them with a Db-only context to check them,
 and each list and form request calls <code>table()</code> / <code>form()</code> again, so a declaration must not need
 request-scoped context.</li>
-<li><strong>At request time, loudly</strong>: <code>delete_record</code> defaults to an error naming the type (“delete not
-implemented for …”), so a missing implementation never looks like a successful no-op.</li>
 <li><strong>Chrome follows the declarations, gated per record</strong>: the row Delete control, the bulk column,
 and the bulk bar render when <code>can_delete_any()</code> allows, the Edit link when the resource has a
 record form, and the View link when it declares <code>view()</code>. <code>can_delete_any()</code> defaults to <code>false</code>
@@ -237,7 +234,10 @@ to <code>can_delete_any()</code>; an unconfigured resource exposes no data and n
 </ul>
 <h2 id="what-to-know"><a class="header" href="#what-to-know">What to know</a></h2>
 <ul>
-<li><code>slug()</code> and <code>navigation_label()</code> have working defaults. Override only to rename.</li>
+<li><code>slug()</code>, <code>label()</code>, and <code>navigation_label()</code> have working defaults. <code>label()</code> is one record’s
+name, used in the “Create” and “Edit” titles; <code>navigation_label()</code> pluralizes it for the sidebar
+and the list title. Override <code>label()</code> to rename, and <code>navigation_label()</code> only for a plural the
+rules cannot guess.</li>
 <li><code>navigation()</code> curates this resource’s sidebar entry: override it to change the label, the <code>order</code>
 (lower renders first, ties keep declaration order) or the URL, e.g.
 <code>NavigationItem { order: -1, ..NavigationItem::for_resource::&lt;Self&gt;() }</code>. The URL is the Panel’s
@@ -297,7 +297,9 @@ transaction. <code>create_record</code> and <code>update_record</code> return th
 hands the created one back and a Toasty instance update reloads the model, so both are already in
 hand — because that is the only way the framework can name what a write committed (GH #112). The
 derived <code>write_update</code> ends with the reloaded record, and a model used by a <code>Resource</code> derives
-<code>Clone</code>.</li>
+<code>Clone</code>. <code>delete_record</code> defaults to deleting the row by its record key through <code>scoped_query</code>,
+and <code>bulk_delete_records</code> loops over <code>delete_record</code>, so one override (a soft delete, say) covers
+both.</li>
 <li><code>after_commit(cx, committed)</code> is the post-commit seam (GH #112): called once per committed write,
 after the transaction and before the response, with a <code>Committed</code> naming the mutation
 (<code>Mutation::Create/Update/Delete</code>) and the rows it wrote (a bulk delete is one call with all of

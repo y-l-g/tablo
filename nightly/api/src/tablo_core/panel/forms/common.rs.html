@@ -22,8 +22,8 @@
 <a href=#22 id=22 data-nosnippet>22</a><span class="kw">use crate</span>::{
 <a href=#23 id=23 data-nosnippet>23</a>    db::db,
 <a href=#24 id=24 data-nosnippet>24</a>    form::RecordForm,
-<a href=#25 id=25 data-nosnippet>25</a>    notification::{Notification, set_notification},
-<a href=#26 id=26 data-nosnippet>26</a>    resource::Resource,
+<a href=#25 id=25 data-nosnippet>25</a>    notification::{Notification, notify_write_failure, set_notification},
+<a href=#26 id=26 data-nosnippet>26</a>    resource::{Committed, Resource},
 <a href=#27 id=27 data-nosnippet>27</a>};
 <a href=#28 id=28 data-nosnippet>28</a>
 <a href=#29 id=29 data-nosnippet>29</a><span class="doccomment">/// A decoded form body: the text values plus any file parts.
@@ -202,32 +202,74 @@
 <a href=#202 id=202 data-nosnippet>202</a>    see_other(list_url(cx, <span class="kw-2">&amp;</span>R::slug())).into()
 <a href=#203 id=203 data-nosnippet>203</a>}
 <a href=#204 id=204 data-nosnippet>204</a>
-<a href=#205 id=205 data-nosnippet>205</a><span class="doccomment">/// Edit page GET — hydrates the form from the record the tenant-scoped
-<a href=#206 id=206 data-nosnippet>206</a>/// load returned.
-<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_edit&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
-<a href=#208 id=208 data-nosnippet>208</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
-<a href=#209 id=209 data-nosnippet>209</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
-<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span>record = load_viewable_narrowed::&lt;R&gt;(cx, <span class="kw-2">&amp;mut </span>db).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#212 id=212 data-nosnippet>212</a>        <span class="kw">if </span>!R::can_update(cx, <span class="kw-2">&amp;</span>record) {
-<a href=#213 id=213 data-nosnippet>213</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#214 id=214 data-nosnippet>214</a>        }
-<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">crate</span>::csrf::ensure_token(cx);
-<a href=#216 id=216 data-nosnippet>216</a>        <span class="kw">let </span>values = &lt;R::Form <span class="kw">as </span>RecordForm&gt;::hydrate(cx, <span class="kw-2">&amp;</span>record);
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>public = R::public_url(cx, <span class="kw-2">&amp;</span>record);
-<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>html = render_form_page::&lt;R&gt;(
-<a href=#219 id=219 data-nosnippet>219</a>            cx,
-<a href=#220 id=220 data-nosnippet>220</a>            <span class="macro">format!</span>(<span class="string">"Edit {}"</span>, R::navigation_label()),
-<a href=#221 id=221 data-nosnippet>221</a>            <span class="string">"Save"</span>,
-<a href=#222 id=222 data-nosnippet>222</a>            <span class="kw-2">&amp;</span>values,
-<a href=#223 id=223 data-nosnippet>223</a>            <span class="kw-2">&amp;</span>HashMap::new(),
-<a href=#224 id=224 data-nosnippet>224</a>            <span class="kw-2">&amp;</span>HashSet::new(),
-<a href=#225 id=225 data-nosnippet>225</a>            public,
-<a href=#226 id=226 data-nosnippet>226</a>        )
-<a href=#227 id=227 data-nosnippet>227</a>        .<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#228 id=228 data-nosnippet>228</a>        <span class="prelude-val">Ok</span>(html)
-<a href=#229 id=229 data-nosnippet>229</a>    })))
-<a href=#230 id=230 data-nosnippet>230</a>}
-<a href=#231 id=231 data-nosnippet>231</a><span class="attr">#[cfg(test)]
-<a href=#232 id=232 data-nosnippet>232</a></span><span class="kw">mod </span>tests;
+<a href=#205 id=205 data-nosnippet>205</a><span class="doccomment">/// The write tail every mutation shares: commit the transaction, run the
+<a href=#206 id=206 data-nosnippet>206</a>/// after-commit hook on what the record fn wrote, and redirect to the list
+<a href=#207 id=207 data-nosnippet>207</a>/// with the success flash. A failed write or commit maps to the caller's
+<a href=#208 id=208 data-nosnippet>208</a>/// failure toast and an opaque error.
+<a href=#209 id=209 data-nosnippet>209</a>///
+<a href=#210 id=210 data-nosnippet>210</a>/// `written` is the record fn's result, carrying what the hook receives;
+<a href=#211 id=211 data-nosnippet>211</a>/// `committed` names the mutation, `note` the success flash, and `failure`
+<a href=#212 id=212 data-nosnippet>212</a>/// the toast.
+<a href=#213 id=213 data-nosnippet>213</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>commit_write&lt;<span class="lifetime">'a</span>, R: Resource, T&gt;(
+<a href=#214 id=214 data-nosnippet>214</a>    cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
+<a href=#215 id=215 data-nosnippet>215</a>    tx: toasty::Transaction&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#216 id=216 data-nosnippet>216</a>    written: <span class="prelude-ty">Result</span>&lt;T, topcoat::Error&gt;,
+<a href=#217 id=217 data-nosnippet>217</a>    committed: <span class="kw">impl </span>FnOnce(T) -&gt; Committed&lt;R::Model&gt;,
+<a href=#218 id=218 data-nosnippet>218</a>    note: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#219 id=219 data-nosnippet>219</a>    failure: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#220 id=220 data-nosnippet>220</a>) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;, topcoat::Error&gt; {
+<a href=#221 id=221 data-nosnippet>221</a>    <span class="kw">match </span>written {
+<a href=#222 id=222 data-nosnippet>222</a>        <span class="prelude-val">Ok</span>(value) =&gt; <span class="kw">match </span>tx.commit().<span class="kw">await </span>{
+<a href=#223 id=223 data-nosnippet>223</a>            <span class="prelude-val">Ok</span>(()) =&gt; {
+<a href=#224 id=224 data-nosnippet>224</a>                <span class="comment">// Post-commit, so the effect cannot survive a rollback, and
+<a href=#225 id=225 data-nosnippet>225</a>                // the tx is gone, so the hook may open its own handle.
+<a href=#226 id=226 data-nosnippet>226</a>                </span><span class="kw">crate</span>::resource::run_after_commit::&lt;R&gt;(cx, committed(value)).<span class="kw">await</span>;
+<a href=#227 id=227 data-nosnippet>227</a>                <span class="prelude-val">Err</span>(redirect_after_write::&lt;R&gt;(cx, note))
+<a href=#228 id=228 data-nosnippet>228</a>            }
+<a href=#229 id=229 data-nosnippet>229</a>            <span class="prelude-val">Err</span>(error) =&gt; {
+<a href=#230 id=230 data-nosnippet>230</a>                notify_write_failure(cx, failure);
+<a href=#231 id=231 data-nosnippet>231</a>                <span class="prelude-val">Err</span>(<span class="kw">crate</span>::db::unavailable(error))
+<a href=#232 id=232 data-nosnippet>232</a>            }
+<a href=#233 id=233 data-nosnippet>233</a>        },
+<a href=#234 id=234 data-nosnippet>234</a>        <span class="comment">// A unique violation that slipped past the app-side check (a
+<a href=#235 id=235 data-nosnippet>235</a>        // concurrent write) surfaces as an error, not a string-matched inline
+<a href=#236 id=236 data-nosnippet>236</a>        // message: Toasty exposes no unique-violation predicate (upstream gap
+<a href=#237 id=237 data-nosnippet>237</a>        // #117), so the failure cannot be classified here. It is still not
+<a href=#238 id=238 data-nosnippet>238</a>        // echoed raw: the driver's text goes to the log through the
+<a href=#239 id=239 data-nosnippet>239</a>        // opaque mapping, and an app-authored hook error keeps its own.
+<a href=#240 id=240 data-nosnippet>240</a>        </span><span class="prelude-val">Err</span>(error) =&gt; {
+<a href=#241 id=241 data-nosnippet>241</a>            notify_write_failure(cx, failure);
+<a href=#242 id=242 data-nosnippet>242</a>            <span class="prelude-val">Err</span>(<span class="kw">crate</span>::db::hook_failure(error))
+<a href=#243 id=243 data-nosnippet>243</a>        }
+<a href=#244 id=244 data-nosnippet>244</a>    }
+<a href=#245 id=245 data-nosnippet>245</a>}
+<a href=#246 id=246 data-nosnippet>246</a>
+<a href=#247 id=247 data-nosnippet>247</a><span class="doccomment">/// Edit page GET — hydrates the form from the record the tenant-scoped
+<a href=#248 id=248 data-nosnippet>248</a>/// load returned.
+<a href=#249 id=249 data-nosnippet>249</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_edit&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#250 id=250 data-nosnippet>250</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
+<a href=#251 id=251 data-nosnippet>251</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#252 id=252 data-nosnippet>252</a>        <span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
+<a href=#253 id=253 data-nosnippet>253</a>        <span class="kw">let </span>record = load_viewable_narrowed::&lt;R&gt;(cx, <span class="kw-2">&amp;mut </span>db).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#254 id=254 data-nosnippet>254</a>        <span class="kw">if </span>!R::can_update(cx, <span class="kw-2">&amp;</span>record) {
+<a href=#255 id=255 data-nosnippet>255</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#256 id=256 data-nosnippet>256</a>        }
+<a href=#257 id=257 data-nosnippet>257</a>        <span class="kw">crate</span>::csrf::ensure_token(cx);
+<a href=#258 id=258 data-nosnippet>258</a>        <span class="kw">let </span>values = &lt;R::Form <span class="kw">as </span>RecordForm&gt;::hydrate(cx, <span class="kw-2">&amp;</span>record);
+<a href=#259 id=259 data-nosnippet>259</a>        <span class="kw">let </span>public = R::public_url(cx, <span class="kw-2">&amp;</span>record);
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="kw">let </span>html = render_form_page::&lt;R&gt;(
+<a href=#261 id=261 data-nosnippet>261</a>            cx,
+<a href=#262 id=262 data-nosnippet>262</a>            <span class="macro">format!</span>(<span class="string">"Edit {}"</span>, R::label()),
+<a href=#263 id=263 data-nosnippet>263</a>            <span class="string">"Save"</span>,
+<a href=#264 id=264 data-nosnippet>264</a>            <span class="kw-2">&amp;</span>values,
+<a href=#265 id=265 data-nosnippet>265</a>            <span class="kw-2">&amp;</span>HashMap::new(),
+<a href=#266 id=266 data-nosnippet>266</a>            <span class="kw-2">&amp;</span>HashSet::new(),
+<a href=#267 id=267 data-nosnippet>267</a>            public,
+<a href=#268 id=268 data-nosnippet>268</a>        )
+<a href=#269 id=269 data-nosnippet>269</a>        .<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#270 id=270 data-nosnippet>270</a>        <span class="prelude-val">Ok</span>(html)
+<a href=#271 id=271 data-nosnippet>271</a>    })))
+<a href=#272 id=272 data-nosnippet>272</a>}
+<a href=#273 id=273 data-nosnippet>273</a><span class="attr">#[cfg(test)]
+<a href=#274 id=274 data-nosnippet>274</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

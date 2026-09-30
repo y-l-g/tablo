@@ -74,13 +74,13 @@
 <a href=#74 id=74 data-nosnippet>74</a>/// `live` selects the shard variant: the swapped region is everything except the
 <a href=#75 id=75 data-nosnippet>75</a>/// toolbar the page owns eagerly (the live host owns those slots, so a swap must
 <a href=#76 id=76 data-nosnippet>76</a>/// never nest invocations or duplicate inputs), hence the shard forces
-<a href=#77 id=77 data-nosnippet>77</a>/// `.search(false).filter_bar(false)` while the streamed page keeps the declared
+<a href=#77 id=77 data-nosnippet>77</a>/// `.hide_search().hide_filter_bar()` while the streamed page keeps the declared
 <a href=#78 id=78 data-nosnippet>78</a>/// table as-is. The filter bar joins the search toolbar there: a control rebuilt
 <a href=#79 id=79 data-nosnippet>79</a>/// by its own rerun loses focus.
 <a href=#80 id=80 data-nosnippet>80</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>wire_table_actions&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, live: bool) -&gt; Table&lt;R::Model&gt; {
 <a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">let </span><span class="kw-2">mut </span>table = R::table(cx);
 <a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">if </span>live {
-<a href=#83 id=83 data-nosnippet>83</a>        table = table.search(<span class="bool-val">false</span>).filter_bar(<span class="bool-val">false</span>);
+<a href=#83 id=83 data-nosnippet>83</a>        table = table.hide_search().hide_filter_bar();
 <a href=#84 id=84 data-nosnippet>84</a>    }
 <a href=#85 id=85 data-nosnippet>85</a>    <span class="comment">// `Cx` is Arc-backed and `Clone`, so the projection owns one: the policy
 <a href=#86 id=86 data-nosnippet>86</a>    // outlives the request borrow without copying request state.
@@ -192,7 +192,7 @@
 <a href=#192 id=192 data-nosnippet>192</a>    <span class="kw">let </span>title = title.to_string();
 <a href=#193 id=193 data-nosnippet>193</a>    <span class="kw">let </span>create_url = (&lt;R::Form <span class="kw">as </span>RecordForm&gt;::HAS_FORM &amp;&amp; R::can_create(cx))
 <a href=#194 id=194 data-nosnippet>194</a>        .then(|| create_page_url(list_path));
-<a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">let </span>create_label = <span class="macro">format!</span>(<span class="string">"Create {}"</span>, R::navigation_label());
+<a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">let </span>create_label = <span class="macro">format!</span>(<span class="string">"Create {}"</span>, R::label());
 <a href=#196 id=196 data-nosnippet>196</a>    <span class="macro">view!</span> {
 <a href=#197 id=197 data-nosnippet>197</a>        cx =&gt;
 <a href=#198 id=198 data-nosnippet>198</a>        tablo_ui::page_header(
@@ -397,32 +397,22 @@
 <a href=#397 id=397 data-nosnippet>397</a>/// [`query`](crate::resource::Resource::query) at both, the same safe default
 <a href=#398 id=398 data-nosnippet>398</a>/// the export takes.
 <a href=#399 id=399 data-nosnippet>399</a>///
-<a href=#400 id=400 data-nosnippet>400</a>/// Resource lists must declare a page size: without
-<a href=#401 id=401 data-nosnippet>401</a>/// [`Table::paginate`] the load would be an unbounded `exec`, so the missing
-<a href=#402 id=402 data-nosnippet>402</a>/// declaration fails loudly here instead of silently loading the whole table.
-<a href=#403 id=403 data-nosnippet>403</a>/// Page-owned tables (GH #154 §2) load through [`Table::load`] directly and
-<a href=#404 id=404 data-nosnippet>404</a>/// keep the unbounded branch for previews.
-<a href=#405 id=405 data-nosnippet>405</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>load_table_page&lt;R: Resource&gt;(
-<a href=#406 id=406 data-nosnippet>406</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#407 id=407 data-nosnippet>407</a>    table: <span class="kw-2">&amp;</span>Table&lt;R::Model&gt;,
-<a href=#408 id=408 data-nosnippet>408</a>    state: <span class="kw-2">&amp;</span>TableState,
-<a href=#409 id=409 data-nosnippet>409</a>) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;R::Model&gt;&gt; {
-<a href=#410 id=410 data-nosnippet>410</a>    <span class="kw">if </span>table.page_size().is_none() {
-<a href=#411 id=411 data-nosnippet>411</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(std::io::Error::other(
-<a href=#412 id=412 data-nosnippet>412</a>            <span class="string">"resource list requires Table::paginate(..) — unbounded tables are previews only (GH #172)"</span>,
-<a href=#413 id=413 data-nosnippet>413</a>        )
-<a href=#414 id=414 data-nosnippet>414</a>        .into());
-<a href=#415 id=415 data-nosnippet>415</a>    }
-<a href=#416 id=416 data-nosnippet>416</a>    table
-<a href=#417 id=417 data-nosnippet>417</a>        .load_with_probe(
-<a href=#418 id=418 data-nosnippet>418</a>            cx,
-<a href=#419 id=419 data-nosnippet>419</a>            <span class="kw">crate</span>::resource::scoped_query_with::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>table.include_needs())<span class="question-mark">?</span>,
-<a href=#420 id=420 data-nosnippet>420</a>            <span class="kw">crate</span>::resource::scoped_query_with::&lt;R&gt;(cx, <span class="kw-2">&amp;</span><span class="kw">crate</span>::resource::IncludeNeeds::default())<span class="question-mark">?</span>,
-<a href=#421 id=421 data-nosnippet>421</a>            state,
-<a href=#422 id=422 data-nosnippet>422</a>        )
-<a href=#423 id=423 data-nosnippet>423</a>        .<span class="kw">await
-<a href=#424 id=424 data-nosnippet>424</a></span>}
-<a href=#425 id=425 data-nosnippet>425</a>
-<a href=#426 id=426 data-nosnippet>426</a><span class="attr">#[cfg(test)]
-<a href=#427 id=427 data-nosnippet>427</a></span><span class="kw">mod </span>tests;
+<a href=#400 id=400 data-nosnippet>400</a>/// Page-owned tables (GH #154 §2) load through [`Table::load`] directly.
+<a href=#401 id=401 data-nosnippet>401</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>load_table_page&lt;R: Resource&gt;(
+<a href=#402 id=402 data-nosnippet>402</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#403 id=403 data-nosnippet>403</a>    table: <span class="kw-2">&amp;</span>Table&lt;R::Model&gt;,
+<a href=#404 id=404 data-nosnippet>404</a>    state: <span class="kw-2">&amp;</span>TableState,
+<a href=#405 id=405 data-nosnippet>405</a>) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;R::Model&gt;&gt; {
+<a href=#406 id=406 data-nosnippet>406</a>    table
+<a href=#407 id=407 data-nosnippet>407</a>        .load_with_probe(
+<a href=#408 id=408 data-nosnippet>408</a>            cx,
+<a href=#409 id=409 data-nosnippet>409</a>            <span class="kw">crate</span>::resource::scoped_query_with::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>table.include_needs())<span class="question-mark">?</span>,
+<a href=#410 id=410 data-nosnippet>410</a>            <span class="kw">crate</span>::resource::scoped_query_with::&lt;R&gt;(cx, <span class="kw-2">&amp;</span><span class="kw">crate</span>::resource::IncludeNeeds::default())<span class="question-mark">?</span>,
+<a href=#411 id=411 data-nosnippet>411</a>            state,
+<a href=#412 id=412 data-nosnippet>412</a>        )
+<a href=#413 id=413 data-nosnippet>413</a>        .<span class="kw">await
+<a href=#414 id=414 data-nosnippet>414</a></span>}
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a><span class="attr">#[cfg(test)]
+<a href=#417 id=417 data-nosnippet>417</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

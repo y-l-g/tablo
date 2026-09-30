@@ -300,35 +300,34 @@
 <a href=#300 id=300 data-nosnippet>300</a>    <span class="comment">// Runtime endpoints bypass page guards (topcoat shard contract), so the
 <a href=#301 id=301 data-nosnippet>301</a>    // shard restates the panel gate; a slot with no live toast needs no auth
 <a href=#302 id=302 data-nosnippet>302</a>    // to render empty, but a direct POST must not mount toasts unauthenticated.
-<a href=#303 id=303 data-nosnippet>303</a>    </span><span class="attr">#[cfg(feature = <span class="string">"auth"</span>)]
-<a href=#304 id=304 data-nosnippet>304</a>    </span><span class="kw">if </span><span class="kw">crate</span>::auth::enforced(cx) {
-<a href=#305 id=305 data-nosnippet>305</a>        <span class="kw">crate</span>::auth::require_authenticated(cx)<span class="question-mark">?</span>;
-<a href=#306 id=306 data-nosnippet>306</a>    }
-<a href=#307 id=307 data-nosnippet>307</a>    <span class="kw">let </span>status = status.get();
-<a href=#308 id=308 data-nosnippet>308</a>    <span class="kw">let </span>mount = serial.get();
-<a href=#309 id=309 data-nosnippet>309</a>    <span class="kw">if </span>status.is_empty() {
-<a href=#310 id=310 data-nosnippet>310</a>        <span class="comment">// No `&lt;span&gt;` placeholder: the shell mounts this slot inside
-<a href=#311 id=311 data-nosnippet>311</a>        // the toaster `&lt;ol&gt;`, which permits only `li`/`script`/`template`
-<a href=#312 id=312 data-nosnippet>312</a>        // children — the empty view renders nothing.
-<a href=#313 id=313 data-nosnippet>313</a>        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(().boxed());
-<a href=#314 id=314 data-nosnippet>314</a>    }
-<a href=#315 id=315 data-nosnippet>315</a>    <span class="kw">let </span>title = title.get();
-<a href=#316 id=316 data-nosnippet>316</a>    <span class="kw">let </span>description = description.get();
-<a href=#317 id=317 data-nosnippet>317</a>    <span class="kw">let </span>notification = <span class="kw">match </span>status.as_str() {
-<a href=#318 id=318 data-nosnippet>318</a>        <span class="string">"success" </span>=&gt; Notification::success(title),
-<a href=#319 id=319 data-nosnippet>319</a>        <span class="string">"warning" </span>=&gt; Notification::warning(title),
-<a href=#320 id=320 data-nosnippet>320</a>        <span class="string">"error" </span>=&gt; Notification::error(title),
-<a href=#321 id=321 data-nosnippet>321</a>        <span class="kw">_ </span>=&gt; Notification::info(title),
-<a href=#322 id=322 data-nosnippet>322</a>    };
-<a href=#323 id=323 data-nosnippet>323</a>    <span class="kw">let </span>notification = <span class="kw">if </span>description.is_empty() {
-<a href=#324 id=324 data-nosnippet>324</a>        notification
-<a href=#325 id=325 data-nosnippet>325</a>    } <span class="kw">else </span>{
-<a href=#326 id=326 data-nosnippet>326</a>        notification.description(description)
-<a href=#327 id=327 data-nosnippet>327</a>    };
-<a href=#328 id=328 data-nosnippet>328</a>    <span class="kw">let </span>mount_id = <span class="macro">format!</span>(<span class="string">"live-toast-{mount}"</span>);
-<a href=#329 id=329 data-nosnippet>329</a>    render_notification(cx, notification, <span class="macro">attributes!</span> { cx =&gt; id=(mount_id) }).<span class="kw">await
-<a href=#330 id=330 data-nosnippet>330</a></span>}
-<a href=#331 id=331 data-nosnippet>331</a>
-<a href=#332 id=332 data-nosnippet>332</a><span class="attr">#[cfg(test)]
-<a href=#333 id=333 data-nosnippet>333</a></span><span class="kw">mod </span>tests;
+<a href=#303 id=303 data-nosnippet>303</a>    </span><span class="kw">if </span><span class="kw">crate</span>::auth::enforced(cx) {
+<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">crate</span>::auth::require_authenticated(cx)<span class="question-mark">?</span>;
+<a href=#305 id=305 data-nosnippet>305</a>    }
+<a href=#306 id=306 data-nosnippet>306</a>    <span class="kw">let </span>status = status.get();
+<a href=#307 id=307 data-nosnippet>307</a>    <span class="kw">let </span>mount = serial.get();
+<a href=#308 id=308 data-nosnippet>308</a>    <span class="kw">if </span>status.is_empty() {
+<a href=#309 id=309 data-nosnippet>309</a>        <span class="comment">// No `&lt;span&gt;` placeholder: the shell mounts this slot inside
+<a href=#310 id=310 data-nosnippet>310</a>        // the toaster `&lt;ol&gt;`, which permits only `li`/`script`/`template`
+<a href=#311 id=311 data-nosnippet>311</a>        // children — the empty view renders nothing.
+<a href=#312 id=312 data-nosnippet>312</a>        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(().boxed());
+<a href=#313 id=313 data-nosnippet>313</a>    }
+<a href=#314 id=314 data-nosnippet>314</a>    <span class="kw">let </span>title = title.get();
+<a href=#315 id=315 data-nosnippet>315</a>    <span class="kw">let </span>description = description.get();
+<a href=#316 id=316 data-nosnippet>316</a>    <span class="kw">let </span>notification = <span class="kw">match </span>status.as_str() {
+<a href=#317 id=317 data-nosnippet>317</a>        <span class="string">"success" </span>=&gt; Notification::success(title),
+<a href=#318 id=318 data-nosnippet>318</a>        <span class="string">"warning" </span>=&gt; Notification::warning(title),
+<a href=#319 id=319 data-nosnippet>319</a>        <span class="string">"error" </span>=&gt; Notification::error(title),
+<a href=#320 id=320 data-nosnippet>320</a>        <span class="kw">_ </span>=&gt; Notification::info(title),
+<a href=#321 id=321 data-nosnippet>321</a>    };
+<a href=#322 id=322 data-nosnippet>322</a>    <span class="kw">let </span>notification = <span class="kw">if </span>description.is_empty() {
+<a href=#323 id=323 data-nosnippet>323</a>        notification
+<a href=#324 id=324 data-nosnippet>324</a>    } <span class="kw">else </span>{
+<a href=#325 id=325 data-nosnippet>325</a>        notification.description(description)
+<a href=#326 id=326 data-nosnippet>326</a>    };
+<a href=#327 id=327 data-nosnippet>327</a>    <span class="kw">let </span>mount_id = <span class="macro">format!</span>(<span class="string">"live-toast-{mount}"</span>);
+<a href=#328 id=328 data-nosnippet>328</a>    render_notification(cx, notification, <span class="macro">attributes!</span> { cx =&gt; id=(mount_id) }).<span class="kw">await
+<a href=#329 id=329 data-nosnippet>329</a></span>}
+<a href=#330 id=330 data-nosnippet>330</a>
+<a href=#331 id=331 data-nosnippet>331</a><span class="attr">#[cfg(test)]
+<a href=#332 id=332 data-nosnippet>332</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

@@ -95,7 +95,7 @@
 <a href=#95 id=95 data-nosnippet>95</a>/// declares one ([`Resource::record_label`]), else the page's name and the
 <a href=#96 id=96 data-nosnippet>96</a>/// URL's record key.
 <a href=#97 id=97 data-nosnippet>97</a></span><span class="kw">fn </span>detail_title&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, record: <span class="kw-2">&amp;</span>R::Model, id: <span class="kw-2">&amp;</span>str) -&gt; String {
-<a href=#98 id=98 data-nosnippet>98</a>    R::record_label(cx, record).unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">"{} {id}"</span>, R::navigation_label()))
+<a href=#98 id=98 data-nosnippet>98</a>    R::record_label(cx, record).unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">"{} {id}"</span>, R::label()))
 <a href=#99 id=99 data-nosnippet>99</a>}
 <a href=#100 id=100 data-nosnippet>100</a>
 <a href=#101 id=101 data-nosnippet>101</a><span class="attr">#[cfg(test)]

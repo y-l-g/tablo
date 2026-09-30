@@ -8,7 +8,7 @@
     pub bulk: Signal&lt;<a class="struct" href="https://doc.rust-lang.org/1.98.1/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The live table’s browser state.</p>
 <p>The page owns these signals and hands their handles to the <code>table_search</code>
-shard through <code>Table::render_live_with_state</code>; each tracked read inside
+shard through <code>Table::render_live_normalized</code>; each tracked read inside
 the shard becomes a <code>dep</code> marker the browser watches, so writing any signal
 re-renders the table in place — no navigation, no scroll jump. Sort links,
 the pager, the filter transport, the bulk selection, and the clear links

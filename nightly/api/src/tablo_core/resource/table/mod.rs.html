@@ -4,7 +4,7 @@
 <a href=#4 id=4 data-nosnippet>4</a>//! One routine applies the declaration for both loaders, and the essentials
 <a href=#5 id=5 data-nosnippet>5</a>//! check refuses a table whose page size cannot serve a list.
 <a href=#6 id=6 data-nosnippet>6</a>
-<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
+<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">use </span>std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 <a href=#8 id=8 data-nosnippet>8</a>
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>toasty::stmt::{Expr, List, OrderByExpr};
 <a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>topcoat::{<span class="prelude-ty">Result</span>, context::Cx};
@@ -118,821 +118,779 @@
 <a href=#118 id=118 data-nosnippet>118</a>    </span>}
 <a href=#119 id=119 data-nosnippet>119</a>}
 <a href=#120 id=120 data-nosnippet>120</a>
-<a href=#121 id=121 data-nosnippet>121</a><span class="doccomment">/// How [`Table::order_bys_for`] falls back when `?sort=` names no sortable
-<a href=#122 id=122 data-nosnippet>122</a>/// column: the one axis the list loader and the CSV export
-<a href=#123 id=123 data-nosnippet>123</a>/// legitimately disagree on.
-<a href=#124 id=124 data-nosnippet>124</a></span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-<a href=#125 id=125 data-nosnippet>125</a></span><span class="kw">pub enum </span>OrderMode {
-<a href=#126 id=126 data-nosnippet>126</a>    <span class="doccomment">/// List loading: the PK fallback applies only to a paginated
-<a href=#127 id=127 data-nosnippet>127</a>    /// table, where toasty's cursor pagination needs a deterministic order.
-<a href=#128 id=128 data-nosnippet>128</a>    </span>List,
-<a href=#129 id=129 data-nosnippet>129</a>    <span class="doccomment">/// CSV export: the chunked cursor walk needs a deterministic
-<a href=#130 id=130 data-nosnippet>130</a>    /// order whether or not the table paginates, so the PK fallback applies
-<a href=#131 id=131 data-nosnippet>131</a>    /// whenever no sortable column is declared.
-<a href=#132 id=132 data-nosnippet>132</a>    </span>Export,
-<a href=#133 id=133 data-nosnippet>133</a>}
-<a href=#134 id=134 data-nosnippet>134</a>
-<a href=#135 id=135 data-nosnippet>135</a><span class="kw">impl </span>OrderMode {
-<a href=#136 id=136 data-nosnippet>136</a>    <span class="doccomment">/// Whether the PK fallback applies, given whether the table paginates.
-<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">fn </span>falls_back_to_pk(<span class="self">self</span>, paginated: bool) -&gt; bool {
-<a href=#138 id=138 data-nosnippet>138</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#139 id=139 data-nosnippet>139</a>            <span class="self">Self</span>::List =&gt; paginated,
-<a href=#140 id=140 data-nosnippet>140</a>            <span class="self">Self</span>::Export =&gt; <span class="bool-val">true</span>,
-<a href=#141 id=141 data-nosnippet>141</a>        }
-<a href=#142 id=142 data-nosnippet>142</a>    }
-<a href=#143 id=143 data-nosnippet>143</a>}
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a><span class="doccomment">/// Table description of a `Resource`'s list view. Declares columns and how they
-<a href=#146 id=146 data-nosnippet>146</a>/// map to queries.
-<a href=#147 id=147 data-nosnippet>147</a>///
-<a href=#148 id=148 data-nosnippet>148</a>/// Row identity is mandatory and typed: [`Table::new`] takes the key
-<a href=#149 id=149 data-nosnippet>149</a>/// projection driving both key halves, and cells render via
-<a href=#150 id=150 data-nosnippet>150</a>/// [`TextColumn`]'s lens-bound closure where typos fail at compile time instead
-<a href=#151 id=151 data-nosnippet>151</a>/// of panicking at render.
-<a href=#152 id=152 data-nosnippet>152</a></span><span class="kw">pub struct </span>Table&lt;M&gt; {
-<a href=#153 id=153 data-nosnippet>153</a>    columns: Vec&lt;TextColumn&lt;M&gt;&gt;,
-<a href=#154 id=154 data-nosnippet>154</a>    filters: Vec&lt;Filter&lt;M&gt;&gt;,
-<a href=#155 id=155 data-nosnippet>155</a>    group_by: <span class="prelude-ty">Option</span>&lt;GroupDef&lt;M&gt;&gt;,
-<a href=#156 id=156 data-nosnippet>156</a>    row_key: RowKey&lt;M&gt;,
-<a href=#157 id=157 data-nosnippet>157</a>    record_key: RowKey&lt;M&gt;,
-<a href=#158 id=158 data-nosnippet>158</a>    row_policy: <span class="prelude-ty">Option</span>&lt;RowPolicy&lt;M&gt;&gt;,
-<a href=#159 id=159 data-nosnippet>159</a>    page_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-<a href=#160 id=160 data-nosnippet>160</a>    search_ui: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-<a href=#161 id=161 data-nosnippet>161</a>    filters_ui: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-<a href=#162 id=162 data-nosnippet>162</a>    delete_prefix: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#163 id=163 data-nosnippet>163</a>    edit_prefix: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#164 id=164 data-nosnippet>164</a>    view_prefix: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#165 id=165 data-nosnippet>165</a>    bulk_delete: bool,
-<a href=#166 id=166 data-nosnippet>166</a>    live_search: bool,
-<a href=#167 id=167 data-nosnippet>167</a>    _marker: PhantomData&lt;M&gt;,
-<a href=#168 id=168 data-nosnippet>168</a>}
-<a href=#169 id=169 data-nosnippet>169</a>
-<a href=#170 id=170 data-nosnippet>170</a><span class="kw">impl</span>&lt;M&gt; std::fmt::Debug <span class="kw">for </span>Table&lt;M&gt; {
-<a href=#171 id=171 data-nosnippet>171</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-<a href=#172 id=172 data-nosnippet>172</a>        f.debug_struct(<span class="string">"Table"</span>)
-<a href=#173 id=173 data-nosnippet>173</a>            .field(<span class="string">"columns"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.columns)
-<a href=#174 id=174 data-nosnippet>174</a>            .field(<span class="string">"filters"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.filters.len())
-<a href=#175 id=175 data-nosnippet>175</a>            .field(<span class="string">"group_by"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.group_by.is_some())
-<a href=#176 id=176 data-nosnippet>176</a>            .field(<span class="string">"row_policy"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.row_policy.is_some())
-<a href=#177 id=177 data-nosnippet>177</a>            .field(<span class="string">"page_size"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.page_size)
-<a href=#178 id=178 data-nosnippet>178</a>            .field(<span class="string">"search_ui"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.search_ui)
-<a href=#179 id=179 data-nosnippet>179</a>            .field(<span class="string">"filters_ui"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.filters_ui)
-<a href=#180 id=180 data-nosnippet>180</a>            .field(<span class="string">"delete_prefix"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.delete_prefix)
-<a href=#181 id=181 data-nosnippet>181</a>            .field(<span class="string">"edit_prefix"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.edit_prefix)
-<a href=#182 id=182 data-nosnippet>182</a>            .field(<span class="string">"view_prefix"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.view_prefix)
-<a href=#183 id=183 data-nosnippet>183</a>            .field(<span class="string">"bulk_delete"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.bulk_delete)
-<a href=#184 id=184 data-nosnippet>184</a>            .field(<span class="string">"live_search"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.live_search)
-<a href=#185 id=185 data-nosnippet>185</a>            .finish()
-<a href=#186 id=186 data-nosnippet>186</a>    }
-<a href=#187 id=187 data-nosnippet>187</a>}
-<a href=#188 id=188 data-nosnippet>188</a>
-<a href=#189 id=189 data-nosnippet>189</a><span class="kw">impl</span>&lt;M&gt; Table&lt;M&gt; {
-<a href=#190 id=190 data-nosnippet>190</a>    <span class="doccomment">/// Declare a table with its row key and columns.
-<a href=#191 id=191 data-nosnippet>191</a>    ///
-<a href=#192 id=192 data-nosnippet>192</a>    /// One primary-key projection (typically `|u| u.id.to_string()`) drives
-<a href=#193 id=193 data-nosnippet>193</a>    /// both halves: keyed diffs and DOM ids, and the action URLs and bulk
-<a href=#194 id=194 data-nosnippet>194</a>    /// values handlers resolve as the model's typed PK. The projection must be
-<a href=#195 id=195 data-nosnippet>195</a>    /// injective within a page: duplicate keys corrupt keyed diffs and bulk
-<a href=#196 id=196 data-nosnippet>196</a>    /// selection, and are debug-asserted at render time. A table whose display
-<a href=#197 id=197 data-nosnippet>197</a>    /// projects a non-PK value uses [`Self::new_split`].
-<a href=#198 id=198 data-nosnippet>198</a>    ///
-<a href=#199 id=199 data-nosnippet>199</a>    /// # Panics
-<a href=#200 id=200 data-nosnippet>200</a>    ///
-<a href=#201 id=201 data-nosnippet>201</a>    /// Panics on duplicate [`TextColumn::name`], the guard every constructor
-<a href=#202 id=202 data-nosnippet>202</a>    /// applies: sort resolution is
-<a href=#203 id=203 data-nosnippet>203</a>    /// first-sortable-`name()`-match, so duplicate sortable names would
-<a href=#204 id=204 data-nosnippet>204</a>    /// silently misresolve `?sort=`. The guard covers computed names too
-<a href=#205 id=205 data-nosnippet>205</a>    /// (`TextColumn::computed("Status", ..)` derives `name = "status"`) for
-<a href=#206 id=206 data-nosnippet>206</a>    /// namespace consistency and future-proofing. Same fail-loud policy as
-<a href=#207 id=207 data-nosnippet>207</a>    /// the GH #101 searchable/sortable panics and the Schema GH #100 guard.
+<a href=#121 id=121 data-nosnippet>121</a><span class="doccomment">/// The page size of a table that declares none with [`Table::paginate`], as
+<a href=#122 id=122 data-nosnippet>122</a>/// Filament's tables default to paginating.
+<a href=#123 id=123 data-nosnippet>123</a></span><span class="kw">pub const </span>DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(<span class="number">25</span>).unwrap();
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a><span class="doccomment">/// Table description of a `Resource`'s list view. Declares columns and how they
+<a href=#126 id=126 data-nosnippet>126</a>/// map to queries.
+<a href=#127 id=127 data-nosnippet>127</a>///
+<a href=#128 id=128 data-nosnippet>128</a>/// Row identity is mandatory and typed: [`Table::new`] takes the key
+<a href=#129 id=129 data-nosnippet>129</a>/// projection driving both key halves, and cells render via
+<a href=#130 id=130 data-nosnippet>130</a>/// [`TextColumn`]'s lens-bound closure where typos fail at compile time instead
+<a href=#131 id=131 data-nosnippet>131</a>/// of panicking at render.
+<a href=#132 id=132 data-nosnippet>132</a></span><span class="kw">pub struct </span>Table&lt;M&gt; {
+<a href=#133 id=133 data-nosnippet>133</a>    columns: Vec&lt;TextColumn&lt;M&gt;&gt;,
+<a href=#134 id=134 data-nosnippet>134</a>    filters: Vec&lt;Filter&lt;M&gt;&gt;,
+<a href=#135 id=135 data-nosnippet>135</a>    group_by: <span class="prelude-ty">Option</span>&lt;GroupDef&lt;M&gt;&gt;,
+<a href=#136 id=136 data-nosnippet>136</a>    row_key: RowKey&lt;M&gt;,
+<a href=#137 id=137 data-nosnippet>137</a>    record_key: RowKey&lt;M&gt;,
+<a href=#138 id=138 data-nosnippet>138</a>    row_policy: <span class="prelude-ty">Option</span>&lt;RowPolicy&lt;M&gt;&gt;,
+<a href=#139 id=139 data-nosnippet>139</a>    page_size: NonZeroUsize,
+<a href=#140 id=140 data-nosnippet>140</a>    hide_search: bool,
+<a href=#141 id=141 data-nosnippet>141</a>    hide_filter_bar: bool,
+<a href=#142 id=142 data-nosnippet>142</a>    delete_prefix: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#143 id=143 data-nosnippet>143</a>    edit_prefix: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#144 id=144 data-nosnippet>144</a>    view_prefix: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#145 id=145 data-nosnippet>145</a>    bulk_delete: bool,
+<a href=#146 id=146 data-nosnippet>146</a>    live_search: bool,
+<a href=#147 id=147 data-nosnippet>147</a>    _marker: PhantomData&lt;M&gt;,
+<a href=#148 id=148 data-nosnippet>148</a>}
+<a href=#149 id=149 data-nosnippet>149</a>
+<a href=#150 id=150 data-nosnippet>150</a><span class="kw">impl</span>&lt;M&gt; std::fmt::Debug <span class="kw">for </span>Table&lt;M&gt; {
+<a href=#151 id=151 data-nosnippet>151</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href=#152 id=152 data-nosnippet>152</a>        f.debug_struct(<span class="string">"Table"</span>)
+<a href=#153 id=153 data-nosnippet>153</a>            .field(<span class="string">"columns"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.columns)
+<a href=#154 id=154 data-nosnippet>154</a>            .field(<span class="string">"filters"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.filters.len())
+<a href=#155 id=155 data-nosnippet>155</a>            .field(<span class="string">"group_by"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.group_by.is_some())
+<a href=#156 id=156 data-nosnippet>156</a>            .field(<span class="string">"row_policy"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.row_policy.is_some())
+<a href=#157 id=157 data-nosnippet>157</a>            .field(<span class="string">"page_size"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.page_size)
+<a href=#158 id=158 data-nosnippet>158</a>            .field(<span class="string">"hide_search"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hide_search)
+<a href=#159 id=159 data-nosnippet>159</a>            .field(<span class="string">"hide_filter_bar"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hide_filter_bar)
+<a href=#160 id=160 data-nosnippet>160</a>            .field(<span class="string">"delete_prefix"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.delete_prefix)
+<a href=#161 id=161 data-nosnippet>161</a>            .field(<span class="string">"edit_prefix"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.edit_prefix)
+<a href=#162 id=162 data-nosnippet>162</a>            .field(<span class="string">"view_prefix"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.view_prefix)
+<a href=#163 id=163 data-nosnippet>163</a>            .field(<span class="string">"bulk_delete"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.bulk_delete)
+<a href=#164 id=164 data-nosnippet>164</a>            .field(<span class="string">"live_search"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.live_search)
+<a href=#165 id=165 data-nosnippet>165</a>            .finish()
+<a href=#166 id=166 data-nosnippet>166</a>    }
+<a href=#167 id=167 data-nosnippet>167</a>}
+<a href=#168 id=168 data-nosnippet>168</a>
+<a href=#169 id=169 data-nosnippet>169</a><span class="kw">impl</span>&lt;M&gt; Table&lt;M&gt; {
+<a href=#170 id=170 data-nosnippet>170</a>    <span class="doccomment">/// Declare a table with its row key and columns.
+<a href=#171 id=171 data-nosnippet>171</a>    ///
+<a href=#172 id=172 data-nosnippet>172</a>    /// One primary-key projection (typically `|u| u.id.to_string()`) drives
+<a href=#173 id=173 data-nosnippet>173</a>    /// both halves: keyed diffs and DOM ids, and the action URLs and bulk
+<a href=#174 id=174 data-nosnippet>174</a>    /// values handlers resolve as the model's typed PK. The projection must be
+<a href=#175 id=175 data-nosnippet>175</a>    /// injective within a page: duplicate keys corrupt keyed diffs and bulk
+<a href=#176 id=176 data-nosnippet>176</a>    /// selection, and are debug-asserted at render time. A table whose display
+<a href=#177 id=177 data-nosnippet>177</a>    /// projects a non-PK value uses [`Self::new_split`].
+<a href=#178 id=178 data-nosnippet>178</a>    ///
+<a href=#179 id=179 data-nosnippet>179</a>    /// # Panics
+<a href=#180 id=180 data-nosnippet>180</a>    ///
+<a href=#181 id=181 data-nosnippet>181</a>    /// Panics on duplicate [`TextColumn::name`], the guard every constructor
+<a href=#182 id=182 data-nosnippet>182</a>    /// applies: sort resolution is
+<a href=#183 id=183 data-nosnippet>183</a>    /// first-sortable-`name()`-match, so duplicate sortable names would
+<a href=#184 id=184 data-nosnippet>184</a>    /// silently misresolve `?sort=`. The guard covers computed names too
+<a href=#185 id=185 data-nosnippet>185</a>    /// (`TextColumn::computed("Status", ..)` derives `name = "status"`) for
+<a href=#186 id=186 data-nosnippet>186</a>    /// namespace consistency and future-proofing. Same fail-loud policy as
+<a href=#187 id=187 data-nosnippet>187</a>    /// the GH #101 searchable/sortable panics and the Schema GH #100 guard.
+<a href=#188 id=188 data-nosnippet>188</a>    ///
+<a href=#189 id=189 data-nosnippet>189</a>    /// Also panics on an empty column set: a table with no columns renders a
+<a href=#190 id=190 data-nosnippet>190</a>    /// headers-only list, which no resource declares.
+<a href=#191 id=191 data-nosnippet>191</a>    </span><span class="kw">pub fn </span>new(
+<a href=#192 id=192 data-nosnippet>192</a>        key: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; String + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#193 id=193 data-nosnippet>193</a>        cols: <span class="kw">impl </span>IntoColumns&lt;M&gt;,
+<a href=#194 id=194 data-nosnippet>194</a>    ) -&gt; <span class="self">Self
+<a href=#195 id=195 data-nosnippet>195</a>    </span><span class="kw">where
+<a href=#196 id=196 data-nosnippet>196</a>        </span>M: toasty::schema::Model,
+<a href=#197 id=197 data-nosnippet>197</a>    {
+<a href=#198 id=198 data-nosnippet>198</a>        <span class="kw">let </span>key = Arc::new(key);
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="self">Self</span>::from_keys(key.clone(), key, cols)
+<a href=#200 id=200 data-nosnippet>200</a>    }
+<a href=#201 id=201 data-nosnippet>201</a>
+<a href=#202 id=202 data-nosnippet>202</a>    <span class="doccomment">/// Declare a table whose display projects a non-PK value.
+<a href=#203 id=203 data-nosnippet>203</a>    ///
+<a href=#204 id=204 data-nosnippet>204</a>    /// `display` drives keyed diffs and DOM ids; `record` drives action URLs
+<a href=#205 id=205 data-nosnippet>205</a>    /// and bulk checkbox values handlers resolve as the model's typed PK
+<a href=#206 id=206 data-nosnippet>206</a>    /// (`pk_eq_expr` / `pk_in_expr` — an unparseable value 404s), so emitting
+<a href=#207 id=207 data-nosnippet>207</a>    /// a display key there 404s every delete and bulk submit.
 <a href=#208 id=208 data-nosnippet>208</a>    ///
-<a href=#209 id=209 data-nosnippet>209</a>    /// Also panics on an empty column set: a table with no columns renders a
-<a href=#210 id=210 data-nosnippet>210</a>    /// headers-only list, which no resource declares.
-<a href=#211 id=211 data-nosnippet>211</a>    </span><span class="kw">pub fn </span>new(
-<a href=#212 id=212 data-nosnippet>212</a>        key: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; String + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#213 id=213 data-nosnippet>213</a>        cols: <span class="kw">impl </span>IntoColumns&lt;M&gt;,
-<a href=#214 id=214 data-nosnippet>214</a>    ) -&gt; <span class="self">Self
-<a href=#215 id=215 data-nosnippet>215</a>    </span><span class="kw">where
-<a href=#216 id=216 data-nosnippet>216</a>        </span>M: toasty::schema::Model,
-<a href=#217 id=217 data-nosnippet>217</a>    {
-<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>key = Arc::new(key);
-<a href=#219 id=219 data-nosnippet>219</a>        <span class="self">Self</span>::from_keys(key.clone(), key, cols)
-<a href=#220 id=220 data-nosnippet>220</a>    }
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a>    <span class="doccomment">/// Declare a table whose display projects a non-PK value.
-<a href=#223 id=223 data-nosnippet>223</a>    ///
-<a href=#224 id=224 data-nosnippet>224</a>    /// `display` drives keyed diffs and DOM ids; `record` drives action URLs
-<a href=#225 id=225 data-nosnippet>225</a>    /// and bulk checkbox values handlers resolve as the model's typed PK
-<a href=#226 id=226 data-nosnippet>226</a>    /// (`pk_eq_expr` / `pk_in_expr` — an unparseable value 404s), so emitting
-<a href=#227 id=227 data-nosnippet>227</a>    /// a display key there 404s every delete and bulk submit.
-<a href=#228 id=228 data-nosnippet>228</a>    ///
-<a href=#229 id=229 data-nosnippet>229</a>    /// # Panics
-<a href=#230 id=230 data-nosnippet>230</a>    ///
-<a href=#231 id=231 data-nosnippet>231</a>    /// Panics on duplicate [`TextColumn::name`] and on an empty column set,
-<a href=#232 id=232 data-nosnippet>232</a>    /// like [`Self::new`].
-<a href=#233 id=233 data-nosnippet>233</a>    </span><span class="kw">pub fn </span>new_split(
-<a href=#234 id=234 data-nosnippet>234</a>        display: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; String + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#235 id=235 data-nosnippet>235</a>        record: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; String + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#236 id=236 data-nosnippet>236</a>        cols: <span class="kw">impl </span>IntoColumns&lt;M&gt;,
-<a href=#237 id=237 data-nosnippet>237</a>    ) -&gt; <span class="self">Self
-<a href=#238 id=238 data-nosnippet>238</a>    </span><span class="kw">where
-<a href=#239 id=239 data-nosnippet>239</a>        </span>M: toasty::schema::Model,
-<a href=#240 id=240 data-nosnippet>240</a>    {
-<a href=#241 id=241 data-nosnippet>241</a>        <span class="self">Self</span>::from_keys(Arc::new(display), Arc::new(record), cols)
-<a href=#242 id=242 data-nosnippet>242</a>    }
-<a href=#243 id=243 data-nosnippet>243</a>
-<a href=#244 id=244 data-nosnippet>244</a>    <span class="doccomment">/// The one constructor body: rejects duplicate column names, then builds
-<a href=#245 id=245 data-nosnippet>245</a>    /// the table around the two declared projections.
-<a href=#246 id=246 data-nosnippet>246</a>    </span><span class="kw">fn </span>from_keys(row_key: RowKey&lt;M&gt;, record_key: RowKey&lt;M&gt;, cols: <span class="kw">impl </span>IntoColumns&lt;M&gt;) -&gt; <span class="self">Self
-<a href=#247 id=247 data-nosnippet>247</a>    </span><span class="kw">where
-<a href=#248 id=248 data-nosnippet>248</a>        </span>M: toasty::schema::Model,
-<a href=#249 id=249 data-nosnippet>249</a>    {
-<a href=#250 id=250 data-nosnippet>250</a>        <span class="kw">let </span>cols = cols.into_columns();
-<a href=#251 id=251 data-nosnippet>251</a>        <span class="macro">assert!</span>(
-<a href=#252 id=252 data-nosnippet>252</a>            !cols.is_empty(),
-<a href=#253 id=253 data-nosnippet>253</a>            <span class="string">"a Table needs at least one column: declare columns with Table::new(key, columns)"
-<a href=#254 id=254 data-nosnippet>254</a>        </span>);
-<a href=#255 id=255 data-nosnippet>255</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen = std::collections::HashSet::with_capacity(cols.len());
-<a href=#256 id=256 data-nosnippet>256</a>        <span class="kw">for </span>c <span class="kw">in </span><span class="kw-2">&amp;</span>cols {
-<a href=#257 id=257 data-nosnippet>257</a>            <span class="kw">let </span>name = c.name();
-<a href=#258 id=258 data-nosnippet>258</a>            <span class="macro">assert!</span>(
-<a href=#259 id=259 data-nosnippet>259</a>                seen.insert(name),
-<a href=#260 id=260 data-nosnippet>260</a>                <span class="string">"duplicate column name '{name}': each Table column needs a distinct name (GH #156)"
-<a href=#261 id=261 data-nosnippet>261</a>            </span>);
-<a href=#262 id=262 data-nosnippet>262</a>        }
-<a href=#263 id=263 data-nosnippet>263</a>        <span class="self">Self </span>{
-<a href=#264 id=264 data-nosnippet>264</a>            columns: cols,
-<a href=#265 id=265 data-nosnippet>265</a>            filters: Vec::new(),
-<a href=#266 id=266 data-nosnippet>266</a>            group_by: <span class="prelude-val">None</span>,
-<a href=#267 id=267 data-nosnippet>267</a>            row_key,
-<a href=#268 id=268 data-nosnippet>268</a>            record_key,
-<a href=#269 id=269 data-nosnippet>269</a>            row_policy: <span class="prelude-val">None</span>,
-<a href=#270 id=270 data-nosnippet>270</a>            page_size: <span class="prelude-val">None</span>,
-<a href=#271 id=271 data-nosnippet>271</a>            search_ui: <span class="prelude-val">None</span>,
-<a href=#272 id=272 data-nosnippet>272</a>            filters_ui: <span class="prelude-val">None</span>,
-<a href=#273 id=273 data-nosnippet>273</a>            delete_prefix: <span class="prelude-val">None</span>,
-<a href=#274 id=274 data-nosnippet>274</a>            edit_prefix: <span class="prelude-val">None</span>,
-<a href=#275 id=275 data-nosnippet>275</a>            view_prefix: <span class="prelude-val">None</span>,
-<a href=#276 id=276 data-nosnippet>276</a>            bulk_delete: <span class="bool-val">false</span>,
-<a href=#277 id=277 data-nosnippet>277</a>            live_search: <span class="bool-val">false</span>,
-<a href=#278 id=278 data-nosnippet>278</a>            _marker: PhantomData,
-<a href=#279 id=279 data-nosnippet>279</a>        }
-<a href=#280 id=280 data-nosnippet>280</a>    }
-<a href=#281 id=281 data-nosnippet>281</a>
-<a href=#282 id=282 data-nosnippet>282</a>    <span class="doccomment">/// Declare the per-record action policy: which of the wired row
-<a href=#283 id=283 data-nosnippet>283</a>    /// actions each record may use.
-<a href=#284 id=284 data-nosnippet>284</a>    ///
-<a href=#285 id=285 data-nosnippet>285</a>    /// The `with_*` methods say which affordances the table declares; this says
-<a href=#286 id=286 data-nosnippet>286</a>    /// which of them a row may use. The renderer consults it per row — a denied
-<a href=#287 id=287 data-nosnippet>287</a>    /// action emits no link, and a row denied `delete` renders no bulk
-<a href=#288 id=288 data-nosnippet>288</a>    /// checkbox, so the selection transport never carries a key the handler
-<a href=#289 id=289 data-nosnippet>289</a>    /// refuses.
-<a href=#290 id=290 data-nosnippet>290</a>    ///
-<a href=#291 id=291 data-nosnippet>291</a>    /// Defaults to [`RowActions::ALL`], so a table that declares no policy
-<a href=#292 id=292 data-nosnippet>292</a>    /// renders exactly the chrome its `with_*` calls attached. The policy is
-<a href=#293 id=293 data-nosnippet>293</a>    /// consulted only where chrome is wired: a table with no action prefix
-<a href=#294 id=294 data-nosnippet>294</a>    /// never calls it, and a resource that declares no chrome keeps its list
-<a href=#295 id=295 data-nosnippet>295</a>    /// page free of per-record predicate calls.
-<a href=#296 id=296 data-nosnippet>296</a>    ///
-<a href=#297 id=297 data-nosnippet>297</a>    /// The panel wires this from
-<a href=#298 id=298 data-nosnippet>298</a>    /// [`can_view`](crate::resource::Resource::can_view) /
-<a href=#299 id=299 data-nosnippet>299</a>    /// [`can_update`](crate::resource::Resource::can_update) /
-<a href=#300 id=300 data-nosnippet>300</a>    /// [`can_delete`](crate::resource::Resource::can_delete), each action
-<a href=#301 id=301 data-nosnippet>301</a>    /// mirroring the predicates its route checks.
-<a href=#302 id=302 data-nosnippet>302</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>row_actions(
-<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw-2">mut </span><span class="self">self</span>,
-<a href=#304 id=304 data-nosnippet>304</a>        policy: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; RowActions + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#305 id=305 data-nosnippet>305</a>    ) -&gt; <span class="self">Self </span>{
-<a href=#306 id=306 data-nosnippet>306</a>        <span class="self">self</span>.row_policy = <span class="prelude-val">Some</span>(Arc::new(policy));
-<a href=#307 id=307 data-nosnippet>307</a>        <span class="self">self
-<a href=#308 id=308 data-nosnippet>308</a>    </span>}
-<a href=#309 id=309 data-nosnippet>309</a>
-<a href=#310 id=310 data-nosnippet>310</a>    <span class="doccomment">/// Declare filters. Accepts a single filter or tuple of filters.
-<a href=#311 id=311 data-nosnippet>311</a>    ///
-<a href=#312 id=312 data-nosnippet>312</a>    /// Panics on duplicate [`Filter::name`], the same fail-loud
-<a href=#313 id=313 data-nosnippet>313</a>    /// policy as [`Self::new`]: the `filters` transport is one
-<a href=#314 id=314 data-nosnippet>314</a>    /// `name:value` pair per declared filter, and `parse_filters_param` keeps
-<a href=#315 id=315 data-nosnippet>315</a>    /// the first value for a duplicated key, so two filters sharing a name
-<a href=#316 id=316 data-nosnippet>316</a>    /// would silently drop one of them.
-<a href=#317 id=317 data-nosnippet>317</a>    </span><span class="kw">pub fn </span>filters(<span class="kw-2">mut </span><span class="self">self</span>, filters: <span class="kw">impl </span>IntoFilters&lt;M&gt;) -&gt; <span class="self">Self
-<a href=#318 id=318 data-nosnippet>318</a>    </span><span class="kw">where
-<a href=#319 id=319 data-nosnippet>319</a>        </span>M: toasty::schema::Model,
-<a href=#320 id=320 data-nosnippet>320</a>    {
-<a href=#321 id=321 data-nosnippet>321</a>        <span class="kw">let </span>filters = filters.into_filters();
-<a href=#322 id=322 data-nosnippet>322</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen = std::collections::HashSet::with_capacity(filters.len());
-<a href=#323 id=323 data-nosnippet>323</a>        <span class="kw">for </span>f <span class="kw">in </span><span class="kw-2">&amp;</span>filters {
-<a href=#324 id=324 data-nosnippet>324</a>            <span class="kw">let </span>name = f.name();
-<a href=#325 id=325 data-nosnippet>325</a>            <span class="macro">assert!</span>(
-<a href=#326 id=326 data-nosnippet>326</a>                seen.insert(name),
-<a href=#327 id=327 data-nosnippet>327</a>                <span class="string">"duplicate filter name '{name}': each Table filter needs a distinct name (GH #294)"
-<a href=#328 id=328 data-nosnippet>328</a>            </span>);
-<a href=#329 id=329 data-nosnippet>329</a>        }
-<a href=#330 id=330 data-nosnippet>330</a>        <span class="self">self</span>.filters = filters;
-<a href=#331 id=331 data-nosnippet>331</a>        <span class="self">self
-<a href=#332 id=332 data-nosnippet>332</a>    </span>}
-<a href=#333 id=333 data-nosnippet>333</a>
-<a href=#334 id=334 data-nosnippet>334</a>    <span class="doccomment">/// The relations this table's columns declared their projections read,
-<a href=#335 id=335 data-nosnippet>335</a>    /// merged into one set.
-<a href=#336 id=336 data-nosnippet>336</a>    ///
-<a href=#337 id=337 data-nosnippet>337</a>    /// The export hands this to
-<a href=#338 id=338 data-nosnippet>338</a>    /// [`Resource::export_query`](super::Resource::export_query), which is
-<a href=#339 id=339 data-nosnippet>339</a>    /// the only thing that can turn a name into a typed `include(..)`. Every
-<a href=#340 id=340 data-nosnippet>340</a>    /// column is rendered — the CSV writes a cell per column — so the set is
-<a href=#341 id=341 data-nosnippet>341</a>    /// the union over all of them; a table cannot narrow its export by
-<a href=#342 id=342 data-nosnippet>342</a>    /// declaring fewer needs than its columns read, because the reading
-<a href=#343 id=343 data-nosnippet>343</a>    /// column is the one that renders.
-<a href=#344 id=344 data-nosnippet>344</a>    </span><span class="kw">pub fn </span>include_needs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">super</span>::IncludeNeeds
-<a href=#345 id=345 data-nosnippet>345</a>    <span class="kw">where
-<a href=#346 id=346 data-nosnippet>346</a>        </span>M: toasty::schema::Model,
-<a href=#347 id=347 data-nosnippet>347</a>    {
-<a href=#348 id=348 data-nosnippet>348</a>        <span class="self">self</span>.columns
-<a href=#349 id=349 data-nosnippet>349</a>            .iter()
-<a href=#350 id=350 data-nosnippet>350</a>            .flat_map(|c| c.include_names())
-<a href=#351 id=351 data-nosnippet>351</a>            .copied()
-<a href=#352 id=352 data-nosnippet>352</a>            .collect()
-<a href=#353 id=353 data-nosnippet>353</a>    }
-<a href=#354 id=354 data-nosnippet>354</a>
-<a href=#355 id=355 data-nosnippet>355</a>    <span class="doccomment">/// Filter predicate for the current `TableState` — `AND` of active filter exprs.
-<a href=#356 id=356 data-nosnippet>356</a>    </span><span class="kw">pub fn </span>filter_expr(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; <span class="prelude-ty">Option</span>&lt;Expr&lt;bool&gt;&gt;
-<a href=#357 id=357 data-nosnippet>357</a>    <span class="kw">where
-<a href=#358 id=358 data-nosnippet>358</a>        </span>M: toasty::schema::Model,
-<a href=#359 id=359 data-nosnippet>359</a>    {
-<a href=#360 id=360 data-nosnippet>360</a>        <span class="kw">let </span><span class="kw-2">mut </span>exprs = Vec::new();
-<a href=#361 id=361 data-nosnippet>361</a>        <span class="kw">for </span>f <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.filters {
-<a href=#362 id=362 data-nosnippet>362</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = state.filters.get(f.name())
-<a href=#363 id=363 data-nosnippet>363</a>                &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(e) = f.to_expr(v)
-<a href=#364 id=364 data-nosnippet>364</a>            {
-<a href=#365 id=365 data-nosnippet>365</a>                exprs.push(e);
-<a href=#366 id=366 data-nosnippet>366</a>            }
-<a href=#367 id=367 data-nosnippet>367</a>        }
-<a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">if </span>exprs.is_empty() {
-<a href=#369 id=369 data-nosnippet>369</a>            <span class="prelude-val">None
-<a href=#370 id=370 data-nosnippet>370</a>        </span>} <span class="kw">else </span>{
-<a href=#371 id=371 data-nosnippet>371</a>            <span class="comment">// `Expr::and` chain: first and all.
-<a href=#372 id=372 data-nosnippet>372</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>iter = exprs.into_iter();
-<a href=#373 id=373 data-nosnippet>373</a>            <span class="kw">let </span>first = iter.next().unwrap();
-<a href=#374 id=374 data-nosnippet>374</a>            <span class="prelude-val">Some</span>(iter.fold(first, |acc, e| acc.and(e)))
-<a href=#375 id=375 data-nosnippet>375</a>        }
-<a href=#376 id=376 data-nosnippet>376</a>    }
-<a href=#377 id=377 data-nosnippet>377</a>
-<a href=#378 id=378 data-nosnippet>378</a>    <span class="doccomment">/// Requested filters that produced no predicate: `(key:value, reason)`
-<a href=#379 id=379 data-nosnippet>379</a>    /// where reason is `"unknown filter"` (no declared filter owns the key)
-<a href=#380 id=380 data-nosnippet>380</a>    /// or `"invalid value"` (the declared filter rejected the value).
-<a href=#381 id=381 data-nosnippet>381</a>    ///
-<a href=#382 id=382 data-nosnippet>382</a>    /// Documented no-op values are exempt: `TernaryFilter`'s `all`
-<a href=#383 id=383 data-nosnippet>383</a>    /// selects no predicate by contract, so it is never flagged.
-<a href=#384 id=384 data-nosnippet>384</a>    ///
-<a href=#385 id=385 data-nosnippet>385</a>    /// An oversized `?filters=` transport arrives here as
-<a href=#386 id=386 data-nosnippet>386</a>    /// `FILTERS_OVERFLOW_SEGMENT`, reported with its own reason so
-<a href=#387 id=387 data-nosnippet>387</a>    /// the warning says the transport was refused rather than misdescribing it
-<a href=#388 id=388 data-nosnippet>388</a>    /// as malformed.
-<a href=#389 id=389 data-nosnippet>389</a>    ///
-<a href=#390 id=390 data-nosnippet>390</a>    /// The list view renders these as a `role=alert` banner and keeps a 200;
-<a href=#391 id=391 data-nosnippet>391</a>    /// the export refuses the request with 400 instead of silently
-<a href=#392 id=392 data-nosnippet>392</a>    /// over-sharing an effectively-unfiltered CSV.
-<a href=#393 id=393 data-nosnippet>393</a>    </span><span class="kw">pub fn </span>unapplied_filters(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; Vec&lt;(String, String)&gt;
-<a href=#394 id=394 data-nosnippet>394</a>    <span class="kw">where
-<a href=#395 id=395 data-nosnippet>395</a>        </span>M: toasty::schema::Model,
-<a href=#396 id=396 data-nosnippet>396</a>    {
-<a href=#397 id=397 data-nosnippet>397</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
-<a href=#398 id=398 data-nosnippet>398</a>        <span class="kw">for </span>(key, value) <span class="kw">in </span><span class="kw-2">&amp;</span>state.filters {
-<a href=#399 id=399 data-nosnippet>399</a>            <span class="kw">match </span><span class="self">self</span>.filters.iter().find(|f| f.name() == key) {
-<a href=#400 id=400 data-nosnippet>400</a>                <span class="prelude-val">None </span>=&gt; out.push((<span class="macro">format!</span>(<span class="string">"{key}:{value}"</span>), <span class="string">"unknown filter"</span>.to_string())),
-<a href=#401 id=401 data-nosnippet>401</a>                <span class="prelude-val">Some</span>(f) <span class="kw">if </span>f.to_expr(value).is_none() &amp;&amp; !f.is_noop_value(value) =&gt; {
-<a href=#402 id=402 data-nosnippet>402</a>                    out.push((<span class="macro">format!</span>(<span class="string">"{key}:{value}"</span>), <span class="string">"invalid value"</span>.to_string()))
-<a href=#403 id=403 data-nosnippet>403</a>                }
-<a href=#404 id=404 data-nosnippet>404</a>                <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {}
-<a href=#405 id=405 data-nosnippet>405</a>            }
-<a href=#406 id=406 data-nosnippet>406</a>        }
-<a href=#407 id=407 data-nosnippet>407</a>        <span class="kw">for </span>segment <span class="kw">in </span><span class="kw-2">&amp;</span>state.malformed_filters {
-<a href=#408 id=408 data-nosnippet>408</a>            <span class="kw">let </span>reason = <span class="kw">if </span>segment == <span class="kw">super</span>::state::FILTERS_OVERFLOW_SEGMENT {
-<a href=#409 id=409 data-nosnippet>409</a>                <span class="string">"too many filters: refused whole (GH #205)"
-<a href=#410 id=410 data-nosnippet>410</a>            </span>} <span class="kw">else </span>{
-<a href=#411 id=411 data-nosnippet>411</a>                <span class="string">"malformed: expected key:value"
-<a href=#412 id=412 data-nosnippet>412</a>            </span>};
-<a href=#413 id=413 data-nosnippet>413</a>            out.push((segment.clone(), reason.to_string()));
-<a href=#414 id=414 data-nosnippet>414</a>        }
-<a href=#415 id=415 data-nosnippet>415</a>        out.sort();
-<a href=#416 id=416 data-nosnippet>416</a>        out
-<a href=#417 id=417 data-nosnippet>417</a>    }
-<a href=#418 id=418 data-nosnippet>418</a>
-<a href=#419 id=419 data-nosnippet>419</a>    <span class="doccomment">/// Group rows in-memory by a named key (count summarizer). No GROUP BY SQL.
-<a href=#420 id=420 data-nosnippet>420</a>    ///
-<a href=#421 id=421 data-nosnippet>421</a>    /// `name` declares the `?group_by=` value this table accepts
-<a href=#422 id=422 data-nosnippet>422</a>    /// (e.g. `"status"`); any other value renders no group headers and is
-<a href=#423 id=423 data-nosnippet>423</a>    /// dropped from pager/sort/filter links instead of silently
-<a href=#424 id=424 data-nosnippet>424</a>    /// grouping by the single declared key. Counts are page-local.
-<a href=#425 id=425 data-nosnippet>425</a>    ///
-<a href=#426 id=426 data-nosnippet>426</a>    /// In live tables the page-load value seeds the `group_by` interaction
-<a href=#427 id=427 data-nosnippet>427</a>    /// signal and persists across in-place reruns; changing it is
-<a href=#428 id=428 data-nosnippet>428</a>    /// still a navigation (`?group_by=` links) until a live control ships.
-<a href=#429 id=429 data-nosnippet>429</a>    </span><span class="kw">pub fn </span>group_by(
-<a href=#430 id=430 data-nosnippet>430</a>        <span class="kw-2">mut </span><span class="self">self</span>,
-<a href=#431 id=431 data-nosnippet>431</a>        name: <span class="kw">impl </span>Into&lt;String&gt;,
-<a href=#432 id=432 data-nosnippet>432</a>        key: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; String + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#433 id=433 data-nosnippet>433</a>    ) -&gt; <span class="self">Self </span>{
-<a href=#434 id=434 data-nosnippet>434</a>        <span class="self">self</span>.group_by = <span class="prelude-val">Some</span>(GroupDef {
-<a href=#435 id=435 data-nosnippet>435</a>            name: name.into(),
-<a href=#436 id=436 data-nosnippet>436</a>            key: Arc::new(key),
-<a href=#437 id=437 data-nosnippet>437</a>        });
-<a href=#438 id=438 data-nosnippet>438</a>        <span class="self">self
-<a href=#439 id=439 data-nosnippet>439</a>    </span>}
-<a href=#440 id=440 data-nosnippet>440</a>
-<a href=#441 id=441 data-nosnippet>441</a>    <span class="doccomment">/// The declared grouping iff `state.group_by` names it.
-<a href=#442 id=442 data-nosnippet>442</a>    </span><span class="kw">fn </span>effective_group_key(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; <span class="prelude-ty">Option</span>&lt;GroupKey&lt;M&gt;&gt; {
-<a href=#443 id=443 data-nosnippet>443</a>        <span class="kw">match </span>(<span class="kw-2">&amp;</span><span class="self">self</span>.group_by, <span class="kw-2">&amp;</span>state.group_by) {
-<a href=#444 id=444 data-nosnippet>444</a>            (<span class="prelude-val">Some</span>(def), <span class="prelude-val">Some</span>(want)) <span class="kw">if </span>def.name == <span class="kw-2">*</span>want =&gt; <span class="prelude-val">Some</span>(def.key.clone()),
-<a href=#445 id=445 data-nosnippet>445</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#446 id=446 data-nosnippet>446</a>        }
-<a href=#447 id=447 data-nosnippet>447</a>    }
-<a href=#448 id=448 data-nosnippet>448</a>
-<a href=#449 id=449 data-nosnippet>449</a>    <span class="doccomment">/// Normalize `state.group_by` against the declared grouping (GH #92, GH
-<a href=#450 id=450 data-nosnippet>450</a>    /// #153): an unknown `?group_by=` value renders no group headers and is
-<a href=#451 id=451 data-nosnippet>451</a>    /// dropped from every link instead of round-tripping.
-<a href=#452 id=452 data-nosnippet>452</a>    ///
-<a href=#453 id=453 data-nosnippet>453</a>    /// The request entry normalizes **once** and every render seam below takes
-<a href=#454 id=454 data-nosnippet>454</a>    /// the proof ([`NormalizedState`]): the panel's list page and the
-<a href=#455 id=455 data-nosnippet>455</a>    /// `table_search` shard normalize at the point they parse the state, and
-<a href=#456 id=456 data-nosnippet>456</a>    /// pass the result down, so a live list request normalizes once instead of
-<a href=#457 id=457 data-nosnippet>457</a>    /// once per seam. The public seams still normalize their own
-<a href=#458 id=458 data-nosnippet>458</a>    /// `&amp;TableState` argument, so a page calling them directly keeps the GH
-<a href=#459 id=459 data-nosnippet>459</a>    /// #153 guarantee without knowing about this type.
-<a href=#460 id=460 data-nosnippet>460</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>normalize_state(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; NormalizedState {
-<a href=#461 id=461 data-nosnippet>461</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = state.clone();
-<a href=#462 id=462 data-nosnippet>462</a>        <span class="kw">if </span><span class="self">self</span>.group_by.as_ref().map(|def| def.name.as_str()) != out.group_by.as_deref() {
-<a href=#463 id=463 data-nosnippet>463</a>            out.group_by = <span class="prelude-val">None</span>;
-<a href=#464 id=464 data-nosnippet>464</a>        }
-<a href=#465 id=465 data-nosnippet>465</a>        NormalizedState(out)
-<a href=#466 id=466 data-nosnippet>466</a>    }
-<a href=#467 id=467 data-nosnippet>467</a>
-<a href=#468 id=468 data-nosnippet>468</a>    <span class="doccomment">/// Enable real cursor pagination with the given page size.
-<a href=#469 id=469 data-nosnippet>469</a>    ///
-<a href=#470 id=470 data-nosnippet>470</a>    /// Loaders pair this with toasty's `.paginate(per_page)` (via
-<a href=#471 id=471 data-nosnippet>471</a>    /// [`TablePage::from_toasty_page`]); the render then shows Previous/Next
-<a href=#472 id=472 data-nosnippet>472</a>    /// links built from the executed page's cursors — never fake page
-<a href=#473 id=473 data-nosnippet>473</a>    /// numbers. Also implies a deterministic PK ordering when the table
-<a href=#474 id=474 data-nosnippet>474</a>    /// declares no sortable column (see [`Self::order_bys_for`]).
-<a href=#475 id=475 data-nosnippet>475</a>    ///
-<a href=#476 id=476 data-nosnippet>476</a>    /// A zero page size is a programmer error: it fails loudly at render/load
-<a href=#477 id=477 data-nosnippet>477</a>    /// time with a descriptive error, never a bare panic.
-<a href=#478 id=478 data-nosnippet>478</a>    </span><span class="kw">pub fn </span>paginate(<span class="kw-2">mut </span><span class="self">self</span>, per_page: usize) -&gt; <span class="self">Self </span>{
-<a href=#479 id=479 data-nosnippet>479</a>        <span class="self">self</span>.page_size = <span class="prelude-val">Some</span>(per_page);
-<a href=#480 id=480 data-nosnippet>480</a>        <span class="self">self
-<a href=#481 id=481 data-nosnippet>481</a>    </span>}
-<a href=#482 id=482 data-nosnippet>482</a>
-<a href=#483 id=483 data-nosnippet>483</a>    <span class="doccomment">/// Whether the page size was declared via [`Self::paginate`].
-<a href=#484 id=484 data-nosnippet>484</a>    </span><span class="kw">pub fn </span>page_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-<a href=#485 id=485 data-nosnippet>485</a>        <span class="self">self</span>.page_size
+<a href=#209 id=209 data-nosnippet>209</a>    /// # Panics
+<a href=#210 id=210 data-nosnippet>210</a>    ///
+<a href=#211 id=211 data-nosnippet>211</a>    /// Panics on duplicate [`TextColumn::name`] and on an empty column set,
+<a href=#212 id=212 data-nosnippet>212</a>    /// like [`Self::new`].
+<a href=#213 id=213 data-nosnippet>213</a>    </span><span class="kw">pub fn </span>new_split(
+<a href=#214 id=214 data-nosnippet>214</a>        display: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; String + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#215 id=215 data-nosnippet>215</a>        record: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; String + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#216 id=216 data-nosnippet>216</a>        cols: <span class="kw">impl </span>IntoColumns&lt;M&gt;,
+<a href=#217 id=217 data-nosnippet>217</a>    ) -&gt; <span class="self">Self
+<a href=#218 id=218 data-nosnippet>218</a>    </span><span class="kw">where
+<a href=#219 id=219 data-nosnippet>219</a>        </span>M: toasty::schema::Model,
+<a href=#220 id=220 data-nosnippet>220</a>    {
+<a href=#221 id=221 data-nosnippet>221</a>        <span class="self">Self</span>::from_keys(Arc::new(display), Arc::new(record), cols)
+<a href=#222 id=222 data-nosnippet>222</a>    }
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a>    <span class="doccomment">/// The record key of `record`: the model's primary key as the action URLs
+<a href=#225 id=225 data-nosnippet>225</a>    /// carry it.
+<a href=#226 id=226 data-nosnippet>226</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>record_key_of(<span class="kw-2">&amp;</span><span class="self">self</span>, record: <span class="kw-2">&amp;</span>M) -&gt; String {
+<a href=#227 id=227 data-nosnippet>227</a>        (<span class="self">self</span>.record_key)(record)
+<a href=#228 id=228 data-nosnippet>228</a>    }
+<a href=#229 id=229 data-nosnippet>229</a>
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="doccomment">/// The one constructor body: rejects duplicate column names, then builds
+<a href=#231 id=231 data-nosnippet>231</a>    /// the table around the two declared projections.
+<a href=#232 id=232 data-nosnippet>232</a>    </span><span class="kw">fn </span>from_keys(row_key: RowKey&lt;M&gt;, record_key: RowKey&lt;M&gt;, cols: <span class="kw">impl </span>IntoColumns&lt;M&gt;) -&gt; <span class="self">Self
+<a href=#233 id=233 data-nosnippet>233</a>    </span><span class="kw">where
+<a href=#234 id=234 data-nosnippet>234</a>        </span>M: toasty::schema::Model,
+<a href=#235 id=235 data-nosnippet>235</a>    {
+<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">let </span>cols = cols.into_columns();
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="macro">assert!</span>(
+<a href=#238 id=238 data-nosnippet>238</a>            !cols.is_empty(),
+<a href=#239 id=239 data-nosnippet>239</a>            <span class="string">"a Table needs at least one column: declare columns with Table::new(key, columns)"
+<a href=#240 id=240 data-nosnippet>240</a>        </span>);
+<a href=#241 id=241 data-nosnippet>241</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen = std::collections::HashSet::with_capacity(cols.len());
+<a href=#242 id=242 data-nosnippet>242</a>        <span class="kw">for </span>c <span class="kw">in </span><span class="kw-2">&amp;</span>cols {
+<a href=#243 id=243 data-nosnippet>243</a>            <span class="kw">let </span>name = c.name();
+<a href=#244 id=244 data-nosnippet>244</a>            <span class="macro">assert!</span>(
+<a href=#245 id=245 data-nosnippet>245</a>                seen.insert(name),
+<a href=#246 id=246 data-nosnippet>246</a>                <span class="string">"duplicate column name '{name}': each Table column needs a distinct name (GH #156)"
+<a href=#247 id=247 data-nosnippet>247</a>            </span>);
+<a href=#248 id=248 data-nosnippet>248</a>        }
+<a href=#249 id=249 data-nosnippet>249</a>        <span class="self">Self </span>{
+<a href=#250 id=250 data-nosnippet>250</a>            columns: cols,
+<a href=#251 id=251 data-nosnippet>251</a>            filters: Vec::new(),
+<a href=#252 id=252 data-nosnippet>252</a>            group_by: <span class="prelude-val">None</span>,
+<a href=#253 id=253 data-nosnippet>253</a>            row_key,
+<a href=#254 id=254 data-nosnippet>254</a>            record_key,
+<a href=#255 id=255 data-nosnippet>255</a>            row_policy: <span class="prelude-val">None</span>,
+<a href=#256 id=256 data-nosnippet>256</a>            page_size: DEFAULT_PAGE_SIZE,
+<a href=#257 id=257 data-nosnippet>257</a>            hide_search: <span class="bool-val">false</span>,
+<a href=#258 id=258 data-nosnippet>258</a>            hide_filter_bar: <span class="bool-val">false</span>,
+<a href=#259 id=259 data-nosnippet>259</a>            delete_prefix: <span class="prelude-val">None</span>,
+<a href=#260 id=260 data-nosnippet>260</a>            edit_prefix: <span class="prelude-val">None</span>,
+<a href=#261 id=261 data-nosnippet>261</a>            view_prefix: <span class="prelude-val">None</span>,
+<a href=#262 id=262 data-nosnippet>262</a>            bulk_delete: <span class="bool-val">false</span>,
+<a href=#263 id=263 data-nosnippet>263</a>            live_search: <span class="bool-val">false</span>,
+<a href=#264 id=264 data-nosnippet>264</a>            _marker: PhantomData,
+<a href=#265 id=265 data-nosnippet>265</a>        }
+<a href=#266 id=266 data-nosnippet>266</a>    }
+<a href=#267 id=267 data-nosnippet>267</a>
+<a href=#268 id=268 data-nosnippet>268</a>    <span class="doccomment">/// Declare the per-record action policy: which of the wired row
+<a href=#269 id=269 data-nosnippet>269</a>    /// actions each record may use.
+<a href=#270 id=270 data-nosnippet>270</a>    ///
+<a href=#271 id=271 data-nosnippet>271</a>    /// The `with_*` methods say which affordances the table declares; this says
+<a href=#272 id=272 data-nosnippet>272</a>    /// which of them a row may use. The renderer consults it per row — a denied
+<a href=#273 id=273 data-nosnippet>273</a>    /// action emits no link, and a row denied `delete` renders no bulk
+<a href=#274 id=274 data-nosnippet>274</a>    /// checkbox, so the selection transport never carries a key the handler
+<a href=#275 id=275 data-nosnippet>275</a>    /// refuses.
+<a href=#276 id=276 data-nosnippet>276</a>    ///
+<a href=#277 id=277 data-nosnippet>277</a>    /// Defaults to [`RowActions::ALL`], so a table that declares no policy
+<a href=#278 id=278 data-nosnippet>278</a>    /// renders exactly the chrome its `with_*` calls attached. The policy is
+<a href=#279 id=279 data-nosnippet>279</a>    /// consulted only where chrome is wired: a table with no action prefix
+<a href=#280 id=280 data-nosnippet>280</a>    /// never calls it, and a resource that declares no chrome keeps its list
+<a href=#281 id=281 data-nosnippet>281</a>    /// page free of per-record predicate calls.
+<a href=#282 id=282 data-nosnippet>282</a>    ///
+<a href=#283 id=283 data-nosnippet>283</a>    /// The panel wires this from
+<a href=#284 id=284 data-nosnippet>284</a>    /// [`can_view`](crate::resource::Resource::can_view) /
+<a href=#285 id=285 data-nosnippet>285</a>    /// [`can_update`](crate::resource::Resource::can_update) /
+<a href=#286 id=286 data-nosnippet>286</a>    /// [`can_delete`](crate::resource::Resource::can_delete), each action
+<a href=#287 id=287 data-nosnippet>287</a>    /// mirroring the predicates its route checks.
+<a href=#288 id=288 data-nosnippet>288</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>row_actions(
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="kw-2">mut </span><span class="self">self</span>,
+<a href=#290 id=290 data-nosnippet>290</a>        policy: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; RowActions + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#291 id=291 data-nosnippet>291</a>    ) -&gt; <span class="self">Self </span>{
+<a href=#292 id=292 data-nosnippet>292</a>        <span class="self">self</span>.row_policy = <span class="prelude-val">Some</span>(Arc::new(policy));
+<a href=#293 id=293 data-nosnippet>293</a>        <span class="self">self
+<a href=#294 id=294 data-nosnippet>294</a>    </span>}
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>    <span class="doccomment">/// Declare filters. Accepts a single filter or tuple of filters.
+<a href=#297 id=297 data-nosnippet>297</a>    ///
+<a href=#298 id=298 data-nosnippet>298</a>    /// Panics on duplicate [`Filter::name`], the same fail-loud
+<a href=#299 id=299 data-nosnippet>299</a>    /// policy as [`Self::new`]: the `filters` transport is one
+<a href=#300 id=300 data-nosnippet>300</a>    /// `name:value` pair per declared filter, and `parse_filters_param` keeps
+<a href=#301 id=301 data-nosnippet>301</a>    /// the first value for a duplicated key, so two filters sharing a name
+<a href=#302 id=302 data-nosnippet>302</a>    /// would silently drop one of them.
+<a href=#303 id=303 data-nosnippet>303</a>    </span><span class="kw">pub fn </span>filters(<span class="kw-2">mut </span><span class="self">self</span>, filters: <span class="kw">impl </span>IntoFilters&lt;M&gt;) -&gt; <span class="self">Self
+<a href=#304 id=304 data-nosnippet>304</a>    </span><span class="kw">where
+<a href=#305 id=305 data-nosnippet>305</a>        </span>M: toasty::schema::Model,
+<a href=#306 id=306 data-nosnippet>306</a>    {
+<a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">let </span>filters = filters.into_filters();
+<a href=#308 id=308 data-nosnippet>308</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen = std::collections::HashSet::with_capacity(filters.len());
+<a href=#309 id=309 data-nosnippet>309</a>        <span class="kw">for </span>f <span class="kw">in </span><span class="kw-2">&amp;</span>filters {
+<a href=#310 id=310 data-nosnippet>310</a>            <span class="kw">let </span>name = f.name();
+<a href=#311 id=311 data-nosnippet>311</a>            <span class="macro">assert!</span>(
+<a href=#312 id=312 data-nosnippet>312</a>                seen.insert(name),
+<a href=#313 id=313 data-nosnippet>313</a>                <span class="string">"duplicate filter name '{name}': each Table filter needs a distinct name (GH #294)"
+<a href=#314 id=314 data-nosnippet>314</a>            </span>);
+<a href=#315 id=315 data-nosnippet>315</a>        }
+<a href=#316 id=316 data-nosnippet>316</a>        <span class="self">self</span>.filters = filters;
+<a href=#317 id=317 data-nosnippet>317</a>        <span class="self">self
+<a href=#318 id=318 data-nosnippet>318</a>    </span>}
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="doccomment">/// The relations this table's columns declared their projections read,
+<a href=#321 id=321 data-nosnippet>321</a>    /// merged into one set.
+<a href=#322 id=322 data-nosnippet>322</a>    ///
+<a href=#323 id=323 data-nosnippet>323</a>    /// The export hands this to
+<a href=#324 id=324 data-nosnippet>324</a>    /// [`Resource::export_query`](super::Resource::export_query), which is
+<a href=#325 id=325 data-nosnippet>325</a>    /// the only thing that can turn a name into a typed `include(..)`. Every
+<a href=#326 id=326 data-nosnippet>326</a>    /// column is rendered — the CSV writes a cell per column — so the set is
+<a href=#327 id=327 data-nosnippet>327</a>    /// the union over all of them; a table cannot narrow its export by
+<a href=#328 id=328 data-nosnippet>328</a>    /// declaring fewer needs than its columns read, because the reading
+<a href=#329 id=329 data-nosnippet>329</a>    /// column is the one that renders.
+<a href=#330 id=330 data-nosnippet>330</a>    </span><span class="kw">pub fn </span>include_needs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">super</span>::IncludeNeeds
+<a href=#331 id=331 data-nosnippet>331</a>    <span class="kw">where
+<a href=#332 id=332 data-nosnippet>332</a>        </span>M: toasty::schema::Model,
+<a href=#333 id=333 data-nosnippet>333</a>    {
+<a href=#334 id=334 data-nosnippet>334</a>        <span class="self">self</span>.columns
+<a href=#335 id=335 data-nosnippet>335</a>            .iter()
+<a href=#336 id=336 data-nosnippet>336</a>            .flat_map(|c| c.include_names())
+<a href=#337 id=337 data-nosnippet>337</a>            .copied()
+<a href=#338 id=338 data-nosnippet>338</a>            .collect()
+<a href=#339 id=339 data-nosnippet>339</a>    }
+<a href=#340 id=340 data-nosnippet>340</a>
+<a href=#341 id=341 data-nosnippet>341</a>    <span class="doccomment">/// Filter predicate for the current `TableState` — `AND` of active filter exprs.
+<a href=#342 id=342 data-nosnippet>342</a>    </span><span class="kw">pub fn </span>filter_expr(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; <span class="prelude-ty">Option</span>&lt;Expr&lt;bool&gt;&gt;
+<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">where
+<a href=#344 id=344 data-nosnippet>344</a>        </span>M: toasty::schema::Model,
+<a href=#345 id=345 data-nosnippet>345</a>    {
+<a href=#346 id=346 data-nosnippet>346</a>        <span class="kw">let </span><span class="kw-2">mut </span>exprs = Vec::new();
+<a href=#347 id=347 data-nosnippet>347</a>        <span class="kw">for </span>f <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.filters {
+<a href=#348 id=348 data-nosnippet>348</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = state.filters.get(f.name())
+<a href=#349 id=349 data-nosnippet>349</a>                &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(e) = f.to_expr(v)
+<a href=#350 id=350 data-nosnippet>350</a>            {
+<a href=#351 id=351 data-nosnippet>351</a>                exprs.push(e);
+<a href=#352 id=352 data-nosnippet>352</a>            }
+<a href=#353 id=353 data-nosnippet>353</a>        }
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="kw">if </span>exprs.is_empty() {
+<a href=#355 id=355 data-nosnippet>355</a>            <span class="prelude-val">None
+<a href=#356 id=356 data-nosnippet>356</a>        </span>} <span class="kw">else </span>{
+<a href=#357 id=357 data-nosnippet>357</a>            <span class="comment">// `Expr::and` chain: first and all.
+<a href=#358 id=358 data-nosnippet>358</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>iter = exprs.into_iter();
+<a href=#359 id=359 data-nosnippet>359</a>            <span class="kw">let </span>first = iter.next().unwrap();
+<a href=#360 id=360 data-nosnippet>360</a>            <span class="prelude-val">Some</span>(iter.fold(first, |acc, e| acc.and(e)))
+<a href=#361 id=361 data-nosnippet>361</a>        }
+<a href=#362 id=362 data-nosnippet>362</a>    }
+<a href=#363 id=363 data-nosnippet>363</a>
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="doccomment">/// Requested filters that produced no predicate: `(key:value, reason)`
+<a href=#365 id=365 data-nosnippet>365</a>    /// where reason is `"unknown filter"` (no declared filter owns the key)
+<a href=#366 id=366 data-nosnippet>366</a>    /// or `"invalid value"` (the declared filter rejected the value).
+<a href=#367 id=367 data-nosnippet>367</a>    ///
+<a href=#368 id=368 data-nosnippet>368</a>    /// Documented no-op values are exempt: `TernaryFilter`'s `all`
+<a href=#369 id=369 data-nosnippet>369</a>    /// selects no predicate by contract, so it is never flagged.
+<a href=#370 id=370 data-nosnippet>370</a>    ///
+<a href=#371 id=371 data-nosnippet>371</a>    /// An oversized `?filters=` transport arrives here as
+<a href=#372 id=372 data-nosnippet>372</a>    /// `FILTERS_OVERFLOW_SEGMENT`, reported with its own reason so
+<a href=#373 id=373 data-nosnippet>373</a>    /// the warning says the transport was refused rather than misdescribing it
+<a href=#374 id=374 data-nosnippet>374</a>    /// as malformed.
+<a href=#375 id=375 data-nosnippet>375</a>    ///
+<a href=#376 id=376 data-nosnippet>376</a>    /// The list view renders these as a `role=alert` banner and keeps a 200;
+<a href=#377 id=377 data-nosnippet>377</a>    /// the export refuses the request with 400 instead of silently
+<a href=#378 id=378 data-nosnippet>378</a>    /// over-sharing an effectively-unfiltered CSV.
+<a href=#379 id=379 data-nosnippet>379</a>    </span><span class="kw">pub fn </span>unapplied_filters(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; Vec&lt;(String, String)&gt;
+<a href=#380 id=380 data-nosnippet>380</a>    <span class="kw">where
+<a href=#381 id=381 data-nosnippet>381</a>        </span>M: toasty::schema::Model,
+<a href=#382 id=382 data-nosnippet>382</a>    {
+<a href=#383 id=383 data-nosnippet>383</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">for </span>(key, value) <span class="kw">in </span><span class="kw-2">&amp;</span>state.filters {
+<a href=#385 id=385 data-nosnippet>385</a>            <span class="kw">match </span><span class="self">self</span>.filters.iter().find(|f| f.name() == key) {
+<a href=#386 id=386 data-nosnippet>386</a>                <span class="prelude-val">None </span>=&gt; out.push((<span class="macro">format!</span>(<span class="string">"{key}:{value}"</span>), <span class="string">"unknown filter"</span>.to_string())),
+<a href=#387 id=387 data-nosnippet>387</a>                <span class="prelude-val">Some</span>(f) <span class="kw">if </span>f.to_expr(value).is_none() &amp;&amp; !f.is_noop_value(value) =&gt; {
+<a href=#388 id=388 data-nosnippet>388</a>                    out.push((<span class="macro">format!</span>(<span class="string">"{key}:{value}"</span>), <span class="string">"invalid value"</span>.to_string()))
+<a href=#389 id=389 data-nosnippet>389</a>                }
+<a href=#390 id=390 data-nosnippet>390</a>                <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {}
+<a href=#391 id=391 data-nosnippet>391</a>            }
+<a href=#392 id=392 data-nosnippet>392</a>        }
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">for </span>segment <span class="kw">in </span><span class="kw-2">&amp;</span>state.malformed_filters {
+<a href=#394 id=394 data-nosnippet>394</a>            <span class="kw">let </span>reason = <span class="kw">if </span>segment == <span class="kw">super</span>::state::FILTERS_OVERFLOW_SEGMENT {
+<a href=#395 id=395 data-nosnippet>395</a>                <span class="string">"too many filters: refused whole (GH #205)"
+<a href=#396 id=396 data-nosnippet>396</a>            </span>} <span class="kw">else </span>{
+<a href=#397 id=397 data-nosnippet>397</a>                <span class="string">"malformed: expected key:value"
+<a href=#398 id=398 data-nosnippet>398</a>            </span>};
+<a href=#399 id=399 data-nosnippet>399</a>            out.push((segment.clone(), reason.to_string()));
+<a href=#400 id=400 data-nosnippet>400</a>        }
+<a href=#401 id=401 data-nosnippet>401</a>        out.sort();
+<a href=#402 id=402 data-nosnippet>402</a>        out
+<a href=#403 id=403 data-nosnippet>403</a>    }
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>    <span class="doccomment">/// Group rows in-memory by a named key (count summarizer). No GROUP BY SQL.
+<a href=#406 id=406 data-nosnippet>406</a>    ///
+<a href=#407 id=407 data-nosnippet>407</a>    /// `name` declares the `?group_by=` value this table accepts
+<a href=#408 id=408 data-nosnippet>408</a>    /// (e.g. `"status"`); any other value renders no group headers and is
+<a href=#409 id=409 data-nosnippet>409</a>    /// dropped from pager/sort/filter links instead of silently
+<a href=#410 id=410 data-nosnippet>410</a>    /// grouping by the single declared key. Counts are page-local.
+<a href=#411 id=411 data-nosnippet>411</a>    ///
+<a href=#412 id=412 data-nosnippet>412</a>    /// In live tables the page-load value seeds the `group_by` interaction
+<a href=#413 id=413 data-nosnippet>413</a>    /// signal and persists across in-place reruns; changing it is
+<a href=#414 id=414 data-nosnippet>414</a>    /// still a navigation (`?group_by=` links) until a live control ships.
+<a href=#415 id=415 data-nosnippet>415</a>    </span><span class="kw">pub fn </span>group_by(
+<a href=#416 id=416 data-nosnippet>416</a>        <span class="kw-2">mut </span><span class="self">self</span>,
+<a href=#417 id=417 data-nosnippet>417</a>        name: <span class="kw">impl </span>Into&lt;String&gt;,
+<a href=#418 id=418 data-nosnippet>418</a>        key: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>M) -&gt; String + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#419 id=419 data-nosnippet>419</a>    ) -&gt; <span class="self">Self </span>{
+<a href=#420 id=420 data-nosnippet>420</a>        <span class="self">self</span>.group_by = <span class="prelude-val">Some</span>(GroupDef {
+<a href=#421 id=421 data-nosnippet>421</a>            name: name.into(),
+<a href=#422 id=422 data-nosnippet>422</a>            key: Arc::new(key),
+<a href=#423 id=423 data-nosnippet>423</a>        });
+<a href=#424 id=424 data-nosnippet>424</a>        <span class="self">self
+<a href=#425 id=425 data-nosnippet>425</a>    </span>}
+<a href=#426 id=426 data-nosnippet>426</a>
+<a href=#427 id=427 data-nosnippet>427</a>    <span class="doccomment">/// The declared grouping iff `state.group_by` names it.
+<a href=#428 id=428 data-nosnippet>428</a>    </span><span class="kw">fn </span>effective_group_key(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; <span class="prelude-ty">Option</span>&lt;GroupKey&lt;M&gt;&gt; {
+<a href=#429 id=429 data-nosnippet>429</a>        <span class="kw">match </span>(<span class="kw-2">&amp;</span><span class="self">self</span>.group_by, <span class="kw-2">&amp;</span>state.group_by) {
+<a href=#430 id=430 data-nosnippet>430</a>            (<span class="prelude-val">Some</span>(def), <span class="prelude-val">Some</span>(want)) <span class="kw">if </span>def.name == <span class="kw-2">*</span>want =&gt; <span class="prelude-val">Some</span>(def.key.clone()),
+<a href=#431 id=431 data-nosnippet>431</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#432 id=432 data-nosnippet>432</a>        }
+<a href=#433 id=433 data-nosnippet>433</a>    }
+<a href=#434 id=434 data-nosnippet>434</a>
+<a href=#435 id=435 data-nosnippet>435</a>    <span class="doccomment">/// Normalize `state.group_by` against the declared grouping (GH #92, GH
+<a href=#436 id=436 data-nosnippet>436</a>    /// #153): an unknown `?group_by=` value renders no group headers and is
+<a href=#437 id=437 data-nosnippet>437</a>    /// dropped from every link instead of round-tripping.
+<a href=#438 id=438 data-nosnippet>438</a>    ///
+<a href=#439 id=439 data-nosnippet>439</a>    /// The request entry normalizes **once** and every render seam below takes
+<a href=#440 id=440 data-nosnippet>440</a>    /// the proof ([`NormalizedState`]): the panel's list page and the
+<a href=#441 id=441 data-nosnippet>441</a>    /// `table_search` shard normalize at the point they parse the state, and
+<a href=#442 id=442 data-nosnippet>442</a>    /// pass the result down, so a live list request normalizes once instead of
+<a href=#443 id=443 data-nosnippet>443</a>    /// once per seam. The public seams still normalize their own
+<a href=#444 id=444 data-nosnippet>444</a>    /// `&amp;TableState` argument, so a page calling them directly keeps the GH
+<a href=#445 id=445 data-nosnippet>445</a>    /// #153 guarantee without knowing about this type.
+<a href=#446 id=446 data-nosnippet>446</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>normalize_state(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; NormalizedState {
+<a href=#447 id=447 data-nosnippet>447</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = state.clone();
+<a href=#448 id=448 data-nosnippet>448</a>        <span class="kw">if </span><span class="self">self</span>.group_by.as_ref().map(|def| def.name.as_str()) != out.group_by.as_deref() {
+<a href=#449 id=449 data-nosnippet>449</a>            out.group_by = <span class="prelude-val">None</span>;
+<a href=#450 id=450 data-nosnippet>450</a>        }
+<a href=#451 id=451 data-nosnippet>451</a>        NormalizedState(out)
+<a href=#452 id=452 data-nosnippet>452</a>    }
+<a href=#453 id=453 data-nosnippet>453</a>
+<a href=#454 id=454 data-nosnippet>454</a>    <span class="doccomment">/// Set the page size. Every table paginates with cursor pagination, at
+<a href=#455 id=455 data-nosnippet>455</a>    /// [`DEFAULT_PAGE_SIZE`] rows unless it declares otherwise; the render
+<a href=#456 id=456 data-nosnippet>456</a>    /// shows Previous/Next links built from the executed page's cursors, never
+<a href=#457 id=457 data-nosnippet>457</a>    /// page numbers.
+<a href=#458 id=458 data-nosnippet>458</a>    ///
+<a href=#459 id=459 data-nosnippet>459</a>    /// # Panics
+<a href=#460 id=460 data-nosnippet>460</a>    ///
+<a href=#461 id=461 data-nosnippet>461</a>    /// Panics on zero, like the other misdeclarations [`Self::new`] refuses: a
+<a href=#462 id=462 data-nosnippet>462</a>    /// page of no rows is a programmer error, and [`Panel::build`] calls the
+<a href=#463 id=463 data-nosnippet>463</a>    /// table declaration, so it surfaces at boot.
+<a href=#464 id=464 data-nosnippet>464</a>    ///
+<a href=#465 id=465 data-nosnippet>465</a>    /// [`Panel::build`]: crate::panel::Panel::build
+<a href=#466 id=466 data-nosnippet>466</a>    </span><span class="kw">pub fn </span>paginate(<span class="kw-2">mut </span><span class="self">self</span>, per_page: usize) -&gt; <span class="self">Self </span>{
+<a href=#467 id=467 data-nosnippet>467</a>        <span class="self">self</span>.page_size = NonZeroUsize::new(per_page)
+<a href=#468 id=468 data-nosnippet>468</a>            .expect(<span class="string">"Table::paginate: a page size must be at least 1 (GH #96)"</span>);
+<a href=#469 id=469 data-nosnippet>469</a>        <span class="self">self
+<a href=#470 id=470 data-nosnippet>470</a>    </span>}
+<a href=#471 id=471 data-nosnippet>471</a>
+<a href=#472 id=472 data-nosnippet>472</a>    <span class="doccomment">/// The page size: [`DEFAULT_PAGE_SIZE`] unless [`Self::paginate`] set one.
+<a href=#473 id=473 data-nosnippet>473</a>    </span><span class="kw">pub fn </span>page_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href=#474 id=474 data-nosnippet>474</a>        <span class="self">self</span>.page_size.get()
+<a href=#475 id=475 data-nosnippet>475</a>    }
+<a href=#476 id=476 data-nosnippet>476</a>
+<a href=#477 id=477 data-nosnippet>477</a>    <span class="doccomment">/// Which row actions `record` allows: the panel-wired policy, or
+<a href=#478 id=478 data-nosnippet>478</a>    /// [`RowActions::ALL`] when the table declares none.
+<a href=#479 id=479 data-nosnippet>479</a>    ///
+<a href=#480 id=480 data-nosnippet>480</a>    /// The renderer reads this per row to decide the View/Edit/Delete links and
+<a href=#481 id=481 data-nosnippet>481</a>    /// whether the bulk checkbox is enabled.
+<a href=#482 id=482 data-nosnippet>482</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>actions_for(<span class="kw-2">&amp;</span><span class="self">self</span>, record: <span class="kw-2">&amp;</span>M) -&gt; RowActions {
+<a href=#483 id=483 data-nosnippet>483</a>        <span class="self">self</span>.row_policy
+<a href=#484 id=484 data-nosnippet>484</a>            .as_ref()
+<a href=#485 id=485 data-nosnippet>485</a>            .map_or(RowActions::ALL, |policy| policy(record))
 <a href=#486 id=486 data-nosnippet>486</a>    }
 <a href=#487 id=487 data-nosnippet>487</a>
-<a href=#488 id=488 data-nosnippet>488</a>    <span class="doccomment">/// Which row actions `record` allows: the panel-wired policy, or
-<a href=#489 id=489 data-nosnippet>489</a>    /// [`RowActions::ALL`] when the table declares none.
-<a href=#490 id=490 data-nosnippet>490</a>    ///
-<a href=#491 id=491 data-nosnippet>491</a>    /// The renderer reads this per row to decide the View/Edit/Delete links and
-<a href=#492 id=492 data-nosnippet>492</a>    /// whether the bulk checkbox is enabled.
-<a href=#493 id=493 data-nosnippet>493</a>    </span><span class="kw">pub fn </span>actions_for(<span class="kw-2">&amp;</span><span class="self">self</span>, record: <span class="kw-2">&amp;</span>M) -&gt; RowActions {
-<a href=#494 id=494 data-nosnippet>494</a>        <span class="self">self</span>.row_policy
-<a href=#495 id=495 data-nosnippet>495</a>            .as_ref()
-<a href=#496 id=496 data-nosnippet>496</a>            .map_or(RowActions::ALL, |policy| policy(record))
-<a href=#497 id=497 data-nosnippet>497</a>    }
-<a href=#498 id=498 data-nosnippet>498</a>
-<a href=#499 id=499 data-nosnippet>499</a>    <span class="doccomment">/// Force the search toolbar on or off.
-<a href=#500 id=500 data-nosnippet>500</a>    ///
-<a href=#501 id=501 data-nosnippet>501</a>    /// Defaults to showing the toolbar whenever at least one column is
-<a href=#502 id=502 data-nosnippet>502</a>    /// `searchable()`, so the toolbar and the query stay in step.
-<a href=#503 id=503 data-nosnippet>503</a>    </span><span class="kw">pub fn </span>search(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
-<a href=#504 id=504 data-nosnippet>504</a>        <span class="self">self</span>.search_ui = <span class="prelude-val">Some</span>(enabled);
-<a href=#505 id=505 data-nosnippet>505</a>        <span class="self">self
-<a href=#506 id=506 data-nosnippet>506</a>    </span>}
-<a href=#507 id=507 data-nosnippet>507</a>
-<a href=#508 id=508 data-nosnippet>508</a>    <span class="doccomment">/// Force the filter bar on or off.
-<a href=#509 id=509 data-nosnippet>509</a>    ///
-<a href=#510 id=510 data-nosnippet>510</a>    /// Defaults to showing the bar whenever the table declares filters. The
-<a href=#511 id=511 data-nosnippet>511</a>    /// live list hoists the bar out of the swapped table and turns it off here
-<a href=#512 id=512 data-nosnippet>512</a>    /// mirroring how `search(false)` hands the search toolbar to the
-<a href=#513 id=513 data-nosnippet>513</a>    /// page: a `&lt;select&gt;` that is rebuilt by its own rerun loses focus and
-<a href=#514 id=514 data-nosnippet>514</a>    /// collapses its native popup.
-<a href=#515 id=515 data-nosnippet>515</a>    </span><span class="kw">pub fn </span>filter_bar(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
-<a href=#516 id=516 data-nosnippet>516</a>        <span class="self">self</span>.filters_ui = <span class="prelude-val">Some</span>(enabled);
-<a href=#517 id=517 data-nosnippet>517</a>        <span class="self">self
-<a href=#518 id=518 data-nosnippet>518</a>    </span>}
-<a href=#519 id=519 data-nosnippet>519</a>
-<a href=#520 id=520 data-nosnippet>520</a>    <span class="doccomment">/// Keystroke-live search via the `table_search` shard.
-<a href=#521 id=521 data-nosnippet>521</a>    ///
-<a href=#522 id=522 data-nosnippet>522</a>    /// When enabled, the toolbar renders a signal-backed input that
-<a href=#523 id=523 data-nosnippet>523</a>    /// re-renders the table after a short keystroke-quiet delay (GH #172,
-<a href=#524 id=524 data-nosnippet>524</a>    /// `LIVE_SEARCH_DEBOUNCE_MS`), morphing in place so focus
-<a href=#525 id=525 data-nosnippet>525</a>    /// and typing survive, instead of a GET submit. The `?q=` GET form stays
-<a href=#526 id=526 data-nosnippet>526</a>    /// inside `&lt;noscript&gt;` as the no-JS fallback. Opt-in per resource; the
-<a href=#527 id=527 data-nosnippet>527</a>    /// shard authorizes itself (`can_view_any` + the tenant-scoped query,
-<a href=#528 id=528 data-nosnippet>528</a>    /// GH #223) and every arg is validated like the GET path.
-<a href=#529 id=529 data-nosnippet>529</a>    /// Per-row `can_view` is not applied here, matching the list page:
-<a href=#530 id=530 data-nosnippet>530</a>    /// page-local row filtering would mislabel pagination, so row scoping
-<a href=#531 id=531 data-nosnippet>531</a>    /// belongs in `Resource::query`, inside that scope.
-<a href=#532 id=532 data-nosnippet>532</a>    /// Note: Topcoat coalesces same-tick keystrokes and aborts in-flight
-<a href=#533 id=533 data-nosnippet>533</a>    /// reruns (latest wins); the time-based debounce above composes with
-<a href=#534 id=534 data-nosnippet>534</a>    /// that (delayed writes rerun normally).
-<a href=#535 id=535 data-nosnippet>535</a>    </span><span class="kw">pub fn </span>live_search(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
-<a href=#536 id=536 data-nosnippet>536</a>        <span class="self">self</span>.live_search = enabled;
-<a href=#537 id=537 data-nosnippet>537</a>        <span class="self">self
-<a href=#538 id=538 data-nosnippet>538</a>    </span>}
-<a href=#539 id=539 data-nosnippet>539</a>
-<a href=#540 id=540 data-nosnippet>540</a>    <span class="doccomment">/// Enable row-level `Delete` action. When set, each row renders a
-<a href=#541 id=541 data-nosnippet>541</a>    /// `Delete` button that POSTs to `{prefix}/{id}/delete` with
-<a href=#542 id=542 data-nosnippet>542</a>    /// `requires_confirmation` semantics. `{id}` is the record key
-<a href=#543 id=543 data-nosnippet>543</a>    /// (handlers resolve it as the typed PK).
-<a href=#544 id=544 data-nosnippet>544</a>    ///
-<a href=#545 id=545 data-nosnippet>545</a>    /// The action is gated per record by the panel-wired row policy: a row
-<a href=#546 id=546 data-nosnippet>546</a>    /// the policy denies renders no `Delete` link and no bulk checkbox,
-<a href=#547 id=547 data-nosnippet>547</a>    /// matching the handler's `can_view` + `can_delete` check.
-<a href=#548 id=548 data-nosnippet>548</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_delete(<span class="kw-2">mut </span><span class="self">self</span>, prefix: String) -&gt; <span class="self">Self </span>{
-<a href=#549 id=549 data-nosnippet>549</a>        <span class="self">self</span>.delete_prefix = <span class="prelude-val">Some</span>(prefix);
-<a href=#550 id=550 data-nosnippet>550</a>        <span class="self">self
-<a href=#551 id=551 data-nosnippet>551</a>    </span>}
-<a href=#552 id=552 data-nosnippet>552</a>
-<a href=#553 id=553 data-nosnippet>553</a>    <span class="doccomment">/// Enable row-level `Edit` action. When set, each row renders
-<a href=#554 id=554 data-nosnippet>554</a>    /// an `Edit` link to `{prefix}/{id}/edit` (Filament's `recordActions`
-<a href=#555 id=555 data-nosnippet>555</a>    /// `EditAction`, same last-column slot as `Delete`). `{id}` is the
-<a href=#556 id=556 data-nosnippet>556</a>    /// record key.
-<a href=#557 id=557 data-nosnippet>557</a>    ///
-<a href=#558 id=558 data-nosnippet>558</a>    /// The action is gated per record by the panel-wired row policy: a row
-<a href=#559 id=559 data-nosnippet>559</a>    /// the policy denies renders no `Edit` link, matching the edit route's
-<a href=#560 id=560 data-nosnippet>560</a>    /// `can_view` + `can_update` check. The list still renders every row —
-<a href=#561 id=561 data-nosnippet>561</a>    /// `can_view` stays out of the query, so pagination is not mislabelled.
-<a href=#562 id=562 data-nosnippet>562</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_edit(<span class="kw-2">mut </span><span class="self">self</span>, prefix: String) -&gt; <span class="self">Self </span>{
-<a href=#563 id=563 data-nosnippet>563</a>        <span class="self">self</span>.edit_prefix = <span class="prelude-val">Some</span>(prefix);
-<a href=#564 id=564 data-nosnippet>564</a>        <span class="self">self
-<a href=#565 id=565 data-nosnippet>565</a>    </span>}
-<a href=#566 id=566 data-nosnippet>566</a>
-<a href=#567 id=567 data-nosnippet>567</a>    <span class="doccomment">/// Enable the row-level `View` action. When set, each row renders
-<a href=#568 id=568 data-nosnippet>568</a>    /// a `View` link to `{prefix}/{id}` — the detail page — in the same
-<a href=#569 id=569 data-nosnippet>569</a>    /// last-column slot as `Edit` and `Delete`. `{id}` is the record key,
-<a href=#570 id=570 data-nosnippet>570</a>    /// like the edit URL.
-<a href=#571 id=571 data-nosnippet>571</a>    ///
-<a href=#572 id=572 data-nosnippet>572</a>    /// The caller sets this only for a resource that declares a detail page
-<a href=#573 id=573 data-nosnippet>573</a>    /// ([`Resource::viewed`](crate::resource::Resource::viewed)), so a resource
-<a href=#574 id=574 data-nosnippet>574</a>    /// with no view renders no link instead of one that 404s. The action is
-<a href=#575 id=575 data-nosnippet>575</a>    /// gated per record by the panel-wired row policy: a row the policy
-<a href=#576 id=576 data-nosnippet>576</a>    /// denies renders no `View` link, matching the detail route's `can_view`.
-<a href=#577 id=577 data-nosnippet>577</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_view(<span class="kw-2">mut </span><span class="self">self</span>, prefix: String) -&gt; <span class="self">Self </span>{
-<a href=#578 id=578 data-nosnippet>578</a>        <span class="self">self</span>.view_prefix = <span class="prelude-val">Some</span>(prefix);
+<a href=#488 id=488 data-nosnippet>488</a>    <span class="doccomment">/// Render no search toolbar in the table.
+<a href=#489 id=489 data-nosnippet>489</a>    ///
+<a href=#490 id=490 data-nosnippet>490</a>    /// The toolbar shows whenever at least one column is `searchable()`, so the
+<a href=#491 id=491 data-nosnippet>491</a>    /// toolbar and the query stay in step. The live list hides it here and
+<a href=#492 id=492 data-nosnippet>492</a>    /// renders its own above the swapped region.
+<a href=#493 id=493 data-nosnippet>493</a>    </span><span class="kw">pub fn </span>hide_search(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#494 id=494 data-nosnippet>494</a>        <span class="self">self</span>.hide_search = <span class="bool-val">true</span>;
+<a href=#495 id=495 data-nosnippet>495</a>        <span class="self">self
+<a href=#496 id=496 data-nosnippet>496</a>    </span>}
+<a href=#497 id=497 data-nosnippet>497</a>
+<a href=#498 id=498 data-nosnippet>498</a>    <span class="doccomment">/// Render no filter bar in the table.
+<a href=#499 id=499 data-nosnippet>499</a>    ///
+<a href=#500 id=500 data-nosnippet>500</a>    /// The bar shows whenever the table declares filters. The live list hoists
+<a href=#501 id=501 data-nosnippet>501</a>    /// the bar out of the swapped table and hides it here, as it does the
+<a href=#502 id=502 data-nosnippet>502</a>    /// search toolbar: a `&lt;select&gt;` that is rebuilt by its own rerun loses
+<a href=#503 id=503 data-nosnippet>503</a>    /// focus and collapses its native popup.
+<a href=#504 id=504 data-nosnippet>504</a>    </span><span class="kw">pub fn </span>hide_filter_bar(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#505 id=505 data-nosnippet>505</a>        <span class="self">self</span>.hide_filter_bar = <span class="bool-val">true</span>;
+<a href=#506 id=506 data-nosnippet>506</a>        <span class="self">self
+<a href=#507 id=507 data-nosnippet>507</a>    </span>}
+<a href=#508 id=508 data-nosnippet>508</a>
+<a href=#509 id=509 data-nosnippet>509</a>    <span class="doccomment">/// Keystroke-live search via the `table_search` shard.
+<a href=#510 id=510 data-nosnippet>510</a>    ///
+<a href=#511 id=511 data-nosnippet>511</a>    /// The toolbar renders a signal-backed input that
+<a href=#512 id=512 data-nosnippet>512</a>    /// re-renders the table after a short keystroke-quiet delay (GH #172,
+<a href=#513 id=513 data-nosnippet>513</a>    /// `LIVE_SEARCH_DEBOUNCE_MS`), morphing in place so focus
+<a href=#514 id=514 data-nosnippet>514</a>    /// and typing survive, instead of a GET submit. The `?q=` GET form stays
+<a href=#515 id=515 data-nosnippet>515</a>    /// inside `&lt;noscript&gt;` as the no-JS fallback. Opt-in per resource; the
+<a href=#516 id=516 data-nosnippet>516</a>    /// shard authorizes itself (`can_view_any` + the tenant-scoped query,
+<a href=#517 id=517 data-nosnippet>517</a>    /// GH #223) and every arg is validated like the GET path.
+<a href=#518 id=518 data-nosnippet>518</a>    /// Per-row `can_view` is not applied here, matching the list page:
+<a href=#519 id=519 data-nosnippet>519</a>    /// page-local row filtering would mislabel pagination, so row scoping
+<a href=#520 id=520 data-nosnippet>520</a>    /// belongs in `Resource::query`, inside that scope.
+<a href=#521 id=521 data-nosnippet>521</a>    /// Note: Topcoat coalesces same-tick keystrokes and aborts in-flight
+<a href=#522 id=522 data-nosnippet>522</a>    /// reruns (latest wins); the time-based debounce above composes with
+<a href=#523 id=523 data-nosnippet>523</a>    /// that (delayed writes rerun normally).
+<a href=#524 id=524 data-nosnippet>524</a>    </span><span class="kw">pub fn </span>live_search(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#525 id=525 data-nosnippet>525</a>        <span class="self">self</span>.live_search = <span class="bool-val">true</span>;
+<a href=#526 id=526 data-nosnippet>526</a>        <span class="self">self
+<a href=#527 id=527 data-nosnippet>527</a>    </span>}
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a>    <span class="doccomment">/// Enable row-level `Delete` action. When set, each row renders a
+<a href=#530 id=530 data-nosnippet>530</a>    /// `Delete` button that POSTs to `{prefix}/{id}/delete` with
+<a href=#531 id=531 data-nosnippet>531</a>    /// `requires_confirmation` semantics. `{id}` is the record key
+<a href=#532 id=532 data-nosnippet>532</a>    /// (handlers resolve it as the typed PK).
+<a href=#533 id=533 data-nosnippet>533</a>    ///
+<a href=#534 id=534 data-nosnippet>534</a>    /// The action is gated per record by the panel-wired row policy: a row
+<a href=#535 id=535 data-nosnippet>535</a>    /// the policy denies renders no `Delete` link and no bulk checkbox,
+<a href=#536 id=536 data-nosnippet>536</a>    /// matching the handler's `can_view` + `can_delete` check.
+<a href=#537 id=537 data-nosnippet>537</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_delete(<span class="kw-2">mut </span><span class="self">self</span>, prefix: String) -&gt; <span class="self">Self </span>{
+<a href=#538 id=538 data-nosnippet>538</a>        <span class="self">self</span>.delete_prefix = <span class="prelude-val">Some</span>(prefix);
+<a href=#539 id=539 data-nosnippet>539</a>        <span class="self">self
+<a href=#540 id=540 data-nosnippet>540</a>    </span>}
+<a href=#541 id=541 data-nosnippet>541</a>
+<a href=#542 id=542 data-nosnippet>542</a>    <span class="doccomment">/// Enable row-level `Edit` action. When set, each row renders
+<a href=#543 id=543 data-nosnippet>543</a>    /// an `Edit` link to `{prefix}/{id}/edit` (Filament's `recordActions`
+<a href=#544 id=544 data-nosnippet>544</a>    /// `EditAction`, same last-column slot as `Delete`). `{id}` is the
+<a href=#545 id=545 data-nosnippet>545</a>    /// record key.
+<a href=#546 id=546 data-nosnippet>546</a>    ///
+<a href=#547 id=547 data-nosnippet>547</a>    /// The action is gated per record by the panel-wired row policy: a row
+<a href=#548 id=548 data-nosnippet>548</a>    /// the policy denies renders no `Edit` link, matching the edit route's
+<a href=#549 id=549 data-nosnippet>549</a>    /// `can_view` + `can_update` check. The list still renders every row —
+<a href=#550 id=550 data-nosnippet>550</a>    /// `can_view` stays out of the query, so pagination is not mislabelled.
+<a href=#551 id=551 data-nosnippet>551</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_edit(<span class="kw-2">mut </span><span class="self">self</span>, prefix: String) -&gt; <span class="self">Self </span>{
+<a href=#552 id=552 data-nosnippet>552</a>        <span class="self">self</span>.edit_prefix = <span class="prelude-val">Some</span>(prefix);
+<a href=#553 id=553 data-nosnippet>553</a>        <span class="self">self
+<a href=#554 id=554 data-nosnippet>554</a>    </span>}
+<a href=#555 id=555 data-nosnippet>555</a>
+<a href=#556 id=556 data-nosnippet>556</a>    <span class="doccomment">/// Enable the row-level `View` action. When set, each row renders
+<a href=#557 id=557 data-nosnippet>557</a>    /// a `View` link to `{prefix}/{id}` — the detail page — in the same
+<a href=#558 id=558 data-nosnippet>558</a>    /// last-column slot as `Edit` and `Delete`. `{id}` is the record key,
+<a href=#559 id=559 data-nosnippet>559</a>    /// like the edit URL.
+<a href=#560 id=560 data-nosnippet>560</a>    ///
+<a href=#561 id=561 data-nosnippet>561</a>    /// The caller sets this only for a resource that declares a detail page
+<a href=#562 id=562 data-nosnippet>562</a>    /// ([`Resource::viewed`](crate::resource::Resource::viewed)), so a resource
+<a href=#563 id=563 data-nosnippet>563</a>    /// with no view renders no link instead of one that 404s. The action is
+<a href=#564 id=564 data-nosnippet>564</a>    /// gated per record by the panel-wired row policy: a row the policy
+<a href=#565 id=565 data-nosnippet>565</a>    /// denies renders no `View` link, matching the detail route's `can_view`.
+<a href=#566 id=566 data-nosnippet>566</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_view(<span class="kw-2">mut </span><span class="self">self</span>, prefix: String) -&gt; <span class="self">Self </span>{
+<a href=#567 id=567 data-nosnippet>567</a>        <span class="self">self</span>.view_prefix = <span class="prelude-val">Some</span>(prefix);
+<a href=#568 id=568 data-nosnippet>568</a>        <span class="self">self
+<a href=#569 id=569 data-nosnippet>569</a>    </span>}
+<a href=#570 id=570 data-nosnippet>570</a>
+<a href=#571 id=571 data-nosnippet>571</a>    <span class="doccomment">/// Enable bulk selection with `BulkDelete` action. Checkbox values are
+<a href=#572 id=572 data-nosnippet>572</a>    /// the record keys (handlers resolve them as typed PKs).
+<a href=#573 id=573 data-nosnippet>573</a>    ///
+<a href=#574 id=574 data-nosnippet>574</a>    /// A row the panel-wired row policy denies `delete` renders no
+<a href=#575 id=575 data-nosnippet>575</a>    /// checkbox, so select-all never submits a batch the handler's
+<a href=#576 id=576 data-nosnippet>576</a>    /// all-or-nothing check refuses.
+<a href=#577 id=577 data-nosnippet>577</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_bulk_delete(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
+<a href=#578 id=578 data-nosnippet>578</a>        <span class="self">self</span>.bulk_delete = enabled;
 <a href=#579 id=579 data-nosnippet>579</a>        <span class="self">self
 <a href=#580 id=580 data-nosnippet>580</a>    </span>}
 <a href=#581 id=581 data-nosnippet>581</a>
-<a href=#582 id=582 data-nosnippet>582</a>    <span class="doccomment">/// Enable bulk selection with `BulkDelete` action. Checkbox values are
-<a href=#583 id=583 data-nosnippet>583</a>    /// the record keys (handlers resolve them as typed PKs).
-<a href=#584 id=584 data-nosnippet>584</a>    ///
-<a href=#585 id=585 data-nosnippet>585</a>    /// A row the panel-wired row policy denies `delete` renders no
-<a href=#586 id=586 data-nosnippet>586</a>    /// checkbox, so select-all never submits a batch the handler's
-<a href=#587 id=587 data-nosnippet>587</a>    /// all-or-nothing check refuses.
-<a href=#588 id=588 data-nosnippet>588</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_bulk_delete(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
-<a href=#589 id=589 data-nosnippet>589</a>        <span class="self">self</span>.bulk_delete = enabled;
-<a href=#590 id=590 data-nosnippet>590</a>        <span class="self">self
-<a href=#591 id=591 data-nosnippet>591</a>    </span>}
-<a href=#592 id=592 data-nosnippet>592</a>
-<a href=#593 id=593 data-nosnippet>593</a>    <span class="doccomment">/// Whether the bulk checkbox column renders: bulk selection plus a delete
-<a href=#594 id=594 data-nosnippet>594</a>    /// prefix to post to.
-<a href=#595 id=595 data-nosnippet>595</a>    </span><span class="kw">fn </span>bulk_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#596 id=596 data-nosnippet>596</a>        <span class="self">self</span>.bulk_delete &amp;&amp; <span class="self">self</span>.delete_prefix.is_some()
-<a href=#597 id=597 data-nosnippet>597</a>    }
-<a href=#598 id=598 data-nosnippet>598</a>
-<a href=#599 id=599 data-nosnippet>599</a>    <span class="doccomment">/// Global search predicate — OR across searchable columns.
-<a href=#600 id=600 data-nosnippet>600</a>    ///
-<a href=#601 id=601 data-nosnippet>601</a>    /// Substring match (`?q=` anywhere in the value), escaped so a term
-<a href=#602 id=602 data-nosnippet>602</a>    /// containing `%` or `_` stays literal; see
-<a href=#603 id=603 data-nosnippet>603</a>    /// [`TextColumn::to_search_expr`](crate::resource::TextColumn::to_search_expr)
-<a href=#604 id=604 data-nosnippet>604</a>    /// for the driver case-sensitivity caveat.
-<a href=#605 id=605 data-nosnippet>605</a>    </span><span class="kw">pub fn </span>search_expr(<span class="kw-2">&amp;</span><span class="self">self</span>, term: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Expr&lt;bool&gt;&gt;
-<a href=#606 id=606 data-nosnippet>606</a>    <span class="kw">where
-<a href=#607 id=607 data-nosnippet>607</a>        </span>M: toasty::schema::Model,
-<a href=#608 id=608 data-nosnippet>608</a>    {
-<a href=#609 id=609 data-nosnippet>609</a>        <span class="kw">let </span>t = term.trim();
-<a href=#610 id=610 data-nosnippet>610</a>        <span class="kw">if </span>t.is_empty() {
-<a href=#611 id=611 data-nosnippet>611</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#612 id=612 data-nosnippet>612</a>        }
-<a href=#613 id=613 data-nosnippet>613</a>        <span class="kw">let </span><span class="kw-2">mut </span>exprs = <span class="self">self</span>.columns.iter().filter_map(|c| c.to_search_expr(t));
-<a href=#614 id=614 data-nosnippet>614</a>        <span class="kw">let </span>first = exprs.next()<span class="question-mark">?</span>;
-<a href=#615 id=615 data-nosnippet>615</a>        <span class="prelude-val">Some</span>(exprs.fold(first, |acc, e| acc.or(e)))
-<a href=#616 id=616 data-nosnippet>616</a>    }
-<a href=#617 id=617 data-nosnippet>617</a>
-<a href=#618 id=618 data-nosnippet>618</a>    <span class="doccomment">/// First sortable column's order_by. Cursor determinism needs no
-<a href=#619 id=619 data-nosnippet>619</a>    /// app-level tie-breaker: toasty's engine appends the physical PK columns
-<a href=#620 id=620 data-nosnippet>620</a>    /// to ambiguous cursor orderings internally (`normalize_cursor_order`,
-<a href=#621 id=621 data-nosnippet>621</a>    /// tokio-rs/toasty#1142), so page contents are deterministic on SQL
-<a href=#622 id=622 data-nosnippet>622</a>    /// backends without Tablo's help.
-<a href=#623 id=623 data-nosnippet>623</a>    </span><span class="kw">pub fn </span>order_by(<span class="kw-2">&amp;</span><span class="self">self</span>, descending: bool) -&gt; <span class="prelude-ty">Option</span>&lt;OrderByExpr&gt;
-<a href=#624 id=624 data-nosnippet>624</a>    <span class="kw">where
-<a href=#625 id=625 data-nosnippet>625</a>        </span>M: toasty::schema::Model,
-<a href=#626 id=626 data-nosnippet>626</a>    {
-<a href=#627 id=627 data-nosnippet>627</a>        <span class="self">self</span>.columns.iter().find_map(|c| c.to_order_by(descending))
-<a href=#628 id=628 data-nosnippet>628</a>    }
-<a href=#629 id=629 data-nosnippet>629</a>
-<a href=#630 id=630 data-nosnippet>630</a>    <span class="doccomment">/// Order-bys over the model's primary key (asc, in declared order) —
-<a href=#631 id=631 data-nosnippet>631</a>    /// built through the public facade (`Model::path_field` + `Path::asc`),
-<a href=#632 id=632 data-nosnippet>632</a>    /// no `toasty_core` needed.
-<a href=#633 id=633 data-nosnippet>633</a>    ///
-<a href=#634 id=634 data-nosnippet>634</a>    /// Used only when a table declares no sortable column at all: toasty's
-<a href=#635 id=635 data-nosnippet>635</a>    /// planner requires an `ORDER BY` for cursor pagination and its
-<a href=#636 id=636 data-nosnippet>636</a>    /// normalization only extends a non-empty ordering, so the PK order must
-<a href=#637 id=637 data-nosnippet>637</a>    /// be declared app-side in that one case.
-<a href=#638 id=638 data-nosnippet>638</a>    ///
-<a href=#639 id=639 data-nosnippet>639</a>    /// # Panics
-<a href=#640 id=640 data-nosnippet>640</a>    ///
-<a href=#641 id=641 data-nosnippet>641</a>    /// Never panics: a non-root model has no primary key, so this returns
-<a href=#642 id=642 data-nosnippet>642</a>    /// empty (and debug-asserts) instead of panicking per request —
-<a href=#643 id=643 data-nosnippet>643</a>    /// the engine then reports its descriptive "requires an ORDER BY" error
-<a href=#644 id=644 data-nosnippet>644</a>    /// at load.
-<a href=#645 id=645 data-nosnippet>645</a>    </span><span class="kw">fn </span>pk_order_bys() -&gt; Vec&lt;OrderByExpr&gt;
-<a href=#646 id=646 data-nosnippet>646</a>    <span class="kw">where
-<a href=#647 id=647 data-nosnippet>647</a>        </span>M: toasty::schema::Model,
-<a href=#648 id=648 data-nosnippet>648</a>    {
-<a href=#649 id=649 data-nosnippet>649</a>        <span class="kw">let </span>app_model = M::schema();
-<a href=#650 id=650 data-nosnippet>650</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(root) = app_model.as_root() <span class="kw">else </span>{
-<a href=#651 id=651 data-nosnippet>651</a>            <span class="macro">debug_assert!</span>(
-<a href=#652 id=652 data-nosnippet>652</a>                <span class="bool-val">false</span>,
-<a href=#653 id=653 data-nosnippet>653</a>                <span class="string">"pk_order_bys: {} is not a root model; deterministic pagination needs its primary key"</span>,
-<a href=#654 id=654 data-nosnippet>654</a>                std::any::type_name::&lt;M&gt;()
-<a href=#655 id=655 data-nosnippet>655</a>            );
-<a href=#656 id=656 data-nosnippet>656</a>            <span class="kw">return </span>Vec::new();
-<a href=#657 id=657 data-nosnippet>657</a>        };
-<a href=#658 id=658 data-nosnippet>658</a>        root.primary_key
-<a href=#659 id=659 data-nosnippet>659</a>            .fields
-<a href=#660 id=660 data-nosnippet>660</a>            .iter()
-<a href=#661 id=661 data-nosnippet>661</a>            .map(|fid| M::path_field::&lt;toasty::stmt::Value&gt;(fid.index).asc())
-<a href=#662 id=662 data-nosnippet>662</a>            .collect()
-<a href=#663 id=663 data-nosnippet>663</a>    }
-<a href=#664 id=664 data-nosnippet>664</a>
-<a href=#665 id=665 data-nosnippet>665</a>    <span class="doccomment">/// Resolve the full query ordering for a request.
-<a href=#666 id=666 data-nosnippet>666</a>    ///
-<a href=#667 id=667 data-nosnippet>667</a>    /// Single source of truth for loaders, render and the export:
-<a href=#668 id=668 data-nosnippet>668</a>    /// 1. `?sort=&lt;column&gt;&amp;dir=asc|desc` when `&lt;column&gt;` names a declared sortable column — that
-<a href=#669 id=669 data-nosnippet>669</a>    ///    column's direction (toasty appends the PK tie-breakers internally, see
-<a href=#670 id=670 data-nosnippet>670</a>    ///    [`Self::order_by`]);
-<a href=#671 id=671 data-nosnippet>671</a>    /// 2. otherwise the declared default (first sortable column asc);
-<a href=#672 id=672 data-nosnippet>672</a>    /// 3. otherwise, when `mode` asks for it, the PK alone — cursor pagination requires a
-<a href=#673 id=673 data-nosnippet>673</a>    ///    deterministic order even with no sortable column, and toasty only *extends* an existing
-<a href=#674 id=674 data-nosnippet>674</a>    ///    non-empty ordering.
-<a href=#675 id=675 data-nosnippet>675</a>    ///
-<a href=#676 id=676 data-nosnippet>676</a>    /// Loaders that also need the search term parse the state once with
-<a href=#677 id=677 data-nosnippet>677</a>    /// [`TableState::from_cx`] and apply the declaration through
-<a href=#678 id=678 data-nosnippet>678</a>    /// `Self::apply_declaration` (see `crate::panel::Panel`'s generic
-<a href=#679 id=679 data-nosnippet>679</a>    /// resource list handler).
-<a href=#680 id=680 data-nosnippet>680</a>    </span><span class="kw">pub fn </span>order_bys_for(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState, mode: OrderMode) -&gt; Vec&lt;OrderByExpr&gt;
-<a href=#681 id=681 data-nosnippet>681</a>    <span class="kw">where
-<a href=#682 id=682 data-nosnippet>682</a>        </span>M: toasty::schema::Model,
-<a href=#683 id=683 data-nosnippet>683</a>    {
-<a href=#684 id=684 data-nosnippet>684</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(sort) = <span class="kw-2">&amp;</span>state.sort
-<a href=#685 id=685 data-nosnippet>685</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(col) = <span class="self">self
-<a href=#686 id=686 data-nosnippet>686</a>                </span>.columns
-<a href=#687 id=687 data-nosnippet>687</a>                .iter()
-<a href=#688 id=688 data-nosnippet>688</a>                .find(|c| c.is_sortable() &amp;&amp; c.name() == sort.column)
-<a href=#689 id=689 data-nosnippet>689</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(ord) = col.to_order_by(sort.descending)
-<a href=#690 id=690 data-nosnippet>690</a>        {
-<a href=#691 id=691 data-nosnippet>691</a>            <span class="kw">return </span><span class="macro">vec!</span>[ord];
-<a href=#692 id=692 data-nosnippet>692</a>        }
-<a href=#693 id=693 data-nosnippet>693</a>        <span class="kw">let </span>out: Vec&lt;OrderByExpr&gt; = <span class="self">self</span>.order_by(<span class="bool-val">false</span>).into_iter().collect();
-<a href=#694 id=694 data-nosnippet>694</a>        <span class="kw">if </span>out.is_empty() &amp;&amp; mode.falls_back_to_pk(<span class="self">self</span>.page_size.is_some()) {
-<a href=#695 id=695 data-nosnippet>695</a>            <span class="kw">return </span><span class="self">Self</span>::pk_order_bys();
-<a href=#696 id=696 data-nosnippet>696</a>        }
-<a href=#697 id=697 data-nosnippet>697</a>        out
-<a href=#698 id=698 data-nosnippet>698</a>    }
-<a href=#699 id=699 data-nosnippet>699</a>
-<a href=#700 id=700 data-nosnippet>700</a>    <span class="doccomment">/// Apply this table's declaration to `query` — the one routine that turns
-<a href=#701 id=701 data-nosnippet>701</a>    /// the search term, the filters and the ordering into a query.
-<a href=#702 id=702 data-nosnippet>702</a>    ///
-<a href=#703 id=703 data-nosnippet>703</a>    /// `query` is the caller's seed, which is the one thing the two loaders
-<a href=#704 id=704 data-nosnippet>704</a>    /// legitimately differ on: the list loads the tenant-scoped
-<a href=#705 id=705 data-nosnippet>705</a>    /// [`Resource::query`](crate::resource::Resource::query) (the row-scoping
-<a href=#706 id=706 data-nosnippet>706</a>    /// seam, ADR-0002) while the export loads the tenant-scoped
-<a href=#707 id=707 data-nosnippet>707</a>    /// [`Resource::export_query`](crate::resource::Resource::export_query),
-<a href=#708 id=708 data-nosnippet>708</a>    /// narrowed to the relations the rendered columns declared.
-<a href=#709 id=709 data-nosnippet>709</a>    /// `mode` picks the ordering fallback each caller needs.
-<a href=#710 id=710 data-nosnippet>710</a>    ///
-<a href=#711 id=711 data-nosnippet>711</a>    /// Everything else is shared, so a new search or filter dimension cannot
-<a href=#712 id=712 data-nosnippet>712</a>    /// reach the list and miss the CSV — the drift class GH #172 fixed.
-<a href=#713 id=713 data-nosnippet>713</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>apply_declaration(
-<a href=#714 id=714 data-nosnippet>714</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#715 id=715 data-nosnippet>715</a>        <span class="kw-2">mut </span>query: toasty::stmt::Query&lt;List&lt;M&gt;&gt;,
-<a href=#716 id=716 data-nosnippet>716</a>        state: <span class="kw-2">&amp;</span>TableState,
-<a href=#717 id=717 data-nosnippet>717</a>        mode: OrderMode,
-<a href=#718 id=718 data-nosnippet>718</a>    ) -&gt; toasty::stmt::Query&lt;List&lt;M&gt;&gt;
-<a href=#719 id=719 data-nosnippet>719</a>    <span class="kw">where
-<a href=#720 id=720 data-nosnippet>720</a>        </span>M: toasty::schema::Model,
-<a href=#721 id=721 data-nosnippet>721</a>    {
-<a href=#722 id=722 data-nosnippet>722</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(term) = <span class="kw-2">&amp;</span>state.search
-<a href=#723 id=723 data-nosnippet>723</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(expr) = <span class="self">self</span>.search_expr(term)
-<a href=#724 id=724 data-nosnippet>724</a>        {
-<a href=#725 id=725 data-nosnippet>725</a>            query = query.filter(expr);
-<a href=#726 id=726 data-nosnippet>726</a>        }
-<a href=#727 id=727 data-nosnippet>727</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(expr) = <span class="self">self</span>.filter_expr(state) {
-<a href=#728 id=728 data-nosnippet>728</a>            query = query.filter(expr);
-<a href=#729 id=729 data-nosnippet>729</a>        }
-<a href=#730 id=730 data-nosnippet>730</a>        <span class="kw">for </span>ord <span class="kw">in </span><span class="self">self</span>.order_bys_for(state, mode) {
-<a href=#731 id=731 data-nosnippet>731</a>            query = query.order_by(ord);
-<a href=#732 id=732 data-nosnippet>732</a>        }
-<a href=#733 id=733 data-nosnippet>733</a>        query
-<a href=#734 id=734 data-nosnippet>734</a>    }
-<a href=#735 id=735 data-nosnippet>735</a>
-<a href=#736 id=736 data-nosnippet>736</a>    <span class="doccomment">/// Resolve and execute this table's query for `state` — search, filters,
-<a href=#737 id=737 data-nosnippet>737</a>    /// ordering, and cursor pagination — and return the rows.
-<a href=#738 id=738 data-nosnippet>738</a>    ///
-<a href=#739 id=739 data-nosnippet>739</a>    /// The loader half of the live-table seam (GH #154 §2): a page that owns
-<a href=#740 id=740 data-nosnippet>740</a>    /// its own table can hand its shard a query and this
-<a href=#741 id=741 data-nosnippet>741</a>    /// hook applies the same declaration pipeline `panel::load_table_page`
-<a href=#742 id=742 data-nosnippet>742</a>    /// applies to the tenant-scoped `Resource::query`, so a
-<a href=#743 id=743 data-nosnippet>743</a>    /// page-level shard does not
-<a href=#744 id=744 data-nosnippet>744</a>    /// reimplement filtering, ordering, or cursor validation. The table such a
-<a href=#745 id=745 data-nosnippet>745</a>    /// page serves comes from
-<a href=#746 id=746 data-nosnippet>746</a>    /// [`panel::wired_table`](crate::panel::wired_table), which carries the
-<a href=#747 id=747 data-nosnippet>747</a>    /// resource's action chrome.
-<a href=#748 id=748 data-nosnippet>748</a>    ///
-<a href=#749 id=749 data-nosnippet>749</a>    /// The cursor-existence probes reuse `query`, so they pay the query's
-<a href=#750 id=750 data-nosnippet>750</a>    /// relation includes. The panel's resource-list loader seeds them from a
-<a href=#751 id=751 data-nosnippet>751</a>    /// narrower query with the same scope and no includes; this entry point has
-<a href=#752 id=752 data-nosnippet>752</a>    /// no such seed, so its probes carry the query's includes.
-<a href=#753 id=753 data-nosnippet>753</a>    </span><span class="kw">pub async fn </span>load(
-<a href=#754 id=754 data-nosnippet>754</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#755 id=755 data-nosnippet>755</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#756 id=756 data-nosnippet>756</a>        query: toasty::stmt::Query&lt;List&lt;M&gt;&gt;,
-<a href=#757 id=757 data-nosnippet>757</a>        state: <span class="kw-2">&amp;</span>TableState,
-<a href=#758 id=758 data-nosnippet>758</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;M&gt;&gt;
-<a href=#759 id=759 data-nosnippet>759</a>    <span class="kw">where
-<a href=#760 id=760 data-nosnippet>760</a>        </span>M: toasty::schema::Model + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#761 id=761 data-nosnippet>761</a>    {
-<a href=#762 id=762 data-nosnippet>762</a>        <span class="self">self</span>.load_with_probe(cx, query.clone(), query, state).<span class="kw">await
-<a href=#763 id=763 data-nosnippet>763</a>    </span>}
-<a href=#764 id=764 data-nosnippet>764</a>
-<a href=#765 id=765 data-nosnippet>765</a>    <span class="doccomment">/// [`Self::load`] with a separate seed for the cursor-existence probes.
-<a href=#766 id=766 data-nosnippet>766</a>    /// The probes only ask whether one more row exists past a cursor, so they
-<a href=#767 id=767 data-nosnippet>767</a>    /// read no relation and do not need `query`'s includes. `probe_query` is
-<a href=#768 id=768 data-nosnippet>768</a>    /// the same scope and declaration pipeline with those includes dropped;
-<a href=#769 id=769 data-nosnippet>769</a>    /// passing `query` itself reproduces [`Self::load`].
-<a href=#770 id=770 data-nosnippet>770</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>load_with_probe(
-<a href=#771 id=771 data-nosnippet>771</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#772 id=772 data-nosnippet>772</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#773 id=773 data-nosnippet>773</a>        query: toasty::stmt::Query&lt;List&lt;M&gt;&gt;,
-<a href=#774 id=774 data-nosnippet>774</a>        probe_query: toasty::stmt::Query&lt;List&lt;M&gt;&gt;,
-<a href=#775 id=775 data-nosnippet>775</a>        state: <span class="kw-2">&amp;</span>TableState,
-<a href=#776 id=776 data-nosnippet>776</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;M&gt;&gt;
-<a href=#777 id=777 data-nosnippet>777</a>    <span class="kw">where
-<a href=#778 id=778 data-nosnippet>778</a>        </span>M: toasty::schema::Model + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#779 id=779 data-nosnippet>779</a>    {
-<a href=#780 id=780 data-nosnippet>780</a>        <span class="kw">if </span><span class="self">self</span>.page_size == <span class="prelude-val">Some</span>(<span class="number">0</span>) {
-<a href=#781 id=781 data-nosnippet>781</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(std::io::Error::other(
-<a href=#782 id=782 data-nosnippet>782</a>                <span class="string">"Table::load: paginate requires per_page &gt; 0 (GH #96)"</span>,
-<a href=#783 id=783 data-nosnippet>783</a>            )
-<a href=#784 id=784 data-nosnippet>784</a>            .into());
-<a href=#785 id=785 data-nosnippet>785</a>        }
-<a href=#786 id=786 data-nosnippet>786</a>        <span class="comment">// The declaration becomes predicates and an ordering through the one
-<a href=#787 id=787 data-nosnippet>787</a>        // shared routine — the export loader applies the same one to
-<a href=#788 id=788 data-nosnippet>788</a>        // its own seed query.
-<a href=#789 id=789 data-nosnippet>789</a>        </span><span class="kw">let </span>query = <span class="self">self</span>.apply_declaration(query, state, OrderMode::List);
-<a href=#790 id=790 data-nosnippet>790</a>        <span class="kw">let </span><span class="kw-2">mut </span>db = <span class="kw">crate</span>::db::db(cx);
-<a href=#791 id=791 data-nosnippet>791</a>        <span class="kw">match </span><span class="self">self</span>.page_size {
-<a href=#792 id=792 data-nosnippet>792</a>            <span class="prelude-val">Some</span>(per_page) =&gt; {
-<a href=#793 id=793 data-nosnippet>793</a>                <span class="comment">// Keep a cursor-free copy of the filtered+ordered probe seed for
-<a href=#794 id=794 data-nosnippet>794</a>                // cursor validation: Toasty's `Page` sets `next_cursor`
-<a href=#795 id=795 data-nosnippet>795</a>                // optimistically whenever `len == page_size`, which leaves a
-<a href=#796 id=796 data-nosnippet>796</a>                // phantom cursor when the page sits exactly at a boundary. The
-<a href=#797 id=797 data-nosnippet>797</a>                // probe seed carries no relation includes because the
-<a href=#798 id=798 data-nosnippet>798</a>                // probes only ask whether a row exists.
-<a href=#799 id=799 data-nosnippet>799</a>                </span><span class="kw">let </span>base_query = <span class="self">self</span>.apply_declaration(probe_query, state, OrderMode::List);
-<a href=#800 id=800 data-nosnippet>800</a>                <span class="kw">let </span><span class="kw-2">mut </span>paginated = toasty::stmt::Paginate::new(query, per_page);
-<a href=#801 id=801 data-nosnippet>801</a>                <span class="comment">// Toasty cursor pagination takes exactly one cursor:
-<a href=#802 id=802 data-nosnippet>802</a>                // a URL carrying both `?after=` and `?before=` must fail loudly
-<a href=#803 id=803 data-nosnippet>803</a>                // instead of silently preferring `after` (the GH #93 fail-open
-<a href=#804 id=804 data-nosnippet>804</a>                // family). The `CursorDecodeError` marker gives the failure the
-<a href=#805 id=805 data-nosnippet>805</a>                // drop-pagination retry contract.
-<a href=#806 id=806 data-nosnippet>806</a>                </span><span class="kw">if </span>state.after.is_some() &amp;&amp; state.before.is_some() {
-<a href=#807 id=807 data-nosnippet>807</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">crate</span>::cursor::CursorDecodeError::conflicting_cursors());
-<a href=#808 id=808 data-nosnippet>808</a>                }
-<a href=#809 id=809 data-nosnippet>809</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = <span class="kw-2">&amp;</span>state.after {
-<a href=#810 id=810 data-nosnippet>810</a>                    paginated = paginated.after(<span class="kw">crate</span>::cursor::decode(cursor)<span class="question-mark">?</span>);
-<a href=#811 id=811 data-nosnippet>811</a>                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(cursor) = <span class="kw-2">&amp;</span>state.before {
-<a href=#812 id=812 data-nosnippet>812</a>                    paginated = paginated.before(<span class="kw">crate</span>::cursor::decode(cursor)<span class="question-mark">?</span>);
-<a href=#813 id=813 data-nosnippet>813</a>                }
-<a href=#814 id=814 data-nosnippet>814</a>                <span class="kw">let </span>loaded = paginated
-<a href=#815 id=815 data-nosnippet>815</a>                    .exec(<span class="kw-2">&amp;mut </span>db)
-<a href=#816 id=816 data-nosnippet>816</a>                    .<span class="kw">await
-<a href=#817 id=817 data-nosnippet>817</a>                    </span>.map_err(|error| reject_cursor(error.into(), state))<span class="question-mark">?</span>;
-<a href=#818 id=818 data-nosnippet>818</a>                <span class="kw">let </span><span class="kw-2">mut </span>page = TablePage::from_toasty_page(loaded)<span class="question-mark">?</span>;
-<a href=#819 id=819 data-nosnippet>819</a>                <span class="comment">// Cursor-existence probes, one per landing direction:
-<a href=#820 id=820 data-nosnippet>820</a>                // the engine sets `next_cursor`/`prev_cursor` optimistically,
-<a href=#821 id=821 data-nosnippet>821</a>                // so a page sitting exactly at a boundary carries a phantom
-<a href=#822 id=822 data-nosnippet>822</a>                // cursor without validation. Each direction probes only the
-<a href=#823 id=823 data-nosnippet>823</a>                // edge that can lie:
-<a href=#824 id=824 data-nosnippet>824</a>                // - forward/first landing: prev is exact (absent on the first page; otherwise the
-<a href=#825 id=825 data-nosnippet>825</a>                //   page we came from exists), next may be phantom at the end boundary → probe next
-<a href=#826 id=826 data-nosnippet>826</a>                //   on full pages. A short page cannot have a next page.
-<a href=#827 id=827 data-nosnippet>827</a>                // - backward landing: next is exact (the page we came from follows), prev may be
-<a href=#828 id=828 data-nosnippet>828</a>                //   phantom when the fetch lands on the first page → probe prev whenever one is
-<a href=#829 id=829 data-nosnippet>829</a>                //   reported.
-<a href=#830 id=830 data-nosnippet>830</a>                //
-<a href=#831 id=831 data-nosnippet>831</a>                // Deliberately NOT a `LIMIT per_page+1` fold: the engine
-<a href=#832 id=832 data-nosnippet>832</a>                // derives `next_cursor` from the last *fetched* row, so
-<a href=#833 id=833 data-nosnippet>833</a>                // trimming the extra row would anchor the next link past it —
-<a href=#834 id=834 data-nosnippet>834</a>                // every `(per_page+1)`th row would vanish from forward walks.
-<a href=#835 id=835 data-nosnippet>835</a>                // The probes keep the main fetch's cursors (which point at
-<a href=#836 id=836 data-nosnippet>836</a>                // displayed rows) as the link anchors.
-<a href=#837 id=837 data-nosnippet>837</a>                //
-<a href=#838 id=838 data-nosnippet>838</a>                // Residual (same as ever): a concurrent delete landing between
-<a href=#839 id=839 data-nosnippet>839</a>                // the main fetch and the click can still void a validated
-<a href=#840 id=840 data-nosnippet>840</a>                // cursor — that degrades to the void-window recovery link
-<a href=#841 id=841 data-nosnippet>841</a>                // never to silently skipped rows.
-<a href=#842 id=842 data-nosnippet>842</a>                </span><span class="kw">if </span>state.before.is_some() {
-<a href=#843 id=843 data-nosnippet>843</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = page.prev_cursor.clone() {
-<a href=#844 id=844 data-nosnippet>844</a>                        <span class="kw">let </span>probe = toasty::stmt::Paginate::new(base_query, <span class="number">1</span>)
-<a href=#845 id=845 data-nosnippet>845</a>                            .before(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>)
-<a href=#846 id=846 data-nosnippet>846</a>                            .exec(<span class="kw-2">&amp;mut </span>db)
-<a href=#847 id=847 data-nosnippet>847</a>                            .<span class="kw">await
-<a href=#848 id=848 data-nosnippet>848</a>                            </span>.map_err(topcoat::Error::from)<span class="question-mark">?</span>;
-<a href=#849 id=849 data-nosnippet>849</a>                        <span class="kw">if </span>probe.items.is_empty() {
-<a href=#850 id=850 data-nosnippet>850</a>                            page.prev_cursor = <span class="prelude-val">None</span>;
-<a href=#851 id=851 data-nosnippet>851</a>                        }
-<a href=#852 id=852 data-nosnippet>852</a>                    }
-<a href=#853 id=853 data-nosnippet>853</a>                } <span class="kw">else if </span>page.rows.len() == per_page {
-<a href=#854 id=854 data-nosnippet>854</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = page.next_cursor.clone() {
-<a href=#855 id=855 data-nosnippet>855</a>                        <span class="kw">let </span>probe = toasty::stmt::Paginate::new(base_query, <span class="number">1</span>)
-<a href=#856 id=856 data-nosnippet>856</a>                            .after(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>)
-<a href=#857 id=857 data-nosnippet>857</a>                            .exec(<span class="kw-2">&amp;mut </span>db)
-<a href=#858 id=858 data-nosnippet>858</a>                            .<span class="kw">await
-<a href=#859 id=859 data-nosnippet>859</a>                            </span>.map_err(topcoat::Error::from)<span class="question-mark">?</span>;
-<a href=#860 id=860 data-nosnippet>860</a>                        <span class="kw">if </span>probe.items.is_empty() {
-<a href=#861 id=861 data-nosnippet>861</a>                            page.next_cursor = <span class="prelude-val">None</span>;
-<a href=#862 id=862 data-nosnippet>862</a>                        }
-<a href=#863 id=863 data-nosnippet>863</a>                    }
-<a href=#864 id=864 data-nosnippet>864</a>                } <span class="kw">else </span>{
-<a href=#865 id=865 data-nosnippet>865</a>                    <span class="comment">// Short page → no next, keep prev as-is (has_previous already correct).
-<a href=#866 id=866 data-nosnippet>866</a>                    </span>page.next_cursor = <span class="prelude-val">None</span>;
-<a href=#867 id=867 data-nosnippet>867</a>                }
-<a href=#868 id=868 data-nosnippet>868</a>                <span class="prelude-val">Ok</span>(page)
-<a href=#869 id=869 data-nosnippet>869</a>            }
-<a href=#870 id=870 data-nosnippet>870</a>            <span class="prelude-val">None </span>=&gt; {
-<a href=#871 id=871 data-nosnippet>871</a>                <span class="kw">let </span>rows: Vec&lt;M&gt; = query.exec(<span class="kw-2">&amp;mut </span>db).<span class="kw">await</span>.map_err(topcoat::Error::from)<span class="question-mark">?</span>;
-<a href=#872 id=872 data-nosnippet>872</a>                <span class="prelude-val">Ok</span>(rows.into())
-<a href=#873 id=873 data-nosnippet>873</a>            }
-<a href=#874 id=874 data-nosnippet>874</a>        }
-<a href=#875 id=875 data-nosnippet>875</a>    }
-<a href=#876 id=876 data-nosnippet>876</a>
-<a href=#877 id=877 data-nosnippet>877</a>    <span class="doccomment">/// The first declaration this table is missing, if any.
-<a href=#878 id=878 data-nosnippet>878</a>    ///
-<a href=#879 id=879 data-nosnippet>879</a>    /// The same check [`Self::render`](Self::render_with_state) enforces per
-<a href=#880 id=880 data-nosnippet>880</a>    /// request, lifted so [`Panel::build`](crate::panel::Panel::build) can
-<a href=#881 id=881 data-nosnippet>881</a>    /// refuse to serve a resource whose table could never render — the
-<a href=#882 id=882 data-nosnippet>882</a>    /// declaration is knowable at boot, so a request is too late to report it.
-<a href=#883 id=883 data-nosnippet>883</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>missing_essentials(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-<a href=#884 id=884 data-nosnippet>884</a>        <span class="kw">if </span><span class="self">self</span>.page_size == <span class="prelude-val">Some</span>(<span class="number">0</span>) {
-<a href=#885 id=885 data-nosnippet>885</a>            <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="string">"paginate requires per_page &gt; 0"</span>.to_string());
-<a href=#886 id=886 data-nosnippet>886</a>        }
-<a href=#887 id=887 data-nosnippet>887</a>        <span class="prelude-val">None
-<a href=#888 id=888 data-nosnippet>888</a>    </span>}
-<a href=#889 id=889 data-nosnippet>889</a>
-<a href=#890 id=890 data-nosnippet>890</a>    <span class="doccomment">/// Whether the search toolbar renders: the explicit `search(bool)` value,
-<a href=#891 id=891 data-nosnippet>891</a>    /// or auto — at least one `searchable()` column.
-<a href=#892 id=892 data-nosnippet>892</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>search_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool
-<a href=#893 id=893 data-nosnippet>893</a>    <span class="kw">where
-<a href=#894 id=894 data-nosnippet>894</a>        </span>M: toasty::schema::Model,
-<a href=#895 id=895 data-nosnippet>895</a>    {
-<a href=#896 id=896 data-nosnippet>896</a>        <span class="self">self</span>.search_ui
-<a href=#897 id=897 data-nosnippet>897</a>            .unwrap_or_else(|| <span class="self">self</span>.columns.iter().any(|c| c.is_searchable()))
-<a href=#898 id=898 data-nosnippet>898</a>    }
-<a href=#899 id=899 data-nosnippet>899</a>
-<a href=#900 id=900 data-nosnippet>900</a>    <span class="doccomment">/// Whether this table renders the keystroke-live search host.
-<a href=#901 id=901 data-nosnippet>901</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_live_search(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#902 id=902 data-nosnippet>902</a>        <span class="self">self</span>.live_search
-<a href=#903 id=903 data-nosnippet>903</a>    }
-<a href=#904 id=904 data-nosnippet>904</a>
-<a href=#905 id=905 data-nosnippet>905</a>    <span class="doccomment">/// Whether the filter bar renders inside the table: the explicit
-<a href=#906 id=906 data-nosnippet>906</a>    /// `filter_bar(bool)` value, or auto — the table declares at least one filter.
-<a href=#907 id=907 data-nosnippet>907</a>    ///
-<a href=#908 id=908 data-nosnippet>908</a>    /// Live tables turn it off: the list page hoists the bar out of
-<a href=#909 id=909 data-nosnippet>909</a>    /// the swapped region, the same way it owns the search toolbar, so a filter
-<a href=#910 id=910 data-nosnippet>910</a>    /// change cannot rebuild the control the user is interacting with.
-<a href=#911 id=911 data-nosnippet>911</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>filter_bar_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#912 id=912 data-nosnippet>912</a>        <span class="self">self</span>.filters_ui.unwrap_or(!<span class="self">self</span>.filters.is_empty())
-<a href=#913 id=913 data-nosnippet>913</a>    }
-<a href=#914 id=914 data-nosnippet>914</a>}
-<a href=#915 id=915 data-nosnippet>915</a>
-<a href=#916 id=916 data-nosnippet>916</a><span class="doccomment">/// Attribute a failed paginated fetch to the request's cursor.
-<a href=#917 id=917 data-nosnippet>917</a>///
-<a href=#918 id=918 data-nosnippet>918</a>/// A token cut from a different ordering decodes but the engine refuses the
-<a href=#919 id=919 data-nosnippet>919</a>/// statement (`invalid_statement`: its field count no longer matches the
-<a href=#920 id=920 data-nosnippet>920</a>/// query's `ORDER BY`). No other statement this paginated loader builds carries
-<a href=#921 id=921 data-nosnippet>921</a>/// that error while the request names a cursor. Such a failure is the cursor's,
-<a href=#922 id=922 data-nosnippet>922</a>/// so it takes the cursor-stripped retry contract instead of re-requesting the
-<a href=#923 id=923 data-nosnippet>923</a>/// identical URL forever; every other failure keeps the cursor.
-<a href=#924 id=924 data-nosnippet>924</a></span><span class="kw">fn </span>reject_cursor(error: topcoat::Error, state: <span class="kw-2">&amp;</span>TableState) -&gt; topcoat::Error {
-<a href=#925 id=925 data-nosnippet>925</a>    <span class="kw">let </span>cursored = state.after.is_some() || state.before.is_some();
-<a href=#926 id=926 data-nosnippet>926</a>    <span class="kw">let </span>rejected = error
-<a href=#927 id=927 data-nosnippet>927</a>        .downcast_ref::&lt;toasty::Error&gt;()
-<a href=#928 id=928 data-nosnippet>928</a>        .is_some_and(toasty::Error::is_invalid_statement);
-<a href=#929 id=929 data-nosnippet>929</a>    <span class="kw">if </span>cursored &amp;&amp; rejected {
-<a href=#930 id=930 data-nosnippet>930</a>        <span class="kw">crate</span>::cursor::CursorRejectedError::rejected(<span class="kw-2">&amp;</span>error)
-<a href=#931 id=931 data-nosnippet>931</a>    } <span class="kw">else </span>{
-<a href=#932 id=932 data-nosnippet>932</a>        error
-<a href=#933 id=933 data-nosnippet>933</a>    }
-<a href=#934 id=934 data-nosnippet>934</a>}
-<a href=#935 id=935 data-nosnippet>935</a>
-<a href=#936 id=936 data-nosnippet>936</a><span class="attr">#[cfg(test)]
-<a href=#937 id=937 data-nosnippet>937</a></span><span class="kw">mod </span>tests;
+<a href=#582 id=582 data-nosnippet>582</a>    <span class="doccomment">/// Whether the bulk checkbox column renders: bulk selection plus a delete
+<a href=#583 id=583 data-nosnippet>583</a>    /// prefix to post to.
+<a href=#584 id=584 data-nosnippet>584</a>    </span><span class="kw">fn </span>bulk_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#585 id=585 data-nosnippet>585</a>        <span class="self">self</span>.bulk_delete &amp;&amp; <span class="self">self</span>.delete_prefix.is_some()
+<a href=#586 id=586 data-nosnippet>586</a>    }
+<a href=#587 id=587 data-nosnippet>587</a>
+<a href=#588 id=588 data-nosnippet>588</a>    <span class="doccomment">/// Global search predicate — OR across searchable columns.
+<a href=#589 id=589 data-nosnippet>589</a>    ///
+<a href=#590 id=590 data-nosnippet>590</a>    /// Substring match (`?q=` anywhere in the value), escaped so a term
+<a href=#591 id=591 data-nosnippet>591</a>    /// containing `%` or `_` stays literal; see
+<a href=#592 id=592 data-nosnippet>592</a>    /// [`TextColumn::to_search_expr`](crate::resource::TextColumn::to_search_expr)
+<a href=#593 id=593 data-nosnippet>593</a>    /// for the driver case-sensitivity caveat.
+<a href=#594 id=594 data-nosnippet>594</a>    </span><span class="kw">pub fn </span>search_expr(<span class="kw-2">&amp;</span><span class="self">self</span>, term: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Expr&lt;bool&gt;&gt;
+<a href=#595 id=595 data-nosnippet>595</a>    <span class="kw">where
+<a href=#596 id=596 data-nosnippet>596</a>        </span>M: toasty::schema::Model,
+<a href=#597 id=597 data-nosnippet>597</a>    {
+<a href=#598 id=598 data-nosnippet>598</a>        <span class="kw">let </span>t = term.trim();
+<a href=#599 id=599 data-nosnippet>599</a>        <span class="kw">if </span>t.is_empty() {
+<a href=#600 id=600 data-nosnippet>600</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#601 id=601 data-nosnippet>601</a>        }
+<a href=#602 id=602 data-nosnippet>602</a>        <span class="kw">let </span><span class="kw-2">mut </span>exprs = <span class="self">self</span>.columns.iter().filter_map(|c| c.to_search_expr(t));
+<a href=#603 id=603 data-nosnippet>603</a>        <span class="kw">let </span>first = exprs.next()<span class="question-mark">?</span>;
+<a href=#604 id=604 data-nosnippet>604</a>        <span class="prelude-val">Some</span>(exprs.fold(first, |acc, e| acc.or(e)))
+<a href=#605 id=605 data-nosnippet>605</a>    }
+<a href=#606 id=606 data-nosnippet>606</a>
+<a href=#607 id=607 data-nosnippet>607</a>    <span class="doccomment">/// First sortable column's order_by. Cursor determinism needs no
+<a href=#608 id=608 data-nosnippet>608</a>    /// app-level tie-breaker: toasty's engine appends the physical PK columns
+<a href=#609 id=609 data-nosnippet>609</a>    /// to ambiguous cursor orderings internally (`normalize_cursor_order`,
+<a href=#610 id=610 data-nosnippet>610</a>    /// tokio-rs/toasty#1142), so page contents are deterministic on SQL
+<a href=#611 id=611 data-nosnippet>611</a>    /// backends without Tablo's help.
+<a href=#612 id=612 data-nosnippet>612</a>    </span><span class="kw">pub fn </span>order_by(<span class="kw-2">&amp;</span><span class="self">self</span>, descending: bool) -&gt; <span class="prelude-ty">Option</span>&lt;OrderByExpr&gt;
+<a href=#613 id=613 data-nosnippet>613</a>    <span class="kw">where
+<a href=#614 id=614 data-nosnippet>614</a>        </span>M: toasty::schema::Model,
+<a href=#615 id=615 data-nosnippet>615</a>    {
+<a href=#616 id=616 data-nosnippet>616</a>        <span class="self">self</span>.columns.iter().find_map(|c| c.to_order_by(descending))
+<a href=#617 id=617 data-nosnippet>617</a>    }
+<a href=#618 id=618 data-nosnippet>618</a>
+<a href=#619 id=619 data-nosnippet>619</a>    <span class="doccomment">/// Order-bys over the model's primary key (asc, in declared order) —
+<a href=#620 id=620 data-nosnippet>620</a>    /// built through the public facade (`Model::path_field` + `Path::asc`),
+<a href=#621 id=621 data-nosnippet>621</a>    /// no `toasty_core` needed.
+<a href=#622 id=622 data-nosnippet>622</a>    ///
+<a href=#623 id=623 data-nosnippet>623</a>    /// Used only when a table declares no sortable column at all: toasty's
+<a href=#624 id=624 data-nosnippet>624</a>    /// planner requires an `ORDER BY` for cursor pagination and its
+<a href=#625 id=625 data-nosnippet>625</a>    /// normalization only extends a non-empty ordering, so the PK order must
+<a href=#626 id=626 data-nosnippet>626</a>    /// be declared app-side in that one case.
+<a href=#627 id=627 data-nosnippet>627</a>    ///
+<a href=#628 id=628 data-nosnippet>628</a>    /// # Panics
+<a href=#629 id=629 data-nosnippet>629</a>    ///
+<a href=#630 id=630 data-nosnippet>630</a>    /// Never panics: a non-root model has no primary key, so this returns
+<a href=#631 id=631 data-nosnippet>631</a>    /// empty (and debug-asserts) instead of panicking per request —
+<a href=#632 id=632 data-nosnippet>632</a>    /// the engine then reports its descriptive "requires an ORDER BY" error
+<a href=#633 id=633 data-nosnippet>633</a>    /// at load.
+<a href=#634 id=634 data-nosnippet>634</a>    </span><span class="kw">fn </span>pk_order_bys() -&gt; Vec&lt;OrderByExpr&gt;
+<a href=#635 id=635 data-nosnippet>635</a>    <span class="kw">where
+<a href=#636 id=636 data-nosnippet>636</a>        </span>M: toasty::schema::Model,
+<a href=#637 id=637 data-nosnippet>637</a>    {
+<a href=#638 id=638 data-nosnippet>638</a>        <span class="kw">let </span>app_model = M::schema();
+<a href=#639 id=639 data-nosnippet>639</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(root) = app_model.as_root() <span class="kw">else </span>{
+<a href=#640 id=640 data-nosnippet>640</a>            <span class="macro">debug_assert!</span>(
+<a href=#641 id=641 data-nosnippet>641</a>                <span class="bool-val">false</span>,
+<a href=#642 id=642 data-nosnippet>642</a>                <span class="string">"pk_order_bys: {} is not a root model; deterministic pagination needs its primary key"</span>,
+<a href=#643 id=643 data-nosnippet>643</a>                std::any::type_name::&lt;M&gt;()
+<a href=#644 id=644 data-nosnippet>644</a>            );
+<a href=#645 id=645 data-nosnippet>645</a>            <span class="kw">return </span>Vec::new();
+<a href=#646 id=646 data-nosnippet>646</a>        };
+<a href=#647 id=647 data-nosnippet>647</a>        root.primary_key
+<a href=#648 id=648 data-nosnippet>648</a>            .fields
+<a href=#649 id=649 data-nosnippet>649</a>            .iter()
+<a href=#650 id=650 data-nosnippet>650</a>            .map(|fid| M::path_field::&lt;toasty::stmt::Value&gt;(fid.index).asc())
+<a href=#651 id=651 data-nosnippet>651</a>            .collect()
+<a href=#652 id=652 data-nosnippet>652</a>    }
+<a href=#653 id=653 data-nosnippet>653</a>
+<a href=#654 id=654 data-nosnippet>654</a>    <span class="doccomment">/// Resolve the full query ordering for a request.
+<a href=#655 id=655 data-nosnippet>655</a>    ///
+<a href=#656 id=656 data-nosnippet>656</a>    /// Single source of truth for loaders, render and the export:
+<a href=#657 id=657 data-nosnippet>657</a>    /// 1. `?sort=&lt;column&gt;&amp;dir=asc|desc` when `&lt;column&gt;` names a declared sortable column — that
+<a href=#658 id=658 data-nosnippet>658</a>    ///    column's direction (toasty appends the PK tie-breakers internally, see
+<a href=#659 id=659 data-nosnippet>659</a>    ///    [`Self::order_by`]);
+<a href=#660 id=660 data-nosnippet>660</a>    /// 2. otherwise the declared default (first sortable column asc);
+<a href=#661 id=661 data-nosnippet>661</a>    /// 3. otherwise the PK alone — cursor pagination requires a deterministic order even with no
+<a href=#662 id=662 data-nosnippet>662</a>    ///    sortable column, and toasty only *extends* an existing non-empty ordering.
+<a href=#663 id=663 data-nosnippet>663</a>    ///
+<a href=#664 id=664 data-nosnippet>664</a>    /// Loaders that also need the search term parse the state once with
+<a href=#665 id=665 data-nosnippet>665</a>    /// [`TableState::from_cx`] and apply the declaration through
+<a href=#666 id=666 data-nosnippet>666</a>    /// `Self::apply_declaration` (see `crate::panel::Panel`'s generic
+<a href=#667 id=667 data-nosnippet>667</a>    /// resource list handler).
+<a href=#668 id=668 data-nosnippet>668</a>    </span><span class="kw">pub fn </span>order_bys_for(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span>TableState) -&gt; Vec&lt;OrderByExpr&gt;
+<a href=#669 id=669 data-nosnippet>669</a>    <span class="kw">where
+<a href=#670 id=670 data-nosnippet>670</a>        </span>M: toasty::schema::Model,
+<a href=#671 id=671 data-nosnippet>671</a>    {
+<a href=#672 id=672 data-nosnippet>672</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(sort) = <span class="kw-2">&amp;</span>state.sort
+<a href=#673 id=673 data-nosnippet>673</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(col) = <span class="self">self
+<a href=#674 id=674 data-nosnippet>674</a>                </span>.columns
+<a href=#675 id=675 data-nosnippet>675</a>                .iter()
+<a href=#676 id=676 data-nosnippet>676</a>                .find(|c| c.is_sortable() &amp;&amp; c.name() == sort.column)
+<a href=#677 id=677 data-nosnippet>677</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(ord) = col.to_order_by(sort.descending)
+<a href=#678 id=678 data-nosnippet>678</a>        {
+<a href=#679 id=679 data-nosnippet>679</a>            <span class="kw">return </span><span class="macro">vec!</span>[ord];
+<a href=#680 id=680 data-nosnippet>680</a>        }
+<a href=#681 id=681 data-nosnippet>681</a>        <span class="kw">let </span>out: Vec&lt;OrderByExpr&gt; = <span class="self">self</span>.order_by(<span class="bool-val">false</span>).into_iter().collect();
+<a href=#682 id=682 data-nosnippet>682</a>        <span class="kw">if </span>out.is_empty() {
+<a href=#683 id=683 data-nosnippet>683</a>            <span class="kw">return </span><span class="self">Self</span>::pk_order_bys();
+<a href=#684 id=684 data-nosnippet>684</a>        }
+<a href=#685 id=685 data-nosnippet>685</a>        out
+<a href=#686 id=686 data-nosnippet>686</a>    }
+<a href=#687 id=687 data-nosnippet>687</a>
+<a href=#688 id=688 data-nosnippet>688</a>    <span class="doccomment">/// Apply this table's declaration to `query` — the one routine that turns
+<a href=#689 id=689 data-nosnippet>689</a>    /// the search term, the filters and the ordering into a query.
+<a href=#690 id=690 data-nosnippet>690</a>    ///
+<a href=#691 id=691 data-nosnippet>691</a>    /// `query` is the caller's seed, which is the one thing the two loaders
+<a href=#692 id=692 data-nosnippet>692</a>    /// legitimately differ on: the list loads the tenant-scoped
+<a href=#693 id=693 data-nosnippet>693</a>    /// [`Resource::query`](crate::resource::Resource::query) (the row-scoping
+<a href=#694 id=694 data-nosnippet>694</a>    /// seam, ADR-0002) while the export loads the tenant-scoped
+<a href=#695 id=695 data-nosnippet>695</a>    /// [`Resource::export_query`](crate::resource::Resource::export_query),
+<a href=#696 id=696 data-nosnippet>696</a>    /// narrowed to the relations the rendered columns declared.
+<a href=#697 id=697 data-nosnippet>697</a>    ///
+<a href=#698 id=698 data-nosnippet>698</a>    /// Everything else is shared, so a new search or filter dimension cannot
+<a href=#699 id=699 data-nosnippet>699</a>    /// reach the list and miss the CSV — the drift class GH #172 fixed.
+<a href=#700 id=700 data-nosnippet>700</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>apply_declaration(
+<a href=#701 id=701 data-nosnippet>701</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#702 id=702 data-nosnippet>702</a>        <span class="kw-2">mut </span>query: toasty::stmt::Query&lt;List&lt;M&gt;&gt;,
+<a href=#703 id=703 data-nosnippet>703</a>        state: <span class="kw-2">&amp;</span>TableState,
+<a href=#704 id=704 data-nosnippet>704</a>    ) -&gt; toasty::stmt::Query&lt;List&lt;M&gt;&gt;
+<a href=#705 id=705 data-nosnippet>705</a>    <span class="kw">where
+<a href=#706 id=706 data-nosnippet>706</a>        </span>M: toasty::schema::Model,
+<a href=#707 id=707 data-nosnippet>707</a>    {
+<a href=#708 id=708 data-nosnippet>708</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(term) = <span class="kw-2">&amp;</span>state.search
+<a href=#709 id=709 data-nosnippet>709</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(expr) = <span class="self">self</span>.search_expr(term)
+<a href=#710 id=710 data-nosnippet>710</a>        {
+<a href=#711 id=711 data-nosnippet>711</a>            query = query.filter(expr);
+<a href=#712 id=712 data-nosnippet>712</a>        }
+<a href=#713 id=713 data-nosnippet>713</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(expr) = <span class="self">self</span>.filter_expr(state) {
+<a href=#714 id=714 data-nosnippet>714</a>            query = query.filter(expr);
+<a href=#715 id=715 data-nosnippet>715</a>        }
+<a href=#716 id=716 data-nosnippet>716</a>        <span class="kw">for </span>ord <span class="kw">in </span><span class="self">self</span>.order_bys_for(state) {
+<a href=#717 id=717 data-nosnippet>717</a>            query = query.order_by(ord);
+<a href=#718 id=718 data-nosnippet>718</a>        }
+<a href=#719 id=719 data-nosnippet>719</a>        query
+<a href=#720 id=720 data-nosnippet>720</a>    }
+<a href=#721 id=721 data-nosnippet>721</a>
+<a href=#722 id=722 data-nosnippet>722</a>    <span class="doccomment">/// Resolve and execute this table's query for `state` — search, filters,
+<a href=#723 id=723 data-nosnippet>723</a>    /// ordering, and cursor pagination — and return the rows.
+<a href=#724 id=724 data-nosnippet>724</a>    ///
+<a href=#725 id=725 data-nosnippet>725</a>    /// The loader half of the live-table seam (GH #154 §2): a page that owns
+<a href=#726 id=726 data-nosnippet>726</a>    /// its own table can hand its shard a query and this
+<a href=#727 id=727 data-nosnippet>727</a>    /// hook applies the same declaration pipeline `panel::load_table_page`
+<a href=#728 id=728 data-nosnippet>728</a>    /// applies to the tenant-scoped `Resource::query`, so a
+<a href=#729 id=729 data-nosnippet>729</a>    /// page-level shard does not
+<a href=#730 id=730 data-nosnippet>730</a>    /// reimplement filtering, ordering, or cursor validation. The table such a
+<a href=#731 id=731 data-nosnippet>731</a>    /// page serves comes from
+<a href=#732 id=732 data-nosnippet>732</a>    /// [`panel::wired_table`](crate::panel::wired_table), which carries the
+<a href=#733 id=733 data-nosnippet>733</a>    /// resource's action chrome.
+<a href=#734 id=734 data-nosnippet>734</a>    ///
+<a href=#735 id=735 data-nosnippet>735</a>    /// The cursor-existence probes reuse `query`, so they pay the query's
+<a href=#736 id=736 data-nosnippet>736</a>    /// relation includes. The panel's resource-list loader seeds them from a
+<a href=#737 id=737 data-nosnippet>737</a>    /// narrower query with the same scope and no includes; this entry point has
+<a href=#738 id=738 data-nosnippet>738</a>    /// no such seed, so its probes carry the query's includes.
+<a href=#739 id=739 data-nosnippet>739</a>    </span><span class="kw">pub async fn </span>load(
+<a href=#740 id=740 data-nosnippet>740</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#741 id=741 data-nosnippet>741</a>        cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#742 id=742 data-nosnippet>742</a>        query: toasty::stmt::Query&lt;List&lt;M&gt;&gt;,
+<a href=#743 id=743 data-nosnippet>743</a>        state: <span class="kw-2">&amp;</span>TableState,
+<a href=#744 id=744 data-nosnippet>744</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;M&gt;&gt;
+<a href=#745 id=745 data-nosnippet>745</a>    <span class="kw">where
+<a href=#746 id=746 data-nosnippet>746</a>        </span>M: toasty::schema::Model + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#747 id=747 data-nosnippet>747</a>    {
+<a href=#748 id=748 data-nosnippet>748</a>        <span class="self">self</span>.load_with_probe(cx, query.clone(), query, state).<span class="kw">await
+<a href=#749 id=749 data-nosnippet>749</a>    </span>}
+<a href=#750 id=750 data-nosnippet>750</a>
+<a href=#751 id=751 data-nosnippet>751</a>    <span class="doccomment">/// [`Self::load`] with a separate seed for the cursor-existence probes.
+<a href=#752 id=752 data-nosnippet>752</a>    /// The probes only ask whether one more row exists past a cursor, so they
+<a href=#753 id=753 data-nosnippet>753</a>    /// read no relation and do not need `query`'s includes. `probe_query` is
+<a href=#754 id=754 data-nosnippet>754</a>    /// the same scope and declaration pipeline with those includes dropped;
+<a href=#755 id=755 data-nosnippet>755</a>    /// passing `query` itself reproduces [`Self::load`].
+<a href=#756 id=756 data-nosnippet>756</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>load_with_probe(
+<a href=#757 id=757 data-nosnippet>757</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#758 id=758 data-nosnippet>758</a>        cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#759 id=759 data-nosnippet>759</a>        query: toasty::stmt::Query&lt;List&lt;M&gt;&gt;,
+<a href=#760 id=760 data-nosnippet>760</a>        probe_query: toasty::stmt::Query&lt;List&lt;M&gt;&gt;,
+<a href=#761 id=761 data-nosnippet>761</a>        state: <span class="kw-2">&amp;</span>TableState,
+<a href=#762 id=762 data-nosnippet>762</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;M&gt;&gt;
+<a href=#763 id=763 data-nosnippet>763</a>    <span class="kw">where
+<a href=#764 id=764 data-nosnippet>764</a>        </span>M: toasty::schema::Model + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#765 id=765 data-nosnippet>765</a>    {
+<a href=#766 id=766 data-nosnippet>766</a>        <span class="comment">// The declaration becomes predicates and an ordering through the one
+<a href=#767 id=767 data-nosnippet>767</a>        // shared routine — the export loader applies the same one to
+<a href=#768 id=768 data-nosnippet>768</a>        // its own seed query.
+<a href=#769 id=769 data-nosnippet>769</a>        </span><span class="kw">let </span>query = <span class="self">self</span>.apply_declaration(query, state);
+<a href=#770 id=770 data-nosnippet>770</a>        <span class="kw">let </span><span class="kw-2">mut </span>db = <span class="kw">crate</span>::db::db(cx);
+<a href=#771 id=771 data-nosnippet>771</a>        <span class="kw">let </span>per_page = <span class="self">self</span>.page_size.get();
+<a href=#772 id=772 data-nosnippet>772</a>        <span class="comment">// Keep a cursor-free copy of the filtered+ordered probe seed for
+<a href=#773 id=773 data-nosnippet>773</a>        // cursor validation: Toasty's `Page` sets `next_cursor`
+<a href=#774 id=774 data-nosnippet>774</a>        // optimistically whenever `len == page_size`, which leaves a
+<a href=#775 id=775 data-nosnippet>775</a>        // phantom cursor when the page sits exactly at a boundary. The
+<a href=#776 id=776 data-nosnippet>776</a>        // probe seed carries no relation includes because the
+<a href=#777 id=777 data-nosnippet>777</a>        // probes only ask whether a row exists.
+<a href=#778 id=778 data-nosnippet>778</a>        </span><span class="kw">let </span>base_query = <span class="self">self</span>.apply_declaration(probe_query, state);
+<a href=#779 id=779 data-nosnippet>779</a>        <span class="kw">let </span><span class="kw-2">mut </span>paginated = toasty::stmt::Paginate::new(query, per_page);
+<a href=#780 id=780 data-nosnippet>780</a>        <span class="comment">// Toasty cursor pagination takes exactly one cursor:
+<a href=#781 id=781 data-nosnippet>781</a>        // a URL carrying both `?after=` and `?before=` must fail loudly
+<a href=#782 id=782 data-nosnippet>782</a>        // instead of silently preferring `after` (the GH #93 fail-open
+<a href=#783 id=783 data-nosnippet>783</a>        // family). The `CursorDecodeError` marker gives the failure the
+<a href=#784 id=784 data-nosnippet>784</a>        // drop-pagination retry contract.
+<a href=#785 id=785 data-nosnippet>785</a>        </span><span class="kw">if </span>state.after.is_some() &amp;&amp; state.before.is_some() {
+<a href=#786 id=786 data-nosnippet>786</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">crate</span>::cursor::CursorDecodeError::conflicting_cursors());
+<a href=#787 id=787 data-nosnippet>787</a>        }
+<a href=#788 id=788 data-nosnippet>788</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = <span class="kw-2">&amp;</span>state.after {
+<a href=#789 id=789 data-nosnippet>789</a>            paginated = paginated.after(<span class="kw">crate</span>::cursor::decode(cursor)<span class="question-mark">?</span>);
+<a href=#790 id=790 data-nosnippet>790</a>        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(cursor) = <span class="kw-2">&amp;</span>state.before {
+<a href=#791 id=791 data-nosnippet>791</a>            paginated = paginated.before(<span class="kw">crate</span>::cursor::decode(cursor)<span class="question-mark">?</span>);
+<a href=#792 id=792 data-nosnippet>792</a>        }
+<a href=#793 id=793 data-nosnippet>793</a>        <span class="kw">let </span>loaded = paginated
+<a href=#794 id=794 data-nosnippet>794</a>            .exec(<span class="kw-2">&amp;mut </span>db)
+<a href=#795 id=795 data-nosnippet>795</a>            .<span class="kw">await
+<a href=#796 id=796 data-nosnippet>796</a>            </span>.map_err(|error| reject_cursor(error.into(), state))<span class="question-mark">?</span>;
+<a href=#797 id=797 data-nosnippet>797</a>        <span class="kw">let </span><span class="kw-2">mut </span>page = TablePage::from_toasty_page(loaded)<span class="question-mark">?</span>;
+<a href=#798 id=798 data-nosnippet>798</a>        <span class="comment">// Cursor-existence probes, one per landing direction:
+<a href=#799 id=799 data-nosnippet>799</a>        // the engine sets `next_cursor`/`prev_cursor` optimistically,
+<a href=#800 id=800 data-nosnippet>800</a>        // so a page sitting exactly at a boundary carries a phantom
+<a href=#801 id=801 data-nosnippet>801</a>        // cursor without validation. Each direction probes only the
+<a href=#802 id=802 data-nosnippet>802</a>        // edge that can lie:
+<a href=#803 id=803 data-nosnippet>803</a>        // - forward/first landing: prev is exact (absent on the first page; otherwise the page we
+<a href=#804 id=804 data-nosnippet>804</a>        //   came from exists), next may be phantom at the end boundary → probe next on full pages.
+<a href=#805 id=805 data-nosnippet>805</a>        //   A short page cannot have a next page.
+<a href=#806 id=806 data-nosnippet>806</a>        // - backward landing: next is exact (the page we came from follows), prev may be phantom
+<a href=#807 id=807 data-nosnippet>807</a>        //   when the fetch lands on the first page → probe prev whenever one is reported.
+<a href=#808 id=808 data-nosnippet>808</a>        //
+<a href=#809 id=809 data-nosnippet>809</a>        // Deliberately NOT a `LIMIT per_page+1` fold: the engine
+<a href=#810 id=810 data-nosnippet>810</a>        // derives `next_cursor` from the last *fetched* row, so
+<a href=#811 id=811 data-nosnippet>811</a>        // trimming the extra row would anchor the next link past it —
+<a href=#812 id=812 data-nosnippet>812</a>        // every `(per_page+1)`th row would vanish from forward walks.
+<a href=#813 id=813 data-nosnippet>813</a>        // The probes keep the main fetch's cursors (which point at
+<a href=#814 id=814 data-nosnippet>814</a>        // displayed rows) as the link anchors.
+<a href=#815 id=815 data-nosnippet>815</a>        //
+<a href=#816 id=816 data-nosnippet>816</a>        // Residual (same as ever): a concurrent delete landing between
+<a href=#817 id=817 data-nosnippet>817</a>        // the main fetch and the click can still void a validated
+<a href=#818 id=818 data-nosnippet>818</a>        // cursor — that degrades to the void-window recovery link
+<a href=#819 id=819 data-nosnippet>819</a>        // never to silently skipped rows.
+<a href=#820 id=820 data-nosnippet>820</a>        </span><span class="kw">if </span>state.before.is_some() {
+<a href=#821 id=821 data-nosnippet>821</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = page.prev_cursor.clone() {
+<a href=#822 id=822 data-nosnippet>822</a>                <span class="kw">let </span>probe = toasty::stmt::Paginate::new(base_query, <span class="number">1</span>)
+<a href=#823 id=823 data-nosnippet>823</a>                    .before(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>)
+<a href=#824 id=824 data-nosnippet>824</a>                    .exec(<span class="kw-2">&amp;mut </span>db)
+<a href=#825 id=825 data-nosnippet>825</a>                    .<span class="kw">await
+<a href=#826 id=826 data-nosnippet>826</a>                    </span>.map_err(topcoat::Error::from)<span class="question-mark">?</span>;
+<a href=#827 id=827 data-nosnippet>827</a>                <span class="kw">if </span>probe.items.is_empty() {
+<a href=#828 id=828 data-nosnippet>828</a>                    page.prev_cursor = <span class="prelude-val">None</span>;
+<a href=#829 id=829 data-nosnippet>829</a>                }
+<a href=#830 id=830 data-nosnippet>830</a>            }
+<a href=#831 id=831 data-nosnippet>831</a>        } <span class="kw">else if </span>page.rows.len() == per_page {
+<a href=#832 id=832 data-nosnippet>832</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = page.next_cursor.clone() {
+<a href=#833 id=833 data-nosnippet>833</a>                <span class="kw">let </span>probe = toasty::stmt::Paginate::new(base_query, <span class="number">1</span>)
+<a href=#834 id=834 data-nosnippet>834</a>                    .after(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>)
+<a href=#835 id=835 data-nosnippet>835</a>                    .exec(<span class="kw-2">&amp;mut </span>db)
+<a href=#836 id=836 data-nosnippet>836</a>                    .<span class="kw">await
+<a href=#837 id=837 data-nosnippet>837</a>                    </span>.map_err(topcoat::Error::from)<span class="question-mark">?</span>;
+<a href=#838 id=838 data-nosnippet>838</a>                <span class="kw">if </span>probe.items.is_empty() {
+<a href=#839 id=839 data-nosnippet>839</a>                    page.next_cursor = <span class="prelude-val">None</span>;
+<a href=#840 id=840 data-nosnippet>840</a>                }
+<a href=#841 id=841 data-nosnippet>841</a>            }
+<a href=#842 id=842 data-nosnippet>842</a>        } <span class="kw">else </span>{
+<a href=#843 id=843 data-nosnippet>843</a>            <span class="comment">// Short page → no next, keep prev as-is (has_previous already correct).
+<a href=#844 id=844 data-nosnippet>844</a>            </span>page.next_cursor = <span class="prelude-val">None</span>;
+<a href=#845 id=845 data-nosnippet>845</a>        }
+<a href=#846 id=846 data-nosnippet>846</a>        <span class="prelude-val">Ok</span>(page)
+<a href=#847 id=847 data-nosnippet>847</a>    }
+<a href=#848 id=848 data-nosnippet>848</a>
+<a href=#849 id=849 data-nosnippet>849</a>    <span class="doccomment">/// Whether the search toolbar renders: at least one `searchable()` column,
+<a href=#850 id=850 data-nosnippet>850</a>    /// unless [`Self::hide_search`] hid it.
+<a href=#851 id=851 data-nosnippet>851</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>search_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool
+<a href=#852 id=852 data-nosnippet>852</a>    <span class="kw">where
+<a href=#853 id=853 data-nosnippet>853</a>        </span>M: toasty::schema::Model,
+<a href=#854 id=854 data-nosnippet>854</a>    {
+<a href=#855 id=855 data-nosnippet>855</a>        !<span class="self">self</span>.hide_search &amp;&amp; <span class="self">self</span>.columns.iter().any(|c| c.is_searchable())
+<a href=#856 id=856 data-nosnippet>856</a>    }
+<a href=#857 id=857 data-nosnippet>857</a>
+<a href=#858 id=858 data-nosnippet>858</a>    <span class="doccomment">/// Whether this table renders the keystroke-live search host.
+<a href=#859 id=859 data-nosnippet>859</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_live_search(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#860 id=860 data-nosnippet>860</a>        <span class="self">self</span>.live_search
+<a href=#861 id=861 data-nosnippet>861</a>    }
+<a href=#862 id=862 data-nosnippet>862</a>
+<a href=#863 id=863 data-nosnippet>863</a>    <span class="doccomment">/// Whether the filter bar renders inside the table: the table declares at
+<a href=#864 id=864 data-nosnippet>864</a>    /// least one filter, unless [`Self::hide_filter_bar`] hid it.
+<a href=#865 id=865 data-nosnippet>865</a>    ///
+<a href=#866 id=866 data-nosnippet>866</a>    /// Live tables turn it off: the list page hoists the bar out of
+<a href=#867 id=867 data-nosnippet>867</a>    /// the swapped region, the same way it owns the search toolbar, so a filter
+<a href=#868 id=868 data-nosnippet>868</a>    /// change cannot rebuild the control the user is interacting with.
+<a href=#869 id=869 data-nosnippet>869</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>filter_bar_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#870 id=870 data-nosnippet>870</a>        !<span class="self">self</span>.hide_filter_bar &amp;&amp; !<span class="self">self</span>.filters.is_empty()
+<a href=#871 id=871 data-nosnippet>871</a>    }
+<a href=#872 id=872 data-nosnippet>872</a>}
+<a href=#873 id=873 data-nosnippet>873</a>
+<a href=#874 id=874 data-nosnippet>874</a><span class="doccomment">/// Attribute a failed paginated fetch to the request's cursor.
+<a href=#875 id=875 data-nosnippet>875</a>///
+<a href=#876 id=876 data-nosnippet>876</a>/// A token cut from a different ordering decodes but the engine refuses the
+<a href=#877 id=877 data-nosnippet>877</a>/// statement (`invalid_statement`: its field count no longer matches the
+<a href=#878 id=878 data-nosnippet>878</a>/// query's `ORDER BY`). No other statement this paginated loader builds carries
+<a href=#879 id=879 data-nosnippet>879</a>/// that error while the request names a cursor. Such a failure is the cursor's,
+<a href=#880 id=880 data-nosnippet>880</a>/// so it takes the cursor-stripped retry contract instead of re-requesting the
+<a href=#881 id=881 data-nosnippet>881</a>/// identical URL forever; every other failure keeps the cursor.
+<a href=#882 id=882 data-nosnippet>882</a></span><span class="kw">fn </span>reject_cursor(error: topcoat::Error, state: <span class="kw-2">&amp;</span>TableState) -&gt; topcoat::Error {
+<a href=#883 id=883 data-nosnippet>883</a>    <span class="kw">let </span>cursored = state.after.is_some() || state.before.is_some();
+<a href=#884 id=884 data-nosnippet>884</a>    <span class="kw">let </span>rejected = error
+<a href=#885 id=885 data-nosnippet>885</a>        .downcast_ref::&lt;toasty::Error&gt;()
+<a href=#886 id=886 data-nosnippet>886</a>        .is_some_and(toasty::Error::is_invalid_statement);
+<a href=#887 id=887 data-nosnippet>887</a>    <span class="kw">if </span>cursored &amp;&amp; rejected {
+<a href=#888 id=888 data-nosnippet>888</a>        <span class="kw">crate</span>::cursor::CursorRejectedError::rejected(<span class="kw-2">&amp;</span>error)
+<a href=#889 id=889 data-nosnippet>889</a>    } <span class="kw">else </span>{
+<a href=#890 id=890 data-nosnippet>890</a>        error
+<a href=#891 id=891 data-nosnippet>891</a>    }
+<a href=#892 id=892 data-nosnippet>892</a>}
+<a href=#893 id=893 data-nosnippet>893</a>
+<a href=#894 id=894 data-nosnippet>894</a><span class="attr">#[cfg(test)]
+<a href=#895 id=895 data-nosnippet>895</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>
