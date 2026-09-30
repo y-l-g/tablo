@@ -104,7 +104,7 @@
 <a href=#104 id=104 data-nosnippet>104</a>        }
 <a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>state = TableState::from_cx(cx);
 <a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">let </span>table = R::table(cx);
-<a href=#107 id=107 data-nosnippet>107</a>        <span class="comment">// Fail closed on unapplied filters: a typo'd `?filters=`
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="comment">// Fail closed on unapplied filters: a typo'd `?f.&lt;name&gt;=`
 <a href=#108 id=108 data-nosnippet>108</a>        // must not silently export the unfiltered table.
 <a href=#109 id=109 data-nosnippet>109</a>        </span><span class="kw">if </span>!table.unapplied_filters(<span class="kw-2">&amp;</span>state).is_empty() {
 <a href=#110 id=110 data-nosnippet>110</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(topcoat::router::error::bad_request(<span class="macro">format!</span>(

@@ -8,7 +8,7 @@
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>toasty_core::stmt::Value;
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>topcoat::{<span class="prelude-ty">Result</span>, context::Cx};
 <a href=#10 id=10 data-nosnippet>10</a>
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use super</span>::{Table, TableState};
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use super</span>::{Cursor, Table, TableState};
 <a href=#12 id=12 data-nosnippet>12</a>
 <a href=#13 id=13 data-nosnippet>13</a><span class="doccomment">/// One executed page of rows for `Table::render`.
 <a href=#14 id=14 data-nosnippet>14</a>///
@@ -76,7 +76,7 @@
 <a href=#76 id=76 data-nosnippet>76</a>    ///
 <a href=#77 id=77 data-nosnippet>77</a>    /// # Errors
 <a href=#78 id=78 data-nosnippet>78</a>    ///
-<a href=#79 id=79 data-nosnippet>79</a>    /// A malformed or conflicting cursor, a cursor the engine rejects for this
+<a href=#79 id=79 data-nosnippet>79</a>    /// A malformed cursor, a cursor the engine rejects for this
 <a href=#80 id=80 data-nosnippet>80</a>    /// ordering (both take the cursor-stripped retry contract), or a database
 <a href=#81 id=81 data-nosnippet>81</a>    /// failure.
 <a href=#82 id=82 data-nosnippet>82</a>    </span><span class="kw">pub async fn </span>load(
@@ -94,121 +94,119 @@
 <a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">let </span><span class="kw-2">mut </span>db = <span class="kw">crate</span>::db::db(cx);
 <a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">let </span>per_page = table.page_size();
 <a href=#96 id=96 data-nosnippet>96</a>        <span class="kw">let </span><span class="kw-2">mut </span>paginated = toasty::stmt::Paginate::new(query, per_page);
-<a href=#97 id=97 data-nosnippet>97</a>        <span class="comment">// Toasty cursor pagination takes exactly one cursor:
-<a href=#98 id=98 data-nosnippet>98</a>        // a URL carrying both `?after=` and `?before=` must fail loudly
-<a href=#99 id=99 data-nosnippet>99</a>        // instead of silently preferring `after` (the GH #93 fail-open
-<a href=#100 id=100 data-nosnippet>100</a>        // family). The `CursorDecodeError` marker gives the failure the
-<a href=#101 id=101 data-nosnippet>101</a>        // drop-pagination retry contract.
-<a href=#102 id=102 data-nosnippet>102</a>        </span><span class="kw">if </span>state.after.is_some() &amp;&amp; state.before.is_some() {
-<a href=#103 id=103 data-nosnippet>103</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">crate</span>::cursor::CursorDecodeError::conflicting_cursors());
-<a href=#104 id=104 data-nosnippet>104</a>        }
-<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = <span class="kw-2">&amp;</span>state.after {
-<a href=#106 id=106 data-nosnippet>106</a>            paginated = paginated.after(<span class="kw">crate</span>::cursor::decode(cursor)<span class="question-mark">?</span>);
-<a href=#107 id=107 data-nosnippet>107</a>        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(cursor) = <span class="kw-2">&amp;</span>state.before {
-<a href=#108 id=108 data-nosnippet>108</a>            paginated = paginated.before(<span class="kw">crate</span>::cursor::decode(cursor)<span class="question-mark">?</span>);
-<a href=#109 id=109 data-nosnippet>109</a>        }
-<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">let </span>loaded = paginated
-<a href=#111 id=111 data-nosnippet>111</a>            .exec(<span class="kw-2">&amp;mut </span>db)
-<a href=#112 id=112 data-nosnippet>112</a>            .<span class="kw">await
-<a href=#113 id=113 data-nosnippet>113</a>            </span>.map_err(|error| reject_cursor(error.into(), state))<span class="question-mark">?</span>;
-<a href=#114 id=114 data-nosnippet>114</a>        <span class="kw">let </span><span class="kw-2">mut </span>page = TablePage::from_toasty_page(loaded)<span class="question-mark">?</span>;
-<a href=#115 id=115 data-nosnippet>115</a>        <span class="comment">// Cursor-existence probes, one per landing direction:
-<a href=#116 id=116 data-nosnippet>116</a>        // the engine sets `next_cursor`/`prev_cursor` optimistically,
-<a href=#117 id=117 data-nosnippet>117</a>        // so a page sitting exactly at a boundary carries a phantom
-<a href=#118 id=118 data-nosnippet>118</a>        // cursor without validation. Each direction probes only the
-<a href=#119 id=119 data-nosnippet>119</a>        // edge that can lie:
-<a href=#120 id=120 data-nosnippet>120</a>        // - forward/first landing: prev is exact (absent on the first page; otherwise the page we
-<a href=#121 id=121 data-nosnippet>121</a>        //   came from exists), next may be phantom at the end boundary → probe next on full pages.
-<a href=#122 id=122 data-nosnippet>122</a>        //   A short page cannot have a next page.
-<a href=#123 id=123 data-nosnippet>123</a>        // - backward landing: next is exact (the page we came from follows), prev may be phantom
-<a href=#124 id=124 data-nosnippet>124</a>        //   when the fetch lands on the first page → probe prev whenever one is reported.
-<a href=#125 id=125 data-nosnippet>125</a>        //
-<a href=#126 id=126 data-nosnippet>126</a>        // Deliberately NOT a `LIMIT per_page+1` fold: the engine
-<a href=#127 id=127 data-nosnippet>127</a>        // derives `next_cursor` from the last *fetched* row, so
-<a href=#128 id=128 data-nosnippet>128</a>        // trimming the extra row would anchor the next link past it —
-<a href=#129 id=129 data-nosnippet>129</a>        // every `(per_page+1)`th row would vanish from forward walks.
-<a href=#130 id=130 data-nosnippet>130</a>        // The probes keep the main fetch's cursors (which point at
-<a href=#131 id=131 data-nosnippet>131</a>        // displayed rows) as the link anchors.
-<a href=#132 id=132 data-nosnippet>132</a>        //
-<a href=#133 id=133 data-nosnippet>133</a>        // Residual (same as ever): a concurrent delete landing between
-<a href=#134 id=134 data-nosnippet>134</a>        // the main fetch and the click can still void a validated
-<a href=#135 id=135 data-nosnippet>135</a>        // cursor — that degrades to the void-window recovery link
-<a href=#136 id=136 data-nosnippet>136</a>        // never to silently skipped rows.
-<a href=#137 id=137 data-nosnippet>137</a>        </span><span class="kw">if </span>state.before.is_some() {
-<a href=#138 id=138 data-nosnippet>138</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = page.prev_cursor.clone() {
-<a href=#139 id=139 data-nosnippet>139</a>                <span class="kw">let </span>past = Past::Before(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>);
-<a href=#140 id=140 data-nosnippet>140</a>                <span class="kw">if </span>!row_exists_past(<span class="kw-2">&amp;mut </span>db, base_query, past)
-<a href=#141 id=141 data-nosnippet>141</a>                    .<span class="kw">await
-<a href=#142 id=142 data-nosnippet>142</a>                    </span>.map_err(topcoat::Error::from)<span class="question-mark">?
-<a href=#143 id=143 data-nosnippet>143</a>                </span>{
-<a href=#144 id=144 data-nosnippet>144</a>                    page.prev_cursor = <span class="prelude-val">None</span>;
-<a href=#145 id=145 data-nosnippet>145</a>                }
-<a href=#146 id=146 data-nosnippet>146</a>            }
-<a href=#147 id=147 data-nosnippet>147</a>        } <span class="kw">else if </span>page.rows.len() == per_page {
-<a href=#148 id=148 data-nosnippet>148</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = page.next_cursor.clone() {
-<a href=#149 id=149 data-nosnippet>149</a>                <span class="kw">let </span>past = Past::After(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>);
-<a href=#150 id=150 data-nosnippet>150</a>                <span class="kw">if </span>!row_exists_past(<span class="kw-2">&amp;mut </span>db, base_query, past)
-<a href=#151 id=151 data-nosnippet>151</a>                    .<span class="kw">await
-<a href=#152 id=152 data-nosnippet>152</a>                    </span>.map_err(topcoat::Error::from)<span class="question-mark">?
-<a href=#153 id=153 data-nosnippet>153</a>                </span>{
-<a href=#154 id=154 data-nosnippet>154</a>                    page.next_cursor = <span class="prelude-val">None</span>;
-<a href=#155 id=155 data-nosnippet>155</a>                }
-<a href=#156 id=156 data-nosnippet>156</a>            }
-<a href=#157 id=157 data-nosnippet>157</a>        } <span class="kw">else </span>{
-<a href=#158 id=158 data-nosnippet>158</a>            <span class="comment">// Short page → no next, keep prev as-is (has_previous already correct).
-<a href=#159 id=159 data-nosnippet>159</a>            </span>page.next_cursor = <span class="prelude-val">None</span>;
-<a href=#160 id=160 data-nosnippet>160</a>        }
-<a href=#161 id=161 data-nosnippet>161</a>        <span class="prelude-val">Ok</span>(page)
-<a href=#162 id=162 data-nosnippet>162</a>    }
-<a href=#163 id=163 data-nosnippet>163</a>}
-<a href=#164 id=164 data-nosnippet>164</a>
-<a href=#165 id=165 data-nosnippet>165</a><span class="doccomment">/// Which side of a cursor a probe looks past.
-<a href=#166 id=166 data-nosnippet>166</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Past {
-<a href=#167 id=167 data-nosnippet>167</a>    <span class="doccomment">/// Rows after the cursor, in the query's order.
-<a href=#168 id=168 data-nosnippet>168</a>    </span>After(Value),
-<a href=#169 id=169 data-nosnippet>169</a>    <span class="doccomment">/// Rows before the cursor.
-<a href=#170 id=170 data-nosnippet>170</a>    </span>Before(Value),
-<a href=#171 id=171 data-nosnippet>171</a>}
-<a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a><span class="doccomment">/// Whether `query` has a row past the cursor.
-<a href=#174 id=174 data-nosnippet>174</a>///
-<a href=#175 id=175 data-nosnippet>175</a>/// Toasty reports a cursor whenever a page comes back full, so a page that
-<a href=#176 id=176 data-nosnippet>176</a>/// ends exactly at the table's edge carries one with nothing behind it
-<a href=#177 id=177 data-nosnippet>177</a>/// (GH #397). The list loader validates the cursor its links carry with
-<a href=#178 id=178 data-nosnippet>178</a>/// this, and the export asks it whether rows remain past its row cap.
-<a href=#179 id=179 data-nosnippet>179</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>row_exists_past&lt;M&gt;(
-<a href=#180 id=180 data-nosnippet>180</a>    db: <span class="kw-2">&amp;mut </span>toasty::Db,
-<a href=#181 id=181 data-nosnippet>181</a>    query: Query&lt;List&lt;M&gt;&gt;,
-<a href=#182 id=182 data-nosnippet>182</a>    past: Past,
-<a href=#183 id=183 data-nosnippet>183</a>) -&gt; toasty::Result&lt;bool&gt;
-<a href=#184 id=184 data-nosnippet>184</a><span class="kw">where
-<a href=#185 id=185 data-nosnippet>185</a>    </span>M: toasty::schema::Model + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#186 id=186 data-nosnippet>186</a>{
-<a href=#187 id=187 data-nosnippet>187</a>    <span class="kw">let </span>probe = toasty::stmt::Paginate::new(query, <span class="number">1</span>);
-<a href=#188 id=188 data-nosnippet>188</a>    <span class="kw">let </span>probe = <span class="kw">match </span>past {
-<a href=#189 id=189 data-nosnippet>189</a>        Past::After(cursor) =&gt; probe.after(cursor),
-<a href=#190 id=190 data-nosnippet>190</a>        Past::Before(cursor) =&gt; probe.before(cursor),
-<a href=#191 id=191 data-nosnippet>191</a>    };
-<a href=#192 id=192 data-nosnippet>192</a>    <span class="prelude-val">Ok</span>(!probe.exec(db).<span class="kw">await</span><span class="question-mark">?</span>.items.is_empty())
-<a href=#193 id=193 data-nosnippet>193</a>}
-<a href=#194 id=194 data-nosnippet>194</a>
-<a href=#195 id=195 data-nosnippet>195</a><span class="doccomment">/// Attribute a failed paginated fetch to the request's cursor.
-<a href=#196 id=196 data-nosnippet>196</a>///
-<a href=#197 id=197 data-nosnippet>197</a>/// A token cut from a different ordering decodes but the engine refuses the
-<a href=#198 id=198 data-nosnippet>198</a>/// statement (`invalid_statement`: its field count no longer matches the
-<a href=#199 id=199 data-nosnippet>199</a>/// query's `ORDER BY`). No other statement this paginated loader builds carries
-<a href=#200 id=200 data-nosnippet>200</a>/// that error while the request names a cursor. Such a failure is the cursor's,
-<a href=#201 id=201 data-nosnippet>201</a>/// so it takes the cursor-stripped retry contract instead of re-requesting the
-<a href=#202 id=202 data-nosnippet>202</a>/// identical URL forever; every other failure keeps the cursor.
-<a href=#203 id=203 data-nosnippet>203</a></span><span class="kw">fn </span>reject_cursor(error: topcoat::Error, state: <span class="kw-2">&amp;</span>TableState) -&gt; topcoat::Error {
-<a href=#204 id=204 data-nosnippet>204</a>    <span class="kw">let </span>cursored = state.after.is_some() || state.before.is_some();
-<a href=#205 id=205 data-nosnippet>205</a>    <span class="kw">let </span>rejected = error
-<a href=#206 id=206 data-nosnippet>206</a>        .downcast_ref::&lt;toasty::Error&gt;()
-<a href=#207 id=207 data-nosnippet>207</a>        .is_some_and(toasty::Error::is_invalid_statement);
-<a href=#208 id=208 data-nosnippet>208</a>    <span class="kw">if </span>cursored &amp;&amp; rejected {
-<a href=#209 id=209 data-nosnippet>209</a>        <span class="kw">crate</span>::cursor::CursorRejectedError::rejected(<span class="kw-2">&amp;</span>error)
-<a href=#210 id=210 data-nosnippet>210</a>    } <span class="kw">else </span>{
-<a href=#211 id=211 data-nosnippet>211</a>        error
-<a href=#212 id=212 data-nosnippet>212</a>    }
-<a href=#213 id=213 data-nosnippet>213</a>}
+<a href=#97 id=97 data-nosnippet>97</a>        <span class="comment">// Toasty cursor pagination takes exactly one cursor, and the state
+<a href=#98 id=98 data-nosnippet>98</a>        // holds at most one.
+<a href=#99 id=99 data-nosnippet>99</a>        </span><span class="kw">match </span><span class="kw-2">&amp;</span>state.cursor {
+<a href=#100 id=100 data-nosnippet>100</a>            <span class="prelude-val">Some</span>(Cursor::After(token)) =&gt; {
+<a href=#101 id=101 data-nosnippet>101</a>                paginated = paginated.after(<span class="kw">crate</span>::cursor::decode(token)<span class="question-mark">?</span>);
+<a href=#102 id=102 data-nosnippet>102</a>            }
+<a href=#103 id=103 data-nosnippet>103</a>            <span class="prelude-val">Some</span>(Cursor::Before(token)) =&gt; {
+<a href=#104 id=104 data-nosnippet>104</a>                paginated = paginated.before(<span class="kw">crate</span>::cursor::decode(token)<span class="question-mark">?</span>);
+<a href=#105 id=105 data-nosnippet>105</a>            }
+<a href=#106 id=106 data-nosnippet>106</a>            <span class="prelude-val">None </span>=&gt; {}
+<a href=#107 id=107 data-nosnippet>107</a>        }
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">let </span>loaded = paginated
+<a href=#109 id=109 data-nosnippet>109</a>            .exec(<span class="kw-2">&amp;mut </span>db)
+<a href=#110 id=110 data-nosnippet>110</a>            .<span class="kw">await
+<a href=#111 id=111 data-nosnippet>111</a>            </span>.map_err(|error| reject_cursor(error.into(), state))<span class="question-mark">?</span>;
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="kw">let </span><span class="kw-2">mut </span>page = TablePage::from_toasty_page(loaded)<span class="question-mark">?</span>;
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="comment">// Cursor-existence probes, one per landing direction:
+<a href=#114 id=114 data-nosnippet>114</a>        // the engine sets `next_cursor`/`prev_cursor` optimistically,
+<a href=#115 id=115 data-nosnippet>115</a>        // so a page sitting exactly at a boundary carries a phantom
+<a href=#116 id=116 data-nosnippet>116</a>        // cursor without validation. Each direction probes only the
+<a href=#117 id=117 data-nosnippet>117</a>        // edge that can lie:
+<a href=#118 id=118 data-nosnippet>118</a>        // - forward/first landing: prev is exact (absent on the first page; otherwise the page we
+<a href=#119 id=119 data-nosnippet>119</a>        //   came from exists), next may be phantom at the end boundary → probe next on full pages.
+<a href=#120 id=120 data-nosnippet>120</a>        //   A short page cannot have a next page.
+<a href=#121 id=121 data-nosnippet>121</a>        // - backward landing: next is exact (the page we came from follows), prev may be phantom
+<a href=#122 id=122 data-nosnippet>122</a>        //   when the fetch lands on the first page → probe prev whenever one is reported.
+<a href=#123 id=123 data-nosnippet>123</a>        //
+<a href=#124 id=124 data-nosnippet>124</a>        // Deliberately NOT a `LIMIT per_page+1` fold: the engine
+<a href=#125 id=125 data-nosnippet>125</a>        // derives `next_cursor` from the last *fetched* row, so
+<a href=#126 id=126 data-nosnippet>126</a>        // trimming the extra row would anchor the next link past it —
+<a href=#127 id=127 data-nosnippet>127</a>        // every `(per_page+1)`th row would vanish from forward walks.
+<a href=#128 id=128 data-nosnippet>128</a>        // The probes keep the main fetch's cursors (which point at
+<a href=#129 id=129 data-nosnippet>129</a>        // displayed rows) as the link anchors.
+<a href=#130 id=130 data-nosnippet>130</a>        //
+<a href=#131 id=131 data-nosnippet>131</a>        // Residual (same as ever): a concurrent delete landing between
+<a href=#132 id=132 data-nosnippet>132</a>        // the main fetch and the click can still void a validated
+<a href=#133 id=133 data-nosnippet>133</a>        // cursor — that degrades to the void-window recovery link
+<a href=#134 id=134 data-nosnippet>134</a>        // never to silently skipped rows.
+<a href=#135 id=135 data-nosnippet>135</a>        </span><span class="kw">if </span><span class="macro">matches!</span>(state.cursor, <span class="prelude-val">Some</span>(Cursor::Before(<span class="kw">_</span>))) {
+<a href=#136 id=136 data-nosnippet>136</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = page.prev_cursor.clone() {
+<a href=#137 id=137 data-nosnippet>137</a>                <span class="kw">let </span>past = Past::Before(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>);
+<a href=#138 id=138 data-nosnippet>138</a>                <span class="kw">if </span>!row_exists_past(<span class="kw-2">&amp;mut </span>db, base_query, past)
+<a href=#139 id=139 data-nosnippet>139</a>                    .<span class="kw">await
+<a href=#140 id=140 data-nosnippet>140</a>                    </span>.map_err(topcoat::Error::from)<span class="question-mark">?
+<a href=#141 id=141 data-nosnippet>141</a>                </span>{
+<a href=#142 id=142 data-nosnippet>142</a>                    page.prev_cursor = <span class="prelude-val">None</span>;
+<a href=#143 id=143 data-nosnippet>143</a>                }
+<a href=#144 id=144 data-nosnippet>144</a>            }
+<a href=#145 id=145 data-nosnippet>145</a>        } <span class="kw">else if </span>page.rows.len() == per_page {
+<a href=#146 id=146 data-nosnippet>146</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = page.next_cursor.clone() {
+<a href=#147 id=147 data-nosnippet>147</a>                <span class="kw">let </span>past = Past::After(<span class="kw">crate</span>::cursor::decode(<span class="kw-2">&amp;</span>cursor)<span class="question-mark">?</span>);
+<a href=#148 id=148 data-nosnippet>148</a>                <span class="kw">if </span>!row_exists_past(<span class="kw-2">&amp;mut </span>db, base_query, past)
+<a href=#149 id=149 data-nosnippet>149</a>                    .<span class="kw">await
+<a href=#150 id=150 data-nosnippet>150</a>                    </span>.map_err(topcoat::Error::from)<span class="question-mark">?
+<a href=#151 id=151 data-nosnippet>151</a>                </span>{
+<a href=#152 id=152 data-nosnippet>152</a>                    page.next_cursor = <span class="prelude-val">None</span>;
+<a href=#153 id=153 data-nosnippet>153</a>                }
+<a href=#154 id=154 data-nosnippet>154</a>            }
+<a href=#155 id=155 data-nosnippet>155</a>        } <span class="kw">else </span>{
+<a href=#156 id=156 data-nosnippet>156</a>            <span class="comment">// Short page → no next, keep prev as-is (has_previous already correct).
+<a href=#157 id=157 data-nosnippet>157</a>            </span>page.next_cursor = <span class="prelude-val">None</span>;
+<a href=#158 id=158 data-nosnippet>158</a>        }
+<a href=#159 id=159 data-nosnippet>159</a>        <span class="prelude-val">Ok</span>(page)
+<a href=#160 id=160 data-nosnippet>160</a>    }
+<a href=#161 id=161 data-nosnippet>161</a>}
+<a href=#162 id=162 data-nosnippet>162</a>
+<a href=#163 id=163 data-nosnippet>163</a><span class="doccomment">/// Which side of a cursor a probe looks past.
+<a href=#164 id=164 data-nosnippet>164</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Past {
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="doccomment">/// Rows after the cursor, in the query's order.
+<a href=#166 id=166 data-nosnippet>166</a>    </span>After(Value),
+<a href=#167 id=167 data-nosnippet>167</a>    <span class="doccomment">/// Rows before the cursor.
+<a href=#168 id=168 data-nosnippet>168</a>    </span>Before(Value),
+<a href=#169 id=169 data-nosnippet>169</a>}
+<a href=#170 id=170 data-nosnippet>170</a>
+<a href=#171 id=171 data-nosnippet>171</a><span class="doccomment">/// Whether `query` has a row past the cursor.
+<a href=#172 id=172 data-nosnippet>172</a>///
+<a href=#173 id=173 data-nosnippet>173</a>/// Toasty reports a cursor whenever a page comes back full, so a page that
+<a href=#174 id=174 data-nosnippet>174</a>/// ends exactly at the table's edge carries one with nothing behind it
+<a href=#175 id=175 data-nosnippet>175</a>/// (GH #397). The list loader validates the cursor its links carry with
+<a href=#176 id=176 data-nosnippet>176</a>/// this, and the export asks it whether rows remain past its row cap.
+<a href=#177 id=177 data-nosnippet>177</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>row_exists_past&lt;M&gt;(
+<a href=#178 id=178 data-nosnippet>178</a>    db: <span class="kw-2">&amp;mut </span>toasty::Db,
+<a href=#179 id=179 data-nosnippet>179</a>    query: Query&lt;List&lt;M&gt;&gt;,
+<a href=#180 id=180 data-nosnippet>180</a>    past: Past,
+<a href=#181 id=181 data-nosnippet>181</a>) -&gt; toasty::Result&lt;bool&gt;
+<a href=#182 id=182 data-nosnippet>182</a><span class="kw">where
+<a href=#183 id=183 data-nosnippet>183</a>    </span>M: toasty::schema::Model + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#184 id=184 data-nosnippet>184</a>{
+<a href=#185 id=185 data-nosnippet>185</a>    <span class="kw">let </span>probe = toasty::stmt::Paginate::new(query, <span class="number">1</span>);
+<a href=#186 id=186 data-nosnippet>186</a>    <span class="kw">let </span>probe = <span class="kw">match </span>past {
+<a href=#187 id=187 data-nosnippet>187</a>        Past::After(cursor) =&gt; probe.after(cursor),
+<a href=#188 id=188 data-nosnippet>188</a>        Past::Before(cursor) =&gt; probe.before(cursor),
+<a href=#189 id=189 data-nosnippet>189</a>    };
+<a href=#190 id=190 data-nosnippet>190</a>    <span class="prelude-val">Ok</span>(!probe.exec(db).<span class="kw">await</span><span class="question-mark">?</span>.items.is_empty())
+<a href=#191 id=191 data-nosnippet>191</a>}
+<a href=#192 id=192 data-nosnippet>192</a>
+<a href=#193 id=193 data-nosnippet>193</a><span class="doccomment">/// Attribute a failed paginated fetch to the request's cursor.
+<a href=#194 id=194 data-nosnippet>194</a>///
+<a href=#195 id=195 data-nosnippet>195</a>/// A token cut from a different ordering decodes but the engine refuses the
+<a href=#196 id=196 data-nosnippet>196</a>/// statement (`invalid_statement`: its field count no longer matches the
+<a href=#197 id=197 data-nosnippet>197</a>/// query's `ORDER BY`). No other statement this paginated loader builds carries
+<a href=#198 id=198 data-nosnippet>198</a>/// that error while the request names a cursor. Such a failure is the cursor's,
+<a href=#199 id=199 data-nosnippet>199</a>/// so it takes the cursor-stripped retry contract instead of re-requesting the
+<a href=#200 id=200 data-nosnippet>200</a>/// identical URL forever; every other failure keeps the cursor.
+<a href=#201 id=201 data-nosnippet>201</a></span><span class="kw">fn </span>reject_cursor(error: topcoat::Error, state: <span class="kw-2">&amp;</span>TableState) -&gt; topcoat::Error {
+<a href=#202 id=202 data-nosnippet>202</a>    <span class="kw">let </span>cursored = state.cursor.is_some();
+<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">let </span>rejected = error
+<a href=#204 id=204 data-nosnippet>204</a>        .downcast_ref::&lt;toasty::Error&gt;()
+<a href=#205 id=205 data-nosnippet>205</a>        .is_some_and(toasty::Error::is_invalid_statement);
+<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">if </span>cursored &amp;&amp; rejected {
+<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">crate</span>::cursor::CursorRejectedError::rejected(<span class="kw-2">&amp;</span>error)
+<a href=#208 id=208 data-nosnippet>208</a>    } <span class="kw">else </span>{
+<a href=#209 id=209 data-nosnippet>209</a>        error
+<a href=#210 id=210 data-nosnippet>210</a>    }
+<a href=#211 id=211 data-nosnippet>211</a>}
 </code></pre></div></section></main></body></html>

@@ -4,19 +4,17 @@
 <a href=#4 id=4 data-nosnippet>4</a>//! shard) and `schema` (relationship option search) both clamp through here,
 <a href=#5 id=5 data-nosnippet>5</a>//! and neither depends on the other for it.
 <a href=#6 id=6 data-nosnippet>6</a>
-<a href=#7 id=7 data-nosnippet>7</a>/// Longest search term accepted (`?q=` and the shard's `q`): bounded
-<a href=#8 id=8 data-nosnippet>8</a>/// echoed state. Applied by [`TableState::from_parts`], so the GET path, the
-<a href=#9 id=9 data-nosnippet>9</a>/// shard, and the public [`TableState::from_live_args`] all clamp alike
-<a href=#10 id=10 data-nosnippet>10</a>/// and by the relationship option search so a keystroke burst cannot
-<a href=#11 id=11 data-nosnippet>11</a>/// grow the pattern past the same bound.
-<a href=#12 id=12 data-nosnippet>12</a>///
-<a href=#13 id=13 data-nosnippet>13</a>/// [`TableState::from_parts`]: crate::resource::TableState
-<a href=#14 id=14 data-nosnippet>14</a>/// [`TableState::from_live_args`]: crate::resource::TableState::from_live_args
-<a href=#15 id=15 data-nosnippet>15</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>MAX_QUERY_TERM: usize = <span class="number">128</span>;
-<a href=#16 id=16 data-nosnippet>16</a>
-<a href=#17 id=17 data-nosnippet>17</a><span class="doccomment">/// Clamp a search term to [`MAX_QUERY_TERM`] chars (chars, not bytes, so a
-<a href=#18 id=18 data-nosnippet>18</a>/// multibyte term truncates on boundaries).
-<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clamp_query_term(term: <span class="kw-2">&amp;</span>str) -&gt; String {
-<a href=#20 id=20 data-nosnippet>20</a>    term.trim().chars().take(MAX_QUERY_TERM).collect()
-<a href=#21 id=21 data-nosnippet>21</a>}
+<a href=#7 id=7 data-nosnippet>7</a>/// Longest search term accepted (`?q=`): bounded echoed state. Applied by
+<a href=#8 id=8 data-nosnippet>8</a>/// [`TableState::from_query`], so the GET path and the live shard clamp alike,
+<a href=#9 id=9 data-nosnippet>9</a>/// and by the relationship option search so a keystroke burst cannot grow the
+<a href=#10 id=10 data-nosnippet>10</a>/// pattern past the same bound.
+<a href=#11 id=11 data-nosnippet>11</a>///
+<a href=#12 id=12 data-nosnippet>12</a>/// [`TableState::from_query`]: crate::resource::TableState::from_query
+<a href=#13 id=13 data-nosnippet>13</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>MAX_QUERY_TERM: usize = <span class="number">128</span>;
+<a href=#14 id=14 data-nosnippet>14</a>
+<a href=#15 id=15 data-nosnippet>15</a><span class="doccomment">/// Clamp a search term to [`MAX_QUERY_TERM`] chars (chars, not bytes, so a
+<a href=#16 id=16 data-nosnippet>16</a>/// multibyte term truncates on boundaries).
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clamp_query_term(term: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#18 id=18 data-nosnippet>18</a>    term.trim().chars().take(MAX_QUERY_TERM).collect()
+<a href=#19 id=19 data-nosnippet>19</a>}
 </code></pre></div></section></main></body></html>

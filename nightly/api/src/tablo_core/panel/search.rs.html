@@ -17,181 +17,128 @@
 <a href=#17 id=17 data-nosnippet>17</a>    gate::{enforce_auth, gate},
 <a href=#18 id=18 data-nosnippet>18</a>    list::{load_table_page, table_error_view, wire_table_actions},
 <a href=#19 id=19 data-nosnippet>19</a>};
-<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span><span class="kw">crate</span>::resource::{Resource, TableSignals};
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span><span class="kw">crate</span>::resource::{Resource, TableSignals, TableState};
 <a href=#21 id=21 data-nosnippet>21</a>
-<a href=#22 id=22 data-nosnippet>22</a><span class="doccomment">/// One live-table shard invocation: the list path the page asks for
-<a href=#23 id=23 data-nosnippet>23</a>/// and the interaction signals it owns.
-<a href=#24 id=24 data-nosnippet>24</a>///
-<a href=#25 id=25 data-nosnippet>25</a>/// The one argument the shard's *handler* takes. The `#[shard]` entry packs
-<a href=#26 id=26 data-nosnippet>26</a>/// its wire parameters into this, and every seam below — the registry lookup,
-<a href=#27 id=27 data-nosnippet>27</a>/// the state rebuild, the load, the render, and the retry link — reads the
-<a href=#28 id=28 data-nosnippet>28</a>/// same value, so a new interaction dimension never changes a signature
-<a href=#29 id=29 data-nosnippet>29</a>/// here.
-<a href=#30 id=30 data-nosnippet>30</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>TableSearchArgs {
-<a href=#31 id=31 data-nosnippet>31</a>    <span class="doccomment">/// The list path to rerun: resolved through the registry (an allow-list,
-<a href=#32 id=32 data-nosnippet>32</a>    /// never a raw route).
-<a href=#33 id=33 data-nosnippet>33</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) path: String,
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="doccomment">/// The page's signals, untrusted by the time the shard reads them back.
-<a href=#35 id=35 data-nosnippet>35</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) signals: TableSignals,
-<a href=#36 id=36 data-nosnippet>36</a>}
-<a href=#37 id=37 data-nosnippet>37</a>
-<a href=#38 id=38 data-nosnippet>38</a><span class="doccomment">/// A monomorphized live-search table loader, one per declared resource.
-<a href=#39 id=39 data-nosnippet>39</a>///
-<a href=#40 id=40 data-nosnippet>40</a>/// `#[shard]` inventory only discovers concrete fns, so the single
-<a href=#41 id=41 data-nosnippet>41</a>/// concrete [`table_search`] shard dispatches through this registry instead
-<a href=#42 id=42 data-nosnippet>42</a>/// of going generic. Built by [`Panel::resource`], keyed by list path.
-<a href=#43 id=43 data-nosnippet>43</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SearchFn = Arc&lt;
-<a href=#44 id=44 data-nosnippet>44</a>    <span class="kw">dyn for</span>&lt;<span class="lifetime">'a</span>&gt; Fn(
-<a href=#45 id=45 data-nosnippet>45</a>            <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
-<a href=#46 id=46 data-nosnippet>46</a>            TableSearchArgs,
-<a href=#47 id=47 data-nosnippet>47</a>        ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt;&gt; + Send + <span class="lifetime">'a</span>&gt;&gt;
-<a href=#48 id=48 data-nosnippet>48</a>        + Send
-<a href=#49 id=49 data-nosnippet>49</a>        + Sync,
-<a href=#50 id=50 data-nosnippet>50</a>&gt;;
-<a href=#51 id=51 data-nosnippet>51</a>
-<a href=#52 id=52 data-nosnippet>52</a><span class="doccomment">/// Live-search handlers installed on the app context by [`Panel::build`].
-<a href=#53 id=53 data-nosnippet>53</a></span><span class="attr">#[derive(Clone, Default)]
-<a href=#54 id=54 data-nosnippet>54</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SearchRegistry(<span class="kw">pub</span>(<span class="kw">crate</span>) HashMap&lt;String, SearchFn&gt;);
-<a href=#55 id=55 data-nosnippet>55</a>
-<a href=#56 id=56 data-nosnippet>56</a><span class="doccomment">/// Monomorphize `R`'s table loader into a [`SearchFn`]: tenancy + policy gate,
-<a href=#57 id=57 data-nosnippet>57</a>/// then the same load + render the streamed list uses.
-<a href=#58 id=58 data-nosnippet>58</a>///
-<a href=#59 id=59 data-nosnippet>59</a>/// The table catches its own load errors: a tampered `after=` /
-<a href=#60 id=60 data-nosnippet>60</a>/// `before=` signal fails to decode inside the shard invocation, and the
-<a href=#61 id=61 data-nosnippet>61</a>/// invocation must render the branded in-region `ErrorState` + retry link
-<a href=#62 id=62 data-nosnippet>62</a>/// (via `super::list::table_error_view`, same as the streamed list) instead of
-<a href=#63 id=63 data-nosnippet>63</a>/// erroring the shard. Auth/tenancy/policy failures still propagate — they
-<a href=#64 id=64 data-nosnippet>64</a>/// are not table evidence.
-<a href=#65 id=65 data-nosnippet>65</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>search_handler_for&lt;R: Resource&gt;() -&gt; SearchFn {
-<a href=#66 id=66 data-nosnippet>66</a>    Arc::new(
-<a href=#67 id=67 data-nosnippet>67</a>        |cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#68 id=68 data-nosnippet>68</a>         args: TableSearchArgs|
-<a href=#69 id=69 data-nosnippet>69</a>         -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'_</span>&gt;&gt;&gt; + Send + <span class="lifetime">'_</span>&gt;&gt; {
-<a href=#70 id=70 data-nosnippet>70</a>            Box::pin(<span class="kw">async move </span>{
-<a href=#71 id=71 data-nosnippet>71</a>                gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#72 id=72 data-nosnippet>72</a>                <span class="kw">if </span>!R::can_view_any(cx) {
-<a href=#73 id=73 data-nosnippet>73</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#74 id=74 data-nosnippet>74</a>                }
-<a href=#75 id=75 data-nosnippet>75</a>                <span class="kw">let </span>table = wire_table_actions::&lt;R&gt;(cx, <span class="bool-val">true</span>);
-<a href=#76 id=76 data-nosnippet>76</a>                <span class="kw">let </span>TableSearchArgs { path, signals } = args;
-<a href=#77 id=77 data-nosnippet>77</a>                <span class="comment">// One shared bound and one normalization per request (GH #148):
-<a href=#78 id=78 data-nosnippet>78</a>                // `TableSignals::to_state` applies the same `q` clamp and
-<a href=#79 id=79 data-nosnippet>79</a>                // `filters` bound the GET path applies. The shard `group_by` arg
-<a href=#80 id=80 data-nosnippet>80</a>                // is client input — an
-<a href=#81 id=81 data-nosnippet>81</a>                // unknown value must not echo through the retry link.
-<a href=#82 id=82 data-nosnippet>82</a>                // The render below takes the proof and does not
-<a href=#83 id=83 data-nosnippet>83</a>                // normalize again.
-<a href=#84 id=84 data-nosnippet>84</a>                </span><span class="kw">let </span>state = table.normalize_state(<span class="kw-2">&amp;</span>signals.to_state());
-<a href=#85 id=85 data-nosnippet>85</a>                <span class="comment">// The retry link inside a failed table writes the same signals
-<a href=#86 id=86 data-nosnippet>86</a>                // the toolbar does, so keep a handle for it.
-<a href=#87 id=87 data-nosnippet>87</a>                </span><span class="kw">let </span>retry_signals = signals.clone();
-<a href=#88 id=88 data-nosnippet>88</a>                <span class="kw">let </span>rendered = <span class="kw">async </span>{
-<a href=#89 id=89 data-nosnippet>89</a>                    <span class="kw">let </span>page = load_table_page::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>table, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#90 id=90 data-nosnippet>90</a>                    table
-<a href=#91 id=91 data-nosnippet>91</a>                        .render_live_normalized(cx, page, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>path, signals)
-<a href=#92 id=92 data-nosnippet>92</a>                        .<span class="kw">await
-<a href=#93 id=93 data-nosnippet>93</a>                </span>};
-<a href=#94 id=94 data-nosnippet>94</a>                <span class="kw">match </span>rendered.<span class="kw">await </span>{
-<a href=#95 id=95 data-nosnippet>95</a>                    <span class="prelude-val">Ok</span>(view) =&gt; <span class="prelude-val">Ok</span>(view),
-<a href=#96 id=96 data-nosnippet>96</a>                    <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Ok</span>(table_error_view::&lt;R&gt;(
-<a href=#97 id=97 data-nosnippet>97</a>                        cx,
-<a href=#98 id=98 data-nosnippet>98</a>                        <span class="kw-2">&amp;</span>state,
-<a href=#99 id=99 data-nosnippet>99</a>                        <span class="kw-2">&amp;</span>error,
-<a href=#100 id=100 data-nosnippet>100</a>                        <span class="kw-2">&amp;</span>path,
-<a href=#101 id=101 data-nosnippet>101</a>                        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>retry_signals),
-<a href=#102 id=102 data-nosnippet>102</a>                    )),
-<a href=#103 id=103 data-nosnippet>103</a>                }
-<a href=#104 id=104 data-nosnippet>104</a>            })
-<a href=#105 id=105 data-nosnippet>105</a>        },
-<a href=#106 id=106 data-nosnippet>106</a>    )
-<a href=#107 id=107 data-nosnippet>107</a>}
-<a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a><span class="doccomment">/// Resolve the registered live-search handler for `path`, answering the gate
-<a href=#110 id=110 data-nosnippet>110</a>/// first (defense in depth): the registry lookup runs only for an
-<a href=#111 id=111 data-nosnippet>111</a>/// authenticated request, so an unknown `path` cannot be distinguished from a
-<a href=#112 id=112 data-nosnippet>112</a>/// registered one by an unauthenticated probe (404-vs-401 oracle).
-<a href=#113 id=113 data-nosnippet>113</a></span><span class="kw">fn </span>search_entry(cx: <span class="kw-2">&amp;</span>Cx, path: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;SearchFn&gt; {
-<a href=#114 id=114 data-nosnippet>114</a>    enforce_auth(cx)<span class="question-mark">?</span>;
-<a href=#115 id=115 data-nosnippet>115</a>    topcoat::context::try_app_context::&lt;SearchRegistry&gt;(cx)
-<a href=#116 id=116 data-nosnippet>116</a>        .and_then(|reg| reg.<span class="number">0</span>.get(path).cloned())
-<a href=#117 id=117 data-nosnippet>117</a>        .ok_or_else(|| topcoat::router::error::not_found().into())
-<a href=#118 id=118 data-nosnippet>118</a>}
-<a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a><span class="doccomment">/// Live table interactions: re-renders one resource's table as its signals
-<a href=#121 id=121 data-nosnippet>121</a>/// change, morphing in place per Topcoat #392 (focus, scroll and typing
-<a href=#122 id=122 data-nosnippet>122</a>/// survive; rows carry stable `id`s).
-<a href=#123 id=123 data-nosnippet>123</a>///
-<a href=#124 id=124 data-nosnippet>124</a>/// The shard owns no state: the page creates the signals ([`TableSignals`]),
-<a href=#125 id=125 data-nosnippet>125</a>/// renders the toolbar against them, and passes their handles here. Search,
-<a href=#126 id=126 data-nosnippet>126</a>/// sort, filters and pagination all write those signals, so one dependency
-<a href=#127 id=127 data-nosnippet>127</a>/// graph re-renders the table without a navigation or a scroll jump.
-<a href=#128 id=128 data-nosnippet>128</a>///
-<a href=#129 id=129 data-nosnippet>129</a>/// Every arg is untrusted shard input: `path` must name a registered list, and
-<a href=#130 id=130 data-nosnippet>130</a>/// every signal value is clamped or re-parsed through
-<a href=#131 id=131 data-nosnippet>131</a>/// [`TableSignals::to_state`] like the GET path. Authorization mirrors the list
-<a href=#132 id=132 data-nosnippet>132</a>/// page (`requires_tenant` + `can_view_any`, row scoping via the tenant-scoped
-<a href=#133 id=133 data-nosnippet>133</a>/// query); shard POSTs carry no CSRF token, and none is needed for this
-<a href=#134 id=134 data-nosnippet>134</a>/// read-only rerun.
-<a href=#135 id=135 data-nosnippet>135</a>///
-<a href=#136 id=136 data-nosnippet>136</a>/// The module exists only to carry `allow(too_many_arguments)`: the shard's
-<a href=#137 id=137 data-nosnippet>137</a>/// arity *is* the interaction list. The wire stays scalar by choice — a struct
-<a href=#138 id=138 data-nosnippet>138</a>/// cannot travel as a shard argument (topcoat requires the `expr!` vocabulary,
-<a href=#139 id=139 data-nosnippet>139</a>/// and a struct has no `Surrogated` surrogate the browser's `cx.hydrate` can
-<a href=#140 id=140 data-nosnippet>140</a>/// rebuild), and packing the dimensions into a list would couple the browser to
-<a href=#141 id=141 data-nosnippet>141</a>/// this server's ordering.
-<a href=#142 id=142 data-nosnippet>142</a></span><span class="attr">#[allow(clippy::too_many_arguments)]
-<a href=#143 id=143 data-nosnippet>143</a></span><span class="kw">mod </span>shard_body {
-<a href=#144 id=144 data-nosnippet>144</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#145 id=145 data-nosnippet>145</a>
-<a href=#146 id=146 data-nosnippet>146</a>    <span class="attr">#[shard(<span class="string">"/_topcoat/runtime/shards/tablo-table-search"</span>)]
-<a href=#147 id=147 data-nosnippet>147</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>table_search(
-<a href=#148 id=148 data-nosnippet>148</a>        cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#149 id=149 data-nosnippet>149</a>        path: String,
-<a href=#150 id=150 data-nosnippet>150</a>        q: topcoat::runtime::Signal&lt;String&gt;,
-<a href=#151 id=151 data-nosnippet>151</a>        filters: topcoat::runtime::Signal&lt;String&gt;,
-<a href=#152 id=152 data-nosnippet>152</a>        sort: topcoat::runtime::Signal&lt;String&gt;,
-<a href=#153 id=153 data-nosnippet>153</a>        dir: topcoat::runtime::Signal&lt;String&gt;,
-<a href=#154 id=154 data-nosnippet>154</a>        cursor: topcoat::runtime::Signal&lt;String&gt;,
-<a href=#155 id=155 data-nosnippet>155</a>        group_by: topcoat::runtime::Signal&lt;String&gt;,
-<a href=#156 id=156 data-nosnippet>156</a>        bulk: topcoat::runtime::Signal&lt;String&gt;,
-<a href=#157 id=157 data-nosnippet>157</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>View&gt; {
-<a href=#158 id=158 data-nosnippet>158</a>        <span class="kw">let </span>entry = search_entry(cx, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-<a href=#159 id=159 data-nosnippet>159</a>        <span class="comment">// One argument struct from here down: the handler owns the
-<a href=#160 id=160 data-nosnippet>160</a>        // wire arity, nothing below it does.
-<a href=#161 id=161 data-nosnippet>161</a>        </span>entry(
-<a href=#162 id=162 data-nosnippet>162</a>            cx,
-<a href=#163 id=163 data-nosnippet>163</a>            TableSearchArgs {
-<a href=#164 id=164 data-nosnippet>164</a>                path,
-<a href=#165 id=165 data-nosnippet>165</a>                signals: TableSignals {
-<a href=#166 id=166 data-nosnippet>166</a>                    q,
-<a href=#167 id=167 data-nosnippet>167</a>                    filters,
-<a href=#168 id=168 data-nosnippet>168</a>                    sort,
-<a href=#169 id=169 data-nosnippet>169</a>                    dir,
-<a href=#170 id=170 data-nosnippet>170</a>                    cursor,
-<a href=#171 id=171 data-nosnippet>171</a>                    group_by,
-<a href=#172 id=172 data-nosnippet>172</a>                    bulk,
-<a href=#173 id=173 data-nosnippet>173</a>                },
-<a href=#174 id=174 data-nosnippet>174</a>            },
-<a href=#175 id=175 data-nosnippet>175</a>        )
-<a href=#176 id=176 data-nosnippet>176</a>        .<span class="kw">await
-<a href=#177 id=177 data-nosnippet>177</a>    </span>}
-<a href=#178 id=178 data-nosnippet>178</a>}
-<a href=#179 id=179 data-nosnippet>179</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>shard_body::table_search;
-<a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a><span class="doccomment">/// The endpoint [`table_search`] is served at.
-<a href=#182 id=182 data-nosnippet>182</a>///
-<a href=#183 id=183 data-nosnippet>183</a>/// A shard that declares no path is served at a build-random one (topcoat#441);
-<a href=#184 id=184 data-nosnippet>184</a>/// naming it keeps the endpoint stable across builds and legible in logs and
-<a href=#185 id=185 data-nosnippet>185</a>/// tests. The `/tablo-` prefix separates it from a generated path, and the
-<a href=#186 id=186 data-nosnippet>186</a>/// whole path stays under `/_topcoat/runtime`, so the panel's auth gate covers
-<a href=#187 id=187 data-nosnippet>187</a>/// the shard and an unauthenticated rerun answers 401 rather than redirecting to
-<a href=#188 id=188 data-nosnippet>188</a>/// the login page.
-<a href=#189 id=189 data-nosnippet>189</a>///
-<a href=#190 id=190 data-nosnippet>190</a>/// The literal in [`table_search`]'s attribute is the same path;
-<a href=#191 id=191 data-nosnippet>191</a>/// `table_search_endpoint_is_the_named_path` pins the two together.
-<a href=#192 id=192 data-nosnippet>192</a></span><span class="attr">#[cfg(test)]
-<a href=#193 id=193 data-nosnippet>193</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>TABLE_SEARCH_PATH: <span class="kw-2">&amp;</span>str = <span class="string">"/_topcoat/runtime/shards/tablo-table-search"</span>;
-<a href=#194 id=194 data-nosnippet>194</a>
-<a href=#195 id=195 data-nosnippet>195</a><span class="attr">#[cfg(test)]
-<a href=#196 id=196 data-nosnippet>196</a></span><span class="kw">mod </span>tests;
+<a href=#22 id=22 data-nosnippet>22</a><span class="doccomment">/// A monomorphized live-search table loader, one per declared resource.
+<a href=#23 id=23 data-nosnippet>23</a>///
+<a href=#24 id=24 data-nosnippet>24</a>/// `#[shard]` inventory only discovers concrete fns, so the single
+<a href=#25 id=25 data-nosnippet>25</a>/// concrete [`table_search`] shard dispatches through this registry instead
+<a href=#26 id=26 data-nosnippet>26</a>/// of going generic. Built by [`Panel::resource`], keyed by list path.
+<a href=#27 id=27 data-nosnippet>27</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SearchFn = Arc&lt;
+<a href=#28 id=28 data-nosnippet>28</a>    <span class="kw">dyn for</span>&lt;<span class="lifetime">'a</span>&gt; Fn(
+<a href=#29 id=29 data-nosnippet>29</a>            <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
+<a href=#30 id=30 data-nosnippet>30</a>            String,
+<a href=#31 id=31 data-nosnippet>31</a>            TableSignals,
+<a href=#32 id=32 data-nosnippet>32</a>        ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt;&gt; + Send + <span class="lifetime">'a</span>&gt;&gt;
+<a href=#33 id=33 data-nosnippet>33</a>        + Send
+<a href=#34 id=34 data-nosnippet>34</a>        + Sync,
+<a href=#35 id=35 data-nosnippet>35</a>&gt;;
+<a href=#36 id=36 data-nosnippet>36</a>
+<a href=#37 id=37 data-nosnippet>37</a><span class="doccomment">/// Live-search handlers installed on the app context by [`Panel::build`].
+<a href=#38 id=38 data-nosnippet>38</a></span><span class="attr">#[derive(Clone, Default)]
+<a href=#39 id=39 data-nosnippet>39</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SearchRegistry(<span class="kw">pub</span>(<span class="kw">crate</span>) HashMap&lt;String, SearchFn&gt;);
+<a href=#40 id=40 data-nosnippet>40</a>
+<a href=#41 id=41 data-nosnippet>41</a><span class="doccomment">/// Monomorphize `R`'s table loader into a [`SearchFn`]: tenancy + policy gate,
+<a href=#42 id=42 data-nosnippet>42</a>/// then the same load + render the streamed list uses.
+<a href=#43 id=43 data-nosnippet>43</a>///
+<a href=#44 id=44 data-nosnippet>44</a>/// The table catches its own load errors: a tampered cursor in the query
+<a href=#45 id=45 data-nosnippet>45</a>/// fails to decode inside the shard invocation, and the invocation must render
+<a href=#46 id=46 data-nosnippet>46</a>/// the branded in-region `ErrorState` + retry link (via
+<a href=#47 id=47 data-nosnippet>47</a>/// `super::list::table_error_view`, same as the streamed list) instead of
+<a href=#48 id=48 data-nosnippet>48</a>/// erroring the shard. Auth/tenancy/policy failures still propagate — they
+<a href=#49 id=49 data-nosnippet>49</a>/// are not table evidence.
+<a href=#50 id=50 data-nosnippet>50</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>search_handler_for&lt;R: Resource&gt;() -&gt; SearchFn {
+<a href=#51 id=51 data-nosnippet>51</a>    Arc::new(
+<a href=#52 id=52 data-nosnippet>52</a>        |cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#53 id=53 data-nosnippet>53</a>         path: String,
+<a href=#54 id=54 data-nosnippet>54</a>         signals: TableSignals|
+<a href=#55 id=55 data-nosnippet>55</a>         -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'_</span>&gt;&gt;&gt; + Send + <span class="lifetime">'_</span>&gt;&gt; {
+<a href=#56 id=56 data-nosnippet>56</a>            Box::pin(<span class="kw">async move </span>{
+<a href=#57 id=57 data-nosnippet>57</a>                gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#58 id=58 data-nosnippet>58</a>                <span class="kw">if </span>!R::can_view_any(cx) {
+<a href=#59 id=59 data-nosnippet>59</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#60 id=60 data-nosnippet>60</a>                }
+<a href=#61 id=61 data-nosnippet>61</a>                <span class="kw">let </span>table = wire_table_actions::&lt;R&gt;(cx, <span class="bool-val">true</span>);
+<a href=#62 id=62 data-nosnippet>62</a>                <span class="comment">// The GET path's parser over the client-owned query, then one
+<a href=#63 id=63 data-nosnippet>63</a>                // normalization (GH #148): an unknown `group_by` must not echo
+<a href=#64 id=64 data-nosnippet>64</a>                // through the retry link. The live page renders the delete
+<a href=#65 id=65 data-nosnippet>65</a>                // dialog outside the swapped region, so the shard drops it.
+<a href=#66 id=66 data-nosnippet>66</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>state = TableState::from_query(<span class="kw-2">&amp;</span>signals.query.get());
+<a href=#67 id=67 data-nosnippet>67</a>                state.delete = <span class="prelude-val">None</span>;
+<a href=#68 id=68 data-nosnippet>68</a>                state.open = <span class="prelude-val">None</span>;
+<a href=#69 id=69 data-nosnippet>69</a>                <span class="kw">let </span>state = table.normalize_state(<span class="kw-2">&amp;</span>state);
+<a href=#70 id=70 data-nosnippet>70</a>                <span class="comment">// The retry link inside a failed table writes the same query
+<a href=#71 id=71 data-nosnippet>71</a>                // signal the controls do, so keep a handle for it.
+<a href=#72 id=72 data-nosnippet>72</a>                </span><span class="kw">let </span>retry_signals = signals.clone();
+<a href=#73 id=73 data-nosnippet>73</a>                <span class="kw">let </span>rendered = <span class="kw">async </span>{
+<a href=#74 id=74 data-nosnippet>74</a>                    <span class="kw">let </span>page = load_table_page::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>table, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#75 id=75 data-nosnippet>75</a>                    table.render_live(cx, page, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>path, signals).<span class="kw">await
+<a href=#76 id=76 data-nosnippet>76</a>                </span>};
+<a href=#77 id=77 data-nosnippet>77</a>                <span class="kw">match </span>rendered.<span class="kw">await </span>{
+<a href=#78 id=78 data-nosnippet>78</a>                    <span class="prelude-val">Ok</span>(view) =&gt; <span class="prelude-val">Ok</span>(view),
+<a href=#79 id=79 data-nosnippet>79</a>                    <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Ok</span>(table_error_view::&lt;R&gt;(
+<a href=#80 id=80 data-nosnippet>80</a>                        cx,
+<a href=#81 id=81 data-nosnippet>81</a>                        <span class="kw-2">&amp;</span>state,
+<a href=#82 id=82 data-nosnippet>82</a>                        <span class="kw-2">&amp;</span>error,
+<a href=#83 id=83 data-nosnippet>83</a>                        <span class="kw-2">&amp;</span>path,
+<a href=#84 id=84 data-nosnippet>84</a>                        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>retry_signals),
+<a href=#85 id=85 data-nosnippet>85</a>                    )),
+<a href=#86 id=86 data-nosnippet>86</a>                }
+<a href=#87 id=87 data-nosnippet>87</a>            })
+<a href=#88 id=88 data-nosnippet>88</a>        },
+<a href=#89 id=89 data-nosnippet>89</a>    )
+<a href=#90 id=90 data-nosnippet>90</a>}
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a><span class="doccomment">/// Resolve the registered live-search handler for `path`, answering the gate
+<a href=#93 id=93 data-nosnippet>93</a>/// first (defense in depth): the registry lookup runs only for an
+<a href=#94 id=94 data-nosnippet>94</a>/// authenticated request, so an unknown `path` cannot be distinguished from a
+<a href=#95 id=95 data-nosnippet>95</a>/// registered one by an unauthenticated probe (404-vs-401 oracle).
+<a href=#96 id=96 data-nosnippet>96</a></span><span class="kw">fn </span>search_entry(cx: <span class="kw-2">&amp;</span>Cx, path: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;SearchFn&gt; {
+<a href=#97 id=97 data-nosnippet>97</a>    enforce_auth(cx)<span class="question-mark">?</span>;
+<a href=#98 id=98 data-nosnippet>98</a>    topcoat::context::try_app_context::&lt;SearchRegistry&gt;(cx)
+<a href=#99 id=99 data-nosnippet>99</a>        .and_then(|reg| reg.<span class="number">0</span>.get(path).cloned())
+<a href=#100 id=100 data-nosnippet>100</a>        .ok_or_else(|| topcoat::router::error::not_found().into())
+<a href=#101 id=101 data-nosnippet>101</a>}
+<a href=#102 id=102 data-nosnippet>102</a>
+<a href=#103 id=103 data-nosnippet>103</a><span class="doccomment">/// Live table interactions: re-renders one resource's table as its signals
+<a href=#104 id=104 data-nosnippet>104</a>/// change, morphing in place per Topcoat #392 (focus, scroll and typing
+<a href=#105 id=105 data-nosnippet>105</a>/// survive; rows carry stable `id`s).
+<a href=#106 id=106 data-nosnippet>106</a>///
+<a href=#107 id=107 data-nosnippet>107</a>/// The shard owns no state: the page creates the signals ([`TableSignals`]),
+<a href=#108 id=108 data-nosnippet>108</a>/// renders its controls against them, and passes their handles here. Search,
+<a href=#109 id=109 data-nosnippet>109</a>/// sort, filters and pagination all write the `query` signal, so one
+<a href=#110 id=110 data-nosnippet>110</a>/// dependency re-renders the table without a navigation or a scroll jump.
+<a href=#111 id=111 data-nosnippet>111</a>///
+<a href=#112 id=112 data-nosnippet>112</a>/// Every arg is untrusted shard input: `path` must name a registered list, and
+<a href=#113 id=113 data-nosnippet>113</a>/// the query is parsed by [`TableState::from_query`] with the GET path's
+<a href=#114 id=114 data-nosnippet>114</a>/// bounds. Authorization mirrors the list page (`requires_tenant` +
+<a href=#115 id=115 data-nosnippet>115</a>/// `can_view_any`, row scoping via the tenant-scoped query); shard POSTs carry
+<a href=#116 id=116 data-nosnippet>116</a>/// no CSRF token, and none is needed for this read-only rerun.
+<a href=#117 id=117 data-nosnippet>117</a></span><span class="attr">#[shard(<span class="string">"/_topcoat/runtime/shards/tablo-table-search"</span>)]
+<a href=#118 id=118 data-nosnippet>118</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>table_search(
+<a href=#119 id=119 data-nosnippet>119</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#120 id=120 data-nosnippet>120</a>    path: String,
+<a href=#121 id=121 data-nosnippet>121</a>    query: topcoat::runtime::Signal&lt;String&gt;,
+<a href=#122 id=122 data-nosnippet>122</a>    bulk: topcoat::runtime::Signal&lt;String&gt;,
+<a href=#123 id=123 data-nosnippet>123</a>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>View&gt; {
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="kw">let </span>entry = search_entry(cx, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+<a href=#125 id=125 data-nosnippet>125</a>    entry(cx, path, TableSignals { query, bulk }).<span class="kw">await
+<a href=#126 id=126 data-nosnippet>126</a></span>}
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a><span class="doccomment">/// The endpoint [`table_search`] is served at.
+<a href=#129 id=129 data-nosnippet>129</a>///
+<a href=#130 id=130 data-nosnippet>130</a>/// A shard that declares no path is served at a build-random one (topcoat#441);
+<a href=#131 id=131 data-nosnippet>131</a>/// naming it keeps the endpoint stable across builds and legible in logs and
+<a href=#132 id=132 data-nosnippet>132</a>/// tests. The `/tablo-` prefix separates it from a generated path, and the
+<a href=#133 id=133 data-nosnippet>133</a>/// whole path stays under `/_topcoat/runtime`, so the panel's auth gate covers
+<a href=#134 id=134 data-nosnippet>134</a>/// the shard and an unauthenticated rerun answers 401 rather than redirecting to
+<a href=#135 id=135 data-nosnippet>135</a>/// the login page.
+<a href=#136 id=136 data-nosnippet>136</a>///
+<a href=#137 id=137 data-nosnippet>137</a>/// The literal in [`table_search`]'s attribute is the same path;
+<a href=#138 id=138 data-nosnippet>138</a>/// `table_search_endpoint_is_the_named_path` pins the two together.
+<a href=#139 id=139 data-nosnippet>139</a></span><span class="attr">#[cfg(test)]
+<a href=#140 id=140 data-nosnippet>140</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>TABLE_SEARCH_PATH: <span class="kw-2">&amp;</span>str = <span class="string">"/_topcoat/runtime/shards/tablo-table-search"</span>;
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a><span class="attr">#[cfg(test)]
+<a href=#143 id=143 data-nosnippet>143</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b144d824.js";
+            window.path_to_searchindex_js = "searchindex-d6cad7ad.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -212,7 +212,7 @@ primary key in the URLs instead.</li>
 searchable columns), so a term containing <code>%</code> or <code>_</code> matches those characters literally. <code>LIKE</code> is
 ASCII-case-insensitive on SQLite and case-sensitive on PostgreSQL. <code>sortable()</code> sorts with
 <code>?sort=</code> and <code>?dir=</code>. Both work without JS.</li>
-<li>The URL is the state: <code>?q=</code>, <code>?sort=</code>, <code>?dir=</code>, <code>?after=</code>, <code>?before=</code>, <code>?filters=</code>, <code>?group_by=</code>
+<li>The URL is the state: <code>?q=</code>, <code>?sort=</code>, <code>?dir=</code>, <code>?after=</code> or <code>?before=</code>, <code>?f.&lt;name&gt;=</code>, <code>?group_by=</code>
 parse into <code>TableState</code>. Every table paginates, at 25 rows unless <code>.paginate(n)</code> sets another
 size; pagination is cursor based, and Toasty appends the PK tie-breaker internally so cursors stay
 deterministic.</li>
@@ -250,9 +250,11 @@ the list, leaving wide columns no space when the lengths exceed the table.</li>
     DateFilter::r#for(Post::fields().created_at()),
 ))
 <span class="boring">}</span></code></pre>
-<p>Active filters travel in <code>?filters=</code> and combine with AND. Unknown keys and rejected values never
-fail silently: the list renders a <code>role=alert</code> banner (<code>Table::unapplied_filters</code>) while export
-refuses with 400.</p>
+<p>Active filters travel as one <code>?f.&lt;name&gt;=&lt;value&gt;</code> parameter each (<code>?f.status=published</code>) and
+combine with AND. At most 32 filters apply, each with a name and a value of at most 256 bytes.
+Unknown keys, rejected values, dropped filters and the retired <code>?filters=</code> spelling never fail
+silently: the list renders a <code>role=alert</code> banner (<code>Table::unapplied_filters</code>) while export refuses
+with 400.</p>
 <p>Grouping and export:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

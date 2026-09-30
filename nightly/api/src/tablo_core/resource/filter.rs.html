@@ -185,7 +185,7 @@
 <a href=#185 id=185 data-nosnippet>185</a>            <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="self">self</span>.lens.clone().eq(ts));
 <a href=#186 id=186 data-nosnippet>186</a>        }
 <a href=#187 id=187 data-nosnippet>187</a>        <span class="comment">// Query decoding turns `+` into space, destroying numeric offsets
-<a href=#188 id=188 data-nosnippet>188</a>        // (`?filters=created_at:2024-01-15T09:30:00+02:00` arrives with a
+<a href=#188 id=188 data-nosnippet>188</a>        // (`?f.created_at=2024-01-15T09:30:00+02:00` arrives with a
 <a href=#189 id=189 data-nosnippet>189</a>        // space). A timestamp never legitimately contains a space, so retry
 <a href=#190 id=190 data-nosnippet>190</a>        // with `+` restored before giving up.
 <a href=#191 id=191 data-nosnippet>191</a>        </span><span class="kw">if </span>v.contains(<span class="string">' '</span>)
