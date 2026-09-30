@@ -23,7 +23,7 @@ code and an ADR disagree, the code wins and the ADR is the thing to fix.
 | [0015](0015-test-binary-consolidation.md) | One integration-test binary per crate, not per file |
 | [0016](0016-detail-pages.md) | Detail pages are one Schema rendered read-only plus relations |
 | [0017](0017-media-uploads.md) | Uploads go through an app-level `Uploader` and a clear control |
-| [0018](0018-export-include-scoping.md) | Export includes are declared per column and narrowed per resource |
+| [0018](0018-export-include-scoping.md) | Columns declare typed includes; `query` scopes rows, `view_query` feeds the detail page |
 | [0019](0019-embedded-values.md) | Embedded values derive their codec; the discriminant picks the variant |
 | [0020](0020-confirmed-mutations.md) | A confirmed mutation re-runs the table's shard; the client never morphs the response |
 | [0021](0021-media-library.md) | The media library is a polymorphic `medias` table in the showcase |

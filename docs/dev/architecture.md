@@ -47,15 +47,15 @@ A resource list page runs, in order:
    tenant.
 3. `R::can_view_any(cx)` — the list-level policy check, before any row is loaded.
 4. Parse `TableState` from the URL (`?q=`, `?sort=`, `?dir=`, `?after=`, `?filters=`, `?group_by=`).
-5. Load through `scoped_query_with::<R>(cx, &table.include_needs())` — `R::query_with(cx, needs)`
-   with the framework's tenant filter ANDed on — so the list loads the includes its columns declared.
+5. Load through `TablePage::load` over `scoped_query::<R>(cx)` — `R::query(cx)` with the
+   framework's tenant filter ANDed on — which adds the relations the table's columns include.
 6. Render the table inside a `suspense` region: the skeleton is sent with the shell, the loaded rows
    swap in.
 
 The list checks `can_view_any` only, so pagination stays honest; per-row `can_view` trims the export
-and the relationship option lists. A detail page loads through `scoped_query` — the full base query,
-because `view_relations` has no include declaration — so an unknown id and one outside the tenant are
-the same 404, while a row the caller may not view is a 403.
+and the relationship option lists. A detail page loads through the tenant-scoped `view_query`, which
+carries the relations `view_relations` reads, so an unknown id and one outside the tenant are the same
+404, while a row the caller may not view is a 403.
 
 ## A write request
 
@@ -86,9 +86,10 @@ committed write, and a failure in it is logged without rolling the write back.
 
 | Seam | Where | What it decides |
 | --- | --- | --- |
-| `Resource::query` | `resource/mod.rs` | the resource's own row scoping: soft deletes, row-level visibility, includes |
+| `Resource::query` | `resource/mod.rs` | the resource's own row scoping: soft deletes, row-level visibility |
+| `Resource::view_query` | `resource/mod.rs` | the detail page's query: `query` plus the relations `view_relations` reads |
 | `Resource::tenant_scope` | `tenancy.rs` | the tenant predicate, derived from the model's `tenant_id` by default |
-| `Resource::export_query` | `resource/mod.rs` | the export's base query, narrowed to the includes its columns declared |
+| `TextColumn::include` | `resource/column.rs` | a relation a list column reads; the list and the export load it |
 | `Resource::can_*` | `resource/mod.rs` | authorization, default deny |
 | `Resource::can_delete_any` | `resource/mod.rs` | whether delete is allowed at all: the delete chrome and the delete handlers' policy gate |
 | `schema::OptionSource` | `schema/relationship.rs` | what a relationship select offers, and who may see it |

@@ -108,32 +108,39 @@ fn text_column_width_defaults_by_kind() {
     );
 }
 
-/// GH #177: a column that reads no relation declares nothing, and repeat
-/// `.needs(..)` calls accumulate in declaration order.
+/// A column's includes accumulate across calls and keep each relation once, so
+/// the table's union loads every relation the columns read, once.
 #[test]
-fn text_column_include_declarations_accumulate() {
-    let plain = TextColumn::r#for(User::fields().name(), |u| u.name.clone());
-    assert!(plain.include_names().is_empty());
+fn text_column_includes_accumulate_once_per_relation() {
+    #[derive(Debug, toasty::Model, Clone)]
+    struct Owner {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+    }
 
-    let declared = TextColumn::computed("Audit", |u: &User| u.name.clone())
-        .needs(["author"])
-        .needs(["comments", "post"]);
-    assert_eq!(declared.include_names(), ["author", "comments", "post"]);
-}
+    #[derive(Debug, toasty::Model, Clone)]
+    struct Pet {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        #[index]
+        owner_id: uuid::Uuid,
+        #[belongs_to(key = owner_id, references = id)]
+        owner: toasty::Deferred<Owner>,
+        #[index]
+        vet_id: uuid::Uuid,
+        #[belongs_to(key = vet_id, references = id)]
+        vet: toasty::Deferred<Owner>,
+    }
 
-/// GH #177: the gathered set is what a resource's `export_query` asks, so
-/// membership and the empty case are the whole contract.
-#[test]
-fn include_needs_gathers_declarations() {
-    let needs: IncludeNeeds = ["author", "comments"].into_iter().collect();
-    assert!(needs.wants("author") && needs.wants("comments"));
-    assert!(!needs.wants("post"));
-    assert!(!needs.is_empty());
-
-    // The whole set up front, as a resource's `query` declares it.
-    let declared = IncludeNeeds::from(["author", "comments"]);
-    assert!(declared.wants("author") && declared.wants("comments"));
-
-    assert!(IncludeNeeds::default().is_empty());
-    assert!(!IncludeNeeds::default().wants("author"));
+    let column = TextColumn::computed("Owner", |p: &Pet| p.id.to_string())
+        .include(Pet::fields().owner())
+        .include(Pet::fields().vet())
+        .include(Pet::fields().owner());
+    assert_eq!(
+        column.includes().len(),
+        2,
+        "two relations, one repeated: the column keeps each once"
+    );
 }

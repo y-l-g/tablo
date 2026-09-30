@@ -1,4 +1,4 @@
-//! CSV export over the tenant-scoped `export_query`: a bounded visibility scan
+//! CSV export over the tenant-scoped `query`: a bounded visibility scan
 //! answers the cap before any byte is sent, then a cursor-chunked walk streams
 //! the file.
 
@@ -11,7 +11,7 @@ use topcoat::{
 use super::super::gate::gate;
 use crate::{
     db::db,
-    resource::{Resource, Table, TableState},
+    resource::{Past, Resource, Table, TableState, row_exists_past},
 };
 
 /// Max receivable rows an export will deliver: the chunked walk
@@ -73,7 +73,7 @@ fn export_wants_bom(cx: &Cx) -> bool {
     form_urlencoded::parse(query.as_bytes()).any(|(k, v)| k == "bom" && v == "1")
 }
 
-/// CSV export — the tenant-scoped `export_query` + `Table` filters/sort,
+/// CSV export — the tenant-scoped `query` + `Table` filters/sort and includes,
 /// downloads `text/csv`.
 ///
 /// Streams the response as a chunked body: the filtered query is
@@ -120,13 +120,8 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         }
         // Visibility scan — count receivable rows inside the
         // raw cap window, so the 413 below fires before any response bytes.
-        // The scan reads no column, so it passes an empty include set.
-        let mut chunker = ExportChunker::new(export_base_query::<R>(
-            cx,
-            &table,
-            &state,
-            &crate::resource::IncludeNeeds::default(),
-        )?);
+        // The scan reads no column, so it loads none of the columns' relations.
+        let mut chunker = ExportChunker::new(export_base_query::<R>(cx, &table, &state)?);
         let mut db_handle = db(cx);
         let mut visible = 0usize;
         while let Some(rows) = chunker.next_chunk(&mut db_handle).await? {
@@ -152,7 +147,6 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         // table the caller may not receive in full; the two walks are
         // the price of a fail-closed 413. This is not a truncating `LIMIT 200`.
         let want_bom = export_wants_bom(cx);
-        let needs = table.include_needs();
         let (tx, body) = http_body_util::Channel::<bytes::Bytes, std::io::Error>::new(8);
         let cx2 = cx.clone();
         tokio::spawn(async move {
@@ -161,8 +155,8 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             // same `cx`, table and state, so this cannot fail again — but a
             // stream that cannot build its query aborts instead of sending a
             // truncated CSV (moved the seed behind a `Result`).
-            let mut chunker = match export_base_query::<R>(&cx2, &table, &state, &needs) {
-                Ok(query) => ExportChunker::new(query),
+            let mut chunker = match export_base_query::<R>(&cx2, &table, &state) {
+                Ok(query) => ExportChunker::new(table.include_relations(query)),
                 Err(error) => {
                     tracing::error!(resource = R::slug(), error = %error, "export stream failed");
                     tx.abort(std::io::Error::other("export unavailable"));
@@ -239,27 +233,18 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
     })
 }
 
-/// The export's filtered + ordered base query: the resource's
-/// [`export_query`](crate::resource::Resource::export_query) — the soft-delete /
-/// row-level seam (ADR-0002) narrowed to the relations `needs` asks for
-/// and tenant-scoped by the framework on the way in
-/// ([`crate::resource::scoped_query_with`]) — with the table's
-/// declaration applied through the one shared routine the list loader uses.
-/// The visibility scan passes an empty `needs`; the streaming pass passes
-/// [`Table::include_needs`], the relations its columns declared.
-///
-/// The list and the export differ only in the seed query: the list loads the
-/// tenant-scoped `Resource::query_with`, the export the tenant-scoped narrowed
-/// `export_query`. Both pay the same scope, so a gated resource cannot export
-/// unscoped.
+/// The export's filtered and ordered base query: the resource's tenant-scoped
+/// [`scoped_query`](crate::resource::scoped_query) with the table's
+/// declaration applied through the one routine the list loader uses, so a
+/// gated resource cannot export unscoped and the CSV cannot drift from the
+/// list. The streaming pass adds the relations the columns include; the
+/// visibility scan reads no column and loads none.
 fn export_base_query<R: Resource>(
     cx: &Cx,
     table: &Table<R::Model>,
     state: &TableState,
-    needs: &crate::resource::IncludeNeeds,
 ) -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>> {
-    let seed = crate::resource::apply_tenant_scope::<R>(cx, R::export_query(cx, needs))?;
-    Ok(table.apply_declaration(seed, state))
+    Ok(table.apply_declaration(crate::resource::scoped_query::<R>(cx)?, state))
 }
 
 /// One cursor-chunked pass over an export base query.
@@ -316,12 +301,10 @@ where
                 // chunk without a cursor cannot be probed and is treated
                 // as the end.
                 if let Some(cursor) = self.after.clone() {
-                    let probe = toasty::stmt::Paginate::new(self.query.clone(), 1)
-                        .after(cursor)
-                        .exec(db)
-                        .await
-                        .map_err(crate::db::unavailable)?;
-                    self.beyond_window = !probe.items.is_empty();
+                    self.beyond_window =
+                        row_exists_past(db, self.query.clone(), Past::After(cursor))
+                            .await
+                            .map_err(crate::db::unavailable)?;
                 }
                 self.exhausted = true;
                 return Ok(None);

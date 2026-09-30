@@ -14,7 +14,7 @@ use topcoat::{
 
 use super::{
     super::{
-        actions::load_viewable_narrowed,
+        actions::load_viewable,
         gate::{gate, list_url},
     },
     render::render_form_page,
@@ -250,7 +250,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         let mut db = db(cx);
-        let record = load_viewable_narrowed::<R>(cx, &mut db).await?;
+        let record = load_viewable::<R>(cx, &mut db).await?;
         if !R::can_update(cx, &record) {
             return Err(forbidden().into());
         }

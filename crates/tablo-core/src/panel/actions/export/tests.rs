@@ -85,22 +85,17 @@ async fn export_drops_rows_failing_can_view() {
     );
 }
 
-/// the export's base query is
-/// [`Resource::export_query`](crate::resource::Resource::export_query),
-/// handed the includes the rendered columns declared — not everything
-/// [`Resource::query`](crate::resource::Resource::query) loads.
-///
-/// Two resources over one model differ only in the declaration: both
-/// render a column that reads `parent`, both implement the same narrowed
-/// `export_query`, and only one column declares `.needs(["parent"])`. The
-/// cell therefore reports which query the export actually ran — the
-/// declared include loads the parent, the silent one does not.
+/// The export loads the relations the rendered columns include, and nothing
+/// else. Two resources over one model differ only in the declaration: both
+/// render a column that reads `parent`, and only one column declares
+/// `.include(Child::fields().parent())`. The cell therefore reports which
+/// query the export ran: the declared include loads the parent, the silent
+/// one does not.
 #[tokio::test]
-async fn export_query_narrows_to_the_declared_column_includes() {
+async fn export_loads_the_relations_its_columns_include() {
     use http_body_util::BodyExt;
-    use toasty::stmt::{Include, List, Query};
 
-    use crate::resource::{IncludeNeeds, Resource};
+    use crate::resource::Resource;
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Parent {
@@ -122,21 +117,6 @@ async fn export_query_narrows_to_the_declared_column_includes() {
         parent: toasty::Deferred<Parent>,
     }
 
-    fn with_parent() -> Query<List<Child>> {
-        let inc: Include<Child, Parent> = Child::fields().parent().into();
-        Query::<List<Child>>::all().include(inc)
-    }
-
-    /// The narrowed base query the export asks for: the parent comes along
-    /// only when a rendered column declared it.
-    fn narrowed(_cx: &Cx, needs: &IncludeNeeds) -> Query<List<Child>> {
-        if needs.wants("parent") {
-            with_parent()
-        } else {
-            Query::<List<Child>>::all()
-        }
-    }
-
     struct ExportResource<const DECLARES: bool>;
     impl<const DECLARES: bool> Resource for ExportResource<DECLARES> {
         type Model = Child;
@@ -150,14 +130,6 @@ async fn export_query_narrows_to_the_declared_column_includes() {
         fn can_view(_cx: &Cx, _record: &Child) -> bool {
             true
         }
-        // The list/detail base query always loads the parent; the export
-        // narrows to the declaration.
-        fn query(_cx: &Cx) -> Query<List<Child>> {
-            with_parent()
-        }
-        fn export_query(cx: &Cx, needs: &IncludeNeeds) -> Query<List<Child>> {
-            narrowed(cx, needs)
-        }
         fn table(_cx: &Cx) -> crate::resource::Table<Child> {
             let column = crate::resource::TextColumn::computed("Parent", |c: &Child| {
                 if c.parent.is_unloaded() {
@@ -167,7 +139,7 @@ async fn export_query_narrows_to_the_declared_column_includes() {
                 }
             });
             let column = if DECLARES {
-                column.needs(["parent"])
+                column.include(Child::fields().parent())
             } else {
                 column
             };
@@ -434,17 +406,16 @@ async fn export_of_an_empty_table_emits_the_header() {
 }
 
 #[tokio::test]
-async fn export_visibility_scan_asks_for_no_includes() {
-    // The counting pass passes no relation includes; only the streaming
-    // pass loads the ones the columns declared. `can_view` observes which
+async fn export_visibility_scan_loads_no_includes() {
+    // The counting pass loads no relation; only the streaming pass loads the
+    // ones the columns include. `can_view` observes which
     // query loaded the row: the relation is unloaded in the scan and loaded
     // in the stream, so both counters must fire.
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use http_body_util::BodyExt;
-    use toasty::stmt::{Include, List, Query};
 
-    use crate::resource::{IncludeNeeds, Resource};
+    use crate::resource::Resource;
 
     static SCAN_UNLOADED: AtomicUsize = AtomicUsize::new(0);
     static STREAM_LOADED: AtomicUsize = AtomicUsize::new(0);
@@ -469,11 +440,6 @@ async fn export_visibility_scan_asks_for_no_includes() {
         parent: toasty::Deferred<Parent>,
     }
 
-    fn with_parent() -> Query<List<Child>> {
-        let inc: Include<Child, Parent> = Child::fields().parent().into();
-        Query::<List<Child>>::all().include(inc)
-    }
-
     struct ScanResource;
     impl Resource for ScanResource {
         type Model = Child;
@@ -492,16 +458,6 @@ async fn export_visibility_scan_asks_for_no_includes() {
             }
             true
         }
-        fn query(_cx: &Cx) -> Query<List<Child>> {
-            with_parent()
-        }
-        fn query_with(_cx: &Cx, needs: &IncludeNeeds) -> Query<List<Child>> {
-            if needs.wants("parent") {
-                with_parent()
-            } else {
-                Query::<List<Child>>::all()
-            }
-        }
         fn table(_cx: &Cx) -> crate::resource::Table<Child> {
             crate::resource::Table::new(
                 |c: &Child| c.id.to_string(),
@@ -512,7 +468,7 @@ async fn export_visibility_scan_asks_for_no_includes() {
                         c.parent.get().name.clone()
                     }
                 })
-                .needs(["parent"]),
+                .include(Child::fields().parent()),
             )
         }
     }
@@ -732,8 +688,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
     let table = ChunkerDummyResource::table(&cx);
     let state = crate::resource::TableState::default();
     let mut chunker = ExportChunker::new(
-        export_base_query::<ChunkerDummyResource>(&cx, &table, &state, &table.include_needs())
-            .expect("tenant scope"),
+        export_base_query::<ChunkerDummyResource>(&cx, &table, &state).expect("tenant scope"),
     );
     let first = chunker
         .next_chunk(&mut db)
@@ -772,8 +727,7 @@ async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
     let table = ChunkerDummyResource::table(&cx);
     let state = crate::resource::TableState::default();
     let mut chunker = ExportChunker::new(
-        export_base_query::<ChunkerDummyResource>(&cx, &table, &state, &table.include_needs())
-            .expect("tenant scope"),
+        export_base_query::<ChunkerDummyResource>(&cx, &table, &state).expect("tenant scope"),
     );
     let first = chunker
         .next_chunk(&mut db)
@@ -796,7 +750,7 @@ async fn export_and_list_agree_on_rows_and_order() {
     // both loaders apply the table declaration through one shared
     // routine, so a search term, a filter and a sort cannot reach the list
     // and miss the CSV. This drives the same state through both — the list
-    // through `Table::load`, the export through `export_base_query` — and
+    // through `TablePage::load`, the export through `export_base_query` — and
     // compares the rows and their order.
     use std::collections::HashMap;
 
@@ -876,14 +830,14 @@ async fn export_and_list_agree_on_rows_and_order() {
     };
 
     let table = TaskResource::table(&cx);
-    let listed: Vec<String> = table
-        .load(&cx, TaskResource::query(&cx), &state)
-        .await
-        .unwrap()
-        .rows
-        .iter()
-        .map(|t| t.title.clone())
-        .collect();
+    let listed: Vec<String> =
+        crate::resource::TablePage::load(&cx, &table, TaskResource::query(&cx), &state)
+            .await
+            .unwrap()
+            .rows
+            .iter()
+            .map(|t| t.title.clone())
+            .collect();
     assert_eq!(
         listed,
         ["charlie".to_string(), "bravo".to_string()],
@@ -891,8 +845,7 @@ async fn export_and_list_agree_on_rows_and_order() {
     );
 
     let mut chunker = ExportChunker::new(
-        export_base_query::<TaskResource>(&cx, &table, &state, &table.include_needs())
-            .expect("tenant scope"),
+        export_base_query::<TaskResource>(&cx, &table, &state).expect("tenant scope"),
     );
     let mut exported: Vec<String> = Vec::new();
     while let Some(rows) = chunker.next_chunk(&mut db).await.unwrap() {

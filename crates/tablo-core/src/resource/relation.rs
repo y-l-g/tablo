@@ -25,7 +25,10 @@ use topcoat::{
     view::{BoxView, ViewExt, attributes, view},
 };
 
-use super::{ColumnWidth, Resource};
+use super::{
+    ColumnWidth, Resource,
+    column::{MinWidth, column_tuples, column_width_style},
+};
 
 /// The most rows a relation table renders.
 ///
@@ -35,16 +38,6 @@ use super::{ColumnWidth, Resource};
 /// from making the page unusable; the table prints an overflow line when it
 /// truncates, so a capped relation never reads as a complete one.
 pub const MAX_RELATION_ROWS: usize = 50;
-
-/// The readability floor one [`ColumnWidth::Wide`] relation column contributes
-/// to the table's `min-width`, in whole rem.
-///
-/// The same floor the list table gives a wide column: a wide column declares no
-/// width, so a sum of declared widths alone would let it crush to zero on a
-/// narrow viewport. Six rem keeps body text readable and, summed across the
-/// wide columns, trips the wrapper's horizontal scroll before the fixed layout
-/// crushes them.
-const WIDE_COLUMN_MIN_REM: u8 = 6;
 
 /// One column of a relation's read-only table.
 ///
@@ -144,97 +137,36 @@ impl<R> IntoRelationColumns<R> for RelationColumn<R> {
     }
 }
 
-/// Generate the flat tuple impls of [`IntoRelationColumns`] from one list per
-/// arity.
-///
-/// Each list names the binding a tuple element moves through; the `@element`
-/// rule supplies the single element type every position shares. Every element
-/// is a [`RelationColumn<R>`], so `(a, (b, c))` is not a column list: a table's
-/// columns sit in one flat tuple. Arity eight is the shared ceiling
-/// [`IntoColumns`](super::IntoColumns) documents.
-macro_rules! into_relation_columns_tuples {
-    ($($v:ident),+ $(,)?) => {
-        impl<R> IntoRelationColumns<R>
-            for ($(into_relation_columns_tuples!(@element $v)),+)
-        {
-            fn into_relation_columns(self) -> RelationColumns<R> {
-                let ($($v,)+) = self;
-                RelationColumns {
-                    columns: vec![$($v,)+],
-                }
-            }
-        }
-    };
-    (@element $v:ident) => { RelationColumn<R> };
-}
-
-into_relation_columns_tuples!(a, b);
-into_relation_columns_tuples!(a, b, c);
-into_relation_columns_tuples!(a, b, c, d);
-into_relation_columns_tuples!(a, b, c, d, e);
-into_relation_columns_tuples!(a, b, c, d, e, f);
-into_relation_columns_tuples!(a, b, c, d, e, f, g);
-into_relation_columns_tuples!(a, b, c, d, e, f, g, h);
+column_tuples!(
+    IntoRelationColumns,
+    into_relation_columns,
+    RelationColumn,
+    RelationColumns<T>,
+    |columns| RelationColumns { columns }
+);
 
 /// The width every column of one relation render declares: one `style` value
-/// per declared column, in column order, plus the table-level floor.
-///
-/// A [`ColumnWidth::Narrow`] column claims its kind's share (10% nominally);
-/// an explicit `Rem`/`Percent` is emitted as declared; a
-/// [`Wide`](ColumnWidth::Wide) column declares nothing and takes a share of
-/// what the declared columns leave. At most eight columns declare together,
-/// so the kind defaults total at most 80%: they never claim the whole table
-/// the way an unbounded set could, and every undeclared column keeps a share.
-///
-/// The table-level `min-width` is the sum of those declarations: every share
-/// as emitted, every `Rem` verbatim, and one [`WIDE_COLUMN_MIN_REM`] per wide
-/// column (which declares nothing and would otherwise crush to zero). With
-/// `w-full` the table never exceeds its container on its own, so without the
-/// floor the wrapper's `overflow-x-auto` never scrolls; with it the table
-/// keeps its measure on a narrow viewport and the wrapper scrolls. Emitted
-/// only when the sum carries a length — shares alone are a fraction of the
-/// container and can never overflow it.
+/// per declared column, in column order, plus the table-level `min-width`.
+/// The arithmetic is the list table's, without its chrome columns: kind
+/// defaults share one budget, explicit widths are verbatim, and a wide column
+/// takes what the declared ones leave.
 fn relation_widths<R>(
     columns: &[RelationColumn<R>],
 ) -> (Vec<Option<Cow<'static, str>>>, Option<Cow<'static, str>>) {
+    let total: u32 = columns
+        .iter()
+        .filter_map(|col| col.column_width().default_percent())
+        .map(u32::from)
+        .sum();
     let cells = columns
         .iter()
-        .map(|col| {
-            let width = col.column_width();
-            width.explicit_css().or_else(|| {
-                width
-                    .default_percent()
-                    .map(|percent| Cow::Owned(format!("width: {percent}%")))
-            })
-        })
+        .map(|col| column_width_style(col.column_width(), total))
         .collect();
-    let mut percent_terms: Vec<u8> = Vec::new();
-    let mut rem_total: u32 = 0;
+    let mut min_width = MinWidth::default();
     for col in columns {
-        match col.column_width() {
-            ColumnWidth::Wide => rem_total += u32::from(WIDE_COLUMN_MIN_REM),
-            ColumnWidth::Narrow => {
-                if let Some(share) = col.column_width().default_percent() {
-                    percent_terms.push(share);
-                }
-            }
-            ColumnWidth::Rem(rem) => rem_total += u32::from(rem),
-            ColumnWidth::Percent(share) => percent_terms.push(share),
-        }
+        min_width.column(col.column_width(), total);
     }
-    let table_min_width = (rem_total > 0).then(|| {
-        let mut parts: Vec<String> = percent_terms
-            .iter()
-            .map(|share| format!("{share}%"))
-            .collect();
-        parts.push(format!("{rem_total}rem"));
-        if parts.len() == 1 {
-            Cow::Owned(format!("min-width: {}", parts[0]))
-        } else {
-            Cow::Owned(format!("min-width: calc({})", parts.join(" + ")))
-        }
-    });
-    (cells, table_min_width)
+    (cells, min_width.style())
 }
 
 /// Render `rows` as a titled, read-only table.

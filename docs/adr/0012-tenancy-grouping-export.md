@@ -27,11 +27,9 @@ quoting when a value holds `,`, `"` or a newline). `Panel` owns a per-resource
 filtered, sorted query in cursor chunks (GH #172), so a 10k-row export holds one chunk plus one CSV
 fragment, and the cap counts **viewable** rows: visibility is applied before the cap (GH #145). A
 full 10,001-row scan window with rows left beyond it refuses with the same 413 (GH #279), so the
-export never returns a partial file. Its
-includes come from `Resource::export_query(cx, needs)`, whose default is `query(cx)` unchanged and
-which an override may narrow to the relations the exported columns declared (`TextColumn::needs`,
-`Table::include_needs`, ADR-0018); the tenant scope is the framework's, applied to `export_query`
-exactly as to `query`.
+export never returns a partial file. It
+loads the tenant-scoped `query` with the relations the exported columns include
+(`TextColumn::include`, ADR-0018), so it is scoped exactly as the list is.
 
 ## Consequences
 

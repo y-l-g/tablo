@@ -10,12 +10,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     type Model: toasty::schema::Model + Send + Sync + 'static;
     type Form: RecordForm<Model = Self::Model>;     // required: a record form, or NoForm
     fn query(_cx: &Cx) -> Query<List<Self::Model>>; // default: Query::all()
-    fn query_with(_cx: &Cx, _needs: &IncludeNeeds)
-        -> Query<List<Self::Model>>;                // default: query(cx), unchanged
+    fn view_query(_cx: &Cx) -> Query<List<Self::Model>>; // default: query(cx)
     fn view_values(_cx: &Cx, _record: &Self::Model)
         -> HashMap<String, String>;                 // default: empty
-    fn export_query(_cx: &Cx, _needs: &IncludeNeeds)
-        -> Query<List<Self::Model>>;                // default: query_with(cx, needs)
     fn table(_cx: &Cx) -> Table<Self::Model>;       // required: Table::new(key, columns)
     // plus can_* policy fns (default deny), slug/navigation/requires_tenant
     // defaults, form()/validate_record and the record fns
@@ -68,25 +65,17 @@ its form and declares its list view, and any other omission has to fail loudly i
   `{prefix}/{slug}`, and a resource never links at `/admin` on a panel mounted elsewhere. Spell a
   URL out instead (`NavigationItem::at(..)`) only to link somewhere other than the resource's list
   page — the Panel keeps it verbatim.
-- `query()` is the seam for the resource's **own** row scoping — soft deletes, row-level visibility,
-  and the relations a page loads. It is the full base query: the detail page and app code that calls
-  `scoped_query` use it. Tenancy is not its job: when `requires_tenant()` is `true` the framework
-  derives the `tenant_id` filter from the model's own schema and ANDs it onto whatever `query`
-  returns, at every loader (GH #223), so restating it here is redundant.
-- `query_with(cx, needs)` is the same base query narrowed to the relations a loader declared
-  (GH #298). The default ignores `needs` and returns `query(cx)` unchanged, so a resource that
-  overrides nothing loads the full base query at every loader. Override it to split the base query
-  into one branch per declared name: a loader then loads an include only when it asks for it by name.
-  The list and the export pass their table's `Table::include_needs()` (the union of the columns'
-  `TextColumn::needs(..)` declarations); the edit page, delete, the bulk fetch, the unique probe,
-  the relationship option lists and their targeted FK existence check, and the pagination probes
-  pass an empty set. Keep the resource's own scope and whatever your `can_view` reads in every
-  branch — the *tenant* half is not the override's to keep, the framework ANDs it onto what
-  `query_with` returns exactly as it does for `query`. The option loaders run `query_with` with an
-  empty set, so an option label must project the related record's own columns.
-- `export_query(cx, needs)` is the export's seed; its default delegates to `query_with`, so
-  overriding `query_with` narrows the export too (GH #177, GH #298, ADR-0018). Override
-  `export_query` itself only when the CSV needs a branch the other loaders do not.
+- `query()` is the seam for the resource's **own** row scoping: soft deletes and row-level
+  visibility. Every loader starts from it, as does app code that calls `scoped_query`. Tenancy is not
+  its job: when `requires_tenant()` is `true` the framework derives the `tenant_id` filter from the
+  model's own schema and ANDs it onto whatever `query` returns, at every loader (GH #223), so
+  restating it here is redundant. Relations are not its job either (ADR-0018): the list and the
+  export load the relations their columns declare with `TextColumn::include(..)`, and the detail
+  page loads `view_query`. Include a relation in `query` only when every loader needs it, such as one
+  `can_view` reads. The option loaders run `query`, so an option label projects the related record's
+  own columns.
+- `view_query()` is the detail page's query: `query` plus the relations `view_relations` reads,
+  e.g. `Self::query(cx).include(comments)`. The framework ANDs the tenant scope onto it too.
 - `table()` and `form()` are hand-written, and so is the impl itself: a resource is `type Model` plus
   whichever hooks it uses. There is no `Resource` derive (GH #222); the macros crate ships
   `derive(EmbeddedForm)` (GH #191) and `derive(RecordForm)` (GH #369), which types the form's
@@ -182,7 +171,7 @@ Three shapes, one gate:
    }
 
    fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
-       // The framework ANDs this onto `query`/`export_query` at every loader,
+       // The framework ANDs this onto `query`/`view_query` at every loader,
        // exactly as it ANDs the derived filter elsewhere.
        Some(Comment::fields().post().tenant_id().eq(tenant))
    }

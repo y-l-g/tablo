@@ -7,7 +7,6 @@ use std::collections::HashMap;
 
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use topcoat::{
-    Result,
     context::Cx,
     runtime::{Signal, signal},
 };
@@ -123,56 +122,6 @@ pub(crate) fn split_cursor(wire: &str) -> (Option<String>, Option<String>) {
 #[cfg(test)]
 pub(crate) fn bulk_wire_contains(wire: &str, key: &str) -> bool {
     wire.split(',').any(|segment| segment == key)
-}
-
-/// One executed page of rows for `Table::render`.
-///
-/// Build it from toasty's `Page` via [`Self::from_toasty_page`], which
-/// URL-encodes the engine cursors; a `Vec<M>` converts directly into a page
-/// with no neighbors. An absent cursor simply means no Previous/Next link is
-/// rendered — the chrome never invents pages.
-#[derive(Debug, Clone)]
-pub struct TablePage<M> {
-    /// The rows of this page.
-    pub rows: Vec<M>,
-    /// Encoded cursor for the next page (`?after=`), when one exists.
-    pub next_cursor: Option<String>,
-    /// Encoded cursor for the previous page (`?before=`), when one exists.
-    pub prev_cursor: Option<String>,
-}
-
-impl<M> From<Vec<M>> for TablePage<M> {
-    fn from(rows: Vec<M>) -> Self {
-        Self {
-            rows,
-            next_cursor: None,
-            prev_cursor: None,
-        }
-    }
-}
-
-impl<M: toasty::schema::Model> TablePage<M> {
-    /// Wrap a toasty cursor-pagination result, encoding its cursors for URLs.
-    ///
-    /// # Errors
-    ///
-    /// Errors when a cursor contains a value the URL codec cannot represent
-    /// (see `crate::cursor`).
-    pub fn from_toasty_page(page: toasty::stmt::Page<M>) -> Result<Self> {
-        Ok(Self {
-            rows: page.items,
-            next_cursor: page
-                .next_cursor
-                .as_ref()
-                .map(crate::cursor::encode)
-                .transpose()?,
-            prev_cursor: page
-                .prev_cursor
-                .as_ref()
-                .map(crate::cursor::encode)
-                .transpose()?,
-        })
-    }
 }
 
 /// Which column the table is currently sorted by, parsed from

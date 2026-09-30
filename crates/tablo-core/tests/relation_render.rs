@@ -269,3 +269,45 @@ async fn a_relation_table_lays_out_fixed_with_declared_widths() {
         "two wide columns keep two floors, got {html}"
     );
 }
+
+/// A relation table shares the list table's width budget: kind defaults that
+/// would together claim more than 60% of the table scale down so the wide
+/// column keeps a share. Seven narrow columns claim 10% each nominally (70%),
+/// so each is scaled to a whole-percent share of the 60% budget.
+#[tokio::test]
+async fn a_relation_tables_narrow_defaults_share_the_list_budget() {
+    let cx = CxTestBuilder::new().build();
+    let narrow = |label: &'static str| {
+        RelationColumn::computed(label, |r: &Row| r.name.clone()).width(ColumnWidth::Narrow)
+    };
+    let declared = RelationColumns::columns((
+        narrow("A"),
+        narrow("B"),
+        narrow("C"),
+        narrow("D"),
+        narrow("E"),
+        narrow("F"),
+        narrow("G"),
+        RelationColumn::computed("Name", |r: &Row| r.name.clone()),
+    ));
+    let html = render_relation::<AllRows>(&cx, "Related", declared, &[row("first")])
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    let share = 10 * 60 / 70;
+    assert_eq!(
+        html.matches(&format!("style=\"width: {share}%\"")).count(),
+        14,
+        "every narrow header and cell takes the scaled share, got {html}"
+    );
+    assert!(
+        !html.contains("width: 10%"),
+        "no narrow column keeps its nominal share over budget, got {html}"
+    );
+    let terms = format!("{share}% + ").repeat(7);
+    assert!(
+        html.contains(&format!("min-width: calc({terms}6rem)")),
+        "the floor sums the scaled shares and the wide column's rem, got {html}"
+    );
+}

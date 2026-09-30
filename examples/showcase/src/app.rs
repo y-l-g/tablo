@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Brand, ColumnWidth, Committed, DateFilter, FieldErrors, Grid, Group, IncludeNeeds, Panel,
-    Posted, RelationColumn, RelationColumns, Repeater, Resource, Schema, Section, Select,
-    SelectFilter, Table, TernaryFilter, TextColumn, TextInput, Textarea, Uploader, VariantFilter,
+    Brand, ColumnWidth, Committed, DateFilter, FieldErrors, Grid, Group, Panel, Posted,
+    RelationColumn, RelationColumns, Repeater, Resource, Schema, Section, Select, SelectFilter,
+    Table, TernaryFilter, TextColumn, TextInput, Textarea, Uploader, VariantFilter,
     render_relation, scoped_query, tenant_id, write_create, write_update,
 };
 use toasty::Db;
@@ -262,38 +262,6 @@ pub struct AuthorForm {
 
 pub struct PostResource;
 
-impl PostResource {
-    /// The posts base query with the two relations the table can render loaded
-    /// only when `needs` asks.
-    ///
-    /// No tenant filter: `requires_tenant` is `true`, so the
-    /// framework scopes every loader — list, edit, delete, bulk, export — by
-    /// ANDing the filter it derives from `Post`'s own `tenant_id` column onto
-    /// whatever this returns. Writing it by hand here was the GH #87 hole: one
-    /// override that forgot the filter served every tenant's rows.
-    ///
-    /// `query` is the list/detail half and loads both — the Comments column
-    /// renders the count and the detail page reads `view_relations` — while
-    /// [`query_with`](Resource::query_with) narrows to the includes a loader
-    /// declared, which is what the list and the export pass. Both go
-    /// through this one function so the includes cannot drift apart.
-    /// It takes no `Cx` because there is nothing left to resolve from the
-    /// request: the scope belongs to the framework now.
-    fn base(needs: &IncludeNeeds) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
-        let mut q = toasty::stmt::Query::<toasty::stmt::List<Post>>::all();
-        if needs.wants("author") {
-            let inc_author: toasty::stmt::Include<Post, Author> = Post::fields().author().into();
-            q = q.include(inc_author);
-        }
-        if needs.wants("comments") {
-            let inc_comments: toasty::stmt::Include<Post, toasty::stmt::List<Comment>> =
-                Post::fields().comments().into();
-            q = q.include(inc_comments);
-        }
-        q
-    }
-}
-
 impl Resource for PostResource {
     type Model = Post;
     type Form = PostForm;
@@ -379,17 +347,19 @@ impl Resource for PostResource {
         "Blog Post".to_string()
     }
 
-    fn query(_cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
-        Self::base(&IncludeNeeds::from(["author", "comments"]))
-    }
-
-    /// The list and export load the includes their columns declared
-    /// the edit, delete, bulk and option loaders ask for
-    /// none, so a Comment form's post options carry the posts' own columns and
-    /// not every post's comments. The export inherits this branch through its
-    /// default [`export_query`](Resource::export_query).
-    fn query_with(_cx: &Cx, needs: &IncludeNeeds) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
-        Self::base(needs)
+    /// The detail page renders the post's comments through
+    /// [`view_relations`](Resource::view_relations), so its query includes
+    /// them. The list and the export load the relations their columns include,
+    /// and every other loader reads only the post's own columns.
+    ///
+    /// No tenant filter: `requires_tenant` is `true`, so the framework scopes
+    /// every loader by ANDing the filter it derives from `Post`'s own
+    /// `tenant_id` column onto this. Writing it by hand here was the GH #87
+    /// hole: one override that forgot the filter served every tenant's rows.
+    fn view_query(cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
+        let comments: toasty::stmt::Include<Post, toasty::stmt::List<Comment>> =
+            Post::fields().comments().into();
+        Self::query(cx).include(comments)
     }
 
     /// The post's title, so the detail heading names the post rather than its
@@ -454,7 +424,7 @@ impl Resource for PostResource {
     ///
     /// `record.comments.get()` reads the included relation — no query, no
     /// per-row load — which is the point #66's criterion made. `is_unloaded` is
-    /// the guard the list columns use: drop the include from `query` and this
+    /// the guard the list columns use: drop the include from `view_query` and this
     /// says so instead of panicking inside `Deferred::get`, so
     /// `detail_relation_check` fails on a message rather than a stack trace.
     ///
@@ -473,7 +443,7 @@ impl Resource for PostResource {
                             (format!("{words} words · {minutes} min read"))
                         </p>
                         <p class="text-sm text-destructive">
-                            "Comments were not loaded by this query — add them to Resource::query's include."
+                            "Comments were not loaded by this query — add them to Resource::view_query's include."
                         </p>
                     </div>
                 }
@@ -552,13 +522,12 @@ impl Resource for PostResource {
                 // The other override direction: a computed column that holds a
                 // name is body text, so it takes a share of the free width.
                 TextColumn::computed("Author", |p: &Post| {
-                    // Loud on missing includes: a silent "-" reads
-                    // as data. The list/export loaders include author when
-                    // this column declares it, so this only fires
-                    // if the declaration and the query disagree.
+                    // Loud on missing includes: a silent "-" reads as data.
+                    // The list and the export load author because this column
+                    // includes it, so this fires only if that `.include` goes.
                     debug_assert!(
                         !p.author.is_unloaded(),
-                        "Author column needs Post::query to include author"
+                        "the Author column declares `.include(Post::fields().author())`"
                     );
                     if p.author.is_unloaded() {
                         "(unloaded)".to_string()
@@ -567,11 +536,11 @@ impl Resource for PostResource {
                     }
                 })
                 .width(ColumnWidth::Wide)
-                .needs(["author"]),
+                .include(Post::fields().author()),
                 TextColumn::computed("Comments", |p: &Post| {
                     debug_assert!(
                         !p.comments.is_unloaded(),
-                        "Comments column needs Post::query to include comments"
+                        "the Comments column declares `.include(Post::fields().comments())`"
                     );
                     if p.comments.is_unloaded() {
                         "(unloaded)".to_string()
@@ -579,7 +548,7 @@ impl Resource for PostResource {
                         p.comments.get().len().to_string()
                     }
                 })
-                .needs(["comments"]),
+                .include(Post::fields().comments()),
             ),
         )
         .filters((
@@ -717,28 +686,6 @@ async fn ensure_post_in_tenant(
     Ok(())
 }
 
-impl CommentResource {
-    /// The comments base query with the post loaded only when `needs` asks.
-    /// No tenant filter: the scope is declared once, in
-    /// [`tenant_scope`](Resource::tenant_scope), and the framework ANDs it onto
-    /// whatever this returns — for the list, the edit load, the bulk fetch, the
-    /// export and the relationship option loads alike.
-    ///
-    /// The list half loads the post — the Post column renders its title — and
-    /// the detail page, were one declared, would read it through
-    /// [`view_relations`](Resource::view_relations). Every other loader asks
-    /// for nothing: the edit page, the delete paths and the option loads read
-    /// only the comment's own columns.
-    fn base(needs: &IncludeNeeds) -> toasty::stmt::Query<toasty::stmt::List<Comment>> {
-        let mut q = toasty::stmt::Query::<toasty::stmt::List<Comment>>::all();
-        if needs.wants("post") {
-            let inc_post: toasty::stmt::Include<Comment, Post> = Comment::fields().post().into();
-            q = q.include(inc_post);
-        }
-        q
-    }
-}
-
 impl Resource for CommentResource {
     type Model = Comment;
     type Form = CommentForm;
@@ -805,7 +752,7 @@ impl Resource for CommentResource {
 
     /// Inherit-through-the-relation: scope through the parent post's
     /// tenant. Toasty rewrites the relation-path comparison into a foreign-key
-    /// subquery, and the framework ANDs the result onto `query`/`export_query`
+    /// subquery, and the framework ANDs the result onto `query`/`view_query`
     /// exactly as it ANDs the derived `tenant_id` filter elsewhere.
     fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
         Some(Comment::fields().post().tenant_id().eq(tenant))
@@ -832,20 +779,6 @@ impl Resource for CommentResource {
         true
     }
 
-    fn query(_cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<Comment>> {
-        Self::base(&IncludeNeeds::from(["post"]))
-    }
-
-    /// The list and export load the includes their columns declared
-    /// Here the Post column's `post` — while the edit,
-    /// delete, bulk and option loaders ask for none.
-    fn query_with(
-        _cx: &Cx,
-        needs: &IncludeNeeds,
-    ) -> toasty::stmt::Query<toasty::stmt::List<Comment>> {
-        Self::base(needs)
-    }
-
     fn table(_cx: &Cx) -> Table<Comment> {
         Table::new(
             |c: &Comment| c.id.to_string(),
@@ -856,7 +789,7 @@ impl Resource for CommentResource {
                 TextColumn::computed("Post", |c: &Comment| {
                     debug_assert!(
                         !c.post.is_unloaded(),
-                        "Post column needs Comment::query to include post"
+                        "the Post column declares `.include(Comment::fields().post())`"
                     );
                     if c.post.is_unloaded() {
                         "(unloaded)".to_string()
@@ -867,7 +800,7 @@ impl Resource for CommentResource {
                 // a post title is body text, not the narrow badge a
                 // computed column defaults to.
                 .width(ColumnWidth::Wide)
-                .needs(["post"]),
+                .include(Comment::fields().post()),
             ),
         )
         .live_search()

@@ -114,12 +114,12 @@ comments and locals.
 
 ### Column
 
-A typed projection of a Model field (or a computed value) displayed in a Table row, rendered
-through a lens-bound closure where typos fail at compile time. `searchable`/`sortable` map to
-Toasty predicates and order_by; computed columns render values but declare none. A column whose
-projection reads a relation declares it with `needs(..)` (GH #177, ADR-0018). A column declares
-its width with `width(ColumnWidth::..)`; see [tables](docs/guide/src/tables.md) (GH #240).
-`TextColumn` is the only column type; Badge, Number and the rest remain spec-level.
+A typed projection of a Model field (or a computed value) displayed in a Table row, rendered through
+a lens-bound closure where typos fail at compile time. `searchable`/`sortable` map to Toasty
+predicates and order_by; computed columns render values but declare none. A column whose projection
+reads a relation declares it with `include(..)`, a typed path (ADR-0018). A column declares its
+width with `width(ColumnWidth::..)`; see [tables](docs/guide/src/tables.md) (GH #240). `TextColumn`
+is the only column type; Badge, Number and the rest remain spec-level.
 
 _Avoid_: Field (in table context), Cell, Attribute
 
@@ -158,8 +158,8 @@ _Avoid_: CommittedSet, ChangeSet, Event, PostCommit
 
 The base filtered query for a Resource, returned by `Resource::query(cx)` and used by every
 loader through `scoped_query(cx)` — that base with the framework's tenant filter ANDed on when
-the resource requires a tenant (GH #223). The CSV export asks `Resource::export_query(cx, needs)`
-instead, which defaults to this query (GH #177). See
+the resource requires a tenant (GH #223). The list and the CSV export add the relations their
+columns include, and the detail page loads `Resource::view_query(cx)` (ADR-0018). See
 [data access](docs/guide/src/data-access.md).
 
 _Avoid_: Scope, EloquentQuery, Builder (as domain term)

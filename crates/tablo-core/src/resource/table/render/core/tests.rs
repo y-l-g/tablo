@@ -1,7 +1,10 @@
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::resource::{ColumnWidth, SelectFilter, Sort, TextColumn, VariantFilter};
+use crate::resource::{
+    ColumnWidth, SelectFilter, Sort, TextColumn, VariantFilter,
+    column::DEFAULT_WIDTH_BUDGET_PERCENT,
+};
 
 #[derive(Debug, Clone, toasty::Model)]
 pub(crate) struct User {

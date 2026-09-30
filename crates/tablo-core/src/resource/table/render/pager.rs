@@ -6,7 +6,10 @@ use tablo_ui::{
 use topcoat::{Result, context::Cx, runtime::Event, view::*};
 
 use super::super::{
-    super::state::{TablePage, TableSignals, TableState},
+    super::{
+        page::TablePage,
+        state::{TableSignals, TableState},
+    },
     Table,
 };
 

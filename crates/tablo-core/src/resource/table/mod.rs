@@ -7,12 +7,11 @@
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use toasty::stmt::{Expr, List, OrderByExpr};
-use topcoat::{Result, context::Cx};
 
 use super::{
     column::{IntoColumns, TextColumn},
     filter::{Filter, IntoFilters},
-    state::{TablePage, TableState},
+    state::TableState,
 };
 
 mod export;
@@ -317,25 +316,25 @@ impl<M> Table<M> {
         self
     }
 
-    /// The relations this table's columns declared their projections read,
-    /// merged into one set.
-    ///
-    /// The export hands this to
-    /// [`Resource::export_query`](super::Resource::export_query), which is
-    /// the only thing that can turn a name into a typed `include(..)`. Every
-    /// column is rendered — the CSV writes a cell per column — so the set is
-    /// the union over all of them; a table cannot narrow its export by
-    /// declaring fewer needs than its columns read, because the reading
-    /// column is the one that renders.
-    pub fn include_needs(&self) -> super::IncludeNeeds
+    /// `query` with every relation this table's columns declared
+    /// ([`TextColumn::include`](super::TextColumn::include)) included, once
+    /// each. The list and the export load through this; every column renders,
+    /// so the set is the union over all of them.
+    pub(crate) fn include_relations(
+        &self,
+        mut query: toasty::stmt::Query<List<M>>,
+    ) -> toasty::stmt::Query<List<M>>
     where
         M: toasty::schema::Model,
     {
-        self.columns
-            .iter()
-            .flat_map(|c| c.include_names())
-            .copied()
-            .collect()
+        let mut seen: Vec<&toasty_core::stmt::Include> = Vec::new();
+        for include in self.columns.iter().flat_map(|c| c.includes()) {
+            if !seen.contains(&include) {
+                seen.push(include);
+                query = query.include(include.clone());
+            }
+        }
+        query
     }
 
     /// Filter predicate for the current `TableState` — `AND` of active filter exprs.
@@ -408,6 +407,10 @@ impl<M> Table<M> {
     /// (e.g. `"status"`); any other value renders no group headers and is
     /// dropped from pager/sort/filter links instead of silently
     /// grouping by the single declared key. Counts are page-local.
+    ///
+    /// The key closure reads the loaded row, so a relation it reads must be
+    /// loaded: include it on a column ([`TextColumn::include`](super::TextColumn::include))
+    /// or in [`Resource::query`](crate::resource::Resource::query).
     ///
     /// In live tables the page-load value seeds the `group_by` interaction
     /// signal and persists across in-place reruns; changing it is
@@ -688,15 +691,11 @@ impl<M> Table<M> {
     /// Apply this table's declaration to `query` — the one routine that turns
     /// the search term, the filters and the ordering into a query.
     ///
-    /// `query` is the caller's seed, which is the one thing the two loaders
-    /// legitimately differ on: the list loads the tenant-scoped
-    /// [`Resource::query`](crate::resource::Resource::query) (the row-scoping
-    /// seam, ADR-0002) while the export loads the tenant-scoped
-    /// [`Resource::export_query`](crate::resource::Resource::export_query),
-    /// narrowed to the relations the rendered columns declared.
-    ///
-    /// Everything else is shared, so a new search or filter dimension cannot
-    /// reach the list and miss the CSV — the drift class GH #172 fixed.
+    /// `query` is the caller's seed: the list and the export both pass the
+    /// tenant-scoped [`Resource::query`](crate::resource::Resource::query) (the
+    /// row-scoping seam, ADR-0002), and a page-owned table passes its own. One
+    /// routine for both, so a new search or filter dimension cannot reach the
+    /// list and miss the CSV — the drift class GH #172 fixed.
     pub(crate) fn apply_declaration(
         &self,
         mut query: toasty::stmt::Query<List<M>>,
@@ -717,133 +716,6 @@ impl<M> Table<M> {
             query = query.order_by(ord);
         }
         query
-    }
-
-    /// Resolve and execute this table's query for `state` — search, filters,
-    /// ordering, and cursor pagination — and return the rows.
-    ///
-    /// The loader half of the live-table seam (GH #154 §2): a page that owns
-    /// its own table can hand its shard a query and this
-    /// hook applies the same declaration pipeline `panel::load_table_page`
-    /// applies to the tenant-scoped `Resource::query`, so a
-    /// page-level shard does not
-    /// reimplement filtering, ordering, or cursor validation. The table such a
-    /// page serves comes from
-    /// [`panel::wired_table`](crate::panel::wired_table), which carries the
-    /// resource's action chrome.
-    ///
-    /// The cursor-existence probes reuse `query`, so they pay the query's
-    /// relation includes. The panel's resource-list loader seeds them from a
-    /// narrower query with the same scope and no includes; this entry point has
-    /// no such seed, so its probes carry the query's includes.
-    pub async fn load(
-        &self,
-        cx: &Cx,
-        query: toasty::stmt::Query<List<M>>,
-        state: &TableState,
-    ) -> Result<TablePage<M>>
-    where
-        M: toasty::schema::Model + Send + Sync + 'static,
-    {
-        self.load_with_probe(cx, query.clone(), query, state).await
-    }
-
-    /// [`Self::load`] with a separate seed for the cursor-existence probes.
-    /// The probes only ask whether one more row exists past a cursor, so they
-    /// read no relation and do not need `query`'s includes. `probe_query` is
-    /// the same scope and declaration pipeline with those includes dropped;
-    /// passing `query` itself reproduces [`Self::load`].
-    pub(crate) async fn load_with_probe(
-        &self,
-        cx: &Cx,
-        query: toasty::stmt::Query<List<M>>,
-        probe_query: toasty::stmt::Query<List<M>>,
-        state: &TableState,
-    ) -> Result<TablePage<M>>
-    where
-        M: toasty::schema::Model + Send + Sync + 'static,
-    {
-        // The declaration becomes predicates and an ordering through the one
-        // shared routine — the export loader applies the same one to
-        // its own seed query.
-        let query = self.apply_declaration(query, state);
-        let mut db = crate::db::db(cx);
-        let per_page = self.page_size.get();
-        // Keep a cursor-free copy of the filtered+ordered probe seed for
-        // cursor validation: Toasty's `Page` sets `next_cursor`
-        // optimistically whenever `len == page_size`, which leaves a
-        // phantom cursor when the page sits exactly at a boundary. The
-        // probe seed carries no relation includes because the
-        // probes only ask whether a row exists.
-        let base_query = self.apply_declaration(probe_query, state);
-        let mut paginated = toasty::stmt::Paginate::new(query, per_page);
-        // Toasty cursor pagination takes exactly one cursor:
-        // a URL carrying both `?after=` and `?before=` must fail loudly
-        // instead of silently preferring `after` (the GH #93 fail-open
-        // family). The `CursorDecodeError` marker gives the failure the
-        // drop-pagination retry contract.
-        if state.after.is_some() && state.before.is_some() {
-            return Err(crate::cursor::CursorDecodeError::conflicting_cursors());
-        }
-        if let Some(cursor) = &state.after {
-            paginated = paginated.after(crate::cursor::decode(cursor)?);
-        } else if let Some(cursor) = &state.before {
-            paginated = paginated.before(crate::cursor::decode(cursor)?);
-        }
-        let loaded = paginated
-            .exec(&mut db)
-            .await
-            .map_err(|error| reject_cursor(error.into(), state))?;
-        let mut page = TablePage::from_toasty_page(loaded)?;
-        // Cursor-existence probes, one per landing direction:
-        // the engine sets `next_cursor`/`prev_cursor` optimistically,
-        // so a page sitting exactly at a boundary carries a phantom
-        // cursor without validation. Each direction probes only the
-        // edge that can lie:
-        // - forward/first landing: prev is exact (absent on the first page; otherwise the page we
-        //   came from exists), next may be phantom at the end boundary → probe next on full pages.
-        //   A short page cannot have a next page.
-        // - backward landing: next is exact (the page we came from follows), prev may be phantom
-        //   when the fetch lands on the first page → probe prev whenever one is reported.
-        //
-        // Deliberately NOT a `LIMIT per_page+1` fold: the engine
-        // derives `next_cursor` from the last *fetched* row, so
-        // trimming the extra row would anchor the next link past it —
-        // every `(per_page+1)`th row would vanish from forward walks.
-        // The probes keep the main fetch's cursors (which point at
-        // displayed rows) as the link anchors.
-        //
-        // Residual (same as ever): a concurrent delete landing between
-        // the main fetch and the click can still void a validated
-        // cursor — that degrades to the void-window recovery link
-        // never to silently skipped rows.
-        if state.before.is_some() {
-            if let Some(cursor) = page.prev_cursor.clone() {
-                let probe = toasty::stmt::Paginate::new(base_query, 1)
-                    .before(crate::cursor::decode(&cursor)?)
-                    .exec(&mut db)
-                    .await
-                    .map_err(topcoat::Error::from)?;
-                if probe.items.is_empty() {
-                    page.prev_cursor = None;
-                }
-            }
-        } else if page.rows.len() == per_page {
-            if let Some(cursor) = page.next_cursor.clone() {
-                let probe = toasty::stmt::Paginate::new(base_query, 1)
-                    .after(crate::cursor::decode(&cursor)?)
-                    .exec(&mut db)
-                    .await
-                    .map_err(topcoat::Error::from)?;
-                if probe.items.is_empty() {
-                    page.next_cursor = None;
-                }
-            }
-        } else {
-            // Short page → no next, keep prev as-is (has_previous already correct).
-            page.next_cursor = None;
-        }
-        Ok(page)
     }
 
     /// Whether the search toolbar renders: at least one `searchable()` column,
@@ -868,26 +740,6 @@ impl<M> Table<M> {
     /// change cannot rebuild the control the user is interacting with.
     pub(crate) fn filter_bar_enabled(&self) -> bool {
         !self.hide_filter_bar && !self.filters.is_empty()
-    }
-}
-
-/// Attribute a failed paginated fetch to the request's cursor.
-///
-/// A token cut from a different ordering decodes but the engine refuses the
-/// statement (`invalid_statement`: its field count no longer matches the
-/// query's `ORDER BY`). No other statement this paginated loader builds carries
-/// that error while the request names a cursor. Such a failure is the cursor's,
-/// so it takes the cursor-stripped retry contract instead of re-requesting the
-/// identical URL forever; every other failure keeps the cursor.
-fn reject_cursor(error: topcoat::Error, state: &TableState) -> topcoat::Error {
-    let cursored = state.after.is_some() || state.before.is_some();
-    let rejected = error
-        .downcast_ref::<toasty::Error>()
-        .is_some_and(toasty::Error::is_invalid_statement);
-    if cursored && rejected {
-        crate::cursor::CursorRejectedError::rejected(&error)
-    } else {
-        error
     }
 }
 

@@ -40,11 +40,19 @@ replace `Table::new`'s key, which must stay injective within a page for keyed di
 - **Values come from the form's projection** (`RecordForm::hydrate`), so a field that renders in
   the form renders here; `view_values` adds a key only the view shows. A `NoForm` resource
   supplies every key through `view_values`.
-- **Related rows** render through `view_relations(cx, record)`, the page's second half:
+- **Related rows** render through `view_relations(cx, record)`, the page's second half. The page
+  loads through `view_query`, so include what the hook reads there:
+
+```rust
+fn view_query(cx: &Cx) -> Query<List<Post>> {
+    let comments: Include<Post, List<Comment>> = Post::fields().comments().into();
+    Self::query(cx).include(comments)
+}
+```
 
 ```rust
 fn view_relations<'a>(cx: &'a Cx, record: &Post) -> Option<BoxView<'a>> {
-    // The relation comes from `Resource::query`'s include, so this is the guard
+    // The relation comes from `Resource::view_query`'s include, so this is the guard
     // the list columns use: drop the include and the page says so instead of
     // panicking inside `Deferred::get`.
     if record.comments.is_unloaded() {
@@ -52,7 +60,7 @@ fn view_relations<'a>(cx: &'a Cx, record: &Post) -> Option<BoxView<'a>> {
             view! {
                 cx =>
                 <p class="text-sm text-destructive">
-                    "Comments were not loaded by this query — add them to Resource::query's include."
+                    "Comments were not loaded by this query — add them to Resource::view_query's include."
                 </p>
             }
             .boxed(),

@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::find_by_key_narrowed, gate::gate},
+    super::{actions::find_by_key, gate::gate},
     common::{
         FormParts, commit_write, drop_client_typed_uploads, reject_unknown_form_keys,
         rerender_invalid_form, restore_pending_uploads, strip_transport_keys, truthy,
@@ -278,7 +278,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // `validate_async` loaders run before it opens (see `crate::db` pool
         // discipline).
         let mut db0 = db(cx);
-        let advisory = find_by_key_narrowed::<R>(cx, &id, &mut db0).await?;
+        let advisory = find_by_key::<R>(cx, &id, &mut db0).await?;
         if !R::can_view(cx, &advisory) {
             return Err(forbidden().into());
         }
@@ -297,7 +297,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // the write — never a silent re-load outside the checked snapshot.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::db::unavailable)?;
-        let record = find_by_key_narrowed::<R>(cx, &id, &mut tx).await?;
+        let record = find_by_key::<R>(cx, &id, &mut tx).await?;
         if !R::can_view(cx, &record) {
             return Err(forbidden().into());
         }

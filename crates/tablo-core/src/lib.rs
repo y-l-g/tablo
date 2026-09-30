@@ -45,10 +45,10 @@ pub use form::{
 pub use notification::{Notification, NotificationStatus};
 pub use panel::{Brand, DarkMode, Panel};
 pub use resource::{
-    ColumnWidth, Committed, DateFilter, Filter, IncludeNeeds, IntoFilters, IntoRelationColumns,
+    ColumnWidth, Committed, DateFilter, Filter, IntoFilters, IntoRelationColumns,
     MAX_RELATION_ROWS, Mutation, NavTarget, NavigationItem, RelationColumn, RelationColumns,
     Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableSignals, TableState,
-    TernaryFilter, TextColumn, VariantFilter, render_relation, scoped_query,
+    TernaryFilter, TextColumn, VariantFilter, render_relation, scoped_query, scoped_view_query,
 };
 pub use schema::{
     EmbeddedForm, EnumSpec, FieldLens, FileUpload, Grid, Group, IntoSchema, Repeater, Schema,

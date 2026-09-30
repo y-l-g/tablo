@@ -384,33 +384,17 @@ pub(crate) fn resource_list_live<R: Resource>(
     })))
 }
 
-/// Resolve the declared table (search / filters / sort / pagination) against
-/// the tenant-scoped [`scoped_query_with`](crate::resource::scoped_query_with)
-/// — the data-loading half of
-/// [`resource_list`], kept separate so the page shell can stream before it.
-///
-/// The load asks for the includes the table's columns declared
-/// ([`Table::include_needs`]), so a resource that narrows its loaders
-/// loads exactly what the rendered cells read; the cursor-existence probes ask
-/// for none, because they only test whether a row exists. A resource that
-/// overrides nothing keeps its full
-/// [`query`](crate::resource::Resource::query) at both, the same safe default
-/// the export takes.
-///
-/// Page-owned tables (GH #154 §2) load through [`Table::load`] directly.
+/// Load `R`'s list page for `state` from the tenant-scoped
+/// [`scoped_query`](crate::resource::scoped_query) — the data-loading half of
+/// [`resource_list`] and the live shard, kept separate so the page shell can
+/// stream before it. [`TablePage::load`] applies the table's declaration and
+/// the relations its columns include.
 pub(crate) async fn load_table_page<R: Resource>(
     cx: &Cx,
     table: &Table<R::Model>,
     state: &TableState,
 ) -> Result<TablePage<R::Model>> {
-    table
-        .load_with_probe(
-            cx,
-            crate::resource::scoped_query_with::<R>(cx, &table.include_needs())?,
-            crate::resource::scoped_query_with::<R>(cx, &crate::resource::IncludeNeeds::default())?,
-            state,
-        )
-        .await
+    TablePage::load(cx, table, crate::resource::scoped_query::<R>(cx)?, state).await
 }
 
 #[cfg(test)]

@@ -23,17 +23,20 @@ mod commit;
 mod filter;
 mod naming;
 mod navigation;
+mod page;
 mod relation;
 mod state;
 mod table;
 
-pub use column::{ColumnWidth, IncludeNeeds, IntoColumns, TextColumn};
+pub use column::{ColumnWidth, IntoColumns, TextColumn};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use filter::{DateFilter, Filter, IntoFilters, SelectFilter, TernaryFilter, VariantFilter};
 use naming::{kebab_case, pluralize, type_short_name};
 pub(crate) use navigation::runtime_link;
 pub use navigation::{NavTarget, NavigationItem};
+pub use page::TablePage;
+pub(crate) use page::{Past, row_exists_past};
 pub use relation::{
     IntoRelationColumns, MAX_RELATION_ROWS, RelationColumn, RelationColumns, render_relation,
 };
@@ -41,7 +44,7 @@ pub(crate) use state::{
     BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
     RECORD_ROUTE_PARAM, create_page_url, cursor_after, cursor_before, cursor_none,
 };
-pub use state::{Sort, TablePage, TableSignals, TableState};
+pub use state::{Sort, TableSignals, TableState};
 pub use table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
 pub(crate) use table::{RowActions, TableChrome};
 
@@ -294,9 +297,16 @@ pub trait Resource: Sized + Send + Sync + 'static {
     }
 
     /// Base query — the seam for a resource's **own** row scoping (ADR-0002):
-    /// soft deletes, row-level visibility, and the relations a page loads.
+    /// soft deletes and row-level visibility. Every loader starts from it.
     ///
-    /// **Tenancy is not this method's job.** When
+    /// **Relations are not this method's job.** The list and the export load
+    /// the relations the table's columns declare ([`TextColumn::include`]), and
+    /// the detail page loads [`Self::view_query`]. Include a relation here only
+    /// when a closure no column covers reads it on every loader's rows: one
+    /// [`can_view`](Self::can_view) reads, or one a table's `group_by` or row
+    /// key reads without a column including it.
+    ///
+    /// **Tenancy is not this method's job either.** When
     /// [`requires_tenant`](Self::requires_tenant) is `true` the framework ANDs
     /// the tenant filter, derived from the model's `tenant_id` column, onto
     /// whatever this returns, at every loader through [`scoped_query`]. Do not
@@ -321,57 +331,15 @@ pub trait Resource: Sized + Send + Sync + 'static {
         toasty::stmt::Query::<List<Self::Model>>::all()
     }
 
-    /// [`Self::query`] narrowed to the relations `needs` asks for.
+    /// The detail page's query: [`Self::query`] plus the relations the page
+    /// reads. [`view_relations`](Self::view_relations) renders related records
+    /// off the loaded row, so include them here:
+    /// `Self::query(cx).include(Post::fields().comments())`.
     ///
-    /// A loader that reads only part of what [`Self::query`] loads states the
-    /// includes it reads here, and the resource answers with the matching branch
-    /// of its base query. The names are the opaque vocabulary [`IncludeNeeds`]
-    /// documents; the resource maps them onto its typed `include(..)` calls.
-    ///
-    /// **The default ignores `needs` and returns [`Self::query`] unchanged**, so
-    /// narrowing is opt-in per resource. An override must keep the non-tenant
-    /// scope [`Self::query`] carries and any relation its
-    /// [`can_view`](Self::can_view) reads, because the loaders run that
-    /// predicate over the loaded rows; the tenant half is the framework's to AND
-    /// on. The list and the export ask for their table's
-    /// [`include_needs`](Table::include_needs). The detail page reads
-    /// [`view_relations`](Self::view_relations), an opaque hook with no
-    /// declaration, so it loads [`Self::query`] unchanged; edit, delete, bulk
-    /// delete and the option and pagination probes read no relation, so they ask
-    /// for an empty set.
-    fn query_with(cx: &Cx, _needs: &IncludeNeeds) -> toasty::stmt::Query<List<Self::Model>> {
+    /// The default is [`Self::query`] unchanged. The framework ANDs the tenant
+    /// scope onto it, as it does onto [`Self::query`].
+    fn view_query(cx: &Cx) -> toasty::stmt::Query<List<Self::Model>> {
         Self::query(cx)
-    }
-
-    /// The CSV export's base query: [`Self::query`], narrowed to the relations
-    /// the rendered columns declared.
-    ///
-    /// The export writes a cell per column, so it asks the table which relations
-    /// those columns' projections read ([`Table::include_needs`] — each column
-    /// declares them with [`TextColumn::needs`]) and hands the answer here.
-    /// `docs/guide/src/resources.md` states the override contract: one branch per
-    /// declared name, so an include `query` carries for the detail page or the
-    /// live list rides along on an export only when a rendered column declared
-    /// it.
-    ///
-    /// **The default delegates to [`Self::query_with`]**, which returns
-    /// [`Self::query`] unchanged unless the resource overrides it. Over-fetching
-    /// costs a join; dropping a relation a column reads breaks the render, so the
-    /// default over-fetches.
-    ///
-    /// # What an override must keep
-    ///
-    /// - **The non-tenant scope of [`Self::query`]** (soft deletes, row-level visibility): the
-    ///   export is a reader like any other, and an override that drops that half exports other
-    ///   rows. The tenant half is the framework's.
-    /// - **Whatever the policy path reads.** The visibility scan calls
-    ///   [`Self::can_view`](Self::can_view) on every row of both passes before any cell is written,
-    ///   so a `can_view` that reads a relation needs it included even though no column declared it.
-    /// - **Every name a column declared.** A declared name with no matching include renders an
-    ///   unloaded relation, which the column's `is_unloaded` guard (ADR-0011) reports in test
-    ///   builds instead of a silent `"-"`.
-    fn export_query(cx: &Cx, needs: &IncludeNeeds) -> toasty::stmt::Query<List<Self::Model>> {
-        Self::query_with(cx, needs)
     }
 
     /// Whether this resource requires a tenant in every handler.
@@ -601,14 +569,12 @@ pub trait Resource: Sized + Send + Sync + 'static {
     }
 }
 
-/// The tenant-scoped full base query.
+/// The tenant-scoped base query.
 ///
 /// [`Resource::query`] with the predicate from [`Resource::tenant_scope`]
-/// ANDed onto it, so a resource that overrides `query` for includes or soft
-/// deletes cannot drop the tenant scope by forgetting to re-state it. This is
-/// the entry point for a reader that wants the full base query — the detail
-/// page and app code. A framework loader that reads only part of it uses
-/// `scoped_query_with`.
+/// ANDed onto it, so a resource that overrides `query` for soft deletes cannot
+/// drop the tenant scope by forgetting to re-state it. Every framework loader
+/// and app code start here.
 ///
 /// # Errors
 ///
@@ -629,25 +595,23 @@ pub fn scoped_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
     apply_tenant_scope::<R>(cx, R::query(cx))
 }
 
-/// [`scoped_query`] over a loader's declared includes: the same tenant gate
-/// and derived predicate, seeded from [`Resource::query_with`] instead of
-/// [`Resource::query`]. A loader that reads no relation passes
-/// `IncludeNeeds::default()`.
-pub(crate) fn scoped_query_with<R: Resource>(
-    cx: &Cx,
-    needs: &IncludeNeeds,
-) -> Result<Query<List<R::Model>>> {
-    apply_tenant_scope::<R>(cx, R::query_with(cx, needs))
+/// [`Resource::view_query`] under the same tenant gate and predicate as
+/// [`scoped_query`]: the detail page's loader, and the entry point for a page
+/// that owns its own detail view.
+///
+/// # Errors
+///
+/// The same as [`scoped_query`].
+pub fn scoped_view_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
+    apply_tenant_scope::<R>(cx, R::view_query(cx))
 }
 
 /// AND the framework's tenant predicate onto `query`.
 ///
-/// The body of [`scoped_query`] and [`scoped_query_with`], split out so every
-/// seed — the base query, a loader's narrowed branch, the export's
-/// [`Resource::export_query`](Resource::export_query) — shares one gate, one
-/// predicate, and one fail-closed error, and so the seeds cannot drift apart.
+/// The body of [`scoped_query`] and [`scoped_view_query`], split out so both
+/// seeds share one gate, one predicate, and one fail-closed error.
 /// It is crate-internal because a caller outside the crate always has a
-/// `Resource`, and so always wants one of the `scoped_query*` entry points.
+/// `Resource`, and so always wants [`scoped_query`] or [`scoped_view_query`].
 pub(crate) fn apply_tenant_scope<R: Resource>(
     cx: &Cx,
     query: Query<List<R::Model>>,
@@ -695,24 +659,15 @@ pub(crate) fn apply_tenant_scope<R: Resource>(
 /// is deliberately not [`Resource::query`], which on a gated resource is the
 /// *tenant-unscoped* base.
 ///
-/// [`options_query`](crate::schema::OptionSource::options_query) forwards to
-/// `scoped_query_with` with an empty [`IncludeNeeds`]: an option load projects a
-/// value and a label off each row and reads no relation of its own, so a
-/// resource that narrows its loaders narrows option loads too. A source that
-/// overrides nothing keeps the full [`scoped_query`]. The policy predicates and
-/// the tenant declaration forward unchanged, and the search expression and
-/// default ordering come from the resource's declared [`table`](Resource::table),
-/// which is where "the option search searches the related resource's searchable
-/// columns" lives.
+/// The policy predicates and the tenant declaration forward unchanged, and the
+/// search expression and default ordering come from the resource's declared
+/// [`table`](Resource::table), which is where "the option search searches the
+/// related resource's searchable columns" lives.
 impl<R: Resource> crate::schema::OptionSource for R {
     type Model = R::Model;
 
     fn scoped_query(cx: &Cx) -> Result<Query<List<R::Model>>> {
         scoped_query::<R>(cx)
-    }
-
-    fn options_query(cx: &Cx) -> Result<Query<List<R::Model>>> {
-        scoped_query_with::<R>(cx, &IncludeNeeds::default())
     }
 
     fn can_view_any(cx: &Cx) -> bool {

@@ -86,8 +86,7 @@ Grouping and export:
   claims full-table totals. Unknown `?group_by=` values render no headers and drop from nav links.
 - `GET /admin/{slug}/export` returns the filtered set as CSV (`text/csv; charset=utf-8` +
   `Content-Disposition`, RFC4180 with OWASP formula-defusing), reusing the same filters and sort over
-  `export_query` — the base `query` unless the resource narrows it to the includes its columns
-  declared (GH #177). Capped at 10k viewable rows: per-row `can_view` runs before the cap, so 413
+  the tenant-scoped `query` with the relations its columns include (ADR-0018). Capped at 10k viewable rows: per-row `can_view` runs before the cap, so 413
   reflects what the caller may receive. An export whose filtered set runs past the 10,001-row scan
   window is a 413 too, even when fewer rows would be viewable: the export never returns a partial
   file. `?bom=1` opts into an Excel BOM.
