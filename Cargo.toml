@@ -47,7 +47,7 @@ too_many_lines = "deny"
 [workspace.dependencies]
 topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "fb2e3b9687e423847509a939b82d9461ac552c8b", default-features = false, features = ["view", "router", "discover"] }
 toasty = { git = "https://github.com/tokio-rs/toasty", rev = "d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf", default-features = false, features = ["sqlite", "jiff"] }
-toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "d3d6dd720428811c8f64d40a0efe4d8b6e0f6faf" }
+toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790" }
 topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "fb2e3b9687e423847509a939b82d9461ac552c8b" }
 topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "fb2e3b9687e423847509a939b82d9461ac552c8b" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
