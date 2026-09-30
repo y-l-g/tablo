@@ -65,8 +65,9 @@ fn malformed(message: impl Into<String>) -> topcoat::Error {
     TabloError::Cursor(message.into()).into()
 }
 
-/// A value this codec cannot encode: an ordering column of an unsupported
-/// type is the declaration's fault, not the request's.
+/// A value the codec cannot frame: an ordering column of an unsupported type,
+/// or one longer than the frame's length field. The request's token is not at
+/// fault, so the retry keeps its pagination.
 fn unencodable(message: impl Into<String>) -> topcoat::Error {
     TabloError::Declaration(message.into()).into()
 }

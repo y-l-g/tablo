@@ -153,8 +153,8 @@ pub(crate) async fn holds(cx: &Cx, path: &str) -> bool {
     }
 }
 
-/// Run the installed uploader over the file parts this form submitted
-/// returning `field_name -> inline errors` and the fields whose
+/// Run the installed uploader over the file parts this form submitted,
+/// returning the inline errors keyed by field name and the fields whose
 /// value is now the uploader's answer.
 ///
 /// For each declared file field ([`Field::file`](crate::schema::Field::file)) that carried
