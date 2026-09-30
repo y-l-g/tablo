@@ -259,6 +259,22 @@ path once.
 
 **Removes.** The type-name table, one of two field walkers, and an unspanned E0277.
 
+**As implemented (PR 3).** Where the implementation departs from the items above:
+
+- S4: `normalize_values` and `unknown_keys` stay as `Schema` operations, each one pass over the
+  compiled field list; the other accessors are gone. `controls()` reports only the `Repeater` skip:
+  a variant group holds only an embedded value's fields, whose record-form field always answers
+  blank, so `SkippedBy::VariantGroup` could not fire.
+- S3: a constructor takes `impl Into<ResolvedLens<M, T>>`. A column's lens converts through `From`;
+  an embedded path resolves with `ResolvedLens::new(cx, path)`, for every kind. `TypedValue` trades
+  `accepts` for `parse_input` and gains `INPUT_TYPE`, which replaces the type-name timestamp check;
+  it stays public as `tablo_core::schema::TypedValue`. A modifier on another control panics, naming
+  the field. The unique probe compares through the field's own lens.
+- S7: `Group::variant` is removed with the per-request rebuild; the derive builds the node through a
+  hidden `EmbeddedBuilder`, and a view renders only the stored variant's group.
+- S26: both derives read one attribute, `#[form(..)]`: `#[form(model = ..)]`, `#[form(embed)]`,
+  `#[form(blank = ..)]`, `#[form(label = ..)]`, and `#[form(multiline = N)]`.
+
 ### PR 4 — Loader
 
 **S12 — Split the loader out of `Table`.**
