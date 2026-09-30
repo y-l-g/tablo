@@ -31,18 +31,25 @@ pub(crate) enum Node {
 }
 
 /// Where a field's control sits in the form, for the record form's
-/// blank-agreement check (`Panel::build` refuses an optional control whose
-/// record-form field has no blank answer).
+/// blank-agreement check (`Panel::build` refuses an optional control, or one
+/// inside a `Repeater`, whose record-form field has no blank answer).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum LeafPlace {
     /// The form renders the control wherever the value is submitted, so an
     /// empty submission reaches the field's rule.
     #[default]
     Rendered,
-    /// A submission can leave the control out: an embedded enum's discriminant
-    /// (empty reaches the payload fallback) or a variant group's payload
-    /// (`variant.js` hides the group).
-    Skippable,
+    /// A variant group's payload: `variant.js` hides the group of a variant the
+    /// discriminant does not name, so a hidden payload is never read and a live
+    /// one is the parse's blank to refuse and word. Inside a `Repeater` the
+    /// group can be absent for another reason — an all-empty repeater group
+    /// skips requiredness while the parse still reads it — so the leaf is asked
+    /// for an answer there.
+    Payload,
+    /// An embedded enum's discriminant: an empty submission reaches the read's
+    /// fallback (a submitted payload, else the first variant), never a leaf's
+    /// rule.
+    Discriminant,
 }
 
 /// Where a schema render reads field values and errors from, and which side of

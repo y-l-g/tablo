@@ -237,8 +237,8 @@ typed conversion and a `form(cx, parent)`: one schema node holding the value's r
 whose keys are its fields' keys. An enum's variant is its **discriminant column**: hydration writes
 the stored variant into a visible choice, so a variant can be picked on create and changed on edit.
 A field marked `#[form(embed)]` is a nested value, every other field a scalar. Per-field overrides
-are `#[form(label = "…")]`, `#[form(multiline = N)]`, and `#[form(blank = ..)]` for a leaf whose
-type has no blank answer; an unknown key is a compile error. See
+are `#[form(label = "…")]`, `#[form(multiline = N)]`, and `#[form(blank = ..)]` to declare a leaf's
+blank answer; an unknown key is a compile error. See
 [forms](docs/guide/src/forms.md).
 
 _Avoid_: Nested form, Sub-form, Composite field, Inline model

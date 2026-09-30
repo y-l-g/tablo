@@ -37,6 +37,7 @@ use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{LeafPlace, Node, render_nodes, walk_absent_groups};
 pub use validation::TypedValue;
+pub(crate) use validation::required_error;
 
 use crate::form::FieldErrors;
 
@@ -53,10 +54,26 @@ pub(crate) struct ControlCheck {
     /// skips its requiredness: a submission may then reach the parse with the
     /// control empty.
     pub(crate) in_repeater: bool,
-    /// Whether the control sits where a submission can skip it — an embedded
-    /// enum's discriminant or a variant group's payload — so an empty one is
-    /// not the record form's to answer for.
-    pub(crate) skippable: bool,
+    /// Where the control sits in the form ([`LeafPlace`]).
+    pub(crate) place: LeafPlace,
+}
+
+impl ControlCheck {
+    /// Whether an empty submission reaches this control's rule.
+    ///
+    /// A rendered control always does; a variant group's payload does when the
+    /// group sits inside a `Repeater`, whose absent group skips requiredness
+    /// while the parse still reads the payload (a hidden group is not read at
+    /// all, and a live one is the parse's refused blank to word); an enum's
+    /// discriminant never does, because an empty one reaches the payload
+    /// fallback.
+    pub(crate) fn needs_answer(&self) -> bool {
+        match self.place {
+            LeafPlace::Rendered => true,
+            LeafPlace::Payload => self.in_repeater,
+            LeafPlace::Discriminant => false,
+        }
+    }
 }
 
 /// The container that composes fields and layout blocks.
@@ -212,9 +229,16 @@ impl Schema {
                 ControlCheck {
                     name: field.name().to_string(),
                     required: !errors.is_empty(),
-                    required_error: errors.into_iter().next().map(|error| error.message),
+                    // A control no rule makes required has no declared wording;
+                    // the label names it for the parse's own refusal, which an
+                    // embedded leaf can reach where the check exempts it.
+                    required_error: errors
+                        .into_iter()
+                        .next()
+                        .map(|error| error.message)
+                        .or_else(|| Some(required_error(field.label_str()))),
                     in_repeater,
-                    skippable: place == LeafPlace::Skippable,
+                    place,
                 }
             })
             .collect()

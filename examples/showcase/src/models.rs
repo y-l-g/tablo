@@ -75,9 +75,8 @@ pub struct Seo {
 /// `publication_reason`).
 ///
 /// The timestamps are `Option<jiff::Timestamp>`: the form binds them through
-/// a typed text field, which renders `type="datetime-local"` and reads the
-/// submission back as UTC, and an empty control stores no time instead of the
-/// epoch a bare `Timestamp` decodes to.
+/// a typed text field, which renders `type="datetime-local"`, reads the
+/// submission back as UTC, and stores no time for an empty control.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
 pub enum Publication {
     #[column(variant = 1)]

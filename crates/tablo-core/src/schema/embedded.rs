@@ -104,14 +104,14 @@ pub trait EmbeddedForm: Sized {
     where
         M: toasty::schema::Model;
 
-    /// Whether every leaf a submission always reaches answers a blank: a
-    /// declared `#[form(blank = ..)]`, the scalar's own blank answer, or — for
-    /// a nested value — every leaf of that value's. A variant group's payload
-    /// is not asked: a submission can skip it, and an empty live payload is
-    /// the required rule's business.
+    /// Whether every leaf answers a blank submission: a declared
+    /// `#[form(blank = ..)]`, the scalar's own blank answer, or — for a nested
+    /// value — every leaf of that value's.
     ///
-    /// The panel's build check reads it to refuse a declaration whose optional
-    /// control has no blank answer.
+    /// The panel's build check reads it: a control a submission can post empty
+    /// (an optional one, a variant group's payload, or a control inside a
+    /// `Repeater`) whose field answers none is a declaration the panel refuses
+    /// rather than a blank the parse would refuse at submit.
     #[doc(hidden)]
     fn answers_blank() -> bool;
 
@@ -338,12 +338,12 @@ impl Embedded {
         match &self.shape {
             Shape::Struct(list) => members(list, place, f),
             Shape::Enum(e) => {
-                f(e.discriminant, LeafPlace::Skippable);
+                f(e.discriminant, LeafPlace::Discriminant);
                 for index in &e.shared {
                     f(*index, place);
                 }
                 for variant in &e.variants {
-                    members(&variant.members, LeafPlace::Skippable, f);
+                    members(&variant.members, LeafPlace::Payload, f);
                 }
             }
         }
@@ -373,7 +373,7 @@ impl Embedded {
                                 } => out.push(*index),
                                 Member::Leaf { field: None, .. } => {}
                                 Member::Nested(nested) => nested
-                                    .visit_fields(LeafPlace::Skippable, &mut |index, _| {
+                                    .visit_fields(LeafPlace::Payload, &mut |index, _| {
                                         out.push(index)
                                     }),
                             }

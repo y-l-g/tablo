@@ -396,9 +396,11 @@ compiled schema an embedded key needs (`panel/build.rs:457`):
    one form field, and every claimed key is a declared field name. A control
    no field binds is reported first: that is the direction that silently drops
    data.
-2. **Blank agreement.** A scalar field whose control is optional, or whose
-   control sits inside a `Repeater` or a variant group, answers blank.
-   Embedded fields are exempt because their leaves answer with `Default`.
+2. **Blank agreement.** A field whose control is optional, or whose control
+   sits inside a `Repeater`, answers blank; an embedded value answers when
+   every leaf does (`EmbeddedForm::answers_blank`). A control a submission can
+   skip — an embedded enum's discriminant, or a variant group's payload — is
+   not asked, except that a payload inside a `Repeater` is.
 3. **Tenant ownership.** On a gated resource, no form field claims the column
    `tenant_field_index` finds.
 4. **Create columns.** Where `can_create` allows it, every non-nullable,

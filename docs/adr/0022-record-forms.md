@@ -30,8 +30,8 @@ and `#[version]` column assign on every instance update. An unposted key therefo
 and a concurrent write to it survives.
 
 **4. A blank resolves to the field's blank answer.** An emptied control is posted, so it is named
-and stores the field's blank answer: `""` for `String`, `None` for `Option<T>`, otherwise the
-`#[form(blank = ..)]` expression. With no answer the parse refuses the key inline. There is
+and stores the field's blank answer: the `#[form(blank = ..)]` expression, else `""` for `String` or
+`None` for `Option<T>`. With no answer the parse refuses the key inline. There is
 no `T::default()` answer for a scalar: `Uuid::default()` is the nil UUID. An embedded value's leaves
 take the same rule, the declared answer included (GH #371), so an emptied leaf of a type with no
 answer is refused on its key rather than storing the type's `Default`.
@@ -47,9 +47,10 @@ field and every field's key is a declared control; an optional control, or one i
 binds a field that answers blank, an embedded value answering when each of its leaves does; a
 gated resource's form does not claim its tenant column; a resource with a record form overrides
 `form()`; and a `NoForm` resource declares no schema and allows neither create nor edit. A control a
-submission can skip — an embedded enum's discriminant, which reaches the payload fallback, or a
-variant group's payload, which `variant.js` hides — is exempt: an empty one is not the submission's
-to answer for.
+submission can skip is exempt: an embedded enum's discriminant, whose empty answer reaches the read's
+fallback (a submitted payload, else the first variant) rather than a leaf's rule, and a variant
+group's payload, which `variant.js` hides. A payload inside a `Repeater` is asked like any other
+control: an all-empty repeater group skips its requiredness while the parse still reads it.
 
 **7. A create sets every non-nullable column.** Where `can_create` allows it, each non-nullable,
 non-relation column must be a form field, filled by toasty, the stamped tenant column, or named in
@@ -101,5 +102,7 @@ restate the symptom.
 sits: `EmbeddedForm::answers_blank` reports whether every leaf has an answer, and
 `#[derive(EmbeddedForm)]` reads `#[form(blank = ..)]` on a leaf the way the record form reads it on a
 scalar. The derive's parse refuses a blank leaf with no answer on the leaf's own key, and point 6's
-check refuses the declaration. ADR-0019's `Default` rule for a blank leaf goes; an `Option<T>` leaf
-is the answer for a column that stores no value.
+check refuses the declaration where the control can be posted empty. ADR-0019's `Default` rule for a
+blank leaf goes; an `Option<T>` leaf is the answer for a column that stores no value. A leaf of a
+variant group the discriminant hides is not read at all, so it is asked for no answer; a discriminant
+the submission posts empty is named, and the read's fallback is what answers it.

@@ -415,9 +415,9 @@ fn expand_struct(krate: &TokenStream2, input: &DeriveInput, members: &[Member]) 
     wrap(krate, input, build, write, read, blank)
 }
 
-/// The conjunction of every leaf a submission always reaches: a value answers a
-/// blank submission when each of those leaves does. An empty conjunction is
-/// `true`, for a value with no such leaf.
+/// The conjunction of every leaf's blank answer: a value answers a blank
+/// submission when each of its leaves does. An empty conjunction is `true`, for
+/// a value with no leaves.
 fn answers_blank_body(members: impl Iterator<Item = TokenStream2>) -> TokenStream2 {
     let checks: Vec<TokenStream2> = members.collect();
     quote! { true #(&& #checks)* }
@@ -513,7 +513,6 @@ fn expand_enum(
             .iter()
             .filter_map(|variant| variant.members.as_deref())
             .flatten()
-            .filter(|member| member.shared)
             .map(|member| answers_blank(krate, member)),
     );
     wrap(krate, input, build, write, read, blank)
