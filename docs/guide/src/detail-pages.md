@@ -3,14 +3,15 @@
 A read-only page for one record (GH #187): the `view` schema, what renders, related rows, and the
 current limits.
 
-A resource can show one record read-only by declaring `view`, which is the same `Schema` read the
-other way round (ADR-0016):
+A resource can show one record read-only by declaring `view`, a `Schema` in the form's vocabulary
+read the other way round (ADR-0016). Like Filament's infolist it is its own declaration: it may show
+keys the form does not, and a resource with no form declares one too.
 
 ```rust
 fn view(cx: &Cx) -> Schema {
     Schema::new(Section::new("Post").schema((
-        TextInput::r#for(Post::fields().title()),
-        Textarea::r#for(Post::fields().body()).rows(6),
+        Field::text(Post::fields().title()),
+        Field::text(Post::fields().body()).multiline(6),
     )))
 }
 ```
@@ -33,13 +34,15 @@ record key. A label is display text, not a key: two records may share one, so it
 replace `Table::new`'s key, which must stay injective within a page for keyed diffs (GH #241).
 
 - **Read-only is not a disabled form.** Fields render labels and stored values:
-  `TextInput`/`Textarea` show text, `Select` shows the option label the form offered (or the stored
-  value when no option matches, a relationship key included), `FileUpload` shows the stored path as a
-  link to the file (GH #242), and layout blocks keep their structure. No control, no CSRF field, no
-  validation slot.
+  a text field shows text, a choice shows the option label the form offered (or the stored value
+  when no option matches, a relationship key included), a file field shows the stored path as a link
+  to the file (GH #242), an embedded enum shows its stored variant's name and payload, and layout
+  blocks keep their structure. No control, no CSRF field, no validation slot.
 - **Values come from the form's projection** (`RecordForm::hydrate`), so a field that renders in
   the form renders here; `view_values` adds a key only the view shows. A `NoForm` resource
-  supplies every key through `view_values`.
+  supplies every key through `view_values`. A field whose key neither supplies renders `(missing)`
+  and fails a `debug_assert!`, as a list column shows `(unloaded)` for a relation its query did not
+  load (ADR-0011): a blank would read as an empty value.
 - **Related rows** render through `view_relations(cx, record)`, the page's second half. The page
   loads through `view_query`, so include what the hook reads there:
 
@@ -87,7 +90,7 @@ row actions. The table follows the list's fixed-layout rule: `table-fixed`, one 
 relation column (default `Wide`), `truncate` on every cell, and a `min-width` carrying one
 readability floor per wide column, so long values clip to an ellipsis and a narrow viewport scrolls
 instead of collapsing a column.
-- A typed column (`Uuid`, `jiff::Timestamp`) is readable: bind it with `TextInput::typed` (GH #192)
+- A typed column (`Uuid`, `jiff::Timestamp`) is readable: bind it with `Field::text` (GH #192)
   and the view renders its stored value as text. A foreign key therefore reads as its stored id
   rather than the related record's label — render the relation through `view_relations` when the
   label is what a reader needs.

@@ -74,3 +74,11 @@ derive's field enum and runs once every field parses.
 - A form's key set is read once, at build: `form(cx)` must declare the same controls on every
   request.
 - A `validate_record` error on a field the form binds to no key fails the submit closed.
+
+## Amendment — 2026-09-30
+
+**One attribute, one classifier (GH #392).** Both form derives read `#[form(..)]`: the struct names
+its model with `#[form(model = User)]`, a field `#[form(embed)]` or `#[form(blank = ..)]`. A field is
+embedded only when marked `#[form(embed)]`; every other field is a scalar whose `FormScalar` bound
+is asserted spanned on the field, so a `Vec<String>` field fails there. A scalar's key is its
+resolved lens's name, and an embedded value's keys are its schema node's.

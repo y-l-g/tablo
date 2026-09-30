@@ -8,7 +8,7 @@ use super::{
 };
 use crate::schema::{Schema, Source};
 
-/// A bare `Select` over a non-nullable FK rejects an empty submit inline
+/// A bare choice over a non-nullable FK rejects an empty submit inline
 /// an empty submit fails here with `is required`, so it never
 /// reaches the driver's `parse::<Uuid>("")`.
 #[test]

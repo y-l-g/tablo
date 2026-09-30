@@ -1,6 +1,6 @@
 //! Relationship option loading — bounded, memoized, policy-checked.
 //!
-//! Every relationship `Select` over one source shares a single bounded
+//! Every relationship choice field over one source shares a single bounded
 //! load per `(request, tenant)`; policy (`can_view_any`/`can_view` plus
 //! the tenant gate) fails the load closed instead of leaking labels.
 //!
@@ -30,7 +30,7 @@ use topcoat::{Result, context::Cx};
 /// [`requires_tenant`](Self::requires_tenant) is `false`, and
 /// [`slug`](Self::slug) falls back to the type name.
 ///
-/// It is public because [`Select::relationship`](crate::schema::Select::relationship)'s
+/// It is public because [`Field::relationship`](crate::schema::Field::relationship)'s
 /// bound names it, and a `pub(crate)` trait there is a `private_bounds` warning.
 /// It is not re-exported at the crate root, because its method names are
 /// `Resource`'s and a glob import would collide; it is reachable as
@@ -113,7 +113,7 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
 /// render path never re-labels a value the user may not view.
 ///
 /// `Overflow` is distinct from `LoadFailed`: the related table
-/// exceeds the option cap. A searchable `Select` degrades to "type to
+/// exceeds the option cap. A searchable choice degrades to "type to
 /// search" instead of a retry error, while a genuine DB failure stays
 /// retryable.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -205,7 +205,7 @@ where
     })
 }
 
-/// Max options a relationship `Select` will load: the loader carries
+/// Max options a relationship choice field will load: the loader carries
 /// `limit(Self + 1)` and fails past the cap instead of scanning a 10k-row
 /// table per select per submit.
 pub const MAX_RELATIONSHIP_OPTIONS: usize = 200;
@@ -218,7 +218,7 @@ pub(crate) type RelatedPrimaryKey<R> =
 
 /// Option records for one related resource, memoized per request.
 ///
-/// Every relationship `Select` over the same `R` shares one bounded load per
+/// Every relationship choice field over the same `R` shares one bounded load per
 /// `(request, tenant)` instead of scanning the table per select per validate
 /// plus re-render scans. `tenant` is an explicit cache key: memoize tracking
 /// alone cannot distinguish header-tenanted callers sharing one `Parts`, so

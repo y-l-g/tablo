@@ -118,7 +118,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///
     /// Checked on the edit page (GET), the edit POST (which requires both
     /// `can_view` and `can_update`), per row in CSV export, on each
-    /// record behind a relationship `Select`'s options, on each row
+    /// record behind a relationship choice's options, on each row
     /// of a detail page's relation table, and on the list page as
     /// the per-row gate of every action link (GH #235: the View link, and the
     /// `can_view` half of Edit and Delete). Note both hooks default-deny: a
@@ -175,15 +175,20 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// How one record is displayed on the detail page, read-only.
     ///
-    /// The same [`Schema`](crate::schema::Schema) a form uses, rendered for reading: a `TextInput`
-    /// shows its stored value instead of an `<input>`, a `Select` shows the
-    /// option label the form offered, and a layout block keeps the structure it
-    /// declares. Declaring a view is what turns the detail page on — the default
-    /// declares nothing, so the route 404s and no `View` row action renders.
+    /// The same [`Schema`](crate::schema::Schema) vocabulary a form uses,
+    /// rendered for reading: a text field shows its stored value instead of an
+    /// `<input>`, a choice shows the option label the form offered, and a
+    /// layout block keeps the structure it declares. Like Filament's infolist,
+    /// it is its own declaration: it may show keys the form does not, and a
+    /// resource with no form declares one too. Declaring a view is what turns
+    /// the detail page on — the default declares nothing, so the route 404s
+    /// and no `View` row action renders.
     ///
-    /// Values come from [`view_values`](Self::view_values). A
-    /// relation is not one of these fields — it is a list of records, not a
-    /// string — and renders through [`view_relations`](Self::view_relations).
+    /// Values come from [`view_values`](Self::view_values) and the record
+    /// form's `hydrate`. A field whose key neither supplies renders
+    /// `(missing)` and fails a `debug_assert!`. A relation is not one of these
+    /// fields — it is a list of records, not a string — and renders through
+    /// [`view_relations`](Self::view_relations).
     ///
     /// Read-only is a promise, not a disabled form: nothing here validates or
     /// submits, and no field renders a required marker or an error slot.
@@ -562,8 +567,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// view shows here.
     ///
     /// `cx` carries the app schema, which an embedded value's keys need
-    /// ([`write_embedded`](crate::schema::write_embedded)). The default is
-    /// empty.
+    /// ([`EmbeddedForm::write_form`](crate::schema::EmbeddedForm::write_form)).
+    /// The default is empty.
     fn view_values(_cx: &Cx, _record: &Self::Model) -> HashMap<String, String> {
         HashMap::new()
     }

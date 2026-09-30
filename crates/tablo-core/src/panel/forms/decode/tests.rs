@@ -163,7 +163,7 @@ async fn multipart_stream_stores_text_and_filenames() {
         .await
         .unwrap();
     assert_eq!(got.get("title").map(String::as_str), Some("Hello"));
-    // v1 stores the filename, not the bytes (FileUpload contract).
+    // v1 stores the filename, not the bytes (file field contract).
     assert_eq!(got.get("image_path").map(String::as_str), Some("photo.jpg"));
     assert_eq!(got.get("tags").map(String::as_str), Some("second-wins"));
 

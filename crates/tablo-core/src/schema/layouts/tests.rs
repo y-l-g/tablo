@@ -204,7 +204,7 @@ async fn repeater_required_error_renders_inline() {
         html.contains("Tags is required"),
         "repeater error must reach the HTML, got {html}"
     );
-    // Same inline error contract as TextInput, wired to the group: the
+    // Same inline error contract as a field, wired to the group: the
     // panel carries the invalid state and describes itself with the
     // error node's id. The title's colour is paint, not state:
     // these three state hooks are what a regression would break.

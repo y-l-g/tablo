@@ -102,3 +102,18 @@ value with `#[record_form(embed)]` (ADR-0022), and `value_keys` names the keys i
 discriminant first. `submitted` is removed: the edit handler decides which keys were posted.
 `any_present` stays, for an enum's payload fallback over a nested value. Hydration is
 `RecordForm::hydrate` for a form resource and `Resource::view_values` for a list-only one.
+
+## Amendment — 2026-09-30
+
+**An embedded value is a schema node (GH #392).** `#[derive(EmbeddedForm)]` builds one node per
+value through a hidden builder: one resolved `Field` per leaf, a nested node per `#[form(embed)]`
+field, and for an enum the variant control, the `#[shared(..)]` columns once, and one group per
+variant. The node holds its keys, so the codec reads and writes through them and a record form's
+keys are the node's; variant hiding is a property of the node rather than of a marked `Group`.
+`leaf_key`, `value_keys`, `read_embedded`, `write_embedded`, `parse_leaf`, `enum_spec`,
+`discriminant_select`, `EnumSpec`, and `Group::variant` are removed from the public API; only
+`EmbeddedForm::{write_form, read_form}` and the generated `form` remain. A field is classified by
+attribute, never by type name: `#[form(embed)]` marks a nested value, and every other field is a
+scalar asserted `FormScalar` at the field, so an app type implementing `TypedValue` is a leaf.
+`#[form(textarea, rows = N)]` is `#[form(multiline = N)]`, and a leaf binds as `Field::text`,
+multi-line with `.multiline(rows)`. A view renders only the stored variant's group.

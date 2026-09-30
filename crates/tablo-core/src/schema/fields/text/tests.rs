@@ -51,8 +51,7 @@ async fn text_input_renders_with_label_and_ac_field() {
 
 /// A typed field shows its stored value on a detail page.
 ///
-/// `TextInput::typed` returns a `TextInput`, so the view path is the one
-/// above: `render_readonly` sets `Mode::View` and the field renders its
+/// A typed column is a text field like any other, so a view renders its
 /// value instead of a control. A `Uuid` column is therefore readable, not
 /// only writable.
 #[tokio::test]

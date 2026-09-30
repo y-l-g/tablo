@@ -109,7 +109,7 @@ pub struct Panel {
     /// `Panel::resource` cannot return `Result`, so a bad `slug`
     /// or a duplicate is recorded here and reported by `build`.
     registration_errors: Vec<String>,
-    /// Where `FileUpload` bytes go; `None` stores the sanitized basename.
+    /// Where file field bytes go; `None` stores the sanitized basename.
     uploads: Option<crate::upload::InstalledUploader>,
     /// App-owned filesystem directories served from this panel's router
     /// `(route pattern, directory)`.
@@ -170,12 +170,12 @@ impl Panel {
         self
     }
 
-    /// Install the [`Uploader`](crate::Uploader) every `FileUpload` stores
+    /// Install the [`Uploader`](crate::Uploader) every file field stores
     /// through.
     ///
     /// One per panel, on the app context the way `Db` is, because where bytes
     /// live is an app-level dependency: an object store, a directory on disk, a
-    /// CDN. Without it a `FileUpload` stores the sanitized client filename, so
+    /// CDN. Without it a file field stores the sanitized client filename, so
     /// an app that never installs one is unaffected.
     pub fn uploads(mut self, uploader: impl crate::Uploader) -> Self {
         self.uploads = Some(crate::upload::InstalledUploader::new(uploader));

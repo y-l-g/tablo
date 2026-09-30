@@ -1,8 +1,8 @@
 //! Where uploaded bytes go: the `Uploader` seam, and the one place
 //! the framework hands bytes to it.
 //!
-//! `FileUpload` binds a `String` column, the panel renders a file input, and
-//! the form parser decodes the multipart body — but *where* the bytes live and
+//! A file field ([`Field::file`](crate::Field::file)) binds a `String` column, the panel renders a
+//! file input, and the form parser decodes the multipart body — but *where* the bytes live and
 //! what path the record stores is the app's decision: an object store, a
 //! directory on disk, a CDN. The framework owns everything up to the bytes and
 //! nothing after them, so this module is deliberately small: a trait, the app
@@ -21,9 +21,9 @@ use crate::schema::Schema;
 /// Store one uploaded file and name the value a record stores.
 ///
 /// Installed once per panel with [`Panel::uploads`](crate::Panel::uploads) —
-/// the way `Db` is — and found on the app context wherever a `FileUpload`
+/// the way `Db` is — and found on the app context wherever a file field
 /// stores, because an object store is an app-level dependency: threading it
-/// through every `.for(..)` call site would put it in the schema declaration.
+/// through every field declaration would put it in the schema declaration.
 ///
 /// `filename` arrives already sanitized to a basename: no directory
 /// components, no control characters, capped at 255 bytes, and never empty (an

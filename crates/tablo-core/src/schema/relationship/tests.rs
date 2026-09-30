@@ -691,7 +691,7 @@ async fn relationship_search_narrows_past_the_cap() {
         .await
         .unwrap_err();
     assert_eq!(err, super::OptionLoadError::Overflow);
-    // `Select::search_options` shares the same seam.
+    // `ChoiceControl::search_options` shares the same seam.
     let select = Field::choice(SearchRef::fields().name())
         .searchable()
         .relationship::<SearchRefSource>(

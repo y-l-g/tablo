@@ -65,7 +65,7 @@ async fn prepare_submission<R: Resource>(
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
-    // A declared `FileUpload` takes its value only from a file part:
+    // A declared file field takes its value only from a file part:
     // a text part or a url-encoded pair under the same name is client-typed,
     // not an upload, and would otherwise reach the record and render as the
     // file's link.

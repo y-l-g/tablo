@@ -538,7 +538,7 @@ async fn post_edit_switches_the_publication_variant_explicitly() {
     );
 
     // Hydration: the stored variant reaches the form as the selected
-    // option of the variant `Select` — the control a user changes it with, and
+    // option of the variant control — the control a user changes it with, and
     // the driver `variant.js` toggles the payload groups by.
     let html = body_string(client.get(&format!("/admin/posts/{}/edit", post.id)).await).await;
     let publication_select = html

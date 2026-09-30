@@ -195,7 +195,7 @@ async fn transport_keys_never_reach_the_write() {
         .build()
         .expect("panel builds");
     let csrf = uuid::Uuid::new_v4().to_string();
-    // `path` is a `FileUpload`, so it arrives as a file part;
+    // `path` is a file field, so it arrives as a file part;
     // `clear_path`, the client-typed `keep_path` candidate and
     // `csrf_token` are the transport keys under test.
     let boundary = "----TransportBoundary";

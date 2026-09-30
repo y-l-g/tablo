@@ -5,7 +5,7 @@ Date: 2026-09-23 — Status: accepted — Amended: 2026-09-26
 ## Decision
 
 **The library is the app's, and its rows carry no owner.** `tablo-core` keeps the seam
-ADR-0017 drew — a `FileUpload` binds a `String`, the bytes go to the app's `Uploader`, and the
+ADR-0017 drew — a file field binds a `String`, the bytes go to the app's `Uploader`, and the
 stored value renders as a link — and the media library is the showcase's:
 `examples/showcase/src/models.rs` declares `MediaAsset`, `#[table = "medias"]`, one row per stored
 file with the tenant that uploaded it, the `path` the `Uploader` returned, the client's
@@ -13,7 +13,7 @@ file with the tenant that uploaded it, the `path` the `Uploader` returned, the c
 renders it.
 
 **One media source.** A post shows one library row as its cover through its own `cover_id`: an
-optional single picker (`Select::relationship` against the `MediaLibrary` source) storing the
+optional single picker (`Field::relationship` against the `MediaLibrary` source) storing the
 picked row's id. The post form uploads no bytes itself, and the `Media`/`Poster`/`Credit` embedded
 enum is gone — the nested-embed demo is the `Seo` struct only. The public blog resolves the cover
 through the picked row, and the admin detail shows the reading stats the body computes.

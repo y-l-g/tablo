@@ -35,7 +35,7 @@ pub(crate) struct FormParts {
     /// is what keeps a large upload off the heap.
     pub(crate) files: HashMap<String, crate::upload::StagedUpload>,
     /// Field names that arrived as a multipart part carrying a `filename`
-    /// (chosen or empty). Only these may set a `FileUpload` value: a
+    /// (chosen or empty). Only these may set a file field's value: a
     /// text part or a url-encoded pair under the same name is client-typed, not
     /// an upload.
     pub(crate) file_part_names: HashSet<String>,
@@ -48,7 +48,7 @@ pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
 
 /// Reject POST keys no declared Schema input owns (GH #89 mass-assignment
 /// allow-list). `csrf_token` is a handler key, not a field, so it is filtered
-/// before the check, as are `clear_<field>` flags for declared `FileUpload`
+/// before the check, as are `clear_<field>` flags for declared file
 /// fields (explicit-clear convention — `truthy`); absent keys are fine (an
 /// edit completes them from the stored record), unknown keys are a 400 — accepting
 /// `role`/`tenant_id` smuggling would let a generic record fn iterating
@@ -111,7 +111,7 @@ pub(super) fn strip_transport_keys(
     });
 }
 
-/// Drop any value a declared `FileUpload` received from something other than a
+/// Drop any value a declared file field received from something other than a
 /// file part. The field's value is the uploader's answer, the stored
 /// value (edit backfill), or empty (clear) — never text the client typed, which
 /// would reach the record and render as the file's link.

@@ -1,5 +1,5 @@
 //! The upload seam end to end: what an installed [`Uploader`] does
-//! with a `FileUpload`'s bytes, what happens when it refuses, what the clear
+//! with a file field's bytes, what happens when it refuses, what the clear
 //! control empties, and that `Panel::serve_dir` hands a stored path back.
 //!
 //! With no uploader installed the sanitized basename is still the stored
@@ -358,7 +358,7 @@ async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces
     assert_eq!(docs(&db).await[0].cover, "/uploads/new.png");
 }
 
-/// GH #277: a url-encoded pair under a declared `FileUpload` name is text the
+/// GH #277: a url-encoded pair under a declared file field's name is text the
 /// client typed, not an upload. It is dropped before validation, so the
 /// required field is empty and nothing is written — the typed value never
 /// reaches the record and never renders as the file's link.
@@ -400,7 +400,7 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
 }
 
 /// GH #277: a multipart text part (no `filename`) under a declared
-/// `FileUpload` name is client-typed too. On edit the stored value is restored,
+/// file field's name is client-typed too. On edit the stored value is restored,
 /// so the forged value cannot replace the file the record names.
 #[tokio::test]
 async fn a_text_value_for_a_file_upload_keeps_the_stored_file_on_edit() {
