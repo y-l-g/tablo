@@ -268,21 +268,26 @@ path once.
 pairs it with `scoped_query` to mirror `load_table_page`.
 
 **Change.** `Table` keeps the declaration and pure planning, with no `Cx` and no `Db`. The loader
-moves beside the list as one public `ListPage::load(cx, &table, query, &state)`; the panel passes
-the scoped query, and a page-owned table and the benchmark pass their own. Delete `Table::load` and
-`load_with_probe`.
+becomes one public constructor on the page it returns, `TablePage::load(cx, &table, query, &state)`,
+in `resource/page.rs`: it applies the table's declaration and includes itself and reuses the bare
+query for the cursor probes. The panel passes the scoped query, and a page-owned table and the
+benchmark pass their own. Delete `Table::load` and `load_with_probe`.
 
-**Removes.** The loader's second entry, the benchmark's mirror, and the `Db` a `Table` test needs.
+**Removes.** The loader's second entry, its `probe_query` argument, and the benchmark's mirror.
 
 **S14 — One pager for the list and the export.**
 
 `ExportChunker` (`panel/actions/export.rs`) and the paginated branch of `load_with_probe` each build
 `Paginate`, decode cursors, treat "no cursor" as the end, and restate Toasty's cursor semantics.
 
-**Change.** One `Pager { query, cursor, done }` with `next(&mut db, take)` beside the S12 loader;
-the export wraps it for its row cap.
+**Change.** The list loads one page in either direction; the export walks forward in chunks,
+continues past an empty page that carries a cursor, and counts a row cap. What they share is the
+one-row probe that asks whether a row exists past a cursor, so that becomes one
+`row_exists_past(db, query, Past::After | Past::Before)` beside the S12 loader, used by the list's
+cursor validation and the export's window check. A shared `Pager` would have to carry both walks'
+rules, which is more code than it removes.
 
-**Removes.** One of the two encodings of Toasty's cursor semantics.
+**Removes.** The duplicated probe. #397 deletes it outright.
 
 **S2 — Typed column includes.**
 
@@ -307,7 +312,9 @@ includes. Delete `IncludeNeeds`, `TextColumn::needs`, `include_names`, `Table::i
 arithmetic in `relation_widths`, and duplicates `into_columns_tuples!` as
 `into_relation_columns_tuples!`.
 
-**Change.** Share the width arithmetic and the tuple macro.
+**Change.** Share the width arithmetic and the tuple macro: `column.rs` holds the kind-default
+budget, the cell style, the `MinWidth` terms, and one `column_tuples!` macro that both column-list
+traits expand. Relation tables then follow the list's 60% budget for kind defaults.
 
 **Removes.** The second column implementation.
 
