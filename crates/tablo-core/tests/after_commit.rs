@@ -440,6 +440,13 @@ async fn a_resource_without_the_hook_writes_exactly_as_before() {
         response.headers().get(LOCATION).is_none(),
         "a plain GET is not a redirect"
     );
+    // The rows stream in the body: read it, as a client does, so the render
+    // releases its connection before the check below queries the same pool.
+    let html = tablo_test::body_string(response).await;
+    assert!(
+        html.contains("Alpha"),
+        "the list shows the created row: {html}"
+    );
 
     assert_eq!(notes(&db).await.len(), 1);
     // No `audits` assertion here: this resource declares no hook, so nothing in
