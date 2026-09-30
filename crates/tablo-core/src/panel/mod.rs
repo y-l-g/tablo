@@ -23,6 +23,7 @@ mod search;
 mod shell;
 #[cfg(test)]
 mod test_support;
+mod write;
 
 use std::{collections::HashMap, path::PathBuf};
 

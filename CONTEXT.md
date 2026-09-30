@@ -275,8 +275,8 @@ _Avoid_: FileStore, Attachment, Blob store
 ### Streamed region
 
 A `suspense` region of the page whose content swaps in after the first render. The resource list
-streams its table: skeleton first (`Table::render_skeleton`), loaded rows swap in without a client
-library. Later reruns (page/shard) morph in place per Topcoat #392 — focus, scroll, and typing
+streams its table: a skeleton of the table's own header and pulsing rows first, then the loaded
+rows swap in without a client library. Later reruns (page/shard) morph in place per Topcoat #392 — focus, scroll, and typing
 survive. The table always renders inside a `data-boundary` region. See ADR-0003.
 
 _Avoid_: Shard (as domain term), Region, Island, Boundary

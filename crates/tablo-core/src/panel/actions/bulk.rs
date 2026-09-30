@@ -12,8 +12,9 @@ use topcoat::{
 
 use super::{
     super::{
-        forms::{commit_write, parse_form_body, truthy},
+        forms::{parse_form_body, truthy},
         gate::{gate, list_url},
+        write::commit_write,
     },
     fetch::composite_pk_error,
 };

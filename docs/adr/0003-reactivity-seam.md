@@ -7,7 +7,7 @@ Date: 2026-08-19 — Status: accepted — Amended: 2026-09-10, 2026-09-22
 Tablo's reactivity is committed behind owned APIs: page state (query/sort/page) is owned by the
 page, and resources never write their own `#[shard]` — a shard endpoint stays an optimization, not the
 API surface. The migration to the current Topcoat runtime is done: `suspense` streams the resource list
-behind `Table::render_skeleton`, and later reruns (page or shard) morph in place (topcoat #392) so
+behind a skeleton of the table's own header, and later reruns (page or shard) morph in place (topcoat #392) so
 focus, scroll, and typing survive; reorderable rows need stable `id`s. Shards take `Signal<T>`
 params (#393), and the keystroke-live, slug-dispatched `table_search` shard sits behind
 `Table::live_search`, written by search, sort, filters, and pagination. The table always renders

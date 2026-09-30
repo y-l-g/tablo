@@ -52,12 +52,11 @@ The raw commands — the expansion of `cargo xtask check`:
 5. `cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings`
 6. `cargo +1.98 check --workspace --locked`
 7. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js examples/showcase/assets/media.test.js`
-8. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --all-features --locked`
+8. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --locked`
 
 Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
 nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
-Gate 8 guards unused dependencies (GH #271); `--all-features` keeps a feature-gated
-dependency from looking unused. Rustup installs a missing toolchain on first use.
+Gate 8 guards unused dependencies (GH #271). Rustup installs a missing toolchain on first use.
 
 CI runs four more checks outside the eight, and a change touching what they cover
 has to pass them too (`cargo xtask check` runs all four after the eight):

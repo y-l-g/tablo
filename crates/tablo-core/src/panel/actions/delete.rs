@@ -9,8 +9,9 @@ use topcoat::{
 
 use super::{
     super::{
-        forms::{commit_write, parse_form_body, truthy},
+        forms::{parse_form_body, truthy},
         gate::gate,
+        write::commit_write,
     },
     fetch::find_by_key,
 };
