@@ -8,9 +8,12 @@
   "lockFileMaintenance": {
     "enabled": false
   },
+  "ignoreDeps": ["topcoat", "topcoat-ui", "topcoat-ui-registry", "toasty", "toasty-core"],
   "packageRules": [
     {
       "description": "Topcoat and Toasty are pinned to exact revs and bumped deliberately (AGENTS.md \"Renovate PRs\", CONTRIBUTING.md \"Dependency pins\")",
+      "matchManagers": ["cargo"],
+      "matchDepNames": ["topcoat", "topcoat-*", "toasty", "toasty-*"],
       "matchPackageNames": ["topcoat", "topcoat-*", "toasty", "toasty-*"],
       "enabled": false
     },
