@@ -55,7 +55,10 @@ pub(crate) use self::{
     forms::parse_form_body,
     gate::{LoginHint, PanelPrefix},
     relations::relation_table,
-    search::table_search,
+    search::{
+        RelationRequest, RelationSearchFn, relation_search_handler_for, table_relation_search,
+        table_search,
+    },
 };
 use crate::{
     Page,
@@ -113,6 +116,10 @@ pub struct Panel {
     /// `build` checks that each names a registered resource, once.
     relations: Vec<(&'static str, Vec<String>)>,
     search_handlers: HashMap<String, SearchFn>,
+    /// Each registered resource's relations' live-search loaders, by
+    /// (parent slug, child slug): the shard behind a record page's
+    /// relation tables.
+    relation_handlers: HashMap<(String, String), RelationSearchFn>,
     /// `Content-Security-Policy: frame-ancestors …` for every response
     /// `None` opts out. Defaults to `'self'`.
     frame_ancestors: Option<String>,
@@ -165,6 +172,7 @@ impl Panel {
             resource_slugs: Vec::new(),
             relations: Vec::new(),
             search_handlers: HashMap::new(),
+            relation_handlers: HashMap::new(),
             frame_ancestors: Some(headers::DEFAULT_FRAME_ANCESTORS.to_string()),
             registration_errors,
             resource_checks: Vec::new(),
@@ -295,10 +303,17 @@ impl Panel {
             self.register_form_routes::<R>(&url);
         }
         self.finish_registration::<R>(url);
-        let keys = R::relations()
+        let declared = R::relations();
+        let keys = declared
             .iter()
             .map(|relation| relation.key().to_string())
             .collect::<Vec<_>>();
+        for relation in &declared {
+            self.relation_handlers.insert(
+                (R::slug(), relation.key().to_string()),
+                relation.search_handler(),
+            );
+        }
         if !keys.is_empty() {
             self.relations.push((std::any::type_name::<R>(), keys));
         }

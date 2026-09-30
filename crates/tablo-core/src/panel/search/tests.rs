@@ -791,6 +791,302 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
     );
 }
 
+/// Post one live relation-table shard rerun: the (`parent`, `child`) pair the
+/// relation registry is keyed by, the owner's seed, the record page, and the
+/// query pairs the `query` signal carries.
+fn relation_shard_args(
+    parent: &str,
+    child: &str,
+    seed: &str,
+    page: &str,
+    read_only: bool,
+    pairs: &[(&str, &str)],
+) -> String {
+    let query = form_urlencoded::Serializer::new(String::new())
+        .extend_pairs(pairs)
+        .finish();
+    let sig = |n: u8, v: &str| {
+        format!(
+            r#"{{"t":"Signal","id":"{n:032x}","v":{}}}"#,
+            serde_json::to_string(v).unwrap()
+        )
+    };
+    format!(
+        "[{},{},{},{},{}]",
+        serde_json::to_string(&format!("{parent}/{child}/{seed}")).unwrap(),
+        serde_json::to_string(page).unwrap(),
+        read_only,
+        sig(1, &query),
+        sig(2, "")
+    )
+}
+
+async fn post_relation_shard(
+    router: &topcoat::router::Router,
+    args: String,
+) -> http::Response<Body> {
+    router
+        .handle(
+            http::Request::builder()
+                .method(http::Method::POST)
+                .uri(TABLE_RELATION_SEARCH_PATH)
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .header(topcoat::router::request::IDENTITY_HEADER, "A".repeat(22))
+                .body(Body::from(format!(r#"{{"args":{args},"signals":{{}}}}"#)))
+                .unwrap(),
+        )
+        .await
+}
+
+/// The relation shard serves one owner's rows through the child's own table:
+/// the seed scopes the load, the prefixed query drives search and sort, and
+/// the controls write the signals in place. An unregistered pair is a 404,
+/// and a seed or page the handler cannot honor is a 400.
+#[tokio::test]
+async fn live_relation_shard_serves_the_seeded_owner_in_place() {
+    use http_body_util::BodyExt;
+
+    use crate::resource::{Relation, Resource};
+
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Shelf {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        name: String,
+    }
+
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Book {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        title: String,
+        shelf_id: uuid::Uuid,
+    }
+
+    struct BookResource;
+    impl Resource for BookResource {
+        type Model = Book;
+        type Form = crate::NoForm<Self::Model>;
+        fn slug() -> String {
+            "books".to_string()
+        }
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+        fn can_view(_cx: &Cx, _record: &Book) -> bool {
+            true
+        }
+        fn table(_cx: &Cx) -> crate::resource::Table<Book> {
+            crate::resource::Table::new(
+                |b: &Book| b.id.to_string(),
+                crate::resource::TextColumn::r#for(Book::fields().title(), |b: &Book| {
+                    b.title.clone()
+                })
+                .searchable()
+                .sortable(),
+            )
+            .live_search()
+        }
+    }
+
+    struct ShelfResource;
+    impl Resource for ShelfResource {
+        type Model = Shelf;
+        type Form = crate::NoForm<Self::Model>;
+        fn slug() -> String {
+            "shelves".to_string()
+        }
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+        fn can_view(_cx: &Cx, _record: &Shelf) -> bool {
+            true
+        }
+        fn relations() -> Vec<Relation<Shelf>> {
+            vec![Relation::has_many::<BookResource, _>(
+                Book::fields().shelf_id(),
+                |shelf: &Shelf| shelf.id,
+            )]
+        }
+        fn table(_cx: &Cx) -> crate::resource::Table<Shelf> {
+            crate::resource::Table::new(
+                |s: &Shelf| s.id.to_string(),
+                crate::resource::TextColumn::r#for(Shelf::fields().name(), |s: &Shelf| {
+                    s.name.clone()
+                }),
+            )
+        }
+    }
+
+    let mut db = Db::builder()
+        .models(toasty::models!(Shelf, Book))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let atlas = toasty::create!(Shelf {
+        name: "Atlas".to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let bravo = toasty::create!(Shelf {
+        name: "Bravo".to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    for title in ["Apple", "Avocado"] {
+        toasty::create!(Book {
+            title: title.to_string(),
+            shelf_id: atlas.id,
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    toasty::create!(Book {
+        title: "Berry".to_string(),
+        shelf_id: bravo.id,
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let router = Panel::new("admin")
+        .app_context(db)
+        .resource::<ShelfResource>()
+        .resource::<BookResource>()
+        .auth(crate::Auth::disabled())
+        .build()
+        .expect("panel builds");
+
+    // The seed scopes the load to the owner's rows.
+    let args = relation_shard_args(
+        "shelves",
+        "books",
+        &atlas.id.to_string(),
+        &format!("/admin/shelves/{}", atlas.id),
+        true,
+        &[("books.q", "Apple")],
+    );
+    let response = post_relation_shard(&router, args).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let table_html =
+        String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
+            .to_string();
+    assert!(
+        table_html.contains("Apple"),
+        "the shard renders the matching row: {table_html}"
+    );
+    assert!(
+        !table_html.contains("Avocado"),
+        "the search narrows the owner's rows: {table_html}"
+    );
+    assert!(
+        !table_html.contains("Berry"),
+        "the seed withholds the other owner's rows: {table_html}"
+    );
+
+    // The other owner's seed serves its own rows.
+    let args = relation_shard_args(
+        "shelves",
+        "books",
+        &bravo.id.to_string(),
+        &format!("/admin/shelves/{}", bravo.id),
+        true,
+        &[],
+    );
+    let response = post_relation_shard(&router, args).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let table_html =
+        String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
+            .to_string();
+    assert!(
+        table_html.contains("Berry"),
+        "the shard renders the other owner's rows: {table_html}"
+    );
+    assert!(
+        !table_html.contains("Apple"),
+        "the other seed withholds the first owner's rows: {table_html}"
+    );
+
+    // The prefixed sort orders the rows and writes the signals in place.
+    let args = relation_shard_args(
+        "shelves",
+        "books",
+        &atlas.id.to_string(),
+        &format!("/admin/shelves/{}", atlas.id),
+        true,
+        &[("books.sort", "title"), ("books.dir", "desc")],
+    );
+    let response = post_relation_shard(&router, args).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let table_html =
+        String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
+            .to_string();
+    let avo = table_html.find("Avocado").expect("the rows render");
+    let apple = table_html.find("Apple").expect("the rows render");
+    assert!(
+        avo < apple,
+        "descending sort orders the relation rows: {table_html}"
+    );
+    assert!(
+        table_html.contains("books.sort="),
+        "the sort links keep the relation prefix: {table_html}"
+    );
+    assert!(
+        table_html.contains("data-topcoat-on:click"),
+        "the sort links write the signals instead of navigating: {table_html}"
+    );
+
+    // An unregistered pair is a 404; a seed or page the handler cannot
+    // honor is a 400.
+    let args = relation_shard_args(
+        "shelves",
+        "nope",
+        &atlas.id.to_string(),
+        &format!("/admin/shelves/{}", atlas.id),
+        true,
+        &[],
+    );
+    let response = post_relation_shard(&router, args).await;
+    assert_eq!(
+        response.status(),
+        http::StatusCode::NOT_FOUND,
+        "an unregistered relation pair must 404"
+    );
+    let args = relation_shard_args(
+        "shelves",
+        "books",
+        "not-a-uuid",
+        &format!("/admin/shelves/{}", atlas.id),
+        true,
+        &[],
+    );
+    let response = post_relation_shard(&router, args).await;
+    assert_eq!(
+        response.status(),
+        http::StatusCode::BAD_REQUEST,
+        "an unparseable seed must be refused"
+    );
+    let args = relation_shard_args(
+        "shelves",
+        "books",
+        &atlas.id.to_string(),
+        "/elsewhere",
+        true,
+        &[],
+    );
+    let response = post_relation_shard(&router, args).await;
+    assert_eq!(
+        response.status(),
+        http::StatusCode::BAD_REQUEST,
+        "a page outside the panel must be refused"
+    );
+}
+
 /// topcoat#441: the shard is served at the named path, so its endpoint is the
 /// same in every build and the tests post to it by name.
 #[test]
@@ -798,4 +1094,16 @@ fn table_search_endpoint_is_the_named_path() {
     use topcoat::router::Route as _;
 
     assert_eq!(table_search.path().as_str(), TABLE_SEARCH_PATH);
+}
+
+/// The relation shard's endpoint carries the same stability contract: the
+/// literal in [`table_relation_search`]'s attribute is the named path.
+#[test]
+fn table_relation_search_endpoint_is_the_named_path() {
+    use topcoat::router::Route as _;
+
+    assert_eq!(
+        table_relation_search.path().as_str(),
+        TABLE_RELATION_SEARCH_PATH
+    );
 }

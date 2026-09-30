@@ -19,7 +19,7 @@ use super::{
     forms::MAX_FORM_BYTES,
     gate::{LoginHint, PanelPrefix, enforce_auth},
     headers,
-    search::SearchRegistry,
+    search::{RelationRegistry, SearchRegistry},
     shell::DarkMode,
 };
 use crate::{error::TabloError, form::RecordForm, resource::Resource};
@@ -78,6 +78,7 @@ impl Panel {
             resource_slugs: _,
             relations: _,
             search_handlers,
+            relation_handlers,
             frame_ancestors,
             registration_errors: _,
             resource_checks,
@@ -157,6 +158,9 @@ impl Panel {
         }
         if !search_handlers.is_empty() {
             builder = builder.app_context(SearchRegistry(search_handlers));
+        }
+        if !relation_handlers.is_empty() {
+            builder = builder.app_context(RelationRegistry(relation_handlers));
         }
         // The mount prefix travels with the Router so generic handlers derive
         // resource URLs from the declaration instead of sniffing the request
