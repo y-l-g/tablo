@@ -7,7 +7,7 @@ One resource maps one Toasty model to its admin UI:
 
 ```rust
 pub trait Resource: Sized + Send + Sync + 'static {
-    type Model: toasty::schema::Model + Send + Sync + 'static;
+    type Model: toasty::schema::Model + Send + Sync + Clone + 'static;
     type Form: RecordForm<Model = Self::Model>;     // required: a record form, or NoForm
     fn query(_cx: &Cx) -> Query<List<Self::Model>>; // default: Query::all()
     fn view_query(_cx: &Cx) -> Query<List<Self::Model>>; // default: query(cx)

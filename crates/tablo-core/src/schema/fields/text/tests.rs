@@ -12,6 +12,11 @@ use crate::{
     schema::{Schema, Source},
 };
 
+/// The messages `errors` carries, in the order the rules reported them.
+fn messages(errors: &[crate::form::FieldError]) -> Vec<&str> {
+    errors.iter().map(|error| error.message.as_str()).collect()
+}
+
 #[tokio::test]
 async fn text_input_renders_with_label_and_ac_field() {
     let cx = cx();
@@ -284,13 +289,13 @@ fn unique_implies_required_in_either_declaration_order() {
             "declaration {nth} must be unique and required"
         );
         assert_eq!(
-            input.validate(""),
-            vec!["Email is required".to_string()],
+            messages(&input.validate("")),
+            ["Email is required"],
             "declaration {nth}: an empty unique field is required, not absent"
         );
         assert_eq!(
-            input.validate("   "),
-            vec!["Email is required".to_string()],
+            messages(&input.validate("   ")),
+            ["Email is required"],
             "declaration {nth}: whitespace-only counts as empty, as everywhere else"
         );
         assert!(
@@ -386,8 +391,8 @@ fn text_input_email_edges() {
 #[test]
 fn email_rule_leaves_an_empty_value_to_presence() {
     let input = Field::text(DummyUser::fields().email()).required().email();
-    assert_eq!(input.validate(""), vec!["Email is required".to_string()]);
-    assert_eq!(input.validate("   "), vec!["Email is required".to_string()]);
+    assert_eq!(messages(&input.validate("")), ["Email is required"]);
+    assert_eq!(messages(&input.validate("   ")), ["Email is required"]);
 }
 
 #[tokio::test]

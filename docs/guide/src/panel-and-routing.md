@@ -76,11 +76,13 @@ async fn blog() -> Result<impl View> {
 
 `Panel::document` renders the document the admin shell renders — `topcoat::dev::script()`, the theme
 script, and, where the panel registered `Panel::shell_assets`, the runtime script, the font, the
-stylesheet and the shell scripts. The panel renders the `<body>` element and its dark-mode `<html>`
-class; the page owns the content inside, its chrome and its classes.
-The runtime script, the font and the stylesheet are `Asset` URLs, and an `Asset` panics where no
-asset config is registered, so a router built without `.assets(..)` — a markup test, say — would not
-render them at all; `Panel::document` leaves them out there, as the panel's own shell does.
+stylesheet and the shell scripts. The panel renders the `<body>` element and the dark-mode `<html>`
+class; the page owns its chrome inside, classes included.
+
+The runtime script, the font, the stylesheet and the shell scripts are `Asset` URLs, and an `Asset`
+panics where no asset config is registered: a layout that rendered them under a router built without
+`.assets(..)` — a markup test, say — fails instead of rendering. `Panel::document` leaves them out
+there, as the panel's own shell does.
 
 The panel's resource loaders are panel-scoped (auth, tenancy, chrome), so a public page queries the
 model directly: `Post::filter(Post::fields().status().eq("published".to_string()))`, with an explicit

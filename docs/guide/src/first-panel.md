@@ -93,6 +93,10 @@ cargo run
 # then open http://127.0.0.1:3000/admin/books and sign in as admin@example.com / secret
 ```
 
+The sample needs `tablo-core`, `topcoat` (whose defaults cover `serve`), `toasty` with the `sqlite`
+and `jiff` features, `tokio` with `macros` and `rt-multi-thread`, and `uuid`; `jiff` is named
+directly for `Timestamp::now()`. The workspace's own revisions and features are in `Cargo.toml`.
+
 ## The wiring
 
 The one required call the other chapters leave implicit is `app_context(db)`: the panel reads its

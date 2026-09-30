@@ -58,9 +58,10 @@ impl Resource for UserResource {
 Panel::new("admin").resource::<UserResource>()
 ```
 
-Each error names the form key its control renders under — the field's own name, or an embedded
-value's flattened one. A rule that refuses a key the schema declares no control for has nowhere to
-render it, so the submit fails closed instead of writing past the rule.
+Each error names the key it renders under — the control's own key, an embedded value's flattened
+one, or a `Repeater` group's label. A key the submitted form renders nowhere — one the schema
+declares no control for, or a field of a variant group the chosen variant hides — fails the submit
+as a declaration error instead of writing past the rule.
 
 A resource with a record form gets the create page, the edit page, and the relationship-options
 endpoint. A list-only resource names `type Form = NoForm<Self::Model>;` and leaves `form()` at its

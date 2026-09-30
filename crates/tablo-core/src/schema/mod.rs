@@ -201,7 +201,7 @@ impl Schema {
                 ControlCheck {
                     name: field.name().to_string(),
                     required: !errors.is_empty(),
-                    required_error: errors.into_iter().next(),
+                    required_error: errors.into_iter().next().map(|error| error.message),
                     in_repeater,
                 }
             })
@@ -281,8 +281,8 @@ impl Schema {
                 continue;
             }
             let value = values.get(field.name()).map(String::as_str).unwrap_or("");
-            for message in field.validate(value) {
-                errors.add(field.name(), message);
+            for error in field.validate(value) {
+                errors.push(error);
             }
         }
         errors
@@ -307,6 +307,60 @@ impl Schema {
             false,
         );
         skip
+    }
+
+    /// Whether a render reads an error under `key` for this submission: a
+    /// field's own name, or a repeater group's label — the two keys
+    /// [`Source::errors_for`] reads — and not a field a variant group the
+    /// submission's discriminant does not name hides.
+    ///
+    /// An error under any other key has nowhere to reach the user, so the submit
+    /// handlers refuse it as a declaration error instead of blocking the write
+    /// behind a message no page shows.
+    pub(crate) fn renders_error_key(&self, values: &HashMap<String, String>, key: &str) -> bool {
+        // A repeater's own error slot is keyed by its label (see
+        // `walk_absent_groups`), which no field carries.
+        fn labels(nodes: &[Node], key: &str) -> bool {
+            nodes.iter().any(|node| match node {
+                Node::Repeater(repeater) => {
+                    repeater.label == key || labels(&repeater.children.nodes, key)
+                }
+                node => node
+                    .children()
+                    .is_some_and(|children| labels(children, key)),
+            })
+        }
+        // Every field of the compiled list renders somewhere, except a leaf of a
+        // variant group this submission hides.
+        let hidden = self.hidden_fields(values);
+        let renders_field = self
+            .fields
+            .iter()
+            .any(|field| field.name() == key && !hidden.contains(key));
+        renders_field || labels(&self.nodes, key)
+    }
+
+    /// Field names this submission hides: every leaf of a variant group its
+    /// discriminant does not name (the classification `absent_fields` shares).
+    fn hidden_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
+        fn walk(nodes: &[Node], values: &HashMap<String, String>, out: &mut Vec<usize>) {
+            for node in nodes {
+                match node {
+                    Node::Embedded(embedded) => embedded.hidden_fields(values, out),
+                    node => {
+                        if let Some(children) = node.children() {
+                            walk(children, values, out);
+                        }
+                    }
+                }
+            }
+        }
+        let mut indices = Vec::new();
+        walk(&self.nodes, values, &mut indices);
+        indices
+            .into_iter()
+            .map(|index| self.fields[index].name().to_string())
+            .collect()
     }
 
     /// [`Self::validate`], then each choice's option existence

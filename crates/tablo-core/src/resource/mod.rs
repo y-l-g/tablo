@@ -414,9 +414,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// 200 and nothing is written; a record fn error is a 500, so a range or
     /// cross-field rule belongs here.
     ///
-    /// Each error names the key its control renders under. A key no control of
-    /// [`form`](Self::form) owns cannot render, and the submit fails closed
-    /// instead of writing past the rule.
+    /// Each error names the key it renders under: a control's own key, or a
+    /// [`Repeater`](crate::Repeater) group's label. A key the submitted form
+    /// renders nowhere fails the submit as a declaration error instead of
+    /// writing past the rule.
     fn validate_record(_cx: &Cx, _form: &Self::Form) -> FieldErrors {
         FieldErrors::new()
     }

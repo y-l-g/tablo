@@ -28,9 +28,9 @@ use crate::{
 /// The theme's sans font, pulled from Fontsource and self-hosted as a Topcoat
 /// asset.
 ///
-/// `pub(crate)` so the public blog's layout links the same font as the admin
-/// shell: one document contract, one typeface.
-pub(crate) const GEIST: Font = fontsource_font!(GEIST, host: Asset);
+/// Registered as the panel's shell font, so the admin shell and every document
+/// `Panel::document` renders link the same typeface.
+const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
 /// How many words `body` holds: whitespace-separated tokens.
 ///

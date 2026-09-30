@@ -12,7 +12,7 @@ use crate::schema::{Field, FieldLens, tree::Mode};
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
     let errors = field.validate(value);
     if !errors.is_empty() {
-        return errors;
+        return errors.into_iter().map(|error| error.message).collect();
     }
     field.validate_exists(cx, value).await
 }

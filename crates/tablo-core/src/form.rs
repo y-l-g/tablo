@@ -234,15 +234,22 @@ pub struct FieldError {
 }
 
 impl FieldError {
-    /// `key` was posted empty and its field has no blank answer.
+    /// `key` was posted empty and its field has no blank answer; `message` is
+    /// the wording the control renders in its place.
+    pub fn unanswered(key: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            kind: FieldErrorKind::Required,
+            message: message.into(),
+        }
+    }
+
+    /// `key` was posted empty and has no blank answer, worded as its own key
+    /// names it.
     pub fn required(key: impl Into<String>) -> Self {
         let key = key.into();
         let message = format!("{key} is required");
-        Self {
-            key,
-            kind: FieldErrorKind::Required,
-            message,
-        }
+        Self::unanswered(key, message)
     }
 
     /// `key` carried a value its type refuses; `message` says why.
@@ -297,7 +304,8 @@ pub trait RecordForm: Sized + Send + 'static {
     /// The model the form writes.
     type Model: Model + Send + Sync + 'static;
 
-    /// One variant per form field: the key [`FieldErrors`] and [`Posted`] use.
+    /// One variant per form field: the key [`Posted`] uses. Each variant's
+    /// bound form keys are [`Self::fields`]'; [`FieldErrors`] keys on those.
     type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
 
     /// Every field, in declaration order, with the keys it binds.
@@ -475,11 +483,7 @@ impl FieldErrors {
 
     /// Refuse `key` as unanswered, with the message its control renders.
     pub fn add_required(&mut self, key: impl Into<String>, message: impl Into<String>) {
-        self.errors.push(FieldError {
-            key: key.into(),
-            kind: FieldErrorKind::Required,
-            message: message.into(),
-        });
+        self.errors.push(FieldError::unanswered(key, message));
     }
 
     /// Refuse `error`'s key with `error`, keeping the error's own kind.

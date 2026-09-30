@@ -19,7 +19,7 @@ fn bare_non_nullable_fk_select_rejects_empty_inline() {
     let select = Field::choice(FkRef::fields().author_id());
     let errs = select.validate("");
     assert!(
-        errs.iter().any(|e| e.contains("is required")),
+        errs.iter().any(|e| e.message.contains("is required")),
         "bare non-nullable FK must reject empty inline, got {errs:?}"
     );
     // `.optional()` opts back out.

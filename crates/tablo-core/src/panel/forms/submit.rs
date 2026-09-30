@@ -145,8 +145,10 @@ fn complete(
 ///
 /// # Errors
 ///
-/// A `validate_record` error on a key the schema renders no control for: it
-/// cannot render, and the write must not proceed past it.
+/// An error keyed to something this submission renders nowhere — a control the
+/// schema does not declare, a repeater group's label misspelled, a field a
+/// variant group hides: it cannot reach the user, and the write must not
+/// proceed past it.
 fn parse_form<R: Resource>(
     cx: &Cx,
     schema: &Schema,
@@ -159,19 +161,12 @@ fn parse_form<R: Resource>(
     match <R::Form as RecordForm>::parse(cx, &normalized) {
         Ok(form) => {
             for error in R::validate_record(cx, &form).iter() {
-                // A rule refused a key no control renders: there is nowhere to
-                // render it, and writing anyway would drop it.
-                if !schema
-                    .fields()
-                    .any(|field| field.name() == error.key.as_str())
-                {
-                    return Err(TabloError::Declaration(format!(
-                        "validate_record refused {:?}, which `{}` renders no control for: {}",
-                        error.key,
-                        std::any::type_name::<R::Form>(),
-                        error.message
-                    ))
-                    .into());
+                if !schema.renders_error_key(values, &error.key) {
+                    return Err(unrenderable_error::<R>(
+                        "validate_record",
+                        &error.key,
+                        &error.message,
+                    ));
                 }
                 errors.push(error.clone());
             }
@@ -180,6 +175,13 @@ fn parse_form<R: Resource>(
         Err(failures) => {
             let controls = schema.controls();
             for mut failure in failures {
+                if !schema.renders_error_key(values, &failure.key) {
+                    return Err(unrenderable_error::<R>(
+                        "the parse",
+                        &failure.key,
+                        &failure.message,
+                    ));
+                }
                 if errors.contains_key(&failure.key) {
                     continue;
                 }
@@ -198,6 +200,16 @@ fn parse_form<R: Resource>(
             Ok(None)
         }
     }
+}
+
+/// Refuse an error whose key this submission renders nowhere: there is nowhere
+/// for the message to reach the user, and writing anyway would drop it.
+fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> topcoat::Error {
+    TabloError::Declaration(format!(
+        "{source} refused {key:?}, which `{}` renders nowhere for this submission: {message}",
+        std::any::type_name::<R::Form>()
+    ))
+    .into()
 }
 
 /// The form fields with at least one key the submission named.

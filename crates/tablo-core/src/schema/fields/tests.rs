@@ -14,14 +14,20 @@ fn every_control_defaults_required_from_nullability() {
         Field::file(DummyUser::fields().name()),
     ] {
         assert!(
-            field.validate("").iter().any(|e| e.contains("is required")),
+            field
+                .validate("")
+                .iter()
+                .any(|e| e.message.contains("is required")),
             "a non-nullable {field:?} refuses an empty submit"
         );
         let field = field.optional();
         assert!(field.validate("").is_empty(), "{field:?} opted out");
         let field = field.required();
         assert!(
-            field.validate("").iter().any(|e| e.contains("is required")),
+            field
+                .validate("")
+                .iter()
+                .any(|e| e.message.contains("is required")),
             "{field:?} opted back in"
         );
     }
@@ -90,7 +96,7 @@ fn a_nullable_unique_column_may_be_left_empty() {
         non_nullable
             .validate("")
             .iter()
-            .any(|e| e.contains("is required")),
+            .any(|e| e.message.contains("is required")),
         "a non-nullable unique column stays required even when optional"
     );
 }

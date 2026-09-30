@@ -177,6 +177,31 @@ async fn nested_grid_inside_section() {
     assert!(html.contains("Right"), "missing right in {html}");
 }
 
+/// A repeater group's error slot is keyed by its label, which no field
+/// carries: an app rule keyed to the label renders there, and a key no slot
+/// owns is refused.
+#[test]
+fn a_repeater_label_is_an_error_key() {
+    let schema = Schema::new(
+        Repeater::new("Tags")
+            .required()
+            .schema(Field::text(DummyUser::fields().name()).label("Tag")),
+    );
+    let values = HashMap::new();
+    assert!(
+        schema.renders_error_key(&values, "Tags"),
+        "the group's label is the key its error renders under"
+    );
+    assert!(
+        schema.renders_error_key(&values, "name"),
+        "the inner field's own key renders too"
+    );
+    assert!(
+        !schema.renders_error_key(&values, "tags"),
+        "a key no slot owns has nowhere to render"
+    );
+}
+
 #[tokio::test]
 async fn repeater_required_error_renders_inline() {
     let cx = cx();

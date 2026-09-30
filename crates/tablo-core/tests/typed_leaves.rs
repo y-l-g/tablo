@@ -23,6 +23,15 @@ struct Measurement {
     recorded_at: jiff::Timestamp,
 }
 
+/// The messages `errors` carries for `key`, in the order it added them.
+fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
+    errors
+        .iter()
+        .filter(|error| error.key == key)
+        .map(|error| error.message.as_str())
+        .collect()
+}
+
 async fn cx() -> Cx {
     let db = Db::builder()
         .models(toasty::models!(Measurement))
@@ -87,17 +96,13 @@ async fn a_bad_submission_is_an_inline_field_error() {
     ]);
     let errors = schema.validate(&values);
     assert_eq!(
-        errors
-            .first("word_count")
-            .map(|error| error.message.as_str()),
-        Some("`lots` is not a valid whole number"),
+        messages(&errors, "word_count"),
+        ["`lots` is not a valid whole number"],
         "an unparseable integer names the offending input, got {errors:?}"
     );
     assert_eq!(
-        errors
-            .first("recorded_at")
-            .map(|error| error.message.as_str()),
-        Some("`2024-13-01` is not a valid timestamp"),
+        messages(&errors, "recorded_at"),
+        ["`2024-13-01` is not a valid timestamp"],
         "an unparseable date names the offending input, got {errors:?}"
     );
 }
@@ -133,11 +138,8 @@ async fn an_empty_submission_stays_the_presence_rules_business() {
     );
     let required = Schema::new(Field::text(Measurement::fields().word_count()));
     assert_eq!(
-        required
-            .validate(&HashMap::new())
-            .first("word_count")
-            .map(|error| error.message.as_str()),
-        Some("Word count is required"),
+        messages(&required.validate(&HashMap::new()), "word_count"),
+        ["Word count is required"],
         "a non-nullable typed field reports presence, not a parse failure"
     );
 }

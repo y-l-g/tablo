@@ -137,7 +137,7 @@ where
                 let past = Past::Before(crate::cursor::decode(&cursor)?);
                 if !row_exists_past(&mut db, base_query, past)
                     .await
-                    .map_err(topcoat::Error::from)?
+                    .map_err(crate::error::unavailable)?
                 {
                     page.prev_cursor = None;
                 }
@@ -147,7 +147,7 @@ where
                 let past = Past::After(crate::cursor::decode(&cursor)?);
                 if !row_exists_past(&mut db, base_query, past)
                     .await
-                    .map_err(topcoat::Error::from)?
+                    .map_err(crate::error::unavailable)?
                 {
                     page.next_cursor = None;
                 }

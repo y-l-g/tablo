@@ -4,6 +4,15 @@ use topcoat::router::Body;
 use super::*;
 use crate::panel::test_support::{Tagged, TaggedResource, panel_for, response_html};
 
+/// The messages `errors` carries for `key`, in the order it added them.
+fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
+    errors
+        .iter()
+        .filter(|error| error.key == key)
+        .map(|error| error.message.as_str())
+        .collect()
+}
+
 #[tokio::test]
 async fn unique_check_flags_duplicates_for_marked_fields() {
     use topcoat::context::CxTestBuilder;
@@ -57,8 +66,8 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
             .await
             .unwrap();
     assert_eq!(
-        errors.first("email").map(|error| error.message.as_str()),
-        Some("Email has already been taken"),
+        messages(&errors, "email"),
+        ["Email has already been taken"],
         "duplicate must be flagged, got {errors:?}"
     );
 
@@ -89,8 +98,8 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
             .await
             .unwrap();
     assert_eq!(
-        errors.first("email").map(|error| error.message.as_str()),
-        Some("Email has already been taken"),
+        messages(&errors, "email"),
+        ["Email has already been taken"],
         "changed-to-duplicate must be flagged, got {errors:?}"
     );
 
@@ -169,11 +178,8 @@ async fn unique_field_is_required_however_it_is_marked() {
     let mut first = HashMap::new();
     first.insert("email".to_string(), "   ".to_string());
     assert_eq!(
-        schema
-            .validate(&first)
-            .first("email")
-            .map(|error| error.message.as_str()),
-        Some("Email is required"),
+        messages(&schema.validate(&first), "email"),
+        ["Email is required"],
         "an empty unique field must fail validation as required"
     );
 
@@ -253,11 +259,8 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
     let mut empty = HashMap::new();
     empty.insert("email".to_string(), "".to_string());
     assert_eq!(
-        schema
-            .validate(&empty)
-            .first("email")
-            .map(|error| error.message.as_str()),
-        Some("Email is required"),
+        messages(&schema.validate(&empty), "email"),
+        ["Email is required"],
         "an empty submit must be refused inline, not probed"
     );
     let errors = check_unique::<SubscriberResource>(&cx, &schema, &empty, &HashMap::new(), &mut ex)

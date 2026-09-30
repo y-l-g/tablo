@@ -469,7 +469,8 @@ impl Panel {
     ///
     /// `body` is the page's own content: the panel renders the `<body>` element,
     /// its dark-mode `<html>` class, and the head; the page owns its chrome
-    /// inside.
+    /// inside. `title` is the page's own, where [`Self::layout_shell`] titles an
+    /// admin page with the panel's [`Brand`].
     pub async fn document<'a>(
         cx: &'a Cx,
         title: impl Into<String>,

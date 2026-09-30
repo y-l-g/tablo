@@ -23,7 +23,7 @@ use super::{
     tree::Mode,
     validation::Rules,
 };
-use crate::form::FormScalar;
+use crate::form::{FieldError, FormScalar};
 
 /// One form field: a key, a label, the rules a submission meets, and the
 /// control that edits it.
@@ -388,9 +388,11 @@ impl Field {
         self.required || (self.is_unique() && !self.nullable)
     }
 
-    /// Validate a raw submitted value against the field's rules.
-    pub(crate) fn validate(&self, value: &str) -> Vec<String> {
-        self.rules.validate(&self.label, self.is_required(), value)
+    /// Validate a raw submitted value against the field's rules, each failure
+    /// keyed by the field's own name.
+    pub(crate) fn validate(&self, value: &str) -> Vec<FieldError> {
+        self.rules
+            .validate(&self.name, &self.label, self.is_required(), value)
     }
 
     /// The stored spelling of a submission the caller has already validated:
