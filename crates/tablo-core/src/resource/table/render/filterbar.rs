@@ -11,7 +11,7 @@ use super::{
         },
         Table,
     },
-    live_link,
+    BAR_CLASS, QUIET_LINK_CLASS, live_link,
     toolbar::hidden_state_inputs,
 };
 
@@ -38,7 +38,13 @@ fn filter_select<'a>(
     let label = label.to_string();
     let name = name.to_string();
     let aria = label.clone();
-    let current = current.to_string();
+    let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
+        .chain(options)
+        .map(|(value, text)| {
+            let selected = current == value;
+            crate::schema::option_view(cx, value, text, selected)
+        })
+        .collect();
     view! {
         cx =>
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
@@ -49,11 +55,8 @@ fn filter_select<'a>(
                 aria-label=(aria)
                 class="flex h-9 rounded-md border border-border bg-background px-3 py-1 text-sm shadow-xs"
             >
-                <option value="" selected=(current.is_empty())>"All"</option>
-                for (value, text) in options {
-                    <option value=(value.clone()) selected=(current == value)>
-                        (text)
-                    </option>
+                for option in option_views {
+                    (option)
                 }
             </select>
         </label>
@@ -261,7 +264,7 @@ impl<M> Table<M> {
             cx =>
             method="get"
             action=(action)
-            class="flex flex-wrap items-center gap-2 border-b border-border p-3"
+            class=(BAR_CLASS)
             data-filters-form=""
             if signals.is_some() {
                 data-filters-live=""
@@ -288,7 +291,7 @@ impl<M> Table<M> {
             let attrs = live_link(cx, url, signals);
             view! {
                 cx =>
-                <a class="text-sm text-muted-foreground hover:text-foreground" (attrs)>
+                <a class=(QUIET_LINK_CLASS) (attrs)>
                     "Clear filters"
                 </a>
             }

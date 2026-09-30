@@ -1,14 +1,15 @@
 //! The search bar, live-search bar, and bulk-action bar.
 
-use tablo_ui::{
-    ButtonSize, ButtonVariant, alert_dialog, button, dialog_content, dialog_description,
-    dialog_footer, dialog_header, dialog_title, input as ui_input,
-};
+use tablo_ui::{ButtonSize, ButtonVariant, button, input as ui_input};
 use topcoat::{Result, context::Cx, runtime::Event, view::*};
 
-use super::super::{
-    super::state::{TableSignals, TableState, bulk_delete_url},
-    Table,
+use super::{
+    super::{
+        super::state::{TableSignals, TableState, bulk_delete_url},
+        Table,
+    },
+    BAR_CLASS, QUIET_LINK_CLASS,
+    dialog::{ConfirmDialog, chrome_dom_id, confirm_controls, confirm_dialog},
 };
 
 /// Keystroke-quiet delay before a live search input reloads the table
@@ -78,10 +79,21 @@ impl<M> Table<M> {
         let csrf = crate::csrf::current_token(cx);
         // Stable ids so the dialog's confirm button can submit this form
         // from inside the dialog.
-        let bulk_form_id = format!("{}-bulk-form", prefix.replace('/', "-"));
-        let bulk_dialog_id = format!("{bulk_form_id}-confirm");
-        let bulk_dialog_title_id = format!("{bulk_dialog_id}-title");
-        let bulk_dialog_description_id = format!("{bulk_dialog_id}-description");
+        let bulk_form_id = chrome_dom_id(&prefix, "bulk-form");
+        // Destructive confirm: a batch is the one place a misclick costs many
+        // rows, so it asks first — the same alert dialog the row delete uses.
+        // It sits inside the bulk form, so its controls submit that form.
+        let confirm = confirm_dialog(
+            cx,
+            ConfirmDialog {
+                id: chrome_dom_id(&prefix, "bulk-form-confirm"),
+                open: false,
+                title: "Delete the selected records?",
+                attrs: attributes! { cx => data-bulk-confirm-dialog="" },
+                description_attrs: attributes! { cx => data-bulk-confirm-description="" },
+                footer: confirm_controls(cx),
+            },
+        );
         // No visible `ids` field: the transport is fed by the row
         // checkboxes (`bulk.js`) and ships `,a,b,`-delimited. On a live
         // table the selection lives in a signal instead, so a
@@ -118,48 +130,7 @@ impl<M> Table<M> {
                     attrs: attributes! { type="button" data-bulk-confirm-trigger="" },
                     "Bulk Delete"
                 )
-                // Destructive confirm: a batch is the one place a
-                // misclick costs many rows, so it asks first — the same
-                // alert-dialog pattern the row delete already uses.
-                alert_dialog(
-                    open: false,
-                    attrs: attributes! {
-                        id=(bulk_dialog_id.clone())
-                        data-bulk-confirm-dialog=""
-                        aria-labelledby=(bulk_dialog_title_id.clone())
-                        aria-describedby=(bulk_dialog_description_id.clone())
-                    },
-                    dialog_content(
-                        dialog_header(
-                            dialog_title(
-                                attrs: attributes! { id=(bulk_dialog_title_id.clone()) },
-                                "Delete the selected records?"
-                            )
-                            dialog_description(
-                                attrs: attributes! {
-                                    id=(bulk_dialog_description_id.clone())
-                                    data-bulk-confirm-description=""
-                                },
-                                "This action cannot be undone."
-                            )
-                        )
-                        dialog_footer(
-                            button(
-                                variant: ButtonVariant::Outline,
-                                size: ButtonSize::Md,
-                                attrs: attributes! { type="button" data-dialog-close="" },
-                                "Cancel"
-                            )
-                            <input type="hidden" name="confirm" value="1">
-                            button(
-                                variant: ButtonVariant::Destructive,
-                                size: ButtonSize::Md,
-                                attrs: attributes! { type="submit" },
-                                "Delete"
-                            )
-                        )
-                    )
-                )
+                (confirm)
             </form>
         }
         .boxed()
@@ -209,7 +180,7 @@ impl<M> Table<M> {
             <form
                 method="get"
                 action=(action)
-                class="flex flex-wrap items-center gap-2 border-b border-border p-3"
+                class=(BAR_CLASS)
             >
                 (hidden)
                 ui_input(
@@ -231,7 +202,7 @@ impl<M> Table<M> {
                 if let Some(url) = clear_url {
                     <a
                         href=(url)
-                        class="text-sm text-muted-foreground hover:text-foreground"
+                        class=(QUIET_LINK_CLASS)
                     >
                         "Clear"
                     </a>
@@ -268,7 +239,7 @@ impl<M> Table<M> {
         Ok(view! {
             cx =>
             <div
-                class="flex flex-wrap items-center gap-2 border-b border-border p-3"
+                class=(BAR_CLASS)
                 data-live-search=""
             >
                 <input

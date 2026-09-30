@@ -121,3 +121,44 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
         "the skeleton must match the swapped table's column count, got {skeleton}"
     );
 }
+
+/// The skeleton pulses only the bars the loaded table renders: a table with
+/// no searchable column and no filters swaps in without a search or filter
+/// bar, so its skeleton must not show one that then disappears.
+#[tokio::test]
+async fn skeleton_pulses_only_the_bars_the_table_renders() {
+    async fn skeleton(tbl: Table<User>) -> String {
+        let cx = CxTestBuilder::new().build();
+        tbl.render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
+            .await
+            .unwrap()
+            .single()
+            .await
+            .unwrap()
+            .render(&cx)
+    }
+    let plain = Table::<User>::new(
+        |u| u.id.to_string(),
+        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
+    );
+    let plain_bars = plain.search_enabled() || plain.filter_bar_enabled();
+    let html = skeleton(plain).await;
+    assert!(!plain_bars, "the plain table renders neither bar");
+    assert_eq!(
+        html.matches("border-b border-border p-3").count(),
+        0,
+        "no bar pulse for a table without bars, got {html}"
+    );
+
+    let searchable = Table::<User>::new(
+        |u| u.id.to_string(),
+        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable(),
+    );
+    assert!(searchable.search_enabled() && !searchable.filter_bar_enabled());
+    let html = skeleton(searchable).await;
+    assert_eq!(
+        html.matches("border-b border-border p-3").count(),
+        1,
+        "one pulse for the search bar the table renders, got {html}"
+    );
+}

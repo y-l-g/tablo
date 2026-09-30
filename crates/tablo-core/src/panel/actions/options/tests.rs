@@ -481,11 +481,29 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     );
 }
 
-#[test]
-fn options_query_parses_first_wins_and_escapes() {
-    assert_eq!(escape_option("a&b<c>\"'"), "a&amp;b&lt;c&gt;&quot;&#39;");
-    assert_eq!(
-        escape_option("550e8400-e29b-41d4-a716-446655440000"),
-        "550e8400-e29b-41d4-a716-446655440000"
+/// The endpoint renders options through the field's own `option_view`, so a
+/// label or value carrying markup reaches the page escaped.
+#[tokio::test]
+async fn an_option_escapes_its_value_and_label() {
+    use topcoat::context::CxTestBuilder;
+
+    let cx = CxTestBuilder::new().build();
+    let html = crate::schema::option_view(
+        &cx,
+        "a\"b".to_string(),
+        "<script>x</script>".to_string(),
+        false,
+    )
+    .single()
+    .await
+    .unwrap()
+    .render(&cx);
+    assert!(
+        !html.contains("<script>") && html.contains("&lt;script&gt;"),
+        "the label must be escaped, got {html}"
+    );
+    assert!(
+        !html.contains("value=\"a\"b\""),
+        "the value must be escaped, got {html}"
     );
 }

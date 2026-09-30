@@ -8,7 +8,7 @@ mod choice;
 mod file;
 mod text;
 
-pub(crate) use choice::ChoiceControl;
+pub(crate) use choice::{ChoiceControl, option_view};
 use tablo_ui::{
     field as ui_field, field_content as ui_field_content, field_error as ui_field_error,
     field_label as ui_field_label, field_title as ui_field_title,

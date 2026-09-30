@@ -1,9 +1,9 @@
 use topcoat::context::CxTestBuilder;
 
-use super::*;
+use super::{super::widths::BULK_COLUMN_PERCENT, *};
 use crate::resource::{
-    ColumnWidth, SelectFilter, Sort, TextColumn, VariantFilter,
-    column::DEFAULT_WIDTH_BUDGET_PERCENT,
+    ColumnWidth, RowActions, SelectFilter, Sort, TextColumn, VariantFilter,
+    column::DEFAULT_WIDTH_BUDGET_PERCENT, state::group_header_dom_id,
 };
 
 #[derive(Debug, Clone, toasty::Model)]

@@ -39,6 +39,18 @@ pub(crate) struct Relationship {
     check: RelationshipChecker,
 }
 
+/// One `<option>`: the markup a choice field, the filter bar and the
+/// relationship options endpoint share, so the value and the label are
+/// escaped by the view layer in one place.
+pub(crate) fn option_view<'a>(
+    cx: &'a Cx,
+    value: String,
+    label: String,
+    selected: bool,
+) -> BoxView<'a> {
+    view! { cx => <option value=(value) selected=(selected)>(label)</option> }.boxed()
+}
+
 impl Relationship {
     /// The loaders for source `R`, projecting each row to its key and label.
     pub(super) fn new<R>(
@@ -238,26 +250,14 @@ impl Field {
             errors,
             denied.then(|| format!("{} is not available", self.label)),
         );
-        let mut option_views: Vec<BoxView<'a>> = Vec::new();
-        let empty_selected = current.is_empty();
-        option_views.push(
-            view! {
-                cx =>
-                <option value="" selected=(empty_selected)>"-- Select --"</option>
-            }
-            .boxed(),
-        );
+        let mut option_views: Vec<BoxView<'a>> = vec![option_view(
+            cx,
+            String::new(),
+            "-- Select --".to_string(),
+            current.is_empty(),
+        )];
         for (val, lab) in &options {
-            let selected = current == *val;
-            let val_c = val.clone();
-            let lab_c = lab.clone();
-            option_views.push(
-                view! {
-                    cx =>
-                    <option value=(val_c) selected=(selected)>(lab_c)</option>
-                }
-                .boxed(),
-            );
+            option_views.push(option_view(cx, val.clone(), lab.clone(), current == *val));
         }
         // The `select` primitive brings the same `aria-invalid` error styling
         // and focus ring as the `input` primitive, plus the chevron and the

@@ -53,61 +53,32 @@ impl<M> Table<M> {
         // dialog a row control opens client-side has no `?delete=` to close,
         // so dismissing it leaves the URL alone (GH #154 §3).
         let open_param = server_open.then_some("open");
-        let dialog_id = Self::delete_dialog_dom_id(prefix);
-        let title_id = format!("{dialog_id}-title");
-        let description_id = format!("{dialog_id}-description");
         let csrf = crate::csrf::current_token(cx);
-        Ok(Some(
-            view! {
-                cx =>
-                alert_dialog(
-                    open: server_open,
-                    attrs: attributes! {
-                        id=(dialog_id)
-                        aria-labelledby=(title_id.clone())
-                        aria-describedby=(description_id.clone())
-                        data-dialog-open-param=(open_param)
-                    },
-                    dialog_content(
-                        dialog_header(
-                            dialog_title(
-                                attrs: attributes! { id=(title_id.clone()) },
-                                "Delete this record?"
-                            )
-                            dialog_description(
-                                attrs: attributes! { id=(description_id.clone()) },
-                                "This action cannot be undone."
-                            )
-                        )
-                        dialog_footer(
-                            <form
-                                method="post"
-                                action=(action)
-                                class="contents"
-                                data-row-delete-form=""
-                                data-mutation-submit=""
-                            >
-                                button(
-                                    variant: ButtonVariant::Outline,
-                                    size: ButtonSize::Md,
-                                    attrs: attributes! { type="button" data-dialog-close="" },
-                                    "Cancel"
-                                )
-                                <input type="hidden" name="confirm" value="1">
-                                (crate::csrf::field(cx, &csrf))
-                                button(
-                                    variant: ButtonVariant::Destructive,
-                                    size: ButtonSize::Md,
-                                    attrs: attributes! { type="submit" },
-                                    "Delete"
-                                )
-                            </form>
-                        )
-                    )
-                )
-            }
-            .boxed(),
-        ))
+        let footer = view! {
+            cx =>
+            <form
+                method="post"
+                action=(action)
+                class="contents"
+                data-row-delete-form=""
+                data-mutation-submit=""
+            >
+                (crate::csrf::field(cx, &csrf))
+                (confirm_controls(cx))
+            </form>
+        }
+        .boxed();
+        Ok(Some(confirm_dialog(
+            cx,
+            ConfirmDialog {
+                id: Self::delete_dialog_dom_id(prefix),
+                open: server_open,
+                title: "Delete this record?",
+                attrs: attributes! { cx => data-dialog-open-param=(open_param) },
+                description_attrs: Attributes::default(),
+                footer,
+            },
+        )))
     }
 
     /// The DOM id of a table's row-delete dialog: the delete prefix
@@ -118,6 +89,91 @@ impl<M> Table<M> {
     /// reach that. The row controls name the dialog they open, and its
     /// `aria-labelledby`/`aria-describedby` ids derive from it.
     pub(super) fn delete_dialog_dom_id(prefix: &str) -> String {
-        format!("{}-delete-dialog", prefix.replace('/', "-"))
+        chrome_dom_id(prefix, "delete-dialog")
     }
+}
+
+/// The DOM id of one piece of a table's chrome: the delete prefix with its
+/// slashes flattened, then `suffix`, so two tables with different delete
+/// prefixes never share an id.
+pub(super) fn chrome_dom_id(prefix: &str, suffix: &str) -> String {
+    format!("{}-{suffix}", prefix.replace('/', "-"))
+}
+
+/// A destructive confirmation dialog.
+pub(super) struct ConfirmDialog<'a> {
+    /// The dialog's DOM id; the title and description ids derive from it.
+    pub(super) id: String,
+    /// Whether it renders open (a URL-driven dialog) or closed.
+    pub(super) open: bool,
+    pub(super) title: &'static str,
+    /// Extra attributes on the dialog element.
+    pub(super) attrs: Attributes,
+    /// Extra attributes on the description.
+    pub(super) description_attrs: Attributes,
+    /// The footer: [`confirm_controls`], wrapped in a form when the dialog is
+    /// not already inside the one it submits.
+    pub(super) footer: BoxView<'a>,
+}
+
+/// An alert dialog asking to confirm a destructive action, labelled by its
+/// title and described by "This action cannot be undone.".
+pub(super) fn confirm_dialog<'a>(cx: &'a Cx, dialog: ConfirmDialog<'a>) -> BoxView<'a> {
+    let ConfirmDialog {
+        id,
+        open,
+        title,
+        attrs: extra,
+        description_attrs: extra_description,
+        footer,
+    } = dialog;
+    let title_id = format!("{id}-title");
+    let description_id = format!("{id}-description");
+    let mut attrs = attributes! {
+        cx =>
+        id=(id)
+        aria-labelledby=(title_id.clone())
+        aria-describedby=(description_id.clone())
+    };
+    attrs.extend(extra);
+    let mut description_attrs = attributes! { cx => id=(description_id) };
+    description_attrs.extend(extra_description);
+    view! {
+        cx =>
+        alert_dialog(
+            open: open,
+            attrs: attrs,
+            dialog_content(
+                dialog_header(
+                    dialog_title(attrs: attributes! { id=(title_id) }, (title))
+                    dialog_description(attrs: description_attrs, "This action cannot be undone.")
+                )
+                dialog_footer((footer))
+            )
+        )
+    }
+    .boxed()
+}
+
+/// The controls every delete confirmation submits: Cancel (closes the dialog
+/// through `dialog.js`), the `confirm=1` marker the handler requires, and the
+/// destructive submit.
+pub(super) fn confirm_controls<'a>(cx: &'a Cx) -> BoxView<'a> {
+    view! {
+        cx =>
+        button(
+            variant: ButtonVariant::Outline,
+            size: ButtonSize::Md,
+            attrs: attributes! { type="button" data-dialog-close="" },
+            "Cancel"
+        )
+        <input type="hidden" name="confirm" value="1">
+        button(
+            variant: ButtonVariant::Destructive,
+            size: ButtonSize::Md,
+            attrs: attributes! { type="submit" },
+            "Delete"
+        )
+    }
+    .boxed()
 }

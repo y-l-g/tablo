@@ -4,12 +4,13 @@
 use topcoat::{
     context::Cx,
     router::{Body, RouteFuture, error::forbidden},
+    view::*,
 };
 
 use super::super::gate::gate;
 use crate::{
     resource::{Resource, clamp_query_term},
-    schema::OptionLoadError,
+    schema::{OptionLoadError, option_view},
 };
 
 /// Relationship option search endpoint (D2/D5).
@@ -54,14 +55,19 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
         }
         match select.search_options(cx, &q).await {
             Ok(opts) => {
-                let mut html = String::with_capacity(opts.len() * 32);
-                for (v, lab) in opts {
-                    html.push_str(&format!(
-                        "<option value=\"{}\">{}</option>",
-                        escape_option(&v),
-                        escape_option(&lab)
-                    ));
+                let options: Vec<_> = opts
+                    .into_iter()
+                    .map(|(value, label)| option_view(cx, value, label, false))
+                    .collect();
+                let html = view! {
+                    cx =>
+                    for option in options {
+                        (option)
+                    }
                 }
+                .single()
+                .await?
+                .render(cx);
                 let res = http::Response::builder()
                     .status(200)
                     .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
@@ -78,7 +84,8 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
             // all, so the search cannot succeed until the declaration is
             // fixed — a 500 that says so, not a retry.
             Err(OptionLoadError::Misdeclared) => Err(topcoat::Error::from(std::io::Error::other(
-                "option search unavailable: the related resource requires a tenant the                      framework cannot scope (GH #223)",
+                "option search unavailable: the related resource requires a tenant the framework \
+                 cannot scope (GH #223)",
             ))),
             Err(OptionLoadError::Overflow) => {
                 let html = "<option value=\"\" disabled>Too many results — keep typing</option>"
@@ -116,22 +123,6 @@ fn options_query(cx: &Cx) -> (String, String) {
         }
     }
     (field, q)
-}
-
-/// Escape a value/label for `<option>` markup.
-fn escape_option(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&#39;"),
-            _ => out.push(c),
-        }
-    }
-    out
 }
 
 #[cfg(test)]
