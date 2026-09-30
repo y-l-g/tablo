@@ -159,15 +159,6 @@ async fn error_responses_carry_frame_ancestors() {
         "a wrong-method response must carry the directive"
     );
 
-    // The root's temporary redirect to the first resource leaves through the
-    // same `Err` branch and keeps the directive.
-    let response = client.get("/admin").await;
-    assert_eq!(response.status(), http::StatusCode::TEMPORARY_REDIRECT);
-    assert!(
-        csp(&response).is_some_and(|policy| policy.contains("frame-ancestors")),
-        "the root redirect must carry the directive"
-    );
-
     // The gate's login redirect does too: an unauthenticated page request is
     // answered by a redirect to the login route.
     let anonymous = TestClient::new(&router);
@@ -192,16 +183,33 @@ async fn error_responses_carry_frame_ancestors() {
 }
 
 #[tokio::test]
-async fn admin_root_redirects_to_first_resource() {
+async fn admin_root_serves_the_dashboard_with_the_page_entries() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let response = client.get("/admin").await;
 
-    assert_eq!(response.status(), http::StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let html = body_string(response).await;
+    assert!(
+        html.contains("Dashboard</h1>"),
+        "the home page renders: {html}"
+    );
+    for (label, href) in [
+        ("Dashboard", "/admin"),
+        ("Media library", "/admin/media"),
+        ("Live activity", "/admin/live"),
+    ] {
+        assert!(
+            html.contains(label) && html.contains(&format!("href=\"{href}\"")),
+            "the sidebar lists {label} at {href}: {html}"
+        );
+    }
+    // The home entry prefix-matches every panel path; only it is active here.
     assert_eq!(
-        response.headers().get(http::header::LOCATION).unwrap(),
-        "/admin/users"
+        html.matches("data-active=\"true\"").count(),
+        1,
+        "one active sidebar entry: {html}"
     );
 }
 

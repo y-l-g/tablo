@@ -178,7 +178,14 @@ impl Panel {
             nav_items.iter().all(|item| item.url().is_some()),
             "navigation items are resolved by the Panel that owns them"
         );
-        let current_path = current_path.to_string();
+        // One active entry: a home entry at the bare prefix matches every panel
+        // path, so the most specific match wins.
+        let active_url = nav_items
+            .iter()
+            .filter(|item| item.is_current_path(current_path))
+            .filter_map(NavigationItem::url)
+            .max_by_key(|url| url.len())
+            .map(str::to_string);
 
         Ok(view! {
             cx =>
@@ -187,7 +194,8 @@ impl Panel {
                 sidebar_group_content(
                     sidebar_menu(
                         for item in &nav_items {
-                            let is_active = item.is_current_path(&current_path);
+                            let is_active = active_url.is_some()
+                                && item.url() == active_url.as_deref();
                             let attrs = sidebar_link(
                                 cx,
                                 attributes! {

@@ -20,8 +20,8 @@ of morphing the response (GH #234, ADR-0020).
 ### Panel
 
 The admin application. Owns the Router, the Db in app_context, the layout Shell, its declared
-Resources, and the default-on authentication gate (ADR-0013). Declaring a Panel with Resources
-yields resource routes and navigation; an app's layout delegates to `Panel::layout_shell` for the
+Resources and Pages, and the default-on authentication gate (ADR-0013). Declaring a Panel with
+Resources and Pages yields their routes and navigation; an app's layout delegates to `Panel::layout_shell` for the
 Shell with no manual document HTML.
 
 _Avoid_: Admin, Dashboard, App, Site
@@ -182,16 +182,17 @@ _Avoid_: Guard, Permission, Gate, Ability, Policy trait
 ### NavigationItem
 
 An entry in the Panel sidebar: a label, a NavTarget, and a sort order. Derived by default from a
-Resource, overridable to change the label, the order, or an explicit URL. The Panel that owns the
-entry owns the URL: a `Derived` target names none, so the panel resolves it from its own mount
-prefix plus the resource's slug, while an explicit URL is a link its author wrote and is kept
+Resource or a Page, overridable to change the label, the order, or an explicit URL. The Panel that
+owns the entry owns the URL: a `Derived` target names none, so the panel resolves it from its own
+mount prefix plus the slug it mounts the resource or page at (the prefix itself for the home page),
+while an explicit URL is a link its author wrote and is kept
 verbatim (GH #165).
 
 _Avoid_: MenuItem, NavLink, SidebarEntry
 
 ### NavTarget
 
-Where a NavigationItem points. `Derived` means the declaring Resource cannot know its mount, so
+Where a NavigationItem points. `Derived` means the declaring Resource or Page cannot know its mount, so
 the owning Panel resolves the URL; `Url` names a URL outright. The distinction is the type rather
 than a convention, so prefix resolution can never touch a URL an author wrote (GH #165).
 
@@ -326,7 +327,16 @@ _Avoid_: Nav, Menu, Drawer
 
 ### Page
 
-The standard container for an admin page. Owns max-width, padding and vertical rhythm so pages
+A panel page that is not a Resource: a type implementing `tablo_core::Page`, registered with
+`Panel::page` at `{prefix}/{slug}` or with `Panel::home` at the prefix itself. The Panel owns its
+route and its NavigationItem; the page owns its markup, which the Shell frames like every panel
+page.
+
+_Avoid_: CustomPage, Screen, View
+
+### Page container
+
+The standard container for an admin page (`tablo_ui::page`). Owns max-width, padding and vertical rhythm so pages
 declare title and content, not Tailwind layout classes.
 
 _Avoid_: Container, Wrapper, Layout
@@ -359,7 +369,7 @@ _Avoid_: Component (when meaning synced primitive), Widget
 
 ### Component
 
-An owned Topcoat `#[component]` in `tablo-ui/src/components/composites/` (Page, ErrorState,
-Theme, Toast) that composes Primitives and Tokens. Hand-written, never overwritten by sync.
+An owned Topcoat `#[component]` in `tablo-ui/src/components/composites/` (Page container,
+ErrorState, Theme, Toast) that composes Primitives and Tokens. Hand-written, never overwritten by sync.
 
 _Avoid_: Primitive, Widget, Element, View

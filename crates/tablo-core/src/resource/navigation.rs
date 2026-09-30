@@ -16,16 +16,17 @@ pub(crate) fn runtime_link(cx: &Cx, href: &str) -> Attributes {
 
 /// Where a sidebar entry points.
 ///
-/// A [`Resource`] cannot name its own URL: [`Resource::navigation`] takes no
-/// `Cx` and no prefix, so the entry it declares by default carries no URL at
-/// all — [`NavTarget::Derived`] — and the [`Panel`](crate::panel::Panel) that
-/// owns the item resolves it from its own mount prefix plus the resource's
-/// [`slug`](Resource::slug). [`NavTarget::Url`] is a URL its author wrote out,
-/// and a Panel passes it through untouched.
+/// A [`Resource`] or a [`Page`](crate::Page) cannot name its own URL: its
+/// `navigation()` takes no `Cx` and no prefix, so the entry it declares by
+/// default carries no URL at all — [`NavTarget::Derived`] — and the
+/// [`Panel`](crate::panel::Panel) that owns the item resolves it from its own
+/// mount prefix plus the slug it mounts the resource or page at. [`NavTarget::Url`] is a URL its
+/// author wrote out, and a Panel passes it through untouched.
 #[derive(Clone, Default, PartialEq, Eq)]
 pub enum NavTarget {
     /// No URL yet: the owning Panel resolves it to `{prefix}/{slug}` of the
-    /// resource whose `navigation()` declared this item. What
+    /// resource or page whose `navigation()` declared this item (the prefix
+    /// itself for the home page). What
     /// [`NavigationItem::for_resource`] — and so the default
     /// [`Resource::navigation`] — returns.
     #[default]
@@ -55,18 +56,19 @@ impl std::fmt::Debug for NavTarget {
     }
 }
 
-/// Sidebar entry derived from a `Resource` (see `CONTEXT.md`).
+/// Sidebar entry derived from a `Resource` or a `Page` (see `CONTEXT.md`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NavigationItem {
     pub label: String,
     /// Where this entry points. [`NavTarget::Derived`] until the owning Panel
     /// resolves it — see [`NavTarget`]. Build items with
-    /// [`NavigationItem::for_resource`] or [`NavigationItem::at`] rather than
+    /// [`NavigationItem::for_resource`], [`NavigationItem::for_page`] or
+    /// [`NavigationItem::at`] rather than
     /// spelling the variant out.
     pub target: NavTarget,
     /// Sort key for the sidebar: items render in stable `order`
-    /// order, so declaration order breaks ties. Resources declare in
-    /// `Panel::resource` order (all default `0`); a
+    /// order, so declaration order breaks ties. Resources and pages declare in
+    /// registration order (all default `0`); a
     /// [`Resource::navigation`] override interleaves by setting a lower value,
     /// e.g. `NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }`
     /// pins above the resources.
@@ -92,6 +94,17 @@ impl NavigationItem {
         }
     }
 
+    /// The default sidebar entry for the [`Page`](crate::Page) `P`: its
+    /// [`label`](crate::Page::label), and no URL yet — the owning
+    /// [`Panel`](crate::panel::Panel) resolves it where it mounts the page.
+    pub fn for_page<P: crate::Page + ?Sized>() -> Self {
+        Self {
+            label: P::label(),
+            target: NavTarget::Derived,
+            order: 0,
+        }
+    }
+
     /// A sidebar entry at an explicit `url`.
     ///
     /// Active state is string matching: exact path, or a slash-boundary prefix,
@@ -107,25 +120,32 @@ impl NavigationItem {
     /// Resolve a [`NavTarget::Derived`] entry against the Panel that owns it
     /// leaving an explicit target untouched.
     ///
-    /// [`Resource::navigation`] cannot know its panel — it takes no `Cx` and no
-    /// prefix — so the entry it declares carries no URL. The Panel consumes it
-    /// through `Panel::resource`, which passes its own prefix and the
-    /// resource's mount slug; there is no panel-root case, since nothing
-    /// generates an entry without a resource behind it.
+    /// [`Resource::navigation`] and [`Page::navigation`](crate::Page::navigation)
+    /// cannot know their panel — they take no `Cx` and no prefix — so the entry
+    /// they declare carries no URL. The Panel consumes it through
+    /// `Panel::resource` or `Panel::page`, which pass its own prefix and the
+    /// mount slug, or through `Panel::home`, which passes an empty slug: the
+    /// entry then points at the prefix itself.
     ///
     /// There is no guessing here: a URL an author wrote out — including one
     /// that happens to look like `/admin/{slug}` — is a different
     /// [`NavTarget`] variant and is never rewritten.
     pub(crate) fn resolved(mut self, prefix: &str, slug: &str) -> Self {
         if matches!(self.target, NavTarget::Derived) {
-            self.target = NavTarget::Url(format!("{}/{slug}", mount(prefix)));
+            let mount = mount(prefix);
+            self.target = NavTarget::Url(if slug.is_empty() {
+                mount
+            } else {
+                format!("{mount}/{slug}")
+            });
         }
         self
     }
 
     /// The URL this entry points at, or `None` while it is unresolved — i.e.
     /// still [`NavTarget::Derived`], not yet handed to a Panel. Panel-owned
-    /// items are always resolved (`Panel::resource`).
+    /// items are always resolved (`Panel::resource`, `Panel::page`,
+    /// `Panel::home`).
     pub fn url(&self) -> Option<&str> {
         self.target.url()
     }
@@ -133,14 +153,13 @@ impl NavigationItem {
     /// Whether this item is current for the given request path (without query):
     /// an exact match, or a prefix match on a slash boundary (so
     /// `/admin/users` is active on `/admin/users/create` but not on
-    /// `/admin/userships`). Uniform for every item — since resources mount at
-    /// `{prefix}/{slug}`, no generated item points at the bare panel
-    /// prefix.
+    /// `/admin/userships`).
     ///
-    /// This is the whole active-state contract: `Panel::render_shell` takes the
-    /// request path as a parameter, so it can judge an item without a `Cx` (and
-    /// the shell stays testable without a full `http::request::Parts` in `Cx`).
-    /// It is the only entry point to that judgment.
+    /// Several items can match one path — a home entry at the bare prefix
+    /// matches every panel page — so the sidebar marks only the matching item
+    /// with the longest URL active. `Panel::render_shell` takes the request
+    /// path as a parameter, so it can judge an item without a `Cx` (and the
+    /// shell stays testable without a full `http::request::Parts` in `Cx`).
     pub fn is_current_path(&self, current_path: &str) -> bool {
         let Some(url) = self.url() else {
             // Unresolved: no URL to be current for.

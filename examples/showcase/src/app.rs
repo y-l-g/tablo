@@ -18,7 +18,9 @@ use topcoat::{
 };
 
 use crate::{
-    media::MediaLibrary,
+    dashboard::Dashboard,
+    live::LiveActivityPage,
+    media::{MediaLibrary, MediaLibraryPage},
     models::{
         Author, BLOCKED_TENANT, Comment, MediaAsset, Post, Publication, REMOVED_COMMENT_BODY, Seo,
         User,
@@ -1002,10 +1004,13 @@ fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -
         // Light by default: the header toggle is the only thing that
         // turns dark on. `Panel::dark_mode` stays available for an app that
         // wants a dark-first panel.
+        .home::<Dashboard>()
         .resource::<UserResource>()
         .resource::<AuthorResource>()
         .resource::<PostResource>()
-        .resource::<CommentResource>();
+        .resource::<CommentResource>()
+        .page::<MediaLibraryPage>()
+        .page::<LiveActivityPage>();
     // No "Published" saved-view entry: it would point at
     // `/admin/posts?f.status=published`, i.e. the Blog Posts table with a
     // filter — the same page twice in the sidebar, and the one arrangement the

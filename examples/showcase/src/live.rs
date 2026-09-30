@@ -17,11 +17,10 @@
 
 use std::sync::LazyLock;
 
-use tablo_core::{Resource, db::db};
+use tablo_core::{Page, Resource, db::db};
 use topcoat::{
     Result,
     context::Cx,
-    router::page,
     runtime::{connected, shard},
     view::{View, emit, live, view},
 };
@@ -78,29 +77,36 @@ fn subscribe() -> tokio::sync::broadcast::Receiver<()> {
     BOARD.subscribe()
 }
 
-/// `GET /admin/live` — the panel page holding the live feed.
+/// The panel page holding the live feed, at [`LIVE_PATH`].
 ///
-/// The attribute spells the path [`LIVE_PATH`] names; the integration test
-/// requests `LIVE_PATH`, so a drift between the two fails the test.
-#[page("/admin/live")]
-async fn live_page(cx: &Cx) -> Result<impl View> {
-    Ok(view! {
-        cx =>
-        tablo_ui::page(
-            tablo_ui::page_header(
-                tablo_ui::page_title("Live activity")
-                tablo_ui::page_description(
-                    "The newest users, re-read after every committed write and pushed over a WebSocket."
+/// The panel mounts it at `{prefix}/live`; the integration test requests
+/// `LIVE_PATH`, so a drift between the two fails the test.
+pub struct LiveActivityPage;
+
+impl Page for LiveActivityPage {
+    fn slug() -> String {
+        "live".to_string()
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(view! {
+            cx =>
+            tablo_ui::page(
+                tablo_ui::page_header(
+                    tablo_ui::page_title("Live activity")
+                    tablo_ui::page_description(
+                        "The newest users, re-read after every committed write and pushed over a WebSocket."
+                    )
+                )
+                tablo_ui::page_content(
+                    tablo_ui::card(
+                        tablo_ui::card_header(tablo_ui::card_title("Newest users"))
+                        tablo_ui::card_content(live_feed())
+                    )
                 )
             )
-            tablo_ui::page_content(
-                tablo_ui::card(
-                    tablo_ui::card_header(tablo_ui::card_title("Newest users"))
-                    tablo_ui::card_content(live_feed())
-                )
-            )
-        )
-    })
+        })
+    }
 }
 
 /// The feed itself: a shard whose live region streams the newest users to every

@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    Notification, Uploader, csrf, db::db, notification::set_notification, require_tenant,
+    Notification, Page, Uploader, csrf, db::db, notification::set_notification, require_tenant,
     schema::OptionSource,
 };
 use topcoat::{
@@ -22,7 +22,7 @@ use topcoat::{
     router::{
         content::multipart::Multipart,
         error::{SeeOther, bad_request, see_other},
-        page, route,
+        route,
     },
     view::{BoxView, View, ViewExt, attributes, view},
 };
@@ -145,133 +145,142 @@ pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
 /// The list is one query, not a paginated `Table`: a `Table` renders text
 /// columns, and a thumbnail is not text. A library that outgrows one page wants
 /// its own loader and pager, which is a different seam from this demo's.
-#[page("/admin/media")]
-async fn media_page(cx: &Cx) -> Result<impl View> {
-    // One tenant's library: a tenantless request is refused rather
-    // than served every tenant's rows.
-    let tenant = require_tenant(cx)?;
-    let mut db = db(cx);
-    // No resource owns `MediaAsset`, so its tenant filter is this page's —
-    // written once, on the column the model declares.
-    let media = MediaAsset::filter(MediaAsset::fields().tenant_id().eq(tenant))
-        .order_by(MediaAsset::fields().created_at().desc())
-        .exec(&mut db)
-        .await?;
+pub struct MediaLibraryPage;
 
-    // The form is the app's, so the token is the app's to embed.
-    let csrf_token = csrf::ensure_token(cx);
-    let has_assets = try_app_context::<AssetConfig>(cx).is_some();
+impl Page for MediaLibraryPage {
+    /// The library keeps the short URL [`MEDIA_PATH`] names; the upload route
+    /// and the form's action share it.
+    fn slug() -> String {
+        "media".to_string()
+    }
 
-    Ok(view! {
-        cx =>
-        tablo_ui::page(
-            tablo_ui::page_header(
-                tablo_ui::page_title("Media library")
-                tablo_ui::page_description(
-                    "Files stored through the app's uploader, picked as post covers."
+    async fn render(cx: &Cx) -> Result<impl View> {
+        // One tenant's library: a tenantless request is refused rather
+        // than served every tenant's rows.
+        let tenant = require_tenant(cx)?;
+        let mut db = db(cx);
+        // No resource owns `MediaAsset`, so its tenant filter is this page's —
+        // written once, on the column the model declares.
+        let media = MediaAsset::filter(MediaAsset::fields().tenant_id().eq(tenant))
+            .order_by(MediaAsset::fields().created_at().desc())
+            .exec(&mut db)
+            .await?;
+
+        // The form is the app's, so the token is the app's to embed.
+        let csrf_token = csrf::ensure_token(cx);
+        let has_assets = try_app_context::<AssetConfig>(cx).is_some();
+
+        Ok(view! {
+            cx =>
+            tablo_ui::page(
+                tablo_ui::page_header(
+                    tablo_ui::page_title("Media library")
+                    tablo_ui::page_description(
+                        "Files stored through the app's uploader, picked as post covers."
+                    )
                 )
-            )
-            tablo_ui::page_content(
-                tablo_ui::card(
-                    tablo_ui::card_header(tablo_ui::card_title("Upload"))
-                    tablo_ui::card_content(
-                        <form
-                            method="post"
-                            action=(MEDIA_PATH)
-                            enctype="multipart/form-data"
-                            class="flex flex-col gap-4"
-                        >
-                            (csrf::field(cx, &csrf_token))
-                            <div class="flex flex-col gap-2">
-                                <label class="text-sm font-medium" for="media-file">
-                                    "File"
-                                </label>
-                                <div class="flex items-center gap-2">
-                                    tablo_ui::input(
-                                        attrs: attributes! {
-                                            id="media-file"
-                                            type="file"
-                                            name=(FILE_FIELD)
-                                            required=""
-                                            data-media-file=""
-                                        }
-                                    )
-                                    // The × is a reset control: with no script
-                                    // the browser resets the form and the file
-                                    // input empties; `media.js` empties the input
-                                    // and the preview itself and cancels that
-                                    // reset, so a file clear keeps the form
-                                    // usable (ADR-0021).
-                                    tablo_ui::button(
-                                        variant: tablo_ui::ButtonVariant::Outline,
-                                        size: tablo_ui::ButtonSize::Sm,
-                                        attrs: attributes! {
-                                            type="reset"
-                                            data-media-clear=""
-                                            aria-label="Clear the selected file"
-                                        },
-                                        "×"
-                                    )
+                tablo_ui::page_content(
+                    tablo_ui::card(
+                        tablo_ui::card_header(tablo_ui::card_title("Upload"))
+                        tablo_ui::card_content(
+                            <form
+                                method="post"
+                                action=(MEDIA_PATH)
+                                enctype="multipart/form-data"
+                                class="flex flex-col gap-4"
+                            >
+                                (csrf::field(cx, &csrf_token))
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-sm font-medium" for="media-file">
+                                        "File"
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        tablo_ui::input(
+                                            attrs: attributes! {
+                                                id="media-file"
+                                                type="file"
+                                                name=(FILE_FIELD)
+                                                required=""
+                                                data-media-file=""
+                                            }
+                                        )
+                                        // The × is a reset control: with no script
+                                        // the browser resets the form and the file
+                                        // input empties; `media.js` empties the input
+                                        // and the preview itself and cancels that
+                                        // reset, so a file clear keeps the form
+                                        // usable (ADR-0021).
+                                        tablo_ui::button(
+                                            variant: tablo_ui::ButtonVariant::Outline,
+                                            size: tablo_ui::ButtonSize::Sm,
+                                            attrs: attributes! {
+                                                type="reset"
+                                                data-media-clear=""
+                                                aria-label="Clear the selected file"
+                                            },
+                                            "×"
+                                        )
+                                    </div>
+                                    <div
+                                        data-media-preview=""
+                                        hidden=""
+                                        class="flex items-center gap-3 text-xs text-muted-foreground"
+                                    ></div>
                                 </div>
-                                <div
-                                    data-media-preview=""
-                                    hidden=""
-                                    class="flex items-center gap-3 text-xs text-muted-foreground"
-                                ></div>
-                            </div>
-                            tablo_ui::button(
-                                variant: tablo_ui::ButtonVariant::Primary,
-                                attrs: attributes! { type="submit" },
-                                "Upload"
-                            )
-                        </form>
+                                tablo_ui::button(
+                                    variant: tablo_ui::ButtonVariant::Primary,
+                                    attrs: attributes! { type="submit" },
+                                    "Upload"
+                                )
+                            </form>
+                        )
                     )
-                )
-                tablo_ui::card(
-                    tablo_ui::card_header(tablo_ui::card_title("Stored media"))
-                    tablo_ui::card_content(
-                        <div class="flex flex-col gap-3">
-                            if media.is_empty() {
-                                <p
-                                    data-media-empty=""
-                                    class="text-sm text-muted-foreground"
-                                >
-                                    "No media has been uploaded yet."
-                                </p>
-                            } else {
-                                <ul
-                                    data-media-list=""
-                                    class="flex flex-col divide-y divide-border"
-                                >
-                                    for asset in &media {
-                                        <li
-                                            data-media-row=(asset.id.to_string())
-                                            class="flex items-center gap-4 py-3"
-                                        >
-                                            (media_file_view(cx, asset))
-                                            <div class="flex min-w-0 flex-col">
-                                                if asset.kind == KIND_IMAGE {
-                                                    <span class="truncate text-sm font-medium">
-                                                        (asset.filename.clone())
+                    tablo_ui::card(
+                        tablo_ui::card_header(tablo_ui::card_title("Stored media"))
+                        tablo_ui::card_content(
+                            <div class="flex flex-col gap-3">
+                                if media.is_empty() {
+                                    <p
+                                        data-media-empty=""
+                                        class="text-sm text-muted-foreground"
+                                    >
+                                        "No media has been uploaded yet."
+                                    </p>
+                                } else {
+                                    <ul
+                                        data-media-list=""
+                                        class="flex flex-col divide-y divide-border"
+                                    >
+                                        for asset in &media {
+                                            <li
+                                                data-media-row=(asset.id.to_string())
+                                                class="flex items-center gap-4 py-3"
+                                            >
+                                                (media_file_view(cx, asset))
+                                                <div class="flex min-w-0 flex-col">
+                                                    if asset.kind == KIND_IMAGE {
+                                                        <span class="truncate text-sm font-medium">
+                                                            (asset.filename.clone())
+                                                        </span>
+                                                    }
+                                                    <span class="text-xs text-muted-foreground">
+                                                        (asset.created_at.strftime("%Y-%m-%d %H:%M").to_string())
                                                     </span>
-                                                }
-                                                <span class="text-xs text-muted-foreground">
-                                                    (asset.created_at.strftime("%Y-%m-%d %H:%M").to_string())
-                                                </span>
-                                            </div>
-                                        </li>
-                                    }
-                                </ul>
-                            }
-                        </div>
+                                                </div>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        )
                     )
+                    if has_assets {
+                        <script src=(MEDIA_JS) defer=""></script>
+                    }
                 )
-                if has_assets {
-                    <script src=(MEDIA_JS) defer=""></script>
-                }
             )
-        )
-    })
+        })
+    }
 }
 
 /// `POST /admin/media` — store one uploaded file and write the row for it.

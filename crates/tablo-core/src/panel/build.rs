@@ -15,7 +15,7 @@ use topcoat::{
 };
 
 use super::{
-    Panel,
+    Panel, Root,
     forms::MAX_FORM_BYTES,
     gate::{LoginHint, PanelPrefix, enforce_auth},
     headers,
@@ -29,8 +29,9 @@ impl Panel {
     /// items linked into the binary, mounting the browser-runtime layer
     /// (`RouterBuilderRuntimeExt::runtime`, required by `runtime::script`),
     /// installing the `Db` and the panel navigation on the `app_context`,
-    /// registering each declared resource's list page, and pointing the
-    /// panel root at the first resource.
+    /// registering each declared resource's list page and each page, and
+    /// serving the home page at the panel root, or a redirect to the first
+    /// resource when there is none.
     ///
     /// # Errors
     ///
@@ -63,7 +64,7 @@ impl Panel {
             nav_items,
             pages,
             routes,
-            root_target,
+            root,
             slugs: _,
             search_handlers,
             frame_ancestors,
@@ -184,10 +185,10 @@ impl Panel {
         for route in routes {
             builder = builder.route(route);
         }
-        // The panel root has no home page of its own; until custom pages exist,
-        // the prefix serves a redirect to the first resource's
-        // list so the mount point is never a dead URL.
-        if let Some(target) = root_target {
+        // Without a home page, the prefix serves a redirect to the first
+        // resource's list so the mount point is never a dead URL; a home page
+        // registered its own route at the prefix.
+        if let Some(Root::Redirect(target)) = root {
             builder = builder
                 .app_context(RootRedirect(target))
                 .route(RouteFn::new(
@@ -214,16 +215,16 @@ impl Panel {
     }
 }
 
-/// Where the panel root redirects (the first declared resource's list).
+/// Where the panel root redirects (the first declared resource's list) when
+/// the panel has no home page.
 /// Lives on the `app_context` because page handlers are plain `fn` pointers
 /// and cannot capture.
 #[derive(Debug, Clone)]
 struct RootRedirect(String);
 
-/// The panel root: a temporary redirect to the first declared resource's
-/// list, so the mount point is never a dead URL (custom pages remain future
-/// work; see `docs/guide/src/panel-and-routing.md`). Filament registers its
-/// home page here.
+/// The panel root of a panel with no [`home`](Panel::home) page: a temporary
+/// redirect to the first declared resource's list, so the mount point is never
+/// a dead URL.
 pub(crate) fn panel_root_redirect(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         // Defense in depth: every panel handler re-checks the

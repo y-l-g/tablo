@@ -24,7 +24,7 @@ use crate::{
 mod column;
 mod commit;
 mod filter;
-mod naming;
+pub(crate) mod naming;
 mod navigation;
 mod page;
 mod relation;
