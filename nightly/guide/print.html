@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7ccf44b4.js";
+            window.path_to_searchindex_js = "searchindex-6b749a68.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -1122,7 +1122,9 @@ delete actions and the bulk delete carry <code>?return=</code>, and the write re
 the related resource’s list. The panel follows a <code>return</code> only to a path under its own prefix.</p>
 <p><code>Panel::build</code> rejects a relation to a resource the panel does not register — its row actions and
 create link would lead nowhere — and two relations of one resource to the same related resource.
-A table declared <code>live_search</code> renders its server-side search in a relation.</p>
+A table declared <code>live_search</code> stays live in a relation: sorting, searching, filtering and paging
+re-render that table in place, with its URL parameters prefixed by the relation’s key, and without
+JavaScript its links and forms fall back to full page loads.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="policy-auth-tenancy"><a class="header" href="#policy-auth-tenancy">Policy, auth, tenancy</a></h1>
 <p>Who may see and change what: the <code>can_*</code> predicates, the auth gate and its seams, and where the
