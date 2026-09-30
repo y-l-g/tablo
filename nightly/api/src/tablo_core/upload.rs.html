@@ -1,8 +1,8 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/tablo-core/src/upload.rs`."><title>upload.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="tablo_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">tablo_core/</div>upload.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Where uploaded bytes go: the `Uploader` seam, and the one place
 <a href=#2 id=2 data-nosnippet>2</a>//! the framework hands bytes to it.
 <a href=#3 id=3 data-nosnippet>3</a>//!
-<a href=#4 id=4 data-nosnippet>4</a>//! `FileUpload` binds a `String` column, the panel renders a file input, and
-<a href=#5 id=5 data-nosnippet>5</a>//! the form parser decodes the multipart body — but *where* the bytes live and
+<a href=#4 id=4 data-nosnippet>4</a>//! A file field ([`Field::file`](crate::Field::file)) binds a `String` column, the panel renders a
+<a href=#5 id=5 data-nosnippet>5</a>//! file input, and the form parser decodes the multipart body — but *where* the bytes live and
 <a href=#6 id=6 data-nosnippet>6</a>//! what path the record stores is the app's decision: an object store, a
 <a href=#7 id=7 data-nosnippet>7</a>//! directory on disk, a CDN. The framework owns everything up to the bytes and
 <a href=#8 id=8 data-nosnippet>8</a>//! nothing after them, so this module is deliberately small: a trait, the app
@@ -21,9 +21,9 @@
 <a href=#21 id=21 data-nosnippet>21</a><span class="doccomment">/// Store one uploaded file and name the value a record stores.
 <a href=#22 id=22 data-nosnippet>22</a>///
 <a href=#23 id=23 data-nosnippet>23</a>/// Installed once per panel with [`Panel::uploads`](crate::Panel::uploads) —
-<a href=#24 id=24 data-nosnippet>24</a>/// the way `Db` is — and found on the app context wherever a `FileUpload`
+<a href=#24 id=24 data-nosnippet>24</a>/// the way `Db` is — and found on the app context wherever a file field
 <a href=#25 id=25 data-nosnippet>25</a>/// stores, because an object store is an app-level dependency: threading it
-<a href=#26 id=26 data-nosnippet>26</a>/// through every `.for(..)` call site would put it in the schema declaration.
+<a href=#26 id=26 data-nosnippet>26</a>/// through every field declaration would put it in the schema declaration.
 <a href=#27 id=27 data-nosnippet>27</a>///
 <a href=#28 id=28 data-nosnippet>28</a>/// `filename` arrives already sanitized to a basename: no directory
 <a href=#29 id=29 data-nosnippet>29</a>/// components, no control characters, capped at 255 bytes, and never empty (an
@@ -162,7 +162,7 @@
 <a href=#162 id=162 data-nosnippet>162</a>/// returning `field_name -&gt; inline errors` and the fields whose
 <a href=#163 id=163 data-nosnippet>163</a>/// value is now the uploader's answer.
 <a href=#164 id=164 data-nosnippet>164</a>///
-<a href=#165 id=165 data-nosnippet>165</a>/// For each declared [`FileUpload`](crate::schema::FileUpload) that carried
+<a href=#165 id=165 data-nosnippet>165</a>/// For each declared file field ([`Field::file`](crate::schema::Field::file)) that carried
 <a href=#166 id=166 data-nosnippet>166</a>/// bytes, the returned path replaces the sanitized basename the parser put in
 <a href=#167 id=167 data-nosnippet>167</a>/// `values` — so the record fn sees the stored path and nothing else changes
 <a href=#168 id=168 data-nosnippet>168</a>/// about its contract. The second half of the answer is those field names: a
@@ -195,27 +195,28 @@
 <a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">let </span><span class="kw-2">mut </span>stored = HashSet::new();
 <a href=#196 id=196 data-nosnippet>196</a>    <span class="comment">// Declared uploads only: a file part the schema does not declare is not a
 <a href=#197 id=197 data-nosnippet>197</a>    // field this form may write (the unknown-key allow-list answers for it).
-<a href=#198 id=198 data-nosnippet>198</a>    </span><span class="kw">for </span>(name, upload) <span class="kw">in </span>schema.file_uploads() {
-<a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(staged) = files.get(<span class="kw-2">&amp;</span>name) <span class="kw">else </span>{
-<a href=#200 id=200 data-nosnippet>200</a>            <span class="kw">continue</span>;
-<a href=#201 id=201 data-nosnippet>201</a>        };
-<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">match </span>uploader.store(<span class="kw-2">&amp;</span>staged.filename, <span class="kw-2">&amp;</span>staged.bytes).<span class="kw">await </span>{
-<a href=#203 id=203 data-nosnippet>203</a>            <span class="prelude-val">Ok</span>(path) =&gt; {
-<a href=#204 id=204 data-nosnippet>204</a>                values.insert(name.clone(), path);
-<a href=#205 id=205 data-nosnippet>205</a>                stored.insert(name);
-<a href=#206 id=206 data-nosnippet>206</a>            }
-<a href=#207 id=207 data-nosnippet>207</a>            <span class="prelude-val">Err</span>(reason) =&gt; {
-<a href=#208 id=208 data-nosnippet>208</a>                values.remove(<span class="kw-2">&amp;</span>name);
-<a href=#209 id=209 data-nosnippet>209</a>                errors.insert(
-<a href=#210 id=210 data-nosnippet>210</a>                    name,
-<a href=#211 id=211 data-nosnippet>211</a>                    <span class="macro">vec!</span>[<span class="macro">format!</span>(
-<a href=#212 id=212 data-nosnippet>212</a>                        <span class="string">"{} could not be uploaded: {reason}"</span>,
-<a href=#213 id=213 data-nosnippet>213</a>                        upload.label_str()
-<a href=#214 id=214 data-nosnippet>214</a>                    )],
-<a href=#215 id=215 data-nosnippet>215</a>                );
-<a href=#216 id=216 data-nosnippet>216</a>            }
-<a href=#217 id=217 data-nosnippet>217</a>        }
-<a href=#218 id=218 data-nosnippet>218</a>    }
-<a href=#219 id=219 data-nosnippet>219</a>    (errors, stored)
-<a href=#220 id=220 data-nosnippet>220</a>}
+<a href=#198 id=198 data-nosnippet>198</a>    </span><span class="kw">for </span>field <span class="kw">in </span>schema.fields().filter(|field| field.is_file()) {
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">let </span>name = field.name().to_string();
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(staged) = files.get(<span class="kw-2">&amp;</span>name) <span class="kw">else </span>{
+<a href=#201 id=201 data-nosnippet>201</a>            <span class="kw">continue</span>;
+<a href=#202 id=202 data-nosnippet>202</a>        };
+<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">match </span>uploader.store(<span class="kw-2">&amp;</span>staged.filename, <span class="kw-2">&amp;</span>staged.bytes).<span class="kw">await </span>{
+<a href=#204 id=204 data-nosnippet>204</a>            <span class="prelude-val">Ok</span>(path) =&gt; {
+<a href=#205 id=205 data-nosnippet>205</a>                values.insert(name.clone(), path);
+<a href=#206 id=206 data-nosnippet>206</a>                stored.insert(name);
+<a href=#207 id=207 data-nosnippet>207</a>            }
+<a href=#208 id=208 data-nosnippet>208</a>            <span class="prelude-val">Err</span>(reason) =&gt; {
+<a href=#209 id=209 data-nosnippet>209</a>                values.remove(<span class="kw-2">&amp;</span>name);
+<a href=#210 id=210 data-nosnippet>210</a>                errors.insert(
+<a href=#211 id=211 data-nosnippet>211</a>                    name,
+<a href=#212 id=212 data-nosnippet>212</a>                    <span class="macro">vec!</span>[<span class="macro">format!</span>(
+<a href=#213 id=213 data-nosnippet>213</a>                        <span class="string">"{} could not be uploaded: {reason}"</span>,
+<a href=#214 id=214 data-nosnippet>214</a>                        field.label_str()
+<a href=#215 id=215 data-nosnippet>215</a>                    )],
+<a href=#216 id=216 data-nosnippet>216</a>                );
+<a href=#217 id=217 data-nosnippet>217</a>            }
+<a href=#218 id=218 data-nosnippet>218</a>        }
+<a href=#219 id=219 data-nosnippet>219</a>    }
+<a href=#220 id=220 data-nosnippet>220</a>    (errors, stored)
+<a href=#221 id=221 data-nosnippet>221</a>}
 </code></pre></div></section></main></body></html>

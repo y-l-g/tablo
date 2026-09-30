@@ -22,11 +22,11 @@
 <a href=#22 id=22 data-nosnippet>22</a>    </span><span class="kw">pub </span>name: String,
 <a href=#23 id=23 data-nosnippet>23</a>    <span class="attr">#[unique]
 <a href=#24 id=24 data-nosnippet>24</a>    </span><span class="kw">pub </span>email: String,
-<a href=#25 id=25 data-nosnippet>25</a>    <span class="doccomment">/// "admin" or "member" — the form renders them as a static-options Select.
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="doccomment">/// "admin" or "member" — the form renders them as a static-options choice.
 <a href=#26 id=26 data-nosnippet>26</a>    </span><span class="kw">pub </span>role: String,
 <a href=#27 id=27 data-nosnippet>27</a>    <span class="kw">pub </span>active: bool,
-<a href=#28 id=28 data-nosnippet>28</a>    <span class="doccomment">/// A stored integer the form binds through `TextInput::typed`: optional,
-<a href=#29 id=29 data-nosnippet>29</a>    /// zero or more.
+<a href=#28 id=28 data-nosnippet>28</a>    <span class="doccomment">/// A stored integer the form binds as a typed text field: optional, zero
+<a href=#29 id=29 data-nosnippet>29</a>    /// or more.
 <a href=#30 id=30 data-nosnippet>30</a>    </span><span class="kw">pub </span>age: i64,
 <a href=#31 id=31 data-nosnippet>31</a>    <span class="attr">#[default(jiff::Timestamp::now())]
 <a href=#32 id=32 data-nosnippet>32</a>    </span><span class="kw">pub </span>created_at: Timestamp,
@@ -60,9 +60,9 @@
 <a href=#60 id=60 data-nosnippet>60</a></span><span class="attr">#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 <a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">pub struct </span>Seo {
 <a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">pub </span>title: String,
-<a href=#63 id=63 data-nosnippet>63</a>    <span class="doccomment">/// A multi-line control: the derive renders one `TextInput` per leaf, and
-<a href=#64 id=64 data-nosnippet>64</a>    /// this is the one leaf the panel wants as a `Textarea`.
-<a href=#65 id=65 data-nosnippet>65</a>    </span><span class="attr">#[form(textarea, rows = <span class="number">3</span>)]
+<a href=#63 id=63 data-nosnippet>63</a>    <span class="doccomment">/// A multi-line control: the derive renders one text field per leaf, and
+<a href=#64 id=64 data-nosnippet>64</a>    /// this is the one leaf the panel wants as a `&lt;textarea&gt;`.
+<a href=#65 id=65 data-nosnippet>65</a>    </span><span class="attr">#[form(multiline = <span class="number">3</span>)]
 <a href=#66 id=66 data-nosnippet>66</a>    </span><span class="kw">pub </span>description: String,
 <a href=#67 id=67 data-nosnippet>67</a>}
 <a href=#68 id=68 data-nosnippet>68</a>
@@ -75,7 +75,7 @@
 <a href=#75 id=75 data-nosnippet>75</a>/// `publication_reason`).
 <a href=#76 id=76 data-nosnippet>76</a>///
 <a href=#77 id=77 data-nosnippet>77</a>/// The timestamps are `jiff::Timestamp`: the form binds them through
-<a href=#78 id=78 data-nosnippet>78</a>/// `TextInput::typed`, which renders `type="datetime-local"` and reads the
+<a href=#78 id=78 data-nosnippet>78</a>/// a typed text field, which renders `type="datetime-local"` and reads the
 <a href=#79 id=79 data-nosnippet>79</a>/// submission back as UTC.
 <a href=#80 id=80 data-nosnippet>80</a></span><span class="attr">#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
 <a href=#81 id=81 data-nosnippet>81</a></span><span class="kw">pub enum </span>Publication {

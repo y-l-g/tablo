@@ -65,7 +65,7 @@
 <a href=#65 id=65 data-nosnippet>65</a>    <span class="kw">let </span>stored = advisory
 <a href=#66 id=66 data-nosnippet>66</a>        .map(|advisory| &lt;R::Form <span class="kw">as </span>RecordForm&gt;::hydrate(cx, advisory))
 <a href=#67 id=67 data-nosnippet>67</a>        .unwrap_or_default();
-<a href=#68 id=68 data-nosnippet>68</a>    <span class="comment">// A declared `FileUpload` takes its value only from a file part:
+<a href=#68 id=68 data-nosnippet>68</a>    <span class="comment">// A declared file field takes its value only from a file part:
 <a href=#69 id=69 data-nosnippet>69</a>    // a text part or a url-encoded pair under the same name is client-typed,
 <a href=#70 id=70 data-nosnippet>70</a>    // not an upload, and would otherwise reach the record and render as the
 <a href=#71 id=71 data-nosnippet>71</a>    // file's link.
@@ -84,255 +84,257 @@
 <a href=#84 id=84 data-nosnippet>84</a>    // input (browsers never pre-fill it), so an empty part means "keep", not
 <a href=#85 id=85 data-nosnippet>85</a>    // "clear". An explicit `clear_&lt;field&gt;=1` names it empty; a chosen file
 <a href=#86 id=86 data-nosnippet>86</a>    // still wins over the clear, because a replacement is not a removal.
-<a href=#87 id=87 data-nosnippet>87</a>    </span><span class="kw">for </span>name <span class="kw">in </span>schema.file_uploads().keys() {
-<a href=#88 id=88 data-nosnippet>88</a>        <span class="kw">let </span>cleared = values
-<a href=#89 id=89 data-nosnippet>89</a>            .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"clear_{name}"</span>))
-<a href=#90 id=90 data-nosnippet>90</a>            .is_some_and(|v| truthy(v));
-<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">let </span>empty = values
-<a href=#92 id=92 data-nosnippet>92</a>            .get(name)
-<a href=#93 id=93 data-nosnippet>93</a>            .map(|v| v.trim().is_empty())
-<a href=#94 id=94 data-nosnippet>94</a>            .unwrap_or(<span class="bool-val">true</span>);
-<a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">if </span>!cleared &amp;&amp; empty &amp;&amp; stored.get(name).is_some_and(|v| !v.trim().is_empty()) {
-<a href=#96 id=96 data-nosnippet>96</a>            values.remove(name);
-<a href=#97 id=97 data-nosnippet>97</a>        }
-<a href=#98 id=98 data-nosnippet>98</a>    }
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="comment">// Transport keys never reach the record fn; see `strip_transport_keys`.
-<a href=#100 id=100 data-nosnippet>100</a>    </span>strip_transport_keys(<span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;mut </span>values);
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">let </span>named: HashSet&lt;String&gt; = values.keys().cloned().collect();
-<a href=#102 id=102 data-nosnippet>102</a>    complete(<span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;mut </span>values, <span class="kw-2">&amp;</span>named, <span class="kw-2">&amp;</span>stored);
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">let </span><span class="kw-2">mut </span>errors = schema.validate_async(cx, <span class="kw-2">&amp;</span>values).<span class="kw">await</span>;
-<a href=#104 id=104 data-nosnippet>104</a>    <span class="comment">// A rejected upload owns its field's error slot: "required" would restate
-<a href=#105 id=105 data-nosnippet>105</a>    // the symptom (nothing was stored) and hide the reason.
-<a href=#106 id=106 data-nosnippet>106</a>    </span>errors.extend(upload_errors);
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="prelude-val">Ok</span>(Submission {
-<a href=#108 id=108 data-nosnippet>108</a>        schema,
-<a href=#109 id=109 data-nosnippet>109</a>        values,
-<a href=#110 id=110 data-nosnippet>110</a>        errors,
-<a href=#111 id=111 data-nosnippet>111</a>        carried,
-<a href=#112 id=112 data-nosnippet>112</a>        named,
-<a href=#113 id=113 data-nosnippet>113</a>    })
-<a href=#114 id=114 data-nosnippet>114</a>}
-<a href=#115 id=115 data-nosnippet>115</a>
-<a href=#116 id=116 data-nosnippet>116</a><span class="doccomment">/// Fill every declared key the submission did not name from `stored`, the
-<a href=#117 id=117 data-nosnippet>117</a>/// record's form projection, and drop one `stored` does not hold. On create
-<a href=#118 id=118 data-nosnippet>118</a>/// `stored` is empty and an unnamed key stays absent.
-<a href=#119 id=119 data-nosnippet>119</a></span><span class="kw">fn </span>complete(
-<a href=#120 id=120 data-nosnippet>120</a>    schema: <span class="kw-2">&amp;</span>Schema,
-<a href=#121 id=121 data-nosnippet>121</a>    values: <span class="kw-2">&amp;mut </span>HashMap&lt;String, String&gt;,
-<a href=#122 id=122 data-nosnippet>122</a>    named: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;,
-<a href=#123 id=123 data-nosnippet>123</a>    stored: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
-<a href=#124 id=124 data-nosnippet>124</a>) {
-<a href=#125 id=125 data-nosnippet>125</a>    <span class="kw">for </span>name <span class="kw">in </span>schema.field_names() {
-<a href=#126 id=126 data-nosnippet>126</a>        <span class="kw">if </span>named.contains(<span class="kw-2">&amp;</span>name) {
-<a href=#127 id=127 data-nosnippet>127</a>            <span class="kw">continue</span>;
-<a href=#128 id=128 data-nosnippet>128</a>        }
-<a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">match </span>stored.get(<span class="kw-2">&amp;</span>name) {
-<a href=#130 id=130 data-nosnippet>130</a>            <span class="prelude-val">Some</span>(value) =&gt; values.insert(name, value.clone()),
-<a href=#131 id=131 data-nosnippet>131</a>            <span class="prelude-val">None </span>=&gt; values.remove(<span class="kw-2">&amp;</span>name),
-<a href=#132 id=132 data-nosnippet>132</a>        };
-<a href=#133 id=133 data-nosnippet>133</a>    }
-<a href=#134 id=134 data-nosnippet>134</a>}
-<a href=#135 id=135 data-nosnippet>135</a>
-<a href=#136 id=136 data-nosnippet>136</a><span class="doccomment">/// Parse the completed values into the resource's form and run its
-<a href=#137 id=137 data-nosnippet>137</a>/// `validate_record`, adding each failure to `errors`.
-<a href=#138 id=138 data-nosnippet>138</a>///
-<a href=#139 id=139 data-nosnippet>139</a>/// A parse failure is added only to a key with no error yet, so a blank
-<a href=#140 id=140 data-nosnippet>140</a>/// required control shows the schema's message once. `validate_record` needs a
-<a href=#141 id=141 data-nosnippet>141</a>/// whole form, so it runs only when every field parsed.
-<a href=#142 id=142 data-nosnippet>142</a>///
-<a href=#143 id=143 data-nosnippet>143</a>/// # Errors
+<a href=#87 id=87 data-nosnippet>87</a>    </span><span class="kw">for </span>field <span class="kw">in </span>schema.fields().filter(|field| field.is_file()) {
+<a href=#88 id=88 data-nosnippet>88</a>        <span class="kw">let </span>name = field.name();
+<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">let </span>cleared = values
+<a href=#90 id=90 data-nosnippet>90</a>            .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"clear_{name}"</span>))
+<a href=#91 id=91 data-nosnippet>91</a>            .is_some_and(|v| truthy(v));
+<a href=#92 id=92 data-nosnippet>92</a>        <span class="kw">let </span>empty = values
+<a href=#93 id=93 data-nosnippet>93</a>            .get(name)
+<a href=#94 id=94 data-nosnippet>94</a>            .map(|v| v.trim().is_empty())
+<a href=#95 id=95 data-nosnippet>95</a>            .unwrap_or(<span class="bool-val">true</span>);
+<a href=#96 id=96 data-nosnippet>96</a>        <span class="kw">if </span>!cleared &amp;&amp; empty &amp;&amp; stored.get(name).is_some_and(|v| !v.trim().is_empty()) {
+<a href=#97 id=97 data-nosnippet>97</a>            values.remove(name);
+<a href=#98 id=98 data-nosnippet>98</a>        }
+<a href=#99 id=99 data-nosnippet>99</a>    }
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="comment">// Transport keys never reach the record fn; see `strip_transport_keys`.
+<a href=#101 id=101 data-nosnippet>101</a>    </span>strip_transport_keys(<span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;mut </span>values);
+<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">let </span>named: HashSet&lt;String&gt; = values.keys().cloned().collect();
+<a href=#103 id=103 data-nosnippet>103</a>    complete(<span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;mut </span>values, <span class="kw-2">&amp;</span>named, <span class="kw-2">&amp;</span>stored);
+<a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">let </span><span class="kw-2">mut </span>errors = schema.validate_async(cx, <span class="kw-2">&amp;</span>values).<span class="kw">await</span>;
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="comment">// A rejected upload owns its field's error slot: "required" would restate
+<a href=#106 id=106 data-nosnippet>106</a>    // the symptom (nothing was stored) and hide the reason.
+<a href=#107 id=107 data-nosnippet>107</a>    </span>errors.extend(upload_errors);
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="prelude-val">Ok</span>(Submission {
+<a href=#109 id=109 data-nosnippet>109</a>        schema,
+<a href=#110 id=110 data-nosnippet>110</a>        values,
+<a href=#111 id=111 data-nosnippet>111</a>        errors,
+<a href=#112 id=112 data-nosnippet>112</a>        carried,
+<a href=#113 id=113 data-nosnippet>113</a>        named,
+<a href=#114 id=114 data-nosnippet>114</a>    })
+<a href=#115 id=115 data-nosnippet>115</a>}
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a><span class="doccomment">/// Fill every declared key the submission did not name from `stored`, the
+<a href=#118 id=118 data-nosnippet>118</a>/// record's form projection, and drop one `stored` does not hold. On create
+<a href=#119 id=119 data-nosnippet>119</a>/// `stored` is empty and an unnamed key stays absent.
+<a href=#120 id=120 data-nosnippet>120</a></span><span class="kw">fn </span>complete(
+<a href=#121 id=121 data-nosnippet>121</a>    schema: <span class="kw-2">&amp;</span>Schema,
+<a href=#122 id=122 data-nosnippet>122</a>    values: <span class="kw-2">&amp;mut </span>HashMap&lt;String, String&gt;,
+<a href=#123 id=123 data-nosnippet>123</a>    named: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;,
+<a href=#124 id=124 data-nosnippet>124</a>    stored: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
+<a href=#125 id=125 data-nosnippet>125</a>) {
+<a href=#126 id=126 data-nosnippet>126</a>    <span class="kw">for </span>field <span class="kw">in </span>schema.fields() {
+<a href=#127 id=127 data-nosnippet>127</a>        <span class="kw">let </span>name = field.name();
+<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">if </span>named.contains(name) {
+<a href=#129 id=129 data-nosnippet>129</a>            <span class="kw">continue</span>;
+<a href=#130 id=130 data-nosnippet>130</a>        }
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">match </span>stored.get(name) {
+<a href=#132 id=132 data-nosnippet>132</a>            <span class="prelude-val">Some</span>(value) =&gt; values.insert(name.to_string(), value.clone()),
+<a href=#133 id=133 data-nosnippet>133</a>            <span class="prelude-val">None </span>=&gt; values.remove(name),
+<a href=#134 id=134 data-nosnippet>134</a>        };
+<a href=#135 id=135 data-nosnippet>135</a>    }
+<a href=#136 id=136 data-nosnippet>136</a>}
+<a href=#137 id=137 data-nosnippet>137</a>
+<a href=#138 id=138 data-nosnippet>138</a><span class="doccomment">/// Parse the completed values into the resource's form and run its
+<a href=#139 id=139 data-nosnippet>139</a>/// `validate_record`, adding each failure to `errors`.
+<a href=#140 id=140 data-nosnippet>140</a>///
+<a href=#141 id=141 data-nosnippet>141</a>/// A parse failure is added only to a key with no error yet, so a blank
+<a href=#142 id=142 data-nosnippet>142</a>/// required control shows the schema's message once. `validate_record` needs a
+<a href=#143 id=143 data-nosnippet>143</a>/// whole form, so it runs only when every field parsed.
 <a href=#144 id=144 data-nosnippet>144</a>///
-<a href=#145 id=145 data-nosnippet>145</a>/// A `validate_record` error on a field `RecordForm::fields` binds to no key:
-<a href=#146 id=146 data-nosnippet>146</a>/// it cannot render, and the write must not proceed past it.
-<a href=#147 id=147 data-nosnippet>147</a></span><span class="kw">fn </span>parse_form&lt;R: Resource&gt;(
-<a href=#148 id=148 data-nosnippet>148</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#149 id=149 data-nosnippet>149</a>    schema: <span class="kw-2">&amp;</span>Schema,
-<a href=#150 id=150 data-nosnippet>150</a>    values: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
-<a href=#151 id=151 data-nosnippet>151</a>    errors: <span class="kw-2">&amp;mut </span>HashMap&lt;String, Vec&lt;String&gt;&gt;,
-<a href=#152 id=152 data-nosnippet>152</a>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;R::Form&gt;, topcoat::Error&gt; {
-<a href=#153 id=153 data-nosnippet>153</a>    <span class="comment">// Typed fields parse their own spelling, not the browser's.
-<a href=#154 id=154 data-nosnippet>154</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>normalized = values.clone();
-<a href=#155 id=155 data-nosnippet>155</a>    schema.normalize_values(<span class="kw-2">&amp;mut </span>normalized);
-<a href=#156 id=156 data-nosnippet>156</a>    <span class="kw">match </span>&lt;R::Form <span class="kw">as </span>RecordForm&gt;::parse(cx, <span class="kw-2">&amp;</span>normalized) {
-<a href=#157 id=157 data-nosnippet>157</a>        <span class="prelude-val">Ok</span>(form) =&gt; {
-<a href=#158 id=158 data-nosnippet>158</a>            <span class="kw">let </span>fields = &lt;R::Form <span class="kw">as </span>RecordForm&gt;::fields(cx);
-<a href=#159 id=159 data-nosnippet>159</a>            <span class="kw">for </span>(field, message) <span class="kw">in </span>R::validate_record(cx, <span class="kw-2">&amp;</span>form).iter() {
-<a href=#160 id=160 data-nosnippet>160</a>                <span class="comment">// A field's errors render under its first key: a scalar's own,
-<a href=#161 id=161 data-nosnippet>161</a>                // an embedded enum's discriminant.
-<a href=#162 id=162 data-nosnippet>162</a>                </span><span class="kw">let </span><span class="prelude-val">Some</span>(key) = fields
-<a href=#163 id=163 data-nosnippet>163</a>                    .iter()
-<a href=#164 id=164 data-nosnippet>164</a>                    .find(|claim| claim.field == <span class="kw-2">*</span>field)
-<a href=#165 id=165 data-nosnippet>165</a>                    .and_then(|claim| claim.keys.first())
-<a href=#166 id=166 data-nosnippet>166</a>                <span class="kw">else </span>{
-<a href=#167 id=167 data-nosnippet>167</a>                    <span class="comment">// A rule refused a field the form lists no key for: there is
-<a href=#168 id=168 data-nosnippet>168</a>                    // nowhere to render it, and writing anyway would drop it.
-<a href=#169 id=169 data-nosnippet>169</a>                    </span><span class="kw">return </span><span class="prelude-val">Err</span>(std::io::Error::other(<span class="macro">format!</span>(
-<a href=#170 id=170 data-nosnippet>170</a>                        <span class="string">"validate_record refused {field:?}, which `{}::fields` binds to no key: \
-<a href=#171 id=171 data-nosnippet>171</a>                         {message}"</span>,
-<a href=#172 id=172 data-nosnippet>172</a>                        std::any::type_name::&lt;R::Form&gt;()
-<a href=#173 id=173 data-nosnippet>173</a>                    ))
-<a href=#174 id=174 data-nosnippet>174</a>                    .into());
-<a href=#175 id=175 data-nosnippet>175</a>                };
-<a href=#176 id=176 data-nosnippet>176</a>                errors.entry(key.clone()).or_default().push(message.clone());
-<a href=#177 id=177 data-nosnippet>177</a>            }
-<a href=#178 id=178 data-nosnippet>178</a>            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(form))
-<a href=#179 id=179 data-nosnippet>179</a>        }
-<a href=#180 id=180 data-nosnippet>180</a>        <span class="prelude-val">Err</span>(failures) =&gt; {
-<a href=#181 id=181 data-nosnippet>181</a>            <span class="kw">let </span>controls = schema.controls();
-<a href=#182 id=182 data-nosnippet>182</a>            <span class="kw">for </span>failure <span class="kw">in </span>failures {
-<a href=#183 id=183 data-nosnippet>183</a>                <span class="kw">if </span>errors.contains_key(<span class="kw-2">&amp;</span>failure.key) {
-<a href=#184 id=184 data-nosnippet>184</a>                    <span class="kw">continue</span>;
-<a href=#185 id=185 data-nosnippet>185</a>                }
-<a href=#186 id=186 data-nosnippet>186</a>                <span class="kw">let </span>message = <span class="kw">match </span>failure.kind {
-<a href=#187 id=187 data-nosnippet>187</a>                    FieldErrorKind::Required =&gt; controls
-<a href=#188 id=188 data-nosnippet>188</a>                        .iter()
-<a href=#189 id=189 data-nosnippet>189</a>                        .find(|control| control.name == failure.key)
-<a href=#190 id=190 data-nosnippet>190</a>                        .and_then(|control| control.required_error.clone())
-<a href=#191 id=191 data-nosnippet>191</a>                        .unwrap_or(failure.message),
-<a href=#192 id=192 data-nosnippet>192</a>                    FieldErrorKind::Invalid =&gt; failure.message,
-<a href=#193 id=193 data-nosnippet>193</a>                };
-<a href=#194 id=194 data-nosnippet>194</a>                errors.insert(failure.key, <span class="macro">vec!</span>[message]);
-<a href=#195 id=195 data-nosnippet>195</a>            }
-<a href=#196 id=196 data-nosnippet>196</a>            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-<a href=#197 id=197 data-nosnippet>197</a>        }
-<a href=#198 id=198 data-nosnippet>198</a>    }
-<a href=#199 id=199 data-nosnippet>199</a>}
-<a href=#200 id=200 data-nosnippet>200</a>
-<a href=#201 id=201 data-nosnippet>201</a><span class="doccomment">/// The form fields with at least one key the submission named.
-<a href=#202 id=202 data-nosnippet>202</a></span><span class="kw">fn </span>named_fields&lt;F: RecordForm&gt;(cx: <span class="kw-2">&amp;</span>Cx, named: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;) -&gt; Vec&lt;F::Field&gt; {
-<a href=#203 id=203 data-nosnippet>203</a>    F::fields(cx)
-<a href=#204 id=204 data-nosnippet>204</a>        .into_iter()
-<a href=#205 id=205 data-nosnippet>205</a>        .filter(|field| field.keys.iter().any(|key| named.contains(key)))
-<a href=#206 id=206 data-nosnippet>206</a>        .map(|field| field.field)
-<a href=#207 id=207 data-nosnippet>207</a>        .collect()
-<a href=#208 id=208 data-nosnippet>208</a>}
-<a href=#209 id=209 data-nosnippet>209</a>
-<a href=#210 id=210 data-nosnippet>210</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_create_post&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
-<a href=#211 id=211 data-nosnippet>211</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
-<a href=#212 id=212 data-nosnippet>212</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#213 id=213 data-nosnippet>213</a>        <span class="kw">if </span>!R::can_create(cx) {
-<a href=#214 id=214 data-nosnippet>214</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#215 id=215 data-nosnippet>215</a>        }
-<a href=#216 id=216 data-nosnippet>216</a>        <span class="kw">let </span>parts = parse_form_body(cx, body).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">crate</span>::csrf::verify(cx, <span class="kw-2">&amp;</span>parts.values)<span class="question-mark">?</span>;
-<a href=#218 id=218 data-nosnippet>218</a>        <span class="comment">// A create has no stored value to keep, so it stages no advisory
-<a href=#219 id=219 data-nosnippet>219</a>        // snapshot: a rejected file leaves its field empty beside the reason.
-<a href=#220 id=220 data-nosnippet>220</a>        </span><span class="kw">let </span>Submission {
-<a href=#221 id=221 data-nosnippet>221</a>            schema,
-<a href=#222 id=222 data-nosnippet>222</a>            values,
-<a href=#223 id=223 data-nosnippet>223</a>            <span class="kw-2">mut </span>errors,
-<a href=#224 id=224 data-nosnippet>224</a>            carried,
-<a href=#225 id=225 data-nosnippet>225</a>            ..
-<a href=#226 id=226 data-nosnippet>226</a>        } = prepare_submission::&lt;R&gt;(cx, parts, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#227 id=227 data-nosnippet>227</a>        <span class="comment">// Framework-owned transaction, opened only after validation so that
-<a href=#228 id=228 data-nosnippet>228</a>        // `validate_async` loaders still run before it opens (see `crate::db`
-<a href=#229 id=229 data-nosnippet>229</a>        // pool discipline). The unique check and the write observe one snapshot
-<a href=#230 id=230 data-nosnippet>230</a>        // and commit atomically; dropping `tx` without commit rolls back.
-<a href=#231 id=231 data-nosnippet>231</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
-<a href=#232 id=232 data-nosnippet>232</a>        <span class="kw">let </span><span class="kw-2">mut </span>tx = db.transaction().<span class="kw">await</span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
-<a href=#233 id=233 data-nosnippet>233</a>        <span class="comment">// App-side unique check over every `unique()`-marked input — the only
-<a href=#234 id=234 data-nosnippet>234</a>        // error layer until toasty exposes a unique-violation predicate
-<a href=#235 id=235 data-nosnippet>235</a>        // (upstream gap #117; never string-match driver error messages).
-<a href=#236 id=236 data-nosnippet>236</a>        </span><span class="kw">for </span>(name, errs) <span class="kw">in
-<a href=#237 id=237 data-nosnippet>237</a>            </span>check_unique::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;</span>HashMap::new(), <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span><span class="question-mark">?
-<a href=#238 id=238 data-nosnippet>238</a>        </span>{
-<a href=#239 id=239 data-nosnippet>239</a>            errors.entry(name).or_default().extend(errs);
-<a href=#240 id=240 data-nosnippet>240</a>        }
-<a href=#241 id=241 data-nosnippet>241</a>        <span class="kw">let </span>form = parse_form::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;mut </span>errors)<span class="question-mark">?</span>;
-<a href=#242 id=242 data-nosnippet>242</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(form) = form.filter(|<span class="kw">_</span>| errors.is_empty()) <span class="kw">else </span>{
-<a href=#243 id=243 data-nosnippet>243</a>            <span class="kw">return </span>rerender_invalid_form::&lt;R&gt;(
-<a href=#244 id=244 data-nosnippet>244</a>                cx,
-<a href=#245 id=245 data-nosnippet>245</a>                tx,
-<a href=#246 id=246 data-nosnippet>246</a>                <span class="macro">format!</span>(<span class="string">"Create {}"</span>, R::label()),
-<a href=#247 id=247 data-nosnippet>247</a>                <span class="string">"Create"</span>,
-<a href=#248 id=248 data-nosnippet>248</a>                <span class="kw-2">&amp;</span>values,
-<a href=#249 id=249 data-nosnippet>249</a>                <span class="kw-2">&amp;</span>errors,
-<a href=#250 id=250 data-nosnippet>250</a>                <span class="kw-2">&amp;</span>carried,
-<a href=#251 id=251 data-nosnippet>251</a>                <span class="prelude-val">None</span>,
-<a href=#252 id=252 data-nosnippet>252</a>            )
-<a href=#253 id=253 data-nosnippet>253</a>            .<span class="kw">await</span>;
-<a href=#254 id=254 data-nosnippet>254</a>        };
-<a href=#255 id=255 data-nosnippet>255</a>        <span class="comment">// The row the record fn returns is what `after_commit` names for this
-<a href=#256 id=256 data-nosnippet>256</a>        // write — the key is the database's to generate, so the row is the
-<a href=#257 id=257 data-nosnippet>257</a>        // only place the framework can learn it.
-<a href=#258 id=258 data-nosnippet>258</a>        </span><span class="kw">let </span>written = R::create_record(cx, form, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span>;
-<a href=#259 id=259 data-nosnippet>259</a>        commit_write::&lt;R, <span class="kw">_</span>&gt;(cx, tx, written, Committed::created, <span class="string">"Created"</span>, WRITE_CREATE).<span class="kw">await
-<a href=#260 id=260 data-nosnippet>260</a>    </span>})))
-<a href=#261 id=261 data-nosnippet>261</a>}
-<a href=#262 id=262 data-nosnippet>262</a>
-<a href=#263 id=263 data-nosnippet>263</a><span class="doccomment">/// Edit page POST — validates, checks `can_view` + `can_update`, and writes
-<a href=#264 id=264 data-nosnippet>264</a>/// the fields the submission named.
-<a href=#265 id=265 data-nosnippet>265</a>///
-<a href=#266 id=266 data-nosnippet>266</a>/// Requires both `can_view` and `can_update` (matching GET, deny-by-default):
-<a href=#267 id=267 data-nosnippet>267</a>/// a view-denied but writable record must not be mutable by direct POST.
-<a href=#268 id=268 data-nosnippet>268</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_edit_post&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
-<a href=#269 id=269 data-nosnippet>269</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
-<a href=#270 id=270 data-nosnippet>270</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#271 id=271 data-nosnippet>271</a>        <span class="kw">let </span>parts = parse_form_body(cx, body).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#272 id=272 data-nosnippet>272</a>        <span class="kw">crate</span>::csrf::verify(cx, <span class="kw-2">&amp;</span>parts.values)<span class="question-mark">?</span>;
-<a href=#273 id=273 data-nosnippet>273</a>        <span class="kw">let </span>id = topcoat::router::path_param_segment(cx, <span class="string">"id"</span>).to_string();
-<a href=#274 id=274 data-nosnippet>274</a>        <span class="comment">// Advisory load on a pooled handle: feeds the completion validation
-<a href=#275 id=275 data-nosnippet>275</a>        // reads. The body is already parsed and CSRF-verified, so the load
-<a href=#276 id=276 data-nosnippet>276</a>        // never runs for a forged POST. The authoritative load + policy check
-<a href=#277 id=277 data-nosnippet>277</a>        // happens inside the framework transaction; validation's
-<a href=#278 id=278 data-nosnippet>278</a>        // `validate_async` loaders run before it opens (see `crate::db` pool
-<a href=#279 id=279 data-nosnippet>279</a>        // discipline).
-<a href=#280 id=280 data-nosnippet>280</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>db0 = db(cx);
-<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span>advisory = find_by_key::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;mut </span>db0).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">if </span>!R::can_view(cx, <span class="kw-2">&amp;</span>advisory) {
-<a href=#283 id=283 data-nosnippet>283</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#284 id=284 data-nosnippet>284</a>        }
-<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">if </span>!R::can_update(cx, <span class="kw-2">&amp;</span>advisory) {
-<a href=#286 id=286 data-nosnippet>286</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#287 id=287 data-nosnippet>287</a>        }
-<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">let </span>Submission {
-<a href=#289 id=289 data-nosnippet>289</a>            schema,
-<a href=#290 id=290 data-nosnippet>290</a>            <span class="kw-2">mut </span>values,
-<a href=#291 id=291 data-nosnippet>291</a>            <span class="kw-2">mut </span>errors,
-<a href=#292 id=292 data-nosnippet>292</a>            carried,
-<a href=#293 id=293 data-nosnippet>293</a>            named,
-<a href=#294 id=294 data-nosnippet>294</a>        } = prepare_submission::&lt;R&gt;(cx, parts, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>advisory)).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#295 id=295 data-nosnippet>295</a>        <span class="comment">// Authoritative load inside the framework transaction (#86):
-<a href=#296 id=296 data-nosnippet>296</a>        // policy is checked on this snapshot and the same record flows into
-<a href=#297 id=297 data-nosnippet>297</a>        // the write — never a silent re-load outside the checked snapshot.
-<a href=#298 id=298 data-nosnippet>298</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
-<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">let </span><span class="kw-2">mut </span>tx = db.transaction().<span class="kw">await</span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
-<a href=#300 id=300 data-nosnippet>300</a>        <span class="kw">let </span>record = find_by_key::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">if </span>!R::can_view(cx, <span class="kw-2">&amp;</span>record) {
-<a href=#302 id=302 data-nosnippet>302</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#303 id=303 data-nosnippet>303</a>        }
-<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">if </span>!R::can_update(cx, <span class="kw-2">&amp;</span>record) {
-<a href=#305 id=305 data-nosnippet>305</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#306 id=306 data-nosnippet>306</a>        }
-<a href=#307 id=307 data-nosnippet>307</a>        <span class="comment">// The unnamed keys come from this snapshot, not the advisory one: the
-<a href=#308 id=308 data-nosnippet>308</a>        // parsed form reads what the write sees, and no unnamed key is ever
-<a href=#309 id=309 data-nosnippet>309</a>        // written back.
-<a href=#310 id=310 data-nosnippet>310</a>        </span><span class="kw">let </span>stored = &lt;R::Form <span class="kw">as </span>RecordForm&gt;::hydrate(cx, <span class="kw-2">&amp;</span>record);
-<a href=#311 id=311 data-nosnippet>311</a>        complete(<span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;mut </span>values, <span class="kw-2">&amp;</span>named, <span class="kw-2">&amp;</span>stored);
-<a href=#312 id=312 data-nosnippet>312</a>        <span class="kw">for </span>(name, errs) <span class="kw">in </span>check_unique::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;</span>stored, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span><span class="question-mark">? </span>{
-<a href=#313 id=313 data-nosnippet>313</a>            errors.entry(name).or_default().extend(errs);
-<a href=#314 id=314 data-nosnippet>314</a>        }
-<a href=#315 id=315 data-nosnippet>315</a>        <span class="kw">let </span>form = parse_form::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;mut </span>errors)<span class="question-mark">?</span>;
-<a href=#316 id=316 data-nosnippet>316</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(form) = form.filter(|<span class="kw">_</span>| errors.is_empty()) <span class="kw">else </span>{
-<a href=#317 id=317 data-nosnippet>317</a>            <span class="kw">let </span>public = R::public_url(cx, <span class="kw-2">&amp;</span>record);
-<a href=#318 id=318 data-nosnippet>318</a>            <span class="kw">return </span>rerender_invalid_form::&lt;R&gt;(
-<a href=#319 id=319 data-nosnippet>319</a>                cx,
-<a href=#320 id=320 data-nosnippet>320</a>                tx,
-<a href=#321 id=321 data-nosnippet>321</a>                <span class="macro">format!</span>(<span class="string">"Edit {}"</span>, R::label()),
-<a href=#322 id=322 data-nosnippet>322</a>                <span class="string">"Save"</span>,
-<a href=#323 id=323 data-nosnippet>323</a>                <span class="kw-2">&amp;</span>values,
-<a href=#324 id=324 data-nosnippet>324</a>                <span class="kw-2">&amp;</span>errors,
-<a href=#325 id=325 data-nosnippet>325</a>                <span class="kw-2">&amp;</span>carried,
-<a href=#326 id=326 data-nosnippet>326</a>                public,
-<a href=#327 id=327 data-nosnippet>327</a>            )
-<a href=#328 id=328 data-nosnippet>328</a>            .<span class="kw">await</span>;
-<a href=#329 id=329 data-nosnippet>329</a>        };
-<a href=#330 id=330 data-nosnippet>330</a>        <span class="kw">let </span>posted = Posted::new(form, named_fields::&lt;R::Form&gt;(cx, <span class="kw-2">&amp;</span>named));
-<a href=#331 id=331 data-nosnippet>331</a>        <span class="kw">let </span>written = R::update_record(cx, record, posted, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span>;
-<a href=#332 id=332 data-nosnippet>332</a>        commit_write::&lt;R, <span class="kw">_</span>&gt;(cx, tx, written, Committed::updated, <span class="string">"Updated"</span>, WRITE_UPDATE).<span class="kw">await
-<a href=#333 id=333 data-nosnippet>333</a>    </span>})))
-<a href=#334 id=334 data-nosnippet>334</a>}
-<a href=#335 id=335 data-nosnippet>335</a>
-<a href=#336 id=336 data-nosnippet>336</a><span class="attr">#[cfg(test)]
-<a href=#337 id=337 data-nosnippet>337</a></span><span class="kw">mod </span>tests;
+<a href=#145 id=145 data-nosnippet>145</a>/// # Errors
+<a href=#146 id=146 data-nosnippet>146</a>///
+<a href=#147 id=147 data-nosnippet>147</a>/// A `validate_record` error on a field `RecordForm::fields` binds to no key:
+<a href=#148 id=148 data-nosnippet>148</a>/// it cannot render, and the write must not proceed past it.
+<a href=#149 id=149 data-nosnippet>149</a></span><span class="kw">fn </span>parse_form&lt;R: Resource&gt;(
+<a href=#150 id=150 data-nosnippet>150</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#151 id=151 data-nosnippet>151</a>    schema: <span class="kw-2">&amp;</span>Schema,
+<a href=#152 id=152 data-nosnippet>152</a>    values: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
+<a href=#153 id=153 data-nosnippet>153</a>    errors: <span class="kw-2">&amp;mut </span>HashMap&lt;String, Vec&lt;String&gt;&gt;,
+<a href=#154 id=154 data-nosnippet>154</a>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;R::Form&gt;, topcoat::Error&gt; {
+<a href=#155 id=155 data-nosnippet>155</a>    <span class="comment">// Typed fields parse their own spelling, not the browser's.
+<a href=#156 id=156 data-nosnippet>156</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>normalized = values.clone();
+<a href=#157 id=157 data-nosnippet>157</a>    schema.normalize_values(<span class="kw-2">&amp;mut </span>normalized);
+<a href=#158 id=158 data-nosnippet>158</a>    <span class="kw">match </span>&lt;R::Form <span class="kw">as </span>RecordForm&gt;::parse(cx, <span class="kw-2">&amp;</span>normalized) {
+<a href=#159 id=159 data-nosnippet>159</a>        <span class="prelude-val">Ok</span>(form) =&gt; {
+<a href=#160 id=160 data-nosnippet>160</a>            <span class="kw">let </span>fields = &lt;R::Form <span class="kw">as </span>RecordForm&gt;::fields(cx);
+<a href=#161 id=161 data-nosnippet>161</a>            <span class="kw">for </span>(field, message) <span class="kw">in </span>R::validate_record(cx, <span class="kw-2">&amp;</span>form).iter() {
+<a href=#162 id=162 data-nosnippet>162</a>                <span class="comment">// A field's errors render under its first key: a scalar's own,
+<a href=#163 id=163 data-nosnippet>163</a>                // an embedded enum's discriminant.
+<a href=#164 id=164 data-nosnippet>164</a>                </span><span class="kw">let </span><span class="prelude-val">Some</span>(key) = fields
+<a href=#165 id=165 data-nosnippet>165</a>                    .iter()
+<a href=#166 id=166 data-nosnippet>166</a>                    .find(|claim| claim.field == <span class="kw-2">*</span>field)
+<a href=#167 id=167 data-nosnippet>167</a>                    .and_then(|claim| claim.keys.first())
+<a href=#168 id=168 data-nosnippet>168</a>                <span class="kw">else </span>{
+<a href=#169 id=169 data-nosnippet>169</a>                    <span class="comment">// A rule refused a field the form lists no key for: there is
+<a href=#170 id=170 data-nosnippet>170</a>                    // nowhere to render it, and writing anyway would drop it.
+<a href=#171 id=171 data-nosnippet>171</a>                    </span><span class="kw">return </span><span class="prelude-val">Err</span>(std::io::Error::other(<span class="macro">format!</span>(
+<a href=#172 id=172 data-nosnippet>172</a>                        <span class="string">"validate_record refused {field:?}, which `{}::fields` binds to no key: \
+<a href=#173 id=173 data-nosnippet>173</a>                         {message}"</span>,
+<a href=#174 id=174 data-nosnippet>174</a>                        std::any::type_name::&lt;R::Form&gt;()
+<a href=#175 id=175 data-nosnippet>175</a>                    ))
+<a href=#176 id=176 data-nosnippet>176</a>                    .into());
+<a href=#177 id=177 data-nosnippet>177</a>                };
+<a href=#178 id=178 data-nosnippet>178</a>                errors.entry(key.clone()).or_default().push(message.clone());
+<a href=#179 id=179 data-nosnippet>179</a>            }
+<a href=#180 id=180 data-nosnippet>180</a>            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(form))
+<a href=#181 id=181 data-nosnippet>181</a>        }
+<a href=#182 id=182 data-nosnippet>182</a>        <span class="prelude-val">Err</span>(failures) =&gt; {
+<a href=#183 id=183 data-nosnippet>183</a>            <span class="kw">let </span>controls = schema.controls();
+<a href=#184 id=184 data-nosnippet>184</a>            <span class="kw">for </span>failure <span class="kw">in </span>failures {
+<a href=#185 id=185 data-nosnippet>185</a>                <span class="kw">if </span>errors.contains_key(<span class="kw-2">&amp;</span>failure.key) {
+<a href=#186 id=186 data-nosnippet>186</a>                    <span class="kw">continue</span>;
+<a href=#187 id=187 data-nosnippet>187</a>                }
+<a href=#188 id=188 data-nosnippet>188</a>                <span class="kw">let </span>message = <span class="kw">match </span>failure.kind {
+<a href=#189 id=189 data-nosnippet>189</a>                    FieldErrorKind::Required =&gt; controls
+<a href=#190 id=190 data-nosnippet>190</a>                        .iter()
+<a href=#191 id=191 data-nosnippet>191</a>                        .find(|control| control.name == failure.key)
+<a href=#192 id=192 data-nosnippet>192</a>                        .and_then(|control| control.required_error.clone())
+<a href=#193 id=193 data-nosnippet>193</a>                        .unwrap_or(failure.message),
+<a href=#194 id=194 data-nosnippet>194</a>                    FieldErrorKind::Invalid =&gt; failure.message,
+<a href=#195 id=195 data-nosnippet>195</a>                };
+<a href=#196 id=196 data-nosnippet>196</a>                errors.insert(failure.key, <span class="macro">vec!</span>[message]);
+<a href=#197 id=197 data-nosnippet>197</a>            }
+<a href=#198 id=198 data-nosnippet>198</a>            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+<a href=#199 id=199 data-nosnippet>199</a>        }
+<a href=#200 id=200 data-nosnippet>200</a>    }
+<a href=#201 id=201 data-nosnippet>201</a>}
+<a href=#202 id=202 data-nosnippet>202</a>
+<a href=#203 id=203 data-nosnippet>203</a><span class="doccomment">/// The form fields with at least one key the submission named.
+<a href=#204 id=204 data-nosnippet>204</a></span><span class="kw">fn </span>named_fields&lt;F: RecordForm&gt;(cx: <span class="kw-2">&amp;</span>Cx, named: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;) -&gt; Vec&lt;F::Field&gt; {
+<a href=#205 id=205 data-nosnippet>205</a>    F::fields(cx)
+<a href=#206 id=206 data-nosnippet>206</a>        .into_iter()
+<a href=#207 id=207 data-nosnippet>207</a>        .filter(|field| field.keys.iter().any(|key| named.contains(key)))
+<a href=#208 id=208 data-nosnippet>208</a>        .map(|field| field.field)
+<a href=#209 id=209 data-nosnippet>209</a>        .collect()
+<a href=#210 id=210 data-nosnippet>210</a>}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_create_post&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#213 id=213 data-nosnippet>213</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
+<a href=#214 id=214 data-nosnippet>214</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">if </span>!R::can_create(cx) {
+<a href=#216 id=216 data-nosnippet>216</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#217 id=217 data-nosnippet>217</a>        }
+<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>parts = parse_form_body(cx, body).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="kw">crate</span>::csrf::verify(cx, <span class="kw-2">&amp;</span>parts.values)<span class="question-mark">?</span>;
+<a href=#220 id=220 data-nosnippet>220</a>        <span class="comment">// A create has no stored value to keep, so it stages no advisory
+<a href=#221 id=221 data-nosnippet>221</a>        // snapshot: a rejected file leaves its field empty beside the reason.
+<a href=#222 id=222 data-nosnippet>222</a>        </span><span class="kw">let </span>Submission {
+<a href=#223 id=223 data-nosnippet>223</a>            schema,
+<a href=#224 id=224 data-nosnippet>224</a>            values,
+<a href=#225 id=225 data-nosnippet>225</a>            <span class="kw-2">mut </span>errors,
+<a href=#226 id=226 data-nosnippet>226</a>            carried,
+<a href=#227 id=227 data-nosnippet>227</a>            ..
+<a href=#228 id=228 data-nosnippet>228</a>        } = prepare_submission::&lt;R&gt;(cx, parts, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#229 id=229 data-nosnippet>229</a>        <span class="comment">// Framework-owned transaction, opened only after validation so that
+<a href=#230 id=230 data-nosnippet>230</a>        // `validate_async` loaders still run before it opens (see `crate::db`
+<a href=#231 id=231 data-nosnippet>231</a>        // pool discipline). The unique check and the write observe one snapshot
+<a href=#232 id=232 data-nosnippet>232</a>        // and commit atomically; dropping `tx` without commit rolls back.
+<a href=#233 id=233 data-nosnippet>233</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
+<a href=#234 id=234 data-nosnippet>234</a>        <span class="kw">let </span><span class="kw-2">mut </span>tx = db.transaction().<span class="kw">await</span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
+<a href=#235 id=235 data-nosnippet>235</a>        <span class="comment">// App-side unique check over every `unique()`-marked input — the only
+<a href=#236 id=236 data-nosnippet>236</a>        // error layer until toasty exposes a unique-violation predicate
+<a href=#237 id=237 data-nosnippet>237</a>        // (upstream gap #117; never string-match driver error messages).
+<a href=#238 id=238 data-nosnippet>238</a>        </span><span class="kw">for </span>(name, errs) <span class="kw">in
+<a href=#239 id=239 data-nosnippet>239</a>            </span>check_unique::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;</span>HashMap::new(), <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span><span class="question-mark">?
+<a href=#240 id=240 data-nosnippet>240</a>        </span>{
+<a href=#241 id=241 data-nosnippet>241</a>            errors.entry(name).or_default().extend(errs);
+<a href=#242 id=242 data-nosnippet>242</a>        }
+<a href=#243 id=243 data-nosnippet>243</a>        <span class="kw">let </span>form = parse_form::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;mut </span>errors)<span class="question-mark">?</span>;
+<a href=#244 id=244 data-nosnippet>244</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(form) = form.filter(|<span class="kw">_</span>| errors.is_empty()) <span class="kw">else </span>{
+<a href=#245 id=245 data-nosnippet>245</a>            <span class="kw">return </span>rerender_invalid_form::&lt;R&gt;(
+<a href=#246 id=246 data-nosnippet>246</a>                cx,
+<a href=#247 id=247 data-nosnippet>247</a>                tx,
+<a href=#248 id=248 data-nosnippet>248</a>                <span class="macro">format!</span>(<span class="string">"Create {}"</span>, R::label()),
+<a href=#249 id=249 data-nosnippet>249</a>                <span class="string">"Create"</span>,
+<a href=#250 id=250 data-nosnippet>250</a>                <span class="kw-2">&amp;</span>values,
+<a href=#251 id=251 data-nosnippet>251</a>                <span class="kw-2">&amp;</span>errors,
+<a href=#252 id=252 data-nosnippet>252</a>                <span class="kw-2">&amp;</span>carried,
+<a href=#253 id=253 data-nosnippet>253</a>                <span class="prelude-val">None</span>,
+<a href=#254 id=254 data-nosnippet>254</a>            )
+<a href=#255 id=255 data-nosnippet>255</a>            .<span class="kw">await</span>;
+<a href=#256 id=256 data-nosnippet>256</a>        };
+<a href=#257 id=257 data-nosnippet>257</a>        <span class="comment">// The row the record fn returns is what `after_commit` names for this
+<a href=#258 id=258 data-nosnippet>258</a>        // write — the key is the database's to generate, so the row is the
+<a href=#259 id=259 data-nosnippet>259</a>        // only place the framework can learn it.
+<a href=#260 id=260 data-nosnippet>260</a>        </span><span class="kw">let </span>written = R::create_record(cx, form, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span>;
+<a href=#261 id=261 data-nosnippet>261</a>        commit_write::&lt;R, <span class="kw">_</span>&gt;(cx, tx, written, Committed::created, <span class="string">"Created"</span>, WRITE_CREATE).<span class="kw">await
+<a href=#262 id=262 data-nosnippet>262</a>    </span>})))
+<a href=#263 id=263 data-nosnippet>263</a>}
+<a href=#264 id=264 data-nosnippet>264</a>
+<a href=#265 id=265 data-nosnippet>265</a><span class="doccomment">/// Edit page POST — validates, checks `can_view` + `can_update`, and writes
+<a href=#266 id=266 data-nosnippet>266</a>/// the fields the submission named.
+<a href=#267 id=267 data-nosnippet>267</a>///
+<a href=#268 id=268 data-nosnippet>268</a>/// Requires both `can_view` and `can_update` (matching GET, deny-by-default):
+<a href=#269 id=269 data-nosnippet>269</a>/// a view-denied but writable record must not be mutable by direct POST.
+<a href=#270 id=270 data-nosnippet>270</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_edit_post&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#271 id=271 data-nosnippet>271</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
+<a href=#272 id=272 data-nosnippet>272</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#273 id=273 data-nosnippet>273</a>        <span class="kw">let </span>parts = parse_form_body(cx, body).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#274 id=274 data-nosnippet>274</a>        <span class="kw">crate</span>::csrf::verify(cx, <span class="kw-2">&amp;</span>parts.values)<span class="question-mark">?</span>;
+<a href=#275 id=275 data-nosnippet>275</a>        <span class="kw">let </span>id = topcoat::router::path_param_segment(cx, <span class="string">"id"</span>).to_string();
+<a href=#276 id=276 data-nosnippet>276</a>        <span class="comment">// Advisory load on a pooled handle: feeds the completion validation
+<a href=#277 id=277 data-nosnippet>277</a>        // reads. The body is already parsed and CSRF-verified, so the load
+<a href=#278 id=278 data-nosnippet>278</a>        // never runs for a forged POST. The authoritative load + policy check
+<a href=#279 id=279 data-nosnippet>279</a>        // happens inside the framework transaction; validation's
+<a href=#280 id=280 data-nosnippet>280</a>        // `validate_async` loaders run before it opens (see `crate::db` pool
+<a href=#281 id=281 data-nosnippet>281</a>        // discipline).
+<a href=#282 id=282 data-nosnippet>282</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>db0 = db(cx);
+<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">let </span>advisory = find_by_key::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;mut </span>db0).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">if </span>!R::can_view(cx, <span class="kw-2">&amp;</span>advisory) {
+<a href=#285 id=285 data-nosnippet>285</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#286 id=286 data-nosnippet>286</a>        }
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">if </span>!R::can_update(cx, <span class="kw-2">&amp;</span>advisory) {
+<a href=#288 id=288 data-nosnippet>288</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#289 id=289 data-nosnippet>289</a>        }
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="kw">let </span>Submission {
+<a href=#291 id=291 data-nosnippet>291</a>            schema,
+<a href=#292 id=292 data-nosnippet>292</a>            <span class="kw-2">mut </span>values,
+<a href=#293 id=293 data-nosnippet>293</a>            <span class="kw-2">mut </span>errors,
+<a href=#294 id=294 data-nosnippet>294</a>            carried,
+<a href=#295 id=295 data-nosnippet>295</a>            named,
+<a href=#296 id=296 data-nosnippet>296</a>        } = prepare_submission::&lt;R&gt;(cx, parts, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>advisory)).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#297 id=297 data-nosnippet>297</a>        <span class="comment">// Authoritative load inside the framework transaction (#86):
+<a href=#298 id=298 data-nosnippet>298</a>        // policy is checked on this snapshot and the same record flows into
+<a href=#299 id=299 data-nosnippet>299</a>        // the write — never a silent re-load outside the checked snapshot.
+<a href=#300 id=300 data-nosnippet>300</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>db = db(cx);
+<a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">let </span><span class="kw-2">mut </span>tx = db.transaction().<span class="kw">await</span>.map_err(<span class="kw">crate</span>::db::unavailable)<span class="question-mark">?</span>;
+<a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">let </span>record = find_by_key::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">if </span>!R::can_view(cx, <span class="kw-2">&amp;</span>record) {
+<a href=#304 id=304 data-nosnippet>304</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#305 id=305 data-nosnippet>305</a>        }
+<a href=#306 id=306 data-nosnippet>306</a>        <span class="kw">if </span>!R::can_update(cx, <span class="kw-2">&amp;</span>record) {
+<a href=#307 id=307 data-nosnippet>307</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#308 id=308 data-nosnippet>308</a>        }
+<a href=#309 id=309 data-nosnippet>309</a>        <span class="comment">// The unnamed keys come from this snapshot, not the advisory one: the
+<a href=#310 id=310 data-nosnippet>310</a>        // parsed form reads what the write sees, and no unnamed key is ever
+<a href=#311 id=311 data-nosnippet>311</a>        // written back.
+<a href=#312 id=312 data-nosnippet>312</a>        </span><span class="kw">let </span>stored = &lt;R::Form <span class="kw">as </span>RecordForm&gt;::hydrate(cx, <span class="kw-2">&amp;</span>record);
+<a href=#313 id=313 data-nosnippet>313</a>        complete(<span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;mut </span>values, <span class="kw-2">&amp;</span>named, <span class="kw-2">&amp;</span>stored);
+<a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">for </span>(name, errs) <span class="kw">in </span>check_unique::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;</span>stored, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span><span class="question-mark">? </span>{
+<a href=#315 id=315 data-nosnippet>315</a>            errors.entry(name).or_default().extend(errs);
+<a href=#316 id=316 data-nosnippet>316</a>        }
+<a href=#317 id=317 data-nosnippet>317</a>        <span class="kw">let </span>form = parse_form::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;mut </span>errors)<span class="question-mark">?</span>;
+<a href=#318 id=318 data-nosnippet>318</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(form) = form.filter(|<span class="kw">_</span>| errors.is_empty()) <span class="kw">else </span>{
+<a href=#319 id=319 data-nosnippet>319</a>            <span class="kw">let </span>public = R::public_url(cx, <span class="kw-2">&amp;</span>record);
+<a href=#320 id=320 data-nosnippet>320</a>            <span class="kw">return </span>rerender_invalid_form::&lt;R&gt;(
+<a href=#321 id=321 data-nosnippet>321</a>                cx,
+<a href=#322 id=322 data-nosnippet>322</a>                tx,
+<a href=#323 id=323 data-nosnippet>323</a>                <span class="macro">format!</span>(<span class="string">"Edit {}"</span>, R::label()),
+<a href=#324 id=324 data-nosnippet>324</a>                <span class="string">"Save"</span>,
+<a href=#325 id=325 data-nosnippet>325</a>                <span class="kw-2">&amp;</span>values,
+<a href=#326 id=326 data-nosnippet>326</a>                <span class="kw-2">&amp;</span>errors,
+<a href=#327 id=327 data-nosnippet>327</a>                <span class="kw-2">&amp;</span>carried,
+<a href=#328 id=328 data-nosnippet>328</a>                public,
+<a href=#329 id=329 data-nosnippet>329</a>            )
+<a href=#330 id=330 data-nosnippet>330</a>            .<span class="kw">await</span>;
+<a href=#331 id=331 data-nosnippet>331</a>        };
+<a href=#332 id=332 data-nosnippet>332</a>        <span class="kw">let </span>posted = Posted::new(form, named_fields::&lt;R::Form&gt;(cx, <span class="kw-2">&amp;</span>named));
+<a href=#333 id=333 data-nosnippet>333</a>        <span class="kw">let </span>written = R::update_record(cx, record, posted, <span class="kw-2">&amp;mut </span>tx).<span class="kw">await</span>;
+<a href=#334 id=334 data-nosnippet>334</a>        commit_write::&lt;R, <span class="kw">_</span>&gt;(cx, tx, written, Committed::updated, <span class="string">"Updated"</span>, WRITE_UPDATE).<span class="kw">await
+<a href=#335 id=335 data-nosnippet>335</a>    </span>})))
+<a href=#336 id=336 data-nosnippet>336</a>}
+<a href=#337 id=337 data-nosnippet>337</a>
+<a href=#338 id=338 data-nosnippet>338</a><span class="attr">#[cfg(test)]
+<a href=#339 id=339 data-nosnippet>339</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

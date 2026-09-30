@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f90b5c1a.js";
+            window.path_to_searchindex_js = "searchindex-b144d824.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da1679ae.js"></script>
@@ -183,14 +183,15 @@
                         <h1 id="detail-pages"><a class="header" href="#detail-pages">Detail pages</a></h1>
 <p>A read-only page for one record (GH #187): the <code>view</code> schema, what renders, related rows, and the
 current limits.</p>
-<p>A resource can show one record read-only by declaring <code>view</code>, which is the same <code>Schema</code> read the
-other way round (ADR-0016):</p>
+<p>A resource can show one record read-only by declaring <code>view</code>, a <code>Schema</code> in the form’s vocabulary
+read the other way round (ADR-0016). Like Filament’s infolist it is its own declaration: it may show
+keys the form does not, and a resource with no form declares one too.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>fn view(cx: &amp;Cx) -&gt; Schema {
     Schema::new(Section::new("Post").schema((
-        TextInput::r#for(Post::fields().title()),
-        Textarea::r#for(Post::fields().body()).rows(6),
+        Field::text(Post::fields().title()),
+        Field::text(Post::fields().body()).multiline(6),
     )))
 }
 <span class="boring">}</span></code></pre>
@@ -210,13 +211,15 @@ record key. A label is display text, not a key: two records may share one, so it
 replace <code>Table::new</code>’s key, which must stay injective within a page for keyed diffs (GH #241).</p>
 <ul>
 <li><strong>Read-only is not a disabled form.</strong> Fields render labels and stored values:
-<code>TextInput</code>/<code>Textarea</code> show text, <code>Select</code> shows the option label the form offered (or the stored
-value when no option matches, a relationship key included), <code>FileUpload</code> shows the stored path as a
-link to the file (GH #242), and layout blocks keep their structure. No control, no CSRF field, no
-validation slot.</li>
+a text field shows text, a choice shows the option label the form offered (or the stored value
+when no option matches, a relationship key included), a file field shows the stored path as a link
+to the file (GH #242), an embedded enum shows its stored variant’s name and payload, and layout
+blocks keep their structure. No control, no CSRF field, no validation slot.</li>
 <li><strong>Values come from the form’s projection</strong> (<code>RecordForm::hydrate</code>), so a field that renders in
 the form renders here; <code>view_values</code> adds a key only the view shows. A <code>NoForm</code> resource
-supplies every key through <code>view_values</code>.</li>
+supplies every key through <code>view_values</code>. A field whose key neither supplies renders <code>(missing)</code>
+and fails a <code>debug_assert!</code>, as a list column shows <code>(unloaded)</code> for a relation its query did not
+load (ADR-0011): a blank would read as an empty value.</li>
 <li><strong>Related rows</strong> render through <code>view_relations(cx, record)</code>, the page’s second half. The page
 loads through <code>view_query</code>, so include what the hook reads there:</li>
 </ul>
@@ -265,7 +268,7 @@ relation column (default <code>Wide</code>), <code>truncate</code> on every cell
 readability floor per wide column, so long values clip to an ellipsis and a narrow viewport scrolls
 instead of collapsing a column.</p>
 <ul>
-<li>A typed column (<code>Uuid</code>, <code>jiff::Timestamp</code>) is readable: bind it with <code>TextInput::typed</code> (GH #192)
+<li>A typed column (<code>Uuid</code>, <code>jiff::Timestamp</code>) is readable: bind it with <code>Field::text</code> (GH #192)
 and the view renders its stored value as text. A foreign key therefore reads as its stored id
 rather than the related record’s label — render the relation through <code>view_relations</code> when the
 label is what a reader needs.</li>
