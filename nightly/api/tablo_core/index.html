@@ -42,7 +42,8 @@ past the <code>Authenticator</code>. The optional <code>tenant_id</code> becomes
 <h4 id="session"><a class="doc-anchor" href="#session">§</a>Session</h4>
 <p>A server-side <code>AuthSession</code> row keyed by the SHA-256 hash of a client token carried in a hardened
 cookie (<code>__Host-</code>, HttpOnly, Secure, SameSite=Lax). Seven-day fixed lifetime, rotated on login,
-deleted on logout, revocable per user; the raw token is never stored.</p>
+deleted on logout, revocable per user, and swept on a successful login (up to 500 expired rows), so a
+row whose owner never returns does not stay forever; the raw token is never stored.</p>
 <p><em>Avoid</em>: Token (the client half), SessionStore, Login, Cookie</p>
 <h4 id="resource"><a class="doc-anchor" href="#resource">§</a>Resource</h4>
 <p>A type that maps one Toasty Model to its admin UI: the base query, the table, the view
