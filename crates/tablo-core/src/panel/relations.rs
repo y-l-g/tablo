@@ -4,6 +4,7 @@
 
 use topcoat::{
     context::Cx,
+    icon::icon,
     view::{BoxView, ViewExt, internal::ThenView, view},
 };
 
@@ -88,7 +89,9 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             cx =>
             <section class="flex flex-col gap-3" data-relation=(key)>
                 <div class="flex items-center justify-between gap-4">
-                    <h2 class="text-base font-semibold">(label)</h2>
+                    <h2 class="text-lg font-semibold tracking-tight text-foreground">
+                        (label)
+                    </h2>
                     if let Some(url) = create_url {
                         <a
                             (runtime_link(cx, &url))
@@ -97,6 +100,7 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
                                 tablo_ui::ButtonSize::Sm,
                             ))
                         >
+                            icon(data: tablo_ui::icons::PLUS)
                             (create_label)
                         </a>
                     }

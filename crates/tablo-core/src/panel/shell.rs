@@ -110,13 +110,27 @@ impl Panel {
     async fn theme_toggle(cx: &Cx) -> Result<BoxView<'_>> {
         use tablo_ui::{ButtonSize, ButtonVariant, button};
 
+        // Both icons ship; the `dark` class on `<html>` picks the visible one,
+        // so the control is right before any script runs.
         Ok(view! {
             cx =>
             button(
                 variant: ButtonVariant::Ghost,
                 size: ButtonSize::Icon,
-                attrs: attributes! { aria-label="Toggle dark mode" data-theme-toggle="" },
-                <span aria-hidden="true">"◐"</span>
+                attrs: attributes! {
+                    type="button"
+                    aria-label="Toggle dark mode"
+                    title="Toggle dark mode"
+                    data-theme-toggle=""
+                },
+                icon(
+                    data: tablo_ui::icons::SUN,
+                    attrs: attributes! { class="dark:hidden" }
+                )
+                icon(
+                    data: tablo_ui::icons::MOON,
+                    attrs: attributes! { class="hidden dark:block" }
+                )
             )
         }
         .boxed())
@@ -129,31 +143,45 @@ impl Panel {
         } else {
             ("Tablo".to_string(), None)
         };
-        if let Some(logo_url) = logo {
-            let alt = name.clone();
-            Ok(view! {
-                cx =>
-                <div class="flex items-center gap-2 font-semibold text-foreground">
+        // Without a logo the brand's initial stands in, on the primary token,
+        // so the header keeps its mark.
+        let mark: BoxView<'_> = match logo {
+            Some(logo_url) => {
+                let alt = name.clone();
+                view! {
+                    cx =>
                     <img
                         src=(logo_url)
                         alt=(alt)
-                        width="24"
-                        height="24"
-                        class="h-6 w-6 rounded"
+                        width="28"
+                        height="28"
+                        class="size-7 shrink-0 rounded-md"
                     >
-                    (name)
-                </div>
+                }
+                .boxed()
             }
-            .boxed())
-        } else {
-            Ok(view! {
-                cx =>
-                <div class="flex items-center gap-2 font-semibold text-foreground">
-                    (name)
-                </div>
+            None => {
+                let initial = name.chars().next().map(String::from).unwrap_or_default();
+                view! {
+                    cx =>
+                    <span
+                        aria-hidden="true"
+                        class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
+                    >
+                        (initial)
+                    </span>
+                }
+                .boxed()
             }
-            .boxed())
+        };
+        Ok(view! {
+            cx =>
+            <div class="flex min-w-0 items-center gap-2 font-semibold text-foreground">
+                (mark)
+                <span class="truncate">(name)</span>
+            </div>
         }
+        .boxed())
     }
 
     async fn sidebar_navigation<'a>(
@@ -211,6 +239,9 @@ impl Panel {
                                     href: item.url(),
                                     tooltip: Some(item.label.as_str()),
                                     attrs: attrs,
+                                    if let Some(data) = item.icon.clone() {
+                                        icon(data: data)
+                                    }
                                     <span>(item.label.clone())</span>
                                 )
                             )
@@ -277,7 +308,7 @@ impl Panel {
     ) -> Result<BoxView<'a>> {
         use tablo_ui::{
             SeparatorOrientation, SidebarCollapsible, separator, sidebar, sidebar_content,
-            sidebar_footer, sidebar_header, sidebar_inset, sidebar_provider, sidebar_trigger,
+            sidebar_header, sidebar_inset, sidebar_provider, sidebar_trigger,
         };
 
         let sidebar_open = signal(cx, || Self::sidebar_starts_open(cx));
@@ -291,8 +322,7 @@ impl Panel {
         let navigation =
             Self::sidebar_navigation(cx, nav_items, current_path, mobile_open.clone()).await?;
         let sidebar_brand = Self::render_brand(cx).await?;
-        let sidebar_theme_toggle = Self::theme_toggle(cx).await?;
-        let header_theme_toggle = Self::theme_toggle(cx).await?;
+        let theme_toggle = Self::theme_toggle(cx).await?;
         // Signed-in identity + logout control, present only with a session
         // (ADR-0013). `ensure_token` runs before any streaming starts so the
         // logout form always carries a matching CSRF pair.
@@ -300,20 +330,32 @@ impl Panel {
             Some(user) => {
                 let csrf = crate::csrf::ensure_token(cx);
                 let logout = crate::auth::logout_url(cx);
+                let initial = user
+                    .display_name
+                    .chars()
+                    .next()
+                    .map(String::from)
+                    .unwrap_or_default();
                 view! {
                     cx =>
                     <div class="flex items-center gap-2">
-                        <span class="text-sm text-muted-foreground">
+                        <span
+                            aria-hidden="true"
+                            class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground"
+                        >
+                            (initial)
+                        </span>
+                        <span class="max-sm:hidden text-sm font-medium text-foreground">
                             (user.display_name)
                         </span>
                         <form method="post" action=(logout)>
                             (crate::csrf::field(cx, &csrf))
-                            <button
-                                type="submit"
-                                class="text-sm text-muted-foreground underline"
-                            >
-                                "Sign out"
-                            </button>
+                            tablo_ui::button(
+                                variant: tablo_ui::ButtonVariant::Ghost,
+                                size: tablo_ui::ButtonSize::Icon,
+                                attrs: attributes! { type="submit" aria-label="Sign out" title="Sign out" },
+                                icon(data: tablo_ui::icons::LOG_OUT)
+                            )
                         </form>
                     </div>
                 }
@@ -369,7 +411,7 @@ impl Panel {
                         })
                     },
                     sidebar_header(
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 px-2">
                             (sidebar_brand)
                             // Below `md` the sheet covers the inset header,
                             // so the sheet's own header carries the close
@@ -389,7 +431,6 @@ impl Panel {
                         </div>
                     )
                     sidebar_content((navigation))
-                    sidebar_footer((sidebar_theme_toggle))
                 )
                 sidebar_inset(
                     sidebar_header(
@@ -412,17 +453,27 @@ impl Panel {
                                 @click=$(|_e: Event| mobile_open.toggle())
                             }
                         )
-                        separator(orientation: SeparatorOrientation::Vertical)
-                        <div class="font-semibold text-foreground">(header_title)</div>
-                        <div class="ml-auto flex items-center gap-2">
+                        // The sidebar carries the brand on desktop; below md
+                        // it hides in the sheet, so the header names the
+                        // panel there.
+                        <div class="md:hidden font-semibold text-foreground">
+                            (header_title)
+                        </div>
+                        <div class="ml-auto flex items-center gap-1">
+                            (theme_toggle)
+                            separator(
+                                orientation: SeparatorOrientation::Vertical,
+                                attrs: attributes! { class="mx-1 h-5" }
+                            )
                             (account_view)
-                            (header_theme_toggle)
                         </div>
                     )
                     // `sidebar_inset` is the document's one `<main>`; a second
                     // nested landmark is invalid and confuses landmark
                     // navigation (upstream `examples/ui` uses a plain div).
-                    <div class="flex-1 mx-auto max-w-7xl w-full p-6">(slot)</div>
+                    // The page container (`tablo_ui::page`) owns the width
+                    // and the padding.
+                    <div class="flex flex-1 flex-col">(slot)</div>
                 )
                 // Toast stack — the shadcn/Sonner surface, fixed bottom-right
                 // and a polite live region so streamed swaps are announced.

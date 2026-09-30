@@ -306,8 +306,9 @@ _Avoid_: Toast (as domain term; the shadcn UI surface is a toast), Flash, Alert
 
 ### EmptyState
 
-The Table's zero-rows rendering (icon + title + optional action), shown for "no records" and "no
-search results".
+The zero-data rendering of a content region (`tablo_ui::empty_state`: icon + title + optional detail
++ optional action). The Table shows it for "no records" and "no search results"; an app page shows it
+for any region with nothing to list.
 
 _Avoid_: NoResults, Placeholder, ZeroState
 
@@ -348,7 +349,8 @@ _Avoid_: CustomPage, Screen, View
 ### Page container
 
 The standard container for an admin page (`tablo_ui::page`). Owns max-width, padding and vertical rhythm so pages
-declare title and content, not Tailwind layout classes.
+declare title and content, not Tailwind layout classes. Its header (`page_header`) lays out a title,
+an optional description, and optional page actions (`page_actions`) on the title's line.
 
 _Avoid_: Container, Wrapper, Layout
 
@@ -381,6 +383,6 @@ _Avoid_: Component (when meaning synced primitive), Widget
 ### Component
 
 An owned Topcoat `#[component]` in `tablo-ui/src/components/composites/` (Page container,
-ErrorState, Theme, Toast) that composes Primitives and Tokens. Hand-written, never overwritten by sync.
+EmptyState, ErrorState, Theme, Toast) that composes Primitives and Tokens. Hand-written, never overwritten by sync.
 
 _Avoid_: Primitive, Widget, Element, View

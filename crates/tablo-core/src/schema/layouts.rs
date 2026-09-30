@@ -20,15 +20,15 @@ use super::{
 };
 
 /// The one titled-group container: `Section` and `Repeater` render the same
-/// border-only panel, so every titled group on a form looks alike.
+/// panel, so every titled group on a form looks alike.
 ///
-/// The shape is the `card` primitive's — rounded panel with header/content
-/// rhythm — without its opaque paint: no `bg-card`, no `shadow-sm`. Overlays
-/// keep the primitive as-is (dialogs, sheets and popovers sit above the page
-/// and need the fill and the shadow); a form panel sits on the page
-/// background, so it draws only its border.
-const PANEL: StaticClass =
-    class!("flex flex-col gap-5 rounded-xl border border-border py-6 text-card-foreground");
+/// The surface is the `card` primitive's — border, `bg-card` fill and
+/// `shadow-sm`, with its header/content rhythm — the same surface a table and
+/// an app page's cards draw, so every panel on a page reads as one family and
+/// a theme restyles them all through the `--card` and `--shadow-sm` tokens.
+const PANEL: StaticClass = class!(
+    "flex flex-col gap-5 rounded-xl border border-border bg-card py-6 text-card-foreground shadow-sm"
+);
 
 /// Section — titled container with an optional child `Schema`.
 ///

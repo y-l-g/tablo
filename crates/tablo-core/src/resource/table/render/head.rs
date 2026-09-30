@@ -122,9 +122,11 @@ impl<M> Table<M> {
                     // sizes it to its buttons at narrow ones, where the share
                     // alone would let them spill past the table. Each row's
                     // `td` repeats only the floor.
+                    // The controls are icons, so the heading names the column
+                    // for assistive tech only.
                     table_head(
                         attrs: attributes! { style=(widths.actions.as_deref()) },
-                        "Actions"
+                        <span class="sr-only">"Actions"</span>
                     )
                 }
                 .boxed(),

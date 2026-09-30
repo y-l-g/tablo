@@ -30,7 +30,9 @@ Panel::new("admin")
     .login_hint("Demo: admin@example.com / password")
 ```
 
-`brand` sets the header and sidebar name. `dark_mode` sets the theme a visitor sees **before they
+`brand` sets the name in the sidebar header, and in the page header below the `md` breakpoint,
+where the sidebar folds into a sheet. A brand without a logo shows its initial as the mark.
+`dark_mode` sets the theme a visitor sees **before they
 have chosen one** — the toggle is always rendered, and a stored choice wins in both directions
 (GH #184): picking light persists, and the next page stays light instead of falling back to this
 default. Omit `dark_mode` and the panel starts light.
@@ -70,7 +72,7 @@ Panel::new("admin")
 The slug and the sidebar label default to the type name without a `Page` suffix: `ReportsPage`
 mounts at `reports` with the label `Reports`, and `MediaLibraryPage` at `media-library` with
 `Media library`. Override `slug()`, `navigation_label()`, or `navigation()` — the last sets the
-`order`, as a resource's does. Every page has a sidebar entry. Pages and resources share one slug
+`order` and the icon, as a resource's does. Every page has a sidebar entry. Pages and resources share one slug
 namespace, and `Panel::build` rejects a duplicate, a slug the panel routes itself (`login`,
 `logout`), and a slug that is not one URL segment.
 
@@ -83,6 +85,14 @@ The panel checks for a resolved user before `render` runs, and the app's `#[layo
 frames the page in the shell. A page serves one `GET`; a form it renders posts to an app `#[route]`
 under the prefix, which the auth gate covers. `examples/showcase` registers a dashboard, the media
 library and the live feed this way.
+
+A page lays itself out with the composites the panel's own pages use, so it reads as one of them:
+`tablo_ui::page` owns the width and the padding, and `page_header` takes a `page_title`, an optional
+`page_description` under it and optional `page_actions` at the end of the title's line. Content goes
+in `page_content`: `tablo_ui::card` for a panel, the same surface as a form section and a table, and
+`tablo_ui::empty_state` for a region with nothing to list. The surfaces draw from the tokens in the
+app's `styles.css` (`--card`, `--border`, `--shadow-sm`, `--primary`...), so a theme restyles the
+panel's pages and the app's alike.
 
 ## Public pages
 

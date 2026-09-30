@@ -6,7 +6,7 @@
 
 use showcase::{
     app::router_for_tests as router,
-    models::{Author, Post},
+    models::{Author, Post, User},
 };
 
 use crate::common::{body_string, demo_client, full_db, tenanted_db, tenantless_client};
@@ -126,6 +126,12 @@ async fn post_detail_renders_the_record_read_only() {
     assert!(
         html.contains("Back to list"),
         "detail page must offer a way back: {html}"
+    );
+    // The row's Edit gate holds on the page too: a record the caller may
+    // update links its edit form from the heading.
+    assert!(
+        html.contains(&format!("href=\"/admin/posts/{id}/edit\"")),
+        "an editable record's detail page must link its edit form: {html}"
     );
     assert!(
         html.contains("words ·") && html.contains("min read"),
@@ -266,12 +272,12 @@ async fn resources_without_a_view_declaration_have_no_detail_page() {
     // …and the list offers no View link for it, while the posts list does.
     let authors = body_string(client.get("/admin/authors").await).await;
     assert!(
-        !authors.contains(">View<"),
+        !authors.contains("aria-label=\"View\""),
         "no view declaration means no View link: {authors}"
     );
     let posts = body_string(client.get("/admin/posts").await).await;
     assert!(
-        posts.contains(">View<"),
+        posts.contains("aria-label=\"View\""),
         "a declared view means a View link per row: {posts}"
     );
     // The link carries a *record* key, so the href is the seeded
@@ -363,5 +369,29 @@ async fn post_detail_hides_the_record_from_a_denied_tenant() {
         resp.status(),
         404,
         "a tenant the query scopes out sees the same answer as an unknown id"
+    );
+}
+
+#[tokio::test]
+async fn a_record_the_caller_may_not_update_offers_no_edit_action() {
+    // Ken's account is SSO-managed: `UserResource::can_update` refuses it, so
+    // the detail page renders no Edit control, as the row renders none.
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let ken = User::all()
+        .filter(User::fields().name().eq("Ken Thompson"))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("the seed has Ken");
+    let resp = client.get(&format!("/admin/users/{}", ken.id)).await;
+    assert!(resp.status().is_success(), "got {}", resp.status());
+    let html = body_string(resp).await;
+    assert!(
+        !html.contains(&format!("/admin/users/{}/edit", ken.id)),
+        "a record the caller may not update must not link its edit form: {html}"
     );
 }

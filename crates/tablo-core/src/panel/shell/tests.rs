@@ -29,6 +29,7 @@ async fn layout_shell_renders_a_complete_document() {
             label: "Users".to_string(),
             target: NavTarget::Url("/admin/users".to_string()),
             order: 0,
+            icon: None,
         }])
         .build();
     let cx_ref = &cx;
@@ -165,6 +166,7 @@ async fn shell_escapes_brand_name_and_logo() {
         label: "Users".to_string(),
         target: NavTarget::Url("/admin/users".to_string()),
         order: 0,
+        icon: None,
     }];
     let cx_ref = &cx;
     let slot = view! { cx_ref => "hello" }.boxed().into();
@@ -371,6 +373,7 @@ async fn shell_html_with_flash(enc: &str) -> String {
         label: "Users".to_string(),
         target: NavTarget::Url("/admin/users".to_string()),
         order: 0,
+        icon: None,
     }];
     let cx_ref = &cx;
     let slot = view! { cx_ref => "hello" }.boxed().into();
@@ -402,11 +405,13 @@ async fn sidebar_orders_custom_items_by_sort_key() {
             label: "Users".to_string(),
             target: NavTarget::Url("/admin/users".to_string()),
             order: 0,
+            icon: None,
         },
         NavigationItem {
             label: "Showcase".to_string(),
             target: NavTarget::Url("/admin/showcase".to_string()),
             order: -1,
+            icon: None,
         },
     ];
     let cx_ref = &cx;
@@ -442,11 +447,13 @@ async fn panel_shell_renders_sidebar_with_active_and_tokens() {
             label: "Users".to_string(),
             target: NavTarget::Url("/admin/users".to_string()),
             order: 0,
+            icon: None,
         },
         NavigationItem {
             label: "Showcase".to_string(),
             target: NavTarget::Url("/admin/showcase".to_string()),
             order: 0,
+            icon: None,
         },
     ];
     let slot = view! { cx_ref => "hello" }.boxed().into();
@@ -670,6 +677,7 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
         label: "Users".to_string(),
         target: NavTarget::Url("/admin/users".to_string()),
         order: 0,
+        icon: None,
     }];
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
@@ -735,4 +743,51 @@ async fn sidebar_marks_only_the_longest_matching_entry_active() {
             "{active_label} is active on {path}: {active:?}"
         );
     }
+}
+
+/// A navigation entry's icon renders inside its menu button, before the
+/// label; an entry without one renders the label alone.
+#[tokio::test]
+async fn nav_item_icon_renders_before_its_label() {
+    use topcoat::{context::CxTestBuilder, view::view};
+
+    use crate::resource::NavigationItem;
+
+    let (parts, ()) = http::Request::builder()
+        .uri("/admin/users")
+        .body(())
+        .unwrap()
+        .into_parts();
+    let cx = CxTestBuilder::new().request_context(parts).build();
+    let cx_ref = &cx;
+    let nav_items = vec![
+        NavigationItem::at("Users", "/admin/users").icon(tablo_ui::icons::USERS),
+        NavigationItem::at("Posts", "/admin/posts"),
+    ];
+    let slot = view! { cx_ref => "hello" }.boxed().into();
+    let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
+        .await
+        .unwrap()
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    let button = |href: &str| {
+        let start = html
+            .find(&format!("href=\"{href}\""))
+            .unwrap_or_else(|| panic!("no link to {href} in {html}"));
+        let open = html[..start].rfind("<a").expect("the link's tag");
+        let close = open + html[open..].find("</a>").expect("the link's end");
+        html[open..close].to_string()
+    };
+    let users = button("/admin/users");
+    let svg = users
+        .find("<svg")
+        .expect("the Users entry renders its icon");
+    let label = users.find("<span>Users</span>").expect("the Users label");
+    assert!(svg < label, "the icon precedes the label in {users}");
+    assert!(
+        !button("/admin/posts").contains("<svg"),
+        "an entry without an icon renders none"
+    );
 }

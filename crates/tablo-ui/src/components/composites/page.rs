@@ -3,20 +3,31 @@ use topcoat::{
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
 
-const PAGE: StaticClass = class!("mx-auto flex w-full max-w-7xl flex-col gap-6 p-6");
-const PAGE_HEADER: StaticClass = class!("flex flex-col gap-1.5");
-const PAGE_TITLE: StaticClass = class!("text-2xl font-bold tracking-tight text-foreground");
+const PAGE: StaticClass = class!("mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-8");
+/// The title and the actions share the first line; the description always
+/// takes a line of its own below them, whatever order the children come in.
+const PAGE_HEADER: StaticClass = class!(
+    "flex flex-wrap items-center gap-x-4 gap-y-1.5 \
+     [&>[data-page-description]]:order-last [&>[data-page-description]]:basis-full"
+);
+const PAGE_TITLE: StaticClass =
+    class!("min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight text-foreground");
 const PAGE_DESCRIPTION: StaticClass = class!("text-sm text-muted-foreground");
+const PAGE_ACTIONS: StaticClass = class!("flex shrink-0 flex-wrap items-center gap-2");
 const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 
 /// Standard container for an admin page (CONTEXT.md:Page container, ADR-0008).
 ///
-/// Owns `max-w-7xl mx-auto p-6 flex flex-col gap-6` so pages declare title
-/// and content, not Tailwind layout classes.
+/// Owns the max width, the padding and the vertical rhythm so pages declare
+/// title and content, not Tailwind layout classes.
 ///
 /// ```ignore
 /// page(
-///     page_header(page_title("Users") page_description("Manage your users."))
+///     page_header(
+///         page_title("Users")
+///         page_description("Manage your users.")
+///         page_actions(create_button)
+///     )
 ///     page_content(table_view)
 /// )
 /// ```
@@ -28,6 +39,8 @@ pub async fn page(
     Ok(view! { <div class=(class!(PAGE, attrs.remove("class"))) (attrs)>(child)</div> })
 }
 
+/// The page's heading row: a [`page_title`], an optional [`page_description`]
+/// under it, and optional [`page_actions`] at the end of the title's line.
 #[component]
 pub async fn page_header(
     #[default] mut attrs: Attributes,
@@ -54,7 +67,25 @@ pub async fn page_description(
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
-        <p class=(class!(PAGE_DESCRIPTION, attrs.remove("class"))) (attrs)>(child)</p>
+        <p
+            class=(class!(PAGE_DESCRIPTION, attrs.remove("class")))
+            data-page-description=""
+            (attrs)
+        >
+            (child)
+        </p>
+    })
+}
+
+/// The page-level controls (Create, Edit, Back...) at the end of the title's
+/// line in a [`page_header`].
+#[component]
+pub async fn page_actions(
+    #[default] mut attrs: Attributes,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
+    Ok(view! {
+        <div class=(class!(PAGE_ACTIONS, attrs.remove("class"))) (attrs)>(child)</div>
     })
 }
 

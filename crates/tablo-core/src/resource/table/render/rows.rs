@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 
 use tablo_ui::{ButtonSize, ButtonVariant, button_variants, table_cell, table_row};
-use topcoat::{context::Cx, view::*};
+use topcoat::{context::Cx, icon::icon, view::*};
 
 use super::super::{
     super::{
@@ -65,7 +65,7 @@ fn render_row<'a>(cx: &'a Cx, row: RowView, chrome: &RowChrome) -> BoxView<'a> {
                 table_cell(
                     attrs: attributes! {
                         colspan=(colspan)
-                        class="px-4 py-2 bg-muted text-sm font-medium"
+                        class="bg-muted/60 px-3 py-2 text-sm font-medium text-foreground"
                     },
                     (header.text)
                 )
@@ -146,22 +146,34 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView, chrome: &RowChrome) -> BoxView<
         .clone()
         .zip(row.delete_action.clone())
         .map(|(url, action)| (url, action, chrome.delete_dialog_id.clone()));
-    let link_class = button_variants(ButtonVariant::Outline, ButtonSize::Md);
+    // Icon-only controls: the label rides `aria-label` for assistive tech and
+    // `title` for a pointer, and the icon carries it on screen.
+    let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
     let edit_class = link_class.clone();
-    let delete_class = button_variants(ButtonVariant::Destructive, ButtonSize::Md);
+    let delete_class = link_class.clone();
     view! {
         cx =>
         table_cell(
             attrs: attributes! { style=(actions_min.as_deref()) },
-            <div class="flex gap-2">
+            <div class="flex items-center justify-end gap-1">
                 if let Some(url) = view_url {
-                    <a (crate::resource::runtime_link(cx, &url)) class=(link_class)>
-                        "View"
+                    <a
+                        (crate::resource::runtime_link(cx, &url))
+                        class=(link_class)
+                        aria-label="View"
+                        title="View"
+                    >
+                        icon(data: tablo_ui::icons::EYE)
                     </a>
                 }
                 if let Some(url) = edit_url {
-                    <a (crate::resource::runtime_link(cx, &url)) class=(edit_class)>
-                        "Edit"
+                    <a
+                        (crate::resource::runtime_link(cx, &url))
+                        class=(edit_class)
+                        aria-label="Edit"
+                        title="Edit"
+                    >
+                        icon(data: tablo_ui::icons::PENCIL)
                     </a>
                 }
                 if let Some((url, action, dialog)) = delete {
@@ -170,8 +182,15 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView, chrome: &RowChrome) -> BoxView<
                         data-row-delete-trigger=(dialog)
                         data-row-delete-action=(action)
                         class=(delete_class)
+                        aria-label="Delete"
+                        title="Delete"
                     >
-                        "Delete"
+                        // The glyph carries the destructive color: the ghost
+                        // variant already sets the control's text color.
+                        icon(
+                            data: tablo_ui::icons::TRASH,
+                            attrs: attributes! { class="text-destructive" }
+                        )
                     </a>
                 }
             </div>

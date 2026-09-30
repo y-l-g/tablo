@@ -11,6 +11,7 @@ use super::{
         },
         Table,
     },
+    BAR_CLASS, TABLE_BARE_CLASS, TABLE_CARD_CLASS,
     rows::{RowChrome, render_rows},
     widths::ColumnWidths,
 };
@@ -259,15 +260,26 @@ impl<M> Table<M> {
 
         // One chrome for both branches: search bar, filter bar, bulk bar,
         // warning, table body, pager, dialog, inside the frame the morph swaps.
+        //
+        // The search form and the bulk form share the first toolbar row, the
+        // search at the start and the bulk control at the end; a table with
+        // neither renders no row, only the bulk placeholder.
+        let toolbar_row = show_search || with_bulk;
         let content = view! {
             cx =>
-            if show_search {
-                (search_bar.expect("search bar built when enabled"))
+            if toolbar_row {
+                <div class=(BAR_CLASS)>
+                    if show_search {
+                        (search_bar.expect("search bar built when enabled"))
+                    }
+                    (bulk_bar_view)
+                </div>
+            } else {
+                (bulk_bar_view)
             }
             if show_filters {
                 (filter_bar.expect("filter bar built when enabled"))
             }
-            (bulk_bar_view)
             if let Some(attrs) = revision_attrs {
                 <input (attrs)>
             }
@@ -285,6 +297,7 @@ impl<M> Table<M> {
         Ok(table_frame(
             cx,
             false,
+            self.framed,
             self.delete_prefix.as_deref(),
             content.boxed(),
         ))
@@ -293,7 +306,8 @@ impl<M> Table<M> {
 
 /// The table's two wrappers, shared by the loaded table and its skeleton so
 /// the swap lands on the same shape: the `data-boundary` region the morph
-/// swaps, and the bordered root inside it. A loading skeleton marks both
+/// swaps, and the root inside it — the table's card when `framed`, a plain
+/// block inside the page's card otherwise. A loading skeleton marks both
 /// `aria-busy`: the boundary so assistive tech sees the live region, the root
 /// so the busy state reads on the table itself.
 ///
@@ -304,21 +318,21 @@ impl<M> Table<M> {
 pub(super) fn table_frame<'a>(
     cx: &'a Cx,
     busy: bool,
+    framed: bool,
     name: Option<&str>,
     content: BoxView<'a>,
 ) -> BoxView<'a> {
     let busy = busy.then_some("true");
     let name = name.map(str::to_string);
+    let root_class = if framed {
+        TABLE_CARD_CLASS
+    } else {
+        TABLE_BARE_CLASS
+    };
     view! {
         cx =>
         <div data-boundary="table" data-table=(name) aria-busy=(busy)>
-            <div
-                class="rounded-xl border border-border overflow-hidden"
-                data-table-root=""
-                aria-busy=(busy)
-            >
-                (content)
-            </div>
+            <div class=(root_class) data-table-root="" aria-busy=(busy)>(content)</div>
         </div>
     }
     .boxed()

@@ -8,6 +8,7 @@
 use topcoat::{
     Result,
     context::Cx,
+    icon::icon,
     router::{Body, error::forbidden},
     runtime::Event,
     view::{BoxView, HoistView, ViewExt, attributes, internal::ThenView, suspense, view},
@@ -17,8 +18,8 @@ use super::gate::{gate, list_url};
 use crate::{
     form::RecordForm,
     resource::{
-        Resource, RowActions, Table, TableChrome, TablePage, TableSignals, TableState,
-        create_page_url, request_query,
+        Resource, RowActions, TABLE_CARD_CLASS, Table, TableChrome, TablePage, TableSignals,
+        TableState, create_page_url, request_query,
     },
 };
 
@@ -85,7 +86,8 @@ pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::M
 pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) -> Table<R::Model> {
     let mut table = R::table(cx);
     if live {
-        table = table.hide_search().hide_filter_bar();
+        // The page draws the card around the hoisted bars and this output.
+        table = table.hide_search().hide_filter_bar().unframed();
     }
     // `Cx` is Arc-backed and `Clone`, so the projection owns one: the policy
     // outlives the request borrow without copying request state.
@@ -202,9 +204,9 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
     view! {
         cx =>
         tablo_ui::page_header(
-            <div class="flex items-center justify-between gap-4">
-                tablo_ui::page_title((title))
-                if let Some(url) = create_url {
+            tablo_ui::page_title((title))
+            if let Some(url) = create_url {
+                tablo_ui::page_actions(
                     <a
                         (crate::resource::runtime_link(cx, &url))
                         class=(tablo_ui::button_variants(
@@ -212,10 +214,11 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
                             tablo_ui::ButtonSize::Md,
                         ))
                     >
+                        icon(data: tablo_ui::icons::PLUS)
                         (create_label)
                     </a>
-                }
-            </div>
+                )
+            }
         )
     }
     .boxed()
@@ -283,9 +286,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             tablo_ui::page(
                 (header)
                 tablo_ui::page_content(
-                    <div class="flex flex-col gap-4">
-                        suspense(fallback: skeleton, (lazy_rows.boxed()))
-                    </div>
+                    suspense(fallback: skeleton, (lazy_rows.boxed()))
                 )
             )
         }
@@ -344,7 +345,9 @@ pub(crate) fn resource_list_live<R: Resource>(
         };
         // The shard's table renders neither bar (`wire_table_actions(cx,
         // true)`), so neither does the placeholder it replaces.
-        let table = table.hide_search().hide_filter_bar();
+        // Nor does it draw a card: the page's card holds the bars and the
+        // table together.
+        let table = table.hide_search().hide_filter_bar().unframed();
         let skeleton = table.render_skeleton(cx, &state).await?;
         // The delete confirmation dialog is not part of the swapped table
         // region: a keystroke starts a new result set and must never carry
@@ -373,7 +376,9 @@ pub(crate) fn resource_list_live<R: Resource>(
             tablo_ui::page(
                 (header)
                 tablo_ui::page_content(
-                    <div class="flex flex-col gap-4">
+                    // The page draws the table's card (`TABLE_CARD_CLASS`) so the
+                    // hoisted bars share it with the table they drive.
+                    <div class=(TABLE_CARD_CLASS)>
                         if let Some(host) = host {
                             (host)
                         }
@@ -381,10 +386,10 @@ pub(crate) fn resource_list_live<R: Resource>(
                             (bar)
                         }
                         suspense(fallback: skeleton, (lazy_rows.boxed()))
-                        if let Some(dialog) = delete_dialog {
-                            (dialog)
-                        }
                     </div>
+                    if let Some(dialog) = delete_dialog {
+                        (dialog)
+                    }
                 )
             )
         })

@@ -1,14 +1,14 @@
 //! The search bar, live-search bar, and bulk-action bar.
 
 use tablo_ui::{ButtonSize, ButtonVariant, button, input as ui_input};
-use topcoat::{Result, context::Cx, runtime::Event, view::*};
+use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
     super::{
         super::state::{TableSignals, TableState, bulk_delete_url},
         Table,
     },
-    BAR_CLASS, QUIET_LINK_CLASS,
+    BAR_CLASS, QUIET_LINK_CLASS, SEARCH_FIELD_CLASS, SEARCH_FORM_CLASS, SEARCH_ICON_CLASS,
     dialog::{ConfirmDialog, chrome_dom_id, confirm_controls, confirm_dialog},
 };
 
@@ -117,7 +117,7 @@ impl<M> Table<M> {
             <form
                 method="post"
                 action=(bulk_action)
-                class="flex gap-2 p-3 border-b border-border"
+                class="ml-auto flex items-center gap-2"
                 data-bulk-form=""
                 data-mutation-submit=""
                 id=(bulk_form_id.clone())
@@ -125,10 +125,14 @@ impl<M> Table<M> {
                 (crate::csrf::field(cx, &csrf))
                 <input (transport_attrs)>
                 button(
-                    variant: ButtonVariant::Destructive,
+                    variant: ButtonVariant::Outline,
                     size: ButtonSize::Md,
                     attrs: attributes! { type="button" data-bulk-confirm-trigger="" },
-                    "Bulk Delete"
+                    icon(
+                        data: tablo_ui::icons::TRASH,
+                        attrs: attributes! { class="text-destructive" }
+                    )
+                    "Delete selected"
                 )
                 (confirm)
             </form>
@@ -178,20 +182,26 @@ impl<M> Table<M> {
         let search_name = state.param("q");
         Ok(view! {
             cx =>
-            <form method="get" action=(action) class=(BAR_CLASS)>
+            <form method="get" action=(action) class=(SEARCH_FORM_CLASS)>
                 (hidden)
-                ui_input(
-                    attrs: attributes! {
-                        type="search"
-                        name=(search_name)
-                        value=(q_display)
-                        placeholder="Search…"
-                        aria-label="Search table"
-                        class="w-64"
-                    }
-                )
+                <div class=(SEARCH_FIELD_CLASS)>
+                    icon(
+                        data: tablo_ui::icons::SEARCH,
+                        attrs: attributes! { class=(SEARCH_ICON_CLASS) }
+                    )
+                    ui_input(
+                        attrs: attributes! {
+                            type="search"
+                            name=(search_name)
+                            value=(q_display)
+                            placeholder="Search…"
+                            aria-label="Search table"
+                            class="pl-8"
+                        }
+                    )
+                </div>
                 button(
-                    variant: ButtonVariant::Secondary,
+                    variant: ButtonVariant::Outline,
                     size: ButtonSize::Md,
                     attrs: attributes! { type="submit" },
                     "Search"
@@ -231,15 +241,23 @@ impl<M> Table<M> {
         Ok(view! {
             cx =>
             <div class=(BAR_CLASS) data-live-search="">
-                <input
-                    type="search"
-                    value=(q_display)
-                    placeholder="Search…"
-                    aria-label="Live search table"
-                    class="w-64"
-                    data-live-search-input=""
-                    data-debounce-ms=(LIVE_SEARCH_DEBOUNCE_MS)
-                >
+                <div class=(SEARCH_FIELD_CLASS)>
+                    icon(
+                        data: tablo_ui::icons::SEARCH,
+                        attrs: attributes! { class=(SEARCH_ICON_CLASS) }
+                    )
+                    ui_input(
+                        attrs: attributes! {
+                            type="search"
+                            value=(q_display)
+                            placeholder="Search…"
+                            aria-label="Live search table"
+                            class="pl-8"
+                            data-live-search-input=""
+                            data-debounce-ms=(LIVE_SEARCH_DEBOUNCE_MS)
+                        }
+                    )
+                </div>
                 <input
                     type="hidden"
                     :value=$(query.get())

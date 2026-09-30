@@ -111,13 +111,13 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
         .unwrap()
         .render(&cx);
     assert_eq!(
-        rendered.matches(">Actions</th>").count(),
+        rendered.matches(">Actions</span></th>").count(),
         1,
         "the real table renders one action column, got {rendered}"
     );
     assert_eq!(
-        skeleton.matches(">Actions</th>").count(),
-        rendered.matches(">Actions</th>").count(),
+        skeleton.matches(">Actions</span></th>").count(),
+        rendered.matches(">Actions</span></th>").count(),
         "the skeleton must match the swapped table's column count, got {skeleton}"
     );
 }
@@ -163,8 +163,8 @@ async fn skeleton_pulses_only_the_bars_the_table_renders() {
     );
 }
 
-/// The bulk bar sits above the table like the search and filter bars, so it
-/// gets a pulse; and the live page renders its placeholder from the shard's
+/// The bulk control sits in the toolbar row above the table beside the
+/// search, so it gets a pulse there; and the live page renders its placeholder from the shard's
 /// table, whose search and filter bars are hoisted out of the swapped region.
 #[tokio::test]
 async fn skeleton_pulses_the_bulk_bar_and_not_the_hoisted_bars() {
@@ -191,7 +191,7 @@ async fn skeleton_pulses_the_bulk_bar_and_not_the_hoisted_bars() {
         "one pulse, for the bulk bar the shard's table renders, got {html}"
     );
     assert!(
-        html.contains("h-9 w-28"),
+        html.contains("h-9 w-36"),
         "the pulse is the bulk bar's, got {html}"
     );
 }

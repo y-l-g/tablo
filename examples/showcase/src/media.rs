@@ -12,13 +12,14 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    Notification, Page, Uploader, csrf, db::db, notification::set_notification, require_tenant,
-    schema::OptionSource,
+    NavigationItem, Notification, Page, Uploader, csrf, db::db, notification::set_notification,
+    require_tenant, schema::OptionSource,
 };
 use topcoat::{
     Result,
     asset::AssetConfig,
     context::{Cx, try_app_context},
+    icon::icon,
     router::{
         content::multipart::Multipart,
         error::{SeeOther, bad_request, see_other},
@@ -148,6 +149,10 @@ pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
 pub struct MediaLibraryPage;
 
 impl Page for MediaLibraryPage {
+    fn navigation() -> NavigationItem {
+        NavigationItem::for_page::<Self>().icon(tablo_ui::icons::IMAGE)
+    }
+
     /// The library keeps the short URL [`MEDIA_PATH`] names; the upload route
     /// and the form's action share it.
     fn slug() -> String {
@@ -190,10 +195,11 @@ impl Page for MediaLibraryPage {
                                 class="flex flex-col gap-4"
                             >
                                 (csrf::field(cx, &csrf_token))
-                                <div class="flex flex-col gap-2">
-                                    <label class="text-sm font-medium" for="media-file">
+                                tablo_ui::field(
+                                    tablo_ui::field_label(
+                                        attrs: attributes! { for="media-file" },
                                         "File"
-                                    </label>
+                                    )
                                     <div class="flex items-center gap-2">
                                         tablo_ui::input(
                                             attrs: attributes! {
@@ -212,13 +218,14 @@ impl Page for MediaLibraryPage {
                                         // usable (ADR-0021).
                                         tablo_ui::button(
                                             variant: tablo_ui::ButtonVariant::Outline,
-                                            size: tablo_ui::ButtonSize::Sm,
+                                            size: tablo_ui::ButtonSize::Icon,
                                             attrs: attributes! {
                                                 type="reset"
                                                 data-media-clear=""
                                                 aria-label="Clear the selected file"
+                                                title="Clear the selected file"
                                             },
-                                            "×"
+                                            icon(data: tablo_ui::icons::X)
                                         )
                                     </div>
                                     <div
@@ -226,12 +233,14 @@ impl Page for MediaLibraryPage {
                                         hidden=""
                                         class="flex items-center gap-3 text-xs text-muted-foreground"
                                     ></div>
-                                </div>
-                                tablo_ui::button(
-                                    variant: tablo_ui::ButtonVariant::Primary,
-                                    attrs: attributes! { type="submit" },
-                                    "Upload"
                                 )
+                                <div>
+                                    tablo_ui::button(
+                                        variant: tablo_ui::ButtonVariant::Primary,
+                                        attrs: attributes! { type="submit" },
+                                        "Upload"
+                                    )
+                                </div>
                             </form>
                         )
                     )
@@ -240,12 +249,11 @@ impl Page for MediaLibraryPage {
                         tablo_ui::card_content(
                             <div class="flex flex-col gap-3">
                                 if media.is_empty() {
-                                    <p
-                                        data-media-empty=""
-                                        class="text-sm text-muted-foreground"
-                                    >
-                                        "No media has been uploaded yet."
-                                    </p>
+                                    tablo_ui::empty_state(
+                                        title: "No media has been uploaded yet.",
+                                        detail: "Uploaded files are listed here.",
+                                        attrs: attributes! { data-media-empty="" }
+                                    )
                                 } else {
                                     <ul
                                         data-media-list=""

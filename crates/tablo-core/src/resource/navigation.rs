@@ -1,6 +1,6 @@
 //! Sidebar navigation: [`NavigationItem`] and the [`NavTarget`] it points with.
 
-use topcoat::{context::Cx, view::Attributes};
+use topcoat::{context::Cx, icon::IconData, view::Attributes};
 
 use super::Resource;
 
@@ -57,7 +57,7 @@ impl std::fmt::Debug for NavTarget {
 }
 
 /// Sidebar entry derived from a `Resource` or a `Page` (see `CONTEXT.md`).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub struct NavigationItem {
     pub label: String,
     /// Where this entry points. [`NavTarget::Derived`] until the owning Panel
@@ -72,6 +72,10 @@ pub struct NavigationItem {
     /// e.g. `NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }`
     /// pins above the resources.
     pub order: i32,
+    /// The icon before the label, if any; set it with [`Self::icon`].
+    /// `tablo_ui::icons` carries a set of navigation icons an app can use
+    /// without staging an icon set of its own.
+    pub icon: Option<IconData>,
 }
 
 impl NavigationItem {
@@ -90,6 +94,7 @@ impl NavigationItem {
             label: R::navigation_label(),
             target: NavTarget::Derived,
             order: 0,
+            icon: None,
         }
     }
 
@@ -102,6 +107,7 @@ impl NavigationItem {
             label: P::navigation_label(),
             target: NavTarget::Derived,
             order: 0,
+            icon: None,
         }
     }
 
@@ -114,7 +120,17 @@ impl NavigationItem {
             label: label.into(),
             target: NavTarget::Url(url.into()),
             order: 0,
+            icon: None,
         }
+    }
+
+    /// This entry with `icon` before its label, e.g.
+    /// `NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::USERS)`
+    /// in a [`Resource::navigation`] override.
+    #[must_use]
+    pub fn icon(mut self, icon: IconData) -> Self {
+        self.icon = Some(icon);
+        self
     }
 
     /// Resolve a [`NavTarget::Derived`] entry to `url`, the route its Panel

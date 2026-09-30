@@ -59,8 +59,10 @@ its form and declares its list view, and any other omission has to fail loudly i
   and the list title. Override `label()` to rename, and `navigation_label()` only for a plural the
   rules cannot guess.
 - `navigation()` curates this resource's sidebar entry: override it to change the label, the `order`
-  (lower renders first, ties keep declaration order) or the URL, e.g.
-  `NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }`. The URL is the Panel's
+  (lower renders first, ties keep declaration order), the icon or the URL, e.g.
+  `NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }` or
+  `NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::USERS)`. `tablo_ui::icons` carries
+  a set of navigation icons; an app that stages an icon set of its own passes any `IconData`. The URL is the Panel's
   call: `for_resource` names none, so the panel that mounts the resource resolves it to
   `{prefix}/{slug}`, and a resource never links at `/admin` on a panel mounted elsewhere. Spell a
   URL out instead (`NavigationItem::at(..)`) only to link somewhere other than the resource's list

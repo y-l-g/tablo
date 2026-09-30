@@ -12,8 +12,8 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// The zero-rows cell — one honest message, not two: "no records yet"
-    /// when unfiltered, "no results" with a Clear link when a search is
+    /// The zero-rows cell, a [`tablo_ui::empty_state`] — one honest message, not two: "no records
+    /// yet" when unfiltered, "no results" with a Clear link when a search is
     /// active. The dead Create button is gone (create pages are not wired
     /// yet). Wrapped in a single cell spanning the table so it sits inside
     /// the table. For live tables (`signals`) the back link writes its own
@@ -90,21 +90,27 @@ impl<M> Table<M> {
             let attrs = live_link(cx, url, signals);
             view! { cx => <a class=(EMPTY_LINK_CLASS) (attrs)>"Back to first page"</a> }.boxed()
         });
+        let action: Option<Child<'a>> =
+            (clear_link.is_some() || first_page_link.is_some()).then(|| {
+                view! {
+                    cx =>
+                    if let Some(link) = clear_link {
+                        (link)
+                    }
+                    if let Some(link) = first_page_link {
+                        (link)
+                    }
+                }
+                .boxed()
+                .into()
+            });
         Ok(view! {
             cx =>
             table_body(
                 table_row(
                     table_cell(
-                        attrs: attributes! { colspan=(colspan) class="px-6 py-16 text-center" },
-                        <div class="flex flex-col items-center gap-4">
-                            <p class="text-sm text-muted-foreground">(message)</p>
-                            if let Some(link) = clear_link {
-                                (link)
-                            }
-                            if let Some(link) = first_page_link {
-                                (link)
-                            }
-                        </div>
+                        attrs: attributes! { colspan=(colspan) class="whitespace-normal" },
+                        tablo_ui::empty_state(title: message, action: action)
                     )
                 )
             )
