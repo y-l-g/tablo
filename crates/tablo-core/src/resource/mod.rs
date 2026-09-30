@@ -216,8 +216,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// The related resources whose rows belong to a record: each renders on
     /// this resource's detail and edit pages as the related resource's own
-    /// list table, narrowed to the record, with a create link that opens its
-    /// form with the record already chosen (Filament's relation managers).
+    /// list table, narrowed to the record (Filament's relation managers) —
+    /// read-only on the detail page, and on the edit page with its write
+    /// actions and a create link that opens its form with the record already
+    /// chosen.
     ///
     /// Takes no `Cx`, like [`navigation`](Self::navigation): the relations are
     /// a declaration, and each related resource's policies decide per request

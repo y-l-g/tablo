@@ -43,7 +43,7 @@ impl<'a> FormChrome<'a> {
             title: format!("Edit {}", R::label()),
             submit_label: "Save",
             public_url: R::public_url(cx, record),
-            relations: render_relations::<R>(cx, record),
+            relations: render_relations::<R>(cx, record, false),
         }
     }
 }
@@ -152,10 +152,12 @@ pub(super) async fn render_form_page<'a, R: Resource>(
 
 /// Create page GET.
 ///
-/// A query parameter that names a declared control seeds that control
+/// A query parameter that names a relationship control seeds it
 /// (`?post_id=…`): a relation's create link opens the child's form with the
 /// owner already chosen. It is a prefill only — the POST parses and checks
-/// what is submitted, like any other value the user could have typed.
+/// what is submitted, like any other value the user could have typed — and
+/// only a relationship is seeded, so a link cannot prefill free text or a
+/// stored file into the form an admin submits.
 pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
@@ -174,16 +176,26 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
         Ok(html)
     })))
 }
+
 /// The create form's initial values: the request's query parameters that
-/// name a control of `R`'s form, first occurrence wins.
+/// name a relationship control of `R`'s form, first occurrence wins.
 fn seeded_values<R: Resource>(cx: &Cx) -> HashMap<String, String> {
-    let controls = R::form(cx).controls();
+    let schema = R::form(cx);
+    let seedable: Vec<&str> = schema
+        .fields()
+        .filter(|field| {
+            field
+                .as_choice()
+                .is_some_and(|choice| choice.is_relationship())
+        })
+        .map(|field| field.name())
+        .collect();
     let query = topcoat::router::request::uri(cx)
         .query()
         .unwrap_or_default();
     let mut values = HashMap::new();
     for (name, value) in form_urlencoded::parse(query.as_bytes()) {
-        if controls.iter().any(|control| control.name == name) {
+        if seedable.contains(&name.as_ref()) {
             values
                 .entry(name.into_owned())
                 .or_insert_with(|| value.into_owned());

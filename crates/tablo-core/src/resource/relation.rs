@@ -14,7 +14,10 @@ use toasty::stmt::{Expr, IntoExpr};
 use topcoat::{context::Cx, view::BoxView};
 
 use super::Resource;
-use crate::schema::{FieldLens, lens_field};
+use crate::{
+    form::FormScalar,
+    schema::{FieldLens, lens_field},
+};
 
 /// One relation of a parent resource's records: the child resource whose rows
 /// belong to a record, and the key that says which.
@@ -62,12 +65,22 @@ pub(crate) struct BoundRelation {
     pub(crate) seed: (String, String),
     /// The path of the page that renders the table.
     pub(crate) page: String,
+    /// Whether the page only shows the rows — the detail page — so the table
+    /// carries no write action and no create link.
+    pub(crate) read_only: bool,
 }
 
 impl<P> Relation<P> {
     /// The child resource `C`, whose `foreign_key` column holds the owner's
-    /// `owner_key`: a post's comments are
-    /// `has_many::<CommentResource, _>(Comment::fields().post_id(), |post: &Post| post.id)`.
+    /// `owner_key` — a post's comments:
+    ///
+    /// ```ignore
+    /// Relation::has_many::<CommentResource, _>(Comment::fields().post_id(), |post: &Post| post.id)
+    /// ```
+    ///
+    /// A nullable foreign key binds the same way, with the owner's key in
+    /// `Some`. The key's form spelling ([`FormScalar::to_form`]) seeds `C`'s
+    /// create form.
     ///
     /// The section is titled with `C`'s navigation label, and its table's URL
     /// parameters are prefixed with `C`'s slug (`comments.q=`).
@@ -82,7 +95,7 @@ impl<P> Relation<P> {
     ) -> Self
     where
         C: Resource,
-        T: IntoExpr<T> + ToString + Send + Sync + 'static,
+        T: IntoExpr<T> + FormScalar + Send + Sync + 'static,
     {
         let field = lens_field(
             foreign_key.clone(),
@@ -94,7 +107,7 @@ impl<P> Relation<P> {
             foreign_key: field.name.app_unwrap().to_string(),
             bind: Arc::new(move |owner| {
                 let value = owner_key(owner);
-                let seed = value.to_string();
+                let seed = value.to_form();
                 (foreign_key.clone().eq(value), seed)
             }),
             render: crate::panel::relation_table::<C>,
@@ -112,8 +125,15 @@ impl<P> Relation<P> {
         &self.key
     }
 
-    /// Render this relation's table for `owner` on the page at `page`.
-    pub(crate) fn render<'a>(&self, cx: &'a Cx, owner: &P, page: &str) -> BoxView<'a> {
+    /// Render this relation's table for `owner` on the page at `page`,
+    /// without write actions when `read_only`.
+    pub(crate) fn render<'a>(
+        &self,
+        cx: &'a Cx,
+        owner: &P,
+        page: &str,
+        read_only: bool,
+    ) -> BoxView<'a> {
         let (scope, value) = (self.bind)(owner);
         (self.render)(
             cx,
@@ -123,6 +143,7 @@ impl<P> Relation<P> {
                 scope,
                 seed: (self.foreign_key.clone(), value),
                 page: page.to_string(),
+                read_only,
             },
         )
     }

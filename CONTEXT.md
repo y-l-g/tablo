@@ -138,8 +138,9 @@ _Avoid_: Show page, Infolist page, Record view
 
 A related Resource's rows that belong to a record, declared by the owner's `Resource::relations`
 (`Relation::has_many`) and rendered on the owner's detail and edit pages as the related Resource's
-own list Table, narrowed by a foreign key, its URL state keyed by the related slug, with a create
-link that seeds the key. Writes started there return to the owner's page (GH #408).
+own list Table, narrowed by a foreign key, its URL parameters prefixed with the related slug. It is
+read-only on the detail page; on the edit page it carries the writes and a create link that seeds
+the key, and writes started there return to the owner's page (GH #408).
 
 _Avoid_: Relation manager, Sub-table, Nested resource
 

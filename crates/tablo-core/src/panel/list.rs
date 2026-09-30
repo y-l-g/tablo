@@ -77,6 +77,12 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
 /// table as-is. The filter bar joins the search toolbar there: a control rebuilt
 /// by its own rerun loses focus.
 pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::Model> {
+    wire_table::<R>(cx, live, declared_chrome::<R>(cx))
+}
+
+/// [`wire_table_actions`] with the affordances `chrome` names, a subset of
+/// [`declared_chrome`]: a read-only relation keeps only the View link.
+pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) -> Table<R::Model> {
     let mut table = R::table(cx);
     if live {
         table = table.hide_search().hide_filter_bar();
@@ -94,7 +100,6 @@ pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::M
             delete: view && R::can_delete(&policy_cx, record),
         }
     });
-    let chrome = declared_chrome::<R>(cx);
     if chrome.delete {
         table = table
             .with_delete(list_url(cx, &R::slug()))

@@ -113,16 +113,39 @@ async fn searching_the_relation_stays_on_the_post_page() {
     );
 }
 
-/// "New comment" opens the comment form with the post chosen, and the created
-/// comment lands back on the post page.
+/// The post's detail page shows its comments read-only: no row write, no
+/// bulk delete, no create link.
 #[tokio::test]
-async fn a_comment_created_from_the_post_page_returns_to_it() {
+async fn the_post_detail_page_shows_its_comments_read_only() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let (commented, _) = fixture_posts(&mut db_q).await;
+    let html = body_string(client.get(&format!("/admin/posts/{}", commented.id)).await).await;
+    let relation = &html[html.find("data-relation=").expect("the relation renders")..];
+    for write in [
+        "/comments/create",
+        "data-row-delete-action",
+        "data-bulk-form",
+    ] {
+        assert!(
+            !relation.contains(write),
+            "no {write} on the detail page: {relation}"
+        );
+    }
+}
+
+/// "New Comment" on the post's edit page opens the comment form with the post
+/// chosen, and the created comment lands back on the edit page.
+#[tokio::test]
+async fn a_comment_created_from_the_post_edit_page_returns_to_it() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let (_, bare) = fixture_posts(&mut db_q).await;
-    let page = format!("/admin/posts/{}", bare.id);
+    let page = format!("/admin/posts/{}/edit", bare.id);
 
     let html = body_string(client.get(&page).await).await;
     let return_to = page.replace('/', "%2F");
@@ -161,15 +184,15 @@ async fn a_comment_created_from_the_post_page_returns_to_it() {
     assert!(html.contains("Written from the post"), "{html}");
 }
 
-/// A row delete confirmed from the post page returns to the post page.
+/// A row delete confirmed from the post's edit page returns to it.
 #[tokio::test]
-async fn a_comment_deleted_from_the_post_page_returns_to_it() {
+async fn a_comment_deleted_from_the_post_edit_page_returns_to_it() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let (commented, _) = fixture_posts(&mut db_q).await;
-    let page = format!("/admin/posts/{}", commented.id);
+    let page = format!("/admin/posts/{}/edit", commented.id);
 
     let html = body_string(client.get(&page).await).await;
     let csrf = input_value(&html, "csrf_token").expect("the page carries csrf");
@@ -196,7 +219,7 @@ async fn a_comment_deleted_from_the_post_page_returns_to_it() {
     );
 }
 
-/// The edit page shows the relation below the form.
+/// The edit page shows the relation below the form, outside it.
 #[tokio::test]
 async fn the_post_edit_page_shows_its_comments() {
     let db = full_db().await;
@@ -215,5 +238,18 @@ async fn the_post_edit_page_shows_its_comments() {
             .await,
     )
     .await;
-    assert!(html.contains(&related[0].body), "{html}");
+    let relation = html
+        .find("data-relation=\"comments\"")
+        .expect("the relation renders");
+    assert!(
+        html[relation..].contains(&related[0].body),
+        "the comments render in the relation: {html}"
+    );
+    let opened = html[..relation]
+        .rfind("<form method=\"post\"")
+        .expect("the edit form renders before the relation");
+    assert!(
+        html[opened..relation].contains("</form>"),
+        "the relation sits after the edit form closes: {html}"
+    );
 }

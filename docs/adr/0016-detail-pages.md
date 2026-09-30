@@ -101,9 +101,10 @@ not, and exists for a list-only resource.
 `MAX_RELATION_ROWS`, with no query of its own — is superseded by this amendment. A resource declares
 `Resource::relations() -> Vec<Relation<Self::Model>>`, each a `Relation::has_many` naming the
 related resource and its foreign key. The panel renders each on the owner's detail and edit pages as
-the related resource's own `Table`, loaded through its scoped query narrowed to the owner, with its
-search, sort, filters, pager and row actions; the rows no longer render twice in two vocabularies
-that drift. The relation's URL parameters are prefixed with the related slug, a create link seeds
-the foreign key, and writes started there return to the owner's page through a `?return=` the panel
-follows only under its own prefix. Free-form content read off the record renders through
+the related resource's own `Table`, loaded through its scoped query narrowed to the owner, so a
+record's related rows and the related list render through one table vocabulary. The detail page
+stays read-only — its relations keep only the View link, as Filament's view page does — and the edit
+page carries the row and bulk writes and a create link that seeds the foreign key. The relation's URL
+parameters are prefixed with the related slug, and writes started there return to the owner's page
+through a `?return=` the panel follows only under its own prefix. Free-form content read off the record renders through
 `view_content`, which is what remains of the typed half.

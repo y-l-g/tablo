@@ -15,7 +15,7 @@ use super::{
     toolbar::hidden_state_inputs,
 };
 
-/// One filter control: a labelled `<select name="f.<name>">` (keyed like the
+/// One filter control: a labelled `<select name="f.<name>">` (prefixed like the
 /// table's other parameters, `param`) carrying the
 /// `value`/`label` pairs, with the leading empty "All" option that clears the
 /// filter.

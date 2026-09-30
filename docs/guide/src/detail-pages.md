@@ -70,20 +70,25 @@ impl Resource for PostResource {
 ```
 
 `has_many` names the related resource and the binding between the two: the related model's
-foreign-key column and the owner's value for it. The table is `CommentResource`'s: its columns,
-search, sort, filters, pager, row actions and bulk delete, over its tenant-scoped query plus
-`post_id = <this post>`. Its policies apply as on its list: `can_view_any` decides whether the
-section renders, and each row action is gated per row. The section is titled with the related
-resource's navigation label; `.label(..)` overrides it.
+foreign-key column and the owner's value for it (a nullable key takes the owner's value in
+`Some`). The table is `CommentResource`'s: its columns, search, sort, filters and pager, over its
+tenant-scoped query plus `post_id = <this post>`. Its policies apply as on its list: a request
+`can_view_any` refuses, or one without a tenant the related resource requires, gets no section.
+The section is titled with the related resource's navigation label; `.label(..)` overrides it.
 
-The relation's URL state is keyed by the related resource's slug — `?comments.q=`,
+The detail page shows the rows read-only, as Filament's view page does: each row keeps its View
+link. The edit page carries the writes: the row Edit and Delete actions, bulk delete, and the
+create link, each gated per row or by `can_create` as on the list.
+
+The relation's URL parameters are prefixed with the related resource's slug — `?comments.q=`,
 `?comments.sort=`, `?comments.after=` — so several relations share one page without colliding.
 A link or a form in one relation carries only that relation's parameters.
 
-When the related resource has a form and `can_create` allows it, the section links a create
-button to that resource's create page with the owner already chosen
-(`/admin/comments/create?post_id=…`): the create page seeds any control a query parameter names.
-The seed is a prefill, and the write checks what is submitted as for any create.
+On the edit page, when the related resource has a form and `can_create` allows it, the section
+links a create button to that resource's create page with the owner already chosen
+(`/admin/comments/create?post_id=…`): the create page seeds a relationship control a query
+parameter names, and nothing else. The seed is a prefill, and the write checks what is submitted
+as for any create.
 
 Writes started from the relation return to the page it is on: the create link, the row edit and
 delete actions and the bulk delete carry `?return=`, and the write redirects there instead of to

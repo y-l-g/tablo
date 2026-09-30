@@ -277,7 +277,10 @@ impl Panel {
     /// with a blank answer; a gated resource's form does not claim its tenant
     /// column; and, where `can_create` allows it, every non-nullable column is
     /// set by the form, by toasty, by the tenant stamp, or by an override that
-    /// names it in [`Resource::CREATE_COLUMNS`].
+    /// names it in [`Resource::CREATE_COLUMNS`]. It also checks that each of the
+    /// resource's [`relations`](Resource::relations) names a resource this
+    /// panel registers, once: the relation's actions go to that resource's
+    /// routes.
     ///
     /// A slug another resource or [page](Self::page) holds, one the panel
     /// routes itself (`login`, `logout`), or one that is not one URL segment

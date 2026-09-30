@@ -72,20 +72,33 @@ pub(crate) fn list_url(cx: &Cx, slug: &str) -> String {
 }
 
 /// The request's `?return=` target, when it is a same-origin path under the
-/// panel prefix ([`safe_next`](crate::auth::safe_next) plus the prefix
-/// check): a relation table's actions carry it so a write lands back on the
-/// record page it started from. Anything else is ignored, never followed.
+/// panel prefix ([`safe_next`](crate::auth::safe_next), no `.` or `..`
+/// segment — raw or percent-encoded — that the browser would resolve out of
+/// the prefix, then the prefix check): a relation table's actions carry it so
+/// a write lands back on the record page it started from. Anything else is
+/// ignored, never followed.
 pub(crate) fn return_target(cx: &Cx) -> Option<String> {
     let query = topcoat::router::request::uri(cx).query()?;
     let prefix = panel_prefix(cx);
     form_urlencoded::parse(query.as_bytes())
         .find(|(key, _)| key == RETURN_PARAM)
         .and_then(|(_, value)| crate::auth::safe_next(&value).map(str::to_string))
+        .filter(|target| !has_dot_segment(target))
         .filter(|target| {
             target
                 .strip_prefix(prefix.as_str())
                 .is_some_and(|rest| rest.is_empty() || rest.starts_with(['/', '?']))
         })
+}
+
+/// Whether `target`'s path holds a `.` or `..` segment, spelled raw or with
+/// `%2e`.
+fn has_dot_segment(target: &str) -> bool {
+    let path = target.split(['?', '#']).next().unwrap_or_default();
+    path.split('/').any(|segment| {
+        let segment = segment.to_ascii_lowercase().replace("%2e", ".");
+        segment == "." || segment == ".."
+    })
 }
 
 /// Where a write on the resource `slug` lands: the request's

@@ -350,139 +350,28 @@ impl<M> IntoColumns<M> for TextColumn<M> {
     }
 }
 
-/// Generate the tuple impls of a column-list trait, arities two to eight:
-/// `$trait::$method` collects a tuple of `$col<T>` into a `Vec` and hands it to
-/// `$wrap`. Every element is one column type, so `(a, (b, c))` is not a
-/// column list: a table's columns sit in one flat tuple.
-macro_rules! column_tuples {
-    ($trait:ident, $method:ident, $col:ident, $out:ty, $wrap:expr) => {
-        column_tuples!(@arity $trait, $method, $col, $out, $wrap; a, b);
-        column_tuples!(@arity $trait, $method, $col, $out, $wrap; a, b, c);
-        column_tuples!(@arity $trait, $method, $col, $out, $wrap; a, b, c, d);
-        column_tuples!(@arity $trait, $method, $col, $out, $wrap; a, b, c, d, e);
-        column_tuples!(@arity $trait, $method, $col, $out, $wrap; a, b, c, d, e, f);
-        column_tuples!(@arity $trait, $method, $col, $out, $wrap; a, b, c, d, e, f, g);
-        column_tuples!(@arity $trait, $method, $col, $out, $wrap; a, b, c, d, e, f, g, h);
-    };
-    (@arity $trait:ident, $method:ident, $col:ident, $out:ty, $wrap:expr; $($v:ident),+) => {
-        impl<T> $trait<T> for ($(column_tuples!(@element $col $v)),+) {
-            fn $method(self) -> $out {
+/// The tuple impls of [`IntoColumns`], one arity per invocation. Every
+/// element is a `TextColumn<M>`, so `(a, (b, c))` is not a column list: a
+/// table's columns sit in one flat tuple.
+macro_rules! into_columns_tuples {
+    ($($v:ident),+) => {
+        impl<M> IntoColumns<M> for ($(into_columns_tuples!(@column $v)),+) {
+            fn into_columns(self) -> Vec<TextColumn<M>> {
                 let ($($v,)+) = self;
-                ($wrap)(vec![$($v,)+])
+                vec![$($v,)+]
             }
         }
     };
-    (@element $col:ident $v:ident) => { $col<T> };
+    (@column $v:ident) => { TextColumn<M> };
 }
 
-column_tuples!(
-    IntoColumns,
-    into_columns,
-    TextColumn,
-    Vec<TextColumn<T>>,
-    |columns| columns
-);
-
-/// The table-level floor a wide column contributes to the table's
-/// `min-width`, in whole rem.
-///
-/// A wide column declares no width, so a sum of declared widths alone would
-/// let it crush to zero on a narrow viewport. Six rem keeps body text readable
-/// and, summed across the wide columns, trips the wrapper's horizontal scroll
-/// before the fixed layout crushes them.
-pub(crate) const WIDE_COLUMN_MIN_REM: u8 = 6;
-
-/// The most of the table the kind defaults claim together.
-///
-/// The defaults are shares of the table, and the columns that declare none
-/// take what they leave: a total over 100% gives those columns no space at
-/// all, and `table-fixed` renders a column with no space at zero width, header
-/// text included. The budget keeps the rest of the table for them whatever the
-/// column set.
-pub(crate) const DEFAULT_WIDTH_BUDGET_PERCENT: u8 = 60;
-
-/// The share a kind default claims, scaled down when the table's defaults
-/// together (`total`) exceed [`DEFAULT_WIDTH_BUDGET_PERCENT`].
-pub(crate) fn scaled_default_percent(nominal: u8, total: u32) -> u8 {
-    if total <= u32::from(DEFAULT_WIDTH_BUDGET_PERCENT) {
-        return nominal;
-    }
-    let scaled = u32::from(nominal) * u32::from(DEFAULT_WIDTH_BUDGET_PERCENT) / total;
-    // `scaled` is at most the budget, so the conversion cannot fail.
-    u8::try_from(scaled).unwrap_or(DEFAULT_WIDTH_BUDGET_PERCENT)
-}
-
-/// The `style` value a kind default emits.
-pub(crate) fn default_width_style(percent: u8) -> Cow<'static, str> {
-    Cow::Owned(format!("width: {percent}%"))
-}
-
-/// The `style` a data column's cells carry: an explicit `Rem`/`Percent`
-/// verbatim, a kind default scaled against the table's defaults (`total`), and
-/// nothing for a wide column, which takes a share of what the declared ones
-/// leave.
-pub(crate) fn column_width_style(width: ColumnWidth, total: u32) -> Option<Cow<'static, str>> {
-    width.explicit_css().or_else(|| {
-        width
-            .default_percent()
-            .map(|nominal| default_width_style(scaled_default_percent(nominal, total)))
-    })
-}
-
-/// The terms of a fixed-layout table's `min-width`: every share as emitted and
-/// the lengths as one rem total.
-///
-/// With `w-full` the table never exceeds its container on its own, so without
-/// the floor the wrapper's `overflow-x-auto` never scrolls; with it the table
-/// keeps its measure on a narrow viewport and the wrapper scrolls.
-#[derive(Default)]
-pub(crate) struct MinWidth {
-    percent: Vec<u8>,
-    rem: u32,
-}
-
-impl MinWidth {
-    /// A share of the table, as the column emits it.
-    pub(crate) fn share(&mut self, percent: u8) {
-        self.percent.push(percent);
-    }
-
-    /// A length, in whole rem.
-    pub(crate) fn rem(&mut self, rem: u8) {
-        self.rem += u32::from(rem);
-    }
-
-    /// A data column's term: its scaled share or its length, and
-    /// [`WIDE_COLUMN_MIN_REM`] for a wide column, which declares nothing.
-    pub(crate) fn column(&mut self, width: ColumnWidth, total: u32) {
-        match width {
-            ColumnWidth::Wide => self.rem(WIDE_COLUMN_MIN_REM),
-            ColumnWidth::Narrow => {
-                self.share(scaled_default_percent(NARROW_DEFAULT_PERCENT, total))
-            }
-            ColumnWidth::Rem(rem) => self.rem(rem),
-            ColumnWidth::Percent(share) => self.share(share),
-        }
-    }
-
-    /// The `min-width` style, emitted only when the sum carries a length:
-    /// shares alone are a fraction of the container and can never overflow it.
-    pub(crate) fn style(&self) -> Option<Cow<'static, str>> {
-        (self.rem > 0).then(|| {
-            let mut parts: Vec<String> = self
-                .percent
-                .iter()
-                .map(|share| format!("{share}%"))
-                .collect();
-            parts.push(format!("{}rem", self.rem));
-            if parts.len() == 1 {
-                Cow::Owned(format!("min-width: {}", parts[0]))
-            } else {
-                Cow::Owned(format!("min-width: calc({})", parts.join(" + ")))
-            }
-        })
-    }
-}
+into_columns_tuples!(a, b);
+into_columns_tuples!(a, b, c);
+into_columns_tuples!(a, b, c, d);
+into_columns_tuples!(a, b, c, d, e);
+into_columns_tuples!(a, b, c, d, e, f);
+into_columns_tuples!(a, b, c, d, e, f, g);
+into_columns_tuples!(a, b, c, d, e, f, g, h);
 
 #[cfg(test)]
 mod tests;

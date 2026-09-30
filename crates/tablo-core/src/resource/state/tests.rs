@@ -228,7 +228,7 @@ fn group_header_dom_ids_are_stable_and_distinct_from_row_ids() {
 /// delta — state, not URL bytes.
 fn populated_state() -> TableState {
     TableState {
-        key: None,
+        prefix: None,
         search: Some("Ada".to_string()),
         sort: Some(Sort {
             column: "name".to_string(),
@@ -368,15 +368,15 @@ fn bulk_wire_membership_is_exact() {
     assert!(!bulk_wire_contains("", "row-1"));
 }
 
-/// A keyed table reads only its own prefixed parameters, and every link it
+/// A prefixed table reads only its own parameters, and every link it
 /// builds spells them back with the same prefix, so two tables share one
 /// query without colliding.
 #[test]
-fn keyed_states_share_one_query_without_colliding() {
+fn prefixed_states_share_one_query_without_colliding() {
     let query = "q=list&comments.q=ada&comments.sort=body&comments.dir=desc\
                  &comments.f.status=open&tags.q=rust&comments.after=tok";
-    let comments = TableState::from_query_keyed(query, "comments");
-    assert_eq!(comments.key.as_deref(), Some("comments"));
+    let comments = TableState::from_query_prefixed(query, "comments");
+    assert_eq!(comments.prefix.as_deref(), Some("comments"));
     assert_eq!(comments.search.as_deref(), Some("ada"));
     assert_eq!(
         comments.sort,
@@ -391,7 +391,7 @@ fn keyed_states_share_one_query_without_colliding() {
     );
     assert_eq!(comments.cursor, Some(Cursor::After("tok".to_string())));
     assert_eq!(
-        TableState::from_query_keyed(query, "tags")
+        TableState::from_query_prefixed(query, "tags")
             .search
             .as_deref(),
         Some("rust")
@@ -409,9 +409,9 @@ fn keyed_states_share_one_query_without_colliding() {
          &comments.f.status=open&comments.after=tok"
     );
     assert_eq!(
-        TableState::from_query_keyed(query_of(&url), "comments"),
+        TableState::from_query_prefixed(query_of(&url), "comments"),
         comments,
-        "a keyed link round-trips"
+        "a prefixed link round-trips"
     );
     assert!(
         comments

@@ -93,16 +93,16 @@ impl Resource for ChildResource {
         ))
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
+    fn can_view_any(cx: &Cx) -> bool {
+        !has_header(cx, "x-deny-children")
     }
 
     fn can_view(_cx: &Cx, _record: &Child) -> bool {
         true
     }
 
-    fn can_create(_cx: &Cx) -> bool {
-        true
+    fn can_create(cx: &Cx) -> bool {
+        !has_header(cx, "x-no-create")
     }
 
     fn can_update(_cx: &Cx, _record: &Child) -> bool {
@@ -128,6 +128,24 @@ impl Resource for ChildResource {
 struct ChildForm {
     body: String,
     owner_id: Uuid,
+}
+
+/// Whether the request carries `name`: the per-request switch the child's
+/// policies read, so one router serves both answers. A build-time check runs
+/// without a request and reads `false`.
+fn has_header(cx: &Cx, name: &str) -> bool {
+    topcoat::context::try_request_context::<http::request::Parts>(cx)
+        .is_some_and(|parts| parts.headers.contains_key(name))
+}
+
+/// A GET carrying the header `name`.
+async fn get_with_header(router: &Router, uri: &str, name: &str) -> String {
+    let request = http::Request::builder()
+        .uri(uri)
+        .header(name, "1")
+        .body(topcoat::router::Body::empty())
+        .unwrap();
+    body_string(router.handle(request).await).await
 }
 
 /// Two owners with two children each, and the router over both resources.
@@ -176,7 +194,7 @@ async fn the_detail_page_lists_only_the_owners_children() {
 }
 
 #[tokio::test]
-async fn the_relation_reads_and_writes_only_its_keyed_state() {
+async fn the_relation_reads_and_writes_only_its_prefixed_state() {
     let (router, _db, ada, _bob) = fixture().await;
     let page = format!("/admin/owners/{}", ada.id);
     // A bare `q` belongs to no relation; the keyed one narrows the table.
@@ -196,16 +214,52 @@ async fn the_relation_reads_and_writes_only_its_keyed_state() {
     assert!(!html.contains("?sort="), "no bare sort link: {html}");
 }
 
+/// The detail page shows the rows read-only; the edit page carries the
+/// writes, each returning to it.
 #[tokio::test]
-async fn the_create_link_seeds_the_owner_and_returns_to_the_page() {
+async fn the_detail_page_is_read_only_and_the_edit_page_carries_the_writes() {
     let (router, _db, ada, _bob) = fixture().await;
-    let page = format!("/admin/owners/{}", ada.id);
-    let html = body_string(get(&router, &page).await).await;
-    let expected = format!(
-        "/admin/children/create?owner_id={}&amp;return=%2Fadmin%2Fowners%2F{}",
-        ada.id, ada.id
+    let detail = body_string(get(&router, &format!("/admin/owners/{}", ada.id)).await).await;
+    let relation = &detail[detail.find("data-relation=").expect("the relation renders")..];
+    for write in ["/create", "/edit", "/delete", "data-bulk-form"] {
+        assert!(
+            !relation.contains(write),
+            "no {write} on the detail page: {relation}"
+        );
+    }
+
+    let edit = format!("/admin/owners/{}/edit", ada.id);
+    let html = body_string(get(&router, &edit).await).await;
+    assert!(html.contains("data-relation=\"children\""), "{html}");
+    let return_to = format!("return=%2Fadmin%2Fowners%2F{}%2Fedit", ada.id);
+    let create = format!("/admin/children/create?owner_id={}&amp;{return_to}", ada.id);
+    assert!(html.contains(&create), "create link {create}: {html}");
+    assert!(
+        html.contains(&format!("/edit?{return_to}")),
+        "row edit returns: {html}"
     );
-    assert!(html.contains(&expected), "create link {expected}: {html}");
+    assert!(
+        html.contains(&format!("/bulk-delete?{return_to}")),
+        "bulk returns: {html}"
+    );
+}
+
+/// The child's own policies decide per request: no `can_view_any`, no
+/// section; no `can_create`, no create link.
+#[tokio::test]
+async fn the_child_policies_gate_the_section_and_its_create_link() {
+    let (router, _db, ada, _bob) = fixture().await;
+    let edit = format!("/admin/owners/{}/edit", ada.id);
+    let denied = get_with_header(&router, &edit, "x-deny-children").await;
+    assert!(!denied.contains("data-relation="), "{denied}");
+    let no_create = get_with_header(&router, &edit, "x-no-create").await;
+    assert!(no_create.contains("ada-first"), "{no_create}");
+    assert!(!no_create.contains("/admin/children/create"), "{no_create}");
+}
+
+#[tokio::test]
+async fn the_create_page_seeds_the_owner_and_keeps_the_return() {
+    let (router, _db, ada, _bob) = fixture().await;
 
     // The create page preselects the owner and posts back with the return.
     let form = body_string(
@@ -275,14 +329,6 @@ async fn a_write_returns_to_a_panel_page_and_ignores_any_other_target() {
 }
 
 #[tokio::test]
-async fn the_edit_page_shows_the_relation_too() {
-    let (router, _db, ada, _bob) = fixture().await;
-    let html = body_string(get(&router, &format!("/admin/owners/{}/edit", ada.id)).await).await;
-    assert!(html.contains("ada-first"), "{html}");
-    assert!(!html.contains("bob-first"), "{html}");
-}
-
-#[tokio::test]
 async fn a_relation_to_an_unregistered_resource_does_not_build() {
     let db = memory_db(toasty::models!(Owner, Child)).await;
     let Err(error) = panel(db).resource::<OwnerResource>().build() else {
@@ -290,6 +336,48 @@ async fn a_relation_to_an_unregistered_resource_does_not_build() {
     };
     assert!(
         error.to_string().contains("relates to `children`"),
+        "got {error}"
+    );
+}
+
+/// Two relations of one resource to the same child would share one parameter
+/// prefix.
+#[tokio::test]
+async fn two_relations_to_one_child_do_not_build() {
+    struct TwiceResource;
+    impl Resource for TwiceResource {
+        type Model = Owner;
+        type Form = tablo_core::NoForm<Owner>;
+
+        fn slug() -> String {
+            "twice".to_string()
+        }
+
+        fn table(_cx: &Cx) -> Table<Owner> {
+            OwnerResource::table(_cx)
+        }
+
+        fn relations() -> Vec<Relation<Owner>> {
+            let relation = || {
+                Relation::has_many::<ChildResource, _>(
+                    Child::fields().owner_id(),
+                    |owner: &Owner| owner.id,
+                )
+            };
+            vec![relation(), relation()]
+        }
+    }
+
+    let db = memory_db(toasty::models!(Owner, Child)).await;
+    let Err(error) = panel(db)
+        .resource::<TwiceResource>()
+        .resource::<ChildResource>()
+        .build()
+    else {
+        panic!("two relations to one child must not build");
+    };
+    assert!(
+        error.to_string().contains("two relations to `children`"),
         "got {error}"
     );
 }

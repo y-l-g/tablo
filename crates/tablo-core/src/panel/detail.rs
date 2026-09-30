@@ -52,7 +52,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // What the `Schema` above cannot carry: free-form content read off the
         // record, then each relation's table, which runs its own query.
         let content = R::view_content(cx, &record);
-        let relations = render_relations::<R>(cx, &record);
+        let relations = render_relations::<R>(cx, &record, true);
         // The record's own label titles the page when the resource declares
         // one. The fallback is the page's name plus the URL's record
         // key, which is what the route carries (the display key drives the list

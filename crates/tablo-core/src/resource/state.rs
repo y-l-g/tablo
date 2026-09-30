@@ -87,15 +87,15 @@ pub enum Cursor {
 /// `Table::order_bys_for`) and render (active sort, toolbar values,
 /// pagination links), so the URL is the one truth for list state. A page that
 /// holds several tables — a record page with its relations — gives each a
-/// [`key`](Self::key) that prefixes its parameters (`comments.q=`), so the
+/// [`prefix`](Self::prefix) for its parameters (`comments.q=`), so the
 /// tables' states share one query without colliding.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TableState {
     /// The prefix every parameter of this table carries (`comments` →
     /// `comments.q=`), or `None` for a page's own list, whose parameters are
-    /// bare. Set by the parse ([`Self::from_query_keyed`]); every link and
+    /// bare. Set by the parse ([`Self::from_query_prefixed`]); every link and
     /// form input this state builds spells the same names.
-    pub key: Option<String>,
+    pub prefix: Option<String>,
     /// `?q=` — trimmed and clamped to `MAX_QUERY_TERM` chars; `None` when
     /// absent or blank.
     pub search: Option<String>,
@@ -166,37 +166,38 @@ impl TableState {
         Self::from_query(&request_query(cx))
     }
 
-    /// [`Self::from_cx`] for the table keyed `key` on a page of several.
-    pub fn from_cx_keyed(cx: &Cx, key: &str) -> Self {
-        Self::from_query_keyed(&request_query(cx), key)
+    /// [`Self::from_cx`] for the table whose parameters carry `prefix`, on a
+    /// page of several.
+    pub fn from_cx_prefixed(cx: &Cx, prefix: &str) -> Self {
+        Self::from_query_prefixed(&request_query(cx), prefix)
     }
 
-    /// [`Self::from_query`] for the table keyed `key`: only the parameters
-    /// prefixed `{key}.` are read, with the prefix stripped, and the parsed
-    /// state carries the key so its links spell the same names.
-    pub fn from_query_keyed(query: &str, key: &str) -> Self {
-        let prefix = format!("{key}.");
+    /// [`Self::from_query`] for the table whose parameters carry `prefix`:
+    /// only the parameters spelled `{prefix}.{name}` are read, as `name`, and
+    /// the parsed state carries the prefix so its links spell the same names.
+    pub fn from_query_prefixed(query: &str, prefix: &str) -> Self {
+        let dotted = format!("{prefix}.");
         let own = form_urlencoded::parse(query.as_bytes()).filter_map(|(name, value)| {
-            name.strip_prefix(prefix.as_str())
+            name.strip_prefix(dotted.as_str())
                 .map(|name| (Cow::Owned(name.to_string()), value))
         });
         Self {
-            key: Some(key.to_string()),
+            prefix: Some(prefix.to_string()),
             ..Self::from_pairs(own)
         }
     }
 
     /// The URL parameter this table spells `name` as: `name` itself, or
-    /// `{key}.{name}` for a keyed table.
+    /// `{prefix}.{name}` for a prefixed table.
     pub(crate) fn param(&self, name: &str) -> String {
-        match &self.key {
-            Some(key) => format!("{key}.{name}"),
+        match &self.prefix {
+            Some(prefix) => format!("{prefix}.{name}"),
             None => name.to_string(),
         }
     }
 
-    /// The URL parameter the filter `name` travels as: `f.{name}`, keyed like
-    /// every other parameter.
+    /// The URL parameter the filter `name` travels as: `f.{name}`, prefixed
+    /// like every other parameter.
     pub(crate) fn filter_param(&self, name: &str) -> String {
         self.param(&format!("{FILTER_PREFIX}{name}"))
     }
@@ -219,8 +220,8 @@ impl TableState {
         Self::from_pairs(form_urlencoded::parse(query.as_bytes()))
     }
 
-    /// The parse behind [`Self::from_query`] and [`Self::from_query_keyed`],
-    /// over the query's decoded pairs with any table key already stripped.
+    /// The parse behind [`Self::from_query`] and [`Self::from_query_prefixed`],
+    /// over the query's decoded pairs with any table prefix already stripped.
     fn from_pairs<'q>(pairs: impl Iterator<Item = (Cow<'q, str>, Cow<'q, str>)>) -> Self {
         let mut state = Self::default();
         let (mut sort, mut dir, mut after, mut before) = (None, None, None, None);
@@ -435,7 +436,7 @@ impl TableState {
     /// `TableState`, forcing the author to decide where it projects.
     fn project(&self, projection: UrlProjection<'_>) -> String {
         let TableState {
-            key: _,
+            prefix: _,
             search: _,
             sort: _,
             cursor: _,
@@ -485,7 +486,7 @@ impl TableState {
 /// projection's own order.
 pub(crate) struct RowUrlBase {
     base: String,
-    /// The table's `delete` parameter, keyed like the rest.
+    /// The table's `delete` parameter, prefixed like the rest.
     delete_param: String,
 }
 
