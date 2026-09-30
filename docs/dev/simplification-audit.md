@@ -14,8 +14,9 @@ checked against the values it renders. One field type with a control discriminan
 multi-line text, choice, and file. Field metadata is resolved once when the schema is built.
 
 **List.** The URL query string is the only list state; the live shard and the GET path parse it with
-one function. One cursor type. One public loader, used by the list, the shard, the export, a
-page-owned table, and the benchmark. `Table` is a declaration plus pure planning, with no `Cx` and
+one function. One cursor type. One public loader, `TablePage::load`, used by the list, the shard,
+a page-owned table, and the benchmark; the export shares its declaration, includes, and cursor
+probe. `Table` is a declaration plus pure planning, with no `Cx` and
 no `Db`. A column declares the relations it reads as typed paths. Every table paginates, and a page
 size cannot be zero.
 
