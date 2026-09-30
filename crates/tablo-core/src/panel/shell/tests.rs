@@ -106,6 +106,37 @@ async fn document_wraps_a_public_page() {
         !html.contains("rel=\"stylesheet\""),
         "no stylesheet without shell assets, got {html}"
     );
+
+    // The head is the shell's own, byte for byte, for the same context and
+    // title — `layout_shell` titles an admin page with the brand, which is
+    // `Tablo` when none is registered.
+    let slot = view! { cx_ref => "hello" }.boxed().into();
+    let shell = Panel::layout_shell(&cx, slot)
+        .await
+        .unwrap()
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    let titled = Panel::document(&cx, "Tablo", view! { cx_ref => "hello" })
+        .await
+        .unwrap()
+        .single()
+        .await
+        .unwrap()
+        .render(&cx);
+    assert_eq!(
+        head_of(&titled),
+        head_of(&shell),
+        "the public document must take the shell's head"
+    );
+}
+
+/// The `<head>` element of `html`, opening and closing tags included.
+fn head_of(html: &str) -> &str {
+    let start = html.find("<head>").expect("a rendered head");
+    let len = html[start..].find("</head>").expect("a closed head") + "</head>".len();
+    &html[start..start + len]
 }
 
 #[tokio::test]
