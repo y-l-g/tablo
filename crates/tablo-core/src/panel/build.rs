@@ -608,6 +608,20 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
             field.name
         ));
     }
+    // A `via` resource writes its parent key through the form, so without a
+    // relationship field nothing re-checks it inside the write.
+    if R::tenancy().via_is_single() == Some(false)
+        && !form.fields().any(|field| {
+            field
+                .as_choice()
+                .is_some_and(|choice| choice.is_relationship())
+        })
+    {
+        return Err(format!(
+            "resource `{resource}` uses `Tenancy::via` but its form declares no relationship \
+             field — declare the parent key as a relationship field over the parent's resource"
+        ));
+    }
     // Column coverage: a create that leaves a non-nullable column unset fails
     // at the driver on every submit, with no field to point the user at.
     if can::<R>(cx, Ability::Create) {
@@ -665,6 +679,14 @@ fn check_create_columns<R: Resource>(
     let resource = std::any::type_name::<R>();
     let prefilled = crate::form::prefilled_fields::<R::Model>();
     let tenant = tenant_column::<R>();
+    if let Some(column) = &tenant
+        && R::CREATE_COLUMNS.contains(&column.as_str())
+    {
+        return Err(format!(
+            "resource `{resource}` lists its tenant column `{column}` in `CREATE_COLUMNS` — the \
+             framework stamps it on create; drop it there and delegate to `write_create`"
+        ));
+    }
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
     for name in R::CREATE_COLUMNS {

@@ -451,6 +451,67 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
     );
 }
 
+/// A `via` resource writes its parent key through the form, so a form with no
+/// relationship field mounts nothing the write re-checks.
+#[tokio::test]
+async fn panel_mount_rejects_a_tenancy_via_without_a_relationship_field() {
+    use crate::{
+        resource::{Resource, Table, TextColumn},
+        schema::{Field, Schema},
+    };
+
+    #[derive(crate::RecordForm)]
+    #[form(model = Child)]
+    struct ChildForm {
+        name: String,
+    }
+
+    struct ViaWithoutRelationship;
+    impl Resource for ViaWithoutRelationship {
+        type Model = Child;
+        type Form = ChildForm;
+        fn slug() -> String {
+            "children".to_string()
+        }
+        fn tenancy() -> Tenancy<Child> {
+            Tenancy::via(Child::fields().parent().tenant_id())
+        }
+        fn policy() -> impl Policy<Child> {
+            |_cx: &Cx, ability: Ability<'_, Child>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
+        }
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+            Schema::new(Field::text(Child::fields().name()))
+        }
+        fn table() -> Table<Child> {
+            Table::new(
+                |c: &Child| c.id.to_string(),
+                TextColumn::r#for(Child::fields().name(), |c: &Child| c.name.clone()),
+            )
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Parent, Child))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let Err(error) = mount(
+        db,
+        Panel::new("admin")
+            .auth(crate::Auth::disabled())
+            .resource::<ViaWithoutRelationship>(),
+    ) else {
+        panic!("a `via` with no relationship field must not mount");
+    };
+    let error = format!("{error}");
+    assert!(
+        error.contains("ViaWithoutRelationship") && error.contains("no relationship"),
+        "the error must name the resource and the missing field, got {error}"
+    );
+}
+
 /// GH #174: `slug()` is free-form and reaches route paths and response
 /// headers, so a hostile value fails registration instead of splitting a
 /// header or panicking in `route_path` at boot.
