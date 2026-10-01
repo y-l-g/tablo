@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["wired_table"],"struct":["Brand","DarkMode","Panel"]};

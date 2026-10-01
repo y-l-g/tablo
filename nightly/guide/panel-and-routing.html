@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
+            window.path_to_searchindex_js = "searchindex-2f5204ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -377,8 +377,9 @@ Panel::new("admin")
 <span class="boring">}</span></code></pre>
 <p><code>shell_assets</code> also makes the shell load <code>tablo-ui</code>’s scripts: live search, confirmation dialogs,
 searchable selects, toasts and the sidebar and theme toggles. <code>build()</code> refuses <code>shell_assets</code>
-without <code>assets</code>. <code>examples/showcase</code> has the complete setup, including the <code>build.rs</code> that
-generates the stylesheet.</p>
+without <code>assets</code>. The stylesheet comes from <code>tablo_build::tailwind()</code> in the app’s <code>build.rs</code>
+(<a href="./first-panel.html#the-stylesheet">Your first panel</a>); <code>examples/quickstart</code> has the smallest
+complete setup and <code>examples/showcase</code> the full one.</p>
 
                     </main>
 

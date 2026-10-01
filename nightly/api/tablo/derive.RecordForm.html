@@ -1,0 +1,34 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Derive `RecordForm` for the typed value a resource’s form writes."><title>RecordForm in tablo - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="tablo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">RecordForm</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../tablo/index.html">tablo</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Record<wbr>Form</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#attributes" title="Attributes">Attributes</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate tablo</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">tablo</a></div><h1>Derive Macro <span class="derive">Record<wbr>Form</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/tablo_macros/lib.rs.html#104">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(RecordForm)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[form]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Derive <code>RecordForm</code> for the typed value a resource’s form writes.</p>
+<p>One field per model column the form writes, named and typed like the
+model’s field. A scalar (<code>String</code>, a <code>TypedValue</code> type, or an <code>Option</code> of
+one) binds the key its control posts; a <code>#[form(embed)]</code> field binds every
+key of an <code>EmbeddedForm</code> value and is written whole.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(tablo_core::RecordForm)]
+#[form(model = User)]
+</span><span class="kw">pub struct </span>UserForm {
+    <span class="kw">pub </span>name: String,
+    <span class="attr">#[form(blank = <span class="string">"member"</span>)]
+    </span><span class="kw">pub </span>role: String,
+    <span class="attr">#[form(blank = <span class="number">0</span>)]
+    </span><span class="kw">pub </span>age: i64,
+}</code></pre></div>
+<p>The derive also emits <code>UserFormField</code>, one variant per field, which
+<code>Posted</code> keys on and <code>RecordForm::fields</code> answers with each variant’s keys.</p>
+<h2 id="attributes"><a class="doc-anchor" href="#attributes">§</a>Attributes</h2>
+<ul>
+<li><code>#[form(model = User)]</code> on the struct: the model the form writes.</li>
+<li><code>#[form(blank = &lt;expr&gt;)]</code> on a scalar: the value an empty submission reads as, overriding the
+type’s own (<code>String</code> answers <code>""</code> and <code>Option&lt;T&gt;</code> answers <code>None</code> without one).</li>
+<li><code>#[form(embed)]</code> on an <code>EmbeddedForm</code> value.</li>
+</ul>
+<p>A generic struct, a tuple struct, an empty struct, a <code>Deferred&lt;_&gt;</code> field,
+<code>blank</code> on an <code>Option</code> or an embedded value, and an unknown key are compile
+errors. So are a field the model lacks, a type the model’s field does not
+have, and a scalar that is not a <code>FormScalar</code>.</p>
+</div></details></section></div></main></body></html>

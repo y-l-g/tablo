@@ -1,9 +1,9 @@
 (function() {
-    const implementors = Object.fromEntries([["tablo_core",[]]]);
+    const implementors = Object.fromEntries([["tablo",[]],["tablo_core",[]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
         window.pending_implementors = implementors;
     }
 })()
-//{"start":59,"fragment_lengths":[17]}
+//{"start":59,"fragment_lengths":[12,18]}

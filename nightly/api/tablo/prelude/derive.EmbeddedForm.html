@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Derive `EmbeddedForm` for an embedded struct or enum."><title>EmbeddedForm in tablo::prelude - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="tablo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">EmbeddedForm</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../tablo/index.html">tablo</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Embedded<wbr>Form</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#how-a-field-is-classified" title="How a field is classified">How a field is classified</a></li><li><a href="#which-variant-an-enum-reads" title="Which variant an enum reads">Which variant an enum reads</a></li><li><a href="#per-field-attributes" title="Per-field attributes">Per-field attributes</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In tablo::<wbr>prelude</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">tablo</a>::<wbr><a href="index.html">prelude</a></div><h1>Derive Macro <span class="derive">Embedded<wbr>Form</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/tablo_macros/lib.rs.html#65">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(EmbeddedForm)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[form]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Derive <code>EmbeddedForm</code> for an embedded struct or enum.</p>
+<p>The generated impl builds the value’s schema node from the columns the app
+schema resolves for the parent path — one text field per leaf, a nested
+node per <code>#[form(embed)]</code> value, and for an enum the variant control plus
+one group per variant — and converts the value to and from the panel’s flat
+form map through that node’s keys. It also generates <code>form(cx, parent)</code>,
+the value’s schema. The framework supplies the storage names, the derive
+supplies the Rust shape.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
+</span><span class="kw">pub enum </span>Publication {
+    <span class="attr">#[column(variant = <span class="number">1</span>)]
+    </span>Scheduled {
+        <span class="attr">#[shared(timestamp)]
+        #[form(label = <span class="string">"Publication timestamp"</span>)]
+        </span>scheduled_at: String,
+        scheduled_for: String,
+    },
+    <span class="attr">#[column(variant = <span class="number">2</span>)]
+    </span>Published { <span class="attr">#[shared(timestamp)] </span>published_at: String, canonical_url: String },
+}
+
+<span class="comment">// form declaration — no field bindings written by hand
+</span>Section::new(<span class="string">"Publication"</span>).schema(Publication::form(cx, Post::fields().publication()))</code></pre></div><h2 id="how-a-field-is-classified"><a class="doc-anchor" href="#how-a-field-is-classified">§</a>How a field is classified</h2>
+<p>A field marked <code>#[form(embed)]</code> is another <strong>embedded value</strong>, delegated to
+its own <code>EmbeddedForm</code>. Every other field is a <strong>scalar</strong>: one column, read
+and written through <code>FormScalar</code> (<code>String</code>, a <code>TypedValue</code> type, or an
+<code>Option</code> of one). A scalar of another type fails to compile at the field,
+naming the trait. An empty scalar is its declared <code>#[form(blank = ..)]</code>,
+else its <code>FormScalar::blank()</code>; with neither, the parse refuses its key.</p>
+<h2 id="which-variant-an-enum-reads"><a class="doc-anchor" href="#which-variant-an-enum-reads">§</a>Which variant an enum reads</h2>
+<p>A named discriminant always wins, and an undeclared one is refused;
+otherwise the first variant, in declaration order, with a <strong>payload of its
+own</strong> submitted — a <code>#[shared(..)]</code> column belongs to several variants and
+never selects one; otherwise the first variant.</p>
+<h2 id="per-field-attributes"><a class="doc-anchor" href="#per-field-attributes">§</a>Per-field attributes</h2>
+<ul>
+<li><code>#[form(embed)]</code> — a nested <code>EmbeddedForm</code> value.</li>
+<li><code>#[form(label = "Canonical URL")]</code> — the control’s label (default: the field name, humanized).</li>
+<li><code>#[form(multiline = 3)]</code> — a <code>&lt;textarea&gt;</code> of 3 rows.</li>
+<li><code>#[form(blank = ..)]</code> — what an empty submission reads as, overriding the leaf type’s own
+answer.</li>
+</ul>
+<p>Anything else in <code>#[form(..)]</code> is a compile error, as are <code>label</code>, <code>multiline</code>, and <code>blank</code> on
+an embedded value.</p>
+</div></details></section></div></main></body></html>

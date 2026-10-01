@@ -8,7 +8,8 @@ records the registry version <em>and</em> the sha256 content hash of the source
 the copy is verbatim, drift — a hand edit, a stale file, a component the
 vendored set gained or dropped — is detectable by <a href="fn.verify_sync.html" title="fn xtask::verify_sync"><code>verify_sync</code></a>, which
 the <code>xtask</code> test suite runs as a guard.</p>
-</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="gates/index.html" title="mod xtask::gates">gates</a></dt><dd>Gate orchestration: <code>fmt</code>, <code>bump-upstream</code>, <code>verify-locks</code>, <code>check</code>.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AssetHook.html" title="struct xtask::AssetHook">Asset<wbr>Hook</a></dt><dd>One hook-contract entry (ADR-0014): <code>js</code> must appear in the
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="gates/index.html" title="mod xtask::gates">gates</a></dt><dd>Gate orchestration: <code>fmt</code>, <code>bump-upstream</code>, <code>verify-locks</code>,
+<code>external-check</code>, <code>check</code>.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AssetHook.html" title="struct xtask::AssetHook">Asset<wbr>Hook</a></dt><dd>One hook-contract entry (ADR-0014): <code>js</code> must appear in the
 asset’s source and <code>rust</code> must appear somewhere in the Rust render sources
 (<code>tablo-ui/src</code> + <code>tablo-core/src</code>; test modules and comment-only
 lines are stripped). Usually both are the same attribute hook;

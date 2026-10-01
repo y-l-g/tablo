@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_RELATIONSHIP_OPTIONS"],"struct":["Field","Grid","Group","Repeater","ResolvedLens","Schema","Section","Source"],"trait":["EmbeddedForm","IntoSchema","OptionSource","TypedValue"],"type":["FieldLens"]};

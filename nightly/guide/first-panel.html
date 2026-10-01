@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0dd4a2a6.js";
+            window.path_to_searchindex_js = "searchindex-2f5204ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -182,9 +182,30 @@
                     <main>
                         <h1 id="your-first-panel"><a class="header" href="#your-first-panel">Your first panel</a></h1>
 <p>This chapter builds a complete admin in one file: a <code>Book</code> model, a resource for it, and the
-<code>main</code> that serves it with a login page.</p>
-<pre class="playground"><code class="language-rust">use tablo_core::auth::{AdminUser, hash_password};
-use tablo_core::{Field, Panel, Resource, Schema, Table, TextColumn};
+<code>main</code> that serves it with a login page. <code>examples/quickstart</code> is this app with writes opened and the
+stylesheet wired in; CI builds it from outside the repository.</p>
+<h2 id="dependencies"><a class="header" href="#dependencies">Dependencies</a></h2>
+<p>An app depends on the <code>tablo</code> facade, picks its database driver with a <code>tablo</code> feature, and builds
+its stylesheet with <code>tablo-build</code>. It names <code>topcoat</code> and <code>toasty</code> directly for their macros, at the
+revisions Tablo pins:</p>
+<pre><code class="language-toml">[dependencies]
+tablo = { git = "https://github.com/y-l-g/tablo", features = ["sqlite"] }
+topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "&lt;the rev Tablo pins&gt;", features = ["tailwind", "font", "font-fontsource", "asset"] }
+toasty = { git = "https://github.com/tokio-rs/toasty", rev = "&lt;the rev Tablo pins&gt;", features = ["jiff"] }
+jiff = "0.2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+uuid = "1"
+
+[build-dependencies]
+tablo-build = { git = "https://github.com/y-l-g/tablo" }
+</code></pre>
+<p>The toolkit enables no driver itself: <code>sqlite</code>, <code>postgresql</code> and <code>mysql</code> each turn on Toasty’s
+driver of the same name. The <code>[workspace.dependencies]</code> of Tablo’s <code>Cargo.toml</code> hold the pinned
+revisions. <code>tablo</code> re-exports <code>tablo_core</code> at its root, so <code>tablo_core::X</code> in the other chapters is
+<code>tablo::X</code> here, and the derives work with <code>tablo</code> as the only Tablo dependency.</p>
+<h2 id="the-app"><a class="header" href="#the-app">The app</a></h2>
+<pre class="playground"><code class="language-rust">use tablo::auth::{AdminUser, AuthSession, hash_password};
+use tablo::prelude::*;
 use toasty::Db;
 use topcoat::{
     Result,
@@ -203,7 +224,7 @@ pub struct Book {
 }
 
 /// What the create and edit forms parse into.
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Book)]
 pub struct BookForm {
     pub title: String,
@@ -246,8 +267,8 @@ async fn main() -&gt; Result&lt;()&gt; {
         .models(toasty::models!(
             Book,
             // The built-in password login reads these two tables.
-            tablo_core::auth::AdminUser,
-            tablo_core::auth::AuthSession
+            AdminUser,
+            AuthSession
         ))
         .connect("sqlite::memory:")
         .await?;
@@ -277,10 +298,6 @@ async fn main() -&gt; Result&lt;()&gt; {
 <pre><code class="language-sh">cargo run
 # open http://127.0.0.1:3000/admin/books
 </code></pre>
-<p>The example depends on <code>tablo-core</code>, <code>topcoat</code> (its default features include the server),
-<code>toasty</code> with the <code>sqlite</code> and <code>jiff</code> features, <code>jiff</code> for <code>Timestamp::now()</code>, <code>tokio</code> with
-<code>macros</code> and <code>rt-multi-thread</code>, and <code>uuid</code>. The workspace <code>Cargo.toml</code> pins the revisions the
-toolkit is tested with.</p>
 <h2 id="what-each-part-does"><a class="header" href="#what-each-part-does">What each part does</a></h2>
 <ul>
 <li><strong><code>#[derive(RecordForm)]</code></strong> declares what a form submission parses into. Each field is named
@@ -313,8 +330,26 @@ pages answer 403, and rows show no Edit or Delete action.
 <li><strong>Styling.</strong> The example registers no asset bundle, so pages render unstyled and without the
 shell’s scripts, but every page and form works. <code>Panel::assets</code> and <code>Panel::shell_assets</code> add
 the stylesheet, the font and the scripts; see
-<a href="./panel-and-routing.html#assets">Panel and routing</a>.</li>
+<a href="./panel-and-routing.html#assets">Panel and routing</a>. The stylesheet itself comes from the build
+script below.</li>
 </ul>
+<h2 id="the-stylesheet"><a class="header" href="#the-stylesheet">The stylesheet</a></h2>
+<p>The panel’s markup carries Tailwind classes, so the app generates a stylesheet that covers them.
+The app owns <code>styles.css</code> at its package root: it imports <code>tailwindcss</code>, declares the theme tokens
+(<code>examples/quickstart/styles.css</code> is a neutral set to start from), and names its own sources.</p>
+<pre><code class="language-css">@import "tailwindcss";
+@source "./src/**/*.rs";
+/* the theme tokens: --background, --foreground, --primary, ... */
+</code></pre>
+<p><code>build.rs</code> runs the build:</p>
+<pre class="playground"><code class="language-rust">fn main() {
+    println!("cargo::rerun-if-changed=build.rs");
+    println!("cargo::rerun-if-changed=src");
+    tablo_build::tailwind().expect("the Tailwind build runs");
+}</code></pre>
+<p><code>tablo_build::tailwind()</code> adds Tablo’s own sources to the build, wherever Cargo unpacked them, and
+writes <code>$OUT_DIR/tailwind.css</code>, which <code>tailwind::stylesheet!()</code> hands to <code>Panel::shell_assets</code>. The
+stylesheet names no path into Tablo. The build downloads the Tailwind CLI on first run.</p>
 
                     </main>
 
