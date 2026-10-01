@@ -18,8 +18,8 @@
 <a href=#18 id=18 data-nosnippet>18</a><span class="kw">use crate</span>::{
 <a href=#19 id=19 data-nosnippet>19</a>    form::RecordForm,
 <a href=#20 id=20 data-nosnippet>20</a>    resource::{
-<a href=#21 id=21 data-nosnippet>21</a>        Resource, RowActions, TABLE_CARD_CLASS, Table, TableChrome, TablePage, TableSignals,
-<a href=#22 id=22 data-nosnippet>22</a>        TableState, create_page_url, request_query,
+<a href=#21 id=21 data-nosnippet>21</a>        Resource, RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage,
+<a href=#22 id=22 data-nosnippet>22</a>        TableSignals, TableState, create_page_url, request_query,
 <a href=#23 id=23 data-nosnippet>23</a>    },
 <a href=#24 id=24 data-nosnippet>24</a>};
 <a href=#25 id=25 data-nosnippet>25</a>
@@ -53,374 +53,408 @@
 <a href=#53 id=53 data-nosnippet>53</a>        delete: R::can_delete_any(cx),
 <a href=#54 id=54 data-nosnippet>54</a>        edit: &lt;R::Form <span class="kw">as </span>RecordForm&gt;::HAS_FORM,
 <a href=#55 id=55 data-nosnippet>55</a>        view: R::viewed(cx),
-<a href=#56 id=56 data-nosnippet>56</a>    }
-<a href=#57 id=57 data-nosnippet>57</a>}
-<a href=#58 id=58 data-nosnippet>58</a>
-<a href=#59 id=59 data-nosnippet>59</a><span class="doccomment">/// Delete/bulk/edit action wiring shared by the streamed list and the
-<a href=#60 id=60 data-nosnippet>60</a>/// live-search shard: the delete form posts to `{list url}/{id}/delete` and the
-<a href=#61 id=61 data-nosnippet>61</a>/// bulk bar to `{list url}/bulk-delete`, both derived from the panel
-<a href=#62 id=62 data-nosnippet>62</a>/// declaration (not the request path) so the URLs are right wherever the table
-<a href=#63 id=63 data-nosnippet>63</a>/// renders.
-<a href=#64 id=64 data-nosnippet>64</a>///
-<a href=#65 id=65 data-nosnippet>65</a>/// Each affordance renders only where [`declared_chrome`] allows it, so no
-<a href=#66 id=66 data-nosnippet>66</a>/// control ships whose route cannot answer it. The per-*record* gate rides the
-<a href=#67 id=67 data-nosnippet>67</a>/// same call: the
-<a href=#68 id=68 data-nosnippet>68</a>/// table's row policy pairs each action with exactly what its route checks —
-<a href=#69 id=69 data-nosnippet>69</a>/// `can_view` for View, `can_view` + `can_update` for Edit, `can_view` +
-<a href=#70 id=70 data-nosnippet>70</a>/// `can_delete` for Delete and the bulk checkbox. A row the predicate refuses
-<a href=#71 id=71 data-nosnippet>71</a>/// renders no link and no checkbox, while the handler keeps its
-<a href=#72 id=72 data-nosnippet>72</a>/// all-or-nothing check for a hand-crafted POST.
-<a href=#73 id=73 data-nosnippet>73</a>///
-<a href=#74 id=74 data-nosnippet>74</a>/// `live` selects the shard variant: the swapped region is everything except the
-<a href=#75 id=75 data-nosnippet>75</a>/// toolbar the page owns eagerly (the live host owns those slots, so a swap must
-<a href=#76 id=76 data-nosnippet>76</a>/// never nest invocations or duplicate inputs), hence the shard forces
-<a href=#77 id=77 data-nosnippet>77</a>/// `.hide_search().hide_filter_bar()` while the streamed page keeps the declared
-<a href=#78 id=78 data-nosnippet>78</a>/// table as-is. The filter bar joins the search toolbar there: a control rebuilt
-<a href=#79 id=79 data-nosnippet>79</a>/// by its own rerun loses focus.
-<a href=#80 id=80 data-nosnippet>80</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>wire_table_actions&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, live: bool) -&gt; Table&lt;R::Model&gt; {
-<a href=#81 id=81 data-nosnippet>81</a>    wire_table::&lt;R&gt;(cx, live, declared_chrome::&lt;R&gt;(cx))
-<a href=#82 id=82 data-nosnippet>82</a>}
-<a href=#83 id=83 data-nosnippet>83</a>
-<a href=#84 id=84 data-nosnippet>84</a><span class="doccomment">/// [`wire_table_actions`] with the affordances `chrome` names, a subset of
-<a href=#85 id=85 data-nosnippet>85</a>/// [`declared_chrome`]: a read-only relation keeps only the View link.
-<a href=#86 id=86 data-nosnippet>86</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>wire_table&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, live: bool, chrome: TableChrome) -&gt; Table&lt;R::Model&gt; {
-<a href=#87 id=87 data-nosnippet>87</a>    <span class="kw">let </span><span class="kw-2">mut </span>table = R::table(cx);
-<a href=#88 id=88 data-nosnippet>88</a>    <span class="kw">if </span>live {
-<a href=#89 id=89 data-nosnippet>89</a>        <span class="comment">// The page draws the card around the hoisted bars and this output.
-<a href=#90 id=90 data-nosnippet>90</a>        </span>table = table.hide_search().hide_filter_bar().unframed();
-<a href=#91 id=91 data-nosnippet>91</a>    }
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="comment">// `Cx` is Arc-backed and `Clone`, so the projection owns one: the policy
-<a href=#93 id=93 data-nosnippet>93</a>    // outlives the request borrow without copying request state.
-<a href=#94 id=94 data-nosnippet>94</a>    </span><span class="kw">let </span>policy_cx = cx.clone();
-<a href=#95 id=95 data-nosnippet>95</a>    table = table.row_actions(<span class="kw">move </span>|record| {
-<a href=#96 id=96 data-nosnippet>96</a>        <span class="comment">// Read once: every route pairs its own predicate with `can_view`, so a
-<a href=#97 id=97 data-nosnippet>97</a>        // record that cannot be viewed allows no action.
-<a href=#98 id=98 data-nosnippet>98</a>        </span><span class="kw">let </span>view = R::can_view(<span class="kw-2">&amp;</span>policy_cx, record);
-<a href=#99 id=99 data-nosnippet>99</a>        RowActions {
-<a href=#100 id=100 data-nosnippet>100</a>            view,
-<a href=#101 id=101 data-nosnippet>101</a>            edit: view &amp;&amp; R::can_update(<span class="kw-2">&amp;</span>policy_cx, record),
-<a href=#102 id=102 data-nosnippet>102</a>            delete: view &amp;&amp; R::can_delete(<span class="kw-2">&amp;</span>policy_cx, record),
-<a href=#103 id=103 data-nosnippet>103</a>        }
-<a href=#104 id=104 data-nosnippet>104</a>    });
-<a href=#105 id=105 data-nosnippet>105</a>    <span class="kw">if </span>chrome.delete {
-<a href=#106 id=106 data-nosnippet>106</a>        table = table
-<a href=#107 id=107 data-nosnippet>107</a>            .with_delete(list_url(cx, <span class="kw-2">&amp;</span>R::slug()))
-<a href=#108 id=108 data-nosnippet>108</a>            .with_bulk_delete(<span class="bool-val">true</span>);
-<a href=#109 id=109 data-nosnippet>109</a>    }
-<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">if </span>chrome.edit {
-<a href=#111 id=111 data-nosnippet>111</a>        table = table.with_edit(list_url(cx, <span class="kw-2">&amp;</span>R::slug()));
+<a href=#56 id=56 data-nosnippet>56</a>        actions: <span class="bool-val">true</span>,
+<a href=#57 id=57 data-nosnippet>57</a>    }
+<a href=#58 id=58 data-nosnippet>58</a>}
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a><span class="doccomment">/// Delete/bulk/edit action wiring shared by the streamed list and the
+<a href=#61 id=61 data-nosnippet>61</a>/// live-search shard: the delete form posts to `{list url}/{id}/delete` and the
+<a href=#62 id=62 data-nosnippet>62</a>/// bulk bar to `{list url}/bulk-delete`, both derived from the panel
+<a href=#63 id=63 data-nosnippet>63</a>/// declaration (not the request path) so the URLs are right wherever the table
+<a href=#64 id=64 data-nosnippet>64</a>/// renders.
+<a href=#65 id=65 data-nosnippet>65</a>///
+<a href=#66 id=66 data-nosnippet>66</a>/// Each affordance renders only where [`declared_chrome`] allows it, so no
+<a href=#67 id=67 data-nosnippet>67</a>/// control ships whose route cannot answer it. The per-*record* gate rides the
+<a href=#68 id=68 data-nosnippet>68</a>/// same call: the
+<a href=#69 id=69 data-nosnippet>69</a>/// table's row policy pairs each action with exactly what its route checks —
+<a href=#70 id=70 data-nosnippet>70</a>/// `can_view` for View, `can_view` + `can_update` for Edit, `can_view` +
+<a href=#71 id=71 data-nosnippet>71</a>/// `can_delete` for Delete, and `can_view` + `can_run` for each custom action;
+<a href=#72 id=72 data-nosnippet>72</a>/// the bulk checkbox renders when bulk delete or any bulk custom action allows
+<a href=#73 id=73 data-nosnippet>73</a>/// the record. A row the predicate refuses
+<a href=#74 id=74 data-nosnippet>74</a>/// renders no link and no checkbox, while the handler keeps its
+<a href=#75 id=75 data-nosnippet>75</a>/// all-or-nothing check for a hand-crafted POST.
+<a href=#76 id=76 data-nosnippet>76</a>///
+<a href=#77 id=77 data-nosnippet>77</a>/// `live` selects the shard variant: the swapped region is everything except the
+<a href=#78 id=78 data-nosnippet>78</a>/// toolbar the page owns eagerly (the live host owns those slots, so a swap must
+<a href=#79 id=79 data-nosnippet>79</a>/// never nest invocations or duplicate inputs), hence the shard forces
+<a href=#80 id=80 data-nosnippet>80</a>/// `.hide_search().hide_filter_bar()` while the streamed page keeps the declared
+<a href=#81 id=81 data-nosnippet>81</a>/// table as-is. The filter bar joins the search toolbar there: a control rebuilt
+<a href=#82 id=82 data-nosnippet>82</a>/// by its own rerun loses focus.
+<a href=#83 id=83 data-nosnippet>83</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>wire_table_actions&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, live: bool) -&gt; Table&lt;R::Model&gt; {
+<a href=#84 id=84 data-nosnippet>84</a>    wire_table::&lt;R&gt;(cx, live, declared_chrome::&lt;R&gt;(cx))
+<a href=#85 id=85 data-nosnippet>85</a>}
+<a href=#86 id=86 data-nosnippet>86</a>
+<a href=#87 id=87 data-nosnippet>87</a><span class="doccomment">/// [`wire_table_actions`] with the affordances `chrome` names, a subset of
+<a href=#88 id=88 data-nosnippet>88</a>/// [`declared_chrome`]: a read-only relation keeps only the View link.
+<a href=#89 id=89 data-nosnippet>89</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>wire_table&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, live: bool, chrome: TableChrome) -&gt; Table&lt;R::Model&gt; {
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">let </span><span class="kw-2">mut </span>table = R::table(cx);
+<a href=#91 id=91 data-nosnippet>91</a>    <span class="kw">if </span>live {
+<a href=#92 id=92 data-nosnippet>92</a>        <span class="comment">// The page draws the card around the hoisted bars and this output.
+<a href=#93 id=93 data-nosnippet>93</a>        </span>table = table.hide_search().hide_filter_bar().unframed();
+<a href=#94 id=94 data-nosnippet>94</a>    }
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="comment">// `Cx` is Arc-backed and `Clone`, so the projection owns one: the policy
+<a href=#96 id=96 data-nosnippet>96</a>    // outlives the request borrow without copying request state.
+<a href=#97 id=97 data-nosnippet>97</a>    </span><span class="kw">let </span>policy_cx = cx.clone();
+<a href=#98 id=98 data-nosnippet>98</a>    table = table.row_actions(<span class="kw">move </span>|record| {
+<a href=#99 id=99 data-nosnippet>99</a>        <span class="comment">// Read once: every route pairs its own predicate with `can_view`, so a
+<a href=#100 id=100 data-nosnippet>100</a>        // record that cannot be viewed allows no action.
+<a href=#101 id=101 data-nosnippet>101</a>        </span><span class="kw">let </span>view = R::can_view(<span class="kw-2">&amp;</span>policy_cx, record);
+<a href=#102 id=102 data-nosnippet>102</a>        RowActions {
+<a href=#103 id=103 data-nosnippet>103</a>            view,
+<a href=#104 id=104 data-nosnippet>104</a>            edit: view &amp;&amp; R::can_update(<span class="kw-2">&amp;</span>policy_cx, record),
+<a href=#105 id=105 data-nosnippet>105</a>            delete: view &amp;&amp; R::can_delete(<span class="kw-2">&amp;</span>policy_cx, record),
+<a href=#106 id=106 data-nosnippet>106</a>        }
+<a href=#107 id=107 data-nosnippet>107</a>    });
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">if </span>chrome.delete {
+<a href=#109 id=109 data-nosnippet>109</a>        table = table
+<a href=#110 id=110 data-nosnippet>110</a>            .with_delete(list_url(cx, <span class="kw-2">&amp;</span>R::slug()))
+<a href=#111 id=111 data-nosnippet>111</a>            .with_bulk_delete(<span class="bool-val">true</span>);
 <a href=#112 id=112 data-nosnippet>112</a>    }
-<a href=#113 id=113 data-nosnippet>113</a>    <span class="kw">if </span>chrome.view {
-<a href=#114 id=114 data-nosnippet>114</a>        table = table.with_view(list_url(cx, <span class="kw-2">&amp;</span>R::slug()));
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="kw">if </span>chrome.edit {
+<a href=#114 id=114 data-nosnippet>114</a>        table = table.with_edit(list_url(cx, <span class="kw-2">&amp;</span>R::slug()));
 <a href=#115 id=115 data-nosnippet>115</a>    }
-<a href=#116 id=116 data-nosnippet>116</a>    table
-<a href=#117 id=117 data-nosnippet>117</a>}
-<a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a><span class="doccomment">/// Branded in-region table failure shared by the streamed list and the
-<a href=#120 id=120 data-nosnippet>120</a>/// live-search shard: the trace line, the cursor-aware
-<a href=#121 id=121 data-nosnippet>121</a>/// retry link ([`retry_url_for_error`]), and the `ErrorState` render are one
-<a href=#122 id=122 data-nosnippet>122</a>/// copy so the three load sites cannot drift.
-<a href=#123 id=123 data-nosnippet>123</a>///
-<a href=#124 id=124 data-nosnippet>124</a>/// On a live table (`signals`) the retry stays in place instead of
-<a href=#125 id=125 data-nosnippet>125</a>/// navigating, and re-runs the request that failed with the query it failed
-<a href=#126 id=126 data-nosnippet>126</a>/// with: the click increments a retry token the shard reads, so the
-<a href=#127 id=127 data-nosnippet>127</a>/// rerun does not depend on the query signals changing — a write of an
-<a href=#128 id=128 data-nosnippet>128</a>/// unchanged value re-runs nothing. A cursor failure resets only the cursor,
-<a href=#129 id=129 data-nosnippet>129</a>/// the same reset its `href` spells out; every other failure keeps the whole
-<a href=#130 id=130 data-nosnippet>130</a>/// query. `href` stays as the no-JS fallback, so it retries the URL as it
-<a href=#131 id=131 data-nosnippet>131</a>/// stands.
-<a href=#132 id=132 data-nosnippet>132</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>table_error_view&lt;<span class="lifetime">'a</span>, R: Resource&gt;(
-<a href=#133 id=133 data-nosnippet>133</a>    cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
-<a href=#134 id=134 data-nosnippet>134</a>    state: <span class="kw-2">&amp;</span>TableState,
-<a href=#135 id=135 data-nosnippet>135</a>    error: <span class="kw-2">&amp;</span>topcoat::Error,
-<a href=#136 id=136 data-nosnippet>136</a>    path: <span class="kw-2">&amp;</span>str,
-<a href=#137 id=137 data-nosnippet>137</a>    signals: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TableSignals&gt;,
-<a href=#138 id=138 data-nosnippet>138</a>) -&gt; BoxView&lt;<span class="lifetime">'a</span>&gt; {
-<a href=#139 id=139 data-nosnippet>139</a>    <span class="macro">tracing::error!</span>(resource = R::slug(), error = %error, <span class="string">"table load failed"</span>);
-<a href=#140 id=140 data-nosnippet>140</a>    <span class="kw">let </span>retry_url = retry_url_for_error(state, error, path);
-<a href=#141 id=141 data-nosnippet>141</a>    <span class="kw">let </span>action: BoxView&lt;<span class="lifetime">'a</span>&gt; = <span class="kw">match </span>signals {
-<a href=#142 id=142 data-nosnippet>142</a>        <span class="prelude-val">Some</span>(signals) =&gt; {
-<a href=#143 id=143 data-nosnippet>143</a>            <span class="comment">// Retry re-runs the shard. The token is the rerun's only
-<a href=#144 id=144 data-nosnippet>144</a>            // cause: the shard reads it (declaring the dependency below), and
-<a href=#145 id=145 data-nosnippet>145</a>            // every click increments it, so the write always changes even when
-<a href=#146 id=146 data-nosnippet>146</a>            // the query signals already hold the values that failed.
-<a href=#147 id=147 data-nosnippet>147</a>            // Keyed by the list, like the table's own signals.
-<a href=#148 id=148 data-nosnippet>148</a>            </span><span class="kw">let </span>attempt = topcoat::runtime::signal(<span class="kw-2">&amp;</span>cx.keyed(path), || <span class="number">0u64</span>);
-<a href=#149 id=149 data-nosnippet>149</a>            <span class="kw">let </span>cursor_error = <span class="kw">crate</span>::error::TabloError::is_cursor(error);
-<a href=#150 id=150 data-nosnippet>150</a>            <span class="kw">let </span>attrs = <span class="kw">if </span>cursor_error {
-<a href=#151 id=151 data-nosnippet>151</a>                <span class="comment">// The retry URL drops the cursor: write its query, so the rerun
-<a href=#152 id=152 data-nosnippet>152</a>                // loads the first page of the same result set.
-<a href=#153 id=153 data-nosnippet>153</a>                </span><span class="kw">let </span>query = signals.query.clone();
-<a href=#154 id=154 data-nosnippet>154</a>                <span class="kw">let </span>next = <span class="kw">crate</span>::resource::query_of(<span class="kw-2">&amp;</span>retry_url).to_string();
-<a href=#155 id=155 data-nosnippet>155</a>                <span class="macro">attributes!</span> {
-<a href=#156 id=156 data-nosnippet>156</a>                    cx =&gt;
-<a href=#157 id=157 data-nosnippet>157</a>                    href=(retry_url)
-<a href=#158 id=158 data-nosnippet>158</a>                    data-retry-attempt=(attempt.get())
-<a href=#159 id=159 data-nosnippet>159</a>                    @click=$(|e: Event| {
-<a href=#160 id=160 data-nosnippet>160</a>                        e.prevent_default();
-<a href=#161 id=161 data-nosnippet>161</a>                        query.set(next.clone());
-<a href=#162 id=162 data-nosnippet>162</a>                        attempt.increment();
-<a href=#163 id=163 data-nosnippet>163</a>                    })
-<a href=#164 id=164 data-nosnippet>164</a>                }
-<a href=#165 id=165 data-nosnippet>165</a>            } <span class="kw">else </span>{
-<a href=#166 id=166 data-nosnippet>166</a>                <span class="macro">attributes!</span> {
-<a href=#167 id=167 data-nosnippet>167</a>                    cx =&gt;
-<a href=#168 id=168 data-nosnippet>168</a>                    href=(retry_url)
-<a href=#169 id=169 data-nosnippet>169</a>                    data-retry-attempt=(attempt.get())
-<a href=#170 id=170 data-nosnippet>170</a>                    @click=$(|e: Event| {
-<a href=#171 id=171 data-nosnippet>171</a>                        e.prevent_default();
-<a href=#172 id=172 data-nosnippet>172</a>                        attempt.increment();
-<a href=#173 id=173 data-nosnippet>173</a>                    })
-<a href=#174 id=174 data-nosnippet>174</a>                }
-<a href=#175 id=175 data-nosnippet>175</a>            };
-<a href=#176 id=176 data-nosnippet>176</a>            <span class="macro">view!</span> { cx =&gt; &lt;a (attrs)&gt;<span class="string">"Retry"</span>&lt;/a&gt; }.boxed()
-<a href=#177 id=177 data-nosnippet>177</a>        }
-<a href=#178 id=178 data-nosnippet>178</a>        <span class="prelude-val">None </span>=&gt; <span class="macro">view!</span> { cx =&gt; &lt;a href=(retry_url)&gt;<span class="string">"Retry"</span>&lt;/a&gt; }.boxed(),
-<a href=#179 id=179 data-nosnippet>179</a>    };
-<a href=#180 id=180 data-nosnippet>180</a>    <span class="macro">view!</span> {
-<a href=#181 id=181 data-nosnippet>181</a>        cx =&gt;
-<a href=#182 id=182 data-nosnippet>182</a>        tablo_ui::error_state(
-<a href=#183 id=183 data-nosnippet>183</a>            title: <span class="macro">format!</span>(<span class="string">"Couldn't load {}"</span>, R::navigation_label()),
-<a href=#184 id=184 data-nosnippet>184</a>            detail: <span class="string">"Something went wrong while loading the records."</span>,
-<a href=#185 id=185 data-nosnippet>185</a>            action: <span class="prelude-val">Some</span>(action.into()),
-<a href=#186 id=186 data-nosnippet>186</a>            attrs: <span class="macro">attributes!</span> { role=<span class="string">"alert" </span>}
-<a href=#187 id=187 data-nosnippet>187</a>        )
-<a href=#188 id=188 data-nosnippet>188</a>    }
-<a href=#189 id=189 data-nosnippet>189</a>    .boxed()
-<a href=#190 id=190 data-nosnippet>190</a>}
-<a href=#191 id=191 data-nosnippet>191</a>
-<a href=#192 id=192 data-nosnippet>192</a><span class="doccomment">/// The list page header: the resource's title and the Create entry point
-<a href=#193 id=193 data-nosnippet>193</a>/// (Filament's List page `CreateAction`), a real link so no-JS keeps
-<a href=#194 id=194 data-nosnippet>194</a>/// working, gated on `can_create`. The POST handler enforces the same policy.
-<a href=#195 id=195 data-nosnippet>195</a>///
-<a href=#196 id=196 data-nosnippet>196</a>/// A resource with no record form ([`RecordForm::HAS_FORM`]) has no create
-<a href=#197 id=197 data-nosnippet>197</a>/// route, so its header links to none even when a request-scoped `can_create`
-<a href=#198 id=198 data-nosnippet>198</a>/// allows it and the build-time check could not see it.
-<a href=#199 id=199 data-nosnippet>199</a></span><span class="kw">fn </span>list_header&lt;<span class="lifetime">'a</span>, R: Resource&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, title: <span class="kw-2">&amp;</span>str, list_path: <span class="kw-2">&amp;</span>str) -&gt; BoxView&lt;<span class="lifetime">'a</span>&gt; {
-<a href=#200 id=200 data-nosnippet>200</a>    <span class="kw">let </span>title = title.to_string();
-<a href=#201 id=201 data-nosnippet>201</a>    <span class="kw">let </span>create_url = (&lt;R::Form <span class="kw">as </span>RecordForm&gt;::HAS_FORM &amp;&amp; R::can_create(cx))
-<a href=#202 id=202 data-nosnippet>202</a>        .then(|| create_page_url(list_path));
-<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">let </span>create_label = <span class="macro">format!</span>(<span class="string">"Create {}"</span>, R::label());
-<a href=#204 id=204 data-nosnippet>204</a>    <span class="macro">view!</span> {
-<a href=#205 id=205 data-nosnippet>205</a>        cx =&gt;
-<a href=#206 id=206 data-nosnippet>206</a>        tablo_ui::page_header(
-<a href=#207 id=207 data-nosnippet>207</a>            tablo_ui::page_title((title))
-<a href=#208 id=208 data-nosnippet>208</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = create_url {
-<a href=#209 id=209 data-nosnippet>209</a>                tablo_ui::page_actions(
-<a href=#210 id=210 data-nosnippet>210</a>                    &lt;a
-<a href=#211 id=211 data-nosnippet>211</a>                        (<span class="kw">crate</span>::resource::runtime_link(cx, <span class="kw-2">&amp;</span>url))
-<a href=#212 id=212 data-nosnippet>212</a>                        class=(tablo_ui::button_variants(
-<a href=#213 id=213 data-nosnippet>213</a>                            tablo_ui::ButtonVariant::Primary,
-<a href=#214 id=214 data-nosnippet>214</a>                            tablo_ui::ButtonSize::Md,
-<a href=#215 id=215 data-nosnippet>215</a>                        ))
-<a href=#216 id=216 data-nosnippet>216</a>                    &gt;
-<a href=#217 id=217 data-nosnippet>217</a>                        icon(data: tablo_ui::icons::PLUS)
-<a href=#218 id=218 data-nosnippet>218</a>                        (create_label)
-<a href=#219 id=219 data-nosnippet>219</a>                    &lt;/a&gt;
-<a href=#220 id=220 data-nosnippet>220</a>                )
-<a href=#221 id=221 data-nosnippet>221</a>            }
-<a href=#222 id=222 data-nosnippet>222</a>        )
-<a href=#223 id=223 data-nosnippet>223</a>    }
-<a href=#224 id=224 data-nosnippet>224</a>    .boxed()
-<a href=#225 id=225 data-nosnippet>225</a>}
-<a href=#226 id=226 data-nosnippet>226</a>
-<a href=#227 id=227 data-nosnippet>227</a><span class="doccomment">/// The list page every declared [`Resource`] gets at `{prefix}/{slug}`.
-<a href=#228 id=228 data-nosnippet>228</a>///
-<a href=#229 id=229 data-nosnippet>229</a>/// One generic handler drives all resources: resolve the [`TableState`] from
-<a href=#230 id=230 data-nosnippet>230</a>/// the URL, scope through the tenant-scoped query,
-<a href=#231 id=231 data-nosnippet>231</a>/// apply the table's search/sort/pagination declarations, render through
-<a href=#232 id=232 data-nosnippet>232</a>/// `Resource::table`. The page title is the resource's navigation label.
-<a href=#233 id=233 data-nosnippet>233</a>///
-<a href=#234 id=234 data-nosnippet>234</a>/// The page streams: shell and header go out with the first content, while the
-<a href=#235 id=235 data-nosnippet>235</a>/// table body (toolbar/filter/bulk/pager included) loads inside a `suspense`
-<a href=#236 id=236 data-nosnippet>236</a>/// region that swaps in the skeleton → table without any client-side fetching
-<a href=#237 id=237 data-nosnippet>237</a>/// (GH #98: the skeleton is thead + placeholders only, so chrome pops in with
-<a href=#238 id=238 data-nosnippet>238</a>/// the swap by design).
-<a href=#239 id=239 data-nosnippet>239</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_list&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
-<a href=#240 id=240 data-nosnippet>240</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
-<a href=#241 id=241 data-nosnippet>241</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#242 id=242 data-nosnippet>242</a>        <span class="kw">if </span>!R::can_view_any(cx) {
-<a href=#243 id=243 data-nosnippet>243</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#244 id=244 data-nosnippet>244</a>        }
-<a href=#245 id=245 data-nosnippet>245</a>        <span class="comment">// Ensure the CSRF cookie before streaming starts: streamed
-<a href=#246 id=246 data-nosnippet>246</a>        // children can only read it via current_token.
-<a href=#247 id=247 data-nosnippet>247</a>        </span><span class="kw">crate</span>::csrf::ensure_token(cx);
-<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>state = TableState::from_cx(cx);
-<a href=#249 id=249 data-nosnippet>249</a>        <span class="kw">let </span>table = wire_table_actions::&lt;R&gt;(cx, <span class="bool-val">false</span>);
-<a href=#250 id=250 data-nosnippet>250</a>        <span class="kw">let </span>title = R::navigation_label();
-<a href=#251 id=251 data-nosnippet>251</a>        <span class="kw">let </span>list_path = list_url(cx, <span class="kw-2">&amp;</span>R::slug());
-<a href=#252 id=252 data-nosnippet>252</a>        <span class="kw">if </span>table.is_live_search() {
-<a href=#253 id=253 data-nosnippet>253</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(resource_list_live::&lt;R&gt;(cx, table, state, title, list_path));
-<a href=#254 id=254 data-nosnippet>254</a>        }
-<a href=#255 id=255 data-nosnippet>255</a>
-<a href=#256 id=256 data-nosnippet>256</a>        <span class="comment">// The skeleton table (`Table::render_skeleton`) streams
-<a href=#257 id=257 data-nosnippet>257</a>        // while the rows load below.
-<a href=#258 id=258 data-nosnippet>258</a>        // The load catches its own errors: post-stream
-<a href=#259 id=259 data-nosnippet>259</a>        // the status line is fixed, so a failed load must render the branded
-<a href=#260 id=260 data-nosnippet>260</a>        // ErrorState inside the region instead of truncating the body.
-<a href=#261 id=261 data-nosnippet>261</a>        // Pre-stream failures (e.g. the skeleton itself) still propagate and
-<a href=#262 id=262 data-nosnippet>262</a>        // map onto the response status. (For children that partially stream
-<a href=#263 id=263 data-nosnippet>263</a>        // before failing, topcoat's `error_boundary` is the replace-in-place
-<a href=#264 id=264 data-nosnippet>264</a>        // seam.)
-<a href=#265 id=265 data-nosnippet>265</a>        //
-<a href=#266 id=266 data-nosnippet>266</a>        // One normalization per request: the skeleton, the load,
-<a href=#267 id=267 data-nosnippet>267</a>        // the render and the retry link all read the state this page parsed,
-<a href=#268 id=268 data-nosnippet>268</a>        // so it normalizes here and every seam below takes the proof (GH
-<a href=#269 id=269 data-nosnippet>269</a>        // #153: the retry link must not echo an unknown `?group_by=`).
-<a href=#270 id=270 data-nosnippet>270</a>        </span><span class="kw">let </span>state = table.normalize_state(<span class="kw-2">&amp;</span>state);
-<a href=#271 id=271 data-nosnippet>271</a>        <span class="kw">let </span>skeleton = table.render_skeleton(cx, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#272 id=272 data-nosnippet>272</a>        <span class="kw">let </span>header = list_header::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>title, <span class="kw-2">&amp;</span>list_path);
-<a href=#273 id=273 data-nosnippet>273</a>        <span class="kw">let </span>lazy_rows = ThenView::new(<span class="kw">async move </span>{
-<a href=#274 id=274 data-nosnippet>274</a>            <span class="kw">let </span>rendered = <span class="kw">async </span>{
-<a href=#275 id=275 data-nosnippet>275</a>                <span class="kw">let </span>page = load_table_page::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>table, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#276 id=276 data-nosnippet>276</a>                table.render_with_state(cx, page, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>list_path).<span class="kw">await
-<a href=#277 id=277 data-nosnippet>277</a>            </span>};
-<a href=#278 id=278 data-nosnippet>278</a>            <span class="kw">match </span>rendered.<span class="kw">await </span>{
-<a href=#279 id=279 data-nosnippet>279</a>                <span class="prelude-val">Ok</span>(view) =&gt; <span class="prelude-val">Ok</span>(view),
-<a href=#280 id=280 data-nosnippet>280</a>                <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Ok</span>(table_error_view::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>error, <span class="kw-2">&amp;</span>list_path, <span class="prelude-val">None</span>)),
-<a href=#281 id=281 data-nosnippet>281</a>            }
-<a href=#282 id=282 data-nosnippet>282</a>        });
-<a href=#283 id=283 data-nosnippet>283</a>
-<a href=#284 id=284 data-nosnippet>284</a>        <span class="prelude-val">Ok</span>(<span class="macro">view!</span> {
-<a href=#285 id=285 data-nosnippet>285</a>            cx =&gt;
-<a href=#286 id=286 data-nosnippet>286</a>            tablo_ui::page(
-<a href=#287 id=287 data-nosnippet>287</a>                (header)
-<a href=#288 id=288 data-nosnippet>288</a>                tablo_ui::page_content(
-<a href=#289 id=289 data-nosnippet>289</a>                    suspense(fallback: skeleton, (lazy_rows.boxed()))
-<a href=#290 id=290 data-nosnippet>290</a>                )
-<a href=#291 id=291 data-nosnippet>291</a>            )
-<a href=#292 id=292 data-nosnippet>292</a>        }
-<a href=#293 id=293 data-nosnippet>293</a>        .boxed())
-<a href=#294 id=294 data-nosnippet>294</a>    })))
-<a href=#295 id=295 data-nosnippet>295</a>}
-<a href=#296 id=296 data-nosnippet>296</a>
-<a href=#297 id=297 data-nosnippet>297</a><span class="doccomment">/// Live list page for `Table::live_search` tables: the page owns the
-<a href=#298 id=298 data-nosnippet>298</a>/// interaction signals (`query`, the list's URL query, and `bulk`, the
-<a href=#299 id=299 data-nosnippet>299</a>/// selection) and renders the search and filter bars eagerly above the
-<a href=#300 id=300 data-nosnippet>300</a>/// streamed region while the `table_search` shard invocation fills the table
-<a href=#301 id=301 data-nosnippet>301</a>/// below — one table per response, so rows can never duplicate. Search, sort,
-<a href=#302 id=302 data-nosnippet>302</a>/// filters, and pagination write the query, so they re-render only the
-<a href=#303 id=303 data-nosnippet>303</a>/// invocation output, morphing in place with focus and scroll surviving.
-<a href=#304 id=304 data-nosnippet>304</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_list_live&lt;R: Resource&gt;(
-<a href=#305 id=305 data-nosnippet>305</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#306 id=306 data-nosnippet>306</a>    table: Table&lt;R::Model&gt;,
-<a href=#307 id=307 data-nosnippet>307</a>    state: TableState,
-<a href=#308 id=308 data-nosnippet>308</a>    title: String,
-<a href=#309 id=309 data-nosnippet>309</a>    list_path: String,
-<a href=#310 id=310 data-nosnippet>310</a>) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
-<a href=#311 id=311 data-nosnippet>311</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
-<a href=#312 id=312 data-nosnippet>312</a>        <span class="comment">// Seeded with the request's query as written: the shard parses and
-<a href=#313 id=313 data-nosnippet>313</a>        // normalizes it as this page did.
-<a href=#314 id=314 data-nosnippet>314</a>        //
-<a href=#315 id=315 data-nosnippet>315</a>        // Keyed by the list: runtime navigation carries every signal the next
-<a href=#316 id=316 data-nosnippet>316</a>        // page shares with this one, and one call site would otherwise give
-<a href=#317 id=317 data-nosnippet>317</a>        // every resource's list the same ids — one list's search would filter
-<a href=#318 id=318 data-nosnippet>318</a>        // the next.
-<a href=#319 id=319 data-nosnippet>319</a>        </span><span class="kw">let </span>signals = TableState::signals_for(<span class="kw-2">&amp;</span>cx.keyed(list_path.as_str()), <span class="kw-2">&amp;</span>request_query(cx));
-<a href=#320 id=320 data-nosnippet>320</a>        <span class="comment">// One normalization per request: the toolbar, the hoisted
-<a href=#321 id=321 data-nosnippet>321</a>        // filter bar, the skeleton, the dialog and the retry link all read
-<a href=#322 id=322 data-nosnippet>322</a>        // the state this page parsed, so it normalizes here and every seam
-<a href=#323 id=323 data-nosnippet>323</a>        // below takes the proof (: no unknown `?group_by=` in a link).
-<a href=#324 id=324 data-nosnippet>324</a>        </span><span class="kw">let </span>state = table.normalize_state(<span class="kw-2">&amp;</span>state);
-<a href=#325 id=325 data-nosnippet>325</a>        <span class="kw">let </span>host = <span class="kw">if </span>table.search_enabled() {
-<a href=#326 id=326 data-nosnippet>326</a>            <span class="prelude-val">Some</span>(
-<a href=#327 id=327 data-nosnippet>327</a>                table
-<a href=#328 id=328 data-nosnippet>328</a>                    .render_live_search_bar(cx, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>list_path, <span class="kw-2">&amp;</span>signals)
-<a href=#329 id=329 data-nosnippet>329</a>                    .<span class="kw">await</span><span class="question-mark">?</span>,
-<a href=#330 id=330 data-nosnippet>330</a>            )
-<a href=#331 id=331 data-nosnippet>331</a>        } <span class="kw">else </span>{
-<a href=#332 id=332 data-nosnippet>332</a>            <span class="prelude-val">None
-<a href=#333 id=333 data-nosnippet>333</a>        </span>};
-<a href=#334 id=334 data-nosnippet>334</a>        <span class="comment">// The filter bar is hoisted next to the search host: a
-<a href=#335 id=335 data-nosnippet>335</a>        // `&lt;select&gt;` change re-renders the table, and a control inside the
-<a href=#336 id=336 data-nosnippet>336</a>        // swapped region would lose focus and collapse its popup mid-change.
-<a href=#337 id=337 data-nosnippet>337</a>        </span><span class="kw">let </span>filter_bar = <span class="kw">if </span>table.filter_bar_enabled() {
-<a href=#338 id=338 data-nosnippet>338</a>            <span class="prelude-val">Some</span>(
-<a href=#339 id=339 data-nosnippet>339</a>                table
-<a href=#340 id=340 data-nosnippet>340</a>                    .render_live_filter_bar(cx, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>list_path, <span class="kw-2">&amp;</span>signals)
-<a href=#341 id=341 data-nosnippet>341</a>                    .<span class="kw">await</span><span class="question-mark">?</span>,
-<a href=#342 id=342 data-nosnippet>342</a>            )
-<a href=#343 id=343 data-nosnippet>343</a>        } <span class="kw">else </span>{
-<a href=#344 id=344 data-nosnippet>344</a>            <span class="prelude-val">None
-<a href=#345 id=345 data-nosnippet>345</a>        </span>};
-<a href=#346 id=346 data-nosnippet>346</a>        <span class="comment">// The shard's table renders neither bar (`wire_table_actions(cx,
-<a href=#347 id=347 data-nosnippet>347</a>        // true)`), so neither does the placeholder it replaces.
-<a href=#348 id=348 data-nosnippet>348</a>        // Nor does it draw a card: the page's card holds the bars and the
-<a href=#349 id=349 data-nosnippet>349</a>        // table together.
-<a href=#350 id=350 data-nosnippet>350</a>        </span><span class="kw">let </span>table = table.hide_search().hide_filter_bar().unframed();
-<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">let </span>skeleton = table.render_skeleton(cx, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#352 id=352 data-nosnippet>352</a>        <span class="comment">// The delete confirmation dialog is not part of the swapped table
-<a href=#353 id=353 data-nosnippet>353</a>        // region: a keystroke starts a new result set and must never carry
-<a href=#354 id=354 data-nosnippet>354</a>        // (or re-open) a dialog, so the live page renders it eagerly once.
-<a href=#355 id=355 data-nosnippet>355</a>        </span><span class="kw">let </span>delete_dialog = table.render_delete_dialog(cx, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw">let </span>header = list_header::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>title, <span class="kw-2">&amp;</span>list_path);
-<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span>lazy_rows = ThenView::new(<span class="kw">async move </span>{
-<a href=#358 id=358 data-nosnippet>358</a>            <span class="comment">// The retry link inside the table writes the same signals the
-<a href=#359 id=359 data-nosnippet>359</a>            // toolbar does, so a bad cursor recovers in place.
-<a href=#360 id=360 data-nosnippet>360</a>            </span><span class="kw">let </span>retry_signals = signals.clone();
-<a href=#361 id=361 data-nosnippet>361</a>            <span class="kw">let </span>rendered = table.render_live_invocation(cx, <span class="kw-2">&amp;</span>list_path, signals).<span class="kw">await</span>;
-<a href=#362 id=362 data-nosnippet>362</a>            <span class="kw">match </span>rendered {
-<a href=#363 id=363 data-nosnippet>363</a>                <span class="prelude-val">Ok</span>(view) =&gt; <span class="prelude-val">Ok</span>(view),
-<a href=#364 id=364 data-nosnippet>364</a>                <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Ok</span>(table_error_view::&lt;R&gt;(
-<a href=#365 id=365 data-nosnippet>365</a>                    cx,
-<a href=#366 id=366 data-nosnippet>366</a>                    <span class="kw-2">&amp;</span>state,
-<a href=#367 id=367 data-nosnippet>367</a>                    <span class="kw-2">&amp;</span>error,
-<a href=#368 id=368 data-nosnippet>368</a>                    <span class="kw-2">&amp;</span>list_path,
-<a href=#369 id=369 data-nosnippet>369</a>                    <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>retry_signals),
-<a href=#370 id=370 data-nosnippet>370</a>                )),
-<a href=#371 id=371 data-nosnippet>371</a>            }
-<a href=#372 id=372 data-nosnippet>372</a>        });
-<a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a>        <span class="prelude-val">Ok</span>(<span class="macro">view!</span> {
-<a href=#375 id=375 data-nosnippet>375</a>            cx =&gt;
-<a href=#376 id=376 data-nosnippet>376</a>            tablo_ui::page(
-<a href=#377 id=377 data-nosnippet>377</a>                (header)
-<a href=#378 id=378 data-nosnippet>378</a>                tablo_ui::page_content(
-<a href=#379 id=379 data-nosnippet>379</a>                    <span class="comment">// The page draws the table's card (`TABLE_CARD_CLASS`) so the
-<a href=#380 id=380 data-nosnippet>380</a>                    // hoisted bars share it with the table they drive.
-<a href=#381 id=381 data-nosnippet>381</a>                    </span>&lt;div class=(TABLE_CARD_CLASS)&gt;
-<a href=#382 id=382 data-nosnippet>382</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(host) = host {
-<a href=#383 id=383 data-nosnippet>383</a>                            (host)
-<a href=#384 id=384 data-nosnippet>384</a>                        }
-<a href=#385 id=385 data-nosnippet>385</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(bar) = filter_bar {
-<a href=#386 id=386 data-nosnippet>386</a>                            (bar)
-<a href=#387 id=387 data-nosnippet>387</a>                        }
-<a href=#388 id=388 data-nosnippet>388</a>                        suspense(fallback: skeleton, (lazy_rows.boxed()))
-<a href=#389 id=389 data-nosnippet>389</a>                    &lt;/div&gt;
-<a href=#390 id=390 data-nosnippet>390</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(dialog) = delete_dialog {
-<a href=#391 id=391 data-nosnippet>391</a>                        (dialog)
-<a href=#392 id=392 data-nosnippet>392</a>                    }
-<a href=#393 id=393 data-nosnippet>393</a>                )
-<a href=#394 id=394 data-nosnippet>394</a>            )
-<a href=#395 id=395 data-nosnippet>395</a>        })
-<a href=#396 id=396 data-nosnippet>396</a>    })))
-<a href=#397 id=397 data-nosnippet>397</a>}
-<a href=#398 id=398 data-nosnippet>398</a>
-<a href=#399 id=399 data-nosnippet>399</a><span class="doccomment">/// Load `R`'s list page for `state` from the tenant-scoped
-<a href=#400 id=400 data-nosnippet>400</a>/// [`scoped_query`](crate::resource::scoped_query) — the data-loading half of
-<a href=#401 id=401 data-nosnippet>401</a>/// [`resource_list`] and the live shard, kept separate so the page shell can
-<a href=#402 id=402 data-nosnippet>402</a>/// stream before it. [`TablePage::load`] applies the table's declaration and
-<a href=#403 id=403 data-nosnippet>403</a>/// the relations its columns include.
-<a href=#404 id=404 data-nosnippet>404</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>load_table_page&lt;R: Resource&gt;(
-<a href=#405 id=405 data-nosnippet>405</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#406 id=406 data-nosnippet>406</a>    table: <span class="kw-2">&amp;</span>Table&lt;R::Model&gt;,
-<a href=#407 id=407 data-nosnippet>407</a>    state: <span class="kw-2">&amp;</span>TableState,
-<a href=#408 id=408 data-nosnippet>408</a>) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;R::Model&gt;&gt; {
-<a href=#409 id=409 data-nosnippet>409</a>    TablePage::load(cx, table, <span class="kw">crate</span>::resource::scoped_query::&lt;R&gt;(cx)<span class="question-mark">?</span>, state).<span class="kw">await
-<a href=#410 id=410 data-nosnippet>410</a></span>}
-<a href=#411 id=411 data-nosnippet>411</a>
-<a href=#412 id=412 data-nosnippet>412</a><span class="doccomment">/// [`load_table_page`] over the rows `scope` also admits: a relation table's
-<a href=#413 id=413 data-nosnippet>413</a>/// rows that belong to its owner.
-<a href=#414 id=414 data-nosnippet>414</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>load_scoped_page&lt;R: Resource&gt;(
-<a href=#415 id=415 data-nosnippet>415</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#416 id=416 data-nosnippet>416</a>    table: <span class="kw-2">&amp;</span>Table&lt;R::Model&gt;,
-<a href=#417 id=417 data-nosnippet>417</a>    state: <span class="kw-2">&amp;</span>TableState,
-<a href=#418 id=418 data-nosnippet>418</a>    scope: toasty::stmt::Expr&lt;bool&gt;,
-<a href=#419 id=419 data-nosnippet>419</a>) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;R::Model&gt;&gt; {
-<a href=#420 id=420 data-nosnippet>420</a>    <span class="kw">let </span>query = <span class="kw">crate</span>::resource::scoped_query::&lt;R&gt;(cx)<span class="question-mark">?</span>.filter(scope);
-<a href=#421 id=421 data-nosnippet>421</a>    TablePage::load(cx, table, query, state).<span class="kw">await
-<a href=#422 id=422 data-nosnippet>422</a></span>}
-<a href=#423 id=423 data-nosnippet>423</a>
-<a href=#424 id=424 data-nosnippet>424</a><span class="attr">#[cfg(test)]
-<a href=#425 id=425 data-nosnippet>425</a></span><span class="kw">mod </span>tests;
+<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">if </span>chrome.view {
+<a href=#117 id=117 data-nosnippet>117</a>        table = table.with_view(list_url(cx, <span class="kw-2">&amp;</span>R::slug()));
+<a href=#118 id=118 data-nosnippet>118</a>    }
+<a href=#119 id=119 data-nosnippet>119</a>    <span class="kw">if </span>chrome.actions {
+<a href=#120 id=120 data-nosnippet>120</a>        table = wire_custom_actions::&lt;R&gt;(cx, table);
+<a href=#121 id=121 data-nosnippet>121</a>    }
+<a href=#122 id=122 data-nosnippet>122</a>    table
+<a href=#123 id=123 data-nosnippet>123</a>}
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a><span class="doccomment">/// Attach `R`'s custom actions to `table`, each gated per record by exactly
+<a href=#126 id=126 data-nosnippet>126</a>/// what its route checks: [`Resource::can_view`] and the action's
+<a href=#127 id=127 data-nosnippet>127</a>/// `can_run`.
+<a href=#128 id=128 data-nosnippet>128</a></span><span class="kw">fn </span>wire_custom_actions&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, table: Table&lt;R::Model&gt;) -&gt; Table&lt;R::Model&gt; {
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="kw">let </span>actions = R::actions();
+<a href=#130 id=130 data-nosnippet>130</a>    <span class="kw">if </span>actions.entries().is_empty() {
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">return </span>table;
+<a href=#132 id=132 data-nosnippet>132</a>    }
+<a href=#133 id=133 data-nosnippet>133</a>    <span class="kw">let </span>wired = actions
+<a href=#134 id=134 data-nosnippet>134</a>        .entries()
+<a href=#135 id=135 data-nosnippet>135</a>        .iter()
+<a href=#136 id=136 data-nosnippet>136</a>        .map(|action| {
+<a href=#137 id=137 data-nosnippet>137</a>            <span class="kw">let </span>can_run = action.can_run;
+<a href=#138 id=138 data-nosnippet>138</a>            <span class="kw">let </span>policy_cx = cx.clone();
+<a href=#139 id=139 data-nosnippet>139</a>            TableAction {
+<a href=#140 id=140 data-nosnippet>140</a>                name: action.name,
+<a href=#141 id=141 data-nosnippet>141</a>                label: (action.label)(),
+<a href=#142 id=142 data-nosnippet>142</a>                row: action.row,
+<a href=#143 id=143 data-nosnippet>143</a>                bulk: action.bulk,
+<a href=#144 id=144 data-nosnippet>144</a>                allowed: std::sync::Arc::new(<span class="kw">move </span>|record: <span class="kw-2">&amp;</span>R::Model| {
+<a href=#145 id=145 data-nosnippet>145</a>                    R::can_view(<span class="kw-2">&amp;</span>policy_cx, record) &amp;&amp; can_run(<span class="kw-2">&amp;</span>policy_cx, record)
+<a href=#146 id=146 data-nosnippet>146</a>                }),
+<a href=#147 id=147 data-nosnippet>147</a>            }
+<a href=#148 id=148 data-nosnippet>148</a>        })
+<a href=#149 id=149 data-nosnippet>149</a>        .collect();
+<a href=#150 id=150 data-nosnippet>150</a>    table.with_custom_actions(list_url(cx, <span class="kw-2">&amp;</span>R::slug()), wired)
+<a href=#151 id=151 data-nosnippet>151</a>}
+<a href=#152 id=152 data-nosnippet>152</a>
+<a href=#153 id=153 data-nosnippet>153</a><span class="doccomment">/// Branded in-region table failure shared by the streamed list and the
+<a href=#154 id=154 data-nosnippet>154</a>/// live-search shard: the trace line, the cursor-aware
+<a href=#155 id=155 data-nosnippet>155</a>/// retry link ([`retry_url_for_error`]), and the `ErrorState` render are one
+<a href=#156 id=156 data-nosnippet>156</a>/// copy so the three load sites cannot drift.
+<a href=#157 id=157 data-nosnippet>157</a>///
+<a href=#158 id=158 data-nosnippet>158</a>/// On a live table (`signals`) the retry stays in place instead of
+<a href=#159 id=159 data-nosnippet>159</a>/// navigating, and re-runs the request that failed with the query it failed
+<a href=#160 id=160 data-nosnippet>160</a>/// with: the click increments a retry token the shard reads, so the
+<a href=#161 id=161 data-nosnippet>161</a>/// rerun does not depend on the query signals changing — a write of an
+<a href=#162 id=162 data-nosnippet>162</a>/// unchanged value re-runs nothing. A cursor failure resets only the cursor,
+<a href=#163 id=163 data-nosnippet>163</a>/// the same reset its `href` spells out; every other failure keeps the whole
+<a href=#164 id=164 data-nosnippet>164</a>/// query. `href` stays as the no-JS fallback, so it retries the URL as it
+<a href=#165 id=165 data-nosnippet>165</a>/// stands.
+<a href=#166 id=166 data-nosnippet>166</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>table_error_view&lt;<span class="lifetime">'a</span>, R: Resource&gt;(
+<a href=#167 id=167 data-nosnippet>167</a>    cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
+<a href=#168 id=168 data-nosnippet>168</a>    state: <span class="kw-2">&amp;</span>TableState,
+<a href=#169 id=169 data-nosnippet>169</a>    error: <span class="kw-2">&amp;</span>topcoat::Error,
+<a href=#170 id=170 data-nosnippet>170</a>    path: <span class="kw-2">&amp;</span>str,
+<a href=#171 id=171 data-nosnippet>171</a>    signals: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TableSignals&gt;,
+<a href=#172 id=172 data-nosnippet>172</a>) -&gt; BoxView&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="macro">tracing::error!</span>(resource = R::slug(), error = %error, <span class="string">"table load failed"</span>);
+<a href=#174 id=174 data-nosnippet>174</a>    <span class="kw">let </span>retry_url = retry_url_for_error(state, error, path);
+<a href=#175 id=175 data-nosnippet>175</a>    <span class="kw">let </span>action: BoxView&lt;<span class="lifetime">'a</span>&gt; = <span class="kw">match </span>signals {
+<a href=#176 id=176 data-nosnippet>176</a>        <span class="prelude-val">Some</span>(signals) =&gt; {
+<a href=#177 id=177 data-nosnippet>177</a>            <span class="comment">// Retry re-runs the shard. The token is the rerun's only
+<a href=#178 id=178 data-nosnippet>178</a>            // cause: the shard reads it (declaring the dependency below), and
+<a href=#179 id=179 data-nosnippet>179</a>            // every click increments it, so the write always changes even when
+<a href=#180 id=180 data-nosnippet>180</a>            // the query signals already hold the values that failed.
+<a href=#181 id=181 data-nosnippet>181</a>            // Keyed by the list, like the table's own signals.
+<a href=#182 id=182 data-nosnippet>182</a>            </span><span class="kw">let </span>attempt = topcoat::runtime::signal(<span class="kw-2">&amp;</span>cx.keyed(path), || <span class="number">0u64</span>);
+<a href=#183 id=183 data-nosnippet>183</a>            <span class="kw">let </span>cursor_error = <span class="kw">crate</span>::error::TabloError::is_cursor(error);
+<a href=#184 id=184 data-nosnippet>184</a>            <span class="kw">let </span>attrs = <span class="kw">if </span>cursor_error {
+<a href=#185 id=185 data-nosnippet>185</a>                <span class="comment">// The retry URL drops the cursor: write its query, so the rerun
+<a href=#186 id=186 data-nosnippet>186</a>                // loads the first page of the same result set.
+<a href=#187 id=187 data-nosnippet>187</a>                </span><span class="kw">let </span>query = signals.query.clone();
+<a href=#188 id=188 data-nosnippet>188</a>                <span class="kw">let </span>next = <span class="kw">crate</span>::resource::query_of(<span class="kw-2">&amp;</span>retry_url).to_string();
+<a href=#189 id=189 data-nosnippet>189</a>                <span class="macro">attributes!</span> {
+<a href=#190 id=190 data-nosnippet>190</a>                    cx =&gt;
+<a href=#191 id=191 data-nosnippet>191</a>                    href=(retry_url)
+<a href=#192 id=192 data-nosnippet>192</a>                    data-retry-attempt=(attempt.get())
+<a href=#193 id=193 data-nosnippet>193</a>                    @click=$(|e: Event| {
+<a href=#194 id=194 data-nosnippet>194</a>                        e.prevent_default();
+<a href=#195 id=195 data-nosnippet>195</a>                        query.set(next.clone());
+<a href=#196 id=196 data-nosnippet>196</a>                        attempt.increment();
+<a href=#197 id=197 data-nosnippet>197</a>                    })
+<a href=#198 id=198 data-nosnippet>198</a>                }
+<a href=#199 id=199 data-nosnippet>199</a>            } <span class="kw">else </span>{
+<a href=#200 id=200 data-nosnippet>200</a>                <span class="macro">attributes!</span> {
+<a href=#201 id=201 data-nosnippet>201</a>                    cx =&gt;
+<a href=#202 id=202 data-nosnippet>202</a>                    href=(retry_url)
+<a href=#203 id=203 data-nosnippet>203</a>                    data-retry-attempt=(attempt.get())
+<a href=#204 id=204 data-nosnippet>204</a>                    @click=$(|e: Event| {
+<a href=#205 id=205 data-nosnippet>205</a>                        e.prevent_default();
+<a href=#206 id=206 data-nosnippet>206</a>                        attempt.increment();
+<a href=#207 id=207 data-nosnippet>207</a>                    })
+<a href=#208 id=208 data-nosnippet>208</a>                }
+<a href=#209 id=209 data-nosnippet>209</a>            };
+<a href=#210 id=210 data-nosnippet>210</a>            <span class="macro">view!</span> { cx =&gt; &lt;a (attrs)&gt;<span class="string">"Retry"</span>&lt;/a&gt; }.boxed()
+<a href=#211 id=211 data-nosnippet>211</a>        }
+<a href=#212 id=212 data-nosnippet>212</a>        <span class="prelude-val">None </span>=&gt; <span class="macro">view!</span> { cx =&gt; &lt;a href=(retry_url)&gt;<span class="string">"Retry"</span>&lt;/a&gt; }.boxed(),
+<a href=#213 id=213 data-nosnippet>213</a>    };
+<a href=#214 id=214 data-nosnippet>214</a>    <span class="macro">view!</span> {
+<a href=#215 id=215 data-nosnippet>215</a>        cx =&gt;
+<a href=#216 id=216 data-nosnippet>216</a>        tablo_ui::error_state(
+<a href=#217 id=217 data-nosnippet>217</a>            title: <span class="macro">format!</span>(<span class="string">"Couldn't load {}"</span>, R::navigation_label()),
+<a href=#218 id=218 data-nosnippet>218</a>            detail: <span class="string">"Something went wrong while loading the records."</span>,
+<a href=#219 id=219 data-nosnippet>219</a>            action: <span class="prelude-val">Some</span>(action.into()),
+<a href=#220 id=220 data-nosnippet>220</a>            attrs: <span class="macro">attributes!</span> { role=<span class="string">"alert" </span>}
+<a href=#221 id=221 data-nosnippet>221</a>        )
+<a href=#222 id=222 data-nosnippet>222</a>    }
+<a href=#223 id=223 data-nosnippet>223</a>    .boxed()
+<a href=#224 id=224 data-nosnippet>224</a>}
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a><span class="doccomment">/// The list page header: the resource's title and the Create entry point
+<a href=#227 id=227 data-nosnippet>227</a>/// (Filament's List page `CreateAction`), a real link so no-JS keeps
+<a href=#228 id=228 data-nosnippet>228</a>/// working, gated on `can_create`. The POST handler enforces the same policy.
+<a href=#229 id=229 data-nosnippet>229</a>///
+<a href=#230 id=230 data-nosnippet>230</a>/// A resource with no record form ([`RecordForm::HAS_FORM`]) has no create
+<a href=#231 id=231 data-nosnippet>231</a>/// route, so its header links to none even when a request-scoped `can_create`
+<a href=#232 id=232 data-nosnippet>232</a>/// allows it and the build-time check could not see it.
+<a href=#233 id=233 data-nosnippet>233</a></span><span class="kw">fn </span>list_header&lt;<span class="lifetime">'a</span>, R: Resource&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, title: <span class="kw-2">&amp;</span>str, list_path: <span class="kw-2">&amp;</span>str) -&gt; BoxView&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#234 id=234 data-nosnippet>234</a>    <span class="kw">let </span>title = title.to_string();
+<a href=#235 id=235 data-nosnippet>235</a>    <span class="kw">let </span>create_url = (&lt;R::Form <span class="kw">as </span>RecordForm&gt;::HAS_FORM &amp;&amp; R::can_create(cx))
+<a href=#236 id=236 data-nosnippet>236</a>        .then(|| create_page_url(list_path));
+<a href=#237 id=237 data-nosnippet>237</a>    <span class="kw">let </span>create_label = <span class="macro">format!</span>(<span class="string">"Create {}"</span>, R::label());
+<a href=#238 id=238 data-nosnippet>238</a>    <span class="macro">view!</span> {
+<a href=#239 id=239 data-nosnippet>239</a>        cx =&gt;
+<a href=#240 id=240 data-nosnippet>240</a>        tablo_ui::page_header(
+<a href=#241 id=241 data-nosnippet>241</a>            tablo_ui::page_title((title))
+<a href=#242 id=242 data-nosnippet>242</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = create_url {
+<a href=#243 id=243 data-nosnippet>243</a>                tablo_ui::page_actions(
+<a href=#244 id=244 data-nosnippet>244</a>                    &lt;a
+<a href=#245 id=245 data-nosnippet>245</a>                        (<span class="kw">crate</span>::resource::runtime_link(cx, <span class="kw-2">&amp;</span>url))
+<a href=#246 id=246 data-nosnippet>246</a>                        class=(tablo_ui::button_variants(
+<a href=#247 id=247 data-nosnippet>247</a>                            tablo_ui::ButtonVariant::Primary,
+<a href=#248 id=248 data-nosnippet>248</a>                            tablo_ui::ButtonSize::Md,
+<a href=#249 id=249 data-nosnippet>249</a>                        ))
+<a href=#250 id=250 data-nosnippet>250</a>                    &gt;
+<a href=#251 id=251 data-nosnippet>251</a>                        icon(data: tablo_ui::icons::PLUS)
+<a href=#252 id=252 data-nosnippet>252</a>                        (create_label)
+<a href=#253 id=253 data-nosnippet>253</a>                    &lt;/a&gt;
+<a href=#254 id=254 data-nosnippet>254</a>                )
+<a href=#255 id=255 data-nosnippet>255</a>            }
+<a href=#256 id=256 data-nosnippet>256</a>        )
+<a href=#257 id=257 data-nosnippet>257</a>    }
+<a href=#258 id=258 data-nosnippet>258</a>    .boxed()
+<a href=#259 id=259 data-nosnippet>259</a>}
+<a href=#260 id=260 data-nosnippet>260</a>
+<a href=#261 id=261 data-nosnippet>261</a><span class="doccomment">/// The list page every declared [`Resource`] gets at `{prefix}/{slug}`.
+<a href=#262 id=262 data-nosnippet>262</a>///
+<a href=#263 id=263 data-nosnippet>263</a>/// One generic handler drives all resources: resolve the [`TableState`] from
+<a href=#264 id=264 data-nosnippet>264</a>/// the URL, scope through the tenant-scoped query,
+<a href=#265 id=265 data-nosnippet>265</a>/// apply the table's search/sort/pagination declarations, render through
+<a href=#266 id=266 data-nosnippet>266</a>/// `Resource::table`. The page title is the resource's navigation label.
+<a href=#267 id=267 data-nosnippet>267</a>///
+<a href=#268 id=268 data-nosnippet>268</a>/// The page streams: shell and header go out with the first content, while the
+<a href=#269 id=269 data-nosnippet>269</a>/// table body (toolbar/filter/bulk/pager included) loads inside a `suspense`
+<a href=#270 id=270 data-nosnippet>270</a>/// region that swaps in the skeleton → table without any client-side fetching
+<a href=#271 id=271 data-nosnippet>271</a>/// (GH #98: the skeleton is thead + placeholders only, so chrome pops in with
+<a href=#272 id=272 data-nosnippet>272</a>/// the swap by design).
+<a href=#273 id=273 data-nosnippet>273</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_list&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#274 id=274 data-nosnippet>274</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
+<a href=#275 id=275 data-nosnippet>275</a>        gate::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#276 id=276 data-nosnippet>276</a>        <span class="kw">if </span>!R::can_view_any(cx) {
+<a href=#277 id=277 data-nosnippet>277</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#278 id=278 data-nosnippet>278</a>        }
+<a href=#279 id=279 data-nosnippet>279</a>        <span class="comment">// Ensure the CSRF cookie before streaming starts: streamed
+<a href=#280 id=280 data-nosnippet>280</a>        // children can only read it via current_token.
+<a href=#281 id=281 data-nosnippet>281</a>        </span><span class="kw">crate</span>::csrf::ensure_token(cx);
+<a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">let </span>state = TableState::from_cx(cx);
+<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">let </span>table = wire_table_actions::&lt;R&gt;(cx, <span class="bool-val">false</span>);
+<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">let </span>title = R::navigation_label();
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">let </span>list_path = list_url(cx, <span class="kw-2">&amp;</span>R::slug());
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">if </span>table.is_live_search() {
+<a href=#287 id=287 data-nosnippet>287</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(resource_list_live::&lt;R&gt;(cx, table, state, title, list_path));
+<a href=#288 id=288 data-nosnippet>288</a>        }
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="comment">// The skeleton table (`Table::render_skeleton`) streams
+<a href=#291 id=291 data-nosnippet>291</a>        // while the rows load below.
+<a href=#292 id=292 data-nosnippet>292</a>        // The load catches its own errors: post-stream
+<a href=#293 id=293 data-nosnippet>293</a>        // the status line is fixed, so a failed load must render the branded
+<a href=#294 id=294 data-nosnippet>294</a>        // ErrorState inside the region instead of truncating the body.
+<a href=#295 id=295 data-nosnippet>295</a>        // Pre-stream failures (e.g. the skeleton itself) still propagate and
+<a href=#296 id=296 data-nosnippet>296</a>        // map onto the response status. (For children that partially stream
+<a href=#297 id=297 data-nosnippet>297</a>        // before failing, topcoat's `error_boundary` is the replace-in-place
+<a href=#298 id=298 data-nosnippet>298</a>        // seam.)
+<a href=#299 id=299 data-nosnippet>299</a>        //
+<a href=#300 id=300 data-nosnippet>300</a>        // One normalization per request: the skeleton, the load,
+<a href=#301 id=301 data-nosnippet>301</a>        // the render and the retry link all read the state this page parsed,
+<a href=#302 id=302 data-nosnippet>302</a>        // so it normalizes here and every seam below takes the proof (GH
+<a href=#303 id=303 data-nosnippet>303</a>        // #153: the retry link must not echo an unknown `?group_by=`).
+<a href=#304 id=304 data-nosnippet>304</a>        </span><span class="kw">let </span>state = table.normalize_state(<span class="kw-2">&amp;</span>state);
+<a href=#305 id=305 data-nosnippet>305</a>        <span class="kw">let </span>skeleton = table.render_skeleton(cx, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#306 id=306 data-nosnippet>306</a>        <span class="kw">let </span>header = list_header::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>title, <span class="kw-2">&amp;</span>list_path);
+<a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">let </span>lazy_rows = ThenView::new(<span class="kw">async move </span>{
+<a href=#308 id=308 data-nosnippet>308</a>            <span class="kw">let </span>rendered = <span class="kw">async </span>{
+<a href=#309 id=309 data-nosnippet>309</a>                <span class="kw">let </span>page = load_table_page::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>table, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#310 id=310 data-nosnippet>310</a>                table.render_with_state(cx, page, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>list_path).<span class="kw">await
+<a href=#311 id=311 data-nosnippet>311</a>            </span>};
+<a href=#312 id=312 data-nosnippet>312</a>            <span class="kw">match </span>rendered.<span class="kw">await </span>{
+<a href=#313 id=313 data-nosnippet>313</a>                <span class="prelude-val">Ok</span>(view) =&gt; <span class="prelude-val">Ok</span>(view),
+<a href=#314 id=314 data-nosnippet>314</a>                <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Ok</span>(table_error_view::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>error, <span class="kw-2">&amp;</span>list_path, <span class="prelude-val">None</span>)),
+<a href=#315 id=315 data-nosnippet>315</a>            }
+<a href=#316 id=316 data-nosnippet>316</a>        });
+<a href=#317 id=317 data-nosnippet>317</a>
+<a href=#318 id=318 data-nosnippet>318</a>        <span class="prelude-val">Ok</span>(<span class="macro">view!</span> {
+<a href=#319 id=319 data-nosnippet>319</a>            cx =&gt;
+<a href=#320 id=320 data-nosnippet>320</a>            tablo_ui::page(
+<a href=#321 id=321 data-nosnippet>321</a>                (header)
+<a href=#322 id=322 data-nosnippet>322</a>                tablo_ui::page_content(
+<a href=#323 id=323 data-nosnippet>323</a>                    suspense(fallback: skeleton, (lazy_rows.boxed()))
+<a href=#324 id=324 data-nosnippet>324</a>                )
+<a href=#325 id=325 data-nosnippet>325</a>            )
+<a href=#326 id=326 data-nosnippet>326</a>        }
+<a href=#327 id=327 data-nosnippet>327</a>        .boxed())
+<a href=#328 id=328 data-nosnippet>328</a>    })))
+<a href=#329 id=329 data-nosnippet>329</a>}
+<a href=#330 id=330 data-nosnippet>330</a>
+<a href=#331 id=331 data-nosnippet>331</a><span class="doccomment">/// Live list page for `Table::live_search` tables: the page owns the
+<a href=#332 id=332 data-nosnippet>332</a>/// interaction signals (`query`, the list's URL query, and `bulk`, the
+<a href=#333 id=333 data-nosnippet>333</a>/// selection) and renders the search and filter bars eagerly above the
+<a href=#334 id=334 data-nosnippet>334</a>/// streamed region while the `table_search` shard invocation fills the table
+<a href=#335 id=335 data-nosnippet>335</a>/// below — one table per response, so rows can never duplicate. Search, sort,
+<a href=#336 id=336 data-nosnippet>336</a>/// filters, and pagination write the query, so they re-render only the
+<a href=#337 id=337 data-nosnippet>337</a>/// invocation output, morphing in place with focus and scroll surviving.
+<a href=#338 id=338 data-nosnippet>338</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_list_live&lt;R: Resource&gt;(
+<a href=#339 id=339 data-nosnippet>339</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#340 id=340 data-nosnippet>340</a>    table: Table&lt;R::Model&gt;,
+<a href=#341 id=341 data-nosnippet>341</a>    state: TableState,
+<a href=#342 id=342 data-nosnippet>342</a>    title: String,
+<a href=#343 id=343 data-nosnippet>343</a>    list_path: String,
+<a href=#344 id=344 data-nosnippet>344</a>) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#345 id=345 data-nosnippet>345</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
+<a href=#346 id=346 data-nosnippet>346</a>        <span class="comment">// Seeded with the request's query as written: the shard parses and
+<a href=#347 id=347 data-nosnippet>347</a>        // normalizes it as this page did.
+<a href=#348 id=348 data-nosnippet>348</a>        //
+<a href=#349 id=349 data-nosnippet>349</a>        // Keyed by the list: runtime navigation carries every signal the next
+<a href=#350 id=350 data-nosnippet>350</a>        // page shares with this one, and one call site would otherwise give
+<a href=#351 id=351 data-nosnippet>351</a>        // every resource's list the same ids — one list's search would filter
+<a href=#352 id=352 data-nosnippet>352</a>        // the next.
+<a href=#353 id=353 data-nosnippet>353</a>        </span><span class="kw">let </span>signals = TableState::signals_for(<span class="kw-2">&amp;</span>cx.keyed(list_path.as_str()), <span class="kw-2">&amp;</span>request_query(cx));
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="comment">// One normalization per request: the toolbar, the hoisted
+<a href=#355 id=355 data-nosnippet>355</a>        // filter bar, the skeleton, the dialog and the retry link all read
+<a href=#356 id=356 data-nosnippet>356</a>        // the state this page parsed, so it normalizes here and every seam
+<a href=#357 id=357 data-nosnippet>357</a>        // below takes the proof (: no unknown `?group_by=` in a link).
+<a href=#358 id=358 data-nosnippet>358</a>        </span><span class="kw">let </span>state = table.normalize_state(<span class="kw-2">&amp;</span>state);
+<a href=#359 id=359 data-nosnippet>359</a>        <span class="kw">let </span>host = <span class="kw">if </span>table.search_enabled() {
+<a href=#360 id=360 data-nosnippet>360</a>            <span class="prelude-val">Some</span>(
+<a href=#361 id=361 data-nosnippet>361</a>                table
+<a href=#362 id=362 data-nosnippet>362</a>                    .render_live_search_bar(cx, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>list_path, <span class="kw-2">&amp;</span>signals)
+<a href=#363 id=363 data-nosnippet>363</a>                    .<span class="kw">await</span><span class="question-mark">?</span>,
+<a href=#364 id=364 data-nosnippet>364</a>            )
+<a href=#365 id=365 data-nosnippet>365</a>        } <span class="kw">else </span>{
+<a href=#366 id=366 data-nosnippet>366</a>            <span class="prelude-val">None
+<a href=#367 id=367 data-nosnippet>367</a>        </span>};
+<a href=#368 id=368 data-nosnippet>368</a>        <span class="comment">// The filter bar is hoisted next to the search host: a
+<a href=#369 id=369 data-nosnippet>369</a>        // `&lt;select&gt;` change re-renders the table, and a control inside the
+<a href=#370 id=370 data-nosnippet>370</a>        // swapped region would lose focus and collapse its popup mid-change.
+<a href=#371 id=371 data-nosnippet>371</a>        </span><span class="kw">let </span>filter_bar = <span class="kw">if </span>table.filter_bar_enabled() {
+<a href=#372 id=372 data-nosnippet>372</a>            <span class="prelude-val">Some</span>(
+<a href=#373 id=373 data-nosnippet>373</a>                table
+<a href=#374 id=374 data-nosnippet>374</a>                    .render_live_filter_bar(cx, <span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>list_path, <span class="kw-2">&amp;</span>signals)
+<a href=#375 id=375 data-nosnippet>375</a>                    .<span class="kw">await</span><span class="question-mark">?</span>,
+<a href=#376 id=376 data-nosnippet>376</a>            )
+<a href=#377 id=377 data-nosnippet>377</a>        } <span class="kw">else </span>{
+<a href=#378 id=378 data-nosnippet>378</a>            <span class="prelude-val">None
+<a href=#379 id=379 data-nosnippet>379</a>        </span>};
+<a href=#380 id=380 data-nosnippet>380</a>        <span class="comment">// The shard's table renders neither bar (`wire_table_actions(cx,
+<a href=#381 id=381 data-nosnippet>381</a>        // true)`), so neither does the placeholder it replaces.
+<a href=#382 id=382 data-nosnippet>382</a>        // Nor does it draw a card: the page's card holds the bars and the
+<a href=#383 id=383 data-nosnippet>383</a>        // table together.
+<a href=#384 id=384 data-nosnippet>384</a>        </span><span class="kw">let </span>table = table.hide_search().hide_filter_bar().unframed();
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="kw">let </span>skeleton = table.render_skeleton(cx, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#386 id=386 data-nosnippet>386</a>        <span class="comment">// The delete confirmation dialog is not part of the swapped table
+<a href=#387 id=387 data-nosnippet>387</a>        // region: a keystroke starts a new result set and must never carry
+<a href=#388 id=388 data-nosnippet>388</a>        // (or re-open) a dialog, so the live page renders it eagerly once.
+<a href=#389 id=389 data-nosnippet>389</a>        </span><span class="kw">let </span>delete_dialog = table.render_delete_dialog(cx, <span class="kw-2">&amp;</span>state).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">let </span>header = list_header::&lt;R&gt;(cx, <span class="kw-2">&amp;</span>title, <span class="kw-2">&amp;</span>list_path);
+<a href=#391 id=391 data-nosnippet>391</a>        <span class="kw">let </span>lazy_rows = ThenView::new(<span class="kw">async move </span>{
+<a href=#392 id=392 data-nosnippet>392</a>            <span class="comment">// The retry link inside the table writes the same signals the
+<a href=#393 id=393 data-nosnippet>393</a>            // toolbar does, so a bad cursor recovers in place.
+<a href=#394 id=394 data-nosnippet>394</a>            </span><span class="kw">let </span>retry_signals = signals.clone();
+<a href=#395 id=395 data-nosnippet>395</a>            <span class="kw">let </span>rendered = table.render_live_invocation(cx, <span class="kw-2">&amp;</span>list_path, signals).<span class="kw">await</span>;
+<a href=#396 id=396 data-nosnippet>396</a>            <span class="kw">match </span>rendered {
+<a href=#397 id=397 data-nosnippet>397</a>                <span class="prelude-val">Ok</span>(view) =&gt; <span class="prelude-val">Ok</span>(view),
+<a href=#398 id=398 data-nosnippet>398</a>                <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Ok</span>(table_error_view::&lt;R&gt;(
+<a href=#399 id=399 data-nosnippet>399</a>                    cx,
+<a href=#400 id=400 data-nosnippet>400</a>                    <span class="kw-2">&amp;</span>state,
+<a href=#401 id=401 data-nosnippet>401</a>                    <span class="kw-2">&amp;</span>error,
+<a href=#402 id=402 data-nosnippet>402</a>                    <span class="kw-2">&amp;</span>list_path,
+<a href=#403 id=403 data-nosnippet>403</a>                    <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>retry_signals),
+<a href=#404 id=404 data-nosnippet>404</a>                )),
+<a href=#405 id=405 data-nosnippet>405</a>            }
+<a href=#406 id=406 data-nosnippet>406</a>        });
+<a href=#407 id=407 data-nosnippet>407</a>
+<a href=#408 id=408 data-nosnippet>408</a>        <span class="prelude-val">Ok</span>(<span class="macro">view!</span> {
+<a href=#409 id=409 data-nosnippet>409</a>            cx =&gt;
+<a href=#410 id=410 data-nosnippet>410</a>            tablo_ui::page(
+<a href=#411 id=411 data-nosnippet>411</a>                (header)
+<a href=#412 id=412 data-nosnippet>412</a>                tablo_ui::page_content(
+<a href=#413 id=413 data-nosnippet>413</a>                    <span class="comment">// The page draws the table's card (`TABLE_CARD_CLASS`) so the
+<a href=#414 id=414 data-nosnippet>414</a>                    // hoisted bars share it with the table they drive.
+<a href=#415 id=415 data-nosnippet>415</a>                    </span>&lt;div class=(TABLE_CARD_CLASS)&gt;
+<a href=#416 id=416 data-nosnippet>416</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(host) = host {
+<a href=#417 id=417 data-nosnippet>417</a>                            (host)
+<a href=#418 id=418 data-nosnippet>418</a>                        }
+<a href=#419 id=419 data-nosnippet>419</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(bar) = filter_bar {
+<a href=#420 id=420 data-nosnippet>420</a>                            (bar)
+<a href=#421 id=421 data-nosnippet>421</a>                        }
+<a href=#422 id=422 data-nosnippet>422</a>                        suspense(fallback: skeleton, (lazy_rows.boxed()))
+<a href=#423 id=423 data-nosnippet>423</a>                    &lt;/div&gt;
+<a href=#424 id=424 data-nosnippet>424</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(dialog) = delete_dialog {
+<a href=#425 id=425 data-nosnippet>425</a>                        (dialog)
+<a href=#426 id=426 data-nosnippet>426</a>                    }
+<a href=#427 id=427 data-nosnippet>427</a>                )
+<a href=#428 id=428 data-nosnippet>428</a>            )
+<a href=#429 id=429 data-nosnippet>429</a>        })
+<a href=#430 id=430 data-nosnippet>430</a>    })))
+<a href=#431 id=431 data-nosnippet>431</a>}
+<a href=#432 id=432 data-nosnippet>432</a>
+<a href=#433 id=433 data-nosnippet>433</a><span class="doccomment">/// Load `R`'s list page for `state` from the tenant-scoped
+<a href=#434 id=434 data-nosnippet>434</a>/// [`scoped_query`](crate::resource::scoped_query) — the data-loading half of
+<a href=#435 id=435 data-nosnippet>435</a>/// [`resource_list`] and the live shard, kept separate so the page shell can
+<a href=#436 id=436 data-nosnippet>436</a>/// stream before it. [`TablePage::load`] applies the table's declaration and
+<a href=#437 id=437 data-nosnippet>437</a>/// the relations its columns include.
+<a href=#438 id=438 data-nosnippet>438</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>load_table_page&lt;R: Resource&gt;(
+<a href=#439 id=439 data-nosnippet>439</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#440 id=440 data-nosnippet>440</a>    table: <span class="kw-2">&amp;</span>Table&lt;R::Model&gt;,
+<a href=#441 id=441 data-nosnippet>441</a>    state: <span class="kw-2">&amp;</span>TableState,
+<a href=#442 id=442 data-nosnippet>442</a>) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;R::Model&gt;&gt; {
+<a href=#443 id=443 data-nosnippet>443</a>    TablePage::load(cx, table, <span class="kw">crate</span>::resource::scoped_query::&lt;R&gt;(cx)<span class="question-mark">?</span>, state).<span class="kw">await
+<a href=#444 id=444 data-nosnippet>444</a></span>}
+<a href=#445 id=445 data-nosnippet>445</a>
+<a href=#446 id=446 data-nosnippet>446</a><span class="doccomment">/// [`load_table_page`] over the rows `scope` also admits: a relation table's
+<a href=#447 id=447 data-nosnippet>447</a>/// rows that belong to its owner.
+<a href=#448 id=448 data-nosnippet>448</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>load_scoped_page&lt;R: Resource&gt;(
+<a href=#449 id=449 data-nosnippet>449</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#450 id=450 data-nosnippet>450</a>    table: <span class="kw-2">&amp;</span>Table&lt;R::Model&gt;,
+<a href=#451 id=451 data-nosnippet>451</a>    state: <span class="kw-2">&amp;</span>TableState,
+<a href=#452 id=452 data-nosnippet>452</a>    scope: toasty::stmt::Expr&lt;bool&gt;,
+<a href=#453 id=453 data-nosnippet>453</a>) -&gt; <span class="prelude-ty">Result</span>&lt;TablePage&lt;R::Model&gt;&gt; {
+<a href=#454 id=454 data-nosnippet>454</a>    <span class="kw">let </span>query = <span class="kw">crate</span>::resource::scoped_query::&lt;R&gt;(cx)<span class="question-mark">?</span>.filter(scope);
+<a href=#455 id=455 data-nosnippet>455</a>    TablePage::load(cx, table, query, state).<span class="kw">await
+<a href=#456 id=456 data-nosnippet>456</a></span>}
+<a href=#457 id=457 data-nosnippet>457</a>
+<a href=#458 id=458 data-nosnippet>458</a><span class="attr">#[cfg(test)]
+<a href=#459 id=459 data-nosnippet>459</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

@@ -98,66 +98,78 @@
 <a href=#98 id=98 data-nosnippet>98</a>            <span class="kw">if </span>rows.len() != ids.len() {
 <a href=#99 id=99 data-nosnippet>99</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(topcoat::router::error::not_found().into());
 <a href=#100 id=100 data-nosnippet>100</a>            }
-<a href=#101 id=101 data-nosnippet>101</a>            <span class="kw">for </span>rec <span class="kw">in </span><span class="kw-2">&amp;</span>rows {
-<a href=#102 id=102 data-nosnippet>102</a>                <span class="comment">// Edit contract on every row: viewing precedes
-<a href=#103 id=103 data-nosnippet>103</a>                // deleting, same as the edit GET/POST pair.
-<a href=#104 id=104 data-nosnippet>104</a>                </span><span class="kw">if </span>!R::can_view(cx, rec) {
-<a href=#105 id=105 data-nosnippet>105</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#106 id=106 data-nosnippet>106</a>                }
-<a href=#107 id=107 data-nosnippet>107</a>                <span class="kw">if </span>!R::can_delete(cx, rec) {
-<a href=#108 id=108 data-nosnippet>108</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
-<a href=#109 id=109 data-nosnippet>109</a>                }
-<a href=#110 id=110 data-nosnippet>110</a>            }
-<a href=#111 id=111 data-nosnippet>111</a>            <span class="comment">// All checks passed — perform bulk delete inside the tx, then
-<a href=#112 id=112 data-nosnippet>112</a>            // commit once. Any error drops `tx` uncommitted: zero rows
-<a href=#113 id=113 data-nosnippet>113</a>            // deleted, never half-applied. The hook names the whole batch: a
-<a href=#114 id=114 data-nosnippet>114</a>            // bulk delete is one write, so it is one `after_commit` call.
-<a href=#115 id=115 data-nosnippet>115</a>            </span><span class="kw">let </span>written = R::bulk_delete_records(cx, <span class="kw-2">&amp;</span>rows, <span class="kw-2">&amp;mut </span>tx)
-<a href=#116 id=116 data-nosnippet>116</a>                .<span class="kw">await
-<a href=#117 id=117 data-nosnippet>117</a>                </span>.map(|()| rows);
-<a href=#118 id=118 data-nosnippet>118</a>            commit_write::&lt;R, <span class="kw">_</span>&gt;(
-<a href=#119 id=119 data-nosnippet>119</a>                cx,
-<a href=#120 id=120 data-nosnippet>120</a>                tx,
-<a href=#121 id=121 data-nosnippet>121</a>                written,
-<a href=#122 id=122 data-nosnippet>122</a>                Committed::deleted,
-<a href=#123 id=123 data-nosnippet>123</a>                <span class="string">"Bulk deleted"</span>,
-<a href=#124 id=124 data-nosnippet>124</a>                WRITE_BULK_DELETE,
-<a href=#125 id=125 data-nosnippet>125</a>            )
-<a href=#126 id=126 data-nosnippet>126</a>            .<span class="kw">await
-<a href=#127 id=127 data-nosnippet>127</a>        </span>},
-<a href=#128 id=128 data-nosnippet>128</a>    )))
-<a href=#129 id=129 data-nosnippet>129</a>}
-<a href=#130 id=130 data-nosnippet>130</a>
-<a href=#131 id=131 data-nosnippet>131</a><span class="doccomment">/// Max ids accepted by bulk delete: bounds the `IN` list.
-<a href=#132 id=132 data-nosnippet>132</a></span><span class="kw">const </span>MAX_BULK_IDS: usize = <span class="number">400</span>;
-<a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a><span class="doccomment">/// Parse + dedupe bulk `ids` while preserving order, so a repeated id can't
-<a href=#135 id=135 data-nosnippet>135</a>/// make the fetched-rows count check misfire.
-<a href=#136 id=136 data-nosnippet>136</a>///
-<a href=#137 id=137 data-nosnippet>137</a>/// `max` bounds the parse itself, not just the final list: a 10 MiB
-<a href=#138 id=138 data-nosnippet>138</a>/// body of distinct ids stops at `max + 1` entries (which the handler then
-<a href=#139 id=139 data-nosnippet>139</a>/// rejects with 400) instead of allocating millions of strings while the
-<a href=#140 id=140 data-nosnippet>140</a>/// `MAX_BULK_IDS` check waits for the parse to finish. Deduping uses a set, so
-<a href=#141 id=141 data-nosnippet>141</a>/// the scan stays linear in the number of ids.
-<a href=#142 id=142 data-nosnippet>142</a>///
-<a href=#143 id=143 data-nosnippet>143</a>/// Known limit: the split happens after url-decoding, so a
-<a href=#144 id=144 data-nosnippet>144</a>/// `String`-PK id containing a literal comma (`%2C`) splits into phantom
-<a href=#145 id=145 data-nosnippet>145</a>/// ids and the batch 404s. Comma-bearing string PKs need a different
-<a href=#146 id=146 data-nosnippet>146</a>/// transport (future work); all other PK types are comma-free.
-<a href=#147 id=147 data-nosnippet>147</a></span><span class="kw">fn </span>parse_bulk_ids(raw: <span class="kw-2">&amp;</span>str, max: usize) -&gt; Vec&lt;String&gt; {
-<a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">let </span><span class="kw-2">mut </span>ids: Vec&lt;String&gt; = Vec::new();
-<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen = std::collections::HashSet::new();
-<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">for </span>s <span class="kw">in </span>raw.split(<span class="string">','</span>).map(str::trim).filter(|s| !s.is_empty()) {
-<a href=#151 id=151 data-nosnippet>151</a>        <span class="kw">if </span>seen.insert(s) {
-<a href=#152 id=152 data-nosnippet>152</a>            ids.push(s.to_string());
-<a href=#153 id=153 data-nosnippet>153</a>            <span class="kw">if </span>ids.len() &gt; max {
-<a href=#154 id=154 data-nosnippet>154</a>                <span class="kw">break</span>;
-<a href=#155 id=155 data-nosnippet>155</a>            }
-<a href=#156 id=156 data-nosnippet>156</a>        }
-<a href=#157 id=157 data-nosnippet>157</a>    }
-<a href=#158 id=158 data-nosnippet>158</a>    ids
-<a href=#159 id=159 data-nosnippet>159</a>}
-<a href=#160 id=160 data-nosnippet>160</a>
-<a href=#161 id=161 data-nosnippet>161</a><span class="attr">#[cfg(test)]
-<a href=#162 id=162 data-nosnippet>162</a></span><span class="kw">mod </span>tests;
+<a href=#101 id=101 data-nosnippet>101</a>            <span class="comment">// Edit contract on every row: viewing precedes deleting, same as
+<a href=#102 id=102 data-nosnippet>102</a>            // the edit GET/POST pair. A row the caller cannot view never
+<a href=#103 id=103 data-nosnippet>103</a>            // renders, so naming one is a crafted request: 403.
+<a href=#104 id=104 data-nosnippet>104</a>            </span><span class="kw">if </span>rows.iter().any(|rec| !R::can_view(cx, rec)) {
+<a href=#105 id=105 data-nosnippet>105</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(forbidden().into());
+<a href=#106 id=106 data-nosnippet>106</a>            }
+<a href=#107 id=107 data-nosnippet>107</a>            <span class="comment">// A row delete refuses is a user path, not only a crafted one: a
+<a href=#108 id=108 data-nosnippet>108</a>            // row a bulk custom action allows carries a checkbox even when
+<a href=#109 id=109 data-nosnippet>109</a>            // delete refuses it. So the batch writes nothing and the list says
+<a href=#110 id=110 data-nosnippet>110</a>            // why, as a refused custom action does; the transaction drops
+<a href=#111 id=111 data-nosnippet>111</a>            // uncommitted.
+<a href=#112 id=112 data-nosnippet>112</a>            </span><span class="kw">let </span>refused = rows.iter().filter(|rec| !R::can_delete(cx, rec)).count();
+<a href=#113 id=113 data-nosnippet>113</a>            <span class="kw">if </span>refused &gt; <span class="number">0 </span>{
+<a href=#114 id=114 data-nosnippet>114</a>                <span class="kw">let </span>noun = <span class="kw">if </span>refused == <span class="number">1 </span>{ <span class="string">"record" </span>} <span class="kw">else </span>{ <span class="string">"records" </span>};
+<a href=#115 id=115 data-nosnippet>115</a>                set_notification(
+<a href=#116 id=116 data-nosnippet>116</a>                    cx,
+<a href=#117 id=117 data-nosnippet>117</a>                    Notification::error(<span class="macro">format!</span>(
+<a href=#118 id=118 data-nosnippet>118</a>                        <span class="string">"{refused} selected {noun} cannot be deleted; nothing was deleted"
+<a href=#119 id=119 data-nosnippet>119</a>                    </span>)),
+<a href=#120 id=120 data-nosnippet>120</a>                );
+<a href=#121 id=121 data-nosnippet>121</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(see_other(landing_url(cx, <span class="kw-2">&amp;</span>R::slug())).into());
+<a href=#122 id=122 data-nosnippet>122</a>            }
+<a href=#123 id=123 data-nosnippet>123</a>            <span class="comment">// All checks passed — perform bulk delete inside the tx, then
+<a href=#124 id=124 data-nosnippet>124</a>            // commit once. Any error drops `tx` uncommitted: zero rows
+<a href=#125 id=125 data-nosnippet>125</a>            // deleted, never half-applied. The hook names the whole batch: a
+<a href=#126 id=126 data-nosnippet>126</a>            // bulk delete is one write, so it is one `after_commit` call.
+<a href=#127 id=127 data-nosnippet>127</a>            </span><span class="kw">let </span>written = R::bulk_delete_records(cx, <span class="kw-2">&amp;</span>rows, <span class="kw-2">&amp;mut </span>tx)
+<a href=#128 id=128 data-nosnippet>128</a>                .<span class="kw">await
+<a href=#129 id=129 data-nosnippet>129</a>                </span>.map(|()| rows);
+<a href=#130 id=130 data-nosnippet>130</a>            commit_write::&lt;R, <span class="kw">_</span>&gt;(
+<a href=#131 id=131 data-nosnippet>131</a>                cx,
+<a href=#132 id=132 data-nosnippet>132</a>                tx,
+<a href=#133 id=133 data-nosnippet>133</a>                written,
+<a href=#134 id=134 data-nosnippet>134</a>                Committed::deleted,
+<a href=#135 id=135 data-nosnippet>135</a>                <span class="string">"Bulk deleted"</span>,
+<a href=#136 id=136 data-nosnippet>136</a>                WRITE_BULK_DELETE,
+<a href=#137 id=137 data-nosnippet>137</a>            )
+<a href=#138 id=138 data-nosnippet>138</a>            .<span class="kw">await
+<a href=#139 id=139 data-nosnippet>139</a>        </span>},
+<a href=#140 id=140 data-nosnippet>140</a>    )))
+<a href=#141 id=141 data-nosnippet>141</a>}
+<a href=#142 id=142 data-nosnippet>142</a>
+<a href=#143 id=143 data-nosnippet>143</a><span class="doccomment">/// Max ids accepted by bulk delete: bounds the `IN` list.
+<a href=#144 id=144 data-nosnippet>144</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>MAX_BULK_IDS: usize = <span class="number">400</span>;
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a><span class="doccomment">/// Parse + dedupe bulk `ids` while preserving order, so a repeated id can't
+<a href=#147 id=147 data-nosnippet>147</a>/// make the fetched-rows count check misfire.
+<a href=#148 id=148 data-nosnippet>148</a>///
+<a href=#149 id=149 data-nosnippet>149</a>/// `max` bounds the parse itself, not just the final list: a 10 MiB
+<a href=#150 id=150 data-nosnippet>150</a>/// body of distinct ids stops at `max + 1` entries (which the handler then
+<a href=#151 id=151 data-nosnippet>151</a>/// rejects with 400) instead of allocating millions of strings while the
+<a href=#152 id=152 data-nosnippet>152</a>/// `MAX_BULK_IDS` check waits for the parse to finish. Deduping uses a set, so
+<a href=#153 id=153 data-nosnippet>153</a>/// the scan stays linear in the number of ids.
+<a href=#154 id=154 data-nosnippet>154</a>///
+<a href=#155 id=155 data-nosnippet>155</a>/// Known limit: the split happens after url-decoding, so a
+<a href=#156 id=156 data-nosnippet>156</a>/// `String`-PK id containing a literal comma (`%2C`) splits into phantom
+<a href=#157 id=157 data-nosnippet>157</a>/// ids and the batch 404s. Comma-bearing string PKs need a different
+<a href=#158 id=158 data-nosnippet>158</a>/// transport (future work); all other PK types are comma-free.
+<a href=#159 id=159 data-nosnippet>159</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>parse_bulk_ids(raw: <span class="kw-2">&amp;</span>str, max: usize) -&gt; Vec&lt;String&gt; {
+<a href=#160 id=160 data-nosnippet>160</a>    <span class="kw">let </span><span class="kw-2">mut </span>ids: Vec&lt;String&gt; = Vec::new();
+<a href=#161 id=161 data-nosnippet>161</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen = std::collections::HashSet::new();
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="kw">for </span>s <span class="kw">in </span>raw.split(<span class="string">','</span>).map(str::trim).filter(|s| !s.is_empty()) {
+<a href=#163 id=163 data-nosnippet>163</a>        <span class="kw">if </span>seen.insert(s) {
+<a href=#164 id=164 data-nosnippet>164</a>            ids.push(s.to_string());
+<a href=#165 id=165 data-nosnippet>165</a>            <span class="kw">if </span>ids.len() &gt; max {
+<a href=#166 id=166 data-nosnippet>166</a>                <span class="kw">break</span>;
+<a href=#167 id=167 data-nosnippet>167</a>            }
+<a href=#168 id=168 data-nosnippet>168</a>        }
+<a href=#169 id=169 data-nosnippet>169</a>    }
+<a href=#170 id=170 data-nosnippet>170</a>    ids
+<a href=#171 id=171 data-nosnippet>171</a>}
+<a href=#172 id=172 data-nosnippet>172</a>
+<a href=#173 id=173 data-nosnippet>173</a><span class="attr">#[cfg(test)]
+<a href=#174 id=174 data-nosnippet>174</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

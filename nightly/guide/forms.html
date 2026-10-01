@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2f5204ae.js";
+            window.path_to_searchindex_js = "searchindex-2d345057.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -269,6 +269,8 @@ nest a <code>Group</code> for more.</p>
 <tr><td><code>Field::text(lens)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td><code>&lt;input&gt;</code>, or <code>&lt;textarea&gt;</code> with <code>.multiline(rows)</code></td></tr>
 <tr><td><code>Field::choice(lens)</code></td><td>any</td><td><code>&lt;select&gt;</code> over static options or a relationship</td></tr>
 <tr><td><code>Field::file(lens)</code></td><td><code>String</code> holding the file’s path</td><td>file input: see <a href="#file-uploads">File uploads</a></td></tr>
+<tr><td><code>Field::toggle(lens)</code></td><td><code>bool</code></td><td>checkbox</td></tr>
+<tr><td><code>Field::custom(lens, control)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td>your own <code>Control</code>: see <a href="#custom-controls">Custom controls</a></td></tr>
 </tbody>
 </table>
 </div>
@@ -279,6 +281,30 @@ modifiers belong to one kind of field and panic on another, which <code>Panel::b
 <li>text: <code>.email()</code>, <code>.unique()</code>, <code>.placeholder(..)</code>, <code>.multiline(rows)</code>;</li>
 <li>choice: <code>.options(..)</code>, <code>.options_with_labels(..)</code>, <code>.relationship(..)</code>, <code>.searchable()</code>.</li>
 </ul>
+<h3 id="custom-controls"><a class="header" href="#custom-controls">Custom controls</a></h3>
+<p>A <code>Control</code> renders the input of a <code>Field::custom</code> field. The field keeps everything fields share —
+the key, the label, the required rule, the type’s parse rule, the error slot and the chrome around
+the input — and the control renders only the input, from a <code>ControlInput</code> carrying the key, the
+current value and the validation state:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Color;
+
+impl Control for Color {
+    fn render&lt;'a&gt;(&amp;self, cx: &amp;'a Cx, input: ControlInput) -&gt; BoxView&lt;'a&gt; {
+        let attrs = input.attributes(cx); // id, name, value, required, aria-*
+        view! { cx =&gt; &lt;input type="color" (attrs)&gt; }.boxed()
+    }
+}
+
+Field::custom(Theme::fields().accent(), Color)
+<span class="boring">}</span></code></pre>
+<p><code>display</code> renders the stored value on the detail page, as text by default. The submission is read
+like any other field’s: the value posted under the field’s key, the last one when it is posted
+twice. <code>Field::toggle</code> is built this way: <code>Toggle</code> renders a hidden <code>false</code> before the checkbox
+under the same name, so an unchecked box submits <code>false</code> rather than nothing. A toggle is
+optional, since it is never empty, so its record-form field declares the value an empty
+submission stores: <code>#[form(blank = false)] pub active: bool</code>.</p>
 <h3 id="typed-values"><a class="header" href="#typed-values">Typed values</a></h3>
 <p><code>Field::text</code> binds more than strings. Over an integer, float, <code>bool</code>, <code>Uuid</code> or
 <code>jiff::Timestamp</code> column it renders the stored value and parses the submission back through the

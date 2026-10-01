@@ -21,7 +21,7 @@
 <a href=#21 id=21 data-nosnippet>21</a>    tx: toasty::Transaction&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#22 id=22 data-nosnippet>22</a>    written: <span class="prelude-ty">Result</span>&lt;T, topcoat::Error&gt;,
 <a href=#23 id=23 data-nosnippet>23</a>    committed: <span class="kw">impl </span>FnOnce(T) -&gt; Committed&lt;R::Model&gt;,
-<a href=#24 id=24 data-nosnippet>24</a>    note: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#24 id=24 data-nosnippet>24</a>    note: <span class="kw">impl </span>Into&lt;String&gt;,
 <a href=#25 id=25 data-nosnippet>25</a>    failure: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 <a href=#26 id=26 data-nosnippet>26</a>) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;, topcoat::Error&gt; {
 <a href=#27 id=27 data-nosnippet>27</a>    <span class="kw">match </span>written {
@@ -58,7 +58,7 @@
 <a href=#58 id=58 data-nosnippet>58</a>/// GET, and the flash cookie rides the error response (Topcoat flushes
 <a href=#59 id=59 data-nosnippet>59</a>/// `Set-Cookie` on `Err` too, topcoat#408), so every mutation redirects the
 <a href=#60 id=60 data-nosnippet>60</a>/// same way.
-<a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">fn </span>redirect_after_write&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, note: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; topcoat::Error {
+<a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">fn </span>redirect_after_write&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, note: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; topcoat::Error {
 <a href=#62 id=62 data-nosnippet>62</a>    set_notification(cx, Notification::success(note));
 <a href=#63 id=63 data-nosnippet>63</a>    see_other(landing_url(cx, <span class="kw-2">&amp;</span>R::slug())).into()
 <a href=#64 id=64 data-nosnippet>64</a>}

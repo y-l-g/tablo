@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2f5204ae.js";
+            window.path_to_searchindex_js = "searchindex-2d345057.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -319,8 +319,10 @@ triggers them:</p>
     Ok(())
 }
 <span class="boring">}</span></code></pre>
-<p><code>Committed</code> names the mutation (<code>Mutation::Create</code>, <code>Update</code> or <code>Delete</code>) and the rows written: the
-created or updated row, or every deleted row in one call for a bulk delete. The hook is not called
+<p><code>Committed</code> names the mutation (<code>Mutation::Create</code>, <code>Update</code>, <code>Delete</code>, or <code>Action(NAME)</code> for a
+<a href="./tables.html#custom-actions">custom action</a>) and the rows written: the created or updated row,
+every deleted row in one call for a bulk delete, or the rows an action ran on. <code>Mutation</code> is
+<code>#[non_exhaustive]</code>, so a <code>match</code> on it ends with a <code>_</code> arm. The hook is not called
 when nothing committed. An error it returns is logged; the write stays committed.</p>
 <h2 id="startup-checks"><a class="header" href="#startup-checks">Startup checks</a></h2>
 <p><code>Panel::build</code> calls each resource’s declarations once, with a context that holds only the

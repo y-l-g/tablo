@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2f5204ae.js";
+            window.path_to_searchindex_js = "searchindex-2d345057.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -748,8 +748,10 @@ triggers them:</p>
     Ok(())
 }
 <span class="boring">}</span></code></pre>
-<p><code>Committed</code> names the mutation (<code>Mutation::Create</code>, <code>Update</code> or <code>Delete</code>) and the rows written: the
-created or updated row, or every deleted row in one call for a bulk delete. The hook is not called
+<p><code>Committed</code> names the mutation (<code>Mutation::Create</code>, <code>Update</code>, <code>Delete</code>, or <code>Action(NAME)</code> for a
+<a href="#custom-actions">custom action</a>) and the rows written: the created or updated row,
+every deleted row in one call for a bulk delete, or the rows an action ran on. <code>Mutation</code> is
+<code>#[non_exhaustive]</code>, so a <code>match</code> on it ends with a <code>_</code> arm. The hook is not called
 when nothing committed. An error it returns is logged; the write stays committed.</p>
 <h2 id="startup-checks"><a class="header" href="#startup-checks">Startup checks</a></h2>
 <p><code>Panel::build</code> calls each resource’s declarations once, with a context that holds only the
@@ -806,6 +808,7 @@ primary key the URLs carry. Either way, keys must be unique within a page.</p>
 <tbody>
 <tr><td><code>TextColumn::r#for(lens, project)</code></td><td><code>project(row)</code>, bound to a <code>String</code> field</td><td><code>.searchable()</code>, <code>.sortable()</code></td></tr>
 <tr><td><code>TextColumn::computed(label, project)</code></td><td><code>project(row)</code></td><td>not available: calling either panics</td></tr>
+<tr><td><code>BooleanColumn::r#for(lens, project)</code></td><td>a check or a cross icon for a <code>bool</code> field; the export writes <code>Yes</code>/<code>No</code> (<code>.labels(..)</code>)</td><td><code>.sortable()</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -838,6 +841,33 @@ columns.</p>
 </ul>
 <p>Two columns with the same name, or a table with no columns, panic; <code>Panel::build</code> reports it as a
 startup error.</p>
+<h3 id="your-own-columns"><a class="header" href="#your-own-columns">Your own columns</a></h3>
+<p>A column is anything that implements <code>Column&lt;M&gt;</code>. <code>TextColumn</code> and <code>BooleanColumn</code> implement it and
+nothing more, so a column of your own reaches as far as theirs:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Initials;
+
+impl Column&lt;User&gt; for Initials {
+    fn name(&amp;self) -&gt; &amp;str { "initials" }
+    fn label(&amp;self) -&gt; &amp;str { "Initials" }
+
+    // The export's cell, and the table's unless `cell` renders a view.
+    fn text(&amp;self, u: &amp;User) -&gt; String {
+        u.name.split_whitespace().filter_map(|w| w.chars().next()).collect()
+    }
+
+    fn cell&lt;'a&gt;(&amp;self, cx: &amp;'a Cx, u: &amp;User) -&gt; BoxView&lt;'a&gt; {
+        let text = self.text(u);
+        view! { cx =&gt; &lt;span class="font-mono"&gt;(text)&lt;/span&gt; }.boxed()
+    }
+}
+<span class="boring">}</span></code></pre>
+<p>Only <code>name</code>, <code>label</code> and <code>text</code> are required. The other methods default to a column that is
+narrow, not searchable, not sortable and reads no relation: override <code>column_width</code>,
+<code>is_searchable</code> and <code>search_expr</code>, <code>is_sortable</code> and <code>order_by</code>, or <code>includes</code> to change that. Put
+the column in the tuple next to the built-in ones, or append it with <code>Table::column(..)</code>, which
+also takes columns past the tuple’s eight.</p>
 <h2 id="search-sort-and-pagination"><a class="header" href="#search-sort-and-pagination">Search, sort and pagination</a></h2>
 <p>The URL holds the list’s whole state, so every view of a list is a link you can share:</p>
 <div class="table-wrapper">
@@ -894,7 +924,28 @@ remain for visitors without JavaScript.</p>
 </table>
 </div>
 <p>Each active filter is one parameter, <code>?f.&lt;name&gt;=&lt;value&gt;</code>, named after the field, and active
-filters combine with AND. At most 32 filters apply, each name and value at most 256 bytes.</p>
+filters combine with AND.</p>
+<p>A filter is anything that implements <code>Filter&lt;M&gt;</code>: a name, a label, the predicate a value selects,
+and the control the filter bar renders. The four filters above implement it and nothing more.
+<code>FilterInput</code> carries the parameter the control submits and the current value, and
+<code>input.select(cx, options)</code> renders the built-in select:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Adults;
+
+impl Filter&lt;User&gt; for Adults {
+    fn name(&amp;self) -&gt; &amp;str { "adults" }
+    fn label(&amp;self) -&gt; &amp;str { "Adults" }
+    fn to_expr(&amp;self, value: &amp;str) -&gt; Option&lt;Expr&lt;bool&gt;&gt; {
+        (value == "yes").then(|| User::fields().age().ge(18))
+    }
+    fn control&lt;'a&gt;(&amp;self, cx: &amp;'a Cx, input: FilterInput) -&gt; BoxView&lt;'a&gt; {
+        input.select(cx, vec![("yes".into(), "Adults only".into())])
+    }
+}
+<span class="boring">}</span></code></pre>
+<p>A filter of your own goes in the <code>filters((..))</code> tuple; alone, it is a one-element tuple,
+<code>.filters((Adults,))</code>. At most 32 filters apply, each name and value at most 256 bytes.</p>
 <p>A filter that cannot apply — an unknown name, a value the filter rejects, or one over the limits —
 is never dropped silently: the list shows a warning banner naming it, and the export refuses the
 request with 400 rather than export more rows than asked.</p>
@@ -921,17 +972,70 @@ with a byte-order mark for Excel.</li>
 <ul>
 <li><strong>View</strong> when the resource declares a detail page (<code>view()</code>) and <code>can_view</code> allows the record;</li>
 <li><strong>Edit</strong> when the resource has a record form and <code>can_view</code> and <code>can_update</code> allow it;</li>
-<li><strong>Delete</strong> when <code>can_delete_any</code> allows deletes and <code>can_view</code> and <code>can_delete</code> allow the record.</li>
+<li><strong>Delete</strong> when <code>can_delete_any</code> allows deletes and <code>can_view</code> and <code>can_delete</code> allow the record;</li>
+<li>each <a href="#custom-actions">custom action</a> the record allows.</li>
 </ul>
 <p>A row that allows none keeps an empty actions cell.</p>
-<p>When <code>can_delete_any</code> allows deletes, the list adds a checkbox column and a bulk bar. A row whose
-record may not be deleted gets no checkbox, so select-all only selects deletable rows. A bulk
-delete accepts at most 400 records and deletes all of them or none.</p>
+<p>When <code>can_delete_any</code> allows deletes, or the resource declares a bulk custom action, the list adds
+a checkbox column and a bulk bar. A row that neither delete nor any bulk action allows gets no
+checkbox, so select-all only selects rows something can be done to. A bulk delete accepts at most
+400 records and deletes all of them or none: a selection holding a record that may not be deleted
+deletes nothing and returns to the list with an error notification.</p>
 <p>Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
 confirming it deletes the row, shows a notification and refreshes the table without leaving the
 page. The bulk bar’s button opens a dialog stating how many rows are selected. The delete
 handlers refuse a POST that was not confirmed through the dialog with 400, and without
 JavaScript the Delete link renders the list with its dialog already open.</p>
+<h3 id="custom-actions"><a class="header" href="#custom-actions">Custom actions</a></h3>
+<p>An action is a mutation beyond create, update and delete, declared as a type implementing
+<code>Action&lt;R&gt;</code> and listed by <code>Resource::actions</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Publish;
+
+impl Action&lt;PostResource&gt; for Publish {
+    const NAME: &amp;'static str = "publish";
+
+    fn label() -&gt; String {
+        "Publish".to_string()
+    }
+
+    fn can_run(_cx: &amp;Cx, post: &amp;Post) -&gt; bool {
+        post.status != "published"
+    }
+
+    async fn run(_cx: &amp;Cx, posts: &amp;[Post], ex: &amp;mut dyn toasty::Executor) -&gt; Result&lt;()&gt; {
+        for post in posts {
+            Post::filter(Post::fields().id().eq(post.id))
+                .update()
+                .status("published".to_string())
+                .exec(&amp;mut *ex)
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+impl Resource for PostResource {
+    fn actions() -&gt; Actions&lt;Self&gt; {
+        Actions::new().add::&lt;Publish&gt;()
+    }
+    // …
+}
+<span class="boring">}</span></code></pre>
+<p>A row renders the action’s button when <code>can_view</code> and <code>can_run</code> allow its record, and the bulk bar
+renders it for the selection. <code>const ROW: bool = false</code> keeps it off the rows, and
+<code>const BULK: bool = false</code> off the bulk bar.</p>
+<p>The framework runs an action the way it runs a delete. The POST goes to
+<code>{list}/{key}/actions/{NAME}</code> for a row and <code>{list}/actions/{NAME}</code> for the selection, carries the
+CSRF token, and loads the records through the tenant-scoped query inside a transaction. Every
+record must pass <code>can_view</code> and <code>can_run</code>, and <code>run</code> writes through the same transaction, so an
+error rolls everything back. After the commit, <code>after_commit</code> receives <code>Mutation::Action(NAME)</code>
+with the records and the list shows <code>Action::success</code>, by default the label and the record count.</p>
+<p>A row the action refuses answers 403. A selection that holds one writes nothing and returns to the
+list with an error notification. <code>Panel::build</code> refuses an action name that is not one URL
+segment, or that two actions of a resource share. Custom actions run without a confirmation
+dialog.</p>
 <p>If the table fails to load, the list shows an error state with a retry link in place of the rows;
 the rest of the page still renders.</p>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -1024,6 +1128,8 @@ nest a <code>Group</code> for more.</p>
 <tr><td><code>Field::text(lens)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td><code>&lt;input&gt;</code>, or <code>&lt;textarea&gt;</code> with <code>.multiline(rows)</code></td></tr>
 <tr><td><code>Field::choice(lens)</code></td><td>any</td><td><code>&lt;select&gt;</code> over static options or a relationship</td></tr>
 <tr><td><code>Field::file(lens)</code></td><td><code>String</code> holding the file’s path</td><td>file input: see <a href="#file-uploads">File uploads</a></td></tr>
+<tr><td><code>Field::toggle(lens)</code></td><td><code>bool</code></td><td>checkbox</td></tr>
+<tr><td><code>Field::custom(lens, control)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td>your own <code>Control</code>: see <a href="#custom-controls">Custom controls</a></td></tr>
 </tbody>
 </table>
 </div>
@@ -1034,6 +1140,30 @@ modifiers belong to one kind of field and panic on another, which <code>Panel::b
 <li>text: <code>.email()</code>, <code>.unique()</code>, <code>.placeholder(..)</code>, <code>.multiline(rows)</code>;</li>
 <li>choice: <code>.options(..)</code>, <code>.options_with_labels(..)</code>, <code>.relationship(..)</code>, <code>.searchable()</code>.</li>
 </ul>
+<h3 id="custom-controls"><a class="header" href="#custom-controls">Custom controls</a></h3>
+<p>A <code>Control</code> renders the input of a <code>Field::custom</code> field. The field keeps everything fields share —
+the key, the label, the required rule, the type’s parse rule, the error slot and the chrome around
+the input — and the control renders only the input, from a <code>ControlInput</code> carrying the key, the
+current value and the validation state:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Color;
+
+impl Control for Color {
+    fn render&lt;'a&gt;(&amp;self, cx: &amp;'a Cx, input: ControlInput) -&gt; BoxView&lt;'a&gt; {
+        let attrs = input.attributes(cx); // id, name, value, required, aria-*
+        view! { cx =&gt; &lt;input type="color" (attrs)&gt; }.boxed()
+    }
+}
+
+Field::custom(Theme::fields().accent(), Color)
+<span class="boring">}</span></code></pre>
+<p><code>display</code> renders the stored value on the detail page, as text by default. The submission is read
+like any other field’s: the value posted under the field’s key, the last one when it is posted
+twice. <code>Field::toggle</code> is built this way: <code>Toggle</code> renders a hidden <code>false</code> before the checkbox
+under the same name, so an unchecked box submits <code>false</code> rather than nothing. A toggle is
+optional, since it is never empty, so its record-form field declares the value an empty
+submission stores: <code>#[form(blank = false)] pub active: bool</code>.</p>
 <h3 id="typed-values"><a class="header" href="#typed-values">Typed values</a></h3>
 <p><code>Field::text</code> binds more than strings. Over an integer, float, <code>bool</code>, <code>Uuid</code> or
 <code>jiff::Timestamp</code> column it renders the stored value and parses the submission back through the
