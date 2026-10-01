@@ -55,7 +55,7 @@ async fn list_html_via(names: &[&str], panel: fn() -> crate::Panel) -> String {
 
 /// Runtime navigation restores every signal the next page shares with
 /// the current one, so two resources' lists must declare different signal
-/// ids, or one list's search filters the next (GH #395).
+/// ids, or one list's search filters the next.
 #[tokio::test]
 async fn live_lists_declare_distinct_signal_ids() {
     use http_body_util::BodyExt;
@@ -332,9 +332,9 @@ async fn live_search_host_and_shard_dispatch() {
         ),
         "the table must bind the bulk transport to the selection signal, got {table_html}"
     );
-    // GH #184 replaced the disabled destructive submit with a confirmation
-    // dialog: the trigger is a plain button and the dialog's submit is the
-    // one that carries `confirm=1` inside the same form.
+    // The bulk delete uses a confirmation dialog: the trigger is a plain
+    // button and the dialog's submit is the one that carries `confirm=1`
+    // inside the same form.
     assert!(
         table_html.contains("data-bulk-confirm-trigger")
             && table_html.contains("data-bulk-confirm-dialog"),
@@ -459,7 +459,7 @@ async fn live_search_host_and_shard_dispatch() {
 
 #[tokio::test]
 async fn live_search_input_debounces_keystrokes() {
-    // GH #172 decision 4: the visible input is unbound (keystrokes stay
+    // The visible input is unbound (keystrokes stay
     // local until the debounce delay), the hidden transport carries the
     // bound `@change` write, and the GET form survives as the no-JS
     // fallback.
@@ -645,8 +645,8 @@ async fn read_only_resource_hides_delete_chrome() {
 
 #[tokio::test]
 async fn list_header_renders_create_entry_point_when_allowed() {
-    // GH #162 (Filament's List page `CreateAction` in the page header):
-    // the Create link is eager page chrome, gated on `Create`.
+    // The Create link is eager page chrome (Filament's List page
+    // `CreateAction`), gated on `Create`.
 
     use crate::resource::Resource;
 
@@ -721,7 +721,7 @@ async fn non_editable_resource_hides_edit_links() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        // GH #235: the row policy mirrors the edit route's own `View`
+        // The row policy mirrors the edit route's own `View`
         // + `Update` check, so a form beside default-deny predicates
         // renders no link.
         fn policy() -> impl Policy<Dummy> {

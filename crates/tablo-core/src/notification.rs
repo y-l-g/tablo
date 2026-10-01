@@ -55,7 +55,7 @@ pub struct Notification {
     pub status: NotificationStatus,
     pub title: String,
     /// Optional supporting line under the title, rendered as the toast
-    /// description. Absent (`None`) keeps the GH #139 cookie wire format, so
+    /// description. Absent (`None`) keeps the cookie wire format, so
     /// cookies written before the field existed still decode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -131,7 +131,7 @@ pub fn set_notification(cx: &Cx, notification: Notification) {
 /// write and commit failures through this before returning the error, so the
 /// user gets "couldn't …" instead of a bare 500 that leaves them guessing
 /// whether the write went through. The title names the operation, never the
-/// driver's text — internals stay in the server log (GH #174 §1).
+/// driver's text — internals stay in the server log.
 ///
 /// Delivery: the flash rides a `Set-Cookie`, and Topcoat's cookie layer writes
 /// pending cookies on **both** paths — on `Err` it stashes them in
@@ -180,7 +180,7 @@ pub fn take_notification(cx: &Cx) -> Option<Notification> {
 /// `attrs` are merged onto the toast surface. The shell's flash stack passes
 /// an empty set; the live transport ([`live_toaster`]) adds a per-mount `id`
 /// so re-rendering the same variant replaces the mounted toast instead of
-/// re-syncing its `data-mounted` state (GH #154 §3).
+/// re-syncing its `data-mounted` state.
 pub async fn render_notification<'a>(
     cx: &'a Cx,
     notification: Notification,
@@ -220,7 +220,7 @@ pub async fn render_notification<'a>(
     .boxed())
 }
 
-/// The signals a page owns to mount a [`Notification`] in place (GH #154 §3).
+/// The signals a page owns to mount a [`Notification`] in place.
 ///
 /// [`live_toast`] creates them; a click handler writes a procedure's returned
 /// `(status, title, description)` into them and bumps `serial` (a repeat of
@@ -267,7 +267,7 @@ pub fn live_toast(cx: &Cx) -> LiveToast {
 #[cfg(test)]
 pub(crate) const LIVE_TOASTER_PATH: &str = "/_topcoat/runtime/shards/tablo-live-toaster";
 
-/// The shell's live toaster shard (GH #154 §3): reads the page's
+/// The shell's live toaster shard: reads the page's
 /// [`LiveToast`] signals and mounts the toast in place when one is set.
 ///
 /// A shard rather than an eager read, so writing the signals re-renders only

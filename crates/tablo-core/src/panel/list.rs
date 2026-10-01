@@ -269,7 +269,7 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
 /// The page streams: shell and header go out with the first content, while the
 /// table body (toolbar/filter/bulk/pager included) loads inside a `suspense`
 /// region that swaps in the skeleton → table without any client-side fetching
-/// (GH #98: the skeleton is thead + placeholders only, so chrome pops in with
+/// (the skeleton is thead + placeholders only, so chrome pops in with
 /// the swap by design).
 pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
@@ -355,7 +355,7 @@ pub(crate) fn resource_list_live<R: Resource>(
         // One normalization per request: the toolbar, the hoisted
         // filter bar, the skeleton, the dialog and the retry link all read
         // the state this page parsed, so it normalizes here and every seam
-        // below takes the proof (: no unknown `?group_by=` in a link).
+        // below takes the proof (no unknown `?group_by=` in a link).
         let state = table.normalize_state(&state);
         let host = if table.search_enabled() {
             Some(

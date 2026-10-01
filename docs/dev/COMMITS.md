@@ -4,8 +4,9 @@ Every branch is squash-merged into `master`: one commit per branch, so the
 history has no empty merge commits. A branch's individual commits are working
 notes.
 
-The squashed commit is a Conventional Commit. Keep the issue reference in the
-subject — it is what links the history back to the tracker.
+The squashed commit is a Conventional Commit. When the change closes an
+issue, keep its reference in the subject — it is what links the history back
+to the tracker. Changes with no issue need none.
 
 ```
 <type>(<scope>): <description> (#123)
@@ -27,14 +28,14 @@ The subject is a succinct description of the change:
 - imperative, present tense: "add" not "added" nor "adds"
 - begins with a lowercase letter
 - no trailing period
-- ends with the issue reference `(#123)`
+- ends with the issue reference `(#123)` when the change closes an issue
 
 ## Scope
 
 The subsystem the change touches: `table`, `panel`, `schema`, `core`, `ui`,
 `xtask`, `showcase`, `docs`, `repo`.
 
-Several issues list them all:
+Several issues list them all (omit the reference when there is no issue):
 
 ```
 fix(table): bound the filters signal (#205, #219)

@@ -8,8 +8,8 @@
 //   shell's toaster, because following the redirect consumed the cookie that
 //   carries it;
 // - the table is refreshed through the seam that already owns it. A live
-//   table renders a revision control inside its region (`[data-table-revision]`,
-//   GH #234): writing it re-runs the `table_search` shard, which morphs and
+//   table renders a revision control inside its region (`[data-table-revision]`):
+//   writing it re-runs the `table_search` shard, which morphs and
 //   re-hydrates the region with the live query state intact. A static table
 //   has no shard and its region is inert markup, so the response's region
 //   content replaces it wholesale.

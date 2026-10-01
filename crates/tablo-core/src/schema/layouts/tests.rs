@@ -52,7 +52,7 @@ async fn text_input_inside_section_and_grid() {
         .await
         .unwrap()
         .render(&cx);
-    // GH #216: no Tailwind-class assertions. What the layout has to prove
+    // No Tailwind-class assertions. What the layout has to prove
     // is structural: the section's title, then the field it wraps, once.
     assert!(html.contains("Account"), "missing section title in {html}");
     assert_eq!(
@@ -84,7 +84,7 @@ async fn section_renders_title_and_child() {
         html.contains("name=\"name\""),
         "missing child field in {html}"
     );
-    // GH #238: the field sits one `<div>` deeper than the title text, inside
+    // The field sits one `<div>` deeper than the title text, inside
     // `card_content` — the sibling of `card_header` that carries the gap, so
     // never a direct child of the card, where it would be flush against the
     // title. The title text's depth is 2 only because `card_title` renders
@@ -113,8 +113,8 @@ async fn group_renders_children() {
         .await
         .unwrap()
         .render(&cx);
-    // GH #216: the `field_group` wrapper's only observable is its utility
-    // class, and that is the showcase's business (#136). What the layout
+    // The `field_group` wrapper's only observable is its utility
+    // class. What the layout
     // owes is the child it holds — once.
     assert!(html.contains("Inside group"), "missing child in {html}");
     assert_eq!(
@@ -275,8 +275,7 @@ async fn repeater_required_error_renders_inline() {
 
 #[test]
 fn repeater_error_ids_slug_the_label() {
-    // Ids cannot carry the label's whitespace (GH #78 keys the error by
-    // label until repeaters are field-bound).
+    // Ids cannot carry the label's whitespace.
     assert_eq!(repeater_error_id("Tags"), "tags-error");
     assert_eq!(
         repeater_error_id("Shipping Address"),

@@ -78,7 +78,7 @@ async fn date_filter_date_only_matches_whole_day() {
     assert_eq!(
         rows.iter().map(|r| r.title.as_str()).collect::<Vec<_>>(),
         vec!["Morning", "Night"],
-        "date-only must match the whole UTC day (GH #93)"
+        "date-only must match the whole UTC day"
     );
     // Exact RFC3339 instants still match exactly.
     let expr = f
@@ -143,9 +143,7 @@ fn variant_filter_to_expr_contract() {
 
 #[test]
 fn select_filter_to_expr_contract() {
-    // GH #136: the only direct SelectFilter coverage lived in the
-    // showcase (`table_state_parses_filters_and_filter_expr`); core owns
-    // the predicate contract, the showcase owns HTTP wiring.
+    // Core owns the predicate contract.
     let f = SelectFilter::r#for(
         Task::fields().status(),
         vec!["draft".to_string(), "published".to_string()],
@@ -174,7 +172,6 @@ fn select_filter_to_expr_contract() {
 
 #[test]
 fn ternary_filter_to_expr_contract() {
-    // GH #136: same relocation as the select contract above.
     let f = TernaryFilter::r#for(Task::fields().featured());
     assert_eq!(f.name(), "featured");
     assert!(f.to_expr("true").is_some());

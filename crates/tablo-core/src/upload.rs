@@ -76,9 +76,8 @@ pub trait Uploader: Send + Sync + 'static {
 /// A file part a form submitted: the sanitized basename and its bytes.
 ///
 /// Staged by the multipart parser (`panel::forms`) only when an [`Uploader`] is
-/// installed. Without one the bytes are still drained and dropped, exactly as
-/// they were before GH #188, so an app that installs no uploader keeps the
-/// constant-memory path it had.
+/// installed. Without one the bytes are still drained and dropped, so an app
+/// that installs no uploader keeps the constant-memory path.
 #[derive(Debug, Clone)]
 pub(crate) struct StagedUpload {
     pub(crate) filename: String,

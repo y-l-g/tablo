@@ -1,4 +1,4 @@
-//! GH #306: dropping an undrained streamed list body frees its pooled connection.
+//! Dropping an undrained streamed list body frees its pooled connection.
 
 use tablo_core::{
     Policy, ReadOnly,

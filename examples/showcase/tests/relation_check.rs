@@ -169,7 +169,7 @@ async fn posts_edit_hydrates_author() {
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(html.contains("EditMe"), "edit should show title {}", html);
-    // GH #108: the hydrated FK must match the option's canonical PK value and
+    // The hydrated FK must match the option's canonical PK value and
     // be preselected — asserting the id appears is not enough (the option
     // value itself contains it even when nothing is selected).
     let author_option = html
@@ -190,7 +190,7 @@ async fn posts_list_shows_comments_count_via_include() {
     let resp = client.get("/admin/posts").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
-    // GH #217: the expected counts are read from the fixture rather than
+    // The expected counts are read from the fixture rather than
     // written as literals, so the assertion names which post gets which count
     // instead of hard-coding the seed's two numbers. The column's *cells* are
     // the observable here; "Comments" alone is the sidebar nav label present on
@@ -219,7 +219,7 @@ async fn posts_list_shows_comments_count_via_include() {
         html.contains(&format!(">{bare}<")),
         "the Comments column must show {bare} for Second Post in {html}"
     );
-    // GH #101: loaded relations must never render the unloaded marker.
+    // Loaded relations must never render the unloaded marker.
     assert!(
         !html.contains("(unloaded)"),
         "unloaded marker leaked into list {}",

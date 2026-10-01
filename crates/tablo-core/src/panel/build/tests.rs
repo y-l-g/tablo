@@ -186,7 +186,7 @@ async fn csrf_is_enforced_with_auth_disabled() {
     );
 }
 
-/// GH #102: `Panel::dark_mode` is the theme a first-time visitor gets. It
+/// `Panel::dark_mode` is the theme a first-time visitor gets. It
 /// must reach the rendered document's `<html class>`.
 #[tokio::test]
 async fn dark_mode_sets_the_document_class() {
@@ -288,7 +288,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
     mount(db, panel_for::<AuthorResource>()).expect("a composite unique index backs the marker");
 }
 
-/// GH #174: a panel with no `Db` is a configuration error, not a panic.
+/// A panel with no `Db` is a configuration error, not a panic.
 #[test]
 fn panel_build_errors_without_db() {
     // `Router` has no `Debug`, so `expect_err` cannot report the Ok case.
@@ -512,7 +512,7 @@ async fn panel_mount_rejects_a_tenancy_via_without_a_relationship_field() {
     );
 }
 
-/// GH #174: `slug()` is free-form and reaches route paths and response
+/// `slug()` is free-form and reaches route paths and response
 /// headers, so a hostile value fails registration instead of splitting a
 /// header or panicking in `route_path` at boot.
 #[test]
@@ -547,7 +547,7 @@ fn panel_build_rejects_a_hostile_slug() {
     );
 }
 
-/// GH #189 item 3: `.unique()` is a promise about the column, so declaring
+/// `.unique()` is a promise about the column, so declaring
 /// it on a field with no unique index fails the build instead of turning on
 /// a check the database does not back.
 #[tokio::test]
@@ -763,7 +763,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
     );
 }
 
-/// GH #174: duplicate slugs are reported by `build`, not asserted in the
+/// Duplicate slugs are reported by `build`, not asserted in the
 /// declarative builder — a panel is configured, then validated once.
 #[test]
 fn panel_build_rejects_duplicate_resource_slugs() {
@@ -817,7 +817,7 @@ fn panel_build_rejects_duplicate_resource_slugs() {
     );
 }
 
-/// GH #174/#295: a slug carrying a route pattern character a literal segment
+/// A slug carrying a route pattern character a literal segment
 /// cannot hold is a declared registration error, not a panic in
 /// [`route_path`]. `Path::from_str` starts a parameter segment at `{` and a
 /// group at `(`, so an unbalanced pair panics the route builder and a
@@ -1097,7 +1097,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
     assert_eq!(location, "/admin/users");
 }
 
-/// GH #176: every page the panel renders carries the clickjacking
+/// Every page the panel renders carries the clickjacking
 /// directive by default, and both escape hatches work — a deployment
 /// directive, and an opt-out for a proxy that owns the whole policy.
 #[tokio::test]
@@ -1167,9 +1167,8 @@ async fn panel_sends_frame_ancestors_unless_opted_out() {
     );
 }
 
-/// GH #188: a served directory's path is a route pattern ending in a
-/// catch-all, and only that; everything else is a build error rather than
-/// the panic upstream `serve_dir` would raise.
+/// A served directory's path is a route pattern ending in a
+/// catch-all, and only that; everything else is a build error.
 #[test]
 fn serve_dir_accepts_only_a_catch_all_pattern() {
     assert!(is_directory_pattern("/uploads/{*file}"));

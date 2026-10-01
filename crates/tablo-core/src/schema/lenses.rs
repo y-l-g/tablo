@@ -324,7 +324,7 @@ impl<'a> FieldResolver<'a> {
                 // different `models!(..)` expansions, so an id can name a
                 // *different* model here. Verify identity by root model name
                 // before trusting any index: binding another model's column is
-                // the misbind GH #100 exists to prevent.
+                // prevented.
                 if root.name.upper_camel_case() != owner.as_root()?.name.upper_camel_case() {
                     return None;
                 }

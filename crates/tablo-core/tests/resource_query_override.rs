@@ -1,5 +1,4 @@
-//! A `Resource::query` override scopes the rows the resource sees (GH #52,
-//! #222).
+//! A `Resource::query` override scopes the rows the resource sees.
 //!
 //! Both resources are hand-written, as the reference app's are. The
 //! trait's default returns every row, and the override returns the scoped set.

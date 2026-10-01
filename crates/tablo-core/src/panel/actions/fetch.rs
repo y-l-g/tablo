@@ -46,7 +46,7 @@ pub(super) fn composite_pk_error<R: Resource>() -> Option<topcoat::Error> {
     );
     Some(
         TabloError::Declaration(format!(
-            "resource '{}' has a composite primary key, which has no URL representation (GH #95)",
+            "resource '{}' has a composite primary key, which has no URL representation",
             R::slug()
         ))
         .into(),

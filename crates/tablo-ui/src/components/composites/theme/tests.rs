@@ -21,7 +21,7 @@ async fn renders_blocking_head_script() {
     );
     assert!(
         html.contains("classList.add") && html.contains("classList.remove"),
-        "the pre-paint script must reconcile the class both ways (GH #184), got {html}"
+        "the pre-paint script must reconcile the class both ways, got {html}"
     );
 }
 
@@ -39,7 +39,7 @@ async fn script_body_carries_no_html_escapes() {
     }
 }
 
-/// GH #184: the server's build-time preference is only the fallback — it
+/// The server's build-time preference is only the fallback — it
 /// is interpolated for a visitor with no stored choice, and never widens
 /// the script's authority over a stored one.
 #[tokio::test]

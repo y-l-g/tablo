@@ -214,7 +214,7 @@ async fn posts_create_form_stays_urlencoded_without_uploads() {
 
 #[tokio::test]
 async fn posts_author_select_is_searchable() {
-    // GH #91: the relationship select carries the client-side filter hook.
+    // The relationship select carries the client-side filter hook.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -225,7 +225,7 @@ async fn posts_author_select_is_searchable() {
         html.contains("data-options-filter"),
         "author select must render the filter hook, got {html}"
     );
-    // GH #236: hiding the native select is the script's job, so the markup keeps
+    // Hiding the native select is the script's job, so the markup keeps
     // both controls. The select stays the submitted value carrier, and
     // `partsOf` keeps resolving it as a descendant of the filterable field.
     let author_select = html

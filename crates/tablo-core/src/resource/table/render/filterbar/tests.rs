@@ -157,9 +157,8 @@ async fn empty_with_filters_shows_filtered_message() {
 
 #[tokio::test]
 async fn unknown_filter_warns_on_an_empty_page_too() {
-    // GH #93 follow-up: the zero-rows branch returned before the warning
-    // banner rendered, so a typo'd filter looked like an honest "no
-    // results" on an empty table.
+    // The zero-rows branch renders the warning banner too, so a typo'd
+    // filter never looks like an honest "no results" on an empty table.
     let cx = CxTestBuilder::new().build();
     let html = status_table()
         .render_with_state(

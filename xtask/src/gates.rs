@@ -11,7 +11,7 @@ use std::{
     process::Command,
 };
 
-/// Crates pinned in lockstep across the workspace and bench lockfiles (GH #103).
+/// Crates pinned in lockstep across the workspace and bench lockfiles.
 pub const LOCKSTEP_CRATES: &[&str] = &["topcoat", "toasty"];
 
 /// Upstream repos pinned by `rev =` in every [`PINNED_MANIFESTS`] entry, in the same order as
@@ -23,13 +23,13 @@ pub const UPSTREAM_REPOS: &[(&str, &str)] = &[
     ("toasty", "github.com/tokio-rs/toasty"),
 ];
 
-/// Dated nightly carrying the rustfmt the workspace check enforces (GH #269).
+/// Dated nightly carrying the rustfmt the workspace check enforces.
 pub const NIGHTLY_FMT: &str = "nightly-2026-08-24";
 
-/// MSRV floor (`Cargo.toml` rust-version, GH #175).
+/// MSRV floor (`Cargo.toml` rust-version).
 pub const MSRV: &str = "1.98";
 
-/// Detached bench workspaces, each with its own lockfile and fmt gate (GH #175).
+/// Detached bench workspaces, each with its own lockfile and fmt gate.
 pub const DETACHED_BENCHES: &[&str] = &[
     "benchmarks/tablo",
     "benchmarks/axum-maud",

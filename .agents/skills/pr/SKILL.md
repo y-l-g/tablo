@@ -20,7 +20,7 @@ git log master..HEAD
 
 Same Conventional Commits format as
 [`COMMITS.md`](../../../docs/dev/COMMITS.md), with the issue reference in the
-subject:
+subject when the change closes an issue:
 `<type>(<scope>): <description> (#123)`.
 PRs are squash-merged, so the title becomes the landed commit; reviewers check it.
 

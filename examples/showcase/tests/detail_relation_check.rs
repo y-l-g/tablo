@@ -1,5 +1,5 @@
 //! A post's comments on its record pages: the comments list's own table,
-//! narrowed to the post (GH #408).
+//! narrowed to the post.
 //!
 //! The seed puts every comment on "Hello Toasty" and none on "Second Post",
 //! which is the fixture the property needs: the page must show *this* record's

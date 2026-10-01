@@ -284,7 +284,7 @@ async fn theme_cookie_overrides_the_dark_mode_default() {
 
 #[tokio::test]
 async fn shell_notification_carries_dismiss_hooks() {
-    // GH #97/#151: the shell toast is the shadcn/Sonner surface, carrying
+    // The shell toast is the shadcn/Sonner surface, carrying
     // the auto-dismiss hooks notifications.js arms (mount + 4s + close).
     use crate::notification::Notification;
 

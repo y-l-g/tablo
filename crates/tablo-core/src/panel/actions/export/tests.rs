@@ -80,7 +80,7 @@ async fn export_drops_rows_failing_view() {
     );
     assert!(
         !csv.contains("denied"),
-        "export must not exceed row visibility (GH #86), got {csv}"
+        "export must not exceed row visibility, got {csv}"
     );
 }
 
@@ -525,7 +525,7 @@ async fn export_visibility_scan_loads_no_includes() {
 
 #[tokio::test]
 async fn export_counts_only_viewable_rows_within_the_window() {
-    // GH #145 (with), preserved under streaming: visibility is
+    // Preserved under streaming: visibility is
     // counted before the cap inside the raw MAX+1 window, so interleaved
     // denied rows yield a 200 with the visible subset — never a 413, and
     // no count leak.
@@ -699,7 +699,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
 
 #[tokio::test]
 async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
-    // GH #232: a row count that is an exact multiple of the chunk size
+    // A row count that is an exact multiple of the chunk size
     // must not rescan from the start. On SQLite a full page carries a
     // cursor and the empty follow-up ends the walk, so the walk yields
     // one full chunk then stops; the cursor rule keeps this true even
@@ -847,7 +847,7 @@ async fn export_and_list_agree_on_rows_and_order() {
 
 #[tokio::test]
 async fn export_413s_above_the_cap_before_streaming() {
-    // GH #172 decision 2: the MAX_EXPORT_ROWS cap stays as the backstop
+    // The MAX_EXPORT_ROWS cap stays as the backstop
     // above streaming — decided by the pre-body visibility scan, so the
     // 413 carries no partial CSV.
 

@@ -61,7 +61,7 @@ pub struct Brand {
 }
 
 impl Brand {
-    /// Create a brand with the given name (GH #102: surrounding whitespace is
+    /// Create a brand with the given name (surrounding whitespace is
     /// trimmed so `" Acme "` cannot break the `flex h-16` header).
     pub fn new(name: impl Into<String>) -> Self {
         Self {
@@ -70,7 +70,7 @@ impl Brand {
         }
     }
 
-    /// Attach a logo URL (GH #102: blank values are ignored so an empty
+    /// Attach a logo URL (blank values are ignored so an empty
     /// `logo("")` falls back to the name-only render instead of a
     /// broken-image icon).
     pub fn logo(mut self, logo: impl Into<String>) -> Self {
@@ -431,8 +431,7 @@ impl Panel {
             None => ().boxed(),
         };
         // The page owns the live-toast signals; resolve the same handles here
-        // (same helper, same request identity) and hand them to the shard
-        // (GH #154 §3).
+        // (same helper, same request identity) and hand them to the shard.
         let LiveToast {
             status: toast_status,
             title: toast_title,
@@ -532,7 +531,7 @@ impl Panel {
                 // Toast stack — the shadcn/Sonner surface, fixed bottom-right
                 // and a polite live region so streamed swaps are announced.
                 // `live_toaster` is the page-owned
-                // in-place transport (GH #154 §3); the flash cookie's toast
+                // in-place transport; the flash cookie's toast
                 // rides beside it.
                 tablo_ui::toaster(
                     (notification_view)

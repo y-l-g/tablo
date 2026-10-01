@@ -375,7 +375,7 @@ async fn relationship_load_filters_rows_by_view() {
 
 #[tokio::test]
 async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
-    // GH #91 + #108: the cap is checked on the raw bounded fetch. If it
+    // The cap is checked on the raw bounded fetch. If it
     // counted post-`View` rows, a single hidden record would defeat
     // it and silently truncate a larger table, misreporting viewable FKs
     // as "invalid" — the exact failure the cap exists to prevent.
@@ -531,7 +531,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
 
 #[tokio::test]
 async fn relationship_overflow_is_distinct_from_load_failed() {
-    // GH #150 D3: over-cap is `Overflow`, not `LoadFailed`, so searchable
+    // Over-cap is `Overflow`, not `LoadFailed`, so searchable
     // selects degrade to type-to-search while DB errors stay retryable.
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -583,7 +583,7 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
 
 #[tokio::test]
 async fn relationship_search_narrows_past_the_cap() {
-    // GH #150 D1: `related_records_search` reuses the source's declared
+    // `related_records_search` reuses the source's declared
     // search expression — a 201-row table overflows unfiltered but a
     // distinctive term returns its bounded match.
 
@@ -663,7 +663,7 @@ async fn relationship_search_narrows_past_the_cap() {
 
 #[tokio::test]
 async fn relationship_search_without_searchable_falls_back_to_cap() {
-    // GH #150 D1a: no searchable columns → unfiltered bounded load, which
+    // No searchable columns → unfiltered bounded load, which
     // overflows large tables instead of silently truncating.
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -709,7 +709,7 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
 
 #[tokio::test]
 async fn relationship_overflowed_searchable_validates_via_targeted_check() {
-    // GH #150 D4: searchable selects over overflowed tables validate
+    // Searchable selects over overflowed tables validate
     // legitimate FKs via the targeted PK check, not membership.
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -791,7 +791,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
 
 #[tokio::test]
 async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
-    // GH #150 D6: over-cap searchable renders stored value + search input
+    // Over-cap searchable renders stored value + search input
     // + hint, with server data-attributes for the fetch.
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -861,7 +861,7 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
 
 #[tokio::test]
 async fn relationship_bounded_searchable_keeps_client_filter() {
-    // GH #150 + #91: bounded searchable sets narrow by label substring in
+    // Bounded searchable sets narrow by label substring in
     // the browser — the server flag is overflow-only, or every small
     // table pays a debounced round-trip per keystroke.
 

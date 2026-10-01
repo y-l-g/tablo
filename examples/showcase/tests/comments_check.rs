@@ -39,7 +39,7 @@ async fn comments_list_shows_body_and_post_title() {
 
 #[tokio::test]
 async fn comments_list_offers_row_and_bulk_delete() {
-    // GH #184: the queue moderates. `CommentResource` allows
+    // The queue moderates. `CommentResource` allows
     // `DeleteAny`, so the row Delete control and the bulk bar render.
     let db = full_db().await;
     let router = router(db.clone());
@@ -118,7 +118,7 @@ async fn comments_create_form_shows_post_select() {
     assert!(html.contains("Hello Toasty"), "missing post option: {html}");
 }
 
-/// GH #298: a Comment form's Post options load through the resource's
+/// A Comment form's Post options load through the resource's
 /// `query`, which carries no relation, so the option load selects the posts'
 /// own columns and not every comment of every post.
 #[tokio::test]

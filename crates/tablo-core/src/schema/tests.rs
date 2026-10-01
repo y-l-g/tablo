@@ -89,7 +89,7 @@ fn unknown_keys_flags_undeclared_post_keys() {
     assert!(schema.unknown_keys(&values).is_empty());
 }
 
-/// GH #297: a choice's presence and option checks read `value.trim()`,
+/// A choice's presence and option checks read `value.trim()`,
 /// so the trimmed spelling is the one validation authorises. Normalisation
 /// writes exactly that value, and a padded value no option matches is still
 /// refused rather than trimmed into one.

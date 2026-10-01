@@ -32,7 +32,7 @@ async fn skeleton_shares_the_table_root_with_the_swapped_body() {
     assert_eq!(
         html.matches("aria-busy=\"true\"").count(),
         2,
-        "busy must ride on the morph boundary and the table root (GH #160), got {html}"
+        "busy must ride on the morph boundary and the table root, got {html}"
     );
     assert!(
         html.contains("aria-hidden"),
@@ -66,17 +66,17 @@ async fn skeleton_shares_the_table_root_with_the_swapped_body() {
     // Attribute order is a serializer detail: `table` merges its own
     // classes with the caller's `attrs`, so the skeleton may emit
     // `style` before `class` while the swapped table emits them the
-    // other way round. What matters for GH #240 is the same layout —
+    // other way round. What matters is the same layout —
     // the same classes and the same floor — not the same byte order.
     let swapped_tag = table_tag(&html);
     assert!(
         swapped_tag.contains("table-fixed") && skeleton_table.contains("table-fixed"),
-        "the swapped table must declare the skeleton's layout (GH #240), got {html}"
+        "the swapped table must declare the skeleton's layout, got {html}"
     );
     assert_eq!(
         normalized_table_tag(swapped_tag),
         normalized_table_tag(&skeleton_table),
-        "the swapped table must declare the skeleton's layout (GH #240), got {html}"
+        "the swapped table must declare the skeleton's layout, got {html}"
     );
 }
 

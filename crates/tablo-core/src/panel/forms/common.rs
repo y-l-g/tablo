@@ -40,7 +40,7 @@ pub(crate) struct FormParts {
 /// buffered for an installed [`Uploader`](crate::Uploader).
 pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
 
-/// Reject POST keys no declared Schema input owns (GH #89 mass-assignment
+/// Reject POST keys no declared Schema input owns (mass-assignment
 /// allow-list). `csrf_token` is a handler key, not a field, so it is filtered
 /// before the check, as are `clear_<field>` flags for declared file
 /// fields (explicit-clear convention — `truthy`); absent keys are fine (an
@@ -127,7 +127,7 @@ pub(super) fn drop_client_typed_uploads(
 /// `keep_<field>`, because the browser's file input is empty on the next
 /// attempt. The candidate is used only when the installed uploader still holds
 /// the path ([`crate::upload::holds`]): a client-typed value is never stored,
-/// which is the GH #277 rule the carry must not re-open. Without an installed
+/// which the carry must not re-open. Without an installed
 /// uploader nothing can vouch for a path, so nothing is restored.
 ///
 /// A field that carried a file of its own in this submission, or one the user

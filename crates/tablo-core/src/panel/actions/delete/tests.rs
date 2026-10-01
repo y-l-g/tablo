@@ -167,7 +167,7 @@ async fn delete_and_bulk_delete_require_delete_any() {
 
 #[tokio::test]
 async fn delete_resolves_record_key_not_display_key() {
-    // GH #168 defect 1 round-trip: the display key projects a non-PK value
+    // The display key projects a non-PK value
     // (the name), the record key carries the typed PK. Handlers must 404
     // the display value and accept the record key, for single and bulk.
 

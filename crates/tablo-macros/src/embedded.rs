@@ -68,7 +68,7 @@ impl Shape {
                 &input.ident,
                 format!(
                     "#[derive(EmbeddedForm)] supports {expected}: an embedded value's fields are \
-                     read and written by name (GH #191)"
+                     read and written by name"
                 ),
             )
         };

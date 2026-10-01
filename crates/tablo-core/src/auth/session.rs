@@ -149,7 +149,7 @@ pub(super) const SESSION_SWEEP_BATCH: usize = 500;
 /// Drop up to [`SESSION_SWEEP_BATCH`] expired session rows, whoever owns them.
 ///
 /// [`resolve`] purges a row when its token is looked up expired, so a row whose
-/// token is never presented again stays in the table (GH #302). A successful
+/// token is never presented again stays in the table. A successful
 /// login is where the sweep runs, before the new row: a visitor who never signs
 /// in does not reach it. Toasty's `Delete` carries no `LIMIT`, so the bound
 /// comes from selecting the keys first, and the select rides `expires_at`'s

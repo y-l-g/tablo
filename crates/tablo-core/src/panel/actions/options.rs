@@ -86,7 +86,7 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
             // fixed — a 500 that says so, not a retry.
             Err(OptionLoadError::Misdeclared) => Err(TabloError::Declaration(
                 "option search unavailable: the related resource requires a tenant the framework \
-                 cannot scope (GH #223)"
+                 cannot scope"
                     .to_string(),
             )
             .into()),

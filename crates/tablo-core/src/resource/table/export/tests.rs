@@ -32,7 +32,7 @@ fn csv_row_defuses_formula_cells_per_owasp() {
 
 #[test]
 fn csv_row_defuses_cr_lf_led_formula_cells() {
-    // GH #145: spreadsheets treat CR/LF- and tab-led payloads as formulas
+    // Spreadsheets treat CR/LF- and tab-led payloads as formulas
     // even when the dangerous character does not start the raw cell, so
     // the defuse test skips leading whitespace/controls. CR/LF-led cells
     // are RFC4180-quoted (they carry a newline); a tab-led cell has no

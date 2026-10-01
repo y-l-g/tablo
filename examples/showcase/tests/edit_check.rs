@@ -22,7 +22,7 @@ async fn edit_page_hydrates_and_updates() {
         resp.status()
     );
     let html = body_string(resp).await;
-    // GH #136 layer rule: core owns the field detail; the edit page pins
+    // Core owns the field detail; the edit page pins
     // hydration — the stored values arrive in the form.
     assert!(
         html.contains(&user.name),
@@ -102,7 +102,7 @@ async fn edit_page_hydrates_and_updates() {
 
 #[tokio::test]
 async fn edit_404_for_unknown_or_wrong_tenant() {
-    // GH #136 layer rule: core (`find_by_key_loads_one_row_scoped_and_404s_malformed`)
+    // Core (`find_by_key_loads_one_row_scoped_and_404s_malformed`)
     // owns the loader unit; this pins the HTTP route. Wrong-tenant scoping
     // rides the same seam and is pinned in `tenancy_check.rs`
     // (`edit_with_wrong_tenant_yields_404_via_resource_query`).
@@ -336,7 +336,7 @@ async fn edit_sso_managed_user_is_forbidden() {
 
 #[tokio::test]
 async fn post_body_renders_as_a_textarea() {
-    // GH #184 §9: a post body is prose, so the edit form renders a
+    // A post body is prose, so the edit form renders a
     // `<textarea>` for it while `title` stays a one-line input.
     use showcase::models::Post;
 
@@ -381,7 +381,7 @@ async fn post_body_renders_as_a_textarea() {
     );
 }
 
-/// GH #185: an embedded field's control posts its **flattened column**, and
+/// An embedded field's control posts its **flattened column**, and
 /// saving it actually persists — the whole point of resolving the lens through
 /// the app schema rather than the model alone.
 #[tokio::test]
@@ -510,7 +510,7 @@ async fn post_edit_naming_one_embedded_leaf_keeps_the_other() {
     assert_eq!(saved.publication, post.publication);
 }
 
-/// GH #191: the edit form carries the **stored variant**, and a submit that
+/// The edit form carries the **stored variant**, and a submit that
 /// names a different one switches the value — even while the stored variant's
 /// payload is still filled in.
 ///

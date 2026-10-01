@@ -2,8 +2,7 @@ use showcase::app::router_for_tests as router;
 
 use crate::common::{body_string, demo_client, find_href_with, full_db};
 
-// GH #162 (Filament's List `CreateAction` + `recordActions` EditAction):
-// every list exposes its create/edit entry points as real links — the live
+// Every list exposes its create/edit entry points as real links — the live
 // (`live_search`) lists included, where the table swaps in place below an
 // eager header.
 #[tokio::test]

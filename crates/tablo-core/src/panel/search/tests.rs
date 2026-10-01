@@ -162,7 +162,7 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
 
 #[tokio::test]
 async fn live_shard_malformed_cursor_renders_error_state() {
-    // GH #158: a tampered `after=`/`before=` signal fails `cursor::decode`
+    // A tampered `after=`/`before=` signal fails `cursor::decode`
     // inside the shard invocation — the invocation must render the branded
     // in-region `ErrorState` + retry link (same as the streamed list via
     // `retry_url_for_error`), not error the shard.
@@ -246,7 +246,7 @@ async fn live_shard_malformed_cursor_renders_error_state() {
         !table_html.contains("after="),
         "a malformed cursor must not travel into the retry link: {table_html}"
     );
-    // GH #166: the retry writes the cursor signal in place — the same reset
+    // The retry writes the cursor signal in place — the same reset
     // its href spells out — so recovering keeps the signal-held search,
     // filters, and sort instead of reloading the page. The error state
     // renders no other control, so any click binding here is the retry.
@@ -258,7 +258,7 @@ async fn live_shard_malformed_cursor_renders_error_state() {
         table_html.contains("set((cx.hydrate(&quot;&quot;)).clone())"),
         "live retry must clear the cursor signal: {table_html}"
     );
-    // GH #294: the retry re-runs the shard through a token it reads and
+    // The retry re-runs the shard through a token it reads and
     // increments, so the click re-runs the load even when every query
     // signal already holds the failing value.
     assert!(
@@ -269,7 +269,7 @@ async fn live_shard_malformed_cursor_renders_error_state() {
         table_html.contains("increment()"),
         "live retry must increment the token: {table_html}"
     );
-    // GH #294: the shard re-runs on the token only if it *read* the token,
+    // The shard re-runs on the token only if it *read* the token,
     // which is what emits the token's own `dep` marker. Assert that marker,
     // not the presence of any dep — the shard's argument signals emit those
     // whether or not the error view ever reads the token.
@@ -323,7 +323,7 @@ async fn live_shard_malformed_cursor_renders_error_state() {
 
 #[tokio::test]
 async fn live_shard_stale_cursor_retry_drops_pagination() {
-    // GH #294: a token that decodes but was cut from another ordering is
+    // A token that decodes but was cut from another ordering is
     // refused by the engine, not by the decoder. The retry must still drop
     // pagination instead of repeating the identical failing request.
 
@@ -416,7 +416,7 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
 
 #[tokio::test]
 async fn live_shard_retry_preserves_the_query() {
-    // GH #294: a failure the cursor did not cause must be retried with the
+    // A failure the cursor did not cause must be retried with the
     // query that failed — search, filters, and sort included. The retry
     // re-runs through the token it increments, so it is not inert when the
     // query signals already hold the values the failed request used.
@@ -526,7 +526,7 @@ async fn live_shard_retry_preserves_the_query() {
 
 #[tokio::test]
 async fn live_shard_group_by_query_drives_grouping() {
-    // GH #157: grouping travels in the live query, not a page-load snapshot
+    // Grouping travels in the live query, not a page-load snapshot
     // — the shard groups by the query's `group_by`, so a rerun with it set
     // renders headers and a rerun without it does not.
 

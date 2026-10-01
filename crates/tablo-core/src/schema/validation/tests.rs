@@ -11,8 +11,7 @@ fn rejected(input: &str) -> String {
     format!("`{input}` is not a valid number")
 }
 
-/// GH #297: `f32`/`f64` `FromStr` accepts `NaN`, `inf` and `-inf`, and the
-/// typed rule passed them through as stored values. They are refused like
+/// `f32`/`f64` `FromStr` accepts `NaN`, `inf` and `-inf`. They are refused like
 /// any other unparseable submission.
 #[test]
 fn a_float_refuses_a_non_finite_parse() {

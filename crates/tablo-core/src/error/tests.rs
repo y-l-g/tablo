@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn unavailable_maps_infra_failures_to_an_opaque_error() {
-    // GH #174: driver text is for the logs, never the error page.
+    // Driver text is for the logs, never the error page.
     let err = unavailable("secret driver gunk: no such table");
     let rendered = err.to_string();
     assert!(
@@ -16,7 +16,7 @@ fn unavailable_maps_infra_failures_to_an_opaque_error() {
     assert!(TabloError::is_infrastructure(&err));
 }
 
-/// GH #229: a record hook that fails at the driver is an infra failure, so
+/// A record hook that fails at the driver is an infra failure, so
 /// the write surfaces the opaque mapping — the property
 /// `unavailable_maps_infra_failures_to_an_opaque_error` pins, reached
 /// through the driver seam.
@@ -38,7 +38,7 @@ fn driver_failure_maps_driver_errors_to_an_opaque_error() {
     assert!(TabloError::is_infrastructure(&err));
 }
 
-/// GH #229 must not undo GH #174: an app-authored error is not the driver's,
+/// An app-authored error is not the driver's,
 /// so it keeps its own mapping — a guard's 404 stays a 404 rather than
 /// becoming the opaque 500.
 #[test]

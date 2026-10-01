@@ -269,7 +269,7 @@ test('a click the page cannot serve is left to the link', () => {
   });
 });
 
-// --- GH #293: the alert backdrop and the in-flight dialog --------------------
+// --- the alert backdrop and the in-flight dialog --------------------
 
 test('a backdrop click does not dismiss an alert dialog', () => {
   // An alert dialog asks for an answer, and the backdrop is not one: it stays

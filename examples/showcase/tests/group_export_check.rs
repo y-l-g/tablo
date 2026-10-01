@@ -5,7 +5,7 @@ use crate::common::{body_string, demo_client, full_db, mount};
 
 #[tokio::test]
 async fn posts_export_bom_opt_in_prepends_bom() {
-    // GH #94: `?bom=1` opts into a UTF-8 BOM for Excel; default stays BOM-free.
+    // `?bom=1` opts into a UTF-8 BOM for Excel; default stays BOM-free.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -86,7 +86,7 @@ async fn posts_export_streams_csv_with_content_disposition() {
     );
     assert!(
         content_type.contains("charset=utf-8"),
-        "content-type should declare utf-8 for non-ASCII cells (GH #94), got {}",
+        "content-type should declare utf-8 for non-ASCII cells, got {}",
         content_type
     );
     let disposition = resp
@@ -154,7 +154,7 @@ async fn posts_export_streams_csv_with_content_disposition() {
 
 #[tokio::test]
 async fn export_over_cap_413s_at_route_level() {
-    // GH #136 §4: the 413 mapping is unit-tested (`export_cap_maps_one_row…`);
+    // The 413 mapping is unit-tested (`export_cap_maps_one_row…`);
     // this pins the route wiring — a table past the cap answers 413.
     use tablo_core::{Resource, Table, TextColumn};
     use toasty::Db;

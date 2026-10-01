@@ -5,7 +5,7 @@ use topcoat::{context::Cx, icon::IconData, view::Attributes};
 use super::Resource;
 
 /// The `href` and runtime-navigation attributes of a link to another panel
-/// page (GH #395).
+/// page.
 ///
 /// The runtime swaps the page in without a document load. The mode is the
 /// context's [`prefetch_mode`](topcoat::runtime::prefetch_mode), which the
