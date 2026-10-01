@@ -1,13 +1,10 @@
 use http::header::COOKIE;
-use showcase::{
-    app::router_for_tests as router,
-    models::{Author, Comment, DEMO_TENANT, Post, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL},
-};
+use showcase::models::{Author, Comment, DEMO_TENANT, Post, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL};
 use topcoat::router::Body;
 
 use crate::common::{
     SESSION_COOKIE, body_string, demo_client, form_body, full_db, input_value, mint_session,
-    tenanted_db, tenantless_client,
+    routers::router_for_tests as router, tenanted_db, tenantless_client,
 };
 
 #[tokio::test]

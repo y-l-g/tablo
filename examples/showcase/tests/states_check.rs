@@ -1,6 +1,9 @@
-use showcase::{app::router_for_tests as router, models::User};
+use showcase::models::User;
 
-use crate::common::{body_string, demo_client, empty_users_db, find_href_with, full_db, seeded_db};
+use crate::common::{
+    body_string, demo_client, empty_users_db, find_href_with, full_db,
+    routers::router_for_tests as router, seeded_db,
+};
 
 #[tokio::test]
 async fn empty_users_list_shows_no_records_yet() {

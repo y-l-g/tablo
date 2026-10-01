@@ -9,13 +9,15 @@
 
 use http_body_util::BodyExt;
 use showcase::{
-    app::router_with_app_uploads,
     media::{KIND_FILE, KIND_IMAGE, MEDIA_PATH},
     models::{DEMO_TENANT, MediaAsset},
 };
 use topcoat::router::{Body, Router};
 
-use crate::common::{TestClient, body_string, demo_client, full_db, tenantless_client};
+use crate::common::{
+    TestClient, body_string, demo_client, full_db, routers::router_with_app_uploads,
+    tenantless_client,
+};
 
 /// Bytes of an uploaded file: ASCII, so the multipart body can be a `String`,
 /// which is all the test client takes.

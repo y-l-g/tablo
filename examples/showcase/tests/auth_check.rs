@@ -4,16 +4,14 @@
 //! prefixes.
 
 use http::header::{COOKIE, LOCATION};
-use showcase::{
-    app::router_for_tests as router,
-    models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff},
-};
+use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff};
 use tablo_core::auth::AuthSession;
 use topcoat::{context::CxTestBuilder, router::Body};
 
 use crate::common::{
     SESSION_COOKIE, TestClient, body_string, form_body, full_db, input_value, login, login_next,
-    mount, response_cookies, session_cookie_value, set_cookie_header,
+    mount, response_cookies, routers::router_for_tests as router, session_cookie_value,
+    set_cookie_header,
 };
 
 /// A runtime (page re-run) POST, optionally carrying a session cookie.

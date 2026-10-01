@@ -1,7 +1,8 @@
-use showcase::app::router_for_tests as router;
 use tablo_core::{Policy, ReadOnly};
 
-use crate::common::{body_string, demo_client, full_db, mount};
+use crate::common::{
+    body_string, demo_client, full_db, mount, routers::router_for_tests as router,
+};
 
 #[tokio::test]
 async fn posts_export_bom_opt_in_prepends_bom() {

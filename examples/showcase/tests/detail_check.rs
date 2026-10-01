@@ -4,12 +4,12 @@
 //! schema walk and the read-only field shapes); this module pins the HTTP
 //! contract — routing, policy, and the answers a bad id gets.
 
-use showcase::{
-    app::router_for_tests as router,
-    models::{Author, Post, User},
-};
+use showcase::models::{Author, Post, User};
 
-use crate::common::{body_string, demo_client, full_db, tenanted_db, tenantless_client};
+use crate::common::{
+    body_string, demo_client, full_db, routers::router_for_tests as router, tenanted_db,
+    tenantless_client,
+};
 
 /// A post id from the database — title-first, so it is deterministic.
 async fn a_post_id(db: &mut toasty::Db) -> String {

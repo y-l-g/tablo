@@ -1,9 +1,9 @@
-use showcase::{
-    app::router_for_tests as router,
-    models::{Author, Post},
-};
+use showcase::models::{Author, Post};
 
-use crate::common::{body_string, demo_client, find_href_with, full_db, row_titles};
+use crate::common::{
+    body_string, demo_client, find_href_with, full_db, routers::router_for_tests as router,
+    row_titles,
+};
 
 #[tokio::test]
 async fn posts_filter_widgets_render_typed_controls() {

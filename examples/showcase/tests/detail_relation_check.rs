@@ -7,12 +7,11 @@
 //! by "the one with comments": the showcase's tests share fixtures, and another
 //! suite's rows can satisfy a property search like that.
 
-use showcase::{
-    app::router_for_tests as router,
-    models::{Comment, Post},
-};
+use showcase::models::{Comment, Post};
 
-use crate::common::{body_string, demo_client, form_body, full_db, input_value};
+use crate::common::{
+    body_string, demo_client, form_body, full_db, input_value, routers::router_for_tests as router,
+};
 
 /// The commented post and a post with none, by title.
 async fn fixture_posts(db: &mut toasty::Db) -> (Post, Post) {

@@ -1,6 +1,6 @@
-use showcase::app::router_for_tests as router;
-
-use crate::common::{body_string, demo_client, find_href_with, full_db};
+use crate::common::{
+    body_string, demo_client, find_href_with, full_db, routers::router_for_tests as router,
+};
 
 // Every list exposes its create/edit entry points as real links — the live
 // (`live_search`) lists included, where the table swaps in place below an

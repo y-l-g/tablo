@@ -10,18 +10,16 @@
 //! here instead of passing the whole suite.
 
 use http::header::LOCATION;
-use showcase::{
-    app::router_for_tests as router,
-    models::{
-        Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, Publication,
-        Seo,
-    },
+use showcase::models::{
+    Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, Publication,
+    Seo,
 };
 use uuid::Uuid;
 
 use crate::common::{
     SESSION_COOKIE, TestClient, comment_count, demo_client, form_body, full_db, mint_session,
-    multipart_body, post_count, session_cookie_value, tenanted_db, user_count,
+    multipart_body, post_count, routers::router_for_tests as router, session_cookie_value,
+    tenanted_db, user_count,
 };
 
 /// A session-holding POST with **no** CSRF cookie and no `csrf_token` field is

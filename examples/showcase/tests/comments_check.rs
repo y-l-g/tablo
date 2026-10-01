@@ -1,11 +1,8 @@
-use showcase::{
-    app::router_for_tests as router,
-    models::{Comment, Post},
-};
+use showcase::models::{Comment, Post};
 
 use crate::common::{
-    body_string, demo_client, form_body, full_db, input_value, response_cookies, row_link_key,
-    tenanted_db,
+    body_string, demo_client, form_body, full_db, input_value, response_cookies,
+    routers::router_for_tests as router, row_link_key, tenanted_db,
 };
 
 #[tokio::test]
