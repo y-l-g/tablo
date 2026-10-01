@@ -1,6 +1,6 @@
 ## Summary
 
-What changed and why. Link the issue (`Closes #123`).
+What changed and why. Link the issue (`Closes #123`) when there is one.
 
 ## Verification
 

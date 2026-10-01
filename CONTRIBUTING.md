@@ -134,8 +134,9 @@ builds.
 ## Commits
 
 Every branch is squash-merged into `master`: one commit per branch, so no empty
-merge commits. The squashed commit is a Conventional Commit with the issue
-reference in the subject. [`docs/dev/COMMITS.md`](docs/dev/COMMITS.md) is the
+merge commits. The squashed commit is a Conventional Commit, with the issue
+reference in the subject when the change closes an issue.
+[`docs/dev/COMMITS.md`](docs/dev/COMMITS.md) is the
 authoritative format. Pull request titles follow the same format, since the
 title becomes the landed commit; reviewers check it.
 

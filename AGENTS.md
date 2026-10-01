@@ -46,8 +46,8 @@ cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli
 ## Git
 
 Squash-merge every branch into `master` — one commit per branch, no empty merge commits; a
-branch's commits are working notes. The squashed commit is a Conventional Commit carrying the
-issue in the subject: `<type>(<scope>): <description> (#123)` (`docs/dev/COMMITS.md`).
+branch's commits are working notes. The squashed commit is a Conventional Commit, carrying the
+issue in the subject when the change closes one (`docs/dev/COMMITS.md`).
 
 ## Layout
 
