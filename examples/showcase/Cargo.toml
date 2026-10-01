@@ -21,7 +21,7 @@ path = "tests/it.rs"
 tablo-core = { path = "../../crates/tablo-core" }
 tablo-ui = { path = "../../crates/tablo-ui" }
 jiff.workspace = true
-toasty.workspace = true
+toasty = { workspace = true, features = ["sqlite"] }
 # `fs` is for the demo uploader's `tokio::fs` write (GH #188); `multipart` is
 # the extractor the media library's page parses its own upload body with
 # (GH #248).
@@ -30,8 +30,7 @@ topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fon
 uuid.workspace = true
 
 [build-dependencies]
-tablo-ui = { path = "../../crates/tablo-ui" }
-topcoat = { workspace = true, features = ["tailwind"] }
+tablo-build = { path = "../../crates/tablo-build" }
 
 [dev-dependencies]
 http = "1"

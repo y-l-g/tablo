@@ -9,7 +9,7 @@ Run `cargo xtask check`: the gates in
 [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set), run in order with a
 stop at the first failure. To run one gate by hand, that list is the canonical
 copy (it mirrors `.github/workflows/ci.yml`); the extra checks outside the eight
-(docs, detached-bench fmt, bench-check) are listed there too. `cargo xtask fmt`
+(docs, detached-bench fmt, external, bench-check) are listed there too. `cargo xtask fmt`
 covers the formatting subset alone.
 
 The asset suites are named rather than globbed, exactly as the CI `assets` job

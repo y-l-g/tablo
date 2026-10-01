@@ -1,4 +1,5 @@
-//! Gate orchestration: `fmt`, `bump-upstream`, `verify-locks`, `check`.
+//! Gate orchestration: `fmt`, `bump-upstream`, `verify-locks`,
+//! `external-check`, `check`.
 //!
 //! Each CI job calls one subcommand instead of inlining its own bash loop, so
 //! the loops are typed, tested, and runnable locally. Jobs stay parallel —
@@ -13,7 +14,7 @@ use std::{
 /// Crates pinned in lockstep across the workspace and bench lockfiles (GH #103).
 pub const LOCKSTEP_CRATES: &[&str] = &["topcoat", "toasty"];
 
-/// Upstream repos pinned by `rev =` in both manifests, in the same order as
+/// Upstream repos pinned by `rev =` in every [`PINNED_MANIFESTS`] entry, in the same order as
 /// `set_upstream_revs`' rev arguments. The writer and the `verify-locks`
 /// manifest guard match through this table, so they cannot disagree on what
 /// a repo is.
@@ -33,6 +34,19 @@ pub const DETACHED_BENCHES: &[&str] = &[
     "benchmarks/tablo",
     "benchmarks/axum-maud",
     "benchmarks/leptos",
+];
+
+/// The detached app `external-check` builds from outside the repository. Its
+/// manifest pins the upstream repos too, so `bump-upstream` rewrites it and
+/// `verify-locks` checks it; it commits no lockfile.
+pub const QUICKSTART: &str = "examples/quickstart";
+
+/// Every manifest carrying `rev =` upstream pins, which `bump-upstream`
+/// rewrites together.
+pub const PINNED_MANIFESTS: &[&str] = &[
+    "Cargo.toml",
+    "benchmarks/tablo/Cargo.toml",
+    "examples/quickstart/Cargo.toml",
 ];
 
 /// JS asset suites, named rather than globbed so a rename fails loudly.
@@ -111,9 +125,10 @@ pub fn nightly_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     )
 }
 
-/// The detached-bench fmt checks: `cargo fmt` never sees workspace-excluded members.
+/// The detached fmt checks — each bench and the quickstart: `cargo fmt` never
+/// sees a package outside the workspace.
 pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
-    for bench in DETACHED_BENCHES {
+    for bench in DETACHED_BENCHES.iter().chain([&QUICKSTART]) {
         run.run(
             "cargo",
             &["fmt", "--", "--check"],
@@ -215,6 +230,16 @@ pub fn check_manifest_lockstep(
     workspace: &BTreeMap<String, BTreeSet<String>>,
     bench: &BTreeMap<String, BTreeSet<String>>,
 ) -> anyhow::Result<()> {
+    check_manifest_pins(workspace, bench, "bench")
+}
+
+/// [`check_manifest_lockstep`] against any manifest that pins the upstream
+/// repos, named `label` in the report.
+pub fn check_manifest_pins(
+    workspace: &BTreeMap<String, BTreeSet<String>>,
+    other: &BTreeMap<String, BTreeSet<String>>,
+    label: &str,
+) -> anyhow::Result<()> {
     let show = |revs: Option<&BTreeSet<String>>| {
         revs.map_or("none".to_string(), |set| {
             set.iter()
@@ -225,9 +250,9 @@ pub fn check_manifest_lockstep(
     };
     let mut drift = Vec::new();
     for (name, _) in UPSTREAM_REPOS {
-        match (workspace.get(*name), bench.get(*name)) {
-            (Some(workspace_revs), Some(bench_revs))
-                if workspace_revs == bench_revs && workspace_revs.len() == 1 =>
+        match (workspace.get(*name), other.get(*name)) {
+            (Some(workspace_revs), Some(other_revs))
+                if workspace_revs == other_revs && workspace_revs.len() == 1 =>
             {
                 println!(
                     "{name} manifest pins: {} (in sync)",
@@ -235,14 +260,14 @@ pub fn check_manifest_lockstep(
                 );
             }
             (Some(_), Some(_)) => drift.push(format!(
-                "{name} manifest rev drift: workspace={} bench={}",
+                "{name} manifest rev drift: workspace={} {label}={}",
                 show(workspace.get(*name)),
-                show(bench.get(*name)),
+                show(other.get(*name)),
             )),
             _ => drift.push(format!(
-                "{name} manifest rev missing: workspace={} bench={}",
+                "{name} manifest rev missing: workspace={} {label}={}",
                 show(workspace.get(*name)),
-                show(bench.get(*name)),
+                show(other.get(*name)),
             )),
         }
     }
@@ -250,7 +275,7 @@ pub fn check_manifest_lockstep(
         Ok(())
     } else {
         anyhow::bail!(
-            "manifest pin drift — bump both manifests in one commit:\n{}",
+            "manifest pin drift — move every pin in one commit with `bump-upstream`:\n{}",
             drift.join("\n")
         )
     }
@@ -284,8 +309,9 @@ fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
 }
 
 /// Workspace vs bench rev equality, local and CI (the `bench-check` lockstep):
-/// the `rev =` manifest pins `bump-upstream` manages, grouped by repo, then
-/// the resolved lock pins. Manifests are plain file reads first — no
+/// the `rev =` manifest pins `bump-upstream` manages, grouped by repo — the
+/// bench's and the quickstart's against the workspace's — then the resolved
+/// lock pins. Manifests are plain file reads first — no
 /// subprocess, no network, nothing to heal — so a hand-edited manifest
 /// reports drift here instead of failing inside `cargo metadata --locked`
 /// with a resolution error.
@@ -298,6 +324,13 @@ pub fn verify_locks() -> anyhow::Result<()> {
     check_manifest_lockstep(
         &manifest_revs(&workspace_manifest),
         &manifest_revs(&bench_manifest),
+    )?;
+    let quickstart_manifest = std::fs::read_to_string(root.join(QUICKSTART).join("Cargo.toml"))
+        .map_err(|error| anyhow::anyhow!("cannot read {QUICKSTART}/Cargo.toml: {error}"))?;
+    check_manifest_pins(
+        &manifest_revs(&workspace_manifest),
+        &manifest_revs(&quickstart_manifest),
+        "quickstart",
     )?;
     let workspace_meta = fetch_metadata(&root.join("Cargo.toml"))?;
     let bench_meta = fetch_metadata(&root.join("benchmarks/tablo/Cargo.toml"))?;
@@ -384,7 +417,7 @@ pub fn set_upstream_revs(
     Ok(out.join("\n"))
 }
 
-/// Bump both upstream revs in both manifests, re-resolve both lockfiles,
+/// Bump both upstream revs in every pinned manifest, re-resolve both lockfiles,
 /// prove the revs resolve from the local git cache, and assert lockstep.
 pub fn bump_upstream(run: &dyn Runner, topcoat_rev: &str, toasty_rev: &str) -> anyhow::Result<()> {
     for (name, rev) in [("topcoat", topcoat_rev), ("toasty", toasty_rev)] {
@@ -393,7 +426,7 @@ pub fn bump_upstream(run: &dyn Runner, topcoat_rev: &str, toasty_rev: &str) -> a
         }
     }
     let root = repo_root();
-    for manifest in ["Cargo.toml", "benchmarks/tablo/Cargo.toml"] {
+    for manifest in PINNED_MANIFESTS {
         let path = root.join(manifest);
         let text = std::fs::read_to_string(&path)
             .map_err(|error| anyhow::anyhow!("cannot read {}: {error}", path.display()))?;
@@ -437,13 +470,101 @@ pub fn bump_upstream(run: &dyn Runner, topcoat_rev: &str, toasty_rev: &str) -> a
     verify_locks()
 }
 
-/// The gate set as a local fail-fast convenience runner: the eight CONTRIBUTING
-/// gates in order, then docs, detached-bench fmt, and the lockstep check.
-pub fn check(run: &dyn Runner) -> anyhow::Result<()> {
-    check_with(run, &verify_locks)
+/// The directory `external-check` stages the quickstart in: outside the
+/// repository, and the same path every run from one checkout, so the build
+/// cache keeps its fingerprints. The name carries a hash of `root`, so two
+/// worktrees checking at once never clear or build each other's stage.
+pub fn external_stage(root: &Path) -> PathBuf {
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    root.hash(&mut hasher);
+    std::env::temp_dir().join(format!("tablo-external-check-{:016x}", hasher.finish()))
 }
 
-fn check_with(run: &dyn Runner, verify: &dyn Fn() -> anyhow::Result<()>) -> anyhow::Result<()> {
+/// Rewrite the quickstart manifest's `path = "../../crates/…"` dependencies
+/// to absolute paths under `root`, so the staged copy reaches the crates
+/// without sitting beside them.
+pub fn absolute_crate_paths(manifest: &str, root: &Path) -> anyhow::Result<String> {
+    const RELATIVE: &str = "path = \"../../crates/";
+    if !manifest.contains(RELATIVE) {
+        anyhow::bail!("the quickstart manifest names no `{RELATIVE}…` dependency");
+    }
+    // Forward slashes on every platform: Cargo accepts them, and a TOML basic
+    // string would read a backslash as an escape.
+    let root = root.to_string_lossy().replace('\\', "/");
+    Ok(manifest.replace(RELATIVE, &format!("path = \"{root}/crates/")))
+}
+
+fn copy_dir(from: &Path, to: &Path) -> anyhow::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
+/// Copy the quickstart's sources out of the repository with absolute
+/// dependency paths, seeded with the workspace lockfile so it resolves the
+/// versions the workspace tests. Returns the staged manifest.
+pub fn stage_quickstart(root: &Path) -> anyhow::Result<PathBuf> {
+    let source = root.join(QUICKSTART);
+    let stage = external_stage(root);
+    if stage.exists() {
+        std::fs::remove_dir_all(&stage)
+            .map_err(|error| anyhow::anyhow!("cannot clear {}: {error}", stage.display()))?;
+    }
+    copy_dir(&source.join("src"), &stage.join("src"))?;
+    for file in ["build.rs", "styles.css"] {
+        std::fs::copy(source.join(file), stage.join(file))
+            .map_err(|error| anyhow::anyhow!("cannot copy {QUICKSTART}/{file}: {error}"))?;
+    }
+    let manifest = std::fs::read_to_string(source.join("Cargo.toml"))
+        .map_err(|error| anyhow::anyhow!("cannot read {QUICKSTART}/Cargo.toml: {error}"))?;
+    std::fs::write(
+        stage.join("Cargo.toml"),
+        absolute_crate_paths(&manifest, root)?,
+    )?;
+    std::fs::copy(root.join("Cargo.lock"), stage.join("Cargo.lock"))
+        .map_err(|error| anyhow::anyhow!("cannot seed the lockfile: {error}"))?;
+    println!("staged {QUICKSTART} at {}", stage.display());
+    Ok(stage.join("Cargo.toml"))
+}
+
+/// Test the staged quickstart: it builds against Tablo only through absolute
+/// paths, generates its stylesheet with `tablo_build::tailwind`, and asserts
+/// that stylesheet holds classes only Tablo's own sources write. The target
+/// directory stays under the repository's `target/`, which CI caches.
+pub fn external_check(run: &dyn Runner, root: &Path, manifest: &Path) -> anyhow::Result<()> {
+    let target = root.join("target/external-check");
+    let manifest = manifest.to_string_lossy();
+    let target = target.to_string_lossy();
+    run.run(
+        "cargo",
+        &["test", "--manifest-path", &manifest],
+        Some(root),
+        &[("CARGO_TARGET_DIR", &target)],
+    )
+}
+
+/// The gate set as a local fail-fast convenience runner: the eight CONTRIBUTING
+/// gates in order, then docs, detached-bench fmt, the external build, and the
+/// lockstep check.
+pub fn check(run: &dyn Runner) -> anyhow::Result<()> {
+    check_with(run, &|| stage_quickstart(&repo_root()), &verify_locks)
+}
+
+fn check_with(
+    run: &dyn Runner,
+    stage: &dyn Fn() -> anyhow::Result<PathBuf>,
+    verify: &dyn Fn() -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
     let root = repo_root();
     run.run(
         "cargo",
@@ -518,6 +639,7 @@ fn check_with(run: &dyn Runner, verify: &dyn Fn() -> anyhow::Result<()>) -> anyh
     )?;
     run.run("mdbook", &["build", "docs/guide"], Some(&root), &[])?;
     detached_fmt(run, &root)?;
+    external_check(run, &root, &stage()?)?;
     verify()
 }
 

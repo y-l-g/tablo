@@ -1,18 +1,16 @@
 fn main() {
-    // Per-app Tailwind contract: one styles.css + this 3-line build.rs.
-    // See ADR-0006 and examples/showcase/styles.css.
-    println!("cargo:rerun-if-changed=styles.css");
+    // Per-app Tailwind contract: one styles.css + `tablo_build::tailwind()`,
+    // which adds Tablo's own sources and watches them. See ADR-0006.
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src");
-    println!("cargo:rerun-if-changed=../../crates/tablo-core/src");
-    println!("cargo:rerun-if-changed=../../crates/tablo-ui/src");
     // Try to build Tailwind; on failure (e.g. offline) create empty fallback so `cargo test` stays
     // green.
-    match tablo_ui::tailwind_build() {
+    match tablo_build::tailwind() {
         Ok(_) => {}
         Err(e) => {
             eprintln!(
-                "warning: tailwind_build failed: {e:?} - creating empty stylesheet for offline build"
+                "warning: tablo_build::tailwind failed: {e} - creating empty stylesheet for offline \
+                 build"
             );
             if let Ok(out_dir) = std::env::var("OUT_DIR") {
                 let out = std::path::Path::new(&out_dir).join("tailwind.css");

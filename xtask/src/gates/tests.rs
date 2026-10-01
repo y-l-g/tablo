@@ -229,20 +229,27 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
     fmt_check(&run).expect("fake commands succeed");
     let root = repo_root();
     let commands = run.commands();
-    assert_eq!(commands.len(), 6, "1 nightly + 3 detached + topcoat + diff");
+    assert_eq!(
+        commands.len(),
+        7,
+        "1 nightly + 3 detached benches + quickstart + topcoat + diff"
+    );
     assert_eq!(
         commands[0].1,
         vec!["+nightly-2026-08-24", "fmt", "--all", "--", "--check"]
     );
-    for (command, bench) in commands[1..4].iter().zip(DETACHED_BENCHES) {
+    for (command, dir) in commands[1..5]
+        .iter()
+        .zip(DETACHED_BENCHES.iter().chain([&QUICKSTART]))
+    {
         assert_eq!(command.0, "cargo");
         assert_eq!(command.1, vec!["fmt", "--", "--check"]);
-        assert_eq!(command.2, Some(root.join(bench)));
+        assert_eq!(command.2, Some(root.join(dir)));
     }
-    assert_eq!(commands[4].0, "topcoat");
-    assert_eq!(commands[4].1, vec!["fmt"]);
-    assert_eq!(commands[5].0, "git");
-    assert_eq!(commands[5].1, vec!["diff", "--exit-code"]);
+    assert_eq!(commands[5].0, "topcoat");
+    assert_eq!(commands[5].1, vec!["fmt"]);
+    assert_eq!(commands[6].0, "git");
+    assert_eq!(commands[6].1, vec!["diff", "--exit-code"]);
     assert!(commands.iter().all(|command| {
         command
             .2
@@ -255,7 +262,7 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
 fn check_runs_gates_in_order_then_docs_fmt_and_lockstep() {
     let run = FakeRunner::ok();
     let verified = Cell::new(false);
-    check_with(&run, &|| {
+    check_with(&run, &|| Ok(PathBuf::from("/staged/Cargo.toml")), &|| {
         verified.set(true);
         Ok(())
     })
@@ -270,7 +277,7 @@ fn check_runs_gates_in_order_then_docs_fmt_and_lockstep() {
         progs,
         vec![
             "cargo", "cargo", "cargo", "topcoat", "git", "cargo", "cargo", "node", "cargo",
-            "cargo", "cargo", "mdbook", "cargo", "cargo", "cargo",
+            "cargo", "cargo", "mdbook", "cargo", "cargo", "cargo", "cargo", "cargo",
         ]
     );
 }
@@ -278,9 +285,11 @@ fn check_runs_gates_in_order_then_docs_fmt_and_lockstep() {
 #[test]
 fn check_stops_at_the_first_failure() {
     let run = FakeRunner::failing_on(1);
-    check_with(&run, &|| {
-        panic!("lockstep must not run after a gate fails");
-    })
+    check_with(
+        &run,
+        &|| panic!("staging must not run after a gate fails"),
+        &|| panic!("lockstep must not run after a gate fails"),
+    )
     .expect_err("a failing gate must fail the run");
     assert_eq!(run.commands().len(), 2, "fail-fast stops after the failure");
 }
@@ -320,4 +329,51 @@ fn pins_match_ci_and_docs() {
         manifest.contains(&format!("rust-version = \"{MSRV}\"")),
         "Cargo.toml carries the MSRV floor"
     );
+}
+
+#[test]
+fn absolute_crate_paths_points_the_quickstart_at_the_repository() {
+    let manifest = "tablo = { path = \"../../crates/tablo\" }\n\
+                    tablo-build = { path = \"../../crates/tablo-build\" }\n";
+    let rewritten =
+        absolute_crate_paths(manifest, Path::new("/repo")).expect("the manifest has paths");
+    assert_eq!(
+        rewritten,
+        "tablo = { path = \"/repo/crates/tablo\" }\n\
+         tablo-build = { path = \"/repo/crates/tablo-build\" }\n"
+    );
+}
+
+#[test]
+fn absolute_crate_paths_refuses_a_manifest_without_crate_paths() {
+    let error = absolute_crate_paths("tablo = \"0.1\"\n", Path::new("/repo"))
+        .expect_err("nothing to rewrite must fail");
+    assert!(
+        error.to_string().contains("names no"),
+        "unexpected message: {error}"
+    );
+}
+
+#[test]
+fn the_quickstart_manifest_pins_the_workspace_revs() {
+    let root = repo_root();
+    let read = |path: &str| {
+        std::fs::read_to_string(root.join(path)).unwrap_or_else(|error| panic!("{path}: {error}"))
+    };
+    check_manifest_pins(
+        &manifest_revs(&read("Cargo.toml")),
+        &manifest_revs(&read("examples/quickstart/Cargo.toml")),
+        "quickstart",
+    )
+    .expect("the quickstart pins the workspace's upstream revs");
+    absolute_crate_paths(&read("examples/quickstart/Cargo.toml"), &root)
+        .expect("the quickstart names the crates by relative path");
+}
+
+#[test]
+fn external_stage_is_stable_per_checkout_and_distinct_across_them() {
+    let one = external_stage(Path::new("/repo/one"));
+    assert_eq!(one, external_stage(Path::new("/repo/one")));
+    assert_ne!(one, external_stage(Path::new("/repo/.worktrees/two")));
+    assert!(one.starts_with(std::env::temp_dir()));
 }

@@ -3919,7 +3919,6 @@ dependencies = [
  "topcoat-runtime",
  "topcoat-runtime-macro",
  "topcoat-session",
- "topcoat-tailwind",
  "topcoat-view",
  "topcoat-view-macro",
 ]
@@ -4197,17 +4196,6 @@ dependencies = [
  "topcoat-core",
  "topcoat-router",
  "web-time",
-]
-
-[[package]]
-name = "topcoat-tailwind"
-version = "0.9.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=f7eb477242da9690458d183efa2e0aaa1b21b9da#f7eb477242da9690458d183efa2e0aaa1b21b9da"
-dependencies = [
- "sha2 0.11.0",
- "thiserror",
- "topcoat-core",
- "ureq",
 ]
 
 [[package]]

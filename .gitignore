@@ -8,3 +8,6 @@ docs/guide/book/
 /.worktrees/
 # Local build and tool logs.
 *.log
+# The quickstart commits no lockfile: `cargo xtask external-check` seeds a copy
+# from the workspace's on every run.
+/examples/quickstart/Cargo.lock

@@ -5,19 +5,35 @@ How the crates fit together, what happens on a request, and where the extension 
 
 ## Crates
 
-`tablo-macros` and `tablo-ui` are leaves. `tablo-core` depends on both, and the showcase
-depends on `tablo-core` and `tablo-ui`.
+`tablo-macros`, `tablo-ui` and `tablo-build` are leaves. `tablo-core` depends on `tablo-macros`
+and `tablo-ui`, `tablo-test` on `tablo-core`, and the `tablo` facade on `tablo-core`, `tablo-ui` and (feature `testing`) `tablo-test`. An app names
+`tablo` under `[dependencies]` and `tablo-build` under `[build-dependencies]`.
 
 | Crate | Depends on | Contents |
 | --- | --- | --- |
+| `tablo` | `tablo-core`, `tablo-ui`, `tablo-test` (feature `testing`), `toasty` | the facade: `tablo_core` at its root, `ui`, `testing`, `prelude`, the driver features |
 | `tablo-macros` | — | the `EmbeddedForm` and `RecordForm` derives |
 | `tablo-ui` | `topcoat` | synced primitives, owned composites, `icons.rs` |
 | `tablo-core` | `tablo-macros`, `tablo-ui`, `toasty` | Panel, Resource, Table, Schema, auth, tenancy, upload |
-| `examples/showcase` | `tablo-core`, `tablo-ui`, `toasty` | the runnable admin and the integration tests |
+| `tablo-test` | `tablo-core`, `topcoat` | the in-memory HTTP client, `tablo::testing` |
+| `tablo-build` | `topcoat` | `tailwind()`, the app's Tailwind build over Tablo's sources |
+| `examples/showcase` | `tablo-core`, `tablo-ui`, `toasty`, `tablo-build` (build), `tablo-test` (dev) | the runnable admin and the integration tests |
+| `examples/quickstart` | `tablo`, `tablo-build` | the smallest app, detached, built from outside the repo by `cargo xtask external-check` |
 
-`tablo-core` never depends on a concrete database driver. Everything reaches the database through
-Toasty's `Db` and `Executor`, which is why an app-level `Uploader` and the `Authenticator` are traits
-the app implements rather than crates the toolkit picks.
+No library crate enables a database driver. Everything reaches the database through Toasty's `Db`
+and `Executor`, and the app picks the driver: a `tablo` feature (`sqlite`, `postgresql`, `mysql`)
+or a feature on its own `toasty` dependency. That is also why an app-level `Uploader` and the
+`Authenticator` are traits the app implements rather than crates the toolkit picks.
+
+The derives name `tablo_core` when the app depends on it, and `tablo` otherwise; the facade
+re-exports everything the generated code reaches.
+
+The panel's markup carries Tailwind classes in `tablo-core` and `tablo-ui`, so the app's stylesheet
+must scan their sources wherever Cargo unpacked them. Each of the two declares a `links` key and
+publishes its `src` directory as build-script metadata (`DEP_TABLO_CORE_SRC`, `DEP_TABLO_UI_SRC`);
+`tablo` forwards them as `DEP_TABLO_CORE` and `DEP_TABLO_UI`, since a build script sees only its direct
+dependencies' metadata. `tablo_build::tailwind()` reads them and adds one `@source` per directory
+to the app's `styles.css`.
 
 ## The layering
 

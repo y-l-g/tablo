@@ -1,0 +1,13 @@
+[package]
+name = "tablo-build"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Build-script helpers for Tablo apps: the Tailwind build that scans Tablo's own sources."
+
+[dependencies]
+topcoat = { workspace = true, features = ["tailwind"] }
+
+[lints]
+workspace = true

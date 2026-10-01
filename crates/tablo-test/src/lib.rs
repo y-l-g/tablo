@@ -1,10 +1,11 @@
-//! Shared HTTP harness for the Tablo integration suites.
+//! In-memory HTTP test client for Tablo panels.
 //!
-//! The showcase suite (`examples/showcase/tests/common`) and the `tablo-core`
-//! suite (`crates/tablo-core/tests/common`) both drive a `Router` in memory,
-//! so the request client, the body readers, the form writers, and the HTML
-//! scrapers live here instead of drifting as two copies. Seed and database
-//! fixtures stay per crate: they name crate-local models.
+//! [`TestClient`] drives a built `Router` without a socket: it carries
+//! cookies, a CSRF token, and a tenant, and the helpers below write form and
+//! multipart bodies and read values back out of the rendered HTML. An app
+//! reaches it as `tablo::testing` with the facade's `testing` feature; the
+//! showcase and `tablo-core` suites use the same client. Seed and database
+//! fixtures stay with each suite: they name its own models.
 
 use http::header::{CONTENT_TYPE, COOKIE};
 use http_body_util::BodyExt;

@@ -33,14 +33,14 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 ## The gate set
 
-CI runs eight gates plus four extra checks (mirroring `.github/workflows/ci.yml`;
+CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml`;
 this list is the canonical copy — `AGENTS.md` and the `check` skill point here).
 The fast path is the xtask runner: gates are mutually independent, and `check`
 runs each command below in order, stopping at the first failure.
 
 ```sh
 cargo xtask check   # the eight gates plus the extras
-cargo xtask fmt     # the formatting subset: nightly fmt, detached-bench fmt, locked-rev topcoat fmt
+cargo xtask fmt     # the formatting subset: nightly fmt, detached fmt, locked-rev topcoat fmt
 ```
 
 The raw commands — the expansion of `cargo xtask check`:
@@ -58,19 +58,25 @@ Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys
 nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
 Gate 8 guards unused dependencies (GH #271). Rustup installs a missing toolchain on first use.
 
-CI runs four more checks outside the eight, and a change touching what they cover
-has to pass them too (`cargo xtask check` runs all four after the eight):
+CI runs five more checks outside the eight, and a change touching what they cover
+has to pass them too (`cargo xtask check` runs all five after the eight):
 
 - the `docs` job builds rustdoc with
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`, then
   builds the guide with `mdbook build docs/guide`;
-- the `fmt` job runs `cargo fmt -- --check` inside each detached `benchmarks/*`
-  workspace (`benchmarks/tablo`, `benchmarks/axum-maud`, `benchmarks/leptos`) —
-  part of `cargo xtask fmt`;
+- the `fmt` job runs `cargo fmt -- --check` inside each detached workspace
+  (`benchmarks/tablo`, `benchmarks/axum-maud`, `benchmarks/leptos`,
+  `examples/quickstart`) — part of `cargo xtask fmt`;
+- the `external` job runs `cargo xtask external-check`: it copies the detached
+  `examples/quickstart` app to the system temp dir, points its `tablo` and
+  `tablo-build` dependencies at absolute paths, and runs its tests there. The app
+  must build, its panel must serve, and its generated stylesheet must hold
+  classes only Tablo's own sources write, so anything that resolves only inside
+  this repository fails it;
 - the `bench-check` job compiles the detached harness (gate 5 above) and
   verifies that `Cargo.lock` and `benchmarks/tablo/Cargo.lock` pin identical
-  `topcoat` and `toasty` revs and that both manifests' `rev =` pins agree
-  (`cargo xtask verify-locks`, also run by the
+  `topcoat` and `toasty` revs and that the workspace, bench, and quickstart
+  manifests' `rev =` pins agree (`cargo xtask verify-locks`, also run by the
   xtask test suite on every `cargo test`).
 
 ### The `topcoat fmt` trap
@@ -98,21 +104,23 @@ vendored file has drifted, and the xtask test suite runs it on every
 
 ## Dependency pins
 
-`topcoat` and `toasty` are git dependencies pinned to exact `rev`s in both
-manifests. Never run a blanket `cargo update`. Bump them deliberately with one
+`topcoat` and `toasty` are git dependencies pinned to exact `rev`s in three
+manifests: the workspace's, `benchmarks/tablo`'s, and `examples/quickstart`'s. Never run
+a blanket `cargo update`. Bump them deliberately with one
 command:
 
 ```sh
 cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>
 ```
 
-It rewrites the `rev =` pins for both upstream repos in both manifests
+It rewrites the `rev =` pins for both upstream repos in all three manifests
 (`toasty-core` and `topcoat-ui*` track their repo's rev), re-resolves both
-lockfiles, proves the new revs resolve from the local git cache
+lockfiles (the quickstart commits none), proves the new revs resolve from the local git cache
 (`cargo check --offline`), and asserts lockstep. The expansion:
 
 ```sh
-# new revs into Cargo.toml and benchmarks/tablo/Cargo.toml, then:
+# new revs into Cargo.toml, benchmarks/tablo/Cargo.toml and
+# examples/quickstart/Cargo.toml, then:
 cargo update -p topcoat -p toasty
 cargo update --manifest-path benchmarks/tablo/Cargo.toml -p topcoat -p toasty
 cargo check --offline

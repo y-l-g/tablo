@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 description = "The core toolkit types for Tablo, a server-rendered admin toolkit on Topcoat and Toasty."
+# Metadata only, no native library: `build.rs` publishes the source directory an
+# app's Tailwind build scans (`DEP_TABLO_CORE_SRC`).
+links = "tablo-core"
 
 # GH #179 / ADR-0015: one integration-test binary per crate. Cargo autodiscovers
 # every file under `tests/` as its own target, which is exactly the per-file
@@ -47,6 +50,9 @@ uuid.workspace = true
 serde_json = "1"
 tablo-test = { path = "../tablo-test" }
 tokio.workspace = true
+# The suites run on in-memory SQLite. The library enables no driver: the app
+# picks one on its own `toasty` dependency.
+toasty = { workspace = true, features = ["sqlite"] }
 
 [lints]
 workspace = true
