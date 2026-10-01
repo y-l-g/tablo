@@ -72,7 +72,7 @@ impl Resource for UserResource {
 
 Mounting the panel refuses the resource unless every control is bound by exactly one form field,
 every form field has a control, every optional control's field has a blank value, and — when
-`can_create` is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
+the policy allows `Create` — every non-nullable column is filled by the form, by Toasty, by the tenant
 stamp, or by an overridden `create_record` that lists it in `Resource::CREATE_COLUMNS`.
 
 ## Controls
@@ -194,20 +194,21 @@ A choice over a foreign key loads its options from the related resource:
 
 ```rust
 Field::choice(Post::fields().author_id())
-    .relationship::<AuthorResource>(
-        AuthorResource::query,          // names the source; options load through its scoped query
-        |a: &Author| a.id,              // the option value: the primary key
-        |a: &Author| a.name.clone(),    // the option label
+    .relationship::<AuthorResource>( // the source; options load through its scoped query
+        |a: &Author| a.id,            // the option value: the primary key
+        |a: &Author| a.name.clone(),  // the option label
     )
     .searchable()
     .label("Author")
 ```
 
 - Options come from the related resource's tenant-scoped query and follow its policy: the list is
-  empty and the field shows "not available" unless the related resource allows `can_view_any`,
-  and each record must pass its `can_view`.
+  empty and the field shows "not available" unless the related resource's policy allows
+  `ViewAny`, and each record must pass its `View`.
 - A submitted key must be one of those records, so a hand-crafted POST cannot point at another
-  tenant's row.
+  tenant's row. The write checks the key again inside its transaction, so a record deleted, moved
+  to another tenant or hidden since the form validated refuses the write with the same field
+  error.
 - At most 200 options load. Past that, a `.searchable()` choice turns into type-to-search against
   `GET {list_url}/options`, which searches the related table's `searchable()` columns; a
   non-searchable choice shows an error instead. `.searchable()` also filters a short list as

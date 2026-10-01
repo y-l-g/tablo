@@ -1,7 +1,9 @@
 //! GH #306: dropping an undrained streamed list body frees its pooled connection.
 
-use tablo_core::resource::{Resource, Table, TextColumn};
-use topcoat::context::Cx;
+use tablo_core::{
+    Policy, ReadOnly,
+    resource::{Resource, Table, TextColumn},
+};
 use uuid::Uuid;
 
 use crate::common::{body_string, get, memory_db, mount, panel};
@@ -24,12 +26,8 @@ impl Resource for PoolResource {
         "dummies".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &PoolDummy) -> bool {
-        true
+    fn policy() -> impl Policy<PoolDummy> {
+        ReadOnly
     }
 
     fn table() -> Table<PoolDummy> {

@@ -14,7 +14,7 @@ and `tablo-ui`, `tablo-test` on `tablo-core`, and the `tablo` facade on `tablo-c
 | `tablo` | `tablo-core`, `tablo-ui`, `tablo-test` (feature `testing`), `toasty` | the facade: `tablo_core` at its root, `ui`, `testing`, `prelude`, the driver features |
 | `tablo-macros` | — | the `EmbeddedForm` and `RecordForm` derives |
 | `tablo-ui` | `topcoat` | synced primitives, owned composites, `icons.rs` |
-| `tablo-core` | `tablo-macros`, `tablo-ui`, `toasty` | Panel, Resource, Table, Schema, auth, tenancy, upload |
+| `tablo-core` | `tablo-macros`, `tablo-ui`, `toasty` | Panel, Resource, Table, Schema, policy, auth, tenancy, upload |
 | `tablo-test` | `tablo-core`, `topcoat` | the in-memory HTTP client, `tablo::testing` |
 | `tablo-build` | `topcoat` | `tailwind()`, the app's Tailwind build over Tablo's sources |
 | `examples/showcase` | `tablo-core`, `tablo-ui`, `toasty`, `tablo-build` (build), `tablo-test` (dev) | the runnable admin and the integration tests |
@@ -48,8 +48,8 @@ A `Panel` is an admin panel under one prefix: its shell layout, its authenticati
 resources and pages. The app owns the router and the `Db` in its app context, and mounts the panel
 with `RouterBuilderPanelExt::panel`; one router mounts several panels at distinct prefixes.
 Registering a `Resource` or a `Page` on a panel adds its routes and its sidebar entry. A `Resource`
-maps one Toasty model to its admin UI: a base query, a `Table`, a `Schema`, a policy, and the
-record functions that perform writes.
+maps one Toasty model to its admin UI: a base query, a `Table`, a `Schema`, a `Policy`, a
+`Tenancy`, and the record functions that perform writes.
 
 Each mounted panel's state — navigation, brand, auth, uploader, the live-search registries — is
 one `PanelState` in the router's `Panels`. The panel's gate layer puts it on every request under
@@ -69,19 +69,19 @@ mount rather than a request.
 
 A resource list page runs, in order:
 
-1. `enforce_auth(cx)` — require the user the panel's gate resolved from the session, or redirect
+1. `auth::guard(cx)` — require the user the panel's gate resolved from the session, or redirect
    to the login page.
-2. `enforce_tenant::<R>(cx)` — refuse with 403 when `R::requires_tenant()` and the request has no
-   tenant.
-3. `R::can_view_any(cx)` — the list-level policy check, before any row is loaded.
+2. `enforce_tenant::<R>(cx)` — refuse with 403 when `R::tenancy()` is scoped and the request has
+   no tenant.
+3. `can::<R>(cx, Ability::ViewAny)` — the list-level policy check, before any row is loaded.
 4. Parse `TableState` from the URL (`?q=`, `?sort=`, `?dir=`, `?after=`/`?before=`, `?f.<name>=`,
    `?group_by=`).
 5. Load through `TablePage::load` over `scoped_query::<R>(cx)` — `R::query(cx)` with the
-   framework's tenant filter ANDed on — which adds the relations the table's columns include.
+   `Tenancy` filter ANDed on — which adds the relations the table's columns include.
 6. Render the table inside a `suspense` region: the skeleton is sent with the shell, the loaded rows
    swap in.
 
-The list checks `can_view_any` only, so pagination stays honest; per-row `can_view` trims the export
+The list asks `ViewAny` only, so pagination stays honest; the per-row `View` trims the export
 and the relationship option lists. A detail page loads through the tenant-scoped `view_query`, so an
 unknown id and one outside the tenant are the same 404, while a row the caller may not view is a 403.
 Each of its relations then loads the related resource's list through that resource's own scoped
@@ -91,16 +91,18 @@ query, narrowed to the record.
 
 Create, update, delete, and bulk delete run the same shape:
 
-1. `enforce_auth`, `enforce_tenant`, and the policy check that needs no transaction: `can_create`
-   for a create, `can_delete_any` for a delete or bulk delete, and `can_view` plus `can_update` on
-   the stored record for an update.
+1. `auth::guard`, `enforce_tenant`, and the policy check that needs no transaction: `Create`
+   for a create, `DeleteAny` for a delete or bulk delete, and `View` plus `Update` on the stored
+   record for an update.
 2. For a form: on an edit, complete the keys the submission did not post from the stored record;
    then validate, which also resolves relationship fields against the related resource's query.
 3. Open a framework-owned transaction, re-load the target through the scoped query, and check
-   `can_view` plus `can_update` or `can_delete` on that row, so policy is checked against the row
-   that is about to be written rather than the submitted id.
+   `View` plus `Update` or `Delete` on that row, so policy is checked against the row that is
+   about to be written rather than the submitted id.
 4. For a form: re-complete the unposted keys from that row, run the unique probe, parse the values
-   into the resource's record form, and run `validate_record`; any error re-renders the form.
+   into the resource's record form, and run `validate_record`; then resolve each relationship
+   key again through the related resource's scoped query and `View`, inside the transaction. Any
+   error re-renders the form.
 5. Call the resource's record function inside that transaction.
 6. Commit, then call `Resource::after_commit(cx, committed)`.
 
@@ -120,18 +122,18 @@ committed write, and a failure in it is logged without rolling the write back.
 | `Resource::query` | `resource/mod.rs` | the resource's own row scoping: soft deletes, row-level visibility |
 | `Resource::view_query` | `resource/mod.rs` | the detail page's query: `query` plus the relations the page reads off the record |
 | `Resource::relations` | `resource/relation.rs` | the related resources rendered as tables on a record's detail and edit pages |
-| `Resource::tenant_scope` | `resource/mod.rs` | the tenant predicate, derived from the model's `tenant_id` by default (`tenancy.rs`) |
+| `Resource::tenancy` | `resource/mod.rs`, `tenancy.rs` | how rows belong to a tenant: none, a column of the model, or a column reached through a relation |
 | `Column` | `resource/column.rs` | a list column: its cell, its export text, its search, sort, width and the relations it reads |
 | `Filter` | `resource/filter.rs` | a list filter: its predicate and its control |
 | `Control` | `schema/fields/custom.rs` | a form field's input, beside the built-in text, choice and file controls |
 | `Action` / `Resource::actions` | `resource/action.rs` | a mutation beyond CRUD, on a row or on the bulk selection |
-| `Resource::can_*` | `resource/mod.rs` | authorization, default deny |
-| `Resource::can_delete_any` | `resource/mod.rs` | whether delete is allowed at all: the delete chrome and the delete handlers' policy gate |
+| `Resource::policy` / `Policy` | `resource/mod.rs`, `policy.rs` | authorization per `Ability`, default deny; `DeleteAny` decides the delete chrome and gates the delete handlers |
 | `schema::OptionSource` | `schema/relationship.rs` | what a relationship select offers, and who may see it |
 | `EmbeddedForm` | `tablo-macros` | the flat form map ↔ a typed embedded value |
 | `RecordForm` / `NoForm` | `form.rs` | the typed value a form writes, and the form of a resource with none |
 | `Uploader` | `upload.rs` | where a file field's bytes go |
 | `Authenticator` | `auth.rs` | how credentials resolve to a `CurrentUser` |
+| `auth::guard`, `can`, `can_list` | `auth.rs`, `policy.rs` | the panel's sign-in and policy checks, for the app's own pages, routes and shards |
 | `Table::new` / `Table::new_split` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
 | `panel::wired_table` | `panel/mod.rs` | the wired list table a page-owned table renders |
 
@@ -178,7 +180,7 @@ crates/tablo-core/src/
               relation, navigation, naming, commit
   schema/     mod, fields/{mod,builders,choice,custom,file,text}, lenses, options, layouts,
               tree, relationship, embedded, pk, validation
-  auth, csrf, cursor, db, error, form, notification, page, query_term, tenancy,
+  auth, csrf, cursor, db, error, form, notification, page, policy, query_term, tenancy,
   upload
 ```
 

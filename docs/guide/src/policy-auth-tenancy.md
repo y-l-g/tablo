@@ -1,41 +1,89 @@
 # Policy, auth, tenancy
 
 Three layers decide what a request may do. **Authentication** decides who is signed in.
-**Tenancy** limits a signed-in user to their tenant's rows. **Policy** — the resource's `can_*`
-predicates — decides what that user may do with each resource and record.
+**Tenancy** limits a signed-in user to their tenant's rows. **Policy** — the resource's
+`policy()` — decides what that user may do with each resource and record.
 
 ## Policy
 
-Every predicate defaults to `false`, so a new resource exposes nothing until you allow it:
+A policy answers one `Ability` at a time. The default policy is `Deny`, so a new resource exposes
+nothing until you allow it:
 
 ```rust
-fn can_view_any(_cx: &Cx) -> bool { true }
-fn can_view(_cx: &Cx, _user: &User) -> bool { true }
-fn can_create(cx: &Cx) -> bool { is_admin(cx) }
-fn can_update(_cx: &Cx, user: &User) -> bool { !user.sso_managed }
-fn can_delete_any(cx: &Cx) -> bool { is_admin(cx) }
+use tablo::prelude::*;
+
+impl Resource for UserResource {
+    // …
+    fn policy() -> impl Policy<User> {
+        |cx: &Cx, ability: Ability<'_, User>| match ability {
+            Ability::ViewAny | Ability::View(_) => true,
+            Ability::Create | Ability::DeleteAny | Ability::Delete(_) => is_admin(cx),
+            Ability::Update(user) => !user.sso_managed,
+        }
+    }
+}
 ```
 
-| Predicate | Default | Checked by |
-| --- | --- | --- |
-| `can_view_any(cx)` | `false` | the list and its live refresh, the export, related tables, relationship options |
-| `can_view(cx, record)` | `false` | the detail page, the edit page and POST, deletes, each exported row, each relationship option, each row's actions |
-| `can_create(cx)` | `false` | the create page and POST, the Create button |
-| `can_update(cx, record)` | `false` | the edit page and POST, the row's Edit action |
-| `can_delete_any(cx)` | `false` | the delete and bulk-delete POSTs, the Delete action and the bulk column |
-| `can_delete(cx, record)` | `can_delete_any(cx)` | each record a delete removes, the row's Delete action and checkbox |
+| Ability | Asked by |
+| --- | --- |
+| `ViewAny` | the list and its live refresh, the export, related tables, relationship options |
+| `View(record)` | the detail page, the edit page and POST, deletes, each exported row, each relationship option, each row's actions |
+| `Create` | the create page and POST, the Create button |
+| `Update(record)` | the edit page and POST, the row's Edit action |
+| `DeleteAny` | the delete and bulk-delete POSTs, the Delete action and the bulk column |
+| `Delete(record)` | each record a delete removes, the row's Delete action and checkbox |
 
-Handlers check the same predicates that decide which buttons render, so a hidden action is also a
+Handlers ask the same abilities that decide which buttons render, so a hidden action is also a
 refused request. A denied request answers 403.
 
-- **The list checks `can_view_any` only.** `can_view` is Rust code that cannot run in the
-  database, and filtering rows after pagination would leave pages short. Rows a user must not see
-  on the list belong out of `query()`; see [Resources](./resources.md#scoping-the-query).
+- **The list asks `ViewAny` only.** A policy is Rust code that cannot run in the database, and
+  filtering rows after pagination would leave pages short. Rows a user must not see on the list
+  belong out of `query()`; see [Resources](./resources.md#scoping-the-query).
+- **A record is viewed before it is written.** The edit and delete handlers ask `View` together
+  with `Update` or `Delete`, and a delete asks `DeleteAny` before any record loads.
 - **Writes are checked against the stored row.** The update and delete handlers load the record
-  inside the write's transaction and check the predicates on that row, not on the submitted id.
-  A bulk delete fails as a whole if any selected record is refused.
-- **Relationship options** require both `can_view_any` and `can_view` on the related resource;
-  overriding one does not imply the other.
+  inside the write's transaction and ask the policy about that row, not the submitted id. A bulk
+  delete fails as a whole if any selected record is refused.
+- **Relationship options** require `ViewAny` and `View` from the related resource's policy.
+
+### Building a policy
+
+`Allow`, `Deny`, `ReadOnly` (`ViewAny` and `View`) and `when(predicate)` are policies, and each
+combines with another through `and` and `or`. `when` allows every ability while a predicate on the
+request holds, which suits a rule about the user or the tenant that several resources share:
+
+```rust
+fn editors_only(cx: &Cx) -> bool {
+    tablo::auth::current_user(cx).is_some_and(|user| user.login.ends_with("@example.com"))
+}
+
+impl Resource for PostResource {
+    fn policy() -> impl Policy<Post> {
+        ReadOnly.or(when(editors_only))
+    }
+}
+
+impl Resource for AuthorResource {
+    fn policy() -> impl Policy<Author> {
+        when(editors_only)
+    }
+}
+```
+
+A closure `|cx: &Cx, ability: Ability<'_, M>| -> bool` is a policy too, as in the first example,
+and so is any type that implements `Policy<M>`.
+
+### In your own code
+
+`can::<R>(cx, ability)` asks `R`'s policy, for a page or route that renders or writes `R`'s
+records itself. `can_list::<R>(cx)` answers whether the request may open `R`'s list: the panel's
+sign-in, `R`'s tenant, and `ViewAny`, the checks the list handler makes. A dashboard that links
+to lists checks it before rendering each link.
+
+A page, route or shard the app serves under a panel calls `auth::guard(cx)?` to require the
+panel's signed-in user exactly as the panel's own pages do. A shard needs it: Topcoat serves
+shards at its runtime path, where no page guard runs. A form route verifies its CSRF token with
+`csrf::verify`.
 
 ## Authentication
 
@@ -120,15 +168,15 @@ A tenant-owned resource shows each user only their tenant's rows. The request's 
 signed-in user's `tenant_id`, read with `tenant_id(cx)`. No request header can set it; server code
 such as a middleware or a test can, by inserting a `Tenant` request extension.
 
-Mark the resource with `requires_tenant()`:
+Declare the resource's tenancy with the column its rows carry their tenant in:
 
 ```rust
 impl Resource for PostResource {
     type Model = Post; // has `tenant_id: uuid::Uuid`
     // …
 
-    fn requires_tenant() -> bool {
-        true
+    fn tenancy() -> Tenancy<Post> {
+        Tenancy::column(Post::fields().tenant_id())
     }
 }
 ```
@@ -140,34 +188,33 @@ That one declaration does two things:
   options, related tables — adds `tenant_id = <request tenant>` to the resource's `query()`. A
   create sets the tenant column itself, so the record form leaves it out.
 
-The framework finds the column by name and type: a UUID field named `tenant_id`. Do not repeat the
-filter in `query()`.
+The column is a `Uuid` or `Option<Uuid>` field of the model, named by its lens, and it can have any
+name. Do not repeat the filter in `query()`. Mounting the panel refuses a `Tenancy::column` lens
+that is not one field of the model.
 
-**A row that inherits its tenant.** A comment has no `tenant_id` of its own; it belongs to a post
-that does. Override `tenant_scope` with the predicate through the relation, and the framework
-applies it wherever it would apply the derived filter:
+**A row that inherits its tenant.** A comment has no tenant column of its own; it belongs to a post
+that does. `Tenancy::via` names the tenant through the relation, and the framework gates and
+filters exactly as it does for a column:
 
 ```rust
-fn requires_tenant() -> bool {
-    true
-}
-
-fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
-    Some(Comment::fields().post().tenant_id().eq(tenant))
+fn tenancy() -> Tenancy<Comment> {
+    Tenancy::via(Comment::fields().post().tenant_id())
 }
 ```
 
-Keep `requires_tenant()` `true` here: writing the same filter into `query()` without the gate
-would serve every tenant's rows to a user who has no tenant.
+Nothing is stamped on create: a comment's tenant is its post's. Declare the foreign key as a
+[relationship field](./forms.md#relationships) over the post's resource, so a submitted post must
+be one of the request tenant's posts.
 
-**A deliberately cross-tenant resource** — a super-admin view — declares `requires_tenant()`
-`false` and filters in `query()` by hand. That gives up both the gate and the scope.
-
-Mounting the panel refuses a resource with `requires_tenant()` `true` whose model has no `tenant_id`
-UUID field and which does not override `tenant_scope`.
+**A deliberately cross-tenant resource** — a super-admin view — declares no tenancy and filters in
+`query()` by hand. That gives up both the gate and the scope.
 
 **In your own code**, load rows with `scoped_query::<PostResource>(cx)?`. It applies the tenant
 scope and answers 403 when the request has no tenant. `PostResource::query(cx)` does not apply the
-tenant scope. A record function that writes a foreign key should re-check the target through
-`scoped_query` inside its transaction, since the tenant of the related row may have changed since
-the form was validated.
+tenant scope.
+
+**Foreign keys are re-checked inside the write.** A relationship field's key must be one of the
+related resource's records for the request: in its tenant-scoped query and allowed by its `View`.
+The create and edit handlers check it when they validate the form, and again inside the write's
+transaction, so a related record deleted, moved to another tenant or hidden in between refuses the
+write with the same field error. A record function needs no check of its own.

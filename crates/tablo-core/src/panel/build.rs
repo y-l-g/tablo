@@ -20,7 +20,6 @@ use topcoat::{
 use super::{
     Panel, Root,
     forms::MAX_FORM_BYTES,
-    gate::enforce_auth,
     headers,
     search::{ShardPanel, TABLE_RELATION_SEARCH_PATH, TABLE_SEARCH_PATH},
     state::{PanelState, Panels, current, under_prefix},
@@ -29,6 +28,7 @@ use crate::{
     auth::{PanelGate, RUNTIME_PREFIX, RuntimeGate, SESSION_LIFETIME},
     error::TabloError,
     form::RecordForm,
+    policy::{Ability, can},
     resource::{Declarations, Declared, Resource},
     schema::{DeclCx, Schema},
 };
@@ -341,7 +341,7 @@ pub(crate) fn panel_root_redirect(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         // Defense in depth: every panel handler re-checks the
         // resolved user, so a missing or mis-mounted gate cannot leak the
         // first resource's slug via the redirect target.
-        enforce_auth(cx)?;
+        crate::auth::guard(cx)?;
         let target = current(cx)
             .and_then(|panel| panel.root_redirect.clone())
             .ok_or_else(topcoat::router::error::not_found)?;
@@ -416,8 +416,9 @@ pub(super) type ResourceCheck = fn(&Cx, &DeclCx, &mut Declarations) -> Result<()
 /// The trait defaults every method but `table`, so a resource that overrides
 /// nothing else compiles and only fails when a user reaches the page that needs
 /// the missing piece. The essentials that are *declarations* are checked here,
-/// at build, and reported with the resource's type name: a tenant predicate
-/// for a gated resource, what the table, the form and the view record as
+/// at build, and reported with the resource's type name: a
+/// [`Tenancy::column`](crate::Tenancy::column) lens that names a field of the
+/// model, what the table, the form and the view record as
 /// misdeclared ([`Table::declaration_errors`](crate::Table::declaration_errors),
 /// [`Schema::declaration_errors`]), the custom actions' names, and the
 /// agreement between the resource's `Form` and its `form()` schema
@@ -431,25 +432,13 @@ pub(super) fn check_resource<R: Resource>(
     dx: &DeclCx,
     declarations: &mut Declarations,
 ) -> Result<(), String> {
-    // A gated resource that supplies no tenant predicate is misdeclared, and
-    // the declaration is checkable without a request:
-    // `R::tenant_scope` is pure, and the default derivation answers by the
-    // model's *shape* — a `tenant_id` UUID field, found by name and type — not
-    // by the tenant value, so the nil UUID is enough to ask whether a predicate
-    // exists at all. Refusing here is what `build`'s contract promises a
-    // declaration error gets; the request-time error in `apply_tenant_scope`
-    // stays as the backstop for a resource whose predicate is only `None` for
-    // some tenants, and for app code that calls `scoped_query` outside a panel.
-    //
-    // Checked before the declarations below because the gate and the scope
-    // govern every handler this resource registers, not just the list and
-    // create pages those checks are about.
-    if R::requires_tenant() && R::tenant_scope(uuid::Uuid::nil()).is_none() {
+    // A tenant column that is not one field of the model would filter on, and
+    // stamp, nothing: checked first because the tenancy governs every handler
+    // this resource registers.
+    if let Some(Err(error)) = R::tenancy().column_field() {
         return Err(format!(
-            "resource `{}` requires a tenant, but the framework cannot scope it: `{}` declares no \
-             `tenant_id` UUID column to derive the filter from, and the resource does not override \
-             `tenant_scope` — declare the column, override `tenant_scope`, or drop \
-             `requires_tenant` and scope in `query`",
+            "resource `{}`'s `Tenancy::column` lens binds no column of `{}`: {error} — name a \
+             UUID field of the model, or use `Tenancy::via` for a tenant reached through a relation",
             std::any::type_name::<R>(),
             std::any::type_name::<R::Model>(),
         ));
@@ -527,7 +516,7 @@ fn check_form_declaration<R: Resource>(
              form — name the record form in `type Form`"
         ));
     }
-    if R::can_create(cx) {
+    if can::<R>(cx, Ability::Create) {
         return Err(format!(
             "resource `{resource}` allows create but has no form — name its record form in `type \
              Form` and declare `form()`"
@@ -597,21 +586,20 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
             ));
         }
     }
-    // Tenant ownership: the framework stamps a gated resource's tenant column
+    // Tenant ownership: the framework stamps a scoped resource's tenant column
     // on create; a form that claimed it would let the client choose.
-    if R::requires_tenant()
-        && let Some(column) = crate::tenancy::tenant_field_name::<R::Model>()
+    if let Some(column) = tenant_column::<R>()
         && let Some(field) = fields.iter().find(|field| field.keys.contains(&column))
     {
         return Err(format!(
-            "resource `{resource}` requires a tenant, but record form field `{}` claims its tenant \
+            "resource `{resource}` is tenant-scoped, but record form field `{}` claims its tenant \
              column `{column}` — the framework stamps it on create; drop it from the form",
             field.name
         ));
     }
     // Column coverage: a create that leaves a non-nullable column unset fails
     // at the driver on every submit, with no field to point the user at.
-    if R::can_create(cx) {
+    if can::<R>(cx, Ability::Create) {
         check_create_columns::<R>(&fields)?;
     }
     // `.unique()` is a promise the panel makes and the database has to keep
@@ -648,6 +636,15 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
     Ok(())
 }
 
+/// The name of `R`'s own tenant column, which the framework stamps on create:
+/// a [`Tenancy::column`](crate::Tenancy::column) that binds one.
+fn tenant_column<R: Resource>() -> Option<String> {
+    R::tenancy()
+        .column_field()
+        .and_then(Result::ok)
+        .map(|field| field.name.clone())
+}
+
 /// Every non-nullable column a create must set is set by something: the
 /// record form, toasty (`#[auto]`, `#[default(..)]`), the tenant stamp, or the
 /// resource's own `CREATE_COLUMNS`.
@@ -656,9 +653,7 @@ fn check_create_columns<R: Resource>(
 ) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
     let prefilled = crate::form::prefilled_fields::<R::Model>();
-    let tenant = R::requires_tenant()
-        .then(crate::tenancy::tenant_field_name::<R::Model>)
-        .flatten();
+    let tenant = tenant_column::<R>();
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
     for name in R::CREATE_COLUMNS {

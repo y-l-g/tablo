@@ -40,8 +40,8 @@ impl Resource for UserResource {
     type Model = User;
     type Form = NoForm<Self::Model>; // list-only: no create or edit pages
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true // every policy predicate denies until allowed
+    fn policy() -> impl Policy<User> {
+        ReadOnly // the default policy denies everything
     }
 
     fn table() -> Table<User> {
@@ -75,7 +75,7 @@ fn router(db: toasty::Db) -> topcoat::Result<Router> {
 
 One router mounts several panels at distinct prefixes, each with its own resources, shell and
 login. To add create and edit pages, give the resource a `#[derive(RecordForm)]` struct as its
-`Form`, a `form()` schema, and `can_create` / `can_update`. The
+`Form`, a `form()` schema, and a policy that allows `Create` and `Update`. The
 [first panel](docs/guide/src/first-panel.md) chapter builds a complete app with forms and login.
 
 ## Documentation

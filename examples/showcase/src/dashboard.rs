@@ -1,6 +1,6 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
-use tablo_core::{NavigationItem, Page, Resource, db::db, scoped_query, tenant_id};
+use tablo_core::{NavigationItem, Page, Resource, can_list, db::db, scoped_query};
 use topcoat::{
     Result,
     context::Cx,
@@ -24,12 +24,11 @@ struct Stat {
     count: Option<u64>,
 }
 
-/// `R`'s tile, or `None` when the caller may not list `R` — a tenantless
-/// request on a tenant-scoped resource, or `can_view_any` refusing — so the
+/// `R`'s tile, or `None` when the caller may not open `R`'s list, so the
 /// dashboard links to no list that would answer 403, or when the panel does
 /// not register `R`.
 async fn stat<R: Resource>(cx: &Cx, glyph: IconData) -> Option<Stat> {
-    if (R::requires_tenant() && tenant_id(cx).is_none()) || !R::can_view_any(cx) {
+    if !can_list::<R>(cx) {
         return None;
     }
     let url = tablo_core::url::resource::<R>(cx)?;

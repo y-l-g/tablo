@@ -4,8 +4,6 @@
 //! that control's modifiers, so `.placeholder(..)` on a choice is a compile
 //! error rather than a declaration the panel refuses.
 
-use topcoat::context::Cx;
-
 use super::{
     super::{IntoSchema, OptionSource, Schema, relationship::RelatedPrimaryKey},
     ChoiceControl, ControlKind, Field, TextControl, choice,
@@ -155,20 +153,24 @@ impl ChoiceField {
 
     /// Load the options from a related source's tenant-scoped query.
     ///
-    /// `R` is any [`OptionSource`] — every `Resource` is one. The first
-    /// argument is the related resource's `query` fn (`AuthorResource::query`),
-    /// a type-inference witness only: the loader calls the source's scoped
-    /// query, so the tenant gate and the derived tenant filter apply. The
-    /// second projects a record to the model's **primary key**, whose
-    /// `Display` is the `<option value>`; the third maps it to its label. A
-    /// projection to anything but the key type fails to compile, and an edit
-    /// form hydrates the foreign key with the same string.
+    /// `R` is any [`OptionSource`]; every `Resource` is one. The loader calls
+    /// the source's scoped query, so its tenant gate and filter apply. `value`
+    /// projects a record to the model's **primary key**, whose `Display` is the
+    /// `<option value>`, and `label` maps it to its label. A projection to
+    /// anything but the key type fails to compile, and an edit form hydrates the
+    /// foreign key with the same string.
     ///
-    /// Policy-checked: the related source must allow `can_view_any` and, when
-    /// it declares `requires_tenant`, have a resolved tenant; each loaded row
-    /// is filtered through `can_view`. A denial fails the load closed — no
-    /// options and not the stored value, `{label} is not available` on GET,
+    /// Policy-checked: the related source's policy must allow `ViewAny` and,
+    /// when the source is tenant-scoped, the request must have a tenant; each
+    /// loaded row is filtered through `View`. A denial fails the load closed —
+    /// no options and not the stored value, `{label} is not available` on GET,
     /// and a submit that carries a value fails with that message.
+    ///
+    /// Re-checked inside the write: the create and edit handlers resolve the
+    /// submitted key again through the source's tenant-scoped query in the
+    /// write's transaction, so a record deleted, moved to another tenant or
+    /// hidden since the form validated refuses the write with the same field
+    /// error.
     ///
     /// Bounded and memoized: at most one row past `MAX_RELATIONSHIP_OPTIONS`
     /// loads per `(request, tenant)`. Past the cap a searchable field degrades
@@ -176,7 +178,6 @@ impl ChoiceField {
     /// one reports `could not load options, retry`.
     pub fn relationship<R>(
         mut self,
-        query: fn(&Cx) -> toasty::stmt::Query<toasty::stmt::List<R::Model>>,
         value: impl Fn(&R::Model) -> RelatedPrimaryKey<R> + Send + Sync + 'static,
         label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
     ) -> Self
@@ -184,7 +185,6 @@ impl ChoiceField {
         R: OptionSource + 'static,
         RelatedPrimaryKey<R>: std::fmt::Display,
     {
-        let _ = query;
         self.choice().relationship = Some(choice::Relationship::new::<R>(value, label));
         self
     }

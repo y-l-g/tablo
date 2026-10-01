@@ -1,8 +1,11 @@
 use toasty::Db;
 
 use super::*;
-use crate::panel::test_support::{
-    Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state,
+use crate::{
+    Ability, Policy, Tenancy,
+    panel::test_support::{
+        Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state,
+    },
 };
 
 /// A slug made of ordinary URL-segment characters still builds, and its
@@ -19,8 +22,8 @@ async fn a_plain_slug_builds_and_resolves() {
         fn slug() -> String {
             "user-profiles_2".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -79,8 +82,8 @@ async fn a_star_slug_builds_and_resolves() {
         fn slug() -> String {
             "user*profiles".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -139,8 +142,8 @@ async fn csrf_is_enforced_with_auth_disabled() {
         type Model = Dummy;
         type Form = DummyForm;
 
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::Create)
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -260,11 +263,10 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
         fn slug() -> String {
             "authors".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Author> {
+            |_cx: &Cx, ability: Ability<'_, Author>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
         fn table() -> Table<Author> {
             Table::new(
@@ -318,83 +320,91 @@ async fn panel_mount_reports_missing_auth_models() {
     );
 }
 
-/// GH #231: a gated resource that supplies no tenant predicate is a
-/// declaration error, and #223's `tenant_scope` probe is pure — so `build`
-/// refuses it with an error naming the resource instead of waiting for the
-/// first request to answer its logged 500. The override half builds, so the
-/// check rejects a *missing* predicate rather than the hook itself.
+/// A parent row that carries its tenant, and a child that inherits it.
+#[derive(Debug, Clone, toasty::Model)]
+struct Parent {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    tenant_id: uuid::Uuid,
+    name: String,
+    #[has_many]
+    children: toasty::Deferred<Vec<Child>>,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Child {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[index]
+    parent_id: uuid::Uuid,
+    #[belongs_to(key = parent_id, references = id)]
+    parent: toasty::Deferred<Parent>,
+    name: String,
+}
+
+/// `Tenancy::column` names the model's own column, so a lens through a
+/// relation is refused at mount with an error naming the resource and
+/// `Tenancy::via`, which is the declaration that path needs.
 #[tokio::test]
-async fn panel_build_rejects_a_gated_resource_with_no_tenant_predicate() {
+async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
     use crate::resource::{Resource, Table, TextColumn};
 
-    /// A renderable table, so tenancy is the *only* thing either resource
-    /// below could be refused for: the rejection is the tenant probe's, not
-    /// a page essential's. The model has no `tenant_id` column, so only an
-    /// override can scope it.
-    fn dummy_table() -> Table<Dummy> {
+    fn child_table() -> Table<Child> {
         Table::new(
-            |d: &Dummy| d.id.to_string(),
-            TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
+            |c: &Child| c.id.to_string(),
+            TextColumn::r#for(Child::fields().name(), |c: &Child| c.name.clone()),
         )
     }
 
-    struct UndiscoverableResource;
-    impl Resource for UndiscoverableResource {
-        type Model = Dummy;
+    struct ColumnThroughRelation;
+    impl Resource for ColumnThroughRelation {
+        type Model = Child;
         type Form = crate::NoForm<Self::Model>;
         fn slug() -> String {
-            "dummies".to_string()
+            "children".to_string()
         }
-        fn requires_tenant() -> bool {
-            true
+        fn tenancy() -> Tenancy<Child> {
+            Tenancy::column(Child::fields().parent().tenant_id())
         }
-        fn table() -> Table<Dummy> {
-            dummy_table()
+        fn table() -> Table<Child> {
+            child_table()
         }
     }
 
-    /// The same undiscoverable model, scoped by the resource itself — the
-    /// shape a row that inherits its tenant uses. `name` stands in for the
-    /// relation path; the point is that the probe accepts a declared
-    /// predicate.
-    struct DeclaredScopeResource;
-    impl Resource for DeclaredScopeResource {
-        type Model = Dummy;
+    struct Inherited;
+    impl Resource for Inherited {
+        type Model = Child;
         type Form = crate::NoForm<Self::Model>;
         fn slug() -> String {
-            "declared".to_string()
+            "inherited".to_string()
         }
-        fn requires_tenant() -> bool {
-            true
+        fn tenancy() -> Tenancy<Child> {
+            Tenancy::via(Child::fields().parent().tenant_id())
         }
-        fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
-            Some(Dummy::fields().name().eq(tenant.to_string()))
-        }
-        fn table() -> Table<Dummy> {
-            dummy_table()
+        fn table() -> Table<Child> {
+            child_table()
         }
     }
 
     let db = Db::builder()
-        .models(toasty::models!(Dummy))
+        .models(toasty::models!(Parent, Child))
         .connect("sqlite::memory:")
         .await
         .unwrap();
     let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
-    let Err(error) = mount(db.clone(), panel().resource::<UndiscoverableResource>()) else {
-        panic!("a gated resource with no tenant predicate must not build");
+    let Err(error) = mount(db.clone(), panel().resource::<ColumnThroughRelation>()) else {
+        panic!("a tenant column through a relation must not mount");
     };
     let error = format!("{error}");
     assert!(
-        error.contains("UndiscoverableResource")
-            && error.contains("tenant_id")
-            && error.contains("tenant_scope"),
-        "the error must name the resource and both ways to scope it, got {error}"
+        error.contains("ColumnThroughRelation") && error.contains("Tenancy::via"),
+        "the error must name the resource and the declaration that fits, got {error}"
     );
 
-    mount(db.clone(), panel().resource::<DeclaredScopeResource>())
-        .expect("a declared tenant_scope scopes a gated resource");
+    mount(db, panel().resource::<Inherited>()).expect("`Tenancy::via` scopes through a relation");
 }
 
 /// GH #174: `slug()` is free-form and reaches route paths and response
@@ -460,11 +470,10 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
         fn slug() -> String {
             "subscribers".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Subscriber> {
+            |_cx: &Cx, ability: Ability<'_, Subscriber>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
         fn table() -> Table<Subscriber> {
             Table::new(
@@ -532,8 +541,10 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         fn slug() -> String {
             "subscribers".to_string()
         }
-        fn can_delete_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Subscriber> {
+            |_cx: &Cx, ability: Ability<'_, Subscriber>| {
+                matches!(ability, Ability::DeleteAny | Ability::Delete(_))
+            }
         }
         fn table() -> Table<Subscriber> {
             keyed_table()
@@ -587,7 +598,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
 }
 
 /// The marker is a property of the declaration, not of the policy serving
-/// it: a read-only resource — `can_create` denied, the default —
+/// it: a read-only resource — `Create` denied, the default —
 /// still fails the build on an unbacked `unique()`, so fixing the policy
 /// later cannot silently re-arm a check the database does not keep.
 #[tokio::test]
@@ -615,10 +626,10 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
         fn slug() -> String {
             "subscribers".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Subscriber> {
+            |_cx: &Cx, ability: Ability<'_, Subscriber>| matches!(ability, Ability::ViewAny)
         }
-        // `can_create` keeps its default (deny); only the form is declared.
+        // `Create` keeps its default (deny); only the form is declared.
         fn table() -> Table<Subscriber> {
             Table::new(
                 |s: &Subscriber| s.id.to_string(),
@@ -991,8 +1002,8 @@ async fn panel_sends_frame_ancestors_unless_opted_out() {
         // A rendered page, not the default-deny 403: an error response is
         // produced above the layer chain, so only a served document proves
         // the header is installed.
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -1143,17 +1154,13 @@ async fn declarations_are_built_once_across_requests() {
             "dummies".to_string()
         }
 
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                )
+            }
         }
 
         fn table() -> crate::resource::Table<Dummy> {

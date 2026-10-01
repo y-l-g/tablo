@@ -14,7 +14,9 @@ use std::{
 use http::header::{
     CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, LOCATION, X_CONTENT_TYPE_OPTIONS,
 };
-use tablo_core::{Auth, Field, Panel, Resource, Schema, Table, TextColumn, Uploader};
+use tablo_core::{
+    Ability, Auth, Field, Panel, Policy, Resource, Schema, Table, TextColumn, Uploader,
+};
 use toasty::Db;
 use topcoat::{
     context::Cx,
@@ -91,22 +93,15 @@ impl Resource for DocResource {
         ))
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
     // Every policy hook defaults to deny, so a panel that only exercises the
     // upload seam opens them all (the permissive end of the contract).
-    fn can_view(_cx: &Cx, _record: &Doc) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_update(_cx: &Cx, _record: &Doc) -> bool {
-        true
+    fn policy() -> impl Policy<Doc> {
+        |_cx: &Cx, ability: Ability<'_, Doc>| {
+            matches!(
+                ability,
+                Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+            )
+        }
     }
 
     fn table() -> Table<Doc> {

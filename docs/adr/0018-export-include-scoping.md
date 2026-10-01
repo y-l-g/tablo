@@ -1,6 +1,6 @@
 # Relation includes: columns declare them, each loader loads what it reads
 
-Date: 2026-09-22 — Status: accepted — Amended: 2026-09-25, 2026-09-30
+Date: 2026-09-22 — Status: accepted — Amended: 2026-09-25, 2026-09-30, 2026-10-01
 
 ## Decision
 
@@ -20,7 +20,7 @@ the column and the resource.
 every loader starts from it: the edit page, delete, bulk delete, the unique-value probe, the
 relationship option lists and their targeted existence check, and the pagination probes read only
 the record's own columns. A relation a closure reads with no column including it belongs in `query`:
-one `can_view` reads, because every loader runs that predicate, or one a table's `group_by` or row
+one the policy's `View` reads, because every loader asks it, or one a table's `group_by` or row
 key reads.
 
 **4. The detail page loads `Resource::view_query`.** `view_relations` is an opaque hook the

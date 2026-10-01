@@ -26,6 +26,7 @@ use crate::{
     db::db,
     error::TabloError,
     form::{FieldErrorKind, FieldErrors, Posted, RecordForm},
+    policy::{Ability, can},
     resource::{Committed, Resource, declared},
     schema::{DeclCx, Schema},
 };
@@ -206,6 +207,23 @@ fn parse_form<R: Resource>(
     }
 }
 
+/// Re-check the submission's relationship keys inside the write's
+/// transaction, once nothing else refused it: the related records must still
+/// be in the tenant-scoped queries and viewable as the write sees them. A
+/// refusal re-renders the form with the field's error, like the pre-write
+/// check, and nothing is written.
+async fn recheck_relationships(
+    cx: &Cx,
+    schema: &Schema,
+    values: &HashMap<String, String>,
+    errors: &mut FieldErrors,
+    ex: &mut dyn toasty::Executor,
+) {
+    if errors.is_empty() {
+        errors.extend(schema.recheck_relationships(cx, values, ex).await);
+    }
+}
+
 /// Refuse an error whose key this submission renders nowhere: no slot would
 /// carry the message, and writing anyway would drop it.
 fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> topcoat::Error {
@@ -228,7 +246,7 @@ fn named_fields<F: RecordForm>(cx: &Cx, named: &HashSet<String>) -> Vec<F::Field
 pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
-        if !R::can_create(cx) {
+        if !can::<R>(cx, Ability::Create) {
             return Err(forbidden().into());
         }
         let parts = parse_form_body(cx, body).await?;
@@ -253,6 +271,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // (upstream gap #117; never string-match driver error messages).
         errors.extend(check_unique::<R>(cx, &schema, &values, &HashMap::new(), &mut tx).await?);
         let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
+        recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form::<R>(
                 cx,
@@ -272,10 +291,10 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
     })))
 }
 
-/// Edit page POST — validates, checks `can_view` + `can_update`, and writes
+/// Edit page POST — validates, checks `View` + `Update`, and writes
 /// the fields the submission named.
 ///
-/// Requires both `can_view` and `can_update` (matching GET, deny-by-default):
+/// Requires both `View` and `Update` (matching GET, deny-by-default):
 /// a view-denied but writable record must not be mutable by direct POST.
 pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
@@ -291,10 +310,10 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // discipline).
         let mut db0 = db(cx);
         let advisory = find_by_key::<R>(cx, &id, &mut db0).await?;
-        if !R::can_view(cx, &advisory) {
+        if !can::<R>(cx, Ability::View(&advisory)) {
             return Err(forbidden().into());
         }
-        if !R::can_update(cx, &advisory) {
+        if !can::<R>(cx, Ability::Update(&advisory)) {
             return Err(forbidden().into());
         }
         let Submission {
@@ -310,10 +329,10 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
         let record = find_by_key::<R>(cx, &id, &mut tx).await?;
-        if !R::can_view(cx, &record) {
+        if !can::<R>(cx, Ability::View(&record)) {
             return Err(forbidden().into());
         }
-        if !R::can_update(cx, &record) {
+        if !can::<R>(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }
         // The unnamed keys come from this snapshot, not the advisory one: the
@@ -323,6 +342,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         complete(&schema, &mut values, &named, &stored);
         errors.extend(check_unique::<R>(cx, &schema, &values, &stored, &mut tx).await?);
         let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
+        recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form::<R>(
                 cx,

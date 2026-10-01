@@ -1,7 +1,7 @@
 # Relations: no new Relation trait, includes declared where they are read
 
 Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-18, 2026-09-22,
-2026-09-25, 2026-09-28
+2026-09-25, 2026-09-28, 2026-10-01
 
 ## Decision
 
@@ -27,18 +27,18 @@ single primitive implementing `Display` (composite-key and `Bytes`-key models ca
 relationship selects — use static options). An edit form must hydrate the FK with the same canonical
 string the projection produces, or the stored value renders unselected.
 
-**Policy.** Option loads respect the related resource's policy (GH #108): `can_view_any` denies the
+**Policy.** Option loads respect the related resource's policy (GH #108): a refused `ViewAny` denies the
 whole load — no options and not the stored value, and the field surfaces `{label} is not available`
-(on GET too) — while `can_view` filters loaded rows before any label renders, so a filtered-out
+(on GET too) — while `View` filters loaded rows before any label renders, so a filtered-out
 value is reported as invalid. The option cap counts the raw bounded fetch, before that filtering (GH
 #91).
 
 **Tenancy.** The option loaders are generic over `schema::OptionSource`, whose `scoped_query` is a
 required method; `option_query` runs `R::scoped_query(cx)`, which carries only the relations the
 resource's `query` includes (ADR-0018, GH #298), so every related load carries the framework's
-tenant predicate and a related resource whose tenancy cannot be scoped is a `Misdeclared` option
-error rather than an unscoped fetch (GH #208, ADR-0002). `Field::relationship` still takes the
-resource's `query` fn for type inference only; the loader does not call it directly.
+tenant predicate, and a direct `OptionSource` whose `scoped_query` fails is a `Misdeclared` option
+error rather than an unscoped fetch (GH #208, ADR-0002). `relationship::<R>(value, label)` names
+the source by its type parameter alone.
 
 **Option search (GH #150).** Above the cap the failure splits into `Overflow` (distinct from a
 driver `LoadFailed`): a searchable select degrades to type-to-search, a non-searchable one keeps the
@@ -46,10 +46,10 @@ retry error. Search reuses the related `Table`'s declared `searchable()` columns
 `search_expr(q)` — no option-specific hook; zero searchable columns means the hard-cap fallback. The
 endpoint is `GET {parent_list_url}/options?field=&q=`, `field` allow-listed to a declared searchable
 relationship choice in the parent's form (400 otherwise), `q` trimmed and clamped to the shared
-query bound, bounded at `limit(201)`, `can_view` before labels, `Denied` → 403, driver failure →
+query bound, bounded at `limit(201)`, `View` before labels, `Denied` → 403, driver failure →
 500, filtered overflow → 200 with a keep-typing hint option, and never a whole-table load.
 Validation for an overflowed searchable select is a targeted `pk_eq_expr` + `R::scoped_query` +
-`can_view` check (viewable → pass, hidden/not-found → `invalid`, denied → `not available`, DB
+`View` check (viewable → pass, hidden/not-found → `invalid`, denied → `not available`, DB
 failure → retry); bounded sets keep membership validation. The UI is a native `<select>` plus
 `selects.js` (debounced 200 ms, aborts in-flight requests, preserves selection and placeholder);
 without JavaScript the plain select keeps working.
@@ -58,4 +58,4 @@ without JavaScript the plain select keeps working.
 the projection drives keyed diffs and DOM ids, and the edit/delete URLs and bulk checkbox values
 handlers resolve as the model's typed PK. `Table::new_split(display, record, columns)` splits the
 two for a table whose display projects a non-PK value (2026-09-28 amendment, GH #384). Single and
-bulk deletes require `can_view` + `can_delete` (GH #168).
+bulk deletes require `View` + `Delete` (GH #168).

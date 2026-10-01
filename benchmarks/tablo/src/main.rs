@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use jiff::Timestamp;
 use tablo_core::{
-    Field, Panel, Resource, RouterBuilderPanelExt, Schema, Table, TablePage, TableState, Tenant,
-    TextColumn,
+    Ability, Field, Panel, Policy, Resource, RouterBuilderPanelExt, Schema, Table, TablePage,
+    TableState, Tenancy, Tenant, TextColumn,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
@@ -68,12 +68,8 @@ pub struct AuthorResource;
 impl Resource for AuthorResource {
     type Model = Author;
     type Form = tablo_core::NoForm<Self::Model>;
-    /// Gated like the showcase's `AuthorResource` (GH #223): the harness mirrors
-    /// the shipped resources, and a hand-written `tenant_id` filter here would
-    /// teach the recipe the framework removed. Nothing loads through this
-    /// resource — the workload is the posts list — so `query` stays the default.
-    fn requires_tenant() -> bool {
-        true
+    fn tenancy() -> Tenancy<Author> {
+        Tenancy::column(Author::fields().tenant_id())
     }
     fn table() -> Table<Author> {
         Table::new(
@@ -97,27 +93,17 @@ impl Resource for PostResource {
         Schema::new(Field::text(Post::fields().title()).required())
     }
 
-    // Bench policy (GH #171): the shipped list 403s unless `can_view_any`
-    // passes and a tenant is present — the harness asserts both per iteration
-    // so the measured path is the enforced one, not an open query.
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
+    /// The shipped list answers 403 unless the policy allows `ViewAny` and the
+    /// request has a tenant, so the measured path is the enforced one, not an
+    /// open query. `bench_list_path` renders the wired table, so the row
+    /// abilities — `View`, `Update`, `Delete` — are each asked once per
+    /// rendered row inside the timed region: the row policy is part of what is
+    /// measured.
+    fn policy() -> impl Policy<Post> {
+        |_cx: &Cx, ability: Ability<'_, Post>| !matches!(ability, Ability::Create)
     }
-    fn can_view(_cx: &Cx, _record: &Post) -> bool {
-        true
-    }
-    // `bench_list_path` renders the wired table, so `can_view`/`can_update`/
-    // `can_delete` (its default, which reads `can_delete_any`) each run once
-    // per rendered row inside the timed region — the row policy is part of
-    // what is measured.
-    fn can_update(_cx: &Cx, _record: &Post) -> bool {
-        true
-    }
-    fn can_delete_any(_cx: &Cx) -> bool {
-        true
-    }
-    fn requires_tenant() -> bool {
-        true
+    fn tenancy() -> Tenancy<Post> {
+        Tenancy::column(Post::fields().tenant_id())
     }
     fn table() -> Table<Post> {
         Table::new(
@@ -244,13 +230,11 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
     let mut times_ms = Vec::with_capacity(iterations);
     for _ in 0..iterations {
         let cx = bench_cx(db, tenant);
-        // Policy gate, mirroring `panel::resource_list`: the shipped page
-        // 403s without these — a bench that skipped them would not be the
-        // list path.
-        tablo_core::tenancy::require_tenant(&cx).expect("bench Cx must carry a tenant");
+        // The list's gate: the shipped page answers 403 without a tenant and
+        // `ViewAny`, so a bench that skipped them would not be the list path.
         assert!(
-            PostResource::can_view_any(&cx),
-            "bench resource must pass can_view_any"
+            tablo_core::can_list::<PostResource>(&cx),
+            "the bench request must be allowed to open the list"
         );
         let start = Instant::now();
         let state = TableState::from_cx(&cx);

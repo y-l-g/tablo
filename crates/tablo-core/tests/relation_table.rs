@@ -3,7 +3,7 @@
 //! the relation, and the writes it starts return to the owner's page.
 
 use http::header::LOCATION;
-use tablo_core::{Field, Relation, Resource, Schema, Table, TextColumn};
+use tablo_core::{Ability, Field, Policy, Relation, Resource, Schema, Table, TextColumn};
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
@@ -41,16 +41,13 @@ impl Resource for OwnerResource {
         Schema::new(Field::text(Owner::fields().name()))
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &Owner) -> bool {
-        true
-    }
-
-    fn can_update(_cx: &Cx, _record: &Owner) -> bool {
-        true
+    fn policy() -> impl Policy<Owner> {
+        |_cx: &Cx, ability: Ability<'_, Owner>| {
+            matches!(
+                ability,
+                Ability::ViewAny | Ability::View(_) | Ability::Update(_)
+            )
+        }
     }
 
     fn table() -> Table<Owner> {
@@ -85,7 +82,6 @@ impl Resource for ChildResource {
             Field::text(Child::fields().body()),
             Field::choice(Child::fields().owner_id())
                 .relationship::<OwnerResource>(
-                    OwnerResource::query,
                     |owner: &Owner| owner.id,
                     |owner: &Owner| owner.name.clone(),
                 )
@@ -93,24 +89,15 @@ impl Resource for ChildResource {
         ))
     }
 
-    fn can_view_any(cx: &Cx) -> bool {
-        !has_header(cx, "x-deny-children")
-    }
-
-    fn can_view(_cx: &Cx, _record: &Child) -> bool {
-        true
-    }
-
-    fn can_create(cx: &Cx) -> bool {
-        !has_header(cx, "x-no-create")
-    }
-
-    fn can_update(_cx: &Cx, _record: &Child) -> bool {
-        true
-    }
-
-    fn can_delete_any(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Child> {
+        |cx: &Cx, ability: Ability<'_, Child>| match ability {
+            Ability::ViewAny => !has_header(cx, "x-deny-children"),
+            Ability::View(_record) => true,
+            Ability::Create => !has_header(cx, "x-no-create"),
+            Ability::Update(_record) => true,
+            Ability::DeleteAny => true,
+            Ability::Delete(_) => true,
+        }
     }
 
     fn table() -> Table<Child> {
@@ -246,8 +233,8 @@ async fn the_detail_page_is_read_only_and_the_edit_page_carries_the_writes() {
     );
 }
 
-/// The child's own policies decide per request: no `can_view_any`, no
-/// section; no `can_create`, no create link.
+/// The child's own policies decide per request: no `ViewAny`, no
+/// section; no `Create`, no create link.
 #[tokio::test]
 async fn the_child_policies_gate_the_section_and_its_create_link() {
     let (router, _db, ada, _bob) = fixture().await;

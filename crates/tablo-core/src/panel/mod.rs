@@ -19,7 +19,7 @@ mod actions;
 mod build;
 mod detail;
 mod forms;
-mod gate;
+pub(crate) mod gate;
 mod headers;
 mod list;
 mod pages;
@@ -84,10 +84,10 @@ use crate::{
 /// The table carries `R::table`'s columns, key, page size, search toolbar and
 /// filter bar, plus the action chrome `R`'s declarations imply — the row
 /// Delete link and bulk column from
-/// [`can_delete_any`](crate::resource::Resource::can_delete_any), the Edit link
+/// [`DeleteAny`](crate::policy::Ability::DeleteAny), the Edit link
 /// from a record form ([`RecordForm::HAS_FORM`])
 /// and the View link from a non-empty [`view`](crate::resource::Resource::view) — each gated
-/// per row by `can_view`/`can_update`/`can_delete`, the wiring the panel's own
+/// per row by `View`/`Update`/`Delete`, the wiring the panel's own
 /// list applies. The chrome has no other entry point: a page-owned table that
 /// must agree with the resource's routes takes its wiring from here.
 pub fn wired_table<R: Resource>(cx: &topcoat::context::Cx) -> crate::resource::Table<R::Model> {
@@ -276,14 +276,14 @@ impl Panel {
     ///
     /// [`RouterBuilderPanelExt::panel`] checks that the resource's [`form`](Resource::form)
     /// agrees with its `Form`, that a resource with no form does not allow
-    /// `can_create`, and, for a resource with a form, that the
+    /// `Create`, and, for a resource with a form, that the
     /// form's struct and its `Schema` agree: every control is bound by exactly
     /// one field and every field's key is a declared control; an optional
     /// control, or one inside a `Repeater` or a variant group, binds a field
-    /// with a blank answer; a gated resource's form does not claim its tenant
-    /// column; and, where `can_create` allows it, every non-nullable column is
-    /// set by the form, by toasty, by the tenant stamp, or by an override that
-    /// names it in [`Resource::CREATE_COLUMNS`]. It also checks that each of the
+    /// with a blank answer; a [`Tenancy::column`](crate::Tenancy::column)
+    /// resource's form does not claim its tenant column; and, where `Create` allows it, every
+    /// non-nullable column is set by the form, by toasty, by the tenant stamp, or by an
+    /// override that names it in [`Resource::CREATE_COLUMNS`]. It also checks that each of the
     /// resource's [`relations`](Resource::relations) names a resource this
     /// panel registers, once: the relation's actions go to that resource's
     /// routes.

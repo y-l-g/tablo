@@ -437,7 +437,7 @@ async fn cross_tenant_edit_and_delete_404_and_touch_nothing() {
 
 /// The policy gate refuses `BLOCKED_TENANT` on every read route, not only the
 /// list: the list, the CSV export and the detail page each consult
-/// `can_view_any`/`can_view`, so a refactor that dropped the policy check from
+/// `ViewAny`/`View`, so a refactor that dropped the policy check from
 /// one of them fails here.
 ///
 /// The detail page's check only runs against a loaded record, so the blocked

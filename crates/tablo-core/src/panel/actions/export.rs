@@ -11,6 +11,7 @@ use topcoat::{
 use super::super::gate::gate;
 use crate::{
     db::db,
+    policy::{Ability, can},
     resource::{Past, Resource, Table, TableState, declared, row_exists_past},
 };
 
@@ -99,7 +100,7 @@ fn export_wants_bom(cx: &Cx) -> bool {
 pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         gate::<R>(cx)?;
-        if !R::can_view_any(cx) {
+        if !can::<R>(cx, Ability::ViewAny) {
             return Err(forbidden().into());
         }
         let state = TableState::from_cx(cx);
@@ -125,7 +126,10 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         let mut db_handle = db(cx);
         let mut visible = 0usize;
         while let Some(rows) = chunker.next_chunk(&mut db_handle).await? {
-            visible += rows.iter().filter(|r| R::can_view(cx, r)).count();
+            visible += rows
+                .iter()
+                .filter(|r| can::<R>(cx, Ability::View(r)))
+                .count();
         }
         // The cap counts viewable rows, but only inside the raw window: rows
         // left past it may be viewable too, so a 200 would be a silent
@@ -142,7 +146,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         //
         // The window is walked twice on purpose: the row cap must be answered
         // before the first response byte, and the cap counts rows through
-        // `R::can_view`, a Rust predicate no `COUNT(*)` can run. Trimming the
+        // the `View` ability, a Rust predicate no `COUNT(*)` can run. Trimming the
         // streaming pass to the cap instead would ship a partial file for a
         // table the caller may not receive in full; the two walks are
         // the price of a fail-closed 413. This is not a truncating `LIMIT 200`.
@@ -190,7 +194,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                 };
                 let mut fragment = String::new();
                 for row in &rows {
-                    if R::can_view(&cx2, row) {
+                    if can::<R>(&cx2, Ability::View(row)) {
                         visible += 1;
                         if visible > MAX_EXPORT_ROWS {
                             // TOCTOU overrun: rows changed between the scan

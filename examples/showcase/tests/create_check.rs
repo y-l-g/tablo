@@ -1,5 +1,6 @@
 use http::header::{LOCATION, SET_COOKIE};
 use showcase::{app::router_for_tests as router, models::User};
+use tablo_core::{Ability, Policy};
 use toasty::Db;
 
 use crate::common::{
@@ -207,11 +208,12 @@ async fn create_policy_deny() {
             Schema::new(Field::text(DummyUser::fields().name()).required())
         }
 
-        fn can_create(_cx: &topcoat::context::Cx) -> bool {
-            false
-        }
-        fn can_view_any(_cx: &topcoat::context::Cx) -> bool {
-            true
+        fn policy() -> impl Policy<DummyUser> {
+            |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
+                Ability::ViewAny => true,
+                Ability::Create => false,
+                _ => false,
+            }
         }
         fn table() -> Table<DummyUser> {
             Table::new(
@@ -404,11 +406,10 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         fn slug() -> String {
             "widgets".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Widget> {
+            |_cx: &topcoat::context::Cx, ability: Ability<'_, Widget>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
         fn table() -> Table<Widget> {
             Table::new(

@@ -3,7 +3,7 @@ use topcoat::view::ViewExt;
 
 use super::*;
 use crate::{
-    Panel,
+    Ability, Panel, Policy,
     panel::test_support::{Dummy, dummy_table, mount, panel_for, response_html},
     schema::{Field, Schema},
 };
@@ -37,7 +37,7 @@ fn completion_fills_unnamed_keys_from_the_stored_projection() {
 }
 
 #[tokio::test]
-async fn edit_post_requires_can_view_as_well_as_can_update() {
+async fn edit_post_requires_view_as_well_as_update() {
     use crate::resource::Resource;
 
     struct ViewDeniedResource;
@@ -51,11 +51,12 @@ async fn edit_post_requires_can_view_as_well_as_can_update() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            false
-        }
-        fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                Ability::View(_record) => false,
+                Ability::Update(_record) => true,
+                _ => false,
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -162,11 +163,10 @@ async fn transport_keys_never_reach_the_write() {
         fn slug() -> String {
             "docs".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Doc> {
+            |_cx: &Cx, ability: Ability<'_, Doc>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
         fn table() -> crate::resource::Table<Doc> {
             crate::resource::Table::new(
@@ -274,11 +274,10 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
     }
     #[derive(crate::RecordForm)]
@@ -417,14 +416,13 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
-        }
-        fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Update(_)
+                )
+            }
         }
     }
     #[derive(crate::RecordForm)]
@@ -564,11 +562,10 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -682,11 +679,10 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
         fn slug() -> String {
             "subscribers".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Subscriber> {
+            |_cx: &Cx, ability: Ability<'_, Subscriber>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
         fn table() -> Table<Subscriber> {
             Table::new(
@@ -801,12 +797,10 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
             "docs".to_string()
         }
 
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Doc> {
+            |_cx: &Cx, ability: Ability<'_, Doc>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
 
         fn table() -> crate::resource::Table<Doc> {

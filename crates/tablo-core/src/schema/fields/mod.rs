@@ -352,6 +352,20 @@ impl Field {
         }
     }
 
+    /// [`ChoiceControl::recheck`] for a relationship choice, through `ex`.
+    /// Empty for any other field.
+    pub(crate) async fn recheck(
+        &self,
+        cx: &Cx,
+        value: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> Vec<String> {
+        match &self.control {
+            ControlKind::Choice(choice) => choice.recheck(cx, &self.label, value, ex).await,
+            _ => Vec::new(),
+        }
+    }
+
     /// Render the field: its control in `Mode::Form`, its stored value in
     /// `Mode::View`.
     ///

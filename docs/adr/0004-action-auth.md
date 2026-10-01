@@ -5,21 +5,27 @@ Date: 2026-08-19 — Status: accepted — Amended: 2026-10-01
 ## Decision
 
 Every mutation runs in a framework-owned transaction: the handler fetches the target through the
-tenant-scoped query (`scoped_query`, ADR-0002), checks
-`Resource::can_view`/`can_update`/`can_delete` against that loaded record inside the transaction,
+tenant-scoped query (`scoped_query`, ADR-0002), asks the resource's `Policy` for `View` and
+`Update` or `Delete` on that loaded record inside the transaction,
 calls the `Resource` record fn
 (`create_record` / `update_record` / `delete_record` / `bulk_delete_records`) with
 `&mut dyn toasty::Executor`, and commits. Inputs are untrusted: the check always runs against the
 fetched row, never the passed ID alone, so an id outside the request's tenant scope is not found
 before any policy check runs. Bulk delete re-fetches through the same query and checks every
-record. There is no `Policy` trait and no `shouldSkipAuthorization`: the `can_*` methods are the one
-authorization vocabulary.
+record. There is no `shouldSkipAuthorization`: `Resource::policy()`, asked one `Ability` at a time,
+is the one authorization vocabulary.
+
+A create or an update also resolves each relationship key the form writes through the related
+resource's `scoped_query` and its `View`, inside the same transaction, after the pre-write
+validation ran the same check outside it. A related record deleted, moved to another tenant or
+hidden in between refuses the write with the field error the pre-write check gives, and nothing is
+written, so a record fn needs no foreign-key check of its own.
 
 A custom `Action` (`Resource::actions`) runs the same way. Its handler loads the row, or the bulk
-selection, through `scoped_query` inside the transaction, checks `can_view` and the action's own
+selection, through `scoped_query` inside the transaction, checks `View` and the action's own
 `can_run` on every loaded record, and calls `Action::run` with the same executor. A record the
 caller cannot view, or a row the action refuses, is a 403. A selection holding a record the action
-(or, for bulk delete, `can_delete`) refuses commits nothing and answers with an error notification
+(or, for bulk delete, the policy's `Delete`) refuses commits nothing and answers with an error notification
 on the list, because the bulk bar offers each operation for the whole selection.
 
 `create_record` and `update_record` return the row they wrote (the generated key, or the state the

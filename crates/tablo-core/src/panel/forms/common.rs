@@ -16,6 +16,7 @@ use super::{
 use crate::{
     db::db,
     form::{FieldErrors, RecordForm},
+    policy::{Ability, can},
     resource::Resource,
 };
 
@@ -187,7 +188,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         gate::<R>(cx)?;
         let mut db = db(cx);
         let record = load_viewable::<R>(cx, &mut db).await?;
-        if !R::can_update(cx, &record) {
+        if !can::<R>(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);

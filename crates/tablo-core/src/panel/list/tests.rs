@@ -1,7 +1,10 @@
 use toasty::Db;
 
 use super::{super::TABLE_SEARCH_PATH, *};
-use crate::panel::test_support::{Dummy, dummy_table, mount, panel_for};
+use crate::{
+    Ability, Policy, ReadOnly, Tenancy,
+    panel::test_support::{Dummy, dummy_table, mount, panel_for},
+};
 
 /// The minimal table-backed model the list-chrome tests share:
 /// `list_html` was declared twice with byte-identical bodies apart from one
@@ -68,8 +71,8 @@ async fn live_lists_declare_distinct_signal_ids() {
                 fn slug() -> String {
                     $slug.to_string()
                 }
-                fn can_view_any(_cx: &Cx) -> bool {
-                    true
+                fn policy() -> impl Policy<Dummy> {
+                    |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
                 }
                 fn table() -> crate::resource::Table<Dummy> {
                     dummy_table().paginate(25).live_search()
@@ -155,16 +158,15 @@ async fn live_search_host_and_shard_dispatch() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
-        }
         // the bulk transport this test pins renders where the policy
         // allows delete.
-        fn can_delete_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
+                )
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -473,11 +475,8 @@ async fn live_search_input_debounces_keystrokes() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -592,8 +591,8 @@ async fn read_only_resource_hides_delete_chrome() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table().paginate(25)
@@ -647,7 +646,7 @@ async fn read_only_resource_hides_delete_chrome() {
 #[tokio::test]
 async fn list_header_renders_create_entry_point_when_allowed() {
     // GH #162 (Filament's List page `CreateAction` in the page header):
-    // the Create link is eager page chrome, gated on `can_create`.
+    // the Create link is eager page chrome, gated on `Create`.
 
     use crate::resource::Resource;
 
@@ -662,11 +661,10 @@ async fn list_header_renders_create_entry_point_when_allowed() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table().paginate(25)
@@ -684,8 +682,8 @@ async fn list_header_renders_create_entry_point_when_allowed() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
             CreatableResource::table()
@@ -723,20 +721,16 @@ async fn non_editable_resource_hides_edit_links() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        // GH #235: the row policy mirrors the edit route's own `can_view`
-        // + `can_update` check, so a form beside default-deny predicates
+        // GH #235: the row policy mirrors the edit route's own `View`
+        // + `Update` check, so a form beside default-deny predicates
         // renders no link.
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
-        }
-        fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                )
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table().paginate(25)
@@ -754,8 +748,8 @@ async fn non_editable_resource_hides_edit_links() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
             WritableResource::table()
@@ -785,8 +779,8 @@ async fn non_editable_resource_hides_edit_links() {
 /// chrome.
 ///
 /// This resource has a form, so the Edit prefix is wired, and its
-/// default-deny `can_view` / `can_update` withhold the link per row. Its
-/// `can_delete_any` is default-deny too, so no delete prefix is wired and
+/// default-deny `View` / `Update` withhold the link per row. Its
+/// `DeleteAny` is default-deny too, so no delete prefix is wired and
 /// neither the Delete control nor the bulk column renders.
 ///
 /// The row assertion comes first so the negative assertions below cannot
@@ -798,7 +792,7 @@ async fn denied_rows_render_no_edit_chrome() {
 
     use crate::resource::Resource;
 
-    /// The minimum a resource can declare: `can_view_any` so the list
+    /// The minimum a resource can declare: `ViewAny` so the list
     /// renders, a grid and a form so there is something to link to, and
     /// every other `can_*` left at its default.
     struct DeniedResource;
@@ -812,8 +806,8 @@ async fn denied_rows_render_no_edit_chrome() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table().paginate(25)
@@ -881,8 +875,8 @@ async fn denied_rows_render_no_edit_chrome() {
 }
 
 /// a resource whose chrome is wired narrows it per record. The
-/// panel wires each action from the predicate its route checks — `can_view`
-/// for View, `can_view` + `can_update` for Edit, `can_view` + `can_delete`
+/// panel wires each action from the predicate its route checks — `View`
+/// for View, `View` + `Update` for Edit, `View` + `Delete`
 /// for Delete and the bulk checkbox — so a refused row renders no link and
 /// no checkbox instead of a control the route answers 403 to.
 ///
@@ -908,20 +902,15 @@ async fn per_record_policy_narrows_the_wired_chrome() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_delete_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, record: &Dummy) -> bool {
-            record.name != "Hidden"
-        }
-        fn can_update(_cx: &Cx, record: &Dummy) -> bool {
-            record.name != "Locked"
-        }
-        fn can_delete(_cx: &Cx, record: &Dummy) -> bool {
-            record.name != "Locked"
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(record) => record.name != "Hidden",
+                Ability::Update(record) => record.name != "Locked",
+                Ability::DeleteAny => true,
+                Ability::Delete(record) => record.name != "Locked",
+                _ => false,
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table().paginate(25)
@@ -1076,14 +1065,13 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn requires_tenant() -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn tenancy() -> Tenancy<Dummy> {
+            Tenancy::column(Dummy::fields().tenant_id())
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -1156,11 +1144,9 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
     );
 }
 
-/// the case no tenancy test exercised — `requires_tenant()` is
-/// `true` **and** the request carries a valid tenant, but the resource
-/// overrides nothing (`query` stays the default). The framework's derived
-/// tenant filter is the only thing scoping this list, so before it existed
-/// the page served every tenant's rows.
+/// A tenant-scoped resource whose request carries a tenant, and which
+/// overrides nothing else (`query` stays the default): the framework's tenant
+/// filter is the only thing scoping this list.
 #[tokio::test]
 async fn tenant_gated_resource_scopes_rows_to_the_request_tenant() {
     use crate::resource::Resource;
@@ -1180,11 +1166,11 @@ async fn tenant_gated_resource_scopes_rows_to_the_request_tenant() {
         fn slug() -> String {
             "scoped".to_string()
         }
-        fn requires_tenant() -> bool {
-            true
+        fn policy() -> impl Policy<Scoped> {
+            |_cx: &Cx, ability: Ability<'_, Scoped>| matches!(ability, Ability::ViewAny)
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn tenancy() -> Tenancy<Scoped> {
+            Tenancy::column(Scoped::fields().tenant_id())
         }
         fn table() -> crate::resource::Table<Scoped> {
             crate::resource::Table::new(
@@ -1270,8 +1256,8 @@ async fn list_renders_error_state_when_load_fails() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Subscriber> {
+            |_cx: &Cx, ability: Ability<'_, Subscriber>| matches!(ability, Ability::ViewAny)
         }
 
         fn table() -> Table<Self::Model> {
@@ -1418,8 +1404,8 @@ async fn both_cursors_render_the_first_page() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Subscriber> {
+            |_cx: &Cx, ability: Ability<'_, Subscriber>| matches!(ability, Ability::ViewAny)
         }
 
         fn table() -> Table<Self::Model> {

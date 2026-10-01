@@ -12,8 +12,8 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    NavigationItem, Notification, Page, Uploader, csrf, db::db, notification::set_notification,
-    require_tenant, schema::OptionSource,
+    NavigationItem, Notification, Page, Policy, ReadOnly, Uploader, csrf, db::db,
+    notification::set_notification, require_tenant, schema::OptionSource,
 };
 use topcoat::{
     Result,
@@ -71,12 +71,8 @@ impl OptionSource for MediaLibrary {
             .filter(MediaAsset::fields().tenant_id().eq(tenant)))
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &MediaAsset) -> bool {
-        true
+    fn policy() -> impl Policy<MediaAsset> {
+        ReadOnly
     }
 
     fn requires_tenant() -> bool {

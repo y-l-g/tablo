@@ -1,5 +1,6 @@
 use http::header::LOCATION;
 use showcase::{app::router_for_tests as router, models::User};
+use tablo_core::{Ability, Policy};
 use toasty::Db;
 
 use crate::common::{
@@ -367,13 +368,13 @@ fn selectable_row_ids(html: &str) -> Vec<String> {
 
 /// The server-side safety net, after GH #235 moved the visible decision into
 /// the row policy: a hand-crafted POST naming a row the resource refuses is
-/// still 403. The check is all-or-nothing (GH #168: `can_view` then
-/// `can_delete` on every row, before any write), so the batch aborts with zero
+/// still 403. The check is all-or-nothing (GH #168: `View` then
+/// `Delete` on every row, before any write), so the batch aborts with zero
 /// deletions — which is why the rendered checkbox must never offer that row.
 ///
-/// `can_view` allows every row here, so only the partial `can_delete` deny can
-/// produce the 403: with the default-deny `can_view` in place, dropping the
-/// handler's own `can_delete` check would leave this test green.
+/// `View` allows every row here, so only the partial `Delete` deny can
+/// produce the 403: with the default-deny `View` in place, dropping the
+/// handler's own `Delete` check would leave this test green.
 #[tokio::test]
 async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
     use tablo_core::{Resource, Table, TextColumn};
@@ -390,18 +391,17 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
     impl Resource for PartialDenyResource {
         type Model = DummyUser;
         type Form = tablo_core::NoForm<Self::Model>;
-        fn can_view_any(_cx: &topcoat::context::Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &topcoat::context::Cx, _rec: &DummyUser) -> bool {
-            true
-        }
-        fn can_delete_any(_cx: &topcoat::context::Cx) -> bool {
-            true
-        }
-        fn can_delete(_cx: &topcoat::context::Cx, rec: &DummyUser) -> bool {
-            // Deny second record (name == "b")
-            rec.name != "b"
+        fn policy() -> impl Policy<DummyUser> {
+            |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(_rec) => true,
+                Ability::DeleteAny => true,
+                Ability::Delete(rec) => {
+                    // Deny second record (name == "b")
+                    rec.name != "b"
+                }
+                _ => false,
+            }
         }
         fn table() -> Table<DummyUser> {
             Table::new(

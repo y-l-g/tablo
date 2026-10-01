@@ -123,11 +123,9 @@ impl Page for LiveActivityPage {
 #[shard]
 async fn live_feed(cx: &Cx) -> Result<impl View> {
     // Runtime endpoints bypass page guards (Topcoat's shard contract), so the
-    // shard restates the panel gate: a request without a permitted user must
-    // not read the rows, over HTTP or over the connection.
-    if tablo_core::auth::enforced(cx) {
-        tablo_core::auth::require_authenticated(cx)?;
-    }
+    // shard runs the panel's guard itself: a request without a permitted user
+    // must not read the rows, over HTTP or over the connection.
+    tablo_core::auth::guard(cx)?;
     Ok(live! {
         let mut changed = subscribe();
         loop {

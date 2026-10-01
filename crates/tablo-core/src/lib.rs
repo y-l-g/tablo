@@ -2,8 +2,8 @@
 //!
 //! A [`Panel`] serves one [`Resource`] per Toasty model. A resource declares its list page as a
 //! [`Table`], its create and edit forms as a [`Schema`] plus a
-//! [`RecordForm`](derive@RecordForm) struct the submission parses into, and its policy as `can_*`
-//! predicates that deny by default. The app mounts the panel on its own Topcoat router with
+//! [`RecordForm`](derive@RecordForm) struct the submission parses into, and its [`Policy`], which
+//! denies by default. The app mounts the panel on its own Topcoat router with
 //! [`RouterBuilderPanelExt::panel`], which checks every declaration first; one router mounts any
 //! number of panels at distinct prefixes.
 //!
@@ -14,8 +14,8 @@
 //!     type Model = Book;
 //!     type Form = BookForm;
 //!
-//!     fn can_view_any(_cx: &Cx) -> bool {
-//!         true
+//!     fn policy() -> impl Policy<Book> {
+//!         Allow
 //!     }
 //!
 //!     fn table() -> Table<Book> {
@@ -78,6 +78,7 @@ pub mod form;
 pub mod notification;
 mod page;
 pub mod panel;
+pub mod policy;
 mod query_term;
 pub mod resource;
 pub mod schema;
@@ -94,6 +95,7 @@ pub use form::{
 pub use notification::{Notification, NotificationStatus};
 pub use page::Page;
 pub use panel::{Brand, Panel, RouterBuilderPanelExt, url};
+pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, can, can_list, when};
 pub use resource::{
     Action, Actions, BooleanColumn, Column, ColumnWidth, Committed, Cursor, DateFilter, Filter,
     FilterInput, Includes, IntoColumns, IntoFilters, Mutation, NavTarget, NavigationItem, Relation,
@@ -106,5 +108,5 @@ pub use schema::{
     Section, Source, TextField, Toggle,
 };
 pub use tablo_macros::{EmbeddedForm, Options, RecordForm};
-pub use tenancy::{Tenant, require_tenant, tenant_id};
+pub use tenancy::{Tenancy, Tenant, require_tenant, tenant_id};
 pub use upload::Uploader;

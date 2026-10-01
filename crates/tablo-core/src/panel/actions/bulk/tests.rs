@@ -2,7 +2,10 @@ use toasty::Db;
 use topcoat::Result;
 
 use super::*;
-use crate::panel::test_support::{Dummy, dummy_table, mount, panel_for};
+use crate::{
+    Ability, Policy,
+    panel::test_support::{Dummy, dummy_table, mount, panel_for},
+};
 
 #[test]
 fn parse_bulk_ids_dedupes_and_trims() {
@@ -26,11 +29,13 @@ async fn bulk_delete_caps_ids_and_ignores_display_key() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_delete_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(
+                    ability,
+                    Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
+                )
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             // Non-canonical display key: bulk must still resolve
@@ -151,11 +156,13 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_delete_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(
+                    ability,
+                    Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
+                )
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()

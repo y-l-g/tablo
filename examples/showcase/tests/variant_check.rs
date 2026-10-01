@@ -7,7 +7,7 @@
 //! embedded value over a real model and a real panel — with a typed leaf in the
 //! inactive variant so a validated group would refuse the submission.
 
-use tablo_core::{Auth, Field, Panel, Resource, Schema, Table, TextColumn};
+use tablo_core::{Ability, Auth, Field, Panel, Policy, Resource, Schema, Table, TextColumn};
 use toasty::Db;
 use uuid::Uuid;
 
@@ -49,12 +49,10 @@ impl Resource for ClipResource {
         "clips".to_string()
     }
 
-    fn can_view_any(_cx: &topcoat::context::Cx) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &topcoat::context::Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Clip> {
+        |_cx: &topcoat::context::Cx, ability: Ability<'_, Clip>| {
+            matches!(ability, Ability::ViewAny | Ability::Create)
+        }
     }
 
     fn table() -> Table<Clip> {

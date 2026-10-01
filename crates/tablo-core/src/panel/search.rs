@@ -20,12 +20,13 @@ use topcoat::{
 
 use super::{
     build::route_path,
-    gate::{enforce_auth, gate, panel_prefix},
+    gate::{gate, panel_prefix},
     list::{load_table_page, table_error_view, wire_table_actions},
     state::{CurrentPanel, current, panels},
 };
 use crate::{
     form::FormScalar,
+    policy::{Ability, can},
     resource::{Resource, TableSignals, TableState},
     schema::FieldLens,
 };
@@ -90,7 +91,7 @@ pub(crate) fn search_handler_for<R: Resource>() -> SearchFn {
          -> Pin<Box<dyn Future<Output = Result<BoxView<'_>>> + Send + '_>> {
             Box::pin(async move {
                 gate::<R>(cx)?;
-                if !R::can_view_any(cx) {
+                if !can::<R>(cx, Ability::ViewAny) {
                     return Err(forbidden().into());
                 }
                 let table = wire_table_actions::<R>(cx, true);
@@ -149,7 +150,7 @@ where
             let foreign_key = foreign_key.clone();
             Box::pin(async move {
                 gate::<C>(cx)?;
-                if !C::can_view_any(cx) {
+                if !can::<C>(cx, Ability::ViewAny) {
                     return Err(forbidden().into());
                 }
                 let prefix = panel_prefix(cx);
@@ -204,7 +205,7 @@ where
 /// authenticated request, so an unknown `path` cannot be distinguished from a
 /// registered one by an unauthenticated probe (404-vs-401 oracle).
 fn search_entry(cx: &Cx, path: &str) -> Result<SearchFn> {
-    enforce_auth(cx)?;
+    crate::auth::guard(cx)?;
     current(cx)
         .and_then(|panel| panel.search.get(path).cloned())
         .ok_or_else(|| topcoat::router::error::not_found().into())
@@ -221,8 +222,8 @@ fn search_entry(cx: &Cx, path: &str) -> Result<SearchFn> {
 ///
 /// Every arg is untrusted shard input: `path` must name a registered list, and
 /// the query is parsed by [`TableState::from_query`] with the GET path's
-/// bounds. Authorization mirrors the list page (`requires_tenant` +
-/// `can_view_any`, row scoping via the tenant-scoped query); shard POSTs carry
+/// bounds. Authorization mirrors the list page (the resource's tenancy +
+/// `ViewAny`, row scoping via the tenant-scoped query); shard POSTs carry
 /// no CSRF token, and none is needed for this read-only rerun.
 #[shard("/_topcoat/runtime/shards/tablo-table-search")]
 pub(crate) async fn table_search(
@@ -254,7 +255,7 @@ pub(crate) const TABLE_SEARCH_PATH: &str = "/_topcoat/runtime/shards/tablo-table
 /// pair cannot be distinguished from a registered one by an unauthenticated
 /// probe (404-vs-401 oracle).
 fn relation_entry(cx: &Cx, parent: &str, child: &str) -> Result<RelationSearchFn> {
-    enforce_auth(cx)?;
+    crate::auth::guard(cx)?;
     current(cx)
         .and_then(|panel| {
             panel
@@ -279,8 +280,8 @@ fn relation_entry(cx: &Cx, parent: &str, child: &str) -> Result<RelationSearchFn
 /// (`parent`, `child`) pair and the owner's seed as `{parent}/{child}/{seed}`,
 /// `page` must sit under the panel prefix, and the query is parsed by
 /// [`TableState::from_query_prefixed`] with the GET path's bounds.
-/// Authorization mirrors the relation table (`requires_tenant` +
-/// `can_view_any`, row scoping via the tenant-scoped query plus the owner's
+/// Authorization mirrors the relation table (the related resource's tenancy +
+/// `ViewAny`, row scoping via the tenant-scoped query plus the owner's
 /// scope); shard POSTs carry no CSRF token, and none is needed for this
 /// read-only rerun.
 #[shard("/_topcoat/runtime/shards/tablo-table-relation-search")]

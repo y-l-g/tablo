@@ -3,6 +3,7 @@ use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
 use crate::{
+    Ability, Policy,
     resource::{
         Column, Resource, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn,
     },
@@ -87,8 +88,10 @@ async fn wired_table_carries_the_declared_action_chrome() {
             .paginate(25)
         }
 
-        fn can_delete_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<User> {
+            |_cx: &Cx, ability: Ability<'_, User>| {
+                matches!(ability, Ability::DeleteAny | Ability::Delete(_))
+            }
         }
     }
 

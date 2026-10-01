@@ -62,9 +62,10 @@ impl Resource for BookResource {
     type Model = Book;
     type Form = BookForm;
 
-    // Every policy predicate denies by default; this one opens the list.
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
+    // The default policy denies everything; this one opens the list and
+    // the records, and nothing else.
+    fn policy() -> impl Policy<Book> {
+        ReadOnly
     }
 
     fn table() -> Table<Book> {
@@ -151,8 +152,8 @@ cargo run
 
 ## What the example leaves out
 
-- **Writes.** Only `can_view_any` is allowed, so the create link is hidden, the create and edit
-  pages answer 403, and rows show no Edit or Delete action.
+- **Writes.** `ReadOnly` allows only listing and viewing, so the create link is hidden, the create
+  and edit pages answer 403, and rows show no Edit or Delete action.
   [Policy, auth, tenancy](./policy-auth-tenancy.md) opens them.
 - **Styling.** The example registers no asset bundle, so pages render unstyled and without the
   shell's scripts, but every page and form works. The router's `.assets(..)` and the panel's

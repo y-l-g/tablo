@@ -43,21 +43,21 @@ pub(crate) type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
 /// selection transport.
 ///
 /// The panel derives one from the resource's
-/// [`can_view`](crate::resource::Resource::can_view) /
-/// [`can_update`](crate::resource::Resource::can_update) /
-/// [`can_delete`](crate::resource::Resource::can_delete), pairing each action
+/// [`View`](crate::policy::Ability::View) /
+/// [`Update`](crate::policy::Ability::Update) /
+/// [`Delete`](crate::policy::Ability::Delete), pairing each action
 /// with the same predicates its route checks, so a rendered affordance and the
 /// route that answers it cannot disagree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct RowActions {
     /// Whether the row renders its `View` link — the detail route's
-    /// `can_view`.
+    /// `View`.
     pub view: bool,
-    /// Whether the row renders its `Edit` link — the edit route's `can_view`
-    /// **and** `can_update`.
+    /// Whether the row renders its `Edit` link — the edit route's `View`
+    /// **and** `Update`.
     pub edit: bool,
     /// Whether the row renders its `Delete` link and an enabled bulk checkbox —
-    /// the delete route's `can_view` **and** `can_delete`.
+    /// the delete route's `View` **and** `Delete`.
     pub delete: bool,
 }
 
@@ -94,7 +94,7 @@ impl<M> Clone for GroupDef<M> {
 ///
 /// [`Resource::table`](crate::resource::Resource::table) returns a table
 /// carrying no delete/edit/view prefix: the panel attaches them from the
-/// resource's [`can_delete_any`](crate::resource::Resource::can_delete_any),
+/// resource's [`DeleteAny`](crate::policy::Ability::DeleteAny),
 /// its record form, and whether it declares a
 /// [`view`](crate::resource::Resource::view).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -111,7 +111,7 @@ pub(crate) struct TableChrome {
 
 /// One custom [`Action`](crate::resource::Action) as a table renders it:
 /// the button text, where it renders, and the per-record gate the panel
-/// wired from [`Resource::can_view`](crate::resource::Resource::can_view) and
+/// wired from [`Ability::View`](crate::policy::Ability::View) and
 /// the action's `can_run`.
 pub(crate) struct TableAction<M> {
     pub(crate) name: &'static str,
@@ -345,9 +345,9 @@ impl<M> Table<M> {
     /// page free of per-record predicate calls.
     ///
     /// The panel wires this from
-    /// [`can_view`](crate::resource::Resource::can_view) /
-    /// [`can_update`](crate::resource::Resource::can_update) /
-    /// [`can_delete`](crate::resource::Resource::can_delete), each action
+    /// [`View`](crate::policy::Ability::View) /
+    /// [`Update`](crate::policy::Ability::Update) /
+    /// [`Delete`](crate::policy::Ability::Delete), each action
     /// mirroring the predicates its route checks.
     pub(crate) fn row_actions(
         mut self,
@@ -619,9 +619,9 @@ impl<M> Table<M> {
     /// `LIVE_SEARCH_DEBOUNCE_MS`), morphing in place so focus
     /// and typing survive, instead of a GET submit. The `?q=` GET form stays
     /// inside `<noscript>` as the no-JS fallback. Opt-in per resource; the
-    /// shard authorizes itself (`can_view_any` + the tenant-scoped query,
+    /// shard authorizes itself (`ViewAny` + the tenant-scoped query,
     /// GH #223) and every arg is validated like the GET path.
-    /// Per-row `can_view` is not applied here, matching the list page:
+    /// Per-row `View` is not applied here, matching the list page:
     /// page-local row filtering would mislabel pagination, so row scoping
     /// belongs in `Resource::query`, inside that scope.
     /// Note: Topcoat coalesces same-tick keystrokes and aborts in-flight
@@ -639,7 +639,7 @@ impl<M> Table<M> {
     ///
     /// The action is gated per record by the panel-wired row policy: a row
     /// the policy denies renders no `Delete` link and no bulk checkbox,
-    /// matching the handler's `can_view` + `can_delete` check.
+    /// matching the handler's `View` + `Delete` check.
     pub(crate) fn with_delete(mut self, prefix: String) -> Self {
         self.delete_prefix = Some(prefix);
         self
@@ -652,8 +652,8 @@ impl<M> Table<M> {
     ///
     /// The action is gated per record by the panel-wired row policy: a row
     /// the policy denies renders no `Edit` link, matching the edit route's
-    /// `can_view` + `can_update` check. The list still renders every row —
-    /// `can_view` stays out of the query, so pagination is not mislabelled.
+    /// `View` + `Update` check. The list still renders every row —
+    /// `View` stays out of the query, so pagination is not mislabelled.
     pub(crate) fn with_edit(mut self, prefix: String) -> Self {
         self.edit_prefix = Some(prefix);
         self
@@ -668,7 +668,7 @@ impl<M> Table<M> {
     /// (a non-empty [`view`](crate::resource::Resource::view)), so a resource
     /// with no view renders no link instead of one that 404s. The action is
     /// gated per record by the panel-wired row policy: a row the policy
-    /// denies renders no `View` link, matching the detail route's `can_view`.
+    /// denies renders no `View` link, matching the detail route's `View`.
     pub(crate) fn with_view(mut self, prefix: String) -> Self {
         self.view_prefix = Some(prefix);
         self

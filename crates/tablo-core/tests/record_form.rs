@@ -6,8 +6,8 @@ use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
 use tablo_core::{
-    Field, FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm, Repeater, Resource, Schema,
-    Table, Tenant, TextColumn, write_create,
+    Ability, Field, FieldErrorKind, FieldErrors, NoForm, Panel, Policy, RecordForm, Repeater,
+    Resource, Schema, Table, Tenancy, Tenant, TextColumn, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -78,20 +78,13 @@ impl Resource for ItemResource {
         "items".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &Item) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_update(_cx: &Cx, _record: &Item) -> bool {
-        true
+    fn policy() -> impl Policy<Item> {
+        |_cx: &Cx, ability: Ability<'_, Item>| {
+            matches!(
+                ability,
+                Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+            )
+        }
     }
 
     fn table() -> Table<Item> {
@@ -375,16 +368,13 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
             "items".to_string()
         }
 
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-
-        fn can_view(_cx: &Cx, _record: &Item) -> bool {
-            true
-        }
-
-        fn can_update(_cx: &Cx, _record: &Item) -> bool {
-            true
+        fn policy() -> impl Policy<Item> {
+            |_cx: &Cx, ability: Ability<'_, Item>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Update(_)
+                )
+            }
         }
 
         fn table() -> Table<Item> {
@@ -448,16 +438,13 @@ impl Resource for OwnedResource {
         "owned".to_string()
     }
 
-    fn requires_tenant() -> bool {
-        true
+    fn policy() -> impl Policy<Owned> {
+        |_cx: &Cx, ability: Ability<'_, Owned>| {
+            matches!(ability, Ability::ViewAny | Ability::Create)
+        }
     }
-
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
+    fn tenancy() -> Tenancy<Owned> {
+        Tenancy::column(Owned::fields().tenant_id())
     }
 
     fn table() -> Table<Owned> {
@@ -510,8 +497,8 @@ macro_rules! item_resource {
                 "items".to_string()
             }
 
-            fn can_view_any(_cx: &Cx) -> bool {
-                true
+            fn policy() -> impl Policy<Item> {
+                |_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::ViewAny)
             }
 
             fn table() -> Table<Item> {
@@ -736,8 +723,8 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
             ))
         }
 
-        fn requires_tenant() -> bool {
-            true
+        fn tenancy() -> Tenancy<Owned> {
+            Tenancy::column(Owned::fields().tenant_id())
         }
 
         fn table() -> Table<Owned> {
@@ -752,7 +739,7 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
     );
 }
 
-/// A `NoForm` resource over [`Item`] whose `can_create` and `form()` answer
+/// A `NoForm` resource over [`Item`] whose `Create` and `form()` answer
 /// the given values.
 macro_rules! list_only_resource {
     ($name:ident, $create:expr, $schema:expr) => {
@@ -766,8 +753,11 @@ macro_rules! list_only_resource {
                 "items".to_string()
             }
 
-            fn can_create(_cx: &Cx) -> bool {
-                $create
+            fn policy() -> impl Policy<Item> {
+                |_cx: &Cx, ability: Ability<'_, Item>| match ability {
+                    Ability::Create => $create,
+                    _ => false,
+                }
             }
 
             fn table() -> Table<Item> {
@@ -850,8 +840,8 @@ async fn a_list_only_detail_page_reads_view_values() {
             "items".to_string()
         }
 
-        fn can_view(_cx: &Cx, _record: &Item) -> bool {
-            true
+        fn policy() -> impl Policy<Item> {
+            |_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::View(_))
         }
 
         fn table() -> Table<Item> {
@@ -922,8 +912,8 @@ macro_rules! title_only_resource {
                 "items".to_string()
             }
 
-            fn can_create(_cx: &Cx) -> bool {
-                true
+            fn policy() -> impl Policy<Item> {
+                |_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::Create)
             }
 
             fn table() -> Table<Item> {
@@ -980,12 +970,10 @@ async fn a_value_the_form_type_refuses_renders_inline() {
             "items".to_string()
         }
 
-        fn can_view(_cx: &Cx, _record: &Item) -> bool {
-            true
-        }
-
-        fn can_update(_cx: &Cx, _record: &Item) -> bool {
-            true
+        fn policy() -> impl Policy<Item> {
+            |_cx: &Cx, ability: Ability<'_, Item>| {
+                matches!(ability, Ability::View(_) | Ability::Update(_))
+            }
         }
 
         fn table() -> Table<Item> {
@@ -1078,12 +1066,10 @@ async fn an_unkeyable_record_rule_fails_closed() {
             "items".to_string()
         }
 
-        fn can_view(_cx: &Cx, _record: &Item) -> bool {
-            true
-        }
-
-        fn can_update(_cx: &Cx, _record: &Item) -> bool {
-            true
+        fn policy() -> impl Policy<Item> {
+            |_cx: &Cx, ability: Ability<'_, Item>| {
+                matches!(ability, Ability::View(_) | Ability::Update(_))
+            }
         }
 
         fn table() -> Table<Item> {
@@ -1162,12 +1148,10 @@ async fn an_unkeyable_parse_failure_fails_closed() {
             "items".to_string()
         }
 
-        fn can_view(_cx: &Cx, _record: &Item) -> bool {
-            true
-        }
-
-        fn can_update(_cx: &Cx, _record: &Item) -> bool {
-            true
+        fn policy() -> impl Policy<Item> {
+            |_cx: &Cx, ability: Ability<'_, Item>| {
+                matches!(ability, Ability::View(_) | Ability::Update(_))
+            }
         }
 
         fn table() -> Table<Item> {
@@ -1184,7 +1168,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
 }
 
 /// A list-only resource serves no create route, so its list links to none —
-/// even when a request-scoped `can_create` allows create and the build check,
+/// even when a request-scoped `Create` allows create and the build check,
 /// which runs with no request, could not see it.
 #[tokio::test]
 async fn a_list_only_resource_never_links_to_create() {
@@ -1198,12 +1182,12 @@ async fn a_list_only_resource_never_links_to_create() {
             "items".to_string()
         }
 
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-
-        fn can_create(cx: &Cx) -> bool {
-            tablo_core::tenant_id(cx).is_some()
+        fn policy() -> impl Policy<Item> {
+            |cx: &Cx, ability: Ability<'_, Item>| match ability {
+                Ability::ViewAny => true,
+                Ability::Create => tablo_core::tenant_id(cx).is_some(),
+                _ => false,
+            }
         }
 
         fn table() -> Table<Item> {
@@ -1266,20 +1250,13 @@ async fn the_derived_default_form_renders_and_writes() {
             "widgets".to_string()
         }
 
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-
-        fn can_view(_cx: &Cx, _record: &Widget) -> bool {
-            true
-        }
-
-        fn can_create(_cx: &Cx) -> bool {
-            true
-        }
-
-        fn can_update(_cx: &Cx, _record: &Widget) -> bool {
-            true
+        fn policy() -> impl Policy<Widget> {
+            |_cx: &Cx, ability: Ability<'_, Widget>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                )
+            }
         }
 
         fn table() -> Table<Widget> {

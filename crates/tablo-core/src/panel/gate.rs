@@ -6,34 +6,20 @@ use topcoat::{Result, context::Cx};
 use super::state::current;
 use crate::resource::{RETURN_PARAM, Resource};
 
-/// Defense-in-depth companion to the auth gate (ADR-0013): every
-/// panel handler and the live-search shard re-check the resolved user, so a
-/// missing or mis-mounted gate cannot silently open a handler. A no-op when
-/// the panel explicitly disabled auth.
-pub(crate) fn enforce_auth(cx: &Cx) -> Result<(), topcoat::Error> {
-    if crate::auth::enforced(cx) {
-        crate::auth::require_authenticated(cx)?;
-    }
-    Ok(())
-}
-
-/// Enforce tenancy gating for resources that require it.
-///
-/// Wired into every resource handler; a no-op unless the resource overrides
-/// `Resource::requires_tenant`. Fails closed (403) when no tenant is present
-/// instead of serving unscoped rows.
+/// Enforce tenancy for a tenant-scoped resource: 403 when the request has no
+/// tenant, instead of serving unscoped rows. A no-op for a resource whose
+/// [`tenancy`](Resource::tenancy) is none.
 pub(crate) fn enforce_tenant<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error> {
-    if R::requires_tenant() {
+    if R::tenancy().is_scoped() {
         crate::tenancy::require_tenant(cx)?;
     }
     Ok(())
 }
 
-/// The gate every resource handler runs first: the authenticated user, then
-/// the resource's tenant. A no-op when auth is compiled out and the resource
-/// declares no tenant.
+/// The gate every resource handler runs first: the panel's sign-in
+/// ([`auth::guard`](crate::auth::guard)), then the resource's tenant.
 pub(crate) fn gate<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error> {
-    enforce_auth(cx)?;
+    crate::auth::guard(cx)?;
     enforce_tenant::<R>(cx)
 }
 

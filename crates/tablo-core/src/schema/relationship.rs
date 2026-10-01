@@ -1,8 +1,8 @@
 //! Relationship option loading — bounded, memoized, policy-checked.
 //!
 //! Every relationship choice field over one source shares a single bounded
-//! load per `(request, tenant)`; policy (`can_view_any`/`can_view` plus
-//! the tenant gate) fails the load closed instead of leaking labels.
+//! load per `(request, tenant)`; the source's policy plus
+//! the tenant gate fails the load closed instead of leaking labels.
 //!
 //! The loaders are generic over [`OptionSource`] — the source surface they
 //! read — rather than over `Resource`, so the dependency runs one way:
@@ -12,32 +12,31 @@
 use toasty::stmt::{Expr, List, OrderByExpr, Query};
 use topcoat::{Result, context::Cx};
 
+use crate::policy::{Ability, Deny, Policy};
+
 /// Everything the relationship option loaders read from the thing they load
 /// options from.
 ///
-/// The loaders ask for the **tenant-scoped** seed query, the narrowed
-/// option-load seed, the policy predicates, the tenant declaration, a name for
-/// the log fields, and the source's search and ordering expressions. It is a
-/// *source* surface rather than a second resource trait, so `schema` names no
-/// part of `Resource`: for a `Resource`, the policy and declaration methods
-/// forward straight through and the two query methods compose the framework's
-/// tenant-scoped query (see the blanket impl in [`crate::resource`]).
+/// The loaders ask for the **tenant-scoped** seed query, the policy, the
+/// tenant declaration, a name for the log fields, and the source's search and
+/// ordering expressions. It is a *source* surface rather than a second resource
+/// trait, so `schema` names no part of `Resource`: every
+/// [`Resource`](crate::resource::Resource) is one through the blanket impl in
+/// [`crate::resource`], which forwards its policy and tenancy and composes the
+/// framework's tenant-scoped query.
 ///
 /// [`scoped_query`](Self::scoped_query) is **required**: a source states its own
 /// scope, so a gated source cannot end up unscoped by omission. The rest have
-/// the default that keeps a source declaring nothing honest — the policy
-/// predicates deny, the search and ordering expressions answer `None`,
+/// the default that keeps a source declaring nothing honest: the policy denies,
+/// the search and ordering expressions answer `None`,
 /// [`requires_tenant`](Self::requires_tenant) is `false`, and
 /// [`slug`](Self::slug) falls back to the type name.
 ///
 /// It is public because [`ChoiceField::relationship`](crate::schema::ChoiceField::relationship)'s
-/// bound names it, and a `pub(crate)` trait there is a `private_bounds` warning.
-/// It is not re-exported at the crate root, because its method names are
-/// `Resource`'s and a glob import would collide; it is reachable as
-/// `schema::OptionSource`. Every [`Resource`](crate::resource::Resource) is one
-/// through the blanket impl, so a real resource keeps the tenant gate and
-/// derived filter on every option load; implement it directly only for a source
-/// that is not a resource, and state the scope.
+/// bound names it. It is not re-exported at the crate root, because its method
+/// names are `Resource`'s and a glob import would collide; it is reachable as
+/// `schema::OptionSource`. Implement it directly only for a source that is not a
+/// resource, and state the scope.
 pub trait OptionSource: Sized + Send + Sync + 'static {
     /// The model whose rows become options.
     type Model: toasty::schema::Model + Send + Sync + 'static;
@@ -45,29 +44,20 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     /// The **tenant-scoped** seed query every option load starts from.
     ///
     /// Required, and stated by every implementor, so a source cannot be
-    /// unscoped by omission. A source that scopes nothing says so in the body —
-    /// `Ok(Query::all())`, what a resource's default
-    /// [`query`](crate::resource::Resource::query) returns — and a source whose
-    /// rows are tenant-owned ANDs the tenant predicate here, which is what
-    /// [`Self::requires_tenant`] declares. A `Resource` never writes this by
-    /// hand: the blanket impl forwards to the framework's `scoped_query`.
+    /// unscoped by omission. A source that scopes nothing says so in the body,
+    /// `Ok(Query::all())`, and a source whose rows are tenant-owned ANDs the
+    /// tenant predicate here, which is what [`Self::requires_tenant`] declares.
     ///
-    /// An `Err` is a **permanent** misdeclaration — a source that declared a
-    /// tenant gate the framework cannot satisfy — reported as
+    /// An `Err` is a **permanent** misdeclaration, reported as
     /// `OptionLoadError::Misdeclared` rather than a retryable failure.
     fn scoped_query(cx: &Cx) -> Result<Query<List<Self::Model>>>;
 
-    /// Whether the current user may see the source's records at all: `false`
-    /// fails the whole option load closed, never an empty set that
-    /// validates as "invalid".
-    fn can_view_any(_cx: &Cx) -> bool {
-        false
-    }
-
-    /// Whether the current user may view one loaded row: `false` keeps it out
-    /// of the options — and out of validation — before its label renders.
-    fn can_view(_cx: &Cx, _record: &Self::Model) -> bool {
-        false
+    /// What the current user may see. [`Ability::ViewAny`] refused fails the
+    /// whole option load closed, never an empty set that validates as
+    /// "invalid"; [`Ability::View`] refused keeps a row out of the options, and
+    /// out of validation, before its label renders.
+    fn policy() -> impl Policy<Self::Model> {
+        Deny
     }
 
     /// Whether the source's rows are tenant-owned: `true` fails a
@@ -118,16 +108,15 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
 /// retryable.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum OptionLoadError {
-    /// The related resource denies `can_view_any` (or has no tenant) for
+    /// The related resource refuses `ViewAny` (or has no tenant) for
     /// this request.
     Denied,
     /// The driver failed.
     LoadFailed,
     /// The related table overflows the option cap.
     Overflow,
-    /// The related resource's tenancy cannot be scoped at all: it requires a
-    /// tenant, its model has no derivable `tenant_id`, and it declares no
-    /// `tenant_scope`.
+    /// The source's [`scoped_query`](OptionSource::scoped_query) failed after
+    /// the access check passed: a source that cannot state its own scope.
     ///
     /// Distinct from [`Self::LoadFailed`] because retrying cannot fix a broken
     /// declaration: the option UI must not offer a retry, and the search
@@ -151,15 +140,20 @@ pub(crate) type RelationshipSearchLoader =
     std::sync::Arc<dyn Fn(&Cx, String) -> RelationshipLoadFuture + Send + Sync>;
 
 /// The boxed future a targeted existence check returns (D4).
-pub(crate) type RelationshipCheckFuture = std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<RelatedCheck, OptionLoadError>> + Send>,
+pub(crate) type RelationshipCheckFuture<'a> = std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<RelatedCheck, OptionLoadError>> + Send + 'a>,
 >;
 
+/// The targeted existence check, run through the executor it is handed: a
+/// pooled handle before a write, the write's transaction inside it.
 #[allow(clippy::type_complexity)]
-pub(crate) type RelationshipChecker =
-    std::sync::Arc<dyn Fn(&Cx, String) -> RelationshipCheckFuture + Send + Sync>;
+pub(crate) type RelationshipChecker = std::sync::Arc<
+    dyn for<'a> Fn(&'a Cx, String, &'a mut dyn toasty::Executor) -> RelationshipCheckFuture<'a>
+        + Send
+        + Sync,
+>;
 
-/// Whether the option load may proceed: related `can_view_any` plus the
+/// Whether the option load may proceed: the related `ViewAny` plus the
 /// related tenant gate fail closed (`Denied`). Shared by the bounded load,
 /// the server-side search, and the targeted check so tenancy isolation never
 /// rides on scope resolution in one place and not the others.
@@ -167,7 +161,7 @@ fn ensure_option_access<R>(cx: &Cx) -> Result<(), OptionLoadError>
 where
     R: OptionSource,
 {
-    if !R::can_view_any(cx) {
+    if !R::policy().allows(cx, Ability::ViewAny) {
         return Err(OptionLoadError::Denied);
     }
     if R::requires_tenant() && crate::tenancy::tenant_id(cx).is_none() {
@@ -199,7 +193,7 @@ where
         tracing::error!(
             resource = R::slug(),
             error = %error,
-            "relationship option load cannot scope the related resource (GH #223)"
+            "relationship option load cannot scope the related resource"
         );
         OptionLoadError::Misdeclared
     })
@@ -226,12 +220,12 @@ pub(crate) type RelatedPrimaryKey<R> =
 /// stays the only data seam; value and label mapping stay in the
 /// caller so selects with different projections share the hit.
 ///
-/// Policy is part of the load: `can_view_any` (and the related
+/// Policy is part of the load: `ViewAny` (and the related
 /// resource's tenant gate) denies the whole load — fail closed, never an
 /// empty set that validates as "invalid"; loaded rows are filtered through
-/// `can_view` before any label is rendered.
+/// `View` before any label is rendered.
 ///
-/// The cap is checked on the **raw** bounded fetch, before `can_view`
+/// The cap is checked on the **raw** bounded fetch, before `View`
 /// filtering: counting filtered rows would let one hidden record
 /// defeat the cap and silently truncate a larger table, misreporting
 /// legitimate FKs as "invalid".
@@ -258,7 +252,7 @@ where
 /// to `LoadFailed`, refuse a set over the cap with `Overflow`, then drop the
 /// rows the caller cannot view.
 ///
-/// The cap is checked on the **raw** bounded fetch, before `can_view`
+/// The cap is checked on the **raw** bounded fetch, before `View`
 /// filtering: counting filtered rows would let one hidden record
 /// defeat the cap and silently truncate a larger table, misreporting
 /// legitimate FKs as "invalid". `failed` and `overflow` are the warning
@@ -298,7 +292,8 @@ where
         );
         return Err(OptionLoadError::Overflow);
     }
-    records.retain(|record| R::can_view(cx, record));
+    let policy = R::policy();
+    records.retain(|record| policy.allows(cx, Ability::View(record)));
     Ok(records)
 }
 
@@ -315,8 +310,8 @@ where
 ///   the hard-cap path.
 /// * Filtered fetch carries `limit(MAX+1)` and fails with `Overflow` past the cap instead of
 ///   scanning the table — one bounded round-trip per keystroke burst, never the whole table.
-/// * Policy mirrors the base load: `can_view_any` + tenant gate fail closed (`Denied`), rows filter
-///   through `can_view` before labels.
+/// * Policy mirrors the base load: `ViewAny` + tenant gate fail closed (`Denied`), rows filter
+///   through `View` before labels.
 /// * `q` is clamped to [`crate::query_term::MAX_QUERY_TERM`] chars (same bound as `?q=`), trimmed.
 /// * One bounded round-trip per call, never the whole table; not memoized (`q` is unbounded per
 ///   keystroke, and the endpoint serves one field and one term per request, so sharing would only
@@ -361,20 +356,22 @@ where
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum RelatedCheck {
     /// PK parses and resolves through the tenant-scoped query and passes
-    /// `can_view`.
+    /// `View`.
     FoundViewable,
-    /// PK resolves but `can_view` denies it (maps to "invalid", never leaks).
+    /// PK resolves but `View` is refused (maps to "invalid", never leaks).
     FoundHidden,
     /// PK does not parse or no row matches (maps to "invalid").
     NotFound,
 }
 
-/// Targeted FK existence check for overflowed sets (D4).
+/// Targeted FK existence check, through `ex`.
 ///
-/// Membership in the bounded set cannot validate overflowed selects (the full
-/// set exceeds the cap), so validate the submitted value directly: parse via
-/// `pk_eq_expr`, fetch through the tenant-scoped query, then `can_view`.
-/// * `Denied` when `can_view_any` fails or tenant is missing (maps to "not available").
+/// Validates one submitted key directly: parse via `pk_eq_expr`, fetch through
+/// the tenant-scoped query, then `View`. The pre-write validation runs it for
+/// an overflowed set, which membership in the bounded set cannot validate, and
+/// the write runs it for every relationship key inside its transaction, so the
+/// key is checked against the rows the write sees.
+/// * `Denied` when `ViewAny` is refused or tenant is missing (maps to "not available").
 /// * `LoadFailed` on driver failure (maps to retry).
 /// * `Ok(FoundViewable/FoundHidden/NotFound)` otherwise.
 /// * Single targeted round-trip per call, not memoized (one value per validation; sharing would
@@ -382,6 +379,7 @@ pub(crate) enum RelatedCheck {
 pub(crate) async fn related_record_check<R>(
     cx: &Cx,
     value: String,
+    ex: &mut dyn toasty::Executor,
 ) -> Result<RelatedCheck, OptionLoadError>
 where
     R: OptionSource,
@@ -391,11 +389,10 @@ where
     let Some(expr) = crate::schema::pk_eq_expr::<R::Model>(trimmed) else {
         return Ok(RelatedCheck::NotFound);
     };
-    let mut db = crate::db::db(cx);
     let row = option_query::<R>(cx)?
         .filter(expr)
         .first()
-        .exec(&mut db)
+        .exec(ex)
         .await
         .map_err(|e| {
             tracing::warn!(
@@ -408,7 +405,7 @@ where
     match row {
         None => Ok(RelatedCheck::NotFound),
         Some(record) => {
-            if R::can_view(cx, &record) {
+            if R::policy().allows(cx, Ability::View(&record)) {
                 Ok(RelatedCheck::FoundViewable)
             } else {
                 Ok(RelatedCheck::FoundHidden)

@@ -54,8 +54,7 @@ fn tenant_header_is_never_trusted() {
     assert_eq!(tenant_id(&cx_with_header(&id.to_string())), None);
 }
 
-/// A model with the conventional column, one without any, and one whose
-/// same-named column is the wrong type.
+/// A model with its own tenant column.
 #[derive(Debug, Clone, toasty::Model)]
 struct Scoped {
     #[key]
@@ -65,36 +64,31 @@ struct Scoped {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
-struct Unscoped {
-    #[key]
-    #[auto]
-    id: uuid::Uuid,
-    name: String,
-}
-
-#[derive(Debug, Clone, toasty::Model)]
-struct WronglyTyped {
-    #[key]
-    #[auto]
-    id: uuid::Uuid,
-    tenant_id: String,
+#[test]
+fn tenancy_none_is_unscoped_and_filters_nothing() {
+    let tenancy = Tenancy::<Scoped>::none();
+    assert!(!tenancy.is_scoped());
+    assert!(tenancy.filter(uuid::Uuid::new_v4()).is_none());
+    assert!(tenancy.column_field().is_none());
 }
 
 #[test]
-fn tenant_column_is_discovered_by_name_and_uuid_type() {
-    // `id` is index 0, `tenant_id` index 1, `name` index 2.
-    assert_eq!(tenant_field_index::<Scoped>(), Some(1));
-    // No column at all, and a `tenant_id` that is not a UUID: both are
-    // "cannot scope", never "scope by something else".
-    assert_eq!(tenant_field_index::<Unscoped>(), None);
-    assert_eq!(tenant_field_index::<WronglyTyped>(), None);
+fn tenancy_column_binds_the_lens_field() {
+    let tenancy = Tenancy::column(Scoped::fields().tenant_id());
+    assert!(tenancy.is_scoped());
+    let field = tenancy
+        .column_field()
+        .expect("a column tenancy names a column")
+        .expect("the lens is one field of the model");
+    // `id` is index 0, `tenant_id` index 1.
+    assert_eq!(field.index, 1);
+    assert_eq!(field.name, "tenant_id");
 }
 
-/// The derived filter is only real if it reaches SQL: the discovered index
-/// and the UUID comparison must narrow a live query.
+/// The filter is only real if it reaches SQL: the lens and the UUID
+/// comparison must narrow a live query.
 #[tokio::test]
-async fn derived_tenant_filter_scopes_a_live_query() {
+async fn tenancy_column_filter_scopes_a_live_query() {
     let mut db = toasty::Db::builder()
         .models(toasty::models!(Scoped))
         .connect("sqlite::memory:")
@@ -118,7 +112,9 @@ async fn derived_tenant_filter_scopes_a_live_query() {
     .await
     .unwrap();
 
-    let filter = derived_tenant_filter::<Scoped>(mine).expect("Scoped declares tenant_id");
+    let filter = Tenancy::column(Scoped::fields().tenant_id())
+        .filter(mine)
+        .expect("a column tenancy filters");
     let rows = toasty::stmt::Query::<toasty::stmt::List<Scoped>>::all()
         .filter(filter)
         .exec(&mut db)
@@ -126,8 +122,4 @@ async fn derived_tenant_filter_scopes_a_live_query() {
         .unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Mine");
-
-    // No discoverable column → no filter → the caller must fail rather than
-    // run the query.
-    assert!(derived_tenant_filter::<Unscoped>(mine).is_none());
 }

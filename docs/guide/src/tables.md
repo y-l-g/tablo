@@ -188,7 +188,7 @@ table does not declare is ignored.
 `GET /admin/{slug}/export` returns the list as a CSV file named `{slug}.csv`, with the current
 search, filters and sort applied, and the relations the columns include loaded.
 
-- Rows the caller may not view (`can_view`) are left out.
+- Rows the policy may not `View` are left out.
 - The export delivers at most 10,000 rows. When the search and filters match more, it answers
   413 rather than a truncated file.
 - Cells that a spreadsheet would read as a formula are escaped. Add `?bom=1` to prefix the file
@@ -198,14 +198,15 @@ search, filters and sort applied, and the relations the columns include loaded.
 
 Each row shows the actions its record allows:
 
-- **View** when the resource declares a detail page (`view()`) and `can_view` allows the record;
-- **Edit** when the resource has a record form and `can_view` and `can_update` allow it;
-- **Delete** when `can_delete_any` allows deletes and `can_view` and `can_delete` allow the record;
+- **View** when the resource declares a detail page (`view()`) and the policy allows `View` of the
+  record;
+- **Edit** when the resource has a record form and the policy allows `View` and `Update`;
+- **Delete** when the policy allows `DeleteAny`, and `View` and `Delete` of the record;
 - each [custom action](#custom-actions) the record allows.
 
 A row that allows none keeps an empty actions cell.
 
-When `can_delete_any` allows deletes, or the resource declares a bulk custom action, the list adds
+When the policy allows `DeleteAny`, or the resource declares a bulk custom action, the list adds
 a checkbox column and a bulk bar. A row that neither delete nor any bulk action allows gets no
 checkbox, so select-all only selects rows something can be done to. A bulk delete accepts at most
 400 records and deletes all of them or none: a selection holding a record that may not be deleted
@@ -256,14 +257,15 @@ impl Resource for PostResource {
 }
 ```
 
-A row renders the action's button when `can_view` and `can_run` allow its record, and the bulk bar
+A row renders the action's button when the policy's `View` and the action's `can_run` allow its
+record, and the bulk bar
 renders it for the selection. `const ROW: bool = false` keeps it off the rows, and
 `const BULK: bool = false` off the bulk bar.
 
 The framework runs an action the way it runs a delete. The POST goes to
 `{list}/{key}/actions/{NAME}` for a row and `{list}/actions/{NAME}` for the selection, carries the
 CSRF token, and loads the records through the tenant-scoped query inside a transaction. Every
-record must pass `can_view` and `can_run`, and `run` writes through the same transaction, so an
+record must pass the policy's `View` and the action's `can_run`, and `run` writes through the same transaction, so an
 error rolls everything back. After the commit, `after_commit` receives `Mutation::Action(NAME)`
 with the records and the list shows `Action::success`, by default the label and the record count.
 
