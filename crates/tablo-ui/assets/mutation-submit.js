@@ -156,6 +156,14 @@ function bumpRevision(input) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// Where a submit posts: the submitting button's `formaction` when it carries
+// one — a bulk custom action shares the bulk form and its selection, but posts
+// to its own route — else the form's own action.
+function submitTarget(form, submitter) {
+  const own = submitter && submitter.getAttribute && submitter.getAttribute('formaction');
+  return own || form.getAttribute('action');
+}
+
 // Everything below only makes sense with a document. It lives in a function so
 // this file can also be `require`d by its Node unit test, which has no DOM:
 // loading the script must not touch one.
@@ -166,7 +174,7 @@ function install() {
     // No action: the row dialog is retargeted by dialog.js from the control
     // that opens it, so this is markup the page cannot serve. The browser's
     // own submit is the honest fallback.
-    const action = form.getAttribute('action');
+    const action = submitTarget(form, event.submitter);
     if (!action) return;
     event.preventDefault();
     send(form, action, event.submitter || form.querySelector('button[type="submit"]'));
@@ -372,6 +380,7 @@ if (typeof module !== 'undefined' && module.exports) {
     deletedKey,
     pruneWire,
     removedKeys,
+    submitTarget,
     swapTargets,
     tableRootFor,
   };

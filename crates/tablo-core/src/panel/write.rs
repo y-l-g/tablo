@@ -21,7 +21,7 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
     tx: toasty::Transaction<'_>,
     written: Result<T, topcoat::Error>,
     committed: impl FnOnce(T) -> Committed<R::Model>,
-    note: &'static str,
+    note: impl Into<String>,
     failure: &'static str,
 ) -> Result<BoxView<'a>, topcoat::Error> {
     match written {
@@ -58,7 +58,7 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
 /// GET, and the flash cookie rides the error response (Topcoat flushes
 /// `Set-Cookie` on `Err` too, topcoat#408), so every mutation redirects the
 /// same way.
-fn redirect_after_write<R: Resource>(cx: &Cx, note: &'static str) -> topcoat::Error {
+fn redirect_after_write<R: Resource>(cx: &Cx, note: impl Into<String>) -> topcoat::Error {
     set_notification(cx, Notification::success(note));
     see_other(landing_url(cx, &R::slug())).into()
 }

@@ -27,6 +27,7 @@ const {
   deletedKey,
   pruneWire,
   removedKeys,
+  submitTarget,
   swapTargets,
   tableRootFor,
 } = require(SCRIPT);
@@ -54,6 +55,27 @@ test('a URL that is not a row-delete action names no record', () => {
   assert.equal(deletedKey('/admin/users/bulk-delete'), null);
   assert.equal(deletedKey('/admin/users'), null);
   assert.equal(deletedKey(''), null);
+});
+
+// --- where a submit posts ----------------------------------------------------
+
+// An element stand-in answering `getAttribute` from a map.
+const withAttributes = (attrs) => ({
+  getAttribute: (name) => (name in attrs ? attrs[name] : null),
+});
+
+test('a submit posts to the form action by default', () => {
+  const form = withAttributes({ action: '/admin/posts/bulk-delete' });
+  assert.equal(submitTarget(form, null), '/admin/posts/bulk-delete');
+  assert.equal(submitTarget(form, withAttributes({})), '/admin/posts/bulk-delete');
+});
+
+test("a bulk action button posts to its own formaction", () => {
+  // The custom bulk actions share the bulk form, so its selection rides
+  // along, and each names its route on the button.
+  const form = withAttributes({ action: '/admin/posts/bulk-delete' });
+  const button = withAttributes({ formaction: '/admin/posts/actions/publish' });
+  assert.equal(submitTarget(form, button), '/admin/posts/actions/publish');
 });
 
 // --- the keys a write removed -----------------------------------------------

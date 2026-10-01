@@ -483,9 +483,9 @@ they are.
 - **Embedded enum switch.** A named discriminant selects the variant. Only that
   variant's payload is read, and a hidden group's inputs still post, since the
   `hidden` attribute does not disable an input.
-- **Checkbox controls.** No checkbox field kind exists (`bool` renders as a
-  `Select`). A future checkbox must post a hidden companion input, because an
-  unchecked box posts nothing and would read as unnamed, which keeps.
+- **Checkbox controls.** `Field::toggle` posts a hidden `false` before the
+  checkbox under the same name, because an unchecked box posts nothing and
+  would read as unnamed, which keeps.
 - **Whitespace.** Every scalar trims, matching today's record fns.
   Whitespace-only is blank.
 - **`validate_record` on edit** sees the completed form, so a cross-field rule

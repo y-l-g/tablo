@@ -1,16 +1,142 @@
-//! Table columns: [`TextColumn`] plus the [`IntoColumns`] seam.
+//! Table columns: the [`Column`] trait, the built-in [`TextColumn`] and
+//! [`BooleanColumn`], and the [`IntoColumns`] seam.
 
 use std::{borrow::Cow, sync::Arc};
 
 use toasty::stmt::{Expr, OrderByExpr};
+use topcoat::{context::Cx, icon::icon, view::*};
 
 use crate::schema::{FieldLens, lens_field, lens_label};
+
+/// One table column: what its header says, what each row's cell shows, and
+/// which query predicates it contributes.
+///
+/// The built-in [`TextColumn`] and [`BooleanColumn`] implement this trait
+/// and nothing more, so an app column has the same reach: implement it, and
+/// pass the value to [`Table::new`](super::Table::new) in a tuple or to
+/// [`Table::column`](super::Table::column).
+///
+/// ```ignore
+/// struct Initials;
+///
+/// impl Column<User> for Initials {
+///     fn name(&self) -> &str { "initials" }
+///     fn label(&self) -> &str { "Initials" }
+///     fn text(&self, row: &User) -> String {
+///         row.name.split_whitespace().filter_map(|w| w.chars().next()).collect()
+///     }
+/// }
+/// ```
+///
+/// Only [`name`](Self::name), [`label`](Self::label) and
+/// [`text`](Self::text) are required. The cell defaults to the text, and a
+/// column contributes no search, sort or relation until it says so.
+pub trait Column<M>: Send + Sync {
+    /// The column's identifier, distinct within its table: the `?sort=`
+    /// value that names it.
+    fn name(&self) -> &str;
+
+    /// The header text, which the CSV export also writes.
+    fn label(&self) -> &str;
+
+    /// The row's value as plain text: the CSV export's cell, and the table
+    /// cell unless [`cell`](Self::cell) renders something else.
+    fn text(&self, row: &M) -> String;
+
+    /// The row's table cell. Defaults to [`text`](Self::text).
+    ///
+    /// The cell sits in a `td` that truncates, so a view wider than its
+    /// column clips to an ellipsis.
+    fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        let text = self.text(row);
+        view! { cx => (text) }.boxed()
+    }
+
+    /// The width the column claims in the table's fixed layout. Defaults to
+    /// [`ColumnWidth::Narrow`].
+    fn column_width(&self) -> ColumnWidth {
+        ColumnWidth::Narrow
+    }
+
+    /// Whether the column joins the table's search: the search toolbar
+    /// renders when any column does. Defaults to `false`.
+    fn is_searchable(&self) -> bool {
+        false
+    }
+
+    /// The predicate a search for `term` adds, OR-ed with the other
+    /// searchable columns'. `term` is trimmed and not empty. Defaults to
+    /// none.
+    fn search_expr(&self, _term: &str) -> Option<Expr<bool>> {
+        None
+    }
+
+    /// Whether the header links to a sort on this column. Defaults to
+    /// `false`.
+    fn is_sortable(&self) -> bool {
+        false
+    }
+
+    /// The ordering a sort on this column applies. Defaults to none.
+    fn order_by(&self, _descending: bool) -> Option<OrderByExpr> {
+        None
+    }
+
+    /// The relations [`text`](Self::text) and [`cell`](Self::cell) read,
+    /// which the list and the export load. Defaults to none.
+    fn includes(&self) -> &Includes {
+        &NO_INCLUDES
+    }
+}
+
+/// The relations a [`Column`] reads off its row, which the list and the
+/// export load before rendering it.
+///
+/// Built with [`Includes::with`], typed on the table's model, so a relation
+/// the model does not have is a compile error.
+#[derive(Clone, Debug, Default)]
+pub struct Includes(Vec<toasty_core::stmt::Include>);
+
+/// What a column that reads no relation returns from [`Column::includes`].
+static NO_INCLUDES: Includes = Includes(Vec::new());
+
+impl Includes {
+    /// No relation.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add `relation`: `Includes::new().with(Post::fields().author())`. A
+    /// relation already present is not added twice.
+    pub fn with<M, T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
+        let include: toasty_core::stmt::Include = relation.into().into();
+        if !self.0.contains(&include) {
+            self.0.push(include);
+        }
+        self
+    }
+
+    /// The relations, in the order they were added.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &toasty_core::stmt::Include> {
+        self.0.iter()
+    }
+
+    /// How many relations there are.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Whether there are none.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 /// The share of the table a [`ColumnWidth::Narrow`] column claims, in whole
 /// percent.
 pub(crate) const NARROW_DEFAULT_PERCENT: u8 = 10;
 
-/// The width a [`TextColumn`] claims in the table's fixed layout.
+/// The width a [`Column`] claims in the table's fixed layout.
 ///
 /// Widths are **shares of the table**, so what a table declares is a fraction
 /// of its container rather than a length that can outgrow it: the columns that
@@ -30,8 +156,9 @@ pub(crate) const NARROW_DEFAULT_PERCENT: u8 = 10;
 /// it defaults to [`Wide`](Self::Wide), taking a share of what the declared
 /// columns leave; [`TextColumn::computed`] derives its cell (a status, a
 /// boolean, a date, a count) and defaults to [`Narrow`](Self::Narrow), a share
-/// of the table. [`TextColumn::width`] overrides either, which is the seam for
-/// a column whose content disagrees with its kind.
+/// of the table, as does a [`BooleanColumn`] and any [`Column`] that does not
+/// override [`Column::column_width`]. [`TextColumn::width`] overrides either,
+/// which is the seam for a column whose content disagrees with its kind.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ColumnWidth {
     /// Take a share of whatever the declared columns leave: the column
@@ -108,8 +235,8 @@ pub struct TextColumn<M> {
     sortable: bool,
     /// The width this column claims in the table's fixed layout.
     width: ColumnWidth,
-    /// Relations this column's projection reads, as includes on the model.
-    includes: Vec<toasty_core::stmt::Include>,
+    /// Relations this column's projection reads.
+    includes: Includes,
 }
 
 /// The escape character the search pattern declares to `LIKE`:
@@ -158,7 +285,7 @@ where
             searchable: false,
             sortable: false,
             width: ColumnWidth::Wide,
-            includes: Vec::new(),
+            includes: Includes::new(),
         }
     }
 
@@ -183,7 +310,7 @@ where
             searchable: false,
             sortable: false,
             width: ColumnWidth::Narrow,
-            includes: Vec::new(),
+            includes: Includes::new(),
         }
     }
 
@@ -207,16 +334,8 @@ where
     /// (Toasty ORs their filters). A column that counts a filtered subset should
     /// filter in its closure rather than rely on a filtered include.
     pub fn include<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
-        let include: toasty_core::stmt::Include = relation.into().into();
-        if !self.includes.contains(&include) {
-            self.includes.push(include);
-        }
+        self.includes = self.includes.with(relation);
         self
-    }
-
-    /// The relations this column declared, in declaration order.
-    pub(crate) fn includes(&self) -> &[toasty_core::stmt::Include] {
-        &self.includes
     }
 
     pub fn searchable(mut self) -> Self {
@@ -239,14 +358,6 @@ where
         self
     }
 
-    pub fn is_searchable(&self) -> bool {
-        self.searchable
-    }
-
-    pub fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
     /// Declare this column's width in the table's fixed layout:
     /// `.width(ColumnWidth::Percent(20))` for a column that knows its own
     /// measure.
@@ -259,30 +370,34 @@ where
         self.width = width;
         self
     }
+}
 
-    /// The width this column declares, which the renderer emits on its `th`
-    /// and on every `td` of its column.
-    pub fn column_width(&self) -> ColumnWidth {
-        self.width
-    }
-
-    pub fn label(&self) -> &str {
-        &self.label
-    }
-
-    /// App-level field name (from the lens). Identifies the column in the
-    /// `?sort=` URL parameter.
-    pub fn name(&self) -> &str {
+impl<M> Column<M> for TextColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn name(&self) -> &str {
         &self.name
     }
 
-    /// Render the cell for one row via the typed projection.
-    pub fn render_cell(&self, row: &M) -> String {
+    fn label(&self) -> &str {
+        &self.label
+    }
+
+    /// The typed projection's output.
+    fn text(&self, row: &M) -> String {
         (self.project)(row)
     }
 
-    /// The search predicate for this column: a portable, escaped
-    /// **substring** match.
+    fn column_width(&self) -> ColumnWidth {
+        self.width
+    }
+
+    fn is_searchable(&self) -> bool {
+        self.searchable
+    }
+
+    /// A portable, escaped **substring** match.
     ///
     /// `like_with_escape` keeps the pattern parameterised and lowers to the
     /// same `LIKE … ESCAPE '\\'` on every driver, and
@@ -290,7 +405,7 @@ where
     /// typed matches that character, it does not act as a wildcard. Note the
     /// driver difference `LIKE` brings: SQLite compares ASCII
     /// case-insensitively, PostgreSQL case-sensitively.
-    pub fn to_search_expr(&self, term: &str) -> Option<Expr<bool>> {
+    fn search_expr(&self, term: &str) -> Option<Expr<bool>> {
         let t = term.trim();
         if !self.searchable || t.is_empty() {
             return None;
@@ -302,7 +417,11 @@ where
         )
     }
 
-    pub fn to_order_by(&self, descending: bool) -> Option<OrderByExpr> {
+    fn is_sortable(&self) -> bool {
+        self.sortable
+    }
+
+    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
         if self.sortable {
             // Cursor determinism is the engine's job: toasty's
             // `normalize_cursor_order` appends the physical PK columns to
@@ -312,6 +431,10 @@ where
         } else {
             None
         }
+    }
+
+    fn includes(&self) -> &Includes {
+        &self.includes
     }
 }
 
@@ -328,50 +451,190 @@ impl<M> std::fmt::Debug for TextColumn<M> {
     }
 }
 
-/// Convert a single column or tuple of columns into `Vec<TextColumn<M>>`.
+/// A column of a `bool` field, rendered as an icon: a check for `true`, a
+/// cross for `false`.
 ///
-/// Tuple members are `TextColumn<M>` themselves, so nothing sits between the
-/// column types. A single column converts on its own, with no
-/// one-element tuple.
+/// Built on the public [`Column`] trait alone. The icon carries a
+/// screen-reader label, and the CSV export writes the same label:
+/// `"Yes"`/`"No"` unless [`labels`](Self::labels) names others.
+///
+/// ```ignore
+/// BooleanColumn::r#for(Post::fields().featured(), |p: &Post| p.featured).sortable()
+/// ```
+pub struct BooleanColumn<M> {
+    path: FieldLens<M, bool>,
+    name: String,
+    label: String,
+    project: Arc<dyn Fn(&M) -> bool + Send + Sync>,
+    sortable: bool,
+    labels: (String, String),
+}
+
+impl<M> BooleanColumn<M>
+where
+    M: toasty::schema::Model,
+{
+    /// Bind the column to a `bool` field lens, which names it and sorts it,
+    /// and a projection that reads the value off a row (upstream gap #119).
+    pub fn r#for(
+        path: FieldLens<M, bool>,
+        project: impl Fn(&M) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        let field = lens_field(path.clone(), &M::schema());
+        Self {
+            path,
+            name: field.name.app_unwrap().to_string(),
+            label: lens_label(&field),
+            project: Arc::new(project),
+            sortable: false,
+            labels: ("Yes".to_string(), "No".to_string()),
+        }
+    }
+
+    /// Make the header a sort link.
+    pub fn sortable(mut self) -> Self {
+        self.sortable = true;
+        self
+    }
+
+    /// The words for `true` and `false`, which the icon's screen-reader
+    /// label and the CSV export carry.
+    pub fn labels(mut self, yes: impl Into<String>, no: impl Into<String>) -> Self {
+        self.labels = (yes.into(), no.into());
+        self
+    }
+}
+
+impl<M> Column<M> for BooleanColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn label(&self) -> &str {
+        &self.label
+    }
+
+    fn text(&self, row: &M) -> String {
+        if (self.project)(row) {
+            self.labels.0.clone()
+        } else {
+            self.labels.1.clone()
+        }
+    }
+
+    fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        let value = (self.project)(row);
+        let text = self.text(row);
+        let (data, class) = if value {
+            (tablo_ui::icons::CIRCLE_CHECK, "size-4 text-primary")
+        } else {
+            (tablo_ui::icons::X, "size-4 text-muted-foreground")
+        };
+        view! {
+            cx =>
+            <span class="inline-flex items-center" data-boolean=(value.to_string())>
+                icon(
+                    data: data,
+                    attrs: attributes! { class=(class) aria-hidden="true" }
+                )
+                <span class="sr-only">(text)</span>
+            </span>
+        }
+        .boxed()
+    }
+
+    fn is_sortable(&self) -> bool {
+        self.sortable
+    }
+
+    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
+        self.sortable.then(|| {
+            let path = self.path.clone();
+            if descending { path.desc() } else { path.asc() }
+        })
+    }
+}
+
+impl<M> std::fmt::Debug for BooleanColumn<M> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BooleanColumn")
+            .field("name", &self.name)
+            .field("label", &self.label)
+            .field("sortable", &self.sortable)
+            .finish_non_exhaustive()
+    }
+}
+
+/// A table's columns, as the table stores them: shared, so the list, the
+/// export and the live-search handler read one declaration.
+pub(crate) type BoxColumn<M> = Arc<dyn Column<M>>;
+
+/// Convert a single built-in column, or a tuple of any [`Column`]s, into a
+/// table's column list.
+///
+/// A tuple takes columns of any type, an app's own among them. A single
+/// column converts on its own when it is a built-in; a single app column is
+/// a one-element tuple, `(MyColumn,)`, or goes through
+/// [`Table::column`](super::Table::column).
 ///
 /// Tuple arities stop at eight, the ceiling every tuple-collection trait
 /// shares: `IntoFilters` in `resource/filter.rs` and `IntoSchema` in
-/// `schema/tree.rs`.
-/// Without variadic generics the idiom is one `macro_rules!` invocation per
-/// arity, and eight covers the widest tuple a Resource declares. Extend every
-/// list together when a real Resource needs more.
+/// `schema/tree.rs`. Without variadic generics the idiom is one
+/// `macro_rules!` invocation per arity; [`Table::column`](super::Table::column)
+/// appends past it.
 pub trait IntoColumns<M> {
-    fn into_columns(self) -> Vec<TextColumn<M>>;
+    #[doc(hidden)]
+    fn into_columns(self) -> Vec<BoxColumn<M>>;
 }
 
-impl<M> IntoColumns<M> for TextColumn<M> {
-    fn into_columns(self) -> Vec<TextColumn<M>> {
-        vec![self]
+impl<M> IntoColumns<M> for TextColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![Arc::new(self)]
+    }
+}
+
+impl<M> IntoColumns<M> for BooleanColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![Arc::new(self)]
     }
 }
 
 /// The tuple impls of [`IntoColumns`], one arity per invocation. Every
-/// element is a `TextColumn<M>`, so `(a, (b, c))` is not a column list: a
+/// element is a [`Column`], so `(a, (b, c))` is not a column list: a
 /// table's columns sit in one flat tuple.
 macro_rules! into_columns_tuples {
-    ($($v:ident),+) => {
-        impl<M> IntoColumns<M> for ($(into_columns_tuples!(@column $v)),+) {
-            fn into_columns(self) -> Vec<TextColumn<M>> {
+    ($($T:ident => $v:ident),+ $(,)?) => {
+        impl<M, $($T),+> IntoColumns<M> for ($($T,)+)
+        where
+            $($T: Column<M> + 'static,)+
+        {
+            fn into_columns(self) -> Vec<BoxColumn<M>> {
                 let ($($v,)+) = self;
-                vec![$($v,)+]
+                vec![$(Arc::new($v) as BoxColumn<M>,)+]
             }
         }
     };
-    (@column $v:ident) => { TextColumn<M> };
 }
 
-into_columns_tuples!(a, b);
-into_columns_tuples!(a, b, c);
-into_columns_tuples!(a, b, c, d);
-into_columns_tuples!(a, b, c, d, e);
-into_columns_tuples!(a, b, c, d, e, f);
-into_columns_tuples!(a, b, c, d, e, f, g);
-into_columns_tuples!(a, b, c, d, e, f, g, h);
+into_columns_tuples!(A => a);
+into_columns_tuples!(A => a, B => b);
+into_columns_tuples!(A => a, B => b, C => c);
+into_columns_tuples!(A => a, B => b, C => c, D => d);
+into_columns_tuples!(A => a, B => b, C => c, D => d, E => e);
+into_columns_tuples!(A => a, B => b, C => c, D => d, E => e, F => f);
+into_columns_tuples!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
+into_columns_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h
+);
 
 #[cfg(test)]
 mod tests;

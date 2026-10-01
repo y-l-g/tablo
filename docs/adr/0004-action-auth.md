@@ -1,6 +1,6 @@
 # Action authorization is transactional and per-record
 
-Date: 2026-08-19 — Status: accepted — Amended: 2026-09-22
+Date: 2026-08-19 — Status: accepted — Amended: 2026-10-01
 
 ## Decision
 
@@ -15,10 +15,17 @@ before any policy check runs. Bulk delete re-fetches through the same query and 
 record. There is no `Policy` trait and no `shouldSkipAuthorization`: the `can_*` methods are the one
 authorization vocabulary.
 
+A custom `Action` (`Resource::actions`) runs the same way. Its handler loads the row, or the bulk
+selection, through `scoped_query` inside the transaction, checks `can_view` and the action's own
+`can_run` on every loaded record, and calls `Action::run` with the same executor. A refused row is
+a 403. A selection that holds a refused record commits nothing and answers with an error
+notification on the list, because the bulk bar offers the action for the whole selection.
+
 `create_record` and `update_record` return the row they wrote (the generated key, or the state the
 instance update reloaded); delete and bulk delete hand over the rows they removed as they were.
 That is what `Resource::after_commit(cx, Committed<Self::Model>)` receives — default no-op, called
-by all four write handlers after `tx.commit()` and before the response — the only place a side
+by every write handler, custom actions included (`Mutation::Action(NAME)`), after `tx.commit()`
+and before the response — the only place a side
 effect that must not survive a rollback belongs. One `Committed` per committed write (a bulk delete
 is a single value), never produced when nothing committed, and a failing hook is logged and ignored
 rather than rolling the write back. The transaction is gone by then, so the hook may open its own

@@ -9,8 +9,8 @@ use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 use toasty::stmt::{Expr, List, OrderByExpr};
 
 use super::{
-    column::{IntoColumns, TextColumn},
-    filter::{Filter, IntoFilters},
+    column::{BoxColumn, Column, IntoColumns},
+    filter::{BoxFilter, IntoFilters},
     state::{TableState, with_return},
 };
 
@@ -94,6 +94,20 @@ pub(crate) struct TableChrome {
     pub(crate) edit: bool,
     /// Whether the row renders a View action.
     pub(crate) view: bool,
+    /// Whether the table renders the resource's custom actions.
+    pub(crate) actions: bool,
+}
+
+/// One custom [`Action`](crate::resource::Action) as a table renders it:
+/// the button text, where it renders, and the per-record gate the panel
+/// wired from [`Resource::can_view`](crate::resource::Resource::can_view) and
+/// the action's `can_run`.
+pub(crate) struct TableAction<M> {
+    pub(crate) name: &'static str,
+    pub(crate) label: String,
+    pub(crate) row: bool,
+    pub(crate) bulk: bool,
+    pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
 }
 
 /// The page size of a table that declares none with [`Table::paginate`], as
@@ -104,12 +118,11 @@ pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
 /// map to queries.
 ///
 /// Row identity is mandatory and typed: [`Table::new`] takes the key
-/// projection driving both key halves, and cells render via
-/// [`TextColumn`]'s lens-bound closure where typos fail at compile time instead
-/// of panicking at render.
+/// projection driving both key halves, and each cell renders through its
+/// [`Column`].
 pub struct Table<M> {
-    columns: Vec<TextColumn<M>>,
-    filters: Vec<Filter<M>>,
+    columns: Vec<BoxColumn<M>>,
+    filters: Vec<BoxFilter<M>>,
     group_by: Option<GroupDef<M>>,
     row_key: RowKey<M>,
     record_key: RowKey<M>,
@@ -121,6 +134,10 @@ pub struct Table<M> {
     edit_prefix: Option<String>,
     view_prefix: Option<String>,
     bulk_delete: bool,
+    /// The custom actions, and the list URL their routes hang off: set
+    /// together by [`Self::with_custom_actions`].
+    custom_actions: Vec<TableAction<M>>,
+    actions_prefix: Option<String>,
     live_search: bool,
     /// Whether the table draws its own card: `false` where the page draws the
     /// card around the table and the controls it hoists (the live list).
@@ -134,7 +151,10 @@ pub struct Table<M> {
 impl<M> std::fmt::Debug for Table<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Table")
-            .field("columns", &self.columns)
+            .field(
+                "columns",
+                &self.columns.iter().map(|c| c.name()).collect::<Vec<_>>(),
+            )
             .field("filters", &self.filters.len())
             .field("group_by", &self.group_by.is_some())
             .field("row_policy", &self.row_policy.is_some())
@@ -145,6 +165,14 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("edit_prefix", &self.edit_prefix)
             .field("view_prefix", &self.view_prefix)
             .field("bulk_delete", &self.bulk_delete)
+            .field(
+                "custom_actions",
+                &self
+                    .custom_actions
+                    .iter()
+                    .map(|a| a.name)
+                    .collect::<Vec<_>>(),
+            )
             .field("live_search", &self.live_search)
             .field("framed", &self.framed)
             .field("return_to", &self.return_to)
@@ -164,7 +192,7 @@ impl<M> Table<M> {
     ///
     /// # Panics
     ///
-    /// Panics on duplicate [`TextColumn::name`], the guard every constructor
+    /// Panics on duplicate [`Column::name`], the guard every constructor
     /// applies: sort resolution is
     /// first-sortable-`name()`-match, so duplicate sortable names would
     /// silently misresolve `?sort=`. The guard covers computed names too
@@ -194,7 +222,7 @@ impl<M> Table<M> {
     ///
     /// # Panics
     ///
-    /// Panics on duplicate [`TextColumn::name`] and on an empty column set,
+    /// Panics on duplicate [`Column::name`] and on an empty column set,
     /// like [`Self::new`].
     pub fn new_split(
         display: impl Fn(&M) -> String + Send + Sync + 'static,
@@ -226,11 +254,7 @@ impl<M> Table<M> {
         );
         let mut seen = std::collections::HashSet::with_capacity(cols.len());
         for c in &cols {
-            let name = c.name();
-            assert!(
-                seen.insert(name),
-                "duplicate column name '{name}': each Table column needs a distinct name (GH #156)"
-            );
+            assert_distinct_column(&mut seen, c.name());
         }
         Self {
             columns: cols,
@@ -246,11 +270,29 @@ impl<M> Table<M> {
             edit_prefix: None,
             view_prefix: None,
             bulk_delete: false,
+            custom_actions: Vec::new(),
+            actions_prefix: None,
             live_search: false,
             framed: true,
             return_to: None,
             _marker: PhantomData,
         }
+    }
+
+    /// Append `column` after the declared ones: the way to a column past the
+    /// eight a tuple holds, or a single app [`Column`] without a one-element
+    /// tuple.
+    ///
+    /// # Panics
+    ///
+    /// Panics when another column already has its [`Column::name`], as
+    /// [`Self::new`] does.
+    pub fn column(mut self, column: impl Column<M> + 'static) -> Self {
+        let mut seen: std::collections::HashSet<&str> =
+            self.columns.iter().map(|c| c.name()).collect();
+        assert_distinct_column(&mut seen, column.name());
+        self.columns.push(Arc::new(column));
+        self
     }
 
     /// Declare the per-record action policy: which of the wired row
@@ -283,7 +325,7 @@ impl<M> Table<M> {
 
     /// Declare filters. Accepts a single filter or tuple of filters.
     ///
-    /// Panics on duplicate [`Filter::name`], the same fail-loud
+    /// Panics on duplicate [`Filter::name`](super::Filter::name), the same fail-loud
     /// policy as [`Self::new`]: a filter travels as one `?f.<name>=` parameter,
     /// and the parser keeps the first value for a repeated name, so two filters
     /// sharing a name would silently drop one of them.
@@ -305,7 +347,7 @@ impl<M> Table<M> {
     }
 
     /// `query` with every relation this table's columns declared
-    /// ([`TextColumn::include`](super::TextColumn::include)) included, once
+    /// ([`Column::includes`]) included, once
     /// each. The list and the export load through this; every column renders,
     /// so the set is the union over all of them.
     pub(crate) fn include_relations(
@@ -316,7 +358,7 @@ impl<M> Table<M> {
         M: toasty::schema::Model,
     {
         let mut seen: Vec<&toasty_core::stmt::Include> = Vec::new();
-        for include in self.columns.iter().flat_map(|c| c.includes()) {
+        for include in self.columns.iter().flat_map(|c| c.includes().iter()) {
             if !seen.contains(&include) {
                 seen.push(include);
                 query = query.include(include.clone());
@@ -398,8 +440,8 @@ impl<M> Table<M> {
     /// grouping by the single declared key. Counts are page-local.
     ///
     /// The key closure reads the loaded row, so a relation it reads must be
-    /// loaded: include it on a column ([`TextColumn::include`](super::TextColumn::include))
-    /// or in [`Resource::query`](crate::resource::Resource::query).
+    /// loaded: include it on a column ([`TextColumn::include`](super::TextColumn::include),
+    /// [`Column::includes`]) or in [`Resource::query`](crate::resource::Resource::query).
     ///
     /// In live tables `group_by` travels in the query signal and persists
     /// across in-place reruns; changing it is still a navigation
@@ -593,18 +635,50 @@ impl<M> Table<M> {
         }
     }
 
-    /// Whether the bulk checkbox column renders: bulk selection plus a delete
-    /// prefix to post to.
-    fn bulk_enabled(&self) -> bool {
+    /// Wire the resource's custom actions, whose routes hang off `prefix`,
+    /// the resource's list URL.
+    pub(crate) fn with_custom_actions(
+        mut self,
+        prefix: String,
+        actions: Vec<TableAction<M>>,
+    ) -> Self {
+        self.actions_prefix = Some(prefix);
+        self.custom_actions = actions;
+        self
+    }
+
+    /// The custom actions a row renders a button for.
+    fn row_custom_actions(&self) -> impl Iterator<Item = &TableAction<M>> {
+        self.custom_actions
+            .iter()
+            .filter(|a| a.row && self.actions_prefix.is_some())
+    }
+
+    /// The custom actions the bulk bar renders a button for.
+    fn bulk_custom_actions(&self) -> impl Iterator<Item = &TableAction<M>> {
+        self.custom_actions
+            .iter()
+            .filter(|a| a.bulk && self.actions_prefix.is_some())
+    }
+
+    /// Whether bulk delete renders: bulk selection plus a delete prefix to
+    /// post to.
+    fn bulk_delete_enabled(&self) -> bool {
         self.bulk_delete && self.delete_prefix.is_some()
+    }
+
+    /// Whether the bulk checkbox column and bar render: bulk delete, or a
+    /// bulk custom action.
+    fn bulk_enabled(&self) -> bool {
+        self.bulk_delete_enabled() || self.bulk_custom_actions().next().is_some()
     }
 
     /// Global search predicate — OR across searchable columns.
     ///
     /// Substring match (`?q=` anywhere in the value), escaped so a term
     /// containing `%` or `_` stays literal; see
-    /// [`TextColumn::to_search_expr`](crate::resource::TextColumn::to_search_expr)
-    /// for the driver case-sensitivity caveat.
+    /// [`TextColumn`](crate::resource::TextColumn)'s search for the driver
+    /// case-sensitivity caveat.
     pub fn search_expr(&self, term: &str) -> Option<Expr<bool>>
     where
         M: toasty::schema::Model,
@@ -613,7 +687,7 @@ impl<M> Table<M> {
         if t.is_empty() {
             return None;
         }
-        let mut exprs = self.columns.iter().filter_map(|c| c.to_search_expr(t));
+        let mut exprs = self.columns.iter().filter_map(|c| c.search_expr(t));
         let first = exprs.next()?;
         Some(exprs.fold(first, |acc, e| acc.or(e)))
     }
@@ -627,7 +701,7 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        self.columns.iter().find_map(|c| c.to_order_by(descending))
+        self.columns.iter().find_map(|c| c.order_by(descending))
     }
 
     /// Order-bys over the model's primary key (asc, in declared order) —
@@ -688,7 +762,7 @@ impl<M> Table<M> {
                 .columns
                 .iter()
                 .find(|c| c.is_sortable() && c.name() == sort.column)
-            && let Some(ord) = col.to_order_by(sort.descending)
+            && let Some(ord) = col.order_by(sort.descending)
         {
             return vec![ord];
         }
@@ -752,6 +826,15 @@ impl<M> Table<M> {
     pub(crate) fn filter_bar_enabled(&self) -> bool {
         !self.hide_filter_bar && !self.filters.is_empty()
     }
+}
+
+/// Record `name` among a table's column names, or panic naming the
+/// duplicate: sort resolution is first-match on the name.
+fn assert_distinct_column<'a>(seen: &mut std::collections::HashSet<&'a str>, name: &'a str) {
+    assert!(
+        seen.insert(name),
+        "duplicate column name '{name}': each Table column needs a distinct name (GH #156)"
+    );
 }
 
 #[cfg(test)]

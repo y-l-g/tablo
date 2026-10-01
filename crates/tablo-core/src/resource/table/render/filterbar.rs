@@ -6,7 +6,7 @@ use topcoat::{Result, context::Cx, runtime::Event, view::*};
 use super::{
     super::{
         super::{
-            filter::Filter,
+            filter::FilterInput,
             state::{TableSignals, TableState},
         },
         Table,
@@ -14,62 +14,6 @@ use super::{
     BAR_CLASS, QUIET_LINK_CLASS,
     toolbar::hidden_state_inputs,
 };
-
-/// A filter control's label, beside its control.
-const FILTER_LABEL_CLASS: StaticClass =
-    class!("flex items-center gap-2 text-sm font-medium whitespace-nowrap text-muted-foreground");
-
-/// One filter control: a labelled `<select name="f.<name>">` (prefixed like the
-/// table's other parameters, `param`) carrying the
-/// `value`/`label` pairs, with the leading empty "All" option that clears the
-/// filter.
-///
-/// The empty value is reserved for that clear-filter option. Every pair in
-/// `options` renders verbatim, so a caller whose declared options can include
-/// `""` supplies the label that option shows: [`Filter::Select`] passes
-/// `"All"`, the label the empty value already carries, while
-/// [`Filter::Variant`] passes the key itself.
-///
-/// The control is a real form field, so the GET form submits it as
-/// `?f.<name>=<value>`; an empty value is no filter. `data-filter-name` is the
-/// hook `filters.js` reads on a live table.
-fn filter_select<'a>(
-    cx: &'a Cx,
-    label: &str,
-    name: &str,
-    param: String,
-    options: Vec<(String, String)>,
-    current: &str,
-) -> BoxView<'a> {
-    let label = label.to_string();
-    let name = name.to_string();
-    let aria = label.clone();
-    let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
-        .chain(options)
-        .map(|(value, text)| {
-            let selected = current == value;
-            crate::schema::option_view(cx, value, text, selected)
-        })
-        .collect();
-    view! {
-        cx =>
-        <label class=(FILTER_LABEL_CLASS)>
-            (label)
-            tablo_ui::select(
-                attrs: attributes! {
-                    class="min-w-32"
-                    name=(param)
-                    data-filter-name=(name)
-                    aria-label=(aria)
-                },
-                for option in option_views {
-                    (option)
-                }
-            )
-        </label>
-    }
-    .boxed()
-}
 
 impl<M> Table<M> {
     /// The fail-visible filter banner: requested filters that produced
@@ -198,84 +142,9 @@ impl<M> Table<M> {
         let mut controls: Vec<BoxView<'_>> = Vec::with_capacity(self.filters.len());
         for f in &self.filters {
             let current = state.filters.get(f.name()).cloned().unwrap_or_default();
-            match f {
-                Filter::Select(s) => {
-                    // A declared empty option is the clear-filter value, so it
-                    // renders as the "All" option: value `""`, label "All".
-                    let options = s
-                        .options()
-                        .iter()
-                        .map(|opt| {
-                            let label = if opt.is_empty() { "All" } else { opt.as_str() };
-                            (opt.clone(), label.to_string())
-                        })
-                        .collect();
-                    controls.push(filter_select(
-                        cx,
-                        s.label_str(),
-                        s.name(),
-                        state.filter_param(s.name()),
-                        options,
-                        &current,
-                    ));
-                }
-                Filter::Ternary(t) => {
-                    let options = vec![
-                        ("true".to_string(), "True".to_string()),
-                        ("false".to_string(), "False".to_string()),
-                    ];
-                    controls.push(filter_select(
-                        cx,
-                        t.label_str(),
-                        t.name(),
-                        state.filter_param(t.name()),
-                        options,
-                        &current,
-                    ));
-                }
-                Filter::Date(d) => {
-                    let name = d.name().to_string();
-                    let param = state.filter_param(&name);
-                    let label = d.label_str().to_string();
-                    let aria = label.clone();
-                    // `<input type=date>` needs YYYY-MM-DD; truncate RFC3339.
-                    let date_value = current.split('T').next().unwrap_or(&current).to_string();
-                    controls.push(
-                        view! {
-                            cx =>
-                            <label class=(FILTER_LABEL_CLASS)>
-                                (label)
-                                tablo_ui::input(
-                                    attrs: attributes! {
-                                        type="date"
-                                        name=(param)
-                                        data-filter-name=(name)
-                                        value=(date_value)
-                                        aria-label=(aria)
-                                        class="w-auto!"
-                                    }
-                                )
-                            </label>
-                        }
-                        .boxed(),
-                    );
-                }
-                Filter::Variant(v) => {
-                    let options = v
-                        .options()
-                        .iter()
-                        .map(|(key, _)| (key.clone(), key.clone()))
-                        .collect();
-                    controls.push(filter_select(
-                        cx,
-                        v.label_str(),
-                        v.name(),
-                        state.filter_param(v.name()),
-                        options,
-                        &current,
-                    ));
-                }
-            }
+            let input =
+                FilterInput::new(f.name(), state.filter_param(f.name()), f.label(), current);
+            controls.push(f.control(cx, input));
         }
         let form_attrs = attributes! {
             cx =>

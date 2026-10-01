@@ -92,13 +92,14 @@ pub use notification::{Notification, NotificationStatus};
 pub use page::Page;
 pub use panel::{Brand, DarkMode, Panel};
 pub use resource::{
-    ColumnWidth, Committed, Cursor, DateFilter, Filter, IntoFilters, Mutation, NavTarget,
-    NavigationItem, Relation, Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableState,
-    TernaryFilter, TextColumn, VariantFilter, scoped_query, scoped_view_query,
+    Action, Actions, BooleanColumn, Column, ColumnWidth, Committed, Cursor, DateFilter, Filter,
+    FilterInput, Includes, IntoColumns, IntoFilters, Mutation, NavTarget, NavigationItem, Relation,
+    Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
+    VariantFilter, scoped_query, scoped_view_query,
 };
 pub use schema::{
-    EmbeddedForm, Field, FieldLens, Grid, Group, IntoSchema, Repeater, ResolvedLens, Schema,
-    Section, Source,
+    Control, ControlInput, EmbeddedForm, Field, FieldLens, Grid, Group, IntoSchema, Repeater,
+    ResolvedLens, Schema, Section, Source, Toggle,
 };
 pub use tablo_macros::{EmbeddedForm, RecordForm};
 pub use tenancy::{Tenant, require_tenant, tenant_id};

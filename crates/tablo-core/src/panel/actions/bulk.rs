@@ -129,7 +129,7 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
 }
 
 /// Max ids accepted by bulk delete: bounds the `IN` list.
-const MAX_BULK_IDS: usize = 400;
+pub(super) const MAX_BULK_IDS: usize = 400;
 
 /// Parse + dedupe bulk `ids` while preserving order, so a repeated id can't
 /// make the fetched-rows count check misfire.
@@ -144,7 +144,7 @@ const MAX_BULK_IDS: usize = 400;
 /// `String`-PK id containing a literal comma (`%2C`) splits into phantom
 /// ids and the batch 404s. Comma-bearing string PKs need a different
 /// transport (future work); all other PK types are comma-free.
-fn parse_bulk_ids(raw: &str, max: usize) -> Vec<String> {
+pub(super) fn parse_bulk_ids(raw: &str, max: usize) -> Vec<String> {
     let mut ids: Vec<String> = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for s in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {

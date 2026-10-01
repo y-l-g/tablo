@@ -411,7 +411,27 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
     // request.
     let _ = R::table(cx);
     let _ = R::view(cx);
+    check_actions::<R>()?;
     check_form_declaration::<R>(cx)
+}
+
+/// Every custom action's name is a route segment, distinct among the
+/// resource's actions: the routes dispatch by it.
+fn check_actions<R: Resource>() -> Result<(), String> {
+    let actions = R::actions();
+    let mut seen = std::collections::HashSet::new();
+    for action in actions.entries() {
+        validate_route_segment("Action::NAME", action.name)
+            .map_err(|error| format!("resource `{}`: {error}", std::any::type_name::<R>()))?;
+        if !seen.insert(action.name) {
+            return Err(format!(
+                "resource `{}` declares two actions named '{}': each needs a distinct `NAME`",
+                std::any::type_name::<R>(),
+                action.name
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// A resource with a record form declares its schema and runs

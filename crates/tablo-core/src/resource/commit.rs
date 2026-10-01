@@ -19,13 +19,15 @@ use super::Resource;
 /// The kind of mutation a record fn performed.
 ///
 /// The vocabulary `Action` names in `CONTEXT.md`, as a value: the framework
-/// knows which of the four record fns ran, so an audit row or a webhook
-/// payload does not have to be spelled per call site.
+/// knows which record fn or [`Action`](super::Action) ran, so an audit row or
+/// a webhook payload does not have to be spelled per call site.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mutation {
     Create,
     Update,
     Delete,
+    /// The custom action of this [`NAME`](super::Action::NAME).
+    Action(&'static str),
 }
 
 /// What one committed mutation wrote, handed to
@@ -65,6 +67,15 @@ impl<M> Committed<M> {
     pub fn deleted(records: Vec<M>) -> Self {
         Self {
             mutation: Mutation::Delete,
+            records,
+        }
+    }
+
+    /// The rows a custom [`Action`](super::Action) named `name` ran on, as
+    /// they were loaded before it ran.
+    pub fn acted(name: &'static str, records: Vec<M>) -> Self {
+        Self {
+            mutation: Mutation::Action(name),
             records,
         }
     }

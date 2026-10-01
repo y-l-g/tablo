@@ -534,6 +534,14 @@ pub(crate) const DELETE_ROUTE_SEGMENT: &str = "delete";
 /// Path segment of the bulk-delete POST.
 pub(crate) const BULK_DELETE_ROUTE_SEGMENT: &str = "bulk-delete";
 
+/// Path segment before a custom action's name, on a row
+/// (`{prefix}/{key}/actions/{name}`) and on the list
+/// (`{list}/actions/{name}`).
+pub(crate) const ACTIONS_ROUTE_SEGMENT: &str = "actions";
+
+/// The action-name placeholder the route table registers: `{action}`.
+pub(crate) const ACTION_ROUTE_PARAM: &str = "{action}";
+
 /// The row's `Edit` link: `{prefix}/{key}/edit`.
 pub(crate) fn row_edit_url(prefix: &str, key: &str) -> String {
     format!("{prefix}/{}/{EDIT_ROUTE_SEGMENT}", encode_path_segment(key))
@@ -550,6 +558,19 @@ pub(crate) fn delete_action_url(prefix: &str, key: &str) -> String {
         "{prefix}/{}/{DELETE_ROUTE_SEGMENT}",
         encode_path_segment(key)
     )
+}
+
+/// A row action's POST target: `{prefix}/{key}/actions/{name}`.
+pub(crate) fn row_action_url(prefix: &str, key: &str, name: &str) -> String {
+    format!(
+        "{prefix}/{}/{ACTIONS_ROUTE_SEGMENT}/{name}",
+        encode_path_segment(key)
+    )
+}
+
+/// A bulk action's POST target: `{list_path}/actions/{name}`.
+pub(crate) fn bulk_action_url(list_path: &str, name: &str) -> String {
+    format!("{list_path}/{ACTIONS_ROUTE_SEGMENT}/{name}")
 }
 
 /// The list page's create link: `{list_path}/create`.
