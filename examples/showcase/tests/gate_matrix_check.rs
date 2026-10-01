@@ -11,8 +11,7 @@
 
 use http::header::LOCATION;
 use showcase::models::{
-    Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, Publication,
-    Seo,
+    Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, Publication, Seo,
 };
 use uuid::Uuid;
 
