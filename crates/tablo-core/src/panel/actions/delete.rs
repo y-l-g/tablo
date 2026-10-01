@@ -17,6 +17,7 @@ use super::{
 };
 use crate::{
     db::db,
+    policy::{Ability, can},
     resource::{Committed, Resource},
 };
 
@@ -41,7 +42,7 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
             gate::<R>(cx)?;
             // The whole-resource half of the policy, before the body is read:
             // a resource that allows no delete renders no delete chrome.
-            if !R::can_delete_any(cx) {
+            if !can::<R>(cx, Ability::DeleteAny) {
                 return Err(forbidden().into());
             }
             // Delete/bulk-delete carry no file parts: only the values half is read.
@@ -61,20 +62,20 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
             // #144), fetch through the tenant-scoped query, check Policy against the
             // loaded record, and delete inside the tx — commit makes the checked
             // delete durable, any error rolls it back. Delete takes
-            // the edit contract: `can_view` plus
-            // `can_delete` — a record that cannot be viewed cannot be deleted
+            // the edit contract: `View` plus
+            // `Delete` — a record that cannot be viewed cannot be deleted
             // by UUID-guessing the route.
             let mut db = db(cx);
             let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
             let id = topcoat::router::path_param_segment(cx, "id").to_string();
             // The delete path reads only the record's own columns:
-            // `can_view`/`can_delete` are Rust predicates over those, and
+            // `View`/`Delete` are Rust predicates over those, and
             // `delete_record` reads the same snapshot.
             let record = find_by_key::<R>(cx, &id, &mut tx).await?;
-            if !R::can_view(cx, &record) {
+            if !can::<R>(cx, Ability::View(&record)) {
                 return Err(forbidden().into());
             }
-            if !R::can_delete(cx, &record) {
+            if !can::<R>(cx, Ability::Delete(&record)) {
                 return Err(forbidden().into());
             }
             // The hook names what was removed: the pre-delete snapshot, since

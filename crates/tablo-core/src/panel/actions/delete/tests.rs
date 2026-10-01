@@ -2,13 +2,16 @@ use toasty::Db;
 use topcoat::Result;
 
 use super::*;
-use crate::panel::test_support::{Dummy, dummy_table, mount, panel_for};
+use crate::{
+    Ability, Policy,
+    panel::test_support::{Dummy, dummy_table, mount, panel_for},
+};
 
 #[tokio::test]
-async fn delete_and_bulk_delete_require_can_view() {
+async fn delete_and_bulk_delete_require_view() {
     // the edit contract extends to deletes — a record that
     // cannot be viewed cannot be deleted by UUID-guessing the route,
-    // even with `can_delete == true`.
+    // even with `Delete` allowed.
 
     use crate::resource::Resource;
 
@@ -19,11 +22,13 @@ async fn delete_and_bulk_delete_require_can_view() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            false
-        }
-        fn can_delete_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                Ability::View(_record) => false,
+                Ability::DeleteAny => true,
+                Ability::Delete(_) => true,
+                _ => false,
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -61,7 +66,7 @@ async fn delete_and_bulk_delete_require_can_view() {
                 .unwrap(),
         )
     };
-    // Single delete: view-denied is 403 despite can_delete == true.
+    // Single delete: view-denied is 403 despite `Delete` allowed.
     let single = post(
         format!("/admin/dummies/{}/delete", row.id),
         format!("confirm=1&csrf_token={token}"),
@@ -88,8 +93,8 @@ async fn delete_and_bulk_delete_require_can_view() {
 }
 
 #[tokio::test]
-async fn delete_and_bulk_delete_require_can_delete_any() {
-    // `can_delete_any` is the whole-resource gate the delete chrome
+async fn delete_and_bulk_delete_require_delete_any() {
+    // `DeleteAny` is the whole-resource gate the delete chrome
     // follows, so a POST to a resource that leaves it at its default is
     // refused even when the row predicates allow the record.
 
@@ -102,11 +107,10 @@ async fn delete_and_bulk_delete_require_can_delete_any() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
-        }
-        fn can_delete(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(ability, Ability::View(_) | Ability::Delete(_))
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -176,11 +180,13 @@ async fn delete_resolves_record_key_not_display_key() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_delete_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| {
+                matches!(
+                    ability,
+                    Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
+                )
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new_split(

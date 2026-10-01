@@ -13,11 +13,11 @@ A `Resource` registered on a `Panel` is fully writable on the framework's existi
   stack. `Router::builder().discover().cookies()` installs the cookie layer, and
   `Panel::layout_shell` renders the complete document.
 - **Mutations** are `Resource` record fns called by the handlers inside a framework-owned
-  transaction, with `can_*` re-checked on the tenant-scoped loaded snapshot; a bulk delete re-fetches
+  transaction, with the policy re-checked on the tenant-scoped loaded snapshot; a bulk delete re-fetches
   every id through the same query and is all-or-nothing (ADR-0004). The panel's list loader wires the
-  chrome the resource's declarations imply (`Resource::can_delete_any` → row Delete + bulk bar, a
+  chrome the resource's declarations imply (the policy's `DeleteAny` → row Delete + bulk bar, a
   record form → Edit link, `Resource::viewed` → View link) as the table's delete, edit and view
-  action prefixes (GH #383, GH #384); the delete handlers check `can_delete_any` too.
+  action prefixes (GH #383, GH #384); the delete handlers check `DeleteAny` too.
 - **Schema** hydrates and dehydrates through typed lenses:
   `Field::text(User::fields().name()).required().email().unique()` fails to compile on a bad
   field; `Schema::hydrate` fills `value` attrs from the Model through `Resource::hydrate_form_values`,

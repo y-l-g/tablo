@@ -362,6 +362,25 @@ pub fn enforced(cx: &Cx) -> bool {
     }
 }
 
+/// Require the signed-in user when the request's panel requires sign-in:
+/// [`require_authenticated`] when [`enforced`], else nothing.
+///
+/// Every panel handler runs it first, and a page, route or shard the app
+/// serves under a panel runs it to answer exactly as the panel's own pages do.
+/// Shards are the case that needs it: Topcoat serves them at its runtime path,
+/// where no page guard runs. A form route also verifies its CSRF token with
+/// [`csrf::verify`](crate::csrf::verify).
+///
+/// # Errors
+///
+/// What [`require_authenticated`] answers.
+pub fn guard(cx: &Cx) -> topcoat::Result<()> {
+    if enforced(cx) {
+        require_authenticated(cx)?;
+    }
+    Ok(())
+}
+
 /// The resolved identity for this request, if any.
 ///
 /// This is the only read path for pages and app code; the gate places the

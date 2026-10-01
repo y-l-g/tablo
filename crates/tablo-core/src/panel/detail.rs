@@ -3,7 +3,7 @@
 //! One record, rendered through [`Resource::view`] — the same `Schema` a form
 //! uses, read the other way round. It lives beside the form handlers rather
 //! than in `list.rs` because it is a record page: it loads through the same
-//! tenant-scoped query (`find_by_key`), checks the same `can_view`
+//! tenant-scoped query (`find_by_key`), checks the same `View`
 //! policy,
 //! and answers the same 404 for an unknown or out-of-scope id.
 
@@ -22,6 +22,7 @@ use super::{
 use crate::{
     db::db,
     form::RecordForm,
+    policy::{Ability, can},
     resource::{Resource, declared},
 };
 
@@ -35,7 +36,7 @@ use crate::{
 /// The record loads through the tenant-scoped query (`find_by_key` — the
 /// tenancy half derived by the framework, — and the resource's own
 /// soft-delete scope, ADR-0002), so an unknown id and an id outside the
-/// request's scope get one answer, as everywhere else in the panel. `can_view`
+/// request's scope get one answer, as everywhere else in the panel. `View`
 /// on the loaded record is a 403 rather than a 404: the record exists and this
 /// caller may not see it.
 pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
@@ -68,14 +69,15 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let back = list_url(cx, &R::slug());
         let public = R::public_url(cx, &record);
         // The same gate as the row's Edit control: a form to edit with, and
-        // the policy on this record (`can_view` passed above).
-        let edit = (<R::Form as RecordForm>::HAS_FORM && R::can_update(cx, &record)).then(|| {
-            format!(
-                "{}/{}",
-                topcoat::router::request::uri(cx).path(),
-                crate::resource::EDIT_ROUTE_SEGMENT
-            )
-        });
+        // the policy on this record (`View` passed above).
+        let edit = (<R::Form as RecordForm>::HAS_FORM && can::<R>(cx, Ability::Update(&record)))
+            .then(|| {
+                format!(
+                    "{}/{}",
+                    topcoat::router::request::uri(cx).path(),
+                    crate::resource::EDIT_ROUTE_SEGMENT
+                )
+            });
         let outline =
             tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
         Ok(view! {

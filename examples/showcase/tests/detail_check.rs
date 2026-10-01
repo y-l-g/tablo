@@ -327,8 +327,8 @@ async fn the_detail_route_does_not_shadow_create_or_edit() {
 }
 
 #[tokio::test]
-async fn post_detail_enforces_requires_tenant() {
-    // `PostResource::requires_tenant` is true (#131): a signed-in user
+async fn post_detail_enforces_the_tenancy() {
+    // `PostResource` is tenant-scoped (#131): a signed-in user
     // with no tenant must be refused here too, not shown an unscoped record —
     // even for an id that exists.
     let db = full_db().await;
@@ -349,7 +349,7 @@ async fn post_detail_enforces_requires_tenant() {
 async fn post_detail_hides_the_record_from_a_denied_tenant() {
     // The blocked tenant is refused before policy is even consulted: the
     // tenant-scoped load finds no such row, so the answer is the same 404 an
-    // unknown id gets — scoping first, `can_view` second, which is the order
+    // unknown id gets — scoping first, `View` second, which is the order
     // that keeps a 403 from confirming a record's existence across tenants.
     use showcase::models::BLOCKED_TENANT;
 
@@ -374,7 +374,7 @@ async fn post_detail_hides_the_record_from_a_denied_tenant() {
 
 #[tokio::test]
 async fn a_record_the_caller_may_not_update_offers_no_edit_action() {
-    // Ken's account is SSO-managed: `UserResource::can_update` refuses it, so
+    // Ken's account is SSO-managed: `UserResource`'s policy refuses to update it, so
     // the detail page renders no Edit control, as the row renders none.
     let db = full_db().await;
     let router = router(db.clone());

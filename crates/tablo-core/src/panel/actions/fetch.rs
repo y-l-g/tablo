@@ -6,7 +6,11 @@
 
 use topcoat::{Result, context::Cx};
 
-use crate::{error::TabloError, resource::Resource};
+use crate::{
+    error::TabloError,
+    policy::{Ability, can},
+    resource::Resource,
+};
 
 /// Fetch one record by its URL `id` through the tenancy-scoped query seam.
 ///
@@ -81,10 +85,10 @@ async fn find_by_key_in<R: Resource>(
 ///
 /// Reads the `{id}` path param, loads through the tenant-scoped query (which
 /// turns an unknown *or* out-of-scope id into one 404), and returns 403 unless
-/// `can_view` accepts the loaded snapshot.
+/// `View` accepts the loaded snapshot.
 ///
 /// Callers run [`gate`](super::super::gate) first and add their own policy on
-/// top (`can_update` for the edit page).
+/// top (`Update` for the edit page).
 pub(crate) async fn load_viewable<R: Resource>(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
@@ -107,9 +111,9 @@ pub(crate) async fn load_detail<R: Resource>(
     check_viewable::<R>(cx, record)
 }
 
-/// 403 unless `can_view` accepts the loaded snapshot.
+/// 403 unless `View` accepts the loaded snapshot.
 fn check_viewable<R: Resource>(cx: &Cx, record: R::Model) -> Result<R::Model> {
-    if !R::can_view(cx, &record) {
+    if !can::<R>(cx, Ability::View(&record)) {
         return Err(topcoat::router::error::forbidden().into());
     }
     Ok(record)

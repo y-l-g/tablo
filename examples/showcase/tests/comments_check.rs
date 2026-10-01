@@ -40,7 +40,7 @@ async fn comments_list_shows_body_and_post_title() {
 #[tokio::test]
 async fn comments_list_offers_row_and_bulk_delete() {
     // GH #184: the queue moderates. `CommentResource` allows
-    // `can_delete_any`, so the row Delete control and the bulk bar render.
+    // `DeleteAny`, so the row Delete control and the bulk bar render.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -196,109 +196,84 @@ async fn comments_create_valid_redirects_and_creates() {
     );
 }
 
-/// GH #178: the pre-tx option-set validation is not a write-time guarantee.
-/// A direct `create_record` / `update_record` caller (or a policy flip between
-/// validation and the write) must still be stopped by the transaction itself —
-/// and an update must not be able to re-point a comment at another tenant's
-/// post.
+/// A comment cannot be pointed at another tenant's post, on create or by an
+/// edit: the post field answers "Post is invalid", the form re-renders, and
+/// nothing is written. The framework checks the key against the posts'
+/// tenant-scoped query before the write and again inside its transaction, so
+/// `CommentResource` declares no check of its own.
 #[tokio::test]
-async fn comment_writes_recheck_the_parent_post_tenant_inside_the_transaction() {
-    use showcase::app::{CommentForm, CommentFormField, CommentResource, PostResource};
-    use tablo_core::{Posted, Resource, Tenant, db::db as db_handle, scoped_query};
-    use topcoat::{context::CxTestBuilder, router::response::IntoResponse};
-
+async fn comments_refuse_another_tenants_post() {
     let (db, t1, t2) = tenanted_db().await;
-    let cx = CxTestBuilder::new()
-        .app_context(db.clone())
-        .request_context(Tenant(t1))
-        .build();
-
-    // The posts are read through `scoped_query`, the framework's tenant-scoped
-    // entry point: plain `PostResource::query` is the unscoped base
-    // now, so it could hand back either tenant's post and this test would be
-    // asserting nothing.
-    // A post that exists — in the other tenant.
-    let cx_t2 = cx.with(Tenant(t2));
-    let foreign = scoped_query::<PostResource>(&cx_t2)
-        .unwrap()
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let foreign = Post::filter(Post::fields().tenant_id().eq(t2))
         .first()
-        .exec(&mut db_handle(&cx_t2))
+        .exec(&mut db_q)
         .await
         .unwrap()
         .expect("t2 seeds one post");
-    // ...and one in this tenant, as the positive control.
-    let own = scoped_query::<PostResource>(&cx)
-        .unwrap()
+    let own_comment = Comment::filter(Comment::fields().body().eq("T1 comment".to_string()))
         .first()
-        .exec(&mut db_handle(&cx))
+        .exec(&mut db_q)
         .await
         .unwrap()
-        .expect("t1 seeds one post");
+        .expect("t1 seeds one comment");
+    let before = Comment::all().exec(&mut db_q).await.unwrap().len();
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let client = client.tenant(t1).csrf(&csrf);
+    let foreign_id = foreign.id.to_string();
 
-    let form = |post_id: uuid::Uuid| CommentForm {
-        body: "moderated".to_string(),
-        post_id,
-    };
-
-    // Create against the foreign post: refused inside the tx.
-    let mut handle = db_handle(&cx);
-    let mut tx = handle.transaction().await.unwrap();
-    let refused =
-        <CommentResource as Resource>::create_record(&cx, form(foreign.id), &mut tx).await;
-    let error = refused.expect_err("a cross-tenant post must not accept a comment");
-    drop(tx);
-    // The guard's own 404, not a driver or FK failure: "wrong tenant looks
-    // exactly like unknown id" is the contract here (#169).
-    let refusal = error
-        .into_response(&cx)
-        .expect("the refusal renders a response");
+    let created = client
+        .post_form(
+            "/admin/comments/create",
+            form_body(&[
+                ("body", "Planted"),
+                ("post_id", &foreign_id),
+                ("csrf_token", &csrf),
+            ]),
+        )
+        .await;
     assert_eq!(
-        refusal.status(),
-        http::StatusCode::NOT_FOUND,
-        "a cross-tenant parent must read as not found"
+        created.status(),
+        200,
+        "a refused create re-renders the form"
     );
-
-    // Create against this tenant's post: accepted, so the guard is not
-    // blanket-denying.
-    let mut handle = db_handle(&cx);
-    let mut tx = handle.transaction().await.unwrap();
-    <CommentResource as Resource>::create_record(&cx, form(own.id), &mut tx)
-        .await
-        .expect("the tenant's own post accepts a comment");
-    tx.commit().await.unwrap();
-
-    // Re-pointing that comment at the foreign post is refused too, and the
-    // stored row keeps its original parent.
-    let stored = CommentResource::query(&cx)
-        .first()
-        .exec(&mut db_handle(&cx))
-        .await
-        .unwrap()
-        .expect("the comment was written");
-    let original_post = stored.post_id;
-    let mut handle = db_handle(&cx);
-    let mut tx = handle.transaction().await.unwrap();
-    let repointed = <CommentResource as Resource>::update_record(
-        &cx,
-        stored,
-        Posted::new(form(foreign.id), [CommentFormField::PostId]),
-        &mut tx,
-    )
-    .await;
+    let html = body_string(created).await;
     assert!(
-        repointed.is_err(),
-        "an update must not re-point a comment at another tenant's post"
+        html.contains("Post is invalid"),
+        "the post field names the refusal: {html}"
     );
-    drop(tx);
 
-    let after = CommentResource::query(&cx)
-        .first()
-        .exec(&mut db_handle(&cx))
-        .await
-        .unwrap()
-        .expect("the comment survives the refused update");
+    let edited = client
+        .post_form(
+            &format!("/admin/comments/{}/edit", own_comment.id),
+            form_body(&[
+                ("body", "Moved"),
+                ("post_id", &foreign_id),
+                ("csrf_token", &csrf),
+            ]),
+        )
+        .await;
+    assert_eq!(edited.status(), 200, "a refused edit re-renders the form");
+    let html = body_string(edited).await;
+    assert!(
+        html.contains("Post is invalid"),
+        "the post field names the refusal: {html}"
+    );
+
+    let mut db_check = db.clone();
     assert_eq!(
-        after.post_id, original_post,
-        "a refused re-point must not move the comment"
+        Comment::all().exec(&mut db_check).await.unwrap().len(),
+        before,
+        "the refused create writes nothing"
+    );
+    let after = Comment::get_by_id(&mut db_check, &own_comment.id)
+        .await
+        .expect("the comment survives the refused edit");
+    assert_eq!(
+        (after.body.as_str(), after.post_id),
+        ("T1 comment", own_comment.post_id),
+        "the refused edit moves nothing"
     );
 }

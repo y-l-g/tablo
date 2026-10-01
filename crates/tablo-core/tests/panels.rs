@@ -4,7 +4,8 @@
 
 use http::header::LOCATION;
 use tablo_core::{
-    Auth, Brand, NavigationItem, Page, Panel, Resource, RouterBuilderPanelExt, Table, TextColumn,
+    Ability, Auth, Brand, NavigationItem, Page, Panel, Policy, ReadOnly, Resource,
+    RouterBuilderPanelExt, Table, TextColumn,
     auth::{AdminUser, AuthSession, hash_password},
 };
 use toasty::Db;
@@ -49,12 +50,8 @@ impl Resource for BookResource {
         "books".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &Book) -> bool {
-        true
+    fn policy() -> impl Policy<Book> {
+        ReadOnly
     }
 
     fn table() -> Table<Book> {
@@ -82,8 +79,8 @@ impl Resource for NoteResource {
         "notes".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Note> {
+        |_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny)
     }
 
     fn table() -> Table<Note> {

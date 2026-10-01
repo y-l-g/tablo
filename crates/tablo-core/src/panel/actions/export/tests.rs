@@ -2,7 +2,7 @@ use toasty::Db;
 
 use super::*;
 use crate::{
-    Panel,
+    Ability, Panel, Policy, ReadOnly,
     panel::test_support::{Dummy, dummy_table, mount, panel_for, seed_dummies},
 };
 
@@ -15,8 +15,8 @@ impl crate::resource::Resource for ChunkerDummyResource {
     fn slug() -> String {
         "dummies".to_string()
     }
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Dummy> {
+        |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
     }
     fn table() -> crate::resource::Table<Dummy> {
         dummy_table()
@@ -24,7 +24,7 @@ impl crate::resource::Resource for ChunkerDummyResource {
 }
 
 #[tokio::test]
-async fn export_drops_rows_failing_can_view() {
+async fn export_drops_rows_failing_view() {
     use http_body_util::BodyExt;
 
     use crate::resource::Resource;
@@ -36,11 +36,12 @@ async fn export_drops_rows_failing_can_view() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, record: &Dummy) -> bool {
-            record.name != "denied"
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(record) => record.name != "denied",
+                _ => false,
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -122,11 +123,8 @@ async fn export_loads_the_relations_its_columns_include() {
         fn slug() -> String {
             if DECLARES { "declared" } else { "bare" }.to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Child) -> bool {
-            true
+        fn policy() -> impl Policy<Child> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Child> {
             let column = crate::resource::TextColumn::computed("Parent", |c: &Child| {
@@ -265,11 +263,8 @@ async fn export_streams_csv_in_chunks_with_parity() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -360,8 +355,8 @@ async fn export_of_an_empty_table_emits_the_header() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -403,7 +398,7 @@ async fn export_of_an_empty_table_emits_the_header() {
 #[tokio::test]
 async fn export_visibility_scan_loads_no_includes() {
     // The counting pass loads no relation; only the streaming pass loads the
-    // ones the columns include. `can_view` observes which
+    // ones the columns include. `View` observes which
     // query loaded the row: the relation is unloaded in the scan and loaded
     // in the stream, so both counters must fire.
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -442,16 +437,19 @@ async fn export_visibility_scan_loads_no_includes() {
         fn slug() -> String {
             "children".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, record: &Child) -> bool {
-            if record.parent.is_unloaded() {
-                SCAN_UNLOADED.fetch_add(1, Ordering::SeqCst);
-            } else {
-                STREAM_LOADED.fetch_add(1, Ordering::SeqCst);
+        fn policy() -> impl Policy<Child> {
+            |_cx: &Cx, ability: Ability<'_, Child>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(record) => {
+                    if record.parent.is_unloaded() {
+                        SCAN_UNLOADED.fetch_add(1, Ordering::SeqCst);
+                    } else {
+                        STREAM_LOADED.fetch_add(1, Ordering::SeqCst);
+                    }
+                    true
+                }
+                _ => false,
             }
-            true
         }
         fn table() -> crate::resource::Table<Child> {
             crate::resource::Table::new(
@@ -543,11 +541,12 @@ async fn export_counts_only_viewable_rows_within_the_window() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, record: &Dummy) -> bool {
-            !record.name.starts_with("denied-")
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(record) => !record.name.starts_with("denied-"),
+                _ => false,
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -603,11 +602,12 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, record: &Dummy) -> bool {
-            !record.name.starts_with("denied-")
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(record) => !record.name.starts_with("denied-"),
+                _ => false,
+            }
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
@@ -762,11 +762,8 @@ async fn export_and_list_agree_on_rows_and_order() {
         fn slug() -> String {
             "tasks".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Task) -> bool {
-            true
+        fn policy() -> impl Policy<Task> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Task> {
             crate::resource::Table::new(
@@ -863,11 +860,8 @@ async fn export_413s_above_the_cap_before_streaming() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()

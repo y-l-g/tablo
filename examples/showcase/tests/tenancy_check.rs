@@ -128,7 +128,7 @@ async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
 
 #[tokio::test]
 async fn tenantless_requests_to_gated_resources_fail_closed() {
-    // GH #87/#131: Author/Post declare requires_tenant — every handler 403s
+    // GH #87/#131: Author/Post declare a tenancy — every handler 403s
     // when the logged-in user carries no tenant, instead of leaking rows or
     // minting nil orphans.
     let db = full_db().await;
@@ -182,11 +182,9 @@ async fn tenantless_requests_to_gated_resources_fail_closed() {
 
 #[tokio::test]
 async fn tenantless_requests_to_the_comments_queue_fail_closed() {
-    // GH #223 review: comments inherit their post's tenant, so the framework's
-    // `tenant_id` derivation cannot reach them — the resource declares
-    // `tenant_scope` instead. That declaration must not become a way to be
-    // unscoped: before the fix the tenantless request skipped the filter
-    // entirely and rendered (and offered to moderate) *both* tenants' comments.
+    // Comments inherit their post's tenant through `Tenancy::via`, which gates
+    // exactly as a column does: a tenantless request must not render (or
+    // offer to moderate) both tenants' comments.
     let (mut db, _, _) = tenanted_db().await;
     // `tenanted_db` seeds only the tenanted admin; the tenantless one comes
     // from the same public helper the full seed uses.
@@ -445,9 +443,9 @@ async fn comments_edit_with_wrong_tenant_yields_404_via_resource_query() {
 
 #[tokio::test]
 async fn comments_query_scopes_directly_through_parent_post() {
-    // GH #169, Cx-level proof alongside the HTTP tests above.: the
-    // scope is declared in `CommentResource::tenant_scope` and applied by
-    // `scoped_query` — `CommentResource::query` is the tenant-unscoped base.
+    // The Cx-level proof alongside the HTTP tests above: the scope is
+    // declared in `CommentResource::tenancy` and applied by `scoped_query` —
+    // `CommentResource::query` is the tenant-unscoped base.
     use showcase::app::CommentResource;
     use tablo_core::{Tenant, scoped_query};
     use topcoat::context::CxTestBuilder;

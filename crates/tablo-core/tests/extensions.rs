@@ -7,8 +7,8 @@
 //! reaches a framework internal.
 
 use tablo_core::{
-    Action, Actions, BooleanColumn, Column, Committed, Control, ControlInput, Field, Filter,
-    FilterInput, Mutation, Resource, Schema, Table, TextColumn,
+    Ability, Action, Actions, BooleanColumn, Column, Committed, Control, ControlInput, Field,
+    Filter, FilterInput, Mutation, Policy, Resource, Schema, Table, TextColumn,
 };
 use toasty::{Db, stmt::Expr};
 use topcoat::{context::Cx, view::*};
@@ -182,20 +182,13 @@ impl Resource for TaskResource {
         "tasks".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &Task) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_update(_cx: &Cx, _record: &Task) -> bool {
-        true
+    fn policy() -> impl Policy<Task> {
+        |_cx: &Cx, ability: Ability<'_, Task>| {
+            matches!(
+                ability,
+                Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+            )
+        }
     }
 
     fn form(_dx: &tablo_core::DeclCx) -> Schema {

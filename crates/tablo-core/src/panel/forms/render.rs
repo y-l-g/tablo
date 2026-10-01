@@ -16,6 +16,7 @@ use super::super::{
 };
 use crate::{
     form::FieldErrors,
+    policy::{Ability, can},
     resource::{Resource, declared},
 };
 
@@ -175,7 +176,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
 pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
-        if !R::can_create(cx) {
+        if !can::<R>(cx, Ability::Create) {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);

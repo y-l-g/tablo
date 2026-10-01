@@ -48,8 +48,8 @@ use super::Resource;
 ///   selection, and its CSRF check;
 /// - the transaction: the records are loaded through [`scoped_query`](super::scoped_query) inside
 ///   it, `run` writes through the same executor, and an error rolls everything back;
-/// - the policy: every record must pass [`Resource::can_view`] and [`can_run`](Self::can_run),
-///   checked on the loaded rows before `run`;
+/// - the policy: every record must pass [`Ability::View`](crate::policy::Ability::View) and
+///   [`can_run`](Self::can_run), checked on the loaded rows before `run`;
 /// - [`Resource::after_commit`] with [`Mutation::Action`](super::Mutation::Action) once the
 ///   transaction commits, and the success notification.
 ///

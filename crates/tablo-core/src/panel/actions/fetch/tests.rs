@@ -2,7 +2,10 @@ use toasty::Db;
 use topcoat::router::Body;
 
 use super::*;
-use crate::panel::test_support::{mount, panel_for};
+use crate::{
+    Ability, Policy,
+    panel::test_support::{mount, panel_for},
+};
 
 #[tokio::test]
 async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
@@ -99,14 +102,13 @@ async fn composite_pk_edit_fails_loudly_not_404() {
         fn slug() -> String {
             "pairs".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Pair) -> bool {
-            true
-        }
-        fn can_update(_cx: &Cx, _record: &Pair) -> bool {
-            true
+        fn policy() -> impl Policy<Pair> {
+            |_cx: &Cx, ability: Ability<'_, Pair>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Update(_)
+                )
+            }
         }
         fn table() -> crate::resource::Table<Pair> {
             crate::resource::Table::new(

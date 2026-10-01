@@ -87,20 +87,26 @@ impl Relationship {
                 Ok(records.iter().map(|record| project(record)).collect())
             }) as RelationshipLoadFuture
         }) as RelationshipSearchLoader;
-        let check = std::sync::Arc::new(move |cx: &Cx, v: String| {
-            let cx = cx.clone();
-            Box::pin(async move {
-                related_record_check::<R>(&cx, v)
-                    .await
-                    .map_err(|error| error.clone())
-            }) as RelationshipCheckFuture
-        }) as RelationshipChecker;
+        let check = std::sync::Arc::new(check_record::<R>) as RelationshipChecker;
         Self {
             load,
             search,
             check,
         }
     }
+}
+
+/// [`related_record_check`] as the boxed future a [`RelationshipChecker`]
+/// returns.
+fn check_record<'a, R>(
+    cx: &'a Cx,
+    value: String,
+    ex: &'a mut dyn toasty::Executor,
+) -> RelationshipCheckFuture<'a>
+where
+    R: OptionSource,
+{
+    Box::pin(related_record_check::<R>(cx, value, ex))
 }
 
 impl ChoiceControl {
@@ -159,12 +165,42 @@ impl ChoiceControl {
             Ok(_) => "is invalid",
             Err(OptionLoadError::Denied) => "is not available",
             Err(OptionLoadError::Overflow) if self.searchable => {
-                match (relationship.check)(cx, trimmed.to_string()).await {
+                let mut db = crate::db::db(cx);
+                match (relationship.check)(cx, trimmed.to_string(), &mut db).await {
                     Ok(RelatedCheck::FoundViewable) => return Vec::new(),
                     Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "is invalid",
                     Err(error) => load_failure(&error),
                 }
             }
+            Err(error) => load_failure(&error),
+        };
+        vec![format!("{label} {failure}")]
+    }
+
+    /// Re-check a submitted relationship key through `ex`, the write's open
+    /// transaction: the related record must still exist in the tenant-scoped
+    /// query and be one the user may view. The pre-write
+    /// [`validate_exists`](Self::validate_exists) ran in another window, so a
+    /// record deleted, moved to another tenant or hidden since fails here, with
+    /// the wording that check uses. Empty for a static choice, whose options
+    /// cannot change.
+    pub(super) async fn recheck(
+        &self,
+        cx: &Cx,
+        label: &str,
+        value: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> Vec<String> {
+        let trimmed = value.trim();
+        let Some(relationship) = &self.relationship else {
+            return Vec::new();
+        };
+        if trimmed.is_empty() {
+            return Vec::new();
+        }
+        let failure = match (relationship.check)(cx, trimmed.to_string(), ex).await {
+            Ok(RelatedCheck::FoundViewable) => return Vec::new(),
+            Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "is invalid",
             Err(error) => load_failure(&error),
         };
         vec![format!("{label} {failure}")]

@@ -1,5 +1,6 @@
 use http::header::LOCATION;
 use showcase::{app::router_for_tests as router, models::User};
+use tablo_core::{Ability, Policy};
 use toasty::Db;
 
 use crate::common::{
@@ -268,14 +269,13 @@ async fn forged_delete_runs_no_record_query() {
         fn query(cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Dummy>> {
             counted_query(cx)
         }
-        fn can_view_any(_cx: &topcoat::context::Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &topcoat::context::Cx, _r: &Dummy) -> bool {
-            true
-        }
-        fn can_delete_any(_cx: &topcoat::context::Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            |_cx: &topcoat::context::Cx, ability: Ability<'_, Dummy>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
+                )
+            }
         }
         fn table() -> Table<Dummy> {
             Table::new(

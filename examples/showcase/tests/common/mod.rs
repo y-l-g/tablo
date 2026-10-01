@@ -244,7 +244,7 @@ pub async fn demo_client<'a>(router: &'a Router, db: &Db) -> TestClient<'a> {
 }
 
 /// A client holding a freshly minted session for the tenantless admin, for the
-/// `requires_tenant` fail-closed tests.
+/// tenancy fail-closed tests.
 pub async fn tenantless_client<'a>(router: &'a Router, db: &Db) -> TestClient<'a> {
     signed_in_client(router, db, showcase::models::TENANTLESS_ADMIN_EMAIL).await
 }

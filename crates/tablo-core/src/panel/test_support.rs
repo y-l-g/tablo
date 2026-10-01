@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use crate::{
-    Panel, RouterBuilderPanelExt,
+    Ability, Panel, Policy, RouterBuilderPanelExt,
     resource::{Resource, Table, TextColumn},
     schema::{Field, Schema},
 };
@@ -132,20 +132,13 @@ impl crate::resource::Resource for TaggedResource {
         "tagged".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &Tagged) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_update(_cx: &Cx, _record: &Tagged) -> bool {
-        true
+    fn policy() -> impl Policy<Tagged> {
+        |_cx: &Cx, ability: Ability<'_, Tagged>| {
+            matches!(
+                ability,
+                Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+            )
+        }
     }
 
     fn table() -> crate::resource::Table<Tagged> {

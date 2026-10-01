@@ -34,7 +34,7 @@ use crate::{
 /// ```
 ///
 /// Every row goes through the child's own tenant-scoped query and policies —
-/// `can_view_any` decides whether the table renders at all, and the row
+/// `ViewAny` decides whether the table renders at all, and the row
 /// actions are gated per row as on its list. Writes started from the table
 /// return to the page that shows it.
 pub struct Relation<P> {

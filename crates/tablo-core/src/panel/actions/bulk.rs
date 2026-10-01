@@ -21,6 +21,7 @@ use super::{
 use crate::{
     db::db,
     notification::{Notification, set_notification},
+    policy::{Ability, can},
     resource::{Committed, Resource},
 };
 
@@ -41,7 +42,7 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             gate::<R>(cx)?;
             // The whole-resource half of the policy, before the body is read:
             // a resource that allows no delete renders no delete chrome.
-            if !R::can_delete_any(cx) {
+            if !can::<R>(cx, Ability::DeleteAny) {
                 return Err(forbidden().into());
             }
             // Delete/bulk-delete carry no file parts: only the values half is read.
@@ -101,7 +102,7 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             // Edit contract on every row: viewing precedes deleting, same as
             // the edit GET/POST pair. A row the caller cannot view never
             // renders, so naming one is a crafted request: 403.
-            if rows.iter().any(|rec| !R::can_view(cx, rec)) {
+            if rows.iter().any(|rec| !can::<R>(cx, Ability::View(rec))) {
                 return Err(forbidden().into());
             }
             // A row delete refuses is a user path, not only a crafted one: a
@@ -109,7 +110,10 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             // delete refuses it. So the batch writes nothing and the list says
             // why, as a refused custom action does; the transaction drops
             // uncommitted.
-            let refused = rows.iter().filter(|rec| !R::can_delete(cx, rec)).count();
+            let refused = rows
+                .iter()
+                .filter(|rec| !can::<R>(cx, Ability::Delete(rec)))
+                .count();
             if refused > 0 {
                 let noun = if refused == 1 { "record" } else { "records" };
                 set_notification(

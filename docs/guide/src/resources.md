@@ -13,8 +13,8 @@ impl Resource for AuditResource {
     type Model = Audit;
     type Form = NoForm<Audit>; // list-only: no create or edit pages
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Audit> {
+        ReadOnly
     }
 
     fn table() -> Table<Audit> {
@@ -48,9 +48,8 @@ Only `Model`, `Form` and `table()` are required. Every other item has a default.
 | `public_url(cx, record)` | `None` | a link to the record's public page on its detail and edit pages |
 | `relations()` | none | related resources shown as tables on the detail and edit pages |
 | `query(cx)` | every row | the base query every loader starts from: [Scoping](#scoping-the-query) |
-| `requires_tenant()`, `tenant_scope(tenant)` | not tenant-owned | tenancy: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
-| `can_view_any`, `can_view`, `can_create`, `can_update`, `can_delete_any` | `false` | policy: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
-| `can_delete(cx, record)` | `can_delete_any(cx)` | per-record delete policy |
+| `tenancy()` | `Tenancy::none()` | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
+| `policy()` | `Deny` | what the user may do: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
 | `create_record`, `update_record` | the derived write | the create and update writes: [Writes](#writes) |
 | `delete_record`, `bulk_delete_records` | delete by primary key | the delete writes |
 | `after_commit(cx, committed)` | nothing | side effects after a write commits |
@@ -89,7 +88,7 @@ Two things do not belong in `query`:
   loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
 - **Relations.** The list and the export load the relations their columns declare with
   `TextColumn::include`, and the detail page loads `view_query`. Include a relation in `query`
-  only when every loader reads it, for example because `can_view` does.
+  only when every loader reads it, for example because the policy does.
 
 In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
 `scoped_query` is `query` with the tenant filter applied, and returns an error rather than an
@@ -165,10 +164,10 @@ the resource when:
 - the record form and `form()` disagree: a control no form field binds, a form field with no
   control, an optional control whose field has no blank value, a `unique()` field with no
   unique index, or a tenant-owned resource's form claiming its tenant column;
-- `can_create` is allowed and a non-nullable column is set by nothing: not the form, not a Toasty
-  default, not the tenant stamp, and not listed in `CREATE_COLUMNS`;
-- a `NoForm` resource declares `form()` or allows `can_create`;
-- `requires_tenant()` is `true` and no tenant predicate can be derived;
+- the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
+  Toasty default, not the tenant stamp, and not listed in `CREATE_COLUMNS`;
+- a `NoForm` resource declares `form()` or its policy allows `Create`;
+- a `Tenancy::column` lens is not one field of the model;
 - a relation names a resource the panel does not register, or names one twice.
 
 A modifier on the wrong kind of field does not compile: each `Field` constructor returns its

@@ -1,0 +1,173 @@
+use topcoat::context::CxTestBuilder;
+
+use super::*;
+
+struct Post {
+    locked: bool,
+}
+
+const ABILITIES: usize = 6;
+
+/// Every ability over `post`, in declaration order.
+fn abilities(post: &Post) -> [Ability<'_, Post>; ABILITIES] {
+    [
+        Ability::ViewAny,
+        Ability::View(post),
+        Ability::Create,
+        Ability::Update(post),
+        Ability::DeleteAny,
+        Ability::Delete(post),
+    ]
+}
+
+fn answers(policy: &impl Policy<Post>, cx: &Cx, post: &Post) -> [bool; ABILITIES] {
+    abilities(post).map(|ability| policy.allows(cx, ability))
+}
+
+#[test]
+fn the_building_blocks_answer_per_ability() {
+    let cx = CxTestBuilder::new().build();
+    let post = Post { locked: false };
+    assert_eq!(answers(&Allow, &cx, &post), [true; ABILITIES]);
+    assert_eq!(answers(&Deny, &cx, &post), [false; ABILITIES]);
+    assert_eq!(
+        answers(&ReadOnly, &cx, &post),
+        [true, true, false, false, false, false]
+    );
+}
+
+#[test]
+fn a_closure_matches_on_the_ability_and_reads_the_record() {
+    let cx = CxTestBuilder::new().build();
+    let unlocked = |_cx: &Cx, ability: Ability<'_, Post>| match ability {
+        Ability::Update(post) | Ability::Delete(post) => !post.locked,
+        _ => true,
+    };
+    assert_eq!(
+        answers(&unlocked, &cx, &Post { locked: true }),
+        [true, true, true, false, true, false]
+    );
+    assert_eq!(
+        answers(&unlocked, &cx, &Post { locked: false }),
+        [true; ABILITIES]
+    );
+}
+
+#[test]
+fn combinators_compose_policies() {
+    let cx = CxTestBuilder::new().build();
+    let post = Post { locked: false };
+    assert_eq!(
+        answers(&ReadOnly.and(Allow), &cx, &post),
+        answers(&ReadOnly, &cx, &post)
+    );
+    assert_eq!(answers(&ReadOnly.and(Deny), &cx, &post), [false; ABILITIES]);
+    assert_eq!(answers(&ReadOnly.or(Allow), &cx, &post), [true; ABILITIES]);
+    let create_only = |_cx: &Cx, ability: Ability<'_, Post>| matches!(ability, Ability::Create);
+    assert_eq!(
+        answers(&ReadOnly.or(create_only), &cx, &post),
+        [true, true, true, false, false, false]
+    );
+}
+
+#[test]
+fn when_gates_every_ability_on_the_request() {
+    #[derive(Clone, Copy)]
+    struct Staff;
+    let staff = CxTestBuilder::new().request_context(Staff).build();
+    let visitor = CxTestBuilder::new().build();
+    let policy = Allow.and(when(|cx: &Cx| {
+        topcoat::context::try_request_context::<Staff>(cx).is_some()
+    }));
+    let post = Post { locked: false };
+    assert_eq!(answers(&policy, &staff, &post), [true; ABILITIES]);
+    assert_eq!(answers(&policy, &visitor, &post), [false; ABILITIES]);
+}
+
+#[test]
+fn ability_names_its_record() {
+    let post = Post { locked: true };
+    let named: Vec<bool> = abilities(&post)
+        .into_iter()
+        .map(|ability| ability.record().is_some_and(|record| record.locked))
+        .collect();
+    assert_eq!(named, [false, true, false, true, false, true]);
+    let reads: Vec<bool> = abilities(&post).into_iter().map(Ability::is_read).collect();
+    assert_eq!(reads, [true, true, false, false, false, false]);
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Note {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    tenant_id: uuid::Uuid,
+    title: String,
+}
+
+fn note_table() -> crate::resource::Table<Note> {
+    crate::resource::Table::new(
+        |n: &Note| n.id.to_string(),
+        crate::resource::TextColumn::r#for(Note::fields().title(), |n: &Note| n.title.clone()),
+    )
+}
+
+struct OpenNotes;
+impl Resource for OpenNotes {
+    type Model = Note;
+    type Form = crate::NoForm<Note>;
+    fn policy() -> impl Policy<Note> {
+        ReadOnly
+    }
+    fn table() -> crate::resource::Table<Note> {
+        note_table()
+    }
+}
+
+struct TenantNotes;
+impl Resource for TenantNotes {
+    type Model = Note;
+    type Form = crate::NoForm<Note>;
+    fn policy() -> impl Policy<Note> {
+        ReadOnly
+    }
+    fn tenancy() -> crate::Tenancy<Note> {
+        crate::Tenancy::column(Note::fields().tenant_id())
+    }
+    fn table() -> crate::resource::Table<Note> {
+        note_table()
+    }
+}
+
+struct ClosedNotes;
+impl Resource for ClosedNotes {
+    type Model = Note;
+    type Form = crate::NoForm<Note>;
+    fn table() -> crate::resource::Table<Note> {
+        note_table()
+    }
+}
+
+/// `can_list` answers what the list handler's gate and `ViewAny` answer: the
+/// policy, then a tenant for a tenant-scoped resource.
+#[test]
+fn can_list_checks_the_policy_and_the_tenant() {
+    let anonymous = CxTestBuilder::new().build();
+    let tenanted = CxTestBuilder::new()
+        .request_context(crate::Tenant(uuid::Uuid::new_v4()))
+        .build();
+    assert!(can_list::<OpenNotes>(&anonymous));
+    assert!(
+        !can_list::<ClosedNotes>(&tenanted),
+        "the default policy denies"
+    );
+    assert!(
+        !can_list::<TenantNotes>(&anonymous),
+        "a scoped resource needs a tenant"
+    );
+    assert!(can_list::<TenantNotes>(&tenanted));
+    assert!(
+        can::<TenantNotes>(&anonymous, Ability::ViewAny),
+        "`can` asks the policy alone"
+    );
+}

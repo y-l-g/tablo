@@ -5,7 +5,10 @@ use topcoat::{
 };
 
 use super::*;
-use crate::schema::{Field, FieldLens, tree::Mode};
+use crate::{
+    Ability, Policy, ReadOnly,
+    schema::{Field, FieldLens, tree::Mode},
+};
 
 /// What a submit reports for one choice: its rules, then — when they pass —
 /// its option existence, as `Schema::validate_async` asks per field.
@@ -21,9 +24,8 @@ async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
 /// Each one implements only the [`OptionSource`] surface its test reads —
 /// no `Resource`, no `Table`. `tenant_id` is optional so the
 /// fixtures that do not care about tenancy keep creating rows without one;
-/// `TenantScopedAuthors` needs a discoverable `tenant_id` column
-/// for the framework to derive its scope from, and the test that uses it
-/// creates its row with a tenant.
+/// `TenantScopedAuthors` filters on the `tenant_id` column, and the test
+/// that uses it creates its row with a tenant.
 #[derive(Debug, toasty::Model, Clone)]
 struct PolicyAuthor {
     #[key]
@@ -45,7 +47,7 @@ fn name_search_expr<M: toasty::schema::Model>(
 }
 
 /// Denies every request: the whole load fails closed (the trait's
-/// `can_view_any` default).
+/// `ViewAny` default).
 struct DenyAllAuthors;
 impl OptionSource for DenyAllAuthors {
     type Model = PolicyAuthor;
@@ -60,11 +62,12 @@ impl OptionSource for HideOneAuthor {
     fn scoped_query(_cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
         Ok(Query::all())
     }
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-    fn can_view(_cx: &Cx, record: &PolicyAuthor) -> bool {
-        record.name != "Hidden"
+    fn policy() -> impl Policy<PolicyAuthor> {
+        |_cx: &Cx, ability: Ability<'_, PolicyAuthor>| match ability {
+            Ability::ViewAny => true,
+            Ability::View(record) => record.name != "Hidden",
+            _ => false,
+        }
     }
 }
 
@@ -72,20 +75,15 @@ struct TenantScopedAuthors;
 impl OptionSource for TenantScopedAuthors {
     type Model = PolicyAuthor;
 
-    /// Mirrors `Resource`'s blanket impl (`resource::scoped_query`), which
-    /// `schema` cannot call without re-creating the cycle.
+    /// What `Resource`'s blanket impl (`resource::scoped_query`) composes for
+    /// a resource with `Tenancy::column`.
     fn scoped_query(cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
         let tenant = crate::tenancy::require_tenant(cx)?;
-        let filter = crate::tenancy::derived_tenant_filter::<PolicyAuthor>(tenant)
-            .expect("PolicyAuthor declares a tenant_id column");
-        Ok(Query::all().filter(filter))
+        Ok(Query::all().filter(PolicyAuthor::fields().tenant_id().eq(tenant)))
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-    fn can_view(_cx: &Cx, _record: &PolicyAuthor) -> bool {
-        true
+    fn policy() -> impl Policy<PolicyAuthor> {
+        ReadOnly
     }
     fn requires_tenant() -> bool {
         true
@@ -107,11 +105,8 @@ async fn relationship_loader_fails_past_option_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &RefAuthor) -> bool {
-            true
+        fn policy() -> impl Policy<RefAuthor> {
+            ReadOnly
         }
     }
     #[derive(Debug, toasty::Model)]
@@ -137,11 +132,8 @@ async fn relationship_loader_fails_past_option_cap() {
         .unwrap();
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(RefPost::fields().author_id()).relationship::<RefAuthorSource>(
-        |_cx| Query::all(),
-        |a: &RefAuthor| a.id,
-        |a: &RefAuthor| a.name.clone(),
-    );
+    let select = Field::choice(RefPost::fields().author_id())
+        .relationship::<RefAuthorSource>(|a: &RefAuthor| a.id, |a: &RefAuthor| a.name.clone());
     // Over the cap: bounded work, visible retry error — never an
     // empty-options passthrough.
     let errs = check(&select, &cx, "whatever").await;
@@ -185,11 +177,8 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &RefAuthor) -> bool {
-            true
+        fn policy() -> impl Policy<RefAuthor> {
+            ReadOnly
         }
     }
 
@@ -207,11 +196,8 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
     .unwrap();
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(RefAuthor::fields().name()).relationship::<RefAuthorSource>(
-        |_cx| Query::all(),
-        |a: &RefAuthor| a.id,
-        |a: &RefAuthor| a.name.clone(),
-    );
+    let select = Field::choice(RefAuthor::fields().name())
+        .relationship::<RefAuthorSource>(|a: &RefAuthor| a.id, |a: &RefAuthor| a.name.clone());
     // The PK validates; the label never does.
     assert!(check(&select, &cx, &pk).await.is_empty());
     assert_eq!(
@@ -237,8 +223,8 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
 }
 
 #[tokio::test]
-async fn relationship_load_fails_closed_when_can_view_any_denies() {
-    // a related source that denies `can_view_any` must not
+async fn relationship_load_fails_closed_when_view_any_is_refused() {
+    // a related source that denies `ViewAny` must not
     // leak labels or ids through a dependent form, and the error must be
     // "not available" — retrying cannot fix a permission decision.
 
@@ -256,11 +242,8 @@ async fn relationship_load_fails_closed_when_can_view_any_denies() {
     .unwrap();
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<DenyAllAuthors>(
-        |_cx| Query::all(),
-        |a: &PolicyAuthor| a.id,
-        |a: &PolicyAuthor| a.name.clone(),
-    );
+    let select = Field::choice(PolicyAuthor::fields().id())
+        .relationship::<DenyAllAuthors>(|a: &PolicyAuthor| a.id, |a: &PolicyAuthor| a.name.clone());
     assert_eq!(
         check(&select, &cx, &pk).await,
         vec!["Id is not available".to_string()]
@@ -294,7 +277,7 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     // option loads are another path into the related
     // resource's rows; a tenant-scoped related resource must not serve
     // unscoped options just because the parent form is reachable without a
-    // tenant, and the derived filter must narrow the load to the request
+    // tenant, and the tenant filter must narrow the load to the request
     // tenant's rows.
 
     let mut db = toasty::Db::builder()
@@ -314,7 +297,6 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
     let select = Field::choice(PolicyAuthor::fields().id()).relationship::<TenantScopedAuthors>(
-        |_cx| Query::all(),
         |a: &PolicyAuthor| a.id,
         |a: &PolicyAuthor| a.name.clone(),
     );
@@ -327,9 +309,9 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     let tenanted = cx.with(crate::tenancy::Tenant(tenant));
     assert!(check(&select, &tenanted, &pk).await.is_empty());
     // Another tenant's request sees nothing: the option load runs the
-    // source's `scoped_query` — the fixture spells it as the framework's
-    // derived tenant filter, and `Resource`'s blanket impl spells it as
-    // `scoped_query::<R>` — never an unscoped base. The load itself
+    // source's `scoped_query` — the fixture spells out the tenant filter,
+    // and `Resource`'s blanket impl spells it as `scoped_query::<R>` — never
+    // an unscoped base. The load itself
     // succeeds (the source is viewable), so the row is *absent from the
     // options* rather than denied — "invalid", the empty-set answer, not
     // the "not available" the gate gives.
@@ -341,8 +323,8 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
 }
 
 #[tokio::test]
-async fn relationship_load_filters_rows_by_can_view() {
-    // `can_view`-denied rows are absent from options and
+async fn relationship_load_filters_rows_by_view() {
+    // `View`-denied rows are absent from options and
     // validation — a value outside the viewable set is invalid, not
     // merely unlisted.
 
@@ -365,11 +347,8 @@ async fn relationship_load_filters_rows_by_can_view() {
     .await
     .unwrap();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
-        |_cx| Query::all(),
-        |a: &PolicyAuthor| a.id,
-        |a: &PolicyAuthor| a.name.clone(),
-    );
+    let select = Field::choice(PolicyAuthor::fields().id())
+        .relationship::<HideOneAuthor>(|a: &PolicyAuthor| a.id, |a: &PolicyAuthor| a.name.clone());
     assert!(
         check(&select, &cx, &visible.id.to_string())
             .await
@@ -390,14 +369,14 @@ async fn relationship_load_filters_rows_by_can_view() {
     assert!(html.contains("Visible"), "viewable row must render: {html}");
     assert!(
         !html.contains("Hidden"),
-        "can_view-denied row must not render: {html}"
+        "a row `View` refuses must not render: {html}"
     );
 }
 
 #[tokio::test]
 async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
     // GH #91 + #108: the cap is checked on the raw bounded fetch. If it
-    // counted post-`can_view` rows, a single hidden record would defeat
+    // counted post-`View` rows, a single hidden record would defeat
     // it and silently truncate a larger table, misreporting viewable FKs
     // as "invalid" — the exact failure the cap exists to prevent.
 
@@ -425,11 +404,8 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
         }
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
-        |_cx| Query::all(),
-        |a: &PolicyAuthor| a.id,
-        |a: &PolicyAuthor| a.name.clone(),
-    );
+    let select = Field::choice(PolicyAuthor::fields().id())
+        .relationship::<HideOneAuthor>(|a: &PolicyAuthor| a.id, |a: &PolicyAuthor| a.name.clone());
     // The raw fetch sees MAX+1 rows: overflow fails visibly instead of
     // rendering the 200 viewable rows as if they were the whole table.
     assert_eq!(
@@ -440,7 +416,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
 
 #[tokio::test]
 async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
-    // `can_view` filtering happens before labels render, so a
+    // `View` filtering happens before labels render, so a
     // row the user may not view is absent from options and does not
     // validate — and the stored value is not re-rendered on the form.
 
@@ -458,11 +434,8 @@ async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
     .unwrap();
     let pk = hidden.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
-        |_cx| Query::all(),
-        |a: &PolicyAuthor| a.id,
-        |a: &PolicyAuthor| a.name.clone(),
-    );
+    let select = Field::choice(PolicyAuthor::fields().id())
+        .relationship::<HideOneAuthor>(|a: &PolicyAuthor| a.id, |a: &PolicyAuthor| a.name.clone());
     assert_eq!(
         check(&select, &cx, &pk).await,
         vec!["Id is invalid".to_string()]
@@ -503,11 +476,8 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
             OPTION_LOADS.fetch_add(1, Ordering::SeqCst);
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Ref) -> bool {
-            true
+        fn policy() -> impl Policy<Ref> {
+            ReadOnly
         }
     }
 
@@ -527,16 +497,10 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     let cx = CxTestBuilder::new().app_context(db).build();
 
     // Two selects, different labels, same source.
-    let s1 = Field::choice(Ref::fields().name()).relationship::<CountingSource>(
-        |_cx| Query::all(),
-        |r: &Ref| r.id,
-        |r: &Ref| r.name.clone(),
-    );
-    let s2 = Field::choice(Ref::fields().name()).relationship::<CountingSource>(
-        |_cx| Query::all(),
-        |r: &Ref| r.id,
-        |r: &Ref| format!("{}!", r.name),
-    );
+    let s1 = Field::choice(Ref::fields().name())
+        .relationship::<CountingSource>(|r: &Ref| r.id, |r: &Ref| r.name.clone());
+    let s2 = Field::choice(Ref::fields().name())
+        .relationship::<CountingSource>(|r: &Ref| r.id, |r: &Ref| format!("{}!", r.name));
 
     OPTION_LOADS.store(0, Ordering::SeqCst);
     assert!(check(&s1, &cx, &id).await.is_empty());
@@ -583,11 +547,8 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<BigRef>>> {
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &BigRef) -> bool {
-            true
+        fn policy() -> impl Policy<BigRef> {
+            ReadOnly
         }
     }
 
@@ -612,11 +573,8 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
         .unwrap_err();
     assert_eq!(err, &super::OptionLoadError::Overflow);
     // Non-searchable keeps the retry message.
-    let plain = Field::choice(BigRef::fields().name()).relationship::<BigRefSource>(
-        |_cx| Query::all(),
-        |r: &BigRef| r.id,
-        |r: &BigRef| r.name.clone(),
-    );
+    let plain = Field::choice(BigRef::fields().name())
+        .relationship::<BigRefSource>(|r: &BigRef| r.id, |r: &BigRef| r.name.clone());
     assert_eq!(
         check(&plain, &cx, "whatever-not-a-uuid").await,
         vec!["Name could not load options, retry".to_string()]
@@ -642,11 +600,8 @@ async fn relationship_search_narrows_past_the_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<SearchRef>>> {
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &SearchRef) -> bool {
-            true
+        fn policy() -> impl Policy<SearchRef> {
+            ReadOnly
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(SearchRef::fields().name(), term)
@@ -694,11 +649,7 @@ async fn relationship_search_narrows_past_the_cap() {
     // `ChoiceControl::search_options` shares the same seam.
     let select = Field::choice(SearchRef::fields().name())
         .searchable()
-        .relationship::<SearchRefSource>(
-            |_cx| Query::all(),
-            |r: &SearchRef| r.id,
-            |r: &SearchRef| r.name.clone(),
-        );
+        .relationship::<SearchRefSource>(|r: &SearchRef| r.id, |r: &SearchRef| r.name.clone());
     let opts = select
         .as_choice()
         .expect("a choice")
@@ -730,11 +681,8 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<PlainRef>>> {
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &PlainRef) -> bool {
-            true
+        fn policy() -> impl Policy<PlainRef> {
+            ReadOnly
         }
     }
 
@@ -777,11 +725,12 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<CheckRef>>> {
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, record: &CheckRef) -> bool {
-            record.name != "Hidden"
+        fn policy() -> impl Policy<CheckRef> {
+            |_cx: &Cx, ability: Ability<'_, CheckRef>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(record) => record.name != "Hidden",
+                _ => false,
+            }
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(CheckRef::fields().name(), term)
@@ -819,11 +768,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let searchable = Field::choice(CheckRef::fields().name())
         .searchable()
-        .relationship::<CheckRefSource>(
-            |_cx| Query::all(),
-            |r: &CheckRef| r.id,
-            |r: &CheckRef| r.name.clone(),
-        );
+        .relationship::<CheckRefSource>(|r: &CheckRef| r.id, |r: &CheckRef| r.name.clone());
     // Legitimate FK beyond the cap passes via targeted check.
     assert!(check(&searchable, &cx, &visible_pk).await.is_empty());
     // Hidden row → invalid (not leaked), unknown → invalid.
@@ -836,11 +781,8 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
         vec!["Name is invalid".to_string()]
     );
     // Non-searchable over the same source keeps the retry error.
-    let plain = Field::choice(CheckRef::fields().name()).relationship::<CheckRefSource>(
-        |_cx| Query::all(),
-        |r: &CheckRef| r.id,
-        |r: &CheckRef| r.name.clone(),
-    );
+    let plain = Field::choice(CheckRef::fields().name())
+        .relationship::<CheckRefSource>(|r: &CheckRef| r.id, |r: &CheckRef| r.name.clone());
     assert_eq!(
         check(&plain, &cx, &visible_pk).await,
         vec!["Name could not load options, retry".to_string()]
@@ -865,11 +807,8 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<HintRef>>> {
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &HintRef) -> bool {
-            true
+        fn policy() -> impl Policy<HintRef> {
+            ReadOnly
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(HintRef::fields().name(), term)
@@ -893,11 +832,7 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let select = Field::choice(HintRef::fields().name())
         .searchable()
-        .relationship::<HintRefSource>(
-            |_cx| Query::all(),
-            |r: &HintRef| r.id,
-            |r: &HintRef| r.name.clone(),
-        );
+        .relationship::<HintRefSource>(|r: &HintRef| r.id, |r: &HintRef| r.name.clone());
     let html = select
         .render(&cx, Some("stored-fk"), None, Mode::Form)
         .await
@@ -943,11 +878,8 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<SmallRef>>> {
             Ok(Query::all())
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &SmallRef) -> bool {
-            true
+        fn policy() -> impl Policy<SmallRef> {
+            ReadOnly
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(SmallRef::fields().name(), term)
@@ -969,11 +901,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let select = Field::choice(SmallRef::fields().name())
         .searchable()
-        .relationship::<SmallRefSource>(
-            |_cx| Query::all(),
-            |r: &SmallRef| r.id,
-            |r: &SmallRef| r.name.clone(),
-        );
+        .relationship::<SmallRefSource>(|r: &SmallRef| r.id, |r: &SmallRef| r.name.clone());
     let html = select
         .render(&cx, None, None, Mode::Form)
         .await
@@ -993,5 +921,92 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
     assert!(
         !html.contains("Too many options"),
         "bounded searchable must not hint: {html}"
+    );
+}
+
+/// The write re-checks a relationship key through its own transaction: a key
+/// in the request's tenant passes, one in another tenant or hidden by the
+/// source's policy fails with the pre-write wording, and a row the
+/// transaction deleted fails too, because the check reads what the write
+/// sees rather than a pooled snapshot.
+#[tokio::test]
+async fn recheck_resolves_the_key_through_the_write_transaction() {
+    let mut db = toasty::Db::builder()
+        .models(toasty::models!(PolicyAuthor))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let tenant = uuid::Uuid::new_v4();
+    let author = |name: &str, tenant_id: uuid::Uuid| {
+        toasty::create!(PolicyAuthor {
+            tenant_id: Some(tenant_id),
+            name: name.to_string(),
+        })
+    };
+    let own = author("Own", tenant).exec(&mut db).await.unwrap();
+    let foreign = author("Foreign", uuid::Uuid::new_v4())
+        .exec(&mut db)
+        .await
+        .unwrap();
+    let hidden = author("Hidden", tenant).exec(&mut db).await.unwrap();
+    let cx = CxTestBuilder::new()
+        .app_context(db)
+        .request_context(crate::tenancy::Tenant(tenant))
+        .build();
+    let scoped = crate::schema::Schema::new(
+        Field::choice(PolicyAuthor::fields().id()).relationship::<TenantScopedAuthors>(
+            |a: &PolicyAuthor| a.id,
+            |a: &PolicyAuthor| a.name.clone(),
+        ),
+    );
+    let viewable = crate::schema::Schema::new(
+        Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(
+            |a: &PolicyAuthor| a.id,
+            |a: &PolicyAuthor| a.name.clone(),
+        ),
+    );
+    let values =
+        |id: uuid::Uuid| std::collections::HashMap::from([("id".to_string(), id.to_string())]);
+    let messages = |errors: crate::form::FieldErrors| -> Vec<String> {
+        errors.iter().map(|error| error.message.clone()).collect()
+    };
+
+    let mut handle = crate::db::db(&cx);
+    let mut tx = handle.transaction().await.unwrap();
+    assert!(
+        scoped
+            .recheck_relationships(&cx, &values(own.id), &mut tx)
+            .await
+            .is_empty()
+    );
+    assert_eq!(
+        messages(
+            scoped
+                .recheck_relationships(&cx, &values(foreign.id), &mut tx)
+                .await
+        ),
+        ["Id is invalid"]
+    );
+    assert_eq!(
+        messages(
+            viewable
+                .recheck_relationships(&cx, &values(hidden.id), &mut tx)
+                .await
+        ),
+        ["Id is invalid"]
+    );
+    PolicyAuthor::filter(PolicyAuthor::fields().id().eq(own.id))
+        .delete()
+        .exec(&mut tx)
+        .await
+        .unwrap();
+    assert_eq!(
+        messages(
+            scoped
+                .recheck_relationships(&cx, &values(own.id), &mut tx)
+                .await
+        ),
+        ["Id is invalid"]
     );
 }

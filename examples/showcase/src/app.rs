@@ -1,11 +1,10 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Action, Actions, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter, DeclCx, Field,
-    FieldErrors, Grid, Group, NavigationItem, Options, Panel, Posted, Relation, Repeater,
-    ResolvedLens, Resource, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
-    TernaryFilter, TextColumn, Uploader, VariantFilter, scoped_query, tenant_id, write_create,
-    write_update,
+    Ability, Action, Actions, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter, DeclCx,
+    Field, FieldErrors, Grid, Group, NavigationItem, Options, Panel, Policy, Relation, Repeater,
+    ResolvedLens, Resource, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
+    TernaryFilter, TextColumn, Uploader, VariantFilter, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -98,26 +97,14 @@ impl Resource for UserResource {
         errors
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-    fn can_view(_cx: &Cx, _record: &User) -> bool {
-        true
-    }
-    fn can_create(_cx: &Cx) -> bool {
-        true
-    }
-    fn can_update(_cx: &Cx, record: &User) -> bool {
-        // Row-level rule: Ken's account is SSO-managed outside the panel,
-        // so the panel never writes it (reads still flow).
-        record.name != "Ken Thompson"
-    }
-    fn can_delete_any(_cx: &Cx) -> bool {
-        true
-    }
-    fn can_delete(_cx: &Cx, record: &User) -> bool {
-        // Same SSO guard on the delete path: per-row Policy proven over HTTP.
-        record.name != "Ken Thompson"
+    /// Everyone may do everything but write Ken's account: it is SSO-managed
+    /// outside the panel, so the panel never updates or deletes it, while
+    /// reads still flow.
+    fn policy() -> impl Policy<User> {
+        |_cx: &Cx, ability: Ability<'_, User>| match ability {
+            Ability::Update(user) | Ability::Delete(user) => user.name != "Ken Thompson",
+            _ => true,
+        }
     }
 
     fn table() -> Table<User> {
@@ -194,32 +181,15 @@ impl Resource for AuthorResource {
         "Writer".to_string()
     }
 
-    // No `query` override: the framework ANDs `tenant_id = <tenant>`
-    // onto the default query for a `requires_tenant` resource, derived from
-    // `Author`'s own schema, so the filter cannot be forgotten here.
-    fn can_view_any(cx: &Cx) -> bool {
-        if tenant_id(cx).is_some_and(|tid| tid == BLOCKED_TENANT) {
-            return false;
-        }
-        true
-    }
-    fn can_view(cx: &Cx, _record: &Author) -> bool {
-        Self::can_view_any(cx)
-    }
-    fn can_create(cx: &Cx) -> bool {
-        Self::can_view_any(cx)
-    }
-    fn can_update(cx: &Cx, _record: &Author) -> bool {
-        Self::can_view_any(cx)
-    }
-    fn can_delete_any(cx: &Cx) -> bool {
-        Self::can_view_any(cx)
+    fn policy() -> impl Policy<Author> {
+        when(blog_open)
     }
 
-    // Tenant-scoped model: every handler fails closed without a
-    // tenant instead of leaking unscoped rows or minting nil-tenant orphans.
-    fn requires_tenant() -> bool {
-        true
+    /// Each author belongs to one tenant: every handler requires a tenant, and
+    /// the framework filters every query on this column and stamps it on
+    /// create, so no `query` override restates it.
+    fn tenancy() -> Tenancy<Author> {
+        Tenancy::column(Author::fields().tenant_id())
     }
 
     fn table() -> Table<Author> {
@@ -244,6 +214,12 @@ impl Resource for AuthorResource {
 pub struct AuthorForm {
     pub name: String,
     pub email: String,
+}
+
+/// Whether the request's tenant may use the blog: the demo locks
+/// [`BLOCKED_TENANT`] out of every author and post, whatever the ability.
+fn blog_open(cx: &Cx) -> bool {
+    tenant_id(cx) != Some(BLOCKED_TENANT)
 }
 
 pub struct PostResource;
@@ -275,7 +251,6 @@ impl Resource for PostResource {
                     Grid::new(2).schema((c.status.optional(), c.featured)),
                     c.author_id
                         .relationship::<AuthorResource>(
-                            AuthorResource::query,
                             |a: &Author| a.id,
                             |a: &Author| a.name.clone(),
                         )
@@ -285,7 +260,6 @@ impl Resource for PostResource {
                     // upload. Optional and single: empty clears the cover.
                     c.cover_id
                         .relationship::<MediaLibrary>(
-                            |_cx| toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all(),
                             |m: &MediaAsset| m.id,
                             |m: &MediaAsset| m.filename.clone(),
                         )
@@ -304,23 +278,6 @@ impl Resource for PostResource {
                 Section::new("Publication").schema(c.publication),
             )),
         ))
-    }
-
-    async fn create_record(cx: &Cx, form: PostForm, ex: &mut dyn toasty::Executor) -> Result<Post> {
-        ensure_author_in_tenant(cx, form.author_id, ex).await?;
-        write_create::<Self>(cx, form, ex).await
-    }
-
-    async fn update_record(
-        cx: &Cx,
-        record: Post,
-        posted: Posted<PostForm>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<Post> {
-        // An unposted `author_id` reads as the stored one, which is re-checked
-        // too: the author may have left the tenant since.
-        ensure_author_in_tenant(cx, posted.author_id, ex).await?;
-        write_update::<Self>(cx, record, posted, ex).await
     }
 
     fn label() -> String {
@@ -409,29 +366,12 @@ impl Resource for PostResource {
         )]
     }
 
-    fn can_view_any(cx: &Cx) -> bool {
-        if tenant_id(cx).is_some_and(|tid| tid == BLOCKED_TENANT) {
-            return false;
-        }
-        true
-    }
-    fn can_view(cx: &Cx, _record: &Post) -> bool {
-        Self::can_view_any(cx)
-    }
-    fn can_create(cx: &Cx) -> bool {
-        Self::can_view_any(cx)
-    }
-    fn can_update(cx: &Cx, _record: &Post) -> bool {
-        Self::can_view_any(cx)
-    }
-    fn can_delete_any(cx: &Cx) -> bool {
-        Self::can_view_any(cx)
+    fn policy() -> impl Policy<Post> {
+        when(blog_open)
     }
 
-    // Tenant-scoped model: every handler fails closed without a
-    // tenant instead of leaking unscoped rows or minting nil-tenant orphans.
-    fn requires_tenant() -> bool {
-        true
+    fn tenancy() -> Tenancy<Post> {
+        Tenancy::column(Post::fields().tenant_id())
     }
 
     fn table() -> Table<Post> {
@@ -521,7 +461,7 @@ impl Resource for PostResource {
 /// Publish draft posts, from a row or for the selection.
 ///
 /// The framework loads the posts through the tenant-scoped query inside its
-/// transaction and checks `can_view` and `can_run` on each before `run`
+/// transaction and checks `View` and `can_run` on each before `run`
 /// writes through the same transaction.
 pub struct PublishPosts;
 
@@ -570,82 +510,18 @@ pub struct PostForm {
     pub publication: Publication,
 }
 
-/// The author must exist *in this tenant* at write time: `validate_async`
-/// checked the option set before the transaction opened, but the author may
-/// be cross-tenant or deleted since, so the check re-runs through the
-/// tenant-scoped query inside the transaction. A miss is a 500.
-async fn ensure_author_in_tenant(
-    cx: &Cx,
-    author_id: uuid::Uuid,
-    ex: &mut dyn toasty::Executor,
-) -> Result<()> {
-    let author_exists = scoped_query::<AuthorResource>(cx)?
-        .filter(Author::fields().id().eq(author_id))
-        .first()
-        .exec(&mut *ex)
-        .await
-        .map_err(|e| -> topcoat::Error { e.into() })?
-        .is_some();
-    if !author_exists {
-        return Err(topcoat::Error::from(std::io::Error::other(
-            "author not found",
-        )));
-    }
-    Ok(())
-}
-
 /// Comments resource over `Comment`: the moderation queue.
 ///
-/// Comments carry no tenant of their own — they inherit visibility from their
-/// post — so the request tenant is required like any other gated
-/// resource, and the scope is the parent post's tenant, declared in
-/// [`tenant_scope`](Resource::tenant_scope).
+/// Comments carry no tenant of their own: each belongs to its post's tenant,
+/// which [`tenancy`](Resource::tenancy) reaches through the relation. The
+/// framework requires a tenant in every handler, filters every query through
+/// the post, and re-checks the chosen post against the posts' tenant-scoped
+/// query inside each write, so a comment cannot be pointed at another tenant's
+/// post.
 ///
-/// That declaration is what the framework's default cannot supply: the default
-/// derives the filter from a `tenant_id` column on the model, and `Comment` has
-/// none. Leaving `requires_tenant` false and writing the filter inside `query`
-/// was the GH #223 review's leak — a tenantless request silently *skipped* the
-/// filter instead of being refused, and with `can_view_any`/`can_view` true the
-/// caller could read and moderate every tenant's comments. Gated + declared is
-/// the shape that fails closed: no tenant is a 403 everywhere, and the
-/// predicate is the framework's to apply.
-///
-/// The queue moderates: `can_delete_any` enables row and bulk delete, and
-/// `delete_record` writes them — bulk delete rides
-/// the framework default that loops `delete_record`. A resource that wants a
-/// read-only queue leaves [`can_delete_any`](Resource::can_delete_any) at its default instead.
+/// The queue moderates: its policy allows delete, and bulk delete rides the
+/// framework default that loops `delete_record`.
 pub struct CommentResource;
-
-/// Re-resolve a comment's parent post through the tenant-scoped
-/// [`scoped_query::<PostResource>`] inside the caller's open transaction.
-/// `Schema::validate_async` already rejects a `post_id` outside the
-/// tenant-scoped option set before the tx opens, but that
-/// is a pre-write check in a different window: a policy or tenant change between
-/// the two would slip through, and a direct `create_record` / `update_record`
-/// caller never ran it at all. Mirroring `PostResource`'s author double-check,
-/// this is the defense-in-depth half — one query on the seam that owns tenancy.
-///
-/// The miss is a 404, not the 500 `PostResource` uses for a missing author: a
-/// parent in another tenant is an authorization boundary, and "wrong tenant
-/// looks exactly like unknown id" is this panel's contract everywhere else
-/// (#169).
-async fn ensure_post_in_tenant(
-    cx: &Cx,
-    post_id: uuid::Uuid,
-    ex: &mut dyn toasty::Executor,
-) -> Result<()> {
-    let in_tenant = scoped_query::<PostResource>(cx)?
-        .filter(Post::fields().id().eq(post_id))
-        .first()
-        .exec(&mut *ex)
-        .await
-        .map_err(|e| -> topcoat::Error { e.into() })?
-        .is_some();
-    if !in_tenant {
-        return Err(topcoat::router::error::not_found().into());
-    }
-    Ok(())
-}
 
 impl Resource for CommentResource {
     type Model = Comment;
@@ -662,37 +538,10 @@ impl Resource for CommentResource {
             // shape the post body uses.
             c.body.multiline(4).placeholder("Write a reply…"),
             c.post_id
-                .relationship::<PostResource>(
-                    PostResource::query,
-                    |p: &Post| p.id,
-                    |p: &Post| p.title.clone(),
-                )
+                .relationship::<PostResource>(|p: &Post| p.id, |p: &Post| p.title.clone())
                 .searchable()
                 .label("Post"),
         ))
-    }
-
-    async fn create_record(
-        cx: &Cx,
-        form: CommentForm,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<Comment> {
-        // Tenancy double-check inside the tx: the pre-tx option-set
-        // validation is not a write-time guarantee.
-        ensure_post_in_tenant(cx, form.post_id, ex).await?;
-        write_create::<Self>(cx, form, ex).await
-    }
-
-    async fn update_record(
-        cx: &Cx,
-        record: Comment,
-        posted: Posted<CommentForm>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<Comment> {
-        // An update can re-point the comment at another post, which is exactly
-        // the move the pre-tx check cannot be trusted to catch.
-        ensure_post_in_tenant(cx, posted.post_id, ex).await?;
-        write_update::<Self>(cx, record, posted, ex).await
     }
 
     fn navigation_label() -> String {
@@ -703,44 +552,19 @@ impl Resource for CommentResource {
         "Comments".to_string()
     }
 
-    /// Tenant-scoped from the parent post, and gated like every other
-    /// tenant-owned resource.
-    ///
-    /// `true` is what makes a tenantless request a 403 here instead of a read
-    /// that quietly dropped the filter; the predicate below replaces the
-    /// framework's name-based derivation, which finds no `tenant_id` on
-    /// `Comment`.
-    fn requires_tenant() -> bool {
-        true
+    /// A removed comment keeps its row as a placeholder with no content to
+    /// read, so the policy refuses to show it and the post's relation omits
+    /// it. The queue renders no row action for a record it may not view, which
+    /// is the same answer: a placeholder has nothing to edit or delete.
+    fn policy() -> impl Policy<Comment> {
+        |_cx: &Cx, ability: Ability<'_, Comment>| match ability {
+            Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
+            _ => true,
+        }
     }
 
-    /// Inherit-through-the-relation: scope through the parent post's
-    /// tenant. Toasty rewrites the relation-path comparison into a foreign-key
-    /// subquery, and the framework ANDs the result onto `query`/`view_query`
-    /// exactly as it ANDs the derived `tenant_id` filter elsewhere.
-    fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
-        Some(Comment::fields().post().tenant_id().eq(tenant))
-    }
-
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-    /// A removed comment keeps its row as a placeholder: there is no
-    /// content to read, so this refuses it and the post's relation omits it.
-    /// The framework withholds the queue's row actions from a record this
-    /// refuses, which is the same answer — a placeholder has nothing
-    /// to edit or delete.
-    fn can_view(_cx: &Cx, record: &Comment) -> bool {
-        record.body != REMOVED_COMMENT_BODY
-    }
-    fn can_create(_cx: &Cx) -> bool {
-        true
-    }
-    fn can_update(_cx: &Cx, _record: &Comment) -> bool {
-        true
-    }
-    fn can_delete_any(_cx: &Cx) -> bool {
-        true
+    fn tenancy() -> Tenancy<Comment> {
+        Tenancy::via(Comment::fields().post().tenant_id())
     }
 
     fn table() -> Table<Comment> {

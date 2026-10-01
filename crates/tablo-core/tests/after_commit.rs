@@ -8,7 +8,9 @@
 //! could show that.
 
 use http::header::LOCATION;
-use tablo_core::{Committed, Field, Mutation, Resource, Schema, Table, TextColumn};
+use tablo_core::{
+    Ability, Allow, Committed, Field, Mutation, Policy, Resource, Schema, Table, TextColumn,
+};
 use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
@@ -80,24 +82,8 @@ impl Resource for AuditedResource {
         "notes".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &Note) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_update(_cx: &Cx, _record: &Note) -> bool {
-        true
-    }
-
-    fn can_delete_any(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Note> {
+        Allow
     }
 
     fn table() -> Table<Note> {
@@ -132,12 +118,8 @@ impl Resource for PlainResource {
         "plain-notes".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Note> {
+        |_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny | Ability::Create)
     }
 
     fn table() -> Table<Note> {
@@ -173,12 +155,8 @@ impl Resource for FailingWriteResource {
         "failing-writes".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Note> {
+        |_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny | Ability::Create)
     }
 
     fn table() -> Table<Note> {
@@ -213,12 +191,8 @@ impl Resource for FailingHookResource {
         "failing-hooks".to_string()
     }
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Note> {
+        |_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny | Ability::Create)
     }
 
     fn table() -> Table<Note> {

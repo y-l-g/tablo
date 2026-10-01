@@ -108,9 +108,10 @@ use toasty::{Executor, schema::Model, stmt::IntoInsert};
 use topcoat::{Result, context::Cx};
 
 use crate::{
+    error::TabloError,
     resource::Resource,
     schema::{DeclCx, Schema, TypedValue},
-    tenancy::{require_tenant, tenant_field_index},
+    tenancy::require_tenant,
 };
 
 /// A type one form key reads and writes: `String`, every [`TypedValue`] type,
@@ -576,26 +577,38 @@ pub(crate) fn prefilled_fields<M: Model>() -> Vec<bool> {
         .unwrap_or_default()
 }
 
-/// The derived create: the form's builder, the request tenant stamped on a
-/// gated resource's tenant column, executed through `ex`.
+/// The derived create: the form's builder, the request tenant stamped on the
+/// resource's [`Tenancy::column`](crate::Tenancy::column), executed through
+/// `ex`.
 ///
-/// A gated resource whose tenant is inherited (no `tenant_id` column of its
-/// own) has nothing to stamp.
+/// A resource whose tenant is inherited ([`Tenancy::via`](crate::Tenancy::via))
+/// has nothing to stamp.
 ///
 /// # Errors
 ///
-/// A tenantless request on a gated resource (the handler answers 403 first),
-/// or the driver's error.
+/// A tenantless request on a tenant-scoped resource (the handler answers 403 first),
+/// a misdeclared tenant column (the mount refuses it first), or the driver's error.
 pub async fn write_create<R: Resource>(
     cx: &Cx,
     form: R::Form,
     ex: &mut dyn Executor,
 ) -> Result<R::Model> {
     let mut insert = form.into_create().into_insert();
-    if R::requires_tenant()
-        && let Some(index) = tenant_field_index::<R::Model>()
-    {
-        insert.set(index, toasty_core::stmt::Value::from(require_tenant(cx)?));
+    match R::tenancy().column_field() {
+        Some(Ok(column)) => {
+            insert.set(
+                column.index,
+                toasty_core::stmt::Value::from(require_tenant(cx)?),
+            );
+        }
+        Some(Err(error)) => {
+            return Err(TabloError::Declaration(format!(
+                "resource `{}`'s `Tenancy::column` lens binds no column: {error}",
+                std::any::type_name::<R>(),
+            ))
+            .into());
+        }
+        None => {}
     }
     ex.exec(insert.into())
         .await

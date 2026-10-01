@@ -18,7 +18,7 @@ the form does not, and a list-only resource can declare one too.
 ## What the page shows
 
 The header carries the record's title, a link back to the list, and an Edit link when the resource
-has a form and `can_update` allows this record. Below it come the view's fields, then any
+has a form and the policy allows `Update` of this record. Below it come the view's fields, then any
 [free-form content](#free-form-content), then the [related tables](#related-tables).
 
 Each field renders its label and its stored value, never a control:
@@ -60,8 +60,8 @@ fn view_query(cx: &Cx) -> Query<List<Post>> {
 }
 ```
 
-An unknown id and an id outside the request's tenant are the same 404; a record `can_view` refuses
-is a 403.
+An unknown id and an id outside the request's tenant are the same 404; a record the policy may not
+`View` is a 403.
 
 **Title.** `record_label` sets the page title; without it the title is the resource's `label()` and
 the record's key, such as "Post 3f2a…":
@@ -111,11 +111,11 @@ plus `post_id = <this post>`. It is titled with the related resource's `navigati
 `.label(..)`.
 
 - **Policy.** The related resource's policies apply as on its own list: no section renders when
-  its `can_view_any` refuses, or when it requires a tenant the request lacks, and each row keeps
+  its policy refuses `ViewAny`, or when it is tenant-scoped and the request has no tenant, and each row keeps
   only the actions its record allows.
 - **Detail page versus edit page.** On the detail page the table is read-only: rows keep only
   their View action. On the edit page rows also carry Edit and Delete, the table has bulk delete,
-  and a create button appears when the related resource has a form and allows `can_create`.
+  and a create button appears when the related resource has a form and its policy allows `Create`.
 - **Creating from the parent.** The create button opens the related resource's create page with
   the owner preselected, as in `/admin/comments/create?post_id=…`. The create page accepts such a
   parameter only for a relationship choice; the value is a default, and the submitted form is

@@ -16,6 +16,7 @@ use super::{
 };
 use crate::{
     form::RecordForm,
+    policy::{Ability, can},
     resource::{
         BoundRelation, RETURN_PARAM, Resource, TABLE_CARD_CLASS, Table, TableChrome, TableState,
         create_page_url, declared, request_query, runtime_link,
@@ -60,7 +61,7 @@ pub(crate) fn relation_chrome<C: Resource>(cx: &Cx, read_only: bool) -> TableChr
 /// link that opens `C`'s form with the owner chosen.
 ///
 /// `C`'s own gates apply: a request that lacks a tenant `C` requires, or that
-/// `C::can_view_any` refuses, gets no section, and the row actions keep their
+/// `ViewAny` refuses, gets no section, and the row actions keep their
 /// per-row policy. A live-search table renders its search and filter bars
 /// eagerly above the streamed region while the relation shard invocation
 /// fills the table below, so sort, search, filters and pagination re-render
@@ -68,7 +69,7 @@ pub(crate) fn relation_chrome<C: Resource>(cx: &Cx, read_only: bool) -> TableChr
 /// `<noscript>` as the no-JS fallback.
 pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
-        if enforce_tenant::<C>(cx).is_err() || !C::can_view_any(cx) {
+        if enforce_tenant::<C>(cx).is_err() || !can::<C>(cx, Ability::ViewAny) {
             return Ok(().boxed());
         }
         let table = wire_table::<C>(cx, false, relation_chrome::<C>(cx, relation.read_only));
@@ -82,14 +83,15 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
         // A write returns to the page as the table shows it, without a
         // dialog left open on a row the write removed.
         let table = table.returning_to(state.list_url(page));
-        let create_url = (!read_only && <C::Form as RecordForm>::HAS_FORM && C::can_create(cx))
-            .then(|| {
-                let query = form_urlencoded::Serializer::new(String::new())
-                    .append_pair(&seed.0, &seed.1)
-                    .append_pair(RETURN_PARAM, &state.list_url(page))
-                    .finish();
-                format!("{}?{query}", create_page_url(&list_url(cx, &C::slug())))
-            });
+        let create_url =
+            (!read_only && <C::Form as RecordForm>::HAS_FORM && can::<C>(cx, Ability::Create))
+                .then(|| {
+                    let query = form_urlencoded::Serializer::new(String::new())
+                        .append_pair(&seed.0, &seed.1)
+                        .append_pair(RETURN_PARAM, &state.list_url(page))
+                        .finish();
+                    format!("{}?{query}", create_page_url(&list_url(cx, &C::slug())))
+                });
         if table.is_live_search() {
             return relation_table_live::<C>(cx, table, state, relation, create_url).await;
         }

@@ -1,29 +1,22 @@
-//! Tenancy via the `Cx` scoped value `Tenant(id)`.
+//! Tenancy: which tenant a request acts for, and how a resource's rows belong
+//! to one.
 //!
-//! The framework owns the tenant *filter*, not only the tenant gate. For a
-//! resource whose `requires_tenant()` is `true`, every loader runs
-//! [`scoped_query`](crate::resource::scoped_query) — the resource's own
-//! [`query`](crate::resource::Resource::query) with `tenant_id = <tenant>`
-//! ANDed onto it — and the column is discovered from the model's schema here
-//! (`derived_tenant_filter`, the default body of `Resource::tenant_scope`). A
-//! gated resource therefore cannot serve unscoped rows by forgetting an
-//! override, and `Resource::query` stays the app's *non-tenant* scoping seam.
+//! A resource declares its [`Tenancy`]. A scoped one requires a tenant in every
+//! handler, and the framework ANDs `<lens> = <tenant>` onto every loader
+//! through [`scoped_query`](crate::resource::scoped_query), so
+//! [`query`](crate::resource::Resource::query) stays the resource's
+//! *non-tenant* scoping seam and no loader can drop the filter by omission.
 //!
-//! Discovery is narrow and fails closed: the model must declare a field whose
-//! application name is `tenant_id` and whose type is a UUID. Anything else
-//! reads as "no tenant column", and a gated resource that hits that is refused
-//! when the panel is mounted. A predicate that is only `None` for some tenants
-//! still answers an error naming the resource rather than querying unscoped.
-//!
-//! The authenticated user's tenant is the production source: [`tenant_id`]
-//! answers the tenant the panel's signed-in user carries.
-//! A server-set `Tenant` request extension takes precedence, so app middleware
-//! and `Router::handle` tests can override it deliberately. No request header
-//! supplies a tenant: learning another tenant's UUID does not make anyone that
-//! tenant.
+//! [`tenant_id`] answers the request's tenant: the tenant the panel's
+//! signed-in user carries, unless a server-set `Tenant` request extension or
+//! a `Tenant` scoped value overrides it, so app middleware and
+//! `Router::handle` tests can set it deliberately. No request header supplies
+//! a tenant: learning another tenant's UUID does not make anyone that tenant.
 
-use toasty::stmt::Expr;
+use toasty::stmt::{Expr, IntoExpr};
 use topcoat::context::{Cx, try_request_context};
+
+use crate::schema::FieldLens;
 
 /// Request-scoped tenant identifier.
 ///
@@ -57,70 +50,154 @@ pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
     tenant_id(cx).ok_or_else(|| topcoat::router::error::forbidden().into())
 }
 
-/// The application name of the column the framework scopes a gated resource by.
+/// How a resource's rows belong to a tenant.
 ///
-/// The convention is public — it is the contract a model signs up to when its
-/// resource declares
-/// [`requires_tenant`](crate::resource::Resource::requires_tenant) — and this
-/// is the one place the discovery reads it.
-const TENANT_FIELD: &str = "tenant_id";
+/// [`Resource::tenancy`](crate::resource::Resource::tenancy) returns one. A
+/// scoped tenancy names, by lens, the tenant UUID each row is filtered on:
+///
+/// ```ignore
+/// fn tenancy() -> Tenancy<Post> {
+///     Tenancy::column(Post::fields().tenant_id())
+/// }
+///
+/// fn tenancy() -> Tenancy<Comment> {
+///     Tenancy::via(Comment::fields().post().tenant_id())
+/// }
+/// ```
+///
+/// A scoped resource answers 403 to a request with no tenant, in every handler,
+/// instead of serving unscoped rows or writing rows with no tenant.
+pub struct Tenancy<M> {
+    scope: Scope,
+    _model: std::marker::PhantomData<fn() -> M>,
+}
 
-/// Position of `M`'s tenant column in its own schema, or `None` when `M`
-/// declares none the framework can recognize.
-///
-/// Found by **name and type** over [`Model::schema`]'s field list: a primitive
-/// field whose application name is `tenant_id` and whose type is
-/// [`toasty::stmt::Type::Uuid`]. The index is taken from the field's own
-/// [`FieldId`](toasty::schema::app::FieldId) — the index
-/// [`Model::path_field`] addresses — rather than from the position in the
-/// vector, so the filter and the generated `tenant_id()` accessor cannot drift.
-///
-/// Name-based discovery is the fragile half, so a miss is `None` and every
-/// caller treats it as *fail closed*: nothing falls back to the unscoped query,
-/// and nothing guesses. A `tenant_id` declared as `String`, or a tenant column
-/// spelled any other way, is invisible here on purpose — comparing a UUID
-/// against it would be a driver-level type error at best and a cross-tenant
-/// match at worst.
-pub(crate) fn tenant_field_index<M: toasty::schema::Model>() -> Option<usize> {
-    M::schema()
-        .fields()
-        .iter()
-        .find(|field| {
-            field.name.app.as_deref() == Some(TENANT_FIELD)
-                && field
-                    .ty
-                    .as_primitive()
-                    .is_some_and(|primitive| primitive.ty.is_uuid())
+/// A resource's own tenant column: the field the create stamps.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TenantColumn {
+    /// The field's index in its model.
+    pub(crate) index: usize,
+    /// The field's name, which is also its form key.
+    pub(crate) name: String,
+}
+
+/// `<lens> = tenant` for one tenant.
+type TenantFilter = Box<dyn Fn(uuid::Uuid) -> Expr<bool> + Send + Sync>;
+
+enum Scope {
+    None,
+    /// The model's own column, resolved when declared: its field, or why the
+    /// lens names none.
+    Column {
+        filter: TenantFilter,
+        field: Result<TenantColumn, String>,
+    },
+    Via {
+        filter: TenantFilter,
+        /// Whether the lens is one field of the model: a `via` over its own
+        /// column stamps nothing, so the mount refuses it in favor of
+        /// [`Tenancy::column`](Self::column).
+        single: bool,
+    },
+}
+
+impl<M: toasty::schema::Model + 'static> Tenancy<M> {
+    fn scoped(scope: Scope) -> Self {
+        Self {
+            scope,
+            _model: std::marker::PhantomData,
+        }
+    }
+
+    /// Rows belong to no tenant: the resource is served as
+    /// [`query`](crate::resource::Resource::query) states it, to every
+    /// request. The default.
+    pub fn none() -> Self {
+        Self::scoped(Scope::None)
+    }
+
+    /// Rows carry their tenant in one UUID column of their own model, `Uuid`
+    /// or `Option<Uuid>`.
+    ///
+    /// The framework filters every loader on it and stamps the request's
+    /// tenant into it on create, so the record form must not claim it.
+    /// Mounting the panel refuses a lens that is not a single field of the
+    /// model.
+    pub fn column<T>(lens: FieldLens<M, T>) -> Self
+    where
+        T: Send + Sync + 'static,
+        M: Send + Sync,
+        uuid::Uuid: IntoExpr<T>,
+    {
+        let field =
+            crate::schema::lens_field(lens.clone(), &M::schema()).map(|field| TenantColumn {
+                index: field.id.index,
+                name: field.name.app_unwrap().to_string(),
+            });
+        Self::scoped(Scope::Column {
+            filter: Box::new(move |tenant| lens.clone().eq(tenant)),
+            field,
         })
-        .map(|field| field.id.index)
+    }
+
+    /// Rows inherit their tenant through a relation: `lens` reaches the parent's
+    /// tenant column, as `Comment::fields().post().tenant_id()` does.
+    ///
+    /// The framework filters every loader on it. It stamps nothing on create:
+    /// a row's tenant is its parent's, so the foreign key the form writes must
+    /// be a relationship field over the parent's resource, whose key the
+    /// framework re-checks against the parent's tenant-scoped query inside the
+    /// write.
+    pub fn via<T>(lens: FieldLens<M, T>) -> Self
+    where
+        T: Send + Sync + 'static,
+        M: Send + Sync,
+        uuid::Uuid: IntoExpr<T>,
+    {
+        let single = crate::schema::lens_field(lens.clone(), &M::schema()).is_ok();
+        Self::scoped(Scope::Via {
+            filter: Box::new(move |tenant| lens.clone().eq(tenant)),
+            single,
+        })
+    }
+
+    /// Whether the rows belong to a tenant, so every handler requires one.
+    pub fn is_scoped(&self) -> bool {
+        !matches!(self.scope, Scope::None)
+    }
+
+    /// `<lens> = tenant`, or `None` for an unscoped resource.
+    pub(crate) fn filter(&self, tenant: uuid::Uuid) -> Option<Expr<bool>> {
+        match &self.scope {
+            Scope::None => None,
+            Scope::Column { filter, .. } | Scope::Via { filter, .. } => Some(filter(tenant)),
+        }
+    }
+
+    /// Whether a [`via`](Self::via) tenancy names one field of the model,
+    /// which [`Tenancy::column`](Self::column) owns. `None` for any other
+    /// tenancy.
+    pub(crate) fn via_is_single(&self) -> Option<bool> {
+        match &self.scope {
+            Scope::Via { single, .. } => Some(*single),
+            Scope::None | Scope::Column { .. } => None,
+        }
+    }
+
+    /// The model's own tenant column for a [`column`](Self::column) tenancy,
+    /// or why the lens names none.
+    pub(crate) fn column_field(&self) -> Option<Result<&TenantColumn, &str>> {
+        match &self.scope {
+            Scope::Column { field, .. } => Some(field.as_ref().map_err(String::as_str)),
+            Scope::None | Scope::Via { .. } => None,
+        }
+    }
 }
 
-/// The form key of `M`'s tenant column, when [`tenant_field_index`] finds one.
-pub(crate) fn tenant_field_name<M: toasty::schema::Model>() -> Option<String> {
-    let index = tenant_field_index::<M>()?;
-    M::schema()
-        .fields()
-        .get(index)
-        .and_then(|field| field.name.app.clone())
-}
-
-/// The **derived** `tenant_id = tenant` over `M`, or `None` when
-/// [`tenant_field_index`] finds no tenant column.
-///
-/// This is the default body of
-/// [`Resource::tenant_scope`](crate::resource::Resource::tenant_scope) — the
-/// public hook a resource overrides when its rows inherit their tenant instead
-/// of carrying one — so the name says *derived*: it is the name-based
-/// convenience, not the only way to scope a gated resource.
-///
-/// Built generically on purpose: `Model::path_field` addresses the column by
-/// index and `Value::Uuid` types the comparison, so no generated accessor — and
-/// no per-resource copy of the filter — is needed.
-pub(crate) fn derived_tenant_filter<M: toasty::schema::Model>(
-    tenant: uuid::Uuid,
-) -> Option<Expr<bool>> {
-    let index = tenant_field_index::<M>()?;
-    Some(M::path_field::<uuid::Uuid>(index).eq(tenant))
+impl<M: toasty::schema::Model + 'static> Default for Tenancy<M> {
+    fn default() -> Self {
+        Self::none()
+    }
 }
 
 #[cfg(test)]

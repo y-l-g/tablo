@@ -52,7 +52,7 @@ fallback (a submitted payload, else the first variant) rather than a leaf's rule
 group's payload, which `variant.js` hides. A payload inside a `Repeater` is asked like any other
 control: an all-empty repeater group skips its requiredness while the parse still reads it.
 
-**7. A create sets every non-nullable column.** Where `can_create` allows it, each non-nullable,
+**7. A create sets every non-nullable column.** Where the policy allows `Create`, each non-nullable,
 non-relation column must be a form field, filled by toasty, the stamped tenant column, or named in
 `Resource::CREATE_COLUMNS` by an override that sets it. Toasty keeps `#[default(..)]` in
 generated code only, not in the app schema, so the check reads the defaults off
@@ -74,7 +74,7 @@ derive's field enum and runs once every field parses.
   resource, and the keys only the view shows for a form resource.
 - Residuals: a `set_*` call an override adds to the builder `into_update` returns is unchecked, and
   `CREATE_COLUMNS` is the app's word that an override sets a column. The create-column check and
-  the list-only refusal read `can_create` with a Db-only context, so a request-scoped predicate
+  the list-only refusal ask `Create` with a Db-only context, so a request-scoped policy
   that denies there skips them; the list page still links to create only for a form resource.
 - A form's key set is read once, at build: `form(cx)` must declare the same controls on every
   request.

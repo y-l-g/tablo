@@ -208,13 +208,13 @@ pub const BLOCKED_TENANT: uuid::Uuid = uuid::Uuid::from_u128(9999);
 pub const DEMO_ADMIN_EMAIL: &str = "admin@example.com";
 pub const DEMO_ADMIN_PASSWORD: &str = "password";
 
-/// A seeded administrator with no tenant, for `requires_tenant` fail-closed
+/// A seeded administrator with no tenant, for the tenancy fail-closed
 /// tests: valid credentials, no tenant to bridge.
 pub const TENANTLESS_ADMIN_EMAIL: &str = "root@example.com";
 
 /// The body of a comment whose content the panel has removed.
 ///
-/// The row stays so a thread keeps its shape. `CommentResource::can_view`
+/// The row stays so a thread keeps its shape. `CommentResource`'s policy
 /// refuses it, so the surfaces that trim by that predicate — the post's
 /// relation table and the CSV export — omit it, and the comments list shows it
 /// without row actions.
@@ -490,7 +490,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             .exec(db)
             .await?;
         }
-        // A removed comment: the fixture the relation's `can_view`
+        // A removed comment: the fixture the relation's `View`
         // filter needs, since every other seeded comment is viewable.
         toasty::create!(Comment {
             body: REMOVED_COMMENT_BODY,

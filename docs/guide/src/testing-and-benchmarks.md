@@ -38,11 +38,11 @@ async fn books_cannot_be_deleted() {
             form_body(&[("csrf_token", &token), ("confirm", "1")]),
         )
         .await;
-    assert_eq!(response.status(), 403); // `can_delete_any` is not overridden
+    assert_eq!(response.status(), 403); // the policy does not allow `DeleteAny`
 }
 ```
 
-- **Cover every policy predicate** with a request that it allows and one that it refuses, and
+- **Cover every ability your policy decides** with a request it allows and one it refuses, and
   assert on the database as well as the status code.
 - **Cover `query()` scoping** by seeding a row the scope excludes and asserting that the list,
   the detail page and a delete all miss it.

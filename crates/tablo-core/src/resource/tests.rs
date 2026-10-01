@@ -2,7 +2,7 @@ use toasty::Db;
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::test_support::User;
+use crate::{Tenancy, test_support::User};
 
 struct UserResource;
 
@@ -67,99 +67,70 @@ async fn query_seam_is_cloneable_via_db_helper() {
     assert_eq!(rows_all.len(), 2);
 }
 
-/// A gated resource over a model the framework cannot scope from: declared
-/// as requiring a tenant, no `tenant_id` column to derive the filter from.
-struct Misdeclared;
+/// A model with its own tenant column.
+#[derive(Debug, Clone, toasty::Model)]
+struct Owned {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    tenant_id: uuid::Uuid,
+    name: String,
+}
 
-impl Resource for Misdeclared {
-    type Model = User;
+/// A resource scoped by its model's tenant column.
+struct OwnedResource;
+
+impl Resource for OwnedResource {
+    type Model = Owned;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table() -> crate::resource::Table<User> {
+    fn table() -> crate::resource::Table<Owned> {
         crate::resource::Table::new(
-            |r: &User| r.id.to_string(),
-            crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| r.name.clone()),
+            |r: &Owned| r.id.to_string(),
+            crate::resource::TextColumn::r#for(Owned::fields().name(), |r: &Owned| r.name.clone()),
         )
     }
 
-    fn requires_tenant() -> bool {
-        true
+    fn query(_cx: &Cx) -> toasty::stmt::Query<List<Owned>> {
+        toasty::stmt::Query::<List<Owned>>::all().filter(Owned::fields().name().ne("Hidden"))
+    }
+
+    fn tenancy() -> Tenancy<Owned> {
+        Tenancy::column(Owned::fields().tenant_id())
     }
 }
 
-/// the failure mode is an error naming the resource, not a
-/// fallback to the unscoped query. `User` has no `tenant_id`, and
-/// `scoped_query` must refuse to answer rather than serve every row.
-#[test]
-fn gated_resource_without_a_tenant_column_fails_closed() {
-    let cx = CxTestBuilder::new()
-        .request_context(crate::Tenant(uuid::Uuid::new_v4()))
-        .build();
-    let error = scoped_query::<Misdeclared>(&cx).expect_err("must not run unscoped");
-    let message = error.to_string();
-    assert!(
-        message.contains("misdeclareds"),
-        "the error must name the resource: {message}"
-    );
-    assert!(
-        message.contains("tenant_id") && message.contains("tenant_scope"),
-        "the error must name both ways to scope it: {message}"
-    );
-}
-
-/// A gated resource whose tenancy is not a column on its own model declares
-/// the predicate itself — the shape the showcase's comments need,
-/// where the tenant lives on the parent post. `name` stands in for the
-/// relation path here: the point is that the hook is consulted and ANDed.
-struct DeclaredScope;
-
-impl Resource for DeclaredScope {
-    type Model = User;
-    type Form = crate::NoForm<Self::Model>;
-
-    fn table() -> crate::resource::Table<User> {
-        crate::resource::Table::new(
-            |r: &User| r.id.to_string(),
-            crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| r.name.clone()),
-        )
-    }
-
-    fn requires_tenant() -> bool {
-        true
-    }
-
-    fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
-        Some(User::fields().name().eq(tenant.to_string()))
-    }
-}
-
+/// The tenancy filter is ANDed onto the resource's own query, and a request
+/// with no tenant runs no query at all.
 #[tokio::test]
-async fn declared_tenant_scope_is_anded_onto_the_base_query() {
+async fn tenancy_is_anded_onto_the_base_query() {
     let mut db = Db::builder()
-        .models(toasty::models!(User))
+        .models(toasty::models!(Owned))
         .connect("sqlite::memory:")
         .await
         .unwrap();
     db.push_schema().await.unwrap();
     let mine = uuid::Uuid::new_v4();
     let theirs = uuid::Uuid::new_v4();
-    for name in [mine.to_string(), theirs.to_string()] {
-        toasty::create!(User { name }).exec(&mut db).await.unwrap();
+    for (tenant_id, name) in [(mine, "Mine"), (mine, "Hidden"), (theirs, "Theirs")] {
+        toasty::create!(Owned { tenant_id, name })
+            .exec(&mut db)
+            .await
+            .unwrap();
     }
     let cx = CxTestBuilder::new()
         .app_context(db)
         .request_context(crate::Tenant(mine))
         .build();
     let mut db = crate::db::db(&cx);
-    let rows = scoped_query::<DeclaredScope>(&cx)
-        .expect("a declared scope is not a misdeclaration")
+    let rows = scoped_query::<OwnedResource>(&cx)
+        .expect("the request has a tenant")
         .exec(&mut db)
         .await
         .unwrap();
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].name, mine.to_string());
+    assert_eq!(rows[0].name, "Mine");
 
-    // And the gate still runs first: no tenant, no query.
     let tenantless = CxTestBuilder::new().build();
-    assert!(scoped_query::<DeclaredScope>(&tenantless).is_err());
+    assert!(scoped_query::<OwnedResource>(&tenantless).is_err());
 }

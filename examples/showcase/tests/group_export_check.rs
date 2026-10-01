@@ -1,4 +1,5 @@
 use showcase::app::router_for_tests as router;
+use tablo_core::{Policy, ReadOnly};
 
 use crate::common::{body_string, demo_client, full_db, mount};
 
@@ -175,11 +176,8 @@ async fn export_over_cap_413s_at_route_level() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &topcoat::context::Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &topcoat::context::Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            ReadOnly
         }
         fn table() -> Table<Dummy> {
             Table::new(

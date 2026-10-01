@@ -1,14 +1,15 @@
 # Tenancy via Cx, in-memory grouping and CSV export
 
-Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-22, 2026-09-24
+Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-22, 2026-09-24,
+2026-10-01
 
 ## Decision
 
 **Tenancy.** `Tenant(uuid::Uuid)` is a `Cx`-scoped value (`cx.with(Tenant(id))`) and `tenant_id(cx)`
 reads it. A Tower layer is rejected: it would couple HTTP middleware to the domain and put the scope
-somewhere other than the resource. `requires_tenant` defaults to `false`; when a resource declares
-it, the **framework** applies the tenant predicate to every loader through `scoped_query`, derived
-from the model's `tenant_id` unless the resource declares `tenant_scope` (ADR-0002). The
+somewhere other than the resource. `Resource::tenancy` defaults to `Tenancy::none()`; when a
+resource declares a column or a relation path, the **framework** applies the tenant predicate to
+every loader through `scoped_query` (ADR-0002). The
 `x-tenant-id` header fallback is not part of the production path; tests and the harness inject
 `Tenant` through request extensions.
 

@@ -29,7 +29,7 @@ and `/admin/posts/{id}/edit` still reaches the edit page. This is pinned by
 **The page loads through the one query seam.** The detail GET loads `Resource::view_query` under the
 same tenant scope and PK filter the edit GET applies to `query` (ADR-0002, ADR-0018), so tenancy,
 soft-delete scoping, and the 404 for an unknown *or* out-of-scope id come from the seam rather than
-a second implementation. `can_view` on the loaded record is a 403, not a 404: the record exists and
+a second implementation. A refused `View` on the loaded record is a 403, not a 404: the record exists and
 this caller may not see it.
 
 **Relations render from the record, beside the Schema.** `Resource::view_query` includes the related

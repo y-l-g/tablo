@@ -2,7 +2,10 @@ use toasty::Db;
 use topcoat::router::Body;
 
 use super::{super::Panel, *};
-use crate::panel::test_support::{Dummy, current_panel, mount, panel_for, panel_state};
+use crate::{
+    Ability, Policy, ReadOnly, Tenancy,
+    panel::test_support::{Dummy, current_panel, mount, panel_for, panel_state},
+};
 
 /// The shard's positional args as the browser sends them: the list path, the
 /// `query` signal holding the list's URL query built from `pairs`, and the
@@ -175,11 +178,8 @@ async fn live_shard_malformed_cursor_renders_error_state() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -340,11 +340,8 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -446,11 +443,8 @@ async fn live_shard_retry_preserves_the_query() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -547,11 +541,8 @@ async fn live_shard_group_by_query_drives_grouping() {
         fn slug() -> String {
             "dummies".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
-            true
+        fn policy() -> impl Policy<Dummy> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
@@ -655,7 +646,7 @@ async fn post_table_shard(
 /// because page guards do not run on shard requests: a gated
 /// resource with no tenant must be refused instead of running an unscoped
 /// query, a tenanted rerun must serve only that tenant's rows, and a
-/// `can_view_any` denial is refused even with a tenant present.
+/// `ViewAny` denial is refused even with a tenant present.
 #[tokio::test]
 async fn live_shard_enforces_tenant_and_policy_gates() {
     use http_body_util::BodyExt;
@@ -679,14 +670,11 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
         fn slug() -> String {
             "tenant-dummies".to_string()
         }
-        fn requires_tenant() -> bool {
-            true
+        fn policy() -> impl Policy<TenantDummy> {
+            ReadOnly
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &TenantDummy) -> bool {
-            true
+        fn tenancy() -> Tenancy<TenantDummy> {
+            Tenancy::column(TenantDummy::fields().tenant_id())
         }
         fn table() -> crate::resource::Table<TenantDummy> {
             crate::resource::Table::new(
@@ -710,11 +698,14 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
         fn slug() -> String {
             "denied-dummies".to_string()
         }
-        fn requires_tenant() -> bool {
-            true
+        fn policy() -> impl Policy<TenantDummy> {
+            |_cx: &Cx, ability: Ability<'_, TenantDummy>| match ability {
+                Ability::ViewAny => false,
+                _ => false,
+            }
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            false
+        fn tenancy() -> Tenancy<TenantDummy> {
+            Tenancy::column(TenantDummy::fields().tenant_id())
         }
         fn table() -> crate::resource::Table<TenantDummy> {
             crate::resource::Table::new(
@@ -785,7 +776,7 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
     assert_eq!(
         response.status(),
         http::StatusCode::FORBIDDEN,
-        "a can_view_any denial must refuse the shard rerun"
+        "a `ViewAny` denial must refuse the shard rerun"
     );
 }
 
@@ -870,11 +861,8 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
         fn slug() -> String {
             "books".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Book) -> bool {
-            true
+        fn policy() -> impl Policy<Book> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<Book> {
             crate::resource::Table::new(
@@ -896,11 +884,8 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
         fn slug() -> String {
             "shelves".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &Shelf) -> bool {
-            true
+        fn policy() -> impl Policy<Shelf> {
+            ReadOnly
         }
         fn relations() -> Vec<Relation<Shelf>> {
             vec![Relation::has_many::<BookResource, _>(

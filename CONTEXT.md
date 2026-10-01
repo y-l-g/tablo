@@ -43,17 +43,34 @@ _Avoid_: Model, Entity, Collection, AdminModel, CRUD
 ### Query
 
 A Resource's base query, `Resource::query(cx)`: its own row scoping, such as soft deletes. Every
-loader starts from `scoped_query`, which is that query with the tenant scope applied.
+loader starts from `scoped_query`, which is that query with the Tenancy filter applied.
 
 _Avoid_: Scope, EloquentQuery, Builder (as a domain term)
 
 ### Policy
 
-A Resource's authorization rules: `can_view_any`, `can_view`, `can_create`, `can_update`,
-`can_delete_any` and `can_delete`. Every rule denies by default. Handlers check them, and the row
-actions a Table renders follow them.
+A Resource's authorization, `Resource::policy()`: a value implementing the `Policy` trait that
+answers one Ability at a time. The default is `Deny`. `Allow`, `ReadOnly` and `when(predicate)`
+combine with `and` and `or`, and a closure over the context and the Ability is one too. Handlers
+ask it, and the row actions a Table renders follow it.
 
-_Avoid_: Guard, Permission, Gate, Ability, Policy trait
+_Avoid_: Guard, Permission, Gate, Rule
+
+### Ability
+
+One thing a Policy is asked to allow: `ViewAny`, `View(record)`, `Create`, `Update(record)`,
+`DeleteAny` and `Delete(record)`.
+
+_Avoid_: Permission, Action (an Action is a custom mutation), Verb
+
+### Tenancy
+
+How a Resource's rows belong to a tenant, `Resource::tenancy()`: none, a tenant column of the
+model's own (`Tenancy::column(lens)`), or a tenant reached through a relation
+(`Tenancy::via(lens)`). A scoped Resource answers 403 to a request with no tenant, and every
+loader filters on its lens.
+
+_Avoid_: Tenant scope, Multi-tenancy mode
 
 ### Table
 

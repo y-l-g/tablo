@@ -33,7 +33,7 @@ pub use fields::{
 };
 pub use layouts::{Grid, Group, Repeater, Section};
 pub use lenses::{DeclCx, FieldLens, ResolvedLens};
-pub(crate) use lenses::{LensBinding, capitalize, lens_field_unique};
+pub(crate) use lenses::{LensBinding, capitalize, lens_field, lens_field_unique};
 pub use options::Options;
 pub(crate) use pk::{pk_eq_expr, pk_in_expr, pk_is_composite};
 pub(crate) use relationship::OptionLoadError;
@@ -437,6 +437,37 @@ impl Schema {
             // `validate` above already ran the required rule, so the
             // existence-only check is what is left to ask.
             for message in field.validate_exists(cx, value).await {
+                errors.add(name, message);
+            }
+        }
+        errors
+    }
+
+    /// Re-check every submitted relationship key through `ex`, the write's
+    /// open transaction, skipping what [`Self::validate_async`] skips.
+    ///
+    /// The write handlers run it after they open the transaction, so a record
+    /// a relationship field points at is checked against the rows the write
+    /// sees: one that left the tenant, was deleted or became hidden since the
+    /// form validated refuses the write with a field error, and nothing is
+    /// written.
+    pub(crate) async fn recheck_relationships(
+        &self,
+        cx: &Cx,
+        values: &HashMap<String, String>,
+        ex: &mut dyn toasty::Executor,
+    ) -> FieldErrors {
+        let mut errors = FieldErrors::new();
+        let absent = self.absent_fields(values);
+        for field in &self.fields {
+            let name = field.name();
+            if absent.contains(name) {
+                continue;
+            }
+            let Some(value) = values.get(name) else {
+                continue;
+            };
+            for message in field.recheck(cx, value, &mut *ex).await {
                 errors.add(name, message);
             }
         }

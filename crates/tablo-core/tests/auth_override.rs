@@ -5,7 +5,7 @@
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo_core::{
-    Auth, Resource, Table, TextColumn,
+    Ability, Auth, Policy, Resource, Table, TextColumn,
     auth::{AuthFuture, Authenticator, CurrentUser},
 };
 use toasty::Db;
@@ -94,8 +94,8 @@ impl Resource for MemberResource {
     type Model = Member;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
+    fn policy() -> impl Policy<Member> {
+        |_cx: &Cx, ability: Ability<'_, Member>| matches!(ability, Ability::ViewAny)
     }
 
     fn table() -> Table<Member> {

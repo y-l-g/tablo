@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    FieldErrors,
+    Ability, FieldErrors, Policy,
     schema::{Field, Schema, Source},
 };
 use toasty::Db;
@@ -188,11 +188,10 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         fn slug() -> String {
             "readings".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_create(_cx: &Cx) -> bool {
-            true
+        fn policy() -> impl Policy<Reading> {
+            |_cx: &Cx, ability: Ability<'_, Reading>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
         }
         fn table() -> tablo_core::Table<Reading> {
             tablo_core::Table::new(

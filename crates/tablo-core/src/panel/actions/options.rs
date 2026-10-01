@@ -22,10 +22,10 @@ use crate::{
 /// choice keeps the cap error and never calls here. `q` is trimmed and
 /// clamped to the shared query bound; empty `q` returns the bounded head.
 ///
-/// Gates: `enforce_auth` + `enforce_tenant::<R>` (parent), then the related
-/// gates inside the search (`can_view_any` + tenant + `can_view` filtering
-/// before labels). Parent form policy (`can_create` / `can_view`+`can_update`)
-/// stays on the form pages themselves: requiring parent `can_view_any` here
+/// Gates: `auth::guard` + `enforce_tenant::<R>` (parent), then the related
+/// gates inside the search (`ViewAny` + tenant + `View` filtering
+/// before labels). Parent form policy (`Create` / `View`+`Update`)
+/// stays on the form pages themselves: requiring parent `ViewAny` here
 /// would lock create-only users out of a form they may use, and adds no
 /// visibility the related list does not already expose. `Denied` → 403, driver failure → 500,
 /// filtered overflow → 200 with a "keep typing" hint option (client keeps its hint element).

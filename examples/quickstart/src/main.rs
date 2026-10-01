@@ -43,20 +43,11 @@ impl Resource for BookResource {
     type Model = Book;
     type Form = BookForm;
 
-    fn can_view_any(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_view(_cx: &Cx, _record: &Book) -> bool {
-        true
-    }
-
-    fn can_create(_cx: &Cx) -> bool {
-        true
-    }
-
-    fn can_update(_cx: &Cx, _record: &Book) -> bool {
-        true
+    /// Read, add and edit books; nobody deletes one.
+    fn policy() -> impl Policy<Book> {
+        |_cx: &Cx, ability: Ability<'_, Book>| {
+            !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
+        }
     }
 
     fn table() -> Table<Book> {
@@ -126,9 +117,7 @@ async fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use tablo::testing::TestClient;
-
-    use tablo::RouterBuilderPanelExt;
+    use tablo::{RouterBuilderPanelExt, testing::TestClient};
 
     use super::{connect, panel, router};
 

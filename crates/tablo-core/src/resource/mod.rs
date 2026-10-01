@@ -18,7 +18,9 @@ use topcoat::{Result, context::Cx};
 use crate::{
     error::TabloError,
     form::{FieldErrors, Posted, RecordForm, write_create, write_update},
+    policy::{Deny, Policy},
     schema::DeclCx,
+    tenancy::Tenancy,
 };
 
 mod action;
@@ -77,8 +79,9 @@ pub(crate) use crate::query_term::clamp_query_term;
 ///   record as misdeclared ([`Table::declaration_errors`], [`Schema::declaration_errors`]), and
 ///   serves the same values to every request. [`form`] must agree with [`Form`](Self::Form): a
 ///   record form's fields are the schema's controls, and a [`NoForm`](crate::NoForm) resource
-///   declares no schema. A resource with no form must not allow [`can_create`](Self::can_create),
-///   which the mount asks with a context holding only the `Db`.
+///   declares no schema. A resource with no form must not allow
+///   [`Ability::Create`](crate::policy::Ability::Create), which the mount asks with a context
+///   holding only the `Db`.
 ///
 /// [`table`]: Self::table
 /// [`form`]: Self::form
@@ -92,11 +95,11 @@ pub(crate) use crate::query_term::clamp_query_term;
 ///   deleting the wrong row or nothing. [`bulk_delete_records`](Self::bulk_delete_records) loops
 ///   `delete_record` by default, so an override covers bulk delete too.
 /// - **Chrome follows the declarations**: the row Delete control and the bulk column render when
-///   [`can_delete_any`](Self::can_delete_any) allows, the Edit link when the resource has a record
-///   form, and the View link when it declares [`view`](Self::view); the row predicates then gate
-///   each row.
-/// - **Default-deny is untouched**: every `can_*` defaults to `false`, except `can_delete`, which
-///   defaults to `can_delete_any`; an unconfigured resource exposes no data and no mutation.
+///   the [`policy`](Self::policy) allows [`Ability::DeleteAny`](crate::policy::Ability::DeleteAny),
+///   the Edit link when the resource has a record form, and the View link when it declares
+///   [`view`](Self::view); the record abilities then gate each row.
+/// - **Default-deny**: the default policy is [`Deny`]; an unconfigured resource exposes no data and
+///   no mutation.
 pub trait Resource: Sized + Send + Sync + 'static {
     /// The persisted model this resource administers.
     ///
@@ -127,71 +130,38 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// such a column by hand names it here.
     const CREATE_COLUMNS: &'static [&'static str] = &[];
 
-    /// Whether the current user may view the list page.
+    /// What the current user may do with this resource's records.
     ///
-    /// Also gates relationship option loads: a related resource
-    /// that denies this cannot offer its records as options at all.
-    fn can_view_any(_cx: &Cx) -> bool {
-        false
+    /// Every handler asks it before it serves or writes: the list and the
+    /// export ask [`Ability::ViewAny`](crate::policy::Ability::ViewAny) before
+    /// any row loads and [`Ability::View`](crate::policy::Ability::View) per
+    /// row, a write asks the record ability on the row it loaded inside its
+    /// transaction, and a relationship field over this resource offers only the
+    /// records it may view. The default is [`Deny`].
+    ///
+    /// The list checks `ViewAny` for membership and `View` only for each row's
+    /// actions: a policy is Rust that cannot run in SQL, and filtering rows
+    /// after cursor pagination would mislabel pages. Row-level visibility that
+    /// must hold on the list belongs in [`Self::query`].
+    ///
+    /// Mounting the panel asks [`Ability::Create`](crate::policy::Ability::Create)
+    /// with a context holding only the `Db` to decide which declaration checks
+    /// apply, so a policy that reads the request answers as it would for an
+    /// anonymous request there.
+    fn policy() -> impl Policy<Self::Model> {
+        Deny
     }
 
-    /// Whether the current user may view the given record.
+    /// How this resource's rows belong to a tenant. The default,
+    /// [`Tenancy::none`], serves [`Self::query`] as written.
     ///
-    /// Checked on the edit page (GET), the edit POST (which requires both
-    /// `can_view` and `can_update`), per row in CSV export, on each
-    /// record behind a relationship choice's options, on each row
-    /// of a detail page's relation table, and on the list page as
-    /// the per-row gate of every action link (GH #235: the View link, and the
-    /// `can_view` half of Edit and Delete). Note both hooks default-deny: a
-    /// resource used as a relationship target for option loads must allow
-    /// `can_view_any` **and** `can_view` (overriding one does not imply the
-    /// other), while a relation table consults `can_view` alone. The
-    /// list page deliberately checks only
-    /// `can_view_any` for *membership*: `can_view` is an in-memory Rust
-    /// predicate that cannot run in SQL, and filtering rows after cursor
-    /// pagination would mislabel pages. Row-level visibility that must hold on
-    /// the list belongs in [`Self::query`].
-    fn can_view(_cx: &Cx, _record: &Self::Model) -> bool {
-        false
-    }
-
-    /// Whether the current user may create a new record.
-    ///
-    /// Mounting the panel calls this with a Db-only context to decide which
-    /// declaration checks apply, so a predicate that reads the request (a
-    /// tenant, a user) answers as it would for an anonymous request there. The
-    /// list page links to the create page only for a resource with a record
-    /// form ([`RecordForm::HAS_FORM`]), whatever this answers.
-    fn can_create(_cx: &Cx) -> bool {
-        false
-    }
-
-    /// Whether the current user may update the given record.
-    fn can_update(_cx: &Cx, _record: &Self::Model) -> bool {
-        false
-    }
-
-    /// Whether the current user may delete records of this resource at all.
-    ///
-    /// Decides whether the list renders the row Delete control, the bulk
-    /// column, and the bulk bar, and gates the single-delete and bulk-delete
-    /// POSTs before any record loads. The column decision takes no record, so
-    /// the streamed skeleton and the table agree on their columns. The default
-    /// [`can_delete`](Self::can_delete) also calls it once per row.
-    fn can_delete_any(_cx: &Cx) -> bool {
-        false
-    }
-
-    /// Whether the current user may delete the given record.
-    ///
-    /// Defaults to [`can_delete_any`](Self::can_delete_any); override to
-    /// refuse some rows. Checked on the single-delete and bulk-delete POSTs
-    /// after `can_delete_any` and together with `can_view` — the edit
-    /// contract: a record that cannot be viewed cannot be deleted by
-    /// UUID-guessing the route. A row it refuses renders no Delete control and
-    /// no bulk checkbox.
-    fn can_delete(cx: &Cx, _record: &Self::Model) -> bool {
-        Self::can_delete_any(cx)
+    /// A scoped tenancy ([`Tenancy::column`], [`Tenancy::via`]) makes every
+    /// handler answer 403 to a request with no tenant, and every loader AND the
+    /// tenant filter onto the base query through [`scoped_query`]. A resource
+    /// that must serve more than the request's tenant declares none and
+    /// scopes in [`Self::query`] by hand, giving up the gate with the filter.
+    fn tenancy() -> Tenancy<Self::Model> {
+        Tenancy::none()
     }
 
     /// How one record is displayed on the detail page, read-only.
@@ -331,16 +301,13 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// the relations the table's columns declare ([`TextColumn::include`]), and
     /// the detail page loads [`Self::view_query`]. Include a relation here only
     /// when a closure no column covers reads it on every loader's rows: one
-    /// [`can_view`](Self::can_view) reads, or one a table's `group_by` or row
+    /// [`policy`](Self::policy) reads, or one a table's `group_by` or row
     /// key reads without a column including it.
     ///
-    /// **Tenancy is not this method's job either.** When
-    /// [`requires_tenant`](Self::requires_tenant) is `true` the framework ANDs
-    /// the tenant filter, derived from the model's `tenant_id` column, onto
-    /// whatever this returns, at every loader through [`scoped_query`]. Do not
-    /// re-state `tenant_id().eq(tenant_id(cx))`: the copy is redundant, and one
-    /// that disagreed with the derived column would hide rows rather than widen
-    /// access. Code outside the framework's loaders starts from
+    /// **Tenancy is not this method's job either.** For a resource whose
+    /// [`tenancy`](Self::tenancy) is scoped the framework ANDs the tenant filter
+    /// onto whatever this returns, at every loader through [`scoped_query`]. Do
+    /// not re-state it here. Code outside the framework's loaders starts from
     /// [`scoped_query`].
     ///
     /// Returns the raw typed statement query, which composes generically —
@@ -375,49 +342,6 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// scope onto it, as it does onto [`Self::query`].
     fn view_query(cx: &Cx) -> toasty::stmt::Query<List<Self::Model>> {
         Self::query(cx)
-    }
-
-    /// Whether this resource requires a tenant in every handler.
-    ///
-    /// Opt-in and default-open: `false` preserves [`Self::query`] exactly as
-    /// written. `true` means two things:
-    ///
-    /// 1. **The gate.** Every handler 403s when the request carries no tenant, instead of leaking
-    ///    unscoped rows or minting nil-tenant orphans.
-    /// 2. **The scope.** Every loader ANDs `tenant_id = <request tenant>` onto the base query,
-    ///    deriving the column from the model's own schema or the resource's [`Self::tenant_scope`].
-    ///    A gated resource that declares neither a `tenant_id` UUID column nor an override is
-    ///    refused by [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) at boot
-    ///    rather than served unscoped or failing per request.
-    ///
-    /// A resource that must genuinely serve more than the request tenant
-    /// declares `false` and scopes in [`Self::query`] by hand, giving up the
-    /// gate above along with the derived filter.
-    fn requires_tenant() -> bool {
-        false
-    }
-
-    /// The predicate the framework ANDs onto this resource's base query to
-    /// scope it to `tenant`, or `None` when there is nothing to AND.
-    ///
-    /// The default derives it from the model: `tenant_id = tenant`, on the
-    /// field named `tenant_id` whose type is a UUID (see [`crate::tenancy`]).
-    /// Override it when the resource's tenancy is not a column on its own
-    /// model — a row that inherits its parent's tenant states the relation
-    /// path here instead, and the framework applies it exactly as it applies
-    /// the derived one. The showcase's comments are the worked example.
-    ///
-    /// Only consulted when [`requires_tenant`](Self::requires_tenant) is
-    /// `true`. `None` from a gated resource is a **misdeclaration**, not a way
-    /// to be unscoped: [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel)
-    /// refuses it at boot and every loader keeps answering an error naming the resource
-    /// rather than running its query without a tenant predicate — the backstop
-    /// for a predicate that is only `None` for some tenants. There is
-    /// deliberately no override that *removes* the scope — a resource that
-    /// must serve more than one tenant declares `requires_tenant() = false`
-    /// and owns the scope in [`Self::query`], visibly, with the gate given up.
-    fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
-        crate::tenancy::derived_tenant_filter::<Self::Model>(tenant)
     }
 
     /// Description of the list view.
@@ -466,7 +390,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Create a record from the parsed form, inside the handler's transaction.
     ///
     /// Defaults to the derived write, [`write_create`]; override to check
-    /// something inside the transaction, then delegate. `ex` is the open
+    /// something inside the transaction, then delegate. An override on a
+    /// [`Tenancy::column`](crate::Tenancy::column) resource stamps the tenant
+    /// only by delegating to [`write_create`]. `ex` is the open
     /// transaction: run every statement through it. Return the created row; it
     /// is what [`Self::after_commit`] receives.
     fn create_record(
@@ -514,7 +440,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Delete the already-authorized `record` (#86).
     ///
     /// The handler loads `record` through the tenancy-scoped query inside the
-    /// framework transaction and checks `can_delete` on that snapshot, then
+    /// framework transaction and checks the policy on that snapshot, then
     /// calls this with the same transaction as `ex`. The after-commit hook
     /// receives the snapshot once the delete commits.
     ///
@@ -559,7 +485,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// Bulk-delete the already-authorized `records`: the handler
     /// fetches through the tenancy-scoped `IN` query inside the framework
-    /// transaction and checks `can_delete` on every row before calling this.
+    /// transaction and checks the policy on every row before calling this.
     /// The default deletes each record through [`Self::delete_record`] in
     /// order, through the same `ex` — any error rolls the whole batch back,
     /// so mid-loop failures delete zero rows. An override of `delete_record`,
@@ -634,31 +560,23 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
 /// The tenant-scoped base query.
 ///
-/// [`Resource::query`] with the predicate from [`Resource::tenant_scope`]
-/// ANDed onto it, so a resource that overrides `query` for soft deletes cannot
-/// drop the tenant scope by forgetting to re-state it. Every framework loader
-/// and app code start here.
+/// [`Resource::query`] with the [`Resource::tenancy`] filter ANDed onto it, so a
+/// resource that overrides `query` for soft deletes cannot drop the tenant
+/// scope by forgetting to re-state it. Every framework loader and app code
+/// start here.
 ///
 /// # Errors
 ///
-/// - A gated resource and no tenant in `cx` → 403, the same fail-closed answer the handler gate
-///   gives.
-/// - A gated resource that supplies no tenant predicate — no discoverable `tenant_id` UUID column,
-///   no [`Resource::tenant_scope`] override → an error naming the resource and the model.
-///   [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses that declaration
-///   at boot, so this is the backstop for a predicate that is `None` for the request's tenant, and
-///   for app code outside a panel. It is deliberately **not** a fallback to the unscoped query: a
-///   silent miss would be the leak [`Resource::requires_tenant`] exists to prevent.
+/// A tenant-scoped resource and no tenant in `cx`: 403, the same answer the
+/// handler gate gives.
 ///
-/// App code that loads rows itself must call this — on a gated resource
-/// [`Resource::query`] is the *tenant-unscoped* base by design, so calling it
-/// directly is safe only for rows whose tenant membership is already settled (a
-/// write by id against a record the framework loaded and authorized).
+/// App code that loads rows itself must call this: on a scoped resource
+/// [`Resource::query`] is the *tenant-unscoped* base by design.
 pub fn scoped_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
     apply_tenant_scope::<R>(cx, R::query(cx))
 }
 
-/// [`Resource::view_query`] under the same tenant gate and predicate as
+/// [`Resource::view_query`] under the same tenant gate and filter as
 /// [`scoped_query`]: the detail page's loader, and the entry point for a page
 /// that owns its own detail view.
 ///
@@ -669,63 +587,41 @@ pub fn scoped_view_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> 
     apply_tenant_scope::<R>(cx, R::view_query(cx))
 }
 
-/// AND the framework's tenant predicate onto `query`.
-///
-/// The body of [`scoped_query`] and [`scoped_view_query`], split out so both
-/// seeds share one gate, one predicate, and one fail-closed error.
-/// It is crate-internal because a caller outside the crate always has a
-/// `Resource`, and so always wants [`scoped_query`] or [`scoped_view_query`].
-pub(crate) fn apply_tenant_scope<R: Resource>(
+/// AND the resource's tenant filter onto `query`: the body of
+/// [`scoped_query`] and [`scoped_view_query`].
+fn apply_tenant_scope<R: Resource>(
     cx: &Cx,
     query: Query<List<R::Model>>,
 ) -> Result<Query<List<R::Model>>> {
-    if !R::requires_tenant() {
+    let tenancy = R::tenancy();
+    if !tenancy.is_scoped() {
         return Ok(query);
     }
-    let tenant = crate::tenancy::require_tenant(cx)?;
-    let Some(filter) = R::tenant_scope(tenant) else {
-        // Fail closed and loudly: the resource declared a gate whose scope the
-        // framework cannot derive and the resource did not state, and running
-        // the query unscoped is the one outcome that declaration exists to
-        // prevent. Mounting the panel already refused the resource if *no* tenant
-        // could scope it; this is the backstop for a `tenant_scope`
-        // that answers `None` only for this tenant, and for callers outside a
-        // panel.
-        tracing::error!(
-            resource = R::slug(),
-            model = std::any::type_name::<R::Model>(),
-            "requires_tenant is true but the resource supplies no tenant predicate: no `tenant_id` \
-             UUID column on the model and no `tenant_scope` override (GH #223)"
-        );
+    if let Some(Err(error)) = tenancy.column_field() {
         return Err(TabloError::Declaration(format!(
-            "resource '{}' requires a tenant, but the framework cannot scope it: {} declares no \
-             `tenant_id` UUID column to derive the filter from, and the resource does not override \
-             `tenant_scope` (GH #223); declare the column, override `tenant_scope`, or drop \
-             `requires_tenant` and scope in `query`",
-            R::slug(),
-            std::any::type_name::<R::Model>(),
+            "resource `{}`'s `Tenancy::column` lens binds no column: {error}",
+            std::any::type_name::<R>(),
         ))
         .into());
-    };
-    Ok(query.filter(filter))
+    }
+    let tenant = crate::tenancy::require_tenant(cx)?;
+    Ok(match tenancy.filter(tenant) {
+        Some(filter) => query.filter(filter),
+        None => query,
+    })
 }
 
-/// Every `Resource` is an [`OptionSource`](crate::schema::OptionSource) — the
+/// Every `Resource` is an [`OptionSource`](crate::schema::OptionSource): the
 /// bridge that lets the relationship option loaders be generic over the source
 /// surface instead of over `Resource`, so `schema` does not depend on
 /// `resource`.
 ///
-/// A resource answers the loaders here, so the loaders never name `Resource`.
-/// [`scoped_query`](crate::schema::OptionSource::scoped_query), the one required
-/// method, forwards to [`scoped_query`], so an option load inherits the tenant
-/// gate and the derived tenant predicate exactly as every other loader does; it
-/// is deliberately not [`Resource::query`], which on a gated resource is the
-/// *tenant-unscoped* base.
-///
-/// The policy predicates and the tenant declaration forward unchanged, and the
-/// search expression and default ordering come from the resource's declared
-/// [`table`](Resource::table), which is where "the option search searches the
-/// related resource's searchable columns" lives.
+/// [`scoped_query`](crate::schema::OptionSource::scoped_query) forwards to
+/// [`scoped_query`], so an option load inherits the tenant gate and filter
+/// exactly as every other loader does. The policy and the tenancy forward
+/// unchanged, and the search expression and default ordering come from the
+/// resource's declared [`table`](Resource::table), which is where "the option
+/// search searches the related resource's searchable columns" lives.
 impl<R: Resource> crate::schema::OptionSource for R {
     type Model = R::Model;
 
@@ -733,16 +629,12 @@ impl<R: Resource> crate::schema::OptionSource for R {
         scoped_query::<R>(cx)
     }
 
-    fn can_view_any(cx: &Cx) -> bool {
-        <R as Resource>::can_view_any(cx)
-    }
-
-    fn can_view(cx: &Cx, record: &R::Model) -> bool {
-        <R as Resource>::can_view(cx, record)
+    fn policy() -> impl Policy<R::Model> {
+        <R as Resource>::policy()
     }
 
     fn requires_tenant() -> bool {
-        <R as Resource>::requires_tenant()
+        <R as Resource>::tenancy().is_scoped()
     }
 
     fn slug() -> String {

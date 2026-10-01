@@ -22,6 +22,7 @@ use super::{
 use crate::{
     db::db,
     notification::{Notification, set_notification},
+    policy::{Ability, can},
     resource::{ActionEntry, Committed, Resource},
 };
 
@@ -63,7 +64,7 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::<_, BoxView<'_>>::new(
         async move {
             gate::<R>(cx)?;
-            if !R::can_view_any(cx) {
+            if !can::<R>(cx, Ability::ViewAny) {
                 return Err(forbidden().into());
             }
             let name = topcoat::router::path_param_segment(cx, "action").to_string();
@@ -100,7 +101,7 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
             let rows = load_targets::<R>(cx, &ids, target, &mut tx).await?;
             // A record the caller cannot view never renders, so naming one is
             // a crafted request: 403, for the row and the selection alike.
-            if rows.iter().any(|row| !R::can_view(cx, row)) {
+            if rows.iter().any(|row| !can::<R>(cx, Ability::View(row))) {
                 return Err(forbidden().into());
             }
             let refused = rows.iter().filter(|row| !(action.can_run)(cx, row)).count();

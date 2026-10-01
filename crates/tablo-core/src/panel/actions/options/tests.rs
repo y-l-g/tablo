@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::{Panel, panel::test_support::mount};
+use crate::{Ability, Panel, Policy, ReadOnly, panel::test_support::mount};
 
 #[tokio::test]
 async fn options_endpoint_searches_and_gates() {
@@ -25,11 +25,8 @@ async fn options_endpoint_searches_and_gates() {
         fn slug() -> String {
             "opt-authors".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &OptAuthor) -> bool {
-            true
+        fn policy() -> impl Policy<OptAuthor> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<OptAuthor> {
             crate::resource::Table::new(
@@ -58,7 +55,6 @@ async fn options_endpoint_searches_and_gates() {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(OptPost::fields().author_id())
                     .relationship::<OptAuthorResource>(
-                        OptAuthorResource::query,
                         |a: &OptAuthor| a.id,
                         |a: &OptAuthor| a.name.clone(),
                     )
@@ -69,11 +65,8 @@ async fn options_endpoint_searches_and_gates() {
         fn slug() -> String {
             "opt-posts".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &OptPost) -> bool {
-            true
+        fn policy() -> impl Policy<OptPost> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<OptPost> {
             crate::resource::Table::new(
@@ -162,7 +155,7 @@ async fn options_endpoint_searches_and_gates() {
 async fn option_load_loads_no_relation() {
     // An option load projects a value and a label off the related record's
     // own columns, so it loads no relation. The source's detail query and its
-    // list column both include `parent`, and `can_view` keeps a row only while
+    // list column both include `parent`, and `View` keeps a row only while
     // that relation is unloaded, so a rendered option proves the loader ran
     // the bare `scoped_query`, not either of those.
     use http_body_util::BodyExt;
@@ -202,11 +195,12 @@ async fn option_load_loads_no_relation() {
         fn slug() -> String {
             "children".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, record: &Child) -> bool {
-            record.parent.is_unloaded()
+        fn policy() -> impl Policy<Child> {
+            |_cx: &Cx, ability: Ability<'_, Child>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(record) => record.parent.is_unloaded(),
+                _ => false,
+            }
         }
         fn view_query(_cx: &Cx) -> Query<List<Child>> {
             with_parent()
@@ -238,11 +232,7 @@ async fn option_load_loads_no_relation() {
         fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(Owner::fields().child_id())
-                    .relationship::<ChildSource>(
-                        ChildSource::query,
-                        |c: &Child| c.id,
-                        |c: &Child| c.name.clone(),
-                    )
+                    .relationship::<ChildSource>(|c: &Child| c.id, |c: &Child| c.name.clone())
                     .searchable(),
             )
         }
@@ -340,11 +330,8 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         fn slug() -> String {
             "big-as".to_string()
         }
-        fn can_view_any(_cx: &Cx) -> bool {
-            true
-        }
-        fn can_view(_cx: &Cx, _record: &BigA) -> bool {
-            true
+        fn policy() -> impl Policy<BigA> {
+            ReadOnly
         }
         fn table() -> crate::resource::Table<BigA> {
             crate::resource::Table::new(
@@ -374,11 +361,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(BigP::fields().author_id())
-                    .relationship::<BigAResource>(
-                        BigAResource::query,
-                        |a: &BigA| a.id,
-                        |a: &BigA| a.name.clone(),
-                    )
+                    .relationship::<BigAResource>(|a: &BigA| a.id, |a: &BigA| a.name.clone())
                     .searchable(),
             )
         }
@@ -407,11 +390,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(BigP::fields().author_id())
-                    .relationship::<BigAResource>(
-                        BigAResource::query,
-                        |a: &BigA| a.id,
-                        |a: &BigA| a.name.clone(),
-                    ),
+                    .relationship::<BigAResource>(|a: &BigA| a.id, |a: &BigA| a.name.clone()),
             )
         }
 

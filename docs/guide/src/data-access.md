@@ -97,4 +97,5 @@ Share a query between components of one request with Topcoat's `#[memoize]`, and
 
 A table with `live_search()` refreshes through a Topcoat shard request. Page and layout guards do
 not run for shard requests, so the panel's shard checks authentication, the tenant and
-`can_view_any` itself; a shard you write must do the same.
+`ViewAny` itself; a shard you write starts with `auth::guard(cx)?`, and checks
+`can_list::<R>(cx)` before it lists `R`'s rows.

@@ -17,6 +17,7 @@ use topcoat::{
 use super::gate::{gate, list_url};
 use crate::{
     form::RecordForm,
+    policy::{Ability, can},
     resource::{
         Resource, RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage,
         TableSignals, TableState, create_page_url, declared, request_query,
@@ -45,12 +46,12 @@ pub(crate) fn retry_url_for_error(
 /// The action chrome a resource's declarations imply: the one derivation
 /// [`wire_table_actions`] reads to decide which affordances the table it serves
 /// carries. Each column follows what also governs its route — the delete
-/// handlers check `can_delete_any`, only a record form registers the edit
+/// handlers check `DeleteAny`, only a record form registers the edit
 /// route, and only a `view` schema serves the detail page — and is answered
 /// once per request, so the streamed skeleton and the table agree.
 pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
     TableChrome {
-        delete: R::can_delete_any(cx),
+        delete: can::<R>(cx, Ability::DeleteAny),
         edit: <R::Form as RecordForm>::HAS_FORM,
         view: declared::<R>(cx).viewed(),
         actions: true,
@@ -67,8 +68,8 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
 /// control ships whose route cannot answer it. The per-*record* gate rides the
 /// same call: the
 /// table's row policy pairs each action with exactly what its route checks —
-/// `can_view` for View, `can_view` + `can_update` for Edit, `can_view` +
-/// `can_delete` for Delete, and `can_view` + `can_run` for each custom action;
+/// `View` for View, `View` + `Update` for Edit, `View` +
+/// `Delete` for Delete, and `View` + `can_run` for each custom action;
 /// the bulk checkbox renders when bulk delete or any bulk custom action allows
 /// the record. A row the predicate refuses
 /// renders no link and no checkbox, while the handler keeps its
@@ -96,13 +97,13 @@ pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) 
     // outlives the request borrow without copying request state.
     let policy_cx = cx.clone();
     table = table.row_actions(move |record| {
-        // Read once: every route pairs its own predicate with `can_view`, so a
+        // Read once: every route pairs its own predicate with `View`, so a
         // record that cannot be viewed allows no action.
-        let view = R::can_view(&policy_cx, record);
+        let view = can::<R>(&policy_cx, Ability::View(record));
         RowActions {
             view,
-            edit: view && R::can_update(&policy_cx, record),
-            delete: view && R::can_delete(&policy_cx, record),
+            edit: view && can::<R>(&policy_cx, Ability::Update(record)),
+            delete: view && can::<R>(&policy_cx, Ability::Delete(record)),
         }
     });
     if chrome.delete {
@@ -123,7 +124,7 @@ pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) 
 }
 
 /// Attach `R`'s custom actions to `table`, each gated per record by exactly
-/// what its route checks: [`Resource::can_view`] and the action's
+/// what its route checks: [`Ability::View`](crate::policy::Ability::View) and the action's
 /// `can_run`.
 fn wire_custom_actions<R: Resource>(cx: &Cx, table: Table<R::Model>) -> Table<R::Model> {
     let actions = R::actions();
@@ -142,7 +143,7 @@ fn wire_custom_actions<R: Resource>(cx: &Cx, table: Table<R::Model>) -> Table<R:
                 row: action.row,
                 bulk: action.bulk,
                 allowed: std::sync::Arc::new(move |record: &R::Model| {
-                    R::can_view(&policy_cx, record) && can_run(&policy_cx, record)
+                    can::<R>(&policy_cx, Ability::View(record)) && can_run(&policy_cx, record)
                 }),
             }
         })
@@ -225,14 +226,14 @@ pub(crate) fn table_error_view<'a, R: Resource>(
 
 /// The list page header: the resource's title and the Create entry point
 /// (Filament's List page `CreateAction`), a real link so no-JS keeps
-/// working, gated on `can_create`. The POST handler enforces the same policy.
+/// working, gated on `Create`. The POST handler enforces the same policy.
 ///
 /// A resource with no record form ([`RecordForm::HAS_FORM`]) has no create
-/// route, so its header links to none even when a request-scoped `can_create`
+/// route, so its header links to none even when a request-scoped `Create`
 /// allows it and the build-time check could not see it.
 fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> BoxView<'a> {
     let title = title.to_string();
-    let create_url = (<R::Form as RecordForm>::HAS_FORM && R::can_create(cx))
+    let create_url = (<R::Form as RecordForm>::HAS_FORM && can::<R>(cx, Ability::Create))
         .then(|| create_page_url(list_path));
     let create_label = format!("Create {}", R::label());
     view! {
@@ -273,7 +274,7 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
 pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
-        if !R::can_view_any(cx) {
+        if !can::<R>(cx, Ability::ViewAny) {
             return Err(forbidden().into());
         }
         // Ensure the CSRF cookie before streaming starts: streamed
