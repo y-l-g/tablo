@@ -2,7 +2,7 @@ use toasty::Db;
 use topcoat::Result;
 
 use super::*;
-use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+use crate::panel::test_support::{Dummy, dummy_table, mount, panel_for};
 
 #[test]
 fn parse_bulk_ids_dedupes_and_trims() {
@@ -66,9 +66,7 @@ async fn bulk_delete_caps_ids_and_ignores_display_key() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<UpperKeyResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<UpperKeyResource>()).expect("panel builds");
     // Canonical lowercase id succeeds despite an uppercase display key.
     let token = uuid::Uuid::new_v4().to_string();
     let ok = router
@@ -201,9 +199,7 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
         .map(|r| r.id.to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let router = panel_for::<FlakyBulkResource>(db.clone())
-        .build()
-        .expect("panel builds");
+    let router = mount(db.clone(), panel_for::<FlakyBulkResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
     let resp = router
         .handle(

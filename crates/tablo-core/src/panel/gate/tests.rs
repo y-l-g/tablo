@@ -2,14 +2,17 @@ use toasty::Db;
 use topcoat::router::Body;
 
 use super::{super::search::TABLE_SEARCH_PATH, *};
-use crate::Panel;
+use crate::{
+    Panel,
+    panel::test_support::{current_panel, mount, panel_state},
+};
 
 #[test]
 fn list_url_prefers_panel_prefix_over_request_path() {
     use topcoat::context::CxTestBuilder;
 
-    // With the panel prefix installed, the resource URL is derived from
-    // the declaration — even on a path that is not the list route.
+    // On a panel's request, the resource URL is derived from the panel — even on a path that is not
+    // the list route.
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users/42/edit")
         .body(())
@@ -17,7 +20,10 @@ fn list_url_prefers_panel_prefix_over_request_path() {
         .into_parts();
     let cx = CxTestBuilder::new()
         .request_context(parts)
-        .app_context(PanelPrefix("/admin".to_string()))
+        .request_context(current_panel(panel_state(
+            "/admin",
+            crate::Auth::disabled(),
+        )))
         .build();
     assert_eq!(list_url(&cx, "users"), "/admin/users");
 
@@ -28,11 +34,14 @@ fn list_url_prefers_panel_prefix_over_request_path() {
         .into_parts();
     let cx = CxTestBuilder::new()
         .request_context(parts)
-        .app_context(PanelPrefix("/backoffice".to_string()))
+        .request_context(current_panel(panel_state(
+            "/backoffice",
+            crate::Auth::disabled(),
+        )))
         .build();
     assert_eq!(list_url(&cx, "users"), "/backoffice/users");
 
-    // Without a panel prefix (bare test builder), fall back to the
+    // Without a panel (bare test builder), fall back to the
     // request path's first segment.
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users/42/edit")
@@ -58,11 +67,8 @@ async fn named_shard_endpoints_answer_401_without_a_session() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = Panel::new("admin")
-        .app_context(db)
-        .auth(crate::Auth::password())
-        .build()
-        .expect("panel builds");
+    let router =
+        mount(db, Panel::new("admin").auth(crate::Auth::password())).expect("panel builds");
 
     for path in [TABLE_SEARCH_PATH, crate::notification::LIVE_TOASTER_PATH] {
         let request = http::Request::builder()
@@ -98,7 +104,10 @@ fn return_target_accepts_only_paths_under_the_prefix() {
             .into_parts();
         let cx = CxTestBuilder::new()
             .request_context(parts)
-            .app_context(PanelPrefix("/admin".to_string()))
+            .request_context(current_panel(panel_state(
+                "/admin",
+                crate::Auth::disabled(),
+            )))
             .build();
         return_target(&cx)
     };

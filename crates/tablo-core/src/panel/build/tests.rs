@@ -1,7 +1,9 @@
 use toasty::Db;
 
 use super::*;
-use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+use crate::panel::test_support::{
+    Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state,
+};
 
 /// A slug made of ordinary URL-segment characters still builds, and its
 /// list route resolves: rejecting the pattern characters must not
@@ -37,9 +39,7 @@ async fn a_plain_slug_builds_and_resolves() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<PlainResource>(db)
-        .build()
-        .expect("a plain slug builds");
+    let router = mount(db, panel_for::<PlainResource>()).expect("a plain slug builds");
     let request = http::Request::builder()
         .method(http::Method::GET)
         .uri("/admin/user-profiles_2")
@@ -99,9 +99,7 @@ async fn a_star_slug_builds_and_resolves() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<StarResource>(db)
-        .build()
-        .expect("a slug containing `*` builds");
+    let router = mount(db, panel_for::<StarResource>()).expect("a slug containing `*` builds");
     let request = http::Request::builder()
         .method(http::Method::GET)
         .uri("/admin/user*profiles")
@@ -162,9 +160,8 @@ async fn csrf_is_enforced_with_auth_disabled() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<DummyResource>(db)
-        .build()
-        .expect("the explicit opt-out builds the panel");
+    let router =
+        mount(db, panel_for::<DummyResource>()).expect("the explicit opt-out builds the panel");
 
     let response = router
         .handle(
@@ -199,12 +196,13 @@ async fn dark_mode_sets_the_document_class() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = Panel::new("admin")
-        .app_context(db)
-        .auth(crate::Auth::password())
-        .dark_mode(true)
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .auth(crate::Auth::password())
+            .dark_mode(true),
+    )
+    .expect("panel builds");
 
     // The standalone login page renders the same document the admin shell
     // does (ADR-0013), so it carries the theme class without a session.
@@ -285,20 +283,18 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    panel_for::<AuthorResource>(db)
-        .build()
-        .expect("a composite unique index backs the marker");
+    mount(db, panel_for::<AuthorResource>()).expect("a composite unique index backs the marker");
 }
 
 /// GH #174: a panel with no `Db` is a configuration error, not a panic.
 #[test]
 fn panel_build_errors_without_db() {
     // `Router` has no `Debug`, so `expect_err` cannot report the Ok case.
-    let Err(error) = Panel::new("admin").build() else {
+    let Err(error) = mount_without_db(Panel::new("admin")) else {
         panic!("a panel without a Db must not build");
     };
     assert!(
-        format!("{error}").contains("requires a Db"),
+        format!("{error}").contains("holds no Db"),
         "the error must name the missing Db, got {error}"
     );
 }
@@ -365,13 +361,9 @@ async fn panel_build_rejects_a_gated_resource_with_no_tenant_predicate() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let panel = || {
-        Panel::new("admin")
-            .app_context(db.clone())
-            .auth(crate::Auth::disabled())
-    };
+    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
-    let Err(error) = panel().resource::<UndiscoverableResource>().build() else {
+    let Err(error) = mount(db.clone(), panel().resource::<UndiscoverableResource>()) else {
         panic!("a gated resource with no tenant predicate must not build");
     };
     let error = format!("{error}");
@@ -382,9 +374,7 @@ async fn panel_build_rejects_a_gated_resource_with_no_tenant_predicate() {
         "the error must name the resource and both ways to scope it, got {error}"
     );
 
-    panel()
-        .resource::<DeclaredScopeResource>()
-        .build()
+    mount(db.clone(), panel().resource::<DeclaredScopeResource>())
         .expect("a declared tenant_scope scopes a gated resource");
 }
 
@@ -414,7 +404,7 @@ fn panel_build_rejects_a_hostile_slug() {
         }
     }
 
-    let Err(error) = Panel::new("admin").resource::<HostileResource>().build() else {
+    let Err(error) = mount_without_db(Panel::new("admin").resource::<HostileResource>()) else {
         panic!("a slug with quotes and CRLF must not build");
     };
     assert!(
@@ -476,11 +466,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = Panel::new("admin")
-        .app_context(db)
-        .resource::<UnbackedResource>()
-        .build()
-    else {
+    let Err(error) = mount(db, Panel::new("admin").resource::<UnbackedResource>()) else {
         panic!("a `unique()` marker with no unique index must not build");
     };
     let error = format!("{error}");
@@ -571,23 +557,13 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let panel = || {
-        Panel::new("admin")
-            .app_context(db.clone())
-            .auth(crate::Auth::disabled())
-    };
+    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
-    panel()
-        .resource::<ChromeResource>()
-        .build()
+    mount(db.clone(), panel().resource::<ChromeResource>())
         .expect("a keyed table with chrome builds");
-    panel()
-        .resource::<ChromeOffResource>()
-        .build()
+    mount(db.clone(), panel().resource::<ChromeOffResource>())
         .expect("a keyed table without chrome builds");
-    panel()
-        .resource::<ViewedResource>()
-        .build()
+    mount(db.clone(), panel().resource::<ViewedResource>())
         .expect("a keyed table with a detail view builds");
 }
 
@@ -643,11 +619,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = Panel::new("admin")
-        .app_context(db)
-        .resource::<ReadOnlyResource>()
-        .build()
-    else {
+    let Err(error) = mount(db, Panel::new("admin").resource::<ReadOnlyResource>()) else {
         panic!("the marker is unbacked whether or not create is allowed");
     };
     assert!(
@@ -697,11 +669,11 @@ fn panel_build_rejects_duplicate_resource_slugs() {
         }
     }
 
-    let Err(error) = Panel::new("admin")
-        .resource::<FirstResource>()
-        .resource::<SecondResource>()
-        .build()
-    else {
+    let Err(error) = mount_without_db(
+        Panel::new("admin")
+            .resource::<FirstResource>()
+            .resource::<SecondResource>(),
+    ) else {
         panic!("two resources over one slug must not build");
     };
     assert!(
@@ -746,7 +718,7 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
 
     macro_rules! rejects {
         ($name:ident, $slug:literal) => {{
-            let Err(error) = Panel::new("admin").resource::<$name>().build() else {
+            let Err(error) = mount_without_db(Panel::new("admin").resource::<$name>()) else {
                 panic!("a slug containing {} must not build", $slug);
             };
             let error = format!("{error}");
@@ -763,7 +735,7 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
     rejects!(ParenClose, "a)b");
 
     // The prefix goes through the same rule, once per segment.
-    let Err(error) = Panel::new("adm{in}").build() else {
+    let Err(error) = mount_without_db(Panel::new("adm{in}")) else {
         panic!("a panel prefix with a route pattern character must not build");
     };
     assert!(
@@ -850,13 +822,9 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let panel = || {
-        Panel::new("admin")
-            .app_context(db.clone())
-            .auth(crate::Auth::disabled())
-    };
+    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
-    let Err(error) = panel().resource::<DuplicateColumnResource>().build() else {
+    let Err(error) = mount(db.clone(), panel().resource::<DuplicateColumnResource>()) else {
         panic!("a duplicate column name must not build");
     };
     let error = format!("{error}");
@@ -865,7 +833,7 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
         "the recorded misdeclaration must reach the registration error, got {error}"
     );
 
-    let Err(error) = panel().resource::<TraversalLensResource>().build() else {
+    let Err(error) = mount(db.clone(), panel().resource::<TraversalLensResource>()) else {
         panic!("a traversal lens must not build");
     };
     let error = format!("{error}");
@@ -874,7 +842,7 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
         "the recorded misdeclaration must reach the registration error, got {error}"
     );
 
-    let Err(error) = panel().resource::<ZeroPageResource>().build() else {
+    let Err(error) = mount(db.clone(), panel().resource::<ZeroPageResource>()) else {
         panic!("a zero page size must not build");
     };
     let error = format!("{error}");
@@ -898,9 +866,7 @@ async fn panel_mounts_runtime_page_rerun_routes() {
     }
 
     let db = Db::builder().connect("sqlite::memory:").await.unwrap();
-    let router = panel_for::<DummyResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<DummyResource>()).expect("panel builds");
 
     // The list page denies by default (default-deny policy → 403). A
     // POST carrying the runtime marker rewrites into a GET for the
@@ -926,19 +892,21 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
     use topcoat::{context::CxTestBuilder, router::response::IntoResponse};
 
     // Enforced auth, no resolved user: the handler itself redirects to
-    // login — and never reaches the `RootRedirect` read (absent here, so
-    // a missing re-check would panic instead of answering).
+    // login — and never reaches the root target read.
     let (parts, ()) = http::Request::builder()
         .uri("/admin")
         .body(())
         .unwrap()
         .into_parts();
+    let mut gated = panel_state("/admin", crate::Auth::password());
+    gated.root_redirect = Some("/admin/users".to_string());
+    let gated = current_panel(gated);
     let cx = CxTestBuilder::new()
         .request_context(parts)
-        .app_context(crate::Auth::password())
+        .request_context(gated.clone())
         .build();
     let err = match panel_root_redirect(&cx, Body::empty()).await {
-        Ok(_) => panic!("unauthenticated root must not read RootRedirect"),
+        Ok(_) => panic!("unauthenticated root must not read the root target"),
         Err(err) => err,
     };
     let location = err
@@ -970,8 +938,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
         .into_parts();
     let cx = CxTestBuilder::new()
         .request_context(parts)
-        .app_context(crate::Auth::password())
-        .app_context(RootRedirect("/admin/users".to_string()))
+        .request_context(gated)
         .request_context(user)
         .build();
     let err = match panel_root_redirect(&cx, Body::empty()).await {
@@ -1014,8 +981,8 @@ async fn panel_sends_frame_ancestors_unless_opted_out() {
     }
 
     /// The directive the finished page carries.
-    async fn policy(panel: Panel) -> Option<String> {
-        let router = panel.build().expect("panel builds");
+    async fn policy(db: Db, panel: Panel) -> Option<String> {
+        let router = mount(db, panel).expect("panel builds");
         let response = router
             .handle(
                 http::Request::builder()
@@ -1037,22 +1004,25 @@ async fn panel_sends_frame_ancestors_unless_opted_out() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let base = || panel_for::<DummyResource>(db.clone());
+    let base = panel_for::<DummyResource>;
 
     assert_eq!(
-        policy(base()).await.as_deref(),
+        policy(db.clone(), base()).await.as_deref(),
         Some("frame-ancestors 'self'"),
         "a panel page must not be frameable by default"
     );
     assert_eq!(
-        policy(base().frame_ancestors("'self' https://intranet.example"))
-            .await
-            .as_deref(),
+        policy(
+            db.clone(),
+            base().frame_ancestors("'self' https://intranet.example")
+        )
+        .await
+        .as_deref(),
         Some("frame-ancestors 'self' https://intranet.example"),
         "a deployment that frames the panel says so"
     );
     assert!(
-        policy(base().without_frame_ancestors()).await.is_none(),
+        policy(db, base().without_frame_ancestors()).await.is_none(),
         "an opted-out panel sends no policy of its own"
     );
 }
@@ -1112,7 +1082,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = panel_for::<BadView>(db).build() else {
+    let Err(error) = mount(db, panel_for::<BadView>()) else {
         panic!("a view declaring one field twice must not build");
     };
     let error = format!("{error}");
@@ -1122,7 +1092,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
     );
 }
 
-/// The served declarations are built once: `Panel::build` calls the table, form and view
+/// The served declarations are built once: mounting the panel calls the table, form and view
 /// once each (relations twice: once at registration for its handlers and keys, once here for
 /// the served copy), and every handler serves the cached copy across requests.
 #[tokio::test]
@@ -1200,9 +1170,7 @@ async fn declarations_are_built_once_across_requests() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<CountedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<CountedResource>()).expect("panel builds");
     for (calls, name, want) in [
         (&TABLE_CALLS, "table", 1),
         (&FORM_CALLS, "form", 1),
@@ -1215,7 +1183,7 @@ async fn declarations_are_built_once_across_requests() {
         assert_eq!(
             calls.load(Ordering::SeqCst),
             want,
-            "`{name}` builds once at `Panel::build`"
+            "`{name}` builds once, when the panel is mounted"
         );
     }
 

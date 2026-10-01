@@ -15,9 +15,8 @@ use crate::resource::{
 /// Registered with [`Panel::page`](crate::Panel::page) at `{prefix}/{slug}`,
 /// or with [`Panel::home`](crate::Panel::home) at the panel prefix itself.
 /// The panel owns the route and the sidebar entry, the way it owns a
-/// [`Resource`](crate::Resource)'s; the page owns its markup. The app's
-/// `#[layout]` at the panel prefix frames it in the shell, as it frames every
-/// panel page.
+/// [`Resource`](crate::Resource)'s; the page owns its markup. The panel's
+/// layout frames it in the shell, as it frames every panel page.
 ///
 /// ```ignore
 /// struct ReportsPage;

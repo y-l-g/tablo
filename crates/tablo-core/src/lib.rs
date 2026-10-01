@@ -3,8 +3,9 @@
 //! A [`Panel`] serves one [`Resource`] per Toasty model. A resource declares its list page as a
 //! [`Table`], its create and edit forms as a [`Schema`] plus a
 //! [`RecordForm`](derive@RecordForm) struct the submission parses into, and its policy as `can_*`
-//! predicates that deny by default. [`Panel::build`] checks every declaration and returns the
-//! Topcoat router.
+//! predicates that deny by default. The app mounts the panel on its own Topcoat router with
+//! [`RouterBuilderPanelExt::panel`], which checks every declaration first; one router mounts any
+//! number of panels at distinct prefixes.
 //!
 //! ```ignore
 //! pub struct BookResource;
@@ -29,10 +30,11 @@
 //!     }
 //! }
 //!
-//! let router = Panel::new("admin")
+//! let router = Router::builder()
+//!     .discover()
 //!     .app_context(db)
-//!     .resource::<BookResource>()
-//!     .build()?;
+//!     .panel(Panel::new("admin").resource::<BookResource>())?
+//!     .build();
 //! ```
 //!
 //! The [user guide](https://y-l.fr/tablo/nightly/guide/) walks through a complete panel and each
@@ -91,7 +93,7 @@ pub use form::{
 };
 pub use notification::{Notification, NotificationStatus};
 pub use page::Page;
-pub use panel::{Brand, DarkMode, Panel};
+pub use panel::{Brand, Panel, RouterBuilderPanelExt, url};
 pub use resource::{
     Action, Actions, BooleanColumn, Column, ColumnWidth, Committed, Cursor, DateFilter, Filter,
     FilterInput, Includes, IntoColumns, IntoFilters, Mutation, NavTarget, NavigationItem, Relation,

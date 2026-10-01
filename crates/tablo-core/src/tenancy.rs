@@ -12,11 +12,11 @@
 //! Discovery is narrow and fails closed: the model must declare a field whose
 //! application name is `tenant_id` and whose type is a UUID. Anything else
 //! reads as "no tenant column", and a gated resource that hits that is refused
-//! by `Panel::build` at boot. A predicate that is only `None` for some tenants
+//! when the panel is mounted. A predicate that is only `None` for some tenants
 //! still answers an error naming the resource rather than querying unscoped.
 //!
-//! The authenticated user's tenant is the production source: the auth layer
-//! injects `Tenant` into the request `Cx` when the logged-in user carries one.
+//! The authenticated user's tenant is the production source: [`tenant_id`]
+//! answers the tenant the panel's signed-in user carries.
 //! A server-set `Tenant` request extension takes precedence, so app middleware
 //! and `Router::handle` tests can override it deliberately. No request header
 //! supplies a tenant: learning another tenant's UUID does not make anyone that
@@ -27,24 +27,29 @@ use topcoat::context::{Cx, try_request_context};
 
 /// Request-scoped tenant identifier.
 ///
-/// The auth layer sets it via `cx.with(Tenant(id))` from the logged-in user;
-/// server code and tests may also carry it as a request extension.
+/// App code may put it on the `Cx` with `cx.with(Tenant(id))`, and server code
+/// and tests may carry it as a request extension; either wins over the signed-in
+/// user's tenant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tenant(pub uuid::Uuid);
 
 /// Returns the tenant id from `cx`, if present.
 ///
 /// Checks a `Tenant` request extension first (a server-set override — the
-/// deliberate seam app middleware and `Router::handle` tests use), then the
-/// `Tenant` scoped value the auth layer injects from the authenticated user.
-/// No request header is consulted.
+/// deliberate seam app middleware and `Router::handle` tests use), then a
+/// `Tenant` scoped value app code put on the `Cx`, then the tenant of the
+/// panel's signed-in [`current_user`](crate::auth::current_user). No request
+/// header is consulted.
 pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
     if let Some(parts) = try_request_context::<http::request::Parts>(cx)
         && let Some(t) = parts.extensions.get::<Tenant>()
     {
         return Some(t.0);
     }
-    try_request_context::<Tenant>(cx).map(|t| t.0)
+    if let Some(t) = try_request_context::<Tenant>(cx) {
+        return Some(t.0);
+    }
+    crate::auth::current_user(cx).and_then(|user| user.tenant_id)
 }
 
 /// Requires a tenant, returning an error if missing (for tenancy-gated resources).

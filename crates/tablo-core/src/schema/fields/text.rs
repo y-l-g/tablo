@@ -58,7 +58,7 @@ impl TextControl {
     }
 
     /// The control of a derived embedded leaf: no unique probe, because
-    /// `Panel::build` refuses a `unique()` marker on anything but a column
+    /// mounting the panel refuses a `unique()` marker on anything but a column
     /// of the model, so `T` needs no expression form.
     pub(super) fn leaf<T: FormScalar>() -> Self {
         Self {

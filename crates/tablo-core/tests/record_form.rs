@@ -13,7 +13,7 @@ use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, panel, panel_router, post_fields};
+use crate::common::{body_string, get, memory_db, mount, panel, panel_router, post_fields};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Item {
@@ -491,7 +491,7 @@ async fn the_derived_create_stamps_the_request_tenant() {
 
 /// The build error for a panel over `R`.
 fn form_build_error<R: Resource>(db: Db) -> String {
-    match panel(db).resource::<R>().build() {
+    match mount(db, panel().resource::<R>()) {
         Ok(_) => panic!("{} must not build", std::any::type_name::<R>()),
         Err(error) => error.to_string(),
     }
@@ -880,12 +880,13 @@ async fn a_list_only_detail_page_reads_view_values() {
 async fn a_form_resource_serves_create_and_edit() {
     let db = item_db().await;
     let item = seed_item(&db).await;
-    let router: topcoat::router::Router = Panel::new("admin")
-        .app_context(db)
-        .auth(tablo_core::Auth::disabled())
-        .resource::<ItemResource>()
-        .build()
-        .expect("panel builds");
+    let router: topcoat::router::Router = mount(
+        db,
+        Panel::new("admin")
+            .auth(tablo_core::Auth::disabled())
+            .resource::<ItemResource>(),
+    )
+    .expect("panel builds");
     let create = get(&router, "/admin/items/create").await;
     assert_eq!(create.status(), StatusCode::OK);
     // Every rendered control posts its key, which is what lets an unposted key
@@ -949,9 +950,7 @@ async fn build_refuses_a_create_that_leaves_a_required_column_unset() {
 #[tokio::test]
 async fn create_columns_names_what_an_override_sets() {
     title_only_resource!(Covered, &["notes", "priority", "done"]);
-    panel(item_db().await)
-        .resource::<Covered>()
-        .build()
+    mount(item_db().await, panel().resource::<Covered>())
         .expect("the override's own columns are declared");
 
     title_only_resource!(Misnamed, &["notes", "priority", "done", "nope"]);
@@ -1212,9 +1211,7 @@ async fn a_list_only_resource_never_links_to_create() {
         }
     }
 
-    let router = panel(item_db().await)
-        .resource::<TenantCreates>()
-        .build()
+    let router = mount(item_db().await, panel().resource::<TenantCreates>())
         .expect("create is denied without a request");
     let request = http::Request::builder()
         .uri("/admin/items")

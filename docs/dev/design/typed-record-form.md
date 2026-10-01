@@ -13,8 +13,8 @@ it back through toasty's generated builders. `create_record` and
 `update_record` have default implementations, so a resource whose write is
 "store what the form says" writes neither. On edit, a key the submission does
 not post keeps its stored value; the framework fills it from the stored record
-before parsing, so both record fns receive one fully typed value. At
-`Panel::build`, the framework refuses a form whose struct and `Schema`
+before parsing, so both record fns receive one fully typed value. When
+the panel is mounted, the framework refuses a form whose struct and `Schema`
 disagree on a key, on whether a control may be left blank, or on who owns the
 tenant column.
 
@@ -457,7 +457,7 @@ rustc refuses the rest at the use site the derive emits:
 | A record fn error | `hook_failure` (`panel/forms/submit.rs:160`, unchanged) |
 | `PostResource`: author missing from the tenant | 500 from the record fn (unchanged) |
 | `CommentResource`: post outside the tenant | 404 from the record fn (unchanged) |
-| A declaration the build checks refuse | `Panel::build` returns `Err` naming the resource and the field |
+| A declaration the build checks refuse | Mounting the panel returns `Err` naming the resource and the field |
 
 ### Showcase behavior changes
 

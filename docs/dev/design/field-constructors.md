@@ -158,13 +158,13 @@ key takes the field's blank answer (`panel/forms/submit.rs:66-68`).
   generic-`Display` overload stays future work.
 - **Traversal lenses.** A lens that crosses an embedded step type-checks but is
   refused at build, as for `for`: the single-field lens rule
-  (`schema/lenses.rs:655-662`) surfaces through `Panel::build` as a declaration
+  (`schema/lenses.rs:655-662`) surfaces when the panel is mounted as a declaration
   error (fixture `panel/build.rs:1552-1560`, asserted at `:1590-1593`).
 - **Nullable strings.** An `Option<String>` leaf yields
   `Path<M, Option<String>>`, and `Option<String>` implements no `TypedValue`
   (`schema/validation.rs:46-81`), so optional text columns keep `computed`.
 - **Optional bools.** An emptied checkbox control takes the field's `blank`
-  answer under the record-form rule; a missing answer fails `Panel::build`
+  answer under the record-form rule; a missing answer fails the panel mount
   naming the field (`panel/build.rs:471-494`), as for any optional control.
 - **Read-only rendering.** The detail page renders the stored spelling through
   the same path a `Select` uses when no option matches it

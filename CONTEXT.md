@@ -12,9 +12,11 @@ part behaves.
 
 ### Panel
 
-The admin application. Owns the Router, the `Db` in the app context, the Shell, its Resources and
-Pages, and the authentication gate. `Panel::build` turns the declarations into routes and
-navigation, and an app's layout delegates to `Panel::layout_shell` for the Shell.
+An admin panel: its Resources and Pages under one prefix, its Shell, and its authentication gate.
+The app owns the Router and the `Db` in its app context, and mounts the panel with
+`RouterBuilderPanelExt::panel`, which turns the declarations into routes, navigation and the
+layout that frames them in the Shell. One Router mounts several panels at distinct prefixes; each
+request is served by the panel whose prefix it is under.
 
 _Avoid_: Admin, Dashboard, App, Site
 
@@ -32,8 +34,8 @@ _Avoid_: CustomPage, Screen, View
 ### Resource
 
 A type implementing `Resource` that maps one Toasty model to its admin UI: its Query, Table,
-Schema, Policy, NavigationItem and record functions. One model has one Resource, registered once
-with `Panel::resource`. A Resource whose `Form` is a Record form has create and edit pages; one
+Schema, Policy, NavigationItem and record functions. One model has one Resource, registered with
+`Panel::resource` on each panel that serves it. A Resource whose `Form` is a Record form has create and edit pages; one
 that names `NoForm` is list-only.
 
 _Avoid_: Model, Entity, Collection, AdminModel, CRUD
@@ -176,7 +178,8 @@ _Avoid_: Provider, Guard, LoginManager, AuthDriver
 ### CurrentUser
 
 The signed-in identity in the request context: `{ id, login, display_name, tenant_id,
-can_access_panel }`, read through `current_user(cx)` or `require_authenticated(cx)`. The
+can_access_panel }`, read through `current_user(cx)` or `require_authenticated(cx)`, which answer
+it only on the panel whose Session resolved it. The
 Authenticator's user model never appears past it.
 
 _Avoid_: AuthUser, Principal, Account, SessionUser
@@ -184,7 +187,8 @@ _Avoid_: AuthUser, Principal, Account, SessionUser
 ### Session
 
 A server-side `AuthSession` row keyed by the SHA-256 hash of the token in the session cookie. It
-lasts seven days from login.
+names the panel that signed the user in, authenticates only there, and lasts seven days from
+login.
 
 _Avoid_: Token (the cookie's half), SessionStore, Login, Cookie
 
@@ -240,7 +244,8 @@ _Avoid_: ErrorPage, Fallback
 
 ### Shell
 
-The layout that frames every admin page: the Sidebar, the topbar and the main content area.
+The layout that frames every admin page: the Sidebar, the topbar and the main content area. Each
+panel registers it at its prefix; `Panel::layout` replaces it.
 
 _Avoid_: Layout, Wrapper, Chrome
 

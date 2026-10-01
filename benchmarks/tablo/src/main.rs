@@ -2,14 +2,15 @@ use std::time::Instant;
 
 use jiff::Timestamp;
 use tablo_core::{
-    Field, Panel, Resource, Schema, Table, TablePage, TableState, Tenant, TextColumn,
+    Field, Panel, Resource, RouterBuilderPanelExt, Schema, Table, TablePage, TableState, Tenant,
+    TextColumn,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
     Result,
     context::{Cx, CxTestBuilder},
-    router::{Body, Next, Router, Slot, layer, layout, response::Response},
-    view::{View, ViewExt},
+    router::{Body, Next, Router, RouterBuilderDiscoverExt, layer, response::Response},
+    view::ViewExt,
 };
 
 /// Author for bench — tenant_id + posts HasMany (mirrors showcase).
@@ -200,8 +201,8 @@ async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
 }
 
 /// Fresh request `Cx` for one bench iteration: the pooled `Db` on the app
-/// context, the run's tenant (the production seam — the auth layer injects
-/// `Tenant`, the bench sets it directly), and real request `Parts` carrying
+/// context, the run's tenant (production reads the signed-in user's tenant;
+/// the bench sets `Tenant` directly), and real request `Parts` carrying
 /// the list URI so `TableState::from_cx` parses a genuine (empty: first page,
 /// no search/filter/sort) query instead of the no-request-context early return.
 fn bench_cx(db: &Db, tenant: uuid::Uuid) -> Cx {
@@ -432,13 +433,8 @@ async fn run_bench(iterations: usize) {
     println!("done (ungated — no PASS/FAIL; the p50 gate follows in a follow-up per GH #171)");
 }
 
-#[layout("/admin")]
-async fn admin_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    Panel::layout_shell(cx, slot).await
-}
-
 /// The tenant the HTTP mode seeds and serves. The HTTP mode runs with
-/// `Auth::disabled()`, so no auth gate injects a `Tenant`; the layer below
+/// `Auth::disabled()`, so no signed-in user carries a tenant; the layer below
 /// supplies this value for every `/admin` request.
 const SERVER_TENANT: uuid::Uuid = uuid::Uuid::nil();
 
@@ -453,13 +449,17 @@ async fn inject_server_tenant(cx: &Cx, body: Body, next: Next<'_>) -> Result<Res
 }
 
 fn router(db: Db) -> Router {
-    Panel::new("admin")
+    Router::builder()
+        .discover()
         .app_context(db)
-        .auth(tablo_core::Auth::disabled())
-        .resource::<AuthorResource>()
-        .resource::<PostResource>()
+        .panel(
+            Panel::new("admin")
+                .auth(tablo_core::Auth::disabled())
+                .resource::<AuthorResource>()
+                .resource::<PostResource>(),
+        )
+        .expect("panel mounts")
         .build()
-        .expect("panel builds")
 }
 
 #[tokio::main]

@@ -10,7 +10,7 @@ fn default_directive_is_self() {
     // `#[cfg(test)]` re-implementation of the same `format!` cannot fail
     // both sides would change together.
     let mut response = response();
-    insert_frame_ancestors(&mut response, &FrameAncestors::same_origin().directive);
+    insert_frame_ancestors(&mut response, DEFAULT_FRAME_ANCESTORS);
     assert_eq!(
         response.headers().get(&CSP).unwrap(),
         "frame-ancestors 'self'"

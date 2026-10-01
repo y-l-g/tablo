@@ -63,8 +63,9 @@ let password_hash = tablo_core::auth::hash_password("secret")?; // Argon2id
 
 After login, the user returns to `next`, which must be a same-origin path. A user has panel access
 when their `AdminUser.active` is `true`. The gate covers only the panel prefix and
-`/_topcoat/runtime`; routes elsewhere, including directories served with `Panel::serve_dir`, are
-public.
+`/_topcoat/runtime`; routes elsewhere, including your app's own routes and directories served with
+`Panel::serve_dir`, are public. On a router with several panels, `/_topcoat/runtime` answers 401
+without a session only when every panel is gated.
 
 - **Login** verifies Argon2id hashes. An unknown email costs the same work as a wrong password,
   and every failure shows the same message.
@@ -72,7 +73,13 @@ public.
   lasts seven days from login, is replaced on each login and deleted on logout. Each successful
   login also deletes up to 500 expired sessions.
 - **Revoking.** Call `auth::revoke_sessions_for_user(cx, user_id)` when a user's password changes
-  or their account is deactivated; otherwise existing sessions stay valid until they expire.
+  or their account is deactivated; otherwise existing sessions stay valid until they expire. On a
+  panel's request it revokes the sessions that panel issued; outside any panel, the user's
+  sessions on every panel.
+- **Several panels.** Each panel has its own `Auth` and its own login page, and a session belongs
+  to the panel that signed the user in: the session row records the panel's prefix. Another
+  panel's gate treats the request as anonymous, and `current_user(cx)` answers `None` there. One
+  browser holds one session, so signing in to a second panel ends the first.
 - **Rate limiting** is not built in. Limit login attempts at your proxy or firewall.
 
 Read the signed-in user in your own code with `auth::current_user(cx)`, which returns a
@@ -151,7 +158,7 @@ would serve every tenant's rows to a user who has no tenant.
 **A deliberately cross-tenant resource** — a super-admin view — declares `requires_tenant()`
 `false` and filters in `query()` by hand. That gives up both the gate and the scope.
 
-`Panel::build` refuses a resource with `requires_tenant()` `true` whose model has no `tenant_id`
+Mounting the panel refuses a resource with `requires_tenant()` `true` whose model has no `tenant_id`
 UUID field and which does not override `tenant_scope`.
 
 **In your own code**, load rows with `scoped_query::<PostResource>(cx)?`. It applies the tenant

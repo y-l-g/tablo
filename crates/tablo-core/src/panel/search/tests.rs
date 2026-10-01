@@ -2,7 +2,7 @@ use toasty::Db;
 use topcoat::router::Body;
 
 use super::{super::Panel, *};
-use crate::panel::test_support::{Dummy, panel_for};
+use crate::panel::test_support::{Dummy, current_panel, mount, panel_for, panel_state};
 
 /// The shard's positional args as the browser sends them: the list path, the
 /// `query` signal holding the list's URL query built from `pairs`, and the
@@ -84,6 +84,13 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
 
     // A registry that really knows the `users` slug, so the known-path
     // probe is a resolution the gate must preempt.
+    let registry = |auth| {
+        let mut panel = panel_state("/admin", auth);
+        panel
+            .search
+            .insert("users".to_string(), search_handler_for::<DummyResource>());
+        current_panel(panel)
+    };
     let (parts, ()) = http::Request::builder()
         .method(http::Method::POST)
         .uri(crate::auth::RUNTIME_PREFIX)
@@ -92,11 +99,7 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
         .into_parts();
     let cx = CxTestBuilder::new()
         .request_context(parts)
-        .app_context(crate::Auth::password())
-        .app_context(SearchRegistry(HashMap::from([(
-            "users".to_string(),
-            search_handler_for::<DummyResource>(),
-        )])))
+        .request_context(registry(crate::Auth::password()))
         .build();
 
     // The gate's answer comes before the lookup: both a registered and an
@@ -137,11 +140,7 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
         .into_parts();
     let cx = CxTestBuilder::new()
         .request_context(parts)
-        .app_context(crate::Auth::disabled())
-        .app_context(SearchRegistry(HashMap::from([(
-            "users".to_string(),
-            search_handler_for::<DummyResource>(),
-        )])))
+        .request_context(registry(crate::Auth::disabled()))
         .build();
     assert!(
         search_entry(&cx, "users").is_ok(),
@@ -208,7 +207,7 @@ async fn live_shard_malformed_cursor_renders_error_state() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<LiveResource>(db).build().expect("panel builds");
+    let router = mount(db, panel_for::<LiveResource>()).expect("panel builds");
 
     let response = router
         .handle(
@@ -375,7 +374,7 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
         .await
         .unwrap();
     }
-    let router = panel_for::<LiveResource>(db).build().expect("panel builds");
+    let router = mount(db, panel_for::<LiveResource>()).expect("panel builds");
 
     // The query orders by name then the primary key, so three fields is
     // one too many: the token decodes, the statement does not verify.
@@ -474,7 +473,7 @@ async fn live_shard_retry_preserves_the_query() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let router = panel_for::<FailingLive>(db).build().expect("panel builds");
+    let router = mount(db, panel_for::<FailingLive>()).expect("panel builds");
 
     let args = shard_args(
         "/admin/dummies",
@@ -583,9 +582,7 @@ async fn live_shard_group_by_query_drives_grouping() {
         .await
         .unwrap();
     }
-    let router = panel_for::<GroupedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<GroupedResource>()).expect("panel builds");
 
     let grouped = |group_by: &str| shard_args("/admin/dummies", &[("group_by", group_by)]);
     let post_shard = |args: String| {
@@ -751,13 +748,14 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
         .await
         .unwrap();
     }
-    let router = Panel::new("admin")
-        .app_context(db)
-        .resource::<TenantLive>()
-        .resource::<DeniedLive>()
-        .auth(crate::Auth::disabled())
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .resource::<TenantLive>()
+            .resource::<DeniedLive>()
+            .auth(crate::Auth::disabled()),
+    )
+    .expect("panel builds");
 
     let response = post_table_shard(&router, "/admin/tenant-dummies", None).await;
     assert_eq!(
@@ -954,13 +952,14 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = Panel::new("admin")
-        .app_context(db)
-        .resource::<ShelfResource>()
-        .resource::<BookResource>()
-        .auth(crate::Auth::disabled())
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .resource::<ShelfResource>()
+            .resource::<BookResource>()
+            .auth(crate::Auth::disabled()),
+    )
+    .expect("panel builds");
 
     // The seed scopes the load to the owner's rows.
     let args = relation_shard_args(

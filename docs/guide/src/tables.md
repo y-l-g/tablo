@@ -63,7 +63,7 @@ primary key the URLs carry. Either way, keys must be unique within a page.
   columns.
 
 Two columns with the same name, two filters with the same name, a table with no columns, and a
-zero page size are misdeclarations: `Panel::build` refuses the resource, and rendering the table
+zero page size are misdeclarations: mounting the panel refuses the resource, and rendering the table
 fails with the same errors.
 
 ### Your own columns
@@ -268,7 +268,7 @@ error rolls everything back. After the commit, `after_commit` receives `Mutation
 with the records and the list shows `Action::success`, by default the label and the record count.
 
 A row the action refuses answers 403. A selection that holds one writes nothing and returns to the
-list with an error notification. `Panel::build` refuses an action name that is not one URL
+list with an error notification. Mounting the panel refuses an action name that is not one URL
 segment, or that two actions of a resource share. Custom actions run without a confirmation
 dialog.
 

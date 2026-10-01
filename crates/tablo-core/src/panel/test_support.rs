@@ -4,10 +4,13 @@
 //! table over it, and mounts the same panel; one copy lives here.
 
 use toasty::Db;
-use topcoat::{context::Cx, router::Body};
+use topcoat::{
+    context::Cx,
+    router::{Body, Router, RouterBuilderDiscoverExt},
+};
 
 use crate::{
-    Panel,
+    Panel, RouterBuilderPanelExt,
     resource::{Resource, Table, TextColumn},
     schema::{Field, Schema},
 };
@@ -29,12 +32,50 @@ pub(crate) fn dummy_table() -> Table<Dummy> {
     )
 }
 
-/// A panel mounted at `/admin` with one resource and the auth gate off.
-pub(crate) fn panel_for<R: Resource>(db: Db) -> Panel {
+/// A panel at `/admin` with one resource and the auth gate off.
+pub(crate) fn panel_for<R: Resource>() -> Panel {
     Panel::new("admin")
-        .app_context(db)
         .resource::<R>()
         .auth(crate::Auth::disabled())
+}
+
+/// A panel at `prefix` guarded by `auth`, with no resources, pages or shell
+/// settings: the request's panel a handler test puts on its `Cx`.
+pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::PanelState {
+    super::state::PanelState {
+        prefix: prefix.to_string(),
+        nav_items: Vec::new(),
+        brand: None,
+        dark_mode: false,
+        shell_assets: None,
+        search: std::collections::HashMap::new(),
+        relations: std::collections::HashMap::new(),
+        root_redirect: None,
+        auth,
+        login_hint: None,
+        uploads: None,
+        urls: std::collections::HashMap::new(),
+    }
+}
+
+/// `state` as the request's panel, for a `CxTestBuilder::request_context`.
+pub(crate) fn current_panel(state: super::state::PanelState) -> super::state::CurrentPanel {
+    super::state::CurrentPanel(std::sync::Arc::new(state))
+}
+
+/// `panel` mounted on a router that holds no `Db`: what a panel refuses
+/// before it needs one.
+pub(crate) fn mount_without_db(panel: Panel) -> topcoat::Result<Router> {
+    Ok(Router::builder().discover().panel(panel)?.build())
+}
+
+/// `panel` mounted on a router holding `db`, the way an app mounts one.
+pub(crate) fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
+    Ok(Router::builder()
+        .discover()
+        .app_context(db)
+        .panel(panel)?
+        .build())
 }
 
 /// The body of `response`, for an inline-error assertion.

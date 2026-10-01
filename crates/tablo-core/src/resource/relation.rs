@@ -91,8 +91,8 @@ impl<P> Relation<P> {
     /// parameters are prefixed with `C`'s slug (`comments.q=`).
     ///
     /// A `foreign_key` that is not a single column of `C`'s model is a
-    /// misdeclaration [`Panel::build`](crate::Panel::build) reports, like
-    /// every lens a declaration binds.
+    /// misdeclaration [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel)
+    /// reports, like every lens a declaration binds.
     pub fn has_many<C, T>(
         foreign_key: FieldLens<C::Model, T>,
         owner_key: impl Fn(&P) -> T + Send + Sync + 'static,

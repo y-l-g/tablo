@@ -532,8 +532,8 @@ impl<M> Table<M> {
     /// and filter reports of itself (a lens that binds no single field, a
     /// search or sort asked of a computed column).
     ///
-    /// [`Panel::build`](crate::Panel::build) refuses a resource whose table
-    /// reports any, and rendering one fails with them.
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses a resource
+    /// whose table reports any, and rendering one fails with them.
     pub fn declaration_errors(&self) -> Vec<String> {
         let mut errors = self.misdeclared.clone();
         if self.columns.is_empty() {

@@ -11,6 +11,7 @@ mod common;
 mod after_commit;
 mod auth_override;
 mod extensions;
+mod panels;
 mod resource_query_override;
 mod sqlite;
 mod stream_pool;

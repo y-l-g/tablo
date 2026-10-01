@@ -1,11 +1,11 @@
 //! The public blog: `/blog` and `/blog/{id}`, served with no session.
 //!
 //! The pages are app-level `#[page]`s under a `#[layout("/blog")]`, so they are
-//! public by construction. The auth gate installs exactly two layers — the
-//! panel prefix and `/_topcoat/runtime` — and a Topcoat layer wraps only the
-//! routes under its path prefix, so nothing under `/blog` is gated. Route
-//! discovery is link-time over the binary, so the `Router::builder().discover()`
-//! in `Panel::build` picks these up with no router change.
+//! public by construction. The panel gates two path prefixes — its own and
+//! `/_topcoat/runtime` — and a Topcoat layer wraps only the routes under its
+//! path prefix, so nothing under `/blog` is gated. The app owns the router:
+//! its `Router::builder().discover()` picks these pages up beside the panel it
+//! mounts.
 //!
 //! Both pages query the model directly. The panel's `Table` and its resource
 //! loaders are panel-scoped (auth, tenancy, chrome) and would drag the admin
@@ -68,12 +68,14 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                         >
                             "Tablo Blog"
                         </a>
-                        <a
-                            href="/admin"
-                            class="ml-auto text-sm text-muted-foreground hover:text-foreground"
-                        >
-                            "Admin"
-                        </a>
+                        if let Some(admin) = tablo_core::url::panel(cx) {
+                            <a
+                                href=(admin)
+                                class="ml-auto text-sm text-muted-foreground hover:text-foreground"
+                            >
+                                "Admin"
+                            </a>
+                        }
                     </nav>
                 </header>
 

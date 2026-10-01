@@ -8,7 +8,7 @@ use topcoat::{
 
 use crate::{
     Page, Panel,
-    panel::test_support::{Dummy, dummy_table, response_html},
+    panel::test_support::{Dummy, dummy_table, mount, mount_without_db, response_html},
     resource::{NavigationItem, Resource},
 };
 
@@ -68,7 +68,6 @@ async fn get(router: &topcoat::router::Router, uri: &str) -> (http::StatusCode, 
 #[tokio::test]
 async fn pages_mount_under_the_prefix_with_their_sidebar_entries() {
     let panel = Panel::new("backoffice")
-        .app_context(db().await)
         .auth(crate::Auth::disabled())
         .resource::<DummyResource>()
         .page::<ReportsPage>()
@@ -86,7 +85,7 @@ async fn pages_mount_under_the_prefix_with_their_sidebar_entries() {
             ("Reports", Some("/backoffice/reports"), -1),
         ]
     );
-    let router = panel.build().expect("the panel builds");
+    let router = mount(db().await, panel).expect("the panel builds");
 
     let (status, html) = get(&router, "/backoffice").await;
     assert_eq!(
@@ -117,22 +116,22 @@ fn a_page_slug_that_a_resource_holds_does_not_build() {
         }
     }
 
-    let Err(error) = Panel::new("admin")
-        .resource::<DummyResource>()
-        .page::<DummiesPage>()
-        .build()
-    else {
+    let Err(error) = mount_without_db(
+        Panel::new("admin")
+            .resource::<DummyResource>()
+            .page::<DummiesPage>(),
+    ) else {
         panic!("a page over a resource's slug must not build");
     };
     assert!(
         error.to_string().contains("duplicate slug 'dummies'"),
         "got {error}"
     );
-    let Err(error) = Panel::new("admin")
-        .page::<DummiesPage>()
-        .resource::<DummyResource>()
-        .build()
-    else {
+    let Err(error) = mount_without_db(
+        Panel::new("admin")
+            .page::<DummiesPage>()
+            .resource::<DummyResource>(),
+    ) else {
         panic!("a resource over a page's slug must not build");
     };
     assert!(
@@ -154,7 +153,7 @@ fn a_page_slug_that_is_not_one_segment_does_not_build() {
         }
     }
 
-    let Err(error) = Panel::new("admin").page::<NestedPage>().build() else {
+    let Err(error) = mount_without_db(Panel::new("admin").page::<NestedPage>()) else {
         panic!("a slug with a slash must not build");
     };
     assert!(error.to_string().contains("Page::slug"), "got {error}");
@@ -162,11 +161,11 @@ fn a_page_slug_that_is_not_one_segment_does_not_build() {
 
 #[test]
 fn a_second_home_page_does_not_build() {
-    let Err(error) = Panel::new("admin")
-        .home::<Dashboard>()
-        .home::<ReportsPage>()
-        .build()
-    else {
+    let Err(error) = mount_without_db(
+        Panel::new("admin")
+            .home::<Dashboard>()
+            .home::<ReportsPage>(),
+    ) else {
         panic!("two home pages must not build");
     };
     assert!(
@@ -189,7 +188,7 @@ fn a_page_slug_the_panel_routes_itself_does_not_build() {
         }
     }
 
-    let Err(error) = Panel::new("admin").page::<LoginPage>().build() else {
+    let Err(error) = mount_without_db(Panel::new("admin").page::<LoginPage>()) else {
         panic!("a page at the login route must not build");
     };
     assert!(
@@ -204,13 +203,14 @@ fn a_page_slug_the_panel_routes_itself_does_not_build() {
 /// the redirect carries the clickjacking directive like every response.
 #[tokio::test]
 async fn without_a_home_page_the_root_redirects_to_the_first_resource() {
-    let router = Panel::new("admin")
-        .app_context(db().await)
-        .auth(crate::Auth::disabled())
-        .resource::<DummyResource>()
-        .page::<ReportsPage>()
-        .build()
-        .expect("the panel builds");
+    let router = mount(
+        db().await,
+        Panel::new("admin")
+            .auth(crate::Auth::disabled())
+            .resource::<DummyResource>()
+            .page::<ReportsPage>(),
+    )
+    .expect("the panel builds");
     let request = http::Request::builder()
         .uri("/admin")
         .body(Body::empty())
@@ -244,7 +244,9 @@ async fn a_page_redirects_to_login_without_a_resolved_user() {
         .into_parts();
     let cx = CxTestBuilder::new()
         .request_context(parts)
-        .app_context(crate::Auth::password())
+        .request_context(crate::panel::test_support::current_panel(
+            crate::panel::test_support::panel_state("/admin", crate::Auth::password()),
+        ))
         .build();
     let Err(error) = super::page_handler::<ReportsPage>(&cx, Body::empty())
         .single()

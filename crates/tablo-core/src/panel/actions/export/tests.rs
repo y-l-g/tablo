@@ -3,7 +3,7 @@ use toasty::Db;
 use super::*;
 use crate::{
     Panel,
-    panel::test_support::{Dummy, dummy_table, panel_for, seed_dummies},
+    panel::test_support::{Dummy, dummy_table, mount, panel_for, seed_dummies},
 };
 
 /// The [`Dummy`] resource both chunker walk tests drive: one table, no
@@ -61,9 +61,7 @@ async fn export_drops_rows_failing_can_view() {
         .await
         .unwrap();
     }
-    let router = panel_for::<RowPolicyResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<RowPolicyResource>()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()
@@ -169,13 +167,14 @@ async fn export_loads_the_relations_its_columns_include() {
     .await
     .unwrap();
 
-    let router = Panel::new("admin")
-        .app_context(db)
-        .resource::<ExportResource<true>>()
-        .resource::<ExportResource<false>>()
-        .auth(crate::Auth::disabled())
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .resource::<ExportResource<true>>()
+            .resource::<ExportResource<false>>()
+            .auth(crate::Auth::disabled()),
+    )
+    .expect("panel builds");
 
     let csv = |body: bytes::Bytes| String::from_utf8_lossy(&body).into_owned();
     let resp = router
@@ -293,9 +292,7 @@ async fn export_streams_csv_in_chunks_with_parity() {
         .await
         .unwrap();
     }
-    let router = panel_for::<ChunkedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<ChunkedResource>()).expect("panel builds");
     let get_csv = async |uri: &str| {
         let resp = router
             .handle(
@@ -377,9 +374,7 @@ async fn export_of_an_empty_table_emits_the_header() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<EmptyResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<EmptyResource>()).expect("panel builds");
     let get = async |uri: &str| {
         let resp = router
             .handle(
@@ -497,7 +492,7 @@ async fn export_visibility_scan_loads_no_includes() {
     .await
     .unwrap();
 
-    let router = panel_for::<ScanResource>(db).build().expect("panel builds");
+    let router = mount(db, panel_for::<ScanResource>()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()
@@ -573,9 +568,7 @@ async fn export_counts_only_viewable_rows_within_the_window() {
         }
     })
     .await;
-    let router = panel_for::<MixedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<MixedResource>()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()
@@ -637,9 +630,7 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
         }
     })
     .await;
-    let router = panel_for::<WindowedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<WindowedResource>()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()
@@ -890,9 +881,7 @@ async fn export_413s_above_the_cap_before_streaming() {
         .unwrap();
     db.push_schema().await.unwrap();
     seed_dummies(&mut db, MAX_EXPORT_ROWS + 1, |i| format!("user-{i:05}")).await;
-    let router = panel_for::<CappedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<CappedResource>()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()

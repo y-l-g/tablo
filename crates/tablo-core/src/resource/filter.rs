@@ -56,8 +56,8 @@ pub trait Filter<M>: Send + Sync {
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a>;
 
     /// What is wrong with this filter's declaration, which
-    /// [`Panel::build`](crate::Panel::build) reports. The built-in filters
-    /// record a lens that binds no single field here.
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) reports. The built-in
+    /// filters record a lens that binds no single field here.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<String> {
         None

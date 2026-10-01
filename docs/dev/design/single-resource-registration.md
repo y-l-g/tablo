@@ -16,7 +16,7 @@ on `NoForm` only, decides the route set at registration.
 
 Today a resource with a form implements `Resource` + `FormResource` (`form.rs:401`) and must
 register with `Panel::form_resource`. Registering it with `Panel::resource` compiles and serves a
-list with no form; `Panel::build` catches it only when `can_create` or `editable()` answers true
+list with no form; mounting the panel catches it only when `can_create` or `editable()` answers true
 (`panel/build.rs:410-425`). A generic `resource::<R: Resource>()` cannot detect a `FormResource`
 impl outside its bounds, so the fix is to put the form on `Resource`.
 

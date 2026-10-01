@@ -2,7 +2,7 @@ use toasty::Db;
 use topcoat::router::Body;
 
 use super::*;
-use crate::panel::test_support::panel_for;
+use crate::panel::test_support::{mount, panel_for};
 
 #[tokio::test]
 async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
@@ -128,7 +128,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<PairResource>(db).build().expect("panel builds");
+    let router = mount(db, panel_for::<PairResource>()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()

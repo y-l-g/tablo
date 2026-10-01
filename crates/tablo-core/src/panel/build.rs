@@ -1,79 +1,128 @@
-//! Panel assembly: [`Panel::build`](super::Panel::build), the build-time
-//! declaration checks, and the route-path helpers.
+//! Mounting a panel: [`RouterBuilderPanelExt::panel`], the declaration
+//! checks it runs, and the route-path helpers.
 
 use std::sync::Arc;
 
 use toasty::{Db, schema::Model};
 use topcoat::{
     Result,
-    asset::RouterBuilderAssetExt,
-    context::{Cx, app_context},
+    asset::AssetConfig,
+    context::Cx,
     cookie::RouterBuilderCookieExt,
     router::{
-        Body, Path, RouteFn, RouteFuture, Router, RouterBuilderDirectoryExt,
-        RouterBuilderDiscoverExt, error::redirect,
+        Body, LayoutFn, Path, RouteFn, RouteFuture, RouterBuilder, RouterBuilderDirectoryExt,
+        error::redirect,
     },
-    runtime::RouterBuilderRuntimeExt,
+    runtime::{PrefetchMode, RouterBuilderRuntimeExt, RuntimeSetup},
+    session::{RouterBuilderSessionExt, SessionConfig},
 };
 
 use super::{
     Panel, Root,
     forms::MAX_FORM_BYTES,
-    gate::{LoginHint, PanelPrefix, enforce_auth},
+    gate::enforce_auth,
     headers,
-    search::{RelationRegistry, SearchRegistry},
-    shell::DarkMode,
+    search::{ShardPanel, TABLE_RELATION_SEARCH_PATH, TABLE_SEARCH_PATH},
+    state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
+    auth::{PanelGate, RUNTIME_PREFIX, RuntimeGate, SESSION_LIFETIME},
     error::TabloError,
     form::RecordForm,
     resource::{Declarations, Declared, Resource},
     schema::{DeclCx, Schema},
 };
 
-impl Panel {
-    /// Build the [`Router`], discovering all `#[page]` / `#[layout]` / `#[shard]`
-    /// items linked into the binary, mounting the browser-runtime layer
-    /// (`RouterBuilderRuntimeExt::runtime`, required by `runtime::script`),
-    /// installing the `Db` and the panel navigation on the `app_context`,
-    /// registering each declared resource's list page and each page, and
-    /// serving the home page at the panel root, or a redirect to the first
-    /// resource when there is none.
+/// Mount a [`Panel`] on a router the app owns.
+///
+/// ```ignore
+/// use tablo::prelude::*;
+///
+/// let router = Router::builder()
+///     .discover()
+///     .app_context(db)
+///     .assets(bundle)
+///     .panel(Panel::new("admin").resource::<UserResource>())?
+///     .panel(Panel::new("portal").auth(Auth::custom(Members)).resource::<OrderResource>())?
+///     .build();
+/// ```
+pub trait RouterBuilderPanelExt: Sized {
+    /// Mount `panel` at its prefix: its resources' and pages' routes, its
+    /// shell layout, its login and logout routes, and the layers that gate,
+    /// size-limit and harden every request under the prefix.
+    ///
+    /// The router must already hold the `Db` (`.app_context(db)`) and, when
+    /// the panel links [`shell_assets`](Panel::shell_assets), the asset bundle
+    /// (`.assets(..)`). The first panel mounted also installs what every panel
+    /// shares: cookies, sessions (unless the router already configures them),
+    /// the gate over Topcoat's runtime endpoints, and the runtime layer with
+    /// prefetching off (unless the router already set them up). The runtime
+    /// layer has no path, so mount panels after the app's own pathless layers:
+    /// a page re-run must reach them already rewritten to a `GET`.
+    ///
+    /// Each panel checks its resources' declarations here, so the handlers
+    /// serve exactly the values checked.
     ///
     /// # Errors
     ///
-    /// Reports what the declarative builders could only record:
-    /// a missing [`Db`], a resource or page slug that is malformed, reserved
-    /// or already held, a second home page, a malformed panel prefix, or
-    /// `shell_assets` declared without `assets`. Configuring
-    /// a panel wrong is a boot failure, not a request-time panic, so it comes
-    /// back as an error the caller can log or exit on.
-    pub fn build(self) -> topcoat::Result<Router> {
-        if !self.registration_errors.is_empty() {
-            return Err(TabloError::Declaration(format!(
-                "Panel::build: {}",
-                self.registration_errors.join("; ")
-            ))
-            .into());
+    /// Reports what the declarative builders could only record, and what
+    /// only the router can answer: a resource or page slug that is malformed,
+    /// reserved or already held, a second home page, a malformed prefix or one
+    /// that overlaps another panel's or Topcoat's runtime endpoints, a
+    /// relation to a resource the panel does not register, a misdeclared
+    /// resource, a missing `Db`, or `shell_assets` without an asset bundle.
+    /// Configuring a panel wrong is a boot failure, not a request-time panic,
+    /// so it comes back as an error the caller can log or exit on.
+    fn panel(self, panel: Panel) -> Result<Self>;
+}
+
+impl RouterBuilderPanelExt for RouterBuilder {
+    fn panel(self, panel: Panel) -> Result<Self> {
+        panel.mount(self)
+    }
+}
+
+impl Panel {
+    fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
+        let errors = self.mount_errors(&builder);
+        if !errors.is_empty() {
+            return Err(self.refused(&errors));
         }
-        let relation_errors = self.relation_errors();
-        if !relation_errors.is_empty() {
-            return Err(TabloError::Declaration(format!(
-                "Panel::build: {}",
-                relation_errors.join("; ")
-            ))
-            .into());
+        let db = builder.get_app_context::<Db>().cloned().ok_or_else(|| {
+            self.refused(&[
+                "the router holds no Db: install it with `.app_context(db)` before \
+                            mounting the panel"
+                    .to_string(),
+            ])
+        })?;
+        // Declaration checks: a resource whose table or form could never
+        // render is a configuration error, and the declaration is knowable
+        // here — waiting for the first request only moves the failure
+        // somewhere less useful. Each check builds the resource's declarations
+        // once and keeps them: the handlers serve exactly the values checked.
+        let mut declarations = Declarations::default();
+        if !self.resource_checks.is_empty() {
+            let cx = validation_cx(&db);
+            let dx = DeclCx::new(&db);
+            let failures: Vec<String> = self
+                .resource_checks
+                .iter()
+                .filter_map(|check| check(&cx, &dx, &mut declarations).err())
+                .collect();
+            if !failures.is_empty() {
+                return Err(self.refused(&failures));
+            }
         }
-        if self.shell_assets.is_some() && self.assets.is_none() {
-            return Err(TabloError::Declaration(
-                "Panel::build requires assets when shell_assets are configured".to_string(),
-            )
-            .into());
+        crate::auth::assert_models_registered(&db, &self.auth);
+        if builder.get_app_context::<Panels>().is_none() {
+            builder = install_shared(builder);
+        }
+        match builder.get_app_context_mut::<Declarations>() {
+            Some(installed) => installed.extend(declarations),
+            None => builder = builder.app_context(declarations),
         }
         let Panel {
             prefix,
-            db,
-            assets,
             shell_assets,
             brand,
             dark_mode,
@@ -81,77 +130,62 @@ impl Panel {
             pages,
             routes,
             root,
-            slugs: _,
-            resource_slugs: _,
-            relations: _,
+            layout,
+            urls,
             search_handlers,
             relation_handlers,
             frame_ancestors,
-            registration_errors: _,
-            resource_checks,
             uploads,
             served_dirs,
             login_hint,
             auth,
+            ..
         } = self;
-        let db = db.ok_or_else(|| {
-            TabloError::Declaration("Panel::build requires a Db via app_context".to_string())
-        })?;
-        // Declaration checks: a resource whose table or form could
-        // never render is a configuration error, and the declaration is
-        // knowable here — waiting for the first request only moves the failure
-        // somewhere less useful. `table`, `form` and `can_create` are pure
-        // declarations, so they must not need request-scoped context.
-        // Each check builds the resource's declarations once and keeps them:
-        // the handlers serve exactly the values checked here.
-        let mut declarations = Declarations::default();
-        if !resource_checks.is_empty() {
-            let cx = validation_cx(&db);
-            let dx = DeclCx::new(&db);
-            let failures: Vec<String> = resource_checks
-                .iter()
-                .filter_map(|check| check(&cx, &dx, &mut declarations).err())
-                .collect();
-            if !failures.is_empty() {
-                return Err(TabloError::Declaration(format!(
-                    "Panel::build: {}",
-                    failures.join("; ")
-                ))
-                .into());
-            }
-        }
-        crate::auth::assert_models_registered(&db, &auth);
-        let mut builder = Router::builder()
-            .discover()
-            .cookies()
-            // Form bodies (urlencoded buffered, multipart streamed) share one
-            // cap: without this layer Topcoat's 2 MiB default would
-            // 413 uploads the framework otherwise accepts.
-            .layer(topcoat::router::BodyLimit::max(MAX_FORM_BYTES))
-            .app_context(db)
-            .app_context(declarations);
-        // Clickjacking hardening: a response anyone can frame is a
-        // threat on every deployment, so the panel ships the directive itself
-        // and apps that need framing opt out (or supply their own policy,
-        // which wins — the layer only fills the gap).
+        let root_redirect = match root {
+            Some(Root::Redirect(target)) => Some(target),
+            Some(Root::Home) | None => None,
+        };
+        let state = Arc::new(PanelState {
+            prefix: prefix.clone(),
+            nav_items,
+            brand,
+            dark_mode: dark_mode.unwrap_or(false),
+            shell_assets,
+            search: search_handlers,
+            relations: relation_handlers,
+            root_redirect: root_redirect.clone(),
+            auth,
+            login_hint,
+            uploads,
+            urls,
+        });
+        let prefix_path = route_path(&prefix);
+        // Form bodies (urlencoded buffered, multipart streamed) share one
+        // cap: without this layer Topcoat's 2 MiB default would 413 uploads
+        // the framework otherwise accepts.
+        builder =
+            builder.layer(topcoat::router::BodyLimit::max(MAX_FORM_BYTES).at(prefix_path.clone()));
+        // Clickjacking hardening: a response anyone can frame is a threat on
+        // every deployment, so the panel ships the directive itself and apps
+        // that need framing opt out (or supply their own policy, which wins —
+        // the layer only fills the gap).
         if let Some(directive) = frame_ancestors {
-            builder = builder.layer(headers::FrameAncestors::new(directive));
+            builder = builder.layer(headers::FrameAncestors::new(directive, prefix.clone()));
         }
-        // Auth (ADR-0013): sessions plus the resolving gate under the panel
-        // and runtime prefixes, and the login/logout routes. Disabled skips
-        // all three but still installs the `Auth` value for the shell.
-        if !auth.is_disabled() {
-            builder = crate::auth::install(builder, &prefix);
+        // Registered last of the prefix's layers, so it runs first: every
+        // other layer and handler under the prefix sees the panel.
+        builder = builder.layer(PanelGate::new(Arc::clone(&state)));
+        // Auth (ADR-0013): the login and logout routes. A credential POST
+        // carries no upload, so the login route gets its own cap, scoped by
+        // path so it wins over the panel's form cap.
+        if state.gates() {
             let login_path = route_path(&format!("{prefix}/login"));
             let logout_path = route_path(&format!("{prefix}/logout"));
-            // A credential POST carries no upload: the login route
-            // gets its own cap, scoped by path so it wins over the panel's
-            // 10 MiB form cap.
-            builder = builder.layer(
-                topcoat::router::BodyLimit::max(crate::auth::MAX_LOGIN_BYTES)
-                    .at(login_path.clone()),
-            );
             builder = builder
+                .layer(
+                    topcoat::router::BodyLimit::max(crate::auth::MAX_LOGIN_BYTES)
+                        .at(login_path.clone()),
+                )
                 .route(RouteFn::new(
                     http::Method::GET,
                     login_path.clone(),
@@ -168,39 +202,13 @@ impl Panel {
                     crate::auth::logout_post,
                 ));
         }
-        if !search_handlers.is_empty() {
-            builder = builder.app_context(SearchRegistry(search_handlers));
-        }
-        if !relation_handlers.is_empty() {
-            builder = builder.app_context(RelationRegistry(relation_handlers));
-        }
-        // The mount prefix travels with the Router so generic handlers derive
-        // resource URLs from the declaration instead of sniffing the request
-        // path (item 6 / B4).
-        builder = builder.app_context(PanelPrefix(prefix.clone()));
-        if !nav_items.is_empty() {
-            builder = builder.app_context(nav_items);
-        }
-        if let Some(assets) = assets {
-            builder = builder.assets(assets);
-        }
-        if let Some(shell_assets) = shell_assets {
-            builder = builder.app_context(shell_assets);
-        }
-        if let Some(brand) = brand {
-            builder = builder.app_context(brand);
-        }
-        if let Some(enabled) = dark_mode {
-            builder = builder.app_context(DarkMode(enabled));
-        }
-        // Where uploaded bytes go: installed once, found by the form
-        // handlers and the multipart parser through the app context.
-        if let Some(uploads) = uploads {
-            builder = builder.app_context(uploads);
-        }
+        builder = builder.layout(LayoutFn::new(
+            prefix_path.clone(),
+            layout.unwrap_or(Panel::layout_shell),
+        ));
         for (path, dir) in served_dirs {
-            // Files the panel serves share its origin, so each directory route
-            // is wrapped in the hardening layer that makes them inert
+            // Files the panel serves share the app's origin, so each directory
+            // route is wrapped in the hardening layer that makes them inert.
             // The same path scopes the layer to that route only.
             builder = builder
                 .layer(headers::ServedFileHeaders::new(&path))
@@ -215,34 +223,59 @@ impl Panel {
         // Without a home page, the prefix serves a redirect to the first
         // resource's list so the mount point is never a dead URL; a home page
         // registered its own route at the prefix.
-        if let Some(Root::Redirect(target)) = root {
-            builder = builder
-                .app_context(RootRedirect(target))
-                .route(RouteFn::new(
-                    http::Method::GET,
-                    route_path(&prefix),
-                    panel_root_redirect,
-                ));
+        if root_redirect.is_some() {
+            builder = builder.route(RouteFn::new(
+                http::Method::GET,
+                prefix_path,
+                panel_root_redirect,
+            ));
         }
-        builder = builder.app_context(auth);
-        if let Some(hint) = login_hint {
-            builder = builder.app_context(LoginHint(hint));
-        }
-        // The runtime layer registers last, outside every other pathless
-        // layer: a page re-run is a marked POST the layer rewrites into a
-        // GET for the page's own URL, and the layers it wraps must receive
-        // the rewritten GET rather than the discarded POST. Panel links
-        // navigate through it without prefetching: a prefetch renders the
-        // destination, list queries included, for a page the user may never
-        // open.
-        Ok(builder
-            .runtime()
-            .prefetch(topcoat::runtime::PrefetchMode::Never)
-            .build())
+        builder
+            .get_app_context_mut::<Panels>()
+            .expect("the shared panel state is installed above")
+            .0
+            .push(state);
+        Ok(builder)
     }
-}
 
-impl Panel {
+    /// What refuses this panel before anything is mounted.
+    fn mount_errors(&self, builder: &RouterBuilder) -> Vec<String> {
+        let mut errors = self.registration_errors.clone();
+        errors.extend(self.relation_errors());
+        if self.shell_assets.is_some() && builder.get_app_context::<AssetConfig>().is_none() {
+            errors.push(
+                "shell_assets need the router's asset bundle: install it with `.assets(..)` \
+                 before mounting the panel"
+                    .to_string(),
+            );
+        }
+        if under_prefix(RUNTIME_PREFIX, &self.prefix) {
+            errors.push(format!(
+                "prefix '{}' sits under Topcoat's runtime endpoints at '{RUNTIME_PREFIX}'",
+                self.prefix
+            ));
+        }
+        if let Some(panels) = builder.get_app_context::<Panels>() {
+            for other in &panels.0 {
+                if under_prefix(&other.prefix, &self.prefix)
+                    || under_prefix(&self.prefix, &other.prefix)
+                {
+                    errors.push(format!(
+                        "prefix '{}' overlaps the panel mounted at '{}': each panel needs a \
+                         prefix of its own",
+                        self.prefix, other.prefix
+                    ));
+                }
+            }
+        }
+        errors
+    }
+
+    /// The mount error naming this panel.
+    fn refused(&self, errors: &[String]) -> topcoat::Error {
+        TabloError::Declaration(format!("panel '{}': {}", self.prefix, errors.join("; "))).into()
+    }
+
     /// Every relation must name a resource this panel registers — its table's
     /// row actions and create link go to that resource's routes — and name it
     /// once per owner, since the key prefixes the table's URL parameters.
@@ -267,12 +300,33 @@ impl Panel {
     }
 }
 
-/// Where the panel root redirects (the first declared resource's list) when
-/// the panel has no home page.
-/// Lives on the `app_context` because page handlers are plain `fn` pointers
-/// and cannot capture.
-#[derive(Debug, Clone)]
-struct RootRedirect(String);
+/// What every panel on a router shares, installed by the first one mounted:
+/// cookies and sessions, the gate over Topcoat's runtime endpoints and the
+/// layers that tell a live table's shard which panel it re-renders for, the
+/// runtime layer, and the [`Panels`] registry.
+fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
+    builder = builder.cookies();
+    if builder.get_app_context::<SessionConfig>().is_none() {
+        builder = builder.sessions(SessionConfig::builder().lifetime(SESSION_LIFETIME).build());
+    }
+    builder = builder
+        .layer(RuntimeGate::new())
+        .layer(ShardPanel::new(TABLE_SEARCH_PATH, 0))
+        .layer(ShardPanel::new(TABLE_RELATION_SEARCH_PATH, 1))
+        .app_context(Panels::default());
+    // The runtime layer has no path: it runs outside every layer with one, so
+    // a page re-run reaches the panel's layers already rewritten to a `GET`.
+    // Panel links navigate through it without prefetching: a prefetch renders
+    // the destination, list queries included, for a page the user may never
+    // open.
+    if builder.get_app_context::<RuntimeSetup>().is_none() {
+        builder = builder.runtime();
+    }
+    if builder.get_app_context::<PrefetchMode>().is_none() {
+        builder = builder.prefetch(PrefetchMode::Never);
+    }
+    builder
+}
 
 /// The panel root of a panel with no [`home`](Panel::home) page: a temporary
 /// redirect to the first declared resource's list, so the mount point is never
@@ -283,8 +337,10 @@ pub(crate) fn panel_root_redirect(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         // resolved user, so a missing or mis-mounted gate cannot leak the
         // first resource's slug via the redirect target.
         enforce_auth(cx)?;
-        let RootRedirect(target) = app_context::<RootRedirect>(cx);
-        Err(redirect(target.clone()).into())
+        let target = current(cx)
+            .and_then(|panel| panel.root_redirect.clone())
+            .ok_or_else(topcoat::router::error::not_found)?;
+        Err(redirect(target).into())
     })
 }
 
@@ -292,12 +348,12 @@ pub(crate) fn panel_root_redirect(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// shape [`DirectoryRoute`](topcoat::router::DirectoryRoute) accepts.
 ///
 /// Checked where the path is declared rather than where it is used: upstream
-/// `serve_dir` panics on anything else, and `Panel::build` reports instead of
-/// panicking — but the path comes from the app, and it would panic
-/// first in [`route_path`] (which refuses to spell a route it cannot parse) and
-/// then inside `DirectoryRoute::new` (which needs the catch-all last). Asking
-/// both conditions here turns a typo into a build error instead of a panic
-/// during the build.
+/// `serve_dir` panics on anything else, and mounting a panel reports instead
+/// of panicking — but the path comes from the app, and it would panic first
+/// in [`route_path`] (which refuses to spell a route it cannot parse) and then
+/// inside `DirectoryRoute::new` (which needs the catch-all last). Asking both
+/// conditions here turns a typo into a mount error instead of a panic during
+/// the mount.
 pub(super) fn is_directory_pattern(path: &str) -> bool {
     Path::from_str(path)
         .ok()
@@ -345,8 +401,8 @@ pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), St
     Ok(())
 }
 
-/// A resource's build-time declaration check: monomorphized once per
-/// declared resource by [`Panel::resource`], run by [`Panel::build`] with the
+/// A resource's declaration check: monomorphized once per declared resource
+/// by [`Panel::resource`], run by [`RouterBuilderPanelExt::panel`] with the
 /// app's values and no request.
 pub(super) type ResourceCheck = fn(&Cx, &DeclCx, &mut Declarations) -> Result<(), String>;
 

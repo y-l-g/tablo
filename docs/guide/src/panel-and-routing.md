@@ -1,17 +1,24 @@
 # Panel and routing
 
-`Panel` is the admin application. You configure it with builder calls, and `build()` turns it into
-a Topcoat `Router` that serves every registered resource and page, the login page, and the shell
-that frames them.
+A `Panel` is an admin panel: resources and pages under one prefix, one shell, one login. You
+configure it with builder calls and mount it on your app's Topcoat router, which serves every
+registered resource and page, the login page, and the shell that frames them, beside your own
+routes.
 
 ```rust
-let router = Panel::new("admin")          // mounted at /admin
-    .app_context(db)                      // the toasty::Db every handler uses
-    .brand(Brand::new("Acme"))
-    .home::<Dashboard>()                  // GET /admin
-    .resource::<UserResource>()           // /admin/users and its sub-routes
-    .page::<ReportsPage>()                // GET /admin/reports
-    .build()?;
+use tablo::prelude::*; // brings `RouterBuilderPanelExt::panel` into scope
+
+let router = Router::builder()
+    .discover()                                // the app's own pages and routes, and Tablo's
+    .app_context(db)                           // the toasty::Db every handler uses
+    .panel(
+        Panel::new("admin")                    // mounted at /admin
+            .brand(Brand::new("Acme"))
+            .home::<Dashboard>()               // GET /admin
+            .resource::<UserResource>()        // /admin/users and its sub-routes
+            .page::<ReportsPage>(),            // GET /admin/reports
+    )?
+    .build();
 ```
 
 ## Routes
@@ -45,8 +52,7 @@ The panel also serves:
 
 | Call | Effect | See |
 | --- | --- | --- |
-| `Panel::new(prefix)` | mounts the panel at `/{prefix}` | |
-| `app_context(db)` | installs the `toasty::Db`; `build` fails without it | [Data access](./data-access.md) |
+| `Panel::new(prefix)` | the panel at `/{prefix}` | |
 | `resource::<R>()` | registers a resource's routes and sidebar entry | [Resources](./resources.md) |
 | `page::<P>()` | registers a page at `/{prefix}/{slug}` | [Pages](#pages) |
 | `home::<P>()` | registers a page at `/{prefix}` | [Pages](#pages) |
@@ -56,26 +62,88 @@ The panel also serves:
 | `auth(Auth)` | replaces or disables the built-in password login | [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication) |
 | `uploads(uploader)` | sets where file fields store their bytes | [Forms](./forms.md#file-uploads) |
 | `serve_dir(path, dir)` | serves a directory of files, publicly | [Forms](./forms.md#file-uploads) |
-| `assets(bundle)`, `shell_assets(css, font)` | adds the stylesheet, font and scripts | [Assets](#assets) |
+| `shell_assets(css, font)` | adds the stylesheet, font and scripts | [Assets](#assets) |
+| `layout(render)` | frames the panel's pages with your layout instead of the shell | [The shell layout](#the-shell-layout) |
 | `frame_ancestors(..)`, `without_frame_ancestors()` | changes the anti-framing header | [Security](./security.md) |
-| `build()` | checks every declaration and returns the `Router` | |
 
-The builder calls never fail; `build()` returns an error naming what is wrong instead. It refuses a
-missing `Db`, two resources or pages with one slug, a slug the panel routes itself (`login`,
-`logout`), a slug that is not a single URL segment, a second home page, `shell_assets` without
-`assets`, and every resource declaration check described in
+## Mounting
+
+`Router::builder().panel(panel)` mounts a panel; the `RouterBuilderPanelExt` trait, in the
+prelude, provides it. The router is yours: discover your own pages and routes, install the `Db`
+with `.app_context(db)` and the asset bundle with `.assets(..)`, then mount. The panel reads both
+from the router, so they come first.
+
+The first panel mounted also installs what every panel shares: cookies, sessions (unless the
+router already configures them), the gate over Topcoat's runtime endpoints, and Topcoat's runtime
+layer with link prefetching off (unless the router already set it up). The runtime layer has no
+path, so mount panels after your own pathless layers: a page re-run must reach those layers
+already rewritten to a `GET`.
+
+The builder calls never fail; `.panel(..)` returns an error naming what is wrong instead. It
+refuses a router with no `Db`, two resources or pages with one slug, a slug the panel routes itself
+(`login`, `logout`), a slug that is not a single URL segment, a second home page, `shell_assets`
+on a router with no asset bundle, a prefix that overlaps another panel's or sits under Topcoat's
+`/_topcoat/runtime`, and every resource declaration check described in
 [Resources](./resources.md#startup-checks).
+
+## Several panels
+
+One router mounts any number of panels at distinct prefixes, each with its own resources, pages,
+sidebar, brand and auth:
+
+```rust
+let router = Router::builder()
+    .discover()
+    .app_context(db)
+    .panel(Panel::new("admin").resource::<UserResource>().resource::<OrderResource>())?
+    .panel(
+        Panel::new("portal")
+            .brand(Brand::new("Customer portal"))
+            .auth(Auth::custom(Customers))
+            .resource::<OrderResource>(),
+    )?
+    .build();
+```
+
+A resource registered by two panels is declared once: both serve the same table, form and policy,
+each under its own prefix. A panel's prefix must not overlap another's: `/admin` and `/admin/reports`
+are refused, `/admin` and `/administration` are not.
+
+Each panel has its own login page, and a session belongs to the panel that signed the user in. A
+user signed in to `/admin` is anonymous on `/portal`, and signing in to `/portal` ends the `/admin`
+session. See [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication).
+
+## URLs
+
+The `tablo::url` helpers answer for the request's panel, so app code never spells a prefix:
+
+```rust
+tablo::url::resource::<PostResource>(cx) // Some("/admin/posts")
+tablo::url::page::<ReportsPage>(cx)      // Some("/admin/reports")
+tablo::url::panel(cx)                    // Some("/admin")
+```
+
+The request's panel is the one whose prefix the request is under; on a router with a single panel
+it is that panel for every request. A resource or page that panel does not register has no URL
+there, and the helper returns `None`.
 
 ## The shell layout
 
-The panel's pages render inside your app's `#[layout]` at the panel prefix. Delegate it to the
-panel to get the shell — sidebar, topbar, theme toggle and notification toasts:
+The panel frames every page under its prefix in the shell — sidebar, topbar, theme toggle and
+notification toasts — with a layout it registers itself. Declare no `#[layout]` of your own at the
+prefix: a second layout there would nest a second document inside the first.
+
+To change the frame, pass your own layout function to `Panel::layout`. `Panel::layout_shell` is
+the shipped one, so a layout that keeps the shell calls it around its own markup; one that does not
+call it replaces the shell entirely:
 
 ```rust
-#[layout("/admin")]
-async fn admin_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    Panel::layout_shell(cx, slot).await
+fn admin_layout<'a>(cx: &'a Cx, slot: Slot<'a>) -> BoxView<'a> {
+    let page = view! { cx => <div class="acme-admin">(slot)</div> }.boxed();
+    Panel::layout_shell(cx, page.into())
 }
+
+Panel::new("admin").layout(admin_layout)
 ```
 
 ## Sidebar
@@ -144,12 +212,12 @@ The showcase registers a dashboard as its home page, a media library and a live 
 
 ## Public pages
 
-A page outside the panel prefix is an ordinary Topcoat `#[page]`. The auth gate covers only the
-panel prefix and `/_topcoat/runtime`, so such a page is public. `build()` discovers it like any
-other Topcoat route; the panel needs no registration call.
+A page outside the panel prefix is an ordinary Topcoat `#[page]` on your router. The auth gate
+covers only the panel prefix and `/_topcoat/runtime`, so such a page is public.
 
 `Panel::document` renders the same HTML document as the admin shell — head, assets, theme — around
-your own markup:
+your own markup. Outside any prefix it takes the panel's shell settings when the router mounts one
+panel; with several, it renders the document without the panel's stylesheet and font.
 
 ```rust
 // A layout wraps every route under its path: this one wraps /blog and /blog/{id}.
@@ -193,19 +261,21 @@ Panel::new("admin")
 ## Assets
 
 Without assets the panel renders unstyled HTML without the shell's scripts, and every page and
-form still works. To style it, register the app's Topcoat asset bundle, then the Tailwind stylesheet and
-the font the shell links:
+form still works. To style it, install the app's Topcoat asset bundle on the router, then give the
+panel the Tailwind stylesheet and the font the shell links:
 
 ```rust
 const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
-Panel::new("admin")
+Router::builder()
+    .discover()
+    .app_context(db)
     .assets(AssetBundle::load().expect("asset bundle"))
-    .shell_assets(tailwind::stylesheet!(), GEIST)
+    .panel(Panel::new("admin").shell_assets(tailwind::stylesheet!(), GEIST))?
 ```
 
 `shell_assets` also makes the shell load `tablo-ui`'s scripts: live search, confirmation dialogs,
-searchable selects, toasts and the sidebar and theme toggles. `build()` refuses `shell_assets`
-without `assets`. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
+searchable selects, toasts and the sidebar and theme toggles. Mounting refuses `shell_assets` on a
+router with no asset bundle. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
 ([Your first panel](./first-panel.md#the-stylesheet)); `examples/quickstart` has the smallest
 complete setup and `examples/showcase` the full one.

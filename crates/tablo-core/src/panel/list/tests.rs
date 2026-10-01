@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::{super::TABLE_SEARCH_PATH, *};
-use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+use crate::panel::test_support::{Dummy, dummy_table, mount, panel_for};
 
 /// The minimal table-backed model the list-chrome tests share:
 /// `list_html` was declared twice with byte-identical bodies apart from one
@@ -19,7 +19,7 @@ async fn list_html_with<R: Resource>(names: &[&str]) -> String {
 }
 
 /// The list body of the panel `panel` builds over a db seeded with `names`.
-async fn list_html_via(names: &[&str], panel: fn(Db) -> crate::Panel) -> String {
+async fn list_html_via(names: &[&str], panel: fn() -> crate::Panel) -> String {
     use http_body_util::BodyExt;
 
     let mut db = Db::builder()
@@ -36,7 +36,7 @@ async fn list_html_via(names: &[&str], panel: fn(Db) -> crate::Panel) -> String 
         .await
         .unwrap();
     }
-    let router = panel(db).build().expect("panel builds");
+    let router = mount(db, panel()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()
@@ -86,13 +86,20 @@ async fn live_lists_declare_distinct_signal_ids() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = crate::Panel::new("admin")
-        .app_context(db)
-        .resource::<FirstResource>()
-        .resource::<SecondResource>()
-        .auth(crate::Auth::disabled())
-        .build()
-        .expect("panel builds");
+    // The shell's sidebar signals are the same on every page by design; a
+    // bare layout leaves only the tables' own.
+    fn bare<'a>(_cx: &'a Cx, slot: topcoat::router::Slot<'a>) -> topcoat::view::BoxView<'a> {
+        topcoat::view::ViewExt::boxed(slot)
+    }
+    let router = mount(
+        db,
+        crate::Panel::new("admin")
+            .resource::<FirstResource>()
+            .resource::<SecondResource>()
+            .auth(crate::Auth::disabled())
+            .layout(bare),
+    )
+    .expect("panel builds");
     let mut ids = Vec::new();
     for uri in ["/admin/firsts", "/admin/seconds"] {
         let resp = router
@@ -189,9 +196,7 @@ async fn live_search_host_and_shard_dispatch() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<LiveResource>(db.clone())
-        .build()
-        .expect("panel builds");
+    let router = mount(db.clone(), panel_for::<LiveResource>()).expect("panel builds");
 
     // List page carries the live host + GET fallback.
     let resp = router
@@ -500,7 +505,7 @@ async fn live_search_input_debounces_keystrokes() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<LiveResource>(db).build().expect("panel builds");
+    let router = mount(db, panel_for::<LiveResource>()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()
@@ -607,9 +612,7 @@ async fn read_only_resource_hides_delete_chrome() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<ReadOnlyResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<ReadOnlyResource>()).expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()
@@ -833,9 +836,7 @@ async fn denied_rows_render_no_edit_chrome() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<DeniedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<DeniedResource>()).expect("panel builds");
 
     let resp = router
         .handle(
@@ -1105,9 +1106,7 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<GatedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<GatedResource>()).expect("panel builds");
     // No tenant anywhere → 403, not unscoped rows.
     let resp = router
         .handle(
@@ -1221,9 +1220,7 @@ async fn tenant_gated_resource_scopes_rows_to_the_request_tenant() {
     .await
     .unwrap();
 
-    let router = panel_for::<ScopedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<ScopedResource>()).expect("panel builds");
     // A server-set `Tenant` request extension supplies the tenant.
     let (mut parts, ()) = http::Request::builder()
         .uri("/admin/scoped")
@@ -1302,9 +1299,7 @@ async fn list_renders_error_state_when_load_fails() {
         .exec(&mut db)
         .await
         .unwrap();
-    let router = panel_for::<SubscriberResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<SubscriberResource>()).expect("panel builds");
 
     // A tampered `?after=` cursor fails to decode inside the list load
     // the load resolves the error view without pending, so
@@ -1453,9 +1448,7 @@ async fn both_cursors_render_the_first_page() {
         .await
         .unwrap();
     }
-    let router = panel_for::<SubscriberResource>(db.clone())
-        .build()
-        .expect("panel builds");
+    let router = mount(db.clone(), panel_for::<SubscriberResource>()).expect("panel builds");
 
     // A valid cursor token: the first page of two rows has a next page.
     let (parts, ()) = http::Request::builder()

@@ -6,7 +6,8 @@ The panel's own pages load rows for you. This chapter covers querying Toasty fro
 
 ## Getting the database
 
-`app_context(db)` registers the `Db` on the panel; `tablo_core::db::db(cx)` returns it. Cloning a
+`app_context(db)` registers the `Db` on the app's router, where every panel mounted on it reads it;
+`tablo_core::db::db(cx)` returns it. Cloning a
 `Db` is cheap, and statements take it by `&mut`:
 
 ```rust

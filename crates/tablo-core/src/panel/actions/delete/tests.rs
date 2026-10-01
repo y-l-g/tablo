@@ -2,7 +2,7 @@ use toasty::Db;
 use topcoat::Result;
 
 use super::*;
-use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+use crate::panel::test_support::{Dummy, dummy_table, mount, panel_for};
 
 #[tokio::test]
 async fn delete_and_bulk_delete_require_can_view() {
@@ -42,9 +42,7 @@ async fn delete_and_bulk_delete_require_can_view() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<ViewDeniedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<ViewDeniedResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
     let post = |uri: String, body: String| {
         router.handle(
@@ -127,9 +125,7 @@ async fn delete_and_bulk_delete_require_can_delete_any() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<RowOnlyResource>(db.clone())
-        .build()
-        .expect("panel builds");
+    let router = mount(db.clone(), panel_for::<RowOnlyResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
     let post = |uri: String, body: String| {
         router.handle(
@@ -223,9 +219,7 @@ async fn delete_resolves_record_key_not_display_key() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<NameKeyResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<NameKeyResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
     let post = |uri: String, body: String| {
         router.handle(

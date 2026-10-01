@@ -13,6 +13,8 @@ use topcoat::{
     view::ViewExt,
 };
 
+use crate::common::mount;
+
 #[derive(Debug, toasty::Model)]
 struct Measurement {
     #[key]
@@ -213,12 +215,13 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router: Router = Panel::new("admin")
-        .app_context(db.clone())
-        .resource::<ReadingResource>()
-        .auth(Auth::disabled())
-        .build()
-        .expect("panel builds");
+    let router: Router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .resource::<ReadingResource>()
+            .auth(Auth::disabled()),
+    )
+    .expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
     let resp = router

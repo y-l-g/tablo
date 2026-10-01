@@ -89,8 +89,8 @@ pub trait Column<M>: Send + Sync {
     }
 
     /// What is wrong with this column's declaration, which
-    /// [`Panel::build`](crate::Panel::build) reports. The built-in columns
-    /// record a lens that binds no single field here, and a search or sort
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) reports. The built-in
+    /// columns record a lens that binds no single field here, and a search or sort
     /// asked of a computed column.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<String> {
@@ -324,8 +324,8 @@ where
     /// query predicate) — but any cell projection compiles: booleans,
     /// timestamps, joined values. Calling `.searchable()` / `.sortable()` on
     /// a computed column is a misdeclaration
-    /// [`Panel::build`](crate::Panel::build) refuses: a lying sort link or
-    /// search promise is worse than a loud build error.
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses: a lying sort
+    /// link or search promise is worse than a loud build error.
     pub fn computed(
         label: impl Into<String>,
         project: impl Fn(&M) -> String + Send + Sync + 'static,

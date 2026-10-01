@@ -14,9 +14,9 @@ use std::{
     pin::Pin,
 };
 
-use topcoat::context::{Cx, try_app_context};
+use topcoat::context::Cx;
 
-use crate::{form::FieldErrors, schema::Schema};
+use crate::{form::FieldErrors, panel::state::current, schema::Schema};
 
 /// Store one uploaded file and name the value a record stores.
 ///
@@ -129,7 +129,7 @@ impl<U: Uploader> DynUploader for U {
 /// be buffered only to be dropped, and today's drain-and-discard is what keeps
 /// a large upload off the heap for every app that never installs one.
 pub(crate) fn installed(cx: &Cx) -> bool {
-    try_app_context::<InstalledUploader>(cx).is_some()
+    installed_uploader(cx).is_some()
 }
 
 /// The installed uploader, if this panel has one.
@@ -139,7 +139,9 @@ pub(crate) fn installed(cx: &Cx) -> bool {
 type DynUploaderRef<'a> = &'a (dyn DynUploader + Send + Sync);
 
 fn installed_uploader<'a>(cx: &'a Cx) -> Option<DynUploaderRef<'a>> {
-    try_app_context::<InstalledUploader>(cx).map(|installed| &*installed.0)
+    current(cx)
+        .and_then(|panel| panel.uploads.as_ref())
+        .map(|installed| &*installed.0)
 }
 
 /// Whether the installed uploader still holds `path`.

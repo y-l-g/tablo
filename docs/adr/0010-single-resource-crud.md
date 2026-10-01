@@ -25,7 +25,7 @@ A `Resource` registered on a `Panel` is fully writable on the framework's existi
   is checked app-side until Toasty exposes a unique-violation signal, so a concurrent write that
   violates the index still surfaces as a 500 (GH #88, open). `Field::unique()` implies **presence**
   (GH #189): an empty unique field reports `"<Label> is required"` inline, `.optional()` does not lift
-  it, and `Panel::build` refuses a `.unique()` marker on a column with no unique index.
+  it, and mounting the panel refuses a `.unique()` marker on a column with no unique index.
 - **Notification** is a transient status + title (`success`/`error`, ~4s) produced by a mutation's
   result and rendered in the shell's top-level stack so it survives table swaps. It travels as a
   one-time flash cookie on a `303 See Other` redirect — `__Host-tablo_notification`, carrying

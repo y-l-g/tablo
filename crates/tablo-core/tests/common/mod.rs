@@ -11,11 +11,11 @@
 //! cookie-carrying helpers, so those carry the `auth` gate too.
 
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
-use tablo_core::{Auth, Panel, Resource};
+use tablo_core::{Auth, Panel, Resource, RouterBuilderPanelExt};
 use tablo_test::cookie_header;
 pub use tablo_test::{body_bytes, body_string, input_value, multipart_body, response_cookies};
 use toasty::Db;
-use topcoat::router::{Body, Router, response::Response};
+use topcoat::router::{Body, Router, RouterBuilderDiscoverExt, response::Response};
 use uuid::Uuid;
 
 /// An in-memory SQLite `Db` with `models` registered and its schema pushed.
@@ -29,25 +29,29 @@ pub async fn memory_db(models: toasty::schema::ModelSet) -> Db {
     db
 }
 
-/// A panel mounted at `/admin` with the auth gate off — the shape every suite
-/// here builds before adding its own resources.
-pub fn panel(db: Db) -> Panel {
-    Panel::new("admin").app_context(db).auth(Auth::disabled())
+/// A panel at `/admin` with the auth gate off — the shape every suite here
+/// builds before adding its own resources.
+pub fn panel() -> Panel {
+    Panel::new("admin").auth(Auth::disabled())
 }
 
-/// [`panel`] with one resource registered and built under `auth`.
-pub fn router_with<R: Resource>(db: Db, auth: Auth) -> Router {
-    Panel::new("admin")
+/// `panel` mounted on a router holding `db`, the way an app mounts one.
+pub fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
+    Ok(Router::builder()
+        .discover()
         .app_context(db)
-        .auth(auth)
-        .resource::<R>()
-        .build()
-        .expect("panel builds")
+        .panel(panel)?
+        .build())
+}
+
+/// [`panel`] with one resource registered and mounted under `auth`.
+pub fn router_with<R: Resource>(db: Db, auth: Auth) -> Router {
+    mount(db, Panel::new("admin").auth(auth).resource::<R>()).expect("panel builds")
 }
 
 /// A router over one resource, under the disabled auth gate.
 pub fn panel_router<R: Resource>(db: Db) -> Router {
-    panel(db).resource::<R>().build().expect("panel builds")
+    mount(db, panel().resource::<R>()).expect("panel builds")
 }
 
 /// A POST carrying a matching CSRF cookie + field (the double-submit pair).

@@ -135,4 +135,4 @@ record form's scalar does (ADR-0022 point 4): `#[form(blank = ..)]` declares the
 type's own answers (`""` for `String`, `None` for `Option<T>`), and a leaf with neither refuses its
 key inline instead of storing its type's `Default`. A leaf of a variant group the discriminant hides
 is not read, so only a rendered leaf refuses. `EmbeddedForm::answers_blank` reports the value's
-answer to `Panel::build`, which refuses a declaration whose control can be posted empty with none.
+answer to the panel mount, which refuses a declaration whose control can be posted empty with none.

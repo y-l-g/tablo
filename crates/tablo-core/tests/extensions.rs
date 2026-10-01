@@ -15,7 +15,7 @@ use topcoat::{context::Cx, view::*};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, get, memory_db, panel, panel_router, post_fields, response_cookies,
+    body_string, get, memory_db, mount, panel, panel_router, post_fields, response_cookies,
 };
 
 /// The flash notification a response set, decoded: the text the list shows
@@ -668,7 +668,7 @@ impl Resource for TwiceResource {
 
 #[tokio::test]
 async fn two_actions_sharing_a_name_fail_the_build() {
-    let Err(error) = panel(db().await).resource::<TwiceResource>().build() else {
+    let Err(error) = mount(db().await, panel().resource::<TwiceResource>()) else {
         panic!("a duplicate action name is a declaration error");
     };
     let message = error.to_string();

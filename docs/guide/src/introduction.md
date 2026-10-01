@@ -19,7 +19,7 @@ Tablo is a layer over two upstream projects:
   on top.
 - **Typed declarations.** Columns, form fields and filters are built from Toasty field lenses
   such as `User::fields().email()`, so a renamed or retyped column is a compile error.
-- **Checks at startup.** `Panel::build` validates every declaration — a form struct that disagrees
+- **Checks at startup.** Mounting the panel validates every declaration — a form struct that disagrees
   with its schema, two resources on one URL, a tenant-owned resource with no tenant column — and
   returns an error naming the mistake before the server takes a request.
 - **Safe defaults.** Every policy predicate denies until you allow it, authentication is on, every

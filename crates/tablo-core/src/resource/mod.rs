@@ -71,14 +71,14 @@ pub(crate) use crate::query_term::clamp_query_term;
 /// declares its model, its record form (or [`NoForm`](crate::NoForm)) and its
 /// list view — and an omission must fail loudly rather than silently:
 ///
-/// - **Built once and checked at [`Panel::build`](crate::panel::Panel::build)**: [`table`],
-///   [`form`], [`view`] and [`relations`] are declarations — the table and the relations take no
-///   context, the schemas a [`DeclCx`] carrying the app schema alone — so the panel builds each
-///   once, refuses what they record as misdeclared ([`Table::declaration_errors`],
-///   [`Schema::declaration_errors`]), and serves the same values to every request. [`form`] must
-///   agree with [`Form`](Self::Form): a record form's fields are the schema's controls, and a
-///   [`NoForm`](crate::NoForm) resource declares no schema. A resource with no form must not allow
-///   [`can_create`](Self::can_create), which the build asks with a context holding only the `Db`.
+/// - **Built once and checked when the panel is mounted**: [`table`], [`form`], [`view`] and
+///   [`relations`] are declarations — the table and the relations take no context, the schemas a
+///   [`DeclCx`] carrying the app schema alone — so the panel builds each once, refuses what they
+///   record as misdeclared ([`Table::declaration_errors`], [`Schema::declaration_errors`]), and
+///   serves the same values to every request. [`form`] must agree with [`Form`](Self::Form): a
+///   record form's fields are the schema's controls, and a [`NoForm`](crate::NoForm) resource
+///   declares no schema. A resource with no form must not allow [`can_create`](Self::can_create),
+///   which the mount asks with a context holding only the `Db`.
 ///
 /// [`table`]: Self::table
 /// [`form`]: Self::form
@@ -120,8 +120,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// The columns an overriding [`Self::create_record`] sets itself, beyond
     /// the form's fields.
     ///
-    /// [`Panel::build`](crate::Panel::build) refuses a resource that allows
-    /// create when a non-nullable column is neither a form field, nor filled by
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses a resource
+    /// that allows create when a non-nullable column is neither a form field, nor filled by
     /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
     /// create would fail at the driver on every submit. A record fn that sets
     /// such a column by hand names it here.
@@ -157,7 +157,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// Whether the current user may create a new record.
     ///
-    /// `Panel::build` calls this with a Db-only context to decide which
+    /// Mounting the panel calls this with a Db-only context to decide which
     /// declaration checks apply, so a predicate that reads the request (a
     /// tenant, a user) answers as it would for an anonymous request there. The
     /// list page links to the create page only for a resource with a record
@@ -387,8 +387,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// 2. **The scope.** Every loader ANDs `tenant_id = <request tenant>` onto the base query,
     ///    deriving the column from the model's own schema or the resource's [`Self::tenant_scope`].
     ///    A gated resource that declares neither a `tenant_id` UUID column nor an override is
-    ///    refused by [`Panel::build`](crate::Panel::build) at boot rather than served unscoped or
-    ///    failing per request.
+    ///    refused by [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) at boot
+    ///    rather than served unscoped or failing per request.
     ///
     /// A resource that must genuinely serve more than the request tenant
     /// declares `false` and scopes in [`Self::query`] by hand, giving up the
@@ -409,8 +409,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///
     /// Only consulted when [`requires_tenant`](Self::requires_tenant) is
     /// `true`. `None` from a gated resource is a **misdeclaration**, not a way
-    /// to be unscoped: [`Panel::build`](crate::Panel::build) refuses it at boot
-    /// and every loader keeps answering an error naming the resource
+    /// to be unscoped: [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel)
+    /// refuses it at boot and every loader keeps answering an error naming the resource
     /// rather than running its query without a tenant predicate — the backstop
     /// for a predicate that is only `None` for some tenants. There is
     /// deliberately no override that *removes* the scope — a resource that
@@ -444,7 +444,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// ```
     ///
     /// `dx` carries the app schema and nothing from a request: the panel calls
-    /// this once, at build. [`Panel::build`](crate::Panel::build) refuses a
+    /// this once, when it is mounted, and refuses a
     /// record form field this schema does not declare, and a schema on a
     /// resource whose [`Form`](Self::Form) is [`NoForm`](crate::NoForm).
     fn form(dx: &DeclCx) -> crate::schema::Schema {
@@ -645,10 +645,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
 ///   gives.
 /// - A gated resource that supplies no tenant predicate — no discoverable `tenant_id` UUID column,
 ///   no [`Resource::tenant_scope`] override → an error naming the resource and the model.
-///   [`Panel::build`](crate::Panel::build) refuses that declaration at boot, so this is the
-///   backstop for a predicate that is `None` for the request's tenant, and for app code outside a
-///   panel. It is deliberately **not** a fallback to the unscoped query: a silent miss would be the
-///   leak [`Resource::requires_tenant`] exists to prevent.
+///   [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses that declaration
+///   at boot, so this is the backstop for a predicate that is `None` for the request's tenant, and
+///   for app code outside a panel. It is deliberately **not** a fallback to the unscoped query: a
+///   silent miss would be the leak [`Resource::requires_tenant`] exists to prevent.
 ///
 /// App code that loads rows itself must call this — on a gated resource
 /// [`Resource::query`] is the *tenant-unscoped* base by design, so calling it
@@ -687,7 +687,7 @@ pub(crate) fn apply_tenant_scope<R: Resource>(
         // Fail closed and loudly: the resource declared a gate whose scope the
         // framework cannot derive and the resource did not state, and running
         // the query unscoped is the one outcome that declaration exists to
-        // prevent. `Panel::build` already refused the resource if *no* tenant
+        // prevent. Mounting the panel already refused the resource if *no* tenant
         // could scope it; this is the backstop for a `tenant_scope`
         // that answers `None` only for this tenant, and for callers outside a
         // panel.

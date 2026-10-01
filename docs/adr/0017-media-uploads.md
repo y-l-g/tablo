@@ -1,6 +1,6 @@
 # Media uploads: an app-level `Uploader` and a clear control
 
-Date: 2026-09-22 — Status: accepted — Amended: 2026-09-22, 2026-09-23, 2026-09-24, 2026-09-25
+Date: 2026-09-22 — Status: accepted — Amended: 2026-09-22, 2026-09-23, 2026-09-24, 2026-09-25, 2026-10-01
 
 ## Decision
 
@@ -46,12 +46,12 @@ Strip-before-record-fn (GH #148) is unchanged, so a generic `Resource` impl stil
 flag as a write. Clearing does not waive `required`: the value is empty, the ordinary required error
 answers, and the record keeps its file — a resource that may lose its file declares `.optional()`.
 
-**`Panel::serve_dir(path, dir)` mounts an app-owned directory** on the panel's router, the app's only
-way to add a route the framework does not own. The passthrough is deliberately narrow (upstream's
-`serve_dir`, path pattern included) rather than a general route hook, and the path is not
+**`Panel::serve_dir(path, dir)` mounts an app-owned directory** on the app's router, wrapped in the
+hardening headers that keep an uploaded file inert on the panel's origin. The passthrough is
+deliberately narrow (upstream's `serve_dir`, path pattern included), and the path is not
 panel-relative: a served directory holds files a record points at, not panel pages, and its URLs must
 not move when the panel is mounted elsewhere. A served directory is **public by decision** (GH #225):
-the auth gate installs exactly two layers — the panel prefix and `/_topcoat/runtime` (ADR-0013) — so a
+the auth gate covers two path prefixes — the panel prefix and `/_topcoat/runtime` (ADR-0013) — so a
 directory mounted outside both is ungated by construction. Public media is a legitimate shape, and
 gating a served directory remains a possible future option; the rule for apps is that a directory meant
 to be private is mounted behind the app's own gate, never assumed private from the mount path.

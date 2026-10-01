@@ -3,7 +3,7 @@
 A resource with create and edit pages declares two things: a **record form**, the typed struct a
 submission parses into, and a **schema** in `form(dx)`, the controls the page renders. `form`
 defaults to the record form's derived schema, so a resource that wants one control per field in
-declaration order declares no `form` at all. `Panel::build` calls the declarations once and checks
+declaration order declares no `form` at all. Mounting the panel calls the declarations once and checks
 that the two agree.
 
 ## The record form
@@ -70,7 +70,7 @@ impl Resource for UserResource {
 }
 ```
 
-`Panel::build` refuses the resource unless every control is bound by exactly one form field,
+Mounting the panel refuses the resource unless every control is bound by exactly one form field,
 every form field has a control, every optional control's field has a blank value, and — when
 `can_create` is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
 stamp, or by an overridden `create_record` that lists it in `Resource::CREATE_COLUMNS`.
@@ -180,7 +180,7 @@ input's `type`, and `parse_input` reads a submission (by default through `FromSt
 at 254 bytes.
 
 A text field over a column with a unique index checks uniqueness before the write, and reports a
-taken value inline. `.unique()` states it explicitly; `Panel::build` refuses `.unique()` on a
+taken value inline. `.unique()` states it explicitly; mounting the panel refuses `.unique()` on a
 column without a unique index, single-column or composite. The check is a query before the write,
 so two concurrent submissions can both pass it; the database index stays the final guard.
 

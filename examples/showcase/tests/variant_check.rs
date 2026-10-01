@@ -11,7 +11,7 @@ use tablo_core::{Auth, Field, Panel, Resource, Schema, Table, TextColumn};
 use toasty::Db;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string};
+use crate::common::{TestClient, body_string, mount};
 
 /// The embedded value under test: one variant whose payload is a typed leaf.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
@@ -79,12 +79,13 @@ async fn a_hidden_variant_groups_fields_do_not_block_the_submit() {
         .await
         .expect("connect");
     db.push_schema().await.expect("push schema");
-    let router = Panel::new("admin")
-        .app_context(db.clone())
-        .auth(Auth::disabled())
-        .resource::<ClipResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<ClipResource>(),
+    )
+    .expect("panel builds");
     let client = TestClient::new(&router);
 
     let csrf = Uuid::new_v4().to_string();
@@ -125,12 +126,13 @@ async fn the_named_variants_fields_still_validate() {
         .await
         .expect("connect");
     db.push_schema().await.expect("push schema");
-    let router = Panel::new("admin")
-        .app_context(db.clone())
-        .auth(Auth::disabled())
-        .resource::<ClipResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<ClipResource>(),
+    )
+    .expect("panel builds");
     let client = TestClient::new(&router);
 
     let csrf = Uuid::new_v4().to_string();
