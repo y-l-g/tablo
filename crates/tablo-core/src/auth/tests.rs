@@ -1,4 +1,5 @@
 use super::*;
+use crate::panel::test_support::mount;
 
 #[test]
 fn safe_next_only_accepts_same_origin_relative_paths() {
@@ -107,7 +108,9 @@ fn login_cx(db: Db, token: &str) -> Cx {
         .0;
     CxTestBuilder::new()
         .app_context(db)
-        .app_context(Auth::password())
+        .request_context(crate::panel::test_support::current_panel(
+            crate::panel::test_support::panel_state("/admin", Auth::password()),
+        ))
         .request_context(parts)
         .request_context(CookieJarCell::new())
         .build()
@@ -236,11 +239,7 @@ async fn a_rejected_password_still_renders_the_generic_error() {
 
 /// A router for a password-auth panel over `db`.
 fn auth_router(db: Db) -> topcoat::router::Router {
-    Panel::new("admin")
-        .app_context(db)
-        .auth(Auth::password())
-        .build()
-        .expect("panel builds")
+    mount(db, Panel::new("admin").auth(Auth::password())).expect("panel builds")
 }
 
 /// A login POST as the router sees it: urlencoded, carrying the CSRF cookie
@@ -380,6 +379,7 @@ async fn login_sweeps_every_expired_session() {
         toasty::create!(AuthSession {
             token_hash: token_hash.to_string(),
             user_id,
+            panel: "/admin".to_string(),
             expires_at,
             created_at: Timestamp::now(),
         })
@@ -470,6 +470,7 @@ async fn login_sweeps_at_most_a_batch() {
             AuthSession::create()
                 .token_hash(format!("expired-{index}"))
                 .user_id(ada.id.to_string())
+                .panel("/admin")
                 .expires_at(expired)
                 .created_at(Timestamp::now()),
         );

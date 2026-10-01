@@ -32,7 +32,7 @@ pub mod prelude {
         Control, ControlInput, CustomField, DateFilter, DeclCx, EmbeddedForm, Field, FieldErrors,
         FileField, Filter, FilterInput, Grid, Group, Includes, IntoOptions, NavigationItem, NoForm,
         Options, Page, Panel, Posted, RecordForm, Relation, Repeater, ResolvedLens, Resource,
-        Schema, Section, SelectFilter, Table, TernaryFilter, TextColumn, TextField, Toggle,
-        VariantFilter, scoped_query, tenant_id,
+        RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, TernaryFilter, TextColumn,
+        TextField, Toggle, VariantFilter, scoped_query, tenant_id,
     };
 }

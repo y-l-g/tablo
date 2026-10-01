@@ -3,19 +3,8 @@
 
 use topcoat::{Result, context::Cx};
 
+use super::state::current;
 use crate::resource::{RETURN_PARAM, Resource};
-
-/// The mount prefix of the [`Panel`] that built this Router (e.g. `/admin`).
-/// Installed by [`Panel::build`](super::Panel::build) so generic handlers can derive every
-/// resource URL as `{prefix}/{slug}` — correct by construction even when a
-/// table renders away from its own list route — instead of sniffing the
-/// request path (item 6).
-#[derive(Debug, Clone)]
-pub(crate) struct PanelPrefix(pub(crate) String);
-
-/// Demo/deployment hint rendered under the login form.
-#[derive(Debug, Clone)]
-pub(crate) struct LoginHint(pub(crate) String);
 
 /// Defense-in-depth companion to the auth gate (ADR-0013): every
 /// panel handler and the live-search shard re-check the resolved user, so a
@@ -48,14 +37,16 @@ pub(crate) fn gate<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error> {
     enforce_tenant::<R>(cx)
 }
 
-/// The panel's URL prefix: the [`PanelPrefix`] app context installed by
-/// [`Panel::build`](super::Panel::build), else the request path's first segment, else `/admin`.
+/// The request's panel prefix, else the request path's first segment, else
+/// `/admin`.
 ///
-/// A bare `CxTestBuilder` installs no prefix, so a test rendering under
+/// Every resource URL derives from it as `{prefix}/{slug}`, correct by
+/// construction even when a table renders away from its own list route. A
+/// bare `CxTestBuilder` mounts no panel, so a test rendering under
 /// `/admin/...` still derives `/admin`.
 pub(crate) fn panel_prefix(cx: &Cx) -> String {
-    topcoat::context::try_app_context::<PanelPrefix>(cx)
-        .map(|p| p.0.clone())
+    current(cx)
+        .map(|panel| panel.prefix.clone())
         .unwrap_or_else(|| {
             let path = topcoat::router::request::uri(cx).path().to_string();
             path.split('/')

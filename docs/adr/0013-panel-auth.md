@@ -1,6 +1,6 @@
 # Authentication is part of the panel — server-side sessions, one override seam
 
-Date: 2026-09-10 — Status: accepted — Amended: 2026-09-14, 2026-09-24, 2026-09-30
+Date: 2026-09-10 — Status: accepted — Amended: 2026-09-14, 2026-09-24, 2026-09-30, 2026-10-01
 
 ## Decision
 
@@ -29,10 +29,19 @@ default:
   without panel access get the same 403 as a bad password. An auth layer covers the panel prefix and
   the runtime prefix, and panel handlers and shards additionally call `require_authenticated`
   (defense in depth, mirroring the shards-authorize-themselves invariant).
+- **A session belongs to its panel.** A router mounts several panels, each with its own `Auth`, and
+  the `AuthSession` row records the prefix of the panel that signed the user in. A panel's gate
+  resolves only its own sessions; another panel's session reads as anonymous there, and
+  `current_user` answers only on the panel whose session resolved the user, so two user tables
+  whose ids collide never stand in for each other. The runtime endpoints serve every panel at one
+  path, so their gate resolves the session through the auth of the panel that issued it, and a
+  live table's shard re-checks the gate of the panel its path names. One browser holds one Topcoat
+  session, so signing in to a second panel ends the first: separate concurrent sign-ins would need
+  per-panel session cookies, which Topcoat's single token transport does not offer.
 - **Argon2id** with PHC-string storage is the password default; login verifies even for unknown users,
   so errors and timing do not enumerate accounts.
-- **Tenancy stays orthogonal.** The resolved user optionally exposes `tenant_id`; the auth layer
-  injects `Tenant` into the same child `Cx` only when present, and core auth never requires a tenant.
+- **Tenancy stays orthogonal.** The resolved user optionally exposes `tenant_id`; `tenant_id(cx)`
+  answers it on the user's panel, and core auth never requires a tenant.
 - **Scope.** Password reset is not in v1 (separate spec); brute-force limiting stays a deployment
   concern, since an in-process limiter is false safety across instances and account lockout is a DoS
   against the real admin.
@@ -53,9 +62,9 @@ panel; an existing app implements one trait and swaps it in. The showcase proves
 end-to-end, and a core integration test proves the override path. Tenant-scoped pages become reachable
 by logging in — the tenant comes from the user. `tablo-core` grows its first production Toasty
 models, and the Argon2 and session dependencies are unconditional: `Auth::disabled()` is the one
-opt-out, so an ungated panel is always a line of app code. Password reset, registration, 2FA, multi-panel guards, and roles/RBAC
-remain open, each with a seam that does not need reopening: per-user session revocation, per-`Panel`
-`Auth` values, and `can_access_panel`.
+opt-out, so an ungated panel is always a line of app code. Password reset, registration, 2FA, and roles/RBAC remain open, each with
+a seam that does not need reopening: per-user session revocation, per-`Panel` `Auth` values, and
+`can_access_panel`.
 
 Rejected: stateless signed-cookie sessions (no revocation), making `Panel` generic over the user type
 (it would make every framework type generic, and an erased value suffices), and requiring apps to build

@@ -48,6 +48,6 @@ body:
       description: Best guess at the work, named by subsystem.
       placeholder: |
         One Panel method, one Table merge point, showcase route plus tests.
-        Probably a breaking change to `Panel::build`.
+        Probably a breaking change to `Panel::resource`.
     validations:
       required: false

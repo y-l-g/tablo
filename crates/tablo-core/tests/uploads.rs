@@ -23,7 +23,7 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{
-    body_bytes, body_string, csp, get, memory_db, multipart_body, new_csrf, panel, post,
+    body_bytes, body_string, csp, get, memory_db, mount, multipart_body, new_csrf, panel, post,
     post_multipart,
 };
 
@@ -129,7 +129,7 @@ async fn seeded_db() -> Db {
 }
 
 /// The same DB, with the shipped auth models registered so a panel can be
-/// built with the gate **on** (the default): `Panel::build` refuses a panel
+/// mounted with the gate **on** (the default): mounting refuses a panel
 /// whose `AdminUser`/`AuthSession` pair is missing.
 async fn auth_seeded_db() -> Db {
     memory_db(toasty::models!(
@@ -145,15 +145,12 @@ async fn auth_seeded_db() -> Db {
 fn router(db: Db, uploader: Option<impl Uploader>) -> Router {
     // The upload seam is what these tests exercise; the auth gate is covered
     // by its own suite, so `panel` disables it.
-    let panel = panel(db);
+    let panel = panel();
     let panel = match uploader {
         Some(uploader) => panel.uploads(uploader),
         None => panel,
     };
-    panel
-        .resource::<DocResource>()
-        .build()
-        .expect("panel builds")
+    mount(db, panel.resource::<DocResource>()).expect("panel builds")
 }
 
 /// A directory of this test's own, removed with the process's temp dir.
@@ -821,13 +818,14 @@ async fn serve_dir_serves_the_upload_directory_through_the_panel() {
     let dir = temp_dir("serve");
     std::fs::write(dir.join("cat.png"), b"PNG-FILE").expect("write upload");
 
-    let router = Panel::new("admin")
-        .app_context(db)
-        .auth(Auth::disabled())
-        .serve_dir("/uploads/{*file}", dir.clone())
-        .resource::<DocResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .serve_dir("/uploads/{*file}", dir.clone())
+            .resource::<DocResource>(),
+    )
+    .expect("panel builds");
 
     let response = get(&router, "/uploads/cat.png").await;
     assert_eq!(response.status(), 200, "the stored path is fetchable");
@@ -857,13 +855,14 @@ async fn a_served_directory_is_reachable_without_a_session() {
     let dir = temp_dir("serve-anonymous");
     std::fs::write(dir.join("cat.png"), b"PNG-FILE").expect("write upload");
 
-    let router = Panel::new("admin")
-        .app_context(db)
-        // No `.auth(..)` call: the shipped gate is on, which is the point.
-        .serve_dir("/uploads/{*file}", dir.clone())
-        .resource::<DocResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            // No `.auth(..)` call: the shipped gate is on, which is the point.
+            .serve_dir("/uploads/{*file}", dir.clone())
+            .resource::<DocResource>(),
+    )
+    .expect("panel builds");
 
     // The gate is live: an anonymous panel page is redirected to the login
     // route (the same 307 the auth suite pins).
@@ -905,13 +904,14 @@ async fn served_active_content_is_inert() {
     .expect("write upload");
     std::fs::write(dir.join("evil.html"), b"<p>x</p>").expect("write upload");
 
-    let router = Panel::new("admin")
-        .app_context(db)
-        .auth(Auth::disabled())
-        .serve_dir("/uploads/{*file}", dir.clone())
-        .resource::<DocResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .serve_dir("/uploads/{*file}", dir.clone())
+            .resource::<DocResource>(),
+    )
+    .expect("panel builds");
 
     let png = get(&router, "/uploads/cat.png").await;
     assert_eq!(png.status(), 200);
@@ -990,15 +990,15 @@ async fn served_active_content_is_inert() {
 #[tokio::test]
 async fn a_serve_dir_path_without_a_catch_all_fails_the_build() {
     // `DirectoryRoute::new` panics on a pattern it cannot resolve; the panel
-    // reports instead of panicking, which is what `Panel::build`
-    // returns a `Result` for.
+    // reports instead of panicking, which is what the mount returns a
+    // `Result` for.
     let db = seeded_db().await;
-    let Err(error) = Panel::new("admin")
-        .app_context(db)
-        .serve_dir("/uploads", temp_dir("bad-path"))
-        .resource::<DocResource>()
-        .build()
-    else {
+    let Err(error) = mount(
+        db,
+        Panel::new("admin")
+            .serve_dir("/uploads", temp_dir("bad-path"))
+            .resource::<DocResource>(),
+    ) else {
         panic!("a serve_dir pattern with no catch-all must fail the build");
     };
     assert!(

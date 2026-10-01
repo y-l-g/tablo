@@ -41,26 +41,36 @@ to the app's `styles.css`.
 Panel  ──declares──▶  Resource  ──declares──▶  Table   (the list view)
    │                      │                  └▶  Schema  (forms, detail pages)
    │                      └──record fns─────▶  create / update / delete
-   └──owns──▶ Router, Db in app context, Shell, the auth gate
+   └──owns──▶ routes, Shell, the auth gate (the app owns the Router and the Db)
 ```
 
-A `Panel` owns the router, the `Db` in app context, the shell layout, and the authentication gate.
-Registering a `Resource` or a `Page` on it adds its routes and its sidebar entry. A `Resource` maps
-one Toasty model to its admin UI: a base query, a `Table`, a `Schema`, a policy, and the record
-functions that perform writes.
+A `Panel` is an admin panel under one prefix: its shell layout, its authentication gate, its
+resources and pages. The app owns the router and the `Db` in its app context, and mounts the panel
+with `RouterBuilderPanelExt::panel`; one router mounts several panels at distinct prefixes.
+Registering a `Resource` or a `Page` on a panel adds its routes and its sidebar entry. A `Resource`
+maps one Toasty model to its admin UI: a base query, a `Table`, a `Schema`, a policy, and the
+record functions that perform writes.
 
-`Table` and `Schema` are declarations, not renderers. `Panel::build` calls each resource's
+Each mounted panel's state — navigation, brand, auth, uploader, the live-search registries — is
+one `PanelState` in the router's `Panels`. The panel's gate layer puts it on every request under
+its prefix, so a handler, the shell and the auth checks read the request's panel, never a
+router-wide singleton. A live table's shard is served at one runtime path for every panel, so
+`ShardPanel` reads the panel from the list path the shard is called with; the runtime gate resolves
+a session through the auth of the panel that issued it.
+
+`Table` and `Schema` are declarations, not renderers. Mounting the panel calls each resource's
 `table()` (which takes no context), `form(dx)` / `view(dx)` (which take a `DeclCx` carrying
 the app schema alone) and `relations()` once, checks those exact values, and stores them; every
-handler serves the cached copy instead of rebuilding per request. Because the build has no
-request, a declaration must not need request-scoped context; one that cannot render fails
-`Panel::build` rather than a request.
+handler serves the cached copy instead of rebuilding per request. Because the mount has no
+request, a declaration must not need request-scoped context; one that cannot render fails the
+mount rather than a request.
 
 ## A read request
 
 A resource list page runs, in order:
 
-1. `enforce_auth(cx)` — resolve the session, or redirect to the login page.
+1. `enforce_auth(cx)` — require the user the panel's gate resolved from the session, or redirect
+   to the login page.
 2. `enforce_tenant::<R>(cx)` — refuse with 403 when `R::requires_tenant()` and the request has no
    tenant.
 3. `R::can_view_any(cx)` — the list-level policy check, before any row is loaded.
@@ -162,8 +172,8 @@ Tablo's own and are never overwritten.
 
 ```
 crates/tablo-core/src/
-  panel/      mod, build, gate, list, forms, write, actions/{bulk, delete, export,
-              fetch, options}, detail, pages, relations, search, shell, headers
+  panel/      mod, build, state, url, gate, list, forms, write, actions/{bulk, delete,
+              export, fetch, options}, detail, pages, relations, search, shell, headers
   resource/   mod, table/{mod,render,export}, column, declared, page, state, filter,
               relation, navigation, naming, commit
   schema/     mod, fields/{mod,builders,choice,custom,file,text}, lenses, options, layouts,

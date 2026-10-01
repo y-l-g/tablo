@@ -4,7 +4,7 @@ use super::{
     super::common::{FormParts, MAX_FORM_BYTES},
     *,
 };
-use crate::panel::test_support::{Dummy, dummy_table, panel_for};
+use crate::panel::test_support::{Dummy, dummy_table, mount, panel_for};
 
 #[test]
 fn form_values_decode_utf8_plus_and_encoded_separators() {
@@ -122,9 +122,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
         name: String,
     }
     let db = Db::builder().connect("sqlite::memory:").await.unwrap();
-    let router = panel_for::<DummyResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<DummyResource>()).expect("panel builds");
     let boundary = "----Boundary123";
     let payload = "x".repeat(MAX_FORM_BYTES + 1024);
     let body = format!(

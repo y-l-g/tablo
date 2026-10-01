@@ -25,9 +25,9 @@ use topcoat::context::Cx;
 ///
 /// [`Resource::form`](crate::resource::Resource::form) and
 /// [`Resource::view`](crate::resource::Resource::view) receive one.
-/// [`Panel::build`](crate::panel::Panel::build) builds it from the panel's
-/// `Db` and calls each declaration once, so a declaration cannot depend on a
-/// user, a tenant or a query string: it has no way to reach them.
+/// Mounting the panel ([`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel))
+/// builds it from the router's `Db` and calls each declaration once, so a declaration cannot depend
+/// on a user, a tenant or a query string: it has no way to reach them.
 ///
 /// The schema is what binds an embedded leaf
 /// ([`ResolvedLens::new`]) to its flattened storage column. A `DeclCx`
@@ -86,7 +86,7 @@ pub type FieldLens<M, T> = toasty::stmt::Path<M, T>;
 /// model alone: that covers a single-field lens and refuses a traversal
 /// path, because the owned `app::Model` cannot see embedded models. A refused
 /// lens is a misdeclaration the field records and
-/// [`Panel::build`](crate::panel::Panel::build) reports.
+/// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) reports.
 /// [`ResolvedLens::new`] resolves through the declaration's app schema instead,
 /// so an embedded struct field, an enum variant field, or a `#[document]`
 /// field arrives as its **flattened storage column** (`seo_title`) — the name
@@ -106,7 +106,7 @@ pub struct ResolvedLens<M, T> {
     pub(crate) nullable: bool,
     pub(crate) unique: bool,
     /// Why the lens binds no column, when it does not: the field built on
-    /// it records this, and [`Panel::build`](crate::panel::Panel::build)
+    /// it records this, and [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel)
     /// reports it.
     pub(crate) misdeclared: Option<String>,
 }
@@ -664,8 +664,8 @@ where
 /// single-field lens, or the misdeclaration that refuses it.
 ///
 /// A builder records the error rather than panicking, and
-/// [`Panel::build`](crate::panel::Panel::build) reports it. The placeholder
-/// name spells the lens, so two refused lenses are not also reported as a
+/// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) reports it. The
+/// placeholder name spells the lens, so two refused lenses are not also reported as a
 /// duplicate name.
 pub(crate) struct LensBinding {
     pub(crate) name: String,

@@ -3,20 +3,26 @@
 //! `#[shard]` inventory only discovers concrete fns, so each declared
 //! resource monomorphizes its table loader here, keyed by list path.
 
-use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, pin::Pin, sync::Arc};
 
+use http_body_util::BodyExt;
 use toasty::stmt::IntoExpr;
 use topcoat::{
     Result,
     context::Cx,
-    router::error::forbidden,
+    router::{
+        Body, Layer, LayerFuture, Next, Path, PathBuf,
+        error::{content_too_large, forbidden},
+    },
     runtime::shard,
     view::{BoxView, View},
 };
 
 use super::{
+    build::route_path,
     gate::{enforce_auth, gate, panel_prefix},
     list::{load_table_page, table_error_view, wire_table_actions},
+    state::{CurrentPanel, current, panels},
 };
 use crate::{
     form::FormScalar,
@@ -38,10 +44,6 @@ pub(crate) type SearchFn = Arc<
         + Send
         + Sync,
 >;
-
-/// Live-search handlers installed on the app context by [`Panel::build`].
-#[derive(Clone, Default)]
-pub(crate) struct SearchRegistry(pub(crate) HashMap<String, SearchFn>);
 
 /// A relation table's live-search request: the owner's key in form spelling
 /// (`seed`), the record page the table renders on (`page`, the links' target
@@ -70,11 +72,6 @@ pub(crate) type RelationSearchFn = Arc<
         + Send
         + Sync,
 >;
-
-/// Live-search relation handlers installed on the app context by
-/// [`Panel::build`].
-#[derive(Clone, Default)]
-pub(crate) struct RelationRegistry(pub(crate) HashMap<(String, String), RelationSearchFn>);
 
 /// Monomorphize `R`'s table loader into a [`SearchFn`]: tenancy + policy gate,
 /// then the same load + render the streamed list uses.
@@ -208,8 +205,8 @@ where
 /// registered one by an unauthenticated probe (404-vs-401 oracle).
 fn search_entry(cx: &Cx, path: &str) -> Result<SearchFn> {
     enforce_auth(cx)?;
-    topcoat::context::try_app_context::<SearchRegistry>(cx)
-        .and_then(|reg| reg.0.get(path).cloned())
+    current(cx)
+        .and_then(|panel| panel.search.get(path).cloned())
         .ok_or_else(|| topcoat::router::error::not_found().into())
 }
 
@@ -249,7 +246,6 @@ pub(crate) async fn table_search(
 ///
 /// The literal in [`table_search`]'s attribute is the same path;
 /// `table_search_endpoint_is_the_named_path` pins the two together.
-#[cfg(test)]
 pub(crate) const TABLE_SEARCH_PATH: &str = "/_topcoat/runtime/shards/tablo-table-search";
 
 /// Resolve the registered live-search relation handler for the
@@ -259,8 +255,13 @@ pub(crate) const TABLE_SEARCH_PATH: &str = "/_topcoat/runtime/shards/tablo-table
 /// probe (404-vs-401 oracle).
 fn relation_entry(cx: &Cx, parent: &str, child: &str) -> Result<RelationSearchFn> {
     enforce_auth(cx)?;
-    topcoat::context::try_app_context::<RelationRegistry>(cx)
-        .and_then(|reg| reg.0.get(&(parent.to_string(), child.to_string())).cloned())
+    current(cx)
+        .and_then(|panel| {
+            panel
+                .relations
+                .get(&(parent.to_string(), child.to_string()))
+                .cloned()
+        })
         .ok_or_else(|| topcoat::router::error::not_found().into())
 }
 
@@ -319,9 +320,68 @@ pub(crate) async fn table_relation_search(
 /// [`TABLE_SEARCH_PATH`](self::TABLE_SEARCH_PATH): the literal in
 /// [`table_relation_search`]'s attribute is the same path;
 /// `table_relation_search_endpoint_is_the_named_path` pins the two together.
-#[cfg(test)]
 pub(crate) const TABLE_RELATION_SEARCH_PATH: &str =
     "/_topcoat/runtime/shards/tablo-table-relation-search";
+
+/// The largest shard request [`ShardPanel`] reads: arguments and signal
+/// values, a list path and a query string each, far below it.
+const MAX_SHARD_BYTES: usize = 64 * 1024;
+
+/// Puts the panel a live table's shard re-renders for on the request.
+///
+/// A shard is served at one runtime path for every panel, so no panel's
+/// prefix layer runs for its re-render. The page names the panel in the
+/// shard's arguments — the list path [`table_search`] takes, the record page
+/// [`table_relation_search`] takes — and this layer reads that argument from
+/// the body Topcoat's runtime posts (`{"args": [..], ..}`), finds the panel
+/// serving it, and hands the request on with that panel and the same bytes.
+/// An argument no panel serves leaves the request as it came, and the shard's
+/// registry lookup answers 404.
+pub(crate) struct ShardPanel {
+    path: PathBuf,
+    /// The index of the argument holding a path under the panel's prefix.
+    arg: usize,
+}
+
+impl ShardPanel {
+    pub(crate) fn new(path: &str, arg: usize) -> Self {
+        Self {
+            path: route_path(path),
+            arg,
+        }
+    }
+}
+
+/// The part of a shard request [`ShardPanel`] reads.
+#[derive(serde::Deserialize)]
+struct ShardArgs {
+    args: Vec<serde_json::Value>,
+}
+
+impl Layer for ShardPanel {
+    fn path(&self) -> Option<&Path> {
+        Some(&self.path)
+    }
+
+    fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
+        Box::pin(async move {
+            let bytes = http_body_util::Limited::new(body, MAX_SHARD_BYTES)
+                .collect()
+                .await
+                .map_err(|_| content_too_large())?
+                .to_bytes();
+            let panel = serde_json::from_slice::<ShardArgs>(&bytes)
+                .ok()
+                .and_then(|request| request.args.get(self.arg)?.as_str().map(str::to_owned))
+                .and_then(|path: String| panels(cx)?.by_path(&path).cloned());
+            let body = Body::from(bytes);
+            match panel {
+                Some(panel) => next.run(&cx.with(CurrentPanel(panel)), body).await,
+                None => next.run(cx, body).await,
+            }
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests;

@@ -34,9 +34,9 @@ What Tablo does by default, and what your deployment must provide for those defa
 
 ## Responses
 
-- **Framing.** Every response the panel's router produces, including its 404 and 405 pages,
-  carries `Content-Security-Policy: frame-ancestors 'self'`, so another site cannot frame the
-  admin. `Panel::frame_ancestors("'self' https://intranet.example")` changes the directive, and
+- **Framing.** Every response to a request under the panel prefix, including its 404 and 405
+  pages, carries `Content-Security-Policy: frame-ancestors 'self'`, so another site cannot frame
+  the admin. The app's own routes outside the prefix carry whatever policy the app sets. `Panel::frame_ancestors("'self' https://intranet.example")` changes the directive, and
   `Panel::without_frame_ancestors()` omits it for a proxy that sets its own policy. A
   `Content-Security-Policy` your own handler sets is kept. The router answers three errors before
   any layer runs, so they carry no header: the 403 for a cross-site request, the 400 for a

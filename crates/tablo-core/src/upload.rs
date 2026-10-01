@@ -5,8 +5,8 @@
 //! file input, and the form parser decodes the multipart body — but *where* the bytes live and
 //! what path the record stores is the app's decision: an object store, a
 //! directory on disk, a CDN. The framework owns everything up to the bytes and
-//! nothing after them, so this module is deliberately small: a trait, the app
-//! context value that carries it, and the call that runs it.
+//! nothing after them, so this module is deliberately small: a trait, the panel
+//! state that carries it, and the call that runs it.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -14,14 +14,14 @@ use std::{
     pin::Pin,
 };
 
-use topcoat::context::{Cx, try_app_context};
+use topcoat::context::Cx;
 
-use crate::{form::FieldErrors, schema::Schema};
+use crate::{form::FieldErrors, panel::state::current, schema::Schema};
 
 /// Store one uploaded file and name the value a record stores.
 ///
-/// Installed once per panel with [`Panel::uploads`](crate::Panel::uploads) —
-/// the way `Db` is — and found on the app context wherever a file field
+/// Installed once per panel with [`Panel::uploads`](crate::Panel::uploads) and
+/// found through the request's panel wherever a file field
 /// stores, because an object store is an app-level dependency: threading it
 /// through every field declaration would put it in the schema declaration.
 ///
@@ -85,7 +85,7 @@ pub(crate) struct StagedUpload {
     pub(crate) bytes: Vec<u8>,
 }
 
-/// The one uploader a panel was built with, on the app context the way `Db` is.
+/// The one uploader a panel was mounted with, in its `PanelState`.
 pub(crate) struct InstalledUploader(Box<dyn DynUploader + Send + Sync>);
 
 impl InstalledUploader {
@@ -129,7 +129,7 @@ impl<U: Uploader> DynUploader for U {
 /// be buffered only to be dropped, and today's drain-and-discard is what keeps
 /// a large upload off the heap for every app that never installs one.
 pub(crate) fn installed(cx: &Cx) -> bool {
-    try_app_context::<InstalledUploader>(cx).is_some()
+    installed_uploader(cx).is_some()
 }
 
 /// The installed uploader, if this panel has one.
@@ -139,7 +139,9 @@ pub(crate) fn installed(cx: &Cx) -> bool {
 type DynUploaderRef<'a> = &'a (dyn DynUploader + Send + Sync);
 
 fn installed_uploader<'a>(cx: &'a Cx) -> Option<DynUploaderRef<'a>> {
-    try_app_context::<InstalledUploader>(cx).map(|installed| &*installed.0)
+    current(cx)
+        .and_then(|panel| panel.uploads.as_ref())
+        .map(|installed| &*installed.0)
 }
 
 /// Whether the installed uploader still holds `path`.

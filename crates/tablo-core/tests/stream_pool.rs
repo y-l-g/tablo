@@ -4,7 +4,7 @@ use tablo_core::resource::{Resource, Table, TextColumn};
 use topcoat::context::Cx;
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, panel};
+use crate::common::{body_string, get, memory_db, mount, panel};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct PoolDummy {
@@ -50,10 +50,7 @@ async fn a_dropped_list_body_frees_the_pool_for_the_next_request() {
     .exec(&mut db)
     .await
     .expect("seed a row");
-    let router = panel(db)
-        .resource::<PoolResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel().resource::<PoolResource>()).expect("panel builds");
 
     // Abandon the streamed list body without draining it.
     let first = get(&router, "/admin/dummies").await;

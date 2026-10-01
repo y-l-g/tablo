@@ -1,6 +1,6 @@
 //! A resource's declarations, built once.
 //!
-//! [`Panel::build`](crate::panel::Panel::build) calls each resource's
+//! Mounting a [`Panel`](crate::panel::Panel) calls each resource's
 //! [`table`](super::Resource::table), [`form`](super::Resource::form),
 //! [`view`](super::Resource::view) and
 //! [`relations`](super::Resource::relations) once, checks the values, and installs them
@@ -56,10 +56,18 @@ impl Declarations {
     pub(crate) fn insert<R: Resource>(&mut self, declared: Arc<Declared<R>>) {
         self.0.insert(TypeId::of::<R>(), declared);
     }
+
+    /// Add another panel's declarations. A resource two panels register is
+    /// declared by its type alone, so either build serves both.
+    pub(crate) fn extend(&mut self, other: Self) {
+        for (resource, declared) in other.0 {
+            self.0.entry(resource).or_insert(declared);
+        }
+    }
 }
 
-/// `R`'s declarations: the ones the panel built, or, for a resource no panel
-/// on this router registers, a fresh build from the request's app schema.
+/// `R`'s declarations: the ones a mounted panel built, or, for a resource no
+/// panel on this router registers, a fresh build from the request's app schema.
 pub(crate) fn declared<R: Resource>(cx: &Cx) -> Arc<Declared<R>> {
     try_app_context::<Declarations>(cx)
         .and_then(|declarations| declarations.0.get(&TypeId::of::<R>()))

@@ -4,7 +4,7 @@ use topcoat::view::ViewExt;
 use super::*;
 use crate::{
     Panel,
-    panel::test_support::{Dummy, dummy_table, panel_for, response_html},
+    panel::test_support::{Dummy, dummy_table, mount, panel_for, response_html},
     schema::{Field, Schema},
 };
 
@@ -78,9 +78,7 @@ async fn edit_post_requires_can_view_as_well_as_can_update() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = panel_for::<ViewDeniedResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<ViewDeniedResource>()).expect("panel builds");
     let url = format!("/admin/dummies/{}/edit", row.id);
     // GET already required both; POST must match.
     let get = router
@@ -191,9 +189,7 @@ async fn transport_keys_never_reach_the_write() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<CapturingResource>(db.clone())
-        .build()
-        .expect("panel builds");
+    let router = mount(db.clone(), panel_for::<CapturingResource>()).expect("panel builds");
     let csrf = uuid::Uuid::new_v4().to_string();
     // `path` is a file field, so it arrives as a file part;
     // `clear_path`, the client-typed `keep_path` candidate and
@@ -594,9 +590,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<NotifyingResource>(db)
-        .build()
-        .expect("panel builds");
+    let router = mount(db, panel_for::<NotifyingResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
     let resp = router
         .handle(
@@ -714,9 +708,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = panel_for::<SubscriberResource>(db.clone())
-        .build()
-        .expect("panel builds");
+    let router = mount(db.clone(), panel_for::<SubscriberResource>()).expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
     // `+` decodes to a space and an empty pair to `""`: both trim to an
@@ -838,13 +830,14 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = Panel::new("admin")
-        .app_context(db.clone())
-        .uploads(NoHoldsUploader)
-        .resource::<DocResource>()
-        .auth(crate::Auth::disabled())
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .uploads(NoHoldsUploader)
+            .resource::<DocResource>()
+            .auth(crate::Auth::disabled()),
+    )
+    .expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
     // A forged candidate with no file part: nothing stored the path.

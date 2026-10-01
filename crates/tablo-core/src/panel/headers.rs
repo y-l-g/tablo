@@ -2,8 +2,9 @@
 //!
 //! The panel serves one document per request, and a document that anyone can
 //! frame is a clickjacking surface on every deployment by default. `Panel`
-//! installs [`FrameAncestors`] unless the app opts out, so the threat is closed
-//! where it lands rather than in each deployment's proxy config.
+//! installs [`FrameAncestors`] under its prefix unless the app opts out, so
+//! the threat is closed where it lands rather than in each deployment's proxy
+//! config.
 //!
 //! A served directory shares the panel's origin, so `Panel` also installs
 //! [`ServedFileHeaders`] on each one: the files an app accepts from
@@ -14,11 +15,12 @@ use topcoat::{
     context::Cx,
     router::{
         Body, Layer, LayerFuture, Next, Path, PathBuf,
+        request::uri,
         response::{Response, response_headers},
     },
 };
 
-use super::build::route_path;
+use super::{build::route_path, state::under_prefix};
 
 /// Response header carrying the policy.
 const CSP: header::HeaderName = header::CONTENT_SECURITY_POLICY;
@@ -27,8 +29,8 @@ const CSP: header::HeaderName = header::CONTENT_SECURITY_POLICY;
 pub(crate) const DEFAULT_FRAME_ANCESTORS: &str = "'self'";
 
 /// Emits `Content-Security-Policy: frame-ancestors <directive>` on every
-/// response the panel's layer chain produces, including the router's own 404
-/// and 405.
+/// response to a request under the panel prefix, including the router's own
+/// 404 and 405 there.
 ///
 /// `frame-ancestors` is the one CSP directive a `<meta>` tag cannot express, so
 /// it has to ride the response — which is also why it belongs here and not in
@@ -43,39 +45,37 @@ pub(crate) const DEFAULT_FRAME_ANCESTORS: &str = "'self'";
 /// appends, so a layer outside this one that turns the error into a response
 /// carrying its own policy emits two `Content-Security-Policy` headers.
 ///
-/// The router builds three responses outside every registered layer, so no
-/// layer can harden them: the origin layer's 403 for a cross-site request, the
-/// 400 for a malformed `x-topcoat-identity` header, and the bare 500 it answers
-/// a panic with.
+/// The layer has no path, because a path-scoped layer never sees a path no
+/// route matches, and it hardens only requests under its prefix: the app owns
+/// the router, so its own routes carry whatever policy the app sets. The
+/// router also builds three responses outside every registered layer: the
+/// origin layer's 403 for a cross-site request, the 400 for a malformed
+/// `x-topcoat-identity` header, and the bare 500 it answers a panic with.
 #[derive(Debug, Clone)]
 pub(crate) struct FrameAncestors {
     directive: String,
+    prefix: String,
 }
 
 impl FrameAncestors {
-    pub(crate) fn new(directive: impl Into<String>) -> Self {
+    pub(crate) fn new(directive: impl Into<String>, prefix: impl Into<String>) -> Self {
         Self {
             directive: directive.into(),
+            prefix: prefix.into(),
         }
-    }
-
-    /// `frame-ancestors 'self'` — the default the panel ships.
-    #[cfg(test)]
-    pub(crate) fn same_origin() -> Self {
-        Self::new(DEFAULT_FRAME_ANCESTORS)
     }
 }
 
 impl Layer for FrameAncestors {
     fn path(&self) -> Option<&Path> {
-        // No path scope: the panel prefix is not the only thing worth
-        // hardening — a 404 or a login redirect is frameable too, and a
-        // path-less layer is the only one that sees unmatched routes.
         None
     }
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
+            if !under_prefix(&self.prefix, uri(cx).path()) {
+                return next.run(cx, body).await;
+            }
             match next.run(cx, body).await {
                 Ok(mut response) => {
                     insert_frame_ancestors(&mut response, &self.directive);

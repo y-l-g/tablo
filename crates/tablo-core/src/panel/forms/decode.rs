@@ -239,8 +239,8 @@ fn filename_star_from_headers(
 ///
 /// The length check is a deliberate second layer: through the router
 /// `Bytes::from_request` buffers via `to_bytes(body, body_limit(cx))`, which
-/// enforces the `BodyLimit::max(MAX_FORM_BYTES)` layer
-/// [`Panel::build`](crate::panel::Panel::build) installs, so this branch is
+/// enforces the `BodyLimit::max(MAX_FORM_BYTES)` layer a mounted panel
+/// installs under its prefix, so this branch is
 /// unreachable there. It is the urlencoded symmetric backstop to the multipart
 /// [`count_form_bytes`] counter, and the only pin of the 10 MiB
 /// urlencoded contract at unit level — a bare `CxTestBuilder` carries no

@@ -10,7 +10,7 @@ use topcoat::{
 
 use crate::app::{AuthorResource, CommentResource, PostResource, UserResource};
 
-/// The page `/admin` serves.
+/// The page the panel serves at its prefix.
 pub struct Dashboard;
 
 /// One resource's tile: its label, its list, and how many records the
@@ -26,11 +26,13 @@ struct Stat {
 
 /// `R`'s tile, or `None` when the caller may not list `R` — a tenantless
 /// request on a tenant-scoped resource, or `can_view_any` refusing — so the
-/// dashboard links to no list that would answer 403.
+/// dashboard links to no list that would answer 403, or when the panel does
+/// not register `R`.
 async fn stat<R: Resource>(cx: &Cx, glyph: IconData) -> Option<Stat> {
     if (R::requires_tenant() && tenant_id(cx).is_none()) || !R::can_view_any(cx) {
         return None;
     }
+    let url = tablo_core::url::resource::<R>(cx)?;
     // The list's own scoped query, so the tile counts exactly the rows the
     // list would page through.
     let count = match scoped_query::<R>(cx) {
@@ -39,7 +41,7 @@ async fn stat<R: Resource>(cx: &Cx, glyph: IconData) -> Option<Stat> {
     };
     Some(Stat {
         label: R::navigation_label(),
-        url: format!("/admin/{}", R::slug()),
+        url,
         icon: glyph,
         count,
     })

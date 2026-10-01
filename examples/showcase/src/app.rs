@@ -3,18 +3,19 @@ use std::path::PathBuf;
 use tablo_core::{
     Action, Actions, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter, DeclCx, Field,
     FieldErrors, Grid, Group, NavigationItem, Options, Panel, Posted, Relation, Repeater,
-    ResolvedLens, Resource, Schema, Section, SelectFilter, Table, TernaryFilter, TextColumn,
-    Uploader, VariantFilter, scoped_query, tenant_id, write_create, write_update,
+    ResolvedLens, Resource, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
+    TernaryFilter, TextColumn, Uploader, VariantFilter, scoped_query, tenant_id, write_create,
+    write_update,
 };
 use toasty::Db;
 use topcoat::{
     Result,
-    asset::AssetBundle,
+    asset::{AssetBundle, RouterBuilderAssetExt},
     context::Cx,
     font::{Font, fontsource::fontsource_font},
-    router::{Router, Slot, layout},
+    router::{Router, RouterBuilderDiscoverExt},
     tailwind,
-    view::{View, ViewExt, view},
+    view::{ViewExt, view},
 };
 
 use crate::{
@@ -779,11 +780,6 @@ pub struct CommentForm {
     pub post_id: uuid::Uuid,
 }
 
-#[layout("/admin")]
-async fn admin_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    Panel::layout_shell(cx, slot).await
-}
-
 pub fn router(db: Db) -> Router {
     build_router(db, Some(load_assets()), Some(upload_dir()))
 }
@@ -952,7 +948,6 @@ fn url_segment(name: &str) -> String {
 
 fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
     let mut panel = Panel::new("admin")
-        .app_context(db)
         .brand(
             Brand::new("Tablo Blog").logo(
                 "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'%20fill='%236366f1'/%3E%3Ctext%20x='12'%20y='16'%20text-anchor='middle'%20font-size='12'%20fill='white'%20font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E",
@@ -989,14 +984,14 @@ fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -
             .serve_dir(format!("{UPLOAD_URL_PREFIX}/{{*file}}"), dir.clone())
             .uploads(DirUploader::new(dir));
     }
-    match bundle {
-        Some(bundle) => panel
-            .assets(bundle)
-            .shell_assets(tailwind::stylesheet!(), GEIST)
-            .build()
-            .expect("showcase panel builds"),
-        None => panel.build().expect("showcase panel builds"),
+    // The app owns the router: the public blog's pages and the panel's are
+    // discovered and mounted side by side.
+    let mut builder = Router::builder().discover().app_context(db);
+    if let Some(bundle) = bundle {
+        builder = builder.assets(bundle);
+        panel = panel.shell_assets(tailwind::stylesheet!(), GEIST);
     }
+    builder.panel(panel).expect("showcase panel mounts").build()
 }
 
 fn load_assets() -> AssetBundle {

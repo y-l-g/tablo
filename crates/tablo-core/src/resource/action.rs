@@ -57,8 +57,8 @@ use super::Resource;
 /// a row that no bulk action and no delete allows renders no checkbox.
 pub trait Action<R: Resource>: 'static {
     /// The action's URL segment, distinct among the resource's actions.
-    /// [`Panel::build`](crate::Panel::build) refuses one that is not a
-    /// single path segment, or that another action of the resource shares.
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses one that is
+    /// not a single path segment, or that another action of the resource shares.
     const NAME: &'static str;
 
     /// Whether a row renders the action's button. Defaults to `true`.

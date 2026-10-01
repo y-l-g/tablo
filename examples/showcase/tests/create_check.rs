@@ -3,7 +3,7 @@ use showcase::{app::router_for_tests as router, models::User};
 use toasty::Db;
 
 use crate::common::{
-    TestClient, body_string, demo_client, response_cookies, seeded_db, set_cookie_header,
+    TestClient, body_string, demo_client, mount, response_cookies, seeded_db, set_cookie_header,
     user_count,
 };
 
@@ -231,12 +231,13 @@ async fn create_policy_deny() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = tablo_core::Panel::new("admin")
-        .app_context(db.clone())
-        .auth(tablo_core::Auth::disabled())
-        .resource::<DenyCreateResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db.clone(),
+        tablo_core::Panel::new("admin")
+            .auth(tablo_core::Auth::disabled())
+            .resource::<DenyCreateResource>(),
+    )
+    .expect("panel builds");
     let client = TestClient::new(&router);
 
     let slug = DenyCreateResource::slug();
@@ -428,12 +429,13 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    let router = tablo_core::Panel::new("admin")
-        .app_context(db)
-        .auth(tablo_core::Auth::disabled())
-        .resource::<FailingResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        tablo_core::Panel::new("admin")
+            .auth(tablo_core::Auth::disabled())
+            .resource::<FailingResource>(),
+    )
+    .expect("panel builds");
     let client = TestClient::new(&router);
 
     let csrf = uuid::Uuid::new_v4().to_string();

@@ -278,8 +278,8 @@ impl Schema {
     /// What is wrong with this declaration: a field whose lens binds no
     /// single column, and two fields sharing a name.
     ///
-    /// [`Panel::build`](crate::Panel::build) refuses a resource whose form or
-    /// view reports any, and rendering one fails with them.
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses a resource
+    /// whose form or view reports any, and rendering one fails with them.
     pub fn declaration_errors(&self) -> Vec<String> {
         let mut errors = Vec::new();
         let mut seen = HashSet::new();

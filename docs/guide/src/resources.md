@@ -154,7 +154,7 @@ when nothing committed. An error it returns is logged; the write stays committed
 
 ## Startup checks
 
-`Panel::build` calls each resource's declarations once — `table()` with no context, `form(dx)`
+Mounting the panel calls each resource's declarations once — `table()` with no context, `form(dx)`
 and `view(dx)` with a `DeclCx` carrying the app schema alone, and `relations()` — and refuses
 the resource when:
 

@@ -1,5 +1,5 @@
-//! The smallest complete Tablo app: one model, one resource, the panel that
-//! serves it, and the layout that frames it in the admin shell.
+//! The smallest complete Tablo app: one model, one resource, and the panel
+//! that serves it, mounted on the app's router.
 //!
 //! `cargo run`, then open <http://127.0.0.1:3000/admin/books> and sign in as
 //! `admin@example.com` / `secret`.
@@ -11,12 +11,11 @@ use tablo::{
 use toasty::Db;
 use topcoat::{
     Result,
-    asset::AssetBundle,
+    asset::{AssetBundle, RouterBuilderAssetExt},
     context::Cx,
     font::{Font, fontsource::fontsource_font},
-    router::{Slot, layout},
+    router::{Router, RouterBuilder, RouterBuilderDiscoverExt},
     tailwind,
-    view::View,
 };
 
 /// The shell's sans font, self-hosted as a Topcoat asset.
@@ -74,17 +73,15 @@ impl Resource for BookResource {
     }
 }
 
-/// Frames every page under the panel prefix in the admin shell.
-#[layout("/admin")]
-async fn admin_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    Panel::layout_shell(cx, slot).await
+/// The panel, before assets: `main` adds the stylesheet, the tests mount it
+/// bare. It frames its pages in the admin shell itself.
+fn panel() -> Panel {
+    Panel::new("admin").resource::<BookResource>()
 }
 
-/// The panel, before assets: `main` adds the bundle, the tests build it bare.
-fn panel(db: Db) -> Panel {
-    Panel::new("admin")
-        .app_context(db)
-        .resource::<BookResource>()
+/// The app's router, holding the `Db` every panel reads.
+fn router(db: Db) -> RouterBuilder {
+    Router::builder().discover().app_context(db)
 }
 
 /// An in-memory database holding the app's model and the two tables the
@@ -115,16 +112,15 @@ async fn main() -> Result<()> {
     // The bundle sits beside a binary Topcoat's bundler built; a plain
     // `cargo run` has none and serves the shell without its stylesheet.
     let router = match AssetBundle::load() {
-        Ok(bundle) => panel(db)
+        Ok(bundle) => router(db)
             .assets(bundle)
-            .shell_assets(tailwind::stylesheet!(), GEIST)
-            .build()?,
+            .panel(panel().shell_assets(tailwind::stylesheet!(), GEIST))?,
         Err(error) => {
             eprintln!("no asset bundle ({error}): serving the unstyled shell");
-            panel(db).build()?
+            router(db).panel(panel())?
         }
     };
-    topcoat::start(router).await?;
+    topcoat::start(router.build()).await?;
     Ok(())
 }
 
@@ -132,7 +128,9 @@ async fn main() -> Result<()> {
 mod tests {
     use tablo::testing::TestClient;
 
-    use super::{connect, panel};
+    use tablo::RouterBuilderPanelExt;
+
+    use super::{connect, panel, router};
 
     /// The stylesheet `build.rs` generated.
     const STYLESHEET: &str = include_str!(concat!(env!("OUT_DIR"), "/tailwind.css"));
@@ -151,9 +149,10 @@ mod tests {
 
     #[tokio::test]
     async fn the_panel_serves_its_login_page_and_gates_the_list() {
-        let router = panel(connect().await.expect("connect"))
-            .build()
-            .expect("the panel builds");
+        let router = router(connect().await.expect("connect"))
+            .panel(panel())
+            .expect("the panel mounts")
+            .build();
         let client = TestClient::new(&router);
 
         let login = client.get("/admin/login").await;

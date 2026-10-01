@@ -31,7 +31,7 @@ pub(crate) enum Node {
 }
 
 /// Where a field's control sits in the form, for the record form's
-/// blank-agreement check (`Panel::build` refuses an optional control, or one
+/// blank-agreement check (mounting the panel refuses an optional control, or one
 /// inside a `Repeater`, whose record-form field has no blank answer).
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum LeafPlace {

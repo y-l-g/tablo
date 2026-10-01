@@ -44,7 +44,8 @@ component. `Panel::render_shell` binds the signals, seeds `open` from the `sideb
 `examples/showcase` is the full reference. Empty projects follow the docs (one `styles.css`, one
 `build.rs`) until a scaffold automates them.
 `Panel::layout_shell` owns the document links, the app passes its generated stylesheet and font
-handles through `Panel::shell_assets`, and `Panel::assets` owns the loaded bundle. The primitives
+handles through `Panel::shell_assets`, and the app's router owns the loaded bundle
+(`RouterBuilderAssetExt::assets`). The primitives
 sync is version + sha256-guarded by `xtask/tests/it.rs`. Publishing an
 `tablo-ui-registry` for `topcoat ui add --registry tablo` is rejected: it reintroduces the
 copy-source steps and the upgrade breakage. Embedding a prebuilt stylesheet in `tablo-ui` and

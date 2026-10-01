@@ -11,27 +11,35 @@
 //! greppable opt-out for public demos.
 //!
 //! Sessions are always the framework's: the shipped [`AuthSession`] table maps
-//! a token hash to a user id, so an app registers it whatever authenticator it
-//! uses. A custom user model does not have to be an `AdminUser`.
+//! a token hash to a user id and the panel that signed the user in, so an app
+//! registers it whatever authenticator it uses. A custom user model does not
+//! have to be an `AdminUser`.
+//!
+//! Every panel on a router has its own [`Auth`]. A session belongs to the
+//! panel that issued it: another panel's gate does not resolve it, and
+//! [`current_user`] answers only on the panel the user signed in to.
 
-use std::{future::Future, pin::Pin, time::Duration};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use jiff::Timestamp;
 use toasty::Db;
 use topcoat::{
-    context::{Cx, app_context, try_app_context, try_request_context},
+    context::{Cx, try_request_context},
     router::{
         Body, Layer, LayerFuture, Next, Path, PathBuf, RouteFuture,
         error::{forbidden, redirect, unauthorized},
         request::{method, original_headers, original_method, uri},
         response::IntoResponse,
     },
-    session::{self, RouterBuilderSessionExt, SessionConfig, TokenHash},
+    session::{self, TokenHash},
     view::{BoxView, ViewExt},
 };
 use uuid::Uuid;
 
-use crate::panel::{LoginHint, Panel, PanelPrefix, route_path};
+use crate::panel::{
+    Panel, panel_prefix, route_path,
+    state::{CurrentPanel, PanelState, Panels, UserPanel, current, panels},
+};
 
 /// How long a session stays valid: seven days, fixed (ADR-0013).
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
@@ -95,7 +103,8 @@ pub struct AdminUser {
 }
 
 /// The shipped server-side session record (ADR-0013): the SHA-256 hash of the
-/// client token, the user it authenticates (opaque id), and its expiry.
+/// client token, the user it authenticates (opaque id), the panel that signed
+/// the user in, and its expiry.
 ///
 /// The raw token is never stored; a leaked session table contains nothing a
 /// client could present. Register this model alongside the app's user model.
@@ -107,6 +116,9 @@ pub struct AuthSession {
     /// [`CurrentUser::id`] of the authenticated user.
     #[index]
     pub user_id: String,
+    /// The prefix of the panel that signed the user in (e.g. `/admin`): the
+    /// only panel the session authenticates.
+    pub panel: String,
     /// Indexed for the login sweep, whose filter is a range scan on this
     /// column; an app migrating an existing table adds the index with the
     /// model's own schema change.
@@ -126,10 +138,10 @@ pub struct CurrentUser {
     /// The identifier the user logged in with (the shipped default: email).
     pub login: String,
     pub display_name: String,
-    /// Optional tenant carried from the user; the gate injects [`Tenant`] only
-    /// when present.
+    /// Optional tenant carried from the user: [`tenant_id`] answers it on the
+    /// user's panel.
     ///
-    /// [`Tenant`]: crate::Tenant
+    /// [`tenant_id`]: crate::tenant_id
     pub tenant_id: Option<Uuid>,
     /// Whether the user may enter the panel. Denied users answer 403,
     /// indistinguishable from bad credentials at login (ADR-0013).
@@ -338,17 +350,32 @@ impl Default for Auth {
     }
 }
 
-/// Whether the request's panel gates (auth is installed and not disabled).
+/// Whether the request's panel requires a signed-in user.
+///
+/// Outside any panel — an app's own shard or page on a router that mounts
+/// several — it answers whether some mounted panel does, so a check there
+/// fails closed.
 pub fn enforced(cx: &Cx) -> bool {
-    try_app_context::<Auth>(cx).is_some_and(|auth| !auth.is_disabled())
+    match current(cx) {
+        Some(panel) => panel.gates(),
+        None => panels(cx).is_some_and(Panels::any_gates),
+    }
 }
 
 /// The resolved identity for this request, if any.
 ///
 /// This is the only read path for pages and app code; the gate places the
-/// value in request `Cx` (ADR-0013).
+/// value in request `Cx` (ADR-0013). A user is the user of the panel whose
+/// session signed them in: on another panel's request this is `None`.
 pub fn current_user(cx: &Cx) -> Option<CurrentUser> {
-    try_request_context::<CurrentUser>(cx).cloned()
+    let user = try_request_context::<CurrentUser>(cx)?;
+    if let Some(UserPanel(owner)) = try_request_context::<UserPanel>(cx)
+        && let Some(panel) = current(cx)
+        && !Arc::ptr_eq(owner, panel)
+    {
+        return None;
+    }
+    Some(user.clone())
 }
 
 /// Require an authenticated, panel-permitted user.
@@ -417,13 +444,6 @@ fn panel_root(cx: &Cx) -> String {
     panel_prefix(cx)
 }
 
-/// The mount prefix of the panel that built this router.
-fn panel_prefix(cx: &Cx) -> String {
-    try_app_context::<PanelPrefix>(cx)
-        .map(|prefix| prefix.0.clone())
-        .unwrap_or_else(|| "/admin".to_string())
-}
-
 /// Accept only same-origin relative paths as a post-login destination
 /// (ADR-0013): absolute URLs, scheme-relative `//host` targets, backslash
 /// tricks, and control characters are rejected.
@@ -482,9 +502,20 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
 /// stay valid for their full fixed lifetime, so a reset that skips this
 /// leaves a stolen session usable. A password-reset flow must call it,
 /// and custom `Authenticator` apps own the same obligation.
+///
+/// On a panel's request it revokes the sessions that panel issued, since
+/// another panel's `user_id` may name someone else; outside any panel it
+/// revokes `user_id`'s sessions on every panel.
 pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result<()> {
     let mut db = crate::db::db(cx);
-    AuthSession::filter(AuthSession::fields().user_id().eq(user_id.to_string()))
+    let user = AuthSession::fields().user_id().eq(user_id.to_string());
+    let sessions = match current(cx) {
+        Some(panel) => {
+            AuthSession::filter(user.and(AuthSession::fields().panel().eq(panel.prefix.clone())))
+        }
+        None => AuthSession::filter(user),
+    };
+    sessions
         .delete()
         .exec(&mut db)
         .await
@@ -533,12 +564,9 @@ async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// Resolve the request's session into a user, lazily and without touching the
-/// database when no session cookie is present.
-pub(crate) async fn resolve(
-    cx: &Cx,
-    authenticator: &dyn Authenticator,
-) -> topcoat::Result<Option<CurrentUser>> {
+/// The request's live session row, lazily and without touching the database
+/// when no session cookie is present. An expired row is purged on the way out.
+async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>> {
     let Some(hash) = session::token_hash(cx).await? else {
         return Ok(None);
     };
@@ -553,10 +581,20 @@ pub(crate) async fn resolve(
         return Ok(None);
     };
     if row.expires_at <= Timestamp::now() {
-        // Expired sessions do not resolve; purge the row on the way out.
         delete_session_row(cx, &row.token_hash).await?;
         return Ok(None);
     }
+    Ok(Some(row))
+}
+
+/// The user `row` authenticates through `authenticator`. A row naming a user
+/// who no longer authenticates (deleted or deactivated) is purged, so removal
+/// is real (US11).
+async fn session_user(
+    cx: &Cx,
+    row: &AuthSession,
+    authenticator: &dyn Authenticator,
+) -> topcoat::Result<Option<CurrentUser>> {
     match authenticator
         .find_by_id(cx, &row.user_id)
         .await
@@ -564,52 +602,70 @@ pub(crate) async fn resolve(
     {
         Some(user) => Ok(Some(user)),
         None => {
-            // The session names a user who no longer authenticates (deleted
-            // or deactivated): purge it so removal is real (US11).
             delete_session_row(cx, &row.token_hash).await?;
             Ok(None)
         }
     }
 }
 
-/// The layer that gates the panel and runtime prefixes (ADR-0013): resolves
-/// the session into request `Cx` when present and answers fail-closed when a
-/// route inside its prefix has no permitted user.
-pub(crate) struct AuthGate {
-    path: PathBuf,
+/// Resolve the request's session into `panel`'s user. A session another panel
+/// issued resolves to no one here, and stays valid there.
+pub(crate) async fn resolve(
+    cx: &Cx,
+    panel: &PanelState,
+    authenticator: &dyn Authenticator,
+) -> topcoat::Result<Option<CurrentUser>> {
+    match session_row(cx).await? {
+        Some(row) if row.panel == panel.prefix => session_user(cx, &row, authenticator).await,
+        _ => Ok(None),
+    }
 }
 
-impl AuthGate {
-    /// Guards requests under `path`.
-    pub(crate) fn new(path: &str) -> Self {
+/// `cx` for a request `panel`'s auth resolved to `user`.
+fn signed_in(cx: &Cx, user: CurrentUser, panel: &Arc<PanelState>) -> Cx {
+    cx.with_many((user, UserPanel(Arc::clone(panel))))
+}
+
+/// The layer every request under a panel's prefix runs first (ADR-0013): it
+/// puts the panel on the request, then, on a gated panel, resolves the
+/// session into request `Cx` and answers fail-closed when the route has no
+/// permitted user.
+pub(crate) struct PanelGate {
+    path: PathBuf,
+    panel: Arc<PanelState>,
+}
+
+impl PanelGate {
+    pub(crate) fn new(panel: Arc<PanelState>) -> Self {
         Self {
-            path: route_path(path),
+            path: route_path(&panel.prefix),
+            panel,
         }
     }
 }
 
-impl Layer for AuthGate {
+impl Layer for PanelGate {
     fn path(&self) -> Option<&Path> {
         Some(&self.path)
     }
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
+            let cx = cx.with(CurrentPanel(Arc::clone(&self.panel)));
+            let Some(authenticator) = self.panel.auth.authenticator() else {
+                return next.run(&cx, body).await;
+            };
             // The login page must answer while logged out. Only the methods
             // the login routes serve (GET, its HEAD, and POST) pass: an app
             // route at the same path under another method stays gated.
-            if uri(cx).path() == login_url(cx)
+            if uri(&cx).path() == login_url(&cx)
                 && matches!(
-                    *method(cx),
+                    *method(&cx),
                     http::Method::GET | http::Method::HEAD | http::Method::POST
                 )
             {
-                return next.run(cx, body).await;
+                return next.run(&cx, body).await;
             }
-            let auth = app_context::<Auth>(cx);
-            let Some(authenticator) = auth.authenticator() else {
-                return next.run(cx, body).await;
-            };
             // The logout route must answer for any resolved user, even one
             // whose panel access was revoked after login — clearing
             // the session row + cookie must not require panel permission, or
@@ -618,17 +674,10 @@ impl Layer for AuthGate {
             // there, and a non-POST method must not smuggle a resolved
             // identity to any handler an app might mount at the same path.
             let logout_route =
-                uri(cx).path() == logout_url(cx) && matches!(*method(cx), http::Method::POST);
-            match resolve(cx, authenticator).await? {
+                uri(&cx).path() == logout_url(&cx) && matches!(*method(&cx), http::Method::POST);
+            match resolve(&cx, &self.panel, authenticator).await? {
                 Some(user) if user.can_access_panel || logout_route => {
-                    // The logged-in user's optional tenant becomes the request
-                    // tenant; auth never requires one (ADR-0013).
-                    let tenant_id = user.tenant_id;
-                    let mut child = cx.with(user);
-                    if let Some(tenant_id) = tenant_id {
-                        child = child.with(crate::tenancy::Tenant(tenant_id));
-                    }
-                    next.run(&child, body).await
+                    next.run(&signed_in(&cx, user, &self.panel), body).await
                 }
                 // Authenticated but not permitted: 403, indistinguishable
                 // from bad credentials at login (ADR-0013). The logout route
@@ -637,21 +686,65 @@ impl Layer for AuthGate {
                 // Pages redirect to the login route with a validated `next`;
                 // runtime endpoints, non-GET requests, and page re-runs
                 // answer 401.
-                None => Err(unauthenticated_error(cx)),
+                None => Err(unauthenticated_error(&cx)),
             }
         })
     }
 }
 
-/// Install session support and the gate layers on a panel router.
-pub(crate) fn install(
-    builder: topcoat::router::RouterBuilder,
-    prefix: &str,
-) -> topcoat::router::RouterBuilder {
-    builder
-        .sessions(SessionConfig::builder().lifetime(SESSION_LIFETIME).build())
-        .layer(AuthGate::new(prefix))
-        .layer(AuthGate::new(RUNTIME_PREFIX))
+/// The layer over Topcoat's runtime endpoints (ADR-0013): shards and
+/// procedures every panel's pages call, served at one path for all of them.
+///
+/// A session names the panel that issued it, so the gate resolves it through
+/// that panel's auth and puts both the user and the panel on the request. A
+/// request with no session answers 401 when every mounted panel is gated; with
+/// an ungated panel mounted it passes on, and each panel's shard re-checks its
+/// own panel's gate.
+pub(crate) struct RuntimeGate {
+    path: PathBuf,
+}
+
+impl RuntimeGate {
+    pub(crate) fn new() -> Self {
+        Self {
+            path: route_path(RUNTIME_PREFIX),
+        }
+    }
+}
+
+impl Layer for RuntimeGate {
+    fn path(&self) -> Option<&Path> {
+        Some(&self.path)
+    }
+
+    fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
+        Box::pin(async move {
+            let Some(panels) = panels(cx).filter(|panels| panels.any_gates()) else {
+                return next.run(cx, body).await;
+            };
+            let signed = match session_row(cx).await? {
+                Some(row) => match panels
+                    .by_prefix(&row.panel)
+                    .and_then(|panel| Some((panel, panel.auth.authenticator()?)))
+                {
+                    Some((panel, authenticator)) => session_user(cx, &row, authenticator)
+                        .await?
+                        .map(|user| (Arc::clone(panel), user)),
+                    None => None,
+                },
+                None => None,
+            };
+            match signed {
+                Some((panel, user)) if user.can_access_panel => {
+                    let cx = signed_in(cx, user, &panel).with(CurrentPanel(panel));
+                    next.run(&cx, body).await
+                }
+                Some(_) => Err(forbidden().into()),
+                None if panels.all_gate() => Err(unauthorized().into()),
+                None => next.run(cx, body).await,
+            }
+        })
+    }
 }
 
 /// What a failed login attempt renders: the generic credential rejection, or
@@ -725,8 +818,8 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .unwrap_or_default();
         let email = values.get(LOGIN_FIELD).map(|value| value.trim());
         let password = values.get(PASSWORD_FIELD).map(String::as_str);
-        let auth = app_context::<Auth>(cx);
-        let verified = match (auth.authenticator(), email, password) {
+        let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let verified = match (panel.auth.authenticator(), email, password) {
             (Some(authenticator), Some(email), Some(password))
                 if !email.is_empty() && !password.is_empty() =>
             {
@@ -767,6 +860,7 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let recorded = toasty::create!(AuthSession {
             token_hash: token_key(&session.token_hash),
             user_id: user.id.clone(),
+            panel: panel.prefix.clone(),
             expires_at: Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?,
             created_at: Timestamp::now(),
         })
@@ -826,7 +920,7 @@ async fn render_login_page<'a>(
     let csrf = crate::csrf::ensure_token(cx);
     let action = login_url(cx);
     let brand = Panel::render_brand(cx).await?;
-    let hint = try_app_context::<LoginHint>(cx).map(|hint| hint.0.clone());
+    let hint = current(cx).and_then(|panel| panel.login_hint.clone());
     let body = topcoat::view::view! {
         cx =>
         <div class="flex min-h-svh items-center justify-center bg-muted p-6">
@@ -905,12 +999,12 @@ pub(crate) const RUNTIME_PREFIX: &str = "/_topcoat/runtime";
 /// page-rerun protocol).
 static RERUN_MARKER: http::HeaderValue = http::HeaderValue::from_static("true");
 
-/// Fail loudly at startup when a required shipped model is missing from the
+/// Fail loudly at mount when a required shipped model is missing from the
 /// app's `Db` (ADR-0013): the table is never pushed, and the first login
 /// would otherwise be a confusing runtime error.
-pub(crate) fn assert_models_registered(db: &Db, auth: &Auth) {
+pub(crate) fn check_models_registered(db: &Db, auth: &Auth) -> Result<(), String> {
     if auth.is_disabled() {
-        return;
+        return Ok(());
     }
     let registered = |name: &str| {
         db.schema()
@@ -925,13 +1019,16 @@ pub(crate) fn assert_models_registered(db: &Db, auth: &Auth) {
     .into_iter()
     .flatten()
     .collect();
-    assert!(
-        missing.is_empty(),
-        "tablo auth is on by default but its shipped models are not registered on the Db \
-         (missing {}). Register them with `toasty::models!(…, tablo_core::auth::AdminUser, \
-         tablo_core::auth::AuthSession)`, or opt out with `.auth(Auth::disabled())`.",
-        missing.join(", "),
-    );
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "tablo auth is on by default but its shipped models are not registered on the Db \
+             (missing {}). Register them with `toasty::models!(…, tablo_core::auth::AdminUser, \
+             tablo_core::auth::AuthSession)`, or opt out with `.auth(Auth::disabled())`.",
+            missing.join(", "),
+        ))
+    }
 }
 
 #[cfg(test)]

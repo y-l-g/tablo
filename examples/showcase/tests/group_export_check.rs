@@ -1,6 +1,6 @@
 use showcase::app::router_for_tests as router;
 
-use crate::common::{body_string, demo_client, full_db};
+use crate::common::{body_string, demo_client, full_db, mount};
 
 #[tokio::test]
 async fn posts_export_bom_opt_in_prepends_bom() {
@@ -203,12 +203,13 @@ async fn export_over_cap_413s_at_route_level() {
         create = create.item(Dummy::create().name(format!("row-{i:05}")));
     }
     create.exec(&mut db).await.unwrap();
-    let router = tablo_core::Panel::new("admin")
-        .app_context(db)
-        .auth(tablo_core::Auth::disabled())
-        .resource::<BigResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        tablo_core::Panel::new("admin")
+            .auth(tablo_core::Auth::disabled())
+            .resource::<BigResource>(),
+    )
+    .expect("panel builds");
     let client = TestClient::new(&router);
     let resp = client.get("/admin/dummies/export").await;
     assert_eq!(

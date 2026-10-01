@@ -3,7 +3,7 @@ use showcase::{app::router_for_tests as router, models::User};
 use toasty::Db;
 
 use crate::common::{
-    TestClient, body_string, demo_client, response_cookies, seeded_db, set_cookie_header,
+    TestClient, body_string, demo_client, mount, response_cookies, seeded_db, set_cookie_header,
     user_count,
 };
 
@@ -297,12 +297,13 @@ async fn forged_delete_runs_no_record_query() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = tablo_core::Panel::new("admin")
-        .app_context(db.clone())
-        .auth(tablo_core::Auth::disabled())
-        .resource::<CountingResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db.clone(),
+        tablo_core::Panel::new("admin")
+            .auth(tablo_core::Auth::disabled())
+            .resource::<CountingResource>(),
+    )
+    .expect("panel builds");
     let client = TestClient::new(&router);
     let delete_url = format!("/admin/{}/{}/delete", CountingResource::slug(), rec.id);
     let csrf = uuid::Uuid::new_v4().to_string();

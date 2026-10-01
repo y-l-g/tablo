@@ -44,7 +44,7 @@ impl Resource for UserResource {
         true // every policy predicate denies until allowed
     }
 
-    fn table(_cx: &Cx) -> Table<User> {
+    fn table() -> Table<User> {
         Table::new(
             |u: &User| u.id.to_string(),
             TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
@@ -56,26 +56,26 @@ impl Resource for UserResource {
 }
 ```
 
-The panel registers it, and the app's layout delegates to the panel's shell:
+The panel registers it and frames its pages in the shell, and the app mounts the panel on its own
+router, beside its other routes:
 
 ```rust
-#[layout("/admin")]
-async fn admin_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    Panel::layout_shell(cx, slot).await
-}
-
-fn router(db: toasty::Db) -> Router {
-    Panel::new("admin")
+fn router(db: toasty::Db) -> topcoat::Result<Router> {
+    Ok(Router::builder()
+        .discover()
         .app_context(db)
-        .resource::<UserResource>()
-        .auth(Auth::disabled()) // drop this line to require a login
-        .build()
-        .expect("panel builds")
+        .panel(
+            Panel::new("admin")
+                .resource::<UserResource>()
+                .auth(Auth::disabled()), // drop this line to require a login
+        )?
+        .build())
 }
 ```
 
-To add create and edit pages, give the resource a `#[derive(RecordForm)]` struct as its `Form`, a
-`form()` schema, and `can_create` / `can_update`. The
+One router mounts several panels at distinct prefixes, each with its own resources, shell and
+login. To add create and edit pages, give the resource a `#[derive(RecordForm)]` struct as its
+`Form`, a `form()` schema, and `can_create` / `can_update`. The
 [first panel](docs/guide/src/first-panel.md) chapter builds a complete app with forms and login.
 
 ## Documentation

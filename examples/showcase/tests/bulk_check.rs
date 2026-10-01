@@ -3,7 +3,7 @@ use showcase::{app::router_for_tests as router, models::User};
 use toasty::Db;
 
 use crate::common::{
-    TestClient, body_string, demo_client, response_cookies, seeded_db, set_cookie_header,
+    TestClient, body_string, demo_client, mount, response_cookies, seeded_db, set_cookie_header,
     user_count,
 };
 
@@ -429,12 +429,13 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = tablo_core::Panel::new("admin")
-        .app_context(db.clone())
-        .auth(tablo_core::Auth::disabled())
-        .resource::<PartialDenyResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db.clone(),
+        tablo_core::Panel::new("admin")
+            .auth(tablo_core::Auth::disabled())
+            .resource::<PartialDenyResource>(),
+    )
+    .expect("panel builds");
     let client = TestClient::new(&router);
     let slug = PartialDenyResource::slug();
     let ids = format!("{},{}", a.id, b.id);

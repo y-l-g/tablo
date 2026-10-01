@@ -1,17 +1,19 @@
-//! `Panel` — the admin application shell.
+//! `Panel` — an admin panel an app mounts into its router.
 //!
-//! Owns the [`Router`](topcoat::router::Router) and the `Db` in `app_context`, and registers each
-//! declared [`Resource`]'s list page and each [`Page`] at `{prefix}/{slug}`,
-//! and the home page at the prefix (Filament-style routes — ADR-0008). See
+//! A panel registers each declared [`Resource`]'s routes and each [`Page`] at
+//! `{prefix}/{slug}`, and the home page at the prefix (Filament-style routes —
+//! ADR-0008), on a [`RouterBuilder`](topcoat::router::RouterBuilder) the app
+//! owns. A router mounts any number of panels at distinct prefixes. See
 //! `CONTEXT.md`.
 //!
-//! Layout: the [`Panel`] builder and its navigation seam live here; assembly
-//! (`build`, declaration checks, route paths) in `build`; the auth/tenant
-//! gate and prefix URLs in `gate`; shell rendering in `shell`; list + live
-//! shard support in `list`; form decoding and create/edit in `forms`; the
-//! record detail page in `detail`; delete/bulk/export/options in `actions`;
-//! the registered-page handler in `pages`; the live-search registry + shard
-//! dispatch in `search`; and response hardening headers in `headers`.
+//! Layout: the [`Panel`] builder and its navigation seam live here; mounting
+//! (declaration checks, route paths) in `build`; each mounted panel's state
+//! and the request's panel in `state`; the URL helpers in `url`; the
+//! auth/tenant gate and prefix URLs in `gate`; shell rendering in `shell`;
+//! list + live shard support in `list`; form decoding and create/edit in
+//! `forms`; the record detail page in `detail`; delete/bulk/export/options in
+//! `actions`; the registered-page handler in `pages`; the live-search registry
+//! + shard dispatch in `search`; and response hardening headers in `headers`.
 
 mod actions;
 mod build;
@@ -24,22 +26,22 @@ mod pages;
 mod relations;
 mod search;
 mod shell;
+pub(crate) mod state;
 #[cfg(test)]
-mod test_support;
+pub(crate) mod test_support;
+pub mod url;
 mod write;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{any::TypeId, collections::HashMap, path::PathBuf};
 
-use toasty::Db;
 use topcoat::{
-    asset::{Asset, AssetConfig},
+    asset::Asset,
     font::Font,
-    router::{PageFn, RouteFn},
+    router::{LayoutRenderFn, PageFn, RouteFn},
 };
 
 #[cfg(test)]
 pub(crate) use self::search::TABLE_SEARCH_PATH;
-pub use self::shell::{Brand, DarkMode};
 use self::{
     actions::{
         resource_bulk_action, resource_bulk_delete, resource_delete, resource_export,
@@ -53,10 +55,11 @@ use self::{
     search::{SearchFn, search_handler_for},
     shell::ShellAssets,
 };
+pub use self::{build::RouterBuilderPanelExt, shell::Brand};
 pub(crate) use self::{
     build::route_path,
     forms::parse_form_body,
-    gate::{LoginHint, PanelPrefix},
+    gate::panel_prefix,
     relations::relation_table,
     search::{
         RelationRequest, RelationSearchFn, relation_search_handler_for, table_relation_search,
@@ -91,18 +94,21 @@ pub fn wired_table<R: Resource>(cx: &topcoat::context::Cx) -> crate::resource::T
     self::list::wire_table_actions::<R>(cx, false)
 }
 
-/// The admin application.
+/// An admin panel: resources and pages under one prefix, framed by one shell
+/// and gated by one [`Auth`](crate::auth::Auth).
+///
+/// The app owns the router and mounts the panel into it with
+/// [`RouterBuilderPanelExt::panel`]:
 ///
 /// ```ignore
-/// Panel::new("admin")
+/// let router = Router::builder()
+///     .discover()
 ///     .app_context(db)
-///     .resource::<UserResource>()
-///     .build().expect("panel builds")
+///     .panel(Panel::new("admin").resource::<UserResource>())?
+///     .build();
 /// ```
 pub struct Panel {
     prefix: String,
-    db: Option<Db>,
-    assets: Option<AssetConfig>,
     shell_assets: Option<ShellAssets>,
     brand: Option<Brand>,
     dark_mode: Option<bool>,
@@ -110,32 +116,37 @@ pub struct Panel {
     pages: Vec<PageFn>,
     routes: Vec<RouteFn>,
     root: Option<Root>,
+    /// The layout framing the panel's pages; `None` is the shipped shell.
+    layout: Option<LayoutRenderFn>,
+    /// The URL each registered resource and page is served at, by type: what
+    /// the [`url`] helpers answer.
+    urls: HashMap<TypeId, String>,
     /// Every slug a resource or a page mounts at: one namespace, since both
     /// mount at `{prefix}/{slug}`.
     slugs: Vec<String>,
     /// The slugs of the registered resources, a subset of `slugs`.
     resource_slugs: Vec<String>,
     /// Each registered resource's relation keys, by resource type name:
-    /// `build` checks that each names a registered resource, once.
+    /// mounting checks that each names a registered resource, once.
     relations: Vec<(&'static str, Vec<String>)>,
     search_handlers: HashMap<String, SearchFn>,
     /// Each registered resource's relations' live-search loaders, by
     /// (parent slug, child slug): the shard behind a record page's
     /// relation tables.
     relation_handlers: HashMap<(String, String), RelationSearchFn>,
-    /// `Content-Security-Policy: frame-ancestors …` for every response
-    /// `None` opts out. Defaults to `'self'`.
+    /// `Content-Security-Policy: frame-ancestors …` for every response under
+    /// the prefix; `None` opts out. Defaults to `'self'`.
     frame_ancestors: Option<String>,
     /// Per-resource declaration checks, monomorphized at
-    /// `resource::<R>()` and run by `build` before anything is served.
+    /// `resource::<R>()` and run at mount, before anything is served.
     resource_checks: Vec<ResourceCheck>,
     /// Registration failures collected by the declarative builders
     /// `Panel::resource` cannot return `Result`, so a bad `slug`
-    /// or a duplicate is recorded here and reported by `build`.
+    /// or a duplicate is recorded here and reported when the panel is mounted.
     registration_errors: Vec<String>,
     /// Where file field bytes go; `None` stores the sanitized basename.
     uploads: Option<crate::upload::InstalledUploader>,
-    /// App-owned filesystem directories served from this panel's router
+    /// App-owned filesystem directories served with the hardening headers
     /// `(route pattern, directory)`.
     served_dirs: Vec<(String, PathBuf)>,
     login_hint: Option<String>,
@@ -144,9 +155,10 @@ pub struct Panel {
 
 impl Panel {
     /// Create a `Panel` mounted at `prefix` (e.g. `"admin"` → `"/admin"`).
+    /// An empty prefix mounts at `"/admin"`.
     pub fn new(prefix: impl Into<String>) -> Self {
         let raw = prefix.into();
-        let trimmed = raw.trim_matches('/').trim().to_string();
+        let trimmed = raw.trim().trim_matches('/').to_string();
         let prefix = if trimmed.is_empty() {
             "/admin".to_string()
         } else {
@@ -162,8 +174,6 @@ impl Panel {
             .collect();
         Self {
             prefix,
-            db: None,
-            assets: None,
             shell_assets: None,
             brand: None,
             dark_mode: None,
@@ -171,6 +181,8 @@ impl Panel {
             pages: Vec::new(),
             routes: Vec::new(),
             root: None,
+            layout: None,
+            urls: HashMap::new(),
             slugs: Vec::new(),
             resource_slugs: Vec::new(),
             relations: Vec::new(),
@@ -191,25 +203,19 @@ impl Panel {
         &self.prefix
     }
 
-    /// Register the pooled `Db` on the `app_context`.
-    pub fn app_context(mut self, db: Db) -> Self {
-        self.db = Some(db);
-        self
-    }
-
-    /// Install the [`Uploader`](crate::Uploader) every file field stores
-    /// through.
+    /// Install the [`Uploader`](crate::Uploader) this panel's file fields
+    /// store through.
     ///
-    /// One per panel, on the app context the way `Db` is, because where bytes
-    /// live is an app-level dependency: an object store, a directory on disk, a
-    /// CDN. Without it a file field stores the sanitized client filename, so
-    /// an app that never installs one is unaffected.
+    /// Where bytes live is a deployment dependency: an object store, a
+    /// directory on disk, a CDN. Without it a file field stores the sanitized
+    /// client filename, so an app that never installs one is unaffected.
     pub fn uploads(mut self, uploader: impl crate::Uploader) -> Self {
         self.uploads = Some(crate::upload::InstalledUploader::new(uploader));
         self
     }
 
-    /// Serve a directory of files from this panel's router.
+    /// Serve a directory of files, with the headers that keep an uploaded file
+    /// inert on the panel's origin.
     ///
     /// `path` is a route pattern ending in a catch-all (e.g.
     /// `"/uploads/{*file}"`), and `dir` the directory those URLs read from —
@@ -228,9 +234,6 @@ impl Panel {
     /// uploaded document cannot run script on the panel's origin. A
     /// 404 keeps Topcoat's `text/plain` error page; a 405 carries only `Allow`
     /// and an empty body. Neither carries user content.
-    ///
-    /// The Panel owns the [`Router`](topcoat::router::Router), so this is the app's only way to
-    /// mount a route the framework does not own.
     pub fn serve_dir(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
         let path = path.into();
         if !is_directory_pattern(&path) {
@@ -242,20 +245,12 @@ impl Panel {
         self
     }
 
-    /// Register the asset bundle used by the Panel's shell and UI components.
-    ///
-    /// Loading the bundle is an application concern; applications should fail
-    /// loudly at startup when their generated bundle is missing rather than
-    /// silently serving an unstyled shell.
-    pub fn assets(mut self, assets: impl Into<AssetConfig>) -> Self {
-        self.assets = Some(assets.into());
-        self
-    }
-
     /// Register the generated stylesheet and font linked by the default shell.
     ///
     /// `stylesheet` is normally `tailwind::stylesheet!()` and `font` is
-    /// normally a `fontsource_font!(.., host: Asset)` value from the app.
+    /// normally a `fontsource_font!(.., host: Asset)` value from the app. Both
+    /// resolve through the router's asset bundle, so the app installs it with
+    /// `RouterBuilderAssetExt::assets` before mounting the panel.
     pub fn shell_assets(mut self, stylesheet: Asset, font: Font) -> Self {
         self.shell_assets = Some(ShellAssets { stylesheet, font });
         self
@@ -279,7 +274,7 @@ impl Panel {
     /// [`NoForm`](crate::NoForm) gets none of them. The route set follows the
     /// resource type, so one type serves the same routes in every panel.
     ///
-    /// [`Panel::build`] checks that the resource's [`form`](Resource::form)
+    /// [`RouterBuilderPanelExt::panel`] checks that the resource's [`form`](Resource::form)
     /// agrees with its `Form`, that a resource with no form does not allow
     /// `can_create`, and, for a resource with a form, that the
     /// form's struct and its `Schema` agree: every control is bound by exactly
@@ -295,7 +290,7 @@ impl Panel {
     ///
     /// A slug another resource or [page](Self::page) holds, one the panel
     /// routes itself (`login`, `logout`), or one that is not one URL segment
-    /// is recorded here and reported by [`Panel::build`], which returns `Err`
+    /// is recorded here and reported by [`RouterBuilderPanelExt::panel`], which returns `Err`
     /// instead of panicking: two routes over one slug would shadow each other,
     /// and a hostile `slug()` must not reach a route path or a response header.
     pub fn resource<R: Resource>(mut self) -> Self {
@@ -381,8 +376,8 @@ impl Panel {
             resource_list::<R>,
         ));
         // Detail page — GET renders the record read-only. Registered
-        // unconditionally, unlike the row link: registration runs before
-        // `Panel::build` has the `Db` the view declaration resolves through.
+        // unconditionally, unlike the row link: registration runs before the
+        // mount has the `Db` the view declaration resolves through.
         // The handler 404s a resource that declares no view, which is the same
         // answer as an unknown id and costs one comparison.
         //
@@ -459,7 +454,7 @@ impl Panel {
     /// Claim `{prefix}/{slug}` for the resource or page `T`, returning that
     /// URL, or record why the slug is refused: it is not one URL segment, the
     /// panel routes it itself, or another resource or page holds it.
-    fn claim_slug<T>(&mut self, kind: &str, slug: String) -> Option<String> {
+    fn claim_slug<T: 'static>(&mut self, kind: &str, slug: String) -> Option<String> {
         let owner = std::any::type_name::<T>();
         let refused = if let Err(error) = validate_route_segment(kind, &slug) {
             Some(error)
@@ -482,6 +477,7 @@ impl Panel {
         }
         let url = format!("{}/{slug}", self.prefix);
         self.slugs.push(slug);
+        self.urls.insert(TypeId::of::<T>(), url.clone());
         Some(url)
     }
 
@@ -490,7 +486,7 @@ impl Panel {
     ///
     /// Pages and resources share one slug namespace, and the slug is checked
     /// as a resource's is ([`Self::resource`]): a refused one is reported by
-    /// [`Panel::build`].
+    /// [`RouterBuilderPanelExt::panel`].
     pub fn page<P: Page>(mut self) -> Self {
         if let Some(url) = self.claim_slug::<P>("Page::slug", P::slug()) {
             let item = self.mount_page::<P>(&url);
@@ -504,7 +500,7 @@ impl Panel {
     ///
     /// It replaces the redirect to the first resource's list, and its entry
     /// leads the sidebar among entries of the same `order`. `P::slug()` is
-    /// not read. A second call is recorded and reported by [`Panel::build`].
+    /// not read. A second call is recorded and reported by [`RouterBuilderPanelExt::panel`].
     pub fn home<P: Page>(mut self) -> Self {
         if matches!(self.root, Some(Root::Home)) {
             self.registration_errors.push(format!(
@@ -514,6 +510,7 @@ impl Panel {
             return self;
         }
         self.root = Some(Root::Home);
+        self.urls.insert(TypeId::of::<P>(), self.prefix.clone());
         let item = self.mount_page::<P>(&self.prefix.clone());
         // First among equal `order`s whatever the call order, as Filament's
         // dashboard leads its sidebar.
@@ -532,6 +529,17 @@ impl Panel {
         P::navigation().resolved(url)
     }
 
+    /// Frame the panel's pages with `render` instead of the shipped shell.
+    ///
+    /// The panel registers its layout at its prefix, so an app declares no
+    /// `#[layout]` of its own there: a second layout at the same prefix would
+    /// nest a second document inside the first. `render` usually wraps
+    /// [`Panel::layout_shell`], adding what the app needs around it.
+    pub fn layout(mut self, render: LayoutRenderFn) -> Self {
+        self.layout = Some(render);
+        self
+    }
+
     /// Set branding for the shell (sidebar header, login card, and the topbar below `md`). Additive
     /// `class` stays the only Shell seam.
     pub fn brand(mut self, brand: Brand) -> Self {
@@ -539,7 +547,8 @@ impl Panel {
         self
     }
 
-    /// Set the `frame-ancestors` directive the panel sends.
+    /// Set the `frame-ancestors` directive the panel sends on every response
+    /// under its prefix.
     ///
     /// Defaults to `'self'`: the admin only frames itself, so a hostile page
     /// cannot clickjack it. Pass what your deployment needs — `"'self'
@@ -570,6 +579,14 @@ impl Panel {
     /// The shell always renders the theme toggle, and a visitor's stored
     /// choice wins over this default in both directions. Without this call
     /// the panel starts light.
+    ///
+    /// The choice persists through `theme.js` (`localStorage` and a `theme`
+    /// cookie). The server renders `<html class>` from the cookie when it
+    /// carries `dark` or `light`, and from this default otherwise; the
+    /// blocking `theme_init_script` then applies `localStorage`, then the
+    /// cookie, with this default as its fallback. Rendering the cookie matters
+    /// for runtime navigation, which copies `<html>`'s attributes from the next
+    /// page and runs no script.
     pub fn dark_mode(mut self, enabled: bool) -> Self {
         self.dark_mode = Some(enabled);
         self
@@ -581,6 +598,11 @@ impl Panel {
     /// over [`AdminUser`](crate::auth::AdminUser); swap in an app-owned
     /// authenticator with `Panel::auth(Auth::custom(..))`, or opt a public
     /// demo out explicitly with `Panel::auth(Auth::disabled())`.
+    ///
+    /// Each panel has its own auth and its own login page, and a session
+    /// belongs to the panel that signed it in: a user signed in to one panel
+    /// is not signed in to another, and signing in to another ends the first
+    /// session.
     pub fn auth(mut self, auth: crate::auth::Auth) -> Self {
         self.auth = auth;
         self

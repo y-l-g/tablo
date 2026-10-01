@@ -45,9 +45,11 @@ toasty-core.workspace = true
 topcoat = { workspace = true, features = ["view", "router", "discover", "asset", "font", "runtime", "cookie", "multipart", "icon", "fs", "session"] }
 tracing = "0.1"
 uuid.workspace = true
+# The shard layer reads the panel a live table re-renders for from the shard
+# request's JSON arguments.
+serde_json = "1"
 
 [dev-dependencies]
-serde_json = "1"
 tablo-test = { path = "../tablo-test" }
 tokio.workspace = true
 # The suites run on in-memory SQLite. The library enables no driver: the app

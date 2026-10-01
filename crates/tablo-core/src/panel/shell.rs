@@ -18,7 +18,7 @@ use topcoat::{
     },
 };
 
-use super::Panel;
+use super::{Panel, state::current};
 use crate::{
     notification::{LiveToast, live_toast, live_toaster, take_notification},
     resource::NavigationItem,
@@ -82,19 +82,6 @@ impl Brand {
     }
 }
 
-/// Whether the shell starts in dark mode for a visitor with no stored choice.
-/// Persisted via `theme.js` (`localStorage` + `theme` cookie).
-///
-/// Precedence: the stored preference wins in **both** directions over this
-/// build-time default. The server renders `<html class>` from the `theme`
-/// cookie when it carries `dark` or `light`, and from this default otherwise;
-/// the blocking `theme_init_script` then applies `localStorage`, then the
-/// cookie, with this default as its fallback. Rendering the cookie matters for
-/// runtime navigation, which copies `<html>`'s attributes from the next page
-/// and runs no script (GH #184, GH #395).
-#[derive(Debug, Clone, Copy)]
-pub struct DarkMode(pub bool);
-
 /// The application-owned assets used by [`Panel::layout_shell`].
 ///
 /// Tailwind's generated stylesheet is necessarily a call-site asset because
@@ -138,8 +125,7 @@ impl Panel {
     }
 
     pub(crate) async fn render_brand(cx: &Cx) -> Result<BoxView<'_>> {
-        use topcoat::context::try_app_context;
-        let (name, logo) = if let Some(brand) = try_app_context::<Brand>(cx) {
+        let (name, logo) = if let Some(brand) = current(cx).and_then(|panel| panel.brand.as_ref()) {
             (brand.name.clone(), brand.logo.clone())
         } else {
             ("Tablo".to_string(), None)
@@ -315,9 +301,7 @@ impl Panel {
         let sidebar_open = signal(cx, || Self::sidebar_starts_open(cx));
         let mobile_open = signal(cx, || false);
         let outer_class = extra_class.clone().unwrap_or_default();
-        let header_title = topcoat::context::try_app_context::<Brand>(cx)
-            .map(|b| b.name.clone())
-            .unwrap_or_else(|| "Tablo".to_string());
+        let header_title = brand_name(cx);
         // One navigation tree: the upstream sidebar renders its children once
         // and shares them between the desktop panel and the mobile sheet.
         let navigation =
@@ -492,27 +476,30 @@ impl Panel {
         .boxed())
     }
 
-    /// Convenience wrapper for `#[layout]` handlers: takes the layout's
-    /// `slot: Slot<'_>` and renders the complete HTML document around the
-    /// shell.
+    /// The panel shell around a page, as a complete HTML document: the layout
+    /// every panel registers at its prefix unless [`Panel::layout`] replaces
+    /// it, and what a replacement calls to keep the shell around its own
+    /// markup.
     ///
     /// The stylesheet and font are supplied to the Panel builder with
     /// [`Self::shell_assets`]. A Panel without those values remains renderable
     /// for tests and custom document owners, but does not pretend that a CSS
     /// bundle exists. Errors from the page slot propagate unchanged when the
     /// document view is resolved.
-    pub async fn layout_shell<'a>(cx: &'a Cx, slot: Slot<'a>) -> Result<impl View + 'a> {
-        use topcoat::{context::try_app_context, router::request::uri};
-        let current = uri(cx).path().to_string();
-        // Prefer declarative nav_items from Panel::resource, fallback to Home.
-        let nav_items = try_app_context::<Vec<NavigationItem>>(cx)
-            .cloned()
+    pub fn layout_shell<'a>(cx: &'a Cx, slot: Slot<'a>) -> BoxView<'a> {
+        Box::pin(ThenView::new(Self::render_layout_shell(cx, slot)))
+    }
+
+    async fn render_layout_shell<'a>(cx: &'a Cx, slot: Slot<'a>) -> Result<BoxView<'a>> {
+        use topcoat::router::request::uri;
+        let path = uri(cx).path().to_string();
+        // The panel's sidebar, or a single Home entry outside any panel.
+        let nav_items = current(cx)
+            .map(|panel| panel.nav_items.clone())
+            .filter(|items| !items.is_empty())
             .unwrap_or_else(|| vec![NavigationItem::at("Home", super::gate::panel_prefix(cx))]);
-        let shell = Self::render_shell(cx, &nav_items, &current, slot, None).await?;
-        let brand_title = try_app_context::<Brand>(cx)
-            .map(|b| b.name.clone())
-            .unwrap_or_else(|| "Tablo".to_string());
-        Self::render_document(cx, brand_title, shell).await
+        let shell = Self::render_shell(cx, &nav_items, &path, slot, None).await?;
+        Self::render_document(cx, brand_name(cx), shell).await
     }
 
     /// The complete HTML document around a page the panel does not own.
@@ -521,9 +508,10 @@ impl Panel {
     /// document from here, so a public page carries the same head as the admin
     /// shell: the dev script, the theme init, and — where
     /// [`Self::shell_assets`] registered them — the runtime script, the font,
-    /// the stylesheet, and the shell scripts. Without those values the head
-    /// degrades to the dev script and the theme init, which is what lets a
-    /// router built without `.assets(..)` render at all.
+    /// the stylesheet, and the shell scripts. Outside a prefix the panel is
+    /// the router's only one; a router that mounts several has no panel there,
+    /// and the head degrades to the dev script and the theme init, as it does
+    /// for a router built without `.assets(..)`.
     ///
     /// `body` is the page's own content: the panel renders the `<body>` element,
     /// its dark-mode `<html>` class, and the head; the page owns its chrome
@@ -553,11 +541,10 @@ impl Panel {
         title: String,
         body: BoxView<'a>,
     ) -> Result<BoxView<'a>> {
-        use topcoat::context::try_app_context;
-        // The build-time default: the `<html class>` a first-time visitor gets,
+        // The panel's default: the `<html class>` a first-time visitor gets,
         // and the fallback the blocking script uses when nothing is stored.
-        let default_dark = try_app_context::<DarkMode>(cx).is_some_and(|dm| dm.0);
-        let head: BoxView<'_> = match try_app_context::<ShellAssets>(cx).copied() {
+        let default_dark = current(cx).is_some_and(|panel| panel.dark_mode);
+        let head: BoxView<'_> = match current(cx).and_then(|panel| panel.shell_assets) {
             Some(ShellAssets { stylesheet, font }) => view! {
                 cx =>
                 topcoat::dev::script()
@@ -604,6 +591,13 @@ impl Panel {
         }
         .boxed())
     }
+}
+
+/// The request's panel brand name, `Tablo` without one.
+fn brand_name(cx: &Cx) -> String {
+    current(cx)
+        .and_then(|panel| panel.brand.as_ref())
+        .map_or_else(|| "Tablo".to_string(), |brand| brand.name.clone())
 }
 
 #[cfg(test)]

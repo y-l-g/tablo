@@ -35,8 +35,6 @@ async fn layout_shell_renders_a_complete_document() {
     let cx_ref = &cx;
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::layout_shell(&cx, slot)
-        .await
-        .unwrap()
         .single()
         .await
         .unwrap()
@@ -118,8 +116,6 @@ async fn document_wraps_a_public_page() {
     // `Tablo` when none is registered.
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let shell = Panel::layout_shell(&cx, slot)
-        .await
-        .unwrap()
         .single()
         .await
         .unwrap()
@@ -158,9 +154,12 @@ async fn shell_escapes_brand_name_and_logo() {
         .body(())
         .unwrap()
         .into_parts();
+    let mut panel = crate::panel::test_support::panel_state("/admin", crate::Auth::disabled());
+    panel.brand =
+        Some(Brand::new("<script>alert(1)</script>").logo("\"><script>alert(2)</script>"));
     let cx = CxTestBuilder::new()
         .request_context(parts)
-        .app_context(Brand::new("<script>alert(1)</script>").logo("\"><script>alert(2)</script>"))
+        .request_context(crate::panel::test_support::current_panel(panel))
         .build();
     let nav_items = vec![NavigationItem {
         label: "Users".to_string(),
@@ -203,7 +202,7 @@ async fn shell_dark_mode_sets_html_class_and_toggle() {
         match dark {
             Some(v) => CxTestBuilder::new()
                 .request_context(parts)
-                .app_context(DarkMode(v)),
+                .request_context(dark_panel(v)),
             None => CxTestBuilder::new().request_context(parts),
         }
         .build()
@@ -212,8 +211,6 @@ async fn shell_dark_mode_sets_html_class_and_toggle() {
     async fn document_html(cx: &Cx) -> String {
         let slot = view! { cx => "hello" }.boxed().into();
         Panel::layout_shell(cx, slot)
-            .await
-            .unwrap()
             .single()
             .await
             .unwrap()
@@ -223,7 +220,7 @@ async fn shell_dark_mode_sets_html_class_and_toggle() {
     let html = document_html(&cx_with(Some(true))).await;
     assert!(
         html.contains("<html class=\"dark\">"),
-        "DarkMode(true) must set the html class, got {html}"
+        "a dark panel must set the html class, got {html}"
     );
     assert!(
         html.contains("data-theme-toggle"),
@@ -239,13 +236,13 @@ async fn shell_dark_mode_sets_html_class_and_toggle() {
     let html = document_html(&cx_with(Some(false))).await;
     assert!(
         html.contains("<html>"),
-        "DarkMode(false) must not set the dark class, got {html}"
+        "a light panel must not set the dark class, got {html}"
     );
 
     let html = document_html(&cx_with(None)).await;
     assert!(
         html.contains("<html>"),
-        "no DarkMode must not set the dark class, got {html}"
+        "no panel must not set the dark class, got {html}"
     );
 }
 
@@ -264,13 +261,11 @@ async fn theme_cookie_overrides_the_dark_mode_default() {
             .into_parts();
         let cx = CxTestBuilder::new()
             .request_context(parts)
-            .app_context(DarkMode(default_dark))
+            .request_context(dark_panel(default_dark))
             .build();
         let cx_ref = &cx;
         let slot = view! { cx_ref => "hello" }.boxed().into();
         let html = Panel::layout_shell(&cx, slot)
-            .await
-            .unwrap()
             .single()
             .await
             .unwrap()
@@ -790,4 +785,11 @@ async fn nav_item_icon_renders_before_its_label() {
         !button("/admin/posts").contains("<svg"),
         "an entry without an icon renders none"
     );
+}
+
+/// A panel at `/admin` whose shell starts dark when `dark` is set.
+fn dark_panel(dark: bool) -> crate::panel::state::CurrentPanel {
+    let mut panel = crate::panel::test_support::panel_state("/admin", crate::Auth::disabled());
+    panel.dark_mode = dark;
+    crate::panel::test_support::current_panel(panel)
 }

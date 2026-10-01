@@ -42,7 +42,7 @@ tenant column (found by `tenant_field_index`) with `Insert::set` and executes th
 toasty asserts on an update with no assignment. An override that checks something inside the
 transaction delegates to them.
 
-**6. `Panel::build` checks the struct against the schema.** Every control is bound by exactly one
+**6. Mounting the panel checks the struct against the schema.** Every control is bound by exactly one
 field and every field's key is a declared control; an optional control, or one inside a `Repeater`,
 binds a field that answers blank, an embedded value answering when each of its leaves does; a
 gated resource's form does not claim its tenant column; a resource with a record form overrides
@@ -120,7 +120,7 @@ into a layout. Each `Field` constructor returns its control's builder (`TextFiel
 modifier on the wrong control does not compile.
 
 `Resource::table()` takes no context and `Resource::form(dx)` takes a `DeclCx` carrying the app
-schema alone. `Panel::build` calls each declaration once, refuses what `Table` and `Schema`
+schema alone. Mounting the panel calls each declaration once, refuses what `Table` and `Schema`
 record as misdeclared, and serves the cached values to every handler; rendering a misdeclared
 table or schema fails with the same errors. The consequence's "`form(cx)` must declare the same
 controls on every request" is superseded: sameness holds because the panel serves what the build

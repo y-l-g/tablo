@@ -13,7 +13,7 @@ use topcoat::{context::CxTestBuilder, router::Body};
 
 use crate::common::{
     SESSION_COOKIE, TestClient, body_string, form_body, full_db, input_value, login, login_next,
-    response_cookies, session_cookie_value, set_cookie_header,
+    mount, response_cookies, session_cookie_value, set_cookie_header,
 };
 
 /// A runtime (page re-run) POST, optionally carrying a session cookie.
@@ -444,12 +444,13 @@ async fn login_returns_to_the_originally_requested_page() {
 #[tokio::test]
 async fn auth_disabled_serves_the_panel_without_login() {
     let db = full_db().await;
-    let router = tablo_core::Panel::new("admin")
-        .app_context(db)
-        .auth(tablo_core::Auth::disabled())
-        .resource::<showcase::app::UserResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        tablo_core::Panel::new("admin")
+            .auth(tablo_core::Auth::disabled())
+            .resource::<showcase::app::UserResource>(),
+    )
+    .expect("panel builds");
 
     assert_eq!(
         TestClient::new(&router).get("/admin/users").await.status(),

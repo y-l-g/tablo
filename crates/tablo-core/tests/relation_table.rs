@@ -8,7 +8,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, panel, post_fields};
+use crate::common::{body_string, get, memory_db, mount, panel, post_fields};
 
 #[derive(Debug, toasty::Model, Clone)]
 struct Owner {
@@ -173,11 +173,13 @@ async fn fixture() -> (Router, Db, Owner, Owner) {
         .await
         .unwrap();
     }
-    let router = panel(db.clone())
-        .resource::<OwnerResource>()
-        .resource::<ChildResource>()
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db.clone(),
+        panel()
+            .resource::<OwnerResource>()
+            .resource::<ChildResource>(),
+    )
+    .expect("panel builds");
     (router, db, ada, bob)
 }
 
@@ -331,7 +333,7 @@ async fn a_write_returns_to_a_panel_page_and_ignores_any_other_target() {
 #[tokio::test]
 async fn a_relation_to_an_unregistered_resource_does_not_build() {
     let db = memory_db(toasty::models!(Owner, Child)).await;
-    let Err(error) = panel(db).resource::<OwnerResource>().build() else {
+    let Err(error) = mount(db, panel().resource::<OwnerResource>()) else {
         panic!("a relation to an unregistered resource must not build");
     };
     assert!(
@@ -369,11 +371,12 @@ async fn two_relations_to_one_child_do_not_build() {
     }
 
     let db = memory_db(toasty::models!(Owner, Child)).await;
-    let Err(error) = panel(db)
-        .resource::<TwiceResource>()
-        .resource::<ChildResource>()
-        .build()
-    else {
+    let Err(error) = mount(
+        db,
+        panel()
+            .resource::<TwiceResource>()
+            .resource::<ChildResource>(),
+    ) else {
         panic!("two relations to one child must not build");
     };
     assert!(

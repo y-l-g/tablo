@@ -23,7 +23,7 @@ override can drop the tenant half by accident, and there is deliberately no over
 the predicate.
 
 The gate is inseparable from the scope. A gated resource that supplies no predicate at all — no
-derivable column and no `tenant_scope` override — is a **boot** failure: `Panel::build` probes
+derivable column and no `tenant_scope` override — is a **boot** failure: mounting the panel probes
 `R::tenant_scope(uuid::Uuid::nil())` through `check_resource` and returns an `Err` naming the
 resource before the router exists (the probe answers by the model's shape, not the tenant value).
 The request-time error in `apply_tenant_scope` stays as well: a `tenant_scope` that answers `Some`

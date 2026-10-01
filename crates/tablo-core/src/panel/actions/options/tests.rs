@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::Panel;
+use crate::{Panel, panel::test_support::mount};
 
 #[tokio::test]
 async fn options_endpoint_searches_and_gates() {
@@ -108,13 +108,14 @@ async fn options_endpoint_searches_and_gates() {
         .await
         .unwrap();
     }
-    let router = Panel::new("admin")
-        .app_context(db)
-        .resource::<OptPostResource>()
-        .resource::<OptAuthorResource>()
-        .auth(crate::Auth::disabled())
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .resource::<OptPostResource>()
+            .resource::<OptAuthorResource>()
+            .auth(crate::Auth::disabled()),
+    )
+    .expect("panel builds");
 
     // Narrowing works.
     let resp = router
@@ -285,13 +286,14 @@ async fn option_load_loads_no_relation() {
     .await
     .unwrap();
 
-    let router = Panel::new("admin")
-        .app_context(db)
-        .resource::<OwnerResource>()
-        .resource::<ChildSource>()
-        .auth(crate::Auth::disabled())
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .resource::<OwnerResource>()
+            .resource::<ChildSource>()
+            .auth(crate::Auth::disabled()),
+    )
+    .expect("panel builds");
     let resp = router
         .handle(
             http::Request::builder()
@@ -444,13 +446,14 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         .await
         .unwrap();
     }
-    let router = Panel::new("admin")
-        .app_context(db)
-        .resource::<SearchableParent>()
-        .resource::<PlainParent>()
-        .auth(crate::Auth::disabled())
-        .build()
-        .expect("panel builds");
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .resource::<SearchableParent>()
+            .resource::<PlainParent>()
+            .auth(crate::Auth::disabled()),
+    )
+    .expect("panel builds");
 
     // Non-searchable → 400 (keeps today's cap error path, never search).
     let resp = router

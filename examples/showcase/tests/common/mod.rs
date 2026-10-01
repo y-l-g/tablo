@@ -6,12 +6,23 @@
 #![allow(dead_code)]
 
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, create_admin, seed, seed_content};
+use tablo_core::{Panel, RouterBuilderPanelExt};
 pub use tablo_test::{
     SESSION_COOKIE, TestClient, body_string, form_body, input_value, multipart_body,
     response_cookies, session_cookie_value, set_cookie_header,
 };
 use toasty::Db;
-use topcoat::router::{Body, Router};
+use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
+
+/// `panel` mounted on a router holding `db`, the way the showcase mounts its
+/// own.
+pub fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
+    Ok(Router::builder()
+        .discover()
+        .app_context(db)
+        .panel(panel)?
+        .build())
+}
 
 /// A fresh in-memory `Db` carrying the **full** showcase model set, schema
 /// pushed and no rows — the one place the model list is written.
@@ -183,7 +194,7 @@ pub async fn login<'a>(router: &'a Router, email: &str, password: &str) -> TestC
 ///
 /// The login handler writes one `AuthSession` row keyed by the SHA-256 of a
 /// random token and hands the client the encoded token; this does exactly that
-/// and nothing else. The request path afterwards is identical — `AuthGate`
+/// and nothing else. The request path afterwards is identical — the panel's gate
 /// resolves the cookie through `auth::resolve`, which looks the row up, rejects
 /// an expired one, and re-reads the user through `Authenticator::find_by_id`
 /// (so `active` and `can_access_panel` still apply). What is skipped is the
@@ -210,6 +221,7 @@ pub async fn mint_session(db: &Db, email: &str) -> String {
     toasty::create!(AuthSession {
         token_hash,
         user_id: user.id.to_string(),
+        panel: "/admin".to_string(),
         expires_at: jiff::Timestamp::try_from(SystemTime::now() + SESSION_LIFETIME)
             .expect("a representable session expiry"),
         created_at: jiff::Timestamp::now(),

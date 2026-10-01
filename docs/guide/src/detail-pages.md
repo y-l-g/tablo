@@ -128,5 +128,5 @@ plus `post_id = <this post>`. It is titled with the related resource's `navigati
   searching, filtering and paging re-render that table in place. Without JavaScript its links and
   forms fall back to full page loads.
 
-`Panel::build` refuses a relation to a resource the panel does not register, and two relations of
+Mounting the panel refuses a relation to a resource the panel does not register, and two relations of
 one resource to the same related resource.

@@ -2,7 +2,7 @@ use toasty::Db;
 use topcoat::router::Body;
 
 use super::*;
-use crate::panel::test_support::{Tagged, TaggedResource, panel_for, response_html};
+use crate::panel::test_support::{Tagged, TaggedResource, mount, panel_for, response_html};
 
 /// The messages `errors` carries for `key`, in the order it added them.
 fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
@@ -433,9 +433,7 @@ async fn a_typed_unique_field_probes_the_declared_type() {
     .exec(&mut db_q)
     .await
     .unwrap();
-    let router = panel_for::<TaggedResource>(db.clone())
-        .build()
-        .expect("panel builds");
+    let router = mount(db.clone(), panel_for::<TaggedResource>()).expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
     let request = |body: String| {
@@ -527,9 +525,7 @@ async fn a_typed_unique_field_skips_the_records_own_value_on_edit() {
     .exec(&mut db_q)
     .await
     .unwrap();
-    let router = panel_for::<TaggedResource>(db.clone())
-        .build()
-        .expect("panel builds");
+    let router = mount(db.clone(), panel_for::<TaggedResource>()).expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
     let url = format!("/admin/tagged/{}/edit", mine.id);

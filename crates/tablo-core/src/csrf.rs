@@ -13,7 +13,7 @@
 //! compare is constant-time so a mismatch cannot be probed byte-by-byte.
 //! The token deliberately stays a bare random UUID — binding it to the
 //! server (HMAC via Topcoat's signed jar) would need a `Key` app context
-//! `Panel::build` does not register; that stays an upstream-gap decision
+//! a mounted panel does not register; that stays an upstream-gap decision
 //! (#139), not a hand-rolled one.
 
 use subtle::ConstantTimeEq;

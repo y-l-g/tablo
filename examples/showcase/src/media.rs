@@ -33,8 +33,9 @@ use crate::{
     models::MediaAsset,
 };
 
-/// Where the media library lives: the page, the upload route, and the form's
-/// own action.
+/// The upload route's path. A `#[route]` path is a literal, so it spells the
+/// panel prefix; the page's form and the redirect after an upload take the
+/// page's URL from `tablo_core::url::page` instead.
 pub const MEDIA_PATH: &str = "/admin/media";
 
 /// The widget script the page emits.
@@ -153,8 +154,8 @@ impl Page for MediaLibraryPage {
         NavigationItem::for_page::<Self>().icon(tablo_ui::icons::IMAGE)
     }
 
-    /// The library keeps the short URL [`MEDIA_PATH`] names; the upload route
-    /// and the form's action share it.
+    /// The library's segment under the panel prefix; the upload route at
+    /// [`MEDIA_PATH`] shares the URL.
     fn slug() -> String {
         "media".to_string()
     }
@@ -190,7 +191,7 @@ impl Page for MediaLibraryPage {
                         tablo_ui::card_content(
                             <form
                                 method="post"
-                                action=(MEDIA_PATH)
+                                action=(tablo_core::url::page::<MediaLibraryPage>(cx))
                                 enctype="multipart/form-data"
                                 class="flex flex-col gap-4"
                             >
@@ -332,7 +333,7 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     }
     let mut db = db(cx);
     // The app's own store, pointed at the directory the panel serves: the
-    // `Uploader` `Panel::uploads` installs lives on the app context for the
+    // `Uploader` `Panel::uploads` installs lives on the panel for the
     // framework's form parser and is not readable from a page, so the page
     // builds the same store from the same configuration. What it returns is
     // the row's `path` verbatim — a URL that resolves back to these bytes.
@@ -350,7 +351,9 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     .exec(&mut db)
     .await?;
     set_notification(cx, Notification::success("Media uploaded"));
-    Ok(see_other(MEDIA_PATH))
+    let library = tablo_core::url::page::<MediaLibraryPage>(cx)
+        .expect("media page is registered on this panel");
+    Ok(see_other(library))
 }
 
 /// The file part an upload form submitted, before anything is stored.
