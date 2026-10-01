@@ -102,7 +102,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
     impl Resource for DummyResource {
         type Model = Dummy;
         type Form = DummyForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::file(Dummy::fields().name()))
         }
 
@@ -112,8 +112,8 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
     #[derive(crate::RecordForm)]

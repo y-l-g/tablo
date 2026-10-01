@@ -15,8 +15,56 @@
 //! `#[document]`. Without a schema the single-segment rule applies, because
 //! the owned `app::Model` cannot see embedded models.
 
+use std::sync::Arc;
+
 use toasty_core::stmt::PathRoot;
 use topcoat::context::Cx;
+
+/// What a declaration may read: the app schema a lens resolves through, and
+/// nothing from a request.
+///
+/// [`Resource::form`](crate::resource::Resource::form) and
+/// [`Resource::view`](crate::resource::Resource::view) receive one.
+/// [`Panel::build`](crate::panel::Panel::build) builds it from the panel's
+/// `Db` and calls each declaration once, so a declaration cannot depend on a
+/// user, a tenant or a query string: it has no way to reach them.
+///
+/// The schema is what binds an embedded leaf
+/// ([`ResolvedLens::new`]) to its flattened storage column. A `DeclCx`
+/// without one ([`DeclCx::empty`]) resolves single-field lenses only, as a
+/// plain [`FieldLens`] does.
+#[derive(Clone, Default)]
+pub struct DeclCx {
+    schema: Option<Arc<toasty_core::Schema>>,
+}
+
+impl std::fmt::Debug for DeclCx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DeclCx")
+            .field("schema", &self.schema.is_some())
+            .finish()
+    }
+}
+
+impl DeclCx {
+    /// The declaration context of `db`'s app schema.
+    pub fn new(db: &toasty::Db) -> Self {
+        Self {
+            schema: Some(db.schema().clone()),
+        }
+    }
+
+    /// A declaration context with no app schema: single-field lenses only.
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// The declaration context of the `Db` a request carries, or
+    /// [`Self::empty`] when it carries none.
+    pub fn from_cx(cx: &Cx) -> Self {
+        topcoat::context::try_app_context::<toasty::Db>(cx).map_or_else(Self::empty, Self::new)
+    }
+}
 
 /// Spec alias — ADR-0001 typed lens. Currently uses `toasty::stmt::Path` directly;
 /// a richer `FieldLens` trait will replace this alias if Toasty exposes the
@@ -35,9 +83,11 @@ pub type FieldLens<M, T> = toasty::stmt::Path<M, T>;
 /// ```
 ///
 /// A plain [`FieldLens`] converts through [`From`], resolving against the
-/// model alone: that covers a single-field lens and panics on a traversal
-/// path, because the owned `app::Model` cannot see embedded models.
-/// [`ResolvedLens::new`] resolves through the request's app schema instead,
+/// model alone: that covers a single-field lens and refuses a traversal
+/// path, because the owned `app::Model` cannot see embedded models. A refused
+/// lens is a misdeclaration the field records and
+/// [`Panel::build`](crate::panel::Panel::build) reports.
+/// [`ResolvedLens::new`] resolves through the declaration's app schema instead,
 /// so an embedded struct field, an enum variant field, or a `#[document]`
 /// field arrives as its **flattened storage column** (`seo_title`) — the name
 /// the form posts and the record form reads.
@@ -55,6 +105,10 @@ pub struct ResolvedLens<M, T> {
     pub(crate) label: String,
     pub(crate) nullable: bool,
     pub(crate) unique: bool,
+    /// Why the lens binds no column, when it does not: the field built on
+    /// it records this, and [`Panel::build`](crate::panel::Panel::build)
+    /// reports it.
+    pub(crate) misdeclared: Option<String>,
 }
 
 impl<M, T> ResolvedLens<M, T>
@@ -67,19 +121,39 @@ where
         &self.name
     }
 
-    /// Resolve `path` through the app schema this request carries.
+    /// Resolve `path` through the app schema `dx` carries.
     ///
-    /// Without a `Db` in context (a bare `CxTestBuilder`) this resolves as
-    /// [`From`] does and refuses a traversal lens loudly, so a test cannot
-    /// silently bind the wrong column.
-    pub fn new(cx: &Cx, path: FieldLens<M, T>) -> Self {
-        let leaf = FieldResolver::from_cx(cx).resolve(path.clone());
-        Self {
-            path,
-            name: leaf.name,
-            label: leaf.label,
-            nullable: leaf.nullable,
-            unique: leaf.unique,
+    /// Without one ([`DeclCx::empty`]) this resolves as [`From`] does and
+    /// refuses a traversal lens, so a test cannot silently bind the wrong
+    /// column.
+    pub fn new(dx: &DeclCx, path: FieldLens<M, T>) -> Self {
+        let leaf = FieldResolver::new(dx).resolve(path.clone());
+        Self::bound(path, leaf)
+    }
+
+    /// The lens bound to `leaf`, or a misdeclared placeholder named after
+    /// the lens's steps so it reads as no other field's duplicate.
+    fn bound(path: FieldLens<M, T>, leaf: Result<LeafField, String>) -> Self {
+        match leaf {
+            Ok(leaf) => Self {
+                path,
+                name: leaf.name,
+                label: leaf.label,
+                nullable: leaf.nullable,
+                unique: leaf.unique,
+                misdeclared: None,
+            },
+            Err(error) => {
+                let core_path: toasty_core::stmt::Path = path.clone().into();
+                Self {
+                    path,
+                    name: format!("{:?}", core_path.projection.as_slice()),
+                    label: String::new(),
+                    nullable: true,
+                    unique: false,
+                    misdeclared: Some(error),
+                }
+            }
         }
     }
 }
@@ -90,14 +164,13 @@ where
 {
     fn from(path: FieldLens<M, T>) -> Self {
         let model = M::schema();
-        let field = lens_field(path.clone(), &model);
-        Self {
-            path,
+        let leaf = lens_field(path.clone(), &model).map(|field| LeafField {
             name: field.name.app_unwrap().to_string(),
             label: lens_label(&field),
             nullable: field.nullable(),
             unique: lens_field_unique(&field, model.as_root_unwrap()),
-        }
+        });
+        Self::bound(path, leaf)
     }
 }
 
@@ -124,21 +197,6 @@ pub(crate) struct LeafField {
     pub(crate) unique: bool,
 }
 
-/// The compiled schema for this request, or `None` when no `Db` is in context.
-///
-/// `Db::schema()` is public and gives all three halves the walk needs: `.app`
-/// carries the embedded models the owned `Model::schema()` cannot see,
-/// `.mapping` records which physical column each field resolves to, and `.db`
-/// holds the physical table and column names. So the request path can bind an
-/// embedded lens without opening a connection.
-///
-/// Borrowed, never cloned, and optional: a bare `CxTestBuilder` has no `Db`, and
-/// then the single-segment rule applies, so a schema-less test fails
-/// loudly on a traversal lens rather than silently binding the first segment.
-fn request_schema(cx: &Cx) -> Option<&toasty_core::Schema> {
-    topcoat::context::try_app_context::<toasty::Db>(cx).map(|db| &**db.schema())
-}
-
 /// Walks a lens path against the app schema, resolving embedded steps.
 ///
 /// Kept as a struct rather than free functions so the schema borrow has one
@@ -151,14 +209,20 @@ pub(crate) struct FieldResolver<'a> {
 }
 
 impl<'a> FieldResolver<'a> {
-    /// Build the resolver from the app schema this request carries, if any.
-    pub(crate) fn from_cx(cx: &'a Cx) -> Self {
+    /// Build the resolver from the app schema `dx` carries, if any.
+    ///
+    /// `Db::schema()` gives all three halves the walk needs: `.app` carries
+    /// the embedded models the owned `Model::schema()` cannot see, `.mapping`
+    /// records which physical column each field resolves to, and `.db` holds
+    /// the physical table and column names. So an embedded lens binds without
+    /// opening a connection.
+    pub(crate) fn new(dx: &'a DeclCx) -> Self {
         Self {
-            schema: request_schema(cx),
+            schema: dx.schema.as_deref(),
         }
     }
 
-    /// Whether this request carries an app schema at all (a `Db` in context).
+    /// Whether `dx` carries an app schema at all.
     ///
     /// A leaf resolution falls back to the single-segment rule without one; an
     /// embedded enum has no fallback — its discriminant column and variants
@@ -172,9 +236,13 @@ impl<'a> FieldResolver<'a> {
     ///
     /// With a schema this walks the whole projection, so an embedded step lands
     /// on the flattened column. Without one it falls back to the single-segment
-    /// rule and panics on a traversal lens — loudly, because silently binding
-    /// the first segment misbinds in release.
-    pub(crate) fn resolve<M, T>(&self, path: FieldLens<M, T>) -> LeafField
+    /// rule and refuses a traversal lens, because silently binding the first
+    /// segment misbinds in release.
+    ///
+    /// # Errors
+    ///
+    /// A lens that resolves to no single column.
+    pub(crate) fn resolve<M, T>(&self, path: FieldLens<M, T>) -> Result<LeafField, String>
     where
         M: toasty::schema::Model,
     {
@@ -189,12 +257,12 @@ impl<'a> FieldResolver<'a> {
         if is_embedded_path && let Some(schema) = self.schema {
             return self
                 .walk_embedded(schema, &core_path, &model)
-                .unwrap_or_else(|| {
-                    panic!(
+                .ok_or_else(|| {
+                    format!(
                         "lens path {projection:?} does not resolve to a single column for {}: \
                          only embedded steps (embedded structs, enum variant fields, and \
                          `#[document]` fields) can be bound, not relation hops, and only when \
-                         the model is in the app schema this request carries (GH #185)",
+                         the model is in the app schema",
                         std::any::type_name::<M>(),
                         projection = core_path.projection.as_slice(),
                     )
@@ -202,14 +270,8 @@ impl<'a> FieldResolver<'a> {
         }
         // No schema: the single-segment rule is all an owned `app::Model` can
         // answer, so resolve the first step against `ModelRoot.fields` and let
-        // `require_single_segment` reject a traversal lens.
-        require_single_segment(&core_path, "lens");
-        let idx = core_path
-            .projection
-            .as_slice()
-            .first()
-            .copied()
-            .expect("field lens must have a projection");
+        // `single_segment` refuse a traversal lens.
+        let idx = single_segment(&core_path, "lens")?;
         let field = model
             .as_root_unwrap()
             .fields
@@ -221,12 +283,12 @@ impl<'a> FieldResolver<'a> {
                     std::any::type_name::<M>()
                 )
             });
-        LeafField {
+        Ok(LeafField {
             name: field.name.app_unwrap().to_string(),
             label: lens_label(&field),
             nullable: field.nullable(),
             unique: lens_field_unique(&field, model.as_root_unwrap()),
-        }
+        })
     }
 
     /// Walk a lens path to the physical column it names.
@@ -568,25 +630,24 @@ fn mapping_field_at<'a>(fields: &'a [MappingField], steps: &[usize]) -> Option<&
 /// `Model::schema()` builds the model by value with no cache, so no borrow of
 /// it can escape — but only the one field is cloned.
 ///
-/// Traversal lenses are rejected: a multi-step path has no single
+/// Traversal lenses are refused: a multi-step path has no single
 /// field name, and silently binding its first segment misbinds in release.
 /// Use [`FieldResolver`] to bind an embedded path instead.
+///
+/// # Errors
+///
+/// A traversal lens, worded as the misdeclaration the declaring builder
+/// records ([`LensBinding`]).
 pub(crate) fn lens_field<M, T>(
     path: FieldLens<M, T>,
     model: &toasty::schema::app::Model,
-) -> toasty::schema::app::Field
+) -> Result<toasty::schema::app::Field, String>
 where
     M: toasty::schema::Model,
 {
     let core_path: toasty_core::stmt::Path = path.into();
-    require_single_segment(&core_path, "lens");
-    let idx = core_path
-        .projection
-        .as_slice()
-        .first()
-        .copied()
-        .expect("field lens must have a projection");
-    model
+    let idx = single_segment(&core_path, "lens")?;
+    Ok(model
         .as_root_unwrap()
         .fields
         .get(idx)
@@ -596,7 +657,41 @@ where
                 "field index {idx} out of bounds for {}",
                 std::any::type_name::<M>()
             )
-        })
+        }))
+}
+
+/// The name and label a column, a filter or a relation binds through a
+/// single-field lens, or the misdeclaration that refuses it.
+///
+/// A builder records the error rather than panicking, and
+/// [`Panel::build`](crate::panel::Panel::build) reports it. The placeholder
+/// name spells the lens, so two refused lenses are not also reported as a
+/// duplicate name.
+pub(crate) struct LensBinding {
+    pub(crate) name: String,
+    pub(crate) label: String,
+    pub(crate) misdeclared: Option<String>,
+}
+
+impl LensBinding {
+    pub(crate) fn of<M, T>(path: FieldLens<M, T>) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        let core_path: toasty_core::stmt::Path = path.clone().into();
+        match lens_field(path, &M::schema()) {
+            Ok(field) => Self {
+                name: field.name.app_unwrap().to_string(),
+                label: lens_label(&field),
+                misdeclared: None,
+            },
+            Err(error) => Self {
+                name: format!("{:?}", core_path.projection.as_slice()),
+                label: String::new(),
+                misdeclared: Some(error),
+            },
+        }
+    }
 }
 
 /// The capitalized label for a field's app-level name.
@@ -633,18 +728,23 @@ pub(crate) fn lens_field_unique(
     })
 }
 
-/// Panic unless a lens path addresses exactly one field.
+/// The one field a lens path addresses.
 ///
 /// A traversal lens (relation hops, embedded steps) has no single field name,
 /// nullability, or uniqueness — silently binding its first segment misbinds in
-/// release, so every lens helper rejects multi-segment paths loudly instead.
-pub(crate) fn require_single_segment(path: &toasty_core::stmt::Path, what: &str) {
-    assert_eq!(
-        path.projection.as_slice().len(),
-        1,
-        "{what} requires a single-field lens, got a {}-segment traversal path (GH #100)",
-        path.projection.as_slice().len()
-    );
+/// release, so every lens helper refuses a multi-segment path instead.
+///
+/// # Errors
+///
+/// A path of any other length than one, naming `what` bound it.
+pub(crate) fn single_segment(path: &toasty_core::stmt::Path, what: &str) -> Result<usize, String> {
+    match path.projection.as_slice() {
+        [index] => Ok(*index),
+        steps => Err(format!(
+            "{what} requires a single-field lens, got a {}-segment traversal path",
+            steps.len()
+        )),
+    }
 }
 
 /// A field's human label from its storage name.
@@ -653,7 +753,7 @@ pub(crate) fn require_single_segment(path: &toasty_core::stmt::Path, what: &str)
 /// spaces: `word_count` is "Word count", not "Word_count". A label is the one
 /// place a column name becomes prose, so it should not leak the identifier
 /// (`Media_poster_url`, #192). An explicit
-/// [`.label(..)`](crate::schema::Field::label) still wins.
+/// [`.label(..)`](crate::schema::TextField::label) still wins.
 pub(crate) fn capitalize(s: &str) -> String {
     let spaced = s.replace('_', " ");
     let mut c = spaced.chars();

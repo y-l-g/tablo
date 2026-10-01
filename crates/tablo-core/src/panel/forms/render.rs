@@ -14,7 +14,10 @@ use super::super::{
     gate::{gate, list_url, return_target},
     relations::render_relations,
 };
-use crate::{form::FieldErrors, resource::Resource};
+use crate::{
+    form::FieldErrors,
+    resource::{Resource, declared},
+};
 
 /// What a form page shows around its form: the create page and the edit page
 /// differ only here.
@@ -69,7 +72,8 @@ pub(super) async fn render_form_page<'a, R: Resource>(
         public_url,
         relations,
     } = chrome;
-    let schema = R::form(cx);
+    let declared = declared::<R>(cx);
+    let schema = &declared.form;
     let form_html = schema
         .render(cx, crate::schema::Source::form(values, errors))
         .await?;
@@ -190,7 +194,8 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
 /// The create form's initial values: the request's query parameters that
 /// name a relationship control of `R`'s form, first occurrence wins.
 fn seeded_values<R: Resource>(cx: &Cx) -> HashMap<String, String> {
-    let schema = R::form(cx);
+    let declared = declared::<R>(cx);
+    let schema = &declared.form;
     let seedable: Vec<&str> = schema
         .fields()
         .filter(|field| {

@@ -185,7 +185,7 @@ fn build_member(
     let path = chained(krate, owner, ty, index, variant);
     if member.attrs.embed {
         return quote! {
-            builder.nested(<#ty as #krate::__macro::EmbeddedForm>::build_schema(cx, #path));
+            builder.nested(<#ty as #krate::__macro::EmbeddedForm>::build_schema(dx, #path));
         };
     }
     let text = member
@@ -206,7 +206,7 @@ fn build_member(
     // a field of another type fails once, at the field.
     let assert = assert_scalar(krate, ty);
     let field = quote_spanned! {ty.span()=>
-        #krate::__macro::Field::embedded_leaf::<_, #ty>(cx, #path)
+        #krate::__macro::Field::embedded_leaf::<_, #ty>(dx, #path)
     };
     quote! {
         #assert
@@ -338,7 +338,7 @@ fn wrap(
     quote! {
         impl #impl_generics #krate::__macro::EmbeddedForm for #ident #ty_generics #where_clause {
             fn build_schema<M>(
-                cx: &#krate::__macro::Cx,
+                dx: &#krate::__macro::DeclCx,
                 parent: #krate::__macro::Path<M, Self>,
             ) -> #krate::__macro::Schema
             where
@@ -372,16 +372,16 @@ fn wrap(
             /// control per leaf column, resolved from the app schema.
             ///
             /// The app composes it into a layout —
-            /// `Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()))`
+            /// `Section::new("SEO").schema(Seo::form(dx, Post::fields().seo()))`
             /// — and declares no field bindings of its own.
             pub fn form<M>(
-                cx: &#krate::__macro::Cx,
+                dx: &#krate::__macro::DeclCx,
                 parent: impl ::std::convert::Into<#krate::__macro::Path<M, Self>>,
             ) -> #krate::__macro::Schema
             where
                 M: #krate::__macro::Model,
             {
-                <Self as #krate::__macro::EmbeddedForm>::build_schema(cx, parent.into())
+                <Self as #krate::__macro::EmbeddedForm>::build_schema(dx, parent.into())
             }
         }
     }
@@ -489,7 +489,7 @@ fn expand_enum(
         });
     }
     let build = quote! {
-        let mut builder = #krate::__macro::EmbeddedBuilder::enumeration(cx, parent.clone());
+        let mut builder = #krate::__macro::EmbeddedBuilder::enumeration(dx, parent.clone());
         #(#adds)*
         builder.finish()
     };

@@ -22,7 +22,7 @@ pub(crate) struct Dummy {
 }
 
 /// [`Dummy`]'s canonical table: display key, record key, one name column.
-pub(crate) fn dummy_table(_cx: &Cx) -> Table<Dummy> {
+pub(crate) fn dummy_table() -> Table<Dummy> {
     Table::<Dummy>::new(
         |d: &Dummy| d.id.to_string(),
         TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
@@ -80,7 +80,7 @@ impl crate::resource::Resource for TaggedResource {
     type Model = Tagged;
     type Form = TaggedForm;
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &crate::schema::DeclCx) -> Schema {
         Schema::new((
             Field::text(Tagged::fields().name()),
             Field::text(Tagged::fields().token()).unique(),
@@ -107,7 +107,7 @@ impl crate::resource::Resource for TaggedResource {
         true
     }
 
-    fn table(_cx: &Cx) -> crate::resource::Table<Tagged> {
+    fn table() -> crate::resource::Table<Tagged> {
         crate::resource::Table::new(
             |row: &Tagged| row.id.to_string(),
             crate::resource::TextColumn::r#for(Tagged::fields().name(), |row: &Tagged| {

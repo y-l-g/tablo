@@ -74,7 +74,7 @@ impl Resource for AuthorResource {
     fn requires_tenant() -> bool {
         true
     }
-    fn table(_cx: &Cx) -> Table<Author> {
+    fn table() -> Table<Author> {
         Table::new(
             |a: &Author| a.id.to_string(),
             (
@@ -92,7 +92,7 @@ pub struct PostResource;
 impl Resource for PostResource {
     type Model = Post;
     type Form = PostForm;
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Post::fields().title()).required())
     }
 
@@ -118,7 +118,7 @@ impl Resource for PostResource {
     fn requires_tenant() -> bool {
         true
     }
-    fn table(_cx: &Cx) -> Table<Post> {
+    fn table() -> Table<Post> {
         Table::new(
             |p: &Post| p.id.to_string(),
             (

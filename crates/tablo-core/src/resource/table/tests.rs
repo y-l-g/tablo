@@ -20,7 +20,7 @@ struct Task {
     created_at: jiff::Timestamp,
 }
 
-fn status_table(_cx: &Cx) -> Table<Task> {
+fn status_table() -> Table<Task> {
     Table::<Task>::new(
         |t| t.id.to_string(),
         TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
@@ -79,7 +79,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
         type Model = User;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> Table<User> {
+        fn table() -> Table<User> {
             Table::new(
                 |u: &User| u.id.to_string(),
                 TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
@@ -111,7 +111,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
         .build();
     // The declaration alone carries no chrome: `Resource::table` is bare,
     // so a table that renders action links comes from the panel's wiring.
-    assert!(!ChromeResource::table(&cx).bulk_enabled());
+    assert!(!ChromeResource::table().bulk_enabled());
     let wired = crate::panel::wired_table::<ChromeResource>(&cx);
     assert!(
         wired.bulk_enabled(),
@@ -119,7 +119,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
     );
     assert_eq!(
         wired.page_size(),
-        ChromeResource::table(&cx).page_size(),
+        ChromeResource::table().page_size(),
         "wired_table must keep the declared page size"
     );
 }
@@ -165,13 +165,19 @@ fn table_order_by_returns_first_sortable() {
 /// A page of no rows is a misdeclaration, refused where it is written: the
 /// panel calls `Resource::table` at build, so this surfaces at boot.
 #[test]
-#[should_panic(expected = "a page size must be at least 1")]
-fn paginate_refuses_a_zero_page_size() {
-    let _ = Table::<User>::new(
+fn paginate_records_a_zero_page_size() {
+    let errors = Table::<User>::new(
         |u| u.id.to_string(),
         TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
     )
-    .paginate(0);
+    .paginate(0)
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("a page size must be at least 1")),
+        "{errors:?}"
+    );
 }
 
 #[test]
@@ -327,8 +333,7 @@ async fn table_renders_inside_the_boundary_region() {
 fn unapplied_filters_flags_unknown_keys_and_rejected_values() {
     // typo'd keys and allowlist-missed values must be visible,
     // never silently unfiltered.
-    let cx = CxTestBuilder::new().build();
-    let tbl = status_table(&cx);
+    let tbl = status_table();
     assert!(tbl.unapplied_filters(&filters_state(&[])).is_empty());
     assert!(
         tbl.unapplied_filters(&filters_state(&[("status", "published")]))
@@ -351,8 +356,7 @@ fn unapplied_filters_flags_dropped_filters() {
     // `filters=` spelling) read as their own reason, so the list banner
     // explains itself and the export's 400 is the fail-closed guard instead of
     // a silent drop.
-    let cx = CxTestBuilder::new().build();
-    let tbl = status_table(&cx);
+    let tbl = status_table();
     let too_many = std::iter::once("f.status=published".to_string())
         .chain((0..crate::resource::state::MAX_FILTERS).map(|i| format!("f.k{i}=v")))
         .collect::<Vec<_>>()
@@ -407,7 +411,7 @@ async fn filter_banner_reports_unfiltered_when_nothing_applies() {
     // filters.
     use topcoat::view::ViewExt;
     let cx = CxTestBuilder::new().build();
-    let tbl = status_table(&cx);
+    let tbl = status_table();
     let render_banner = async |pairs: &[(&str, &str)]| {
         let page = crate::resource::TablePage::<Task>::from(vec![]);
         tbl.render_with_state(&cx, page, &filters_state(pairs), "/admin/tasks")
@@ -442,67 +446,96 @@ impl<M> IntoColumns<M> for NoColumns {
 }
 
 #[test]
-#[should_panic(expected = "at least one column")]
-fn empty_column_set_panics_at_the_constructor() {
-    let _ = Table::<User>::new(|u| u.id.to_string(), NoColumns);
+fn empty_column_set_is_misdeclared() {
+    let errors = Table::<User>::new(|u| u.id.to_string(), NoColumns).declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("at least one column")),
+        "{errors:?}"
+    );
 }
 
 #[test]
-#[should_panic(expected = "duplicate column name")]
-fn duplicate_column_name_panics_on_field_computed_collision() {
+fn duplicate_column_name_is_misdeclared_on_field_computed_collision() {
     // computed("Status") derives name "status", colliding with
     // the field column's name — the TextColumn::name namespace must stay
     // unique even though computeds are never sortable today.
-    let _ = Table::<Task>::new(
+    let errors = Table::<Task>::new(
         |t| t.id.to_string(),
         (
             TextColumn::r#for(Task::fields().status(), |t: &Task| t.status.clone()).sortable(),
             TextColumn::computed("Status", |t: &Task| t.status.clone()),
         ),
+    )
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("duplicate column name")),
+        "{errors:?}"
     );
 }
 
 #[test]
-#[should_panic(expected = "duplicate column name")]
-fn duplicate_column_name_panics_on_case_only_computed_collision() {
+fn duplicate_column_name_is_misdeclared_on_case_only_computed_collision() {
     // computed names are label.to_lowercase(), so labels
     // differing only by case still collide.
-    let _ = Table::<User>::new(
+    let errors = Table::<User>::new(
         |u| u.id.to_string(),
         (
             TextColumn::computed("Status", |u: &User| u.name.clone()),
             TextColumn::computed("STATUS", |u: &User| u.name.clone()),
         ),
+    )
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("duplicate column name")),
+        "{errors:?}"
     );
 }
 
 #[test]
-#[should_panic(expected = "duplicate column name")]
-fn duplicate_column_name_panics_on_duplicate_field() {
+fn duplicate_column_name_is_misdeclared_on_duplicate_field() {
     // same guard covers two bindings of one field.
-    let _ = Table::<User>::new(
+    let errors = Table::<User>::new(
         |u| u.id.to_string(),
         (
             TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
             TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
         ),
+    )
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("duplicate column name")),
+        "{errors:?}"
     );
 }
 
 #[test]
-#[should_panic(expected = "duplicate filter name")]
-fn duplicate_filter_name_panics_on_duplicate_field() {
+fn duplicate_filter_name_is_misdeclared_on_duplicate_field() {
     // the transport names a filter by its field, and the parser
     // keeps the first value for a duplicated key, so two filters on one
     // field would silently drop one. Refuse the declaration instead.
-    let _ = Table::<Task>::new(
+    let errors = Table::<Task>::new(
         |t| t.id.to_string(),
         TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
     )
     .filters((
         SelectFilter::r#for(Task::fields().status(), vec!["published".to_string()]),
         SelectFilter::r#for(Task::fields().status(), vec!["draft".to_string()]),
-    ));
+    ))
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("duplicate filter name")),
+        "{errors:?}"
+    );
 }
 
 async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {

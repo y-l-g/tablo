@@ -25,8 +25,8 @@ async fn delete_and_bulk_delete_require_can_view() {
         fn can_delete_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -110,8 +110,8 @@ async fn delete_and_bulk_delete_require_can_delete_any() {
         fn can_delete(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -186,7 +186,7 @@ async fn delete_resolves_record_key_not_display_key() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new_split(
                 |d: &Dummy| d.name.clone(),
                 |d: &Dummy| d.id.to_string(),

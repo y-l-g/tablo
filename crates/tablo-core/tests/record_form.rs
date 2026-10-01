@@ -49,7 +49,7 @@ fn item_schema() -> Schema {
     ))
 }
 
-fn item_table(_cx: &Cx) -> Table<Item> {
+fn item_table() -> Table<Item> {
     Table::new(
         |item: &Item| item.id.to_string(),
         TextColumn::r#for(Item::fields().title(), |item: &Item| item.title.clone()),
@@ -62,7 +62,7 @@ impl Resource for ItemResource {
     type Model = Item;
     type Form = ItemForm;
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         item_schema()
     }
 
@@ -94,11 +94,11 @@ impl Resource for ItemResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Item> {
-        item_table(_cx)
+    fn table() -> Table<Item> {
+        item_table()
     }
 
-    fn view(_cx: &Cx) -> Schema {
+    fn view(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Item::fields().title()))
     }
 }
@@ -352,7 +352,7 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
 
         /// Every control `ItemForm` binds, with the tagged ones inside the
         /// group the rule answers for.
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new((
                 Field::text(Item::fields().title()),
                 Repeater::new("Tags").schema((
@@ -387,8 +387,8 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -440,7 +440,7 @@ impl Resource for OwnedResource {
     type Model = Owned;
     type Form = OwnedForm;
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Owned::fields().title()))
     }
 
@@ -460,7 +460,7 @@ impl Resource for OwnedResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Owned> {
+    fn table() -> Table<Owned> {
         Table::new(
             |row: &Owned| row.id.to_string(),
             TextColumn::r#for(Owned::fields().title(), |row: &Owned| row.title.clone()),
@@ -514,11 +514,11 @@ macro_rules! item_resource {
                 true
             }
 
-            fn table(_cx: &Cx) -> Table<Item> {
-                item_table(_cx)
+            fn table() -> Table<Item> {
+                item_table()
             }
 
-            fn form(_cx: &Cx) -> Schema {
+            fn form(_dx: &tablo_core::DeclCx) -> Schema {
                 $schema
             }
         }
@@ -630,15 +630,15 @@ async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
         type Model = Dated;
         type Form = DatedForm;
 
-        fn form(cx: &Cx) -> Schema {
-            Schema::new(Life::form(cx, Dated::fields().life()))
+        fn form(dx: &tablo_core::DeclCx) -> Schema {
+            Schema::new(Life::form(dx, Dated::fields().life()))
         }
 
         fn slug() -> String {
             "dated".to_string()
         }
 
-        fn table(_cx: &Cx) -> Table<Dated> {
+        fn table() -> Table<Dated> {
             Table::new(
                 |row: &Dated| row.id.to_string(),
                 TextColumn::r#for(Dated::fields().title(), |row: &Dated| row.title.clone()),
@@ -686,15 +686,15 @@ async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
         type Model = Clip;
         type Form = ClipForm;
 
-        fn form(cx: &Cx) -> Schema {
-            Schema::new(Repeater::new("Clips").schema(Body::form(cx, Clip::fields().body())))
+        fn form(dx: &tablo_core::DeclCx) -> Schema {
+            Schema::new(Repeater::new("Clips").schema(Body::form(dx, Clip::fields().body())))
         }
 
         fn slug() -> String {
             "clips".to_string()
         }
 
-        fn table(_cx: &Cx) -> Table<Clip> {
+        fn table() -> Table<Clip> {
             Table::new(
                 |row: &Clip| row.id.to_string(),
                 TextColumn::r#for(Clip::fields().title(), |row: &Clip| row.title.clone()),
@@ -729,7 +729,7 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
         type Model = Owned;
         type Form = ClaimingForm;
 
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new((
                 Field::text(Owned::fields().tenant_id()),
                 Field::text(Owned::fields().title()),
@@ -740,8 +740,8 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Owned> {
-            OwnedResource::table(_cx)
+        fn table() -> Table<Owned> {
+            OwnedResource::table()
         }
     }
 
@@ -770,11 +770,11 @@ macro_rules! list_only_resource {
                 $create
             }
 
-            fn table(_cx: &Cx) -> Table<Item> {
-                item_table(_cx)
+            fn table() -> Table<Item> {
+                item_table()
             }
 
-            fn form(_cx: &Cx) -> Schema {
+            fn form(_dx: &tablo_core::DeclCx) -> Schema {
                 $schema
             }
         }
@@ -799,10 +799,10 @@ async fn build_refuses_a_list_only_resource_that_declares_a_schema() {
 }
 
 #[tokio::test]
-async fn build_names_a_missing_form_override() {
-    item_resource!(Unoverridden, TitleForm, Schema::empty());
-    let error = form_build_error::<Unoverridden>(item_db().await);
-    assert!(error.contains("does not override `form()`"), "{error}");
+async fn build_refuses_an_empty_form_override() {
+    item_resource!(Emptied, TitleForm, Schema::empty());
+    let error = form_build_error::<Emptied>(item_db().await);
+    assert!(error.contains("declares no controls"), "{error}");
 }
 
 #[tokio::test]
@@ -854,11 +854,11 @@ async fn a_list_only_detail_page_reads_view_values() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
 
-        fn view(_cx: &Cx) -> Schema {
+        fn view(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new(Field::text(Item::fields().title()))
         }
 
@@ -925,11 +925,11 @@ macro_rules! title_only_resource {
                 true
             }
 
-            fn table(_cx: &Cx) -> Table<Item> {
-                item_table(_cx)
+            fn table() -> Table<Item> {
+                item_table()
             }
 
-            fn form(_cx: &Cx) -> Schema {
+            fn form(_dx: &tablo_core::DeclCx) -> Schema {
                 Schema::new(Field::text(Item::fields().title()))
             }
         }
@@ -969,7 +969,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
         type Model = Item;
         type Form = PriorityForm;
 
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             // A static-options select checks membership, not the column's type.
             Schema::new(
                 Field::choice(Item::fields().priority())
@@ -989,8 +989,8 @@ async fn a_value_the_form_type_refuses_renders_inline() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -1023,7 +1023,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_cx: &Cx) -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields(_dx: &tablo_core::DeclCx) -> Vec<tablo_core::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -1065,7 +1065,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Form = Keyless;
 
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::empty()
         }
 
@@ -1087,8 +1087,8 @@ async fn an_unkeyable_record_rule_fails_closed() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -1111,7 +1111,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_cx: &Cx) -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields(_dx: &tablo_core::DeclCx) -> Vec<tablo_core::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -1155,7 +1155,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Form = Unkeyable;
 
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::empty()
         }
 
@@ -1171,8 +1171,8 @@ async fn an_unkeyable_parse_failure_fails_closed() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -1207,8 +1207,8 @@ async fn a_list_only_resource_never_links_to_create() {
             tablo_core::tenant_id(cx).is_some()
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 

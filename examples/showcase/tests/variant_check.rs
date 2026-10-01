@@ -40,9 +40,9 @@ struct ClipResource;
 impl Resource for ClipResource {
     type Model = Clip;
     type Form = ClipForm;
-    fn form(cx: &topcoat::context::Cx) -> Schema {
+    fn form(dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Clip::fields().title()))
-            .extend(Body::form(cx, Clip::fields().body()))
+            .extend(Body::form(dx, Clip::fields().body()))
     }
 
     fn slug() -> String {
@@ -57,7 +57,7 @@ impl Resource for ClipResource {
         true
     }
 
-    fn table(_cx: &topcoat::context::Cx) -> Table<Clip> {
+    fn table() -> Table<Clip> {
         Table::new(
             |clip: &Clip| clip.id.to_string(),
             TextColumn::r#for(Clip::fields().title(), |clip: &Clip| clip.title.clone()),

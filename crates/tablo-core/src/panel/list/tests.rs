@@ -71,8 +71,8 @@ async fn live_lists_declare_distinct_signal_ids() {
                 fn can_view_any(_cx: &Cx) -> bool {
                     true
                 }
-                fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-                    dummy_table(cx).paginate(25).live_search()
+                fn table() -> crate::resource::Table<Dummy> {
+                    dummy_table().paginate(25).live_search()
                 }
             }
         };
@@ -159,7 +159,7 @@ async fn live_search_host_and_shard_dispatch() {
         fn can_delete_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -474,7 +474,7 @@ async fn live_search_input_debounces_keystrokes() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -590,8 +590,8 @@ async fn read_only_resource_hides_delete_chrome() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx).paginate(25)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table().paginate(25)
         }
     }
 
@@ -652,7 +652,7 @@ async fn list_header_renders_create_entry_point_when_allowed() {
     impl Resource for CreatableResource {
         type Model = Dummy;
         type Form = CreatableForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
@@ -665,8 +665,8 @@ async fn list_header_renders_create_entry_point_when_allowed() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx).paginate(25)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table().paginate(25)
         }
     }
     #[derive(crate::RecordForm)]
@@ -684,8 +684,8 @@ async fn list_header_renders_create_entry_point_when_allowed() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            CreatableResource::table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            CreatableResource::table()
         }
     }
 
@@ -713,7 +713,7 @@ async fn non_editable_resource_hides_edit_links() {
     impl Resource for WritableResource {
         type Model = Dummy;
         type Form = WritableForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
@@ -735,8 +735,8 @@ async fn non_editable_resource_hides_edit_links() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx).paginate(25)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table().paginate(25)
         }
     }
     #[derive(crate::RecordForm)]
@@ -754,8 +754,8 @@ async fn non_editable_resource_hides_edit_links() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            WritableResource::table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            WritableResource::table()
         }
     }
 
@@ -802,7 +802,7 @@ async fn denied_rows_render_no_edit_chrome() {
     impl Resource for DeniedResource {
         type Model = Dummy;
         type Form = DeniedForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
@@ -812,8 +812,8 @@ async fn denied_rows_render_no_edit_chrome() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx).paginate(25)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table().paginate(25)
         }
     }
     #[derive(crate::RecordForm)]
@@ -900,7 +900,7 @@ async fn per_record_policy_narrows_the_wired_chrome() {
     impl Resource for RowPolicyResource {
         type Model = Dummy;
         type Form = RowPolicyForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
 
@@ -922,10 +922,10 @@ async fn per_record_policy_narrows_the_wired_chrome() {
         fn can_delete(_cx: &Cx, record: &Dummy) -> bool {
             record.name != "Locked"
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx).paginate(25)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table().paginate(25)
         }
-        fn view(_cx: &Cx) -> Schema {
+        fn view(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
     }
@@ -1068,7 +1068,7 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
     impl Resource for GatedResource {
         type Model = Dummy;
         type Form = GatedForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
@@ -1084,7 +1084,7 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -1187,7 +1187,7 @@ async fn tenant_gated_resource_scopes_rows_to_the_request_tenant() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Scoped> {
+        fn table() -> crate::resource::Table<Scoped> {
             crate::resource::Table::new(
                 |s: &Scoped| s.id.to_string(),
                 crate::resource::TextColumn::r#for(Scoped::fields().name(), |s: &Scoped| {
@@ -1277,7 +1277,7 @@ async fn list_renders_error_state_when_load_fails() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Self::Model> {
+        fn table() -> Table<Self::Model> {
             // A realistic paginated table: the tampered cursor must reach
             // the decode inside `load_table_page` (only paginated loads
             // decode cursors), not die earlier on missing declarations.
@@ -1427,7 +1427,7 @@ async fn both_cursors_render_the_first_page() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Self::Model> {
+        fn table() -> Table<Self::Model> {
             Table::<Subscriber>::new(
                 |s| s.id.to_string(),
                 crate::resource::TextColumn::r#for(
@@ -1467,7 +1467,7 @@ async fn both_cursors_render_the_first_page() {
         .request_context(parts)
         .app_context(db)
         .build();
-    let table = SubscriberResource::table(&cx);
+    let table = SubscriberResource::table();
     let first = load_table_page::<SubscriberResource>(&cx, &table, &TableState::default())
         .await
         .unwrap();

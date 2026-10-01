@@ -19,7 +19,11 @@ use super::{
     gate::{gate, list_url},
     relations::render_relations,
 };
-use crate::{db::db, form::RecordForm, resource::Resource};
+use crate::{
+    db::db,
+    form::RecordForm,
+    resource::{Resource, declared},
+};
 
 /// Detail page GET.
 ///
@@ -37,7 +41,8 @@ use crate::{db::db, form::RecordForm, resource::Resource};
 pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
-        if !R::viewed(cx) {
+        let declared = declared::<R>(cx);
+        if !declared.viewed() {
             return Err(not_found().into());
         }
         let id = path_param_segment(cx, "id").to_string();
@@ -47,7 +52,8 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // agree about what a field holds (ADR-0016); `NoForm` projects nothing.
         let mut values = R::view_values(cx, &record);
         values.extend(<R::Form as RecordForm>::hydrate(cx, &record));
-        let body = R::view(cx)
+        let body = declared
+            .view
             .render(cx, crate::schema::Source::view(&values))
             .await?;
         // What the `Schema` above cannot carry: free-form content read off the

@@ -32,7 +32,7 @@ async fn bulk_delete_caps_ids_and_ignores_display_key() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             // Non-canonical display key: bulk must still resolve
             // via the typed PK fetch alone. The record key stays canonical
             // The renderer emits it for bulk values, so the
@@ -159,8 +159,8 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
         async fn bulk_delete_records(
             _cx: &Cx,

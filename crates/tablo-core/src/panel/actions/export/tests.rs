@@ -18,8 +18,8 @@ impl crate::resource::Resource for ChunkerDummyResource {
     fn can_view_any(_cx: &Cx) -> bool {
         true
     }
-    fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-        dummy_table(cx)
+    fn table() -> crate::resource::Table<Dummy> {
+        dummy_table()
     }
 }
 
@@ -42,8 +42,8 @@ async fn export_drops_rows_failing_can_view() {
         fn can_view(_cx: &Cx, record: &Dummy) -> bool {
             record.name != "denied"
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -130,7 +130,7 @@ async fn export_loads_the_relations_its_columns_include() {
         fn can_view(_cx: &Cx, _record: &Child) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Child> {
+        fn table() -> crate::resource::Table<Child> {
             let column = crate::resource::TextColumn::computed("Parent", |c: &Child| {
                 if c.parent.is_unloaded() {
                     "(unloaded)".to_string()
@@ -272,8 +272,8 @@ async fn export_streams_csv_in_chunks_with_parity() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -366,8 +366,8 @@ async fn export_of_an_empty_table_emits_the_header() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -458,7 +458,7 @@ async fn export_visibility_scan_loads_no_includes() {
             }
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Child> {
+        fn table() -> crate::resource::Table<Child> {
             crate::resource::Table::new(
                 |c: &Child| c.id.to_string(),
                 crate::resource::TextColumn::computed("Parent", |c: &Child| {
@@ -554,8 +554,8 @@ async fn export_counts_only_viewable_rows_within_the_window() {
         fn can_view(_cx: &Cx, record: &Dummy) -> bool {
             !record.name.starts_with("denied-")
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -616,8 +616,8 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
         fn can_view(_cx: &Cx, record: &Dummy) -> bool {
             !record.name.starts_with("denied-")
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -685,7 +685,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
     let cx = topcoat::context::CxTestBuilder::new()
         .app_context(db.clone())
         .build();
-    let table = ChunkerDummyResource::table(&cx);
+    let table = ChunkerDummyResource::table();
     let state = crate::resource::TableState::default();
     let mut chunker = ExportChunker::new(
         export_base_query::<ChunkerDummyResource>(&cx, &table, &state).expect("tenant scope"),
@@ -724,7 +724,7 @@ async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
     let cx = topcoat::context::CxTestBuilder::new()
         .app_context(db.clone())
         .build();
-    let table = ChunkerDummyResource::table(&cx);
+    let table = ChunkerDummyResource::table();
     let state = crate::resource::TableState::default();
     let mut chunker = ExportChunker::new(
         export_base_query::<ChunkerDummyResource>(&cx, &table, &state).expect("tenant scope"),
@@ -777,7 +777,7 @@ async fn export_and_list_agree_on_rows_and_order() {
         fn can_view(_cx: &Cx, _record: &Task) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Task> {
+        fn table() -> crate::resource::Table<Task> {
             crate::resource::Table::new(
                 |t: &Task| t.id.to_string(),
                 TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone())
@@ -829,7 +829,7 @@ async fn export_and_list_agree_on_rows_and_order() {
         ..TableState::default()
     };
 
-    let table = TaskResource::table(&cx);
+    let table = TaskResource::table();
     let listed: Vec<String> =
         crate::resource::TablePage::load(&cx, &table, TaskResource::query(&cx), &state)
             .await
@@ -878,8 +878,8 @@ async fn export_413s_above_the_cap_before_streaming() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 

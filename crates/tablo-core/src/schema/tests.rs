@@ -39,12 +39,18 @@ fn the_field_list_holds_nested_fields_in_declaration_order() {
 }
 
 #[test]
-#[should_panic(expected = "duplicate field name")]
-fn schema_rejects_duplicate_field_names() {
-    let _ = Schema::new((
+fn schema_records_duplicate_field_names() {
+    let errors = Schema::new((
         Field::text(DummyUser::fields().name()),
         Field::text(DummyUser::fields().name()),
-    ));
+    ))
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("duplicate field name")),
+        "{errors:?}"
+    );
 }
 
 #[test]
@@ -98,10 +104,16 @@ async fn a_choice_stores_the_value_its_check_authorised() {
 
 /// `extend` carries the same duplicate-name guard `Schema::new` does.
 #[test]
-#[should_panic(expected = "duplicate field name 'name'")]
-fn extend_keeps_the_duplicate_field_guard() {
+fn extend_keeps_the_duplicate_field_check() {
     let input = || Field::text(DummyUser::fields().name());
-    let _ = Schema::empty()
+    let errors = Schema::empty()
         .extend(Schema::new(input()))
-        .extend(Schema::new(input()));
+        .extend(Schema::new(input()))
+        .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("duplicate field name 'name'")),
+        "{errors:?}"
+    );
 }

@@ -44,7 +44,7 @@ async fn edit_post_requires_can_view_as_well_as_can_update() {
     impl Resource for ViewDeniedResource {
         type Model = Dummy;
         type Form = ViewDeniedForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
 
@@ -57,8 +57,8 @@ async fn edit_post_requires_can_view_as_well_as_can_update() {
         fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
     #[derive(crate::RecordForm)]
@@ -154,7 +154,7 @@ async fn transport_keys_never_reach_the_write() {
     impl crate::resource::Resource for CapturingResource {
         type Model = Doc;
         type Form = CapturingForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new((
                 Field::text(Doc::fields().title()),
                 Field::file(Doc::fields().path()),
@@ -170,7 +170,7 @@ async fn transport_keys_never_reach_the_write() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Doc> {
+        fn table() -> crate::resource::Table<Doc> {
             crate::resource::Table::new(
                 |d: &Doc| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Doc::fields().title(), |d: &Doc| {
@@ -263,11 +263,11 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     impl Resource for WritingResource {
         type Model = Dummy;
         type Form = WritingForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -391,7 +391,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     impl Resource for EditingResource {
         type Model = Dummy;
         type Form = EditingForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
         async fn update_record(
@@ -410,7 +410,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
             Ok(record)
         }
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -542,7 +542,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     impl Resource for NotifyingResource {
         type Model = Dummy;
         type Form = NotifyingForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             // A real field, optional so the test's csrf-only POST still
             // passes validation: the record form's field needs a control
             // to bind (the key-agreement build check).
@@ -574,7 +574,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -675,7 +675,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     impl Resource for SubscriberResource {
         type Model = Subscriber;
         type Form = SubscriberForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             // `.optional()` lets an empty submit probe instead of failing
             // on presence: uniqueness wins.
             Schema::new(
@@ -694,7 +694,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> Table<Subscriber> {
+        fn table() -> Table<Subscriber> {
             Table::new(
                 |s: &Subscriber| s.id.to_string(),
                 TextColumn::r#for(Subscriber::fields().email(), |s: &Subscriber| {
@@ -798,7 +798,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
     impl crate::resource::Resource for DocResource {
         type Model = Doc;
         type Form = DocForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new((
                 Field::text(Doc::fields().title()),
                 Field::file(Doc::fields().path()),
@@ -817,7 +817,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
             true
         }
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Doc> {
+        fn table() -> crate::resource::Table<Doc> {
             crate::resource::Table::new(
                 |row: &Doc| row.id.to_string(),
                 crate::resource::TextColumn::r#for(Doc::fields().title(), |row: &Doc| {

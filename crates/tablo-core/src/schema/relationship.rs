@@ -30,7 +30,7 @@ use topcoat::{Result, context::Cx};
 /// [`requires_tenant`](Self::requires_tenant) is `false`, and
 /// [`slug`](Self::slug) falls back to the type name.
 ///
-/// It is public because [`Field::relationship`](crate::schema::Field::relationship)'s
+/// It is public because [`ChoiceField::relationship`](crate::schema::ChoiceField::relationship)'s
 /// bound names it, and a `pub(crate)` trait there is a `private_bounds` warning.
 /// It is not re-exported at the crate root, because its method names are
 /// `Resource`'s and a glob import would collide; it is reachable as

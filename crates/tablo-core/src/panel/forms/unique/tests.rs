@@ -32,7 +32,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
+        fn table() -> crate::resource::Table<Subscriber> {
             crate::resource::Table::new(
                 |r: &Subscriber| r.id.to_string(),
                 crate::resource::TextColumn::r#for(
@@ -147,7 +147,7 @@ async fn unique_field_is_required_however_it_is_marked() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
+        fn table() -> crate::resource::Table<Subscriber> {
             crate::resource::Table::new(
                 |r: &Subscriber| r.id.to_string(),
                 crate::resource::TextColumn::r#for(
@@ -228,7 +228,7 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Subscriber> {
+        fn table() -> crate::resource::Table<Subscriber> {
             crate::resource::Table::new(
                 |r: &Subscriber| r.id.to_string(),
                 crate::resource::TextColumn::r#for(
@@ -291,7 +291,7 @@ async fn unique_check_propagates_probe_errors() {
         type Model = Probe;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Probe> {
+        fn table() -> crate::resource::Table<Probe> {
             crate::resource::Table::new(
                 |r: &Probe| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Probe::fields().email(), |r: &Probe| {
@@ -341,7 +341,7 @@ async fn unique_check_ignores_absent_repeater_groups() {
         type Model = Nicknamed;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Nicknamed> {
+        fn table() -> crate::resource::Table<Nicknamed> {
             crate::resource::Table::new(
                 |r: &Nicknamed| r.id.to_string(),
                 crate::resource::TextColumn::r#for(

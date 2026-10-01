@@ -179,7 +179,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     impl Resource for ReadingResource {
         type Model = Reading;
         type Form = ReadingForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new(Field::text(Reading::fields().word_count()))
         }
 
@@ -192,7 +192,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> tablo_core::Table<Reading> {
+        fn table() -> tablo_core::Table<Reading> {
             tablo_core::Table::new(
                 |r: &Reading| r.id.to_string(),
                 // The list renders the integer through a computed column: a

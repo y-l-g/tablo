@@ -72,7 +72,7 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -182,7 +182,7 @@ async fn live_shard_malformed_cursor_renders_error_state() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -347,7 +347,7 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -453,7 +453,7 @@ async fn live_shard_retry_preserves_the_query() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -554,7 +554,7 @@ async fn live_shard_group_by_query_drives_grouping() {
         fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -691,7 +691,7 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
         fn can_view(_cx: &Cx, _record: &TenantDummy) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<TenantDummy> {
+        fn table() -> crate::resource::Table<TenantDummy> {
             crate::resource::Table::new(
                 |d: &TenantDummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(
@@ -719,7 +719,7 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
         fn can_view_any(_cx: &Cx) -> bool {
             false
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<TenantDummy> {
+        fn table() -> crate::resource::Table<TenantDummy> {
             crate::resource::Table::new(
                 |d: &TenantDummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(
@@ -878,7 +878,7 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
         fn can_view(_cx: &Cx, _record: &Book) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Book> {
+        fn table() -> crate::resource::Table<Book> {
             crate::resource::Table::new(
                 |b: &Book| b.id.to_string(),
                 crate::resource::TextColumn::r#for(Book::fields().title(), |b: &Book| {
@@ -910,7 +910,7 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
                 |shelf: &Shelf| shelf.id,
             )]
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Shelf> {
+        fn table() -> crate::resource::Table<Shelf> {
             crate::resource::Table::new(
                 |s: &Shelf| s.id.to_string(),
                 crate::resource::TextColumn::r#for(Shelf::fields().name(), |s: &Shelf| {

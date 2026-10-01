@@ -16,7 +16,7 @@ use topcoat::{context::Cx, view::BoxView};
 use super::Resource;
 use crate::{
     form::FormScalar,
-    schema::{FieldLens, lens_field},
+    schema::{FieldLens, LensBinding},
 };
 
 /// One relation of a parent resource's records: the child resource whose rows
@@ -44,6 +44,8 @@ pub struct Relation<P> {
     bind: BindFn<P>,
     render: RenderFn,
     search: crate::panel::RelationSearchFn,
+    /// Why `foreign_key` binds no column, when it does not.
+    misdeclared: Option<String>,
 }
 
 /// An owner's rows filter on the child, and the owner's key as the child's
@@ -88,9 +90,8 @@ impl<P> Relation<P> {
     /// The section is titled with `C`'s navigation label, and its table's URL
     /// parameters are prefixed with `C`'s slug (`comments.q=`).
     ///
-    /// # Panics
-    ///
-    /// Panics when `foreign_key` is not a single column of `C`'s model, like
+    /// A `foreign_key` that is not a single column of `C`'s model is a
+    /// misdeclaration [`Panel::build`](crate::Panel::build) reports, like
     /// every lens a declaration binds.
     pub fn has_many<C, T>(
         foreign_key: FieldLens<C::Model, T>,
@@ -100,15 +101,13 @@ impl<P> Relation<P> {
         C: Resource,
         T: IntoExpr<T> + FormScalar + Send + Sync + 'static,
     {
-        let field = lens_field(
-            foreign_key.clone(),
-            &<C::Model as toasty::schema::Model>::schema(),
-        );
+        let binding = LensBinding::of(foreign_key.clone());
         let search = crate::panel::relation_search_handler_for::<C, T>(foreign_key.clone());
         Self {
             key: C::slug(),
             label: C::navigation_label(),
-            foreign_key: field.name.app_unwrap().to_string(),
+            foreign_key: binding.name,
+            misdeclared: binding.misdeclared,
             bind: Arc::new(move |owner| {
                 let value = owner_key(owner);
                 let seed = value.to_form();
@@ -123,6 +122,11 @@ impl<P> Relation<P> {
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = label.into();
         self
+    }
+
+    /// Why the relation's foreign key binds no column, when it does not.
+    pub(crate) fn misdeclared(&self) -> Option<&str> {
+        self.misdeclared.as_deref()
     }
 
     /// The prefix of this relation's URL parameters: the child's slug.

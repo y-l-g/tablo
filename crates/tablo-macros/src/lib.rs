@@ -1,7 +1,9 @@
-//! The `RecordForm` and `EmbeddedForm` derives, re-exported by `tablo-core`.
+//! The `RecordForm`, `EmbeddedForm` and `Options` derives, re-exported by
+//! `tablo-core`.
 
 mod embedded;
 mod fields;
+mod options;
 mod record_form;
 
 use proc_macro::TokenStream;
@@ -104,6 +106,32 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 pub fn record_form(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
     record_form::expand_tokens(input).into()
+}
+
+/// Derive `Options` for a unit-variant enum: the `(value, label)` list a
+/// choice field, a select filter and a column share.
+///
+/// ```ignore
+/// #[derive(tablo::Options)]
+/// pub enum Status {
+///     Draft,
+///     #[option(label = "Live")]
+///     Published,
+/// }
+///
+/// assert_eq!(Status::Published.value(), "published");
+/// assert_eq!(Status::Published.label(), "Live");
+/// assert_eq!(Status::from_value("draft"), Some(Status::Draft));
+/// ```
+///
+/// Each variant stores its `snake_case` name and reads as that name in
+/// sentence case. `#[option(value = "..")]` and `#[option(label = "..")]`
+/// override either. A generic enum, a variant with fields, two variants
+/// storing one value, and an unknown key are compile errors.
+#[proc_macro_derive(Options, attributes(option))]
+pub fn options(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as DeriveInput);
+    options::expand_tokens(input).into()
 }
 
 /// The path the generated code names `tablo-core` by: the `tablo` facade, which

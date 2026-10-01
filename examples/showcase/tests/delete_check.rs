@@ -277,7 +277,7 @@ async fn forged_delete_runs_no_record_query() {
         fn can_delete_any(_cx: &topcoat::context::Cx) -> bool {
             true
         }
-        fn table(_cx: &topcoat::context::Cx) -> Table<Dummy> {
+        fn table() -> Table<Dummy> {
             Table::new(
                 |d: &Dummy| d.id.to_string(),
                 TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),

@@ -98,7 +98,7 @@ impl Resource for MemberResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Member> {
+    fn table() -> Table<Member> {
         Table::new(
             |member: &Member| member.id.to_string(),
             TextColumn::r#for(Member::fields().handle(), |member: &Member| {

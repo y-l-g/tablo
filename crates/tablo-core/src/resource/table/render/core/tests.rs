@@ -62,7 +62,7 @@ pub(crate) fn vehicule_filter() -> VariantFilter<Driver> {
     )
 }
 
-pub(crate) fn status_table(_cx: &Cx) -> Table<Task> {
+pub(crate) fn status_table() -> Table<Task> {
     Table::<Task>::new(
         |t| t.id.to_string(),
         TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),

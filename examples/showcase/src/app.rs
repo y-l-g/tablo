@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Action, Actions, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter, Field, FieldErrors,
-    Grid, Group, NavigationItem, Panel, Posted, Relation, Repeater, ResolvedLens, Resource, Schema,
-    Section, SelectFilter, Table, TernaryFilter, TextColumn, Uploader, VariantFilter, scoped_query,
-    tenant_id, write_create, write_update,
+    Action, Actions, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter, DeclCx, Field,
+    FieldErrors, Grid, Group, NavigationItem, Options, Panel, Posted, Relation, Repeater,
+    ResolvedLens, Resource, Schema, Section, SelectFilter, Table, TernaryFilter, TextColumn,
+    Uploader, VariantFilter, scoped_query, tenant_id, write_create, write_update,
 };
 use toasty::Db;
 use topcoat::{
@@ -22,8 +22,8 @@ use crate::{
     live::LiveActivityPage,
     media::{MediaLibrary, MediaLibraryPage},
     models::{
-        Author, BLOCKED_TENANT, Comment, MediaAsset, Post, Publication, REMOVED_COMMENT_BODY, Seo,
-        User,
+        Author, BLOCKED_TENANT, Comment, MediaAsset, Post, PostStatus, Publication,
+        REMOVED_COMMENT_BODY, Role, Seo, User,
     },
 };
 
@@ -70,26 +70,20 @@ impl Resource for UserResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::USERS)
     }
 
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new(
-            Section::new("Profile").schema((
-                Field::text(User::fields().name()).placeholder("Ada Lovelace"),
-                Field::text(User::fields().email())
-                    .email()
-                    .unique()
-                    .placeholder("ada@example.com"),
-                // A static-options choice (the non-relationship kind): role
-                // vocabulary with presence defaulting from the column.
-                Field::choice(User::fields().role())
-                    .options(vec!["admin".to_string(), "member".to_string()])
-                    .label("Role")
-                    .optional(),
-                // A bool column: the built-in checkbox control.
-                Field::toggle(User::fields().active()).label("Active"),
-                // A stored integer: optional, zero or more.
-                Field::text(User::fields().age()).label("Age").optional(),
-            )),
-        )
+    /// The derived controls, arranged into one section: each binding, label
+    /// and control kind comes from `UserForm`, so this only adds what the
+    /// fields cannot say — placeholders, the email rule, and which controls may
+    /// be left empty.
+    fn form(dx: &DeclCx) -> Schema {
+        let c = UserForm::controls(dx);
+        Schema::new(Section::new("Profile").schema((
+            c.name.placeholder("Ada Lovelace"),
+            c.email.email().unique().placeholder("ada@example.com"),
+            c.role.optional(),
+            c.active,
+            // A stored integer: optional, zero or more.
+            c.age.optional(),
+        )))
     }
 
     /// A stored integer holds zero or more: a non-number is the typed rule's
@@ -125,7 +119,7 @@ impl Resource for UserResource {
         record.name != "Ken Thompson"
     }
 
-    fn table(_cx: &Cx) -> Table<User> {
+    fn table() -> Table<User> {
         Table::new(
             |u: &User| u.id.to_string(),
             (
@@ -148,23 +142,11 @@ impl Resource for UserResource {
         .live_search()
     }
 
-    fn view(_cx: &Cx) -> Schema {
-        Schema::new(
-            Section::new("Profile").schema((
-                Field::text(User::fields().name()),
-                Field::text(User::fields().email()),
-                Field::choice(User::fields().role())
-                    .options(vec!["admin".to_string(), "member".to_string()])
-                    .label("Role"),
-                Field::choice(User::fields().active())
-                    .options_with_labels(vec![
-                        ("true".to_string(), "Active".to_string()),
-                        ("false".to_string(), "Inactive".to_string()),
-                    ])
-                    .label("Active"),
-                Field::text(User::fields().age()).label("Age"),
-            )),
-        )
+    /// The form's controls, read-only: a choice shows its option's label and
+    /// the toggle reads Yes or No.
+    fn view(dx: &DeclCx) -> Schema {
+        let c = UserForm::controls(dx);
+        Schema::new(Section::new("Profile").schema((c.name, c.email, c.role, c.active, c.age)))
     }
 
     /// Wake the live feed after a committed write, so an open page re-reads the
@@ -175,15 +157,16 @@ impl Resource for UserResource {
     }
 }
 
-/// What the user form writes. `role`, `active`, and `age` are optional
-/// controls, so each declares what an emptied control stores: the create
-/// defaults, and zero for a stored integer.
+/// What the user form writes, and the controls it renders: `role` is a choice
+/// over [`Role`], `active` a toggle, the rest text. `role`, `active`, and `age`
+/// are optional controls, so each declares what an emptied control stores: the
+/// create defaults, and zero for a stored integer.
 #[derive(tablo_core::RecordForm)]
 #[form(model = User)]
 pub struct UserForm {
     pub name: String,
     pub email: String,
-    #[form(blank = "member")]
+    #[form(options = Role, blank = Role::Member.value())]
     pub role: String,
     #[form(blank = true)]
     pub active: bool,
@@ -201,11 +184,9 @@ impl Resource for AuthorResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::PEN_LINE)
     }
 
-    fn form(_cx: &Cx) -> Schema {
-        Schema::new((
-            Field::text(Author::fields().name()),
-            Field::text(Author::fields().email()).email().unique(),
-        ))
+    fn form(dx: &DeclCx) -> Schema {
+        let c = AuthorForm::controls(dx);
+        Schema::new((c.name, c.email.email()))
     }
 
     fn label() -> String {
@@ -240,7 +221,7 @@ impl Resource for AuthorResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Author> {
+    fn table() -> Table<Author> {
         Table::new(
             |a: &Author| a.id.to_string(),
             (
@@ -274,13 +255,14 @@ impl Resource for PostResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::FILE_TEXT)
     }
 
-    fn form(cx: &Cx) -> Schema {
+    fn form(dx: &DeclCx) -> Schema {
+        let c = PostForm::controls(dx);
         Schema::new((
             Section::new("Content").schema((
-                Field::text(Post::fields().title()).placeholder("A title editors click"),
+                c.title.placeholder("A title editors click"),
                 // Prose, so a textarea rather than a one-line input.
                 // Optional so quick draft stubs submit; full stories fill it.
-                Field::text(Post::fields().body())
+                c.body
                     .multiline(6)
                     .placeholder("The full story…")
                     .optional(),
@@ -289,14 +271,8 @@ impl Resource for PostResource {
             // titled like the detail page's "Details" panel.
             Group::new().schema((
                 Section::new("Details").schema((
-                    Grid::new(2).schema((
-                        Field::choice(Post::fields().status())
-                            .options(vec!["draft".to_string(), "published".to_string()])
-                            .label("Status")
-                            .optional(),
-                        Field::toggle(Post::fields().featured()).label("Featured"),
-                    )),
-                    Field::choice(Post::fields().author_id())
+                    Grid::new(2).schema((c.status.optional(), c.featured)),
+                    c.author_id
                         .relationship::<AuthorResource>(
                             AuthorResource::query,
                             |a: &Author| a.id,
@@ -306,7 +282,7 @@ impl Resource for PostResource {
                         .label("Author"),
                     // One media source: the cover is a picked library row, not an
                     // upload. Optional and single: empty clears the cover.
-                    Field::choice(Post::fields().cover_id())
+                    c.cover_id
                         .relationship::<MediaLibrary>(
                             |_cx| toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all(),
                             |m: &MediaAsset| m.id,
@@ -316,17 +292,15 @@ impl Resource for PostResource {
                         .label("Cover")
                         .optional(),
                 )),
-                Repeater::new("Tags").schema(Field::text(Post::fields().tags()).label("Tag")),
+                Repeater::new("Tags").schema(c.tags.label("Tag")),
             )),
-            // Embedded **values**. One declaration per value: the
-            // controls, their flattened names, and the enum's discriminant all
-            // come from the app schema and the type's own shape — nothing here
-            // spells `seo_title`, and no variant is recovered from which
-            // payload columns happen to be filled in.
+            // Embedded **values**: the controls, their flattened names, and the
+            // enum's discriminant all come from the app schema and the type's
+            // own shape — nothing here spells `seo_title`, and no variant is
+            // recovered from which payload columns happen to be filled in.
             Group::new().schema((
-                Section::new("SEO").schema(Seo::form(cx, Post::fields().seo())),
-                Section::new("Publication")
-                    .schema(Publication::form(cx, Post::fields().publication())),
+                Section::new("SEO").schema(c.seo),
+                Section::new("Publication").schema(c.publication),
             )),
         ))
     }
@@ -370,40 +344,24 @@ impl Resource for PostResource {
         }
     }
 
-    /// One post, read-only. Each entry binds the same storage name
-    /// the form posts — flattened embedded columns included — so a field means
-    /// the same thing on both pages. The *list* of fields is still written
-    /// twice: the schema seam has no way to derive one declaration from the
-    /// other, and a page that shows a subset is the normal case.
+    /// One post, read-only, from the form's own controls, so a field means
+    /// the same thing on both pages.
     ///
     /// What is absent, and why: the **author key** (`Uuid`) and the **cover key**
     /// (`Option<Uuid>`), because a key renders as an id rather than a name —
     /// the cover's key renders through [`Self::view_content`] — and the
-    /// **comments**, which render as a relation ([`Self::relations`]).
-    fn view(cx: &Cx) -> Schema {
+    /// **comments**, which render as a relation ([`Self::relations`]). The
+    /// publication shows its one date rather than every variant's payload.
+    fn view(dx: &DeclCx) -> Schema {
+        let c = PostForm::controls(dx);
         Schema::new((
-            Section::new("Post").schema((
-                Field::text(Post::fields().title()),
-                Field::text(Post::fields().body()).multiline(6),
-            )),
-            Section::new("Details").schema(
-                Group::new().schema((
-                    Grid::new(2).schema((
-                        Field::choice(Post::fields().status())
-                            .options(vec!["draft".to_string(), "published".to_string()])
-                            .label("Status"),
-                        Field::toggle(Post::fields().featured()).label("Featured"),
-                    )),
-                    Field::text(Post::fields().tags()).label("Tags"),
-                )),
-            ),
-            Section::new("SEO").schema((
-                Field::text(ResolvedLens::new(cx, Post::fields().seo().title())),
-                Field::text(ResolvedLens::new(cx, Post::fields().seo().description())).multiline(3),
-            )),
+            Section::new("Post").schema((c.title, c.body.multiline(6))),
+            Section::new("Details")
+                .schema(Group::new().schema((Grid::new(2).schema((c.status, c.featured)), c.tags))),
+            Section::new("SEO").schema(c.seo),
             Section::new("Publication").schema(
                 Field::text(ResolvedLens::new(
-                    cx,
+                    dx,
                     Post::fields().publication().published().published_at(),
                 ))
                 .label("Published at")
@@ -475,7 +433,7 @@ impl Resource for PostResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Post> {
+    fn table() -> Table<Post> {
         Table::new(
             |p: &Post| p.id.to_string(),
             (
@@ -486,8 +444,10 @@ impl Resource for PostResource {
                 // binds a `String` field, which the framework cannot tell from
                 // a title. Featured and Comments below keep their narrow
                 // default.
-                TextColumn::r#for(Post::fields().status(), |p: &Post| p.status.clone())
-                    .width(ColumnWidth::Narrow),
+                TextColumn::r#for(Post::fields().status(), |p: &Post| {
+                    PostStatus::label_of(&p.status)
+                })
+                .width(ColumnWidth::Narrow),
                 BooleanColumn::r#for(Post::fields().featured(), |p: &Post| p.featured),
                 // The other override direction: a computed column that holds a
                 // name is body text, so it takes a share of the free width.
@@ -522,10 +482,7 @@ impl Resource for PostResource {
             ),
         )
         .filters((
-            SelectFilter::r#for(
-                Post::fields().status(),
-                vec!["draft".into(), "published".into()],
-            ),
+            SelectFilter::r#for(Post::fields().status(), PostStatus::options()),
             TernaryFilter::r#for(Post::fields().featured()),
             DateFilter::r#for(Post::fields().created_at()),
             // Prebuilt-expression VariantFilter (no embedded enum needed):
@@ -538,17 +495,19 @@ impl Resource for PostResource {
                 vec![
                     (
                         "Promoted".to_string(),
-                        Post::fields()
-                            .featured()
-                            .eq(true)
-                            .and(Post::fields().status().eq("published".to_string())),
+                        Post::fields().featured().eq(true).and(
+                            Post::fields()
+                                .status()
+                                .eq(PostStatus::Published.value().to_string()),
+                        ),
                     ),
                     (
                         "Backlog".to_string(),
-                        Post::fields()
-                            .featured()
-                            .eq(false)
-                            .and(Post::fields().status().eq("draft".to_string())),
+                        Post::fields().featured().eq(false).and(
+                            Post::fields()
+                                .status()
+                                .eq(PostStatus::Draft.value().to_string()),
+                        ),
                     ),
                 ],
             ),
@@ -596,11 +555,12 @@ impl Action<PostResource> for PublishPosts {
 pub struct PostForm {
     pub title: String,
     pub body: String,
-    #[form(blank = "draft")]
+    #[form(options = PostStatus, blank = PostStatus::Draft.value())]
     pub status: String,
-    #[form(blank = false)]
     pub featured: bool,
+    #[form(choice)]
     pub author_id: uuid::Uuid,
+    #[form(choice)]
     pub cover_id: Option<uuid::Uuid>,
     pub tags: String,
     #[form(embed)]
@@ -694,14 +654,13 @@ impl Resource for CommentResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::MESSAGE_SQUARE)
     }
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(dx: &DeclCx) -> Schema {
+        let c = CommentForm::controls(dx);
         Schema::new((
             // Prose, so a textarea rather than a one-line input — the same
             // shape the post body uses.
-            Field::text(Comment::fields().body())
-                .multiline(4)
-                .placeholder("Write a reply…"),
-            Field::choice(Comment::fields().post_id())
+            c.body.multiline(4).placeholder("Write a reply…"),
+            c.post_id
                 .relationship::<PostResource>(
                     PostResource::query,
                     |p: &Post| p.id,
@@ -783,7 +742,7 @@ impl Resource for CommentResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Comment> {
+    fn table() -> Table<Comment> {
         Table::new(
             |c: &Comment| c.id.to_string(),
             (
@@ -816,6 +775,7 @@ impl Resource for CommentResource {
 #[form(model = Comment)]
 pub struct CommentForm {
     pub body: String,
+    #[form(choice)]
     pub post_id: uuid::Uuid,
 }
 

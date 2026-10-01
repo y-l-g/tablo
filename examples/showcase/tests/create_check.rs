@@ -203,7 +203,7 @@ async fn create_policy_deny() {
     impl Resource for DenyCreateResource {
         type Model = DummyUser;
         type Form = DenyCreateForm;
-        fn form(_cx: &topcoat::context::Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new(Field::text(DummyUser::fields().name()).required())
         }
 
@@ -213,7 +213,7 @@ async fn create_policy_deny() {
         fn can_view_any(_cx: &topcoat::context::Cx) -> bool {
             true
         }
-        fn table(_cx: &topcoat::context::Cx) -> Table<DummyUser> {
+        fn table() -> Table<DummyUser> {
             Table::new(
                 |u: &DummyUser| u.id.to_string(),
                 TextColumn::r#for(DummyUser::fields().name(), |u: &DummyUser| u.name.clone()),
@@ -388,7 +388,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     impl Resource for FailingResource {
         type Model = Widget;
         type Form = FailingForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new(Field::text(Widget::fields().name()))
         }
         async fn create_record(
@@ -409,7 +409,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> Table<Widget> {
+        fn table() -> Table<Widget> {
             Table::new(
                 |w: &Widget| w.id.to_string(),
                 TextColumn::r#for(Widget::fields().name(), |w: &Widget| w.name.clone()),
