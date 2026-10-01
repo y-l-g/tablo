@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Brand, ColumnWidth, Committed, DateFilter, Field, FieldErrors, Grid, Group, NavigationItem,
-    Panel, Posted, Relation, Repeater, ResolvedLens, Resource, Schema, Section, SelectFilter,
-    Table, TernaryFilter, TextColumn, Uploader, VariantFilter, scoped_query, tenant_id,
-    write_create, write_update,
+    Action, Actions, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter, Field, FieldErrors,
+    Grid, Group, NavigationItem, Panel, Posted, Relation, Repeater, ResolvedLens, Resource, Schema,
+    Section, SelectFilter, Table, TernaryFilter, TextColumn, Uploader, VariantFilter, scoped_query,
+    tenant_id, write_create, write_update,
 };
 use toasty::Db;
 use topcoat::{
@@ -84,15 +84,8 @@ impl Resource for UserResource {
                     .options(vec!["admin".to_string(), "member".to_string()])
                     .label("Role")
                     .optional(),
-                // Bool lens via static options: a field has no checkbox
-                // control, so Active renders as a Yes/No choice.
-                Field::choice(User::fields().active())
-                    .options_with_labels(vec![
-                        ("true".to_string(), "Active".to_string()),
-                        ("false".to_string(), "Inactive".to_string()),
-                    ])
-                    .label("Active")
-                    .optional(),
+                // A bool column: the built-in checkbox control.
+                Field::toggle(User::fields().active()).label("Active"),
                 // A stored integer: optional, zero or more.
                 Field::text(User::fields().age()).label("Age").optional(),
             )),
@@ -301,13 +294,7 @@ impl Resource for PostResource {
                             .options(vec!["draft".to_string(), "published".to_string()])
                             .label("Status")
                             .optional(),
-                        Field::choice(Post::fields().featured())
-                            .options_with_labels(vec![
-                                ("true".to_string(), "Featured".to_string()),
-                                ("false".to_string(), "Regular".to_string()),
-                            ])
-                            .label("Featured")
-                            .optional(),
+                        Field::toggle(Post::fields().featured()).label("Featured"),
                     )),
                     Field::choice(Post::fields().author_id())
                         .relationship::<AuthorResource>(
@@ -405,12 +392,7 @@ impl Resource for PostResource {
                         Field::choice(Post::fields().status())
                             .options(vec!["draft".to_string(), "published".to_string()])
                             .label("Status"),
-                        Field::choice(Post::fields().featured())
-                            .options_with_labels(vec![
-                                ("true".to_string(), "Featured".to_string()),
-                                ("false".to_string(), "Regular".to_string()),
-                            ])
-                            .label("Featured"),
+                        Field::toggle(Post::fields().featured()).label("Featured"),
                     )),
                     Field::text(Post::fields().tags()).label("Tags"),
                 )),
@@ -451,6 +433,11 @@ impl Resource for PostResource {
             }
             .boxed(),
         )
+    }
+
+    /// Publish drafts from a row or for the selection.
+    fn actions() -> Actions<Self> {
+        Actions::new().add::<PublishPosts>()
     }
 
     /// The post's comments: the comments list's own table, narrowed to this
@@ -497,13 +484,11 @@ impl Resource for PostResource {
                     .sortable(),
                 // a status is narrow by content, not by kind — `r#for`
                 // binds a `String` field, which the framework cannot tell from
-                // a title. Featured and Comments below keep the `computed`
-                // default (narrow).
+                // a title. Featured and Comments below keep their narrow
+                // default.
                 TextColumn::r#for(Post::fields().status(), |p: &Post| p.status.clone())
                     .width(ColumnWidth::Narrow),
-                TextColumn::computed("Featured", |p: &Post| {
-                    if p.featured { "Yes" } else { "No" }.to_string()
-                }),
+                BooleanColumn::r#for(Post::fields().featured(), |p: &Post| p.featured),
                 // The other override direction: a computed column that holds a
                 // name is body text, so it takes a share of the free width.
                 TextColumn::computed("Author", |p: &Post| {
@@ -570,6 +555,36 @@ impl Resource for PostResource {
         ))
         .group_by("status", |p: &Post| p.status.clone())
         .live_search()
+    }
+}
+
+/// Publish draft posts, from a row or for the selection.
+///
+/// The framework loads the posts through the tenant-scoped query inside its
+/// transaction and checks `can_view` and `can_run` on each before `run`
+/// writes through the same transaction.
+pub struct PublishPosts;
+
+impl Action<PostResource> for PublishPosts {
+    const NAME: &'static str = "publish";
+
+    fn label() -> String {
+        "Publish".to_string()
+    }
+
+    fn can_run(_cx: &Cx, post: &Post) -> bool {
+        post.status != crate::blog::PUBLISHED
+    }
+
+    async fn run(_cx: &Cx, posts: &[Post], ex: &mut dyn toasty::Executor) -> Result<()> {
+        for post in posts {
+            Post::filter(Post::fields().id().eq(post.id))
+                .update()
+                .status(crate::blog::PUBLISHED.to_string())
+                .exec(&mut *ex)
+                .await?;
+        }
+        Ok(())
     }
 }
 

@@ -448,8 +448,8 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
         .await;
     assert_eq!(
         resp.status(),
-        403,
-        "partial deny should be 403, got {}",
+        303,
+        "partial deny returns to the list with an error, got {}",
         resp.status()
     );
     // Check no deletions happened

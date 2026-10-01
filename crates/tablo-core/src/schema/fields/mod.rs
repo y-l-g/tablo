@@ -1,14 +1,19 @@
-//! Field leaves: one [`Field`] type whose control is text, choice, or file.
+//! Field leaves: one [`Field`] type whose control is text, choice, file, or
+//! an app's own [`Control`].
 //!
 //! Every constructor takes a [`ResolvedLens`], which is the single source of
 //! truth for the field's key, label, and required default, so a field of any
 //! kind binds a top-level column or an embedded leaf alike.
 
 mod choice;
+mod custom;
 mod file;
 mod text;
 
+use std::sync::Arc;
+
 pub(crate) use choice::{ChoiceControl, option_view};
+pub use custom::{Control, ControlInput, Toggle};
 use tablo_ui::{
     field as ui_field, field_content as ui_field_content, field_error as ui_field_error,
     field_label as ui_field_label, field_title as ui_field_title,
@@ -50,6 +55,9 @@ use crate::form::{FieldError, FormScalar};
 /// `multiline` to text; `options`, `options_with_labels`, `relationship`, and
 /// `searchable` to choice. Calling one on another control is a declaration
 /// bug and panics, naming the field.
+///
+/// [`toggle`](Self::toggle) renders a checkbox, and [`custom`](Self::custom)
+/// renders any [`Control`] an app writes.
 pub struct Field {
     name: String,
     label: String,
@@ -59,17 +67,23 @@ pub struct Field {
     nullable: bool,
     /// The email and scalar-parse rules, with their messages.
     rules: Rules,
-    control: Control,
+    control: ControlKind,
 }
 
 /// The control a [`Field`] renders, with what only that control declares.
-pub(crate) enum Control {
+///
+/// Text, choice, and file are the framework's own: the unique probe, the
+/// relationship option endpoint, and the multipart parser read them.
+/// Everything else is a [`Control`].
+pub(crate) enum ControlKind {
     /// A one-line `<input>`, or a `<textarea>` when `rows` is set.
     Text(TextControl),
     /// A `<select>` over static options or a relationship's rows.
     Choice(ChoiceControl),
     /// A file input storing the uploaded file's path.
     File,
+    /// An app's control, or the built-in [`Toggle`].
+    Custom(Arc<dyn Control>),
 }
 
 impl std::fmt::Debug for Field {
@@ -77,9 +91,10 @@ impl std::fmt::Debug for Field {
         // The probe and the loaders are closures with no useful Debug;
         // everything a reader needs is the field's identity and its control.
         let control = match &self.control {
-            Control::Text(_) => "text",
-            Control::Choice(_) => "choice",
-            Control::File => "file",
+            ControlKind::Text(_) => "text",
+            ControlKind::Choice(_) => "choice",
+            ControlKind::File => "file",
+            ControlKind::Custom(_) => "custom",
         };
         f.debug_struct("Field")
             .field("name", &self.name)
@@ -122,7 +137,7 @@ impl Field {
             required: !lens.nullable,
             nullable: lens.nullable,
             rules: Rules::new().scalar::<T>(),
-            control: Control::Text(control),
+            control: ControlKind::Text(control),
         }
     }
 
@@ -142,7 +157,7 @@ impl Field {
             required: !lens.nullable,
             nullable: lens.nullable,
             rules: Rules::new().scalar::<T>(),
-            control: Control::Text(TextControl::leaf::<T>()),
+            control: ControlKind::Text(TextControl::leaf::<T>()),
         }
     }
 
@@ -164,7 +179,7 @@ impl Field {
             required: !lens.nullable,
             nullable: lens.nullable,
             rules: Rules::new(),
-            control: Control::Choice(ChoiceControl::default()),
+            control: ControlKind::Choice(ChoiceControl::default()),
         }
     }
 
@@ -190,7 +205,43 @@ impl Field {
             required: !lens.nullable,
             nullable: lens.nullable,
             rules: Rules::new(),
-            control: Control::File,
+            control: ControlKind::File,
+        }
+    }
+
+    /// A checkbox over a `bool` column: the built-in [`Toggle`].
+    ///
+    /// An unchecked box submits `false`, so the field is never empty and
+    /// carries no required marker.
+    pub fn toggle<M>(lens: impl Into<ResolvedLens<M, bool>>) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        Self::custom(lens, Toggle).optional()
+    }
+
+    /// A field over a column of any [`FormScalar`] type, rendered by an
+    /// app's [`Control`].
+    ///
+    /// The field keeps the shared rules: the required default from the
+    /// column's nullability, the type's parse rule, and the error slot. The
+    /// control renders only the input.
+    pub fn custom<M, T>(
+        lens: impl Into<ResolvedLens<M, T>>,
+        control: impl Control + 'static,
+    ) -> Self
+    where
+        M: toasty::schema::Model,
+        T: FormScalar,
+    {
+        let lens = lens.into();
+        Self {
+            name: lens.name,
+            label: lens.label,
+            required: !lens.nullable,
+            nullable: lens.nullable,
+            rules: Rules::new().scalar::<T>(),
+            control: ControlKind::Custom(Arc::new(control)),
         }
     }
 
@@ -208,7 +259,7 @@ impl Field {
             required: false,
             nullable: true,
             rules: Rules::new(),
-            control: Control::Choice(ChoiceControl {
+            control: ControlKind::Choice(ChoiceControl {
                 discriminant: true,
                 options: variants,
                 ..ChoiceControl::default()
@@ -354,7 +405,7 @@ impl Field {
     /// The choice control, when this is a choice field.
     pub(crate) fn as_choice(&self) -> Option<&ChoiceControl> {
         match &self.control {
-            Control::Choice(choice) => Some(choice),
+            ControlKind::Choice(choice) => Some(choice),
             _ => None,
         }
     }
@@ -365,19 +416,19 @@ impl Field {
     /// text.
     pub(crate) fn eq_filter(&self, value: &str) -> Option<toasty::stmt::Expr<bool>> {
         match &self.control {
-            Control::Text(text) => text.eq_filter(value),
+            ControlKind::Text(text) => text.eq_filter(value),
             _ => None,
         }
     }
 
     /// Whether this is a file field.
     pub(crate) fn is_file(&self) -> bool {
-        matches!(self.control, Control::File)
+        matches!(self.control, ControlKind::File)
     }
 
     /// Whether this is a text field marked [`unique`](Self::unique).
     pub(crate) fn is_unique(&self) -> bool {
-        matches!(&self.control, Control::Text(text) if text.unique)
+        matches!(&self.control, ControlKind::Text(text) if text.unique)
     }
 
     /// Whether an empty submit fails validation and the control renders as
@@ -410,7 +461,7 @@ impl Field {
     /// a relationship row the user may view. Empty for any other field.
     pub(crate) async fn validate_exists(&self, cx: &Cx, value: &str) -> Vec<String> {
         match &self.control {
-            Control::Choice(choice) => choice.validate_exists(cx, &self.label, value).await,
+            ControlKind::Choice(choice) => choice.validate_exists(cx, &self.label, value).await,
             _ => Vec::new(),
         }
     }
@@ -440,18 +491,48 @@ impl Field {
             return render_value(cx, &self.label, Some("(missing)"), ValueKind::Prose);
         }
         match &self.control {
-            Control::Text(text) => self.render_text(text, cx, value, error, mode),
-            Control::Choice(choice) => {
+            ControlKind::Text(text) => self.render_text(text, cx, value, error, mode),
+            ControlKind::Choice(choice) => {
                 Box::pin(self.render_choice(choice, cx, value, error, mode)).await
             }
-            Control::File => self.render_file(cx, value, error, mode),
+            ControlKind::File => self.render_file(cx, value, error, mode),
+            ControlKind::Custom(control) => {
+                self.render_custom(control.as_ref(), cx, value, error, mode)
+            }
         }
+    }
+
+    /// Render an app [`Control`]: its `display` on the detail page, its
+    /// input inside the shared field chrome on a form.
+    fn render_custom<'a>(
+        &self,
+        control: &dyn Control,
+        cx: &'a Cx,
+        value: Option<&str>,
+        error: Option<&str>,
+        mode: Mode,
+    ) -> Result<BoxView<'a>> {
+        if mode == Mode::View {
+            let shown = control.display(cx, value.unwrap_or_default());
+            return render_value_view(cx, &self.label, shown);
+        }
+        let required = self.is_required();
+        let chrome = FieldChrome::new(&self.name, error, None);
+        let input = ControlInput::new(
+            &self.name,
+            value,
+            required,
+            chrome.aria_invalid() == "true",
+            chrome.described_by(),
+        );
+        let rendered = control.render(cx, input);
+        render_field(cx, &chrome, &self.label, required, attributes! {}, rendered)
     }
 
     /// The text control, or a panic naming the modifier that needs one.
     fn text_mut(&mut self, modifier: &str) -> &mut TextControl {
         match &mut self.control {
-            Control::Text(text) => text,
+            ControlKind::Text(text) => text,
             _ => panic!(
                 "`.{modifier}()` applies to a text field, and `{}` is not one",
                 self.name
@@ -462,7 +543,7 @@ impl Field {
     /// The choice control, or a panic naming the modifier that needs one.
     fn choice_mut(&mut self, modifier: &str) -> &mut ChoiceControl {
         match &mut self.control {
-            Control::Choice(choice) => choice,
+            ControlKind::Choice(choice) => choice,
             _ => panic!(
                 "`.{modifier}()` applies to a choice field, and `{}` is not one",
                 self.name

@@ -1,6 +1,6 @@
 # Confirmed mutations: the response is a page, the table is re-run by its shard
 
-Date: 2026-09-23 — Status: accepted — Amended: 2026-09-27
+Date: 2026-09-23 — Status: accepted — Amended: 2026-10-01
 
 ## Decision
 
@@ -10,6 +10,11 @@ confirmation checks, their flash notification, and the no-JS path are unchanged
 `data-mutation-submit` — the row-delete confirm and the bulk confirm — is posted by
 `crates/tablo-ui/assets/mutation-submit.js` with `fetch`, and the response is applied in place.
 Without JavaScript the marker is inert and the same form POSTs and 303s.
+
+The bulk form also carries the resource's bulk custom actions, as submit buttons with their own
+`formaction`, so they post the same selection to `{list}/actions/{NAME}`. The script posts to the
+submitting button's `formaction` when it has one, and to the form's `action` otherwise. A row's
+custom action is a plain form outside this marker: it POSTs and 303s.
 
 **The mutation response is the whole list page, and the client reads exactly two things out of it.**
 

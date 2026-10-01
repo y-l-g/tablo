@@ -5,7 +5,7 @@ use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
     super::{
-        super::state::{TableSignals, TableState, bulk_delete_url},
+        super::state::{TableSignals, TableState, bulk_action_url, bulk_delete_url},
         Table,
     },
     BAR_CLASS, QUIET_LINK_CLASS, SEARCH_FIELD_CLASS, SEARCH_FORM_CLASS, SEARCH_ICON_CLASS,
@@ -44,7 +44,8 @@ pub(super) fn hidden_state_inputs<'a>(
 }
 
 impl<M> Table<M> {
-    /// The bulk-delete bar and its confirmation dialog, or the
+    /// The bulk bar — the custom bulk actions, then bulk delete and its
+    /// confirmation dialog — or the
     /// placeholder that keeps the chrome's node order stable when
     /// [`Self::bulk_enabled`] is off.
     ///
@@ -71,11 +72,36 @@ impl<M> Table<M> {
         if !self.bulk_enabled() {
             return view! { cx => <span></span> }.boxed();
         }
-        let prefix = self
+        let delete_prefix = self
             .delete_prefix
             .clone()
-            .expect("bulk chrome rides the delete prefix (see bulk_enabled)");
-        let bulk_action = self.action_url(bulk_delete_url(&prefix));
+            .filter(|_| self.bulk_delete_enabled());
+        // The list URL every bulk route hangs off: bulk delete's, else the
+        // custom actions'. `bulk_enabled` holds one or the other.
+        let prefix = delete_prefix
+            .clone()
+            .or_else(|| self.actions_prefix.clone())
+            .expect("bulk chrome rides the delete or the actions prefix (see bulk_enabled)");
+        // Each custom bulk action is a submit of this form to its own route
+        // (`formaction`), so it carries the same selection transport.
+        let custom: Vec<(String, String)> = self
+            .bulk_custom_actions()
+            .map(|action| {
+                (
+                    action.label.clone(),
+                    self.action_url(bulk_action_url(&prefix, action.name)),
+                )
+            })
+            .collect();
+        // The form's own target is bulk delete's when it renders, so the
+        // confirm dialog's submit reaches it; otherwise the first action's.
+        let bulk_action = match &delete_prefix {
+            Some(prefix) => self.action_url(bulk_delete_url(prefix)),
+            None => custom
+                .first()
+                .map(|(_, url)| url.clone())
+                .unwrap_or_default(),
+        };
         let csrf = crate::csrf::current_token(cx);
         // Stable ids so the dialog's confirm button can submit this form
         // from inside the dialog.
@@ -83,17 +109,35 @@ impl<M> Table<M> {
         // Destructive confirm: a batch is the one place a misclick costs many
         // rows, so it asks first — the same alert dialog the row delete uses.
         // It sits inside the bulk form, so its controls submit that form.
-        let confirm = confirm_dialog(
-            cx,
-            ConfirmDialog {
-                id: chrome_dom_id(&prefix, "bulk-form-confirm"),
-                open: false,
-                title: "Delete the selected records?",
-                attrs: attributes! { cx => data-bulk-confirm-dialog="" },
-                description_attrs: attributes! { cx => data-bulk-confirm-description="" },
-                footer: confirm_controls(cx),
-            },
-        );
+        let confirm = delete_prefix.as_ref().map(|_| {
+            confirm_dialog(
+                cx,
+                ConfirmDialog {
+                    id: chrome_dom_id(&prefix, "bulk-form-confirm"),
+                    open: false,
+                    title: "Delete the selected records?",
+                    attrs: attributes! { cx => data-bulk-confirm-dialog="" },
+                    description_attrs: attributes! { cx => data-bulk-confirm-description="" },
+                    footer: confirm_controls(cx),
+                },
+            )
+        });
+        let with_delete = confirm.is_some();
+        let custom_buttons: Vec<BoxView<'a>> = custom
+            .into_iter()
+            .map(|(label, url)| {
+                view! {
+                    cx =>
+                    button(
+                        variant: ButtonVariant::Outline,
+                        size: ButtonSize::Md,
+                        attrs: attributes! { type="submit" formaction=(url) data-bulk-action="" },
+                        (label)
+                    )
+                }
+                .boxed()
+            })
+            .collect();
         // No visible `ids` field: the transport is fed by the row
         // checkboxes (`bulk.js`) and ships `,a,b,`-delimited. On a live
         // table the selection lives in a signal instead, so a
@@ -124,17 +168,24 @@ impl<M> Table<M> {
             >
                 (crate::csrf::field(cx, &csrf))
                 <input (transport_attrs)>
-                button(
-                    variant: ButtonVariant::Outline,
-                    size: ButtonSize::Md,
-                    attrs: attributes! { type="button" data-bulk-confirm-trigger="" },
-                    icon(
-                        data: tablo_ui::icons::TRASH,
-                        attrs: attributes! { class="text-destructive" }
+                for custom_button in custom_buttons {
+                    (custom_button)
+                }
+                if with_delete {
+                    button(
+                        variant: ButtonVariant::Outline,
+                        size: ButtonSize::Md,
+                        attrs: attributes! { type="button" data-bulk-confirm-trigger="" },
+                        icon(
+                            data: tablo_ui::icons::TRASH,
+                            attrs: attributes! { class="text-destructive" }
+                        )
+                        "Delete selected"
                     )
-                    "Delete selected"
-                )
-                (confirm)
+                }
+                if let Some(confirm) = confirm {
+                    (confirm)
+                }
             </form>
         }
         .boxed()

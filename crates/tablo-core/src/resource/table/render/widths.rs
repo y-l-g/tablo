@@ -34,14 +34,20 @@ pub(super) struct ColumnWidths {
 impl<M> Table<M> {
     /// Whether the table renders a row-actions column.
     pub(super) fn with_actions(&self) -> bool {
-        self.delete_prefix.is_some() || self.edit_prefix.is_some() || self.view_prefix.is_some()
+        self.delete_prefix.is_some()
+            || self.edit_prefix.is_some()
+            || self.view_prefix.is_some()
+            || self.row_custom_actions().next().is_some()
     }
 
-    /// How many row links sit side by side in the actions column.
+    /// How many row links sit side by side in the actions column. A custom
+    /// action's button carries its label rather than an icon, so it counts
+    /// as two.
     fn action_link_count(&self) -> usize {
         usize::from(self.view_prefix.is_some())
             + usize::from(self.edit_prefix.is_some())
             + usize::from(self.delete_prefix.is_some())
+            + 2 * self.row_custom_actions().count()
     }
 
     /// The share of the table the row-actions column claims: the row

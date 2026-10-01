@@ -3,7 +3,9 @@ use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
 use crate::{
-    resource::{Resource, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
+    resource::{
+        Column, Resource, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn,
+    },
     test_support::User,
 };
 
@@ -57,14 +59,14 @@ async fn table_search_filters_via_column() {
         .unwrap();
     let cx = CxTestBuilder::new().app_context(db).build();
     let col = TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable();
-    let expr = col.to_search_expr("Ada").unwrap();
+    let expr = col.search_expr("Ada").unwrap();
     let mut db = crate::db::db(&cx);
     let rows = User::filter(expr).exec(&mut db).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Ada");
     // Empty term → None
-    assert!(col.to_search_expr("").is_none());
-    assert!(col.to_search_expr("   ").is_none());
+    assert!(col.search_expr("").is_none());
+    assert!(col.search_expr("   ").is_none());
 }
 
 /// The panel's page-owned seam must attach the chrome the resource
@@ -434,7 +436,7 @@ async fn filter_banner_reports_unfiltered_when_nothing_applies() {
 struct NoColumns;
 
 impl<M> IntoColumns<M> for NoColumns {
-    fn into_columns(self) -> Vec<TextColumn<M>> {
+    fn into_columns(self) -> Vec<crate::resource::column::BoxColumn<M>> {
         Vec::new()
     }
 }

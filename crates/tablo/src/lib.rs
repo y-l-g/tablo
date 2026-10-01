@@ -28,9 +28,10 @@ pub use tablo_ui as ui;
 /// The items a resource module names most: `use tablo::prelude::*;`.
 pub mod prelude {
     pub use tablo_core::{
-        Auth, Brand, ColumnWidth, Committed, DateFilter, EmbeddedForm, Field, FieldErrors, Grid,
-        Group, NavigationItem, NoForm, Page, Panel, Posted, RecordForm, Relation, Repeater,
-        Resource, Schema, Section, SelectFilter, Table, TernaryFilter, TextColumn, VariantFilter,
-        scoped_query, tenant_id,
+        Action, Actions, Auth, BooleanColumn, Brand, Column, ColumnWidth, Committed, Control,
+        ControlInput, DateFilter, EmbeddedForm, Field, FieldErrors, Filter, FilterInput, Grid,
+        Group, Includes, NavigationItem, NoForm, Page, Panel, Posted, RecordForm, Relation,
+        Repeater, Resource, Schema, Section, SelectFilter, Table, TernaryFilter, TextColumn,
+        VariantFilter, scoped_query, tenant_id,
     };
 }

@@ -2,18 +2,18 @@
 
 use std::borrow::Cow;
 
-use tablo_ui::{ButtonSize, ButtonVariant, button_variants, table_cell, table_row};
+use tablo_ui::{ButtonSize, ButtonVariant, button, button_variants, table_cell, table_row};
 use topcoat::{context::Cx, icon::icon, view::*};
 
 use super::super::{
     super::{
         page::TablePage,
         state::{
-            TableState, delete_action_url, group_header_dom_id, row_dom_id, row_edit_url,
-            row_view_url,
+            TableState, delete_action_url, group_header_dom_id, row_action_url, row_dom_id,
+            row_edit_url, row_view_url,
         },
     },
-    GroupKey, RowActions, RowKey, Table,
+    GroupKey, RowActions, Table,
 };
 
 /// What every row of one render shares: the chrome columns, the declared
@@ -42,7 +42,7 @@ pub(super) struct RenderedRow<'a> {
 /// owns, so the header lands immediately above its own rows.
 pub(super) fn render_rows<'a>(
     cx: &'a Cx,
-    rows: Vec<RowView>,
+    rows: Vec<RowView<'a>>,
     chrome: &RowChrome,
 ) -> Vec<RenderedRow<'a>> {
     rows.into_iter()
@@ -55,7 +55,7 @@ pub(super) fn render_rows<'a>(
 
 /// One row: its group header when it opens a group, the bulk checkbox, the
 /// cells, and the actions cell.
-fn render_row<'a>(cx: &'a Cx, row: RowView, chrome: &RowChrome) -> BoxView<'a> {
+fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
     let header = row.group_header.clone().map(|header| {
         let colspan = chrome.header_colspan;
         view! {
@@ -99,10 +99,8 @@ fn render_row<'a>(cx: &'a Cx, row: RowView, chrome: &RowChrome) -> BoxView<'a> {
     // the column that owns its width. The cell repeats the width its header
     // declares and truncates: under the table's fixed layout a value wider than
     // the column clips to an ellipsis instead of stretching the column.
-    let cells: Vec<(String, Option<Cow<'static, str>>)> = row
-        .cells
-        .iter()
-        .cloned()
+    let cells: Vec<(BoxView<'a>, Option<Cow<'static, str>>)> = std::mem::take(&mut row.cells)
+        .into_iter()
         .zip(chrome.cell_widths.iter().cloned())
         .collect();
     // Every row carries the actions cell its header declares; a row refused
@@ -137,7 +135,7 @@ fn render_row<'a>(cx: &'a Cx, row: RowView, chrome: &RowChrome) -> BoxView<'a> {
 
 /// The row's actions cell: View, Edit and Delete, each only when the row's
 /// policy allows it.
-fn render_actions<'a>(cx: &'a Cx, row: &RowView, chrome: &RowChrome) -> BoxView<'a> {
+fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
     let actions_min = chrome.actions_min.clone();
     let view_url = row.view_url.clone();
     let edit_url = row.edit_url.clone();
@@ -151,11 +149,46 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView, chrome: &RowChrome) -> BoxView<
     let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
     let edit_class = link_class.clone();
     let delete_class = link_class.clone();
+    // Each custom action is its own POST form, marked like the delete forms:
+    // `mutation-submit.js` posts it and refreshes the table in place, keeping
+    // the list's query; without the script it POSTs and 303s. Its button
+    // carries the label, not an icon.
+    let csrf = (!row.custom.is_empty()).then(|| crate::csrf::current_token(cx));
+    let custom: Vec<BoxView<'a>> = row
+        .custom
+        .iter()
+        .map(|(label, url)| {
+            let label = label.clone();
+            let url = url.clone();
+            let token = csrf.clone().unwrap_or_default();
+            view! {
+                cx =>
+                <form
+                    method="post"
+                    action=(url)
+                    class="contents"
+                    data-mutation-submit=""
+                >
+                    (crate::csrf::field(cx, &token))
+                    button(
+                        variant: ButtonVariant::Ghost,
+                        size: ButtonSize::Sm,
+                        attrs: attributes! { type="submit" },
+                        (label)
+                    )
+                </form>
+            }
+            .boxed()
+        })
+        .collect();
     view! {
         cx =>
         table_cell(
             attrs: attributes! { style=(actions_min.as_deref()) },
             <div class="flex items-center justify-end gap-1">
+                for form in custom {
+                    (form)
+                }
                 if let Some(url) = view_url {
                     <a
                         (crate::resource::runtime_link(cx, &url))
@@ -207,10 +240,11 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView, chrome: &RowChrome) -> BoxView<
 /// `key` is the display projection (keyed diffs, DOM ids);
 /// `record_id` is the record projection (URLs, bulk values), resolved
 /// by handlers as the typed PK.
-pub(super) struct RowView {
+pub(super) struct RowView<'a> {
     key: String,
     record_id: String,
-    cells: Vec<String>,
+    /// One rendered cell per column, in column order.
+    cells: Vec<BoxView<'a>>,
     view_url: Option<String>,
     edit_url: Option<String>,
     delete_url: Option<String>,
@@ -218,10 +252,12 @@ pub(super) struct RowView {
     /// Delete control hands it to the shared dialog before opening it, so the
     /// confirmed POST keeps the route the `?delete=` fallback uses.
     delete_action: Option<String>,
-    /// Whether the row renders a bulk checkbox: a row the
-    /// [`Table::row_actions`] policy denies `delete` renders none, so
-    /// `bulk.js` never sees its key and select-all cannot submit a batch the
-    /// handler refuses wholesale.
+    /// The custom row actions this record allows: each button's label and
+    /// its POST target.
+    custom: Vec<(String, String)>,
+    /// Whether the row renders a bulk checkbox: a row that neither bulk
+    /// delete nor any bulk custom action allows renders none, so `bulk.js`
+    /// never sees its key.
     selectable: bool,
     /// The row's group label, when `?group_by=` named the declared group.
     /// Carried on every row so the page-local shim can order by it.
@@ -272,15 +308,14 @@ impl<M> Table<M> {
     ///
     /// Row keys must be injective within a page: duplicates corrupt keyed diffs
     /// and bulk selection.
-    pub(super) fn row_views(
+    pub(super) fn row_views<'a>(
         &self,
+        cx: &'a Cx,
         state: &TableState,
         path: &str,
         page: &TablePage<M>,
-        row_key: &RowKey<M>,
-        record_key: &RowKey<M>,
         group_key: Option<&GroupKey<M>>,
-    ) -> Vec<RowView>
+    ) -> Vec<RowView<'a>>
     where
         M: toasty::schema::Model,
     {
@@ -291,22 +326,20 @@ impl<M> Table<M> {
         let gated = self.delete_prefix.is_some()
             || self.edit_prefix.is_some()
             || self.view_prefix.is_some();
-        let mut row_data: Vec<RowView> = page
+        let bulk_delete = self.bulk_delete_enabled();
+        let mut row_data: Vec<RowView<'a>> = page
             .rows
             .iter()
             .map(|row| {
-                let key = row_key(row);
-                let record_id = record_key(row);
+                let key = (self.row_key)(row);
+                let record_id = (self.record_key)(row);
                 let actions = if gated {
                     self.actions_for(row)
                 } else {
                     RowActions::ALL
                 };
-                let cells: Vec<String> = self
-                    .columns
-                    .iter()
-                    .map(|col| col.render_cell(row))
-                    .collect();
+                let cells: Vec<BoxView<'a>> =
+                    self.columns.iter().map(|col| col.cell(cx, row)).collect();
                 let edit_url = self
                     .edit_prefix
                     .as_ref()
@@ -329,6 +362,23 @@ impl<M> Table<M> {
                     .as_ref()
                     .filter(|_| actions.delete)
                     .map(|prefix| self.action_url(delete_action_url(prefix, &record_id)));
+                let custom = self
+                    .actions_prefix
+                    .as_ref()
+                    .map(|prefix| {
+                        self.row_custom_actions()
+                            .filter(|action| (action.allowed)(row))
+                            .map(|action| {
+                                let url = row_action_url(prefix, &record_id, action.name);
+                                (action.label.clone(), self.action_url(url))
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let selectable = (bulk_delete && actions.delete)
+                    || self
+                        .bulk_custom_actions()
+                        .any(|action| (action.allowed)(row));
                 RowView {
                     key,
                     record_id,
@@ -337,7 +387,8 @@ impl<M> Table<M> {
                     edit_url,
                     delete_url,
                     delete_action,
-                    selectable: actions.delete,
+                    custom,
+                    selectable,
                     group: group_key.map(|group| group(row)),
                     group_header: None,
                 }

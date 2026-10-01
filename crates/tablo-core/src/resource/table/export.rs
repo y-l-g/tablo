@@ -30,7 +30,7 @@ impl<M> Table<M> {
         let cells: Vec<String> = self
             .columns
             .iter()
-            .map(|c| escape_csv(&c.render_cell(row)))
+            .map(|c| escape_csv(&c.text(row)))
             .collect();
         out.push_str(&cells.join(","));
         out.push('\n');

@@ -94,6 +94,8 @@ nest a `Group` for more.
 | `Field::text(lens)` | `String`, a typed value, or an `Option` of one | `<input>`, or `<textarea>` with `.multiline(rows)` |
 | `Field::choice(lens)` | any | `<select>` over static options or a relationship |
 | `Field::file(lens)` | `String` holding the file's path | file input: see [File uploads](#file-uploads) |
+| `Field::toggle(lens)` | `bool` | checkbox |
+| `Field::custom(lens, control)` | `String`, a typed value, or an `Option` of one | your own `Control`: see [Custom controls](#custom-controls) |
 
 Every field takes `.label(..)`, `.required()` and `.optional()`. The label defaults to the column
 name in sentence case, and `required` defaults to whether the column is non-nullable. The other
@@ -101,6 +103,33 @@ modifiers belong to one kind of field and panic on another, which `Panel::build`
 
 - text: `.email()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
 - choice: `.options(..)`, `.options_with_labels(..)`, `.relationship(..)`, `.searchable()`.
+
+### Custom controls
+
+A `Control` renders the input of a `Field::custom` field. The field keeps everything fields share —
+the key, the label, the required rule, the type's parse rule, the error slot and the chrome around
+the input — and the control renders only the input, from a `ControlInput` carrying the key, the
+current value and the validation state:
+
+```rust
+struct Color;
+
+impl Control for Color {
+    fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a> {
+        let attrs = input.attributes(cx); // id, name, value, required, aria-*
+        view! { cx => <input type="color" (attrs)> }.boxed()
+    }
+}
+
+Field::custom(Theme::fields().accent(), Color)
+```
+
+`display` renders the stored value on the detail page, as text by default. The submission is read
+like any other field's: the value posted under the field's key, the last one when it is posted
+twice. `Field::toggle` is built this way: `Toggle` renders a hidden `false` before the checkbox
+under the same name, so an unchecked box submits `false` rather than nothing. A toggle is
+optional, since it is never empty, so its record-form field declares the value an empty
+submission stores: `#[form(blank = false)] pub active: bool`.
 
 ### Typed values
 

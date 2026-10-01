@@ -41,7 +41,10 @@ use topcoat::{
 pub(crate) use self::search::TABLE_SEARCH_PATH;
 pub use self::shell::{Brand, DarkMode};
 use self::{
-    actions::{resource_bulk_delete, resource_delete, resource_export, resource_options},
+    actions::{
+        resource_bulk_action, resource_bulk_delete, resource_delete, resource_export,
+        resource_options, resource_row_action,
+    },
     build::{ResourceCheck, check_resource, is_directory_pattern, validate_route_segment},
     detail::resource_view,
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
@@ -64,8 +67,8 @@ use crate::{
     Page,
     form::RecordForm,
     resource::{
-        BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
-        NavigationItem, RECORD_ROUTE_PARAM, Resource,
+        ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
+        DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, NavigationItem, RECORD_ROUTE_PARAM, Resource,
     },
 };
 
@@ -400,6 +403,26 @@ impl Panel {
             route_path(&bulk_delete_url),
             resource_bulk_delete::<R>,
         ));
+        // Custom actions — POST per row and for the bulk selection, the action
+        // named by the last segment. Registered only for a resource that
+        // declares some: the list-level route's static `actions` segment
+        // would otherwise shadow the edit and delete routes of a record whose
+        // key is `actions`, for nothing.
+        if !R::actions().entries().is_empty() {
+            let row_action_url =
+                format!("{url}/{RECORD_ROUTE_PARAM}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}");
+            self.pages.push(PageFn::new(
+                http::Method::POST,
+                route_path(&row_action_url),
+                resource_row_action::<R>,
+            ));
+            let bulk_action_url = format!("{url}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}");
+            self.pages.push(PageFn::new(
+                http::Method::POST,
+                route_path(&bulk_action_url),
+                resource_bulk_action::<R>,
+            ));
+        }
         // CSV export — GET over the tenant-scoped export query + Table
         // filters/sort (ADR-0012).
         let export_url = format!("{url}/export");

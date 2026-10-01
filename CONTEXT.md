@@ -67,16 +67,18 @@ uses the name; the rendered list is a Table everywhere, including comments and l
 
 ### Column
 
-One cell of a Table row, rendered by a closure over the record. `TextColumn::r#for` binds a
-`String` field through a lens and may be searchable and sortable; `TextColumn::computed` renders
-any value and supports neither. A Column that reads a relation declares it with `include(..)`.
+One cell of a Table row: a `Column` renders it from the record, as a view and as text for the
+export. `TextColumn::r#for` binds a `String` field through a lens and may be searchable and
+sortable; `TextColumn::computed` renders any value and supports neither; `BooleanColumn` renders a
+`bool` as an icon. An app implements `Column` for its own. A Column that reads a relation declares
+it (`TextColumn::include`, `Column::includes`).
 
 _Avoid_: Field (in a table), Cell, Attribute
 
 ### Filter
 
-A predicate a Table adds to its query from a UI control: `SelectFilter`, `TernaryFilter`,
-`DateFilter` or `VariantFilter`. Active Filters combine with AND.
+A predicate a Table adds to its query from a UI control, implementing `Filter`: `SelectFilter`,
+`TernaryFilter`, `DateFilter`, `VariantFilter`, or an app's own. Active Filters combine with AND.
 
 _Avoid_: Scope, Constraint, Where
 
@@ -90,8 +92,9 @@ _Avoid_: Form, Infolist, Fieldset (as a top-level term), statePath
 
 ### Field
 
-One input in a Schema, bound to a model column through a lens: `Field::text`, `Field::choice` or
-`Field::file`. Its label, requiredness and uniqueness default from the column.
+One input in a Schema, bound to a model column through a lens: `Field::text`, `Field::choice`,
+`Field::file`, `Field::toggle`, or `Field::custom` over an app's `Control`. Its label, requiredness
+and uniqueness default from the column.
 
 _Avoid_: Input, Control, Widget (in a form), statePath
 
@@ -128,16 +131,17 @@ _Avoid_: Patch, Changes, Diff, Submission
 
 ### Action
 
-A user-invoked create, update or delete, run by a POST handler that checks Policy inside a
-transaction and calls the Resource's record function (`create_record`, `update_record`,
-`delete_record`, `bulk_delete_records`). A non-CRUD operation is a record function or a Page.
+A user-invoked mutation, run by a POST handler that checks Policy inside a transaction: a create,
+update or delete through the Resource's record function (`create_record`, `update_record`,
+`delete_record`, `bulk_delete_records`), or a custom `Action` the Resource lists in `actions()`,
+run on one record or on the bulk selection.
 
 _Avoid_: Command, Mutation, Operation, Modal
 
 ### Committed
 
 What one committed Action wrote, handed to `Resource::after_commit`: the mutation kind and the rows
-it created, updated or deleted.
+it created, updated, deleted, or ran a custom action on.
 
 _Avoid_: CommittedSet, ChangeSet, Event, PostCommit
 

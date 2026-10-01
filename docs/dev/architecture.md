@@ -93,8 +93,9 @@ Create, update, delete, and bulk delete run the same shape:
 6. Commit, then call `Resource::after_commit(cx, committed)`.
 
 Every POST carries a double-submit CSRF token, and a bulk delete additionally requires the
-`confirm=1` marker that only the confirm control emits. The record functions are the mutation
-vocabulary; a non-CRUD operation is a record function or a `Page`.
+`confirm=1` marker that only the confirm control emits. The record functions and the custom
+`Action`s a resource lists are the mutation vocabulary; an action runs through the same gate,
+CSRF check, tenant-scoped load, per-record policy and transaction as a delete.
 
 `after_commit` is the only place for a side effect that must not survive a rollback — email, a
 webhook, an audit row. It runs after the transaction and before the response, it runs once per
@@ -108,7 +109,10 @@ committed write, and a failure in it is logged without rolling the write back.
 | `Resource::view_query` | `resource/mod.rs` | the detail page's query: `query` plus the relations the page reads off the record |
 | `Resource::relations` | `resource/relation.rs` | the related resources rendered as tables on a record's detail and edit pages |
 | `Resource::tenant_scope` | `resource/mod.rs` | the tenant predicate, derived from the model's `tenant_id` by default (`tenancy.rs`) |
-| `TextColumn::include` | `resource/column.rs` | a relation a list column reads; the list and the export load it |
+| `Column` | `resource/column.rs` | a list column: its cell, its export text, its search, sort, width and the relations it reads |
+| `Filter` | `resource/filter.rs` | a list filter: its predicate and its control |
+| `Control` | `schema/fields/custom.rs` | a form field's input, beside the built-in text, choice and file controls |
+| `Action` / `Resource::actions` | `resource/action.rs` | a mutation beyond CRUD, on a row or on the bulk selection |
 | `Resource::can_*` | `resource/mod.rs` | authorization, default deny |
 | `Resource::can_delete_any` | `resource/mod.rs` | whether delete is allowed at all: the delete chrome and the delete handlers' policy gate |
 | `schema::OptionSource` | `schema/relationship.rs` | what a relationship select offers, and who may see it |

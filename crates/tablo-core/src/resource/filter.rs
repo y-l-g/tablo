@@ -1,13 +1,171 @@
-//! Table filters: the four typed filter kinds plus the [`Filter`] seam.
+//! Table filters: the [`Filter`] trait, the four built-in filters, and the
+//! [`IntoFilters`] seam.
+
+use std::sync::Arc;
 
 use toasty::stmt::Expr;
+use topcoat::{context::Cx, view::*};
 
 use crate::schema::{FieldLens, lens_field, lens_label};
 
-/// Generate a filter's label accessors, its `Clone`, and its metadata-only
-/// `Debug`.
+/// One table filter: a control in the filter bar, and the predicate its
+/// submitted value selects.
 ///
-/// Every filter declares a `name` and a `label`, so the accessors need no list.
+/// The value travels as `?f.<name>=<value>`. The built-in [`SelectFilter`],
+/// [`TernaryFilter`], [`DateFilter`] and [`VariantFilter`] implement this
+/// trait and nothing more, so an app filter has the same reach: implement
+/// it, and pass the value to [`Table::filters`](super::Table::filters).
+///
+/// ```ignore
+/// struct Adults;
+///
+/// impl Filter<User> for Adults {
+///     fn name(&self) -> &str { "adults" }
+///     fn label(&self) -> &str { "Adults" }
+///     fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
+///         (value == "yes").then(|| User::fields().age().ge(18))
+///     }
+///     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
+///         input.select(cx, vec![("yes".into(), "Adults only".into())])
+///     }
+/// }
+/// ```
+pub trait Filter<M>: Send + Sync {
+    /// The filter's identifier, distinct within its table: the `<name>` in
+    /// `?f.<name>=`.
+    fn name(&self) -> &str;
+
+    /// The label the control renders beside it.
+    fn label(&self) -> &str;
+
+    /// The predicate `value` selects, or `None` for a value the filter
+    /// refuses. A refused value is reported above the table, and refuses
+    /// the export, unless [`is_noop_value`](Self::is_noop_value) accepts it.
+    fn to_expr(&self, value: &str) -> Option<Expr<bool>>;
+
+    /// Whether `value` is a documented "no filter" value, for which
+    /// [`to_expr`](Self::to_expr) returns `None` without the value being
+    /// invalid. Defaults to `false`.
+    fn is_noop_value(&self, _value: &str) -> bool {
+        false
+    }
+
+    /// The control in the filter bar. [`FilterInput`] carries the
+    /// parameter name the control submits and the current value, and
+    /// renders the built-in select.
+    fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a>;
+}
+
+/// A filter control's label, beside its control.
+const FILTER_LABEL_CLASS: StaticClass =
+    class!("flex items-center gap-2 text-sm font-medium whitespace-nowrap text-muted-foreground");
+
+/// What a [`Filter::control`] renders for one request: the parameter its
+/// field submits, the current value, and the filter's label.
+///
+/// A control is a real field of the filter bar's GET form, named
+/// [`param`](Self::param), and carries `data-filter-name` set to
+/// [`name`](Self::name): `filters.js` submits the form on change, or, on a
+/// live table, rewrites the filter in the query. [`select`](Self::select)
+/// writes both; a control passed to [`labelled`](Self::labelled) carries them
+/// itself.
+#[derive(Debug, Clone)]
+pub struct FilterInput {
+    name: String,
+    param: String,
+    label: String,
+    value: String,
+}
+
+impl FilterInput {
+    pub(crate) fn new(name: &str, param: String, label: &str, value: String) -> Self {
+        Self {
+            name: name.to_string(),
+            param,
+            label: label.to_string(),
+            value,
+        }
+    }
+
+    /// The filter's name, which the control carries as `data-filter-name`.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// The form field name the control submits: `f.<name>`, prefixed for a
+    /// relation table.
+    pub fn param(&self) -> &str {
+        &self.param
+    }
+
+    /// The filter's label.
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    /// The value the request carries for this filter, empty when none.
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+
+    /// A labelled `<select>` over `options`, `(value, text)` pairs, led by
+    /// the empty "All" option that clears the filter.
+    ///
+    /// The empty value is reserved for that option. Every pair renders
+    /// verbatim, so a filter whose options can include `""` supplies the text
+    /// that option shows.
+    pub fn select<'a>(self, cx: &'a Cx, options: Vec<(String, String)>) -> BoxView<'a> {
+        let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
+            .chain(options)
+            .map(|(value, text)| {
+                let selected = self.value == value;
+                crate::schema::option_view(cx, value, text, selected)
+            })
+            .collect();
+        let Self {
+            name, param, label, ..
+        } = self;
+        let aria = label.clone();
+        let control = view! {
+            cx =>
+            tablo_ui::select(
+                attrs: attributes! {
+                    class="min-w-32"
+                    name=(param)
+                    data-filter-name=(name)
+                    aria-label=(aria)
+                },
+                for option in option_views {
+                    (option)
+                }
+            )
+        }
+        .boxed();
+        labelled(cx, label, control)
+    }
+
+    /// `control` beside the filter's label, as the filter bar lays out every
+    /// control. The control itself carries [`param`](Self::param) as its
+    /// `name` and [`name`](Self::name) as its `data-filter-name`.
+    pub fn labelled<'a>(self, cx: &'a Cx, control: BoxView<'a>) -> BoxView<'a> {
+        labelled(cx, self.label, control)
+    }
+}
+
+/// `control` inside the label element the filter bar lays out.
+fn labelled<'a>(cx: &'a Cx, label: String, control: BoxView<'a>) -> BoxView<'a> {
+    view! {
+        cx =>
+        <label class=(FILTER_LABEL_CLASS)>
+            (label)
+            (control)
+        </label>
+    }
+    .boxed()
+}
+
+/// Generate a built-in filter's `Clone` and its metadata-only `Debug`.
+///
 /// `debug` pairs each field `Debug` prints with the expression that renders it;
 /// that expression reads the receiver through the `this` bound alongside the
 /// type, because a macro body's own `self` is not visible to a call-site
@@ -23,19 +181,6 @@ macro_rules! filter_impls {
         }
         clone { $( $clone:ident ),* $(,)? }
     ) => {
-        impl<M> $ty<M>
-        where
-            M: toasty::schema::Model,
-        {
-            pub fn name(&self) -> &str {
-                &self.name
-            }
-
-            pub fn label_str(&self) -> &str {
-                &self.label
-            }
-        }
-
         impl<M> Clone for $ty<M> {
             fn clone(&self) -> Self {
                 Self {
@@ -79,7 +224,24 @@ where
         }
     }
 
-    pub fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
+    pub fn options(&self) -> &[String] {
+        &self.options
+    }
+}
+
+impl<M> Filter<M> for SelectFilter<M>
+where
+    M: toasty::schema::Model + Send + Sync,
+{
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn label(&self) -> &str {
+        &self.label
+    }
+
+    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
         let v = value.trim();
         if v.is_empty() {
             return None;
@@ -91,8 +253,18 @@ where
         Some(self.lens.clone().eq(v.to_string()))
     }
 
-    pub fn options(&self) -> &[String] {
-        &self.options
+    /// A select over the options. A declared empty option is the
+    /// clear-filter value, so it renders as the "All" option.
+    fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
+        let options = self
+            .options
+            .iter()
+            .map(|opt| {
+                let label = if opt.is_empty() { "All" } else { opt.as_str() };
+                (opt.clone(), label.to_string())
+            })
+            .collect();
+        input.select(cx, options)
     }
 }
 
@@ -121,8 +293,21 @@ where
         let (name, label) = (field.name.app_unwrap().to_string(), lens_label(&field));
         Self { name, label, lens }
     }
+}
 
-    pub fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
+impl<M> Filter<M> for TernaryFilter<M>
+where
+    M: toasty::schema::Model + Send + Sync,
+{
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn label(&self) -> &str {
+        &self.label
+    }
+
+    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
         match value.trim() {
             "true" => Some(self.lens.clone().eq(true)),
             "false" => Some(self.lens.clone().eq(false)),
@@ -135,8 +320,18 @@ where
     /// value"`. `to_expr` still returns `None` for it (there is no predicate
     /// to build); `Table::unapplied_filters` consults this so the no-op is
     /// never flagged and the export never refuses it.
-    pub fn is_noop_value(value: &str) -> bool {
+    fn is_noop_value(&self, value: &str) -> bool {
         value.trim() == "all"
+    }
+
+    fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
+        input.select(
+            cx,
+            vec![
+                ("true".to_string(), "True".to_string()),
+                ("false".to_string(), "False".to_string()),
+            ],
+        )
     }
 }
 
@@ -166,6 +361,19 @@ where
         let (name, label) = (field.name.app_unwrap().to_string(), lens_label(&field));
         Self { name, label, lens }
     }
+}
+
+impl<M> Filter<M> for DateFilter<M>
+where
+    M: toasty::schema::Model + Send + Sync,
+{
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn label(&self) -> &str {
+        &self.label
+    }
 
     /// Build the predicate for a submitted value.
     ///
@@ -175,7 +383,7 @@ where
     /// time-of-day still match. A day whose end lies past
     /// `jiff::Timestamp::MAX` (9999-12-30) has no instant for the upper bound
     /// to exclude, so it matches `>= midnight` alone.
-    pub fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
+    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
         let v = value.trim();
         if v.is_empty() {
             return None;
@@ -204,6 +412,31 @@ where
             });
         }
         None
+    }
+
+    /// A date input. `<input type=date>` takes `YYYY-MM-DD`, so an RFC3339
+    /// value is cut at its `T`.
+    fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
+        let value = input.value();
+        let date_value = value.split('T').next().unwrap_or(value).to_string();
+        let param = input.param().to_string();
+        let name = input.name().to_string();
+        let aria = input.label().to_string();
+        let control = view! {
+            cx =>
+            tablo_ui::input(
+                attrs: attributes! {
+                    type="date"
+                    name=(param)
+                    data-filter-name=(name)
+                    value=(date_value)
+                    aria-label=(aria)
+                    class="w-auto!"
+                }
+            )
+        }
+        .boxed();
+        input.labelled(cx, control)
     }
 }
 
@@ -248,7 +481,24 @@ where
         }
     }
 
-    pub fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
+    pub fn options(&self) -> &[(String, Expr<bool>)] {
+        &self.options
+    }
+}
+
+impl<M> Filter<M> for VariantFilter<M>
+where
+    M: toasty::schema::Model + Send + Sync,
+{
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn label(&self) -> &str {
+        &self.label
+    }
+
+    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
         let v = value.trim();
         if v.is_empty() {
             return None;
@@ -259,8 +509,14 @@ where
             .map(|(_, e)| e.clone())
     }
 
-    pub fn options(&self) -> &[(String, Expr<bool>)] {
-        &self.options
+    /// A select over the variant keys, each shown as itself.
+    fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
+        let options = self
+            .options
+            .iter()
+            .map(|(key, _)| (key.clone(), key.clone()))
+            .collect();
+        input.select(cx, options)
     }
 }
 
@@ -273,116 +529,57 @@ filter_impls! {
     clone { name, label, options, _marker }
 }
 
-/// Filter enum — the `Table::filters` seam.
-#[derive(Debug, Clone)]
-pub enum Filter<M> {
-    Select(SelectFilter<M>),
-    Ternary(TernaryFilter<M>),
-    Date(DateFilter<M>),
-    Variant(VariantFilter<M>),
-}
+/// A table's filters, as the table stores them.
+pub(crate) type BoxFilter<M> = Arc<dyn Filter<M>>;
 
-impl<M> From<SelectFilter<M>> for Filter<M> {
-    fn from(v: SelectFilter<M>) -> Self {
-        Filter::Select(v)
-    }
-}
-impl<M> From<TernaryFilter<M>> for Filter<M> {
-    fn from(v: TernaryFilter<M>) -> Self {
-        Filter::Ternary(v)
-    }
-}
-impl<M> From<DateFilter<M>> for Filter<M> {
-    fn from(v: DateFilter<M>) -> Self {
-        Filter::Date(v)
-    }
-}
-impl<M> From<VariantFilter<M>> for Filter<M> {
-    fn from(v: VariantFilter<M>) -> Self {
-        Filter::Variant(v)
-    }
-}
-
-impl<M> Filter<M>
-where
-    M: toasty::schema::Model,
-{
-    pub fn name(&self) -> &str {
-        match self {
-            Filter::Select(f) => f.name(),
-            Filter::Ternary(f) => f.name(),
-            Filter::Date(f) => f.name(),
-            Filter::Variant(f) => f.name(),
-        }
-    }
-    pub fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-        match self {
-            Filter::Select(f) => f.to_expr(value),
-            Filter::Ternary(f) => f.to_expr(value),
-            Filter::Date(f) => f.to_expr(value),
-            Filter::Variant(f) => f.to_expr(value),
-        }
-    }
-    /// Whether this value is a documented no-op for this filter:
-    /// only `TernaryFilter`'s `all` qualifies — every other rejected value
-    /// is genuinely invalid.
-    pub fn is_noop_value(&self, value: &str) -> bool {
-        match self {
-            Filter::Ternary(_) => TernaryFilter::<M>::is_noop_value(value),
-            _ => false,
-        }
-    }
-}
-
-/// Convert a single filter or tuple of filters into `Vec<Filter<M>>`.
+/// Convert a single built-in filter, or a tuple of any [`Filter`]s, into a
+/// table's filter list.
+///
+/// A tuple takes filters of any type, an app's own among them; a single app
+/// filter is a one-element tuple, `(MyFilter,)`. Arity eight is the shared
+/// ceiling [`IntoColumns`](super::IntoColumns) documents.
 pub trait IntoFilters<M> {
-    fn into_filters(self) -> Vec<Filter<M>>;
+    #[doc(hidden)]
+    fn into_filters(self) -> Vec<BoxFilter<M>>;
 }
 
-impl<M> IntoFilters<M> for Filter<M> {
-    fn into_filters(self) -> Vec<Filter<M>> {
-        vec![self]
-    }
+/// The single-filter impls of [`IntoFilters`], one per built-in.
+macro_rules! into_filters_single {
+    ($($ty:ident),+) => {
+        $(
+            impl<M> IntoFilters<M> for $ty<M>
+            where
+                M: toasty::schema::Model + Send + Sync + 'static,
+            {
+                fn into_filters(self) -> Vec<BoxFilter<M>> {
+                    vec![Arc::new(self)]
+                }
+            }
+        )+
+    };
 }
-impl<M> IntoFilters<M> for SelectFilter<M> {
-    fn into_filters(self) -> Vec<Filter<M>> {
-        vec![self.into()]
-    }
-}
-impl<M> IntoFilters<M> for TernaryFilter<M> {
-    fn into_filters(self) -> Vec<Filter<M>> {
-        vec![self.into()]
-    }
-}
-impl<M> IntoFilters<M> for DateFilter<M> {
-    fn into_filters(self) -> Vec<Filter<M>> {
-        vec![self.into()]
-    }
-}
-impl<M> IntoFilters<M> for VariantFilter<M> {
-    fn into_filters(self) -> Vec<Filter<M>> {
-        vec![self.into()]
-    }
-}
+
+into_filters_single!(SelectFilter, TernaryFilter, DateFilter, VariantFilter);
+
 /// Generate the tuple impls of [`IntoFilters`] from one list per arity.
 ///
 /// One invocation builds the destructured bindings and the converted vector
-/// from the same list, so an element cannot reach one and not the other. Arity
-/// eight is the shared ceiling [`IntoColumns`](super::IntoColumns) documents.
+/// from the same list, so an element cannot reach one and not the other.
 macro_rules! into_filters_tuples {
     ($($T:ident => $v:ident),+ $(,)?) => {
         impl<M, $($T),+> IntoFilters<M> for ($($T,)+)
         where
-            $($T: Into<Filter<M>>,)+
+            $($T: Filter<M> + 'static,)+
         {
-            fn into_filters(self) -> Vec<Filter<M>> {
+            fn into_filters(self) -> Vec<BoxFilter<M>> {
                 let ($($v,)+) = self;
-                vec![$($v.into(),)+]
+                vec![$(Arc::new($v) as BoxFilter<M>,)+]
             }
         }
     };
 }
 
+into_filters_tuples!(A => a);
 into_filters_tuples!(A => a, B => b);
 into_filters_tuples!(A => a, B => b, C => c);
 into_filters_tuples!(A => a, B => b, C => c, D => d);

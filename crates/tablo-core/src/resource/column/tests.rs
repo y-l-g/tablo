@@ -15,12 +15,12 @@ fn search_pattern_escapes_like_metacharacters() {
 fn text_column_searchable_produces_a_substring_pattern() {
     let col = TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable();
     assert!(
-        col.to_search_expr("Ada").is_some(),
+        col.search_expr("Ada").is_some(),
         "searchable should produce expr"
     );
     assert!(
         TextColumn::r#for(User::fields().name(), |u| u.name.clone())
-            .to_search_expr("Ada")
+            .search_expr("Ada")
             .is_none(),
         "non-searchable should be None"
     );
@@ -30,12 +30,12 @@ fn text_column_searchable_produces_a_substring_pattern() {
 fn text_column_sortable_produces_order_by() {
     let col = TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable();
     assert!(
-        col.to_order_by(false).is_some(),
+        col.order_by(false).is_some(),
         "sortable should produce order_by"
     );
     assert!(
         TextColumn::r#for(User::fields().name(), |u| u.name.clone())
-            .to_order_by(false)
+            .order_by(false)
             .is_none(),
         "non-sortable should be None"
     );
@@ -49,8 +49,8 @@ fn text_column_renders_cells_via_typed_projection() {
         id: uuid::Uuid::nil(),
         name: "Ada".to_string(),
     };
-    assert_eq!(plain.render_cell(&row), "Ada");
-    assert_eq!(decorated.render_cell(&row), "Ada!");
+    assert_eq!(plain.text(&row), "Ada");
+    assert_eq!(decorated.text(&row), "Ada!");
     assert_eq!(plain.name(), "name");
     assert_eq!(plain.label(), "Name");
 }
@@ -71,8 +71,8 @@ fn computed_sortable_panics_loudly() {
 fn computed_columns_declare_no_predicate_chrome_agreement() {
     let col = TextColumn::computed("Status", |u: &User| u.name.clone());
     assert!(!col.is_searchable() && !col.is_sortable());
-    assert!(col.to_search_expr("x").is_none());
-    assert!(col.to_order_by(false).is_none());
+    assert!(col.search_expr("x").is_none());
+    assert!(col.order_by(false).is_none());
 }
 
 /// GH #240: a column's kind picks its default width, `.width(..)`

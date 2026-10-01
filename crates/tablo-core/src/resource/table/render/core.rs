@@ -101,11 +101,9 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model + Send + Sync + 'static,
     {
-        let row_key = self.row_key.clone();
         let delete_prefix = self.delete_prefix.clone();
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
-        let record_key = self.record_key.clone();
         let head = self
             .render_thead(cx, state, path, with_actions, with_bulk, signals.as_ref())
             .await?;
@@ -133,14 +131,7 @@ impl<M> Table<M> {
         // before the row projection so each row can carry its group label,
         // which the page-local shim orders by.
         let group_key = self.effective_group_key(state);
-        let row_data = self.row_views(
-            state,
-            path,
-            &page,
-            &row_key,
-            &record_key,
-            group_key.as_ref(),
-        );
+        let row_data = self.row_views(cx, state, path, &page, group_key.as_ref());
         // The confirmation dialog lives with the delete chrome and
         // ships closed, so a row control opens it in place. A live
         // output carries none: the page that owns the signals renders it once,

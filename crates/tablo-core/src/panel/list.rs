@@ -18,8 +18,8 @@ use super::gate::{gate, list_url};
 use crate::{
     form::RecordForm,
     resource::{
-        Resource, RowActions, TABLE_CARD_CLASS, Table, TableChrome, TablePage, TableSignals,
-        TableState, create_page_url, request_query,
+        Resource, RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage,
+        TableSignals, TableState, create_page_url, request_query,
     },
 };
 
@@ -53,6 +53,7 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
         delete: R::can_delete_any(cx),
         edit: <R::Form as RecordForm>::HAS_FORM,
         view: R::viewed(cx),
+        actions: true,
     }
 }
 
@@ -67,7 +68,9 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
 /// same call: the
 /// table's row policy pairs each action with exactly what its route checks —
 /// `can_view` for View, `can_view` + `can_update` for Edit, `can_view` +
-/// `can_delete` for Delete and the bulk checkbox. A row the predicate refuses
+/// `can_delete` for Delete, and `can_view` + `can_run` for each custom action;
+/// the bulk checkbox renders when bulk delete or any bulk custom action allows
+/// the record. A row the predicate refuses
 /// renders no link and no checkbox, while the handler keeps its
 /// all-or-nothing check for a hand-crafted POST.
 ///
@@ -113,7 +116,38 @@ pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) 
     if chrome.view {
         table = table.with_view(list_url(cx, &R::slug()));
     }
+    if chrome.actions {
+        table = wire_custom_actions::<R>(cx, table);
+    }
     table
+}
+
+/// Attach `R`'s custom actions to `table`, each gated per record by exactly
+/// what its route checks: [`Resource::can_view`] and the action's
+/// `can_run`.
+fn wire_custom_actions<R: Resource>(cx: &Cx, table: Table<R::Model>) -> Table<R::Model> {
+    let actions = R::actions();
+    if actions.entries().is_empty() {
+        return table;
+    }
+    let wired = actions
+        .entries()
+        .iter()
+        .map(|action| {
+            let can_run = action.can_run;
+            let policy_cx = cx.clone();
+            TableAction {
+                name: action.name,
+                label: (action.label)(),
+                row: action.row,
+                bulk: action.bulk,
+                allowed: std::sync::Arc::new(move |record: &R::Model| {
+                    R::can_view(&policy_cx, record) && can_run(&policy_cx, record)
+                }),
+            }
+        })
+        .collect();
+    table.with_custom_actions(list_url(cx, &R::slug()), wired)
 }
 
 /// Branded in-region table failure shared by the streamed list and the

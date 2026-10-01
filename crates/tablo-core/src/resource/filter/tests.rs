@@ -120,7 +120,7 @@ fn date_filter_on_the_last_representable_day_does_not_panic() {
 fn variant_filter_to_expr_contract() {
     let f = vehicule_filter();
     assert_eq!(f.name(), "vehicule");
-    assert_eq!(f.label_str(), "Véhicule");
+    assert_eq!(f.label(), "Véhicule");
     assert!(f.to_expr("").is_none(), "empty yields no filter");
     assert!(f.to_expr("   ").is_none(), "blank yields no filter");
     assert!(
@@ -132,11 +132,11 @@ fn variant_filter_to_expr_contract() {
     assert!(f.to_expr("Moto").is_some(), "known variant must match");
     // Whitespace trims like SelectFilter.
     assert!(f.to_expr("  Moto  ").is_some());
-    // Via the Filter enum + IntoFilters seam.
-    let via_enum: Filter<Driver> = f.clone().into();
-    assert_eq!(via_enum.name(), "vehicule");
-    assert!(via_enum.to_expr("Moto").is_some());
-    assert!(via_enum.to_expr("nope").is_none());
+    // Through the trait object a table stores.
+    let boxed: &dyn Filter<Driver> = &f;
+    assert_eq!(boxed.name(), "vehicule");
+    assert!(boxed.to_expr("Moto").is_some());
+    assert!(boxed.to_expr("nope").is_none());
     let vec = f.into_filters();
     assert_eq!(vec.len(), 1);
 }
@@ -165,11 +165,11 @@ fn select_filter_to_expr_contract() {
     );
     // Whitespace trims before the allowlist check.
     assert!(f.to_expr("  published  ").is_some());
-    // Via the Filter enum seam.
-    let via_enum: Filter<Task> = f.clone().into();
-    assert_eq!(via_enum.name(), "status");
-    assert!(via_enum.to_expr("published").is_some());
-    assert!(via_enum.to_expr("nope").is_none());
+    // Through the trait object a table stores.
+    let boxed: &dyn Filter<Task> = &f;
+    assert_eq!(boxed.name(), "status");
+    assert!(boxed.to_expr("published").is_some());
+    assert!(boxed.to_expr("nope").is_none());
 }
 
 #[test]
@@ -183,10 +183,11 @@ fn ternary_filter_to_expr_contract() {
     assert!(f.to_expr("all").is_none(), "`all` yields no filter");
     assert!(f.to_expr("yes").is_none());
     assert!(f.to_expr("  true  ").is_some(), "value trims");
-    let via_enum: Filter<Task> = f.clone().into();
-    assert_eq!(via_enum.name(), "featured");
-    assert!(via_enum.to_expr("true").is_some());
-    assert!(via_enum.to_expr("all").is_none());
+    assert!(f.is_noop_value("all"), "`all` is the documented no-op");
+    let boxed: &dyn Filter<Task> = &f;
+    assert_eq!(boxed.name(), "featured");
+    assert!(boxed.to_expr("true").is_some());
+    assert!(boxed.to_expr("all").is_none());
 }
 
 #[tokio::test]

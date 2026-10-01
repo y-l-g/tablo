@@ -19,13 +19,16 @@ use super::Resource;
 /// The kind of mutation a record fn performed.
 ///
 /// The vocabulary `Action` names in `CONTEXT.md`, as a value: the framework
-/// knows which of the four record fns ran, so an audit row or a webhook
-/// payload does not have to be spelled per call site.
+/// knows which record fn or [`Action`](super::Action) ran, so an audit row or
+/// a webhook payload does not have to be spelled per call site.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Mutation {
     Create,
     Update,
     Delete,
+    /// The custom action of this [`NAME`](super::Action::NAME).
+    Action(&'static str),
 }
 
 /// What one committed mutation wrote, handed to
@@ -69,7 +72,16 @@ impl<M> Committed<M> {
         }
     }
 
-    /// Which record fn ran.
+    /// The rows a custom [`Action`](super::Action) named `name` ran on, as
+    /// they were loaded before it ran.
+    pub fn acted(name: &'static str, records: Vec<M>) -> Self {
+        Self {
+            mutation: Mutation::Action(name),
+            records,
+        }
+    }
+
+    /// Which record fn or custom action ran.
     pub fn mutation(&self) -> Mutation {
         self.mutation
     }
@@ -83,7 +95,7 @@ impl<M> Committed<M> {
 /// Deliver a committed mutation to the app.
 ///
 /// The framework's single call site, so the failure policy cannot drift
-/// between the four write handlers: a hook that returns `Err` is **logged and
+/// between the write handlers, custom actions included: a hook that returns `Err` is **logged and
 /// ignored**. The write is committed — the row is in the database, the
 /// response is the redirect the user earned — so turning a failed email into
 /// an error page would misreport what happened, and rolling back is not

@@ -45,6 +45,8 @@ fn mutation_name(mutation: Mutation) -> &'static str {
         Mutation::Create => "create",
         Mutation::Update => "update",
         Mutation::Delete => "delete",
+        Mutation::Action(name) => name,
+        _ => "other",
     }
 }
 

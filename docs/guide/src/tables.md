@@ -38,6 +38,7 @@ primary key the URLs carry. Either way, keys must be unique within a page.
 | --- | --- | --- |
 | `TextColumn::r#for(lens, project)` | `project(row)`, bound to a `String` field | `.searchable()`, `.sortable()` |
 | `TextColumn::computed(label, project)` | `project(row)` | not available: calling either panics |
+| `BooleanColumn::r#for(lens, project)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 
 - **Labels.** A field column is labelled from its field name (`created_at` → "Created at"); a
   computed column uses the label you pass.
@@ -62,6 +63,36 @@ primary key the URLs carry. Either way, keys must be unique within a page.
 
 Two columns with the same name, or a table with no columns, panic; `Panel::build` reports it as a
 startup error.
+
+### Your own columns
+
+A column is anything that implements `Column<M>`. `TextColumn` and `BooleanColumn` implement it and
+nothing more, so a column of your own reaches as far as theirs:
+
+```rust
+struct Initials;
+
+impl Column<User> for Initials {
+    fn name(&self) -> &str { "initials" }
+    fn label(&self) -> &str { "Initials" }
+
+    // The export's cell, and the table's unless `cell` renders a view.
+    fn text(&self, u: &User) -> String {
+        u.name.split_whitespace().filter_map(|w| w.chars().next()).collect()
+    }
+
+    fn cell<'a>(&self, cx: &'a Cx, u: &User) -> BoxView<'a> {
+        let text = self.text(u);
+        view! { cx => <span class="font-mono">(text)</span> }.boxed()
+    }
+}
+```
+
+Only `name`, `label` and `text` are required. The other methods default to a column that is
+narrow, not searchable, not sortable and reads no relation: override `column_width`,
+`is_searchable` and `search_expr`, `is_sortable` and `order_by`, or `includes` to change that. Put
+the column in the tuple next to the built-in ones, or append it with `Table::column(..)`, which
+also takes columns past the tuple's eight.
 
 ## Search, sort and pagination
 
@@ -111,7 +142,30 @@ remain for visitors without JavaScript.
 | `VariantFilter::r#for(name, label, options)` | any | named options, each a Toasty predicate you build |
 
 Each active filter is one parameter, `?f.<name>=<value>`, named after the field, and active
-filters combine with AND. At most 32 filters apply, each name and value at most 256 bytes.
+filters combine with AND.
+
+A filter is anything that implements `Filter<M>`: a name, a label, the predicate a value selects,
+and the control the filter bar renders. The four filters above implement it and nothing more.
+`FilterInput` carries the parameter the control submits and the current value, and
+`input.select(cx, options)` renders the built-in select:
+
+```rust
+struct Adults;
+
+impl Filter<User> for Adults {
+    fn name(&self) -> &str { "adults" }
+    fn label(&self) -> &str { "Adults" }
+    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
+        (value == "yes").then(|| User::fields().age().ge(18))
+    }
+    fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
+        input.select(cx, vec![("yes".into(), "Adults only".into())])
+    }
+}
+```
+
+A filter of your own goes in the `filters((..))` tuple; alone, it is a one-element tuple,
+`.filters((Adults,))`. At most 32 filters apply, each name and value at most 256 bytes.
 
 A filter that cannot apply — an unknown name, a value the filter rejects, or one over the limits —
 is never dropped silently: the list shows a warning banner naming it, and the export refuses the
@@ -144,19 +198,77 @@ Each row shows the actions its record allows:
 
 - **View** when the resource declares a detail page (`view()`) and `can_view` allows the record;
 - **Edit** when the resource has a record form and `can_view` and `can_update` allow it;
-- **Delete** when `can_delete_any` allows deletes and `can_view` and `can_delete` allow the record.
+- **Delete** when `can_delete_any` allows deletes and `can_view` and `can_delete` allow the record;
+- each [custom action](#custom-actions) the record allows.
 
 A row that allows none keeps an empty actions cell.
 
-When `can_delete_any` allows deletes, the list adds a checkbox column and a bulk bar. A row whose
-record may not be deleted gets no checkbox, so select-all only selects deletable rows. A bulk
-delete accepts at most 400 records and deletes all of them or none.
+When `can_delete_any` allows deletes, or the resource declares a bulk custom action, the list adds
+a checkbox column and a bulk bar. A row that neither delete nor any bulk action allows gets no
+checkbox, so select-all only selects rows something can be done to. A bulk delete accepts at most
+400 records and deletes all of them or none: a selection holding a record that may not be deleted
+deletes nothing and returns to the list with an error notification.
 
 Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
 confirming it deletes the row, shows a notification and refreshes the table without leaving the
 page. The bulk bar's button opens a dialog stating how many rows are selected. The delete
 handlers refuse a POST that was not confirmed through the dialog with 400, and without
 JavaScript the Delete link renders the list with its dialog already open.
+
+### Custom actions
+
+An action is a mutation beyond create, update and delete, declared as a type implementing
+`Action<R>` and listed by `Resource::actions`:
+
+```rust
+struct Publish;
+
+impl Action<PostResource> for Publish {
+    const NAME: &'static str = "publish";
+
+    fn label() -> String {
+        "Publish".to_string()
+    }
+
+    fn can_run(_cx: &Cx, post: &Post) -> bool {
+        post.status != "published"
+    }
+
+    async fn run(_cx: &Cx, posts: &[Post], ex: &mut dyn toasty::Executor) -> Result<()> {
+        for post in posts {
+            Post::filter(Post::fields().id().eq(post.id))
+                .update()
+                .status("published".to_string())
+                .exec(&mut *ex)
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+impl Resource for PostResource {
+    fn actions() -> Actions<Self> {
+        Actions::new().add::<Publish>()
+    }
+    // …
+}
+```
+
+A row renders the action's button when `can_view` and `can_run` allow its record, and the bulk bar
+renders it for the selection. `const ROW: bool = false` keeps it off the rows, and
+`const BULK: bool = false` off the bulk bar.
+
+The framework runs an action the way it runs a delete. The POST goes to
+`{list}/{key}/actions/{NAME}` for a row and `{list}/actions/{NAME}` for the selection, carries the
+CSRF token, and loads the records through the tenant-scoped query inside a transaction. Every
+record must pass `can_view` and `can_run`, and `run` writes through the same transaction, so an
+error rolls everything back. After the commit, `after_commit` receives `Mutation::Action(NAME)`
+with the records and the list shows `Action::success`, by default the label and the record count.
+
+A row the action refuses answers 403. A selection that holds one writes nothing and returns to the
+list with an error notification. `Panel::build` refuses an action name that is not one URL
+segment, or that two actions of a resource share. Custom actions run without a confirmation
+dialog.
 
 If the table fails to load, the list shows an error state with a retry link in place of the rows;
 the rest of the page still renders.

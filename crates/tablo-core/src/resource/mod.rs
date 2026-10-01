@@ -5,7 +5,7 @@
 //! `CONTEXT.md` and ADR-0002.
 //!
 //! The declarations live in submodules — `table`, `column`, `filter`,
-//! `state`, `relation`, `navigation` and `naming` — re-exported here.
+//! `action`, `state`, `relation`, `navigation` and `naming` — re-exported here.
 
 use std::collections::HashMap;
 
@@ -20,6 +20,7 @@ use crate::{
     form::{FieldErrors, Posted, RecordForm, write_create, write_update},
 };
 
+mod action;
 mod column;
 mod commit;
 mod filter;
@@ -30,10 +31,14 @@ mod relation;
 mod state;
 mod table;
 
-pub use column::{ColumnWidth, IntoColumns, TextColumn};
+pub(crate) use action::ActionEntry;
+pub use action::{Action, Actions};
+pub use column::{BooleanColumn, Column, ColumnWidth, Includes, IntoColumns, TextColumn};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
-pub use filter::{DateFilter, Filter, IntoFilters, SelectFilter, TernaryFilter, VariantFilter};
+pub use filter::{
+    DateFilter, Filter, FilterInput, IntoFilters, SelectFilter, TernaryFilter, VariantFilter,
+};
 use naming::{kebab_case, pluralize, type_short_name, type_stem};
 pub(crate) use navigation::runtime_link;
 pub use navigation::{NavTarget, NavigationItem};
@@ -42,13 +47,13 @@ pub(crate) use page::{Past, row_exists_past};
 pub(crate) use relation::BoundRelation;
 pub use relation::Relation;
 pub(crate) use state::{
-    BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT,
-    RECORD_ROUTE_PARAM, RETURN_PARAM, TableSignals, create_page_url, query_of, request_query,
-    with_return,
+    ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
+    DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM, RETURN_PARAM, TableSignals,
+    create_page_url, query_of, request_query, with_return,
 };
 pub use state::{Cursor, Sort, TableState};
 pub use table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
-pub(crate) use table::{RowActions, TABLE_CARD_CLASS, TableChrome};
+pub(crate) use table::{RowActions, TABLE_CARD_CLASS, TableAction, TableChrome};
 
 #[cfg(test)]
 pub(crate) use crate::query_term::MAX_QUERY_TERM;
@@ -225,6 +230,17 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// what its table shows. The default declares none.
     fn relations() -> Vec<Relation<Self::Model>> {
         Vec::new()
+    }
+
+    /// The resource's custom [`Action`]s, in button order. Defaults to none.
+    ///
+    /// ```ignore
+    /// fn actions() -> Actions<Self> {
+    ///     Actions::new().add::<Publish>()
+    /// }
+    /// ```
+    fn actions() -> Actions<Self> {
+        Actions::new()
     }
 
     /// Whether this resource declares a detail page.

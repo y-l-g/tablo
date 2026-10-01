@@ -1,7 +1,7 @@
 // Confirmed destructive submits, applied without a navigation.
 //
-// A form marked `data-mutation-submit` — the row-delete confirm and the bulk
-// confirm — POSTs through `fetch`, follows the 303, and applies the response
+// A form marked `data-mutation-submit` — the row-delete confirm, the bulk form
+// (its delete confirm and its custom actions) and a row's custom action — POSTs through `fetch`, follows the 303, and applies the response
 // in place:
 //
 // - the flash toast the handler set (`set_notification`) is inserted into the
@@ -67,14 +67,25 @@ function deletedKey(action) {
   }
 }
 
-// The keys a form's write removes: the batch a bulk form carried, or the one
+// The keys a form's write removes: the batch a bulk delete carried, or the one
 // record a row-delete form's action names. Empty when the form says neither,
-// so an unreadable target prunes nothing rather than clearing the selection.
+// so an unreadable target prunes nothing rather than clearing the selection. A
+// bulk custom action shares the bulk form but posts elsewhere: its rows stay,
+// so it removes nothing and the selection survives it.
 function removedKeys(form, action) {
   const ids = form.querySelector('input[name="ids"]');
-  if (ids) return wireOf(ids.value);
+  if (ids) return isBulkDelete(action) ? wireOf(ids.value) : [];
   const key = deletedKey(action);
   return key === null ? [] : [key];
+}
+
+// Whether `action` is the bulk-delete route (`/admin/users/bulk-delete`).
+function isBulkDelete(action) {
+  try {
+    return new URL(action, 'http://localhost').pathname.endsWith('/bulk-delete');
+  } catch {
+    return false;
+  }
 }
 
 // The selection wire minus the keys this mutation removed. A bulk delete
@@ -156,6 +167,14 @@ function bumpRevision(input) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// Where a submit posts: the submitting button's `formaction` when it carries
+// one — a bulk custom action shares the bulk form and its selection, but posts
+// to its own route — else the form's own action.
+function submitTarget(form, submitter) {
+  const own = submitter && submitter.getAttribute && submitter.getAttribute('formaction');
+  return own || form.getAttribute('action');
+}
+
 // Everything below only makes sense with a document. It lives in a function so
 // this file can also be `require`d by its Node unit test, which has no DOM:
 // loading the script must not touch one.
@@ -166,7 +185,7 @@ function install() {
     // No action: the row dialog is retargeted by dialog.js from the control
     // that opens it, so this is markup the page cannot serve. The browser's
     // own submit is the honest fallback.
-    const action = form.getAttribute('action');
+    const action = submitTarget(form, event.submitter);
     if (!action) return;
     event.preventDefault();
     send(form, action, event.submitter || form.querySelector('button[type="submit"]'));
@@ -324,7 +343,8 @@ function showResponse(html) {
 }
 
 // Focus where the deleted row stood: the row that took its place, else the
-// last row, else the bulk trigger. The table is the reader's context, and the
+// last row, else the bulk bar's first control — its delete trigger, or its first
+// custom action when the bar has no delete. The table is the reader's context, and the
 // control that opened the dialog is usually the element that just left. The
 // region is the element captured at submit time — both paths keep it and
 // replace or morph what is inside it.
@@ -341,7 +361,8 @@ function focusAfter(region, index) {
         target.querySelector(
           'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled])',
         ))) ||
-    region.querySelector('[data-bulk-confirm-trigger]');
+    region.querySelector('[data-bulk-confirm-trigger]') ||
+    region.querySelector('[data-bulk-action]');
   if (control) control.focus();
 }
 
@@ -372,6 +393,7 @@ if (typeof module !== 'undefined' && module.exports) {
     deletedKey,
     pruneWire,
     removedKeys,
+    submitTarget,
     swapTargets,
     tableRootFor,
   };

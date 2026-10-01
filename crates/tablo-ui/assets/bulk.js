@@ -23,12 +23,10 @@
 //
 // Delimiters make membership exact: `,ab,` never matches `b`.
 //
-// A row the resource's per-record policy refuses renders its checkbox
-// `disabled` with the reason as its accessible label: it is not a choice, so
-// every selector here skips disabled boxes — select-all never checks one, the
-// tri-state header never counts one, and one can never reach the transport. A
-// refused key in the wire would only make the handler's all-or-nothing check
-// turn the whole batch into a 403.
+// A row that neither bulk delete nor any bulk custom action allows renders no
+// checkbox, so select-all never reaches it. Every selector here also skips a
+// `disabled` box: it is not a choice, so select-all never checks one, the
+// tri-state header never counts one, and one can never reach the transport.
 //
 // Document-level delegation (like sidebar.js) so streamed/shard swaps that
 // replace table markup need no re-installation. Scoped per table via

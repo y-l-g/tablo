@@ -6,6 +6,11 @@ Line citations refer to the tree this design was written against, `f9750974`.
 Citations under `crates/toasty/` and `crates/toasty-macros/` name the pinned
 Toasty checkout.
 
+The checkbox half of this design is implemented as `Field::toggle` and the
+`Toggle` control (`schema/fields/custom.rs`), which post the hidden `"false"`
+companion this design describes. The `Select::checkbox` sections below are
+superseded by it; the `TextColumn::field` and `TextInput::typed` halves stand.
+
 ## Summary
 
 `TextColumn::field` renders a `String` lens without a projection closure,
@@ -83,11 +88,8 @@ it clones the lens value (`crates/tablo-core/src/resource/column.rs:204-207`),
 and every handwritten `TextInput::typed::<M, T>` repeats both generic arguments
 (`:156`, `:214`, plus 20 further occurrences, 18 of them in tests) although `T`
 sits in the `Path<M, T>` argument position
-(`schema/fields/text_input.rs:196-200`). A `bool` renders as a `Select` with
-`"true"` / `"false"` options (`app.rs:150-155`) because no checkbox field kind
-exists in `schema/fields/`; the only field control that renders a checkbox is
-the `tablo-ui` primitive the `FileUpload` clear toggle reuses
-(`schema/fields/file_upload.rs:163-169`).
+(`schema/fields/text_input.rs:196-200`). A `bool` renders as a checkbox through
+`Field::toggle` (`schema/fields/custom.rs`).
 
 ## User-facing API
 
