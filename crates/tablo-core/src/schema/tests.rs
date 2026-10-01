@@ -53,6 +53,26 @@ fn schema_records_duplicate_field_names() {
     );
 }
 
+/// Rendering a misdeclared schema fails with its declaration errors rather
+/// than controls that lie.
+#[tokio::test]
+async fn a_misdeclared_schema_fails_to_render() {
+    let schema = Schema::new((
+        Field::text(DummyUser::fields().name()),
+        Field::text(DummyUser::fields().name()),
+    ));
+    let cx = topcoat::context::CxTestBuilder::new().build();
+    let values = HashMap::new();
+    let errors = crate::form::FieldErrors::new();
+    let Err(error) = schema.render(&cx, Source::form(&values, &errors)).await else {
+        panic!("a misdeclared schema must not render");
+    };
+    assert!(
+        format!("{error}").contains("duplicate field name"),
+        "the render error carries the declaration errors, got {error}"
+    );
+}
+
 #[test]
 fn unknown_keys_flags_undeclared_post_keys() {
     let schema = Schema::new(Field::text(DummyUser::fields().name()));

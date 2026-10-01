@@ -158,9 +158,8 @@ impl Resource for UserResource {
 }
 
 /// What the user form writes, and the controls it renders: `role` is a choice
-/// over [`Role`], `active` a toggle, the rest text. `role`, `active`, and `age`
-/// are optional controls, so each declares what an emptied control stores: the
-/// create defaults, and zero for a stored integer.
+/// over [`Role`], `active` a toggle, the rest text. `role` and `age` are
+/// optional controls, so each declares what an emptied control stores.
 #[derive(tablo_core::RecordForm)]
 #[form(model = User)]
 pub struct UserForm {
@@ -168,7 +167,6 @@ pub struct UserForm {
     pub email: String,
     #[form(options = Role, blank = Role::Member.value())]
     pub role: String,
-    #[form(blank = true)]
     pub active: bool,
     #[form(blank = 0)]
     pub age: i64,

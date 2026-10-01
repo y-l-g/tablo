@@ -175,7 +175,6 @@ A modifier on the wrong kind of field does not compile: each `Field` constructor
 control's builder (`TextField`, `ChoiceField`, `FileField`, `CustomField`), which offers only
 that control's modifiers.
 
-The panel serves the checked declarations to every request, so `table()`, `form()`, `view()` and
-`can_create()` must not depend on the request: a declaration takes no user, tenant or query
-string, and a check that reads one sees an anonymous request at startup. `can_create` runs with a
-context holding only the `Db`.
+The panel serves the checked declarations to every request, so `table()`, `form()` and
+`view()` must not depend on the request: a declaration takes no user, tenant or query
+string, and a check that reads one sees an anonymous request at startup.

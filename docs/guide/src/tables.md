@@ -38,7 +38,7 @@ primary key the URLs carry. Either way, keys must be unique within a page.
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
 | `TextColumn::r#for(lens, project)` | `project(row)`, bound to a `String` field | `.searchable()`, `.sortable()` |
-| `TextColumn::computed(label, project)` | `project(row)` | neither: either is a misdeclaration the build refuses and the render fails with |
+| `TextColumn::computed(label, project)` | `project(row)` | neither is available: requesting either is a misdeclaration the build refuses |
 | `BooleanColumn::r#for(lens, project)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 
 - **Labels.** A field column is labelled from its field name (`created_at` → "Created at"); a
