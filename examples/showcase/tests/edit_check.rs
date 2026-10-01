@@ -1,7 +1,10 @@
 use http::header::LOCATION;
-use showcase::{app::router_for_tests as router, models::User};
+use showcase::models::User;
 
-use crate::common::{body_string, demo_client, response_cookies, seeded_db, set_cookie_header};
+use crate::common::{
+    body_string, demo_client, response_cookies, routers::router_for_tests as router, seeded_db,
+    set_cookie_header,
+};
 
 #[tokio::test]
 async fn edit_page_hydrates_and_updates() {

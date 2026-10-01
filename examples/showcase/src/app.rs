@@ -609,31 +609,9 @@ pub fn router(db: Db) -> Router {
     build_router(db, Some(load_assets()), Some(upload_dir()))
 }
 
-/// Build the showcase router without filesystem assets for markup tests.
-///
-/// This is deliberately separate from [`router`]: the application path fails
-/// loudly when its generated bundle is missing, while tests can exercise the
-/// server-rendered markup without pretending an asset bundle exists.
-///
-/// It installs **no uploader** either, which pins the framework's default for
-/// a file field with no store. A test that needs the demo store uses
-/// [`router_with_app_uploads`].
-pub fn router_for_tests(db: Db) -> Router {
-    build_router(db, None, None)
-}
-
-/// Build the showcase router with uploads at the directory the application
-/// itself uses.
-///
-/// The media library's page writes through this configuration — the panel's
-/// `serve_dir` mount and the store are two ends of one directory.
-pub fn router_with_app_uploads(db: Db) -> Router {
-    build_router(db, None, Some(upload_dir()))
-}
-
 /// Where the showcase writes uploaded bytes: `SHOWCASE_UPLOAD_DIR`, or
 /// `target/showcase-uploads` so a local run works with no configuration.
-pub(crate) fn upload_dir() -> PathBuf {
+pub fn upload_dir() -> PathBuf {
     std::env::var_os("SHOWCASE_UPLOAD_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("target/showcase-uploads"))
@@ -771,7 +749,7 @@ fn url_segment(name: &str) -> String {
     out
 }
 
-fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
+pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
     let mut panel = Panel::new("admin")
         // Staff sign in against the showcase's own table, and each holds a
         // seat in the blogs (tenants) they work on.

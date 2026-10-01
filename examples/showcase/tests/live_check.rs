@@ -6,9 +6,12 @@
 //! shard asks for the connection (and not the page around it), and a committed
 //! write shows up in the feed.
 
-use showcase::{app::router_for_tests as router, live::LIVE_PATH};
+use showcase::live::LIVE_PATH;
 
-use crate::common::{TestClient, body_string, demo_client, seeded_db, user_count};
+use crate::common::{
+    TestClient, body_string, demo_client, routers::router_for_tests as router, seeded_db,
+    user_count,
+};
 
 /// Create one user through the panel's own form, as an admin would.
 ///

@@ -1,10 +1,9 @@
 use http::header::LOCATION;
-use showcase::{
-    app::router_for_tests as router,
-    models::{Author, Comment, Post},
-};
+use showcase::models::{Author, Comment, Post};
 
-use crate::common::{body_string, demo_client, full_db, post_count};
+use crate::common::{
+    body_string, demo_client, full_db, post_count, routers::router_for_tests as router,
+};
 
 #[tokio::test]
 async fn posts_list_shows_author_name() {

@@ -5,6 +5,8 @@
 
 #![allow(dead_code)]
 
+pub mod routers;
+
 use showcase::models::{DEMO_ADMIN_EMAIL, seed, seed_content, seed_staff};
 use tablo_core::{Panel, RouterBuilderPanelExt};
 pub use tablo_test::{

@@ -7,12 +7,12 @@
 //! the control: the same router still gates `/admin`, so a 200 on `/blog` is the
 //! blog being public rather than the gate being off.
 
-use showcase::{
-    app::router_for_tests as router,
-    models::{Author, DEMO_TENANT, Post, Publication, Seo},
-};
+use showcase::models::{Author, DEMO_TENANT, Post, Publication, Seo};
 
-use crate::common::{TestClient, body_string, demo_client, empty_schema_db, full_db};
+use crate::common::{
+    TestClient, body_string, demo_client, empty_schema_db, full_db,
+    routers::router_for_tests as router,
+};
 
 /// The one published seed post.
 async fn published_post(db: &toasty::Db) -> Post {

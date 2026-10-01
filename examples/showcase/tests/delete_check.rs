@@ -1,11 +1,11 @@
 use http::header::LOCATION;
-use showcase::{app::router_for_tests as router, models::User};
+use showcase::models::User;
 use tablo_core::{Ability, Policy};
 use toasty::Db;
 
 use crate::common::{
-    TestClient, body_string, demo_client, mount, response_cookies, seeded_db, set_cookie_header,
-    user_count,
+    TestClient, body_string, demo_client, mount, response_cookies,
+    routers::router_for_tests as router, seeded_db, set_cookie_header, user_count,
 };
 
 #[tokio::test]

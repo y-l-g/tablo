@@ -1,9 +1,8 @@
-use showcase::{
-    app::router_for_tests as router,
-    models::{Author, Post},
-};
+use showcase::models::{Author, Post};
 
-use crate::common::{body_string, demo_client, full_db, post_count};
+use crate::common::{
+    body_string, demo_client, full_db, post_count, routers::router_for_tests as router,
+};
 
 #[tokio::test]
 async fn posts_create_shows_cover_picker_and_repeater() {

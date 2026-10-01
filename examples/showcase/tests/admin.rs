@@ -1,8 +1,6 @@
-use showcase::app::router_for_tests as router;
-
 use crate::common::{
-    TestClient, body_string, demo_client, find_href_with, find_pager_href, row_keys, row_titles,
-    seeded_db, user_count,
+    TestClient, body_string, demo_client, find_href_with, find_pager_href,
+    routers::router_for_tests as router, row_keys, row_titles, seeded_db, user_count,
 };
 
 #[tokio::test]
