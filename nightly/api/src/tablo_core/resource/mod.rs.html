@@ -71,14 +71,14 @@
 <a href=#71 id=71 data-nosnippet>71</a>/// declares its model, its record form (or [`NoForm`](crate::NoForm)) and its
 <a href=#72 id=72 data-nosnippet>72</a>/// list view — and an omission must fail loudly rather than silently:
 <a href=#73 id=73 data-nosnippet>73</a>///
-<a href=#74 id=74 data-nosnippet>74</a>/// - **Built once and checked at [`Panel::build`](crate::panel::Panel::build)**: [`table`],
-<a href=#75 id=75 data-nosnippet>75</a>///   [`form`], [`view`] and [`relations`] are declarations — the table and the relations take no
-<a href=#76 id=76 data-nosnippet>76</a>///   context, the schemas a [`DeclCx`] carrying the app schema alone — so the panel builds each
-<a href=#77 id=77 data-nosnippet>77</a>///   once, refuses what they record as misdeclared ([`Table::declaration_errors`],
-<a href=#78 id=78 data-nosnippet>78</a>///   [`Schema::declaration_errors`]), and serves the same values to every request. [`form`] must
-<a href=#79 id=79 data-nosnippet>79</a>///   agree with [`Form`](Self::Form): a record form's fields are the schema's controls, and a
-<a href=#80 id=80 data-nosnippet>80</a>///   [`NoForm`](crate::NoForm) resource declares no schema. A resource with no form must not allow
-<a href=#81 id=81 data-nosnippet>81</a>///   [`can_create`](Self::can_create), which the build asks with a context holding only the `Db`.
+<a href=#74 id=74 data-nosnippet>74</a>/// - **Built once and checked when the panel is mounted**: [`table`], [`form`], [`view`] and
+<a href=#75 id=75 data-nosnippet>75</a>///   [`relations`] are declarations — the table and the relations take no context, the schemas a
+<a href=#76 id=76 data-nosnippet>76</a>///   [`DeclCx`] carrying the app schema alone — so the panel builds each once, refuses what they
+<a href=#77 id=77 data-nosnippet>77</a>///   record as misdeclared ([`Table::declaration_errors`], [`Schema::declaration_errors`]), and
+<a href=#78 id=78 data-nosnippet>78</a>///   serves the same values to every request. [`form`] must agree with [`Form`](Self::Form): a
+<a href=#79 id=79 data-nosnippet>79</a>///   record form's fields are the schema's controls, and a [`NoForm`](crate::NoForm) resource
+<a href=#80 id=80 data-nosnippet>80</a>///   declares no schema. A resource with no form must not allow [`can_create`](Self::can_create),
+<a href=#81 id=81 data-nosnippet>81</a>///   which the mount asks with a context holding only the `Db`.
 <a href=#82 id=82 data-nosnippet>82</a>///
 <a href=#83 id=83 data-nosnippet>83</a>/// [`table`]: Self::table
 <a href=#84 id=84 data-nosnippet>84</a>/// [`form`]: Self::form
@@ -120,8 +120,8 @@
 <a href=#120 id=120 data-nosnippet>120</a>    <span class="doccomment">/// The columns an overriding [`Self::create_record`] sets itself, beyond
 <a href=#121 id=121 data-nosnippet>121</a>    /// the form's fields.
 <a href=#122 id=122 data-nosnippet>122</a>    ///
-<a href=#123 id=123 data-nosnippet>123</a>    /// [`Panel::build`](crate::Panel::build) refuses a resource that allows
-<a href=#124 id=124 data-nosnippet>124</a>    /// create when a non-nullable column is neither a form field, nor filled by
+<a href=#123 id=123 data-nosnippet>123</a>    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses a resource
+<a href=#124 id=124 data-nosnippet>124</a>    /// that allows create when a non-nullable column is neither a form field, nor filled by
 <a href=#125 id=125 data-nosnippet>125</a>    /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
 <a href=#126 id=126 data-nosnippet>126</a>    /// create would fail at the driver on every submit. A record fn that sets
 <a href=#127 id=127 data-nosnippet>127</a>    /// such a column by hand names it here.
@@ -157,7 +157,7 @@
 <a href=#157 id=157 data-nosnippet>157</a>
 <a href=#158 id=158 data-nosnippet>158</a>    <span class="doccomment">/// Whether the current user may create a new record.
 <a href=#159 id=159 data-nosnippet>159</a>    ///
-<a href=#160 id=160 data-nosnippet>160</a>    /// `Panel::build` calls this with a Db-only context to decide which
+<a href=#160 id=160 data-nosnippet>160</a>    /// Mounting the panel calls this with a Db-only context to decide which
 <a href=#161 id=161 data-nosnippet>161</a>    /// declaration checks apply, so a predicate that reads the request (a
 <a href=#162 id=162 data-nosnippet>162</a>    /// tenant, a user) answers as it would for an anonymous request there. The
 <a href=#163 id=163 data-nosnippet>163</a>    /// list page links to the create page only for a resource with a record
@@ -387,8 +387,8 @@
 <a href=#387 id=387 data-nosnippet>387</a>    /// 2. **The scope.** Every loader ANDs `tenant_id = &lt;request tenant&gt;` onto the base query,
 <a href=#388 id=388 data-nosnippet>388</a>    ///    deriving the column from the model's own schema or the resource's [`Self::tenant_scope`].
 <a href=#389 id=389 data-nosnippet>389</a>    ///    A gated resource that declares neither a `tenant_id` UUID column nor an override is
-<a href=#390 id=390 data-nosnippet>390</a>    ///    refused by [`Panel::build`](crate::Panel::build) at boot rather than served unscoped or
-<a href=#391 id=391 data-nosnippet>391</a>    ///    failing per request.
+<a href=#390 id=390 data-nosnippet>390</a>    ///    refused by [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) at boot
+<a href=#391 id=391 data-nosnippet>391</a>    ///    rather than served unscoped or failing per request.
 <a href=#392 id=392 data-nosnippet>392</a>    ///
 <a href=#393 id=393 data-nosnippet>393</a>    /// A resource that must genuinely serve more than the request tenant
 <a href=#394 id=394 data-nosnippet>394</a>    /// declares `false` and scopes in [`Self::query`] by hand, giving up the
@@ -409,8 +409,8 @@
 <a href=#409 id=409 data-nosnippet>409</a>    ///
 <a href=#410 id=410 data-nosnippet>410</a>    /// Only consulted when [`requires_tenant`](Self::requires_tenant) is
 <a href=#411 id=411 data-nosnippet>411</a>    /// `true`. `None` from a gated resource is a **misdeclaration**, not a way
-<a href=#412 id=412 data-nosnippet>412</a>    /// to be unscoped: [`Panel::build`](crate::Panel::build) refuses it at boot
-<a href=#413 id=413 data-nosnippet>413</a>    /// and every loader keeps answering an error naming the resource
+<a href=#412 id=412 data-nosnippet>412</a>    /// to be unscoped: [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel)
+<a href=#413 id=413 data-nosnippet>413</a>    /// refuses it at boot and every loader keeps answering an error naming the resource
 <a href=#414 id=414 data-nosnippet>414</a>    /// rather than running its query without a tenant predicate — the backstop
 <a href=#415 id=415 data-nosnippet>415</a>    /// for a predicate that is only `None` for some tenants. There is
 <a href=#416 id=416 data-nosnippet>416</a>    /// deliberately no override that *removes* the scope — a resource that
@@ -444,7 +444,7 @@
 <a href=#444 id=444 data-nosnippet>444</a>    /// ```
 <a href=#445 id=445 data-nosnippet>445</a>    ///
 <a href=#446 id=446 data-nosnippet>446</a>    /// `dx` carries the app schema and nothing from a request: the panel calls
-<a href=#447 id=447 data-nosnippet>447</a>    /// this once, at build. [`Panel::build`](crate::Panel::build) refuses a
+<a href=#447 id=447 data-nosnippet>447</a>    /// this once, when it is mounted, and refuses a
 <a href=#448 id=448 data-nosnippet>448</a>    /// record form field this schema does not declare, and a schema on a
 <a href=#449 id=449 data-nosnippet>449</a>    /// resource whose [`Form`](Self::Form) is [`NoForm`](crate::NoForm).
 <a href=#450 id=450 data-nosnippet>450</a>    </span><span class="kw">fn </span>form(dx: <span class="kw-2">&amp;</span>DeclCx) -&gt; <span class="kw">crate</span>::schema::Schema {
@@ -645,10 +645,10 @@
 <a href=#645 id=645 data-nosnippet>645</a>///   gives.
 <a href=#646 id=646 data-nosnippet>646</a>/// - A gated resource that supplies no tenant predicate — no discoverable `tenant_id` UUID column,
 <a href=#647 id=647 data-nosnippet>647</a>///   no [`Resource::tenant_scope`] override → an error naming the resource and the model.
-<a href=#648 id=648 data-nosnippet>648</a>///   [`Panel::build`](crate::Panel::build) refuses that declaration at boot, so this is the
-<a href=#649 id=649 data-nosnippet>649</a>///   backstop for a predicate that is `None` for the request's tenant, and for app code outside a
-<a href=#650 id=650 data-nosnippet>650</a>///   panel. It is deliberately **not** a fallback to the unscoped query: a silent miss would be the
-<a href=#651 id=651 data-nosnippet>651</a>///   leak [`Resource::requires_tenant`] exists to prevent.
+<a href=#648 id=648 data-nosnippet>648</a>///   [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses that declaration
+<a href=#649 id=649 data-nosnippet>649</a>///   at boot, so this is the backstop for a predicate that is `None` for the request's tenant, and
+<a href=#650 id=650 data-nosnippet>650</a>///   for app code outside a panel. It is deliberately **not** a fallback to the unscoped query: a
+<a href=#651 id=651 data-nosnippet>651</a>///   silent miss would be the leak [`Resource::requires_tenant`] exists to prevent.
 <a href=#652 id=652 data-nosnippet>652</a>///
 <a href=#653 id=653 data-nosnippet>653</a>/// App code that loads rows itself must call this — on a gated resource
 <a href=#654 id=654 data-nosnippet>654</a>/// [`Resource::query`] is the *tenant-unscoped* base by design, so calling it
@@ -687,7 +687,7 @@
 <a href=#687 id=687 data-nosnippet>687</a>        <span class="comment">// Fail closed and loudly: the resource declared a gate whose scope the
 <a href=#688 id=688 data-nosnippet>688</a>        // framework cannot derive and the resource did not state, and running
 <a href=#689 id=689 data-nosnippet>689</a>        // the query unscoped is the one outcome that declaration exists to
-<a href=#690 id=690 data-nosnippet>690</a>        // prevent. `Panel::build` already refused the resource if *no* tenant
+<a href=#690 id=690 data-nosnippet>690</a>        // prevent. Mounting the panel already refused the resource if *no* tenant
 <a href=#691 id=691 data-nosnippet>691</a>        // could scope it; this is the backstop for a `tenant_scope`
 <a href=#692 id=692 data-nosnippet>692</a>        // that answers `None` only for this tenant, and for callers outside a
 <a href=#693 id=693 data-nosnippet>693</a>        // panel.

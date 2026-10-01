@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -181,18 +181,26 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="panel-and-routing"><a class="header" href="#panel-and-routing">Panel and routing</a></h1>
-<p><code>Panel</code> is the admin application. You configure it with builder calls, and <code>build()</code> turns it into
-a Topcoat <code>Router</code> that serves every registered resource and page, the login page, and the shell
-that frames them.</p>
+<p>A <code>Panel</code> is an admin panel: resources and pages under one prefix, one shell, one login. You
+configure it with builder calls and mount it on your app’s Topcoat router, which serves every
+registered resource and page, the login page, and the shell that frames them, beside your own
+routes.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let router = Panel::new("admin")          // mounted at /admin
-    .app_context(db)                      // the toasty::Db every handler uses
-    .brand(Brand::new("Acme"))
-    .home::&lt;Dashboard&gt;()                  // GET /admin
-    .resource::&lt;UserResource&gt;()           // /admin/users and its sub-routes
-    .page::&lt;ReportsPage&gt;()                // GET /admin/reports
-    .build()?;
+</span>use tablo::prelude::*;
+use topcoat::{asset::RouterBuilderAssetExt, router::{Router, RouterBuilderDiscoverExt}};
+
+let router = Router::builder()
+    .discover()                                // the app's own pages and routes, and Tablo's
+    .app_context(db)                           // the toasty::Db every handler uses
+    .panel(
+        Panel::new("admin")                    // mounted at /admin
+            .brand(Brand::new("Acme"))
+            .home::&lt;Dashboard&gt;()               // GET /admin
+            .resource::&lt;UserResource&gt;()        // /admin/users and its sub-routes
+            .page::&lt;ReportsPage&gt;(),            // GET /admin/reports
+    )?
+    .build();
 <span class="boring">}</span></code></pre>
 <h2 id="routes"><a class="header" href="#routes">Routes</a></h2>
 <p>A resource with the slug <code>users</code>, on a panel mounted at <code>/admin</code>, serves:</p>
@@ -230,8 +238,7 @@ when there is none.</li>
 <tr><th>Call</th><th>Effect</th><th>See</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Panel::new(prefix)</code></td><td>mounts the panel at <code>/{prefix}</code></td><td></td></tr>
-<tr><td><code>app_context(db)</code></td><td>installs the <code>toasty::Db</code>; <code>build</code> fails without it</td><td><a href="./data-access.html">Data access</a></td></tr>
+<tr><td><code>Panel::new(prefix)</code></td><td>the panel at <code>/{prefix}</code> (<code>""</code> mounts at <code>/admin</code>)</td><td></td></tr>
 <tr><td><code>resource::&lt;R&gt;()</code></td><td>registers a resource’s routes and sidebar entry</td><td><a href="./resources.html">Resources</a></td></tr>
 <tr><td><code>page::&lt;P&gt;()</code></td><td>registers a page at <code>/{prefix}/{slug}</code></td><td><a href="#pages">Pages</a></td></tr>
 <tr><td><code>home::&lt;P&gt;()</code></td><td>registers a page at <code>/{prefix}</code></td><td><a href="#pages">Pages</a></td></tr>
@@ -241,26 +248,79 @@ when there is none.</li>
 <tr><td><code>auth(Auth)</code></td><td>replaces or disables the built-in password login</td><td><a href="./policy-auth-tenancy.html#authentication">Policy, auth, tenancy</a></td></tr>
 <tr><td><code>uploads(uploader)</code></td><td>sets where file fields store their bytes</td><td><a href="./forms.html#file-uploads">Forms</a></td></tr>
 <tr><td><code>serve_dir(path, dir)</code></td><td>serves a directory of files, publicly</td><td><a href="./forms.html#file-uploads">Forms</a></td></tr>
-<tr><td><code>assets(bundle)</code>, <code>shell_assets(css, font)</code></td><td>adds the stylesheet, font and scripts</td><td><a href="#assets">Assets</a></td></tr>
+<tr><td><code>shell_assets(css, font)</code></td><td>adds the stylesheet, font and scripts</td><td><a href="#assets">Assets</a></td></tr>
+<tr><td><code>layout(render)</code></td><td>frames the panel’s pages with your layout instead of the shell</td><td><a href="#the-shell-layout">The shell layout</a></td></tr>
 <tr><td><code>frame_ancestors(..)</code>, <code>without_frame_ancestors()</code></td><td>changes the anti-framing header</td><td><a href="./security.html">Security</a></td></tr>
-<tr><td><code>build()</code></td><td>checks every declaration and returns the <code>Router</code></td><td></td></tr>
 </tbody>
 </table>
 </div>
-<p>The builder calls never fail; <code>build()</code> returns an error naming what is wrong instead. It refuses a
-missing <code>Db</code>, two resources or pages with one slug, a slug the panel routes itself (<code>login</code>,
-<code>logout</code>), a slug that is not a single URL segment, a second home page, <code>shell_assets</code> without
-<code>assets</code>, and every resource declaration check described in
+<h2 id="mounting"><a class="header" href="#mounting">Mounting</a></h2>
+<p><code>Router::builder().panel(panel)</code> mounts a panel; the <code>RouterBuilderPanelExt</code> trait, in the
+prelude, provides it. The router is yours: discover your own pages and routes, install the <code>Db</code>
+with <code>.app_context(db)</code> and the asset bundle with <code>.assets(..)</code>, then mount. The panel reads both
+from the router, so they come first.</p>
+<p>The first panel mounted also installs what every panel shares: cookies, sessions unless the
+router already configures them, the gate over Topcoat’s runtime endpoints with the shard
+dispatch, and Topcoat’s runtime layer with link prefetching off unless the router already set
+those up. The runtime layer has no
+path, so mount panels after your own pathless layers: a page re-run must reach those layers
+already rewritten to a <code>GET</code>.</p>
+<p>The builder calls never fail; <code>.panel(..)</code> returns an error naming what is wrong instead. It
+refuses a router with no <code>Db</code>, a <code>Db</code> missing the shipped auth models, two resources or pages
+with one slug, a slug the panel routes itself
+(<code>login</code>, <code>logout</code>), a slug that is not a single URL segment, a second home page, <code>shell_assets</code>
+on a router with no asset bundle, a prefix that overlaps another panel’s or Topcoat’s
+<code>/_topcoat/runtime</code>, and every resource declaration check described in
 <a href="./resources.html#startup-checks">Resources</a>.</p>
-<h2 id="the-shell-layout"><a class="header" href="#the-shell-layout">The shell layout</a></h2>
-<p>The panel’s pages render inside your app’s <code>#[layout]</code> at the panel prefix. Delegate it to the
-panel to get the shell — sidebar, topbar, theme toggle and notification toasts:</p>
+<h2 id="several-panels"><a class="header" href="#several-panels">Several panels</a></h2>
+<p>One router mounts any number of panels at distinct prefixes, each with its own resources, pages,
+sidebar, brand and auth:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>#[layout("/admin")]
-async fn admin_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
-    Panel::layout_shell(cx, slot).await
+</span>let router = Router::builder()
+    .discover()
+    .app_context(db)
+    .panel(Panel::new("admin").resource::&lt;UserResource&gt;().resource::&lt;OrderResource&gt;())?
+    .panel(
+        Panel::new("portal")
+            .brand(Brand::new("Customer portal"))
+            .auth(Auth::custom(Customers))
+            .resource::&lt;OrderResource&gt;(),
+    )?
+    .build();
+<span class="boring">}</span></code></pre>
+<p>A resource registered by two panels is declared once: both serve the same table, form and policy,
+each under its own prefix. A panel’s prefix must not overlap another’s: <code>/admin</code> and <code>/admin/reports</code>
+are refused, <code>/admin</code> and <code>/administration</code> are not.</p>
+<p>Each panel has its own login page, and a session belongs to the panel that signed the user in. A
+user signed in to <code>/admin</code> is anonymous on <code>/portal</code>, and signing in to <code>/portal</code> ends the <code>/admin</code>
+session. See <a href="./policy-auth-tenancy.html#authentication">Policy, auth, tenancy</a>.</p>
+<h2 id="urls"><a class="header" href="#urls">URLs</a></h2>
+<p>The <code>tablo::url</code> helpers answer for the request’s panel, so app code never spells a prefix:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>tablo::url::resource::&lt;PostResource&gt;(cx) // Some("/admin/posts")
+tablo::url::page::&lt;ReportsPage&gt;(cx)      // Some("/admin/reports")
+tablo::url::panel(cx)                    // Some("/admin")
+<span class="boring">}</span></code></pre>
+<p>The request’s panel is the one whose prefix the request is under; on a router with a single panel
+it is that panel for every request. A resource or page that panel does not register has no URL
+there, and the helper returns <code>None</code>.</p>
+<h2 id="the-shell-layout"><a class="header" href="#the-shell-layout">The shell layout</a></h2>
+<p>The panel frames every page under its prefix in the shell — sidebar, topbar, theme toggle and
+notification toasts — with a layout it registers itself. Declare no <code>#[layout]</code> of your own at the
+prefix: a second layout there would nest a second document inside the first.</p>
+<p>To change the frame, pass your own layout function to <code>Panel::layout</code>. <code>Panel::layout_shell</code> is
+the shipped one, so a layout that keeps the shell calls it around its own markup; one that does not
+call it replaces the shell entirely:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn admin_layout&lt;'a&gt;(cx: &amp;'a Cx, slot: Slot&lt;'a&gt;) -&gt; BoxView&lt;'a&gt; {
+    let page = view! { cx =&gt; &lt;div class="acme-admin"&gt;(slot)&lt;/div&gt; }.boxed();
+    Panel::layout_shell(cx, page.into())
 }
+
+Panel::new("admin").layout(admin_layout)
 <span class="boring">}</span></code></pre>
 <h2 id="sidebar"><a class="header" href="#sidebar">Sidebar</a></h2>
 <p>Every resource and page gets one sidebar entry, labelled with its <code>navigation_label()</code> and linked
@@ -306,7 +366,7 @@ Panel::new("admin").page::&lt;ReportsPage&gt;() // GET /admin/reports
 labelled “Media library”. Override <code>slug()</code> and <code>navigation_label()</code> to change them. Pages and
 resources share one slug namespace.</li>
 <li><strong>The home page.</strong> <code>Panel::home::&lt;P&gt;()</code> mounts a page at the prefix itself instead of the
-redirect to the first resource. A panel has at most one; a second fails <code>build()</code>.</li>
+redirect to the first resource. A panel has at most one; a second fails <code>.panel(..)</code>.</li>
 <li><strong>Access.</strong> With authentication on, the page renders only for a signed-in user with panel access,
 inside the shell layout.</li>
 <li><strong>Forms.</strong> A page serves one <code>GET</code>. A form it renders posts to an app <code>#[route]</code>; put that route
@@ -320,11 +380,11 @@ width and padding; <code>page_header</code> holds a <code>page_title</code>, an 
 yours.</p>
 <p>The showcase registers a dashboard as its home page, a media library and a live activity feed.</p>
 <h2 id="public-pages"><a class="header" href="#public-pages">Public pages</a></h2>
-<p>A page outside the panel prefix is an ordinary Topcoat <code>#[page]</code>. The auth gate covers only the
-panel prefix and <code>/_topcoat/runtime</code>, so such a page is public. <code>build()</code> discovers it like any
-other Topcoat route; the panel needs no registration call.</p>
+<p>A page outside the panel prefix is an ordinary Topcoat <code>#[page]</code> on your router. The auth gate
+covers only the panel prefix and <code>/_topcoat/runtime</code>, so such a page is public.</p>
 <p><code>Panel::document</code> renders the same HTML document as the admin shell — head, assets, theme — around
-your own markup:</p>
+your own markup. Outside any prefix it takes the panel’s shell settings when the router mounts one
+panel; with several, it renders the document without the panel’s stylesheet and font.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// A layout wraps every route under its path: this one wraps /blog and /blog/{id}.
@@ -365,19 +425,21 @@ default. Without the call the panel starts light.</li>
 </ul>
 <h2 id="assets"><a class="header" href="#assets">Assets</a></h2>
 <p>Without assets the panel renders unstyled HTML without the shell’s scripts, and every page and
-form still works. To style it, register the app’s Topcoat asset bundle, then the Tailwind stylesheet and
-the font the shell links:</p>
+form still works. To style it, install the app’s Topcoat asset bundle on the router, then give the
+panel the Tailwind stylesheet and the font the shell links:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
-Panel::new("admin")
+Router::builder()
+    .discover()
+    .app_context(db)
     .assets(AssetBundle::load().expect("asset bundle"))
-    .shell_assets(tailwind::stylesheet!(), GEIST)
+    .panel(Panel::new("admin").shell_assets(tailwind::stylesheet!(), GEIST))?
 <span class="boring">}</span></code></pre>
 <p><code>shell_assets</code> also makes the shell load <code>tablo-ui</code>’s scripts: live search, confirmation dialogs,
-searchable selects, toasts and the sidebar and theme toggles. <code>build()</code> refuses <code>shell_assets</code>
-without <code>assets</code>. The stylesheet comes from <code>tablo_build::tailwind()</code> in the app’s <code>build.rs</code>
+searchable selects, toasts and the sidebar and theme toggles. Mounting refuses <code>shell_assets</code> on a
+router with no asset bundle. The stylesheet comes from <code>tablo_build::tailwind()</code> in the app’s <code>build.rs</code>
 (<a href="./first-panel.html#the-stylesheet">Your first panel</a>); <code>examples/quickstart</code> has the smallest
 complete setup and <code>examples/showcase</code> the full one.</p>
 

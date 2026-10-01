@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -185,7 +185,8 @@
 <a href="./panel-and-routing.html#pages">page</a>, a record function, or a public page. The
 <a href="https://tokio-rs.github.io/toasty/0.10.0/guide/">Toasty guide</a> covers the query API in full.</p>
 <h2 id="getting-the-database"><a class="header" href="#getting-the-database">Getting the database</a></h2>
-<p><code>app_context(db)</code> registers the <code>Db</code> on the panel; <code>tablo_core::db::db(cx)</code> returns it. Cloning a
+<p><code>app_context(db)</code> registers the <code>Db</code> on the app’s router, where every panel mounted on it reads it;
+<code>tablo_core::db::db(cx)</code> returns it. Cloning a
 <code>Db</code> is cheap, and statements take it by <code>&amp;mut</code>:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

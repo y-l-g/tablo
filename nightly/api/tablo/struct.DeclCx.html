@@ -2,9 +2,9 @@
 nothing from a request.</p>
 <p><a href="trait.Resource.html#method.form" title="associated function tablo::Resource::form"><code>Resource::form</code></a> and
 <a href="trait.Resource.html#method.view" title="associated function tablo::Resource::view"><code>Resource::view</code></a> receive one.
-<a href="struct.Panel.html#method.build" title="method tablo::Panel::build"><code>Panel::build</code></a> builds it from the panel’s
-<code>Db</code> and calls each declaration once, so a declaration cannot depend on a
-user, a tenant or a query string: it has no way to reach them.</p>
+Mounting the panel (<a href="trait.RouterBuilderPanelExt.html#tymethod.panel" title="method tablo::RouterBuilderPanelExt::panel"><code>RouterBuilderPanelExt::panel</code></a>)
+builds it from the router’s <code>Db</code> and calls each declaration once, so a declaration cannot depend
+on a user, a tenant or a query string: it has no way to reach them.</p>
 <p>The schema is what binds an embedded leaf
 (<a href="struct.ResolvedLens.html#method.new" title="associated function tablo::ResolvedLens::new"><code>ResolvedLens::new</code></a>) to its flattened storage column. A <code>DeclCx</code>
 without one (<a href="struct.DeclCx.html#method.empty" title="associated function tablo::DeclCx::empty"><code>DeclCx::empty</code></a>) resolves single-field lenses only, as a

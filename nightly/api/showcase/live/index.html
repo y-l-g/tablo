@@ -10,6 +10,6 @@ connection belongs to the shard, so the rest of the shell stays on HTTP and
 no polling script runs.</p>
 <p>The rows come from the request’s own database, so one router’s feed never
 shows another router’s writes. The wake channel is a process-global because
-<code>Panel::app_context</code> carries only the <code>Db</code>; an app that owns a context of
+the router’s app context carries only the <code>Db</code>; an app that owns a context of
 its own keeps the sender beside it instead.</p>
 </div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.LiveActivityPage.html" title="struct showcase::live::LiveActivityPage">Live<wbr>Activity<wbr>Page</a></dt><dd>The panel page holding the live feed, at <a href="constant.LIVE_PATH.html" title="constant showcase::live::LIVE_PATH"><code>LIVE_PATH</code></a>.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.LIVE_PATH.html" title="constant showcase::live::LIVE_PATH">LIVE_<wbr>PATH</a></dt><dd>Where the live feed lives.</dd></dl></section></div></main></body></html>

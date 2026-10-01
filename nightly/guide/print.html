@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -197,7 +197,7 @@ sort, filters and pagination work without JavaScript; the shipped scripts add in
 on top.</li>
 <li><strong>Typed declarations.</strong> Columns, form fields and filters are built from Toasty field lenses
 such as <code>User::fields().email()</code>, so a renamed or retyped column is a compile error.</li>
-<li><strong>Checks at startup.</strong> <code>Panel::build</code> validates every declaration — a form struct that disagrees
+<li><strong>Checks at startup.</strong> Mounting the panel validates every declaration — a form struct that disagrees
 with its schema, two resources on one URL, a tenant-owned resource with no tenant column — and
 returns an error naming the mistake before the server takes a request.</li>
 <li><strong>Safe defaults.</strong> Every policy predicate denies until you allow it, authentication is on, every
@@ -267,8 +267,7 @@ use toasty::Db;
 use topcoat::{
     Result,
     context::Cx,
-    router::{Slot, layout},
-    view::View,
+    router::{Router, RouterBuilderDiscoverExt},
 };
 
 /// The model: every column the panel renders comes from this type.
@@ -312,12 +311,6 @@ impl Resource for BookResource {
     }
 }
 
-/// Frames every page under `/admin` in the panel's shell: sidebar, topbar, toasts.
-#[layout("/admin")]
-async fn admin_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
-    Panel::layout_shell(cx, slot).await
-}
-
 #[tokio::main]
 async fn main() -&gt; Result&lt;()&gt; {
     let mut db = Db::builder()
@@ -343,10 +336,11 @@ async fn main() -&gt; Result&lt;()&gt; {
     .exec(&amp;mut db)
     .await?;
 
-    let router = Panel::new("admin")
+    let router = Router::builder()
+        .discover()
         .app_context(db)
-        .resource::&lt;BookResource&gt;()
-        .build()?;
+        .panel(Panel::new("admin").resource::&lt;BookResource&gt;())?
+        .build();
 
     topcoat::start(router).await?;
     Ok(())
@@ -363,19 +357,20 @@ and typed like the model’s field, so a renamed column fails to compile. See
 <li><strong><code>impl Resource</code></strong> declares the admin for one model: its table, its form’s controls, and its
 policy. A resource must name <code>Model</code> and <code>Form</code> and declare <code>table()</code>; every other item has a
 default. See <a href="#resources">Resources</a>.</li>
-<li><strong><code>#[layout("/admin")]</code></strong> frames the panel’s pages. <code>Panel::layout_shell</code> renders the whole
-document around them; the layout’s path must match the panel’s prefix.</li>
 <li><strong><code>Db::builder().models(..)</code></strong> lists every model Toasty maps, including the two tables the
-built-in login uses. With authentication on, <code>Panel::build</code> panics if they are missing.</li>
+built-in login uses. With authentication on, mounting the panel returns an error naming the
+missing models.</li>
 <li><strong><code>db.push_schema()</code></strong> creates the tables, which suits a prototype. A production app runs
 <code>toasty-cli</code> migrations instead.</li>
-<li><strong><code>Panel::new("admin")</code></strong> mounts the panel at <code>/admin</code>. <strong><code>app_context(db)</code></strong> gives it the
-database; <code>Panel::build</code> fails without one.</li>
+<li><strong><code>Router::builder().discover()</code></strong> starts the app’s own router: the app owns it, and the panel
+is one part of it. <strong><code>app_context(db)</code></strong> gives it the database every handler reads.</li>
+<li><strong><code>Panel::new("admin")</code></strong> is a panel at <code>/admin</code>, framed in the shell — sidebar, topbar,
+toasts — by a layout it registers itself.</li>
 <li><strong><code>resource::&lt;BookResource&gt;()</code></strong> registers the resource’s routes under <code>/admin/books</code>, adds its
 sidebar entry, and, because the panel has no home page, makes <code>/admin</code> redirect to the book
 list. <a href="#panel-and-routing">Panel and routing</a> lists every route.</li>
-<li><strong><code>build()</code></strong> checks every declaration and returns the <code>Router</code>, or an error naming the
-misdeclaration.</li>
+<li><strong><code>.panel(..)</code></strong> checks every declaration and mounts the panel, or returns an error naming the
+misdeclaration. <strong><code>build()</code></strong> returns the <code>Router</code>.</li>
 <li><strong><code>topcoat::start</code></strong> serves the router on <code>HOST</code>:<code>PORT</code> (default <code>127.0.0.1:3000</code>) until Ctrl+C
 or <code>SIGTERM</code>.</li>
 </ul>
@@ -385,8 +380,8 @@ or <code>SIGTERM</code>.</li>
 pages answer 403, and rows show no Edit or Delete action.
 <a href="#policy-auth-tenancy">Policy, auth, tenancy</a> opens them.</li>
 <li><strong>Styling.</strong> The example registers no asset bundle, so pages render unstyled and without the
-shell’s scripts, but every page and form works. <code>Panel::assets</code> and <code>Panel::shell_assets</code> add
-the stylesheet, the font and the scripts; see
+shell’s scripts, but every page and form works. The router’s <code>.assets(..)</code> and the panel’s
+<code>shell_assets</code> add the stylesheet, the font and the scripts; see
 <a href="#assets">Panel and routing</a>. The stylesheet itself comes from the build
 script below.</li>
 </ul>
@@ -409,18 +404,26 @@ writes <code>$OUT_DIR/tailwind.css</code>, which <code>tailwind::stylesheet!()</
 stylesheet names no path into Tablo. The build downloads the Tailwind CLI on first run.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="panel-and-routing"><a class="header" href="#panel-and-routing">Panel and routing</a></h1>
-<p><code>Panel</code> is the admin application. You configure it with builder calls, and <code>build()</code> turns it into
-a Topcoat <code>Router</code> that serves every registered resource and page, the login page, and the shell
-that frames them.</p>
+<p>A <code>Panel</code> is an admin panel: resources and pages under one prefix, one shell, one login. You
+configure it with builder calls and mount it on your app’s Topcoat router, which serves every
+registered resource and page, the login page, and the shell that frames them, beside your own
+routes.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let router = Panel::new("admin")          // mounted at /admin
-    .app_context(db)                      // the toasty::Db every handler uses
-    .brand(Brand::new("Acme"))
-    .home::&lt;Dashboard&gt;()                  // GET /admin
-    .resource::&lt;UserResource&gt;()           // /admin/users and its sub-routes
-    .page::&lt;ReportsPage&gt;()                // GET /admin/reports
-    .build()?;
+</span>use tablo::prelude::*;
+use topcoat::{asset::RouterBuilderAssetExt, router::{Router, RouterBuilderDiscoverExt}};
+
+let router = Router::builder()
+    .discover()                                // the app's own pages and routes, and Tablo's
+    .app_context(db)                           // the toasty::Db every handler uses
+    .panel(
+        Panel::new("admin")                    // mounted at /admin
+            .brand(Brand::new("Acme"))
+            .home::&lt;Dashboard&gt;()               // GET /admin
+            .resource::&lt;UserResource&gt;()        // /admin/users and its sub-routes
+            .page::&lt;ReportsPage&gt;(),            // GET /admin/reports
+    )?
+    .build();
 <span class="boring">}</span></code></pre>
 <h2 id="routes"><a class="header" href="#routes">Routes</a></h2>
 <p>A resource with the slug <code>users</code>, on a panel mounted at <code>/admin</code>, serves:</p>
@@ -458,8 +461,7 @@ when there is none.</li>
 <tr><th>Call</th><th>Effect</th><th>See</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Panel::new(prefix)</code></td><td>mounts the panel at <code>/{prefix}</code></td><td></td></tr>
-<tr><td><code>app_context(db)</code></td><td>installs the <code>toasty::Db</code>; <code>build</code> fails without it</td><td><a href="#data-access">Data access</a></td></tr>
+<tr><td><code>Panel::new(prefix)</code></td><td>the panel at <code>/{prefix}</code> (<code>""</code> mounts at <code>/admin</code>)</td><td></td></tr>
 <tr><td><code>resource::&lt;R&gt;()</code></td><td>registers a resource’s routes and sidebar entry</td><td><a href="#resources">Resources</a></td></tr>
 <tr><td><code>page::&lt;P&gt;()</code></td><td>registers a page at <code>/{prefix}/{slug}</code></td><td><a href="#pages">Pages</a></td></tr>
 <tr><td><code>home::&lt;P&gt;()</code></td><td>registers a page at <code>/{prefix}</code></td><td><a href="#pages">Pages</a></td></tr>
@@ -469,26 +471,79 @@ when there is none.</li>
 <tr><td><code>auth(Auth)</code></td><td>replaces or disables the built-in password login</td><td><a href="#authentication">Policy, auth, tenancy</a></td></tr>
 <tr><td><code>uploads(uploader)</code></td><td>sets where file fields store their bytes</td><td><a href="#file-uploads">Forms</a></td></tr>
 <tr><td><code>serve_dir(path, dir)</code></td><td>serves a directory of files, publicly</td><td><a href="#file-uploads">Forms</a></td></tr>
-<tr><td><code>assets(bundle)</code>, <code>shell_assets(css, font)</code></td><td>adds the stylesheet, font and scripts</td><td><a href="#assets">Assets</a></td></tr>
+<tr><td><code>shell_assets(css, font)</code></td><td>adds the stylesheet, font and scripts</td><td><a href="#assets">Assets</a></td></tr>
+<tr><td><code>layout(render)</code></td><td>frames the panel’s pages with your layout instead of the shell</td><td><a href="#the-shell-layout">The shell layout</a></td></tr>
 <tr><td><code>frame_ancestors(..)</code>, <code>without_frame_ancestors()</code></td><td>changes the anti-framing header</td><td><a href="#security">Security</a></td></tr>
-<tr><td><code>build()</code></td><td>checks every declaration and returns the <code>Router</code></td><td></td></tr>
 </tbody>
 </table>
 </div>
-<p>The builder calls never fail; <code>build()</code> returns an error naming what is wrong instead. It refuses a
-missing <code>Db</code>, two resources or pages with one slug, a slug the panel routes itself (<code>login</code>,
-<code>logout</code>), a slug that is not a single URL segment, a second home page, <code>shell_assets</code> without
-<code>assets</code>, and every resource declaration check described in
+<h2 id="mounting"><a class="header" href="#mounting">Mounting</a></h2>
+<p><code>Router::builder().panel(panel)</code> mounts a panel; the <code>RouterBuilderPanelExt</code> trait, in the
+prelude, provides it. The router is yours: discover your own pages and routes, install the <code>Db</code>
+with <code>.app_context(db)</code> and the asset bundle with <code>.assets(..)</code>, then mount. The panel reads both
+from the router, so they come first.</p>
+<p>The first panel mounted also installs what every panel shares: cookies, sessions unless the
+router already configures them, the gate over Topcoat’s runtime endpoints with the shard
+dispatch, and Topcoat’s runtime layer with link prefetching off unless the router already set
+those up. The runtime layer has no
+path, so mount panels after your own pathless layers: a page re-run must reach those layers
+already rewritten to a <code>GET</code>.</p>
+<p>The builder calls never fail; <code>.panel(..)</code> returns an error naming what is wrong instead. It
+refuses a router with no <code>Db</code>, a <code>Db</code> missing the shipped auth models, two resources or pages
+with one slug, a slug the panel routes itself
+(<code>login</code>, <code>logout</code>), a slug that is not a single URL segment, a second home page, <code>shell_assets</code>
+on a router with no asset bundle, a prefix that overlaps another panel’s or Topcoat’s
+<code>/_topcoat/runtime</code>, and every resource declaration check described in
 <a href="#startup-checks">Resources</a>.</p>
-<h2 id="the-shell-layout"><a class="header" href="#the-shell-layout">The shell layout</a></h2>
-<p>The panel’s pages render inside your app’s <code>#[layout]</code> at the panel prefix. Delegate it to the
-panel to get the shell — sidebar, topbar, theme toggle and notification toasts:</p>
+<h2 id="several-panels"><a class="header" href="#several-panels">Several panels</a></h2>
+<p>One router mounts any number of panels at distinct prefixes, each with its own resources, pages,
+sidebar, brand and auth:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>#[layout("/admin")]
-async fn admin_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
-    Panel::layout_shell(cx, slot).await
+</span>let router = Router::builder()
+    .discover()
+    .app_context(db)
+    .panel(Panel::new("admin").resource::&lt;UserResource&gt;().resource::&lt;OrderResource&gt;())?
+    .panel(
+        Panel::new("portal")
+            .brand(Brand::new("Customer portal"))
+            .auth(Auth::custom(Customers))
+            .resource::&lt;OrderResource&gt;(),
+    )?
+    .build();
+<span class="boring">}</span></code></pre>
+<p>A resource registered by two panels is declared once: both serve the same table, form and policy,
+each under its own prefix. A panel’s prefix must not overlap another’s: <code>/admin</code> and <code>/admin/reports</code>
+are refused, <code>/admin</code> and <code>/administration</code> are not.</p>
+<p>Each panel has its own login page, and a session belongs to the panel that signed the user in. A
+user signed in to <code>/admin</code> is anonymous on <code>/portal</code>, and signing in to <code>/portal</code> ends the <code>/admin</code>
+session. See <a href="#authentication">Policy, auth, tenancy</a>.</p>
+<h2 id="urls"><a class="header" href="#urls">URLs</a></h2>
+<p>The <code>tablo::url</code> helpers answer for the request’s panel, so app code never spells a prefix:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>tablo::url::resource::&lt;PostResource&gt;(cx) // Some("/admin/posts")
+tablo::url::page::&lt;ReportsPage&gt;(cx)      // Some("/admin/reports")
+tablo::url::panel(cx)                    // Some("/admin")
+<span class="boring">}</span></code></pre>
+<p>The request’s panel is the one whose prefix the request is under; on a router with a single panel
+it is that panel for every request. A resource or page that panel does not register has no URL
+there, and the helper returns <code>None</code>.</p>
+<h2 id="the-shell-layout"><a class="header" href="#the-shell-layout">The shell layout</a></h2>
+<p>The panel frames every page under its prefix in the shell — sidebar, topbar, theme toggle and
+notification toasts — with a layout it registers itself. Declare no <code>#[layout]</code> of your own at the
+prefix: a second layout there would nest a second document inside the first.</p>
+<p>To change the frame, pass your own layout function to <code>Panel::layout</code>. <code>Panel::layout_shell</code> is
+the shipped one, so a layout that keeps the shell calls it around its own markup; one that does not
+call it replaces the shell entirely:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn admin_layout&lt;'a&gt;(cx: &amp;'a Cx, slot: Slot&lt;'a&gt;) -&gt; BoxView&lt;'a&gt; {
+    let page = view! { cx =&gt; &lt;div class="acme-admin"&gt;(slot)&lt;/div&gt; }.boxed();
+    Panel::layout_shell(cx, page.into())
 }
+
+Panel::new("admin").layout(admin_layout)
 <span class="boring">}</span></code></pre>
 <h2 id="sidebar"><a class="header" href="#sidebar">Sidebar</a></h2>
 <p>Every resource and page gets one sidebar entry, labelled with its <code>navigation_label()</code> and linked
@@ -534,7 +589,7 @@ Panel::new("admin").page::&lt;ReportsPage&gt;() // GET /admin/reports
 labelled “Media library”. Override <code>slug()</code> and <code>navigation_label()</code> to change them. Pages and
 resources share one slug namespace.</li>
 <li><strong>The home page.</strong> <code>Panel::home::&lt;P&gt;()</code> mounts a page at the prefix itself instead of the
-redirect to the first resource. A panel has at most one; a second fails <code>build()</code>.</li>
+redirect to the first resource. A panel has at most one; a second fails <code>.panel(..)</code>.</li>
 <li><strong>Access.</strong> With authentication on, the page renders only for a signed-in user with panel access,
 inside the shell layout.</li>
 <li><strong>Forms.</strong> A page serves one <code>GET</code>. A form it renders posts to an app <code>#[route]</code>; put that route
@@ -548,11 +603,11 @@ width and padding; <code>page_header</code> holds a <code>page_title</code>, an 
 yours.</p>
 <p>The showcase registers a dashboard as its home page, a media library and a live activity feed.</p>
 <h2 id="public-pages"><a class="header" href="#public-pages">Public pages</a></h2>
-<p>A page outside the panel prefix is an ordinary Topcoat <code>#[page]</code>. The auth gate covers only the
-panel prefix and <code>/_topcoat/runtime</code>, so such a page is public. <code>build()</code> discovers it like any
-other Topcoat route; the panel needs no registration call.</p>
+<p>A page outside the panel prefix is an ordinary Topcoat <code>#[page]</code> on your router. The auth gate
+covers only the panel prefix and <code>/_topcoat/runtime</code>, so such a page is public.</p>
 <p><code>Panel::document</code> renders the same HTML document as the admin shell — head, assets, theme — around
-your own markup:</p>
+your own markup. Outside any prefix it takes the panel’s shell settings when the router mounts one
+panel; with several, it renders the document without the panel’s stylesheet and font.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// A layout wraps every route under its path: this one wraps /blog and /blog/{id}.
@@ -593,19 +648,21 @@ default. Without the call the panel starts light.</li>
 </ul>
 <h2 id="assets"><a class="header" href="#assets">Assets</a></h2>
 <p>Without assets the panel renders unstyled HTML without the shell’s scripts, and every page and
-form still works. To style it, register the app’s Topcoat asset bundle, then the Tailwind stylesheet and
-the font the shell links:</p>
+form still works. To style it, install the app’s Topcoat asset bundle on the router, then give the
+panel the Tailwind stylesheet and the font the shell links:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
-Panel::new("admin")
+Router::builder()
+    .discover()
+    .app_context(db)
     .assets(AssetBundle::load().expect("asset bundle"))
-    .shell_assets(tailwind::stylesheet!(), GEIST)
+    .panel(Panel::new("admin").shell_assets(tailwind::stylesheet!(), GEIST))?
 <span class="boring">}</span></code></pre>
 <p><code>shell_assets</code> also makes the shell load <code>tablo-ui</code>’s scripts: live search, confirmation dialogs,
-searchable selects, toasts and the sidebar and theme toggles. <code>build()</code> refuses <code>shell_assets</code>
-without <code>assets</code>. The stylesheet comes from <code>tablo_build::tailwind()</code> in the app’s <code>build.rs</code>
+searchable selects, toasts and the sidebar and theme toggles. Mounting refuses <code>shell_assets</code> on a
+router with no asset bundle. The stylesheet comes from <code>tablo_build::tailwind()</code> in the app’s <code>build.rs</code>
 (<a href="#the-stylesheet">Your first panel</a>); <code>examples/quickstart</code> has the smallest
 complete setup and <code>examples/showcase</code> the full one.</p>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -755,7 +812,7 @@ every deleted row in one call for a bulk delete, or the rows an action ran on. <
 <code>#[non_exhaustive]</code>, so a <code>match</code> on it ends with a <code>_</code> arm. The hook is not called
 when nothing committed. An error it returns is logged; the write stays committed.</p>
 <h2 id="startup-checks"><a class="header" href="#startup-checks">Startup checks</a></h2>
-<p><code>Panel::build</code> calls each resource’s declarations once — <code>table()</code> with no context, <code>form(dx)</code>
+<p>Mounting the panel calls each resource’s declarations once — <code>table()</code> with no context, <code>form(dx)</code>
 and <code>view(dx)</code> with a <code>DeclCx</code> carrying the app schema alone, and <code>relations()</code> — and refuses
 the resource when:</p>
 <ul>
@@ -849,7 +906,7 @@ columns.</p>
 </li>
 </ul>
 <p>Two columns with the same name, two filters with the same name, a table with no columns, and a
-zero page size are misdeclarations: <code>Panel::build</code> refuses the resource, and rendering the table
+zero page size are misdeclarations: mounting the panel refuses the resource, and rendering the table
 fails with the same errors.</p>
 <h3 id="your-own-columns"><a class="header" href="#your-own-columns">Your own columns</a></h3>
 <p>A column is anything that implements <code>Column&lt;M&gt;</code>. <code>TextColumn</code> and <code>BooleanColumn</code> implement it and
@@ -1043,7 +1100,7 @@ record must pass <code>can_view</code> and <code>can_run</code>, and <code>run</
 error rolls everything back. After the commit, <code>after_commit</code> receives <code>Mutation::Action(NAME)</code>
 with the records and the list shows <code>Action::success</code>, by default the label and the record count.</p>
 <p>A row the action refuses answers 403. A selection that holds one writes nothing and returns to the
-list with an error notification. <code>Panel::build</code> refuses an action name that is not one URL
+list with an error notification. Mounting the panel refuses an action name that is not one URL
 segment, or that two actions of a resource share. Custom actions run without a confirmation
 dialog.</p>
 <p>If the table fails to load, the list shows an error state with a retry link in place of the rows;
@@ -1053,7 +1110,7 @@ the rest of the page still renders.</p>
 <p>A resource with create and edit pages declares two things: a <strong>record form</strong>, the typed struct a
 submission parses into, and a <strong>schema</strong> in <code>form(dx)</code>, the controls the page renders. <code>form</code>
 defaults to the record form’s derived schema, so a resource that wants one control per field in
-declaration order declares no <code>form</code> at all. <code>Panel::build</code> calls the declarations once and checks
+declaration order declares no <code>form</code> at all. Mounting the panel calls the declarations once and checks
 that the two agree.</p>
 <h2 id="the-record-form"><a class="header" href="#the-record-form">The record form</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -1114,7 +1171,7 @@ derive’s <code>controls(dx)</code>:</p>
     // table(), policy …
 }
 <span class="boring">}</span></code></pre>
-<p><code>Panel::build</code> refuses the resource unless every control is bound by exactly one form field,
+<p>Mounting the panel refuses the resource unless every control is bound by exactly one form field,
 every form field has a control, every optional control’s field has a blank value, and — when
 <code>can_create</code> is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
 stamp, or by an overridden <code>create_record</code> that lists it in <code>Resource::CREATE_COLUMNS</code>.</p>
@@ -1213,7 +1270,7 @@ input’s <code>type</code>, and <code>parse_input</code> reads a submission (by
 (<code>a@b</code> is refused), a display name (<code>Ada &lt;ada@example.com&gt;</code>) is refused, and the address is capped
 at 254 bytes.</p>
 <p>A text field over a column with a unique index checks uniqueness before the write, and reports a
-taken value inline. <code>.unique()</code> states it explicitly; <code>Panel::build</code> refuses <code>.unique()</code> on a
+taken value inline. <code>.unique()</code> states it explicitly; mounting the panel refuses <code>.unique()</code> on a
 column without a unique index, single-column or composite. The check is a query before the write,
 so two concurrent submissions can both pass it; the database index stays the final guard.</p>
 <p>On a non-nullable column, uniqueness also makes the field required, even with <code>.optional()</code>:
@@ -1460,7 +1517,7 @@ slug — <code>?comments.q=</code>, <code>?comments.sort=</code>, <code>?comment
 searching, filtering and paging re-render that table in place. Without JavaScript its links and
 forms fall back to full page loads.</li>
 </ul>
-<p><code>Panel::build</code> refuses a relation to a resource the panel does not register, and two relations of
+<p>Mounting the panel refuses a relation to a resource the panel does not register, and two relations of
 one resource to the same related resource.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="policy-auth-tenancy"><a class="header" href="#policy-auth-tenancy">Policy, auth, tenancy</a></h1>
@@ -1532,16 +1589,27 @@ Toasty and create a user with a hashed password:</p>
 </div>
 <p>After login, the user returns to <code>next</code>, which must be a same-origin path. A user has panel access
 when their <code>AdminUser.active</code> is <code>true</code>. The gate covers only the panel prefix and
-<code>/_topcoat/runtime</code>; routes elsewhere, including directories served with <code>Panel::serve_dir</code>, are
-public.</p>
+<code>/_topcoat/runtime</code>; routes elsewhere, including your app’s own routes and directories served with
+<code>Panel::serve_dir</code>, are public. On a router with several panels, <code>/_topcoat/runtime</code> answers 401
+without a session only when every panel is gated.</p>
 <ul>
 <li><strong>Login</strong> verifies Argon2id hashes. An unknown email costs the same work as a wrong password,
 and every failure shows the same message.</li>
 <li><strong>Sessions</strong> are rows in <code>AuthSession</code>, identified by a hash of the cookie’s token. A session
 lasts seven days from login, is replaced on each login and deleted on logout. Each successful
-login also deletes up to 500 expired sessions.</li>
+login also deletes up to 500 expired sessions. The row records the prefix of the panel that
+signed the user in, so an existing <code>auth_session</code> table needs a migration: add a non-null
+<code>panel</code> column and backfill it to the panel’s prefix (for example <code>ALTER TABLE auth_session ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'</code>), then drop the default when every row names
+its panel. Renaming a panel’s prefix invalidates the sessions it issued.</li>
 <li><strong>Revoking.</strong> Call <code>auth::revoke_sessions_for_user(cx, user_id)</code> when a user’s password changes
-or their account is deactivated; otherwise existing sessions stay valid until they expire.</li>
+or their account is deactivated; otherwise existing sessions stay valid until they expire. On a
+panel’s request it revokes the sessions that panel issued; outside any panel, the user’s
+sessions on every panel, so a reset flow for a user with two panels revokes from outside a panel
+or once per panel.</li>
+<li><strong>Several panels.</strong> Each panel has its own <code>Auth</code> and its own login page, and a session belongs
+to the panel that signed the user in: the session row records the panel’s prefix. Another
+panel’s gate treats the request as anonymous, and <code>current_user(cx)</code> answers <code>None</code> there. One
+browser holds one session, so signing in to a second panel ends the first.</li>
 <li><strong>Rate limiting</strong> is not built in. Limit login attempts at your proxy or firewall.</li>
 </ul>
 <p>Read the signed-in user in your own code with <code>auth::current_user(cx)</code>, which returns a
@@ -1607,7 +1675,7 @@ fn tenant_scope(tenant: uuid::Uuid) -&gt; Option&lt;toasty::stmt::Expr&lt;bool&g
 would serve every tenant’s rows to a user who has no tenant.</p>
 <p><strong>A deliberately cross-tenant resource</strong> — a super-admin view — declares <code>requires_tenant()</code>
 <code>false</code> and filters in <code>query()</code> by hand. That gives up both the gate and the scope.</p>
-<p><code>Panel::build</code> refuses a resource with <code>requires_tenant()</code> <code>true</code> whose model has no <code>tenant_id</code>
+<p>Mounting the panel refuses a resource with <code>requires_tenant()</code> <code>true</code> whose model has no <code>tenant_id</code>
 UUID field and which does not override <code>tenant_scope</code>.</p>
 <p><strong>In your own code</strong>, load rows with <code>scoped_query::&lt;PostResource&gt;(cx)?</code>. It applies the tenant
 scope and answers 403 when the request has no tenant. <code>PostResource::query(cx)</code> does not apply the
@@ -1620,7 +1688,8 @@ the form was validated.</p>
 <a href="#pages">page</a>, a record function, or a public page. The
 <a href="https://tokio-rs.github.io/toasty/0.10.0/guide/">Toasty guide</a> covers the query API in full.</p>
 <h2 id="getting-the-database"><a class="header" href="#getting-the-database">Getting the database</a></h2>
-<p><code>app_context(db)</code> registers the <code>Db</code> on the panel; <code>tablo_core::db::db(cx)</code> returns it. Cloning a
+<p><code>app_context(db)</code> registers the <code>Db</code> on the app’s router, where every panel mounted on it reads it;
+<code>tablo_core::db::db(cx)</code> returns it. Cloning a
 <code>Db</code> is cheap, and statements take it by <code>&amp;mut</code>:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -1730,9 +1799,9 @@ so it takes as long as a wrong password, and every failure shows the same messag
 </ul>
 <h2 id="responses"><a class="header" href="#responses">Responses</a></h2>
 <ul>
-<li><strong>Framing.</strong> Every response the panel’s router produces, including its 404 and 405 pages,
-carries <code>Content-Security-Policy: frame-ancestors 'self'</code>, so another site cannot frame the
-admin. <code>Panel::frame_ancestors("'self' https://intranet.example")</code> changes the directive, and
+<li><strong>Framing.</strong> Every response to a request under the panel prefix, including its 404 and 405
+pages, carries <code>Content-Security-Policy: frame-ancestors 'self'</code>, so another site cannot frame
+the admin. The app’s own routes outside the prefix carry whatever policy the app sets. <code>Panel::frame_ancestors("'self' https://intranet.example")</code> changes the directive, and
 <code>Panel::without_frame_ancestors()</code> omits it for a proxy that sets its own policy. A
 <code>Content-Security-Policy</code> your own handler sets is kept. The router answers three errors before
 any layer runs, so they carry no header: the 403 for a cross-site request, the 400 for a

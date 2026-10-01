@@ -239,8 +239,8 @@
 <a href=#239 id=239 data-nosnippet>239</a>///
 <a href=#240 id=240 data-nosnippet>240</a>/// The length check is a deliberate second layer: through the router
 <a href=#241 id=241 data-nosnippet>241</a>/// `Bytes::from_request` buffers via `to_bytes(body, body_limit(cx))`, which
-<a href=#242 id=242 data-nosnippet>242</a>/// enforces the `BodyLimit::max(MAX_FORM_BYTES)` layer
-<a href=#243 id=243 data-nosnippet>243</a>/// [`Panel::build`](crate::panel::Panel::build) installs, so this branch is
+<a href=#242 id=242 data-nosnippet>242</a>/// enforces the `BodyLimit::max(MAX_FORM_BYTES)` layer a mounted panel
+<a href=#243 id=243 data-nosnippet>243</a>/// installs under its prefix, so this branch is
 <a href=#244 id=244 data-nosnippet>244</a>/// unreachable there. It is the urlencoded symmetric backstop to the multipart
 <a href=#245 id=245 data-nosnippet>245</a>/// [`count_form_bytes`] counter, and the only pin of the 10 MiB
 <a href=#246 id=246 data-nosnippet>246</a>/// urlencoded contract at unit level — a bare `CxTestBuilder` carries no

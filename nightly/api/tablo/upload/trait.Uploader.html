@@ -12,8 +12,8 @@
     // Provided method
     fn <a href="#method.holds" class="fn">holds</a>(&amp;self, path: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.99.0/std/primitive.str.html">str</a>) -&gt; impl <a class="trait" href="https://doc.rust-lang.org/1.99.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.99.0/std/primitive.bool.html">bool</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.99.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Store one uploaded file and name the value a record stores.</p>
-<p>Installed once per panel with <a href="../struct.Panel.html#method.uploads" title="method tablo::Panel::uploads"><code>Panel::uploads</code></a> —
-the way <code>Db</code> is — and found on the app context wherever a file field
+<p>Installed once per panel with <a href="../struct.Panel.html#method.uploads" title="method tablo::Panel::uploads"><code>Panel::uploads</code></a> and
+found through the request’s panel wherever a file field
 stores, because an object store is an app-level dependency: threading it
 through every field declaration would put it in the schema declaration.</p>
 <p><code>filename</code> arrives already sanitized to a basename: no directory

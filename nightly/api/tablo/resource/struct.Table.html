@@ -127,8 +127,8 @@ rows is a programmer error. The table keeps its page size.</p>
 or two filters sharing a name, a zero page size, and what each column
 and filter reports of itself (a lens that binds no single field, a
 search or sort asked of a computed column).</p>
-<p><a href="../struct.Panel.html#method.build" title="method tablo::Panel::build"><code>Panel::build</code></a> refuses a resource whose table
-reports any, and rendering one fails with them.</p>
+<p><a href="../trait.RouterBuilderPanelExt.html#tymethod.panel" title="method tablo::RouterBuilderPanelExt::panel"><code>RouterBuilderPanelExt::panel</code></a> refuses a resource
+whose table reports any, and rendering one fails with them.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.page_size" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#571">Source</a><h4 class="code-header">pub fn <a href="#method.page_size" class="fn">page_size</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.99.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>The page size: <a href="constant.DEFAULT_PAGE_SIZE.html" title="constant tablo::resource::DEFAULT_PAGE_SIZE"><code>DEFAULT_PAGE_SIZE</code></a> unless <a href="../struct.Table.html#method.paginate" title="method tablo::Table::paginate"><code>Self::paginate</code></a> set one.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.hide_search" class="method"><a class="src rightside" href="../../src/tablo_core/resource/table/mod.rs.html#591">Source</a><h4 class="code-header">pub fn <a href="#method.hide_search" class="fn">hide_search</a>(self) -&gt; <a class="struct" href="../struct.Table.html" title="struct tablo::Table">Table</a>&lt;M&gt;</h4></section></summary><div class="docblock"><p>Render no search toolbar in the table.</p>
 <p>The toolbar shows whenever at least one column is <code>searchable()</code>, so the

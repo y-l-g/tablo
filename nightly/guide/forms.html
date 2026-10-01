@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -184,7 +184,7 @@
 <p>A resource with create and edit pages declares two things: a <strong>record form</strong>, the typed struct a
 submission parses into, and a <strong>schema</strong> in <code>form(dx)</code>, the controls the page renders. <code>form</code>
 defaults to the record form’s derived schema, so a resource that wants one control per field in
-declaration order declares no <code>form</code> at all. <code>Panel::build</code> calls the declarations once and checks
+declaration order declares no <code>form</code> at all. Mounting the panel calls the declarations once and checks
 that the two agree.</p>
 <h2 id="the-record-form"><a class="header" href="#the-record-form">The record form</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -245,7 +245,7 @@ derive’s <code>controls(dx)</code>:</p>
     // table(), policy …
 }
 <span class="boring">}</span></code></pre>
-<p><code>Panel::build</code> refuses the resource unless every control is bound by exactly one form field,
+<p>Mounting the panel refuses the resource unless every control is bound by exactly one form field,
 every form field has a control, every optional control’s field has a blank value, and — when
 <code>can_create</code> is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
 stamp, or by an overridden <code>create_record</code> that lists it in <code>Resource::CREATE_COLUMNS</code>.</p>
@@ -344,7 +344,7 @@ input’s <code>type</code>, and <code>parse_input</code> reads a submission (by
 (<code>a@b</code> is refused), a display name (<code>Ada &lt;ada@example.com&gt;</code>) is refused, and the address is capped
 at 254 bytes.</p>
 <p>A text field over a column with a unique index checks uniqueness before the write, and reports a
-taken value inline. <code>.unique()</code> states it explicitly; <code>Panel::build</code> refuses <code>.unique()</code> on a
+taken value inline. <code>.unique()</code> states it explicitly; mounting the panel refuses <code>.unique()</code> on a
 column without a unique index, single-column or composite. The check is a query before the write,
 so two concurrent submissions can both pass it; the database index stays the final guard.</p>
 <p>On a non-nullable column, uniqueness also makes the field required, even with <code>.optional()</code>:

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -199,7 +199,7 @@ sort, filters and pagination work without JavaScript; the shipped scripts add in
 on top.</li>
 <li><strong>Typed declarations.</strong> Columns, form fields and filters are built from Toasty field lenses
 such as <code>User::fields().email()</code>, so a renamed or retyped column is a compile error.</li>
-<li><strong>Checks at startup.</strong> <code>Panel::build</code> validates every declaration — a form struct that disagrees
+<li><strong>Checks at startup.</strong> Mounting the panel validates every declaration — a form struct that disagrees
 with its schema, two resources on one URL, a tenant-owned resource with no tenant column — and
 returns an error naming the mistake before the server takes a request.</li>
 <li><strong>Safe defaults.</strong> Every policy predicate denies until you allow it, authentication is on, every

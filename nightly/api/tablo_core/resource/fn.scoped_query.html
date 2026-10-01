@@ -9,10 +9,10 @@ and app code start here.</p>
 gives.</li>
 <li>A gated resource that supplies no tenant predicate — no discoverable <code>tenant_id</code> UUID column,
 no <a href="trait.Resource.html#method.tenant_scope" title="associated function tablo_core::resource::Resource::tenant_scope"><code>Resource::tenant_scope</code></a> override → an error naming the resource and the model.
-<a href="../panel/struct.Panel.html#method.build" title="method tablo_core::panel::Panel::build"><code>Panel::build</code></a> refuses that declaration at boot, so this is the
-backstop for a predicate that is <code>None</code> for the request’s tenant, and for app code outside a
-panel. It is deliberately <strong>not</strong> a fallback to the unscoped query: a silent miss would be the
-leak <a href="trait.Resource.html#method.requires_tenant" title="associated function tablo_core::resource::Resource::requires_tenant"><code>Resource::requires_tenant</code></a> exists to prevent.</li>
+<a href="../panel/trait.RouterBuilderPanelExt.html#tymethod.panel" title="method tablo_core::panel::RouterBuilderPanelExt::panel"><code>RouterBuilderPanelExt::panel</code></a> refuses that declaration
+at boot, so this is the backstop for a predicate that is <code>None</code> for the request’s tenant, and
+for app code outside a panel. It is deliberately <strong>not</strong> a fallback to the unscoped query: a
+silent miss would be the leak <a href="trait.Resource.html#method.requires_tenant" title="associated function tablo_core::resource::Resource::requires_tenant"><code>Resource::requires_tenant</code></a> exists to prevent.</li>
 </ul>
 <p>App code that loads rows itself must call this — on a gated resource
 <a href="trait.Resource.html#method.query" title="associated function tablo_core::resource::Resource::query"><code>Resource::query</code></a> is the <em>tenant-unscoped</em> base by design, so calling it

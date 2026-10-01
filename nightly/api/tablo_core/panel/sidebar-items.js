@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["wired_table"],"struct":["Brand","DarkMode","Panel"]};
+window.SIDEBAR_ITEMS = {"fn":["wired_table"],"mod":["url"],"struct":["Brand","Panel"],"trait":["RouterBuilderPanelExt"]};

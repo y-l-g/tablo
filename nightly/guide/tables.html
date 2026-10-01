@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -250,7 +250,7 @@ columns.</p>
 </li>
 </ul>
 <p>Two columns with the same name, two filters with the same name, a table with no columns, and a
-zero page size are misdeclarations: <code>Panel::build</code> refuses the resource, and rendering the table
+zero page size are misdeclarations: mounting the panel refuses the resource, and rendering the table
 fails with the same errors.</p>
 <h3 id="your-own-columns"><a class="header" href="#your-own-columns">Your own columns</a></h3>
 <p>A column is anything that implements <code>Column&lt;M&gt;</code>. <code>TextColumn</code> and <code>BooleanColumn</code> implement it and
@@ -444,7 +444,7 @@ record must pass <code>can_view</code> and <code>can_run</code>, and <code>run</
 error rolls everything back. After the commit, <code>after_commit</code> receives <code>Mutation::Action(NAME)</code>
 with the records and the list shows <code>Action::success</code>, by default the label and the record count.</p>
 <p>A row the action refuses answers 403. A selection that holds one writes nothing and returns to the
-list with an error notification. <code>Panel::build</code> refuses an action name that is not one URL
+list with an error notification. Mounting the panel refuses an action name that is not one URL
 segment, or that two actions of a resource share. Custom actions run without a confirmation
 dialog.</p>
 <p>If the table fails to load, the list shows an error state with a retry link in place of the rows;

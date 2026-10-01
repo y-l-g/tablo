@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -214,9 +214,9 @@ so it takes as long as a wrong password, and every failure shows the same messag
 </ul>
 <h2 id="responses"><a class="header" href="#responses">Responses</a></h2>
 <ul>
-<li><strong>Framing.</strong> Every response the panel’s router produces, including its 404 and 405 pages,
-carries <code>Content-Security-Policy: frame-ancestors 'self'</code>, so another site cannot frame the
-admin. <code>Panel::frame_ancestors("'self' https://intranet.example")</code> changes the directive, and
+<li><strong>Framing.</strong> Every response to a request under the panel prefix, including its 404 and 405
+pages, carries <code>Content-Security-Policy: frame-ancestors 'self'</code>, so another site cannot frame
+the admin. The app’s own routes outside the prefix carry whatever policy the app sets. <code>Panel::frame_ancestors("'self' https://intranet.example")</code> changes the directive, and
 <code>Panel::without_frame_ancestors()</code> omits it for a proxy that sets its own policy. A
 <code>Content-Security-Policy</code> your own handler sets is kept. The router answers three errors before
 any layer runs, so they carry no header: the 403 for a cross-site request, the 400 for a

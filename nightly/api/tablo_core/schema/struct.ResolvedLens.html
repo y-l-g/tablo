@@ -9,7 +9,7 @@ binds a top-level column and an embedded one alike:</p>
 model alone: that covers a single-field lens and refuses a traversal
 path, because the owned <code>app::Model</code> cannot see embedded models. A refused
 lens is a misdeclaration the field records and
-<a href="../panel/struct.Panel.html#method.build" title="method tablo_core::panel::Panel::build"><code>Panel::build</code></a> reports.
+<a href="../panel/trait.RouterBuilderPanelExt.html#tymethod.panel" title="method tablo_core::panel::RouterBuilderPanelExt::panel"><code>RouterBuilderPanelExt::panel</code></a> reports.
 <a href="struct.ResolvedLens.html#method.new" title="associated function tablo_core::schema::ResolvedLens::new"><code>ResolvedLens::new</code></a> resolves through the declaration’s app schema instead,
 so an embedded struct field, an enum variant field, or a <code>#[document]</code>
 field arrives as its <strong>flattened storage column</strong> (<code>seo_title</code>) — the name

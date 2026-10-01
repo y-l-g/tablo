@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -210,8 +210,7 @@ use toasty::Db;
 use topcoat::{
     Result,
     context::Cx,
-    router::{Slot, layout},
-    view::View,
+    router::{Router, RouterBuilderDiscoverExt},
 };
 
 /// The model: every column the panel renders comes from this type.
@@ -255,12 +254,6 @@ impl Resource for BookResource {
     }
 }
 
-/// Frames every page under `/admin` in the panel's shell: sidebar, topbar, toasts.
-#[layout("/admin")]
-async fn admin_layout(cx: &amp;Cx, slot: Slot&lt;'_&gt;) -&gt; Result&lt;impl View&gt; {
-    Panel::layout_shell(cx, slot).await
-}
-
 #[tokio::main]
 async fn main() -&gt; Result&lt;()&gt; {
     let mut db = Db::builder()
@@ -286,10 +279,11 @@ async fn main() -&gt; Result&lt;()&gt; {
     .exec(&amp;mut db)
     .await?;
 
-    let router = Panel::new("admin")
+    let router = Router::builder()
+        .discover()
         .app_context(db)
-        .resource::&lt;BookResource&gt;()
-        .build()?;
+        .panel(Panel::new("admin").resource::&lt;BookResource&gt;())?
+        .build();
 
     topcoat::start(router).await?;
     Ok(())
@@ -306,19 +300,20 @@ and typed like the model’s field, so a renamed column fails to compile. See
 <li><strong><code>impl Resource</code></strong> declares the admin for one model: its table, its form’s controls, and its
 policy. A resource must name <code>Model</code> and <code>Form</code> and declare <code>table()</code>; every other item has a
 default. See <a href="./resources.html">Resources</a>.</li>
-<li><strong><code>#[layout("/admin")]</code></strong> frames the panel’s pages. <code>Panel::layout_shell</code> renders the whole
-document around them; the layout’s path must match the panel’s prefix.</li>
 <li><strong><code>Db::builder().models(..)</code></strong> lists every model Toasty maps, including the two tables the
-built-in login uses. With authentication on, <code>Panel::build</code> panics if they are missing.</li>
+built-in login uses. With authentication on, mounting the panel returns an error naming the
+missing models.</li>
 <li><strong><code>db.push_schema()</code></strong> creates the tables, which suits a prototype. A production app runs
 <code>toasty-cli</code> migrations instead.</li>
-<li><strong><code>Panel::new("admin")</code></strong> mounts the panel at <code>/admin</code>. <strong><code>app_context(db)</code></strong> gives it the
-database; <code>Panel::build</code> fails without one.</li>
+<li><strong><code>Router::builder().discover()</code></strong> starts the app’s own router: the app owns it, and the panel
+is one part of it. <strong><code>app_context(db)</code></strong> gives it the database every handler reads.</li>
+<li><strong><code>Panel::new("admin")</code></strong> is a panel at <code>/admin</code>, framed in the shell — sidebar, topbar,
+toasts — by a layout it registers itself.</li>
 <li><strong><code>resource::&lt;BookResource&gt;()</code></strong> registers the resource’s routes under <code>/admin/books</code>, adds its
 sidebar entry, and, because the panel has no home page, makes <code>/admin</code> redirect to the book
 list. <a href="./panel-and-routing.html">Panel and routing</a> lists every route.</li>
-<li><strong><code>build()</code></strong> checks every declaration and returns the <code>Router</code>, or an error naming the
-misdeclaration.</li>
+<li><strong><code>.panel(..)</code></strong> checks every declaration and mounts the panel, or returns an error naming the
+misdeclaration. <strong><code>build()</code></strong> returns the <code>Router</code>.</li>
 <li><strong><code>topcoat::start</code></strong> serves the router on <code>HOST</code>:<code>PORT</code> (default <code>127.0.0.1:3000</code>) until Ctrl+C
 or <code>SIGTERM</code>.</li>
 </ul>
@@ -328,8 +323,8 @@ or <code>SIGTERM</code>.</li>
 pages answer 403, and rows show no Edit or Delete action.
 <a href="./policy-auth-tenancy.html">Policy, auth, tenancy</a> opens them.</li>
 <li><strong>Styling.</strong> The example registers no asset bundle, so pages render unstyled and without the
-shell’s scripts, but every page and form works. <code>Panel::assets</code> and <code>Panel::shell_assets</code> add
-the stylesheet, the font and the scripts; see
+shell’s scripts, but every page and form works. The router’s <code>.assets(..)</code> and the panel’s
+<code>shell_assets</code> add the stylesheet, the font and the scripts; see
 <a href="./panel-and-routing.html#assets">Panel and routing</a>. The stylesheet itself comes from the build
 script below.</li>
 </ul>

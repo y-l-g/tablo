@@ -28,8 +28,8 @@ are as natural as plain field reads.</p>
 query predicate) — but any cell projection compiles: booleans,
 timestamps, joined values. Calling <code>.searchable()</code> / <code>.sortable()</code> on
 a computed column is a misdeclaration
-<a href="../panel/struct.Panel.html#method.build" title="method tablo_core::panel::Panel::build"><code>Panel::build</code></a> refuses: a lying sort link or
-search promise is worse than a loud build error.</p>
+<a href="../panel/trait.RouterBuilderPanelExt.html#tymethod.panel" title="method tablo_core::panel::RouterBuilderPanelExt::panel"><code>RouterBuilderPanelExt::panel</code></a> refuses: a lying sort
+link or search promise is worse than a loud build error.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.include" class="method"><a class="src rightside" href="../../src/tablo_core/resource/column.rs.html#367-370">Source</a><h4 class="code-header">pub fn <a href="#method.include" class="fn">include</a>&lt;T&gt;(self, relation: impl <a class="trait" href="https://doc.rust-lang.org/1.99.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;Include&lt;M, T&gt;&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Declare a relation this column’s projection reads:
 <code>.include(Post::fields().author())</code> for <code>|p| p.author.get().name.clone()</code>.
 The path is typed on the table’s model, so a relation the model does not

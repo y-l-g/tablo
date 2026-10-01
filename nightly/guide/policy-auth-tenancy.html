@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
+            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -249,16 +249,27 @@ Toasty and create a user with a hashed password:</p>
 </div>
 <p>After login, the user returns to <code>next</code>, which must be a same-origin path. A user has panel access
 when their <code>AdminUser.active</code> is <code>true</code>. The gate covers only the panel prefix and
-<code>/_topcoat/runtime</code>; routes elsewhere, including directories served with <code>Panel::serve_dir</code>, are
-public.</p>
+<code>/_topcoat/runtime</code>; routes elsewhere, including your app’s own routes and directories served with
+<code>Panel::serve_dir</code>, are public. On a router with several panels, <code>/_topcoat/runtime</code> answers 401
+without a session only when every panel is gated.</p>
 <ul>
 <li><strong>Login</strong> verifies Argon2id hashes. An unknown email costs the same work as a wrong password,
 and every failure shows the same message.</li>
 <li><strong>Sessions</strong> are rows in <code>AuthSession</code>, identified by a hash of the cookie’s token. A session
 lasts seven days from login, is replaced on each login and deleted on logout. Each successful
-login also deletes up to 500 expired sessions.</li>
+login also deletes up to 500 expired sessions. The row records the prefix of the panel that
+signed the user in, so an existing <code>auth_session</code> table needs a migration: add a non-null
+<code>panel</code> column and backfill it to the panel’s prefix (for example <code>ALTER TABLE auth_session ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'</code>), then drop the default when every row names
+its panel. Renaming a panel’s prefix invalidates the sessions it issued.</li>
 <li><strong>Revoking.</strong> Call <code>auth::revoke_sessions_for_user(cx, user_id)</code> when a user’s password changes
-or their account is deactivated; otherwise existing sessions stay valid until they expire.</li>
+or their account is deactivated; otherwise existing sessions stay valid until they expire. On a
+panel’s request it revokes the sessions that panel issued; outside any panel, the user’s
+sessions on every panel, so a reset flow for a user with two panels revokes from outside a panel
+or once per panel.</li>
+<li><strong>Several panels.</strong> Each panel has its own <code>Auth</code> and its own login page, and a session belongs
+to the panel that signed the user in: the session row records the panel’s prefix. Another
+panel’s gate treats the request as anonymous, and <code>current_user(cx)</code> answers <code>None</code> there. One
+browser holds one session, so signing in to a second panel ends the first.</li>
 <li><strong>Rate limiting</strong> is not built in. Limit login attempts at your proxy or firewall.</li>
 </ul>
 <p>Read the signed-in user in your own code with <code>auth::current_user(cx)</code>, which returns a
@@ -324,7 +335,7 @@ fn tenant_scope(tenant: uuid::Uuid) -&gt; Option&lt;toasty::stmt::Expr&lt;bool&g
 would serve every tenant’s rows to a user who has no tenant.</p>
 <p><strong>A deliberately cross-tenant resource</strong> — a super-admin view — declares <code>requires_tenant()</code>
 <code>false</code> and filters in <code>query()</code> by hand. That gives up both the gate and the scope.</p>
-<p><code>Panel::build</code> refuses a resource with <code>requires_tenant()</code> <code>true</code> whose model has no <code>tenant_id</code>
+<p>Mounting the panel refuses a resource with <code>requires_tenant()</code> <code>true</code> whose model has no <code>tenant_id</code>
 UUID field and which does not override <code>tenant_scope</code>.</p>
 <p><strong>In your own code</strong>, load rows with <code>scoped_query::&lt;PostResource&gt;(cx)?</code>. It applies the tenant
 scope and answers 403 when the request has no tenant. <code>PostResource::query(cx)</code> does not apply the
