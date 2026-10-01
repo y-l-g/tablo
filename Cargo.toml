@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/tablo",
+    "crates/tablo-build",
     "crates/tablo-core",
     "crates/tablo-macros",
     "crates/tablo-test",
@@ -44,9 +46,13 @@ too_many_lines = "deny"
 # locked rev (see the fmt job in `.github/workflows/ci.yml`). For temporary live-editing
 # against a local checkout, add an uncommitted `[patch]` section redirecting to
 # `../topcoat` / `../toasty`.
+#
+# `toasty` enables no database driver here: the libraries reach the database
+# through `Db` and `Executor` only, and each app or test suite names its driver
+# on its own `toasty` dependency (`features = ["sqlite"]`).
 [workspace.dependencies]
 topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "f7eb477242da9690458d183efa2e0aaa1b21b9da", default-features = false, features = ["view", "router", "discover"] }
-toasty = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790", default-features = false, features = ["sqlite", "jiff"] }
+toasty = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790", default-features = false, features = ["jiff"] }
 toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790" }
 topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "f7eb477242da9690458d183efa2e0aaa1b21b9da" }
 topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "f7eb477242da9690458d183efa2e0aaa1b21b9da" }

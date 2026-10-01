@@ -22,6 +22,11 @@ fn main() -> anyhow::Result<()> {
         "verify-locks" => {
             xtask::gates::verify_locks()?;
         }
+        "external-check" => {
+            let root = xtask::gates::repo_root();
+            let manifest = xtask::gates::stage_quickstart(&root)?;
+            xtask::gates::external_check(&RealRunner, &root, &manifest)?;
+        }
         "check" => {
             xtask::gates::check(&RealRunner)?;
         }
@@ -54,6 +59,7 @@ USAGE:
     cargo xtask verify-topcoat-ui
     cargo xtask fmt
     cargo xtask verify-locks
+    cargo xtask external-check
     cargo xtask check
     cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>
 
@@ -71,22 +77,31 @@ COMMANDS:
                        has drifted from the registry. The xtask test suite
                        runs this on every `cargo test`.
     fmt                The formatting subset: nightly `cargo fmt --check`,
-                       detached-bench `cargo fmt --check`, and the locked-rev
-                       `topcoat fmt` plus diff guard. Check-half only: it
-                       never installs the topcoat CLI, and fails with the
-                       locked-rev install command when the CLI is missing
-                       or the wrong rev.
+                       detached-bench and quickstart `cargo fmt --check`, and
+                       the locked-rev `topcoat fmt` plus diff guard.
+                       Check-half only: it never installs the topcoat CLI,
+                       and fails with the locked-rev install command when the
+                       CLI is missing or the wrong rev.
     verify-locks       Guard: fail when `Cargo.lock` and
                        `benchmarks/tablo/Cargo.lock` pin different `topcoat`
-                       or `toasty` revs, or when the `rev =` manifest pins
-                       disagree. The xtask test suite runs this on
-                       every `cargo test`.
+                       or `toasty` revs, or when the `rev =` manifest pins of
+                       the workspace, the bench, and the quickstart
+                       disagree. The xtask test suite runs this on every
+                       `cargo test`.
+    external-check     Copy examples/quickstart out of the repository (the
+                       system temp dir), point its `tablo` dependencies at
+                       absolute paths, and run its tests: the app must build,
+                       its panel must serve, and its generated stylesheet must
+                       hold classes only Tablo's own sources write. Fails on
+                       anything that resolves only inside this repository.
     check              The gate set as a local fail-fast convenience runner:
                        the eight CONTRIBUTING gates in order, then docs,
-                       detached-bench fmt, and the lockstep check. CI keeps
-                       one subcommand per parallel job instead.
+                       detached-bench fmt, the external build, and the
+                       lockstep check. CI keeps one subcommand per parallel
+                       job instead.
     bump-upstream      Rewrite the `rev =` pins for both upstream repos in
-                       both manifests, re-resolve both lockfiles, prove the
+                       every pinned manifest (workspace, bench,
+                       quickstart), re-resolve both lockfiles, prove the
                        revs resolve from the local git cache
                        (`cargo check --offline`), and assert lockstep.
 

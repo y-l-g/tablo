@@ -1,6 +1,6 @@
-/* Neutral theme — Tailwind + Tokens for Tablo showcase.
-   This is the per-app contract: one styles.css + one 3-line build.rs.
-   See ADR-0006 and examples/showcase as reference. */
+/* Neutral theme — Tailwind + tokens, the showcase's copy.
+   The per-app contract: one styles.css + `tablo_build::tailwind()` in build.rs.
+   See ADR-0006. */
 
 @import "tailwindcss";
 

@@ -1,0 +1,34 @@
+[package]
+name = "tablo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Admin toolkit for Rust, server-rendered on Topcoat and persisted with Toasty."
+# Metadata only, no native library: `build.rs` forwards the Tablo source
+# directories an app's Tailwind build scans (`DEP_TABLO_CORE`, `DEP_TABLO_UI`).
+links = "tablo"
+
+[features]
+# The database driver is the app's choice. Each feature turns on Toasty's
+# driver of the same name; an app can equally enable it on its own `toasty`
+# dependency.
+sqlite = ["toasty/sqlite"]
+postgresql = ["toasty/postgresql"]
+mysql = ["toasty/mysql"]
+# `tablo::testing`: the in-memory HTTP client the Tablo suites drive a panel with.
+testing = ["dep:tablo-test"]
+
+[dependencies]
+tablo-core = { path = "../tablo-core" }
+tablo-test = { path = "../tablo-test", optional = true }
+tablo-ui = { path = "../tablo-ui" }
+toasty.workspace = true
+
+# `toasty` is never named in code: it is here so the driver features above can
+# reach it.
+[package.metadata.cargo-udeps.ignore]
+normal = ["toasty"]
+
+[lints]
+workspace = true

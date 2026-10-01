@@ -5,13 +5,14 @@
 The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): eight commands
 mirroring `.github/workflows/ci.yml`. Run it via `cargo xtask check` (fail-fast),
 or the ones covering your change; all eight before merging. CI also runs the extra
-checks listed there (docs, detached-bench fmt, bench-check).
+checks listed there (docs, detached-bench fmt, external, bench-check).
 
 ```sh
 cargo xtask check                                # the gate set, fail-fast
 cargo xtask fmt                                  # nightly fmt + detached fmt + locked-rev topcoat fmt
-cargo xtask verify-locks                         # workspace vs bench rev equality
-cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>  # bump both manifests, assert lockstep
+cargo xtask verify-locks                         # workspace vs bench vs quickstart rev equality
+cargo xtask external-check                       # build and test examples/quickstart outside the repo
+cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>  # bump every pinned manifest, assert lockstep
 cargo run -p showcase                            # http://localhost:3000/admin/users
 cargo xtask sync-topcoat-ui                      # re-vendor primitives, verbatim
 cargo xtask verify-topcoat-ui                    # fail on vendored drift
@@ -30,8 +31,8 @@ cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli
 4. Give each worktree its own target directory; a shared `CARGO_TARGET_DIR` cross-contaminates.
 5. Never pipe when you need the exit code: `| tail` masks it. Read `PIPESTATUS` or redirect to
    a file.
-6. `cargo fmt` covers workspace members only; the detached `benchmarks/*` workspaces are
-   formatted and linted by manifest path.
+6. `cargo fmt` covers workspace members only; the detached `benchmarks/*` and
+   `examples/quickstart` packages are formatted and linted by manifest path.
 7. Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit, with
    identical `topcoat`/`toasty` revs.
 8. Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with xtask. Owned

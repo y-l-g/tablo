@@ -15,9 +15,25 @@ cargo run -p showcase
 # open http://localhost:3000/admin/users
 ```
 
+Depend on the `tablo` facade, pick a database driver, and build the stylesheet with `tablo-build`
+(the [first-panel chapter](docs/guide/src/first-panel.md) has the full manifest, including the
+`topcoat` and `toasty` pins):
+
+```toml
+[dependencies]
+tablo = { git = "https://github.com/y-l-g/tablo", features = ["sqlite"] }
+
+[build-dependencies]
+tablo-build = { git = "https://github.com/y-l-g/tablo" }
+```
+
+`examples/quickstart` is the smallest complete app; CI builds it from outside this repository.
+
 A resource declares its model, its form and its list:
 
 ```rust
+use tablo::prelude::*;
+
 pub struct UserResource;
 
 impl Resource for UserResource {
@@ -66,7 +82,7 @@ To add create and edit pages, give the resource a `#[derive(RecordForm)]` struct
 
 - **[User guide](https://y-l.fr/tablo/nightly/guide/)**, from [`docs/guide/`](docs/guide/); build
   it locally with `mdbook build docs/guide`.
-- **[API reference](https://y-l.fr/tablo/nightly/api/tablo_core/)**, the rustdoc of the
+- **[API reference](https://y-l.fr/tablo/nightly/api/tablo/)**, the rustdoc of the
   workspace.
 - [`examples/showcase/`](examples/showcase/): the runnable reference.
 - [`CONTEXT.md`](CONTEXT.md): the project's vocabulary.

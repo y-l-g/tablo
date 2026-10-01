@@ -206,5 +206,6 @@ Panel::new("admin")
 
 `shell_assets` also makes the shell load `tablo-ui`'s scripts: live search, confirmation dialogs,
 searchable selects, toasts and the sidebar and theme toggles. `build()` refuses `shell_assets`
-without `assets`. `examples/showcase` has the complete setup, including the `build.rs` that
-generates the stylesheet.
+without `assets`. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
+([Your first panel](./first-panel.md#the-stylesheet)); `examples/quickstart` has the smallest
+complete setup and `examples/showcase` the full one.

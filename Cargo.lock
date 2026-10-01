@@ -3096,6 +3096,7 @@ dependencies = [
  "http",
  "http-body-util",
  "jiff",
+ "tablo-build",
  "tablo-core",
  "tablo-test",
  "tablo-ui",
@@ -3388,6 +3389,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.6",
+]
+
+[[package]]
+name = "tablo"
+version = "0.1.0"
+dependencies = [
+ "tablo-core",
+ "tablo-test",
+ "tablo-ui",
+ "toasty",
+]
+
+[[package]]
+name = "tablo-build"
+version = "0.1.0"
+dependencies = [
+ "topcoat",
 ]
 
 [[package]]

@@ -90,6 +90,21 @@ jobs:
       # book here too: it is seconds, and linkcheck fails the build on a bad link.
       - run: mdbook build docs/guide
 
+  # The quickstart built as a dependent in its own repository builds Tablo:
+  # xtask copies it to the runner's temp dir, rewrites its `path` dependencies
+  # to absolute ones, and runs its tests. A source path, a feature, or a derive
+  # path that resolves only inside this workspace fails here, as does a
+  # stylesheet that misses the classes Tablo's own sources write. Its target
+  # dir is `target/external-check`, inside the cached `target`.
+  external:
+    name: external
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo xtask external-check
+
   msrv:
     name: msrv (1.98)
     runs-on: ubuntu-latest
@@ -140,9 +155,10 @@ jobs:
           cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli --locked
       - name: topcoat fmt (locked rev, via xtask)
         # The three format checks — workspace nightly fmt (`fmt --all` covers
-        # every member; the detached benches keep their own stable checks),
-        # detached-bench fmt (benchmarks/tablo, benchmarks/axum-maud,
-        # benchmarks/leptos), locked-rev `topcoat fmt` plus diff guard — run
+        # every member; the detached packages keep their own stable checks),
+        # detached fmt (benchmarks/tablo, benchmarks/axum-maud,
+        # benchmarks/leptos, examples/quickstart), locked-rev `topcoat fmt`
+        # plus diff guard — run
         # through `cargo xtask fmt`: one subcommand per job, jobs stay
         # parallel. The toolchain and CLI installs above stay in CI: xtask
         # runs the check half only, never the ~4-minute CLI reinstall.

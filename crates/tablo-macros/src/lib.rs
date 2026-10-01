@@ -106,13 +106,18 @@ pub fn record_form(input: TokenStream) -> TokenStream {
     record_form::expand_tokens(input).into()
 }
 
-/// The path the generated code names `tablo-core` by: `::tablo_core`, or the
-/// consumer's rename of it.
+/// The path the generated code names `tablo-core` by: the `tablo` facade, which
+/// re-exports it at its root, else `::tablo_core`, either under the consumer's
+/// rename. The facade comes first: it is what an app depends on, and it
+/// reaches every path the generated code names.
 fn tablo_core_path(span: &syn::Ident, derive: &str) -> syn::Result<proc_macro2::TokenStream> {
-    match proc_macro_crate::crate_name("tablo-core") {
-        Ok(found) => {
+    let found = proc_macro_crate::crate_name("tablo")
+        .map(|found| (found, "tablo"))
+        .or_else(|_| proc_macro_crate::crate_name("tablo-core").map(|found| (found, "tablo_core")));
+    match found {
+        Ok((found, own_name)) => {
             let name = match found {
-                proc_macro_crate::FoundCrate::Itself => "tablo_core".to_string(),
+                proc_macro_crate::FoundCrate::Itself => own_name.to_string(),
                 proc_macro_crate::FoundCrate::Name(n) => n,
             };
             let ident = syn::Ident::new(&name.replace('-', "_"), proc_macro2::Span::call_site());
@@ -120,7 +125,7 @@ fn tablo_core_path(span: &syn::Ident, derive: &str) -> syn::Result<proc_macro2::
         }
         Err(_) => Err(syn::Error::new_spanned(
             span,
-            format!("tablo-core must be a dependency to #[derive({derive})]"),
+            format!("`tablo` (or `tablo-core`) must be a dependency to #[derive({derive})]"),
         )),
     }
 }

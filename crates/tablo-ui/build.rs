@@ -11,5 +11,10 @@ fn main() {
         .cache_dir("assets/iconify")
         .stage()
         .unwrap();
-    // Tailwind is per-app (`tablo_ui::tailwind_build` in app's build.rs), nothing to do here.
+    // The components carry Tailwind classes, so an app's stylesheet must scan
+    // these sources. `links` hands their absolute path to the build script of
+    // every package that depends on this one, as `DEP_TABLO_UI_SRC`, wherever
+    // Cargo unpacked the crate; `tablo_build::tailwind` reads it.
+    let dir = std::env::var("CARGO_MANIFEST_DIR").expect("cargo sets CARGO_MANIFEST_DIR");
+    println!("cargo::metadata=src={dir}/src");
 }

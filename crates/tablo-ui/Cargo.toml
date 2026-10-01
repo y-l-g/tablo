@@ -5,10 +5,13 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 description = "Beautiful Topcoat UI primitives for Tablo — owned library over topcoat-ui-registry."
+# Metadata only, no native library: `build.rs` publishes the source directory an
+# app's Tailwind build scans (`DEP_TABLO_UI_SRC`).
+links = "tablo-ui"
 
 [dependencies]
 http = "1"
-topcoat = { workspace = true, features = ["tailwind", "font", "font-fontsource", "asset", "icon", "icon-iconify", "runtime"] }
+topcoat = { workspace = true, features = ["font", "font-fontsource", "asset", "icon", "icon-iconify", "runtime"] }
 
 [dev-dependencies]
 tokio = { workspace = true }

@@ -3,12 +3,17 @@
 ## Testing a panel
 
 Test a panel over HTTP, in memory: build the router against a test database and send it requests.
-The `tablo-test` crate provides `TestClient`, which carries cookies, a tenant and a CSRF token, and
-helpers to build form bodies and read responses. It is not published; depend on it from the same
-source as `tablo-core`.
+`TestClient` carries cookies, a tenant and a CSRF token, with helpers to build form bodies and read
+responses. An app reaches it as `tablo::testing` through the facade's `testing` feature; enable it
+for tests only:
+
+```toml
+[dev-dependencies]
+tablo = { git = "https://github.com/y-l-g/tablo", features = ["sqlite", "testing"] }
+```
 
 ```rust
-use tablo_test::{TestClient, form_body};
+use tablo::testing::{TestClient, form_body};
 
 #[tokio::test]
 async fn books_cannot_be_deleted() {

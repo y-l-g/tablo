@@ -81,22 +81,3 @@ pub const NOTIFICATION_JS: topcoat::asset::Asset =
     topcoat::asset::asset!("../assets/notifications.js");
 pub const MUTATION_SUBMIT_JS: topcoat::asset::Asset =
     topcoat::asset::asset!("../assets/mutation-submit.js");
-
-/// Tailwind build helper for the per-app contract.
-///
-/// Call from the app's `build.rs`:
-///
-/// ```ignore
-/// fn main() {
-///     tablo_ui::tailwind_build().unwrap();
-/// }
-/// ```
-///
-/// This scans `styles.css` (which must `@import "tailwindcss"` and contain
-/// `@source` globs for the app's `src/` and for `tablo-ui/src/`) and
-/// writes `$OUT_DIR/tailwind.css` for `tailwind::stylesheet!()`.
-pub fn tailwind_build() -> Result<std::path::PathBuf, topcoat::tailwind::BuildError> {
-    topcoat::tailwind::BuildConfig::new()
-        .input("styles.css")
-        .render()
-}
