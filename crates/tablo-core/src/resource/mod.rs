@@ -18,11 +18,13 @@ use topcoat::{Result, context::Cx};
 use crate::{
     error::TabloError,
     form::{FieldErrors, Posted, RecordForm, write_create, write_update},
+    schema::DeclCx,
 };
 
 mod action;
 mod column;
 mod commit;
+mod declared;
 mod filter;
 pub(crate) mod naming;
 mod navigation;
@@ -36,6 +38,7 @@ pub use action::{Action, Actions};
 pub use column::{BooleanColumn, Column, ColumnWidth, Includes, IntoColumns, TextColumn};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
+pub(crate) use declared::{Declarations, Declared, declared};
 pub use filter::{
     DateFilter, Filter, FilterInput, IntoFilters, SelectFilter, TernaryFilter, VariantFilter,
 };
@@ -68,11 +71,20 @@ pub(crate) use crate::query_term::clamp_query_term;
 /// declares its model, its record form (or [`NoForm`](crate::NoForm)) and its
 /// list view — and an omission must fail loudly rather than silently:
 ///
-/// - **Checked at [`Panel::build`](crate::panel::Panel::build)**: the declared table must serve a
-///   list, and [`form`](Self::form) must agree with [`Form`](Self::Form): a record form's fields
-///   are the schema's controls, and a [`NoForm`](crate::NoForm) resource declares no schema. A
-///   resource with no form must not allow [`can_create`](Self::can_create). These are declarations,
-///   checked with a Db-only context.
+/// - **Built once and checked at [`Panel::build`](crate::panel::Panel::build)**: [`table`],
+///   [`form`], [`view`] and [`relations`] are declarations — the table and the relations take no
+///   context, the schemas a [`DeclCx`] carrying the app schema alone — so the panel builds each
+///   once, refuses what they record as misdeclared ([`Table::declaration_errors`],
+///   [`Schema::declaration_errors`]), and serves the same values to every request. [`form`] must
+///   agree with [`Form`](Self::Form): a record form's fields are the schema's controls, and a
+///   [`NoForm`](crate::NoForm) resource declares no schema. A resource with no form must not allow
+///   [`can_create`](Self::can_create), which the build asks with a context holding only the `Db`.
+///
+/// [`table`]: Self::table
+/// [`form`]: Self::form
+/// [`view`]: Self::view
+/// [`relations`]: Self::relations
+/// [`Schema::declaration_errors`]: crate::schema::Schema::declaration_errors
 /// - **Loud at request time**: a record fn's error fails the write and rolls its transaction back,
 ///   never a partial write. [`delete_record`](Self::delete_record) defaults to deleting the row
 ///   through [`scoped_query`], filtered to the record's key, and refuses a table whose record key
@@ -201,7 +213,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///
     /// Read-only is a promise, not a disabled form: nothing here validates or
     /// submits, and no field renders a required marker or an error slot.
-    fn view(_cx: &Cx) -> crate::schema::Schema {
+    ///
+    /// Like [`form`](Self::form), it receives the app schema alone and is
+    /// called once, at build. A view that shows what the form edits can start
+    /// from the same controls: `PostForm::controls(dx)`.
+    fn view(_dx: &DeclCx) -> crate::schema::Schema {
         crate::schema::Schema::empty()
     }
 
@@ -241,16 +257,6 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// ```
     fn actions() -> Actions<Self> {
         Actions::new()
-    }
-
-    /// Whether this resource declares a detail page.
-    ///
-    /// Derived from [`view`](Self::view) rather than declared twice, so the
-    /// route and the row link cannot disagree with the schema that renders
-    /// them. The detail handler uses it to 404 a resource that declares
-    /// nothing, and the row chrome uses it to leave the link off.
-    fn viewed(cx: &Cx) -> bool {
-        !Self::view(cx).is_empty()
     }
 
     /// The record's label in the detail page's title, or `None` when
@@ -417,16 +423,32 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Description of the list view.
     ///
     /// Every resource declares its table with [`Table::new`]: columns and the
-    /// row key the list renders (see [`Table::render`]).
-    fn table(_cx: &Cx) -> Table<Self::Model>;
+    /// row key the list renders (see [`Table::render`]). It takes no context:
+    /// the panel calls it once, at build, and serves that table to every
+    /// request. What depends on the request — which rows a user may act on —
+    /// is the policies' business, which the panel wires per request.
+    fn table() -> Table<Self::Model>;
 
     /// The schema the create and edit forms render.
     ///
-    /// [`Panel::build`](crate::Panel::build) refuses a record form field this
-    /// schema does not declare, and a schema on a resource whose
-    /// [`Form`](Self::Form) is [`NoForm`](crate::NoForm).
-    fn form(_cx: &Cx) -> crate::schema::Schema {
-        crate::schema::Schema::empty()
+    /// Defaults to the record form's derived schema
+    /// ([`RecordForm::schema`]): one control per field, in declaration order.
+    /// Override it to arrange the controls into a layout — the derive's
+    /// `controls(dx)` hands each one over, ready for its modifiers:
+    ///
+    /// ```ignore
+    /// fn form(dx: &DeclCx) -> Schema {
+    ///     let c = PostForm::controls(dx);
+    ///     Schema::new(Section::new("Content").schema((c.title, c.body.multiline(6))))
+    /// }
+    /// ```
+    ///
+    /// `dx` carries the app schema and nothing from a request: the panel calls
+    /// this once, at build. [`Panel::build`](crate::Panel::build) refuses a
+    /// record form field this schema does not declare, and a schema on a
+    /// resource whose [`Form`](Self::Form) is [`NoForm`](crate::NoForm).
+    fn form(dx: &DeclCx) -> crate::schema::Schema {
+        <Self::Form as RecordForm>::schema(dx)
     }
 
     /// App-level rules on the parsed form. The errors render inline with a
@@ -508,7 +530,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     where
         Self: Sized,
     {
-        let key = Self::table(cx).record_key_of(record);
+        let key = declared::<Self>(cx).table.record_key_of(record);
         let query = scoped_query::<Self>(cx).and_then(|query| {
             let filter = crate::schema::pk_eq_expr::<Self::Model>(&key).ok_or_else(|| {
                 // The handler found the row by this key, so a key that does
@@ -728,11 +750,11 @@ impl<R: Resource> crate::schema::OptionSource for R {
     }
 
     fn search_expr(cx: &Cx, term: &str) -> Option<toasty::stmt::Expr<bool>> {
-        <R as Resource>::table(cx).search_expr(term)
+        declared::<R>(cx).table.search_expr(term)
     }
 
     fn order_by(cx: &Cx) -> Option<toasty::stmt::OrderByExpr> {
-        <R as Resource>::table(cx).order_by(false)
+        declared::<R>(cx).table.order_by(false)
     }
 }
 

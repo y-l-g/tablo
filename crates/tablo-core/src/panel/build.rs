@@ -1,6 +1,8 @@
 //! Panel assembly: [`Panel::build`](super::Panel::build), the build-time
 //! declaration checks, and the route-path helpers.
 
+use std::sync::Arc;
+
 use toasty::{Db, schema::Model};
 use topcoat::{
     Result,
@@ -22,7 +24,12 @@ use super::{
     search::{RelationRegistry, SearchRegistry},
     shell::DarkMode,
 };
-use crate::{error::TabloError, form::RecordForm, resource::Resource};
+use crate::{
+    error::TabloError,
+    form::RecordForm,
+    resource::{Declarations, Declared, Resource},
+    schema::{DeclCx, Schema},
+};
 
 impl Panel {
     /// Build the [`Router`], discovering all `#[page]` / `#[layout]` / `#[shard]`
@@ -95,11 +102,15 @@ impl Panel {
         // knowable here — waiting for the first request only moves the failure
         // somewhere less useful. `table`, `form` and `can_create` are pure
         // declarations, so they must not need request-scoped context.
+        // Each check builds the resource's declarations once and keeps them:
+        // the handlers serve exactly the values checked here.
+        let mut declarations = Declarations::default();
         if !resource_checks.is_empty() {
             let cx = validation_cx(&db);
+            let dx = DeclCx::new(&db);
             let failures: Vec<String> = resource_checks
                 .iter()
-                .filter_map(|check| check(&cx).err())
+                .filter_map(|check| check(&cx, &dx, &mut declarations).err())
                 .collect();
             if !failures.is_empty() {
                 return Err(TabloError::Declaration(format!(
@@ -117,7 +128,8 @@ impl Panel {
             // cap: without this layer Topcoat's 2 MiB default would
             // 413 uploads the framework otherwise accepts.
             .layer(topcoat::router::BodyLimit::max(MAX_FORM_BYTES))
-            .app_context(db);
+            .app_context(db)
+            .app_context(declarations);
         // Clickjacking hardening: a response anyone can frame is a
         // threat on every deployment, so the panel ships the directive itself
         // and apps that need framing opt out (or supply their own policy,
@@ -336,50 +348,28 @@ pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), St
 /// A resource's build-time declaration check: monomorphized once per
 /// declared resource by [`Panel::resource`], run by [`Panel::build`] with the
 /// app's values and no request.
-pub(super) type ResourceCheck = fn(&Cx) -> Result<(), String>;
+pub(super) type ResourceCheck = fn(&Cx, &DeclCx, &mut Declarations) -> Result<(), String>;
 
 /// What a declared resource must be able to promise before the panel serves it.
 ///
 /// The trait defaults every method but `table`, so a resource that overrides
 /// nothing else compiles and only fails when a user reaches the page that needs
-/// the missing piece. The essentials that are *declarations* — a tenant
-/// predicate for a gated resource — are checked here, at build, and reported
-/// with the resource's type name, together with the agreement between the
-/// resource's `Form` and its `form()` schema ([`check_form_declaration`]); a page
-/// size the list cannot serve panics in `Table::paginate`, and the caught panic
-/// becomes the same build error.
-/// Runtime essentials (the record fns) keep their loud failure.
+/// the missing piece. The essentials that are *declarations* are checked here,
+/// at build, and reported with the resource's type name: a tenant predicate
+/// for a gated resource, what the table, the form and the view record as
+/// misdeclared ([`Table::declaration_errors`](crate::Table::declaration_errors),
+/// [`Schema::declaration_errors`]), the custom actions' names, and the
+/// agreement between the resource's `Form` and its `form()` schema
+/// ([`check_form_declaration`]). Runtime essentials (the record fns) keep their
+/// loud failure.
 ///
-/// A declaration that panics is a boot failure too: `Resource::table` and
-/// `Resource::form` run code that panics on a mis-declaration, and this check's
-/// contract is a registration error the caller can log or exit on. The whole
-/// body is caught, because `R::Model::schema()` and the policy predicates are
-/// part of the same declaration, and the panic's own message is carried into
-/// the error. `AssertUnwindSafe` is sound because nothing observes the captured
-/// state after an unwind: `cx` is the build-time `validation_cx`, and the panic
-/// fails the whole `build`.
-pub(super) fn check_resource<R: Resource>(cx: &Cx) -> Result<(), String> {
-    caught::<R>(|| check_resource_inner::<R>(cx))
-}
-
-/// The message out of a caught panic payload.
-///
-/// The declaration panics this catches are `assert!`/`panic!("…")` with a
-/// formatted string, so `&str` and `String` cover every one of them; anything
-/// else is reported by shape rather than silently dropped.
-fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
-    if let Some(message) = payload.downcast_ref::<&str>() {
-        (*message).to_string()
-    } else if let Some(message) = payload.downcast_ref::<String>() {
-        message.clone()
-    } else {
-        "a non-string panic payload".to_string()
-    }
-}
-
-/// The body of [`check_resource`], unwound through `catch_unwind` so a
-/// mis-declared resource is a registration error rather than a boot panic.
-fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
+/// The declarations are built once, here, and handed back for the panel to
+/// serve: a request reads the values this check saw.
+pub(super) fn check_resource<R: Resource>(
+    cx: &Cx,
+    dx: &DeclCx,
+    declarations: &mut Declarations,
+) -> Result<(), String> {
     // A gated resource that supplies no tenant predicate is misdeclared, and
     // the declaration is checkable without a request:
     // `R::tenant_scope` is pure, and the default derivation answers by the
@@ -398,21 +388,35 @@ fn check_resource_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
             "resource `{}` requires a tenant, but the framework cannot scope it: `{}` declares no \
              `tenant_id` UUID column to derive the filter from, and the resource does not override \
              `tenant_scope` — declare the column, override `tenant_scope`, or drop \
-             `requires_tenant` and scope in `query` (GH #231)",
+             `requires_tenant` and scope in `query`",
             std::any::type_name::<R>(),
             std::any::type_name::<R::Model>(),
         ));
     }
-    // Declaring the table and the view runs their own misdeclaration checks
-    // (a duplicate column or field name, a zero page size, a lens that is not
-    // a single field, a modifier on the wrong control), which panic; the
-    // `catch_unwind` around this body turns them into this resource's
-    // registration error instead of a failure on the first list or detail
-    // request.
-    let _ = R::table(cx);
-    let _ = R::view(cx);
+    let declared = Declared::<R>::build(dx);
+    let misdeclared: Vec<String> = [
+        ("table", declared.table.declaration_errors()),
+        ("form", declared.form.declaration_errors()),
+        ("view", declared.view.declaration_errors()),
+    ]
+    .into_iter()
+    .flat_map(|(part, errors)| {
+        errors
+            .into_iter()
+            .map(move |error| format!("{part}: {error}"))
+    })
+    .collect();
+    if !misdeclared.is_empty() {
+        return Err(format!(
+            "resource `{}` is misdeclared: {}",
+            std::any::type_name::<R>(),
+            misdeclared.join("; ")
+        ));
+    }
     check_actions::<R>()?;
-    check_form_declaration::<R>(cx)
+    check_form_declaration::<R>(cx, dx, &declared)?;
+    declarations.insert(Arc::new(declared));
+    Ok(())
 }
 
 /// Every custom action's name is a route segment, distinct among the
@@ -438,21 +442,25 @@ fn check_actions<R: Resource>() -> Result<(), String> {
 /// [`check_form_inner`]. A resource whose form serves no pages
 /// ([`RecordForm::HAS_FORM`] false) declares no schema, and a policy that
 /// allows create would link to a page that does not exist.
-fn check_form_declaration<R: Resource>(cx: &Cx) -> Result<(), String> {
+fn check_form_declaration<R: Resource>(
+    cx: &Cx,
+    dx: &DeclCx,
+    declared: &Declared<R>,
+) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
     let form = std::any::type_name::<R::Form>();
     if <R::Form as RecordForm>::HAS_FORM {
-        // A form with fields and the empty `form()` default is a missing
-        // override; the key check below would only name the first field.
-        if R::form(cx).is_empty() && !<R::Form as RecordForm>::fields(cx).is_empty() {
+        // A form with fields and an empty schema renders nothing to fill in;
+        // the key check below would only name the first field.
+        if declared.form.is_empty() && !<R::Form as RecordForm>::fields(dx).is_empty() {
             return Err(format!(
-                "resource `{resource}` names record form `{form}` but does not override `form()`, \
-                 whose default declares no controls"
+                "resource `{resource}` names record form `{form}`, but its `form()` declares no \
+                 controls — drop the override to render the derived schema"
             ));
         }
-        return check_form_inner::<R>(cx);
+        return check_form_inner::<R>(cx, dx, &declared.form);
     }
-    if !R::form(cx).is_empty() {
+    if !declared.form.is_empty() {
         return Err(format!(
             "resource `{resource}` declares a form schema but its `Form`, `{form}`, serves no \
              form — name the record form in `type Form`"
@@ -467,10 +475,9 @@ fn check_form_declaration<R: Resource>(cx: &Cx) -> Result<(), String> {
     Ok(())
 }
 
-fn check_form_inner<R: Resource>(cx: &Cx) -> Result<(), String> {
-    let form = R::form(cx);
+fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
-    let fields = <R::Form as RecordForm>::fields(cx);
+    let fields = <R::Form as RecordForm>::fields(dx);
     let controls = form.controls();
     // Key agreement, reported control-first: a control no field binds is the
     // direction that drops what the user typed.
@@ -625,19 +632,6 @@ fn check_create_columns<R: Resource>(
         }
     }
     Ok(())
-}
-
-/// Run a declaration check, turning a panic in the app's declarations into a
-/// registration error naming the resource.
-fn caught<R: Resource>(check: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(check)) {
-        Ok(result) => result,
-        Err(payload) => Err(format!(
-            "resource `{}` panicked while declaring itself: {}",
-            std::any::type_name::<R>(),
-            panic_message(payload.as_ref())
-        )),
-    }
 }
 
 /// A context for the build-time declaration checks: the app's own values, no

@@ -83,7 +83,7 @@ use crate::{
 /// Delete link and bulk column from
 /// [`can_delete_any`](crate::resource::Resource::can_delete_any), the Edit link
 /// from a record form ([`RecordForm::HAS_FORM`])
-/// and the View link from [`viewed`](crate::resource::Resource::viewed) — each gated
+/// and the View link from a non-empty [`view`](crate::resource::Resource::view) — each gated
 /// per row by `can_view`/`can_update`/`can_delete`, the wiring the panel's own
 /// list applies. The chrome has no other entry point: a page-owned table that
 /// must agree with the resource's routes takes its wiring from here.
@@ -312,6 +312,13 @@ impl Panel {
             .map(|relation| relation.key().to_string())
             .collect::<Vec<_>>();
         for relation in &declared {
+            if let Some(error) = relation.misdeclared() {
+                self.registration_errors.push(format!(
+                    "resource `{}`'s relation `{}`: {error}",
+                    std::any::type_name::<R>(),
+                    relation.key()
+                ));
+            }
             self.relation_handlers.insert(
                 (R::slug(), relation.key().to_string()),
                 relation.search_handler(),
@@ -374,10 +381,10 @@ impl Panel {
             resource_list::<R>,
         ));
         // Detail page — GET renders the record read-only. Registered
-        // unconditionally, unlike the row link: registration runs before a
-        // request exists, so `R::view(cx)` is not declarable here. The handler
-        // 404s a resource that declares no view, which is the same answer as an
-        // unknown id and costs one comparison.
+        // unconditionally, unlike the row link: registration runs before
+        // `Panel::build` has the `Db` the view declaration resolves through.
+        // The handler 404s a resource that declares no view, which is the same
+        // answer as an unknown id and costs one comparison.
         //
         // `RECORD_ROUTE_PARAM` shares its position with the literal `create`
         // segment: topcoat routes through `matchit`, which prefers a static

@@ -72,7 +72,7 @@ struct AuditedResource;
 impl Resource for AuditedResource {
     type Model = Note;
     type Form = AuditedForm;
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Note::fields().title()))
     }
 
@@ -100,7 +100,7 @@ impl Resource for AuditedResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Note> {
+    fn table() -> Table<Note> {
         Table::new(
             |note: &Note| note.id.to_string(),
             TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
@@ -124,7 +124,7 @@ struct PlainResource;
 impl Resource for PlainResource {
     type Model = Note;
     type Form = PlainForm;
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Note::fields().title()))
     }
 
@@ -140,7 +140,7 @@ impl Resource for PlainResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Note> {
+    fn table() -> Table<Note> {
         Table::new(
             |note: &Note| note.id.to_string(),
             TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
@@ -158,7 +158,7 @@ struct FailingWriteResource;
 impl Resource for FailingWriteResource {
     type Model = Note;
     type Form = FailingWriteForm;
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Note::fields().title()))
     }
     async fn create_record(
@@ -181,7 +181,7 @@ impl Resource for FailingWriteResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Note> {
+    fn table() -> Table<Note> {
         Table::new(
             |note: &Note| note.id.to_string(),
             TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
@@ -205,7 +205,7 @@ struct FailingHookResource;
 impl Resource for FailingHookResource {
     type Model = Note;
     type Form = FailingHookForm;
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Note::fields().title()))
     }
 
@@ -221,7 +221,7 @@ impl Resource for FailingHookResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Note> {
+    fn table() -> Table<Note> {
         Table::new(
             |note: &Note| note.id.to_string(),
             TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),

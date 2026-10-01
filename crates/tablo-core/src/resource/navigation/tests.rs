@@ -10,7 +10,7 @@ impl Resource for UserResource {
     type Model = User;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table(_cx: &Cx) -> crate::resource::Table<User> {
+    fn table() -> crate::resource::Table<User> {
         crate::resource::Table::new(
             |r: &User| r.id.to_string(),
             crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| r.name.clone()),

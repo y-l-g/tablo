@@ -78,14 +78,25 @@ pub(crate) struct GroupDef<M> {
     key: GroupKey<M>,
 }
 
+// Hand-written: a derive would require `M: Clone`, and every field is an
+// `Arc` or owned data whatever `M` is.
+impl<M> Clone for GroupDef<M> {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            key: Arc::clone(&self.key),
+        }
+    }
+}
+
 /// The action chrome a resource declares: which row actions
 /// `wire_table_actions` attaches.
 ///
 /// [`Resource::table`](crate::resource::Resource::table) returns a table
 /// carrying no delete/edit/view prefix: the panel attaches them from the
 /// resource's [`can_delete_any`](crate::resource::Resource::can_delete_any),
-/// its record form, and its [`viewed`](crate::resource::Resource::viewed)
-/// declaration.
+/// its record form, and whether it declares a
+/// [`view`](crate::resource::Resource::view).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct TableChrome {
     /// Whether the row renders a Delete action (which also enables bulk).
@@ -110,6 +121,18 @@ pub(crate) struct TableAction<M> {
     pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
 }
 
+impl<M> Clone for TableAction<M> {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name,
+            label: self.label.clone(),
+            row: self.row,
+            bulk: self.bulk,
+            allowed: Arc::clone(&self.allowed),
+        }
+    }
+}
+
 /// The page size of a table that declares none with [`Table::paginate`], as
 /// Filament's tables default to paginating.
 pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
@@ -122,6 +145,8 @@ pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
 /// [`Column`].
 pub struct Table<M> {
     columns: Vec<BoxColumn<M>>,
+    /// Misdeclarations a builder recorded ([`Self::declaration_errors`]).
+    misdeclared: Vec<String>,
     filters: Vec<BoxFilter<M>>,
     group_by: Option<GroupDef<M>>,
     row_key: RowKey<M>,
@@ -146,6 +171,35 @@ pub struct Table<M> {
     /// `None` for the resource's own list, the default.
     return_to: Option<String>,
     _marker: PhantomData<M>,
+}
+
+/// A copy sharing every column, filter and projection: each is an `Arc`. The
+/// panel decorates a copy of the declared table per request.
+impl<M> Clone for Table<M> {
+    fn clone(&self) -> Self {
+        Self {
+            columns: self.columns.clone(),
+            misdeclared: self.misdeclared.clone(),
+            filters: self.filters.clone(),
+            group_by: self.group_by.clone(),
+            row_key: Arc::clone(&self.row_key),
+            record_key: Arc::clone(&self.record_key),
+            row_policy: self.row_policy.clone(),
+            page_size: self.page_size,
+            hide_search: self.hide_search,
+            hide_filter_bar: self.hide_filter_bar,
+            delete_prefix: self.delete_prefix.clone(),
+            edit_prefix: self.edit_prefix.clone(),
+            view_prefix: self.view_prefix.clone(),
+            bulk_delete: self.bulk_delete,
+            custom_actions: self.custom_actions.clone(),
+            actions_prefix: self.actions_prefix.clone(),
+            live_search: self.live_search,
+            framed: self.framed,
+            return_to: self.return_to.clone(),
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<M> std::fmt::Debug for Table<M> {
@@ -190,18 +244,13 @@ impl<M> Table<M> {
     /// selection, and are debug-asserted at render time. A table whose display
     /// projects a non-PK value uses [`Self::new_split`].
     ///
-    /// # Panics
-    ///
-    /// Panics on duplicate [`Column::name`], the guard every constructor
-    /// applies: sort resolution is
+    /// Two columns sharing a [`Column::name`] are a misdeclaration
+    /// ([`Self::declaration_errors`]): sort resolution is
     /// first-sortable-`name()`-match, so duplicate sortable names would
-    /// silently misresolve `?sort=`. The guard covers computed names too
-    /// (`TextColumn::computed("Status", ..)` derives `name = "status"`) for
-    /// namespace consistency and future-proofing. Same fail-loud policy as
-    /// the GH #101 searchable/sortable panics and the Schema GH #100 guard.
-    ///
-    /// Also panics on an empty column set: a table with no columns renders a
-    /// headers-only list, which no resource declares.
+    /// silently misresolve `?sort=`. The rule covers computed names too
+    /// (`TextColumn::computed("Status", ..)` derives `name = "status"`). So is
+    /// an empty column set: a table with no columns renders a headers-only
+    /// list, which no resource declares.
     pub fn new(
         key: impl Fn(&M) -> String + Send + Sync + 'static,
         cols: impl IntoColumns<M>,
@@ -220,10 +269,8 @@ impl<M> Table<M> {
     /// (`pk_eq_expr` / `pk_in_expr` — an unparseable value 404s), so emitting
     /// a display key there 404s every delete and bulk submit.
     ///
-    /// # Panics
-    ///
-    /// Panics on duplicate [`Column::name`] and on an empty column set,
-    /// like [`Self::new`].
+    /// Duplicate column names and an empty column set are misdeclarations,
+    /// as for [`Self::new`].
     pub fn new_split(
         display: impl Fn(&M) -> String + Send + Sync + 'static,
         record: impl Fn(&M) -> String + Send + Sync + 'static,
@@ -241,23 +288,15 @@ impl<M> Table<M> {
         (self.record_key)(record)
     }
 
-    /// The one constructor body: rejects duplicate column names, then builds
-    /// the table around the two declared projections.
+    /// The one constructor body: the table around the two declared
+    /// projections.
     fn from_keys(row_key: RowKey<M>, record_key: RowKey<M>, cols: impl IntoColumns<M>) -> Self
     where
         M: toasty::schema::Model,
     {
-        let cols = cols.into_columns();
-        assert!(
-            !cols.is_empty(),
-            "a Table needs at least one column: declare columns with Table::new(key, columns)"
-        );
-        let mut seen = std::collections::HashSet::with_capacity(cols.len());
-        for c in &cols {
-            assert_distinct_column(&mut seen, c.name());
-        }
         Self {
-            columns: cols,
+            columns: cols.into_columns(),
+            misdeclared: Vec::new(),
             filters: Vec::new(),
             group_by: None,
             row_key,
@@ -283,14 +322,9 @@ impl<M> Table<M> {
     /// eight a tuple holds, or a single app [`Column`] without a one-element
     /// tuple.
     ///
-    /// # Panics
-    ///
-    /// Panics when another column already has its [`Column::name`], as
-    /// [`Self::new`] does.
+    /// A column whose [`Column::name`] another column already has is a
+    /// misdeclaration, as for [`Self::new`].
     pub fn column(mut self, column: impl Column<M> + 'static) -> Self {
-        let mut seen: std::collections::HashSet<&str> =
-            self.columns.iter().map(|c| c.name()).collect();
-        assert_distinct_column(&mut seen, column.name());
         self.columns.push(Arc::new(column));
         self
     }
@@ -325,23 +359,16 @@ impl<M> Table<M> {
 
     /// Declare filters. Accepts a single filter or tuple of filters.
     ///
-    /// Panics on duplicate [`Filter::name`](super::Filter::name), the same fail-loud
-    /// policy as [`Self::new`]: a filter travels as one `?f.<name>=` parameter,
-    /// and the parser keeps the first value for a repeated name, so two filters
-    /// sharing a name would silently drop one of them.
+    /// Two filters sharing a [`Filter::name`](super::Filter::name) are a
+    /// misdeclaration, as for [`Self::new`]: a filter travels as one
+    /// `?f.<name>=` parameter, and the parser keeps the first value for a
+    /// repeated name, so two filters sharing a name would silently drop one of
+    /// them.
     pub fn filters(mut self, filters: impl IntoFilters<M>) -> Self
     where
         M: toasty::schema::Model,
     {
         let filters = filters.into_filters();
-        let mut seen = std::collections::HashSet::with_capacity(filters.len());
-        for f in &filters {
-            let name = f.name();
-            assert!(
-                seen.insert(name),
-                "duplicate filter name '{name}': each Table filter needs a distinct name (GH #294)"
-            );
-        }
         self.filters = filters;
         self
     }
@@ -488,17 +515,56 @@ impl<M> Table<M> {
     /// shows Previous/Next links built from the executed page's cursors, never
     /// page numbers.
     ///
-    /// # Panics
-    ///
-    /// Panics on zero, like the other misdeclarations [`Self::new`] refuses: a
-    /// page of no rows is a programmer error, and [`Panel::build`] calls the
-    /// table declaration, so it surfaces at boot.
-    ///
-    /// [`Panel::build`]: crate::panel::Panel::build
+    /// Zero is a misdeclaration ([`Self::declaration_errors`]): a page of no
+    /// rows is a programmer error. The table keeps its page size.
     pub fn paginate(mut self, per_page: usize) -> Self {
-        self.page_size = NonZeroUsize::new(per_page)
-            .expect("Table::paginate: a page size must be at least 1 (GH #96)");
+        match NonZeroUsize::new(per_page) {
+            Some(size) => self.page_size = size,
+            None => self
+                .misdeclared
+                .push("Table::paginate: a page size must be at least 1".to_string()),
+        }
         self
+    }
+
+    /// What is wrong with this declaration: an empty column set, two columns
+    /// or two filters sharing a name, a zero page size, and what each column
+    /// and filter reports of itself (a lens that binds no single field, a
+    /// search or sort asked of a computed column).
+    ///
+    /// [`Panel::build`](crate::Panel::build) refuses a resource whose table
+    /// reports any, and rendering one fails with them.
+    pub fn declaration_errors(&self) -> Vec<String> {
+        let mut errors = self.misdeclared.clone();
+        if self.columns.is_empty() {
+            errors.push(
+                "a Table needs at least one column: declare columns with Table::new(key, columns)"
+                    .to_string(),
+            );
+        }
+        let mut seen = std::collections::HashSet::with_capacity(self.columns.len());
+        for column in &self.columns {
+            match column.misdeclared() {
+                Some(error) => errors.push(error),
+                None if !seen.insert(column.name()) => errors.push(format!(
+                    "duplicate column name '{}': each Table column needs a distinct name",
+                    column.name()
+                )),
+                None => {}
+            }
+        }
+        let mut seen = std::collections::HashSet::with_capacity(self.filters.len());
+        for filter in &self.filters {
+            match filter.misdeclared() {
+                Some(error) => errors.push(error),
+                None if !seen.insert(filter.name()) => errors.push(format!(
+                    "duplicate filter name '{}': each Table filter needs a distinct name",
+                    filter.name()
+                )),
+                None => {}
+            }
+        }
+        errors
     }
 
     /// The page size: [`DEFAULT_PAGE_SIZE`] unless [`Self::paginate`] set one.
@@ -599,7 +665,7 @@ impl<M> Table<M> {
     /// like the edit URL.
     ///
     /// The caller sets this only for a resource that declares a detail page
-    /// ([`Resource::viewed`](crate::resource::Resource::viewed)), so a resource
+    /// (a non-empty [`view`](crate::resource::Resource::view)), so a resource
     /// with no view renders no link instead of one that 404s. The action is
     /// gated per record by the panel-wired row policy: a row the policy
     /// denies renders no `View` link, matching the detail route's `can_view`.
@@ -826,15 +892,6 @@ impl<M> Table<M> {
     pub(crate) fn filter_bar_enabled(&self) -> bool {
         !self.hide_filter_bar && !self.filters.is_empty()
     }
-}
-
-/// Record `name` among a table's column names, or panic naming the
-/// duplicate: sort resolution is first-match on the name.
-fn assert_distinct_column<'a>(seen: &mut std::collections::HashSet<&'a str>, name: &'a str) {
-    assert!(
-        seen.insert(name),
-        "duplicate column name '{name}': each Table column needs a distinct name (GH #156)"
-    );
 }
 
 #[cfg(test)]

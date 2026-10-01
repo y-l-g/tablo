@@ -81,7 +81,7 @@ struct DocResource;
 impl Resource for DocResource {
     type Model = Doc;
     type Form = DocForm;
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new((
             Field::text(Doc::fields().title()),
             Field::file(Doc::fields().cover()).label("Cover"),
@@ -109,7 +109,7 @@ impl Resource for DocResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Doc> {
+    fn table() -> Table<Doc> {
         Table::new(
             |doc: &Doc| doc.id.to_string(),
             TextColumn::r#for(Doc::fields().title(), |doc: &Doc| doc.title.clone()),

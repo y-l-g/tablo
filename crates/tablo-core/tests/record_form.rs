@@ -49,7 +49,7 @@ fn item_schema() -> Schema {
     ))
 }
 
-fn item_table(_cx: &Cx) -> Table<Item> {
+fn item_table() -> Table<Item> {
     Table::new(
         |item: &Item| item.id.to_string(),
         TextColumn::r#for(Item::fields().title(), |item: &Item| item.title.clone()),
@@ -62,7 +62,7 @@ impl Resource for ItemResource {
     type Model = Item;
     type Form = ItemForm;
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         item_schema()
     }
 
@@ -94,11 +94,11 @@ impl Resource for ItemResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Item> {
-        item_table(_cx)
+    fn table() -> Table<Item> {
+        item_table()
     }
 
-    fn view(_cx: &Cx) -> Schema {
+    fn view(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Item::fields().title()))
     }
 }
@@ -352,7 +352,7 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
 
         /// Every control `ItemForm` binds, with the tagged ones inside the
         /// group the rule answers for.
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new((
                 Field::text(Item::fields().title()),
                 Repeater::new("Tags").schema((
@@ -387,8 +387,8 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -440,7 +440,7 @@ impl Resource for OwnedResource {
     type Model = Owned;
     type Form = OwnedForm;
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Owned::fields().title()))
     }
 
@@ -460,7 +460,7 @@ impl Resource for OwnedResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Owned> {
+    fn table() -> Table<Owned> {
         Table::new(
             |row: &Owned| row.id.to_string(),
             TextColumn::r#for(Owned::fields().title(), |row: &Owned| row.title.clone()),
@@ -514,11 +514,11 @@ macro_rules! item_resource {
                 true
             }
 
-            fn table(_cx: &Cx) -> Table<Item> {
-                item_table(_cx)
+            fn table() -> Table<Item> {
+                item_table()
             }
 
-            fn form(_cx: &Cx) -> Schema {
+            fn form(_dx: &tablo_core::DeclCx) -> Schema {
                 $schema
             }
         }
@@ -630,15 +630,15 @@ async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
         type Model = Dated;
         type Form = DatedForm;
 
-        fn form(cx: &Cx) -> Schema {
-            Schema::new(Life::form(cx, Dated::fields().life()))
+        fn form(dx: &tablo_core::DeclCx) -> Schema {
+            Schema::new(Life::form(dx, Dated::fields().life()))
         }
 
         fn slug() -> String {
             "dated".to_string()
         }
 
-        fn table(_cx: &Cx) -> Table<Dated> {
+        fn table() -> Table<Dated> {
             Table::new(
                 |row: &Dated| row.id.to_string(),
                 TextColumn::r#for(Dated::fields().title(), |row: &Dated| row.title.clone()),
@@ -686,15 +686,15 @@ async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
         type Model = Clip;
         type Form = ClipForm;
 
-        fn form(cx: &Cx) -> Schema {
-            Schema::new(Repeater::new("Clips").schema(Body::form(cx, Clip::fields().body())))
+        fn form(dx: &tablo_core::DeclCx) -> Schema {
+            Schema::new(Repeater::new("Clips").schema(Body::form(dx, Clip::fields().body())))
         }
 
         fn slug() -> String {
             "clips".to_string()
         }
 
-        fn table(_cx: &Cx) -> Table<Clip> {
+        fn table() -> Table<Clip> {
             Table::new(
                 |row: &Clip| row.id.to_string(),
                 TextColumn::r#for(Clip::fields().title(), |row: &Clip| row.title.clone()),
@@ -729,7 +729,7 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
         type Model = Owned;
         type Form = ClaimingForm;
 
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new((
                 Field::text(Owned::fields().tenant_id()),
                 Field::text(Owned::fields().title()),
@@ -740,8 +740,8 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Owned> {
-            OwnedResource::table(_cx)
+        fn table() -> Table<Owned> {
+            OwnedResource::table()
         }
     }
 
@@ -770,11 +770,11 @@ macro_rules! list_only_resource {
                 $create
             }
 
-            fn table(_cx: &Cx) -> Table<Item> {
-                item_table(_cx)
+            fn table() -> Table<Item> {
+                item_table()
             }
 
-            fn form(_cx: &Cx) -> Schema {
+            fn form(_dx: &tablo_core::DeclCx) -> Schema {
                 $schema
             }
         }
@@ -799,10 +799,10 @@ async fn build_refuses_a_list_only_resource_that_declares_a_schema() {
 }
 
 #[tokio::test]
-async fn build_names_a_missing_form_override() {
-    item_resource!(Unoverridden, TitleForm, Schema::empty());
-    let error = form_build_error::<Unoverridden>(item_db().await);
-    assert!(error.contains("does not override `form()`"), "{error}");
+async fn build_refuses_an_empty_form_override() {
+    item_resource!(Emptied, TitleForm, Schema::empty());
+    let error = form_build_error::<Emptied>(item_db().await);
+    assert!(error.contains("declares no controls"), "{error}");
 }
 
 #[tokio::test]
@@ -854,11 +854,11 @@ async fn a_list_only_detail_page_reads_view_values() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
 
-        fn view(_cx: &Cx) -> Schema {
+        fn view(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new(Field::text(Item::fields().title()))
         }
 
@@ -925,11 +925,11 @@ macro_rules! title_only_resource {
                 true
             }
 
-            fn table(_cx: &Cx) -> Table<Item> {
-                item_table(_cx)
+            fn table() -> Table<Item> {
+                item_table()
             }
 
-            fn form(_cx: &Cx) -> Schema {
+            fn form(_dx: &tablo_core::DeclCx) -> Schema {
                 Schema::new(Field::text(Item::fields().title()))
             }
         }
@@ -969,7 +969,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
         type Model = Item;
         type Form = PriorityForm;
 
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             // A static-options select checks membership, not the column's type.
             Schema::new(
                 Field::choice(Item::fields().priority())
@@ -989,8 +989,8 @@ async fn a_value_the_form_type_refuses_renders_inline() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -1023,7 +1023,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_cx: &Cx) -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields(_dx: &tablo_core::DeclCx) -> Vec<tablo_core::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -1065,7 +1065,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Form = Keyless;
 
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::empty()
         }
 
@@ -1087,8 +1087,8 @@ async fn an_unkeyable_record_rule_fails_closed() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -1111,7 +1111,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_cx: &Cx) -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields(_dx: &tablo_core::DeclCx) -> Vec<tablo_core::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -1155,7 +1155,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Form = Unkeyable;
 
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::empty()
         }
 
@@ -1171,8 +1171,8 @@ async fn an_unkeyable_parse_failure_fails_closed() {
             true
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -1207,8 +1207,8 @@ async fn a_list_only_resource_never_links_to_create() {
             tablo_core::tenant_id(cx).is_some()
         }
 
-        fn table(_cx: &Cx) -> Table<Item> {
-            item_table(_cx)
+        fn table() -> Table<Item> {
+            item_table()
         }
     }
 
@@ -1225,4 +1225,128 @@ async fn a_list_only_resource_never_links_to_create() {
     assert_eq!(response.status(), StatusCode::OK);
     let html = body_string(response).await;
     assert!(!html.contains("/admin/items/create"), "{html}");
+}
+
+/// The derived default form, end to end: a resource with no `form`
+/// override serves `RecordForm::schema` — a text field, a choice over the
+/// `Options` list, and a toggle, in declaration order — and writes through it.
+#[tokio::test]
+async fn the_derived_default_form_renders_and_writes() {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+    enum WidgetRole {
+        Admin,
+        Member,
+    }
+
+    assert_eq!(WidgetRole::Admin.value(), "admin");
+
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Widget {
+        #[key]
+        #[auto]
+        id: Uuid,
+        name: String,
+        role: String,
+        active: bool,
+    }
+
+    #[derive(tablo_core::RecordForm)]
+    #[form(model = Widget)]
+    struct WidgetForm {
+        name: String,
+        #[form(options = WidgetRole, blank = WidgetRole::Member.value())]
+        role: String,
+        active: bool,
+    }
+
+    struct WidgetResource;
+
+    impl Resource for WidgetResource {
+        type Model = Widget;
+        type Form = WidgetForm;
+
+        fn slug() -> String {
+            "widgets".to_string()
+        }
+
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+
+        fn can_view(_cx: &Cx, _record: &Widget) -> bool {
+            true
+        }
+
+        fn can_create(_cx: &Cx) -> bool {
+            true
+        }
+
+        fn can_update(_cx: &Cx, _record: &Widget) -> bool {
+            true
+        }
+
+        fn table() -> Table<Widget> {
+            Table::new(
+                |row: &Widget| row.id.to_string(),
+                TextColumn::r#for(Widget::fields().name(), |row: &Widget| row.name.clone()),
+            )
+        }
+    }
+
+    let db = memory_db(toasty::models!(Widget)).await;
+    let router = panel_router::<WidgetResource>(db.clone());
+    let create = get(&router, "/admin/widgets/create").await;
+    assert_eq!(create.status(), StatusCode::OK);
+    let html = body_string(create).await;
+    for name in ["name", "role", "active"] {
+        assert!(
+            html.contains(&format!("name=\"{name}\"")),
+            "`{name}` posts: {html}"
+        );
+    }
+    assert!(
+        html.find("name=\"name\"").unwrap() < html.find("name=\"role\"").unwrap()
+            && html.find("name=\"role\"").unwrap() < html.find("name=\"active\"").unwrap(),
+        "the default schema keeps declaration order: {html}"
+    );
+    assert!(
+        html.contains("value=\"admin\"") && html.contains("value=\"member\""),
+        "the choice carries the Options list: {html}"
+    );
+
+    let response = post_fields(
+        &router,
+        "/admin/widgets/create",
+        &[("name", "New"), ("role", "admin")],
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    let mut handle = db.clone();
+    let rows = Widget::all().exec(&mut handle).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].name, "New");
+    assert_eq!(rows[0].role, "admin");
+    assert!(!rows[0].active, "an absent toggle reads as false");
+
+    let edit = get(&router, &format!("/admin/widgets/{}/edit", rows[0].id)).await;
+    assert_eq!(edit.status(), StatusCode::OK);
+    let html = body_string(edit).await;
+    assert!(
+        html.contains("New"),
+        "the edit form hydrates the stored value: {html}"
+    );
+    let response = post_fields(
+        &router,
+        &format!("/admin/widgets/{}/edit", rows[0].id),
+        &[("active", "true")],
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    let mut handle = db.clone();
+    let stored = Widget::get_by_id(&mut handle, &rows[0].id)
+        .await
+        .expect("the widget exists");
+    assert!(stored.active);
+    assert_eq!(stored.name, "New", "an unposted key keeps its value");
+    assert_eq!(stored.role, "admin", "an unposted key keeps its value");
 }

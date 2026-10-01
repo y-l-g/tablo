@@ -18,7 +18,7 @@ use crate::{
     form::RecordForm,
     resource::{
         BoundRelation, RETURN_PARAM, Resource, TABLE_CARD_CLASS, Table, TableChrome, TableState,
-        create_page_url, request_query, runtime_link,
+        create_page_url, declared, request_query, runtime_link,
     },
 };
 
@@ -32,7 +32,8 @@ pub(crate) fn render_relations<'a, R: Resource>(
     read_only: bool,
 ) -> Vec<BoxView<'a>> {
     let page = topcoat::router::request::uri(cx).path().to_string();
-    R::relations()
+    declared::<R>(cx)
+        .relations
         .iter()
         .map(|relation| relation.render(cx, owner, &page, read_only, &R::slug()))
         .collect()

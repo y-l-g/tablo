@@ -18,7 +18,7 @@ impl Resource for Unlabelled {
     type Model = Note;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table(_cx: &Cx) -> crate::resource::Table<Note> {
+    fn table() -> crate::resource::Table<Note> {
         crate::resource::Table::new(
             |r: &Note| r.id.to_string(),
             crate::resource::TextColumn::r#for(Note::fields().title(), |r: &Note| r.title.clone()),
@@ -33,7 +33,7 @@ impl Resource for Labelled {
     type Model = Note;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table(_cx: &Cx) -> crate::resource::Table<Note> {
+    fn table() -> crate::resource::Table<Note> {
         crate::resource::Table::new(
             |r: &Note| r.id.to_string(),
             crate::resource::TextColumn::r#for(Note::fields().title(), |r: &Note| r.title.clone()),

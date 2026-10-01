@@ -17,14 +17,14 @@
 //!         true
 //!     }
 //!
-//!     fn table(_cx: &Cx) -> Table<Book> {
+//!     fn table() -> Table<Book> {
 //!         Table::new(
 //!             |b: &Book| b.id.to_string(),
 //!             TextColumn::r#for(Book::fields().title(), |b: &Book| b.title.clone()).searchable(),
 //!         )
 //!     }
 //!
-//!     fn form(_cx: &Cx) -> Schema {
+//!     fn form(_dx: &crate::schema::DeclCx) -> Schema {
 //!         Schema::new(Field::text(Book::fields().title()))
 //!     }
 //! }
@@ -57,7 +57,8 @@ pub mod __macro {
     pub use crate::{
         form::{FieldError, FormField, FormScalar, RecordForm, assert_form_scalar, parse_scalar},
         schema::{
-            EmbeddedForm, Field, ResolvedLens, Schema,
+            ChoiceField, CustomField, DeclCx, EmbeddedForm, Field, FileField, IntoSchema, Options,
+            ResolvedLens, Schema, TextField,
             embedded::{
                 Embedded, EmbeddedBuilder, embedded_keys, parse_leaf, take_leaf, take_value,
             },
@@ -98,9 +99,10 @@ pub use resource::{
     VariantFilter, scoped_query, scoped_view_query,
 };
 pub use schema::{
-    Control, ControlInput, EmbeddedForm, Field, FieldLens, Grid, Group, IntoSchema, Repeater,
-    ResolvedLens, Schema, Section, Source, Toggle,
+    ChoiceField, Control, ControlInput, CustomField, DeclCx, EmbeddedForm, Field, FieldLens,
+    FileField, Grid, Group, IntoOptions, IntoSchema, Options, Repeater, ResolvedLens, Schema,
+    Section, Source, TextField, Toggle,
 };
-pub use tablo_macros::{EmbeddedForm, RecordForm};
+pub use tablo_macros::{EmbeddedForm, Options, RecordForm};
 pub use tenancy::{Tenant, require_tenant, tenant_id};
 pub use upload::Uploader;

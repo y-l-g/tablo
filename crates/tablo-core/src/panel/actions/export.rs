@@ -11,7 +11,7 @@ use topcoat::{
 use super::super::gate::gate;
 use crate::{
     db::db,
-    resource::{Past, Resource, Table, TableState, row_exists_past},
+    resource::{Past, Resource, Table, TableState, declared, row_exists_past},
 };
 
 /// Max receivable rows an export will deliver: the chunked walk
@@ -103,7 +103,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             return Err(forbidden().into());
         }
         let state = TableState::from_cx(cx);
-        let table = R::table(cx);
+        let table = declared::<R>(cx).table.clone();
         // Fail closed on unapplied filters: a typo'd `?f.<name>=`
         // must not silently export the unfiltered table.
         if !table.unapplied_filters(&state).is_empty() {

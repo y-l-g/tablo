@@ -16,7 +16,7 @@ use crate::{form::FieldErrors, resource::Resource};
 /// re-spelled equivalent is not a duplicate.
 ///
 /// Empty submits are never probed: a `unique()` field is required (see
-/// [`crate::schema::Field::unique`]), so `validate` has already answered
+/// [`crate::schema::TextField::unique`]), so `validate` has already answered
 /// `"<Label> is required"` and this check has nothing left to say.
 ///
 /// The probe binds the leaf's own type: a typed field parses the submission and

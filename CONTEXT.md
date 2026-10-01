@@ -93,8 +93,11 @@ _Avoid_: Form, Infolist, Fieldset (as a top-level term), statePath
 ### Field
 
 One input in a Schema, bound to a model column through a lens: `Field::text`, `Field::choice`,
-`Field::file`, `Field::toggle`, or `Field::custom` over an app's `Control`. Its label, requiredness
-and uniqueness default from the column.
+`Field::file`, `Field::toggle`, or `Field::custom` over an app's `Control`. Each constructor
+returns its control's builder (`TextField`, `ChoiceField`, `FileField`, `CustomField`), which
+offers only that control's modifiers, so a modifier on the wrong control does not compile. Its
+label, requiredness and uniqueness default from the column. A closed set of values is an
+`Options` enum, shared by the form, the filter and the column.
 
 _Avoid_: Input, Control, Widget (in a form), statePath
 
@@ -109,7 +112,9 @@ _Avoid_: Nested form, Sub-form, Composite field, Inline model
 ### Record form
 
 The typed struct a Resource's form submission parses into: `#[derive(RecordForm)]`, with one
-field per model column the form writes, named and typed like the model's field. The Panel
+field per model column the form writes, named and typed like the model's field. The derive emits
+one control per field (`controls(dx)`), chosen from the field, and the default schema arranging
+them in order; the resource overrides `form(dx)` to arrange them into a layout instead. The Panel
 hydrates edit forms and detail pages from it and writes it through Toasty's builders.
 
 _Avoid_: Patch, Draft, Input, DTO, Form (alone: that is the Schema)

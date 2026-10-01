@@ -32,6 +32,11 @@ impl<M> Table<M> {
     /// (`border-border` on the chrome, `bg-background`/`shadow-xs` on the
     /// toolbar controls, `text-muted-foreground` on the captions) — no raw
     /// colors, no `ac-*`.
+    ///
+    /// # Errors
+    ///
+    /// A misdeclared table ([`Table::declaration_errors`]) fails with its
+    /// errors rather than render.
     pub async fn render<'a>(&self, cx: &'a Cx, page: TablePage<M>) -> Result<BoxView<'a>>
     where
         M: toasty::schema::Model + Send + Sync + 'static,
@@ -101,6 +106,12 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model + Send + Sync + 'static,
     {
+        // A panel refused a misdeclared table at build; a table an app renders
+        // itself fails here rather than render a sort or a filter that lies.
+        let errors = self.declaration_errors();
+        if !errors.is_empty() {
+            return Err(crate::error::TabloError::Declaration(errors.join("; ")).into());
+        }
         let delete_prefix = self.delete_prefix.clone();
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();

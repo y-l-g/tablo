@@ -6,7 +6,7 @@ use std::{borrow::Cow, sync::Arc};
 use toasty::stmt::{Expr, OrderByExpr};
 use topcoat::{context::Cx, icon::icon, view::*};
 
-use crate::schema::{FieldLens, lens_field, lens_label};
+use crate::schema::{FieldLens, LensBinding};
 
 /// One table column: what its header says, what each row's cell shows, and
 /// which query predicates it contributes.
@@ -86,6 +86,15 @@ pub trait Column<M>: Send + Sync {
     /// which the list and the export load. Defaults to none.
     fn includes(&self) -> Includes<M> {
         Includes::new()
+    }
+
+    /// What is wrong with this column's declaration, which
+    /// [`Panel::build`](crate::Panel::build) reports. The built-in columns
+    /// record a lens that binds no single field here, and a search or sort
+    /// asked of a computed column.
+    #[doc(hidden)]
+    fn misdeclared(&self) -> Option<String> {
+        None
     }
 }
 
@@ -254,6 +263,8 @@ pub struct TextColumn<M> {
     width: ColumnWidth,
     /// Relations this column's projection reads.
     includes: Includes<M>,
+    /// What is wrong with the declaration ([`Column::misdeclared`]).
+    misdeclared: Option<String>,
 }
 
 /// The escape character the search pattern declares to `LIKE`:
@@ -293,16 +304,17 @@ where
         path: FieldLens<M, String>,
         project: impl Fn(&M) -> String + Send + Sync + 'static,
     ) -> Self {
-        let field = lens_field(path.clone(), &M::schema());
+        let binding = LensBinding::of(path.clone());
         Self {
             path: Some(path),
-            name: field.name.app_unwrap().to_string(),
-            label: lens_label(&field),
+            name: binding.name,
+            label: binding.label,
             project: Arc::new(project),
             searchable: false,
             sortable: false,
             width: ColumnWidth::Wide,
             includes: Includes::new(),
+            misdeclared: binding.misdeclared,
         }
     }
 
@@ -311,8 +323,9 @@ where
     /// No field lens — so it cannot be searchable or sortable (it maps to no
     /// query predicate) — but any cell projection compiles: booleans,
     /// timestamps, joined values. Calling `.searchable()` / `.sortable()` on
-    /// a computed column panics: a lying sort link / search promise
-    /// is worse than a loud build error.
+    /// a computed column is a misdeclaration
+    /// [`Panel::build`](crate::Panel::build) refuses: a lying sort link or
+    /// search promise is worse than a loud build error.
     pub fn computed(
         label: impl Into<String>,
         project: impl Fn(&M) -> String + Send + Sync + 'static,
@@ -328,6 +341,7 @@ where
             sortable: false,
             width: ColumnWidth::Narrow,
             includes: Includes::new(),
+            misdeclared: None,
         }
     }
 
@@ -356,23 +370,26 @@ where
     }
 
     pub fn searchable(mut self) -> Self {
-        assert!(
-            self.path.is_some(),
-            "searchable() on computed column '{}': computed columns map to no query predicate",
-            self.label
-        );
+        self.refuse_computed("searchable");
         self.searchable = true;
         self
     }
 
     pub fn sortable(mut self) -> Self {
-        assert!(
-            self.path.is_some(),
-            "sortable() on computed column '{}': computed columns map to no query predicate",
-            self.label
-        );
+        self.refuse_computed("sortable");
         self.sortable = true;
         self
+    }
+
+    /// Record `modifier` on a computed column as a misdeclaration: it maps to
+    /// no query predicate.
+    fn refuse_computed(&mut self, modifier: &str) {
+        if self.path.is_none() && self.misdeclared.is_none() {
+            self.misdeclared = Some(format!(
+                "{modifier}() on computed column '{}': computed columns map to no query predicate",
+                self.label
+            ));
+        }
     }
 
     /// Declare this column's width in the table's fixed layout:
@@ -453,6 +470,10 @@ where
     fn includes(&self) -> Includes<M> {
         self.includes.clone()
     }
+
+    fn misdeclared(&self) -> Option<String> {
+        self.misdeclared.clone()
+    }
 }
 
 impl<M> std::fmt::Debug for TextColumn<M> {
@@ -485,6 +506,7 @@ pub struct BooleanColumn<M> {
     project: Arc<dyn Fn(&M) -> bool + Send + Sync>,
     sortable: bool,
     labels: (String, String),
+    misdeclared: Option<String>,
 }
 
 impl<M> BooleanColumn<M>
@@ -497,14 +519,15 @@ where
         path: FieldLens<M, bool>,
         project: impl Fn(&M) -> bool + Send + Sync + 'static,
     ) -> Self {
-        let field = lens_field(path.clone(), &M::schema());
+        let binding = LensBinding::of(path.clone());
         Self {
             path,
-            name: field.name.app_unwrap().to_string(),
-            label: lens_label(&field),
+            name: binding.name,
+            label: binding.label,
             project: Arc::new(project),
             sortable: false,
             labels: ("Yes".to_string(), "No".to_string()),
+            misdeclared: binding.misdeclared,
         }
     }
 
@@ -572,6 +595,9 @@ where
             let path = self.path.clone();
             if descending { path.desc() } else { path.asc() }
         })
+    }
+    fn misdeclared(&self) -> Option<String> {
+        self.misdeclared.clone()
     }
 }
 

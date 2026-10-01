@@ -10,7 +10,7 @@ use topcoat::{
 use super::super::gate::gate;
 use crate::{
     error::TabloError,
-    resource::{Resource, clamp_query_term},
+    resource::{Resource, clamp_query_term, declared},
     schema::{OptionLoadError, option_view},
 };
 
@@ -40,7 +40,8 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
             return Err(topcoat::router::error::bad_request("missing field").into());
         }
         let q = clamp_query_term(&q);
-        let form = R::form(cx);
+        let declared = declared::<R>(cx);
+        let form = &declared.form;
         let Some(select) = form
             .fields()
             .find(|declared| declared.name() == field)

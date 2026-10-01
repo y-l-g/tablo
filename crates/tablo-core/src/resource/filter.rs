@@ -6,7 +6,7 @@ use std::sync::Arc;
 use toasty::stmt::Expr;
 use topcoat::{context::Cx, view::*};
 
-use crate::schema::{FieldLens, lens_field, lens_label};
+use crate::schema::{FieldLens, IntoOptions, LensBinding};
 
 /// One table filter: a control in the filter bar, and the predicate its
 /// submitted value selects.
@@ -54,6 +54,14 @@ pub trait Filter<M>: Send + Sync {
     /// parameter name the control submits and the current value, and
     /// renders the built-in select.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a>;
+
+    /// What is wrong with this filter's declaration, which
+    /// [`Panel::build`](crate::Panel::build) reports. The built-in filters
+    /// record a lens that binds no single field here.
+    #[doc(hidden)]
+    fn misdeclared(&self) -> Option<String> {
+        None
+    }
 }
 
 /// A filter control's label, beside its control.
@@ -205,26 +213,33 @@ pub struct SelectFilter<M> {
     name: String,
     label: String,
     lens: FieldLens<M, String>,
-    options: Vec<String>,
+    /// `(value, label)` pairs.
+    options: Vec<(String, String)>,
+    misdeclared: Option<String>,
 }
 
 impl<M> SelectFilter<M>
 where
     M: toasty::schema::Model,
 {
-    /// Call sites read `SelectFilter::for(Post::fields().status(), vec![...])`.
-    pub fn r#for(lens: FieldLens<M, String>, options: Vec<String>) -> Self {
-        let field = lens_field(lens.clone(), &M::schema());
-        let (name, label) = (field.name.app_unwrap().to_string(), lens_label(&field));
+    /// Call sites read `SelectFilter::for(Post::fields().status(), Status::options())`:
+    /// the options are anything a choice field takes
+    /// ([`IntoOptions`](crate::schema::IntoOptions)) — values that are their
+    /// own label, `(value, label)` pairs, or an [`Options`](crate::Options)
+    /// enum's list.
+    pub fn r#for(lens: FieldLens<M, String>, options: impl IntoOptions) -> Self {
+        let binding = LensBinding::of(lens.clone());
         Self {
-            name,
-            label,
+            name: binding.name,
+            label: binding.label,
             lens,
-            options,
+            options: options.into_options(),
+            misdeclared: binding.misdeclared,
         }
     }
 
-    pub fn options(&self) -> &[String] {
+    /// The `(value, label)` options, in declaration order.
+    pub fn options(&self) -> &[(String, String)] {
         &self.options
     }
 }
@@ -247,7 +262,7 @@ where
             return None;
         }
         // Only allow values in options; otherwise ignore (no filter).
-        if !self.options.is_empty() && !self.options.contains(&v.to_string()) {
+        if !self.options.is_empty() && !self.options.iter().any(|(value, _)| value == v) {
             return None;
         }
         Some(self.lens.clone().eq(v.to_string()))
@@ -259,12 +274,20 @@ where
         let options = self
             .options
             .iter()
-            .map(|opt| {
-                let label = if opt.is_empty() { "All" } else { opt.as_str() };
-                (opt.clone(), label.to_string())
+            .map(|(value, label)| {
+                let label = if value.is_empty() {
+                    "All"
+                } else {
+                    label.as_str()
+                };
+                (value.clone(), label.to_string())
             })
             .collect();
         input.select(cx, options)
+    }
+
+    fn misdeclared(&self) -> Option<String> {
+        self.misdeclared.clone()
     }
 }
 
@@ -274,7 +297,7 @@ filter_impls! {
         label: &this.label,
         options: &this.options,
     }
-    clone { name, label, lens, options }
+    clone { name, label, lens, options, misdeclared }
 }
 
 /// Ternary filter — `true` / `false` / `all` (no filter) on a `bool` field.
@@ -282,6 +305,7 @@ pub struct TernaryFilter<M> {
     name: String,
     label: String,
     lens: FieldLens<M, bool>,
+    misdeclared: Option<String>,
 }
 
 impl<M> TernaryFilter<M>
@@ -289,9 +313,13 @@ where
     M: toasty::schema::Model,
 {
     pub fn r#for(lens: FieldLens<M, bool>) -> Self {
-        let field = lens_field(lens.clone(), &M::schema());
-        let (name, label) = (field.name.app_unwrap().to_string(), lens_label(&field));
-        Self { name, label, lens }
+        let binding = LensBinding::of(lens.clone());
+        Self {
+            name: binding.name,
+            label: binding.label,
+            lens,
+            misdeclared: binding.misdeclared,
+        }
     }
 }
 
@@ -299,6 +327,10 @@ impl<M> Filter<M> for TernaryFilter<M>
 where
     M: toasty::schema::Model + Send + Sync,
 {
+    fn misdeclared(&self) -> Option<String> {
+        self.misdeclared.clone()
+    }
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -340,7 +372,7 @@ filter_impls! {
         name: &this.name,
         label: &this.label,
     }
-    clone { name, label, lens }
+    clone { name, label, lens, misdeclared }
 }
 
 /// Date filter — same-calendar-day match on a `Timestamp` field
@@ -350,6 +382,7 @@ pub struct DateFilter<M> {
     name: String,
     label: String,
     lens: FieldLens<M, jiff::Timestamp>,
+    misdeclared: Option<String>,
 }
 
 impl<M> DateFilter<M>
@@ -357,9 +390,13 @@ where
     M: toasty::schema::Model,
 {
     pub fn r#for(lens: FieldLens<M, jiff::Timestamp>) -> Self {
-        let field = lens_field(lens.clone(), &M::schema());
-        let (name, label) = (field.name.app_unwrap().to_string(), lens_label(&field));
-        Self { name, label, lens }
+        let binding = LensBinding::of(lens.clone());
+        Self {
+            name: binding.name,
+            label: binding.label,
+            lens,
+            misdeclared: binding.misdeclared,
+        }
     }
 }
 
@@ -367,6 +404,10 @@ impl<M> Filter<M> for DateFilter<M>
 where
     M: toasty::schema::Model + Send + Sync,
 {
+    fn misdeclared(&self) -> Option<String> {
+        self.misdeclared.clone()
+    }
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -445,7 +486,7 @@ filter_impls! {
         name: &this.name,
         label: &this.label,
     }
-    clone { name, label, lens }
+    clone { name, label, lens, misdeclared }
 }
 
 /// Variant filter — exact match on an embedded-enum variant (e.g. `vehicule = "Moto"`).

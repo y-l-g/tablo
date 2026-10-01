@@ -32,7 +32,7 @@ impl Resource for PoolResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<PoolDummy> {
+    fn table() -> Table<PoolDummy> {
         Table::new(
             |d: &PoolDummy| d.id.to_string(),
             TextColumn::r#for(PoolDummy::fields().name(), |d: &PoolDummy| d.name.clone()),

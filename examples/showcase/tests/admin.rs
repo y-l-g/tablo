@@ -252,9 +252,7 @@ async fn removed_showcase_routes_are_not_found() {
 async fn admin_table_via_resource_has_searchable_sortable() {
     use showcase::app::UserResource;
     use tablo_core::Resource;
-    use topcoat::context::CxTestBuilder;
-    let cx = CxTestBuilder::new().build();
-    let table = UserResource::table(&cx);
+    let table = UserResource::table();
     assert!(
         table.search_expr("Ada").is_some(),
         "searchable column should produce expr"

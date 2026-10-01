@@ -16,7 +16,8 @@ pub(crate) enum Derive {
     /// `#[derive(EmbeddedForm)]`: `embed`, `label = ".."`, `multiline = N`,
     /// `blank = <expr>`.
     Embedded,
-    /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`.
+    /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`, and the control
+    /// keys `options = <Type>`, `choice`, `file`.
     Record,
 }
 
@@ -31,6 +32,12 @@ pub(crate) struct FormAttrs {
     pub(crate) multiline: Option<u32>,
     /// `#[form(blank = <expr>)]`: what an empty submission reads as.
     pub(crate) blank: Option<syn::Expr>,
+    /// `#[form(options = <Type>)]`: a choice over an `Options` type's list.
+    pub(crate) options: Option<syn::Path>,
+    /// `#[form(choice)]`: a bare choice, its options declared in `form()`.
+    pub(crate) choice: bool,
+    /// `#[form(file)]`: a file field.
+    pub(crate) file: bool,
 }
 
 /// Every `#[form(..)]` attribute on `field`, checked.
@@ -55,23 +62,53 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                 out.multiline = Some(rows.base10_parse()?);
             } else if meta.path.is_ident("blank") {
                 out.blank = Some(meta.value()?.parse()?);
+            } else if meta.path.is_ident("options") && derive == Derive::Record {
+                out.options = Some(meta.value()?.parse()?);
+            } else if meta.path.is_ident("choice") && derive == Derive::Record {
+                out.choice = true;
+            } else if meta.path.is_ident("file") && derive == Derive::Record {
+                out.file = true;
             } else {
                 let expected = match derive {
                     Derive::Embedded => {
                         "`embed`, `label = \"…\"`, `multiline = N`, or `blank = <expr>`"
                     }
-                    Derive::Record => "`embed` or `blank = <expr>`",
+                    Derive::Record => {
+                        "`embed`, `blank = <expr>`, `options = <Type>`, `choice`, or `file`"
+                    }
                 };
                 return Err(meta.error(format!("unknown `#[form(..)]` key: expected {expected}")));
             }
             Ok(())
         })?;
     }
+    let controls = [
+        (out.options.is_some(), "`options`"),
+        (out.choice, "`choice`"),
+        (out.file, "`file`"),
+    ];
+    let chosen: Vec<&str> = controls
+        .iter()
+        .filter(|(set, _)| *set)
+        .map(|(_, key)| *key)
+        .collect();
+    if chosen.len() > 1 {
+        return Err(syn::Error::new_spanned(
+            field,
+            format!(
+                "{} each pick the field's control: declare one",
+                chosen.join(" and ")
+            ),
+        ));
+    }
     if out.embed {
         let misplaced = [
             (out.label.is_some(), "`label`"),
             (out.multiline.is_some(), "`multiline`"),
             (out.blank.is_some(), "`blank`"),
+            (out.options.is_some(), "`options`"),
+            (out.choice, "`choice`"),
+            (out.file, "`file`"),
         ];
         if let Some((_, key)) = misplaced.iter().find(|(set, _)| *set) {
             return Err(syn::Error::new_spanned(

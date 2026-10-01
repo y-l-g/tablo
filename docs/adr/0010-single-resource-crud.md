@@ -1,6 +1,6 @@
 # Single-resource CRUD — Create/Edit, record fns, Policy, Notification
 
-Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-21, 2026-09-22, 2026-09-28, 2026-09-29
+Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-21, 2026-09-22, 2026-09-28, 2026-09-29, 2026-10-01
 
 ## Decision
 
@@ -55,3 +55,10 @@ the vertical slice, and `cargo test --workspace` / `clippy -D warnings` / `fmt` 
 `Resource::hydrate_form_values` is superseded by this amendment: the edit form hydrates from
 `RecordForm::hydrate`, and `form`, `validate_record`, `create_record`, and `update_record` live on
 `Resource` beside its `type Form`, registered with `Panel::resource` (ADR-0022).
+
+## Amendment — 2026-10-01
+
+**The View link follows the declared view, not a `Resource::viewed`.** The decision's
+`Resource::viewed` no longer exists: whether a resource declares a detail page is the cached
+declarations' `viewed()` — a non-empty `view(dx)` schema — which the panel wires as the table's
+view prefix. A resource with no view renders no link instead of one that 404s.

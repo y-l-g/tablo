@@ -31,7 +31,7 @@ async fn options_endpoint_searches_and_gates() {
         fn can_view(_cx: &Cx, _record: &OptAuthor) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<OptAuthor> {
+        fn table() -> crate::resource::Table<OptAuthor> {
             crate::resource::Table::new(
                 |a: &OptAuthor| a.id.to_string(),
                 crate::resource::TextColumn::r#for(OptAuthor::fields().name(), |a: &OptAuthor| {
@@ -54,7 +54,7 @@ async fn options_endpoint_searches_and_gates() {
     impl Resource for OptPostResource {
         type Model = OptPost;
         type Form = OptPostForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(OptPost::fields().author_id())
                     .relationship::<OptAuthorResource>(
@@ -75,7 +75,7 @@ async fn options_endpoint_searches_and_gates() {
         fn can_view(_cx: &Cx, _record: &OptPost) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<OptPost> {
+        fn table() -> crate::resource::Table<OptPost> {
             crate::resource::Table::new(
                 |p: &OptPost| p.id.to_string(),
                 crate::resource::TextColumn::r#for(OptPost::fields().title(), |p: &OptPost| {
@@ -210,7 +210,7 @@ async fn option_load_loads_no_relation() {
         fn view_query(_cx: &Cx) -> Query<List<Child>> {
             with_parent()
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Child> {
+        fn table() -> crate::resource::Table<Child> {
             crate::resource::Table::new(
                 |c: &Child| c.id.to_string(),
                 crate::resource::TextColumn::r#for(Child::fields().name(), |c: &Child| {
@@ -234,7 +234,7 @@ async fn option_load_loads_no_relation() {
     impl Resource for OwnerResource {
         type Model = Owner;
         type Form = OwnerForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(Owner::fields().child_id())
                     .relationship::<ChildSource>(
@@ -249,7 +249,7 @@ async fn option_load_loads_no_relation() {
         fn slug() -> String {
             "owners".to_string()
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Owner> {
+        fn table() -> crate::resource::Table<Owner> {
             crate::resource::Table::new(
                 |o: &Owner| o.id.to_string(),
                 crate::resource::TextColumn::r#for(Owner::fields().name(), |o: &Owner| {
@@ -344,7 +344,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         fn can_view(_cx: &Cx, _record: &BigA) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<BigA> {
+        fn table() -> crate::resource::Table<BigA> {
             crate::resource::Table::new(
                 |a: &BigA| a.id.to_string(),
                 crate::resource::TextColumn::r#for(BigA::fields().name(), |a: &BigA| {
@@ -369,7 +369,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     impl Resource for SearchableParent {
         type Model = BigP;
         type Form = SearchableParentForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(BigP::fields().author_id())
                     .relationship::<BigAResource>(
@@ -384,7 +384,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         fn slug() -> String {
             "big-ps".to_string()
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<BigP> {
+        fn table() -> crate::resource::Table<BigP> {
             crate::resource::Table::new(
                 |r: &BigP| r.id.to_string(),
                 crate::resource::TextColumn::r#for(BigP::fields().name(), |r: &BigP| {
@@ -402,7 +402,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     impl Resource for PlainParent {
         type Model = BigP;
         type Form = PlainParentForm;
-        fn form(_cx: &Cx) -> crate::schema::Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(BigP::fields().author_id())
                     .relationship::<BigAResource>(
@@ -416,7 +416,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         fn slug() -> String {
             "plain-ps".to_string()
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<BigP> {
+        fn table() -> crate::resource::Table<BigP> {
             crate::resource::Table::new(
                 |r: &BigP| r.id.to_string(),
                 crate::resource::TextColumn::r#for(BigP::fields().name(), |r: &BigP| {

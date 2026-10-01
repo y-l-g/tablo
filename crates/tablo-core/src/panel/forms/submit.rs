@@ -1,6 +1,9 @@
 //! The create/edit POST pipelines.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use topcoat::{
     Result,
@@ -23,8 +26,8 @@ use crate::{
     db::db,
     error::TabloError,
     form::{FieldErrorKind, FieldErrors, Posted, RecordForm},
-    resource::{Committed, Resource},
-    schema::Schema,
+    resource::{Committed, Resource, declared},
+    schema::{DeclCx, Schema},
 };
 
 /// Failure-toast wording for the create/update handlers: one place,
@@ -36,7 +39,7 @@ const WRITE_UPDATE: &str = "save the changes";
 /// declared schema, the completed values, the validation errors so far, the
 /// upload paths a re-render keeps, and the keys the submission named.
 struct Submission {
-    schema: Schema,
+    schema: Arc<Schema>,
     values: HashMap<String, String>,
     errors: FieldErrors,
     carried: HashSet<String>,
@@ -57,7 +60,7 @@ async fn prepare_submission<R: Resource>(
     parts: FormParts,
     advisory: Option<&R::Model>,
 ) -> Result<Submission, topcoat::Error> {
-    let schema = R::form(cx);
+    let schema = Arc::clone(&declared::<R>(cx).form);
     reject_unknown_form_keys(&schema, &parts.values)?;
     let FormParts {
         mut values,
@@ -215,7 +218,7 @@ fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> to
 
 /// The form fields with at least one key the submission named.
 fn named_fields<F: RecordForm>(cx: &Cx, named: &HashSet<String>) -> Vec<F::Field> {
-    F::fields(cx)
+    F::fields(&DeclCx::from_cx(cx))
         .into_iter()
         .filter(|field| field.keys.iter().any(|key| named.contains(key)))
         .map(|field| field.field)

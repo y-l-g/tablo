@@ -39,12 +39,38 @@ fn the_field_list_holds_nested_fields_in_declaration_order() {
 }
 
 #[test]
-#[should_panic(expected = "duplicate field name")]
-fn schema_rejects_duplicate_field_names() {
-    let _ = Schema::new((
+fn schema_records_duplicate_field_names() {
+    let errors = Schema::new((
+        Field::text(DummyUser::fields().name()),
+        Field::text(DummyUser::fields().name()),
+    ))
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("duplicate field name")),
+        "{errors:?}"
+    );
+}
+
+/// Rendering a misdeclared schema fails with its declaration errors rather
+/// than controls that lie.
+#[tokio::test]
+async fn a_misdeclared_schema_fails_to_render() {
+    let schema = Schema::new((
         Field::text(DummyUser::fields().name()),
         Field::text(DummyUser::fields().name()),
     ));
+    let cx = topcoat::context::CxTestBuilder::new().build();
+    let values = HashMap::new();
+    let errors = crate::form::FieldErrors::new();
+    let Err(error) = schema.render(&cx, Source::form(&values, &errors)).await else {
+        panic!("a misdeclared schema must not render");
+    };
+    assert!(
+        format!("{error}").contains("duplicate field name"),
+        "the render error carries the declaration errors, got {error}"
+    );
 }
 
 #[test]
@@ -98,10 +124,16 @@ async fn a_choice_stores_the_value_its_check_authorised() {
 
 /// `extend` carries the same duplicate-name guard `Schema::new` does.
 #[test]
-#[should_panic(expected = "duplicate field name 'name'")]
-fn extend_keeps_the_duplicate_field_guard() {
+fn extend_keeps_the_duplicate_field_check() {
     let input = || Field::text(DummyUser::fields().name());
-    let _ = Schema::empty()
+    let errors = Schema::empty()
         .extend(Schema::new(input()))
-        .extend(Schema::new(input()));
+        .extend(Schema::new(input()))
+        .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("duplicate field name 'name'")),
+        "{errors:?}"
+    );
 }

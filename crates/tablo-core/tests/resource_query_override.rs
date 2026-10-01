@@ -23,7 +23,7 @@ impl Resource for Everyone {
     type Model = User;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn table(_cx: &Cx) -> tablo_core::Table<User> {
+    fn table() -> tablo_core::Table<User> {
         tablo_core::Table::new(
             |u: &User| u.id.to_string(),
             tablo_core::TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
@@ -38,7 +38,7 @@ impl Resource for JustAda {
     type Model = User;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn table(_cx: &Cx) -> tablo_core::Table<User> {
+    fn table() -> tablo_core::Table<User> {
         tablo_core::Table::new(
             |u: &User| u.id.to_string(),
             tablo_core::TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),

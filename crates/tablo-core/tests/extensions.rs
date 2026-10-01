@@ -198,18 +198,18 @@ impl Resource for TaskResource {
         true
     }
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new((
             Field::custom(Task::fields().title(), Shouty),
             Field::toggle(Task::fields().done()),
         ))
     }
 
-    fn view(_cx: &Cx) -> Schema {
-        Self::form(_cx)
+    fn view(dx: &tablo_core::DeclCx) -> Schema {
+        Self::form(dx)
     }
 
-    fn table(_cx: &Cx) -> Table<Task> {
+    fn table() -> Table<Task> {
         Table::new(
             |t: &Task| t.id.to_string(),
             (
@@ -654,7 +654,7 @@ impl Resource for TwiceResource {
     type Model = Task;
     type Form = tablo_core::NoForm<Task>;
 
-    fn table(_cx: &Cx) -> Table<Task> {
+    fn table() -> Table<Task> {
         Table::new(
             |t: &Task| t.id.to_string(),
             TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),

@@ -161,7 +161,7 @@ async fn unknown_filter_warns_on_an_empty_page_too() {
     // banner rendered, so a typo'd filter looked like an honest "no
     // results" on an empty table.
     let cx = CxTestBuilder::new().build();
-    let html = status_table(&cx)
+    let html = status_table()
         .render_with_state(
             &cx,
             Vec::new().into(),
@@ -271,7 +271,7 @@ async fn unknown_filter_renders_alert_banner_and_keeps_200() {
     // the list keeps a 200 but warns instead of lying about
     // "these filters".
     let cx = CxTestBuilder::new().build();
-    let tbl = status_table(&cx);
+    let tbl = status_table();
     let rows = vec![Task {
         id: uuid::Uuid::nil(),
         title: "Hello".to_string(),

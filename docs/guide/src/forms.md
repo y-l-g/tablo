@@ -1,18 +1,26 @@
 # Forms
 
 A resource with create and edit pages declares two things: a **record form**, the typed struct a
-submission parses into, and a **schema** in `form()`, the controls the page renders. `Panel::build`
-checks that the two agree.
+submission parses into, and a **schema** in `form(dx)`, the controls the page renders. `form`
+defaults to the record form's derived schema, so a resource that wants one control per field in
+declaration order declares no `form` at all. `Panel::build` calls the declarations once and checks
+that the two agree.
 
 ## The record form
 
 ```rust
+#[derive(tablo::Options)]
+enum Role {
+    Admin,
+    Member,
+}
+
 #[derive(tablo_core::RecordForm)]
 #[form(model = User)]
 pub struct UserForm {
     pub name: String,
     pub email: String,
-    #[form(blank = "member")]
+    #[form(options = Role, blank = Role::Member.value())]
     pub role: String,
     #[form(blank = 0)]
     pub age: i64,
@@ -28,24 +36,25 @@ Leave out the columns the form does not write: the tenant column of a tenant-own
 the framework sets on create, and columns with a Toasty `#[default(..)]` or `#[auto]`.
 
 **Blank values.** `#[form(blank = <expr>)]` is what a field stores when its control is submitted
-empty. `String` stores `""` and `Option<T>` stores `None` without one; any other type needs
-`blank` when its control is optional.
+empty. `String` answers `""` and `Option<T>` answers `None` through the type's own blank, and a
+`bool` answers `false` through the derive's default, since an unchecked toggle posts `false`. Any
+other type needs `blank` when its control is optional.
 
-The resource names the struct as its `Form` and declares the controls:
+The resource names the struct as its `Form` and, to arrange the controls, declares them from the
+derive's `controls(dx)`:
 
 ```rust
 impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(dx: &DeclCx) -> Schema {
+        let c = UserForm::controls(dx);
         Schema::new(Section::new("Profile").schema((
-            Field::text(User::fields().name()),
-            Field::text(User::fields().email()).email(),
-            Field::choice(User::fields().role())
-                .options(vec!["admin".into(), "member".into()])
-                .optional(),
-            Field::text(User::fields().age()).optional(),
+            c.name.placeholder("Ada Lovelace"),
+            c.email.email(),
+            c.role.optional(),
+            c.age.optional(),
         )))
     }
 
@@ -68,18 +77,39 @@ stamp, or by an overridden `create_record` that lists it in `Resource::CREATE_CO
 
 ## Controls
 
+The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options = T)]`
+a choice over `T`'s options, `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
+`#[form(embed)]` the embedded value's schema, and any other field a text field. `controls(dx)`
+hands each one over ready for its modifiers, so an override arranges rather than rebinds:
+
 ```rust
+let c = UserForm::controls(dx);
 Schema::new((
     Section::new("Account").schema((
-        Field::text(User::fields().email()).email(),
-        Field::choice(User::fields().role()).options(vec!["admin".into(), "member".into()]),
+        c.email.email(),
+        c.role,
     )),
     Grid::new(2).schema((
-        Field::text(User::fields().name()),
-        Field::text(User::fields().bio()).multiline(4),
+        c.name,
+        c.age,
     )),
 ))
 ```
+
+The `role` control already offers `Role`'s options: `#[form(options = Role)]` chose a choice over
+that list. A closed set of values is a `#[derive(Options)]` enum, shared by the form, the filter
+and the column:
+
+```rust
+Field::choice(User::fields().role()).options(Role::options())
+SelectFilter::r#for(User::fields().role(), Role::options())
+```
+
+Each variant stores its `snake_case` name and reads as that name in sentence case;
+`#[option(value = "..", label = "..")]` overrides either. The derive also gives the enum
+`value()`, `label()`, `from_value()` and, through the `Options` trait, `label_of()`. `.options`
+takes `Vec<(String, String)>` (an `Options` enum's list), `Vec<String>`, or `[&str; N]` (`["admin",
+"member"]`).
 
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. `Repeater::new(label)` is a titled group
@@ -89,20 +119,21 @@ nest a `Group` for more.
 
 **Fields** are built from a Toasty field lens:
 
-| Constructor | Column | Control |
-| --- | --- | --- |
-| `Field::text(lens)` | `String`, a typed value, or an `Option` of one | `<input>`, or `<textarea>` with `.multiline(rows)` |
-| `Field::choice(lens)` | any | `<select>` over static options or a relationship |
-| `Field::file(lens)` | `String` holding the file's path | file input: see [File uploads](#file-uploads) |
-| `Field::toggle(lens)` | `bool` | checkbox |
-| `Field::custom(lens, control)` | `String`, a typed value, or an `Option` of one | your own `Control`: see [Custom controls](#custom-controls) |
+| Constructor | Column | Control | Builder |
+| --- | --- | --- | --- |
+| `Field::text(lens)` | `String`, a typed value, or an `Option` of one | `<input>`, or `<textarea>` with `.multiline(rows)` | `TextField` |
+| `Field::choice(lens)` | any | `<select>` over static options or a relationship | `ChoiceField` |
+| `Field::file(lens)` | `String` holding the file's path | file input: see [File uploads](#file-uploads) | `FileField` |
+| `Field::toggle(lens)` | `bool` | checkbox | `CustomField` |
+| `Field::custom(lens, control)` | `String`, a typed value, or an `Option` of one | your own `Control`: see [Custom controls](#custom-controls) | `CustomField` |
 
 Every field takes `.label(..)`, `.required()` and `.optional()`. The label defaults to the column
-name in sentence case, and `required` defaults to whether the column is non-nullable. The other
-modifiers belong to one kind of field and panic on another, which `Panel::build` reports:
+name in sentence case, and `required` defaults to whether the column is non-nullable. Each
+constructor returns its control's builder, which offers only that control's modifiers, so a
+modifier on the wrong control does not compile:
 
-- text: `.email()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
-- choice: `.options(..)`, `.options_with_labels(..)`, `.relationship(..)`, `.searchable()`.
+- text (`TextField`): `.email()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
+- choice (`ChoiceField`): `.options(..)`, `.relationship(..)`, `.searchable()`.
 
 ### Custom controls
 
@@ -128,8 +159,8 @@ Field::custom(Theme::fields().accent(), Color)
 like any other field's: the value posted under the field's key, the last one when it is posted
 twice. `Field::toggle` is built this way: `Toggle` renders a hidden `false` before the checkbox
 under the same name, so an unchecked box submits `false` rather than nothing. A toggle is
-optional, since it is never empty, so its record-form field declares the value an empty
-submission stores: `#[form(blank = false)] pub active: bool`.
+optional, since it is never empty, and a `bool` record-form field reads an empty submission as
+`false` without a declared blank.
 
 ### Typed values
 
@@ -261,8 +292,8 @@ pub struct Seo {
     pub description: String,
 }
 
-// In `form()`: one call renders a control per field.
-Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()))
+// In `form(dx)`: one call renders a control per field.
+Section::new("SEO").schema(Seo::form(dx, Post::fields().seo()))
 
 // In the record form: the value is one field.
 #[derive(tablo_core::RecordForm)]
@@ -287,5 +318,5 @@ pub struct PostForm {
   variant, and tuple structs.
 
 To bind a single embedded field on its own, pass a `ResolvedLens`:
-`Field::text(ResolvedLens::new(cx, Post::fields().seo().title()))` binds the flattened `seo_title`
+`Field::text(ResolvedLens::new(dx, Post::fields().seo().title()))` binds the flattened `seo_title`
 column. Such a field is optional unless you call `.required()`.

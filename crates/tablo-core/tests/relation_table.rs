@@ -33,11 +33,11 @@ impl Resource for OwnerResource {
     type Model = Owner;
     type Form = OwnerForm;
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Owner::fields().name()))
     }
 
-    fn view(_cx: &Cx) -> Schema {
+    fn view(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new(Field::text(Owner::fields().name()))
     }
 
@@ -53,7 +53,7 @@ impl Resource for OwnerResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Owner> {
+    fn table() -> Table<Owner> {
         Table::new(
             |owner: &Owner| owner.id.to_string(),
             TextColumn::r#for(Owner::fields().name(), |owner: &Owner| owner.name.clone()),
@@ -80,7 +80,7 @@ impl Resource for ChildResource {
     type Model = Child;
     type Form = ChildForm;
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &tablo_core::DeclCx) -> Schema {
         Schema::new((
             Field::text(Child::fields().body()),
             Field::choice(Child::fields().owner_id())
@@ -113,7 +113,7 @@ impl Resource for ChildResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Child> {
+    fn table() -> Table<Child> {
         Table::new(
             |child: &Child| child.id.to_string(),
             TextColumn::r#for(Child::fields().body(), |child: &Child| child.body.clone())
@@ -353,8 +353,8 @@ async fn two_relations_to_one_child_do_not_build() {
             "twice".to_string()
         }
 
-        fn table(_cx: &Cx) -> Table<Owner> {
-            OwnerResource::table(_cx)
+        fn table() -> Table<Owner> {
+            OwnerResource::table()
         }
 
         fn relations() -> Vec<Relation<Owner>> {

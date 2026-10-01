@@ -17,6 +17,7 @@ pub(crate) mod embedded;
 mod fields;
 mod layouts;
 mod lenses;
+mod options;
 mod pk;
 mod relationship;
 mod tree;
@@ -26,10 +27,14 @@ use std::collections::{HashMap, HashSet};
 
 pub use embedded::EmbeddedForm;
 pub(crate) use fields::option_view;
-pub use fields::{Control, ControlInput, Field, Toggle};
+pub use fields::{
+    ChoiceField, Control, ControlInput, CustomField, Field, FileField, IntoOptions, TextField,
+    Toggle,
+};
 pub use layouts::{Grid, Group, Repeater, Section};
-pub use lenses::{FieldLens, ResolvedLens};
-pub(crate) use lenses::{capitalize, lens_field, lens_field_unique, lens_label};
+pub use lenses::{DeclCx, FieldLens, ResolvedLens};
+pub(crate) use lenses::{LensBinding, capitalize, lens_field_unique};
+pub use options::Options;
 pub(crate) use pk::{pk_eq_expr, pk_in_expr, pk_is_composite};
 pub(crate) use relationship::OptionLoadError;
 pub use relationship::{MAX_RELATIONSHIP_OPTIONS, OptionSource};
@@ -91,22 +96,19 @@ impl Schema {
     /// Whether this schema declares nothing to render.
     ///
     /// Public because [`Resource::view`](crate::resource::Resource::view) defaults to
-    /// this and [`Resource::viewed`](crate::resource::Resource::viewed) reads it
-    /// as "no detail page declared".
+    /// an empty schema, which the panel reads as "no detail page declared".
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
 
-    /// Build a `Schema` from any `IntoSchema` (a field, a block, a tuple, or a
-    /// `Schema`).
+    /// Build a `Schema` from any `IntoSchema` (a field, a builder, a block,
+    /// a tuple, or a `Schema`).
     ///
-    /// Panics on duplicate field names: two inputs sharing one name
-    /// render two `<input name="x">`, POST one value to both, and collapse to
-    /// one validation rule.
+    /// Two fields sharing one name are a misdeclaration
+    /// ([`Self::declaration_errors`]): they render two `<input name="x">`,
+    /// POST one value to both, and collapse to one validation rule.
     pub fn new(children: impl IntoSchema) -> Self {
-        let schema = children.into_schema();
-        schema.assert_unique_field_names();
-        schema
+        children.into_schema()
     }
 
     /// An empty schema (no nodes).
@@ -121,7 +123,16 @@ impl Schema {
 
     /// Render the schema from `source`: a form's controls
     /// ([`Source::form`]) or a record's read-only values ([`Source::view`]).
+    ///
+    /// # Errors
+    ///
+    /// A misdeclared schema ([`Self::declaration_errors`]) fails with its
+    /// errors rather than render.
     pub async fn render<'a>(&self, cx: &'a Cx, source: Source<'_>) -> Result<BoxView<'a>> {
+        let errors = self.declaration_errors();
+        if !errors.is_empty() {
+            return Err(crate::error::TabloError::Declaration(errors.join("; ")).into());
+        }
         render_nodes(cx, &self.nodes, &self.fields, &source).await
     }
 
@@ -186,9 +197,6 @@ impl Schema {
     /// so a form reads in declaration order either way.
     pub fn extend(mut self, other: Schema) -> Schema {
         self.append(other);
-        // The same guard `Schema::new` runs: this is the only check for the
-        // shapes `new` cannot see.
-        self.assert_unique_field_names();
         self
     }
 
@@ -267,15 +275,25 @@ impl Schema {
         out
     }
 
-    fn assert_unique_field_names(&self) {
+    /// What is wrong with this declaration: a field whose lens binds no
+    /// single column, and two fields sharing a name.
+    ///
+    /// [`Panel::build`](crate::Panel::build) refuses a resource whose form or
+    /// view reports any, and rendering one fails with them.
+    pub fn declaration_errors(&self) -> Vec<String> {
+        let mut errors = Vec::new();
         let mut seen = HashSet::new();
         for field in &self.fields {
-            assert!(
-                seen.insert(field.name()),
-                "duplicate field name '{}': each Schema input needs a distinct field (GH #100)",
-                field.name()
-            );
+            match field.misdeclared() {
+                Some(error) => errors.push(format!("field `{}`: {error}", field.name())),
+                None if !seen.insert(field.name()) => errors.push(format!(
+                    "duplicate field name '{}': each Schema input needs a distinct field",
+                    field.name()
+                )),
+                None => {}
+            }
         }
+        errors
     }
 
     /// Validate submitted values against declared inputs.

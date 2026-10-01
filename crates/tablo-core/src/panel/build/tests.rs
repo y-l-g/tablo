@@ -20,7 +20,7 @@ async fn a_plain_slug_builds_and_resolves() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -82,7 +82,7 @@ async fn a_star_slug_builds_and_resolves() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |d: &Dummy| d.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -144,10 +144,10 @@ async fn csrf_is_enforced_with_auth_disabled() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
     }
@@ -255,7 +255,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
         // Not gated, so the tenant is not stamped: a create override would
         // set it.
         const CREATE_COLUMNS: &'static [&'static str] = &["tenant_id"];
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Author::fields().email()).unique())
         }
 
@@ -268,7 +268,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> Table<Author> {
+        fn table() -> Table<Author> {
             Table::new(
                 |a: &Author| a.id.to_string(),
                 TextColumn::r#for(Author::fields().email(), |a: &Author| a.email.clone()),
@@ -316,7 +316,7 @@ async fn panel_build_rejects_a_gated_resource_with_no_tenant_predicate() {
     /// below could be refused for: the rejection is the tenant probe's, not
     /// a page essential's. The model has no `tenant_id` column, so only an
     /// override can scope it.
-    fn dummy_table(_cx: &Cx) -> Table<Dummy> {
+    fn dummy_table() -> Table<Dummy> {
         Table::new(
             |d: &Dummy| d.id.to_string(),
             TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
@@ -333,8 +333,8 @@ async fn panel_build_rejects_a_gated_resource_with_no_tenant_predicate() {
         fn requires_tenant() -> bool {
             true
         }
-        fn table(cx: &Cx) -> Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -355,8 +355,8 @@ async fn panel_build_rejects_a_gated_resource_with_no_tenant_predicate() {
         fn tenant_scope(tenant: uuid::Uuid) -> Option<toasty::stmt::Expr<bool>> {
             Some(Dummy::fields().name().eq(tenant.to_string()))
         }
-        fn table(cx: &Cx) -> Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -400,7 +400,7 @@ fn panel_build_rejects_a_hostile_slug() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -444,7 +444,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
     impl Resource for UnbackedResource {
         type Model = Subscriber;
         type Form = UnbackedForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Subscriber::fields().nickname()).unique())
         }
 
@@ -457,7 +457,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
         fn can_create(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> Table<Subscriber> {
+        fn table() -> Table<Subscriber> {
             Table::new(
                 |s: &Subscriber| s.id.to_string(),
                 TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
@@ -520,7 +520,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
     impl Resource for ChromeResource {
         type Model = Subscriber;
         type Form = ChromeForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Subscriber::fields().nickname()))
         }
 
@@ -530,7 +530,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         fn can_delete_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(_cx: &Cx) -> Table<Subscriber> {
+        fn table() -> Table<Subscriber> {
             keyed_table()
         }
     }
@@ -546,7 +546,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         fn slug() -> String {
             "subscribers".to_string()
         }
-        fn table(_cx: &Cx) -> Table<Subscriber> {
+        fn table() -> Table<Subscriber> {
             keyed_table()
         }
     }
@@ -558,10 +558,10 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         fn slug() -> String {
             "subscribers".to_string()
         }
-        fn table(_cx: &Cx) -> Table<Subscriber> {
+        fn table() -> Table<Subscriber> {
             keyed_table()
         }
-        fn view(_cx: &Cx) -> Schema {
+        fn view(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Subscriber::fields().nickname()))
         }
     }
@@ -613,7 +613,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
     impl Resource for ReadOnlyResource {
         type Model = Subscriber;
         type Form = ReadOnlyForm;
-        fn form(_cx: &Cx) -> Schema {
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
             Schema::new(Field::text(Subscriber::fields().nickname()).unique())
         }
 
@@ -624,7 +624,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
             true
         }
         // `can_create` keeps its default (deny); only the form is declared.
-        fn table(_cx: &Cx) -> Table<Subscriber> {
+        fn table() -> Table<Subscriber> {
             Table::new(
                 |s: &Subscriber| s.id.to_string(),
                 TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
@@ -667,7 +667,7 @@ fn panel_build_rejects_duplicate_resource_slugs() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -684,7 +684,7 @@ fn panel_build_rejects_duplicate_resource_slugs() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -728,7 +728,7 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
                 fn slug() -> String {
                     $slug.to_string()
                 }
-                fn table(_cx: &Cx) -> crate::resource::Table<Dummy> {
+                fn table() -> crate::resource::Table<Dummy> {
                     crate::resource::Table::new(
                         |d: &Dummy| d.id.to_string(),
                         crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
@@ -772,12 +772,10 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
     );
 }
 
-/// GH #207 part 2: `Resource::table` and `Resource::form` run code that
-/// panics on a mis-declaration, but `build`'s contract is a registration
-/// error the caller can log or exit on. Both classes below are caught at
-/// the boundary instead of unwinding out of `build`.
+/// A table's builders record a misdeclaration rather than panic, and `build`
+/// reports it as a registration error the caller can log or exit on.
 #[tokio::test]
-async fn panel_build_turns_declaration_panics_into_registration_errors() {
+async fn panel_build_reports_recorded_table_misdeclarations() {
     use crate::resource::{Resource, Table, TextColumn};
 
     #[derive(Debug, Clone, toasty::Embed)]
@@ -794,8 +792,7 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
         meta: Meta,
     }
 
-    /// Two columns over one field: `Table::new` asserts on the
-    /// duplicate name.
+    /// Two columns over one field: a duplicate name.
     struct DuplicateColumnResource;
     impl Resource for DuplicateColumnResource {
         type Model = Doc;
@@ -803,7 +800,7 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
         fn slug() -> String {
             "docs".to_string()
         }
-        fn table(_cx: &Cx) -> Table<Doc> {
+        fn table() -> Table<Doc> {
             Table::new(
                 |d: &Doc| d.id.to_string(),
                 (
@@ -814,9 +811,8 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
         }
     }
 
-    /// An embedded step is not a single-field lens: `lens_field` refuses
-    /// the traversal loudly, which without the boundary catch is
-    /// a boot panic.
+    /// An embedded step is not a single-field lens: the column records the
+    /// refused traversal.
     struct TraversalLensResource;
     impl Resource for TraversalLensResource {
         type Model = Doc;
@@ -824,7 +820,7 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
         fn slug() -> String {
             "docs".to_string()
         }
-        fn table(_cx: &Cx) -> Table<Doc> {
+        fn table() -> Table<Doc> {
             Table::new(
                 |d: &Doc| d.id.to_string(),
                 TextColumn::r#for(Doc::fields().meta().note(), |d: &Doc| d.meta.note.clone()),
@@ -832,7 +828,7 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
         }
     }
 
-    /// A page of no rows: `Table::paginate` asserts on zero.
+    /// A page of no rows: `Table::paginate` records zero.
     struct ZeroPageResource;
     impl Resource for ZeroPageResource {
         type Model = Doc;
@@ -840,7 +836,7 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
         fn slug() -> String {
             "docs".to_string()
         }
-        fn table(_cx: &Cx) -> Table<Doc> {
+        fn table() -> Table<Doc> {
             Table::new(
                 |d: &Doc| d.id.to_string(),
                 TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
@@ -865,8 +861,8 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
     };
     let error = format!("{error}");
     assert!(
-        error.contains("panicked while declaring") && error.contains("duplicate column name"),
-        "the panic's own message must survive into the registration error, got {error}"
+        error.contains("is misdeclared") && error.contains("table: duplicate column name"),
+        "the recorded misdeclaration must reach the registration error, got {error}"
     );
 
     let Err(error) = panel().resource::<TraversalLensResource>().build() else {
@@ -874,8 +870,8 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
     };
     let error = format!("{error}");
     assert!(
-        error.contains("panicked while declaring") && error.contains("single-field lens"),
-        "the panic's own message must survive into the registration error, got {error}"
+        error.contains("is misdeclared") && error.contains("single-field lens"),
+        "the recorded misdeclaration must reach the registration error, got {error}"
     );
 
     let Err(error) = panel().resource::<ZeroPageResource>().build() else {
@@ -883,8 +879,8 @@ async fn panel_build_turns_declaration_panics_into_registration_errors() {
     };
     let error = format!("{error}");
     assert!(
-        error.contains("panicked while declaring") && error.contains("page size"),
-        "the panic's own message must survive into the registration error, got {error}"
+        error.contains("is misdeclared") && error.contains("page size"),
+        "the recorded misdeclaration must reach the registration error, got {error}"
     );
 }
 
@@ -896,8 +892,8 @@ async fn panel_mounts_runtime_page_rerun_routes() {
     impl Resource for DummyResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -1012,8 +1008,8 @@ async fn panel_sends_frame_ancestors_unless_opted_out() {
         fn can_view_any(_cx: &Cx) -> bool {
             true
         }
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
     }
 
@@ -1085,7 +1081,7 @@ fn serve_dir_accepts_only_a_catch_all_pattern() {
     assert!(!is_directory_pattern("/uploads/{*fi-le}"));
 }
 
-/// A view's misdeclaration — here a text modifier on a choice — fails the
+/// A view's misdeclaration — here two fields over one column — fails the
 /// build, as a table's does, rather than the first detail request.
 #[tokio::test]
 async fn panel_build_rejects_a_misdeclared_view() {
@@ -1099,12 +1095,15 @@ async fn panel_build_rejects_a_misdeclared_view() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-            dummy_table(cx)
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
         }
 
-        fn view(_cx: &Cx) -> Schema {
-            Schema::new(Field::choice(Dummy::fields().name()).email())
+        fn view(_dx: &crate::schema::DeclCx) -> Schema {
+            Schema::new((
+                Field::text(Dummy::fields().name()),
+                Field::text(Dummy::fields().name()),
+            ))
         }
     }
 
@@ -1114,10 +1113,170 @@ async fn panel_build_rejects_a_misdeclared_view() {
         .await
         .unwrap();
     let Err(error) = panel_for::<BadView>(db).build() else {
-        panic!("a view with a modifier on the wrong control must not build");
+        panic!("a view declaring one field twice must not build");
     };
+    let error = format!("{error}");
     assert!(
-        format!("{error}").contains("`.email()` applies to a text field"),
-        "the error names the modifier, got {error}"
+        error.contains("view: duplicate field name 'name'"),
+        "the error names the part and the field, got {error}"
     );
+}
+
+/// The served declarations are built once: `Panel::build` calls the table, form and view
+/// once each (relations twice: once at registration for its handlers and keys, once here for
+/// the served copy), and every handler serves the cached copy across requests.
+#[tokio::test]
+async fn declarations_are_built_once_across_requests() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use crate::{
+        resource::{Relation, Resource},
+        schema::{Field, Schema},
+    };
+
+    static TABLE_CALLS: AtomicUsize = AtomicUsize::new(0);
+    static FORM_CALLS: AtomicUsize = AtomicUsize::new(0);
+    static VIEW_CALLS: AtomicUsize = AtomicUsize::new(0);
+    static RELATIONS_CALLS: AtomicUsize = AtomicUsize::new(0);
+
+    #[derive(crate::RecordForm)]
+    #[form(model = Dummy)]
+    struct CountedForm {
+        name: String,
+    }
+
+    struct CountedResource;
+    impl Resource for CountedResource {
+        type Model = Dummy;
+        type Form = CountedForm;
+
+        fn slug() -> String {
+            "dummies".to_string()
+        }
+
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
+            true
+        }
+        fn can_create(_cx: &Cx) -> bool {
+            true
+        }
+        fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
+            true
+        }
+
+        fn table() -> crate::resource::Table<Dummy> {
+            TABLE_CALLS.fetch_add(1, Ordering::SeqCst);
+            dummy_table()
+        }
+
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+            FORM_CALLS.fetch_add(1, Ordering::SeqCst);
+            Schema::new(Field::text(Dummy::fields().name()))
+        }
+
+        fn view(_dx: &crate::schema::DeclCx) -> Schema {
+            VIEW_CALLS.fetch_add(1, Ordering::SeqCst);
+            Schema::new(Field::text(Dummy::fields().name()))
+        }
+
+        fn relations() -> Vec<Relation<Dummy>> {
+            RELATIONS_CALLS.fetch_add(1, Ordering::SeqCst);
+            Vec::new()
+        }
+    }
+
+    let mut db = Db::builder()
+        .models(toasty::models!(Dummy))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let record = toasty::create!(Dummy {
+        name: "Ada".to_string()
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let router = panel_for::<CountedResource>(db)
+        .build()
+        .expect("panel builds");
+    for (calls, name, want) in [
+        (&TABLE_CALLS, "table", 1),
+        (&FORM_CALLS, "form", 1),
+        (&VIEW_CALLS, "view", 1),
+        // `relations` also runs at registration, where the panel derives
+        // its relation handlers and keys: one call there, one for the
+        // served declarations built here.
+        (&RELATIONS_CALLS, "relations", 2),
+    ] {
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            want,
+            "`{name}` builds once at `Panel::build`"
+        );
+    }
+
+    for uri in [
+        "/admin/dummies".to_string(),
+        "/admin/dummies/export".to_string(),
+        format!("/admin/dummies/{}", record.id),
+        "/admin/dummies/create".to_string(),
+        format!("/admin/dummies/{}/edit", record.id),
+    ] {
+        let response = router
+            .handle(
+                http::Request::builder()
+                    .uri(&uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await;
+        assert_eq!(response.status(), http::StatusCode::OK, "{uri} renders");
+    }
+    for (calls, name, want) in [
+        (&TABLE_CALLS, "table", 1),
+        (&FORM_CALLS, "form", 1),
+        (&VIEW_CALLS, "view", 1),
+        (&RELATIONS_CALLS, "relations", 2),
+    ] {
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            want,
+            "`{name}` serves requests from the cached build"
+        );
+    }
+}
+
+/// A resource no panel registers builds on demand: `declared` falls back to
+/// a fresh build from the request's app schema, which is what a page-owned
+/// table reads.
+#[tokio::test]
+async fn declared_fallback_builds_for_an_unregistered_resource() {
+    use crate::resource::{Resource, declared};
+
+    struct FallbackResource;
+    impl Resource for FallbackResource {
+        type Model = Dummy;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Dummy))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let cx = topcoat::context::CxTestBuilder::new()
+        .app_context(db)
+        .build();
+    let fallback = declared::<FallbackResource>(&cx);
+    assert!(fallback.table.declaration_errors().is_empty());
+    assert!(fallback.form.declaration_errors().is_empty());
 }

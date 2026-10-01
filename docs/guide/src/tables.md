@@ -1,10 +1,11 @@
 # Tables
 
 A resource's `table()` declares its list page: the columns, the row key, and the search, sort,
-filter, grouping and pagination the list offers. The same declaration drives the CSV export.
+filter, grouping and pagination the list offers. It takes no context: the panel calls it once at
+build and serves that table to every request. The same declaration drives the CSV export.
 
 ```rust
-fn table(_cx: &Cx) -> Table<User> {
+fn table() -> Table<User> {
     Table::new(
         |u: &User| u.id.to_string(),
         (
@@ -37,7 +38,7 @@ primary key the URLs carry. Either way, keys must be unique within a page.
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
 | `TextColumn::r#for(lens, project)` | `project(row)`, bound to a `String` field | `.searchable()`, `.sortable()` |
-| `TextColumn::computed(label, project)` | `project(row)` | not available: calling either panics |
+| `TextColumn::computed(label, project)` | `project(row)` | neither is available: requesting either is a misdeclaration the build refuses |
 | `BooleanColumn::r#for(lens, project)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 
 - **Labels.** A field column is labelled from its field name (`created_at` → "Created at"); a
@@ -61,8 +62,9 @@ primary key the URLs carry. Either way, keys must be unique within a page.
   narrow screen the table keeps a minimum width and scrolls horizontally instead of crushing its
   columns.
 
-Two columns with the same name, or a table with no columns, panic; `Panel::build` reports it as a
-startup error.
+Two columns with the same name, two filters with the same name, a table with no columns, and a
+zero page size are misdeclarations: `Panel::build` refuses the resource, and rendering the table
+fails with the same errors.
 
 ### Your own columns
 
@@ -128,7 +130,7 @@ remain for visitors without JavaScript.
 
 ```rust
 .filters((
-    SelectFilter::r#for(Post::fields().status(), vec!["draft".into(), "published".into()]),
+    SelectFilter::r#for(Post::fields().status(), PostStatus::options()),
     TernaryFilter::r#for(Post::fields().featured()),
     DateFilter::r#for(Post::fields().created_at()),
 ))
@@ -136,7 +138,7 @@ remain for visitors without JavaScript.
 
 | Filter | Field | Values |
 | --- | --- | --- |
-| `SelectFilter::r#for(lens, options)` | `String` | one of `options`, matched exactly |
+| `SelectFilter::r#for(lens, options)` | `String` | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an [`Options`](./forms.md#controls) list), `Vec<String>`, or `[&str; N]` |
 | `TernaryFilter::r#for(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
 | `DateFilter::r#for(lens)` | `jiff::Timestamp` | a date `2024-01-15` matches that UTC day; an RFC 3339 timestamp matches that instant |
 | `VariantFilter::r#for(name, label, options)` | any | named options, each a Toasty predicate you build |

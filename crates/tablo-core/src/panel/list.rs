@@ -19,7 +19,7 @@ use crate::{
     form::RecordForm,
     resource::{
         Resource, RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage,
-        TableSignals, TableState, create_page_url, request_query,
+        TableSignals, TableState, create_page_url, declared, request_query,
     },
 };
 
@@ -52,7 +52,7 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
     TableChrome {
         delete: R::can_delete_any(cx),
         edit: <R::Form as RecordForm>::HAS_FORM,
-        view: R::viewed(cx),
+        view: declared::<R>(cx).viewed(),
         actions: true,
     }
 }
@@ -87,7 +87,7 @@ pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::M
 /// [`wire_table_actions`] with the affordances `chrome` names, a subset of
 /// [`declared_chrome`]: a read-only relation keeps only the View link.
 pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) -> Table<R::Model> {
-    let mut table = R::table(cx);
+    let mut table = declared::<R>(cx).table.clone();
     if live {
         // The page draws the card around the hoisted bars and this output.
         table = table.hide_search().hide_filter_bar().unframed();

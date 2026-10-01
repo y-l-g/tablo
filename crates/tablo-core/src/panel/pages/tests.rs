@@ -38,8 +38,8 @@ impl Resource for DummyResource {
     type Model = Dummy;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table(cx: &Cx) -> crate::resource::Table<Dummy> {
-        dummy_table(cx)
+    fn table() -> crate::resource::Table<Dummy> {
+        dummy_table()
     }
 }
 

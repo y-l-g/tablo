@@ -5,6 +5,7 @@
 //! truth for the field's key, label, and required default, so a field of any
 //! kind binds a top-level column or an embedded leaf alike.
 
+mod builders;
 mod choice;
 mod custom;
 mod file;
@@ -12,6 +13,7 @@ mod text;
 
 use std::sync::Arc;
 
+pub use builders::{ChoiceField, CustomField, FileField, IntoOptions, TextField};
 pub(crate) use choice::{ChoiceControl, option_view};
 pub use custom::{Control, ControlInput, Toggle};
 use tablo_ui::{
@@ -22,9 +24,7 @@ pub(crate) use text::TextControl;
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    OptionSource,
-    lenses::{ResolvedLens, capitalize},
-    relationship::RelatedPrimaryKey,
+    lenses::{DeclCx, ResolvedLens, capitalize},
     tree::Mode,
     validation::Rules,
 };
@@ -33,31 +33,41 @@ use crate::form::{FieldError, FormScalar};
 /// One form field: a key, a label, the rules a submission meets, and the
 /// control that edits it.
 ///
-/// Three constructors pick the control, and each binds any lens a
-/// [`ResolvedLens`] accepts — a column (`Post::fields().title()`) or an
-/// embedded leaf (`ResolvedLens::new(cx, Post::fields().seo().title())`):
+/// A constructor picks the control and returns that control's builder, which
+/// offers only the modifiers the control has, so a modifier on the wrong
+/// control does not compile. Each binds any lens a [`ResolvedLens`] accepts —
+/// a column (`Post::fields().title()`) or an embedded leaf
+/// (`ResolvedLens::new(dx, Post::fields().seo().title())`):
 ///
 /// ```ignore
-/// Field::text(User::fields().name()).placeholder("Ada Lovelace")
+/// Field::text(User::fields().name()).placeholder("Ada Lovelace")   // TextField
 /// Field::text(User::fields().email()).email().unique()
 /// Field::text(User::fields().age())                  // typed: an `i64` column
 /// Field::text(Post::fields().body()).multiline(6)
-/// Field::choice(Post::fields().status()).options(vec!["draft".into(), "published".into()])
+/// Field::choice(Post::fields().status()).options(Status::options()) // ChoiceField
 /// Field::choice(Post::fields().author_id()).relationship::<AuthorResource>(..)
-/// Field::file(Doc::fields().path())
+/// Field::file(Doc::fields().path())                                  // FileField
+/// Field::toggle(Post::fields().featured())                           // CustomField
 /// ```
 ///
-/// `required` defaults from the column's nullability (GH #100): a
-/// non-nullable column is required, so an empty submit fails inline instead of
-/// at the driver. `.optional()` opts out and `.required()` opts back in.
+/// Every builder has `label`, `required` and `optional`. `required` defaults
+/// from the column's nullability: a non-nullable column is required, so an
+/// empty submit fails inline instead of at the driver. `.optional()` opts out
+/// and `.required()` opts back in.
 ///
-/// A modifier belongs to one control: `email`, `unique`, `placeholder`, and
-/// `multiline` to text; `options`, `options_with_labels`, `relationship`, and
-/// `searchable` to choice. Calling one on another control is a declaration
-/// bug and panics, naming the field.
+/// A modifier on the wrong control does not compile: `options` is a choice
+/// modifier, so it is not a method on a text field.
 ///
-/// [`toggle`](Self::toggle) renders a checkbox, and [`custom`](Self::custom)
-/// renders any [`Control`] an app writes.
+/// ```compile_fail
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # fn main() {
+/// tablo_core::Field::text(User::fields().name()).options(["admin", "member"]);
+/// # }
+/// ```
+///
+/// A builder converts into a `Field` wherever a schema takes one
+/// ([`IntoSchema`](super::IntoSchema)).
 pub struct Field {
     name: String,
     label: String,
@@ -68,6 +78,9 @@ pub struct Field {
     /// The email and scalar-parse rules, with their messages.
     rules: Rules,
     control: ControlKind,
+    /// Why the field's lens binds no column, when it does not
+    /// ([`Schema::declaration_errors`](super::Schema::declaration_errors)).
+    misdeclared: Option<String>,
 }
 
 /// The control a [`Field`] renders, with what only that control declares.
@@ -106,6 +119,20 @@ impl std::fmt::Debug for Field {
 }
 
 impl Field {
+    /// The field every constructor starts from: the lens's key, label and
+    /// required default, with `rules` and `control`.
+    fn bound<M, T>(lens: ResolvedLens<M, T>, rules: Rules, control: ControlKind) -> Self {
+        Self {
+            name: lens.name,
+            label: lens.label,
+            required: !lens.nullable,
+            nullable: lens.nullable,
+            rules,
+            control,
+            misdeclared: lens.misdeclared,
+        }
+    }
+
     /// A text field over a column of any [`FormScalar`] type: `String`, a
     /// [`TypedValue`](crate::schema::TypedValue) type, or an `Option` of one.
     ///
@@ -124,63 +151,53 @@ impl Field {
     ///
     /// `T` is [`IntoExpr`](toasty::stmt::IntoExpr) of itself so the unique
     /// probe compares the parsed value through the lens rather than its text.
-    pub fn text<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> Self
+    pub fn text<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> TextField
     where
         M: toasty::schema::Model,
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
     {
         let lens = lens.into();
-        let control = TextControl::new::<M, T>(lens.path, lens.unique);
-        Self {
-            name: lens.name,
-            label: lens.label,
-            required: !lens.nullable,
-            nullable: lens.nullable,
-            rules: Rules::new().scalar::<T>(),
-            control: ControlKind::Text(control),
-        }
+        let control = TextControl::new::<M, T>(lens.path.clone(), lens.unique);
+        TextField(Self::bound(
+            lens,
+            Rules::new().scalar::<T>(),
+            ControlKind::Text(control),
+        ))
     }
 
     /// The text field `#[derive(EmbeddedForm)]` renders for a leaf: bound
-    /// through the request's app schema, and bounded by `FormScalar` alone so
-    /// a leaf of another type fails at the derive's `FormScalar` assertion.
+    /// through the app schema, and bounded by `FormScalar` alone so a leaf of
+    /// another type fails at the derive's `FormScalar` assertion.
     #[doc(hidden)]
-    pub fn embedded_leaf<M, T>(cx: &Cx, path: toasty::stmt::Path<M, T>) -> Self
+    pub fn embedded_leaf<M, T>(dx: &DeclCx, path: toasty::stmt::Path<M, T>) -> TextField
     where
         M: toasty::schema::Model,
         T: FormScalar,
     {
-        let lens = ResolvedLens::new(cx, path);
-        Self {
-            name: lens.name,
-            label: lens.label,
-            required: !lens.nullable,
-            nullable: lens.nullable,
-            rules: Rules::new().scalar::<T>(),
-            control: ControlKind::Text(TextControl::leaf::<T>()),
-        }
+        let lens = ResolvedLens::new(dx, path);
+        TextField(Self::bound(
+            lens,
+            Rules::new().scalar::<T>(),
+            ControlKind::Text(TextControl::leaf::<T>()),
+        ))
     }
 
     /// A choice field over a column of any type, often a foreign key
     /// (`Post::fields().author_id()`).
     ///
     /// A bare choice validates presence only; its options come from
-    /// [`options`](Self::options), [`options_with_labels`](Self::options_with_labels),
-    /// or [`relationship`](Self::relationship), which also checks that a
+    /// [`options`](ChoiceField::options) or
+    /// [`relationship`](ChoiceField::relationship), which also checks that a
     /// submitted key exists, tenant-aware.
-    pub fn choice<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> Self
+    pub fn choice<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> ChoiceField
     where
         M: toasty::schema::Model,
     {
-        let lens = lens.into();
-        Self {
-            name: lens.name,
-            label: lens.label,
-            required: !lens.nullable,
-            nullable: lens.nullable,
-            rules: Rules::new(),
-            control: ControlKind::Choice(ChoiceControl::default()),
-        }
+        ChoiceField(Self::bound(
+            lens.into(),
+            Rules::new(),
+            ControlKind::Choice(ChoiceControl::default()),
+        ))
     }
 
     /// A file field over a `String` column holding the uploaded file's
@@ -194,26 +211,18 @@ impl Field {
     /// browsers ignore for security, so an edit form shows the stored path and
     /// a `clear_<field>` checkbox beside an empty input, and the input is
     /// required only while nothing is stored.
-    pub fn file<M>(lens: impl Into<ResolvedLens<M, String>>) -> Self
+    pub fn file<M>(lens: impl Into<ResolvedLens<M, String>>) -> FileField
     where
         M: toasty::schema::Model,
     {
-        let lens = lens.into();
-        Self {
-            name: lens.name,
-            label: lens.label,
-            required: !lens.nullable,
-            nullable: lens.nullable,
-            rules: Rules::new(),
-            control: ControlKind::File,
-        }
+        FileField(Self::bound(lens.into(), Rules::new(), ControlKind::File))
     }
 
     /// A checkbox over a `bool` column: the built-in [`Toggle`].
     ///
     /// An unchecked box submits `false`, so the field is never empty and
     /// carries no required marker.
-    pub fn toggle<M>(lens: impl Into<ResolvedLens<M, bool>>) -> Self
+    pub fn toggle<M>(lens: impl Into<ResolvedLens<M, bool>>) -> CustomField
     where
         M: toasty::schema::Model,
     {
@@ -229,20 +238,16 @@ impl Field {
     pub fn custom<M, T>(
         lens: impl Into<ResolvedLens<M, T>>,
         control: impl Control + 'static,
-    ) -> Self
+    ) -> CustomField
     where
         M: toasty::schema::Model,
         T: FormScalar,
     {
-        let lens = lens.into();
-        Self {
-            name: lens.name,
-            label: lens.label,
-            required: !lens.nullable,
-            nullable: lens.nullable,
-            rules: Rules::new().scalar::<T>(),
-            control: ControlKind::Custom(Arc::new(control)),
-        }
+        CustomField(Self::bound(
+            lens.into(),
+            Rules::new().scalar::<T>(),
+            ControlKind::Custom(Arc::new(control)),
+        ))
     }
 
     /// The variant control of an embedded enum: a choice over its
@@ -264,132 +269,13 @@ impl Field {
                 options: variants,
                 ..ChoiceControl::default()
             }),
+            misdeclared: None,
         }
     }
 
-    /// Override the label.
-    pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.label = label.into();
-        self
-    }
-
-    /// Refuse an empty submission.
-    pub fn required(mut self) -> Self {
-        self.required = true;
-        self
-    }
-
-    /// Accept an empty submission: for a nullable column, or for a column a
-    /// record fn fills when the form leaves it empty. The browser-side
-    /// `required` attribute drops too. A unique text field stays required
-    /// ([`unique`](Self::unique)).
-    pub fn optional(mut self) -> Self {
-        self.required = false;
-        self
-    }
-
-    /// Validate the value as an email address (text), and render
-    /// `type="email"`.
-    pub fn email(mut self) -> Self {
-        self.text_mut("email");
-        self.rules.set_email();
-        self
-    }
-
-    /// Mark the field as backed by a unique index, which the app-side
-    /// pre-check probes before the write (text).
-    ///
-    /// **Uniqueness implies presence on a non-nullable column**: an empty
-    /// `String` stores `""`, which the index admits only once, so an empty
-    /// submit is refused inline as `"<Label> is required"` instead of being
-    /// written, and the probe never sees it. `.optional()` does not lift that
-    /// rule, whichever order the two are called in (ADR-0010). A nullable
-    /// column (`Option<T>`) stores NULL for an empty submit, which the index
-    /// admits any number of times, so it stays optional when declared so.
-    pub fn unique(mut self) -> Self {
-        self.text_mut("unique").unique = true;
-        self
-    }
-
-    /// The control's placeholder text (text).
-    pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
-        self.text_mut("placeholder").placeholder = Some(placeholder.into());
-        self
-    }
-
-    /// Render a `<textarea>` of `rows` lines rather than a one-line input
-    /// (text), for a column holding prose.
-    pub fn multiline(mut self, rows: u32) -> Self {
-        self.text_mut("multiline").rows = Some(rows);
-        self
-    }
-
-    /// Static options whose value is their label (choice).
-    pub fn options(self, options: Vec<String>) -> Self {
-        self.options_with_labels(options.into_iter().map(|s| (s.clone(), s)).collect())
-    }
-
-    /// Static options as `(value, label)` pairs (choice).
-    pub fn options_with_labels(mut self, pairs: Vec<(String, String)>) -> Self {
-        self.choice_mut("options").options = pairs;
-        self
-    }
-
-    /// Filter the options as the user types (choice).
-    ///
-    /// Renders a filter input and a suggestion listbox above the select.
-    /// Typing narrows the list by label substring for a bounded set, and a pick
-    /// writes the chosen option onto the select, which stays the form control.
-    /// Past the option cap, a relationship fetches
-    /// `GET {parent_list_url}/options?field=&q=` (debounced, in-flight
-    /// requests aborted, selection preserved) and re-renders the list from the
-    /// answer, searching the related table's `searchable()` columns; a
-    /// non-searchable relationship keeps the cap error.
-    ///
-    /// Needs `assets/selects.js` (`tablo_ui::SELECTS_JS`), emitted by
-    /// `Panel::render_document` on every document with shell assets
-    /// (ADR-0014); without it the input is inert and the plain select keeps
-    /// working.
-    pub fn searchable(mut self) -> Self {
-        self.choice_mut("searchable").searchable = true;
-        self
-    }
-
-    /// Load the options from a related source's tenant-scoped query (choice).
-    ///
-    /// `R` is any [`OptionSource`] — every `Resource` is one. The first
-    /// argument is the related resource's `query` fn (`AuthorResource::query`),
-    /// a type-inference witness only: the loader calls the source's scoped
-    /// query, so the tenant gate and the derived tenant filter apply. The
-    /// second projects a record to the model's **primary key**, whose
-    /// `Display` is the `<option value>`; the third maps it to its label. A
-    /// projection to anything but the key type fails to compile, and an edit
-    /// form hydrates the foreign key with the same string.
-    ///
-    /// Policy-checked: the related source must allow `can_view_any` and, when
-    /// it declares `requires_tenant`, have a resolved tenant; each loaded row
-    /// is filtered through `can_view`. A denial fails the load closed — no
-    /// options and not the stored value, `{label} is not available` on GET,
-    /// and a submit that carries a value fails with that message.
-    ///
-    /// Bounded and memoized: at most one row past `MAX_RELATIONSHIP_OPTIONS`
-    /// loads per `(request, tenant)`. Past the cap a searchable field degrades
-    /// to type-to-search with a targeted existence check, and a non-searchable
-    /// one reports `could not load options, retry`.
-    pub fn relationship<R>(
-        mut self,
-        query: fn(&Cx) -> toasty::stmt::Query<toasty::stmt::List<R::Model>>,
-        value: impl Fn(&R::Model) -> RelatedPrimaryKey<R> + Send + Sync + 'static,
-        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
-    ) -> Self
-    where
-        R: OptionSource + 'static,
-        RelatedPrimaryKey<R>: std::fmt::Display,
-    {
-        let _ = query;
-        self.choice_mut("relationship").relationship =
-            Some(choice::Relationship::new::<R>(value, label));
-        self
+    /// Why this field binds no column, when its lens refused to.
+    pub(crate) fn misdeclared(&self) -> Option<&str> {
+        self.misdeclared.as_deref()
     }
 
     /// The key the control posts.
@@ -426,7 +312,7 @@ impl Field {
         matches!(self.control, ControlKind::File)
     }
 
-    /// Whether this is a text field marked [`unique`](Self::unique).
+    /// Whether this is a text field marked [`unique`](TextField::unique).
     pub(crate) fn is_unique(&self) -> bool {
         matches!(&self.control, ControlKind::Text(text) if text.unique)
     }
@@ -527,28 +413,6 @@ impl Field {
         );
         let rendered = control.render(cx, input);
         render_field(cx, &chrome, &self.label, required, attributes! {}, rendered)
-    }
-
-    /// The text control, or a panic naming the modifier that needs one.
-    fn text_mut(&mut self, modifier: &str) -> &mut TextControl {
-        match &mut self.control {
-            ControlKind::Text(text) => text,
-            _ => panic!(
-                "`.{modifier}()` applies to a text field, and `{}` is not one",
-                self.name
-            ),
-        }
-    }
-
-    /// The choice control, or a panic naming the modifier that needs one.
-    fn choice_mut(&mut self, modifier: &str) -> &mut ChoiceControl {
-        match &mut self.control {
-            ControlKind::Choice(choice) => choice,
-            _ => panic!(
-                "`.{modifier}()` applies to a choice field, and `{}` is not one",
-                self.name
-            ),
-        }
     }
 }
 

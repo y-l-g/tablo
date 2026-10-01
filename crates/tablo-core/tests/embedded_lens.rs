@@ -81,7 +81,7 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
     let cx = article_cx().await;
     // Two levels deep: Article.meta.seo.title -> meta_seo_title.
     let input = Field::text(ResolvedLens::new(
-        &cx,
+        &tablo_core::DeclCx::from_cx(&cx),
         Article::fields().meta().seo().title(),
     ));
     assert_eq!(
@@ -109,9 +109,12 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
 async fn the_flattened_name_participates_in_allow_list_and_validation() {
     let cx = article_cx().await;
     let schema = Schema::new((
-        Field::text(ResolvedLens::new(&cx, Article::fields().title())),
         Field::text(ResolvedLens::new(
-            &cx,
+            &tablo_core::DeclCx::from_cx(&cx),
+            Article::fields().title(),
+        )),
+        Field::text(ResolvedLens::new(
+            &tablo_core::DeclCx::from_cx(&cx),
             Article::fields().meta().seo().title(),
         )),
     ));
@@ -140,7 +143,7 @@ async fn the_flattened_name_participates_in_allow_list_and_validation() {
     // ...but a required one is still required when asked for explicitly.
     let required = Schema::new(
         Field::text(ResolvedLens::new(
-            &cx,
+            &tablo_core::DeclCx::from_cx(&cx),
             Article::fields().meta().seo().description(),
         ))
         .required(),
@@ -154,27 +157,44 @@ async fn the_flattened_name_participates_in_allow_list_and_validation() {
 }
 
 /// A traversal lens over a relation is not an embedded step, and this walk is
-/// for embedded binding only. It must fail loudly rather than bind anything —
+/// for embedded binding only. It is refused rather than bound to anything —
 /// `author_id` and `name` are different columns, so a silent misbind here would
 /// write the wrong one. No `lenses.rs` test reaches this branch: its
-/// panic rows come from the missing/foreign-root model check, not from a
+/// refusals come from the missing/foreign-root model check, not from a
 /// relation hop in the walk.
 #[tokio::test]
-#[should_panic(expected = "only embedded steps")]
 async fn a_relation_traversal_is_refused_rather_than_misbound() {
     let cx = article_cx().await;
-    let _ = Field::text(ResolvedLens::new(&cx, Article::fields().author().name()));
+    let errors = Schema::new(Field::text(ResolvedLens::new(
+        &tablo_core::DeclCx::from_cx(&cx),
+        Article::fields().author().name(),
+    )))
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("only embedded steps")),
+        "{errors:?}"
+    );
 }
 
-/// Without a `Db` there is no app schema, and the single-segment rule must
-/// still refuse a traversal lens loudly rather than bind the wrong column.
-/// `lenses.rs` covers `resolve_enum` against a bare `Cx`, which returns
-/// `None`; this pins the panicking `resolve` entry a form binding uses.
+/// Without an app schema the single-segment rule still refuses a traversal
+/// lens rather than bind the wrong column. `lenses.rs` covers `resolve_enum`
+/// without a schema, which returns `None`; this pins the `resolve` entry a
+/// form binding uses.
 #[tokio::test]
-#[should_panic(expected = "single-field lens")]
-async fn without_a_schema_a_traversal_lens_still_fails_loudly() {
-    let cx = CxTestBuilder::new().build();
-    let _ = Field::text(ResolvedLens::new(&cx, Article::fields().meta().note()));
+async fn without_a_schema_a_traversal_lens_is_still_refused() {
+    let errors = Schema::new(Field::text(ResolvedLens::new(
+        &tablo_core::DeclCx::empty(),
+        Article::fields().meta().note(),
+    )))
+    .declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("single-field lens")),
+        "{errors:?}"
+    );
 }
 
 /// Every kind of field binds an embedded leaf through `ResolvedLens::new`,
@@ -183,12 +203,12 @@ async fn without_a_schema_a_traversal_lens_still_fails_loudly() {
 async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     let cx = article_cx().await;
     let choice = Field::choice(ResolvedLens::new(
-        &cx,
+        &tablo_core::DeclCx::from_cx(&cx),
         Article::fields().meta().seo().title(),
     ))
     .options(vec!["draft".to_string()]);
     let file = Field::file(ResolvedLens::new(
-        &cx,
+        &tablo_core::DeclCx::from_cx(&cx),
         Article::fields().meta().seo().description(),
     ));
     assert_eq!(choice.name(), "meta_seo_title");

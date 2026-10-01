@@ -24,10 +24,10 @@ use topcoat::{
     view::{View, class, view},
 };
 
-use crate::models::{Author, MediaAsset, Post};
+use crate::models::{Author, MediaAsset, Post, PostStatus};
 
 // The status a post carries once it is visible to the public.
-pub(crate) const PUBLISHED: &str = "published";
+pub(crate) const PUBLISHED: &str = PostStatus::Published.value();
 
 // The record key in `/blog/{id}`: the post's `Uuid`, parsed from the segment.
 path_param!(pub id: uuid::Uuid);

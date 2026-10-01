@@ -56,15 +56,32 @@ fn text_column_renders_cells_via_typed_projection() {
 }
 
 #[test]
-#[should_panic(expected = "searchable() on computed column")]
-fn computed_searchable_panics_loudly() {
-    let _ = TextColumn::computed("Status", |u: &User| u.name.clone()).searchable();
+fn computed_searchable_is_misdeclared() {
+    let errors = Column::misdeclared(
+        &TextColumn::computed("Status", |u: &User| u.name.clone()).searchable(),
+    )
+    .into_iter()
+    .collect::<Vec<_>>();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("searchable() on computed column")),
+        "{errors:?}"
+    );
 }
 
 #[test]
-#[should_panic(expected = "sortable() on computed column")]
-fn computed_sortable_panics_loudly() {
-    let _ = TextColumn::computed("Status", |u: &User| u.name.clone()).sortable();
+fn computed_sortable_is_misdeclared() {
+    let errors =
+        Column::misdeclared(&TextColumn::computed("Status", |u: &User| u.name.clone()).sortable())
+            .into_iter()
+            .collect::<Vec<_>>();
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("sortable() on computed column")),
+        "{errors:?}"
+    );
 }
 
 #[test]

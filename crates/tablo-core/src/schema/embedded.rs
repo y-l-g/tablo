@@ -21,7 +21,7 @@
 //! #[derive(Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 //! pub struct Seo { pub title: String, pub description: String }
 //!
-//! Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()));
+//! Section::new("SEO").schema(Seo::form(dx, Post::fields().seo()));
 //! record.seo.write_form(cx, Post::fields().seo(), &mut values);
 //! let seo = Seo::read_form(cx, Post::fields().seo(), &values)?;
 //! ```
@@ -47,7 +47,7 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{
     Schema,
     fields::Field,
-    lenses::FieldResolver,
+    lenses::{DeclCx, FieldResolver},
     tree::{LeafPlace, Mode, Node, Source},
 };
 use crate::form::{FieldError, FormScalar};
@@ -55,7 +55,7 @@ use crate::form::{FieldError, FormScalar};
 /// An embedded value that can be read from, and written to, the flat form map.
 ///
 /// Derive it with [`tablo_core::EmbeddedForm`](crate::EmbeddedForm), which also
-/// generates `form(cx, parent)`, the value's schema. The hidden methods are
+/// generates `form(dx, parent)`, the value's schema. The hidden methods are
 /// the derive's; the two provided ones are the codec.
 pub trait EmbeddedForm: Sized {
     /// Write this value's leaves into `out`, under the columns the app schema
@@ -71,7 +71,7 @@ pub trait EmbeddedForm: Sized {
     ) where
         M: toasty::schema::Model,
     {
-        let schema = Self::build_schema(cx, parent.into());
+        let schema = Self::build_schema(&DeclCx::from_cx(cx), parent.into());
         self.write_node(schema.embedded_root(), out);
     }
 
@@ -94,13 +94,13 @@ pub trait EmbeddedForm: Sized {
     where
         M: toasty::schema::Model,
     {
-        let schema = Self::build_schema(cx, parent.into());
+        let schema = Self::build_schema(&DeclCx::from_cx(cx), parent.into());
         Self::read_node(schema.embedded_root(), values)
     }
 
     /// The value's schema: one node holding its resolved fields.
     #[doc(hidden)]
-    fn build_schema<M>(cx: &Cx, parent: Path<M, Self>) -> Schema
+    fn build_schema<M>(dx: &DeclCx, parent: Path<M, Self>) -> Schema
     where
         M: toasty::schema::Model;
 
@@ -517,24 +517,24 @@ impl EmbeddedBuilder {
     }
 
     /// An enum value at `parent`: its discriminant column and variants come
-    /// from the request's app schema, and its variant control is the first
+    /// from the app schema `dx` carries, and its variant control is the first
     /// field.
     ///
-    /// Panics without a `Db` in context, or when `parent` names no embedded
+    /// Panics without an app schema, or when `parent` names no embedded
     /// enum: every caller is a declaration, and a lens that resolves to nothing
     /// is a wiring bug.
-    pub fn enumeration<M, T>(cx: &Cx, parent: Path<M, T>) -> Self
+    pub fn enumeration<M, T>(dx: &DeclCx, parent: Path<M, T>) -> Self
     where
         M: toasty::schema::Model,
     {
-        let resolver = FieldResolver::from_cx(cx);
+        let resolver = FieldResolver::new(dx);
         assert!(
             resolver.has_schema(),
-            "an embedded enum needs the app schema: put a `Db` in the context (GH #191)"
+            "an embedded enum needs the app schema: build the `DeclCx` from a `Db`"
         );
         let shape = resolver.resolve_enum(parent).unwrap_or_else(|| {
             panic!(
-                "{} is not an embedded enum in this request's app schema (GH #191)",
+                "{} is not an embedded enum in this app schema",
                 std::any::type_name::<T>()
             )
         });
@@ -583,7 +583,8 @@ impl EmbeddedBuilder {
     }
 
     /// A leaf rendered in place.
-    pub fn leaf(&mut self, field: Field) {
+    pub fn leaf(&mut self, field: impl Into<Field>) {
+        let field = field.into();
         let key = field.name().to_string();
         let index = self.fields.len();
         self.fields.push(field);
@@ -595,7 +596,8 @@ impl EmbeddedBuilder {
 
     /// A `#[shared(..)]` leaf: the first variant declaring its column renders
     /// it, once, outside the variant groups.
-    pub fn shared(&mut self, field: Field) {
+    pub fn shared(&mut self, field: impl Into<Field>) {
+        let field = field.into();
         let key = field.name().to_string();
         let Shape::Enum(e) = &mut self.shape else {
             panic!("a struct value has no shared column");
@@ -641,12 +643,12 @@ impl EmbeddedBuilder {
 /// Every form key the embedded value at `parent` occupies: a record form binds
 /// them to the one field that holds the value.
 #[doc(hidden)]
-pub fn embedded_keys<M, T>(cx: &Cx, parent: impl Into<Path<M, T>>) -> Vec<String>
+pub fn embedded_keys<M, T>(dx: &DeclCx, parent: impl Into<Path<M, T>>) -> Vec<String>
 where
     M: toasty::schema::Model,
     T: EmbeddedForm,
 {
-    T::build_schema(cx, parent.into()).embedded_root().keys()
+    T::build_schema(dx, parent.into()).embedded_root().keys()
 }
 
 /// Read one leaf out of a submission, by its resolved key.

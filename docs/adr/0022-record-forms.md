@@ -1,6 +1,6 @@
 # Record forms: a derived typed value, completed from the stored record
 
-Date: 2026-09-28 — Status: accepted — Amended: 2026-09-29, 2026-09-30
+Date: 2026-09-28 — Status: accepted — Amended: 2026-09-29, 2026-09-30, 2026-10-01
 
 ## Decision
 
@@ -106,3 +106,22 @@ check refuses the declaration where the control can be posted empty. ADR-0019's 
 blank leaf goes; an `Option<T>` leaf is the answer for a column that stores no value. A leaf of a
 variant group the discriminant hides is not read at all, so it is asked for no answer; a discriminant
 the submission posts empty is named, and the read's fallback is what answers it.
+
+## Amendment — 2026-10-01
+
+**Derive-first declarations, built once.** The derive picks each field's control from the field
+— a `bool` is a toggle (an empty submission reads as `false`), `#[form(options = T)]` a choice
+over `T`'s `#[derive(Options)]` list, `#[form(choice)]` a bare choice, `#[form(file)]` a file
+field, `#[form(embed)]` the embedded value's schema, and any other field a text field — and
+emits `controls(dx)` handing each one over plus the default `RecordForm::schema` arranging one
+per field in order. `Resource::form` defaults to that schema; an override arranges the controls
+into a layout. Each `Field` constructor returns its control's builder (`TextField`,
+`ChoiceField`, `FileField`, `CustomField`), which offers only that control's modifiers, so a
+modifier on the wrong control does not compile.
+
+`Resource::table()` takes no context and `Resource::form(dx)` takes a `DeclCx` carrying the app
+schema alone. `Panel::build` calls each declaration once, refuses what `Table` and `Schema`
+record as misdeclared, and serves the cached values to every handler; rendering a misdeclared
+table or schema fails with the same errors. The consequence's "`form(cx)` must declare the same
+controls on every request" is superseded: sameness holds because the panel serves what the build
+checked.

@@ -9,6 +9,22 @@ pub use crate::seed::{
     TENANTLESS_ADMIN_EMAIL, create_admin, seed, seed_content,
 };
 
+/// A user's role: the options the user form offers, stored as their value
+/// (`"admin"`, `"member"`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+pub enum Role {
+    Admin,
+    Member,
+}
+
+/// A post's lifecycle: the options the post form, the status filter and the
+/// status column share, stored as their value (`"draft"`, `"published"`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+pub enum PostStatus {
+    Draft,
+    Published,
+}
+
 /// User shown in the admin list — the realistic spec model (US16):
 /// role/active/created_at plus `#[index]` on the searchable `name` column.
 /// `email` keeps only `#[unique]` — a unique constraint already implies an

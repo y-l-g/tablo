@@ -12,7 +12,7 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -35,7 +35,7 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -73,7 +73,7 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -113,7 +113,7 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -143,7 +143,7 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -173,7 +173,7 @@ fn panel_navigation_item_respects_prefix() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -209,7 +209,7 @@ fn panel_navigation_items_are_distinct_for_multiple_resources() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -223,7 +223,7 @@ fn panel_navigation_items_are_distinct_for_multiple_resources() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -275,7 +275,7 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
@@ -303,7 +303,7 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table(_cx: &topcoat::context::Cx) -> crate::resource::Table<Dummy> {
+        fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
                 |r: &Dummy| r.id.to_string(),
                 crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {

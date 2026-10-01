@@ -29,8 +29,25 @@ struct FieldSpec {
     variant: syn::Ident,
     /// `#[form(embed)]`: an `EmbeddedForm` value, bound whole.
     embed: bool,
-    /// `#[form(blank = <expr>)]`.
+    /// `#[form(blank = <expr>)]`, or `false` for a `bool` that declares none.
     blank: Option<syn::Expr>,
+    /// The control the default schema renders for the field.
+    control: DefaultControl,
+}
+
+/// The control a field gets in the derived schema: chosen by the field's
+/// type and its `#[form(..)]` control key.
+enum DefaultControl {
+    /// A text field: any scalar without a control key.
+    Text,
+    /// A checkbox: a `bool`.
+    Toggle,
+    /// A choice, over an `Options` type's list when one is named.
+    Choice(Option<syn::Path>),
+    /// A file field.
+    File,
+    /// An embedded value's own schema.
+    Embed,
 }
 
 /// What `#[form(..)]` says on the struct.
@@ -114,12 +131,33 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
     }
     let attrs = form_attrs(field, Derive::Record)?;
     let variant = format_ident!("{}", pascal_case(&ident.to_string()));
+    let is_bool =
+        matches!(&field.ty, Type::Path(path) if path.qself.is_none() && path.path.is_ident("bool"));
+    let control = if attrs.embed {
+        DefaultControl::Embed
+    } else if let Some(options) = attrs.options {
+        DefaultControl::Choice(Some(options))
+    } else if attrs.choice {
+        DefaultControl::Choice(None)
+    } else if attrs.file {
+        DefaultControl::File
+    } else if is_bool {
+        DefaultControl::Toggle
+    } else {
+        DefaultControl::Text
+    };
+    // An unchecked toggle posts `false`, so a `bool` reads an empty
+    // submission as `false` unless it declares otherwise.
+    let blank = attrs
+        .blank
+        .or_else(|| is_bool.then(|| syn::parse_quote!(false)));
     Ok(FieldSpec {
         ident,
         ty: field.ty.clone(),
         variant,
         embed: attrs.embed,
-        blank: attrs.blank,
+        blank,
+        control,
     })
 }
 
@@ -184,7 +222,7 @@ fn expand_struct(
                 #krate::__macro::FormField {
                     field: #field_enum::#variant,
                     name: #name_str,
-                    keys: #krate::__macro::embedded_keys::<#model, #ty>(cx, #path),
+                    keys: #krate::__macro::embedded_keys::<#model, #ty>(dx, #path),
                     answers_blank: <#ty as #krate::__macro::EmbeddedForm>::answers_blank(),
                 }
             });
@@ -234,6 +272,63 @@ fn expand_struct(
             });
         }
     }
+    let controls_ident = format_ident!("{}Controls", ident);
+    let controls_doc = format!(
+        "One control per field of [`{ident}`], each chosen from the field: arrange them into a \
+         layout in `Resource::form`, adjusting any with its builder's modifiers."
+    );
+    let mut control_fields = Vec::new();
+    let mut control_inits = Vec::new();
+    for field in fields {
+        let name = &field.ident;
+        let path = quote! { <#model>::fields().#name() };
+        let (ty, init) = match &field.control {
+            DefaultControl::Text => (
+                quote! { #krate::__macro::TextField },
+                quote! { #krate::__macro::Field::text(#path) },
+            ),
+            DefaultControl::Toggle => (
+                quote! { #krate::__macro::CustomField },
+                quote! { #krate::__macro::Field::toggle(#path) },
+            ),
+            DefaultControl::Choice(None) => (
+                quote! { #krate::__macro::ChoiceField },
+                quote! { #krate::__macro::Field::choice(#path) },
+            ),
+            DefaultControl::Choice(Some(options)) => (
+                quote! { #krate::__macro::ChoiceField },
+                quote! {
+                    #krate::__macro::Field::choice(#path)
+                        .options(<#options as #krate::__macro::Options>::options())
+                },
+            ),
+            DefaultControl::File => (
+                quote! { #krate::__macro::FileField },
+                quote! { #krate::__macro::Field::file(#path) },
+            ),
+            DefaultControl::Embed => {
+                let ty = &field.ty;
+                (
+                    quote! { #krate::__macro::Schema },
+                    quote! {
+                        <#ty as #krate::__macro::EmbeddedForm>::build_schema(
+                            dx,
+                            ::std::convert::Into::into(#path),
+                        )
+                    },
+                )
+            }
+        };
+        let doc = format!(
+            "The `{}` control.",
+            name.to_string().trim_start_matches("r#")
+        );
+        control_fields.push(quote! {
+            #[doc = #doc]
+            pub #name: #ty
+        });
+        control_inits.push(quote! { #name: #init });
+    }
     let names: Vec<&syn::Ident> = fields.iter().map(|f| &f.ident).collect();
     let bindings: Vec<syn::Ident> = names
         .iter()
@@ -247,12 +342,36 @@ fn expand_struct(
             #(#[allow(missing_docs)] #variants,)*
         }
 
+        #[doc = #controls_doc]
+        #vis struct #controls_ident {
+            #(#control_fields,)*
+        }
+
+        impl #ident {
+            /// Every field's control, chosen from the field: a `bool` is a
+            /// toggle, `#[form(options = T)]` a choice over `T`'s options,
+            /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
+            /// `#[form(embed)]` the embedded value's schema, and any other
+            /// field a text field.
+            #vis fn controls(dx: &#krate::__macro::DeclCx) -> #controls_ident {
+                #controls_ident {
+                    #(#control_inits,)*
+                }
+            }
+        }
+
         impl #krate::__macro::RecordForm for #ident {
             type Model = #model;
             type Field = #field_enum;
 
+            fn schema(dx: &#krate::__macro::DeclCx) -> #krate::__macro::Schema {
+                let controls = Self::controls(dx);
+                #krate::__macro::Schema::empty()
+                    #(.extend(#krate::__macro::IntoSchema::into_schema(controls.#names)))*
+            }
+
             fn fields(
-                cx: &#krate::__macro::Cx,
+                dx: &#krate::__macro::DeclCx,
             ) -> ::std::vec::Vec<#krate::__macro::FormField<#field_enum>> {
                 ::std::vec![#(#claims),*]
             }

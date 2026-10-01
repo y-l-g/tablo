@@ -94,7 +94,7 @@ async fn a_choice_renders_its_option_label() {
     // the user chose rather than the wire value behind it.
     let schema = Schema::new(
         Field::choice(Doc::fields().status())
-            .options_with_labels(vec![("published".to_string(), "Live".to_string())]),
+            .options(vec![("published".to_string(), "Live".to_string())]),
     );
     let html = render(&schema, &values()).await;
     assert!(

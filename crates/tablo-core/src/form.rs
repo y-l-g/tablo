@@ -109,7 +109,7 @@ use topcoat::{Result, context::Cx};
 
 use crate::{
     resource::Resource,
-    schema::TypedValue,
+    schema::{DeclCx, Schema, TypedValue},
     tenancy::{require_tenant, tenant_field_index},
 };
 
@@ -313,7 +313,18 @@ pub trait RecordForm: Sized + Send + 'static {
     type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
 
     /// Every field, in declaration order, with the keys it binds.
-    fn fields(cx: &Cx) -> Vec<FormField<Self::Field>>;
+    fn fields(dx: &DeclCx) -> Vec<FormField<Self::Field>>;
+
+    /// The form's default schema: one control per field, in declaration
+    /// order. [`Resource::form`] defaults to
+    /// it.
+    ///
+    /// The derive chooses each control from the field (see
+    /// [`RecordForm`](derive@crate::RecordForm)); the default here declares
+    /// none, which is what [`NoForm`] wants.
+    fn schema(_dx: &DeclCx) -> Schema {
+        Schema::empty()
+    }
 
     /// The stored record as the form spells it.
     fn hydrate(cx: &Cx, record: &Self::Model) -> HashMap<String, String>;
@@ -381,7 +392,7 @@ impl<M: Model + Send + Sync + 'static> RecordForm for NoForm<M> {
 
     const HAS_FORM: bool = false;
 
-    fn fields(_cx: &Cx) -> Vec<FormField<Self::Field>> {
+    fn fields(_dx: &DeclCx) -> Vec<FormField<Self::Field>> {
         Vec::new()
     }
 
