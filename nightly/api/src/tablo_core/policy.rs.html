@@ -154,69 +154,71 @@
 <a href=#154 id=154 data-nosnippet>154</a>/// the user, the tenant — which applies to every ability alike:
 <a href=#155 id=155 data-nosnippet>155</a>///
 <a href=#156 id=156 data-nosnippet>156</a>/// ```ignore
-<a href=#157 id=157 data-nosnippet>157</a>/// fn signed_in(cx: &amp;Cx) -&gt; bool { current_user(cx).is_some() }
-<a href=#158 id=158 data-nosnippet>158</a>///
-<a href=#159 id=159 data-nosnippet>159</a>/// fn policy() -&gt; impl Policy&lt;Post&gt; { ReadOnly.and(when(signed_in)) }
-<a href=#160 id=160 data-nosnippet>160</a>/// ```
-<a href=#161 id=161 data-nosnippet>161</a></span><span class="kw">pub fn </span>when&lt;F&gt;(predicate: F) -&gt; When&lt;F&gt;
-<a href=#162 id=162 data-nosnippet>162</a><span class="kw">where
-<a href=#163 id=163 data-nosnippet>163</a>    </span>F: Fn(<span class="kw-2">&amp;</span>Cx) -&gt; bool + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#164 id=164 data-nosnippet>164</a>{
-<a href=#165 id=165 data-nosnippet>165</a>    When(predicate)
-<a href=#166 id=166 data-nosnippet>166</a>}
-<a href=#167 id=167 data-nosnippet>167</a>
-<a href=#168 id=168 data-nosnippet>168</a><span class="doccomment">/// The policy [`when`] returns.
-<a href=#169 id=169 data-nosnippet>169</a></span><span class="attr">#[derive(Debug, Clone, Copy)]
-<a href=#170 id=170 data-nosnippet>170</a></span><span class="kw">pub struct </span>When&lt;F&gt;(F);
-<a href=#171 id=171 data-nosnippet>171</a>
-<a href=#172 id=172 data-nosnippet>172</a><span class="kw">impl</span>&lt;M, F&gt; Policy&lt;M&gt; <span class="kw">for </span>When&lt;F&gt;
-<a href=#173 id=173 data-nosnippet>173</a><span class="kw">where
-<a href=#174 id=174 data-nosnippet>174</a>    </span>F: Fn(<span class="kw-2">&amp;</span>Cx) -&gt; bool + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#175 id=175 data-nosnippet>175</a>{
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="kw">fn </span>allows(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;</span>Cx, _ability: Ability&lt;<span class="lifetime">'_</span>, M&gt;) -&gt; bool {
-<a href=#177 id=177 data-nosnippet>177</a>        (<span class="self">self</span>.<span class="number">0</span>)(cx)
-<a href=#178 id=178 data-nosnippet>178</a>    }
-<a href=#179 id=179 data-nosnippet>179</a>}
-<a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a><span class="doccomment">/// The policy `and` returns: allows what both sides allow.
-<a href=#182 id=182 data-nosnippet>182</a></span><span class="attr">#[derive(Debug, Clone, Copy)]
-<a href=#183 id=183 data-nosnippet>183</a></span><span class="kw">pub struct </span>And&lt;A, B&gt;(A, B);
-<a href=#184 id=184 data-nosnippet>184</a>
-<a href=#185 id=185 data-nosnippet>185</a><span class="kw">impl</span>&lt;M, A: Policy&lt;M&gt;, B: Policy&lt;M&gt;&gt; Policy&lt;M&gt; <span class="kw">for </span>And&lt;A, B&gt; {
-<a href=#186 id=186 data-nosnippet>186</a>    <span class="kw">fn </span>allows(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;</span>Cx, ability: Ability&lt;<span class="lifetime">'_</span>, M&gt;) -&gt; bool {
-<a href=#187 id=187 data-nosnippet>187</a>        <span class="self">self</span>.<span class="number">0</span>.allows(cx, ability) &amp;&amp; <span class="self">self</span>.<span class="number">1</span>.allows(cx, ability)
-<a href=#188 id=188 data-nosnippet>188</a>    }
-<a href=#189 id=189 data-nosnippet>189</a>}
-<a href=#190 id=190 data-nosnippet>190</a>
-<a href=#191 id=191 data-nosnippet>191</a><span class="doccomment">/// The policy `or` returns: allows what either side allows.
-<a href=#192 id=192 data-nosnippet>192</a></span><span class="attr">#[derive(Debug, Clone, Copy)]
-<a href=#193 id=193 data-nosnippet>193</a></span><span class="kw">pub struct </span>Or&lt;A, B&gt;(A, B);
-<a href=#194 id=194 data-nosnippet>194</a>
-<a href=#195 id=195 data-nosnippet>195</a><span class="kw">impl</span>&lt;M, A: Policy&lt;M&gt;, B: Policy&lt;M&gt;&gt; Policy&lt;M&gt; <span class="kw">for </span>Or&lt;A, B&gt; {
-<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">fn </span>allows(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;</span>Cx, ability: Ability&lt;<span class="lifetime">'_</span>, M&gt;) -&gt; bool {
-<a href=#197 id=197 data-nosnippet>197</a>        <span class="self">self</span>.<span class="number">0</span>.allows(cx, ability) || <span class="self">self</span>.<span class="number">1</span>.allows(cx, ability)
-<a href=#198 id=198 data-nosnippet>198</a>    }
-<a href=#199 id=199 data-nosnippet>199</a>}
-<a href=#200 id=200 data-nosnippet>200</a>
-<a href=#201 id=201 data-nosnippet>201</a><span class="doccomment">/// Whether `R`'s policy allows `ability` for the current request.
-<a href=#202 id=202 data-nosnippet>202</a>///
-<a href=#203 id=203 data-nosnippet>203</a>/// The question every panel handler asks, for app code that renders or writes
-<a href=#204 id=204 data-nosnippet>204</a>/// `R`'s records itself. It does not check the panel's sign-in or `R`'s tenant
-<a href=#205 id=205 data-nosnippet>205</a>/// requirement: [`can_list`] adds both for the list.
-<a href=#206 id=206 data-nosnippet>206</a></span><span class="kw">pub fn </span>can&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, ability: Ability&lt;<span class="lifetime">'_</span>, R::Model&gt;) -&gt; bool {
-<a href=#207 id=207 data-nosnippet>207</a>    R::policy().allows(cx, ability)
-<a href=#208 id=208 data-nosnippet>208</a>}
-<a href=#209 id=209 data-nosnippet>209</a>
-<a href=#210 id=210 data-nosnippet>210</a><span class="doccomment">/// Whether the current request may open `R`'s list: the panel's sign-in when
-<a href=#211 id=211 data-nosnippet>211</a>/// it requires one, a tenant when `R` is tenant-scoped, and
-<a href=#212 id=212 data-nosnippet>212</a>/// [`Ability::ViewAny`].
-<a href=#213 id=213 data-nosnippet>213</a>///
-<a href=#214 id=214 data-nosnippet>214</a>/// The list handler refuses exactly what this refuses, so a page that links to
-<a href=#215 id=215 data-nosnippet>215</a>/// a list — a dashboard tile — checks this rather than restating the three.
-<a href=#216 id=216 data-nosnippet>216</a></span><span class="kw">pub fn </span>can_list&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
-<a href=#217 id=217 data-nosnippet>217</a>    <span class="kw">crate</span>::panel::gate::gate::&lt;R&gt;(cx).is_ok() &amp;&amp; can::&lt;R&gt;(cx, Ability::ViewAny)
-<a href=#218 id=218 data-nosnippet>218</a>}
-<a href=#219 id=219 data-nosnippet>219</a>
-<a href=#220 id=220 data-nosnippet>220</a><span class="attr">#[cfg(test)]
-<a href=#221 id=221 data-nosnippet>221</a></span><span class="kw">mod </span>tests;
+<a href=#157 id=157 data-nosnippet>157</a>/// fn editor(cx: &amp;Cx) -&gt; bool {
+<a href=#158 id=158 data-nosnippet>158</a>///     auth::user::&lt;Staff&gt;(cx).is_some_and(|staff| staff.editor)
+<a href=#159 id=159 data-nosnippet>159</a>/// }
+<a href=#160 id=160 data-nosnippet>160</a>///
+<a href=#161 id=161 data-nosnippet>161</a>/// fn policy() -&gt; impl Policy&lt;Post&gt; { ReadOnly.or(when(editor)) }
+<a href=#162 id=162 data-nosnippet>162</a>/// ```
+<a href=#163 id=163 data-nosnippet>163</a></span><span class="kw">pub fn </span>when&lt;F&gt;(predicate: F) -&gt; When&lt;F&gt;
+<a href=#164 id=164 data-nosnippet>164</a><span class="kw">where
+<a href=#165 id=165 data-nosnippet>165</a>    </span>F: Fn(<span class="kw-2">&amp;</span>Cx) -&gt; bool + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#166 id=166 data-nosnippet>166</a>{
+<a href=#167 id=167 data-nosnippet>167</a>    When(predicate)
+<a href=#168 id=168 data-nosnippet>168</a>}
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a><span class="doccomment">/// The policy [`when`] returns.
+<a href=#171 id=171 data-nosnippet>171</a></span><span class="attr">#[derive(Debug, Clone, Copy)]
+<a href=#172 id=172 data-nosnippet>172</a></span><span class="kw">pub struct </span>When&lt;F&gt;(F);
+<a href=#173 id=173 data-nosnippet>173</a>
+<a href=#174 id=174 data-nosnippet>174</a><span class="kw">impl</span>&lt;M, F&gt; Policy&lt;M&gt; <span class="kw">for </span>When&lt;F&gt;
+<a href=#175 id=175 data-nosnippet>175</a><span class="kw">where
+<a href=#176 id=176 data-nosnippet>176</a>    </span>F: Fn(<span class="kw-2">&amp;</span>Cx) -&gt; bool + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#177 id=177 data-nosnippet>177</a>{
+<a href=#178 id=178 data-nosnippet>178</a>    <span class="kw">fn </span>allows(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;</span>Cx, _ability: Ability&lt;<span class="lifetime">'_</span>, M&gt;) -&gt; bool {
+<a href=#179 id=179 data-nosnippet>179</a>        (<span class="self">self</span>.<span class="number">0</span>)(cx)
+<a href=#180 id=180 data-nosnippet>180</a>    }
+<a href=#181 id=181 data-nosnippet>181</a>}
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a><span class="doccomment">/// The policy `and` returns: allows what both sides allow.
+<a href=#184 id=184 data-nosnippet>184</a></span><span class="attr">#[derive(Debug, Clone, Copy)]
+<a href=#185 id=185 data-nosnippet>185</a></span><span class="kw">pub struct </span>And&lt;A, B&gt;(A, B);
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a><span class="kw">impl</span>&lt;M, A: Policy&lt;M&gt;, B: Policy&lt;M&gt;&gt; Policy&lt;M&gt; <span class="kw">for </span>And&lt;A, B&gt; {
+<a href=#188 id=188 data-nosnippet>188</a>    <span class="kw">fn </span>allows(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;</span>Cx, ability: Ability&lt;<span class="lifetime">'_</span>, M&gt;) -&gt; bool {
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="self">self</span>.<span class="number">0</span>.allows(cx, ability) &amp;&amp; <span class="self">self</span>.<span class="number">1</span>.allows(cx, ability)
+<a href=#190 id=190 data-nosnippet>190</a>    }
+<a href=#191 id=191 data-nosnippet>191</a>}
+<a href=#192 id=192 data-nosnippet>192</a>
+<a href=#193 id=193 data-nosnippet>193</a><span class="doccomment">/// The policy `or` returns: allows what either side allows.
+<a href=#194 id=194 data-nosnippet>194</a></span><span class="attr">#[derive(Debug, Clone, Copy)]
+<a href=#195 id=195 data-nosnippet>195</a></span><span class="kw">pub struct </span>Or&lt;A, B&gt;(A, B);
+<a href=#196 id=196 data-nosnippet>196</a>
+<a href=#197 id=197 data-nosnippet>197</a><span class="kw">impl</span>&lt;M, A: Policy&lt;M&gt;, B: Policy&lt;M&gt;&gt; Policy&lt;M&gt; <span class="kw">for </span>Or&lt;A, B&gt; {
+<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">fn </span>allows(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;</span>Cx, ability: Ability&lt;<span class="lifetime">'_</span>, M&gt;) -&gt; bool {
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="self">self</span>.<span class="number">0</span>.allows(cx, ability) || <span class="self">self</span>.<span class="number">1</span>.allows(cx, ability)
+<a href=#200 id=200 data-nosnippet>200</a>    }
+<a href=#201 id=201 data-nosnippet>201</a>}
+<a href=#202 id=202 data-nosnippet>202</a>
+<a href=#203 id=203 data-nosnippet>203</a><span class="doccomment">/// Whether `R`'s policy allows `ability` for the current request.
+<a href=#204 id=204 data-nosnippet>204</a>///
+<a href=#205 id=205 data-nosnippet>205</a>/// The question every panel handler asks, for app code that renders or writes
+<a href=#206 id=206 data-nosnippet>206</a>/// `R`'s records itself. It does not check the panel's sign-in or `R`'s tenant
+<a href=#207 id=207 data-nosnippet>207</a>/// requirement: [`can_list`] adds both for the list.
+<a href=#208 id=208 data-nosnippet>208</a></span><span class="kw">pub fn </span>can&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, ability: Ability&lt;<span class="lifetime">'_</span>, R::Model&gt;) -&gt; bool {
+<a href=#209 id=209 data-nosnippet>209</a>    R::policy().allows(cx, ability)
+<a href=#210 id=210 data-nosnippet>210</a>}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a><span class="doccomment">/// Whether the current request may open `R`'s list: the panel's sign-in when
+<a href=#213 id=213 data-nosnippet>213</a>/// it requires one, a tenant when `R` is tenant-scoped, and
+<a href=#214 id=214 data-nosnippet>214</a>/// [`Ability::ViewAny`].
+<a href=#215 id=215 data-nosnippet>215</a>///
+<a href=#216 id=216 data-nosnippet>216</a>/// The list handler refuses exactly what this refuses, so a page that links to
+<a href=#217 id=217 data-nosnippet>217</a>/// a list — a dashboard tile — checks this rather than restating the three.
+<a href=#218 id=218 data-nosnippet>218</a></span><span class="kw">pub fn </span>can_list&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx) -&gt; bool {
+<a href=#219 id=219 data-nosnippet>219</a>    <span class="kw">crate</span>::panel::gate::gate::&lt;R&gt;(cx).is_ok() &amp;&amp; can::&lt;R&gt;(cx, Ability::ViewAny)
+<a href=#220 id=220 data-nosnippet>220</a>}
+<a href=#221 id=221 data-nosnippet>221</a>
+<a href=#222 id=222 data-nosnippet>222</a><span class="attr">#[cfg(test)]
+<a href=#223 id=223 data-nosnippet>223</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

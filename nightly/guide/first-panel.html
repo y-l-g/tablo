@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
+            window.path_to_searchindex_js = "searchindex-0a28162c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -274,7 +274,6 @@ async fn main() -&gt; Result&lt;()&gt; {
         password_hash: hash_password("secret")?,
         display_name: "Admin".to_string(),
         active: true,
-        tenant_id: None,
         created_at: jiff::Timestamp::now(),
     })
     .exec(&amp;mut db)

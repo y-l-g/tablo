@@ -90,29 +90,21 @@
 <a href=#90 id=90 data-nosnippet>90</a></span><span class="attr">#[derive(Clone)]
 <a href=#91 id=91 data-nosnippet>91</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CurrentPanel(<span class="kw">pub</span>(<span class="kw">crate</span>) Arc&lt;PanelState&gt;);
 <a href=#92 id=92 data-nosnippet>92</a>
-<a href=#93 id=93 data-nosnippet>93</a><span class="doccomment">/// The panel whose auth resolved the request's [`CurrentUser`](crate::auth::CurrentUser).
-<a href=#94 id=94 data-nosnippet>94</a>///
-<a href=#95 id=95 data-nosnippet>95</a>/// A session belongs to the panel that issued it, so a user resolved by one
-<a href=#96 id=96 data-nosnippet>96</a>/// panel is not the user of another: [`current_user`](crate::auth::current_user)
-<a href=#97 id=97 data-nosnippet>97</a>/// answers only when this is the request's panel.
-<a href=#98 id=98 data-nosnippet>98</a></span><span class="attr">#[derive(Clone)]
-<a href=#99 id=99 data-nosnippet>99</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>UserPanel(<span class="kw">pub</span>(<span class="kw">crate</span>) Arc&lt;PanelState&gt;);
-<a href=#100 id=100 data-nosnippet>100</a>
-<a href=#101 id=101 data-nosnippet>101</a><span class="doccomment">/// The request's panel: the one whose prefix the request is under, the one a
-<a href=#102 id=102 data-nosnippet>102</a>/// live table's shard re-renders for, or the panel whose session signed in a
-<a href=#103 id=103 data-nosnippet>103</a>/// runtime request. A router with a single panel answers it for any request.
-<a href=#104 id=104 data-nosnippet>104</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>current(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;PanelState&gt;&gt; {
-<a href=#105 id=105 data-nosnippet>105</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(CurrentPanel(panel)) = try_request_context::&lt;CurrentPanel&gt;(cx) {
-<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(panel);
-<a href=#107 id=107 data-nosnippet>107</a>    }
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">match </span>try_app_context::&lt;Panels&gt;(cx).map(|panels| panels.<span class="number">0</span>.as_slice()) {
-<a href=#109 id=109 data-nosnippet>109</a>        <span class="prelude-val">Some</span>([only]) =&gt; <span class="prelude-val">Some</span>(only),
-<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#111 id=111 data-nosnippet>111</a>    }
-<a href=#112 id=112 data-nosnippet>112</a>}
-<a href=#113 id=113 data-nosnippet>113</a>
-<a href=#114 id=114 data-nosnippet>114</a><span class="doccomment">/// The mounted panels, if the router mounts any.
-<a href=#115 id=115 data-nosnippet>115</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>panels(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Panels&gt; {
-<a href=#116 id=116 data-nosnippet>116</a>    try_app_context::&lt;Panels&gt;(cx)
-<a href=#117 id=117 data-nosnippet>117</a>}
+<a href=#93 id=93 data-nosnippet>93</a><span class="doccomment">/// The request's panel: the one whose prefix the request is under, the one a
+<a href=#94 id=94 data-nosnippet>94</a>/// live table's shard re-renders for, or the panel whose session signed in a
+<a href=#95 id=95 data-nosnippet>95</a>/// runtime request. A router with a single panel answers it for any request.
+<a href=#96 id=96 data-nosnippet>96</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>current(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;PanelState&gt;&gt; {
+<a href=#97 id=97 data-nosnippet>97</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(CurrentPanel(panel)) = try_request_context::&lt;CurrentPanel&gt;(cx) {
+<a href=#98 id=98 data-nosnippet>98</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(panel);
+<a href=#99 id=99 data-nosnippet>99</a>    }
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">match </span>try_app_context::&lt;Panels&gt;(cx).map(|panels| panels.<span class="number">0</span>.as_slice()) {
+<a href=#101 id=101 data-nosnippet>101</a>        <span class="prelude-val">Some</span>([only]) =&gt; <span class="prelude-val">Some</span>(only),
+<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#103 id=103 data-nosnippet>103</a>    }
+<a href=#104 id=104 data-nosnippet>104</a>}
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a><span class="doccomment">/// The mounted panels, if the router mounts any.
+<a href=#107 id=107 data-nosnippet>107</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>panels(cx: <span class="kw-2">&amp;</span>Cx) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Panels&gt; {
+<a href=#108 id=108 data-nosnippet>108</a>    try_app_context::&lt;Panels&gt;(cx)
+<a href=#109 id=109 data-nosnippet>109</a>}
 </code></pre></div></section></main></body></html>

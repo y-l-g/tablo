@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_staff","ensure_workspace"],"struct":["Seat","SignedStaff","Staff","StaffAuth","Workspace"]};

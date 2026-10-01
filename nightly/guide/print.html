@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
+            window.path_to_searchindex_js = "searchindex-0a28162c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -331,7 +331,6 @@ async fn main() -&gt; Result&lt;()&gt; {
         password_hash: hash_password("secret")?,
         display_name: "Admin".to_string(),
         active: true,
-        tenant_id: None,
         created_at: jiff::Timestamp::now(),
     })
     .exec(&amp;mut db)
@@ -1525,7 +1524,7 @@ one resource to the same related resource.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="policy-auth-tenancy"><a class="header" href="#policy-auth-tenancy">Policy, auth, tenancy</a></h1>
 <p>Three layers decide what a request may do. <strong>Authentication</strong> decides who is signed in.
-<strong>Tenancy</strong> limits a signed-in user to their tenant’s rows. <strong>Policy</strong> — the resource’s
+<strong>Tenancy</strong> limits a signed-in user to the rows of the tenant they act for. <strong>Policy</strong> — the resource’s
 <code>policy()</code> — decides what that user may do with each resource and record.</p>
 <h2 id="policy"><a class="header" href="#policy">Policy</a></h2>
 <p>A policy answers one <code>Ability</code> at a time. The default policy is <code>Deny</code>, so a new resource exposes
@@ -1576,11 +1575,12 @@ delete fails as a whole if any selected record is refused.</li>
 <h3 id="building-a-policy"><a class="header" href="#building-a-policy">Building a policy</a></h3>
 <p><code>Allow</code>, <code>Deny</code>, <code>ReadOnly</code> (<code>ViewAny</code> and <code>View</code>) and <code>when(predicate)</code> are policies, and each
 combines with another through <code>and</code> and <code>or</code>. <code>when</code> allows every ability while a predicate on the
-request holds, which suits a rule about the user or the tenant that several resources share:</p>
+request holds, which suits a rule about the user or the tenant that several resources share. The
+rule reads the app’s own user type, <code>Staff</code> here (see <a href="#your-own-user-table">Your own user table</a>):</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>fn editors_only(cx: &amp;Cx) -&gt; bool {
-    tablo::auth::current_user(cx).is_some_and(|user| user.login.ends_with("@example.com"))
+    tablo::auth::user::&lt;Staff&gt;(cx).is_some_and(|staff| staff.editor)
 }
 
 impl Resource for PostResource {
@@ -1653,24 +1653,65 @@ sessions on every panel, so a reset flow for a user with two panels revokes from
 or once per panel.</li>
 <li><strong>Several panels.</strong> Each panel has its own <code>Auth</code> and its own login page, and a session belongs
 to the panel that signed the user in: the session row records the panel’s prefix. Another
-panel’s gate treats the request as anonymous, and <code>current_user(cx)</code> answers <code>None</code> there. One
+panel’s gate treats the request as anonymous, and <code>auth::user</code> answers <code>None</code> there. One
 browser holds one session, so signing in to a second panel ends the first.</li>
 <li><strong>Rate limiting</strong> is not built in. Limit login attempts at your proxy or firewall.</li>
 </ul>
-<p>Read the signed-in user in your own code with <code>auth::current_user(cx)</code>, which returns a
-<code>CurrentUser { id, login, display_name, tenant_id, can_access_panel }</code>, or with
-<code>auth::require_authenticated(cx)?</code>, which answers the request as the table above when there is
-none.</p>
+<p>Read the signed-in user in your own code as your user type: <code>auth::user::&lt;AdminUser&gt;(cx)</code> returns
+<code>Option&lt;&amp;AdminUser&gt;</code>, and <code>auth::require_user::&lt;AdminUser&gt;(cx)?</code> answers the request as the table
+above when nobody is signed in. <code>auth::signed_in(cx)</code> answers whether anyone is.</p>
 <h3 id="your-own-user-table"><a class="header" href="#your-own-user-table">Your own user table</a></h3>
-<p>Implement <code>Authenticator</code> for your user model and install it:</p>
+<p>Implement <code>PanelUser</code> for the type the panel signs in, and <code>Authenticator</code> to load it:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Panel::new("admin").auth(Auth::custom(MyAuth))
+</span>use tablo::{Membership, PanelUser, auth::{Authenticator, verify_password}};
+
+pub struct SignedStaff {
+    pub staff: Staff,             // your model
+    pub workspaces: Vec&lt;Membership&gt;,
+}
+
+impl PanelUser for SignedStaff {
+    fn user_id(&amp;self) -&gt; String { self.staff.id.to_string() }
+    fn display_name(&amp;self) -&gt; &amp;str { &amp;self.staff.name }
+    fn can_access_panel(&amp;self) -&gt; bool { self.staff.active }
+    fn tenants(&amp;self) -&gt; &amp;[Membership] { &amp;self.workspaces }
+}
+
+pub struct StaffAuth;
+
+impl Authenticator for StaffAuth {
+    type User = SignedStaff;
+
+    async fn verify(&amp;self, cx: &amp;Cx, login: &amp;str, password: &amp;str) -&gt; Result&lt;Option&lt;SignedStaff&gt;&gt; {
+        let staff = find_staff_by_email(cx, login).await?;
+        if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())) {
+            return Ok(None);
+        }
+        // … load the memberships and return Some(SignedStaff { .. })
+    }
+
+    async fn find_by_id(&amp;self, cx: &amp;Cx, id: &amp;str) -&gt; Result&lt;Option&lt;SignedStaff&gt;&gt; {
+        // … the same user and memberships, by `user_id`
+    }
+}
 <span class="boring">}</span></code></pre>
-<p><code>verify(cx, login, password)</code> checks credentials and returns the <code>CurrentUser</code>, and
-<code>find_by_id(cx, id)</code> reloads that user on every request, so deactivating a user takes effect
-immediately. Return <code>Ok(None)</code> for every credential failure; do comparable work for unknown and
-known accounts so response times do not reveal which exist. Sessions stay in <code>AuthSession</code>.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>Panel::new("admin").auth(Auth::custom(StaffAuth))
+<span class="boring">}</span></code></pre>
+<ul>
+<li><strong>The user type is yours.</strong> It need not be a model: the showcase’s <code>SignedStaff</code> is a row plus
+the workspaces it holds a seat in. <code>auth::user::&lt;SignedStaff&gt;(cx)</code> reads it back, fields and
+all, and answers <code>None</code> on a panel whose authenticator loads another type.</li>
+<li><strong><code>verify</code></strong> checks credentials. Return <code>Ok(None)</code> for every credential failure.
+<code>verify_password</code> checks an Argon2id hash and, given <code>None</code> for an unknown account, does the
+same work, so response times do not reveal which accounts exist.</li>
+<li><strong><code>find_by_id</code></strong> reloads the user on every request, so deactivating a user or removing a
+membership takes effect immediately.</li>
+</ul>
+<p>Sessions stay in <code>AuthSession</code>, so register it; the shipped <code>AdminUser</code> is needed only by
+<code>PasswordAuth</code>.</p>
 <h3 id="turning-it-off"><a class="header" href="#turning-it-off">Turning it off</a></h3>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -1679,9 +1720,22 @@ known accounts so response times do not reveal which exist. Sessions stay in <co
 <p>Every panel route is then public and the login routes are not registered. Use it for public
 demos and tests only.</p>
 <h2 id="tenancy"><a class="header" href="#tenancy">Tenancy</a></h2>
-<p>A tenant-owned resource shows each user only their tenant’s rows. The request’s tenant is the
-signed-in user’s <code>tenant_id</code>, read with <code>tenant_id(cx)</code>. No request header can set it; server code
-such as a middleware or a test can, by inserting a <code>Tenant</code> request extension.</p>
+<p>A tenant-owned resource shows each user only the rows of the tenant they act for. A user may act
+for each tenant <code>PanelUser::tenants</code> lists, as a <code>Membership { tenant, name }</code>; the shipped
+<code>AdminUser</code> belongs to none, so a tenanted app signs in <a href="#your-own-user-table">its own user table</a>.</p>
+<ul>
+<li><strong>The request’s tenant</strong> is the membership the user selected, else their first, read with
+<code>tenant_id(cx)</code>; <code>membership(cx)</code> returns the whole <code>Membership</code>. A user with no membership has
+no tenant.</li>
+<li><strong>Switching.</strong> With two or more memberships, the top bar shows a tenant switcher. It posts to
+<code>{prefix}/tenant</code>, which stores the choice on the session and lands on the panel’s home page.
+A tenant the user is not a member of answers 403, and a stored choice applies only while the
+membership lasts. The session table records the choice, so an existing <code>auth_session</code> table
+needs a nullable <code>tenant</code> column, typed as Toasty stores a <code>Uuid</code> on your database. One
+browser acts for one tenant at a time, in every tab.</li>
+<li><strong>Overrides.</strong> No request header sets the tenant. Server code such as a middleware or a test
+can, by inserting a <code>Tenant</code> request extension or putting <code>Tenant(id)</code> on the <code>Cx</code>.</li>
+</ul>
 <p>Declare the resource’s tenancy with the column its rows carry their tenant in:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

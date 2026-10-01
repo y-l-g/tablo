@@ -5,9 +5,17 @@ handler, and the framework ANDs <code>&lt;lens&gt; = &lt;tenant&gt;</code> onto 
 through <a href="../fn.scoped_query.html" title="fn tablo::scoped_query"><code>scoped_query</code></a>, so
 <a href="../trait.Resource.html#method.query" title="associated function tablo::Resource::query"><code>query</code></a> stays the resource’s
 <em>non-tenant</em> scoping seam and no loader can drop the filter by omission.</p>
-<p><a href="../fn.tenant_id.html" title="fn tablo::tenant_id"><code>tenant_id</code></a> answers the request’s tenant: the tenant the panel’s
-signed-in user carries, unless a server-set <code>Tenant</code> request extension or
-a <code>Tenant</code> scoped value overrides it, so app middleware and
-<code>Router::handle</code> tests can set it deliberately. No request header supplies
-a tenant: learning another tenant’s UUID does not make anyone that tenant.</p>
-</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Tenancy.html" title="struct tablo::tenancy::Tenancy">Tenancy</a></dt><dd>How a resource’s rows belong to a tenant.</dd><dt><a class="struct" href="struct.Tenant.html" title="struct tablo::tenancy::Tenant">Tenant</a></dt><dd>Request-scoped tenant identifier.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.require_tenant.html" title="fn tablo::tenancy::require_tenant">require_<wbr>tenant</a></dt><dd>Requires a tenant, returning an error if missing (for tenancy-gated resources).</dd><dt><a class="fn" href="fn.tenant_id.html" title="fn tablo::tenancy::tenant_id">tenant_<wbr>id</a></dt><dd>Returns the tenant id from <code>cx</code>, if present.</dd></dl></section></div></main></body></html>
+<p><a href="../fn.tenant_id.html" title="fn tablo::tenant_id"><code>tenant_id</code></a> answers the request’s tenant: one of the signed-in user’s
+<a href="../trait.PanelUser.html#method.tenants" title="method tablo::PanelUser::tenants"><code>tenants</code></a> — the one the session selected
+with the tenant switcher, else the first — unless a server-set <code>Tenant</code>
+request extension or a <code>Tenant</code> scoped value overrides it, so app
+middleware and <code>Router::handle</code> tests can set it deliberately. No request
+header supplies a tenant: learning another tenant’s UUID does not make
+anyone that tenant.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Membership.html" title="struct tablo::tenancy::Membership">Membership</a></dt><dd>One tenant a user may act for: its id, and the name the tenant switcher
+shows. A <a href="../trait.PanelUser.html" title="trait tablo::PanelUser"><code>PanelUser</code></a> lists its memberships in
+<a href="../trait.PanelUser.html#method.tenants" title="method tablo::PanelUser::tenants"><code>tenants</code></a>.</dd><dt><a class="struct" href="struct.Tenancy.html" title="struct tablo::tenancy::Tenancy">Tenancy</a></dt><dd>How a resource’s rows belong to a tenant.</dd><dt><a class="struct" href="struct.Tenant.html" title="struct tablo::tenancy::Tenant">Tenant</a></dt><dd>Request-scoped tenant identifier.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.membership.html" title="fn tablo::tenancy::membership">membership</a></dt><dd>The signed-in user’s membership the request acts under: the tenant the
+session selected while it is still one of the user’s
+<a href="../trait.PanelUser.html#method.tenants" title="method tablo::PanelUser::tenants"><code>tenants</code></a>, else the first. <code>None</code> without a
+signed-in user, for a user with no tenant, and when a <code>Tenant</code> override
+names a tenant the user is not a member of.</dd><dt><a class="fn" href="fn.require_tenant.html" title="fn tablo::tenancy::require_tenant">require_<wbr>tenant</a></dt><dd>Requires a tenant, returning an error if missing (for tenancy-gated resources).</dd><dt><a class="fn" href="fn.tenant_id.html" title="fn tablo::tenancy::tenant_id">tenant_<wbr>id</a></dt><dd>The tenant the request acts for, if any.</dd></dl></section></div></main></body></html>
