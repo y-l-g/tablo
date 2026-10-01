@@ -13,7 +13,9 @@ async fn main() {
             showcase::models::Post,
             showcase::models::Comment,
             showcase::models::MediaAsset,
-            tablo_core::auth::AdminUser,
+            showcase::models::Staff,
+            showcase::models::Workspace,
+            showcase::models::Seat,
             tablo_core::auth::AuthSession
         ))
         .connect("sqlite::memory:")

@@ -4,9 +4,12 @@ use toasty::Deferred;
 /// The seeder and the demo constants live in the private `seed`
 /// module; re-exported so the panel, the binary and the tests keep one import
 /// path.
-pub use crate::seed::{
-    BLOCKED_TENANT, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_TENANT, REMOVED_COMMENT_BODY,
-    TENANTLESS_ADMIN_EMAIL, create_admin, seed, seed_content,
+pub use crate::{
+    seed::{
+        BLOCKED_TENANT, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_TENANT, REMOVED_COMMENT_BODY,
+        SIDE_TENANT, TENANTLESS_ADMIN_EMAIL, seed, seed_content, seed_staff,
+    },
+    staff::{Seat, SignedStaff, Staff, Workspace, create_staff},
 };
 
 /// A user's role: the options the user form offers, stored as their value

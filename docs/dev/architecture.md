@@ -132,8 +132,8 @@ committed write, and a failure in it is logged without rolling the write back.
 | `EmbeddedForm` | `tablo-macros` | the flat form map ↔ a typed embedded value |
 | `RecordForm` / `NoForm` | `form.rs` | the typed value a form writes, and the form of a resource with none |
 | `Uploader` | `upload.rs` | where a file field's bytes go |
-| `Authenticator` | `auth.rs` | how credentials resolve to a `CurrentUser` |
-| `auth::guard`, `can`, `can_list` | `auth.rs`, `policy.rs` | the panel's sign-in and policy checks, for the app's own pages, routes and shards |
+| `PanelUser` / `Authenticator` | `auth/mod.rs` | the app's user type, its tenant memberships, and how credentials and a session's id load it |
+| `auth::guard`, `auth::user`, `can`, `can_list` | `auth/mod.rs`, `policy.rs` | the panel's sign-in and policy checks, for the app's own pages, routes and shards |
 | `Table::new` / `Table::new_split` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
 | `panel::wired_table` | `panel/mod.rs` | the wired list table a page-owned table renders |
 

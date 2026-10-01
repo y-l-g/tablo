@@ -5,7 +5,7 @@
 
 #![allow(dead_code)]
 
-use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, create_admin, seed, seed_content};
+use showcase::models::{DEMO_ADMIN_EMAIL, seed, seed_content, seed_staff};
 use tablo_core::{Panel, RouterBuilderPanelExt};
 pub use tablo_test::{
     SESSION_COOKIE, TestClient, body_string, form_body, input_value, multipart_body,
@@ -42,7 +42,9 @@ pub async fn empty_schema_db() -> Db {
             showcase::models::Post,
             showcase::models::Comment,
             showcase::models::MediaAsset,
-            tablo_core::auth::AdminUser,
+            showcase::models::Staff,
+            showcase::models::Workspace,
+            showcase::models::Seat,
             tablo_core::auth::AuthSession
         ))
         .connect("sqlite::memory:")
@@ -55,15 +57,7 @@ pub async fn empty_schema_db() -> Db {
 /// [`empty_schema_db`] with the demo admin seeded and zero user rows.
 pub async fn empty_users_db() -> Db {
     let mut db = empty_schema_db().await;
-    create_admin(
-        &mut db,
-        DEMO_ADMIN_EMAIL,
-        "Demo Admin",
-        DEMO_ADMIN_PASSWORD,
-        Some(showcase::models::DEMO_TENANT),
-    )
-    .await
-    .expect("seed demo admin");
+    seed_staff(&mut db).await.expect("seed staff");
     db
 }
 
@@ -88,15 +82,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     let t1 = uuid::Uuid::from_u128(1);
     let t2 = uuid::Uuid::from_u128(2);
     let mut db = empty_schema_db().await;
-    create_admin(
-        &mut db,
-        DEMO_ADMIN_EMAIL,
-        "Demo Admin",
-        DEMO_ADMIN_PASSWORD,
-        Some(showcase::models::DEMO_TENANT),
-    )
-    .await
-    .expect("seed demo admin");
+    seed_staff(&mut db).await.expect("seed staff");
     let a1 = toasty::create!(showcase::models::Author {
         tenant_id: t1,
         name: "Alice T1",
@@ -203,11 +189,12 @@ pub async fn login<'a>(router: &'a Router, email: &str, password: &str) -> TestC
 pub async fn mint_session(db: &Db, email: &str) -> String {
     use std::{fmt::Write as _, time::SystemTime};
 
-    use tablo_core::auth::{AdminUser, AuthSession, SESSION_LIFETIME};
+    use showcase::models::Staff;
+    use tablo_core::auth::{AuthSession, SESSION_LIFETIME};
     use topcoat::session::Token;
 
     let mut db = db.clone();
-    let user = AdminUser::filter(AdminUser::fields().email().eq(email.to_string()))
+    let user = Staff::filter(Staff::fields().email().eq(email.to_string()))
         .first()
         .exec(&mut db)
         .await
@@ -222,6 +209,7 @@ pub async fn mint_session(db: &Db, email: &str) -> String {
         token_hash,
         user_id: user.id.to_string(),
         panel: "/admin".to_string(),
+        tenant: None,
         expires_at: jiff::Timestamp::try_from(SystemTime::now() + SESSION_LIFETIME)
             .expect("a representable session expiry"),
         created_at: jiff::Timestamp::now(),

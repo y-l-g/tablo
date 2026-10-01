@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Ability, Action, Actions, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter, DeclCx,
-    Field, FieldErrors, Grid, Group, NavigationItem, Options, Panel, Policy, Relation, Repeater,
-    ResolvedLens, Resource, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-    TernaryFilter, TextColumn, Uploader, VariantFilter, tenant_id, when,
+    Ability, Action, Actions, Auth, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter,
+    DeclCx, Field, FieldErrors, Grid, Group, NavigationItem, Options, Panel, Policy, Relation,
+    Repeater, ResolvedLens, Resource, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
+    Tenancy, TernaryFilter, TextColumn, Uploader, VariantFilter, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -25,6 +25,7 @@ use crate::{
         Author, BLOCKED_TENANT, Comment, MediaAsset, Post, PostStatus, Publication,
         REMOVED_COMMENT_BODY, Role, Seo, User,
     },
+    staff::StaffAuth,
 };
 
 /// The theme's sans font, pulled from Fontsource and self-hosted as a Topcoat
@@ -772,6 +773,9 @@ fn url_segment(name: &str) -> String {
 
 fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
     let mut panel = Panel::new("admin")
+        // Staff sign in against the showcase's own table, and each holds a
+        // seat in the blogs (tenants) they work on.
+        .auth(Auth::custom(StaffAuth))
         .brand(
             Brand::new("Tablo Blog").logo(
                 "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'%20fill='%236366f1'/%3E%3Ctext%20x='12'%20y='16'%20text-anchor='middle'%20font-size='12'%20fill='white'%20font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E",

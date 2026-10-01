@@ -186,26 +186,33 @@ _Avoid_: Relation manager, Sub-table, Nested resource
 
 ### Authenticator
 
-The trait that resolves credentials to a CurrentUser and a live Session back to it. `PasswordAuth`
-is the built-in implementation over `AdminUser`; `Auth::custom(..)` installs an app's own, and
-`Auth::disabled()` turns authentication off.
+The trait that loads a Panel user: from credentials at login, and from a Session's stored id on
+every request. Its `User` type is the app's own. `PasswordAuth` is the built-in implementation over
+`AdminUser`; `Auth::custom(..)` installs an app's own, and `Auth::disabled()` turns authentication
+off.
 
 _Avoid_: Provider, Guard, LoginManager, AuthDriver
 
-### CurrentUser
+### Panel user
 
-The signed-in identity in the request context: `{ id, login, display_name, tenant_id,
-can_access_panel }`, read through `current_user(cx)` or `require_authenticated(cx)`, which answer
-it only on the panel whose Session resolved it. The
-Authenticator's user model never appears past it.
+The app's own user type, implementing `PanelUser`: its id for the Session, display name, panel
+access and Memberships. App code reads it back as that type with `auth::user::<U>(cx)` or
+`auth::require_user::<U>(cx)`, which answer only on the panel whose Session resolved it.
 
-_Avoid_: AuthUser, Principal, Account, SessionUser
+_Avoid_: CurrentUser, AuthUser, Principal, Account, SessionUser
+
+### Membership
+
+One tenant a Panel user may act for, with the name the tenant switcher shows. A request acts for
+the Membership its Session selected, else the user's first.
+
+_Avoid_: Team, Organization, Seat (the showcase's table, not the concept)
 
 ### Session
 
 A server-side `AuthSession` row keyed by the SHA-256 hash of the token in the session cookie. It
-names the panel that signed the user in, authenticates only there, and lasts seven days from
-login.
+names the panel that signed the user in, authenticates only there, records the tenant the user
+selected, and lasts seven days from login.
 
 _Avoid_: Token (the cookie's half), SessionStore, Login, Cookie
 

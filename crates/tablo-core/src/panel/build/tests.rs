@@ -1059,12 +1059,17 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
     );
 
     // A resolved user passes the re-check and lands on the first resource.
-    let user = crate::auth::CurrentUser {
-        id: "u1".to_string(),
-        login: "ada@example.com".to_string(),
-        display_name: "Ada".to_string(),
-        tenant_id: None,
-        can_access_panel: true,
+    let user = crate::auth::SignedIn {
+        user: Arc::new(crate::auth::AdminUser {
+            id: uuid::Uuid::nil(),
+            email: "ada@example.com".to_string(),
+            password_hash: String::new(),
+            display_name: "Ada".to_string(),
+            active: true,
+            created_at: jiff::Timestamp::UNIX_EPOCH,
+        }),
+        panel: Arc::clone(&gated.0),
+        tenant: None,
     };
     let (parts, ()) = http::Request::builder()
         .uri("/admin")

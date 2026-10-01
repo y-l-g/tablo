@@ -1,7 +1,7 @@
 use http::header::COOKIE;
 use showcase::{
     app::router_for_tests as router,
-    models::{Author, Comment, DEMO_ADMIN_PASSWORD, DEMO_TENANT, Post, TENANTLESS_ADMIN_EMAIL},
+    models::{Author, Comment, DEMO_TENANT, Post, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL},
 };
 use topcoat::router::Body;
 
@@ -24,6 +24,31 @@ async fn logged_in_tenant_reaches_tenant_scoped_resources_without_headers() {
     }
     let html = body_string(client.get("/admin/authors").await).await;
     assert!(html.contains("Ada Author"), "{html}");
+}
+
+#[tokio::test]
+async fn the_demo_admin_switches_between_their_two_blogs() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+
+    let html = body_string(client.get("/admin/authors").await).await;
+    assert!(html.contains("data-tenant-switcher"), "{html}");
+    assert!(html.contains("Main Blog") && html.contains("Side Project"));
+
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let switched = client
+        .csrf(&csrf)
+        .post_form(
+            "/admin/tenant",
+            form_body(&[("tenant", &SIDE_TENANT.to_string()), ("csrf_token", &csrf)]),
+        )
+        .await;
+    assert_eq!(switched.status(), 303);
+
+    // The side project has no authors yet.
+    let html = body_string(client.get("/admin/authors").await).await;
+    assert!(!html.contains("Ada Author"), "{html}");
 }
 
 #[tokio::test]
@@ -185,18 +210,7 @@ async fn tenantless_requests_to_the_comments_queue_fail_closed() {
     // Comments inherit their post's tenant through `Tenancy::via`, which gates
     // exactly as a column does: a tenantless request must not render (or
     // offer to moderate) both tenants' comments.
-    let (mut db, _, _) = tenanted_db().await;
-    // `tenanted_db` seeds only the tenanted admin; the tenantless one comes
-    // from the same public helper the full seed uses.
-    showcase::models::create_admin(
-        &mut db,
-        TENANTLESS_ADMIN_EMAIL,
-        "No Tenant",
-        DEMO_ADMIN_PASSWORD,
-        None,
-    )
-    .await
-    .expect("seed tenantless admin");
+    let (db, _, _) = tenanted_db().await;
     let router = router(db.clone());
     // GH #218: mint the session rather than performing a login — this test is
     // about the tenant gate, not the login flow.
