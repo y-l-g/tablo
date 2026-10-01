@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
+            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -196,7 +196,7 @@ route answers 404 and no row links to it. The view is its own declaration, so it
 the form does not, and a list-only resource can declare one too.</p>
 <h2 id="what-the-page-shows"><a class="header" href="#what-the-page-shows">What the page shows</a></h2>
 <p>The header carries the record’s title, a link back to the list, and an Edit link when the resource
-has a form and <code>can_update</code> allows this record. Below it come the view’s fields, then any
+has a form and the policy allows <code>Update</code> of this record. Below it come the view’s fields, then any
 <a href="#free-form-content">free-form content</a>, then the <a href="#related-tables">related tables</a>.</p>
 <p>Each field renders its label and its stored value, never a control:</p>
 <ul>
@@ -233,8 +233,8 @@ applied. Include there every relation <code>view_values</code> or <code>view_con
     Self::query(cx).include(author)
 }
 <span class="boring">}</span></code></pre>
-<p>An unknown id and an id outside the request’s tenant are the same 404; a record <code>can_view</code> refuses
-is a 403.</p>
+<p>An unknown id and an id outside the request’s tenant are the same 404; a record the policy may not
+<code>View</code> is a 403.</p>
 <p><strong>Title.</strong> <code>record_label</code> sets the page title; without it the title is the resource’s <code>label()</code> and
 the record’s key, such as “Post 3f2a…”:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -276,11 +276,11 @@ plus <code>post_id = &lt;this post&gt;</code>. It is titled with the related res
 <code>.label(..)</code>.</p>
 <ul>
 <li><strong>Policy.</strong> The related resource’s policies apply as on its own list: no section renders when
-its <code>can_view_any</code> refuses, or when it requires a tenant the request lacks, and each row keeps
+its policy refuses <code>ViewAny</code>, or when it is tenant-scoped and the request has no tenant, and each row keeps
 only the actions its record allows.</li>
 <li><strong>Detail page versus edit page.</strong> On the detail page the table is read-only: rows keep only
 their View action. On the edit page rows also carry Edit and Delete, the table has bulk delete,
-and a create button appears when the related resource has a form and allows <code>can_create</code>.</li>
+and a create button appears when the related resource has a form and its policy allows <code>Create</code>.</li>
 <li><strong>Creating from the parent.</strong> The create button opens the related resource’s create page with
 the owner preselected, as in <code>/admin/comments/create?post_id=…</code>. The create page accepts such a
 parameter only for a relationship choice; the value is a default, and the submitted form is

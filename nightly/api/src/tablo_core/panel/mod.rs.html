@@ -19,7 +19,7 @@
 <a href=#19 id=19 data-nosnippet>19</a><span class="kw">mod </span>build;
 <a href=#20 id=20 data-nosnippet>20</a><span class="kw">mod </span>detail;
 <a href=#21 id=21 data-nosnippet>21</a><span class="kw">mod </span>forms;
-<a href=#22 id=22 data-nosnippet>22</a><span class="kw">mod </span>gate;
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>gate;
 <a href=#23 id=23 data-nosnippet>23</a><span class="kw">mod </span>headers;
 <a href=#24 id=24 data-nosnippet>24</a><span class="kw">mod </span>list;
 <a href=#25 id=25 data-nosnippet>25</a><span class="kw">mod </span>pages;
@@ -84,10 +84,10 @@
 <a href=#84 id=84 data-nosnippet>84</a>/// The table carries `R::table`'s columns, key, page size, search toolbar and
 <a href=#85 id=85 data-nosnippet>85</a>/// filter bar, plus the action chrome `R`'s declarations imply — the row
 <a href=#86 id=86 data-nosnippet>86</a>/// Delete link and bulk column from
-<a href=#87 id=87 data-nosnippet>87</a>/// [`can_delete_any`](crate::resource::Resource::can_delete_any), the Edit link
+<a href=#87 id=87 data-nosnippet>87</a>/// [`DeleteAny`](crate::policy::Ability::DeleteAny), the Edit link
 <a href=#88 id=88 data-nosnippet>88</a>/// from a record form ([`RecordForm::HAS_FORM`])
 <a href=#89 id=89 data-nosnippet>89</a>/// and the View link from a non-empty [`view`](crate::resource::Resource::view) — each gated
-<a href=#90 id=90 data-nosnippet>90</a>/// per row by `can_view`/`can_update`/`can_delete`, the wiring the panel's own
+<a href=#90 id=90 data-nosnippet>90</a>/// per row by `View`/`Update`/`Delete`, the wiring the panel's own
 <a href=#91 id=91 data-nosnippet>91</a>/// list applies. The chrome has no other entry point: a page-owned table that
 <a href=#92 id=92 data-nosnippet>92</a>/// must agree with the resource's routes takes its wiring from here.
 <a href=#93 id=93 data-nosnippet>93</a></span><span class="kw">pub fn </span>wired_table&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>topcoat::context::Cx) -&gt; <span class="kw">crate</span>::resource::Table&lt;R::Model&gt; {
@@ -276,14 +276,14 @@
 <a href=#276 id=276 data-nosnippet>276</a>    ///
 <a href=#277 id=277 data-nosnippet>277</a>    /// [`RouterBuilderPanelExt::panel`] checks that the resource's [`form`](Resource::form)
 <a href=#278 id=278 data-nosnippet>278</a>    /// agrees with its `Form`, that a resource with no form does not allow
-<a href=#279 id=279 data-nosnippet>279</a>    /// `can_create`, and, for a resource with a form, that the
+<a href=#279 id=279 data-nosnippet>279</a>    /// `Create`, and, for a resource with a form, that the
 <a href=#280 id=280 data-nosnippet>280</a>    /// form's struct and its `Schema` agree: every control is bound by exactly
 <a href=#281 id=281 data-nosnippet>281</a>    /// one field and every field's key is a declared control; an optional
 <a href=#282 id=282 data-nosnippet>282</a>    /// control, or one inside a `Repeater` or a variant group, binds a field
-<a href=#283 id=283 data-nosnippet>283</a>    /// with a blank answer; a gated resource's form does not claim its tenant
-<a href=#284 id=284 data-nosnippet>284</a>    /// column; and, where `can_create` allows it, every non-nullable column is
-<a href=#285 id=285 data-nosnippet>285</a>    /// set by the form, by toasty, by the tenant stamp, or by an override that
-<a href=#286 id=286 data-nosnippet>286</a>    /// names it in [`Resource::CREATE_COLUMNS`]. It also checks that each of the
+<a href=#283 id=283 data-nosnippet>283</a>    /// with a blank answer; a [`Tenancy::column`](crate::Tenancy::column)
+<a href=#284 id=284 data-nosnippet>284</a>    /// resource's form does not claim its tenant column; and, where `Create` allows it, every
+<a href=#285 id=285 data-nosnippet>285</a>    /// non-nullable column is set by the form, by toasty, by the tenant stamp, or by an
+<a href=#286 id=286 data-nosnippet>286</a>    /// override that names it in [`Resource::CREATE_COLUMNS`]. It also checks that each of the
 <a href=#287 id=287 data-nosnippet>287</a>    /// resource's [`relations`](Resource::relations) names a resource this
 <a href=#288 id=288 data-nosnippet>288</a>    /// panel registers, once: the relation's actions go to that resource's
 <a href=#289 id=289 data-nosnippet>289</a>    /// routes.

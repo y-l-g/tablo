@@ -145,9 +145,9 @@ re-renders the table after a short keystroke-quiet delay (GH #172,
 <code>LIVE_SEARCH_DEBOUNCE_MS</code>), morphing in place so focus
 and typing survive, instead of a GET submit. The <code>?q=</code> GET form stays
 inside <code>&lt;noscript&gt;</code> as the no-JS fallback. Opt-in per resource; the
-shard authorizes itself (<code>can_view_any</code> + the tenant-scoped query,
+shard authorizes itself (<code>ViewAny</code> + the tenant-scoped query,
 GH #223) and every arg is validated like the GET path.
-Per-row <code>can_view</code> is not applied here, matching the list page:
+Per-row <code>View</code> is not applied here, matching the list page:
 page-local row filtering would mislabel pagination, so row scoping
 belongs in <code>Resource::query</code>, inside that scope.
 Note: Topcoat coalesces same-tick keystrokes and aborts in-flight

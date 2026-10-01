@@ -2,8 +2,8 @@
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource declares its list page as a
 <a href=#4 id=4 data-nosnippet>4</a>//! [`Table`], its create and edit forms as a [`Schema`] plus a
-<a href=#5 id=5 data-nosnippet>5</a>//! [`RecordForm`](derive@RecordForm) struct the submission parses into, and its policy as `can_*`
-<a href=#6 id=6 data-nosnippet>6</a>//! predicates that deny by default. The app mounts the panel on its own Topcoat router with
+<a href=#5 id=5 data-nosnippet>5</a>//! [`RecordForm`](derive@RecordForm) struct the submission parses into, and its [`Policy`], which
+<a href=#6 id=6 data-nosnippet>6</a>//! denies by default. The app mounts the panel on its own Topcoat router with
 <a href=#7 id=7 data-nosnippet>7</a>//! [`RouterBuilderPanelExt::panel`], which checks every declaration first; one router mounts any
 <a href=#8 id=8 data-nosnippet>8</a>//! number of panels at distinct prefixes.
 <a href=#9 id=9 data-nosnippet>9</a>//!
@@ -14,8 +14,8 @@
 <a href=#14 id=14 data-nosnippet>14</a>//!     type Model = Book;
 <a href=#15 id=15 data-nosnippet>15</a>//!     type Form = BookForm;
 <a href=#16 id=16 data-nosnippet>16</a>//!
-<a href=#17 id=17 data-nosnippet>17</a>//!     fn can_view_any(_cx: &amp;Cx) -&gt; bool {
-<a href=#18 id=18 data-nosnippet>18</a>//!         true
+<a href=#17 id=17 data-nosnippet>17</a>//!     fn policy() -&gt; impl Policy&lt;Book&gt; {
+<a href=#18 id=18 data-nosnippet>18</a>//!         Allow
 <a href=#19 id=19 data-nosnippet>19</a>//!     }
 <a href=#20 id=20 data-nosnippet>20</a>//!
 <a href=#21 id=21 data-nosnippet>21</a>//!     fn table() -&gt; Table&lt;Book&gt; {
@@ -78,34 +78,36 @@
 <a href=#78 id=78 data-nosnippet>78</a><span class="kw">pub mod </span>notification;
 <a href=#79 id=79 data-nosnippet>79</a><span class="kw">mod </span>page;
 <a href=#80 id=80 data-nosnippet>80</a><span class="kw">pub mod </span>panel;
-<a href=#81 id=81 data-nosnippet>81</a><span class="kw">mod </span>query_term;
-<a href=#82 id=82 data-nosnippet>82</a><span class="kw">pub mod </span>resource;
-<a href=#83 id=83 data-nosnippet>83</a><span class="kw">pub mod </span>schema;
-<a href=#84 id=84 data-nosnippet>84</a><span class="kw">pub mod </span>tenancy;
-<a href=#85 id=85 data-nosnippet>85</a><span class="attr">#[cfg(test)]
-<a href=#86 id=86 data-nosnippet>86</a></span><span class="kw">mod </span>test_support;
-<a href=#87 id=87 data-nosnippet>87</a><span class="kw">pub mod </span>upload;
-<a href=#88 id=88 data-nosnippet>88</a>
-<a href=#89 id=89 data-nosnippet>89</a><span class="kw">pub use </span>auth::{Auth, Authenticator, CurrentUser, PasswordAuth};
-<a href=#90 id=90 data-nosnippet>90</a><span class="kw">pub use </span>form::{
-<a href=#91 id=91 data-nosnippet>91</a>    FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
-<a href=#92 id=92 data-nosnippet>92</a>    write_create, write_update,
-<a href=#93 id=93 data-nosnippet>93</a>};
-<a href=#94 id=94 data-nosnippet>94</a><span class="kw">pub use </span>notification::{Notification, NotificationStatus};
-<a href=#95 id=95 data-nosnippet>95</a><span class="kw">pub use </span>page::Page;
-<a href=#96 id=96 data-nosnippet>96</a><span class="kw">pub use </span>panel::{Brand, Panel, RouterBuilderPanelExt, url};
-<a href=#97 id=97 data-nosnippet>97</a><span class="kw">pub use </span>resource::{
-<a href=#98 id=98 data-nosnippet>98</a>    Action, Actions, BooleanColumn, Column, ColumnWidth, Committed, Cursor, DateFilter, Filter,
-<a href=#99 id=99 data-nosnippet>99</a>    FilterInput, Includes, IntoColumns, IntoFilters, Mutation, NavTarget, NavigationItem, Relation,
-<a href=#100 id=100 data-nosnippet>100</a>    Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
-<a href=#101 id=101 data-nosnippet>101</a>    VariantFilter, scoped_query, scoped_view_query,
-<a href=#102 id=102 data-nosnippet>102</a>};
-<a href=#103 id=103 data-nosnippet>103</a><span class="kw">pub use </span>schema::{
-<a href=#104 id=104 data-nosnippet>104</a>    ChoiceField, Control, ControlInput, CustomField, DeclCx, EmbeddedForm, Field, FieldLens,
-<a href=#105 id=105 data-nosnippet>105</a>    FileField, Grid, Group, IntoOptions, IntoSchema, Options, Repeater, ResolvedLens, Schema,
-<a href=#106 id=106 data-nosnippet>106</a>    Section, Source, TextField, Toggle,
-<a href=#107 id=107 data-nosnippet>107</a>};
-<a href=#108 id=108 data-nosnippet>108</a><span class="kw">pub use </span>tablo_macros::{EmbeddedForm, Options, RecordForm};
-<a href=#109 id=109 data-nosnippet>109</a><span class="kw">pub use </span>tenancy::{Tenant, require_tenant, tenant_id};
-<a href=#110 id=110 data-nosnippet>110</a><span class="kw">pub use </span>upload::Uploader;
+<a href=#81 id=81 data-nosnippet>81</a><span class="kw">pub mod </span>policy;
+<a href=#82 id=82 data-nosnippet>82</a><span class="kw">mod </span>query_term;
+<a href=#83 id=83 data-nosnippet>83</a><span class="kw">pub mod </span>resource;
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">pub mod </span>schema;
+<a href=#85 id=85 data-nosnippet>85</a><span class="kw">pub mod </span>tenancy;
+<a href=#86 id=86 data-nosnippet>86</a><span class="attr">#[cfg(test)]
+<a href=#87 id=87 data-nosnippet>87</a></span><span class="kw">mod </span>test_support;
+<a href=#88 id=88 data-nosnippet>88</a><span class="kw">pub mod </span>upload;
+<a href=#89 id=89 data-nosnippet>89</a>
+<a href=#90 id=90 data-nosnippet>90</a><span class="kw">pub use </span>auth::{Auth, Authenticator, CurrentUser, PasswordAuth};
+<a href=#91 id=91 data-nosnippet>91</a><span class="kw">pub use </span>form::{
+<a href=#92 id=92 data-nosnippet>92</a>    FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
+<a href=#93 id=93 data-nosnippet>93</a>    write_create, write_update,
+<a href=#94 id=94 data-nosnippet>94</a>};
+<a href=#95 id=95 data-nosnippet>95</a><span class="kw">pub use </span>notification::{Notification, NotificationStatus};
+<a href=#96 id=96 data-nosnippet>96</a><span class="kw">pub use </span>page::Page;
+<a href=#97 id=97 data-nosnippet>97</a><span class="kw">pub use </span>panel::{Brand, Panel, RouterBuilderPanelExt, url};
+<a href=#98 id=98 data-nosnippet>98</a><span class="kw">pub use </span>policy::{Ability, Allow, Deny, Policy, ReadOnly, can, can_list, when};
+<a href=#99 id=99 data-nosnippet>99</a><span class="kw">pub use </span>resource::{
+<a href=#100 id=100 data-nosnippet>100</a>    Action, Actions, BooleanColumn, Column, ColumnWidth, Committed, Cursor, DateFilter, Filter,
+<a href=#101 id=101 data-nosnippet>101</a>    FilterInput, Includes, IntoColumns, IntoFilters, Mutation, NavTarget, NavigationItem, Relation,
+<a href=#102 id=102 data-nosnippet>102</a>    Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
+<a href=#103 id=103 data-nosnippet>103</a>    VariantFilter, scoped_query, scoped_view_query,
+<a href=#104 id=104 data-nosnippet>104</a>};
+<a href=#105 id=105 data-nosnippet>105</a><span class="kw">pub use </span>schema::{
+<a href=#106 id=106 data-nosnippet>106</a>    ChoiceField, Control, ControlInput, CustomField, DeclCx, EmbeddedForm, Field, FieldLens,
+<a href=#107 id=107 data-nosnippet>107</a>    FileField, Grid, Group, IntoOptions, IntoSchema, Options, Repeater, ResolvedLens, Schema,
+<a href=#108 id=108 data-nosnippet>108</a>    Section, Source, TextField, Toggle,
+<a href=#109 id=109 data-nosnippet>109</a>};
+<a href=#110 id=110 data-nosnippet>110</a><span class="kw">pub use </span>tablo_macros::{EmbeddedForm, Options, RecordForm};
+<a href=#111 id=111 data-nosnippet>111</a><span class="kw">pub use </span>tenancy::{Tenancy, Tenant, require_tenant, tenant_id};
+<a href=#112 id=112 data-nosnippet>112</a><span class="kw">pub use </span>upload::Uploader;
 </code></pre></div></section></main></body></html>

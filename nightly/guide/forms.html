@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
+            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -247,7 +247,7 @@ derive’s <code>controls(dx)</code>:</p>
 <span class="boring">}</span></code></pre>
 <p>Mounting the panel refuses the resource unless every control is bound by exactly one form field,
 every form field has a control, every optional control’s field has a blank value, and — when
-<code>can_create</code> is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
+the policy allows <code>Create</code> — every non-nullable column is filled by the form, by Toasty, by the tenant
 stamp, or by an overridden <code>create_record</code> that lists it in <code>Resource::CREATE_COLUMNS</code>.</p>
 <h2 id="controls"><a class="header" href="#controls">Controls</a></h2>
 <p>The derive picks each field’s control from the field: a <code>bool</code> is a toggle, <code>#[form(options = T)]</code>
@@ -355,20 +355,21 @@ an empty <code>String</code> is stored as <code>""</code>, and the index admits 
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>Field::choice(Post::fields().author_id())
-    .relationship::&lt;AuthorResource&gt;(
-        AuthorResource::query,          // names the source; options load through its scoped query
-        |a: &amp;Author| a.id,              // the option value: the primary key
-        |a: &amp;Author| a.name.clone(),    // the option label
+    .relationship::&lt;AuthorResource&gt;( // the source; options load through its scoped query
+        |a: &amp;Author| a.id,            // the option value: the primary key
+        |a: &amp;Author| a.name.clone(),  // the option label
     )
     .searchable()
     .label("Author")
 <span class="boring">}</span></code></pre>
 <ul>
 <li>Options come from the related resource’s tenant-scoped query and follow its policy: the list is
-empty and the field shows “not available” unless the related resource allows <code>can_view_any</code>,
-and each record must pass its <code>can_view</code>.</li>
+empty and the field shows “not available” unless the related resource’s policy allows
+<code>ViewAny</code>, and each record must pass its <code>View</code>.</li>
 <li>A submitted key must be one of those records, so a hand-crafted POST cannot point at another
-tenant’s row.</li>
+tenant’s row. The write checks the key again inside its transaction, so a record deleted, moved
+to another tenant or hidden since the form validated refuses the write with the same field
+error.</li>
 <li>At most 200 options load. Past that, a <code>.searchable()</code> choice turns into type-to-search against
 <code>GET {list_url}/options</code>, which searches the related table’s <code>searchable()</code> columns; a
 non-searchable choice shows an error instead. <code>.searchable()</code> also filters a short list as

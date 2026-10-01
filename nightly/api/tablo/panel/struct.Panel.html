@@ -109,14 +109,14 @@ the relationship-options endpoint; one that names
 resource type, so one type serves the same routes in every panel.</p>
 <p><a href="../trait.RouterBuilderPanelExt.html#tymethod.panel" title="method tablo::RouterBuilderPanelExt::panel"><code>RouterBuilderPanelExt::panel</code></a> checks that the resource’s <a href="../trait.Resource.html#method.form" title="associated function tablo::Resource::form"><code>form</code></a>
 agrees with its <code>Form</code>, that a resource with no form does not allow
-<code>can_create</code>, and, for a resource with a form, that the
+<code>Create</code>, and, for a resource with a form, that the
 form’s struct and its <code>Schema</code> agree: every control is bound by exactly
 one field and every field’s key is a declared control; an optional
 control, or one inside a <code>Repeater</code> or a variant group, binds a field
-with a blank answer; a gated resource’s form does not claim its tenant
-column; and, where <code>can_create</code> allows it, every non-nullable column is
-set by the form, by toasty, by the tenant stamp, or by an override that
-names it in <a href="../trait.Resource.html#associatedconstant.CREATE_COLUMNS" title="associated constant tablo::Resource::CREATE_COLUMNS"><code>Resource::CREATE_COLUMNS</code></a>. It also checks that each of the
+with a blank answer; a <a href="../struct.Tenancy.html#method.column" title="associated function tablo::Tenancy::column"><code>Tenancy::column</code></a>
+resource’s form does not claim its tenant column; and, where <code>Create</code> allows it, every
+non-nullable column is set by the form, by toasty, by the tenant stamp, or by an
+override that names it in <a href="../trait.Resource.html#associatedconstant.CREATE_COLUMNS" title="associated constant tablo::Resource::CREATE_COLUMNS"><code>Resource::CREATE_COLUMNS</code></a>. It also checks that each of the
 resource’s <a href="../trait.Resource.html#method.relations" title="associated function tablo::Resource::relations"><code>relations</code></a> names a resource this
 panel registers, once: the relation’s actions go to that resource’s
 routes.</p>

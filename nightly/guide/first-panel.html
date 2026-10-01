@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
+            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -235,9 +235,10 @@ impl Resource for BookResource {
     type Model = Book;
     type Form = BookForm;
 
-    // Every policy predicate denies by default; this one opens the list.
-    fn can_view_any(_cx: &amp;Cx) -&gt; bool {
-        true
+    // The default policy denies everything; this one opens the list and
+    // the records, and nothing else.
+    fn policy() -&gt; impl Policy&lt;Book&gt; {
+        ReadOnly
     }
 
     fn table() -&gt; Table&lt;Book&gt; {
@@ -319,8 +320,8 @@ or <code>SIGTERM</code>.</li>
 </ul>
 <h2 id="what-the-example-leaves-out"><a class="header" href="#what-the-example-leaves-out">What the example leaves out</a></h2>
 <ul>
-<li><strong>Writes.</strong> Only <code>can_view_any</code> is allowed, so the create link is hidden, the create and edit
-pages answer 403, and rows show no Edit or Delete action.
+<li><strong>Writes.</strong> <code>ReadOnly</code> allows only listing and viewing, so the create link is hidden, the create
+and edit pages answer 403, and rows show no Edit or Delete action.
 <a href="./policy-auth-tenancy.html">Policy, auth, tenancy</a> opens them.</li>
 <li><strong>Styling.</strong> The example registers no asset bundle, so pages render unstyled and without the
 shell’s scripts, but every page and form works. The router’s <code>.assets(..)</code> and the panel’s

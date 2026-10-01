@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Ability"],"fn":["can","can_list","when"],"struct":["Allow","And","Deny","Or","ReadOnly","When"],"trait":["Policy"]};

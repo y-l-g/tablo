@@ -52,8 +52,8 @@ a delete:</p>
 selection, and its CSRF check;</li>
 <li>the transaction: the records are loaded through <a href="fn.scoped_query.html" title="fn tablo::scoped_query"><code>scoped_query</code></a> inside
 it, <code>run</code> writes through the same executor, and an error rolls everything back;</li>
-<li>the policy: every record must pass <a href="trait.Resource.html#method.can_view" title="associated function tablo::Resource::can_view"><code>Resource::can_view</code></a> and <a href="trait.Action.html#tymethod.can_run" title="associated function tablo::Action::can_run"><code>can_run</code></a>,
-checked on the loaded rows before <code>run</code>;</li>
+<li>the policy: every record must pass <a href="enum.Ability.html#variant.View" title="variant tablo::Ability::View"><code>Ability::View</code></a> and
+<a href="trait.Action.html#tymethod.can_run" title="associated function tablo::Action::can_run"><code>can_run</code></a>, checked on the loaded rows before <code>run</code>;</li>
 <li><a href="trait.Resource.html#method.after_commit" title="associated function tablo::Resource::after_commit"><code>Resource::after_commit</code></a> with <a href="enum.Mutation.html#variant.Action" title="variant tablo::Mutation::Action"><code>Mutation::Action</code></a> once the
 transaction commits, and the success notification.</li>
 </ul>

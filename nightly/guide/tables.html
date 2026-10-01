@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
+            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -372,7 +372,7 @@ table does not declare is ignored.</p>
 <p><code>GET /admin/{slug}/export</code> returns the list as a CSV file named <code>{slug}.csv</code>, with the current
 search, filters and sort applied, and the relations the columns include loaded.</p>
 <ul>
-<li>Rows the caller may not view (<code>can_view</code>) are left out.</li>
+<li>Rows the policy may not <code>View</code> are left out.</li>
 <li>The export delivers at most 10,000 rows. When the search and filters match more, it answers
 413 rather than a truncated file.</li>
 <li>Cells that a spreadsheet would read as a formula are escaped. Add <code>?bom=1</code> to prefix the file
@@ -381,13 +381,14 @@ with a byte-order mark for Excel.</li>
 <h2 id="row-actions-and-deletes"><a class="header" href="#row-actions-and-deletes">Row actions and deletes</a></h2>
 <p>Each row shows the actions its record allows:</p>
 <ul>
-<li><strong>View</strong> when the resource declares a detail page (<code>view()</code>) and <code>can_view</code> allows the record;</li>
-<li><strong>Edit</strong> when the resource has a record form and <code>can_view</code> and <code>can_update</code> allow it;</li>
-<li><strong>Delete</strong> when <code>can_delete_any</code> allows deletes and <code>can_view</code> and <code>can_delete</code> allow the record;</li>
+<li><strong>View</strong> when the resource declares a detail page (<code>view()</code>) and the policy allows <code>View</code> of the
+record;</li>
+<li><strong>Edit</strong> when the resource has a record form and the policy allows <code>View</code> and <code>Update</code>;</li>
+<li><strong>Delete</strong> when the policy allows <code>DeleteAny</code>, and <code>View</code> and <code>Delete</code> of the record;</li>
 <li>each <a href="#custom-actions">custom action</a> the record allows.</li>
 </ul>
 <p>A row that allows none keeps an empty actions cell.</p>
-<p>When <code>can_delete_any</code> allows deletes, or the resource declares a bulk custom action, the list adds
+<p>When the policy allows <code>DeleteAny</code>, or the resource declares a bulk custom action, the list adds
 a checkbox column and a bulk bar. A row that neither delete nor any bulk action allows gets no
 checkbox, so select-all only selects rows something can be done to. A bulk delete accepts at most
 400 records and deletes all of them or none: a selection holding a record that may not be deleted
@@ -434,13 +435,14 @@ impl Resource for PostResource {
     // …
 }
 <span class="boring">}</span></code></pre>
-<p>A row renders the action’s button when <code>can_view</code> and <code>can_run</code> allow its record, and the bulk bar
+<p>A row renders the action’s button when the policy’s <code>View</code> and the action’s <code>can_run</code> allow its
+record, and the bulk bar
 renders it for the selection. <code>const ROW: bool = false</code> keeps it off the rows, and
 <code>const BULK: bool = false</code> off the bulk bar.</p>
 <p>The framework runs an action the way it runs a delete. The POST goes to
 <code>{list}/{key}/actions/{NAME}</code> for a row and <code>{list}/actions/{NAME}</code> for the selection, carries the
 CSRF token, and loads the records through the tenant-scoped query inside a transaction. Every
-record must pass <code>can_view</code> and <code>can_run</code>, and <code>run</code> writes through the same transaction, so an
+record must pass the policy’s <code>View</code> and the action’s <code>can_run</code>, and <code>run</code> writes through the same transaction, so an
 error rolls everything back. After the commit, <code>after_commit</code> receives <code>Mutation::Action(NAME)</code>
 with the records and the list shows <code>Action::success</code>, by default the label and the record count.</p>
 <p>A row the action refuses answers 403. A selection that holds one writes nothing and returns to the

@@ -33,7 +33,7 @@
 <a href=#33 id=33 data-nosnippet>33</a>};
 <a href=#34 id=34 data-nosnippet>34</a><span class="kw">pub use </span>layouts::{Grid, Group, Repeater, Section};
 <a href=#35 id=35 data-nosnippet>35</a><span class="kw">pub use </span>lenses::{DeclCx, FieldLens, ResolvedLens};
-<a href=#36 id=36 data-nosnippet>36</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>lenses::{LensBinding, capitalize, lens_field_unique};
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>lenses::{LensBinding, capitalize, lens_field, lens_field_unique};
 <a href=#37 id=37 data-nosnippet>37</a><span class="kw">pub use </span>options::Options;
 <a href=#38 id=38 data-nosnippet>38</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>pk::{pk_eq_expr, pk_in_expr, pk_is_composite};
 <a href=#39 id=39 data-nosnippet>39</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>relationship::OptionLoadError;
@@ -442,8 +442,39 @@
 <a href=#442 id=442 data-nosnippet>442</a>        }
 <a href=#443 id=443 data-nosnippet>443</a>        errors
 <a href=#444 id=444 data-nosnippet>444</a>    }
-<a href=#445 id=445 data-nosnippet>445</a>}
-<a href=#446 id=446 data-nosnippet>446</a>
-<a href=#447 id=447 data-nosnippet>447</a><span class="attr">#[cfg(test)]
-<a href=#448 id=448 data-nosnippet>448</a></span><span class="kw">mod </span>tests;
+<a href=#445 id=445 data-nosnippet>445</a>
+<a href=#446 id=446 data-nosnippet>446</a>    <span class="doccomment">/// Re-check every submitted relationship key through `ex`, the write's
+<a href=#447 id=447 data-nosnippet>447</a>    /// open transaction, skipping what [`Self::validate_async`] skips.
+<a href=#448 id=448 data-nosnippet>448</a>    ///
+<a href=#449 id=449 data-nosnippet>449</a>    /// The write handlers run it after they open the transaction, so a record
+<a href=#450 id=450 data-nosnippet>450</a>    /// a relationship field points at is checked against the rows the write
+<a href=#451 id=451 data-nosnippet>451</a>    /// sees: one that left the tenant, was deleted or became hidden since the
+<a href=#452 id=452 data-nosnippet>452</a>    /// form validated refuses the write with a field error, and nothing is
+<a href=#453 id=453 data-nosnippet>453</a>    /// written.
+<a href=#454 id=454 data-nosnippet>454</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>recheck_relationships(
+<a href=#455 id=455 data-nosnippet>455</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#456 id=456 data-nosnippet>456</a>        cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#457 id=457 data-nosnippet>457</a>        values: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
+<a href=#458 id=458 data-nosnippet>458</a>        ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>toasty::Executor,
+<a href=#459 id=459 data-nosnippet>459</a>    ) -&gt; FieldErrors {
+<a href=#460 id=460 data-nosnippet>460</a>        <span class="kw">let </span><span class="kw-2">mut </span>errors = FieldErrors::new();
+<a href=#461 id=461 data-nosnippet>461</a>        <span class="kw">let </span>absent = <span class="self">self</span>.absent_fields(values);
+<a href=#462 id=462 data-nosnippet>462</a>        <span class="kw">for </span>field <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.fields {
+<a href=#463 id=463 data-nosnippet>463</a>            <span class="kw">let </span>name = field.name();
+<a href=#464 id=464 data-nosnippet>464</a>            <span class="kw">if </span>absent.contains(name) {
+<a href=#465 id=465 data-nosnippet>465</a>                <span class="kw">continue</span>;
+<a href=#466 id=466 data-nosnippet>466</a>            }
+<a href=#467 id=467 data-nosnippet>467</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(value) = values.get(name) <span class="kw">else </span>{
+<a href=#468 id=468 data-nosnippet>468</a>                <span class="kw">continue</span>;
+<a href=#469 id=469 data-nosnippet>469</a>            };
+<a href=#470 id=470 data-nosnippet>470</a>            <span class="kw">for </span>message <span class="kw">in </span>field.recheck(cx, value, <span class="kw-2">&amp;mut *</span>ex).<span class="kw">await </span>{
+<a href=#471 id=471 data-nosnippet>471</a>                errors.add(name, message);
+<a href=#472 id=472 data-nosnippet>472</a>            }
+<a href=#473 id=473 data-nosnippet>473</a>        }
+<a href=#474 id=474 data-nosnippet>474</a>        errors
+<a href=#475 id=475 data-nosnippet>475</a>    }
+<a href=#476 id=476 data-nosnippet>476</a>}
+<a href=#477 id=477 data-nosnippet>477</a>
+<a href=#478 id=478 data-nosnippet>478</a><span class="attr">#[cfg(test)]
+<a href=#479 id=479 data-nosnippet>479</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

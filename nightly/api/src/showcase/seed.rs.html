@@ -208,13 +208,13 @@
 <a href=#208 id=208 data-nosnippet>208</a></span><span class="kw">pub const </span>DEMO_ADMIN_EMAIL: <span class="kw-2">&amp;</span>str = <span class="string">"admin@example.com"</span>;
 <a href=#209 id=209 data-nosnippet>209</a><span class="kw">pub const </span>DEMO_ADMIN_PASSWORD: <span class="kw-2">&amp;</span>str = <span class="string">"password"</span>;
 <a href=#210 id=210 data-nosnippet>210</a>
-<a href=#211 id=211 data-nosnippet>211</a><span class="doccomment">/// A seeded administrator with no tenant, for `requires_tenant` fail-closed
+<a href=#211 id=211 data-nosnippet>211</a><span class="doccomment">/// A seeded administrator with no tenant, for the tenancy fail-closed
 <a href=#212 id=212 data-nosnippet>212</a>/// tests: valid credentials, no tenant to bridge.
 <a href=#213 id=213 data-nosnippet>213</a></span><span class="kw">pub const </span>TENANTLESS_ADMIN_EMAIL: <span class="kw-2">&amp;</span>str = <span class="string">"root@example.com"</span>;
 <a href=#214 id=214 data-nosnippet>214</a>
 <a href=#215 id=215 data-nosnippet>215</a><span class="doccomment">/// The body of a comment whose content the panel has removed.
 <a href=#216 id=216 data-nosnippet>216</a>///
-<a href=#217 id=217 data-nosnippet>217</a>/// The row stays so a thread keeps its shape. `CommentResource::can_view`
+<a href=#217 id=217 data-nosnippet>217</a>/// The row stays so a thread keeps its shape. `CommentResource`'s policy
 <a href=#218 id=218 data-nosnippet>218</a>/// refuses it, so the surfaces that trim by that predicate — the post's
 <a href=#219 id=219 data-nosnippet>219</a>/// relation table and the CSV export — omit it, and the comments list shows it
 <a href=#220 id=220 data-nosnippet>220</a>/// without row actions.
@@ -490,7 +490,7 @@
 <a href=#490 id=490 data-nosnippet>490</a>            .exec(db)
 <a href=#491 id=491 data-nosnippet>491</a>            .<span class="kw">await</span><span class="question-mark">?</span>;
 <a href=#492 id=492 data-nosnippet>492</a>        }
-<a href=#493 id=493 data-nosnippet>493</a>        <span class="comment">// A removed comment: the fixture the relation's `can_view`
+<a href=#493 id=493 data-nosnippet>493</a>        <span class="comment">// A removed comment: the fixture the relation's `View`
 <a href=#494 id=494 data-nosnippet>494</a>        // filter needs, since every other seeded comment is viewable.
 <a href=#495 id=495 data-nosnippet>495</a>        </span><span class="macro">toasty::create!</span>(Comment {
 <a href=#496 id=496 data-nosnippet>496</a>            body: REMOVED_COMMENT_BODY,

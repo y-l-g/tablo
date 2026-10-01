@@ -20,15 +20,15 @@
 <a href=#20 id=20 data-nosnippet>20</a><span class="kw">use super</span>::{
 <a href=#21 id=21 data-nosnippet>21</a>    Panel, Root,
 <a href=#22 id=22 data-nosnippet>22</a>    forms::MAX_FORM_BYTES,
-<a href=#23 id=23 data-nosnippet>23</a>    gate::enforce_auth,
-<a href=#24 id=24 data-nosnippet>24</a>    headers,
-<a href=#25 id=25 data-nosnippet>25</a>    search::{ShardPanel, TABLE_RELATION_SEARCH_PATH, TABLE_SEARCH_PATH},
-<a href=#26 id=26 data-nosnippet>26</a>    state::{PanelState, Panels, current, under_prefix},
-<a href=#27 id=27 data-nosnippet>27</a>};
-<a href=#28 id=28 data-nosnippet>28</a><span class="kw">use crate</span>::{
-<a href=#29 id=29 data-nosnippet>29</a>    auth::{PanelGate, RUNTIME_PREFIX, RuntimeGate, SESSION_LIFETIME},
-<a href=#30 id=30 data-nosnippet>30</a>    error::TabloError,
-<a href=#31 id=31 data-nosnippet>31</a>    form::RecordForm,
+<a href=#23 id=23 data-nosnippet>23</a>    headers,
+<a href=#24 id=24 data-nosnippet>24</a>    search::{ShardPanel, TABLE_RELATION_SEARCH_PATH, TABLE_SEARCH_PATH},
+<a href=#25 id=25 data-nosnippet>25</a>    state::{PanelState, Panels, current, under_prefix},
+<a href=#26 id=26 data-nosnippet>26</a>};
+<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use crate</span>::{
+<a href=#28 id=28 data-nosnippet>28</a>    auth::{PanelGate, RUNTIME_PREFIX, RuntimeGate, SESSION_LIFETIME},
+<a href=#29 id=29 data-nosnippet>29</a>    error::TabloError,
+<a href=#30 id=30 data-nosnippet>30</a>    form::RecordForm,
+<a href=#31 id=31 data-nosnippet>31</a>    policy::{Ability, can},
 <a href=#32 id=32 data-nosnippet>32</a>    resource::{Declarations, Declared, Resource},
 <a href=#33 id=33 data-nosnippet>33</a>    schema::{DeclCx, Schema},
 <a href=#34 id=34 data-nosnippet>34</a>};
@@ -341,7 +341,7 @@
 <a href=#341 id=341 data-nosnippet>341</a>        <span class="comment">// Defense in depth: every panel handler re-checks the
 <a href=#342 id=342 data-nosnippet>342</a>        // resolved user, so a missing or mis-mounted gate cannot leak the
 <a href=#343 id=343 data-nosnippet>343</a>        // first resource's slug via the redirect target.
-<a href=#344 id=344 data-nosnippet>344</a>        </span>enforce_auth(cx)<span class="question-mark">?</span>;
+<a href=#344 id=344 data-nosnippet>344</a>        </span><span class="kw">crate</span>::auth::guard(cx)<span class="question-mark">?</span>;
 <a href=#345 id=345 data-nosnippet>345</a>        <span class="kw">let </span>target = current(cx)
 <a href=#346 id=346 data-nosnippet>346</a>            .and_then(|panel| panel.root_redirect.clone())
 <a href=#347 id=347 data-nosnippet>347</a>            .ok_or_else(topcoat::router::error::not_found)<span class="question-mark">?</span>;
@@ -416,40 +416,40 @@
 <a href=#416 id=416 data-nosnippet>416</a>/// The trait defaults every method but `table`, so a resource that overrides
 <a href=#417 id=417 data-nosnippet>417</a>/// nothing else compiles and only fails when a user reaches the page that needs
 <a href=#418 id=418 data-nosnippet>418</a>/// the missing piece. The essentials that are *declarations* are checked here,
-<a href=#419 id=419 data-nosnippet>419</a>/// at build, and reported with the resource's type name: a tenant predicate
-<a href=#420 id=420 data-nosnippet>420</a>/// for a gated resource, what the table, the form and the view record as
-<a href=#421 id=421 data-nosnippet>421</a>/// misdeclared ([`Table::declaration_errors`](crate::Table::declaration_errors),
-<a href=#422 id=422 data-nosnippet>422</a>/// [`Schema::declaration_errors`]), the custom actions' names, and the
-<a href=#423 id=423 data-nosnippet>423</a>/// agreement between the resource's `Form` and its `form()` schema
-<a href=#424 id=424 data-nosnippet>424</a>/// ([`check_form_declaration`]). Runtime essentials (the record fns) keep their
-<a href=#425 id=425 data-nosnippet>425</a>/// loud failure.
-<a href=#426 id=426 data-nosnippet>426</a>///
-<a href=#427 id=427 data-nosnippet>427</a>/// The declarations are built once, here, and handed back for the panel to
-<a href=#428 id=428 data-nosnippet>428</a>/// serve: a request reads the values this check saw.
-<a href=#429 id=429 data-nosnippet>429</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>check_resource&lt;R: Resource&gt;(
-<a href=#430 id=430 data-nosnippet>430</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#431 id=431 data-nosnippet>431</a>    dx: <span class="kw-2">&amp;</span>DeclCx,
-<a href=#432 id=432 data-nosnippet>432</a>    declarations: <span class="kw-2">&amp;mut </span>Declarations,
-<a href=#433 id=433 data-nosnippet>433</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-<a href=#434 id=434 data-nosnippet>434</a>    <span class="comment">// A gated resource that supplies no tenant predicate is misdeclared, and
-<a href=#435 id=435 data-nosnippet>435</a>    // the declaration is checkable without a request:
-<a href=#436 id=436 data-nosnippet>436</a>    // `R::tenant_scope` is pure, and the default derivation answers by the
-<a href=#437 id=437 data-nosnippet>437</a>    // model's *shape* — a `tenant_id` UUID field, found by name and type — not
-<a href=#438 id=438 data-nosnippet>438</a>    // by the tenant value, so the nil UUID is enough to ask whether a predicate
-<a href=#439 id=439 data-nosnippet>439</a>    // exists at all. Refusing here is what `build`'s contract promises a
-<a href=#440 id=440 data-nosnippet>440</a>    // declaration error gets; the request-time error in `apply_tenant_scope`
-<a href=#441 id=441 data-nosnippet>441</a>    // stays as the backstop for a resource whose predicate is only `None` for
-<a href=#442 id=442 data-nosnippet>442</a>    // some tenants, and for app code that calls `scoped_query` outside a panel.
-<a href=#443 id=443 data-nosnippet>443</a>    //
-<a href=#444 id=444 data-nosnippet>444</a>    // Checked before the declarations below because the gate and the scope
-<a href=#445 id=445 data-nosnippet>445</a>    // govern every handler this resource registers, not just the list and
-<a href=#446 id=446 data-nosnippet>446</a>    // create pages those checks are about.
-<a href=#447 id=447 data-nosnippet>447</a>    </span><span class="kw">if </span>R::requires_tenant() &amp;&amp; R::tenant_scope(uuid::Uuid::nil()).is_none() {
-<a href=#448 id=448 data-nosnippet>448</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-<a href=#449 id=449 data-nosnippet>449</a>            <span class="string">"resource `{}` requires a tenant, but the framework cannot scope it: `{}` declares no \
-<a href=#450 id=450 data-nosnippet>450</a>             `tenant_id` UUID column to derive the filter from, and the resource does not override \
-<a href=#451 id=451 data-nosnippet>451</a>             `tenant_scope` — declare the column, override `tenant_scope`, or drop \
-<a href=#452 id=452 data-nosnippet>452</a>             `requires_tenant` and scope in `query`"</span>,
+<a href=#419 id=419 data-nosnippet>419</a>/// at build, and reported with the resource's type name: a
+<a href=#420 id=420 data-nosnippet>420</a>/// [`Tenancy::column`](crate::Tenancy::column) lens that names a field of the
+<a href=#421 id=421 data-nosnippet>421</a>/// model, what the table, the form and the view record as
+<a href=#422 id=422 data-nosnippet>422</a>/// misdeclared ([`Table::declaration_errors`](crate::Table::declaration_errors),
+<a href=#423 id=423 data-nosnippet>423</a>/// [`Schema::declaration_errors`]), the custom actions' names, and the
+<a href=#424 id=424 data-nosnippet>424</a>/// agreement between the resource's `Form` and its `form()` schema
+<a href=#425 id=425 data-nosnippet>425</a>/// ([`check_form_declaration`]). Runtime essentials (the record fns) keep their
+<a href=#426 id=426 data-nosnippet>426</a>/// loud failure.
+<a href=#427 id=427 data-nosnippet>427</a>///
+<a href=#428 id=428 data-nosnippet>428</a>/// The declarations are built once, here, and handed back for the panel to
+<a href=#429 id=429 data-nosnippet>429</a>/// serve: a request reads the values this check saw.
+<a href=#430 id=430 data-nosnippet>430</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>check_resource&lt;R: Resource&gt;(
+<a href=#431 id=431 data-nosnippet>431</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#432 id=432 data-nosnippet>432</a>    dx: <span class="kw-2">&amp;</span>DeclCx,
+<a href=#433 id=433 data-nosnippet>433</a>    declarations: <span class="kw-2">&amp;mut </span>Declarations,
+<a href=#434 id=434 data-nosnippet>434</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+<a href=#435 id=435 data-nosnippet>435</a>    <span class="comment">// A tenant column that is not one field of the model would filter on, and
+<a href=#436 id=436 data-nosnippet>436</a>    // stamp, nothing: checked first because the tenancy governs every handler
+<a href=#437 id=437 data-nosnippet>437</a>    // this resource registers.
+<a href=#438 id=438 data-nosnippet>438</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(error)) = R::tenancy().column_field() {
+<a href=#439 id=439 data-nosnippet>439</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#440 id=440 data-nosnippet>440</a>            <span class="string">"resource `{}`'s `Tenancy::column` lens binds no column of `{}`: {error} — name a \
+<a href=#441 id=441 data-nosnippet>441</a>             UUID field of the model, or use `Tenancy::via` for a tenant reached through a relation"</span>,
+<a href=#442 id=442 data-nosnippet>442</a>            std::any::type_name::&lt;R&gt;(),
+<a href=#443 id=443 data-nosnippet>443</a>            std::any::type_name::&lt;R::Model&gt;(),
+<a href=#444 id=444 data-nosnippet>444</a>        ));
+<a href=#445 id=445 data-nosnippet>445</a>    }
+<a href=#446 id=446 data-nosnippet>446</a>    <span class="comment">// A `via` over the model's own column stamps nothing, so creates would
+<a href=#447 id=447 data-nosnippet>447</a>    // fail or orphan: that shape is `column`.
+<a href=#448 id=448 data-nosnippet>448</a>    </span><span class="kw">if </span>R::tenancy().via_is_single() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
+<a href=#449 id=449 data-nosnippet>449</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#450 id=450 data-nosnippet>450</a>            <span class="string">"resource `{}`'s `Tenancy::via` lens names one field of `{}` — use `Tenancy::column` \
+<a href=#451 id=451 data-nosnippet>451</a>             for the model's own tenant column, `Tenancy::via` for a tenant reached through a \
+<a href=#452 id=452 data-nosnippet>452</a>             relation"</span>,
 <a href=#453 id=453 data-nosnippet>453</a>            std::any::type_name::&lt;R&gt;(),
 <a href=#454 id=454 data-nosnippet>454</a>            std::any::type_name::&lt;R::Model&gt;(),
 <a href=#455 id=455 data-nosnippet>455</a>        ));
@@ -527,7 +527,7 @@
 <a href=#527 id=527 data-nosnippet>527</a>             form — name the record form in `type Form`"
 <a href=#528 id=528 data-nosnippet>528</a>        </span>));
 <a href=#529 id=529 data-nosnippet>529</a>    }
-<a href=#530 id=530 data-nosnippet>530</a>    <span class="kw">if </span>R::can_create(cx) {
+<a href=#530 id=530 data-nosnippet>530</a>    <span class="kw">if </span>can::&lt;R&gt;(cx, Ability::Create) {
 <a href=#531 id=531 data-nosnippet>531</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
 <a href=#532 id=532 data-nosnippet>532</a>            <span class="string">"resource `{resource}` allows create but has no form — name its record form in `type \
 <a href=#533 id=533 data-nosnippet>533</a>             Form` and declare `form()`"
@@ -597,123 +597,151 @@
 <a href=#597 id=597 data-nosnippet>597</a>            ));
 <a href=#598 id=598 data-nosnippet>598</a>        }
 <a href=#599 id=599 data-nosnippet>599</a>    }
-<a href=#600 id=600 data-nosnippet>600</a>    <span class="comment">// Tenant ownership: the framework stamps a gated resource's tenant column
+<a href=#600 id=600 data-nosnippet>600</a>    <span class="comment">// Tenant ownership: the framework stamps a scoped resource's tenant column
 <a href=#601 id=601 data-nosnippet>601</a>    // on create; a form that claimed it would let the client choose.
-<a href=#602 id=602 data-nosnippet>602</a>    </span><span class="kw">if </span>R::requires_tenant()
-<a href=#603 id=603 data-nosnippet>603</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(column) = <span class="kw">crate</span>::tenancy::tenant_field_name::&lt;R::Model&gt;()
-<a href=#604 id=604 data-nosnippet>604</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(field) = fields.iter().find(|field| field.keys.contains(<span class="kw-2">&amp;</span>column))
-<a href=#605 id=605 data-nosnippet>605</a>    {
-<a href=#606 id=606 data-nosnippet>606</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-<a href=#607 id=607 data-nosnippet>607</a>            <span class="string">"resource `{resource}` requires a tenant, but record form field `{}` claims its tenant \
-<a href=#608 id=608 data-nosnippet>608</a>             column `{column}` — the framework stamps it on create; drop it from the form"</span>,
-<a href=#609 id=609 data-nosnippet>609</a>            field.name
-<a href=#610 id=610 data-nosnippet>610</a>        ));
-<a href=#611 id=611 data-nosnippet>611</a>    }
-<a href=#612 id=612 data-nosnippet>612</a>    <span class="comment">// Column coverage: a create that leaves a non-nullable column unset fails
-<a href=#613 id=613 data-nosnippet>613</a>    // at the driver on every submit, with no field to point the user at.
-<a href=#614 id=614 data-nosnippet>614</a>    </span><span class="kw">if </span>R::can_create(cx) {
-<a href=#615 id=615 data-nosnippet>615</a>        check_create_columns::&lt;R&gt;(<span class="kw-2">&amp;</span>fields)<span class="question-mark">?</span>;
-<a href=#616 id=616 data-nosnippet>616</a>    }
-<a href=#617 id=617 data-nosnippet>617</a>    <span class="comment">// `.unique()` is a promise the panel makes and the database has to keep
-<a href=#618 id=618 data-nosnippet>618</a>    // (item 3): the marker turns the app-side pre-check on, so a field
-<a href=#619 id=619 data-nosnippet>619</a>    // whose column carries no unique index makes the panel enforce a rule
-<a href=#620 id=620 data-nosnippet>620</a>    // nothing else does — a duplicate the check lets through, or a rule the
-<a href=#621 id=621 data-nosnippet>621</a>    // database never asked for. The declaration checks are the only place both
-<a href=#622 id=622 data-nosnippet>622</a>    // halves are reachable without a request, so the pair is refused here
-<a href=#623 id=623 data-nosnippet>623</a>    // rather than discovered by a user. It is checked whatever the policies say:
-<a href=#624 id=624 data-nosnippet>624</a>    // a `unique()` marker is wrong on a form the panel would not even serve.
-<a href=#625 id=625 data-nosnippet>625</a>    // `lens_field_unique` recognizes composite indexes too, which is what makes
-<a href=#626 id=626 data-nosnippet>626</a>    // `#[unique(tenant_id, email)]` — the tenant-scoped arrangement the panel
-<a href=#627 id=627 data-nosnippet>627</a>    // documents — pass.
-<a href=#628 id=628 data-nosnippet>628</a>    </span><span class="kw">let </span>model = R::Model::schema();
-<a href=#629 id=629 data-nosnippet>629</a>    <span class="kw">let </span>root = model.as_root_unwrap();
-<a href=#630 id=630 data-nosnippet>630</a>    <span class="kw">for </span>field <span class="kw">in </span>form.fields().filter(|field| field.is_unique()) {
-<a href=#631 id=631 data-nosnippet>631</a>        <span class="kw">let </span>name = field.name();
-<a href=#632 id=632 data-nosnippet>632</a>        <span class="comment">// A bound lens always resolves, so a name with no field at all is a
-<a href=#633 id=633 data-nosnippet>633</a>        // mis-declared schema — but it is not worth a second error string: it
-<a href=#634 id=634 data-nosnippet>634</a>        // fails the same way, one message below.
-<a href=#635 id=635 data-nosnippet>635</a>        </span><span class="kw">let </span>backed = root
-<a href=#636 id=636 data-nosnippet>636</a>            .fields
-<a href=#637 id=637 data-nosnippet>637</a>            .iter()
-<a href=#638 id=638 data-nosnippet>638</a>            .filter(|field| field.name.app_unwrap() == name)
-<a href=#639 id=639 data-nosnippet>639</a>            .any(|field| <span class="kw">crate</span>::schema::lens_field_unique(field, root));
-<a href=#640 id=640 data-nosnippet>640</a>        <span class="kw">if </span>!backed {
-<a href=#641 id=641 data-nosnippet>641</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-<a href=#642 id=642 data-nosnippet>642</a>                <span class="string">"resource `{}` marks form field `{name}` unique, but `{}::{name}` carries no unique index — add `#[unique]` (or `#[unique(..)]`) to the column or drop `.unique()`, which would otherwise check a rule the database does not enforce"</span>,
-<a href=#643 id=643 data-nosnippet>643</a>                std::any::type_name::&lt;R&gt;(),
-<a href=#644 id=644 data-nosnippet>644</a>                std::any::type_name::&lt;R::Model&gt;()
-<a href=#645 id=645 data-nosnippet>645</a>            ));
-<a href=#646 id=646 data-nosnippet>646</a>        }
-<a href=#647 id=647 data-nosnippet>647</a>    }
-<a href=#648 id=648 data-nosnippet>648</a>    <span class="prelude-val">Ok</span>(())
-<a href=#649 id=649 data-nosnippet>649</a>}
-<a href=#650 id=650 data-nosnippet>650</a>
-<a href=#651 id=651 data-nosnippet>651</a><span class="doccomment">/// Every non-nullable column a create must set is set by something: the
-<a href=#652 id=652 data-nosnippet>652</a>/// record form, toasty (`#[auto]`, `#[default(..)]`), the tenant stamp, or the
-<a href=#653 id=653 data-nosnippet>653</a>/// resource's own `CREATE_COLUMNS`.
-<a href=#654 id=654 data-nosnippet>654</a></span><span class="kw">fn </span>check_create_columns&lt;R: Resource&gt;(
-<a href=#655 id=655 data-nosnippet>655</a>    fields: <span class="kw-2">&amp;</span>[<span class="kw">crate</span>::form::FormField&lt;&lt;R::Form <span class="kw">as </span>RecordForm&gt;::Field&gt;],
-<a href=#656 id=656 data-nosnippet>656</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-<a href=#657 id=657 data-nosnippet>657</a>    <span class="kw">let </span>resource = std::any::type_name::&lt;R&gt;();
-<a href=#658 id=658 data-nosnippet>658</a>    <span class="kw">let </span>prefilled = <span class="kw">crate</span>::form::prefilled_fields::&lt;R::Model&gt;();
-<a href=#659 id=659 data-nosnippet>659</a>    <span class="kw">let </span>tenant = R::requires_tenant()
-<a href=#660 id=660 data-nosnippet>660</a>        .then(<span class="kw">crate</span>::tenancy::tenant_field_name::&lt;R::Model&gt;)
-<a href=#661 id=661 data-nosnippet>661</a>        .flatten();
-<a href=#662 id=662 data-nosnippet>662</a>    <span class="kw">let </span>model = R::Model::schema();
-<a href=#663 id=663 data-nosnippet>663</a>    <span class="kw">let </span>root = model.as_root_unwrap();
-<a href=#664 id=664 data-nosnippet>664</a>    <span class="kw">for </span>name <span class="kw">in </span>R::CREATE_COLUMNS {
-<a href=#665 id=665 data-nosnippet>665</a>        <span class="kw">if </span>!root
-<a href=#666 id=666 data-nosnippet>666</a>            .fields
-<a href=#667 id=667 data-nosnippet>667</a>            .iter()
-<a href=#668 id=668 data-nosnippet>668</a>            .any(|field| field.name.app.as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">*</span>name))
-<a href=#669 id=669 data-nosnippet>669</a>        {
-<a href=#670 id=670 data-nosnippet>670</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-<a href=#671 id=671 data-nosnippet>671</a>                <span class="string">"resource `{resource}` names `{name}` in `CREATE_COLUMNS`, but `{}` has no such \
-<a href=#672 id=672 data-nosnippet>672</a>                 field"</span>,
-<a href=#673 id=673 data-nosnippet>673</a>                std::any::type_name::&lt;R::Model&gt;()
-<a href=#674 id=674 data-nosnippet>674</a>            ));
-<a href=#675 id=675 data-nosnippet>675</a>        }
-<a href=#676 id=676 data-nosnippet>676</a>    }
-<a href=#677 id=677 data-nosnippet>677</a>    <span class="kw">for </span>(index, field) <span class="kw">in </span>root.fields.iter().enumerate() {
-<a href=#678 id=678 data-nosnippet>678</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(name) = field.name.app.as_deref() <span class="kw">else </span>{
-<a href=#679 id=679 data-nosnippet>679</a>            <span class="kw">continue</span>;
-<a href=#680 id=680 data-nosnippet>680</a>        };
-<a href=#681 id=681 data-nosnippet>681</a>        <span class="kw">let </span>filled = field.nullable()
-<a href=#682 id=682 data-nosnippet>682</a>            || field.is_relation()
-<a href=#683 id=683 data-nosnippet>683</a>            || prefilled.get(index).copied().unwrap_or(<span class="bool-val">false</span>)
-<a href=#684 id=684 data-nosnippet>684</a>            || tenant.as_deref() == <span class="prelude-val">Some</span>(name)
-<a href=#685 id=685 data-nosnippet>685</a>            || fields.iter().any(|claim| claim.name == name)
-<a href=#686 id=686 data-nosnippet>686</a>            || R::CREATE_COLUMNS.contains(<span class="kw-2">&amp;</span>name);
-<a href=#687 id=687 data-nosnippet>687</a>        <span class="kw">if </span>!filled {
-<a href=#688 id=688 data-nosnippet>688</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-<a href=#689 id=689 data-nosnippet>689</a>                <span class="string">"resource `{resource}` allows create, but nothing writes the non-nullable column \
-<a href=#690 id=690 data-nosnippet>690</a>                 `{name}`: its record form has no such field, toasty fills no `#[default(..)]` for \
-<a href=#691 id=691 data-nosnippet>691</a>                 it, and `CREATE_COLUMNS` does not name it — every create would fail at the driver"
-<a href=#692 id=692 data-nosnippet>692</a>            </span>));
-<a href=#693 id=693 data-nosnippet>693</a>        }
-<a href=#694 id=694 data-nosnippet>694</a>    }
-<a href=#695 id=695 data-nosnippet>695</a>    <span class="prelude-val">Ok</span>(())
-<a href=#696 id=696 data-nosnippet>696</a>}
-<a href=#697 id=697 data-nosnippet>697</a>
-<a href=#698 id=698 data-nosnippet>698</a><span class="doccomment">/// A context for the build-time declaration checks: the app's own values, no
-<a href=#699 id=699 data-nosnippet>699</a>/// request. Resources must be able to describe their table and form from this
-<a href=#700 id=700 data-nosnippet>700</a>/// — that they cannot read a request here is the contract, not a limitation.
-<a href=#701 id=701 data-nosnippet>701</a></span><span class="kw">fn </span>validation_cx(db: <span class="kw-2">&amp;</span>Db) -&gt; Cx {
-<a href=#702 id=702 data-nosnippet>702</a>    <span class="kw">let </span><span class="kw-2">mut </span>app_context = topcoat::context::AppContext::new();
-<a href=#703 id=703 data-nosnippet>703</a>    app_context.insert(db.clone());
-<a href=#704 id=704 data-nosnippet>704</a>    Cx::new(std::sync::Arc::new(app_context))
-<a href=#705 id=705 data-nosnippet>705</a>}
-<a href=#706 id=706 data-nosnippet>706</a>
-<a href=#707 id=707 data-nosnippet>707</a><span class="doccomment">/// Parse a panel route path, panicking on malformed input — the paths are
-<a href=#708 id=708 data-nosnippet>708</a>/// built from the panel prefix and a resource or page slug, both validated at
-<a href=#709 id=709 data-nosnippet>709</a>/// registration ([`validate_route_segment`]), so a malformed path here is a
-<a href=#710 id=710 data-nosnippet>710</a>/// framework bug rather than user input.
-<a href=#711 id=711 data-nosnippet>711</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>route_path(path: <span class="kw-2">&amp;</span>str) -&gt; topcoat::router::PathBuf {
-<a href=#712 id=712 data-nosnippet>712</a>    Path::from_str(path)
-<a href=#713 id=713 data-nosnippet>713</a>        .expect(<span class="string">"panel route paths are well-formed"</span>)
-<a href=#714 id=714 data-nosnippet>714</a>        .to_owned()
-<a href=#715 id=715 data-nosnippet>715</a>}
-<a href=#716 id=716 data-nosnippet>716</a>
-<a href=#717 id=717 data-nosnippet>717</a><span class="attr">#[cfg(test)]
-<a href=#718 id=718 data-nosnippet>718</a></span><span class="kw">mod </span>tests;
+<a href=#602 id=602 data-nosnippet>602</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(column) = tenant_column::&lt;R&gt;()
+<a href=#603 id=603 data-nosnippet>603</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(field) = fields.iter().find(|field| field.keys.contains(<span class="kw-2">&amp;</span>column))
+<a href=#604 id=604 data-nosnippet>604</a>    {
+<a href=#605 id=605 data-nosnippet>605</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#606 id=606 data-nosnippet>606</a>            <span class="string">"resource `{resource}` is tenant-scoped, but record form field `{}` claims its tenant \
+<a href=#607 id=607 data-nosnippet>607</a>             column `{column}` — the framework stamps it on create; drop it from the form"</span>,
+<a href=#608 id=608 data-nosnippet>608</a>            field.name
+<a href=#609 id=609 data-nosnippet>609</a>        ));
+<a href=#610 id=610 data-nosnippet>610</a>    }
+<a href=#611 id=611 data-nosnippet>611</a>    <span class="comment">// A `via` resource writes its parent key through the form, so without a
+<a href=#612 id=612 data-nosnippet>612</a>    // relationship field nothing re-checks it inside the write.
+<a href=#613 id=613 data-nosnippet>613</a>    </span><span class="kw">if </span>R::tenancy().via_is_single() == <span class="prelude-val">Some</span>(<span class="bool-val">false</span>)
+<a href=#614 id=614 data-nosnippet>614</a>        &amp;&amp; !form.fields().any(|field| {
+<a href=#615 id=615 data-nosnippet>615</a>            field
+<a href=#616 id=616 data-nosnippet>616</a>                .as_choice()
+<a href=#617 id=617 data-nosnippet>617</a>                .is_some_and(|choice| choice.is_relationship())
+<a href=#618 id=618 data-nosnippet>618</a>        })
+<a href=#619 id=619 data-nosnippet>619</a>    {
+<a href=#620 id=620 data-nosnippet>620</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#621 id=621 data-nosnippet>621</a>            <span class="string">"resource `{resource}` uses `Tenancy::via` but its form declares no relationship \
+<a href=#622 id=622 data-nosnippet>622</a>             field — declare the parent key as a relationship field over the parent's resource"
+<a href=#623 id=623 data-nosnippet>623</a>        </span>));
+<a href=#624 id=624 data-nosnippet>624</a>    }
+<a href=#625 id=625 data-nosnippet>625</a>    <span class="comment">// Column coverage: a create that leaves a non-nullable column unset fails
+<a href=#626 id=626 data-nosnippet>626</a>    // at the driver on every submit, with no field to point the user at.
+<a href=#627 id=627 data-nosnippet>627</a>    </span><span class="kw">if </span>can::&lt;R&gt;(cx, Ability::Create) {
+<a href=#628 id=628 data-nosnippet>628</a>        check_create_columns::&lt;R&gt;(<span class="kw-2">&amp;</span>fields)<span class="question-mark">?</span>;
+<a href=#629 id=629 data-nosnippet>629</a>    }
+<a href=#630 id=630 data-nosnippet>630</a>    <span class="comment">// `.unique()` is a promise the panel makes and the database has to keep
+<a href=#631 id=631 data-nosnippet>631</a>    // (item 3): the marker turns the app-side pre-check on, so a field
+<a href=#632 id=632 data-nosnippet>632</a>    // whose column carries no unique index makes the panel enforce a rule
+<a href=#633 id=633 data-nosnippet>633</a>    // nothing else does — a duplicate the check lets through, or a rule the
+<a href=#634 id=634 data-nosnippet>634</a>    // database never asked for. The declaration checks are the only place both
+<a href=#635 id=635 data-nosnippet>635</a>    // halves are reachable without a request, so the pair is refused here
+<a href=#636 id=636 data-nosnippet>636</a>    // rather than discovered by a user. It is checked whatever the policies say:
+<a href=#637 id=637 data-nosnippet>637</a>    // a `unique()` marker is wrong on a form the panel would not even serve.
+<a href=#638 id=638 data-nosnippet>638</a>    // `lens_field_unique` recognizes composite indexes too, which is what makes
+<a href=#639 id=639 data-nosnippet>639</a>    // `#[unique(tenant_id, email)]` — the tenant-scoped arrangement the panel
+<a href=#640 id=640 data-nosnippet>640</a>    // documents — pass.
+<a href=#641 id=641 data-nosnippet>641</a>    </span><span class="kw">let </span>model = R::Model::schema();
+<a href=#642 id=642 data-nosnippet>642</a>    <span class="kw">let </span>root = model.as_root_unwrap();
+<a href=#643 id=643 data-nosnippet>643</a>    <span class="kw">for </span>field <span class="kw">in </span>form.fields().filter(|field| field.is_unique()) {
+<a href=#644 id=644 data-nosnippet>644</a>        <span class="kw">let </span>name = field.name();
+<a href=#645 id=645 data-nosnippet>645</a>        <span class="comment">// A bound lens always resolves, so a name with no field at all is a
+<a href=#646 id=646 data-nosnippet>646</a>        // mis-declared schema — but it is not worth a second error string: it
+<a href=#647 id=647 data-nosnippet>647</a>        // fails the same way, one message below.
+<a href=#648 id=648 data-nosnippet>648</a>        </span><span class="kw">let </span>backed = root
+<a href=#649 id=649 data-nosnippet>649</a>            .fields
+<a href=#650 id=650 data-nosnippet>650</a>            .iter()
+<a href=#651 id=651 data-nosnippet>651</a>            .filter(|field| field.name.app_unwrap() == name)
+<a href=#652 id=652 data-nosnippet>652</a>            .any(|field| <span class="kw">crate</span>::schema::lens_field_unique(field, root));
+<a href=#653 id=653 data-nosnippet>653</a>        <span class="kw">if </span>!backed {
+<a href=#654 id=654 data-nosnippet>654</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#655 id=655 data-nosnippet>655</a>                <span class="string">"resource `{}` marks form field `{name}` unique, but `{}::{name}` carries no unique index — add `#[unique]` (or `#[unique(..)]`) to the column or drop `.unique()`, which would otherwise check a rule the database does not enforce"</span>,
+<a href=#656 id=656 data-nosnippet>656</a>                std::any::type_name::&lt;R&gt;(),
+<a href=#657 id=657 data-nosnippet>657</a>                std::any::type_name::&lt;R::Model&gt;()
+<a href=#658 id=658 data-nosnippet>658</a>            ));
+<a href=#659 id=659 data-nosnippet>659</a>        }
+<a href=#660 id=660 data-nosnippet>660</a>    }
+<a href=#661 id=661 data-nosnippet>661</a>    <span class="prelude-val">Ok</span>(())
+<a href=#662 id=662 data-nosnippet>662</a>}
+<a href=#663 id=663 data-nosnippet>663</a>
+<a href=#664 id=664 data-nosnippet>664</a><span class="doccomment">/// The name of `R`'s own tenant column, which the framework stamps on create:
+<a href=#665 id=665 data-nosnippet>665</a>/// a [`Tenancy::column`](crate::Tenancy::column) that binds one.
+<a href=#666 id=666 data-nosnippet>666</a></span><span class="kw">fn </span>tenant_column&lt;R: Resource&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#667 id=667 data-nosnippet>667</a>    R::tenancy()
+<a href=#668 id=668 data-nosnippet>668</a>        .column_field()
+<a href=#669 id=669 data-nosnippet>669</a>        .and_then(Result::ok)
+<a href=#670 id=670 data-nosnippet>670</a>        .map(|field| field.name.clone())
+<a href=#671 id=671 data-nosnippet>671</a>}
+<a href=#672 id=672 data-nosnippet>672</a>
+<a href=#673 id=673 data-nosnippet>673</a><span class="doccomment">/// Every non-nullable column a create must set is set by something: the
+<a href=#674 id=674 data-nosnippet>674</a>/// record form, toasty (`#[auto]`, `#[default(..)]`), the tenant stamp, or the
+<a href=#675 id=675 data-nosnippet>675</a>/// resource's own `CREATE_COLUMNS`.
+<a href=#676 id=676 data-nosnippet>676</a></span><span class="kw">fn </span>check_create_columns&lt;R: Resource&gt;(
+<a href=#677 id=677 data-nosnippet>677</a>    fields: <span class="kw-2">&amp;</span>[<span class="kw">crate</span>::form::FormField&lt;&lt;R::Form <span class="kw">as </span>RecordForm&gt;::Field&gt;],
+<a href=#678 id=678 data-nosnippet>678</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+<a href=#679 id=679 data-nosnippet>679</a>    <span class="kw">let </span>resource = std::any::type_name::&lt;R&gt;();
+<a href=#680 id=680 data-nosnippet>680</a>    <span class="kw">let </span>prefilled = <span class="kw">crate</span>::form::prefilled_fields::&lt;R::Model&gt;();
+<a href=#681 id=681 data-nosnippet>681</a>    <span class="kw">let </span>tenant = tenant_column::&lt;R&gt;();
+<a href=#682 id=682 data-nosnippet>682</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(column) = <span class="kw-2">&amp;</span>tenant
+<a href=#683 id=683 data-nosnippet>683</a>        &amp;&amp; R::CREATE_COLUMNS.contains(<span class="kw-2">&amp;</span>column.as_str())
+<a href=#684 id=684 data-nosnippet>684</a>    {
+<a href=#685 id=685 data-nosnippet>685</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#686 id=686 data-nosnippet>686</a>            <span class="string">"resource `{resource}` lists its tenant column `{column}` in `CREATE_COLUMNS` — the \
+<a href=#687 id=687 data-nosnippet>687</a>             framework stamps it on create; drop it there and delegate to `write_create`"
+<a href=#688 id=688 data-nosnippet>688</a>        </span>));
+<a href=#689 id=689 data-nosnippet>689</a>    }
+<a href=#690 id=690 data-nosnippet>690</a>    <span class="kw">let </span>model = R::Model::schema();
+<a href=#691 id=691 data-nosnippet>691</a>    <span class="kw">let </span>root = model.as_root_unwrap();
+<a href=#692 id=692 data-nosnippet>692</a>    <span class="kw">for </span>name <span class="kw">in </span>R::CREATE_COLUMNS {
+<a href=#693 id=693 data-nosnippet>693</a>        <span class="kw">if </span>!root
+<a href=#694 id=694 data-nosnippet>694</a>            .fields
+<a href=#695 id=695 data-nosnippet>695</a>            .iter()
+<a href=#696 id=696 data-nosnippet>696</a>            .any(|field| field.name.app.as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">*</span>name))
+<a href=#697 id=697 data-nosnippet>697</a>        {
+<a href=#698 id=698 data-nosnippet>698</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#699 id=699 data-nosnippet>699</a>                <span class="string">"resource `{resource}` names `{name}` in `CREATE_COLUMNS`, but `{}` has no such \
+<a href=#700 id=700 data-nosnippet>700</a>                 field"</span>,
+<a href=#701 id=701 data-nosnippet>701</a>                std::any::type_name::&lt;R::Model&gt;()
+<a href=#702 id=702 data-nosnippet>702</a>            ));
+<a href=#703 id=703 data-nosnippet>703</a>        }
+<a href=#704 id=704 data-nosnippet>704</a>    }
+<a href=#705 id=705 data-nosnippet>705</a>    <span class="kw">for </span>(index, field) <span class="kw">in </span>root.fields.iter().enumerate() {
+<a href=#706 id=706 data-nosnippet>706</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(name) = field.name.app.as_deref() <span class="kw">else </span>{
+<a href=#707 id=707 data-nosnippet>707</a>            <span class="kw">continue</span>;
+<a href=#708 id=708 data-nosnippet>708</a>        };
+<a href=#709 id=709 data-nosnippet>709</a>        <span class="kw">let </span>filled = field.nullable()
+<a href=#710 id=710 data-nosnippet>710</a>            || field.is_relation()
+<a href=#711 id=711 data-nosnippet>711</a>            || prefilled.get(index).copied().unwrap_or(<span class="bool-val">false</span>)
+<a href=#712 id=712 data-nosnippet>712</a>            || tenant.as_deref() == <span class="prelude-val">Some</span>(name)
+<a href=#713 id=713 data-nosnippet>713</a>            || fields.iter().any(|claim| claim.name == name)
+<a href=#714 id=714 data-nosnippet>714</a>            || R::CREATE_COLUMNS.contains(<span class="kw-2">&amp;</span>name);
+<a href=#715 id=715 data-nosnippet>715</a>        <span class="kw">if </span>!filled {
+<a href=#716 id=716 data-nosnippet>716</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#717 id=717 data-nosnippet>717</a>                <span class="string">"resource `{resource}` allows create, but nothing writes the non-nullable column \
+<a href=#718 id=718 data-nosnippet>718</a>                 `{name}`: its record form has no such field, toasty fills no `#[default(..)]` for \
+<a href=#719 id=719 data-nosnippet>719</a>                 it, and `CREATE_COLUMNS` does not name it — every create would fail at the driver"
+<a href=#720 id=720 data-nosnippet>720</a>            </span>));
+<a href=#721 id=721 data-nosnippet>721</a>        }
+<a href=#722 id=722 data-nosnippet>722</a>    }
+<a href=#723 id=723 data-nosnippet>723</a>    <span class="prelude-val">Ok</span>(())
+<a href=#724 id=724 data-nosnippet>724</a>}
+<a href=#725 id=725 data-nosnippet>725</a>
+<a href=#726 id=726 data-nosnippet>726</a><span class="doccomment">/// A context for the build-time declaration checks: the app's own values, no
+<a href=#727 id=727 data-nosnippet>727</a>/// request. Resources must be able to describe their table and form from this
+<a href=#728 id=728 data-nosnippet>728</a>/// — that they cannot read a request here is the contract, not a limitation.
+<a href=#729 id=729 data-nosnippet>729</a></span><span class="kw">fn </span>validation_cx(db: <span class="kw-2">&amp;</span>Db) -&gt; Cx {
+<a href=#730 id=730 data-nosnippet>730</a>    <span class="kw">let </span><span class="kw-2">mut </span>app_context = topcoat::context::AppContext::new();
+<a href=#731 id=731 data-nosnippet>731</a>    app_context.insert(db.clone());
+<a href=#732 id=732 data-nosnippet>732</a>    Cx::new(std::sync::Arc::new(app_context))
+<a href=#733 id=733 data-nosnippet>733</a>}
+<a href=#734 id=734 data-nosnippet>734</a>
+<a href=#735 id=735 data-nosnippet>735</a><span class="doccomment">/// Parse a panel route path, panicking on malformed input — the paths are
+<a href=#736 id=736 data-nosnippet>736</a>/// built from the panel prefix and a resource or page slug, both validated at
+<a href=#737 id=737 data-nosnippet>737</a>/// registration ([`validate_route_segment`]), so a malformed path here is a
+<a href=#738 id=738 data-nosnippet>738</a>/// framework bug rather than user input.
+<a href=#739 id=739 data-nosnippet>739</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>route_path(path: <span class="kw-2">&amp;</span>str) -&gt; topcoat::router::PathBuf {
+<a href=#740 id=740 data-nosnippet>740</a>    Path::from_str(path)
+<a href=#741 id=741 data-nosnippet>741</a>        .expect(<span class="string">"panel route paths are well-formed"</span>)
+<a href=#742 id=742 data-nosnippet>742</a>        .to_owned()
+<a href=#743 id=743 data-nosnippet>743</a>}
+<a href=#744 id=744 data-nosnippet>744</a>
+<a href=#745 id=745 data-nosnippet>745</a><span class="attr">#[cfg(test)]
+<a href=#746 id=746 data-nosnippet>746</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

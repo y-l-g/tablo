@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
+            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -216,11 +216,11 @@ async fn books_cannot_be_deleted() {
             form_body(&amp;[("csrf_token", &amp;token), ("confirm", "1")]),
         )
         .await;
-    assert_eq!(response.status(), 403); // `can_delete_any` is not overridden
+    assert_eq!(response.status(), 403); // the policy does not allow `DeleteAny`
 }
 <span class="boring">}</span></code></pre>
 <ul>
-<li><strong>Cover every policy predicate</strong> with a request that it allows and one that it refuses, and
+<li><strong>Cover every ability your policy decides</strong> with a request it allows and one it refuses, and
 assert on the database as well as the status code.</li>
 <li><strong>Cover <code>query()</code> scoping</strong> by seeding a row the scope excludes and asserting that the list,
 the detail page and a delete all miss it.</li>

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
+            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -260,7 +260,8 @@ from the client. Validate it like any request input.</li>
 <code>#[index]</code> to columns you filter on.</p>
 <p>A table with <code>live_search()</code> refreshes through a Topcoat shard request. Page and layout guards do
 not run for shard requests, so the panel’s shard checks authentication, the tenant and
-<code>can_view_any</code> itself; a shard you write must do the same.</p>
+<code>ViewAny</code> itself; a shard you write starts with <code>auth::guard(cx)?</code>, and checks
+<code>can_list::&lt;R&gt;(cx)</code> before it lists <code>R</code>’s rows.</p>
 
                     </main>
 

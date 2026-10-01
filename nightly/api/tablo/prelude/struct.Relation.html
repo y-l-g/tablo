@@ -9,7 +9,7 @@ belong to a record, and the key that says which.</p>
     )]
 }</code></pre></div>
 <p>Every row goes through the child’s own tenant-scoped query and policies —
-<code>can_view_any</code> decides whether the table renders at all, and the row
+<code>ViewAny</code> decides whether the table renders at all, and the row
 actions are gated per row as on its list. Writes started from the table
 return to the page that shows it.</p>
 </div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Relation%3CP%3E" class="impl"><a class="src rightside" href="../../src/tablo_core/resource/relation.rs.html#78">Source</a><a href="#impl-Relation%3CP%3E" class="anchor">§</a><h3 class="code-header">impl&lt;P&gt; <a class="struct" href="../struct.Relation.html" title="struct tablo::Relation">Relation</a>&lt;P&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.has_many" class="method"><a class="src rightside" href="../../src/tablo_core/resource/relation.rs.html#96-102">Source</a><h4 class="code-header">pub fn <a href="#method.has_many" class="fn">has_many</a>&lt;C, T&gt;(

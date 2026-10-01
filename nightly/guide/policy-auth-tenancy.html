@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
+            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -182,45 +182,87 @@
                     <main>
                         <h1 id="policy-auth-tenancy"><a class="header" href="#policy-auth-tenancy">Policy, auth, tenancy</a></h1>
 <p>Three layers decide what a request may do. <strong>Authentication</strong> decides who is signed in.
-<strong>Tenancy</strong> limits a signed-in user to their tenant’s rows. <strong>Policy</strong> — the resource’s <code>can_*</code>
-predicates — decides what that user may do with each resource and record.</p>
+<strong>Tenancy</strong> limits a signed-in user to their tenant’s rows. <strong>Policy</strong> — the resource’s
+<code>policy()</code> — decides what that user may do with each resource and record.</p>
 <h2 id="policy"><a class="header" href="#policy">Policy</a></h2>
-<p>Every predicate defaults to <code>false</code>, so a new resource exposes nothing until you allow it:</p>
+<p>A policy answers one <code>Ability</code> at a time. The default policy is <code>Deny</code>, so a new resource exposes
+nothing until you allow it:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn can_view_any(_cx: &amp;Cx) -&gt; bool { true }
-fn can_view(_cx: &amp;Cx, _user: &amp;User) -&gt; bool { true }
-fn can_create(cx: &amp;Cx) -&gt; bool { is_admin(cx) }
-fn can_update(_cx: &amp;Cx, user: &amp;User) -&gt; bool { !user.sso_managed }
-fn can_delete_any(cx: &amp;Cx) -&gt; bool { is_admin(cx) }
+</span>use tablo::prelude::*;
+
+impl Resource for UserResource {
+    // …
+    fn policy() -&gt; impl Policy&lt;User&gt; {
+        |cx: &amp;Cx, ability: Ability&lt;'_, User&gt;| match ability {
+            Ability::ViewAny | Ability::View(_) =&gt; true,
+            Ability::Create | Ability::DeleteAny | Ability::Delete(_) =&gt; is_admin(cx),
+            Ability::Update(user) =&gt; !user.sso_managed,
+        }
+    }
+}
 <span class="boring">}</span></code></pre>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Predicate</th><th>Default</th><th>Checked by</th></tr>
+<tr><th>Ability</th><th>Asked by</th></tr>
 </thead>
 <tbody>
-<tr><td><code>can_view_any(cx)</code></td><td><code>false</code></td><td>the list and its live refresh, the export, related tables, relationship options</td></tr>
-<tr><td><code>can_view(cx, record)</code></td><td><code>false</code></td><td>the detail page, the edit page and POST, deletes, each exported row, each relationship option, each row’s actions</td></tr>
-<tr><td><code>can_create(cx)</code></td><td><code>false</code></td><td>the create page and POST, the Create button</td></tr>
-<tr><td><code>can_update(cx, record)</code></td><td><code>false</code></td><td>the edit page and POST, the row’s Edit action</td></tr>
-<tr><td><code>can_delete_any(cx)</code></td><td><code>false</code></td><td>the delete and bulk-delete POSTs, the Delete action and the bulk column</td></tr>
-<tr><td><code>can_delete(cx, record)</code></td><td><code>can_delete_any(cx)</code></td><td>each record a delete removes, the row’s Delete action and checkbox</td></tr>
+<tr><td><code>ViewAny</code></td><td>the list and its live refresh, the export, related tables, relationship options</td></tr>
+<tr><td><code>View(record)</code></td><td>the detail page, the edit page and POST, deletes, each exported row, each relationship option, each row’s actions</td></tr>
+<tr><td><code>Create</code></td><td>the create page and POST, the Create button</td></tr>
+<tr><td><code>Update(record)</code></td><td>the edit page and POST, the row’s Edit action</td></tr>
+<tr><td><code>DeleteAny</code></td><td>the delete and bulk-delete POSTs, the Delete action and the bulk column</td></tr>
+<tr><td><code>Delete(record)</code></td><td>each record a delete removes, the row’s Delete action and checkbox</td></tr>
 </tbody>
 </table>
 </div>
-<p>Handlers check the same predicates that decide which buttons render, so a hidden action is also a
+<p>Handlers ask the same abilities that decide which buttons render, so a hidden action is also a
 refused request. A denied request answers 403.</p>
 <ul>
-<li><strong>The list checks <code>can_view_any</code> only.</strong> <code>can_view</code> is Rust code that cannot run in the
-database, and filtering rows after pagination would leave pages short. Rows a user must not see
-on the list belong out of <code>query()</code>; see <a href="./resources.html#scoping-the-query">Resources</a>.</li>
+<li><strong>The list asks <code>ViewAny</code> only.</strong> A policy is Rust code that cannot run in the database, and
+filtering rows after pagination would leave pages short. Rows a user must not see on the list
+belong out of <code>query()</code>; see <a href="./resources.html#scoping-the-query">Resources</a>.</li>
+<li><strong>A record is viewed before it is written.</strong> The edit and delete handlers ask <code>View</code> together
+with <code>Update</code> or <code>Delete</code>, and a delete asks <code>DeleteAny</code> before any record loads.</li>
 <li><strong>Writes are checked against the stored row.</strong> The update and delete handlers load the record
-inside the write’s transaction and check the predicates on that row, not on the submitted id.
-A bulk delete fails as a whole if any selected record is refused.</li>
-<li><strong>Relationship options</strong> require both <code>can_view_any</code> and <code>can_view</code> on the related resource;
-overriding one does not imply the other.</li>
+inside the write’s transaction and ask the policy about that row, not the submitted id. A bulk
+delete fails as a whole if any selected record is refused.</li>
+<li><strong>Relationship options</strong> require <code>ViewAny</code> and <code>View</code> from the related resource’s policy.</li>
 </ul>
+<h3 id="building-a-policy"><a class="header" href="#building-a-policy">Building a policy</a></h3>
+<p><code>Allow</code>, <code>Deny</code>, <code>ReadOnly</code> (<code>ViewAny</code> and <code>View</code>) and <code>when(predicate)</code> are policies, and each
+combines with another through <code>and</code> and <code>or</code>. <code>when</code> allows every ability while a predicate on the
+request holds, which suits a rule about the user or the tenant that several resources share:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn editors_only(cx: &amp;Cx) -&gt; bool {
+    tablo::auth::current_user(cx).is_some_and(|user| user.login.ends_with("@example.com"))
+}
+
+impl Resource for PostResource {
+    fn policy() -&gt; impl Policy&lt;Post&gt; {
+        ReadOnly.or(when(editors_only))
+    }
+}
+
+impl Resource for AuthorResource {
+    fn policy() -&gt; impl Policy&lt;Author&gt; {
+        when(editors_only)
+    }
+}
+<span class="boring">}</span></code></pre>
+<p>A closure <code>|cx: &amp;Cx, ability: Ability&lt;'_, M&gt;| -&gt; bool</code> is a policy too, as in the first example,
+and so is any type that implements <code>Policy&lt;M&gt;</code>.</p>
+<h3 id="in-your-own-code"><a class="header" href="#in-your-own-code">In your own code</a></h3>
+<p><code>can::&lt;R&gt;(cx, ability)</code> asks <code>R</code>’s policy, for a page or route that renders or writes <code>R</code>’s
+records itself. <code>can_list::&lt;R&gt;(cx)</code> answers whether the request may open <code>R</code>’s list: the panel’s
+sign-in, <code>R</code>’s tenant, and <code>ViewAny</code>, the checks the list handler makes. A dashboard that links
+to lists checks it before rendering each link.</p>
+<p>A page, route or shard the app serves under a panel calls <code>auth::guard(cx)?</code> to require the
+panel’s signed-in user exactly as the panel’s own pages do. A shard needs it: Topcoat serves
+shards at its runtime path, where no page guard runs. A form route verifies its CSRF token with
+<code>csrf::verify</code>.</p>
 <h2 id="authentication"><a class="header" href="#authentication">Authentication</a></h2>
 <p>Authentication is on by default. The built-in login checks an email and password against the
 <code>AdminUser</code> table and keeps sessions in the <code>AuthSession</code> table; register both models with
@@ -297,15 +339,15 @@ demos and tests only.</p>
 <p>A tenant-owned resource shows each user only their tenant’s rows. The request’s tenant is the
 signed-in user’s <code>tenant_id</code>, read with <code>tenant_id(cx)</code>. No request header can set it; server code
 such as a middleware or a test can, by inserting a <code>Tenant</code> request extension.</p>
-<p>Mark the resource with <code>requires_tenant()</code>:</p>
+<p>Declare the resource’s tenancy with the column its rows carry their tenant in:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl Resource for PostResource {
     type Model = Post; // has `tenant_id: uuid::Uuid`
     // …
 
-    fn requires_tenant() -&gt; bool {
-        true
+    fn tenancy() -&gt; Tenancy&lt;Post&gt; {
+        Tenancy::column(Post::fields().tenant_id())
     }
 }
 <span class="boring">}</span></code></pre>
@@ -316,32 +358,32 @@ such as a middleware or a test can, by inserting a <code>Tenant</code> request e
 options, related tables — adds <code>tenant_id = &lt;request tenant&gt;</code> to the resource’s <code>query()</code>. A
 create sets the tenant column itself, so the record form leaves it out.</li>
 </ul>
-<p>The framework finds the column by name and type: a UUID field named <code>tenant_id</code>. Do not repeat the
-filter in <code>query()</code>.</p>
-<p><strong>A row that inherits its tenant.</strong> A comment has no <code>tenant_id</code> of its own; it belongs to a post
-that does. Override <code>tenant_scope</code> with the predicate through the relation, and the framework
-applies it wherever it would apply the derived filter:</p>
+<p>The column is a <code>Uuid</code> or <code>Option&lt;Uuid&gt;</code> field of the model, named by its lens, and it can have any
+name. Do not repeat the filter in <code>query()</code>. Mounting the panel refuses a <code>Tenancy::column</code> lens
+that is not one field of the model.</p>
+<p><strong>A row that inherits its tenant.</strong> A comment has no tenant column of its own; it belongs to a post
+that does. <code>Tenancy::via</code> names the tenant through the relation, and the framework gates and
+filters exactly as it does for a column:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn requires_tenant() -&gt; bool {
-    true
-}
-
-fn tenant_scope(tenant: uuid::Uuid) -&gt; Option&lt;toasty::stmt::Expr&lt;bool&gt;&gt; {
-    Some(Comment::fields().post().tenant_id().eq(tenant))
+</span>fn tenancy() -&gt; Tenancy&lt;Comment&gt; {
+    Tenancy::via(Comment::fields().post().tenant_id())
 }
 <span class="boring">}</span></code></pre>
-<p>Keep <code>requires_tenant()</code> <code>true</code> here: writing the same filter into <code>query()</code> without the gate
-would serve every tenant’s rows to a user who has no tenant.</p>
-<p><strong>A deliberately cross-tenant resource</strong> — a super-admin view — declares <code>requires_tenant()</code>
-<code>false</code> and filters in <code>query()</code> by hand. That gives up both the gate and the scope.</p>
-<p>Mounting the panel refuses a resource with <code>requires_tenant()</code> <code>true</code> whose model has no <code>tenant_id</code>
-UUID field and which does not override <code>tenant_scope</code>.</p>
+<p>Nothing is stamped on create: a comment’s tenant is its post’s. Declare the foreign key as a
+<a href="./forms.html#relationships">relationship field</a> over the post’s resource, so a submitted post must
+be one of the request tenant’s posts.</p>
+<p><strong>A deliberately cross-tenant resource</strong> — a super-admin view — declares no tenancy and filters in
+<code>query()</code> by hand. That gives up both the gate and the scope.</p>
 <p><strong>In your own code</strong>, load rows with <code>scoped_query::&lt;PostResource&gt;(cx)?</code>. It applies the tenant
 scope and answers 403 when the request has no tenant. <code>PostResource::query(cx)</code> does not apply the
-tenant scope. A record function that writes a foreign key should re-check the target through
-<code>scoped_query</code> inside its transaction, since the tenant of the related row may have changed since
-the form was validated.</p>
+tenant scope.</p>
+<p><strong>Foreign keys are re-checked inside the write.</strong> A relationship field’s key must be one of the
+related resource’s records for the request: in its tenant-scoped query and allowed by its <code>View</code>.
+The create and edit handlers check it when they validate the form, and again inside the write’s
+transaction, so a related record deleted, moved to another tenant or hidden in between refuses the
+write with the same field error. A <code>create_record</code> or <code>update_record</code> the panel’s create and edit
+POSTs call needs no check of its own.</p>
 
                     </main>
 

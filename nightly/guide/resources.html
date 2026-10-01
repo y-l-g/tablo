@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d67f8b0e.js";
+            window.path_to_searchindex_js = "searchindex-5c9c42aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -193,8 +193,8 @@ impl Resource for AuditResource {
     type Model = Audit;
     type Form = NoForm&lt;Audit&gt;; // list-only: no create or edit pages
 
-    fn can_view_any(_cx: &amp;Cx) -&gt; bool {
-        true
+    fn policy() -&gt; impl Policy&lt;Audit&gt; {
+        ReadOnly
     }
 
     fn table() -&gt; Table&lt;Audit&gt; {
@@ -228,9 +228,8 @@ one control per field in declaration order. See <a href="./forms.html">Forms</a>
 <tr><td><code>public_url(cx, record)</code></td><td><code>None</code></td><td>a link to the record’s public page on its detail and edit pages</td></tr>
 <tr><td><code>relations()</code></td><td>none</td><td>related resources shown as tables on the detail and edit pages</td></tr>
 <tr><td><code>query(cx)</code></td><td>every row</td><td>the base query every loader starts from: <a href="#scoping-the-query">Scoping</a></td></tr>
-<tr><td><code>requires_tenant()</code>, <code>tenant_scope(tenant)</code></td><td>not tenant-owned</td><td>tenancy: <a href="./policy-auth-tenancy.html#tenancy">Policy, auth, tenancy</a></td></tr>
-<tr><td><code>can_view_any</code>, <code>can_view</code>, <code>can_create</code>, <code>can_update</code>, <code>can_delete_any</code></td><td><code>false</code></td><td>policy: <a href="./policy-auth-tenancy.html#policy">Policy, auth, tenancy</a></td></tr>
-<tr><td><code>can_delete(cx, record)</code></td><td><code>can_delete_any(cx)</code></td><td>per-record delete policy</td></tr>
+<tr><td><code>tenancy()</code></td><td><code>Tenancy::none()</code></td><td>how rows belong to a tenant: <a href="./policy-auth-tenancy.html#tenancy">Policy, auth, tenancy</a></td></tr>
+<tr><td><code>policy()</code></td><td><code>Deny</code></td><td>what the user may do: <a href="./policy-auth-tenancy.html#policy">Policy, auth, tenancy</a></td></tr>
 <tr><td><code>create_record</code>, <code>update_record</code></td><td>the derived write</td><td>the create and update writes: <a href="#writes">Writes</a></td></tr>
 <tr><td><code>delete_record</code>, <code>bulk_delete_records</code></td><td>delete by primary key</td><td>the delete writes</td></tr>
 <tr><td><code>after_commit(cx, committed)</code></td><td>nothing</td><td>side effects after a write commits</td></tr>
@@ -272,7 +271,7 @@ such as hiding soft-deleted rows:</p>
 loader. See <a href="./policy-auth-tenancy.html#tenancy">Tenancy</a>.</li>
 <li><strong>Relations.</strong> The list and the export load the relations their columns declare with
 <code>TextColumn::include</code>, and the detail page loads <code>view_query</code>. Include a relation in <code>query</code>
-only when every loader reads it, for example because <code>can_view</code> does.</li>
+only when every loader reads it, for example because the policy does.</li>
 </ul>
 <p>In your own code, load a resource’s rows with <code>scoped_query::&lt;R&gt;(cx)?</code>, not <code>R::query(cx)</code>:
 <code>scoped_query</code> is <code>query</code> with the tenant filter applied, and returns an error rather than an
@@ -337,10 +336,10 @@ such a schema through <code>Schema::render</code> fails with the same errors;</l
 <li>the record form and <code>form()</code> disagree: a control no form field binds, a form field with no
 control, an optional control whose field has no blank value, a <code>unique()</code> field with no
 unique index, or a tenant-owned resource’s form claiming its tenant column;</li>
-<li><code>can_create</code> is allowed and a non-nullable column is set by nothing: not the form, not a Toasty
-default, not the tenant stamp, and not listed in <code>CREATE_COLUMNS</code>;</li>
-<li>a <code>NoForm</code> resource declares <code>form()</code> or allows <code>can_create</code>;</li>
-<li><code>requires_tenant()</code> is <code>true</code> and no tenant predicate can be derived;</li>
+<li>the policy allows <code>Create</code> and a non-nullable column is set by nothing: not the form, not a
+Toasty default, not the tenant stamp, and not listed in <code>CREATE_COLUMNS</code>;</li>
+<li>a <code>NoForm</code> resource declares <code>form()</code> or its policy allows <code>Create</code>;</li>
+<li>a <code>Tenancy::column</code> lens is not one field of the model;</li>
 <li>a relation names a resource the panel does not register, or names one twice.</li>
 </ul>
 <p>A modifier on the wrong kind of field does not compile: each <code>Field</code> constructor returns its
