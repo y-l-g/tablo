@@ -179,12 +179,13 @@ impl Panel {
         // Registered last of the prefix's layers, so it runs first: every
         // other layer and handler under the prefix sees the panel.
         builder = builder.layer(PanelGate::new(Arc::clone(&state)));
-        // Auth (ADR-0013): the login and logout routes. A credential POST
+        // Auth (ADR-0013): the login, logout and tenant-switch routes. A credential POST
         // carries no upload, so the login route gets its own cap, scoped by
         // path so it wins over the panel's form cap.
         if state.gates() {
             let login_path = route_path(&format!("{prefix}/login"));
             let logout_path = route_path(&format!("{prefix}/logout"));
+            let tenant_path = route_path(&format!("{prefix}/tenant"));
             builder = builder
                 .layer(
                     topcoat::router::BodyLimit::max(crate::auth::MAX_LOGIN_BYTES)
@@ -204,6 +205,11 @@ impl Panel {
                     http::Method::POST,
                     logout_path,
                     crate::auth::logout_post,
+                ))
+                .route(RouteFn::new(
+                    http::Method::POST,
+                    tenant_path,
+                    crate::auth::tenant_post,
                 ));
         }
         builder = builder.layout(LayoutFn::new(

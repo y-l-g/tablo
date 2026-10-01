@@ -1,11 +1,14 @@
-//! The showcase's demo rows: the users the panel lists, the two admin
-//! accounts, and the authors, posts and comments.
+//! The showcase's demo rows: the users the panel lists, the two blogs and the
+//! staff who sign in to them, and the authors, posts and comments.
 
 use jiff::Timestamp;
-use tablo_core::auth::{AdminUser, hash_password};
+use tablo_core::auth::hash_password;
 use toasty::Db;
 
-use crate::models::{Author, Comment, Post, Publication, Seo, User};
+use crate::{
+    models::{Author, Comment, Post, Publication, Seo, User},
+    staff::{create_staff, ensure_workspace},
+};
 
 /// Seed the users the panel lists. Names sort deterministically (name-asc):
 /// Ada and Alan stay first for pagination and search tests, followed by six
@@ -95,28 +98,41 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
     ])
     .exec(db)
     .await?;
-    create_admin(
+    seed_staff(db).await
+}
+
+/// Seed the two blogs and the staff who sign in: the demo admin, with a seat
+/// in both blogs, and an admin with no seat, for the tenancy fail-closed
+/// tests.
+pub async fn seed_staff(db: &mut Db) -> toasty::Result<()> {
+    ensure_workspace(db, DEMO_TENANT, "Main Blog").await?;
+    ensure_workspace(db, SIDE_TENANT, "Side Project").await?;
+    create_staff(
         db,
         DEMO_ADMIN_EMAIL,
         "Demo Admin",
         DEMO_ADMIN_PASSWORD,
-        Some(DEMO_TENANT),
+        &[DEMO_TENANT, SIDE_TENANT],
     )
     .await?;
-    create_admin(
+    create_staff(
         db,
         TENANTLESS_ADMIN_EMAIL,
         "No Tenant",
         DEMO_ADMIN_PASSWORD,
-        None,
+        &[],
     )
     .await?;
     Ok(())
 }
 
 /// The tenant owning all showcase seed rows: seeds never mint
-/// nil-tenant orphans, and the demo admin owns it.
+/// nil-tenant orphans, and the demo admin acts for it first.
 pub const DEMO_TENANT: uuid::Uuid = uuid::Uuid::from_u128(100);
+
+/// A second, empty blog the demo admin also holds a seat in: the top bar's
+/// tenant switcher moves between the two.
+pub const SIDE_TENANT: uuid::Uuid = uuid::Uuid::from_u128(101);
 
 /// A deterministic id for the `index`th seeded post.
 ///
@@ -220,27 +236,6 @@ pub const TENANTLESS_ADMIN_EMAIL: &str = "root@example.com";
 /// without row actions.
 pub const REMOVED_COMMENT_BODY: &str = "[removed]";
 
-/// Create an active admin (or another app user) with an Argon2id-hashed
-/// password. Used by the showcase seed and the tenancy test fixtures.
-pub async fn create_admin(
-    db: &mut Db,
-    email: &str,
-    display_name: &str,
-    password: &str,
-    tenant_id: Option<uuid::Uuid>,
-) -> toasty::Result<AdminUser> {
-    toasty::create!(AdminUser {
-        email: email.to_string(),
-        password_hash: memoized_password_hash(password),
-        display_name: display_name.to_string(),
-        active: true,
-        tenant_id,
-        created_at: Timestamp::now(),
-    })
-    .exec(db)
-    .await
-}
-
 /// The Argon2id PHC hash of a demo password, computed once per process.
 ///
 /// Argon2id at the shipped parameters costs ~0.4s in a debug build *by design*,
@@ -253,7 +248,7 @@ pub async fn create_admin(
 /// Verification is untouched: a login still runs a real Argon2id verify against
 /// this string, at the shipped parameters, and the login tests still exercise
 /// that. Only the *hashing* is memoised, and only in this demo seeder.
-fn memoized_password_hash(password: &str) -> String {
+pub(crate) fn memoized_password_hash(password: &str) -> String {
     use std::{
         collections::HashMap,
         sync::{Mutex, OnceLock},

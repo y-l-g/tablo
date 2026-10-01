@@ -1,12 +1,15 @@
 //! The override seam, proven end to end (spec #127, ticket #132): a
-//! test-local user model implements `Authenticator`, a minimal `Panel` is
-//! gated over it, and a full login round-trip runs through `Router::handle`.
-//! This is the "bring your own user table" path ADR-0013 promises.
+//! test-local user model implements `PanelUser` through its own type and
+//! `Authenticator` loads it, a minimal `Panel` is gated over it, and a full
+//! login round-trip runs through `Router::handle`. This is the "bring your
+//! own user table" path ADR-0013 promises, with users who belong to several
+//! tenants.
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo_core::{
-    Ability, Auth, Policy, Resource, Table, TextColumn,
-    auth::{AuthFuture, Authenticator, CurrentUser},
+    Ability, Auth, Membership, PanelUser, Policy, Resource, Table, Tenancy, TextColumn,
+    auth::{self, Authenticator, verify_password},
+    when,
 };
 use toasty::Db;
 use topcoat::{
@@ -16,7 +19,8 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, get_with_cookies, input_value, memory_db, post_form, response_cookies, router_with,
+    body_string, get_with_cookies, input_value, memory_db, mount, post_form, response_cookies,
+    router_with,
 };
 
 /// A custom user table — deliberately not `AdminUser`.
@@ -27,64 +31,105 @@ struct Member {
     id: Uuid,
     #[unique]
     handle: String,
-    secret: String,
+    password_hash: String,
     display_name: String,
     active: bool,
-    tenant_id: Option<Uuid>,
+}
+
+/// A member's seat in one tenant.
+#[derive(Debug, Clone, toasty::Model)]
+struct Seat {
+    #[key]
+    #[auto]
+    id: Uuid,
+    #[index]
+    member_id: Uuid,
+    tenant: Uuid,
+    tenant_name: String,
+}
+
+const ACME: Uuid = Uuid::from_u128(7);
+const GLOBEX: Uuid = Uuid::from_u128(8);
+const INITECH: Uuid = Uuid::from_u128(9);
+
+/// The signed-in member: the row plus the seats `find_by_id` loads with it.
+/// The user type is the app's, and need not be a model.
+#[derive(Debug)]
+struct SignedMember {
+    member: Member,
+    tenants: Vec<Membership>,
+}
+
+impl PanelUser for SignedMember {
+    fn user_id(&self) -> String {
+        self.member.id.to_string()
+    }
+
+    fn display_name(&self) -> &str {
+        &self.member.display_name
+    }
+
+    fn can_access_panel(&self) -> bool {
+        self.member.active
+    }
+
+    fn tenants(&self) -> &[Membership] {
+        &self.tenants
+    }
 }
 
 /// The one trait implementation an app with an existing user table writes.
 struct MemberAuth;
 
 impl MemberAuth {
-    fn current(member: Member) -> CurrentUser {
-        CurrentUser {
-            id: member.id.to_string(),
-            login: member.handle.clone(),
-            display_name: member.display_name,
-            tenant_id: member.tenant_id,
-            can_access_panel: member.active,
-        }
+    async fn signed(cx: &Cx, member: Member) -> topcoat::Result<SignedMember> {
+        let mut db = tablo_core::db::db(cx);
+        let tenants = Seat::filter(Seat::fields().member_id().eq(member.id))
+            .exec(&mut db)
+            .await?
+            .into_iter()
+            .map(|seat| Membership::new(seat.tenant, seat.tenant_name))
+            .collect();
+        Ok(SignedMember { member, tenants })
     }
 }
 
 impl Authenticator for MemberAuth {
-    fn verify<'a>(
-        &'a self,
-        cx: &'a Cx,
-        login: &'a str,
-        password: &'a str,
-    ) -> AuthFuture<'a, Option<CurrentUser>> {
-        Box::pin(async move {
-            let mut db = tablo_core::db::db(cx);
-            let member = Member::filter(Member::fields().handle().eq(login.trim().to_string()))
-                .first()
-                .exec(&mut db)
-                .await
-                .map_err(topcoat::Error::from)?;
-            let Some(member) = member else {
-                return Ok(None);
-            };
-            if member.secret != password {
-                return Ok(None);
-            }
-            Ok(Some(Self::current(member)))
-        })
+    type User = SignedMember;
+
+    async fn verify(
+        &self,
+        cx: &Cx,
+        login: &str,
+        password: &str,
+    ) -> topcoat::Result<Option<SignedMember>> {
+        let mut db = tablo_core::db::db(cx);
+        let member = Member::filter(Member::fields().handle().eq(login.to_string()))
+            .first()
+            .exec(&mut db)
+            .await?;
+        if !verify_password(password, member.as_ref().map(|m| m.password_hash.as_str())) {
+            return Ok(None);
+        }
+        match member {
+            Some(member) => Ok(Some(Self::signed(cx, member).await?)),
+            None => Ok(None),
+        }
     }
 
-    fn find_by_id<'a>(&'a self, cx: &'a Cx, id: &'a str) -> AuthFuture<'a, Option<CurrentUser>> {
-        Box::pin(async move {
-            let Ok(id) = Uuid::parse_str(id) else {
-                return Ok(None);
-            };
-            let mut db = tablo_core::db::db(cx);
-            let member = Member::filter(Member::fields().id().eq(id))
-                .first()
-                .exec(&mut db)
-                .await
-                .map_err(topcoat::Error::from)?;
-            Ok(member.map(Self::current))
-        })
+    async fn find_by_id(&self, cx: &Cx, id: &str) -> topcoat::Result<Option<SignedMember>> {
+        let Ok(id) = Uuid::parse_str(id) else {
+            return Ok(None);
+        };
+        let mut db = tablo_core::db::db(cx);
+        let member = Member::filter(Member::fields().id().eq(id))
+            .first()
+            .exec(&mut db)
+            .await?;
+        match member {
+            Some(member) => Ok(Some(Self::signed(cx, member).await?)),
+            None => Ok(None),
+        }
     }
 }
 
@@ -109,19 +154,109 @@ impl Resource for MemberResource {
     }
 }
 
+/// A tenant-owned note.
+#[derive(Debug, Clone, toasty::Model)]
+struct Note {
+    #[key]
+    #[auto]
+    id: Uuid,
+    tenant_id: Uuid,
+    body: String,
+}
+
+/// Only Ada reads notes: the policy reads the app's own user type.
+fn is_ada(cx: &Cx) -> bool {
+    auth::user::<SignedMember>(cx).is_some_and(|signed| signed.member.handle == "ada")
+}
+
+struct NoteResource;
+
+impl Resource for NoteResource {
+    type Model = Note;
+    type Form = tablo_core::NoForm<Self::Model>;
+
+    fn policy() -> impl Policy<Note> {
+        when(is_ada).and(tablo_core::ReadOnly)
+    }
+
+    fn tenancy() -> Tenancy<Note> {
+        Tenancy::column(Note::fields().tenant_id())
+    }
+
+    fn table() -> Table<Note> {
+        Table::new(
+            |note: &Note| note.id.to_string(),
+            TextColumn::r#for(Note::fields().body(), |note: &Note| note.body.clone()),
+        )
+        .paginate(25)
+    }
+}
+
+/// Ada, with seats in Acme and Globex, and Grace, with none; one note per
+/// tenant, Initech's included.
 async fn seeded_db() -> Db {
-    let mut db = memory_db(toasty::models!(Member, tablo_core::auth::AuthSession)).await;
-    toasty::create!(Member {
+    let mut db = memory_db(toasty::models!(
+        Member,
+        Seat,
+        Note,
+        tablo_core::auth::AuthSession
+    ))
+    .await;
+    let hash = tablo_core::auth::hash_password("opensesame").expect("hash");
+    let ada = toasty::create!(Member {
         handle: "ada".to_string(),
-        secret: "opensesame".to_string(),
+        password_hash: hash.clone(),
         display_name: "Ada Member".to_string(),
         active: true,
-        tenant_id: Some(Uuid::from_u128(7)),
     })
     .exec(&mut db)
     .await
     .expect("seed member");
+    toasty::create!(Member {
+        handle: "grace".to_string(),
+        password_hash: hash,
+        display_name: "Grace Member".to_string(),
+        active: true,
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed member");
+    for (tenant, name) in [(ACME, "Acme"), (GLOBEX, "Globex")] {
+        toasty::create!(Seat {
+            member_id: ada.id,
+            tenant,
+            tenant_name: name.to_string(),
+        })
+        .exec(&mut db)
+        .await
+        .expect("seed seat");
+    }
+    for (tenant, body) in [
+        (ACME, "acme note"),
+        (GLOBEX, "globex note"),
+        (INITECH, "initech note"),
+    ] {
+        toasty::create!(Note {
+            tenant_id: tenant,
+            body: body.to_string(),
+        })
+        .exec(&mut db)
+        .await
+        .expect("seed note");
+    }
     db
+}
+
+/// A router gated by `MemberAuth` over members and notes.
+fn notes_router(db: Db) -> Router {
+    mount(
+        db,
+        tablo_core::Panel::new("admin")
+            .auth(Auth::custom(MemberAuth))
+            .resource::<MemberResource>()
+            .resource::<NoteResource>(),
+    )
+    .expect("panel builds")
 }
 
 fn cookie_value(response: &Response<Body>, name: &str) -> Option<String> {
@@ -141,14 +276,19 @@ async fn csrf_pair(router: &Router) -> (String, String) {
     (csrf_cookie, csrf)
 }
 
-/// Log in as the seeded member, returning the session cookie value.
+/// Log in as Ada, returning the session cookie value.
 async fn login_session(router: &Router) -> String {
+    login_as(router, "ada").await
+}
+
+/// Log in as `handle`, returning the session cookie value.
+async fn login_as(router: &Router, handle: &str) -> String {
     let (csrf_cookie, csrf) = csrf_pair(router).await;
     let login = post_form(
         router,
         "/admin/login",
         &[(tablo_core::csrf::COOKIE_NAME, csrf_cookie)],
-        format!("email=ada&password=opensesame&csrf_token={csrf}"),
+        format!("email={handle}&password=opensesame&csrf_token={csrf}"),
     )
     .await;
     assert_eq!(login.status(), 303, "login succeeds for an active member");
@@ -314,4 +454,148 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
     let response =
         get_with_cookies(&router, "/admin/members", &[("__Host-session", session)]).await;
     assert_eq!(response.status(), 307, "logout must revoke the session");
+}
+
+/// `POST /admin/tenant` with a fresh CSRF pair, as the switcher submits it.
+async fn switch_tenant(router: &Router, session: &str, tenant: Uuid) -> Response<Body> {
+    let csrf = Uuid::new_v4().to_string();
+    post_form(
+        router,
+        "/admin/tenant",
+        &[
+            ("__Host-session", session.to_string()),
+            (tablo_core::csrf::COOKIE_NAME, csrf.clone()),
+        ],
+        format!("tenant={tenant}&csrf_token={csrf}"),
+    )
+    .await
+}
+
+/// The notes list as `session` sees it.
+async fn notes(router: &Router, session: &str) -> (http::StatusCode, String) {
+    let response = get_with_cookies(
+        router,
+        "/admin/notes",
+        &[("__Host-session", session.to_string())],
+    )
+    .await;
+    (response.status(), body_string(response).await)
+}
+
+#[tokio::test]
+async fn a_member_acts_for_their_first_tenant_until_they_switch() {
+    let router = notes_router(seeded_db().await);
+    let session = login_session(&router).await;
+
+    let (status, html) = notes(&router, &session).await;
+    assert_eq!(status, 200);
+    assert!(html.contains("acme note"), "the first membership: {html}");
+    assert!(!html.contains("globex note"));
+    assert!(!html.contains("initech note"));
+    // Two memberships: the top bar offers both.
+    assert!(html.contains("data-tenant-switcher"), "{html}");
+    assert!(html.contains("Globex"), "{html}");
+
+    let switched = switch_tenant(&router, &session, GLOBEX).await;
+    assert_eq!(switched.status(), 303);
+    assert_eq!(switched.headers().get(LOCATION).unwrap(), "/admin");
+
+    let (_, html) = notes(&router, &session).await;
+    assert!(html.contains("globex note"), "the selected tenant: {html}");
+    assert!(!html.contains("acme note"));
+}
+
+#[tokio::test]
+async fn a_member_cannot_switch_to_a_tenant_they_do_not_belong_to() {
+    let router = notes_router(seeded_db().await);
+    let session = login_session(&router).await;
+
+    let refused = switch_tenant(&router, &session, INITECH).await;
+    assert_eq!(refused.status(), 403);
+    let (_, html) = notes(&router, &session).await;
+    assert!(
+        html.contains("acme note"),
+        "the selection is unchanged: {html}"
+    );
+    assert!(!html.contains("initech note"));
+
+    // Without a CSRF field the switch is refused before anything is read.
+    let forged = post_form(
+        &router,
+        "/admin/tenant",
+        &[("__Host-session", session.clone())],
+        format!("tenant={GLOBEX}"),
+    )
+    .await;
+    assert_eq!(forged.status(), 403);
+    let (_, html) = notes(&router, &session).await;
+    assert!(html.contains("acme note"), "{html}");
+}
+
+#[tokio::test]
+async fn a_removed_membership_stops_applying_mid_session() {
+    let db = seeded_db().await;
+    let router = notes_router(db.clone());
+    let session = login_session(&router).await;
+    assert_eq!(switch_tenant(&router, &session, GLOBEX).await.status(), 303);
+
+    let mut db = db;
+    Seat::filter(Seat::fields().tenant().eq(GLOBEX))
+        .delete()
+        .exec(&mut db)
+        .await
+        .unwrap();
+
+    let (status, html) = notes(&router, &session).await;
+    assert_eq!(status, 200);
+    assert!(
+        html.contains("acme note") && !html.contains("globex note"),
+        "the stored selection no longer applies: {html}"
+    );
+    // One membership left: nothing to switch.
+    assert!(!html.contains("data-tenant-switcher"), "{html}");
+}
+
+#[tokio::test]
+async fn a_member_without_a_tenant_is_refused_tenant_owned_records() {
+    let router = notes_router(seeded_db().await);
+    let session = login_as(&router, "grace").await;
+
+    let (status, _) = notes(&router, &session).await;
+    assert_eq!(status, 403, "no tenant: the scoped resource refuses");
+    let members = get_with_cookies(
+        &router,
+        "/admin/members",
+        &[("__Host-session", session.clone())],
+    )
+    .await;
+    assert_eq!(members.status(), 200, "unscoped resources still answer");
+    assert!(!body_string(members).await.contains("data-tenant-switcher"));
+}
+
+#[tokio::test]
+async fn a_policy_reads_the_apps_own_user_type() {
+    let db = seeded_db().await;
+    let mut seed = db.clone();
+    let grace = Member::filter(Member::fields().handle().eq("grace".to_string()))
+        .first()
+        .exec(&mut seed)
+        .await
+        .unwrap()
+        .expect("grace");
+    toasty::create!(Seat {
+        member_id: grace.id,
+        tenant: ACME,
+        tenant_name: "Acme".to_string(),
+    })
+    .exec(&mut seed)
+    .await
+    .unwrap();
+    let router = notes_router(db);
+
+    let ada = login_as(&router, "ada").await;
+    assert_eq!(notes(&router, &ada).await.0, 200);
+    // Grace now has Acme's tenant, but the policy reads her handle.
+    let grace = login_as(&router, "grace").await;
+    assert_eq!(notes(&router, &grace).await.0, 403);
 }

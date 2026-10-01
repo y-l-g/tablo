@@ -94,7 +94,6 @@ async fn main() -> Result<()> {
         password_hash: hash_password("secret")?,
         display_name: "Admin".to_string(),
         active: true,
-        tenant_id: None,
         created_at: jiff::Timestamp::now(),
     })
     .exec(&mut db)

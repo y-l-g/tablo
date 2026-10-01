@@ -1,5 +1,21 @@
-use super::*;
-use crate::panel::test_support::mount;
+use std::sync::Arc;
+
+use jiff::Timestamp;
+use toasty::Db;
+use topcoat::{
+    context::Cx,
+    router::{Body, response::IntoResponse},
+};
+
+use super::{
+    login::GENERIC_ERROR,
+    session::{SESSION_SWEEP_BATCH, sweep_expired_sessions, token_key},
+    *,
+};
+use crate::{
+    Panel,
+    panel::{state::PanelState, test_support::mount},
+};
 
 #[test]
 fn safe_next_only_accepts_same_origin_relative_paths() {
@@ -25,9 +41,11 @@ fn safe_next_only_accepts_same_origin_relative_paths() {
 fn password_hashes_verify_round_trip() {
     let phc = hash_password("correct horse battery staple").expect("hash");
     assert!(phc.starts_with("$argon2id$"), "{phc}");
-    assert!(verify_password("correct horse battery staple", &phc));
-    assert!(!verify_password("wrong", &phc));
-    assert!(!verify_password("anything", "not-a-phc"));
+    assert!(verify_password("correct horse battery staple", Some(&phc)));
+    assert!(!verify_password("wrong", Some(&phc)));
+    assert!(!verify_password("anything", Some("not-a-phc")));
+    // An unknown account pays a verification and never passes.
+    assert!(!verify_password("anything", None));
 }
 
 #[test]
@@ -207,7 +225,6 @@ async fn a_rejected_password_still_renders_the_generic_error() {
         password_hash: hash_password("opensesame").expect("hash"),
         display_name: "Ada".to_string(),
         active: true,
-        tenant_id: None,
         created_at: Timestamp::now(),
     })
     .exec(&mut db)
@@ -284,7 +301,6 @@ async fn db_with_admin(email: &str) -> Db {
         password_hash: hash_password("opensesame").expect("hash"),
         display_name: "Ada".to_string(),
         active: true,
-        tenant_id: None,
         created_at: Timestamp::now(),
     })
     .exec(&mut db)
@@ -349,7 +365,6 @@ async fn login_sweeps_every_expired_session() {
         password_hash: hash_password("opensesame").expect("hash"),
         display_name: "Grace".to_string(),
         active: true,
-        tenant_id: None,
         created_at: Timestamp::now(),
     })
     .exec(&mut db)
@@ -509,7 +524,7 @@ async fn login_sweeps_at_most_a_batch() {
 #[tokio::test]
 async fn a_sweep_failure_maps_to_the_opaque_sign_in_copy() {
     let cx = login_cx(schema_less_db().await, "token");
-    let error = super::sweep_expired_sessions(&cx)
+    let error = sweep_expired_sessions(&cx)
         .await
         .expect_err("a schema-less database fails the sweep");
     let rendered = error.to_string();
@@ -606,5 +621,105 @@ async fn the_login_bypass_is_scoped_to_the_login_methods() {
         get.status(),
         http::StatusCode::OK,
         "the login page must still answer while logged out"
+    );
+}
+
+/// A user type other than the panel's.
+struct Visitor;
+
+impl PanelUser for Visitor {
+    fn user_id(&self) -> String {
+        "visitor".to_string()
+    }
+
+    fn display_name(&self) -> &str {
+        "Visitor"
+    }
+}
+
+fn ada() -> AdminUser {
+    AdminUser {
+        id: Uuid::nil(),
+        email: "ada@example.com".to_string(),
+        password_hash: String::new(),
+        display_name: "Ada".to_string(),
+        active: true,
+        created_at: Timestamp::UNIX_EPOCH,
+    }
+}
+
+/// A request on `/admin` with `user` signed in to `panel`, served by `serving`.
+fn signed_cx(user: impl PanelUser, panel: &Arc<PanelState>, serving: &Arc<PanelState>) -> Cx {
+    let (parts, ()) = http::Request::builder()
+        .uri("/admin/users")
+        .body(())
+        .unwrap()
+        .into_parts();
+    topcoat::context::CxTestBuilder::new()
+        .request_context(parts)
+        .request_context(crate::panel::state::CurrentPanel(Arc::clone(serving)))
+        .request_context(SignedIn {
+            user: Arc::new(user),
+            panel: Arc::clone(panel),
+            tenant: None,
+        })
+        .build()
+}
+
+#[test]
+fn the_user_reads_back_as_the_apps_own_type_only() {
+    let panel = Arc::new(crate::panel::test_support::panel_state(
+        "/admin",
+        Auth::password(),
+    ));
+    let cx = signed_cx(ada(), &panel, &panel);
+    assert_eq!(
+        user::<AdminUser>(&cx).map(|u| u.email.as_str()),
+        Some("ada@example.com")
+    );
+    assert!(signed_in(&cx));
+    assert!(
+        user::<Visitor>(&cx).is_none(),
+        "another type reads as nobody"
+    );
+    let refused = require_user::<Visitor>(&cx)
+        .err()
+        .expect("wrong type refused");
+    assert_eq!(refused.into_response(&cx).unwrap().status(), 403);
+}
+
+#[test]
+fn a_user_is_nobody_on_another_panel() {
+    let admin = Arc::new(crate::panel::test_support::panel_state(
+        "/admin",
+        Auth::password(),
+    ));
+    let staff = Arc::new(crate::panel::test_support::panel_state(
+        "/staff",
+        Auth::password(),
+    ));
+    let cx = signed_cx(ada(), &admin, &staff);
+    assert!(user::<AdminUser>(&cx).is_none());
+    assert!(!signed_in(&cx));
+}
+
+#[test]
+fn an_inactive_user_is_not_signed_in() {
+    let panel = Arc::new(crate::panel::test_support::panel_state(
+        "/admin",
+        Auth::password(),
+    ));
+    let cx = signed_cx(
+        AdminUser {
+            active: false,
+            ..ada()
+        },
+        &panel,
+        &panel,
+    );
+    assert!(user::<AdminUser>(&cx).is_none());
+    assert!(
+        resolved(&cx).is_some(),
+        "the logout route still reads the user"
     );
 }

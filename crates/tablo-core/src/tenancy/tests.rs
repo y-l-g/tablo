@@ -21,7 +21,7 @@ fn tenant_extension_wins_over_scoped_value_and_defaults_to_none() {
     let id = uuid::Uuid::new_v4();
     let other = uuid::Uuid::new_v4();
 
-    // The auth layer's scoped value is the production source.
+    // A scoped value app code put on the `Cx`.
     let cx = CxTestBuilder::new().request_context(Tenant(id)).build();
     assert_eq!(tenant_id(&cx), Some(id));
 
@@ -44,6 +44,80 @@ fn tenant_extension_wins_over_scoped_value_and_defaults_to_none() {
     // Nothing set → None (callers must reject tenantless access).
     let cx = CxTestBuilder::new().build();
     assert_eq!(tenant_id(&cx), None);
+}
+
+/// A user holding the memberships it carries.
+struct Member(Vec<Membership>);
+
+impl crate::auth::PanelUser for Member {
+    fn user_id(&self) -> String {
+        "member".to_string()
+    }
+
+    fn display_name(&self) -> &str {
+        "Member"
+    }
+
+    fn tenants(&self) -> &[Membership] {
+        &self.0
+    }
+}
+
+/// A request on `/admin` signed in as a member of `tenants`, whose session
+/// selected `selected`, with an optional `Tenant` override on the `Cx`.
+fn member_cx(
+    tenants: &[uuid::Uuid],
+    selected: Option<uuid::Uuid>,
+    overridden: Option<uuid::Uuid>,
+) -> Cx {
+    let panel = std::sync::Arc::new(crate::panel::test_support::panel_state(
+        "/admin",
+        crate::Auth::password(),
+    ));
+    let memberships = tenants
+        .iter()
+        .enumerate()
+        .map(|(index, tenant)| Membership::new(*tenant, format!("Tenant {index}")))
+        .collect();
+    let mut builder = CxTestBuilder::new()
+        .request_context(crate::panel::state::CurrentPanel(std::sync::Arc::clone(
+            &panel,
+        )))
+        .request_context(crate::auth::SignedIn {
+            user: std::sync::Arc::new(Member(memberships)),
+            panel,
+            tenant: selected,
+        });
+    if let Some(tenant) = overridden {
+        builder = builder.request_context(Tenant(tenant));
+    }
+    builder.build()
+}
+
+#[test]
+fn the_request_acts_for_the_selected_membership_else_the_first() {
+    let (a, b, stranger) = (
+        uuid::Uuid::from_u128(1),
+        uuid::Uuid::from_u128(2),
+        uuid::Uuid::from_u128(3),
+    );
+    assert_eq!(tenant_id(&member_cx(&[a, b], None, None)), Some(a));
+    assert_eq!(tenant_id(&member_cx(&[a, b], Some(b), None)), Some(b));
+    let cx = member_cx(&[a, b], Some(b), None);
+    assert_eq!(membership(&cx).map(|m| m.name.as_str()), Some("Tenant 1"));
+    // A selection the user is no longer a member of falls back to the first.
+    assert_eq!(
+        tenant_id(&member_cx(&[a, b], Some(stranger), None)),
+        Some(a)
+    );
+    // No membership, no tenant.
+    assert_eq!(tenant_id(&member_cx(&[], Some(a), None)), None);
+    // An override wins, and names no membership unless the user holds it.
+    let cx = member_cx(&[a, b], None, Some(stranger));
+    assert_eq!(tenant_id(&cx), Some(stranger));
+    assert_eq!(membership(&cx), None);
+    let cx = member_cx(&[a, b], None, Some(b));
+    assert_eq!(membership(&cx).map(|m| m.tenant), Some(b));
 }
 
 #[test]

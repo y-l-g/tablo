@@ -6,9 +6,9 @@
 use http::header::{COOKIE, LOCATION};
 use showcase::{
     app::router_for_tests as router,
-    models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD},
+    models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff},
 };
-use tablo_core::auth::{AdminUser, AuthSession};
+use tablo_core::auth::AuthSession;
 use topcoat::{context::CxTestBuilder, router::Body};
 
 use crate::common::{
@@ -141,7 +141,7 @@ async fn every_login_failure_renders_one_generic_error() {
 async fn deactivated_admin_cannot_log_in() {
     let db = full_db().await;
     let mut db2 = db.clone();
-    let mut admin = AdminUser::filter(AdminUser::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
+    let mut admin = Staff::filter(Staff::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
         .first()
         .exec(&mut db2)
         .await
@@ -281,7 +281,7 @@ async fn revoke_sessions_for_user_ends_access() {
     let client = login(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD).await;
 
     let mut db2 = db.clone();
-    let admin = AdminUser::filter(AdminUser::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
+    let admin = Staff::filter(Staff::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
         .first()
         .exec(&mut db2)
         .await
@@ -358,7 +358,7 @@ async fn deactivating_a_user_invalidates_their_live_session() {
     let session = session_cookie_value(&login_response).expect("session cookie");
 
     let mut db2 = db.clone();
-    let mut admin = AdminUser::filter(AdminUser::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
+    let mut admin = Staff::filter(Staff::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
         .first()
         .exec(&mut db2)
         .await

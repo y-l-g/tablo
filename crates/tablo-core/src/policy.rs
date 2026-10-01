@@ -154,9 +154,11 @@ impl<M> Policy<M> for ReadOnly {
 /// the user, the tenant — which applies to every ability alike:
 ///
 /// ```ignore
-/// fn signed_in(cx: &Cx) -> bool { current_user(cx).is_some() }
+/// fn editor(cx: &Cx) -> bool {
+///     auth::user::<Staff>(cx).is_some_and(|staff| staff.editor)
+/// }
 ///
-/// fn policy() -> impl Policy<Post> { ReadOnly.and(when(signed_in)) }
+/// fn policy() -> impl Policy<Post> { ReadOnly.or(when(editor)) }
 /// ```
 pub fn when<F>(predicate: F) -> When<F>
 where

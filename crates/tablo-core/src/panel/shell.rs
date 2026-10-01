@@ -95,6 +95,80 @@ pub(crate) struct ShellAssets {
 }
 
 impl Panel {
+    /// The top bar's tenant switcher: a disclosure listing the user's
+    /// tenants, each a form that posts to the tenant-switch route. A user
+    /// with fewer than two tenants has nothing to switch, and gets nothing.
+    fn tenant_switcher<'a>(
+        cx: &'a Cx,
+        tenants: &[crate::tenancy::Membership],
+        csrf: &str,
+    ) -> BoxView<'a> {
+        if tenants.len() < 2 {
+            return ().boxed();
+        }
+        let current = crate::tenancy::membership(cx);
+        let label = current.map_or_else(|| "Select a tenant".to_string(), |m| m.name.clone());
+        let current = current.map(|membership| membership.tenant);
+        let action = crate::auth::tenant_url(cx);
+        let choices: Vec<BoxView<'a>> = tenants
+            .iter()
+            .map(|membership| {
+                let selected = current == Some(membership.tenant);
+                let value = membership.tenant.to_string();
+                let name = membership.name.clone();
+                let action = action.clone();
+                let csrf = crate::csrf::field(cx, csrf);
+                view! {
+                    cx =>
+                    <form method="post" action=(action)>
+                        (csrf)
+                        <input
+                            type="hidden"
+                            name=(crate::auth::TENANT_FIELD)
+                            value=(value)
+                        >
+                        <button
+                            type="submit"
+                            aria-current=(selected.then_some("true"))
+                            class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        >
+                            <span class="flex-1 truncate">(name)</span>
+                            if selected {
+                                icon(
+                                    data: tablo_ui::icons::CHECK,
+                                    attrs: attributes! { class="size-4" }
+                                )
+                            }
+                        </button>
+                    </form>
+                }
+                .boxed()
+            })
+            .collect();
+        view! {
+            cx =>
+            <details class="relative" data-tenant-switcher="">
+                <summary
+                    class="flex cursor-pointer list-none items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-foreground hover:bg-muted [&::-webkit-details-marker]:hidden"
+                >
+                    <span class="max-w-40 truncate">(label)</span>
+                    icon(
+                        data: tablo_ui::icons::CHEVRON_DOWN,
+                        attrs: attributes! { class="size-4 text-muted-foreground" }
+                    )
+                </summary>
+                <div
+                    class="absolute right-0 z-50 mt-1 min-w-48 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+                >
+                    for choice in choices {
+                        (choice)
+                    }
+                </div>
+            </details>
+        }
+        .boxed()
+    }
+
     async fn theme_toggle(cx: &Cx) -> Result<BoxView<'_>> {
         use tablo_ui::{ButtonSize, ButtonVariant, button};
 
@@ -311,19 +385,17 @@ impl Panel {
         // Signed-in identity + logout control, present only with a session
         // (ADR-0013). `ensure_token` runs before any streaming starts so the
         // logout form always carries a matching CSRF pair.
-        let account_view: BoxView<'_> = match crate::auth::current_user(cx) {
-            Some(user) => {
+        let account_view: BoxView<'_> = match crate::auth::signed(cx) {
+            Some(signed) => {
                 let csrf = crate::csrf::ensure_token(cx);
                 let logout = crate::auth::logout_url(cx);
-                let initial = user
-                    .display_name
-                    .chars()
-                    .next()
-                    .map(String::from)
-                    .unwrap_or_default();
+                let name = signed.user.display_name().to_string();
+                let initial = name.chars().next().map(String::from).unwrap_or_default();
+                let switcher = Self::tenant_switcher(cx, signed.user.tenants(), &csrf);
                 view! {
                     cx =>
                     <div class="flex items-center gap-2">
+                        (switcher)
                         <span
                             aria-hidden="true"
                             class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground"
@@ -331,7 +403,7 @@ impl Panel {
                             (initial)
                         </span>
                         <span class="max-sm:hidden text-sm font-medium text-foreground">
-                            (user.display_name)
+                            (name)
                         </span>
                         <form method="post" action=(logout)>
                             (crate::csrf::field(cx, &csrf))

@@ -7,16 +7,37 @@
 //! [`query`](crate::resource::Resource::query) stays the resource's
 //! *non-tenant* scoping seam and no loader can drop the filter by omission.
 //!
-//! [`tenant_id`] answers the request's tenant: the tenant the panel's
-//! signed-in user carries, unless a server-set `Tenant` request extension or
-//! a `Tenant` scoped value overrides it, so app middleware and
-//! `Router::handle` tests can set it deliberately. No request header supplies
-//! a tenant: learning another tenant's UUID does not make anyone that tenant.
+//! [`tenant_id`] answers the request's tenant: one of the signed-in user's
+//! [`tenants`](crate::auth::PanelUser::tenants) — the one the session selected
+//! with the tenant switcher, else the first — unless a server-set `Tenant`
+//! request extension or a `Tenant` scoped value overrides it, so app
+//! middleware and `Router::handle` tests can set it deliberately. No request
+//! header supplies a tenant: learning another tenant's UUID does not make
+//! anyone that tenant.
 
 use toasty::stmt::{Expr, IntoExpr};
 use topcoat::context::{Cx, try_request_context};
 
 use crate::schema::FieldLens;
+
+/// One tenant a user may act for: its id, and the name the tenant switcher
+/// shows. A [`PanelUser`](crate::auth::PanelUser) lists its memberships in
+/// [`tenants`](crate::auth::PanelUser::tenants).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Membership {
+    pub tenant: uuid::Uuid,
+    pub name: String,
+}
+
+impl Membership {
+    /// The membership of `tenant`, shown as `name`.
+    pub fn new(tenant: uuid::Uuid, name: impl Into<String>) -> Self {
+        Self {
+            tenant,
+            name: name.into(),
+        }
+    }
+}
 
 /// Request-scoped tenant identifier.
 ///
@@ -26,13 +47,12 @@ use crate::schema::FieldLens;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tenant(pub uuid::Uuid);
 
-/// Returns the tenant id from `cx`, if present.
+/// The tenant the request acts for, if any.
 ///
 /// Checks a `Tenant` request extension first (a server-set override — the
 /// deliberate seam app middleware and `Router::handle` tests use), then a
-/// `Tenant` scoped value app code put on the `Cx`, then the tenant of the
-/// panel's signed-in [`current_user`](crate::auth::current_user). No request
-/// header is consulted.
+/// `Tenant` scoped value app code put on the `Cx`, then the signed-in user's
+/// [`membership`]. No request header is consulted.
 pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
     if let Some(parts) = try_request_context::<http::request::Parts>(cx)
         && let Some(t) = parts.extensions.get::<Tenant>()
@@ -42,10 +62,35 @@ pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
     if let Some(t) = try_request_context::<Tenant>(cx) {
         return Some(t.0);
     }
-    crate::auth::current_user(cx).and_then(|user| user.tenant_id)
+    selected(cx).map(|membership| membership.tenant)
+}
+
+/// The signed-in user's membership the request acts under: the tenant the
+/// session selected while it is still one of the user's
+/// [`tenants`](crate::auth::PanelUser::tenants), else the first. `None` without a
+/// signed-in user, for a user with no tenant, and when a `Tenant` override
+/// names a tenant the user is not a member of.
+pub fn membership(cx: &Cx) -> Option<&Membership> {
+    let tenant = tenant_id(cx)?;
+    let signed = crate::auth::signed(cx)?;
+    signed.user.tenants().iter().find(|m| m.tenant == tenant)
+}
+
+/// The session's selected membership, else the user's first.
+fn selected(cx: &Cx) -> Option<&Membership> {
+    let signed = crate::auth::signed(cx)?;
+    let tenants = signed.user.tenants();
+    signed
+        .tenant
+        .and_then(|tenant| tenants.iter().find(|m| m.tenant == tenant))
+        .or_else(|| tenants.first())
 }
 
 /// Requires a tenant, returning an error if missing (for tenancy-gated resources).
+///
+/// # Errors
+///
+/// 403 when the request acts for no tenant.
 pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
     tenant_id(cx).ok_or_else(|| topcoat::router::error::forbidden().into())
 }

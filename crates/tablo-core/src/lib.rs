@@ -87,7 +87,7 @@ pub mod tenancy;
 mod test_support;
 pub mod upload;
 
-pub use auth::{Auth, Authenticator, CurrentUser, PasswordAuth};
+pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth};
 pub use form::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
     write_create, write_update,
@@ -108,5 +108,5 @@ pub use schema::{
     Section, Source, TextField, Toggle,
 };
 pub use tablo_macros::{EmbeddedForm, Options, RecordForm};
-pub use tenancy::{Tenancy, Tenant, require_tenant, tenant_id};
+pub use tenancy::{Membership, Tenancy, Tenant, membership, require_tenant, tenant_id};
 pub use upload::Uploader;

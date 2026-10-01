@@ -268,7 +268,6 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
         password_hash: hash_password("opensesame").expect("hash"),
         display_name: "Ada".to_string(),
         active: true,
-        tenant_id: None,
         created_at: jiff::Timestamp::now(),
     })
     .exec(&mut db)

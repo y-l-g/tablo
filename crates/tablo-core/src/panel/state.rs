@@ -90,14 +90,6 @@ impl Panels {
 #[derive(Clone)]
 pub(crate) struct CurrentPanel(pub(crate) Arc<PanelState>);
 
-/// The panel whose auth resolved the request's [`CurrentUser`](crate::auth::CurrentUser).
-///
-/// A session belongs to the panel that issued it, so a user resolved by one
-/// panel is not the user of another: [`current_user`](crate::auth::current_user)
-/// answers only when this is the request's panel.
-#[derive(Clone)]
-pub(crate) struct UserPanel(pub(crate) Arc<PanelState>);
-
 /// The request's panel: the one whose prefix the request is under, the one a
 /// live table's shard re-renders for, or the panel whose session signed in a
 /// runtime request. A router with a single panel answers it for any request.

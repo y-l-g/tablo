@@ -5,8 +5,9 @@ Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-
 
 ## Decision
 
-**Tenancy.** `Tenant(uuid::Uuid)` is a `Cx`-scoped value (`cx.with(Tenant(id))`) and `tenant_id(cx)`
-reads it. A Tower layer is rejected: it would couple HTTP middleware to the domain and put the scope
+**Tenancy.** `tenant_id(cx)` answers the request's tenant: a `Tenant(uuid::Uuid)` request extension
+or `Cx`-scoped value (`cx.with(Tenant(id))`) when server code set one, else the signed-in user's
+membership the session selected (ADR-0013). A Tower layer is rejected: it would couple HTTP middleware to the domain and put the scope
 somewhere other than the resource. `Resource::tenancy` defaults to `Tenancy::none()`; when a
 resource declares a column or a relation path, the **framework** applies the tenant predicate to
 every loader through `scoped_query` (ADR-0002). The
