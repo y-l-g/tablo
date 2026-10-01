@@ -72,17 +72,18 @@ pub(crate) use crate::query_term::clamp_query_term;
 /// list view — and an omission must fail loudly rather than silently:
 ///
 /// - **Built once and checked at [`Panel::build`](crate::panel::Panel::build)**: [`table`],
-///   [`form`] and [`view`] are declarations — the table takes no context, the schemas a [`DeclCx`]
-///   carrying the app schema alone — so the panel builds each once, refuses what they record as
-///   misdeclared ([`Table::declaration_errors`], [`Schema::declaration_errors`]), and serves the
-///   same values to every request. [`form`] must agree with [`Form`](Self::Form): a record form's
-///   fields are the schema's controls, and a [`NoForm`](crate::NoForm) resource declares no schema.
-///   A resource with no form must not allow [`can_create`](Self::can_create), which the build asks
-///   with a context holding only the `Db`.
+///   [`form`], [`view`] and [`relations`] are declarations — the table and the relations take no
+///   context, the schemas a [`DeclCx`] carrying the app schema alone — so the panel builds each
+///   once, refuses what they record as misdeclared ([`Table::declaration_errors`],
+///   [`Schema::declaration_errors`]), and serves the same values to every request. [`form`] must
+///   agree with [`Form`](Self::Form): a record form's fields are the schema's controls, and a
+///   [`NoForm`](crate::NoForm) resource declares no schema. A resource with no form must not allow
+///   [`can_create`](Self::can_create), which the build asks with a context holding only the `Db`.
 ///
 /// [`table`]: Self::table
 /// [`form`]: Self::form
 /// [`view`]: Self::view
+/// [`relations`]: Self::relations
 /// [`Schema::declaration_errors`]: crate::schema::Schema::declaration_errors
 /// - **Loud at request time**: a record fn's error fails the write and rolls its transaction back,
 ///   never a partial write. [`delete_record`](Self::delete_record) defaults to deleting the row

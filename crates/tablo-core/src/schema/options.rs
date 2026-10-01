@@ -76,7 +76,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_shared_list_feeds_a_choice_and_a_select_filter() {
+    async fn the_shared_list_feeds_a_choice_a_select_filter_and_a_column() {
         let options = Status::options();
         let schema = crate::Schema::new(
             crate::Field::choice(StatusField::fields().status()).options(options.clone()),
@@ -86,6 +86,12 @@ mod tests {
         let cx = topcoat::context::CxTestBuilder::new().build();
         let errors = schema.validate_async(&cx, &valid).await;
         assert!(errors.is_empty(), "a shared option validates: {errors:?}");
+        let mut bogus = std::collections::HashMap::new();
+        bogus.insert("status".to_string(), "gone".to_string());
+        assert!(
+            !schema.validate_async(&cx, &bogus).await.is_empty(),
+            "an unlisted value fails"
+        );
         let filter = crate::SelectFilter::r#for(StatusField::fields().status(), options.clone());
         assert_eq!(filter.options(), options.as_slice());
         let column =

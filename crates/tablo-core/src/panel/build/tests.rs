@@ -1122,8 +1122,9 @@ async fn panel_build_rejects_a_misdeclared_view() {
     );
 }
 
-/// Declarations are built once: `Panel::build` calls each declaration
-/// once, and every handler serves the cached copy across requests.
+/// The served declarations are built once: `Panel::build` calls the table, form and view
+/// once each (relations twice: once at registration for its handlers and keys, once here for
+/// the served copy), and every handler serves the cached copy across requests.
 #[tokio::test]
 async fn declarations_are_built_once_across_requests() {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -1247,4 +1248,35 @@ async fn declarations_are_built_once_across_requests() {
             "`{name}` serves requests from the cached build"
         );
     }
+}
+
+/// A resource no panel registers builds on demand: `declared` falls back to
+/// a fresh build from the request's app schema, which is what a page-owned
+/// table reads.
+#[tokio::test]
+async fn declared_fallback_builds_for_an_unregistered_resource() {
+    use crate::resource::{Resource, declared};
+
+    struct FallbackResource;
+    impl Resource for FallbackResource {
+        type Model = Dummy;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn table() -> crate::resource::Table<Dummy> {
+            dummy_table()
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Dummy))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let cx = topcoat::context::CxTestBuilder::new()
+        .app_context(db)
+        .build();
+    let fallback = declared::<FallbackResource>(&cx);
+    assert!(fallback.table.declaration_errors().is_empty());
+    assert!(fallback.form.declaration_errors().is_empty());
 }

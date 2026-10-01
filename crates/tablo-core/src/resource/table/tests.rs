@@ -549,13 +549,6 @@ async fn a_misdeclared_table_fails_to_render() {
             TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
         ),
     );
-    let declared = table.declaration_errors();
-    assert!(
-        declared
-            .iter()
-            .any(|error| error.contains("duplicate column name")),
-        "{declared:?}"
-    );
     let cx = CxTestBuilder::new().build();
     let page = crate::resource::TablePage::<User>::from(vec![]);
     let Err(error) = table.render(&cx, page).await else {

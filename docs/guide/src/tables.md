@@ -138,7 +138,7 @@ remain for visitors without JavaScript.
 
 | Filter | Field | Values |
 | --- | --- | --- |
-| `SelectFilter::r#for(lens, options)` | `String` | one of `options`, matched exactly; the options are an [`Options`](./forms.md#controls) list, `(value, label)` pairs, or values that are their own label |
+| `SelectFilter::r#for(lens, options)` | `String` | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an [`Options`](./forms.md#controls) list), `Vec<String>`, or `[&str; N]` |
 | `TernaryFilter::r#for(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
 | `DateFilter::r#for(lens)` | `jiff::Timestamp` | a date `2024-01-15` matches that UTC day; an RFC 3339 timestamp matches that instant |
 | `VariantFilter::r#for(name, label, options)` | any | named options, each a Toasty predicate you build |

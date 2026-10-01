@@ -1228,8 +1228,8 @@ async fn a_list_only_resource_never_links_to_create() {
 }
 
 /// The derived default form, end to end: a resource with no `form`
-/// override serves `RecordForm::schema` — one control per field, chosen
-/// from the field — and writes through it.
+/// override serves `RecordForm::schema` — a text field, a choice over the
+/// `Options` list, and a toggle, in declaration order — and writes through it.
 #[tokio::test]
 async fn the_derived_default_form_renders_and_writes() {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
@@ -1305,7 +1305,8 @@ async fn the_derived_default_form_renders_and_writes() {
         );
     }
     assert!(
-        html.find("name=\"name\"").unwrap() < html.find("name=\"role\"").unwrap(),
+        html.find("name=\"name\"").unwrap() < html.find("name=\"role\"").unwrap()
+            && html.find("name=\"role\"").unwrap() < html.find("name=\"active\"").unwrap(),
         "the default schema keeps declaration order: {html}"
     );
     assert!(
@@ -1329,6 +1330,11 @@ async fn the_derived_default_form_renders_and_writes() {
 
     let edit = get(&router, &format!("/admin/widgets/{}/edit", rows[0].id)).await;
     assert_eq!(edit.status(), StatusCode::OK);
+    let html = body_string(edit).await;
+    assert!(
+        html.contains("New"),
+        "the edit form hydrates the stored value: {html}"
+    );
     let response = post_fields(
         &router,
         &format!("/admin/widgets/{}/edit", rows[0].id),
@@ -1342,4 +1348,5 @@ async fn the_derived_default_form_renders_and_writes() {
         .expect("the widget exists");
     assert!(stored.active);
     assert_eq!(stored.name, "New", "an unposted key keeps its value");
+    assert_eq!(stored.role, "admin", "an unposted key keeps its value");
 }

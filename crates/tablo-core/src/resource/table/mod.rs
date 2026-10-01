@@ -665,7 +665,7 @@ impl<M> Table<M> {
     /// like the edit URL.
     ///
     /// The caller sets this only for a resource that declares a detail page
-    /// ([`Resource::viewed`](crate::resource::Resource::viewed)), so a resource
+    /// (a non-empty [`view`](crate::resource::Resource::view)), so a resource
     /// with no view renders no link instead of one that 404s. The action is
     /// gated per record by the panel-wired row policy: a row the policy
     /// denies renders no `View` link, matching the detail route's `can_view`.

@@ -36,9 +36,9 @@ Leave out the columns the form does not write: the tenant column of a tenant-own
 the framework sets on create, and columns with a Toasty `#[default(..)]` or `#[auto]`.
 
 **Blank values.** `#[form(blank = <expr>)]` is what a field stores when its control is submitted
-empty. `String` stores `""` and `Option<T>` stores `None` without one; any other type needs
-`blank` when its control is optional. A `bool` reads an empty submission as `false` without one,
-since an unchecked toggle posts `false`.
+empty. `String` answers `""` and `Option<T>` answers `None` through the type's own blank, and a
+`bool` answers `false` through the derive's default, since an unchecked toggle posts `false`. Any
+other type needs `blank` when its control is optional.
 
 The resource names the struct as its `Form` and, to arrange the controls, declares them from the
 derive's `controls(dx)`:
@@ -108,7 +108,7 @@ SelectFilter::r#for(User::fields().role(), Role::options())
 Each variant stores its `snake_case` name and reads as that name in sentence case;
 `#[option(value = "..", label = "..")]` overrides either. The derive also gives the enum
 `value()`, `label()`, `from_value()` and, through the `Options` trait, `label_of()`. `.options`
-takes such a list, `(value, label)` pairs, or values that are their own label (`["admin",
+takes `Vec<(String, String)>` (an `Options` enum's list), `Vec<String>`, or `[&str; N]` (`["admin",
 "member"]`).
 
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled

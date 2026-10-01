@@ -26,8 +26,9 @@ impl Resource for AuditResource {
 }
 ```
 
-A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form` and
-declares the form's controls in `form()`; see [Forms](./forms.md).
+A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form` and,
+to arrange its controls, overrides `form(dx)` from the derive's `controls(dx)`; omit `form` for
+one control per field in declaration order. See [Forms](./forms.md).
 
 ## Trait items
 
@@ -154,11 +155,13 @@ when nothing committed. An error it returns is logged; the write stays committed
 ## Startup checks
 
 `Panel::build` calls each resource's declarations once — `table()` with no context, `form(dx)`
-and `view(dx)` with a `DeclCx` carrying the app schema alone — and refuses the resource when:
+and `view(dx)` with a `DeclCx` carrying the app schema alone, and `relations()` — and refuses
+the resource when:
 
 - `table()`, `form()` or `view()` is malformed: a duplicate column, filter or field name, a
   zero page size, an empty column set, a lens that binds no column, or a search or sort on a
-  computed column. Rendering such a table or schema fails with the same errors;
+  computed column. Rendering such a table through `Table::render` (or `render_with_state`) or
+  such a schema through `Schema::render` fails with the same errors;
 - the record form and `form()` disagree: a control no form field binds, a form field with no
   control, an optional control whose field has no blank value, a `unique()` field with no
   unique index, or a tenant-owned resource's form claiming its tenant column;

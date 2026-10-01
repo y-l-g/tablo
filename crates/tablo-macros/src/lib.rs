@@ -102,10 +102,10 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 ///
 /// - `#[form(model = User)]` on the struct: the model the form writes.
 /// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as, overriding the
-///   type's own (`String` answers `""`, `Option<T>` answers `None`, and `bool` answers `false`
-///   without one).
+///   default (`String` answers `""` and `Option<T>` answers `None` through the type's own blank,
+///   and `bool` answers `false` through the derive's default).
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
-/// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` adds.
+/// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` may add.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
 ///
