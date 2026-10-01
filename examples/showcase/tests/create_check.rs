@@ -17,7 +17,7 @@ async fn create_page_serves_the_declared_fields() {
     let resp = client.get("/admin/users/create").await;
     assert!(resp.status().is_success(), "GET create should be 200");
     let html = body_string(resp).await;
-    // GH #136 layer rule: core (`text_input_renders_with_label_and_ac_field`)
+    // Core (`text_input_renders_with_label_and_ac_field`)
     // owns the field detail (wrapper, Tokens, for/id, error slot); this pins
     // the HTTP wiring — the create page serves the declared fields.
     assert!(
@@ -268,7 +268,7 @@ async fn create_policy_deny() {
 
 #[tokio::test]
 async fn create_post_with_unknown_keys_is_bad_request() {
-    // GH #89 allow-list: role/tenant_id smuggling is a 400 at the framework
+    // Allow-list: role/tenant_id smuggling is a 400 at the framework
     // layer, never silently ignored.
     let db = seeded_db().await;
     let router = router(db.clone());
@@ -371,7 +371,7 @@ async fn users_create_static_selects_set_role_and_active() {
     assert!(!created.active);
 }
 
-/// GH #295: a write that fails after validation answers a 500 whose body is
+/// A write that fails after validation answers a 500 whose body is
 /// Topcoat's plain text, so the failure toast cannot render there. The flash
 /// cookie rides the 500 response and the toast appears on the next panel page.
 /// `notify_write_failure`'s doc comment describes this delivery.

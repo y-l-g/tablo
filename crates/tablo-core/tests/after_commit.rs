@@ -176,8 +176,7 @@ struct FailingWriteForm {
     title: String,
 }
 /// A resource whose hook fails: the write is already committed, so the failure
-/// is logged and the write stands (GH #112's "failures handled loudly without
-/// rolling back the write").
+/// is logged and the write stands.
 struct FailingHookResource;
 
 impl Resource for FailingHookResource {

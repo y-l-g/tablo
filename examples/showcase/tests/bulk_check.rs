@@ -91,7 +91,7 @@ async fn bulk_delete_deletes_selected() {
 
 #[tokio::test]
 async fn bulk_delete_without_ids_redirects_with_the_reason() {
-    // GH #151: the visible ids input is gone and the submit ships disabled,
+    // There is no visible ids input and the submit ships disabled,
     // so a hand-crafted empty POST is a validation miss — the list comes back
     // with an error toast, never the raw 400 page.
     let db = seeded_db().await;
@@ -130,7 +130,7 @@ async fn bulk_delete_without_ids_redirects_with_the_reason() {
 
 #[tokio::test]
 async fn bulk_delete_short_fetch_404s_and_deletes_nothing() {
-    // GH #136 §4: a batch naming a missing id comes back short from the
+    // A batch naming a missing id comes back short from the
     // tenancy-scoped `IN` fetch and 404s — never half-applied.
     let db = seeded_db().await;
     let router = router(db.clone());
@@ -163,7 +163,7 @@ async fn bulk_delete_short_fetch_404s_and_deletes_nothing() {
 
 #[tokio::test]
 async fn bulk_bar_renders_checkboxes_with_row_keys() {
-    // GH #136 layer rule: core (`bulk_checkboxes_render_with_keys_and_select_all`)
+    // Core (`bulk_checkboxes_render_with_keys_and_select_all`)
     // owns the bulk-chrome detail (select-all, hidden transport, disabled
     // submit); this pins the HTTP wiring — pagination, filtering, and the
     // checkbox-joined POST format.
@@ -248,7 +248,7 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
     );
 }
 
-/// GH #235: select-all over the seeded roster. Ken renders no checkbox — the
+/// Select-all over the seeded roster. Ken renders no checkbox — the
 /// SSO guard denies his delete — so the browser's select-all collects the
 /// other seven and the handler deletes them, instead of refusing the whole
 /// batch over the one row the resource protects.
@@ -366,9 +366,8 @@ fn selectable_row_ids(html: &str) -> Vec<String> {
     ids
 }
 
-/// The server-side safety net, after GH #235 moved the visible decision into
-/// the row policy: a hand-crafted POST naming a row the resource refuses is
-/// still 403. The check is all-or-nothing (GH #168: `View` then
+/// The server-side safety net: a hand-crafted POST naming a row the resource refuses is
+/// still 403. The check is all-or-nothing (`View` then
 /// `Delete` on every row, before any write), so the batch aborts with zero
 /// deletions — which is why the rendered checkbox must never offer that row.
 ///
@@ -463,7 +462,7 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
         remaining.len()
     );
 }
-/// GH #184: the batch asks before it acts, and the guarantee is the server's.
+/// The batch asks before it acts, and the guarantee is the server's.
 /// A POST that does not carry the confirming control's marker is refused —
 /// otherwise the dialog would be decoration that a crafted request skips.
 #[tokio::test]

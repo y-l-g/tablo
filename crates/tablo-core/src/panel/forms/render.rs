@@ -53,7 +53,7 @@ impl<'a> FormChrome<'a> {
     }
 }
 
-/// Shared create/edit page shell (GH #73 multipart enctype, CSRF hidden
+/// Shared create/edit page shell (multipart enctype, CSRF hidden
 /// input, inline error slot), with the page's [`FormChrome`] around it.
 ///
 /// `carried` names the upload fields whose value is an uploader's answer rather

@@ -5,7 +5,7 @@ use crate::{TablePage, TextColumn};
 
 #[test]
 fn live_search_debounce_sits_in_the_locked_band() {
-    // GH #172 decision 4: ~150-250ms at the `@input` handler. The
+    // ~150-250ms at the `@input` handler. The
     // markup test below pins the rendered value; this pins the range.
     assert!(
         (150..=250).contains(&LIVE_SEARCH_DEBOUNCE_MS),

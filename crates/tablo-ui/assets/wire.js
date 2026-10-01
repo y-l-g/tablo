@@ -4,7 +4,7 @@
 // comma-delimited on both ends — `,a,b,`, empty when nothing is selected.
 // `bulk.js` writes it, `mutation-submit.js` prunes it after a delete, so both
 // read it through this one module: a change to the delimiter contract in one
-// desyncs prune vs write (GH #341). Delimiters make membership exact: `,ab,`
+// desyncs prune vs write. Delimiters make membership exact: `,ab,`
 // never matches `b`.
 //
 // The document loads this before both consumers (ADR-0014), which read the

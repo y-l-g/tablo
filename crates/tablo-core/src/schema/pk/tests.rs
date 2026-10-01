@@ -11,7 +11,7 @@ struct DummyUser {
 
 #[test]
 fn composite_pk_has_no_url_representation() {
-    // GH #95: composite keys fail loudly (programmer error), never a
+    // Composite keys fail loudly (programmer error), never a
     // per-id 404 that hides the misconfiguration.
     #[derive(Debug, Clone, toasty::Model)]
     struct Pair {
@@ -28,9 +28,9 @@ fn composite_pk_has_no_url_representation() {
 
 #[test]
 fn pk_in_expr_builds_one_in_predicate_and_fails_closed() {
-    // GH #85: single IN predicate; empty lists and unparseable ids yield
-    // None (empty posts redirect with a toast before reaching here, GH
-    // #151; an unparseable id cannot exist, so the batch must not
+    // Single IN predicate; empty lists and unparseable ids yield
+    // None (empty posts redirect with a toast before reaching here;
+    // an unparseable id cannot exist, so the batch must not
     // silently drop it — the handler maps None to 404).
     assert!(pk_in_expr::<DummyUser>(&[]).is_none());
     assert!(pk_in_expr::<DummyUser>(&["not-a-uuid"]).is_none());

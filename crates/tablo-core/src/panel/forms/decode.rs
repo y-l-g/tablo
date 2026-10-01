@@ -256,7 +256,7 @@ fn form_values_from_request_parts(
     }
     debug_assert!(
         content_type.is_none_or(|ct| !is_multipart_content_type(ct)),
-        "multipart must stream via parse_multipart_values, not buffer here (GH #90)"
+        "multipart must stream via parse_multipart_values, not buffer here"
     );
     Ok(form_values_from_bytes(bytes))
 }

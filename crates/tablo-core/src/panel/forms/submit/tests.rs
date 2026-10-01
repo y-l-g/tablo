@@ -242,7 +242,7 @@ async fn transport_keys_never_reach_the_write() {
     );
 }
 
-/// GH #229, create half: a write that fails at the driver surfaces the
+/// A write that fails at the driver surfaces the
 /// opaque mapping, never the driver's own text — the property
 /// `db.rs` pins for `unavailable`, one layer up and through the real
 /// create handler.
@@ -350,10 +350,10 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     );
 }
 
-/// GH #229, edit half: the update arm is the same seam as create's, and a
+/// The update arm is the same seam as create's, and a
 /// write that fails at the driver must not echo the driver's text there
 /// either. The failing write is a unique violation the app-side check
-/// never saw — the case the arm's own comment names (upstream gap #117).
+/// never saw.
 ///
 /// The edit handler needs the `{id}` the router captures, so the test
 /// mounts it behind a route of its own and renders the error it returns —
@@ -640,13 +640,8 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     );
 }
 
-/// GH #189 acceptance, through the real panel: two submits with an empty
-/// `unique()` field re-render inline and write nothing. Before the fix the
-/// first empty submit *succeeded* — it stored `""` — so the panel had
-/// already broken the promise its own unique index makes, and the second
-/// empty submit met the constraint instead of the form rule: 500 when the
-/// record fn stores the value as submitted, or a misleading "has already
-/// been taken" when it trims first.
+/// Through the real panel, two submits with an empty
+/// `unique()` field re-render inline and write nothing.
 #[tokio::test]
 async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     use crate::{

@@ -123,7 +123,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
     );
 }
 
-/// GH #189, at the layer below the handler: an explicitly `unique()` field
+/// At the layer below the handler, an explicitly `unique()` field
 /// is required even when `.optional()` follows it, validation says so, and
 /// the probe stays out of the empty case. What the two submits *write* is
 /// pinned end to end by
@@ -251,7 +251,7 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
     let input = Field::text(Subscriber::fields().email());
     assert!(
         input.is_unique(),
-        "the index must be recognized without a `.unique()` call (GH #183)"
+        "the index must be recognized without a `.unique()` call"
     );
     assert!(input.is_required(), "derived uniqueness implies presence");
 

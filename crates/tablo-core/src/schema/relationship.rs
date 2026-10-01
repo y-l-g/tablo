@@ -336,8 +336,7 @@ where
         }
     }
     // The declared default ordering only — the first sortable column, asc, or
-    // nothing (GH #210 removed `order_bys()`, so this is the column-level
-    // helper that replaced it). Deliberately not a list-mode resolution: the
+    // nothing. Deliberately not a list-mode resolution: the
     // option search has no table state, and the PK fallback a paginated table
     // would add is an ordering change this endpoint never had.
     if let Some(ord) = R::order_by(cx) {

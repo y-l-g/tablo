@@ -58,7 +58,7 @@ fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
-/// GH #297: a variant group the submission's discriminant does not name is
+/// A variant group the submission's discriminant does not name is
 /// the one `variant.js` hides, so its fields cannot fail the submit. The
 /// named variant's fields still validate, and a submission that names no
 /// variant hides nothing — the payload fallback may still read any group.

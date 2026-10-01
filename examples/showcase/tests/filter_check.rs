@@ -7,7 +7,7 @@ use crate::common::{body_string, demo_client, find_href_with, full_db, row_title
 
 #[tokio::test]
 async fn posts_filter_widgets_render_typed_controls() {
-    // GH #136 layer rule: core (`filter_widgets_render_typed_controls`)
+    // Core (`filter_widgets_render_typed_controls`)
     // owns the typed-control detail (select/ternary/date options, selected
     // state, noscript fallback); this pins the HTTP wiring — the widgets
     // arrive with the active value in the hidden transport.
@@ -123,7 +123,7 @@ async fn posts_filter_date_created_at() {
 
 #[tokio::test]
 async fn posts_date_filter_on_the_last_day_renders() {
-    // GH #280: the day's end lies past `jiff::Timestamp::MAX`, so the lower
+    // The day's end lies past `jiff::Timestamp::MAX`, so the lower
     // bound alone has to answer, on the list and on the export.
     let db = full_db().await;
     let router = router(db.clone());
@@ -183,7 +183,7 @@ async fn posts_filter_composes_and() {
 
 #[tokio::test]
 async fn typo_filter_warns_on_list_but_refuses_export() {
-    // GH #93: unknown/typo'd filters warn visibly on the list (200) and fail
+    // Unknown/typo'd filters warn visibly on the list (200) and fail
     // closed on export (400) instead of silently over-sharing.
     let db = full_db().await;
     let router = router(db.clone());
@@ -238,7 +238,7 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
 
 #[tokio::test]
 async fn posts_list_renders_live_search_host() {
-    // GH #104: posts table opts into the live shard (tenant header required).
+    // The posts table opts into the live shard (tenant header required).
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -253,7 +253,7 @@ async fn posts_list_renders_live_search_host() {
 
 #[tokio::test]
 async fn posts_filter_with_cursor_paginates_filtered_rows() {
-    // GH #136: a filtered list's cursor links keep the filter, so walking
+    // A filtered list's cursor links keep the filter, so walking
     // `after=`/`before=` stays inside the filtered result set.
 
     let db = full_db().await;
@@ -302,7 +302,7 @@ async fn posts_filter_with_cursor_paginates_filtered_rows() {
         next.contains("f.status=published"),
         "the pager must preserve filters, got {next}"
     );
-    // GH #217: this href is fed straight back as a request URI, so it must be
+    // This href is fed straight back as a request URI, so it must be
     // the decoded URL a browser would send.
     assert!(
         !next.contains("&amp;"),

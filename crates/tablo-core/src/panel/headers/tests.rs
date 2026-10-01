@@ -183,7 +183,7 @@ fn an_existing_policy_is_overwritten() {
     // `FrameAncestors` this layer does not defer to what is there. The
     // literal is the directive the browser must receive: `frame-ancestors`
     // is here because `FrameAncestors` skips a response that already has a
-    // policy (GH #216: comparing against the implementation constant would
+    // policy (comparing against the implementation constant would
     // change both sides together).
     let mut response = file_response(Some("text/html"));
     response

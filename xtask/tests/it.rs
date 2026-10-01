@@ -33,7 +33,7 @@ fn vendored_primitives_are_closed_under_registry_dependencies() {
     xtask::verify_vendored_closure().expect("the vendored set is closed under its dependencies");
 }
 
-/// Guards the workspace/bench lockstep (GH #103): `Cargo.lock` and
+/// Guards the workspace/bench lockstep: `Cargo.lock` and
 /// `benchmarks/tablo/Cargo.lock` pin identical `topcoat`/`toasty` revs — the
 /// same contract CI's `bench-check` job enforces through
 /// `cargo xtask verify-locks`.

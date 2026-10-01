@@ -70,7 +70,7 @@ where
     ///
     /// `query` is the caller's scope. The panel's list passes the resource's
     /// [`scoped_query`](crate::resource::scoped_query); a page that owns its
-    /// table (GH #154 §2) passes its own, with the table from
+    /// table passes its own, with the table from
     /// [`panel::wired_table`](crate::panel::wired_table) when it renders the
     /// resource's action chrome.
     ///
@@ -171,8 +171,8 @@ pub(crate) enum Past {
 /// Whether `query` has a row past the cursor.
 ///
 /// Toasty reports a cursor whenever a page comes back full, so a page that
-/// ends exactly at the table's edge carries one with nothing behind it
-/// (GH #397). The list loader validates the cursor its links carry with
+/// ends exactly at the table's edge carries one with nothing behind it.
+/// The list loader validates the cursor its links carry with
 /// this, and the export asks it whether rows remain past its row cap.
 pub(crate) async fn row_exists_past<M>(
     db: &mut toasty::Db,

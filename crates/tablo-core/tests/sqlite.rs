@@ -29,7 +29,7 @@ async fn roundtrip_db() -> Db {
     db
 }
 
-/// GH #189 item 2, measured rather than assumed: is there a **collation
+/// Is there a **collation
 /// disagreement** between the app-side unique check and this database?
 ///
 /// The check probes with the Toasty `eq` filter and skips an edit's unchanged

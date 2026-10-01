@@ -10,7 +10,7 @@ fn live_toaster_endpoint_is_the_named_path() {
     assert_eq!(live_toaster.path().as_str(), LIVE_TOASTER_PATH);
 }
 
-/// GH #174: a failed write flashes an error the user can read — the
+/// A failed write flashes an error the user can read — the
 /// operation, not the driver's error text.
 #[test]
 fn write_failure_notification_names_the_operation() {

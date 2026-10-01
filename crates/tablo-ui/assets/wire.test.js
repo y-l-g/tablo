@@ -8,7 +8,7 @@
 //     node --test crates/tablo-ui/assets/wire.test.js
 //
 // What it protects: the one delimiter contract `bulk.js` writes and
-// `mutation-submit.js` prunes (GH #341). Both consumers `require` this module
+// `mutation-submit.js` prunes. Both consumers `require` this module
 // in Node and read the `TabloWire` browser global in the browser, so this
 // single fixture covers the parse both sides share.
 

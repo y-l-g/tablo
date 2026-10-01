@@ -51,7 +51,7 @@ impl<M> Table<M> {
         let action = key.map(|key| self.action_url(delete_action_url(prefix, key)));
         // Only the URL-driven dialog mirrors its dismissal into the URL: a
         // dialog a row control opens client-side has no `?delete=` to close,
-        // so dismissing it leaves the URL alone (GH #154 §3).
+        // so dismissing it leaves the URL alone.
         let open_param = server_open.then(|| state.param("open"));
         let csrf = crate::csrf::current_token(cx);
         let footer = view! {

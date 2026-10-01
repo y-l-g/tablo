@@ -29,9 +29,9 @@ async fn text_input_renders_with_label_and_ac_field() {
         .await
         .unwrap()
         .render(&cx);
-    // GH #216: the field/field-label composition is the contract; the
+    // The field/field-label composition is the contract; the
     // input's Token classes (`border-border`, `bg-transparent`,
-    // `focus-visible:ring-ring`) are paint and belong to the showcase.
+    // `focus-visible:ring-ring`) are paint.
     assert!(
         html.contains("data-slot=\"field\"") && html.contains("data-slot=\"field-label\""),
         "missing field/field-label markup in {html}"
@@ -137,7 +137,7 @@ fn text_input_required_validates_empty() {
         !Field::text(DummyUser::fields().name())
             .validate("")
             .is_empty(),
-        "non-nullable columns default to required (GH #100)"
+        "non-nullable columns default to required"
     );
     assert!(
         Field::text(DummyUser::fields().name())
@@ -150,7 +150,7 @@ fn text_input_required_validates_empty() {
 
 #[test]
 fn required_default_follows_lens_nullability() {
-    // GH #100: `required` defaults from the DB column, with an explicit
+    // `required` defaults from the DB column, with an explicit
     // `.optional()` escape hatch. Pinned through the public constructor.
     #[derive(Debug, toasty::Model)]
     struct NullableDoc {
@@ -184,7 +184,7 @@ async fn text_input_required_renders_star_and_email_type() {
         .await
         .unwrap()
         .render(&cx);
-    // The required marker is the visible asterisk (GH #216: `required` /
+    // The required marker is the visible asterisk (`required` /
     // `aria-required` below pin the attribute; the star is what a reader
     // sees, and `>*<` is emitted only by it).
     assert!(
@@ -212,8 +212,7 @@ async fn text_input_required_renders_star_and_email_type() {
         .unwrap()
         .render(&cx);
     // `r#type` would still contain the substring `type=`, so pin the
-    // attribute name itself (GH #151: the raw identifier leaked into the
-    // rendered HTML and made every email input a plain text input).
+    // attribute name itself.
     assert!(
         html_email.contains("type=\"email\"") && !html_email.contains("r#type"),
         "email should render type=email, not r#type=email, in {html_email}"
@@ -260,7 +259,7 @@ fn text_input_email_validates() {
             .optional()
             .validate("")
             .is_empty(),
-        "an optional, non-unique field must still accept empty (GH #100)"
+        "an optional, non-unique field must still accept empty"
     );
     assert!(
         Field::text(DummyUser::fields().email())
@@ -271,7 +270,7 @@ fn text_input_email_validates() {
     );
 }
 
-/// GH #189: the unique marker is presence, so `.optional()` cannot lift it
+/// The unique marker is presence, so `.optional()` cannot lift it
 /// — in the builder or from the lens.
 #[test]
 fn unique_implies_required_in_either_declaration_order() {
@@ -305,10 +304,9 @@ fn unique_implies_required_in_either_declaration_order() {
     }
 }
 
-/// GH #189: the marker a user sees reads the same predicate validation
+/// The marker a user sees reads the same predicate validation
 /// does, so a unique field cannot be refused for emptiness while rendering
-/// as optional — the disagreement that would have shipped had only
-/// `validate` been taught the rule.
+/// as optional.
 #[tokio::test]
 async fn unique_field_renders_the_required_marker() {
     let cx = cx();
@@ -397,7 +395,7 @@ fn email_rule_leaves_an_empty_value_to_presence() {
 
 #[tokio::test]
 async fn multiline_renders_a_textarea_with_the_stored_value() {
-    // GH #184: prose columns get a `<textarea>`, not a one-line input. The
+    // Prose columns get a `<textarea>`, not a one-line input. The
     // value is the control's child — a textarea has no `value` attribute.
     let cx = cx();
     let schema = Schema::new(Field::text(DummyUser::fields().name()).multiline(4));

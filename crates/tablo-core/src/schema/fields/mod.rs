@@ -147,7 +147,7 @@ impl Field {
     /// The control's `type` is the type's `INPUT_TYPE`: `datetime-local` for a
     /// `jiff::Timestamp`, whose stored instant renders in UTC and whose
     /// submission is read back as UTC, and `text` otherwise (`email` overrides
-    /// it). `unique` defaults from the column's unique index (GH #183).
+    /// it). `unique` defaults from the column's unique index.
     ///
     /// `T` is [`IntoExpr`](toasty::stmt::IntoExpr) of itself so the unique
     /// probe compares the parsed value through the lens rather than its text.
@@ -319,7 +319,7 @@ impl Field {
 
     /// Whether an empty submit fails validation and the control renders as
     /// required: `required`, or a unique text field over a non-nullable
-    /// column (GH #189). `validate` and the render read it, so the rule and
+    /// column. `validate` and the render read it, so the rule and
     /// the marker cannot disagree.
     pub(crate) fn is_required(&self) -> bool {
         self.required || (self.is_unique() && !self.nullable)

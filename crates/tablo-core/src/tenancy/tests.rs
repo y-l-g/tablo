@@ -122,7 +122,7 @@ fn the_request_acts_for_the_selected_membership_else_the_first() {
 
 #[test]
 fn tenant_header_is_never_trusted() {
-    // GH #131: the header fallback is gone; spoofing another tenant's
+    // Spoofing another tenant's
     // UUID in `x-tenant-id` must not resolve a tenant.
     let id = uuid::Uuid::new_v4();
     assert_eq!(tenant_id(&cx_with_header(&id.to_string())), None);

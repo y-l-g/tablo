@@ -96,7 +96,7 @@ pub(crate) fn search_handler_for<R: Resource>() -> SearchFn {
                 }
                 let table = wire_table_actions::<R>(cx, true);
                 // The GET path's parser over the client-owned query, then one
-                // normalization (GH #148): an unknown `group_by` must not echo
+                // normalization: an unknown `group_by` must not echo
                 // through the retry link. The live page renders the delete
                 // dialog outside the swapped region, so the shard drops it.
                 let mut state = TableState::from_query(&signals.query.get());

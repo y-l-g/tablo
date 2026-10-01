@@ -9,12 +9,12 @@
 //     node --test crates/tablo-ui/assets/selects.test.js
 //
 // What the cases protect:
-// * the matching rule GH #184 filed the list for, including the two easy
+// * the matching rule for the list, including the two easy
 //   mistakes — case sensitivity and letting the placeholder eat the cap;
-// * the hide decision behind GH #236: the native `<select>` leaves the display
+// * the hide decision: the native `<select>` leaves the display
 //   only when the combobox that replaces it is wired, and stays the submitted
 //   value carrier either way;
-// * the single wiring pass behind GH #237. The document stand-in below records
+// * the single wiring pass. The document stand-in below records
 //   the listeners `install()` registers and fires them the way a browser does
 //   — every listener for the type, in registration order — so a duplicated
 //   wiring block shows up as two `change` events per activation and two rows
@@ -232,7 +232,7 @@ test('no match yields an empty list, which the caller reports as such', () => {
   assert.deepEqual(labels('zzz'), []);
 });
 
-// --- GH #236: the native select behind the combobox --------------------------
+// --- the native select behind the combobox --------------------------
 
 test('the native select is hidden only when the combobox over it is wired', () => {
   const wired = { combo: {}, wrap: {}, filter: {}, list: {}, select: {} };
@@ -311,7 +311,7 @@ test('a swapped-in field is hidden again', () => {
   }
 });
 
-// --- GH #237: one wiring pass -------------------------------------------------
+// --- one wiring pass -------------------------------------------------
 
 test('every document listener is registered once', () => {
   const world = searchableField();
@@ -353,7 +353,7 @@ test('an arrow key advances one row', () => {
   assert.equal(selected[0].dataset.value, 'pk-alan', 'the row after the first');
 });
 
-// --- GH #293: the current option, the combobox ARIA, and Enter ---------------
+// --- the current option, the combobox ARIA, and Enter ---------------
 
 test('an edit form shows the current option label in the box', () => {
   // The native select is hidden and the filter input is the box left in its

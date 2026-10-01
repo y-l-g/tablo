@@ -60,7 +60,7 @@ async fn admin_resource_list_page_serve_seeded_users() {
         html.contains("href=\"/admin/comments\"") || html.contains("/admin/comments"),
         "missing Comments navigation url in {html}"
     );
-    // GH #184: no Published saved view — it would duplicate the Blog Posts
+    // No Published saved view — it would duplicate the Blog Posts
     // table with a filter, and it is the only arrangement that would highlight
     // two sidebar entries at once.
     assert!(
@@ -103,7 +103,7 @@ async fn admin_unknown_route_is_not_found() {
     assert_eq!(response.status(), 404);
 }
 
-/// GH #295: the `frame-ancestors` layer covers every response the panel's layer
+/// The `frame-ancestors` layer covers every response the panel's layer
 /// chain produces — the 404 for an unmatched path, the 405 for a wrong method,
 /// and the redirects the handlers build as errors — not only the 200 pages.
 #[tokio::test]
@@ -339,9 +339,8 @@ async fn admin_list_pagination_walks_cursor_links() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    // GH #217: derive the overflow from the fixture and the page size rather
-    // than seeding a literal 23. Production page size is 25, so page 1 holds
-    // the seeded roster plus `extra - 1` filler rows and exactly one filler row
+    // The overflow derives from the fixture and the page size. Production page size is 25, so page
+    // 1 holds the seeded roster plus `extra - 1` filler rows and exactly one filler row
     // spills to page 2.
     let seeded = user_count(&db).await;
     let page_size = tablo_core::resource::DEFAULT_PAGE_SIZE.get();
@@ -385,7 +384,7 @@ async fn admin_list_pagination_walks_cursor_links() {
     );
     let next_href = find_href_with(&page1, "after=")
         .unwrap_or_else(|| panic!("page1 missing Next (after=) link: {page1}"));
-    // GH #217: the href is followed as a request URI, so it must be the URL a
+    // The href is followed as a request URI, so it must be the URL a
     // browser would send — decoded, never `&amp;`.
     assert!(
         !next_href.contains("&amp;"),
@@ -580,7 +579,7 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
     );
 }
 
-/// GH #116: search matches anywhere in the value, not just a prefix, and the
+/// Search matches anywhere in the value, not just a prefix, and the
 /// term is escaped — a literal `%` matches that character instead of acting as
 /// a wildcard (which would have matched every row).
 #[tokio::test]
@@ -689,7 +688,7 @@ async fn admin_list_filters_via_q_param() {
 
 #[tokio::test]
 async fn users_list_renders_live_search_host_with_get_fallback() {
-    // GH #104: the users table opts into the keystroke-live shard; the ?q=
+    // The users table opts into the keystroke-live shard; the ?q=
     // GET toolbar stays as the no-JS fallback.
     let db = seeded_db().await;
     let router = router(db.clone());

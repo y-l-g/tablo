@@ -78,7 +78,7 @@ use crate::{
 /// The table the panel's list page serves for `R`, for a page that owns its
 /// table instead of mounting the panel's list route.
 ///
-/// The page-owned seam (GH #154 §2) pairs this with
+/// The page-owned seam pairs this with
 /// [`TablePage::load`](crate::resource::TablePage::load) and
 /// [`Table::render_with_state`](crate::resource::Table::render_with_state).
 /// The table carries `R::table`'s columns, key, page size, search toolbar and
@@ -265,8 +265,7 @@ impl Panel {
     /// never disagree. Without a [`home`](Self::home) page, the panel root
     /// redirects to the first declared resource's list. Multiple calls
     /// compose. Sidebar order comes from the resource's
-    /// [`Resource::navigation`] override, defaulting to declaration order
-    /// (#165).
+    /// [`Resource::navigation`] override, defaulting to declaration order.
     ///
     /// A resource whose [`Form`](Resource::Form) is a record form
     /// ([`RecordForm::HAS_FORM`]) also gets the create page, the edit page, and

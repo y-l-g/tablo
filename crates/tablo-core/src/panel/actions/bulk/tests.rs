@@ -143,7 +143,7 @@ async fn bulk_delete_caps_ids_and_ignores_display_key() {
 
 #[tokio::test]
 async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
-    // GH #84 acceptance: fetch, policy checks, and deletes share one
+    // Fetch, policy checks, and deletes share one
     // framework transaction — an impl that fails halfway rolls everything
     // back instead of half-applying.
 

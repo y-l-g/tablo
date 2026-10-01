@@ -10,8 +10,8 @@
 // What it protects: a row the resource's per-record policy denies delete renders
 // its bulk checkbox `disabled`, and a disabled box must never reach the hidden
 // `ids` transport. The handler's check is all-or-nothing, so one refused key
-// would turn select-all over a whole page into a 403 with zero deletions — the
-// bug GH #235 was filed for. The tri-state header has the same rule: a denied
+// would turn select-all over a whole page into a 403 with zero deletions.
+// The tri-state header has the same rule: a denied
 // row is not a row it can speak for, or a page whose every allowed row is
 // checked would still read "partial".
 

@@ -453,7 +453,7 @@ async fn kind_defaults_stay_inside_their_budget() {
 
 #[tokio::test]
 async fn edit_links_render_beside_delete_in_actions_column() {
-    // GH #162 (Filament's `recordActions` EditAction): `with_edit` wires
+    // `with_edit` wires
     // one `Edit` link per row into the shared Actions column.
     let cx = CxTestBuilder::new().build();
     let action_table = Table::<User>::new(

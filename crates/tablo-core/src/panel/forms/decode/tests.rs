@@ -89,10 +89,9 @@ fn multipart_drain_counts_bytes_and_413s_one_past_the_cap() {
     );
 }
 
-/// An 11 MiB multipart upload 413s end to end through the panel (GH #149
-/// acceptance). The installed `BodyLimit::max(MAX_FORM_BYTES)` layer and
-/// the drain's own counter share the same threshold, so the body is over
-/// both at once — the e2e pins the streaming path answers 413 rather than
+/// An 11 MiB multipart upload 413s end to end through the panel. The installed
+/// `BodyLimit::max(MAX_FORM_BYTES)` layer and the drain's own counter share the same threshold, so
+/// the body is over both at once — the e2e pins the streaming path answers 413 rather than
 /// draining; the counter's own accounting (which only answers if the
 /// extractor's limit ever stops wrapping the stream — `BodyLimitKind` is
 /// private, so no public configuration can disable it) is pinned by
@@ -344,7 +343,7 @@ fn filenames_sanitize_to_basename_and_dispatch_guards_size() {
 
 #[test]
 fn sanitize_filename_invariants_hold() {
-    // GH #136 §5 property candidates: no `/` or `\`, ≤255 bytes, never
+    // No `/` or `\`, ≤255 bytes, never
     // panics on multibyte input.
     for raw in [
         "a/b\\c".to_string(),

@@ -493,14 +493,13 @@ impl<M> Table<M> {
         }
     }
 
-    /// Normalize `state.group_by` against the declared grouping (GH #92, GH
-    /// #153): an unknown `?group_by=` value renders no group headers and is
-    /// dropped from every link instead of round-tripping.
+    /// Normalize `state.group_by` against the declared grouping: an unknown `?group_by=` value
+    /// renders no group headers and is dropped from every link instead of round-tripping.
     ///
     /// The panel's list page and the `table_search` shard normalize where they
     /// parse the state and render from the result; the public
     /// [`render_with_state`](Self::render_with_state) normalizes the state it
-    /// is handed, so a page calling it directly keeps the GH #153 guarantee.
+    /// is handed, so a page calling it directly keeps the guarantee.
     /// Normalizing twice is a no-op.
     pub(crate) fn normalize_state(&self, state: &TableState) -> TableState {
         let mut out = state.clone();
@@ -615,12 +614,12 @@ impl<M> Table<M> {
     /// Keystroke-live search via the `table_search` shard.
     ///
     /// The toolbar renders a signal-backed input that
-    /// re-renders the table after a short keystroke-quiet delay (GH #172,
-    /// `LIVE_SEARCH_DEBOUNCE_MS`), morphing in place so focus
+    /// re-renders the table after a short keystroke-quiet delay
+    /// (`LIVE_SEARCH_DEBOUNCE_MS`), morphing in place so focus
     /// and typing survive, instead of a GET submit. The `?q=` GET form stays
     /// inside `<noscript>` as the no-JS fallback. Opt-in per resource; the
-    /// shard authorizes itself (`ViewAny` + the tenant-scoped query,
-    /// GH #223) and every arg is validated like the GET path.
+    /// shard authorizes itself (`ViewAny` + the tenant-scoped query)
+    /// and every arg is validated like the GET path.
     /// Per-row `View` is not applied here, matching the list page:
     /// page-local row filtering would mislabel pagination, so row scoping
     /// belongs in `Resource::query`, inside that scope.
@@ -846,7 +845,7 @@ impl<M> Table<M> {
     /// tenant-scoped [`Resource::query`](crate::resource::Resource::query) (the
     /// row-scoping seam, ADR-0002), and a page-owned table passes its own. One
     /// routine for both, so a new search or filter dimension cannot reach the
-    /// list and miss the CSV — the drift class GH #172 fixed.
+    /// list and miss the CSV.
     pub(crate) fn apply_declaration(
         &self,
         mut query: toasty::stmt::Query<List<M>>,

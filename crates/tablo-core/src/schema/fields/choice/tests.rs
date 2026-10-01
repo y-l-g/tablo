@@ -31,7 +31,7 @@ fn bare_non_nullable_fk_select_rejects_empty_inline() {
 
 #[tokio::test]
 async fn searchable_select_renders_filter_input() {
-    // GH #91: opt-in client-side option search; default selects stay bare.
+    // Opt-in client-side option search; default selects stay bare.
     let cx = CxTestBuilder::new().build();
     let plain = Field::choice(DummyUser::fields().name()).options(vec!["a".to_string()]);
     let html = plain
@@ -65,7 +65,7 @@ async fn searchable_select_renders_filter_input() {
         html.contains("data-select-filterable"),
         "searchable select must scope the filter, got {html}"
     );
-    // GH #184: the filter is only useful with a list it can narrow. The
+    // The filter is only useful with a list it can narrow. The
     // native popup is browser chrome the script cannot touch, so the
     // searchable markup carries its own listbox — rendered empty and
     // hidden, and filled by `selects.js`.
@@ -88,7 +88,7 @@ async fn searchable_select_renders_filter_input() {
         html[list_tag_start..list_tag_start + list_tag_end].contains("hidden=\"\""),
         "the list must render hidden until the field is used, got {html}"
     );
-    // GH #293: the input is the combobox, statically wired to the list it
+    // The input is the combobox, statically wired to the list it
     // filters. It starts collapsed over the hidden list, and names the
     // listbox; `selects.js` keeps `aria-expanded` and
     // `aria-activedescendant` in step with the popup.
@@ -129,10 +129,10 @@ async fn select_renders_through_the_select_primitive() {
         .await
         .unwrap()
         .render(&cx);
-    // GH #216: the primitive's *chrome* is paint; what it composes is
-    // structural — the native `<select>` now sits inside the primitive's
+    // The primitive's *chrome* is paint; what it composes is
+    // structural — the native `<select>` sits inside the primitive's
     // wrapper `<span>`, which carries the checkmark style hook and the
-    // chevron icon. The hand-rolled control was a bare `<select>`.
+    // chevron icon.
     let select_start = html.find("<select").expect("native select element");
     let wrapper_start = html[..select_start]
         .rfind("<span")

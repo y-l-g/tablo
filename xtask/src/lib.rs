@@ -459,8 +459,7 @@ pub struct AssetHook {
 ///
 /// Track new hooks here as they land. The check runs one way — every entry
 /// must still appear in both its asset and the Rust sources — so an entry that
-/// outlives its hook (GH #184 retired `data-bulk-submit` when the
-/// disabled-until-selected submit became a dialog) fails loudly, while a hook
+/// outlives its hook fails loudly, while a hook
 /// that lands without an entry is caught by review, not here.
 pub const ASSET_HOOKS: &[AssetHook] = &[
     AssetHook {
@@ -696,10 +695,7 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
 ///
 /// The Rust half of the contract is checked against the sources with test
 /// modules and comment lines removed ([`rust_sources`]). Without that, the
-/// check proves nothing about the render sites: when GH #184 retired
-/// `data-bulk-submit` from `bulk.js`, the string survived in `render.rs`'s
-/// assertions and in `panel/list.rs`'s prose, so a registry entry for it stayed
-/// green while the attribute was gone from the markup. Reading the actual
+/// check proves nothing about the render sites. Reading the actual
 /// rendering would be stronger still, but that means building a Db, a panel and
 /// a request per hook — the attributes are the cheaper proxy.
 fn contains_hook(haystack: &str, needle: &str) -> bool {
@@ -791,7 +787,7 @@ fn is_hook_char(c: char) -> bool {
 }
 
 /// What to do when the hook contract breaks.
-const HOOK_HINT: &str = "update the hook list and both sides together (GH #152, ADR-0014)";
+const HOOK_HINT: &str = "update the hook list and both sides together (ADR-0014)";
 
 /// Collect every `.rs` file under `dir`, recursively.
 fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {

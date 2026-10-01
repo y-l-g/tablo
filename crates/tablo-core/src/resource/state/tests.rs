@@ -292,7 +292,7 @@ fn projection_without_filters_drops_filters() {
 
 #[test]
 fn projection_without_cursor_drops_pagination() {
-    // GH #153: drops the cursor; keeps everything else.
+    // Drops the cursor; keeps everything else.
     let source = populated_state();
     let mut expected = without_dialog(source.clone());
     expected.cursor = None;
@@ -334,7 +334,7 @@ fn projection_sorted_by_replaces_sort() {
 
 #[test]
 fn projection_row_url_base_adds_the_delete_dialog_key() {
-    // GH #153: full state including the cursor + `delete=key`; never `open`.
+    // Full state including the cursor + `delete=key`; never `open`.
     let source = populated_state();
     let mut expected = source.clone();
     expected.delete = Some("row-9".to_string());

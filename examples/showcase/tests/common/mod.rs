@@ -165,7 +165,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
 /// Log in through `{prefix}/login` like a browser: fetch the page, reuse its
 /// CSRF pair, post the credentials, and keep every cookie the exchange set.
 ///
-/// GH #218: this is a real GET + POST + Argon2id verify (~0.4s at the shipped
+/// This is a real GET + POST + Argon2id verify (~0.4s at the shipped
 /// parameters). Use it only where the login flow **is** the subject — the
 /// `auth_check` suite, session revocation, deactivation, rotation, failed
 /// logins, and the one test that needs a session cookie *without* the paired

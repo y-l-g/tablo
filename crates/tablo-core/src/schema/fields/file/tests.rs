@@ -93,7 +93,7 @@ async fn render_readonly_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -
         .render(cx)
 }
 
-/// GH #184: nothing stored (a create) keeps the required contract — the
+/// Nothing stored (a create) keeps the required contract — the
 /// browser blocks an empty submit and the server reports it inline.
 #[tokio::test]
 async fn file_upload_is_required_on_create() {
@@ -114,7 +114,7 @@ async fn file_upload_is_required_on_create() {
     );
 }
 
-/// GH #184: a stored path (an edit) makes the control optional and shows
+/// A stored path (an edit) makes the control optional and shows
 /// what is stored, because a file input cannot be pre-filled — otherwise
 /// the browser blocks every save and the server's untouched-value backfill
 /// never gets a request to act on.
@@ -158,7 +158,7 @@ async fn file_upload_treats_a_blank_stored_path_as_empty() {
     );
 }
 
-/// GH #242: the stored path is a link to the file it names, whatever the
+/// The stored path is a link to the file it names, whatever the
 /// extension — the framework renders what the app stored, invents no URL
 /// convention, and keeps no image pipeline.
 #[tokio::test]
@@ -187,7 +187,7 @@ async fn file_upload_links_the_stored_file() {
     );
 }
 
-/// GH #242: a *read* of the stored value links it too — a reader asks the
+/// A *read* of the stored value links it too — a reader asks the
 /// same "is what is stored right?" question the editor asks, and following
 /// the link is how they answer it.
 #[tokio::test]
@@ -215,7 +215,7 @@ async fn file_upload_view_mode_links_the_stored_file() {
     );
 }
 
-/// GH #277: a stored value becomes an `href` only when it is a rooted path
+/// A stored value becomes an `href` only when it is a rooted path
 /// or an absolute `http(s)` URL. Every other spelling — a scheme such as
 /// `javascript:` or `data:`, the scheme-relative `//host`, a bare basename
 /// — renders as text in both the edit row and the detail value: the
@@ -265,9 +265,8 @@ async fn file_upload_links_only_a_rooted_or_http_url() {
     }
 }
 
-/// GH #242: the stored path is opaque. A `.png` and a `.txt` render the
-/// same row and the same link, which is the property that fails the moment
-/// the field reads the extension again — whatever it then emits.
+/// The stored path is opaque. A `.png` and a `.txt` render the
+/// same row and the same link.
 #[tokio::test]
 async fn file_upload_renders_any_extension_identically() {
     let (cx, schema) = cx_and_doc_schema();
@@ -299,7 +298,7 @@ fn stored_attributes(html: &str, needle: &str, path: &str) -> Vec<String> {
         .collect()
 }
 
-/// GH #188: the clear control belongs to a stored value — it is the only
+/// The clear control belongs to a stored value — it is the only
 /// way to say "remove the file" rather than "leave it alone".
 #[tokio::test]
 async fn file_upload_offers_the_clear_control_only_for_a_stored_value() {
@@ -311,7 +310,7 @@ async fn file_upload_offers_the_clear_control_only_for_a_stored_value() {
     );
     assert!(
         edit.contains("value=\"1\""),
-        "the control must carry the truthy value the handlers read (GH #148), got {edit}"
+        "the control must carry the truthy value the handlers read, got {edit}"
     );
     assert!(
         edit.contains("Remove the current file"),

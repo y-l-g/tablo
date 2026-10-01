@@ -433,7 +433,7 @@ async fn filter_banner_reports_unfiltered_when_nothing_applies() {
     let html = render_banner(&[("status", "published"), ("bogus", "x")]).await;
     assert!(
         html.contains("other filter(s) still apply"),
-        "mixed banner keeps the GH #148 tail, got {html}"
+        "mixed banner keeps the tail, got {html}"
     );
 }
 

@@ -7,14 +7,14 @@
 //! from reading the token to forge the form field. `confirm=1` stays
 //! a UX step, never a security boundary.
 //!
-//! The cookie is `__Host-`-prefixed and `Secure` (GH #149, matching the
-//! session cookie's hardened contract): a cookie-writable position
+//! The cookie is `__Host-`-prefixed and `Secure`, matching the
+//! session cookie's hardened contract: a cookie-writable position
 //! (subdomain, cleartext HTTP) cannot pin a known token to the jar. The
 //! compare is constant-time so a mismatch cannot be probed byte-by-byte.
 //! The token deliberately stays a bare random UUID — binding it to the
 //! server (HMAC via Topcoat's signed jar) would need a `Key` app context
-//! a mounted panel does not register; that stays an upstream-gap decision
-//! (#139), not a hand-rolled one.
+//! a mounted panel does not register; that stays an upstream-gap decision,
+//! not a hand-rolled one.
 
 use subtle::ConstantTimeEq;
 use topcoat::{

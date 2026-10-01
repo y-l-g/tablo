@@ -58,7 +58,7 @@ fn token_keys_are_hex_encoded_sha256() {
 
 /// A `Db` that declares the shipped auth models but never pushed their
 /// schema: the tables are missing, so the first statement fails at the
-/// driver — the setup GH #229's write-path tests use.
+/// driver.
 async fn schema_less_db() -> Db {
     Db::builder()
         .models(toasty::models!(AdminUser, AuthSession))
@@ -67,7 +67,7 @@ async fn schema_less_db() -> Db {
         .expect("connect to in-memory sqlite")
 }
 
-/// GH #230: an auth or session operation that fails at the driver is an
+/// An auth or session operation that fails at the driver is an
 /// infrastructure failure, so it carries the opaque sign-in copy — never
 /// the driver's text, and never the login page's credential rejection.
 #[test]
@@ -90,9 +90,7 @@ fn infrastructure_failure_maps_driver_errors_to_the_opaque_sign_in_copy() {
     );
 }
 
-/// GH #230 must not swallow an app-authored error: a custom
-/// `Authenticator`'s own failure keeps its mapping, the way GH #229 keeps a
-/// record hook's.
+/// A custom `Authenticator`'s own failure keeps its mapping.
 #[test]
 fn infrastructure_failure_keeps_an_app_error_intact() {
     let guard: topcoat::Error = topcoat::router::error::not_found().into();
@@ -151,13 +149,13 @@ async fn post_login(cx: &Cx, form: String) -> (http::StatusCode, String) {
     (status, body)
 }
 
-/// GH #230, login half: a database failure during credential verification
+/// A database failure during credential verification
 /// must not echo the driver's text — the property `db.rs` pins for
 /// `unavailable`, reached through the real login handler — and must not
 /// render the login page's credential copy either, or an outage would tell
 /// the user their password was wrong.
 ///
-/// Positive-controlled like GH #229's write-path tests: the same query is
+/// Positive-controlled: the same query is
 /// asserted to carry driver text outside the handler first, so the
 /// assertions below cannot pass vacuously.
 #[tokio::test]
@@ -212,7 +210,7 @@ async fn a_driver_login_failure_does_not_echo_driver_text() {
     );
 }
 
-/// GH #230, the other half: a genuine credential rejection keeps the login
+/// A genuine credential rejection keeps the login
 /// page's generic 403 — the same setup as the outage test with a working
 /// store and a wrong password, so the two answers cannot be confused in
 /// either direction.
@@ -309,7 +307,7 @@ async fn db_with_admin(email: &str) -> Db {
     db
 }
 
-/// GH #295: the login route caps its body at a credential form's size, not
+/// The login route caps its body at a credential form's size, not
 /// the panel's 10 MiB form cap.
 #[tokio::test]
 async fn an_oversized_login_post_is_refused() {
@@ -353,8 +351,8 @@ async fn an_oversized_login_post_is_refused() {
     );
 }
 
-/// GH #302: login sweeps expired session rows, whoever owns them, the
-/// signing-in user's included (GH #295). A row whose token is never presented
+/// Login sweeps expired session rows, whoever owns them, including the
+/// signing-in user's. A row whose token is never presented
 /// again would otherwise stay in the table forever, because [`resolve`] only
 /// purges a row it looks up.
 #[tokio::test]
@@ -520,7 +518,7 @@ async fn login_sweeps_at_most_a_batch() {
 
 /// The sweep's own failure maps through the same opaque seam as the rest of the
 /// session paths, so a login whose cleanup cannot run reports sign-in trouble
-/// rather than driver text (GH #230).
+/// rather than driver text.
 #[tokio::test]
 async fn a_sweep_failure_maps_to_the_opaque_sign_in_copy() {
     let cx = login_cx(schema_less_db().await, "token");
@@ -538,7 +536,7 @@ async fn a_sweep_failure_maps_to_the_opaque_sign_in_copy() {
     );
 }
 
-/// GH #230, session half: the session-row paths map through the same seam,
+/// The session-row paths map through the same seam,
 /// so a delete that fails at the driver answers the opaque copy too —
 /// driver text stays in the log there as well.
 #[tokio::test]

@@ -1,7 +1,7 @@
 use super::*;
 use crate::panel::test_support::Dummy;
 
-/// GH #165: `Resource::navigation()` reaches the sidebar, and its order is
+/// `Resource::navigation()` reaches the sidebar, and its order is
 /// what the rendered shell sorts by.
 #[test]
 fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
@@ -60,7 +60,7 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
     assert_eq!(panel.nav_item::<PlainResource>().order, 0);
 }
 
-/// GH #165: a URL an override spells out is the author's, not the panel's —
+/// A URL an override spells out is the author's, not the panel's —
 /// only a `Derived` target is resolved. A cross-panel link, a query view, or
 /// a custom path segment must survive untouched on a non-`/admin` panel,
 /// *including* one that looks like the origin mount.
@@ -258,7 +258,7 @@ fn panel_normalizes_prefix() {
     assert_eq!(Panel::new("").prefix(), "/admin");
 }
 
-/// GH #165: the override reaches *rendered* sidebar order.
+/// The override reaches *rendered* sidebar order.
 /// Rendered on a non-`/admin` panel, so the same test also pins the URL
 /// half: the sidebar links under `/backoffice`, never the origin `/admin`.
 #[tokio::test]
@@ -289,9 +289,7 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
         }
 
         fn navigation() -> NavigationItem {
-            // GH #165 regression shape: an override that only sets order.
-            // Before the fix the sidebar kept declaration order and the
-            // resource's `order: -1` had no effect at all.
+            // An override that only sets order.
             NavigationItem {
                 order: -1,
                 ..NavigationItem::for_resource::<Self>()

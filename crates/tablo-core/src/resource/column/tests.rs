@@ -1,7 +1,7 @@
 use super::*;
 use crate::test_support::User;
 
-/// GH #116: `%` and `_` in a search term are literal characters, not
+/// `%` and `_` in a search term are literal characters, not
 /// wildcards, and the term is wrapped for a substring match.
 #[test]
 fn search_pattern_escapes_like_metacharacters() {
@@ -92,7 +92,7 @@ fn computed_columns_declare_no_predicate_chrome_agreement() {
     assert!(col.order_by(false).is_none());
 }
 
-/// GH #240: a column's kind picks its default width, `.width(..)`
+/// A column's kind picks its default width, `.width(..)`
 /// overrides it, and the declaration reaches the renderer as data — the
 /// CSS it writes on the `th`/`td`, never a Tailwind class.
 #[test]

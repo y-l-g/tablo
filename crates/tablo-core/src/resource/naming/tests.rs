@@ -39,7 +39,7 @@ fn pluralize_and_kebab_follow_english_rules() {
 
 #[test]
 fn naming_invariants_hold() {
-    // GH #136 §5 property candidates: kebab is lowercase + hyphen-only,
+    // Kebab is lowercase + hyphen-only,
     // pluralize never empties.
     use super::{kebab_case, pluralize};
     for word in [

@@ -61,7 +61,7 @@ fn page_heading(html: &str) -> String {
 
 #[tokio::test]
 async fn post_detail_heading_names_the_post() {
-    // GH #241: `PostResource::record_label` returns the title, so the heading
+    // `PostResource::record_label` returns the title, so the heading
     // names the post instead of falling back to `Blog Posts <record key>`.
     let db = full_db().await;
     let router = router(db.clone());

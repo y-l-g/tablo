@@ -505,7 +505,7 @@ async fn a_value_answers_a_blank_when_every_leaf_does() {
 }
 
 /// A value the type cannot parse is refused on its own key, worded as the
-/// typed rule words it: a silent zero is the bug GH #192 fixed.
+/// typed rule words it.
 #[tokio::test]
 async fn an_unparseable_typed_leaf_is_refused() {
     let cx = post_cx().await;
@@ -629,8 +629,7 @@ async fn variant_casing_needs_no_normalisation() {
     );
 }
 
-/// `bool` and the wider integer types are leaves too (GH #191 widened
-/// `TypedValue` to the whole family the panel can spell).
+/// `bool` and the wider integer types are leaves too.
 #[tokio::test]
 async fn typed_leaves_cover_bool_and_the_integer_family() {
     let cx = post_cx().await;
@@ -810,7 +809,7 @@ fn variant_option_labels(html: &str) -> Vec<String> {
         .collect()
 }
 
-/// GH #191: one marked group per variant, and the marker set **is** the
+/// One marked group per variant, and the marker set **is** the
 /// schema's variant list — so a variant added to the enum cannot silently lose
 /// its group, and no group can name a variant the schema does not declare.
 ///

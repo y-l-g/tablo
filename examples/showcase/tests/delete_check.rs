@@ -23,7 +23,7 @@ async fn delete_requires_confirmation_and_deletes() {
 
     // The list renders a Delete link that opens the confirmation dialog
     // (`?delete=<key>`) — no per-row POST form, no navigation to open. The
-    // row action is destructive (GH #154 §6), matching the bulk Delete and
+    // row action is destructive, matching the bulk Delete and
     // the dialog's confirm.
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
@@ -104,7 +104,7 @@ async fn delete_requires_confirmation_and_deletes() {
         "Delete this record?",
         "data-dialog-close",
         // URL-driven dialogs carry the marker dialog.js mirrors `?open=`
-        // through (GH #154 §3); signal-driven dialogs do not.
+        // through; signal-driven dialogs do not.
         "data-dialog-open-param=\"open\"",
         "bg-destructive",
         action.as_str(),
@@ -211,7 +211,7 @@ async fn delete_requires_confirmation_and_deletes() {
 
 #[tokio::test]
 async fn delete_404_for_an_unknown_id() {
-    // GH #136 layer rule: core owns the loader unit; this pins the HTTP
+    // Core owns the loader unit; this pins the HTTP
     // route for unknown ids. The wrong-tenant half — a valid CSRF pair from
     // another tenant against this tenant's row — is pinned by
     // `gate_matrix_check::cross_tenant_edit_and_delete_404_and_touch_nothing`;
@@ -322,7 +322,7 @@ async fn forged_delete_runs_no_record_query() {
 
     // A forged POST answers 403 without a single record query: the CSRF
     // check runs before the record seam is ever consulted (no find_by_key,
-    // no existence oracle). The transaction-open half of GH #144 is pinned
+    // no existence oracle). The transaction-open half is pinned
     // by the handler ordering (parse/verify/confirm textually precede
     // `db.transaction()`); a regression that reopened a tx before the fetch
     // would deadlock the edit path's `validate_async` pool discipline loudly

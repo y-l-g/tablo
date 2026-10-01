@@ -12,7 +12,7 @@ use crate::common::{
 
 #[tokio::test]
 async fn logged_in_tenant_reaches_tenant_scoped_resources_without_headers() {
-    // GH #131: the demo admin's tenant flows from the session, so tenant-scoped
+    // The demo admin's tenant flows from the session, so tenant-scoped
     // resources serve without any tenant header or request extension.
     let db = full_db().await;
     let router = router(db.clone());
@@ -119,7 +119,7 @@ async fn per_tenant_policy_deny_yields_403() {
 
 #[tokio::test]
 async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
-    // GH #223: the tenant filter is the framework's, applied by `scoped_query`
+    // The tenant filter is the framework's, applied by `scoped_query`
     // — the direct-query entry point app code must use, because
     // `PostResource::query` is the unscoped base.
     use showcase::app::PostResource;
@@ -153,7 +153,7 @@ async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
 
 #[tokio::test]
 async fn tenantless_requests_to_gated_resources_fail_closed() {
-    // GH #87/#131: Author/Post declare a tenancy — every handler 403s
+    // Author/Post declare a tenancy — every handler 403s
     // when the logged-in user carries no tenant, instead of leaking rows or
     // minting nil orphans.
     let db = full_db().await;
@@ -212,8 +212,6 @@ async fn tenantless_requests_to_the_comments_queue_fail_closed() {
     // offer to moderate) both tenants' comments.
     let (db, _, _) = tenanted_db().await;
     let router = router(db.clone());
-    // GH #218: mint the session rather than performing a login — this test is
-    // about the tenant gate, not the login flow.
     let client = tenantless_client(&router, &db).await;
 
     let resp = client.get("/admin/comments").await;
@@ -234,7 +232,7 @@ async fn tenantless_requests_to_the_comments_queue_fail_closed() {
 
 #[tokio::test]
 async fn create_assigns_the_logged_in_tenant() {
-    // GH #87/#131: creates land in the tenant the logged-in user carries,
+    // Creates land in the tenant the logged-in user carries,
     // never nil.
     let db = full_db().await;
     let router = router(db.clone());
@@ -271,7 +269,7 @@ async fn create_assigns_the_logged_in_tenant() {
 
 #[tokio::test]
 async fn x_tenant_id_header_no_longer_grants_a_tenant() {
-    // GH #131: learning another tenant's UUID must not make the caller that
+    // Learning another tenant's UUID must not make the caller that
     // tenant, so a raw `x-tenant-id` header grants nothing.
     let db = full_db().await;
     let router = router(db.clone());
@@ -291,13 +289,13 @@ async fn x_tenant_id_header_no_longer_grants_a_tenant() {
     assert_eq!(
         response.status(),
         403,
-        "x-tenant-id must not grant a tenant (GH #131)"
+        "x-tenant-id must not grant a tenant"
     );
 }
 
 #[tokio::test]
 async fn bulk_delete_wrong_tenant_404s_and_deletes_nothing() {
-    // GH #136 extension: the handler runs the tenant-scoped query, so a
+    // The handler runs the tenant-scoped query, so a
     // cross-tenant batch comes back short and 404s.
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
@@ -342,7 +340,7 @@ async fn bulk_delete_wrong_tenant_404s_and_deletes_nothing() {
 
 #[tokio::test]
 async fn comments_list_is_scoped_through_parent_post() {
-    // GH #169: comments carry no tenant of their own — `CommentResource`
+    // Comments carry no tenant of their own — `CommentResource`
     // scopes them through the parent post's tenant.
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
@@ -375,7 +373,7 @@ async fn comments_list_is_scoped_through_parent_post() {
 
 #[tokio::test]
 async fn comments_search_is_scoped_through_parent_post() {
-    // GH #169: live search runs the tenant-scoped query, so a cross-tenant
+    // Live search runs the tenant-scoped query, so a cross-tenant
     // body match must not surface the other tenant's comment.
     let (db, t1, _) = tenanted_db().await;
     let router = router(db.clone());
@@ -405,7 +403,7 @@ async fn comments_search_is_scoped_through_parent_post() {
 
 #[tokio::test]
 async fn comments_export_is_scoped_through_parent_post() {
-    // GH #169,: the export runs the tenant-scoped query — `Comment`'s
+    // The export runs the tenant-scoped query — `Comment`'s
     // own relation filter here — so each tenant's CSV carries only comments on
     // its own posts.
     let (db, t1, t2) = tenanted_db().await;
@@ -433,7 +431,7 @@ async fn comments_export_is_scoped_through_parent_post() {
 
 #[tokio::test]
 async fn comments_edit_with_wrong_tenant_yields_404_via_resource_query() {
-    // GH #169: the edit load runs the tenant-scoped query, so a cross-tenant
+    // The edit load runs the tenant-scoped query, so a cross-tenant
     // comment id is not found.
     let (db, _, t2) = tenanted_db().await;
     let router = router(db.clone());
@@ -490,8 +488,7 @@ async fn comments_query_scopes_directly_through_parent_post() {
 
 #[tokio::test]
 async fn export_is_scoped_by_tenant() {
-    // GH #136 extension,: `group_export_check.rs` had zero `tenant`
-    // references — the export runs the tenant-scoped query, so each tenant
+    // The export runs the tenant-scoped query, so each tenant
     // sees only its own rows. `PostResource` states no tenant filter of its
     // own, so this passes on the framework's derived one.
     let (db, t1, t2) = tenanted_db().await;
@@ -516,11 +513,11 @@ async fn export_is_scoped_by_tenant() {
     );
 }
 
-/// GH #88 failure 2: the app-side unique check scopes through
+/// The app-side unique check scopes through
 /// `scoped_query::<AuthorResource>` — the tenant filter the framework derives
 /// So the constraint has to be scoped the same way. `Author.email`
 /// is `#[unique(tenant_id, email)]`, which makes two tenants sharing an email a
-/// legitimate pair rather than a constraint violation the probe could not see.
+/// legitimate pair.
 #[tokio::test]
 async fn two_tenants_may_share_an_author_email() {
     let (db, t1, t2) = tenanted_db().await;

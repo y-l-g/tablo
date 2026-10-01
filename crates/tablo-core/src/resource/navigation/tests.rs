@@ -37,7 +37,7 @@ fn for_resource_derives_label_only() {
     assert!(!item.is_current_path("/admin/users"));
 }
 
-/// GH #165: `Derived` is resolved to the URL the owning Panel mounts it at —
+/// `Derived` is resolved to the URL the owning Panel mounts it at —
 /// exactly once — while an explicit URL is the author's, even one shaped like
 /// another panel's mount.
 #[test]

@@ -350,7 +350,7 @@ async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces
     assert_eq!(docs(&db).await[0].cover, "/uploads/new.png");
 }
 
-/// GH #277: a url-encoded pair under a declared file field's name is text the
+/// A url-encoded pair under a declared file field's name is text the
 /// client typed, not an upload. It is dropped before validation, so the
 /// required field is empty and nothing is written — the typed value never
 /// reaches the record and never renders as the file's link.
@@ -391,7 +391,7 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
     );
 }
 
-/// GH #277: a multipart text part (no `filename`) under a declared
+/// A multipart text part (no `filename`) under a declared
 /// file field's name is client-typed too. On edit the stored value is restored,
 /// so the forged value cannot replace the file the record names.
 #[tokio::test]
@@ -433,11 +433,10 @@ async fn a_text_value_for_a_file_upload_keeps_the_stored_file_on_edit() {
     );
 }
 
-/// GH #277 review: duplicate part names are last-write-wins, and the file-part
+/// Duplicate part names are last-write-wins, and the file-part
 /// set follows. A text part after a file part under the same name takes the
 /// name out of the set, so the typed value is dropped instead of stored. With
-/// no uploader nothing replaces the typed value, which is the case the bypass
-/// stored verbatim.
+/// no uploader nothing replaces the typed value.
 #[tokio::test]
 async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     let db = seeded_db().await;
@@ -474,7 +473,7 @@ async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     );
 }
 
-/// GH #277 review: the same duplicate-name bypass on edit, with an uploader
+/// The same duplicate-name bypass on edit, with an uploader
 /// installed. The later text part discards the staged bytes, so the uploader
 /// never sees the earlier file part and the record keeps the file it names.
 #[tokio::test]
@@ -518,7 +517,7 @@ async fn a_text_part_after_a_file_part_keeps_the_stored_file_on_edit() {
     );
 }
 
-/// GH #277 review: the duplicate-name bypass on edit with no uploader, where
+/// The duplicate-name bypass on edit with no uploader, where
 /// nothing replaces a stored typed value.
 #[tokio::test]
 async fn a_text_part_after_a_file_part_keeps_the_stored_file_without_an_uploader() {
@@ -552,7 +551,7 @@ async fn a_text_part_after_a_file_part_keeps_the_stored_file_without_an_uploader
     );
 }
 
-/// GH #277 review: the last part wins in the other order too — a file part
+/// The last part wins in the other order too — a file part
 /// after a text part under the same name is the upload.
 #[tokio::test]
 async fn a_file_part_after_a_text_part_wins_on_create() {
@@ -578,7 +577,7 @@ async fn a_file_part_after_a_text_part_wins_on_create() {
     );
 }
 
-/// GH #277 review: a later file part whose name sanitizes to empty discards the
+/// A later file part whose name sanitizes to empty discards the
 /// bytes an earlier part staged, rather than letting the uploader store a file
 /// the last part did not name.
 #[tokio::test]
@@ -733,7 +732,7 @@ async fn a_refused_edit_upload_keeps_showing_the_stored_file() {
 
 #[tokio::test]
 async fn an_over_cap_body_still_413s_with_an_uploader_installed() {
-    // GH #188 item 5: the seam must not widen the body contract. The bytes are
+    // The seam must not widen the body contract. The bytes are
     // buffered rather than drained in this configuration, so the cap is
     // asserted on the path that holds them.
     let db = seeded_db().await;

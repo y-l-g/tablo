@@ -1,9 +1,7 @@
 #[test]
 fn create_form_multipart_predicate_follows_file_upload() {
-    // GH #136 layer rule: core owns the "does the form hold a file field"
-    // predicate `render_form_page` maps to `enctype="multipart/form-data"`;
-    // the showcase (`posts_create_form_is_multipart` /
-    // `users_create_form_stays_urlencoded`) owns the HTTP enctype wiring.
+    // Core owns the "does the form hold a file field"
+    // predicate `render_form_page` maps to `enctype="multipart/form-data"`.
     use crate::schema::{Field, Schema};
 
     #[derive(Debug, toasty::Model, Clone)]

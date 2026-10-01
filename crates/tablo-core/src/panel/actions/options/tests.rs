@@ -310,7 +310,7 @@ async fn option_load_loads_no_relation() {
 
 #[tokio::test]
 async fn options_endpoint_rejects_non_searchable_and_overflows() {
-    // GH #150 D5/D6: non-searchable selects never serve search (400);
+    // Non-searchable selects never serve search (400);
     // filtered overflow answers 200 with the keep-typing hint.
     use http_body_util::BodyExt;
 

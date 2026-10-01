@@ -223,7 +223,7 @@ pub(crate) async fn render_nodes<'a>(
 /// already-absent repeater. A repeater with any non-empty inner value is
 /// present, and its inner `required` enforces as usual.
 ///
-/// On edit, the untouched-file backfill (GH #90) runs before validation, so a
+/// On edit, the untouched-file backfill runs before validation, so a
 /// group whose stored file path is non-empty counts as present there even if
 /// the browser submitted it empty — a kept file is real group data.
 ///

@@ -153,6 +153,6 @@ async fn no_js_fallbacks_cover_search_filter_sort_pager() {
     );
     assert!(
         !next.contains("&amp;"),
-        "the Next link must be followed decoded (GH #217), got {next}"
+        "the Next link must be followed decoded, got {next}"
     );
 }

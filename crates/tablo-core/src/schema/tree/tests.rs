@@ -58,7 +58,7 @@ async fn schema_composes_multiple_blocks() {
         .await
         .unwrap()
         .render(&cx);
-    // GH #216: the assertions below check structure, not paint: each block
+    // The assertions below check structure, not paint: each block
     // renders its own child, exactly once, and the section's title still
     // frames its field.
     assert!(html.contains("A"), "missing section title in {html}");
