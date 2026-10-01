@@ -92,7 +92,13 @@ enum Scope {
         filter: TenantFilter,
         field: Result<TenantColumn, String>,
     },
-    Via(TenantFilter),
+    Via {
+        filter: TenantFilter,
+        /// Whether the lens is one field of the model: a `via` over its own
+        /// column stamps nothing, so the mount refuses it in favor of
+        /// [`Tenancy::column`](Self::column).
+        single: bool,
+    },
 }
 
 impl<M: toasty::schema::Model + 'static> Tenancy<M> {
@@ -148,7 +154,11 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
         M: Send + Sync,
         uuid::Uuid: IntoExpr<T>,
     {
-        Self::scoped(Scope::Via(Box::new(move |tenant| lens.clone().eq(tenant))))
+        let single = crate::schema::lens_field(lens.clone(), &M::schema()).is_ok();
+        Self::scoped(Scope::Via {
+            filter: Box::new(move |tenant| lens.clone().eq(tenant)),
+            single,
+        })
     }
 
     /// Whether the rows belong to a tenant, so every handler requires one.
@@ -160,7 +170,17 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     pub(crate) fn filter(&self, tenant: uuid::Uuid) -> Option<Expr<bool>> {
         match &self.scope {
             Scope::None => None,
-            Scope::Column { filter, .. } | Scope::Via(filter) => Some(filter(tenant)),
+            Scope::Column { filter, .. } | Scope::Via { filter, .. } => Some(filter(tenant)),
+        }
+    }
+
+    /// Whether a [`via`](Self::via) tenancy names one field of the model,
+    /// which [`Tenancy::column`](Self::column) owns. `None` for any other
+    /// tenancy.
+    pub(crate) fn via_is_single(&self) -> Option<bool> {
+        match &self.scope {
+            Scope::Via { single, .. } => Some(*single),
+            Scope::None | Scope::Column { .. } => None,
         }
     }
 
@@ -169,7 +189,7 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     pub(crate) fn column_field(&self) -> Option<Result<&TenantColumn, &str>> {
         match &self.scope {
             Scope::Column { field, .. } => Some(field.as_ref().map_err(String::as_str)),
-            Scope::None | Scope::Via(_) => None,
+            Scope::None | Scope::Via { .. } => None,
         }
     }
 }

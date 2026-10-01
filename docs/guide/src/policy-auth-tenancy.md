@@ -217,4 +217,5 @@ tenant scope.
 related resource's records for the request: in its tenant-scoped query and allowed by its `View`.
 The create and edit handlers check it when they validate the form, and again inside the write's
 transaction, so a related record deleted, moved to another tenant or hidden in between refuses the
-write with the same field error. A record function needs no check of its own.
+write with the same field error. A `create_record` or `update_record` the panel's create and edit
+POSTs call needs no check of its own.

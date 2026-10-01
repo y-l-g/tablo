@@ -19,7 +19,8 @@ A create or an update also resolves each relationship key the form writes throug
 resource's `scoped_query` and its `View`, inside the same transaction, after the pre-write
 validation ran the same check outside it. A related record deleted, moved to another tenant or
 hidden in between refuses the write with the field error the pre-write check gives, and nothing is
-written, so a record fn needs no foreign-key check of its own.
+written, so a record fn the panel's create and edit POSTs call needs no foreign-key check of its
+own.
 
 A custom `Action` (`Resource::actions`) runs the same way. Its handler loads the row, or the bulk
 selection, through `scoped_query` inside the transaction, checks `View` and the action's own

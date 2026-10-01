@@ -407,6 +407,50 @@ async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
     mount(db, panel().resource::<Inherited>()).expect("`Tenancy::via` scopes through a relation");
 }
 
+/// A `via` over the model's own column stamps nothing: the mount refuses it
+/// in favor of `Tenancy::column`.
+#[tokio::test]
+async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
+    use crate::resource::{Resource, Table, TextColumn};
+
+    struct ViaOwnColumn;
+    impl Resource for ViaOwnColumn {
+        type Model = Child;
+        type Form = crate::NoForm<Self::Model>;
+        fn slug() -> String {
+            "children".to_string()
+        }
+        fn tenancy() -> Tenancy<Child> {
+            Tenancy::via(Child::fields().parent_id())
+        }
+        fn table() -> Table<Child> {
+            Table::new(
+                |c: &Child| c.id.to_string(),
+                TextColumn::r#for(Child::fields().name(), |c: &Child| c.name.clone()),
+            )
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Parent, Child))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let Err(error) = mount(
+        db,
+        Panel::new("admin")
+            .auth(crate::Auth::disabled())
+            .resource::<ViaOwnColumn>(),
+    ) else {
+        panic!("a `via` over its own column must not mount");
+    };
+    let error = format!("{error}");
+    assert!(
+        error.contains("ViaOwnColumn") && error.contains("Tenancy::column"),
+        "the error must name the resource and the declaration that fits, got {error}"
+    );
+}
+
 /// GH #174: `slug()` is free-form and reaches route paths and response
 /// headers, so a hostile value fails registration instead of splitting a
 /// header or panicking in `route_path` at boot.

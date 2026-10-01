@@ -443,6 +443,17 @@ pub(super) fn check_resource<R: Resource>(
             std::any::type_name::<R::Model>(),
         ));
     }
+    // A `via` over the model's own column stamps nothing, so creates would
+    // fail or orphan: that shape is `column`.
+    if R::tenancy().via_is_single() == Some(true) {
+        return Err(format!(
+            "resource `{}`'s `Tenancy::via` lens names one field of `{}` — use `Tenancy::column` \
+             for the model's own tenant column, `Tenancy::via` for a tenant reached through a \
+             relation",
+            std::any::type_name::<R>(),
+            std::any::type_name::<R::Model>(),
+        ));
+    }
     let declared = Declared::<R>::build(dx);
     let misdeclared: Vec<String> = [
         ("table", declared.table.declaration_errors()),

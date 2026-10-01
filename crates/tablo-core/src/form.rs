@@ -108,6 +108,7 @@ use toasty::{Executor, schema::Model, stmt::IntoInsert};
 use topcoat::{Result, context::Cx};
 
 use crate::{
+    error::TabloError,
     resource::Resource,
     schema::{DeclCx, Schema, TypedValue},
     tenancy::require_tenant,
@@ -586,18 +587,28 @@ pub(crate) fn prefilled_fields<M: Model>() -> Vec<bool> {
 /// # Errors
 ///
 /// A tenantless request on a tenant-scoped resource (the handler answers 403 first),
-/// or the driver's error.
+/// a misdeclared tenant column (the mount refuses it first), or the driver's error.
 pub async fn write_create<R: Resource>(
     cx: &Cx,
     form: R::Form,
     ex: &mut dyn Executor,
 ) -> Result<R::Model> {
     let mut insert = form.into_create().into_insert();
-    if let Some(Ok(column)) = R::tenancy().column_field() {
-        insert.set(
-            column.index,
-            toasty_core::stmt::Value::from(require_tenant(cx)?),
-        );
+    match R::tenancy().column_field() {
+        Some(Ok(column)) => {
+            insert.set(
+                column.index,
+                toasty_core::stmt::Value::from(require_tenant(cx)?),
+            );
+        }
+        Some(Err(error)) => {
+            return Err(TabloError::Declaration(format!(
+                "resource `{}`'s `Tenancy::column` lens binds no column: {error}",
+                std::any::type_name::<R>(),
+            ))
+            .into());
+        }
+        None => {}
     }
     ex.exec(insert.into())
         .await

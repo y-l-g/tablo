@@ -390,7 +390,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Create a record from the parsed form, inside the handler's transaction.
     ///
     /// Defaults to the derived write, [`write_create`]; override to check
-    /// something inside the transaction, then delegate. `ex` is the open
+    /// something inside the transaction, then delegate. An override on a
+    /// [`Tenancy::column`](crate::Tenancy::column) resource stamps the tenant
+    /// only by delegating to [`write_create`]. `ex` is the open
     /// transaction: run every statement through it. Return the created row; it
     /// is what [`Self::after_commit`] receives.
     fn create_record(
@@ -594,6 +596,13 @@ fn apply_tenant_scope<R: Resource>(
     let tenancy = R::tenancy();
     if !tenancy.is_scoped() {
         return Ok(query);
+    }
+    if let Some(Err(error)) = tenancy.column_field() {
+        return Err(TabloError::Declaration(format!(
+            "resource `{}`'s `Tenancy::column` lens binds no column: {error}",
+            std::any::type_name::<R>(),
+        ))
+        .into());
     }
     let tenant = crate::tenancy::require_tenant(cx)?;
     Ok(match tenancy.filter(tenant) {
