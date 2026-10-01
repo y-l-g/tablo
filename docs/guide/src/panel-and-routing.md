@@ -6,7 +6,8 @@ registered resource and page, the login page, and the shell that frames them, be
 routes.
 
 ```rust
-use tablo::prelude::*; // brings `RouterBuilderPanelExt::panel` into scope
+use tablo::prelude::*;
+use topcoat::{asset::RouterBuilderAssetExt, router::{Router, RouterBuilderDiscoverExt}};
 
 let router = Router::builder()
     .discover()                                // the app's own pages and routes, and Tablo's
@@ -52,7 +53,7 @@ The panel also serves:
 
 | Call | Effect | See |
 | --- | --- | --- |
-| `Panel::new(prefix)` | the panel at `/{prefix}` | |
+| `Panel::new(prefix)` | the panel at `/{prefix}` (`""` mounts at `/admin`) | |
 | `resource::<R>()` | registers a resource's routes and sidebar entry | [Resources](./resources.md) |
 | `page::<P>()` | registers a page at `/{prefix}/{slug}` | [Pages](#pages) |
 | `home::<P>()` | registers a page at `/{prefix}` | [Pages](#pages) |
@@ -73,16 +74,18 @@ prelude, provides it. The router is yours: discover your own pages and routes, i
 with `.app_context(db)` and the asset bundle with `.assets(..)`, then mount. The panel reads both
 from the router, so they come first.
 
-The first panel mounted also installs what every panel shares: cookies, sessions (unless the
-router already configures them), the gate over Topcoat's runtime endpoints, and Topcoat's runtime
-layer with link prefetching off (unless the router already set it up). The runtime layer has no
+The first panel mounted also installs what every panel shares: cookies, sessions unless the
+router already configures them, the gate over Topcoat's runtime endpoints with the shard
+dispatch, and Topcoat's runtime layer with link prefetching off unless the router already set
+those up. The runtime layer has no
 path, so mount panels after your own pathless layers: a page re-run must reach those layers
 already rewritten to a `GET`.
 
 The builder calls never fail; `.panel(..)` returns an error naming what is wrong instead. It
-refuses a router with no `Db`, two resources or pages with one slug, a slug the panel routes itself
+refuses a router with no `Db`, a `Db` missing the shipped auth models, two resources or pages
+with one slug, a slug the panel routes itself
 (`login`, `logout`), a slug that is not a single URL segment, a second home page, `shell_assets`
-on a router with no asset bundle, a prefix that overlaps another panel's or sits under Topcoat's
+on a router with no asset bundle, a prefix that overlaps another panel's or Topcoat's
 `/_topcoat/runtime`, and every resource declaration check described in
 [Resources](./resources.md#startup-checks).
 
@@ -195,7 +198,7 @@ Panel::new("admin").page::<ReportsPage>() // GET /admin/reports
   labelled "Media library". Override `slug()` and `navigation_label()` to change them. Pages and
   resources share one slug namespace.
 - **The home page.** `Panel::home::<P>()` mounts a page at the prefix itself instead of the
-  redirect to the first resource. A panel has at most one; a second fails `build()`.
+  redirect to the first resource. A panel has at most one; a second fails `.panel(..)`.
 - **Access.** With authentication on, the page renders only for a signed-in user with panel access,
   inside the shell layout.
 - **Forms.** A page serves one `GET`. A form it renders posts to an app `#[route]`; put that route

@@ -12,7 +12,7 @@
 //!
 //! The rows come from the request's own database, so one router's feed never
 //! shows another router's writes. The wake channel is a process-global because
-//! `Panel::app_context` carries only the `Db`; an app that owns a context of
+//! the router's app context carries only the `Db`; an app that owns a context of
 //! its own keeps the sender beside it instead.
 
 use std::sync::LazyLock;

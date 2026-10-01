@@ -999,12 +999,12 @@ pub(crate) const RUNTIME_PREFIX: &str = "/_topcoat/runtime";
 /// page-rerun protocol).
 static RERUN_MARKER: http::HeaderValue = http::HeaderValue::from_static("true");
 
-/// Fail loudly at startup when a required shipped model is missing from the
+/// Fail loudly at mount when a required shipped model is missing from the
 /// app's `Db` (ADR-0013): the table is never pushed, and the first login
 /// would otherwise be a confusing runtime error.
-pub(crate) fn assert_models_registered(db: &Db, auth: &Auth) {
+pub(crate) fn check_models_registered(db: &Db, auth: &Auth) -> Result<(), String> {
     if auth.is_disabled() {
-        return;
+        return Ok(());
     }
     let registered = |name: &str| {
         db.schema()
@@ -1019,13 +1019,16 @@ pub(crate) fn assert_models_registered(db: &Db, auth: &Auth) {
     .into_iter()
     .flatten()
     .collect();
-    assert!(
-        missing.is_empty(),
-        "tablo auth is on by default but its shipped models are not registered on the Db \
-         (missing {}). Register them with `toasty::models!(…, tablo_core::auth::AdminUser, \
-         tablo_core::auth::AuthSession)`, or opt out with `.auth(Auth::disabled())`.",
-        missing.join(", "),
-    );
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "tablo auth is on by default but its shipped models are not registered on the Db \
+             (missing {}). Register them with `toasty::models!(…, tablo_core::auth::AdminUser, \
+             tablo_core::auth::AuthSession)`, or opt out with `.auth(Auth::disabled())`.",
+            missing.join(", "),
+        ))
+    }
 }
 
 #[cfg(test)]

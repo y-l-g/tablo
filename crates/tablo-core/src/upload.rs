@@ -5,8 +5,8 @@
 //! file input, and the form parser decodes the multipart body — but *where* the bytes live and
 //! what path the record stores is the app's decision: an object store, a
 //! directory on disk, a CDN. The framework owns everything up to the bytes and
-//! nothing after them, so this module is deliberately small: a trait, the app
-//! context value that carries it, and the call that runs it.
+//! nothing after them, so this module is deliberately small: a trait, the panel
+//! state that carries it, and the call that runs it.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -20,8 +20,8 @@ use crate::{form::FieldErrors, panel::state::current, schema::Schema};
 
 /// Store one uploaded file and name the value a record stores.
 ///
-/// Installed once per panel with [`Panel::uploads`](crate::Panel::uploads) —
-/// the way `Db` is — and found on the app context wherever a file field
+/// Installed once per panel with [`Panel::uploads`](crate::Panel::uploads) and
+/// found through the request's panel wherever a file field
 /// stores, because an object store is an app-level dependency: threading it
 /// through every field declaration would put it in the schema declaration.
 ///
@@ -85,7 +85,7 @@ pub(crate) struct StagedUpload {
     pub(crate) bytes: Vec<u8>,
 }
 
-/// The one uploader a panel was built with, on the app context the way `Db` is.
+/// The one uploader a panel was mounted with, in its `PanelState`.
 pub(crate) struct InstalledUploader(Box<dyn DynUploader + Send + Sync>);
 
 impl InstalledUploader {

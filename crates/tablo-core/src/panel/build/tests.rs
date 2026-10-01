@@ -299,6 +299,25 @@ fn panel_build_errors_without_db() {
     );
 }
 
+/// A `Db` missing the shipped auth models is a mount error naming them, not a
+/// panic: every other misconfiguration comes back as an error the caller logs.
+#[tokio::test]
+async fn panel_mount_reports_missing_auth_models() {
+    let db = Db::builder()
+        .models(toasty::models!(Dummy))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let Err(error) = mount(db, Panel::new("admin")) else {
+        panic!("a Db without the auth models must not mount a gated panel");
+    };
+    let error = format!("{error}");
+    assert!(
+        error.contains("AuthSession") && error.contains("AdminUser"),
+        "the error must name the missing models, got {error}"
+    );
+}
+
 /// GH #231: a gated resource that supplies no tenant predicate is a
 /// declaration error, and #223's `tenant_scope` probe is pure — so `build`
 /// refuses it with an error naming the resource instead of waiting for the

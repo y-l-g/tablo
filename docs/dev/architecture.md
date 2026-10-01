@@ -41,7 +41,7 @@ to the app's `styles.css`.
 Panel  ──declares──▶  Resource  ──declares──▶  Table   (the list view)
    │                      │                  └▶  Schema  (forms, detail pages)
    │                      └──record fns─────▶  create / update / delete
-   └──owns──▶ Router, Db in app context, Shell, the auth gate
+   └──owns──▶ routes, Shell, the auth gate (the app owns the Router and the Db)
 ```
 
 A `Panel` is an admin panel under one prefix: its shell layout, its authentication gate, its

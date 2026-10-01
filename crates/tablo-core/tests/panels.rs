@@ -462,7 +462,7 @@ async fn mounting_refuses_a_prefix_another_panel_covers() {
 
     let error = Router::builder()
         .discover()
-        .app_context(db)
+        .app_context(db.clone())
         .panel(Panel::new("_topcoat/runtime/x"))
         .map(|_| ())
         .expect_err("the runtime endpoints are Topcoat's");
@@ -470,14 +470,15 @@ async fn mounting_refuses_a_prefix_another_panel_covers() {
         error.to_string().contains("runtime endpoints"),
         "got {error}"
     );
-}
 
-#[tokio::test]
-async fn mounting_needs_the_routers_db() {
     let error = Router::builder()
         .discover()
-        .panel(Panel::new("admin"))
+        .app_context(db)
+        .panel(Panel::new("_topcoat"))
         .map(|_| ())
-        .expect_err("a panel needs the Db");
-    assert!(error.to_string().contains("holds no Db"), "got {error}");
+        .expect_err("a panel above the runtime endpoints wraps them");
+    assert!(
+        error.to_string().contains("runtime endpoints"),
+        "got {error}"
+    );
 }

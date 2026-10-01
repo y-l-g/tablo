@@ -155,9 +155,10 @@ pub struct Panel {
 
 impl Panel {
     /// Create a `Panel` mounted at `prefix` (e.g. `"admin"` → `"/admin"`).
+    /// An empty prefix mounts at `"/admin"`.
     pub fn new(prefix: impl Into<String>) -> Self {
         let raw = prefix.into();
-        let trimmed = raw.trim_matches('/').trim().to_string();
+        let trimmed = raw.trim().trim_matches('/').to_string();
         let prefix = if trimmed.is_empty() {
             "/admin".to_string()
         } else {

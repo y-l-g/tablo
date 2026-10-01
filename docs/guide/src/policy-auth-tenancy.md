@@ -71,11 +71,16 @@ without a session only when every panel is gated.
   and every failure shows the same message.
 - **Sessions** are rows in `AuthSession`, identified by a hash of the cookie's token. A session
   lasts seven days from login, is replaced on each login and deleted on logout. Each successful
-  login also deletes up to 500 expired sessions.
+  login also deletes up to 500 expired sessions. The row records the prefix of the panel that
+  signed the user in, so an existing `auth_session` table needs a migration: add a non-null
+  `panel` column and backfill it to the panel's prefix (for example `ALTER TABLE auth_session
+  ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'`), then drop the default when every row names
+  its panel. Renaming a panel's prefix invalidates the sessions it issued.
 - **Revoking.** Call `auth::revoke_sessions_for_user(cx, user_id)` when a user's password changes
   or their account is deactivated; otherwise existing sessions stay valid until they expire. On a
   panel's request it revokes the sessions that panel issued; outside any panel, the user's
-  sessions on every panel.
+  sessions on every panel, so a reset flow for a user with two panels revokes from outside a panel
+  or once per panel.
 - **Several panels.** Each panel has its own `Auth` and its own login page, and a session belongs
   to the panel that signed the user in: the session row records the panel's prefix. Another
   panel's gate treats the request as anonymous, and `current_user(cx)` answers `None` there. One

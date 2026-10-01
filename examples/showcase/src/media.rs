@@ -351,7 +351,8 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     .exec(&mut db)
     .await?;
     set_notification(cx, Notification::success("Media uploaded"));
-    let library = tablo_core::url::page::<MediaLibraryPage>(cx).unwrap_or_default();
+    let library = tablo_core::url::page::<MediaLibraryPage>(cx)
+        .expect("media page is registered on this panel");
     Ok(see_other(library))
 }
 

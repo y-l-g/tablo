@@ -44,7 +44,7 @@ impl Resource for UserResource {
         true // every policy predicate denies until allowed
     }
 
-    fn table(_cx: &Cx) -> Table<User> {
+    fn table() -> Table<User> {
         Table::new(
             |u: &User| u.id.to_string(),
             TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())

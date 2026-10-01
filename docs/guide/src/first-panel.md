@@ -133,7 +133,8 @@ cargo run
   policy. A resource must name `Model` and `Form` and declare `table()`; every other item has a
   default. See [Resources](./resources.md).
 - **`Db::builder().models(..)`** lists every model Toasty maps, including the two tables the
-  built-in login uses. With authentication on, mounting the panel panics if they are missing.
+  built-in login uses. With authentication on, mounting the panel returns an error naming the
+  missing models.
 - **`db.push_schema()`** creates the tables, which suits a prototype. A production app runs
   `toasty-cli` migrations instead.
 - **`Router::builder().discover()`** starts the app's own router: the app owns it, and the panel

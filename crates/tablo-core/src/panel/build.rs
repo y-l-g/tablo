@@ -54,9 +54,10 @@ pub trait RouterBuilderPanelExt: Sized {
     /// The router must already hold the `Db` (`.app_context(db)`) and, when
     /// the panel links [`shell_assets`](Panel::shell_assets), the asset bundle
     /// (`.assets(..)`). The first panel mounted also installs what every panel
-    /// shares: cookies, sessions (unless the router already configures them),
-    /// the gate over Topcoat's runtime endpoints, and the runtime layer with
-    /// prefetching off (unless the router already set them up). The runtime
+    /// shares: cookies, sessions unless the router already configures them,
+    /// the gate over Topcoat's runtime endpoints with the shard dispatch, and
+    /// the runtime layer with prefetching off unless the router already set
+    /// those up. The runtime
     /// layer has no path, so mount panels after the app's own pathless layers:
     /// a page re-run must reach them already rewritten to a `GET`.
     ///
@@ -70,7 +71,8 @@ pub trait RouterBuilderPanelExt: Sized {
     /// reserved or already held, a second home page, a malformed prefix or one
     /// that overlaps another panel's or Topcoat's runtime endpoints, a
     /// relation to a resource the panel does not register, a misdeclared
-    /// resource, a missing `Db`, or `shell_assets` without an asset bundle.
+    /// resource, a missing `Db`, a `Db` missing the shipped auth models, or
+    /// `shell_assets` without an asset bundle.
     /// Configuring a panel wrong is a boot failure, not a request-time panic,
     /// so it comes back as an error the caller can log or exit on.
     fn panel(self, panel: Panel) -> Result<Self>;
@@ -113,7 +115,9 @@ impl Panel {
                 return Err(self.refused(&failures));
             }
         }
-        crate::auth::assert_models_registered(&db, &self.auth);
+        if let Err(error) = crate::auth::check_models_registered(&db, &self.auth) {
+            return Err(self.refused(&[error]));
+        }
         if builder.get_app_context::<Panels>().is_none() {
             builder = install_shared(builder);
         }
@@ -249,9 +253,10 @@ impl Panel {
                     .to_string(),
             );
         }
-        if under_prefix(RUNTIME_PREFIX, &self.prefix) {
+        if under_prefix(RUNTIME_PREFIX, &self.prefix) || under_prefix(&self.prefix, RUNTIME_PREFIX)
+        {
             errors.push(format!(
-                "prefix '{}' sits under Topcoat's runtime endpoints at '{RUNTIME_PREFIX}'",
+                "prefix '{}' overlaps Topcoat's runtime endpoints at '{RUNTIME_PREFIX}'",
                 self.prefix
             ));
         }
