@@ -149,8 +149,10 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
     let edit_class = link_class.clone();
     let delete_class = link_class.clone();
-    // Each custom action is its own POST form: a plain submit and a 303, so
-    // it needs no script. Its button carries the label, not an icon.
+    // Each custom action is its own POST form, marked like the delete forms:
+    // `mutation-submit.js` posts it and refreshes the table in place, keeping
+    // the list's query; without the script it POSTs and 303s. Its button
+    // carries the label, not an icon.
     let csrf = (!row.custom.is_empty()).then(|| crate::csrf::current_token(cx));
     let custom: Vec<BoxView<'a>> = row
         .custom
@@ -161,7 +163,12 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
             let token = csrf.clone().unwrap_or_default();
             view! {
                 cx =>
-                <form method="post" action=(url) class="contents" data-row-action="">
+                <form
+                    method="post"
+                    action=(url)
+                    class="contents"
+                    data-mutation-submit=""
+                >
                     (crate::csrf::field(cx, &token))
                     button(
                         variant: ButtonVariant::Ghost,

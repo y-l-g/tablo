@@ -97,6 +97,12 @@ impl ControlInput {
         self.invalid
     }
 
+    /// The id of the error message while the field carries one: the
+    /// control's `aria-describedby`.
+    pub fn described_by(&self) -> Option<&str> {
+        self.described_by.as_deref()
+    }
+
     /// The attributes a single input carries: `id`, `name`, `value`,
     /// `required`, `aria-required`, `aria-invalid`, and `aria-describedby`
     /// pointing at the error while there is one.
@@ -130,7 +136,7 @@ impl Control for Toggle {
         let name = input.name().to_string();
         let checked = input.value().is_some_and(|v| v.trim() == "true");
         let invalid = if input.invalid() { "true" } else { "false" };
-        let described_by = input.described_by.clone();
+        let described_by = input.described_by().map(str::to_string);
         view! {
             cx =>
             <input type="hidden" name=(name.clone()) value="false">

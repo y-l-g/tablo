@@ -68,7 +68,9 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
 /// same call: the
 /// table's row policy pairs each action with exactly what its route checks —
 /// `can_view` for View, `can_view` + `can_update` for Edit, `can_view` +
-/// `can_delete` for Delete and the bulk checkbox. A row the predicate refuses
+/// `can_delete` for Delete, and `can_view` + `can_run` for each custom action;
+/// the bulk checkbox renders when bulk delete or any bulk custom action allows
+/// the record. A row the predicate refuses
 /// renders no link and no checkbox, while the handler keeps its
 /// all-or-nothing check for a hand-crafted POST.
 ///

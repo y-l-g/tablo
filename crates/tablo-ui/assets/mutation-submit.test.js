@@ -95,6 +95,12 @@ test('a bulk form removes the batch it carried', () => {
   assert.deepEqual(removedKeys(form, '/admin/users/bulk-delete'), ['a', 'b']);
 });
 
+test('a bulk custom action removes nothing from the selection', () => {
+  // It shares the bulk form, so it carries the same `ids`, but its rows stay.
+  const form = formWith({ ids: { value: ',a,b,' } });
+  assert.deepEqual(removedKeys(form, '/admin/users/actions/publish'), []);
+});
+
 test('a row form removes the one record its action names', () => {
   const form = formWith({});
   assert.deepEqual(removedKeys(form, '/admin/users/ada/delete'), ['ada']);

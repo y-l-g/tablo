@@ -435,13 +435,14 @@ impl Resource for PostResource {
         )
     }
 
-    /// The post's comments: the comments list's own table, narrowed to this
-    /// post, on its detail and edit pages, with a create link that opens the
-    /// comment form with this post chosen.
+    /// Publish drafts from a row or for the selection.
     fn actions() -> Actions<Self> {
         Actions::new().add::<PublishPosts>()
     }
 
+    /// The post's comments: the comments list's own table, narrowed to this
+    /// post, on its detail and edit pages, with a create link that opens the
+    /// comment form with this post chosen.
     fn relations() -> Vec<Relation<Post>> {
         vec![Relation::has_many::<CommentResource, _>(
             Comment::fields().post_id(),

@@ -145,8 +145,10 @@ async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
 }
 ```
 
-`Committed` names the mutation (`Mutation::Create`, `Update` or `Delete`) and the rows written: the
-created or updated row, or every deleted row in one call for a bulk delete. The hook is not called
+`Committed` names the mutation (`Mutation::Create`, `Update`, `Delete`, or `Action(NAME)` for a
+[custom action](./tables.md#custom-actions)) and the rows written: the created or updated row,
+every deleted row in one call for a bulk delete, or the rows an action ran on. `Mutation` is
+`#[non_exhaustive]`, so a `match` on it ends with a `_` arm. The hook is not called
 when nothing committed. An error it returns is logged; the write stays committed.
 
 ## Startup checks

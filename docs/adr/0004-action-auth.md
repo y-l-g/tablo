@@ -17,9 +17,10 @@ authorization vocabulary.
 
 A custom `Action` (`Resource::actions`) runs the same way. Its handler loads the row, or the bulk
 selection, through `scoped_query` inside the transaction, checks `can_view` and the action's own
-`can_run` on every loaded record, and calls `Action::run` with the same executor. A refused row is
-a 403. A selection that holds a refused record commits nothing and answers with an error
-notification on the list, because the bulk bar offers the action for the whole selection.
+`can_run` on every loaded record, and calls `Action::run` with the same executor. A record the
+caller cannot view, or a row the action refuses, is a 403. A selection holding a record the action
+(or, for bulk delete, `can_delete`) refuses commits nothing and answers with an error notification
+on the list, because the bulk bar offers each operation for the whole selection.
 
 `create_record` and `update_record` return the row they wrote (the generated key, or the state the
 instance update reloaded); delete and bulk delete hand over the rows they removed as they were.

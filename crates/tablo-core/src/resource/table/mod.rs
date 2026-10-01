@@ -357,11 +357,11 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        let mut seen: Vec<&toasty_core::stmt::Include> = Vec::new();
-        for include in self.columns.iter().flat_map(|c| c.includes().iter()) {
+        let mut seen: Vec<toasty_core::stmt::Include> = Vec::new();
+        for include in self.columns.iter().flat_map(|c| c.includes().into_vec()) {
             if !seen.contains(&include) {
-                seen.push(include);
                 query = query.include(include.clone());
+                seen.push(include);
             }
         }
         query

@@ -67,7 +67,8 @@ const FILTER_LABEL_CLASS: StaticClass =
 /// [`param`](Self::param), and carries `data-filter-name` set to
 /// [`name`](Self::name): `filters.js` submits the form on change, or, on a
 /// live table, rewrites the filter in the query. [`select`](Self::select)
-/// and [`labelled`](Self::labelled) write both.
+/// writes both; a control passed to [`labelled`](Self::labelled) carries them
+/// itself.
 #[derive(Debug, Clone)]
 pub struct FilterInput {
     name: String,

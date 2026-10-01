@@ -22,6 +22,7 @@ use super::Resource;
 /// knows which record fn or [`Action`](super::Action) ran, so an audit row or
 /// a webhook payload does not have to be spelled per call site.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Mutation {
     Create,
     Update,
@@ -80,7 +81,7 @@ impl<M> Committed<M> {
         }
     }
 
-    /// Which record fn ran.
+    /// Which record fn or custom action ran.
     pub fn mutation(&self) -> Mutation {
         self.mutation
     }
@@ -94,7 +95,7 @@ impl<M> Committed<M> {
 /// Deliver a committed mutation to the app.
 ///
 /// The framework's single call site, so the failure policy cannot drift
-/// between the four write handlers: a hook that returns `Err` is **logged and
+/// between the write handlers, custom actions included: a hook that returns `Err` is **logged and
 /// ignored**. The write is committed — the row is in the database, the
 /// response is the redirect the user earned — so turning a failed email into
 /// an error page would misreport what happened, and rolling back is not

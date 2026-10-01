@@ -6,6 +6,11 @@ Line citations refer to the tree this design was written against, `f9750974`.
 Citations under `crates/toasty/` and `crates/toasty-macros/` name the pinned
 Toasty checkout.
 
+The checkbox half of this design is implemented as `Field::toggle` and the
+`Toggle` control (`schema/fields/custom.rs`), which post the hidden `"false"`
+companion this design describes. The `Select::checkbox` sections below are
+superseded by it; the `TextColumn::field` and `TextInput::typed` halves stand.
+
 ## Summary
 
 `TextColumn::field` renders a `String` lens without a projection closure,

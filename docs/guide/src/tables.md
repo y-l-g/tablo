@@ -206,7 +206,8 @@ A row that allows none keeps an empty actions cell.
 When `can_delete_any` allows deletes, or the resource declares a bulk custom action, the list adds
 a checkbox column and a bulk bar. A row that neither delete nor any bulk action allows gets no
 checkbox, so select-all only selects rows something can be done to. A bulk delete accepts at most
-400 records and deletes all of them or none.
+400 records and deletes all of them or none: a selection holding a record that may not be deleted
+deletes nothing and returns to the list with an error notification.
 
 Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
 confirming it deletes the row, shows a notification and refreshes the table without leaving the

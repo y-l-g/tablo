@@ -53,11 +53,12 @@ pub(crate) fn resource_bulk_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
 /// The order is the delete handlers': the gate, the declared action, CSRF
 /// and the selection before any database work; then the transaction, the
 /// records through the tenant-scoped query, and the policy on every loaded
-/// record before the action runs. A row refused the action is a 403, as a
-/// refused delete is. A selection holding a record the action refuses
-/// writes nothing and answers with an error notification on the list: the
-/// bulk bar offers the action for the whole selection, so mixing rows it
-/// refuses is a user path, not a crafted request.
+/// record before the action runs. A record the caller cannot view is a 403,
+/// and so is a row refused the action, as a refused delete is. A selection
+/// holding a record the action refuses writes nothing and answers with an
+/// error notification on the list: the bulk bar offers the action for the
+/// whole selection, so mixing rows it refuses is a user path, not a crafted
+/// request.
 fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::<_, BoxView<'_>>::new(
         async move {
@@ -97,10 +98,12 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
             let mut db = db(cx);
             let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
             let rows = load_targets::<R>(cx, &ids, target, &mut tx).await?;
-            let refused = rows
-                .iter()
-                .filter(|row| !(R::can_view(cx, row) && (action.can_run)(cx, row)))
-                .count();
+            // A record the caller cannot view never renders, so naming one is
+            // a crafted request: 403, for the row and the selection alike.
+            if rows.iter().any(|row| !R::can_view(cx, row)) {
+                return Err(forbidden().into());
+            }
+            let refused = rows.iter().filter(|row| !(action.can_run)(cx, row)).count();
             if refused > 0 {
                 return Err(refuse::<R>(cx, action, target, refused));
             }

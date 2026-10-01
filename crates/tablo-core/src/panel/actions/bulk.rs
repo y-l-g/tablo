@@ -98,15 +98,27 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             if rows.len() != ids.len() {
                 return Err(topcoat::router::error::not_found().into());
             }
-            for rec in &rows {
-                // Edit contract on every row: viewing precedes
-                // deleting, same as the edit GET/POST pair.
-                if !R::can_view(cx, rec) {
-                    return Err(forbidden().into());
-                }
-                if !R::can_delete(cx, rec) {
-                    return Err(forbidden().into());
-                }
+            // Edit contract on every row: viewing precedes deleting, same as
+            // the edit GET/POST pair. A row the caller cannot view never
+            // renders, so naming one is a crafted request: 403.
+            if rows.iter().any(|rec| !R::can_view(cx, rec)) {
+                return Err(forbidden().into());
+            }
+            // A row delete refuses is a user path, not only a crafted one: a
+            // row a bulk custom action allows carries a checkbox even when
+            // delete refuses it. So the batch writes nothing and the list says
+            // why, as a refused custom action does; the transaction drops
+            // uncommitted.
+            let refused = rows.iter().filter(|rec| !R::can_delete(cx, rec)).count();
+            if refused > 0 {
+                let noun = if refused == 1 { "record" } else { "records" };
+                set_notification(
+                    cx,
+                    Notification::error(format!(
+                        "{refused} selected {noun} cannot be deleted; nothing was deleted"
+                    )),
+                );
+                return Err(see_other(landing_url(cx, &R::slug())).into());
             }
             // All checks passed — perform bulk delete inside the tx, then
             // commit once. Any error drops `tx` uncommitted: zero rows

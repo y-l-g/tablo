@@ -14,7 +14,23 @@ use toasty::{Db, stmt::Expr};
 use topcoat::{context::Cx, view::*};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, panel, panel_router, post_fields};
+use crate::common::{
+    body_string, get, memory_db, panel, panel_router, post_fields, response_cookies,
+};
+
+/// The flash notification a response set, decoded: the text the list shows
+/// after the redirect.
+fn flash(response: &http::Response<topcoat::router::Body>) -> String {
+    response_cookies(response)
+        .into_iter()
+        .find(|(name, _)| name.ends_with("tablo_notification"))
+        .map(|(_, value)| {
+            percent_encoding::percent_decode_str(&value)
+                .decode_utf8_lossy()
+                .into_owned()
+        })
+        .unwrap_or_default()
+}
 
 #[derive(Debug, toasty::Model, Clone)]
 struct Task {
@@ -303,6 +319,14 @@ async fn a_boolean_column_renders_an_icon_with_its_label() {
         html.contains("<span class=\"sr-only\">Yes</span>"),
         "the icon is labelled for assistive tech: {html}"
     );
+
+    seed(&db, "Bravo", false).await;
+    let html = body_string(get(&router, "/admin/tasks").await).await;
+    assert!(html.contains("data-boolean=\"false\""), "{html}");
+    assert!(
+        html.contains("<span class=\"sr-only\">No</span>"),
+        "a false value reads No: {html}"
+    );
 }
 
 #[tokio::test]
@@ -369,15 +393,31 @@ async fn a_toggle_submits_false_when_unchecked_and_true_when_checked() {
     let task = seed(&db, "Alpha", true).await;
     let router = panel_router::<TaskResource>(db.clone());
 
+    // The hidden `false` comes first, so a checked box's `true` posts after
+    // it and wins. The checkbox's attributes render in no guaranteed order
+    // (topcoat#122), so its tag is checked attribute by attribute.
+    let hidden = "<input type=\"hidden\" name=\"done\" value=\"false\">";
     let html = body_string(get(&router, &format!("/admin/tasks/{}/edit", task.id)).await).await;
+    let checkbox = tag_after(&html, hidden);
+    for attribute in [
+        "type=\"checkbox\"",
+        "id=\"done\"",
+        "name=\"done\"",
+        "value=\"true\"",
+        "checked",
+    ] {
+        assert!(
+            checkbox.contains(attribute),
+            "the checkbox follows the hidden input and carries {attribute}: {checkbox}"
+        );
+    }
+
+    let open = seed(&db, "Bravo", false).await;
+    let html = body_string(get(&router, &format!("/admin/tasks/{}/edit", open.id)).await).await;
+    let checkbox = tag_after(&html, hidden);
     assert!(
-        html.contains("<input type=\"hidden\" name=\"done\" value=\"false\">"),
-        "an unchecked box still submits false: {html}"
-    );
-    assert!(html.contains("type=\"checkbox\""), "{html}");
-    assert!(
-        html.contains("checked"),
-        "a true value renders checked: {html}"
+        !checkbox.contains("checked"),
+        "a false value renders unchecked: {checkbox}"
     );
 
     // The browser sends the hidden `false` alone for an unchecked box.
@@ -428,6 +468,18 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
         html.contains("formaction=\"/admin/tasks/actions/explode\""),
         "and the bulk-only action: {html}"
     );
+    // The resource allows no delete, so the bulk bar carries the actions
+    // alone: no delete trigger or dialog, and the form posts to the first
+    // action's route.
+    assert!(!html.contains("data-bulk-confirm-trigger"), "{html}");
+    assert!(!html.contains("data-bulk-confirm-dialog"), "{html}");
+    assert!(
+        html.contains("action=\"/admin/tasks/actions/complete\""),
+        "the bulk form posts to the first action: {html}"
+    );
+    // Both rows take a bulk action (`explode` runs on any task), so both
+    // render a checkbox.
+    assert_eq!(html.matches("data-row-select").count(), 2, "{html}");
 }
 
 #[tokio::test]
@@ -443,6 +495,11 @@ async fn a_row_action_runs_in_the_transaction_and_reaches_after_commit() {
     )
     .await;
     assert_eq!(response.status(), 303, "a committed action redirects");
+    assert!(
+        flash(&response).contains("Complete: 1 record"),
+        "with the default success text: {}",
+        flash(&response)
+    );
     assert!(self::task(&db, task.id).await.done);
 
     let logs = logs(&db).await;
@@ -524,6 +581,11 @@ async fn a_selection_holding_a_refused_record_writes_nothing() {
         "the list answers with an error notification"
     );
     assert!(
+        flash(&response).contains("1 selected record cannot take this action"),
+        "the notification names the refusal: {}",
+        flash(&response)
+    );
+    assert!(
         !self::task(&db, open.id).await.done,
         "the allowed record is not written either"
     );
@@ -559,6 +621,11 @@ async fn a_bulk_action_without_a_selection_writes_nothing() {
 
     let response = post_fields(&router, "/admin/tasks/actions/complete", &[("ids", "")]).await;
     assert_eq!(response.status(), 303);
+    assert!(
+        flash(&response).contains("Select at least one row first"),
+        "{}",
+        flash(&response)
+    );
     assert!(logs(&db).await.is_empty());
 }
 
@@ -609,4 +676,13 @@ async fn two_actions_sharing_a_name_fail_the_build() {
         message.contains("two actions named 'twice'"),
         "the error names the duplicate: {message}"
     );
+}
+
+/// The opening tag right after `marker` in `html`, without its `>`.
+fn tag_after<'h>(html: &'h str, marker: &str) -> &'h str {
+    let at = html
+        .find(marker)
+        .unwrap_or_else(|| panic!("no {marker} in {html}"));
+    let rest = &html[at + marker.len()..];
+    &rest[..rest.find('>').expect("the tag closes")]
 }

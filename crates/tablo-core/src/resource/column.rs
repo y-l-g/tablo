@@ -84,23 +84,40 @@ pub trait Column<M>: Send + Sync {
 
     /// The relations [`text`](Self::text) and [`cell`](Self::cell) read,
     /// which the list and the export load. Defaults to none.
-    fn includes(&self) -> &Includes {
-        &NO_INCLUDES
+    fn includes(&self) -> Includes<M> {
+        Includes::new()
     }
 }
 
 /// The relations a [`Column`] reads off its row, which the list and the
 /// export load before rendering it.
 ///
-/// Built with [`Includes::with`], typed on the table's model, so a relation
-/// the model does not have is a compile error.
-#[derive(Clone, Debug, Default)]
-pub struct Includes(Vec<toasty_core::stmt::Include>);
+/// Built with [`Includes::with`], typed on the table's model `M`, so a
+/// relation the model does not have is a compile error.
+pub struct Includes<M>(
+    Vec<toasty_core::stmt::Include>,
+    std::marker::PhantomData<fn() -> M>,
+);
 
-/// What a column that reads no relation returns from [`Column::includes`].
-static NO_INCLUDES: Includes = Includes(Vec::new());
+impl<M> Default for Includes<M> {
+    fn default() -> Self {
+        Self(Vec::new(), std::marker::PhantomData)
+    }
+}
 
-impl Includes {
+impl<M> Clone for Includes<M> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), std::marker::PhantomData)
+    }
+}
+
+impl<M> std::fmt::Debug for Includes<M> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Includes").field(&self.0).finish()
+    }
+}
+
+impl<M> Includes<M> {
     /// No relation.
     pub fn new() -> Self {
         Self::default()
@@ -108,7 +125,7 @@ impl Includes {
 
     /// Add `relation`: `Includes::new().with(Post::fields().author())`. A
     /// relation already present is not added twice.
-    pub fn with<M, T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
+    pub fn with<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
         let include: toasty_core::stmt::Include = relation.into().into();
         if !self.0.contains(&include) {
             self.0.push(include);
@@ -117,8 +134,8 @@ impl Includes {
     }
 
     /// The relations, in the order they were added.
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &toasty_core::stmt::Include> {
-        self.0.iter()
+    pub(crate) fn into_vec(self) -> Vec<toasty_core::stmt::Include> {
+        self.0
     }
 
     /// How many relations there are.
@@ -236,7 +253,7 @@ pub struct TextColumn<M> {
     /// The width this column claims in the table's fixed layout.
     width: ColumnWidth,
     /// Relations this column's projection reads.
-    includes: Includes,
+    includes: Includes<M>,
 }
 
 /// The escape character the search pattern declares to `LIKE`:
@@ -433,8 +450,8 @@ where
         }
     }
 
-    fn includes(&self) -> &Includes {
-        &self.includes
+    fn includes(&self) -> Includes<M> {
+        self.includes.clone()
     }
 }
 
