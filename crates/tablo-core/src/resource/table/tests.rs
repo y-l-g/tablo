@@ -538,6 +538,35 @@ fn duplicate_filter_name_is_misdeclared_on_duplicate_field() {
     );
 }
 
+/// Rendering a misdeclared table fails with its declaration errors rather
+/// than a sort link or filter that lies.
+#[tokio::test]
+async fn a_misdeclared_table_fails_to_render() {
+    let table = Table::<User>::new(
+        |u| u.id.to_string(),
+        (
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
+        ),
+    );
+    let declared = table.declaration_errors();
+    assert!(
+        declared
+            .iter()
+            .any(|error| error.contains("duplicate column name")),
+        "{declared:?}"
+    );
+    let cx = CxTestBuilder::new().build();
+    let page = crate::resource::TablePage::<User>::from(vec![]);
+    let Err(error) = table.render(&cx, page).await else {
+        panic!("a misdeclared table must not render");
+    };
+    assert!(
+        format!("{error}").contains("duplicate column name"),
+        "the render error carries the declaration errors, got {error}"
+    );
+}
+
 async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {
     let mut db = Db::builder()
         .models(toasty::models!(User))

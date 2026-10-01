@@ -1,15 +1,13 @@
 # Detail pages
 
 A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource gets one by
-declaring `view()`: a `Schema` built from the same fields and layout blocks as a form.
+declaring `view(dx)`: a `Schema` built from the same fields and layout blocks as a form. It takes
+a `DeclCx` carrying the app schema alone, like `form(dx)`, and the panel calls it once at build.
 
 ```rust
-fn view(_cx: &Cx) -> Schema {
-    Schema::new(Section::new("Post").schema((
-        Field::text(Post::fields().title()),
-        Field::text(Post::fields().body()).multiline(6),
-        Field::choice(Post::fields().status()).options(vec!["draft".into(), "published".into()]),
-    )))
+fn view(dx: &DeclCx) -> Schema {
+    let c = PostForm::controls(dx);
+    Schema::new(Section::new("Post").schema((c.title, c.body.multiline(6), c.status)))
 }
 ```
 

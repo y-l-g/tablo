@@ -17,7 +17,7 @@ impl Resource for AuditResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Audit> {
+    fn table() -> Table<Audit> {
         Table::new(
             |a: &Audit| a.id.to_string(),
             TextColumn::r#for(Audit::fields().action(), |a: &Audit| a.action.clone()),
@@ -37,10 +37,10 @@ Only `Model`, `Form` and `table()` are required. Every other item has a default.
 | --- | --- | --- |
 | `type Model` | required | the Toasty model; must be `Clone + Send + Sync` |
 | `type Form` | required | a record form, or `NoForm<Self::Model>` for a list-only resource |
-| `table(cx)` | required | the list's columns, filters and options: [Tables](./tables.md) |
-| `form(cx)` | no controls | the create and edit form's controls: [Forms](./forms.md) |
+| `table()` | required | the list's columns, filters and options: [Tables](./tables.md) |
+| `form(dx)` | the record form's derived schema | the create and edit form's controls: [Forms](./forms.md) |
 | `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
-| `view(cx)` | nothing | the detail page's fields; the page exists only when this declares some: [Detail pages](./detail-pages.md) |
+| `view(dx)` | nothing | the detail page's fields; the page exists only when this declares some: [Detail pages](./detail-pages.md) |
 | `view_values(cx, record)`, `view_content(cx, record)` | none | what the detail page shows beyond the form's fields |
 | `view_query(cx)` | `query(cx)` | the detail page's query, with the relations it reads |
 | `record_label(cx, record)` | `None` | the detail page's heading |
@@ -153,11 +153,12 @@ when nothing committed. An error it returns is logged; the write stays committed
 
 ## Startup checks
 
-`Panel::build` calls each resource's declarations once, with a context that holds only the
-database, and refuses the resource when:
+`Panel::build` calls each resource's declarations once — `table()` with no context, `form(dx)`
+and `view(dx)` with a `DeclCx` carrying the app schema alone — and refuses the resource when:
 
-- `table()` or `view()` is malformed: a duplicate column or field name, a zero page size, a
-  modifier on the wrong kind of field;
+- `table()`, `form()` or `view()` is malformed: a duplicate column, filter or field name, a
+  zero page size, an empty column set, a lens that binds no column, or a search or sort on a
+  computed column. Rendering such a table or schema fails with the same errors;
 - the record form and `form()` disagree: a control no form field binds, a form field with no
   control, an optional control whose field has no blank value, a `unique()` field with no
   unique index, or a tenant-owned resource's form claiming its tenant column;
@@ -167,5 +168,11 @@ database, and refuses the resource when:
 - `requires_tenant()` is `true` and no tenant predicate can be derived;
 - a relation names a resource the panel does not register, or names one twice.
 
-Because of this call, `table()`, `form()`, `view()` and `can_create()` must not depend on the
-request: a check that reads the current user or tenant sees an anonymous request at startup.
+A modifier on the wrong kind of field does not compile: each `Field` constructor returns its
+control's builder (`TextField`, `ChoiceField`, `FileField`, `CustomField`), which offers only
+that control's modifiers.
+
+The panel serves the checked declarations to every request, so `table()`, `form()`, `view()` and
+`can_create()` must not depend on the request: a declaration takes no user, tenant or query
+string, and a check that reads one sees an anonymous request at startup. `can_create` runs with a
+context holding only the `Db`.

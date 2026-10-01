@@ -1,6 +1,6 @@
 # Detail pages: `Resource::view` and one Schema, read two ways
 
-Date: 2026-09-21 — Status: accepted — Amended: 2026-09-25, 2026-09-28, 2026-09-29, 2026-09-30
+Date: 2026-09-21 — Status: accepted — Amended: 2026-09-25, 2026-09-28, 2026-09-29, 2026-09-30, 2026-10-01
 
 ## Decision
 
@@ -108,3 +108,14 @@ page carries the row and bulk writes and a create link that seeds the foreign ke
 parameters are prefixed with the related slug, and writes started there return to the owner's page
 through a `?return=` the panel follows only under its own prefix. Free-form content read off the record renders through
 `view_content`, which is what remains of the typed half.
+
+## Amendment — 2026-10-01
+
+**Declarations take no request and serve from the build.** The decision's `Resource::view(cx)` is
+`Resource::view(dx: &DeclCx)`: the declaration carries the app schema alone, so it cannot read a
+user, tenant or query string, and the panel calls it once at build, serving the cached schema to
+every request rather than reading it per request. `Resource::viewed(cx)` no longer exists: whether
+the detail page exists is the cached declarations' `viewed()`, a non-empty view schema. A view
+binds the typed builders — `Field::text`, `Field::choice`, `Field::file` — so the consequence's
+`TextInput::r#for` and `TextInput::typed` names are superseded, and a view that shows what the form
+edits starts from the same `controls(dx)`.

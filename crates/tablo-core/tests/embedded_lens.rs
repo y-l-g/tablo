@@ -171,7 +171,9 @@ async fn a_relation_traversal_is_refused_rather_than_misbound() {
     )))
     .declaration_errors();
     assert!(
-        errors.iter().any(|error| error.contains("only embedded steps")),
+        errors
+            .iter()
+            .any(|error| error.contains("only embedded steps")),
         "{errors:?}"
     );
 }
@@ -188,7 +190,9 @@ async fn without_a_schema_a_traversal_lens_is_still_refused() {
     )))
     .declaration_errors();
     assert!(
-        errors.iter().any(|error| error.contains("single-field lens")),
+        errors
+            .iter()
+            .any(|error| error.contains("single-field lens")),
         "{errors:?}"
     );
 }

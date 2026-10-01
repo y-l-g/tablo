@@ -55,6 +55,17 @@ use crate::form::{FieldError, FormScalar};
 /// empty submit fails inline instead of at the driver. `.optional()` opts out
 /// and `.required()` opts back in.
 ///
+/// A modifier on the wrong control does not compile: `options` is a choice
+/// modifier, so it is not a method on a text field.
+///
+/// ```compile_fail
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # fn main() {
+/// tablo_core::Field::text(User::fields().name()).options(["admin", "member"]);
+/// # }
+/// ```
+///
 /// A builder converts into a `Field` wherever a schema takes one
 /// ([`IntoSchema`](super::IntoSchema)).
 pub struct Field {

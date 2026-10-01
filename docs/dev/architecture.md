@@ -49,10 +49,12 @@ Registering a `Resource` or a `Page` on it adds its routes and its sidebar entry
 one Toasty model to its admin UI: a base query, a `Table`, a `Schema`, a policy, and the record
 functions that perform writes.
 
-`Table` and `Schema` are declarations, not renderers. `Panel::build` calls `table()` and `form()` once
-per registered resource with a Db-only context to check the declaration, and each list or form request
-calls `table()` / `form()` again to render. Because the build check has only the Db, a declaration must
-not need request-scoped context; one that cannot render fails `Panel::build` rather than a request.
+`Table` and `Schema` are declarations, not renderers. `Panel::build` calls each resource's
+`table()` (which takes no context) and `form(dx)` / `view(dx)` (which take a `DeclCx` carrying
+the app schema alone) once, checks those exact values, and stores them; every handler serves the
+cached copy instead of rebuilding per request. Because the build has no request, a declaration
+must not need request-scoped context; one that cannot render fails `Panel::build` rather than a
+request.
 
 ## A read request
 
@@ -162,10 +164,10 @@ Tablo's own and are never overwritten.
 crates/tablo-core/src/
   panel/      mod, build, gate, list, forms, write, actions/{bulk, delete, export,
               fetch, options}, detail, pages, relations, search, shell, headers
-  resource/   mod, table/{mod,render,export}, column, page, state, filter,
+  resource/   mod, table/{mod,render,export}, column, declared, page, state, filter,
               relation, navigation, naming, commit
-  schema/     mod, fields, layouts, lenses, tree, relationship, embedded, pk,
-              validation
+  schema/     mod, fields/{mod,builders}, lenses, options, layouts, tree, relationship,
+              embedded, pk, validation
   auth, csrf, cursor, db, error, form, notification, page, query_term, tenancy,
   upload
 ```

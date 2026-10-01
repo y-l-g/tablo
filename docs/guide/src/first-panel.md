@@ -68,7 +68,7 @@ impl Resource for BookResource {
         true
     }
 
-    fn table(_cx: &Cx) -> Table<Book> {
+    fn table() -> Table<Book> {
         Table::new(
             |b: &Book| b.id.to_string(),
             TextColumn::r#for(Book::fields().title(), |b: &Book| b.title.clone())
@@ -77,7 +77,7 @@ impl Resource for BookResource {
         )
     }
 
-    fn form(_cx: &Cx) -> Schema {
+    fn form(_dx: &DeclCx) -> Schema {
         Schema::new(Field::text(Book::fields().title()))
     }
 }

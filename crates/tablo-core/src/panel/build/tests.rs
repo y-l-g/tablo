@@ -1121,3 +1121,130 @@ async fn panel_build_rejects_a_misdeclared_view() {
         "the error names the part and the field, got {error}"
     );
 }
+
+/// Declarations are built once: `Panel::build` calls each declaration
+/// once, and every handler serves the cached copy across requests.
+#[tokio::test]
+async fn declarations_are_built_once_across_requests() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use crate::{
+        resource::{Relation, Resource},
+        schema::{Field, Schema},
+    };
+
+    static TABLE_CALLS: AtomicUsize = AtomicUsize::new(0);
+    static FORM_CALLS: AtomicUsize = AtomicUsize::new(0);
+    static VIEW_CALLS: AtomicUsize = AtomicUsize::new(0);
+    static RELATIONS_CALLS: AtomicUsize = AtomicUsize::new(0);
+
+    #[derive(crate::RecordForm)]
+    #[form(model = Dummy)]
+    struct CountedForm {
+        name: String,
+    }
+
+    struct CountedResource;
+    impl Resource for CountedResource {
+        type Model = Dummy;
+        type Form = CountedForm;
+
+        fn slug() -> String {
+            "dummies".to_string()
+        }
+
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+        fn can_view(_cx: &Cx, _record: &Dummy) -> bool {
+            true
+        }
+        fn can_create(_cx: &Cx) -> bool {
+            true
+        }
+        fn can_update(_cx: &Cx, _record: &Dummy) -> bool {
+            true
+        }
+
+        fn table() -> crate::resource::Table<Dummy> {
+            TABLE_CALLS.fetch_add(1, Ordering::SeqCst);
+            dummy_table()
+        }
+
+        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+            FORM_CALLS.fetch_add(1, Ordering::SeqCst);
+            Schema::new(Field::text(Dummy::fields().name()))
+        }
+
+        fn view(_dx: &crate::schema::DeclCx) -> Schema {
+            VIEW_CALLS.fetch_add(1, Ordering::SeqCst);
+            Schema::new(Field::text(Dummy::fields().name()))
+        }
+
+        fn relations() -> Vec<Relation<Dummy>> {
+            RELATIONS_CALLS.fetch_add(1, Ordering::SeqCst);
+            Vec::new()
+        }
+    }
+
+    let mut db = Db::builder()
+        .models(toasty::models!(Dummy))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let record = toasty::create!(Dummy {
+        name: "Ada".to_string()
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let router = panel_for::<CountedResource>(db)
+        .build()
+        .expect("panel builds");
+    for (calls, name, want) in [
+        (&TABLE_CALLS, "table", 1),
+        (&FORM_CALLS, "form", 1),
+        (&VIEW_CALLS, "view", 1),
+        // `relations` also runs at registration, where the panel derives
+        // its relation handlers and keys: one call there, one for the
+        // served declarations built here.
+        (&RELATIONS_CALLS, "relations", 2),
+    ] {
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            want,
+            "`{name}` builds once at `Panel::build`"
+        );
+    }
+
+    for uri in [
+        "/admin/dummies".to_string(),
+        "/admin/dummies/export".to_string(),
+        format!("/admin/dummies/{}", record.id),
+        "/admin/dummies/create".to_string(),
+        format!("/admin/dummies/{}/edit", record.id),
+    ] {
+        let response = router
+            .handle(
+                http::Request::builder()
+                    .uri(&uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await;
+        assert_eq!(response.status(), http::StatusCode::OK, "{uri} renders");
+    }
+    for (calls, name, want) in [
+        (&TABLE_CALLS, "table", 1),
+        (&FORM_CALLS, "form", 1),
+        (&VIEW_CALLS, "view", 1),
+        (&RELATIONS_CALLS, "relations", 2),
+    ] {
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            want,
+            "`{name}` serves requests from the cached build"
+        );
+    }
+}

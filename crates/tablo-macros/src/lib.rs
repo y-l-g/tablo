@@ -90,12 +90,23 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 ///
 /// The derive also emits `UserFormField`, one variant per field, which
 /// `Posted` keys on and `RecordForm::fields` answers with each variant's keys.
+/// It emits `UserFormControls`, one control per field chosen from the field —
+/// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
+/// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
+/// `#[form(embed)]` the embedded value's schema, and any other field a text
+/// field — with `controls(dx)` handing them over and `RecordForm::schema`
+/// arranging one per field in declaration order. `Resource::form` defaults to
+/// that schema; an override arranges the controls into a layout instead.
 ///
 /// # Attributes
 ///
 /// - `#[form(model = User)]` on the struct: the model the form writes.
 /// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as, overriding the
-///   type's own (`String` answers `""` and `Option<T>` answers `None` without one).
+///   type's own (`String` answers `""`, `Option<T>` answers `None`, and `bool` answers `false`
+///   without one).
+/// - `#[form(options = Status)]`: a choice over `Status::options()`.
+/// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` adds.
+/// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
 ///
 /// A generic struct, a tuple struct, an empty struct, a `Deferred<_>` field,

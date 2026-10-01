@@ -1226,3 +1226,120 @@ async fn a_list_only_resource_never_links_to_create() {
     let html = body_string(response).await;
     assert!(!html.contains("/admin/items/create"), "{html}");
 }
+
+/// The derived default form, end to end: a resource with no `form`
+/// override serves `RecordForm::schema` — one control per field, chosen
+/// from the field — and writes through it.
+#[tokio::test]
+async fn the_derived_default_form_renders_and_writes() {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+    enum WidgetRole {
+        Admin,
+        Member,
+    }
+
+    assert_eq!(WidgetRole::Admin.value(), "admin");
+
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Widget {
+        #[key]
+        #[auto]
+        id: Uuid,
+        name: String,
+        role: String,
+        active: bool,
+    }
+
+    #[derive(tablo_core::RecordForm)]
+    #[form(model = Widget)]
+    struct WidgetForm {
+        name: String,
+        #[form(options = WidgetRole, blank = WidgetRole::Member.value())]
+        role: String,
+        active: bool,
+    }
+
+    struct WidgetResource;
+
+    impl Resource for WidgetResource {
+        type Model = Widget;
+        type Form = WidgetForm;
+
+        fn slug() -> String {
+            "widgets".to_string()
+        }
+
+        fn can_view_any(_cx: &Cx) -> bool {
+            true
+        }
+
+        fn can_view(_cx: &Cx, _record: &Widget) -> bool {
+            true
+        }
+
+        fn can_create(_cx: &Cx) -> bool {
+            true
+        }
+
+        fn can_update(_cx: &Cx, _record: &Widget) -> bool {
+            true
+        }
+
+        fn table() -> Table<Widget> {
+            Table::new(
+                |row: &Widget| row.id.to_string(),
+                TextColumn::r#for(Widget::fields().name(), |row: &Widget| row.name.clone()),
+            )
+        }
+    }
+
+    let db = memory_db(toasty::models!(Widget)).await;
+    let router = panel_router::<WidgetResource>(db.clone());
+    let create = get(&router, "/admin/widgets/create").await;
+    assert_eq!(create.status(), StatusCode::OK);
+    let html = body_string(create).await;
+    for name in ["name", "role", "active"] {
+        assert!(
+            html.contains(&format!("name=\"{name}\"")),
+            "`{name}` posts: {html}"
+        );
+    }
+    assert!(
+        html.find("name=\"name\"").unwrap() < html.find("name=\"role\"").unwrap(),
+        "the default schema keeps declaration order: {html}"
+    );
+    assert!(
+        html.contains("value=\"admin\"") && html.contains("value=\"member\""),
+        "the choice carries the Options list: {html}"
+    );
+
+    let response = post_fields(
+        &router,
+        "/admin/widgets/create",
+        &[("name", "New"), ("role", "admin")],
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    let mut handle = db.clone();
+    let rows = Widget::all().exec(&mut handle).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].name, "New");
+    assert_eq!(rows[0].role, "admin");
+    assert!(!rows[0].active, "an absent toggle reads as false");
+
+    let edit = get(&router, &format!("/admin/widgets/{}/edit", rows[0].id)).await;
+    assert_eq!(edit.status(), StatusCode::OK);
+    let response = post_fields(
+        &router,
+        &format!("/admin/widgets/{}/edit", rows[0].id),
+        &[("active", "true")],
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    let mut handle = db.clone();
+    let stored = Widget::get_by_id(&mut handle, &rows[0].id)
+        .await
+        .expect("the widget exists");
+    assert!(stored.active);
+    assert_eq!(stored.name, "New", "an unposted key keeps its value");
+}
