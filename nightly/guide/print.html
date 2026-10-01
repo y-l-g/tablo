@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2d345057.js";
+            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -298,7 +298,7 @@ impl Resource for BookResource {
         true
     }
 
-    fn table(_cx: &amp;Cx) -&gt; Table&lt;Book&gt; {
+    fn table() -&gt; Table&lt;Book&gt; {
         Table::new(
             |b: &amp;Book| b.id.to_string(),
             TextColumn::r#for(Book::fields().title(), |b: &amp;Book| b.title.clone())
@@ -307,7 +307,7 @@ impl Resource for BookResource {
         )
     }
 
-    fn form(_cx: &amp;Cx) -&gt; Schema {
+    fn form(_dx: &amp;DeclCx) -&gt; Schema {
         Schema::new(Field::text(Book::fields().title()))
     }
 }
@@ -626,7 +626,7 @@ impl Resource for AuditResource {
         true
     }
 
-    fn table(_cx: &amp;Cx) -&gt; Table&lt;Audit&gt; {
+    fn table() -&gt; Table&lt;Audit&gt; {
         Table::new(
             |a: &amp;Audit| a.id.to_string(),
             TextColumn::r#for(Audit::fields().action(), |a: &amp;Audit| a.action.clone()),
@@ -634,8 +634,9 @@ impl Resource for AuditResource {
     }
 }
 <span class="boring">}</span></code></pre>
-<p>A resource with create and edit pages names a <code>#[derive(RecordForm)]</code> struct as its <code>Form</code> and
-declares the form’s controls in <code>form()</code>; see <a href="#forms">Forms</a>.</p>
+<p>A resource with create and edit pages names a <code>#[derive(RecordForm)]</code> struct as its <code>Form</code> and,
+to arrange its controls, overrides <code>form(dx)</code> from the derive’s <code>controls(dx)</code>; omit <code>form</code> for
+one control per field in declaration order. See <a href="#forms">Forms</a>.</p>
 <h2 id="trait-items"><a class="header" href="#trait-items">Trait items</a></h2>
 <p>Only <code>Model</code>, <code>Form</code> and <code>table()</code> are required. Every other item has a default.</p>
 <div class="table-wrapper">
@@ -646,10 +647,10 @@ declares the form’s controls in <code>form()</code>; see <a href="#forms">Form
 <tbody>
 <tr><td><code>type Model</code></td><td>required</td><td>the Toasty model; must be <code>Clone + Send + Sync</code></td></tr>
 <tr><td><code>type Form</code></td><td>required</td><td>a record form, or <code>NoForm&lt;Self::Model&gt;</code> for a list-only resource</td></tr>
-<tr><td><code>table(cx)</code></td><td>required</td><td>the list’s columns, filters and options: <a href="#tables">Tables</a></td></tr>
-<tr><td><code>form(cx)</code></td><td>no controls</td><td>the create and edit form’s controls: <a href="#forms">Forms</a></td></tr>
+<tr><td><code>table()</code></td><td>required</td><td>the list’s columns, filters and options: <a href="#tables">Tables</a></td></tr>
+<tr><td><code>form(dx)</code></td><td>the record form’s derived schema</td><td>the create and edit form’s controls: <a href="#forms">Forms</a></td></tr>
 <tr><td><code>validate_record(cx, form)</code></td><td>no errors</td><td>rules that need the whole parsed form</td></tr>
-<tr><td><code>view(cx)</code></td><td>nothing</td><td>the detail page’s fields; the page exists only when this declares some: <a href="#detail-pages">Detail pages</a></td></tr>
+<tr><td><code>view(dx)</code></td><td>nothing</td><td>the detail page’s fields; the page exists only when this declares some: <a href="#detail-pages">Detail pages</a></td></tr>
 <tr><td><code>view_values(cx, record)</code>, <code>view_content(cx, record)</code></td><td>none</td><td>what the detail page shows beyond the form’s fields</td></tr>
 <tr><td><code>view_query(cx)</code></td><td><code>query(cx)</code></td><td>the detail page’s query, with the relations it reads</td></tr>
 <tr><td><code>record_label(cx, record)</code></td><td><code>None</code></td><td>the detail page’s heading</td></tr>
@@ -754,11 +755,14 @@ every deleted row in one call for a bulk delete, or the rows an action ran on. <
 <code>#[non_exhaustive]</code>, so a <code>match</code> on it ends with a <code>_</code> arm. The hook is not called
 when nothing committed. An error it returns is logged; the write stays committed.</p>
 <h2 id="startup-checks"><a class="header" href="#startup-checks">Startup checks</a></h2>
-<p><code>Panel::build</code> calls each resource’s declarations once, with a context that holds only the
-database, and refuses the resource when:</p>
+<p><code>Panel::build</code> calls each resource’s declarations once — <code>table()</code> with no context, <code>form(dx)</code>
+and <code>view(dx)</code> with a <code>DeclCx</code> carrying the app schema alone, and <code>relations()</code> — and refuses
+the resource when:</p>
 <ul>
-<li><code>table()</code> or <code>view()</code> is malformed: a duplicate column or field name, a zero page size, a
-modifier on the wrong kind of field;</li>
+<li><code>table()</code>, <code>form()</code> or <code>view()</code> is malformed: a duplicate column, filter or field name, a
+zero page size, an empty column set, a lens that binds no column, or a search or sort on a
+computed column. Rendering such a table through <code>Table::render</code> (or <code>render_with_state</code>) or
+such a schema through <code>Schema::render</code> fails with the same errors;</li>
 <li>the record form and <code>form()</code> disagree: a control no form field binds, a form field with no
 control, an optional control whose field has no blank value, a <code>unique()</code> field with no
 unique index, or a tenant-owned resource’s form claiming its tenant column;</li>
@@ -768,15 +772,20 @@ default, not the tenant stamp, and not listed in <code>CREATE_COLUMNS</code>;</l
 <li><code>requires_tenant()</code> is <code>true</code> and no tenant predicate can be derived;</li>
 <li>a relation names a resource the panel does not register, or names one twice.</li>
 </ul>
-<p>Because of this call, <code>table()</code>, <code>form()</code>, <code>view()</code> and <code>can_create()</code> must not depend on the
-request: a check that reads the current user or tenant sees an anonymous request at startup.</p>
+<p>A modifier on the wrong kind of field does not compile: each <code>Field</code> constructor returns its
+control’s builder (<code>TextField</code>, <code>ChoiceField</code>, <code>FileField</code>, <code>CustomField</code>), which offers only
+that control’s modifiers.</p>
+<p>The panel serves the checked declarations to every request, so <code>table()</code>, <code>form()</code> and
+<code>view()</code> must not depend on the request: a declaration takes no user, tenant or query
+string, and a check that reads one sees an anonymous request at startup.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="tables"><a class="header" href="#tables">Tables</a></h1>
 <p>A resource’s <code>table()</code> declares its list page: the columns, the row key, and the search, sort,
-filter, grouping and pagination the list offers. The same declaration drives the CSV export.</p>
+filter, grouping and pagination the list offers. It takes no context: the panel calls it once at
+build and serves that table to every request. The same declaration drives the CSV export.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn table(_cx: &amp;Cx) -&gt; Table&lt;User&gt; {
+</span>fn table() -&gt; Table&lt;User&gt; {
     Table::new(
         |u: &amp;User| u.id.to_string(),
         (
@@ -807,7 +816,7 @@ primary key the URLs carry. Either way, keys must be unique within a page.</p>
 </thead>
 <tbody>
 <tr><td><code>TextColumn::r#for(lens, project)</code></td><td><code>project(row)</code>, bound to a <code>String</code> field</td><td><code>.searchable()</code>, <code>.sortable()</code></td></tr>
-<tr><td><code>TextColumn::computed(label, project)</code></td><td><code>project(row)</code></td><td>not available: calling either panics</td></tr>
+<tr><td><code>TextColumn::computed(label, project)</code></td><td><code>project(row)</code></td><td>neither is available: requesting either is a misdeclaration the build refuses</td></tr>
 <tr><td><code>BooleanColumn::r#for(lens, project)</code></td><td>a check or a cross icon for a <code>bool</code> field; the export writes <code>Yes</code>/<code>No</code> (<code>.labels(..)</code>)</td><td><code>.sortable()</code></td></tr>
 </tbody>
 </table>
@@ -839,8 +848,9 @@ narrow screen the table keeps a minimum width and scrolls horizontally instead o
 columns.</p>
 </li>
 </ul>
-<p>Two columns with the same name, or a table with no columns, panic; <code>Panel::build</code> reports it as a
-startup error.</p>
+<p>Two columns with the same name, two filters with the same name, a table with no columns, and a
+zero page size are misdeclarations: <code>Panel::build</code> refuses the resource, and rendering the table
+fails with the same errors.</p>
 <h3 id="your-own-columns"><a class="header" href="#your-own-columns">Your own columns</a></h3>
 <p>A column is anything that implements <code>Column&lt;M&gt;</code>. <code>TextColumn</code> and <code>BooleanColumn</code> implement it and
 nothing more, so a column of your own reaches as far as theirs:</p>
@@ -905,7 +915,7 @@ remain for visitors without JavaScript.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>.filters((
-    SelectFilter::r#for(Post::fields().status(), vec!["draft".into(), "published".into()]),
+    SelectFilter::r#for(Post::fields().status(), PostStatus::options()),
     TernaryFilter::r#for(Post::fields().featured()),
     DateFilter::r#for(Post::fields().created_at()),
 ))
@@ -916,7 +926,7 @@ remain for visitors without JavaScript.</p>
 <tr><th>Filter</th><th>Field</th><th>Values</th></tr>
 </thead>
 <tbody>
-<tr><td><code>SelectFilter::r#for(lens, options)</code></td><td><code>String</code></td><td>one of <code>options</code>, matched exactly</td></tr>
+<tr><td><code>SelectFilter::r#for(lens, options)</code></td><td><code>String</code></td><td>one of <code>options</code>, matched exactly; the options are <code>Vec&lt;(String, String)&gt;</code> (an <a href="#controls"><code>Options</code></a> list), <code>Vec&lt;String&gt;</code>, or <code>[&amp;str; N]</code></td></tr>
 <tr><td><code>TernaryFilter::r#for(lens)</code></td><td><code>bool</code></td><td><code>true</code>, <code>false</code>, or <code>all</code> (no filter)</td></tr>
 <tr><td><code>DateFilter::r#for(lens)</code></td><td><code>jiff::Timestamp</code></td><td>a date <code>2024-01-15</code> matches that UTC day; an RFC 3339 timestamp matches that instant</td></tr>
 <tr><td><code>VariantFilter::r#for(name, label, options)</code></td><td>any</td><td>named options, each a Toasty predicate you build</td></tr>
@@ -1041,17 +1051,25 @@ the rest of the page still renders.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="forms"><a class="header" href="#forms">Forms</a></h1>
 <p>A resource with create and edit pages declares two things: a <strong>record form</strong>, the typed struct a
-submission parses into, and a <strong>schema</strong> in <code>form()</code>, the controls the page renders. <code>Panel::build</code>
-checks that the two agree.</p>
+submission parses into, and a <strong>schema</strong> in <code>form(dx)</code>, the controls the page renders. <code>form</code>
+defaults to the record form’s derived schema, so a resource that wants one control per field in
+declaration order declares no <code>form</code> at all. <code>Panel::build</code> calls the declarations once and checks
+that the two agree.</p>
 <h2 id="the-record-form"><a class="header" href="#the-record-form">The record form</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>#[derive(tablo_core::RecordForm)]
+</span>#[derive(tablo::Options)]
+enum Role {
+    Admin,
+    Member,
+}
+
+#[derive(tablo_core::RecordForm)]
 #[form(model = User)]
 pub struct UserForm {
     pub name: String,
     pub email: String,
-    #[form(blank = "member")]
+    #[form(options = Role, blank = Role::Member.value())]
     pub role: String,
     #[form(blank = 0)]
     pub age: i64,
@@ -1064,23 +1082,24 @@ marked <code>#[form(embed)]</code>.</p>
 <p>Leave out the columns the form does not write: the tenant column of a tenant-owned resource, which
 the framework sets on create, and columns with a Toasty <code>#[default(..)]</code> or <code>#[auto]</code>.</p>
 <p><strong>Blank values.</strong> <code>#[form(blank = &lt;expr&gt;)]</code> is what a field stores when its control is submitted
-empty. <code>String</code> stores <code>""</code> and <code>Option&lt;T&gt;</code> stores <code>None</code> without one; any other type needs
-<code>blank</code> when its control is optional.</p>
-<p>The resource names the struct as its <code>Form</code> and declares the controls:</p>
+empty. <code>String</code> answers <code>""</code> and <code>Option&lt;T&gt;</code> answers <code>None</code> through the type’s own blank, and a
+<code>bool</code> answers <code>false</code> through the derive’s default, since an unchecked toggle posts <code>false</code>. Any
+other type needs <code>blank</code> when its control is optional.</p>
+<p>The resource names the struct as its <code>Form</code> and, to arrange the controls, declares them from the
+derive’s <code>controls(dx)</code>:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    fn form(_cx: &amp;Cx) -&gt; Schema {
+    fn form(dx: &amp;DeclCx) -&gt; Schema {
+        let c = UserForm::controls(dx);
         Schema::new(Section::new("Profile").schema((
-            Field::text(User::fields().name()),
-            Field::text(User::fields().email()).email(),
-            Field::choice(User::fields().role())
-                .options(vec!["admin".into(), "member".into()])
-                .optional(),
-            Field::text(User::fields().age()).optional(),
+            c.name.placeholder("Ada Lovelace"),
+            c.email.email(),
+            c.role.optional(),
+            c.age.optional(),
         )))
     }
 
@@ -1100,19 +1119,36 @@ every form field has a control, every optional control’s field has a blank val
 <code>can_create</code> is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
 stamp, or by an overridden <code>create_record</code> that lists it in <code>Resource::CREATE_COLUMNS</code>.</p>
 <h2 id="controls"><a class="header" href="#controls">Controls</a></h2>
+<p>The derive picks each field’s control from the field: a <code>bool</code> is a toggle, <code>#[form(options = T)]</code>
+a choice over <code>T</code>’s options, <code>#[form(choice)]</code> a bare choice, <code>#[form(file)]</code> a file field,
+<code>#[form(embed)]</code> the embedded value’s schema, and any other field a text field. <code>controls(dx)</code>
+hands each one over ready for its modifiers, so an override arranges rather than rebinds:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Schema::new((
+</span>let c = UserForm::controls(dx);
+Schema::new((
     Section::new("Account").schema((
-        Field::text(User::fields().email()).email(),
-        Field::choice(User::fields().role()).options(vec!["admin".into(), "member".into()]),
+        c.email.email(),
+        c.role,
     )),
     Grid::new(2).schema((
-        Field::text(User::fields().name()),
-        Field::text(User::fields().bio()).multiline(4),
+        c.name,
+        c.age,
     )),
 ))
 <span class="boring">}</span></code></pre>
+<p>The <code>role</code> control already offers <code>Role</code>’s options: <code>#[form(options = Role)]</code> chose a choice over
+that list. A closed set of values is a <code>#[derive(Options)]</code> enum, shared by the form, the filter
+and the column:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>Field::choice(User::fields().role()).options(Role::options())
+SelectFilter::r#for(User::fields().role(), Role::options())
+<span class="boring">}</span></code></pre>
+<p>Each variant stores its <code>snake_case</code> name and reads as that name in sentence case;
+<code>#[option(value = "..", label = "..")]</code> overrides either. The derive also gives the enum
+<code>value()</code>, <code>label()</code>, <code>from_value()</code> and, through the <code>Options</code> trait, <code>label_of()</code>. <code>.options</code>
+takes <code>Vec&lt;(String, String)&gt;</code> (an <code>Options</code> enum’s list), <code>Vec&lt;String&gt;</code>, or <code>[&amp;str; N]</code> (<code>["admin", "member"]</code>).</p>
 <p><strong>Layout blocks</strong> arrange fields: <code>Section::new(title)</code> is a titled card, <code>Group::new()</code> an untitled
 container, and <code>Grid::new(cols)</code> a grid of 1 to 12 columns. <code>Repeater::new(label)</code> is a titled group
 that may be left entirely empty: its fields’ rules apply once one of them is filled, and
@@ -1122,23 +1158,24 @@ nest a <code>Group</code> for more.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Constructor</th><th>Column</th><th>Control</th></tr>
+<tr><th>Constructor</th><th>Column</th><th>Control</th><th>Builder</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Field::text(lens)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td><code>&lt;input&gt;</code>, or <code>&lt;textarea&gt;</code> with <code>.multiline(rows)</code></td></tr>
-<tr><td><code>Field::choice(lens)</code></td><td>any</td><td><code>&lt;select&gt;</code> over static options or a relationship</td></tr>
-<tr><td><code>Field::file(lens)</code></td><td><code>String</code> holding the file’s path</td><td>file input: see <a href="#file-uploads">File uploads</a></td></tr>
-<tr><td><code>Field::toggle(lens)</code></td><td><code>bool</code></td><td>checkbox</td></tr>
-<tr><td><code>Field::custom(lens, control)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td>your own <code>Control</code>: see <a href="#custom-controls">Custom controls</a></td></tr>
+<tr><td><code>Field::text(lens)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td><code>&lt;input&gt;</code>, or <code>&lt;textarea&gt;</code> with <code>.multiline(rows)</code></td><td><code>TextField</code></td></tr>
+<tr><td><code>Field::choice(lens)</code></td><td>any</td><td><code>&lt;select&gt;</code> over static options or a relationship</td><td><code>ChoiceField</code></td></tr>
+<tr><td><code>Field::file(lens)</code></td><td><code>String</code> holding the file’s path</td><td>file input: see <a href="#file-uploads">File uploads</a></td><td><code>FileField</code></td></tr>
+<tr><td><code>Field::toggle(lens)</code></td><td><code>bool</code></td><td>checkbox</td><td><code>CustomField</code></td></tr>
+<tr><td><code>Field::custom(lens, control)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td>your own <code>Control</code>: see <a href="#custom-controls">Custom controls</a></td><td><code>CustomField</code></td></tr>
 </tbody>
 </table>
 </div>
 <p>Every field takes <code>.label(..)</code>, <code>.required()</code> and <code>.optional()</code>. The label defaults to the column
-name in sentence case, and <code>required</code> defaults to whether the column is non-nullable. The other
-modifiers belong to one kind of field and panic on another, which <code>Panel::build</code> reports:</p>
+name in sentence case, and <code>required</code> defaults to whether the column is non-nullable. Each
+constructor returns its control’s builder, which offers only that control’s modifiers, so a
+modifier on the wrong control does not compile:</p>
 <ul>
-<li>text: <code>.email()</code>, <code>.unique()</code>, <code>.placeholder(..)</code>, <code>.multiline(rows)</code>;</li>
-<li>choice: <code>.options(..)</code>, <code>.options_with_labels(..)</code>, <code>.relationship(..)</code>, <code>.searchable()</code>.</li>
+<li>text (<code>TextField</code>): <code>.email()</code>, <code>.unique()</code>, <code>.placeholder(..)</code>, <code>.multiline(rows)</code>;</li>
+<li>choice (<code>ChoiceField</code>): <code>.options(..)</code>, <code>.relationship(..)</code>, <code>.searchable()</code>.</li>
 </ul>
 <h3 id="custom-controls"><a class="header" href="#custom-controls">Custom controls</a></h3>
 <p>A <code>Control</code> renders the input of a <code>Field::custom</code> field. The field keeps everything fields share —
@@ -1162,8 +1199,8 @@ Field::custom(Theme::fields().accent(), Color)
 like any other field’s: the value posted under the field’s key, the last one when it is posted
 twice. <code>Field::toggle</code> is built this way: <code>Toggle</code> renders a hidden <code>false</code> before the checkbox
 under the same name, so an unchecked box submits <code>false</code> rather than nothing. A toggle is
-optional, since it is never empty, so its record-form field declares the value an empty
-submission stores: <code>#[form(blank = false)] pub active: bool</code>.</p>
+optional, since it is never empty, and a <code>bool</code> record-form field reads an empty submission as
+<code>false</code> without a declared blank.</p>
 <h3 id="typed-values"><a class="header" href="#typed-values">Typed values</a></h3>
 <p><code>Field::text</code> binds more than strings. Over an integer, float, <code>bool</code>, <code>Uuid</code> or
 <code>jiff::Timestamp</code> column it renders the stored value and parses the submission back through the
@@ -1281,8 +1318,8 @@ pub struct Seo {
     pub description: String,
 }
 
-// In `form()`: one call renders a control per field.
-Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()))
+// In `form(dx)`: one call renders a control per field.
+Section::new("SEO").schema(Seo::form(dx, Post::fields().seo()))
 
 // In the record form: the value is one field.
 #[derive(tablo_core::RecordForm)]
@@ -1307,20 +1344,18 @@ Without JavaScript every group renders, and the variant choice still decides.</l
 variant, and tuple structs.</li>
 </ul>
 <p>To bind a single embedded field on its own, pass a <code>ResolvedLens</code>:
-<code>Field::text(ResolvedLens::new(cx, Post::fields().seo().title()))</code> binds the flattened <code>seo_title</code>
+<code>Field::text(ResolvedLens::new(dx, Post::fields().seo().title()))</code> binds the flattened <code>seo_title</code>
 column. Such a field is optional unless you call <code>.required()</code>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="detail-pages"><a class="header" href="#detail-pages">Detail pages</a></h1>
 <p>A detail page shows one record, read-only, at <code>GET /admin/{slug}/{id}</code>. A resource gets one by
-declaring <code>view()</code>: a <code>Schema</code> built from the same fields and layout blocks as a form.</p>
+declaring <code>view(dx)</code>: a <code>Schema</code> built from the same fields and layout blocks as a form. It takes
+a <code>DeclCx</code> carrying the app schema alone, like <code>form(dx)</code>, and the panel calls it once at build.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn view(_cx: &amp;Cx) -&gt; Schema {
-    Schema::new(Section::new("Post").schema((
-        Field::text(Post::fields().title()),
-        Field::text(Post::fields().body()).multiline(6),
-        Field::choice(Post::fields().status()).options(vec!["draft".into(), "published".into()]),
-    )))
+</span>fn view(dx: &amp;DeclCx) -&gt; Schema {
+    let c = PostForm::controls(dx);
+    Schema::new(Section::new("Post").schema((c.title, c.body.multiline(6), c.status)))
 }
 <span class="boring">}</span></code></pre>
 <p>Declaring a view adds a View action to each row. A resource without one has no detail page: the

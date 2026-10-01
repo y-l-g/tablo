@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2d345057.js";
+            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -197,7 +197,7 @@ impl Resource for AuditResource {
         true
     }
 
-    fn table(_cx: &amp;Cx) -&gt; Table&lt;Audit&gt; {
+    fn table() -&gt; Table&lt;Audit&gt; {
         Table::new(
             |a: &amp;Audit| a.id.to_string(),
             TextColumn::r#for(Audit::fields().action(), |a: &amp;Audit| a.action.clone()),
@@ -205,8 +205,9 @@ impl Resource for AuditResource {
     }
 }
 <span class="boring">}</span></code></pre>
-<p>A resource with create and edit pages names a <code>#[derive(RecordForm)]</code> struct as its <code>Form</code> and
-declares the form’s controls in <code>form()</code>; see <a href="./forms.html">Forms</a>.</p>
+<p>A resource with create and edit pages names a <code>#[derive(RecordForm)]</code> struct as its <code>Form</code> and,
+to arrange its controls, overrides <code>form(dx)</code> from the derive’s <code>controls(dx)</code>; omit <code>form</code> for
+one control per field in declaration order. See <a href="./forms.html">Forms</a>.</p>
 <h2 id="trait-items"><a class="header" href="#trait-items">Trait items</a></h2>
 <p>Only <code>Model</code>, <code>Form</code> and <code>table()</code> are required. Every other item has a default.</p>
 <div class="table-wrapper">
@@ -217,10 +218,10 @@ declares the form’s controls in <code>form()</code>; see <a href="./forms.html
 <tbody>
 <tr><td><code>type Model</code></td><td>required</td><td>the Toasty model; must be <code>Clone + Send + Sync</code></td></tr>
 <tr><td><code>type Form</code></td><td>required</td><td>a record form, or <code>NoForm&lt;Self::Model&gt;</code> for a list-only resource</td></tr>
-<tr><td><code>table(cx)</code></td><td>required</td><td>the list’s columns, filters and options: <a href="./tables.html">Tables</a></td></tr>
-<tr><td><code>form(cx)</code></td><td>no controls</td><td>the create and edit form’s controls: <a href="./forms.html">Forms</a></td></tr>
+<tr><td><code>table()</code></td><td>required</td><td>the list’s columns, filters and options: <a href="./tables.html">Tables</a></td></tr>
+<tr><td><code>form(dx)</code></td><td>the record form’s derived schema</td><td>the create and edit form’s controls: <a href="./forms.html">Forms</a></td></tr>
 <tr><td><code>validate_record(cx, form)</code></td><td>no errors</td><td>rules that need the whole parsed form</td></tr>
-<tr><td><code>view(cx)</code></td><td>nothing</td><td>the detail page’s fields; the page exists only when this declares some: <a href="./detail-pages.html">Detail pages</a></td></tr>
+<tr><td><code>view(dx)</code></td><td>nothing</td><td>the detail page’s fields; the page exists only when this declares some: <a href="./detail-pages.html">Detail pages</a></td></tr>
 <tr><td><code>view_values(cx, record)</code>, <code>view_content(cx, record)</code></td><td>none</td><td>what the detail page shows beyond the form’s fields</td></tr>
 <tr><td><code>view_query(cx)</code></td><td><code>query(cx)</code></td><td>the detail page’s query, with the relations it reads</td></tr>
 <tr><td><code>record_label(cx, record)</code></td><td><code>None</code></td><td>the detail page’s heading</td></tr>
@@ -325,11 +326,14 @@ every deleted row in one call for a bulk delete, or the rows an action ran on. <
 <code>#[non_exhaustive]</code>, so a <code>match</code> on it ends with a <code>_</code> arm. The hook is not called
 when nothing committed. An error it returns is logged; the write stays committed.</p>
 <h2 id="startup-checks"><a class="header" href="#startup-checks">Startup checks</a></h2>
-<p><code>Panel::build</code> calls each resource’s declarations once, with a context that holds only the
-database, and refuses the resource when:</p>
+<p><code>Panel::build</code> calls each resource’s declarations once — <code>table()</code> with no context, <code>form(dx)</code>
+and <code>view(dx)</code> with a <code>DeclCx</code> carrying the app schema alone, and <code>relations()</code> — and refuses
+the resource when:</p>
 <ul>
-<li><code>table()</code> or <code>view()</code> is malformed: a duplicate column or field name, a zero page size, a
-modifier on the wrong kind of field;</li>
+<li><code>table()</code>, <code>form()</code> or <code>view()</code> is malformed: a duplicate column, filter or field name, a
+zero page size, an empty column set, a lens that binds no column, or a search or sort on a
+computed column. Rendering such a table through <code>Table::render</code> (or <code>render_with_state</code>) or
+such a schema through <code>Schema::render</code> fails with the same errors;</li>
 <li>the record form and <code>form()</code> disagree: a control no form field binds, a form field with no
 control, an optional control whose field has no blank value, a <code>unique()</code> field with no
 unique index, or a tenant-owned resource’s form claiming its tenant column;</li>
@@ -339,8 +343,12 @@ default, not the tenant stamp, and not listed in <code>CREATE_COLUMNS</code>;</l
 <li><code>requires_tenant()</code> is <code>true</code> and no tenant predicate can be derived;</li>
 <li>a relation names a resource the panel does not register, or names one twice.</li>
 </ul>
-<p>Because of this call, <code>table()</code>, <code>form()</code>, <code>view()</code> and <code>can_create()</code> must not depend on the
-request: a check that reads the current user or tenant sees an anonymous request at startup.</p>
+<p>A modifier on the wrong kind of field does not compile: each <code>Field</code> constructor returns its
+control’s builder (<code>TextField</code>, <code>ChoiceField</code>, <code>FileField</code>, <code>CustomField</code>), which offers only
+that control’s modifiers.</p>
+<p>The panel serves the checked declarations to every request, so <code>table()</code>, <code>form()</code> and
+<code>view()</code> must not depend on the request: a declaration takes no user, tenant or query
+string, and a check that reads one sees an anonymous request at startup.</p>
 
                     </main>
 

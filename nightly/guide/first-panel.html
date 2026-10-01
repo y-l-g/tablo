@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2d345057.js";
+            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -241,7 +241,7 @@ impl Resource for BookResource {
         true
     }
 
-    fn table(_cx: &amp;Cx) -&gt; Table&lt;Book&gt; {
+    fn table() -&gt; Table&lt;Book&gt; {
         Table::new(
             |b: &amp;Book| b.id.to_string(),
             TextColumn::r#for(Book::fields().title(), |b: &amp;Book| b.title.clone())
@@ -250,7 +250,7 @@ impl Resource for BookResource {
         )
     }
 
-    fn form(_cx: &amp;Cx) -&gt; Schema {
+    fn form(_dx: &amp;DeclCx) -&gt; Schema {
         Schema::new(Field::text(Book::fields().title()))
     }
 }

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/tablo-core/src/panel/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="tablo_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">tablo_core/panel/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! `Panel` — the admin application shell.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/tablo-core/src/panel/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="tablo_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.0 (b940084d7 2026-09-28)" data-channel="1.99.0" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">tablo_core/panel/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! `Panel` — the admin application shell.
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! Owns the [`Router`](topcoat::router::Router) and the `Db` in `app_context`, and registers each
 <a href=#4 id=4 data-nosnippet>4</a>//! declared [`Resource`]'s list page and each [`Page`] at `{prefix}/{slug}`,
@@ -83,7 +83,7 @@
 <a href=#83 id=83 data-nosnippet>83</a>/// Delete link and bulk column from
 <a href=#84 id=84 data-nosnippet>84</a>/// [`can_delete_any`](crate::resource::Resource::can_delete_any), the Edit link
 <a href=#85 id=85 data-nosnippet>85</a>/// from a record form ([`RecordForm::HAS_FORM`])
-<a href=#86 id=86 data-nosnippet>86</a>/// and the View link from [`viewed`](crate::resource::Resource::viewed) — each gated
+<a href=#86 id=86 data-nosnippet>86</a>/// and the View link from a non-empty [`view`](crate::resource::Resource::view) — each gated
 <a href=#87 id=87 data-nosnippet>87</a>/// per row by `can_view`/`can_update`/`can_delete`, the wiring the panel's own
 <a href=#88 id=88 data-nosnippet>88</a>/// list applies. The chrome has no other entry point: a page-owned table that
 <a href=#89 id=89 data-nosnippet>89</a>/// must agree with the resource's routes takes its wiring from here.
@@ -312,316 +312,323 @@
 <a href=#312 id=312 data-nosnippet>312</a>            .map(|relation| relation.key().to_string())
 <a href=#313 id=313 data-nosnippet>313</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 <a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">for </span>relation <span class="kw">in </span><span class="kw-2">&amp;</span>declared {
-<a href=#315 id=315 data-nosnippet>315</a>            <span class="self">self</span>.relation_handlers.insert(
-<a href=#316 id=316 data-nosnippet>316</a>                (R::slug(), relation.key().to_string()),
-<a href=#317 id=317 data-nosnippet>317</a>                relation.search_handler(),
-<a href=#318 id=318 data-nosnippet>318</a>            );
-<a href=#319 id=319 data-nosnippet>319</a>        }
-<a href=#320 id=320 data-nosnippet>320</a>        <span class="kw">if </span>!keys.is_empty() {
-<a href=#321 id=321 data-nosnippet>321</a>            <span class="self">self</span>.relations.push((std::any::type_name::&lt;R&gt;(), keys));
-<a href=#322 id=322 data-nosnippet>322</a>        }
-<a href=#323 id=323 data-nosnippet>323</a>        <span class="self">self
-<a href=#324 id=324 data-nosnippet>324</a>    </span>}
-<a href=#325 id=325 data-nosnippet>325</a>
-<a href=#326 id=326 data-nosnippet>326</a>    <span class="doccomment">/// The create page, the edit page, and the relationship-options endpoint
-<a href=#327 id=327 data-nosnippet>327</a>    /// of a resource with a record form.
-<a href=#328 id=328 data-nosnippet>328</a>    </span><span class="kw">fn </span>register_form_routes&lt;R: Resource&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>str) {
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="comment">// Create page — GET renders form, POST handles submission.
-<a href=#330 id=330 data-nosnippet>330</a>        </span><span class="kw">let </span>create_url = <span class="macro">format!</span>(<span class="string">"{url}/{CREATE_ROUTE_SEGMENT}"</span>);
-<a href=#331 id=331 data-nosnippet>331</a>        <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#332 id=332 data-nosnippet>332</a>            http::Method::GET,
-<a href=#333 id=333 data-nosnippet>333</a>            route_path(<span class="kw-2">&amp;</span>create_url),
-<a href=#334 id=334 data-nosnippet>334</a>            resource_create::&lt;R&gt;,
-<a href=#335 id=335 data-nosnippet>335</a>        ));
-<a href=#336 id=336 data-nosnippet>336</a>        <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#337 id=337 data-nosnippet>337</a>            http::Method::POST,
-<a href=#338 id=338 data-nosnippet>338</a>            route_path(<span class="kw-2">&amp;</span>create_url),
-<a href=#339 id=339 data-nosnippet>339</a>            resource_create_post::&lt;R&gt;,
-<a href=#340 id=340 data-nosnippet>340</a>        ));
-<a href=#341 id=341 data-nosnippet>341</a>        <span class="comment">// Edit page — GET renders hydrated form, POST handles update.
-<a href=#342 id=342 data-nosnippet>342</a>        </span><span class="kw">let </span>edit_url = <span class="macro">format!</span>(<span class="string">"{url}/{RECORD_ROUTE_PARAM}/{EDIT_ROUTE_SEGMENT}"</span>);
+<a href=#315 id=315 data-nosnippet>315</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(error) = relation.misdeclared() {
+<a href=#316 id=316 data-nosnippet>316</a>                <span class="self">self</span>.registration_errors.push(<span class="macro">format!</span>(
+<a href=#317 id=317 data-nosnippet>317</a>                    <span class="string">"resource `{}`'s relation `{}`: {error}"</span>,
+<a href=#318 id=318 data-nosnippet>318</a>                    std::any::type_name::&lt;R&gt;(),
+<a href=#319 id=319 data-nosnippet>319</a>                    relation.key()
+<a href=#320 id=320 data-nosnippet>320</a>                ));
+<a href=#321 id=321 data-nosnippet>321</a>            }
+<a href=#322 id=322 data-nosnippet>322</a>            <span class="self">self</span>.relation_handlers.insert(
+<a href=#323 id=323 data-nosnippet>323</a>                (R::slug(), relation.key().to_string()),
+<a href=#324 id=324 data-nosnippet>324</a>                relation.search_handler(),
+<a href=#325 id=325 data-nosnippet>325</a>            );
+<a href=#326 id=326 data-nosnippet>326</a>        }
+<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">if </span>!keys.is_empty() {
+<a href=#328 id=328 data-nosnippet>328</a>            <span class="self">self</span>.relations.push((std::any::type_name::&lt;R&gt;(), keys));
+<a href=#329 id=329 data-nosnippet>329</a>        }
+<a href=#330 id=330 data-nosnippet>330</a>        <span class="self">self
+<a href=#331 id=331 data-nosnippet>331</a>    </span>}
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>    <span class="doccomment">/// The create page, the edit page, and the relationship-options endpoint
+<a href=#334 id=334 data-nosnippet>334</a>    /// of a resource with a record form.
+<a href=#335 id=335 data-nosnippet>335</a>    </span><span class="kw">fn </span>register_form_routes&lt;R: Resource&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>str) {
+<a href=#336 id=336 data-nosnippet>336</a>        <span class="comment">// Create page — GET renders form, POST handles submission.
+<a href=#337 id=337 data-nosnippet>337</a>        </span><span class="kw">let </span>create_url = <span class="macro">format!</span>(<span class="string">"{url}/{CREATE_ROUTE_SEGMENT}"</span>);
+<a href=#338 id=338 data-nosnippet>338</a>        <span class="self">self</span>.pages.push(PageFn::new(
+<a href=#339 id=339 data-nosnippet>339</a>            http::Method::GET,
+<a href=#340 id=340 data-nosnippet>340</a>            route_path(<span class="kw-2">&amp;</span>create_url),
+<a href=#341 id=341 data-nosnippet>341</a>            resource_create::&lt;R&gt;,
+<a href=#342 id=342 data-nosnippet>342</a>        ));
 <a href=#343 id=343 data-nosnippet>343</a>        <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#344 id=344 data-nosnippet>344</a>            http::Method::GET,
-<a href=#345 id=345 data-nosnippet>345</a>            route_path(<span class="kw-2">&amp;</span>edit_url),
-<a href=#346 id=346 data-nosnippet>346</a>            resource_edit::&lt;R&gt;,
+<a href=#344 id=344 data-nosnippet>344</a>            http::Method::POST,
+<a href=#345 id=345 data-nosnippet>345</a>            route_path(<span class="kw-2">&amp;</span>create_url),
+<a href=#346 id=346 data-nosnippet>346</a>            resource_create_post::&lt;R&gt;,
 <a href=#347 id=347 data-nosnippet>347</a>        ));
-<a href=#348 id=348 data-nosnippet>348</a>        <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#349 id=349 data-nosnippet>349</a>            http::Method::POST,
-<a href=#350 id=350 data-nosnippet>350</a>            route_path(<span class="kw-2">&amp;</span>edit_url),
-<a href=#351 id=351 data-nosnippet>351</a>            resource_edit_post::&lt;R&gt;,
-<a href=#352 id=352 data-nosnippet>352</a>        ));
-<a href=#353 id=353 data-nosnippet>353</a>        <span class="comment">// Relationship option search — GET for searchable selects past the cap
-<a href=#354 id=354 data-nosnippet>354</a>        // `{list_url}/options?field=&amp;q=` reusing the related
-<a href=#355 id=355 data-nosnippet>355</a>        // table's searchable columns, bounded, policy-checked.
-<a href=#356 id=356 data-nosnippet>356</a>        </span><span class="kw">let </span>options_url = <span class="macro">format!</span>(<span class="string">"{url}/options"</span>);
-<a href=#357 id=357 data-nosnippet>357</a>        <span class="self">self</span>.routes.push(RouteFn::new(
-<a href=#358 id=358 data-nosnippet>358</a>            http::Method::GET,
-<a href=#359 id=359 data-nosnippet>359</a>            route_path(<span class="kw-2">&amp;</span>options_url),
-<a href=#360 id=360 data-nosnippet>360</a>            resource_options::&lt;R&gt;,
-<a href=#361 id=361 data-nosnippet>361</a>        ));
-<a href=#362 id=362 data-nosnippet>362</a>    }
-<a href=#363 id=363 data-nosnippet>363</a>
-<a href=#364 id=364 data-nosnippet>364</a>    <span class="doccomment">/// The routes every resource registers: the list, the detail page,
-<a href=#365 id=365 data-nosnippet>365</a>    /// delete, bulk delete, and export. Returns the list URL,
-<a href=#366 id=366 data-nosnippet>366</a>    /// or `None` when the slug was refused.
-<a href=#367 id=367 data-nosnippet>367</a>    </span><span class="kw">fn </span>register_common&lt;R: Resource&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-<a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">let </span>url = <span class="self">self</span>.claim_slug::&lt;R&gt;(<span class="string">"Resource::slug"</span>, R::slug())<span class="question-mark">?</span>;
-<a href=#369 id=369 data-nosnippet>369</a>        <span class="self">self</span>.resource_slugs.push(R::slug());
-<a href=#370 id=370 data-nosnippet>370</a>        <span class="self">self</span>.resource_checks.push(check_resource::&lt;R&gt;);
-<a href=#371 id=371 data-nosnippet>371</a>        <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#372 id=372 data-nosnippet>372</a>            http::Method::GET,
-<a href=#373 id=373 data-nosnippet>373</a>            route_path(<span class="kw-2">&amp;</span>url),
-<a href=#374 id=374 data-nosnippet>374</a>            resource_list::&lt;R&gt;,
-<a href=#375 id=375 data-nosnippet>375</a>        ));
-<a href=#376 id=376 data-nosnippet>376</a>        <span class="comment">// Detail page — GET renders the record read-only. Registered
-<a href=#377 id=377 data-nosnippet>377</a>        // unconditionally, unlike the row link: registration runs before a
-<a href=#378 id=378 data-nosnippet>378</a>        // request exists, so `R::view(cx)` is not declarable here. The handler
-<a href=#379 id=379 data-nosnippet>379</a>        // 404s a resource that declares no view, which is the same answer as an
-<a href=#380 id=380 data-nosnippet>380</a>        // unknown id and costs one comparison.
-<a href=#381 id=381 data-nosnippet>381</a>        //
-<a href=#382 id=382 data-nosnippet>382</a>        // `RECORD_ROUTE_PARAM` shares its position with the literal `create`
-<a href=#383 id=383 data-nosnippet>383</a>        // segment: topcoat routes through `matchit`, which prefers a static
-<a href=#384 id=384 data-nosnippet>384</a>        // segment over a parameter one, so the create page keeps being reached
-<a href=#385 id=385 data-nosnippet>385</a>        // regardless of registration order.
-<a href=#386 id=386 data-nosnippet>386</a>        </span><span class="kw">let </span>detail_url = <span class="macro">format!</span>(<span class="string">"{url}/{RECORD_ROUTE_PARAM}"</span>);
-<a href=#387 id=387 data-nosnippet>387</a>        <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#388 id=388 data-nosnippet>388</a>            http::Method::GET,
-<a href=#389 id=389 data-nosnippet>389</a>            route_path(<span class="kw-2">&amp;</span>detail_url),
-<a href=#390 id=390 data-nosnippet>390</a>            resource_view::&lt;R&gt;,
-<a href=#391 id=391 data-nosnippet>391</a>        ));
-<a href=#392 id=392 data-nosnippet>392</a>        <span class="comment">// Delete action — POST via row button (requires confirmation).
-<a href=#393 id=393 data-nosnippet>393</a>        </span><span class="kw">let </span>delete_url = <span class="macro">format!</span>(<span class="string">"{url}/{RECORD_ROUTE_PARAM}/{DELETE_ROUTE_SEGMENT}"</span>);
+<a href=#348 id=348 data-nosnippet>348</a>        <span class="comment">// Edit page — GET renders hydrated form, POST handles update.
+<a href=#349 id=349 data-nosnippet>349</a>        </span><span class="kw">let </span>edit_url = <span class="macro">format!</span>(<span class="string">"{url}/{RECORD_ROUTE_PARAM}/{EDIT_ROUTE_SEGMENT}"</span>);
+<a href=#350 id=350 data-nosnippet>350</a>        <span class="self">self</span>.pages.push(PageFn::new(
+<a href=#351 id=351 data-nosnippet>351</a>            http::Method::GET,
+<a href=#352 id=352 data-nosnippet>352</a>            route_path(<span class="kw-2">&amp;</span>edit_url),
+<a href=#353 id=353 data-nosnippet>353</a>            resource_edit::&lt;R&gt;,
+<a href=#354 id=354 data-nosnippet>354</a>        ));
+<a href=#355 id=355 data-nosnippet>355</a>        <span class="self">self</span>.pages.push(PageFn::new(
+<a href=#356 id=356 data-nosnippet>356</a>            http::Method::POST,
+<a href=#357 id=357 data-nosnippet>357</a>            route_path(<span class="kw-2">&amp;</span>edit_url),
+<a href=#358 id=358 data-nosnippet>358</a>            resource_edit_post::&lt;R&gt;,
+<a href=#359 id=359 data-nosnippet>359</a>        ));
+<a href=#360 id=360 data-nosnippet>360</a>        <span class="comment">// Relationship option search — GET for searchable selects past the cap
+<a href=#361 id=361 data-nosnippet>361</a>        // `{list_url}/options?field=&amp;q=` reusing the related
+<a href=#362 id=362 data-nosnippet>362</a>        // table's searchable columns, bounded, policy-checked.
+<a href=#363 id=363 data-nosnippet>363</a>        </span><span class="kw">let </span>options_url = <span class="macro">format!</span>(<span class="string">"{url}/options"</span>);
+<a href=#364 id=364 data-nosnippet>364</a>        <span class="self">self</span>.routes.push(RouteFn::new(
+<a href=#365 id=365 data-nosnippet>365</a>            http::Method::GET,
+<a href=#366 id=366 data-nosnippet>366</a>            route_path(<span class="kw-2">&amp;</span>options_url),
+<a href=#367 id=367 data-nosnippet>367</a>            resource_options::&lt;R&gt;,
+<a href=#368 id=368 data-nosnippet>368</a>        ));
+<a href=#369 id=369 data-nosnippet>369</a>    }
+<a href=#370 id=370 data-nosnippet>370</a>
+<a href=#371 id=371 data-nosnippet>371</a>    <span class="doccomment">/// The routes every resource registers: the list, the detail page,
+<a href=#372 id=372 data-nosnippet>372</a>    /// delete, bulk delete, and export. Returns the list URL,
+<a href=#373 id=373 data-nosnippet>373</a>    /// or `None` when the slug was refused.
+<a href=#374 id=374 data-nosnippet>374</a>    </span><span class="kw">fn </span>register_common&lt;R: Resource&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#375 id=375 data-nosnippet>375</a>        <span class="kw">let </span>url = <span class="self">self</span>.claim_slug::&lt;R&gt;(<span class="string">"Resource::slug"</span>, R::slug())<span class="question-mark">?</span>;
+<a href=#376 id=376 data-nosnippet>376</a>        <span class="self">self</span>.resource_slugs.push(R::slug());
+<a href=#377 id=377 data-nosnippet>377</a>        <span class="self">self</span>.resource_checks.push(check_resource::&lt;R&gt;);
+<a href=#378 id=378 data-nosnippet>378</a>        <span class="self">self</span>.pages.push(PageFn::new(
+<a href=#379 id=379 data-nosnippet>379</a>            http::Method::GET,
+<a href=#380 id=380 data-nosnippet>380</a>            route_path(<span class="kw-2">&amp;</span>url),
+<a href=#381 id=381 data-nosnippet>381</a>            resource_list::&lt;R&gt;,
+<a href=#382 id=382 data-nosnippet>382</a>        ));
+<a href=#383 id=383 data-nosnippet>383</a>        <span class="comment">// Detail page — GET renders the record read-only. Registered
+<a href=#384 id=384 data-nosnippet>384</a>        // unconditionally, unlike the row link: registration runs before
+<a href=#385 id=385 data-nosnippet>385</a>        // `Panel::build` has the `Db` the view declaration resolves through.
+<a href=#386 id=386 data-nosnippet>386</a>        // The handler 404s a resource that declares no view, which is the same
+<a href=#387 id=387 data-nosnippet>387</a>        // answer as an unknown id and costs one comparison.
+<a href=#388 id=388 data-nosnippet>388</a>        //
+<a href=#389 id=389 data-nosnippet>389</a>        // `RECORD_ROUTE_PARAM` shares its position with the literal `create`
+<a href=#390 id=390 data-nosnippet>390</a>        // segment: topcoat routes through `matchit`, which prefers a static
+<a href=#391 id=391 data-nosnippet>391</a>        // segment over a parameter one, so the create page keeps being reached
+<a href=#392 id=392 data-nosnippet>392</a>        // regardless of registration order.
+<a href=#393 id=393 data-nosnippet>393</a>        </span><span class="kw">let </span>detail_url = <span class="macro">format!</span>(<span class="string">"{url}/{RECORD_ROUTE_PARAM}"</span>);
 <a href=#394 id=394 data-nosnippet>394</a>        <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#395 id=395 data-nosnippet>395</a>            http::Method::POST,
-<a href=#396 id=396 data-nosnippet>396</a>            route_path(<span class="kw-2">&amp;</span>delete_url),
-<a href=#397 id=397 data-nosnippet>397</a>            resource_delete::&lt;R&gt;,
+<a href=#395 id=395 data-nosnippet>395</a>            http::Method::GET,
+<a href=#396 id=396 data-nosnippet>396</a>            route_path(<span class="kw-2">&amp;</span>detail_url),
+<a href=#397 id=397 data-nosnippet>397</a>            resource_view::&lt;R&gt;,
 <a href=#398 id=398 data-nosnippet>398</a>        ));
-<a href=#399 id=399 data-nosnippet>399</a>        <span class="comment">// Bulk delete — POST with `ids` form field (comma-separated).
-<a href=#400 id=400 data-nosnippet>400</a>        </span><span class="kw">let </span>bulk_delete_url = <span class="macro">format!</span>(<span class="string">"{url}/{BULK_DELETE_ROUTE_SEGMENT}"</span>);
+<a href=#399 id=399 data-nosnippet>399</a>        <span class="comment">// Delete action — POST via row button (requires confirmation).
+<a href=#400 id=400 data-nosnippet>400</a>        </span><span class="kw">let </span>delete_url = <span class="macro">format!</span>(<span class="string">"{url}/{RECORD_ROUTE_PARAM}/{DELETE_ROUTE_SEGMENT}"</span>);
 <a href=#401 id=401 data-nosnippet>401</a>        <span class="self">self</span>.pages.push(PageFn::new(
 <a href=#402 id=402 data-nosnippet>402</a>            http::Method::POST,
-<a href=#403 id=403 data-nosnippet>403</a>            route_path(<span class="kw-2">&amp;</span>bulk_delete_url),
-<a href=#404 id=404 data-nosnippet>404</a>            resource_bulk_delete::&lt;R&gt;,
+<a href=#403 id=403 data-nosnippet>403</a>            route_path(<span class="kw-2">&amp;</span>delete_url),
+<a href=#404 id=404 data-nosnippet>404</a>            resource_delete::&lt;R&gt;,
 <a href=#405 id=405 data-nosnippet>405</a>        ));
-<a href=#406 id=406 data-nosnippet>406</a>        <span class="comment">// Custom actions — POST per row and for the bulk selection, the action
-<a href=#407 id=407 data-nosnippet>407</a>        // named by the last segment. Registered only for a resource that
-<a href=#408 id=408 data-nosnippet>408</a>        // declares some: the list-level route's static `actions` segment
-<a href=#409 id=409 data-nosnippet>409</a>        // would otherwise shadow the edit and delete routes of a record whose
-<a href=#410 id=410 data-nosnippet>410</a>        // key is `actions`, for nothing.
-<a href=#411 id=411 data-nosnippet>411</a>        </span><span class="kw">if </span>!R::actions().entries().is_empty() {
-<a href=#412 id=412 data-nosnippet>412</a>            <span class="kw">let </span>row_action_url =
-<a href=#413 id=413 data-nosnippet>413</a>                <span class="macro">format!</span>(<span class="string">"{url}/{RECORD_ROUTE_PARAM}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"</span>);
-<a href=#414 id=414 data-nosnippet>414</a>            <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#415 id=415 data-nosnippet>415</a>                http::Method::POST,
-<a href=#416 id=416 data-nosnippet>416</a>                route_path(<span class="kw-2">&amp;</span>row_action_url),
-<a href=#417 id=417 data-nosnippet>417</a>                resource_row_action::&lt;R&gt;,
-<a href=#418 id=418 data-nosnippet>418</a>            ));
-<a href=#419 id=419 data-nosnippet>419</a>            <span class="kw">let </span>bulk_action_url = <span class="macro">format!</span>(<span class="string">"{url}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"</span>);
-<a href=#420 id=420 data-nosnippet>420</a>            <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#421 id=421 data-nosnippet>421</a>                http::Method::POST,
-<a href=#422 id=422 data-nosnippet>422</a>                route_path(<span class="kw-2">&amp;</span>bulk_action_url),
-<a href=#423 id=423 data-nosnippet>423</a>                resource_bulk_action::&lt;R&gt;,
-<a href=#424 id=424 data-nosnippet>424</a>            ));
-<a href=#425 id=425 data-nosnippet>425</a>        }
-<a href=#426 id=426 data-nosnippet>426</a>        <span class="comment">// CSV export — GET over the tenant-scoped export query + Table
-<a href=#427 id=427 data-nosnippet>427</a>        // filters/sort (ADR-0012).
-<a href=#428 id=428 data-nosnippet>428</a>        </span><span class="kw">let </span>export_url = <span class="macro">format!</span>(<span class="string">"{url}/export"</span>);
-<a href=#429 id=429 data-nosnippet>429</a>        <span class="self">self</span>.routes.push(RouteFn::new(
-<a href=#430 id=430 data-nosnippet>430</a>            http::Method::GET,
-<a href=#431 id=431 data-nosnippet>431</a>            route_path(<span class="kw-2">&amp;</span>export_url),
-<a href=#432 id=432 data-nosnippet>432</a>            resource_export::&lt;R&gt;,
-<a href=#433 id=433 data-nosnippet>433</a>        ));
-<a href=#434 id=434 data-nosnippet>434</a>        <span class="prelude-val">Some</span>(url)
-<a href=#435 id=435 data-nosnippet>435</a>    }
-<a href=#436 id=436 data-nosnippet>436</a>
-<a href=#437 id=437 data-nosnippet>437</a>    <span class="doccomment">/// The registration tail every resource shares: its live-search handler,
-<a href=#438 id=438 data-nosnippet>438</a>    /// the panel root, and its sidebar entry.
-<a href=#439 id=439 data-nosnippet>439</a>    </span><span class="kw">fn </span>finish_registration&lt;R: Resource&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, url: String) {
-<a href=#440 id=440 data-nosnippet>440</a>        <span class="comment">// Live-search handler: the slug-dispatched `#[shard]` cannot be generic
-<a href=#441 id=441 data-nosnippet>441</a>        // (inventory only discovers concrete fns), so each resource
-<a href=#442 id=442 data-nosnippet>442</a>        // monomorphizes its table loader here, keyed by list path.
-<a href=#443 id=443 data-nosnippet>443</a>        </span><span class="self">self</span>.search_handlers
-<a href=#444 id=444 data-nosnippet>444</a>            .insert(url.clone(), search_handler_for::&lt;R&gt;());
-<a href=#445 id=445 data-nosnippet>445</a>        <span class="kw">if </span><span class="self">self</span>.root.is_none() {
-<a href=#446 id=446 data-nosnippet>446</a>            <span class="self">self</span>.root = <span class="prelude-val">Some</span>(Root::Redirect(url));
-<a href=#447 id=447 data-nosnippet>447</a>        }
-<a href=#448 id=448 data-nosnippet>448</a>        <span class="kw">let </span>nav_item = <span class="self">self</span>.nav_item::&lt;R&gt;();
-<a href=#449 id=449 data-nosnippet>449</a>        <span class="self">self</span>.nav_items.push(nav_item);
-<a href=#450 id=450 data-nosnippet>450</a>    }
-<a href=#451 id=451 data-nosnippet>451</a>
-<a href=#452 id=452 data-nosnippet>452</a>    <span class="doccomment">/// Claim `{prefix}/{slug}` for the resource or page `T`, returning that
-<a href=#453 id=453 data-nosnippet>453</a>    /// URL, or record why the slug is refused: it is not one URL segment, the
-<a href=#454 id=454 data-nosnippet>454</a>    /// panel routes it itself, or another resource or page holds it.
-<a href=#455 id=455 data-nosnippet>455</a>    </span><span class="kw">fn </span>claim_slug&lt;T&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: <span class="kw-2">&amp;</span>str, slug: String) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-<a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">let </span>owner = std::any::type_name::&lt;T&gt;();
-<a href=#457 id=457 data-nosnippet>457</a>        <span class="kw">let </span>refused = <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = validate_route_segment(kind, <span class="kw-2">&amp;</span>slug) {
-<a href=#458 id=458 data-nosnippet>458</a>            <span class="prelude-val">Some</span>(error)
-<a href=#459 id=459 data-nosnippet>459</a>        } <span class="kw">else if </span>RESERVED_SLUGS.contains(<span class="kw-2">&amp;</span>slug.as_str()) {
-<a href=#460 id=460 data-nosnippet>460</a>            <span class="prelude-val">Some</span>(<span class="macro">format!</span>(
-<a href=#461 id=461 data-nosnippet>461</a>                <span class="string">"slug '{slug}' of `{owner}`: the panel routes `{}/{slug}` itself"</span>,
-<a href=#462 id=462 data-nosnippet>462</a>                <span class="self">self</span>.prefix
-<a href=#463 id=463 data-nosnippet>463</a>            ))
-<a href=#464 id=464 data-nosnippet>464</a>        } <span class="kw">else if </span><span class="self">self</span>.slugs.contains(<span class="kw-2">&amp;</span>slug) {
-<a href=#465 id=465 data-nosnippet>465</a>            <span class="prelude-val">Some</span>(<span class="macro">format!</span>(
-<a href=#466 id=466 data-nosnippet>466</a>                <span class="string">"duplicate slug '{slug}': `{owner}` mounts where another resource or page does \
-<a href=#467 id=467 data-nosnippet>467</a>                 — each needs a distinct `slug()`"
-<a href=#468 id=468 data-nosnippet>468</a>            </span>))
-<a href=#469 id=469 data-nosnippet>469</a>        } <span class="kw">else </span>{
-<a href=#470 id=470 data-nosnippet>470</a>            <span class="prelude-val">None
-<a href=#471 id=471 data-nosnippet>471</a>        </span>};
-<a href=#472 id=472 data-nosnippet>472</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(error) = refused {
-<a href=#473 id=473 data-nosnippet>473</a>            <span class="self">self</span>.registration_errors.push(error);
-<a href=#474 id=474 data-nosnippet>474</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#475 id=475 data-nosnippet>475</a>        }
-<a href=#476 id=476 data-nosnippet>476</a>        <span class="kw">let </span>url = <span class="macro">format!</span>(<span class="string">"{}/{slug}"</span>, <span class="self">self</span>.prefix);
-<a href=#477 id=477 data-nosnippet>477</a>        <span class="self">self</span>.slugs.push(slug);
-<a href=#478 id=478 data-nosnippet>478</a>        <span class="prelude-val">Some</span>(url)
-<a href=#479 id=479 data-nosnippet>479</a>    }
-<a href=#480 id=480 data-nosnippet>480</a>
-<a href=#481 id=481 data-nosnippet>481</a>    <span class="doccomment">/// Declare a [`Page`] for this panel: its `GET` at `{prefix}/{slug}`
-<a href=#482 id=482 data-nosnippet>482</a>    /// and its sidebar entry at the same URL.
-<a href=#483 id=483 data-nosnippet>483</a>    ///
-<a href=#484 id=484 data-nosnippet>484</a>    /// Pages and resources share one slug namespace, and the slug is checked
-<a href=#485 id=485 data-nosnippet>485</a>    /// as a resource's is ([`Self::resource`]): a refused one is reported by
-<a href=#486 id=486 data-nosnippet>486</a>    /// [`Panel::build`].
-<a href=#487 id=487 data-nosnippet>487</a>    </span><span class="kw">pub fn </span>page&lt;P: Page&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-<a href=#488 id=488 data-nosnippet>488</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = <span class="self">self</span>.claim_slug::&lt;P&gt;(<span class="string">"Page::slug"</span>, P::slug()) {
-<a href=#489 id=489 data-nosnippet>489</a>            <span class="kw">let </span>item = <span class="self">self</span>.mount_page::&lt;P&gt;(<span class="kw-2">&amp;</span>url);
-<a href=#490 id=490 data-nosnippet>490</a>            <span class="self">self</span>.nav_items.push(item);
-<a href=#491 id=491 data-nosnippet>491</a>        }
-<a href=#492 id=492 data-nosnippet>492</a>        <span class="self">self
-<a href=#493 id=493 data-nosnippet>493</a>    </span>}
-<a href=#494 id=494 data-nosnippet>494</a>
-<a href=#495 id=495 data-nosnippet>495</a>    <span class="doccomment">/// Declare the panel's home page (Filament's dashboard): the [`Page`]
-<a href=#496 id=496 data-nosnippet>496</a>    /// served at the panel prefix itself, with a sidebar entry there.
-<a href=#497 id=497 data-nosnippet>497</a>    ///
-<a href=#498 id=498 data-nosnippet>498</a>    /// It replaces the redirect to the first resource's list, and its entry
-<a href=#499 id=499 data-nosnippet>499</a>    /// leads the sidebar among entries of the same `order`. `P::slug()` is
-<a href=#500 id=500 data-nosnippet>500</a>    /// not read. A second call is recorded and reported by [`Panel::build`].
-<a href=#501 id=501 data-nosnippet>501</a>    </span><span class="kw">pub fn </span>home&lt;P: Page&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-<a href=#502 id=502 data-nosnippet>502</a>        <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.root, <span class="prelude-val">Some</span>(Root::Home)) {
-<a href=#503 id=503 data-nosnippet>503</a>            <span class="self">self</span>.registration_errors.push(<span class="macro">format!</span>(
-<a href=#504 id=504 data-nosnippet>504</a>                <span class="string">"Panel::home: a home page is already registered; `{}` would shadow it"</span>,
-<a href=#505 id=505 data-nosnippet>505</a>                std::any::type_name::&lt;P&gt;()
-<a href=#506 id=506 data-nosnippet>506</a>            ));
-<a href=#507 id=507 data-nosnippet>507</a>            <span class="kw">return </span><span class="self">self</span>;
-<a href=#508 id=508 data-nosnippet>508</a>        }
-<a href=#509 id=509 data-nosnippet>509</a>        <span class="self">self</span>.root = <span class="prelude-val">Some</span>(Root::Home);
-<a href=#510 id=510 data-nosnippet>510</a>        <span class="kw">let </span>item = <span class="self">self</span>.mount_page::&lt;P&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.prefix.clone());
-<a href=#511 id=511 data-nosnippet>511</a>        <span class="comment">// First among equal `order`s whatever the call order, as Filament's
-<a href=#512 id=512 data-nosnippet>512</a>        // dashboard leads its sidebar.
-<a href=#513 id=513 data-nosnippet>513</a>        </span><span class="self">self</span>.nav_items.insert(<span class="number">0</span>, item);
-<a href=#514 id=514 data-nosnippet>514</a>        <span class="self">self
-<a href=#515 id=515 data-nosnippet>515</a>    </span>}
-<a href=#516 id=516 data-nosnippet>516</a>
-<a href=#517 id=517 data-nosnippet>517</a>    <span class="doccomment">/// Route `P`'s `GET` at `url` and return its sidebar entry, resolved to
-<a href=#518 id=518 data-nosnippet>518</a>    /// the same URL.
-<a href=#519 id=519 data-nosnippet>519</a>    </span><span class="kw">fn </span>mount_page&lt;P: Page&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>str) -&gt; NavigationItem {
-<a href=#520 id=520 data-nosnippet>520</a>        <span class="self">self</span>.pages.push(PageFn::new(
-<a href=#521 id=521 data-nosnippet>521</a>            http::Method::GET,
-<a href=#522 id=522 data-nosnippet>522</a>            route_path(url),
-<a href=#523 id=523 data-nosnippet>523</a>            page_handler::&lt;P&gt;,
-<a href=#524 id=524 data-nosnippet>524</a>        ));
-<a href=#525 id=525 data-nosnippet>525</a>        P::navigation().resolved(url)
-<a href=#526 id=526 data-nosnippet>526</a>    }
-<a href=#527 id=527 data-nosnippet>527</a>
-<a href=#528 id=528 data-nosnippet>528</a>    <span class="doccomment">/// Set branding for the shell (sidebar header, login card, and the topbar below `md`). Additive
-<a href=#529 id=529 data-nosnippet>529</a>    /// `class` stays the only Shell seam.
-<a href=#530 id=530 data-nosnippet>530</a>    </span><span class="kw">pub fn </span>brand(<span class="kw-2">mut </span><span class="self">self</span>, brand: Brand) -&gt; <span class="self">Self </span>{
-<a href=#531 id=531 data-nosnippet>531</a>        <span class="self">self</span>.brand = <span class="prelude-val">Some</span>(brand);
-<a href=#532 id=532 data-nosnippet>532</a>        <span class="self">self
-<a href=#533 id=533 data-nosnippet>533</a>    </span>}
+<a href=#406 id=406 data-nosnippet>406</a>        <span class="comment">// Bulk delete — POST with `ids` form field (comma-separated).
+<a href=#407 id=407 data-nosnippet>407</a>        </span><span class="kw">let </span>bulk_delete_url = <span class="macro">format!</span>(<span class="string">"{url}/{BULK_DELETE_ROUTE_SEGMENT}"</span>);
+<a href=#408 id=408 data-nosnippet>408</a>        <span class="self">self</span>.pages.push(PageFn::new(
+<a href=#409 id=409 data-nosnippet>409</a>            http::Method::POST,
+<a href=#410 id=410 data-nosnippet>410</a>            route_path(<span class="kw-2">&amp;</span>bulk_delete_url),
+<a href=#411 id=411 data-nosnippet>411</a>            resource_bulk_delete::&lt;R&gt;,
+<a href=#412 id=412 data-nosnippet>412</a>        ));
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="comment">// Custom actions — POST per row and for the bulk selection, the action
+<a href=#414 id=414 data-nosnippet>414</a>        // named by the last segment. Registered only for a resource that
+<a href=#415 id=415 data-nosnippet>415</a>        // declares some: the list-level route's static `actions` segment
+<a href=#416 id=416 data-nosnippet>416</a>        // would otherwise shadow the edit and delete routes of a record whose
+<a href=#417 id=417 data-nosnippet>417</a>        // key is `actions`, for nothing.
+<a href=#418 id=418 data-nosnippet>418</a>        </span><span class="kw">if </span>!R::actions().entries().is_empty() {
+<a href=#419 id=419 data-nosnippet>419</a>            <span class="kw">let </span>row_action_url =
+<a href=#420 id=420 data-nosnippet>420</a>                <span class="macro">format!</span>(<span class="string">"{url}/{RECORD_ROUTE_PARAM}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"</span>);
+<a href=#421 id=421 data-nosnippet>421</a>            <span class="self">self</span>.pages.push(PageFn::new(
+<a href=#422 id=422 data-nosnippet>422</a>                http::Method::POST,
+<a href=#423 id=423 data-nosnippet>423</a>                route_path(<span class="kw-2">&amp;</span>row_action_url),
+<a href=#424 id=424 data-nosnippet>424</a>                resource_row_action::&lt;R&gt;,
+<a href=#425 id=425 data-nosnippet>425</a>            ));
+<a href=#426 id=426 data-nosnippet>426</a>            <span class="kw">let </span>bulk_action_url = <span class="macro">format!</span>(<span class="string">"{url}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"</span>);
+<a href=#427 id=427 data-nosnippet>427</a>            <span class="self">self</span>.pages.push(PageFn::new(
+<a href=#428 id=428 data-nosnippet>428</a>                http::Method::POST,
+<a href=#429 id=429 data-nosnippet>429</a>                route_path(<span class="kw-2">&amp;</span>bulk_action_url),
+<a href=#430 id=430 data-nosnippet>430</a>                resource_bulk_action::&lt;R&gt;,
+<a href=#431 id=431 data-nosnippet>431</a>            ));
+<a href=#432 id=432 data-nosnippet>432</a>        }
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="comment">// CSV export — GET over the tenant-scoped export query + Table
+<a href=#434 id=434 data-nosnippet>434</a>        // filters/sort (ADR-0012).
+<a href=#435 id=435 data-nosnippet>435</a>        </span><span class="kw">let </span>export_url = <span class="macro">format!</span>(<span class="string">"{url}/export"</span>);
+<a href=#436 id=436 data-nosnippet>436</a>        <span class="self">self</span>.routes.push(RouteFn::new(
+<a href=#437 id=437 data-nosnippet>437</a>            http::Method::GET,
+<a href=#438 id=438 data-nosnippet>438</a>            route_path(<span class="kw-2">&amp;</span>export_url),
+<a href=#439 id=439 data-nosnippet>439</a>            resource_export::&lt;R&gt;,
+<a href=#440 id=440 data-nosnippet>440</a>        ));
+<a href=#441 id=441 data-nosnippet>441</a>        <span class="prelude-val">Some</span>(url)
+<a href=#442 id=442 data-nosnippet>442</a>    }
+<a href=#443 id=443 data-nosnippet>443</a>
+<a href=#444 id=444 data-nosnippet>444</a>    <span class="doccomment">/// The registration tail every resource shares: its live-search handler,
+<a href=#445 id=445 data-nosnippet>445</a>    /// the panel root, and its sidebar entry.
+<a href=#446 id=446 data-nosnippet>446</a>    </span><span class="kw">fn </span>finish_registration&lt;R: Resource&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, url: String) {
+<a href=#447 id=447 data-nosnippet>447</a>        <span class="comment">// Live-search handler: the slug-dispatched `#[shard]` cannot be generic
+<a href=#448 id=448 data-nosnippet>448</a>        // (inventory only discovers concrete fns), so each resource
+<a href=#449 id=449 data-nosnippet>449</a>        // monomorphizes its table loader here, keyed by list path.
+<a href=#450 id=450 data-nosnippet>450</a>        </span><span class="self">self</span>.search_handlers
+<a href=#451 id=451 data-nosnippet>451</a>            .insert(url.clone(), search_handler_for::&lt;R&gt;());
+<a href=#452 id=452 data-nosnippet>452</a>        <span class="kw">if </span><span class="self">self</span>.root.is_none() {
+<a href=#453 id=453 data-nosnippet>453</a>            <span class="self">self</span>.root = <span class="prelude-val">Some</span>(Root::Redirect(url));
+<a href=#454 id=454 data-nosnippet>454</a>        }
+<a href=#455 id=455 data-nosnippet>455</a>        <span class="kw">let </span>nav_item = <span class="self">self</span>.nav_item::&lt;R&gt;();
+<a href=#456 id=456 data-nosnippet>456</a>        <span class="self">self</span>.nav_items.push(nav_item);
+<a href=#457 id=457 data-nosnippet>457</a>    }
+<a href=#458 id=458 data-nosnippet>458</a>
+<a href=#459 id=459 data-nosnippet>459</a>    <span class="doccomment">/// Claim `{prefix}/{slug}` for the resource or page `T`, returning that
+<a href=#460 id=460 data-nosnippet>460</a>    /// URL, or record why the slug is refused: it is not one URL segment, the
+<a href=#461 id=461 data-nosnippet>461</a>    /// panel routes it itself, or another resource or page holds it.
+<a href=#462 id=462 data-nosnippet>462</a>    </span><span class="kw">fn </span>claim_slug&lt;T&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: <span class="kw-2">&amp;</span>str, slug: String) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#463 id=463 data-nosnippet>463</a>        <span class="kw">let </span>owner = std::any::type_name::&lt;T&gt;();
+<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">let </span>refused = <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = validate_route_segment(kind, <span class="kw-2">&amp;</span>slug) {
+<a href=#465 id=465 data-nosnippet>465</a>            <span class="prelude-val">Some</span>(error)
+<a href=#466 id=466 data-nosnippet>466</a>        } <span class="kw">else if </span>RESERVED_SLUGS.contains(<span class="kw-2">&amp;</span>slug.as_str()) {
+<a href=#467 id=467 data-nosnippet>467</a>            <span class="prelude-val">Some</span>(<span class="macro">format!</span>(
+<a href=#468 id=468 data-nosnippet>468</a>                <span class="string">"slug '{slug}' of `{owner}`: the panel routes `{}/{slug}` itself"</span>,
+<a href=#469 id=469 data-nosnippet>469</a>                <span class="self">self</span>.prefix
+<a href=#470 id=470 data-nosnippet>470</a>            ))
+<a href=#471 id=471 data-nosnippet>471</a>        } <span class="kw">else if </span><span class="self">self</span>.slugs.contains(<span class="kw-2">&amp;</span>slug) {
+<a href=#472 id=472 data-nosnippet>472</a>            <span class="prelude-val">Some</span>(<span class="macro">format!</span>(
+<a href=#473 id=473 data-nosnippet>473</a>                <span class="string">"duplicate slug '{slug}': `{owner}` mounts where another resource or page does \
+<a href=#474 id=474 data-nosnippet>474</a>                 — each needs a distinct `slug()`"
+<a href=#475 id=475 data-nosnippet>475</a>            </span>))
+<a href=#476 id=476 data-nosnippet>476</a>        } <span class="kw">else </span>{
+<a href=#477 id=477 data-nosnippet>477</a>            <span class="prelude-val">None
+<a href=#478 id=478 data-nosnippet>478</a>        </span>};
+<a href=#479 id=479 data-nosnippet>479</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(error) = refused {
+<a href=#480 id=480 data-nosnippet>480</a>            <span class="self">self</span>.registration_errors.push(error);
+<a href=#481 id=481 data-nosnippet>481</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#482 id=482 data-nosnippet>482</a>        }
+<a href=#483 id=483 data-nosnippet>483</a>        <span class="kw">let </span>url = <span class="macro">format!</span>(<span class="string">"{}/{slug}"</span>, <span class="self">self</span>.prefix);
+<a href=#484 id=484 data-nosnippet>484</a>        <span class="self">self</span>.slugs.push(slug);
+<a href=#485 id=485 data-nosnippet>485</a>        <span class="prelude-val">Some</span>(url)
+<a href=#486 id=486 data-nosnippet>486</a>    }
+<a href=#487 id=487 data-nosnippet>487</a>
+<a href=#488 id=488 data-nosnippet>488</a>    <span class="doccomment">/// Declare a [`Page`] for this panel: its `GET` at `{prefix}/{slug}`
+<a href=#489 id=489 data-nosnippet>489</a>    /// and its sidebar entry at the same URL.
+<a href=#490 id=490 data-nosnippet>490</a>    ///
+<a href=#491 id=491 data-nosnippet>491</a>    /// Pages and resources share one slug namespace, and the slug is checked
+<a href=#492 id=492 data-nosnippet>492</a>    /// as a resource's is ([`Self::resource`]): a refused one is reported by
+<a href=#493 id=493 data-nosnippet>493</a>    /// [`Panel::build`].
+<a href=#494 id=494 data-nosnippet>494</a>    </span><span class="kw">pub fn </span>page&lt;P: Page&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#495 id=495 data-nosnippet>495</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = <span class="self">self</span>.claim_slug::&lt;P&gt;(<span class="string">"Page::slug"</span>, P::slug()) {
+<a href=#496 id=496 data-nosnippet>496</a>            <span class="kw">let </span>item = <span class="self">self</span>.mount_page::&lt;P&gt;(<span class="kw-2">&amp;</span>url);
+<a href=#497 id=497 data-nosnippet>497</a>            <span class="self">self</span>.nav_items.push(item);
+<a href=#498 id=498 data-nosnippet>498</a>        }
+<a href=#499 id=499 data-nosnippet>499</a>        <span class="self">self
+<a href=#500 id=500 data-nosnippet>500</a>    </span>}
+<a href=#501 id=501 data-nosnippet>501</a>
+<a href=#502 id=502 data-nosnippet>502</a>    <span class="doccomment">/// Declare the panel's home page (Filament's dashboard): the [`Page`]
+<a href=#503 id=503 data-nosnippet>503</a>    /// served at the panel prefix itself, with a sidebar entry there.
+<a href=#504 id=504 data-nosnippet>504</a>    ///
+<a href=#505 id=505 data-nosnippet>505</a>    /// It replaces the redirect to the first resource's list, and its entry
+<a href=#506 id=506 data-nosnippet>506</a>    /// leads the sidebar among entries of the same `order`. `P::slug()` is
+<a href=#507 id=507 data-nosnippet>507</a>    /// not read. A second call is recorded and reported by [`Panel::build`].
+<a href=#508 id=508 data-nosnippet>508</a>    </span><span class="kw">pub fn </span>home&lt;P: Page&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#509 id=509 data-nosnippet>509</a>        <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.root, <span class="prelude-val">Some</span>(Root::Home)) {
+<a href=#510 id=510 data-nosnippet>510</a>            <span class="self">self</span>.registration_errors.push(<span class="macro">format!</span>(
+<a href=#511 id=511 data-nosnippet>511</a>                <span class="string">"Panel::home: a home page is already registered; `{}` would shadow it"</span>,
+<a href=#512 id=512 data-nosnippet>512</a>                std::any::type_name::&lt;P&gt;()
+<a href=#513 id=513 data-nosnippet>513</a>            ));
+<a href=#514 id=514 data-nosnippet>514</a>            <span class="kw">return </span><span class="self">self</span>;
+<a href=#515 id=515 data-nosnippet>515</a>        }
+<a href=#516 id=516 data-nosnippet>516</a>        <span class="self">self</span>.root = <span class="prelude-val">Some</span>(Root::Home);
+<a href=#517 id=517 data-nosnippet>517</a>        <span class="kw">let </span>item = <span class="self">self</span>.mount_page::&lt;P&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.prefix.clone());
+<a href=#518 id=518 data-nosnippet>518</a>        <span class="comment">// First among equal `order`s whatever the call order, as Filament's
+<a href=#519 id=519 data-nosnippet>519</a>        // dashboard leads its sidebar.
+<a href=#520 id=520 data-nosnippet>520</a>        </span><span class="self">self</span>.nav_items.insert(<span class="number">0</span>, item);
+<a href=#521 id=521 data-nosnippet>521</a>        <span class="self">self
+<a href=#522 id=522 data-nosnippet>522</a>    </span>}
+<a href=#523 id=523 data-nosnippet>523</a>
+<a href=#524 id=524 data-nosnippet>524</a>    <span class="doccomment">/// Route `P`'s `GET` at `url` and return its sidebar entry, resolved to
+<a href=#525 id=525 data-nosnippet>525</a>    /// the same URL.
+<a href=#526 id=526 data-nosnippet>526</a>    </span><span class="kw">fn </span>mount_page&lt;P: Page&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>str) -&gt; NavigationItem {
+<a href=#527 id=527 data-nosnippet>527</a>        <span class="self">self</span>.pages.push(PageFn::new(
+<a href=#528 id=528 data-nosnippet>528</a>            http::Method::GET,
+<a href=#529 id=529 data-nosnippet>529</a>            route_path(url),
+<a href=#530 id=530 data-nosnippet>530</a>            page_handler::&lt;P&gt;,
+<a href=#531 id=531 data-nosnippet>531</a>        ));
+<a href=#532 id=532 data-nosnippet>532</a>        P::navigation().resolved(url)
+<a href=#533 id=533 data-nosnippet>533</a>    }
 <a href=#534 id=534 data-nosnippet>534</a>
-<a href=#535 id=535 data-nosnippet>535</a>    <span class="doccomment">/// Set the `frame-ancestors` directive the panel sends.
-<a href=#536 id=536 data-nosnippet>536</a>    ///
-<a href=#537 id=537 data-nosnippet>537</a>    /// Defaults to `'self'`: the admin only frames itself, so a hostile page
-<a href=#538 id=538 data-nosnippet>538</a>    /// cannot clickjack it. Pass what your deployment needs — `"'self'
-<a href=#539 id=539 data-nosnippet>539</a>    /// https://intranet.example"` to allow an internal portal, or `"'none'"`
-<a href=#540 id=540 data-nosnippet>540</a>    /// to forbid framing outright.
-<a href=#541 id=541 data-nosnippet>541</a>    ///
-<a href=#542 id=542 data-nosnippet>542</a>    /// The layer only fills the gap, so an app that sets its own
-<a href=#543 id=543 data-nosnippet>543</a>    /// `Content-Security-Policy` (its own layer or route) keeps it. Use
-<a href=#544 id=544 data-nosnippet>544</a>    /// [`Self::without_frame_ancestors`] to send nothing at all and leave the
-<a href=#545 id=545 data-nosnippet>545</a>    /// decision to a proxy.
-<a href=#546 id=546 data-nosnippet>546</a>    </span><span class="kw">pub fn </span>frame_ancestors(<span class="kw-2">mut </span><span class="self">self</span>, ancestors: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
-<a href=#547 id=547 data-nosnippet>547</a>        <span class="self">self</span>.frame_ancestors = <span class="prelude-val">Some</span>(ancestors.into());
-<a href=#548 id=548 data-nosnippet>548</a>        <span class="self">self
-<a href=#549 id=549 data-nosnippet>549</a>    </span>}
-<a href=#550 id=550 data-nosnippet>550</a>
-<a href=#551 id=551 data-nosnippet>551</a>    <span class="doccomment">/// Send no `frame-ancestors` directive: the escape hatch for
-<a href=#552 id=552 data-nosnippet>552</a>    /// deployments whose proxy owns the whole CSP.
-<a href=#553 id=553 data-nosnippet>553</a>    ///
-<a href=#554 id=554 data-nosnippet>554</a>    /// Off by default in the sense that nothing is *added* — the panel's
-<a href=#555 id=555 data-nosnippet>555</a>    /// `'self'` default is what this opts out of.
-<a href=#556 id=556 data-nosnippet>556</a>    </span><span class="kw">pub fn </span>without_frame_ancestors(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-<a href=#557 id=557 data-nosnippet>557</a>        <span class="self">self</span>.frame_ancestors = <span class="prelude-val">None</span>;
-<a href=#558 id=558 data-nosnippet>558</a>        <span class="self">self
-<a href=#559 id=559 data-nosnippet>559</a>    </span>}
-<a href=#560 id=560 data-nosnippet>560</a>
-<a href=#561 id=561 data-nosnippet>561</a>    <span class="doccomment">/// Set the theme a visitor who has not chosen one sees: dark when `true`.
-<a href=#562 id=562 data-nosnippet>562</a>    ///
-<a href=#563 id=563 data-nosnippet>563</a>    /// The shell always renders the theme toggle, and a visitor's stored
-<a href=#564 id=564 data-nosnippet>564</a>    /// choice wins over this default in both directions. Without this call
-<a href=#565 id=565 data-nosnippet>565</a>    /// the panel starts light.
-<a href=#566 id=566 data-nosnippet>566</a>    </span><span class="kw">pub fn </span>dark_mode(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
-<a href=#567 id=567 data-nosnippet>567</a>        <span class="self">self</span>.dark_mode = <span class="prelude-val">Some</span>(enabled);
-<a href=#568 id=568 data-nosnippet>568</a>        <span class="self">self
-<a href=#569 id=569 data-nosnippet>569</a>    </span>}
-<a href=#570 id=570 data-nosnippet>570</a>
-<a href=#571 id=571 data-nosnippet>571</a>    <span class="doccomment">/// Configure authentication (ADR-0013).
-<a href=#572 id=572 data-nosnippet>572</a>    ///
-<a href=#573 id=573 data-nosnippet>573</a>    /// The default is the shipped [`Auth::password`](crate::auth::Auth::password)
-<a href=#574 id=574 data-nosnippet>574</a>    /// over [`AdminUser`](crate::auth::AdminUser); swap in an app-owned
-<a href=#575 id=575 data-nosnippet>575</a>    /// authenticator with `Panel::auth(Auth::custom(..))`, or opt a public
-<a href=#576 id=576 data-nosnippet>576</a>    /// demo out explicitly with `Panel::auth(Auth::disabled())`.
-<a href=#577 id=577 data-nosnippet>577</a>    </span><span class="kw">pub fn </span>auth(<span class="kw-2">mut </span><span class="self">self</span>, auth: <span class="kw">crate</span>::auth::Auth) -&gt; <span class="self">Self </span>{
-<a href=#578 id=578 data-nosnippet>578</a>        <span class="self">self</span>.auth = auth;
-<a href=#579 id=579 data-nosnippet>579</a>        <span class="self">self
-<a href=#580 id=580 data-nosnippet>580</a>    </span>}
-<a href=#581 id=581 data-nosnippet>581</a>
-<a href=#582 id=582 data-nosnippet>582</a>    <span class="doccomment">/// A muted line rendered under the login form, for demo credentials or
-<a href=#583 id=583 data-nosnippet>583</a>    /// deployment hints (e.g. `"Demo: admin@example.com / password"`).
-<a href=#584 id=584 data-nosnippet>584</a>    </span><span class="kw">pub fn </span>login_hint(<span class="kw-2">mut </span><span class="self">self</span>, hint: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
-<a href=#585 id=585 data-nosnippet>585</a>        <span class="self">self</span>.login_hint = <span class="prelude-val">Some</span>(hint.into());
+<a href=#535 id=535 data-nosnippet>535</a>    <span class="doccomment">/// Set branding for the shell (sidebar header, login card, and the topbar below `md`). Additive
+<a href=#536 id=536 data-nosnippet>536</a>    /// `class` stays the only Shell seam.
+<a href=#537 id=537 data-nosnippet>537</a>    </span><span class="kw">pub fn </span>brand(<span class="kw-2">mut </span><span class="self">self</span>, brand: Brand) -&gt; <span class="self">Self </span>{
+<a href=#538 id=538 data-nosnippet>538</a>        <span class="self">self</span>.brand = <span class="prelude-val">Some</span>(brand);
+<a href=#539 id=539 data-nosnippet>539</a>        <span class="self">self
+<a href=#540 id=540 data-nosnippet>540</a>    </span>}
+<a href=#541 id=541 data-nosnippet>541</a>
+<a href=#542 id=542 data-nosnippet>542</a>    <span class="doccomment">/// Set the `frame-ancestors` directive the panel sends.
+<a href=#543 id=543 data-nosnippet>543</a>    ///
+<a href=#544 id=544 data-nosnippet>544</a>    /// Defaults to `'self'`: the admin only frames itself, so a hostile page
+<a href=#545 id=545 data-nosnippet>545</a>    /// cannot clickjack it. Pass what your deployment needs — `"'self'
+<a href=#546 id=546 data-nosnippet>546</a>    /// https://intranet.example"` to allow an internal portal, or `"'none'"`
+<a href=#547 id=547 data-nosnippet>547</a>    /// to forbid framing outright.
+<a href=#548 id=548 data-nosnippet>548</a>    ///
+<a href=#549 id=549 data-nosnippet>549</a>    /// The layer only fills the gap, so an app that sets its own
+<a href=#550 id=550 data-nosnippet>550</a>    /// `Content-Security-Policy` (its own layer or route) keeps it. Use
+<a href=#551 id=551 data-nosnippet>551</a>    /// [`Self::without_frame_ancestors`] to send nothing at all and leave the
+<a href=#552 id=552 data-nosnippet>552</a>    /// decision to a proxy.
+<a href=#553 id=553 data-nosnippet>553</a>    </span><span class="kw">pub fn </span>frame_ancestors(<span class="kw-2">mut </span><span class="self">self</span>, ancestors: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+<a href=#554 id=554 data-nosnippet>554</a>        <span class="self">self</span>.frame_ancestors = <span class="prelude-val">Some</span>(ancestors.into());
+<a href=#555 id=555 data-nosnippet>555</a>        <span class="self">self
+<a href=#556 id=556 data-nosnippet>556</a>    </span>}
+<a href=#557 id=557 data-nosnippet>557</a>
+<a href=#558 id=558 data-nosnippet>558</a>    <span class="doccomment">/// Send no `frame-ancestors` directive: the escape hatch for
+<a href=#559 id=559 data-nosnippet>559</a>    /// deployments whose proxy owns the whole CSP.
+<a href=#560 id=560 data-nosnippet>560</a>    ///
+<a href=#561 id=561 data-nosnippet>561</a>    /// Off by default in the sense that nothing is *added* — the panel's
+<a href=#562 id=562 data-nosnippet>562</a>    /// `'self'` default is what this opts out of.
+<a href=#563 id=563 data-nosnippet>563</a>    </span><span class="kw">pub fn </span>without_frame_ancestors(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#564 id=564 data-nosnippet>564</a>        <span class="self">self</span>.frame_ancestors = <span class="prelude-val">None</span>;
+<a href=#565 id=565 data-nosnippet>565</a>        <span class="self">self
+<a href=#566 id=566 data-nosnippet>566</a>    </span>}
+<a href=#567 id=567 data-nosnippet>567</a>
+<a href=#568 id=568 data-nosnippet>568</a>    <span class="doccomment">/// Set the theme a visitor who has not chosen one sees: dark when `true`.
+<a href=#569 id=569 data-nosnippet>569</a>    ///
+<a href=#570 id=570 data-nosnippet>570</a>    /// The shell always renders the theme toggle, and a visitor's stored
+<a href=#571 id=571 data-nosnippet>571</a>    /// choice wins over this default in both directions. Without this call
+<a href=#572 id=572 data-nosnippet>572</a>    /// the panel starts light.
+<a href=#573 id=573 data-nosnippet>573</a>    </span><span class="kw">pub fn </span>dark_mode(<span class="kw-2">mut </span><span class="self">self</span>, enabled: bool) -&gt; <span class="self">Self </span>{
+<a href=#574 id=574 data-nosnippet>574</a>        <span class="self">self</span>.dark_mode = <span class="prelude-val">Some</span>(enabled);
+<a href=#575 id=575 data-nosnippet>575</a>        <span class="self">self
+<a href=#576 id=576 data-nosnippet>576</a>    </span>}
+<a href=#577 id=577 data-nosnippet>577</a>
+<a href=#578 id=578 data-nosnippet>578</a>    <span class="doccomment">/// Configure authentication (ADR-0013).
+<a href=#579 id=579 data-nosnippet>579</a>    ///
+<a href=#580 id=580 data-nosnippet>580</a>    /// The default is the shipped [`Auth::password`](crate::auth::Auth::password)
+<a href=#581 id=581 data-nosnippet>581</a>    /// over [`AdminUser`](crate::auth::AdminUser); swap in an app-owned
+<a href=#582 id=582 data-nosnippet>582</a>    /// authenticator with `Panel::auth(Auth::custom(..))`, or opt a public
+<a href=#583 id=583 data-nosnippet>583</a>    /// demo out explicitly with `Panel::auth(Auth::disabled())`.
+<a href=#584 id=584 data-nosnippet>584</a>    </span><span class="kw">pub fn </span>auth(<span class="kw-2">mut </span><span class="self">self</span>, auth: <span class="kw">crate</span>::auth::Auth) -&gt; <span class="self">Self </span>{
+<a href=#585 id=585 data-nosnippet>585</a>        <span class="self">self</span>.auth = auth;
 <a href=#586 id=586 data-nosnippet>586</a>        <span class="self">self
 <a href=#587 id=587 data-nosnippet>587</a>    </span>}
-<a href=#588 id=588 data-nosnippet>588</a>}
-<a href=#589 id=589 data-nosnippet>589</a>
-<a href=#590 id=590 data-nosnippet>590</a><span class="doccomment">/// The segments the panel routes under its prefix itself (the auth routes),
-<a href=#591 id=591 data-nosnippet>591</a>/// which no resource or page may take as its slug.
-<a href=#592 id=592 data-nosnippet>592</a></span><span class="kw">const </span>RESERVED_SLUGS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"login"</span>, <span class="string">"logout"</span>];
-<a href=#593 id=593 data-nosnippet>593</a>
-<a href=#594 id=594 data-nosnippet>594</a><span class="doccomment">/// What the panel serves at its prefix.
-<a href=#595 id=595 data-nosnippet>595</a></span><span class="kw">enum </span>Root {
-<a href=#596 id=596 data-nosnippet>596</a>    <span class="doccomment">/// A redirect to the first declared resource's list.
-<a href=#597 id=597 data-nosnippet>597</a>    </span>Redirect(String),
-<a href=#598 id=598 data-nosnippet>598</a>    <span class="doccomment">/// The [`Panel::home`] page.
-<a href=#599 id=599 data-nosnippet>599</a>    </span>Home,
-<a href=#600 id=600 data-nosnippet>600</a>}
-<a href=#601 id=601 data-nosnippet>601</a>
-<a href=#602 id=602 data-nosnippet>602</a><span class="kw">impl </span>Panel {
-<a href=#603 id=603 data-nosnippet>603</a>    <span class="doccomment">/// Derive a [`NavigationItem`] for `R` using this panel's mount prefix.
-<a href=#604 id=604 data-nosnippet>604</a>    ///
-<a href=#605 id=605 data-nosnippet>605</a>    /// The one panel-aware navigation seam for a [`Resource`]:
-<a href=#606 id=606 data-nosnippet>606</a>    /// [`Panel::resource`](Self::resource) calls it, so a resource's
-<a href=#607 id=607 data-nosnippet>607</a>    /// [`Resource::navigation`] override reaches the sidebar instead of being
-<a href=#608 id=608 data-nosnippet>608</a>    /// dead API. The override owns the **label, ordering and
-<a href=#609 id=609 data-nosnippet>609</a>    /// grouping**; the panel owns the **URL**, because it is the only party
-<a href=#610 id=610 data-nosnippet>610</a>    /// that knows where the resource is mounted. Concretely: an explicit
-<a href=#611 id=611 data-nosnippet>611</a>    /// [`NavTarget::Url`] in `R::navigation()` is taken as returned, and only
-<a href=#612 id=612 data-nosnippet>612</a>    /// a [`NavTarget::Derived`] target — the default, which names no URL
-<a href=#613 id=613 data-nosnippet>613</a>    /// because [`Resource::navigation`] takes no prefix — is resolved to
-<a href=#614 id=614 data-nosnippet>614</a>    /// `{prefix}/{slug}`.
-<a href=#615 id=615 data-nosnippet>615</a>    ///
-<a href=#616 id=616 data-nosnippet>616</a>    /// So `Panel::new("backoffice")` yields `"/backoffice/{slug}"` — never a
-<a href=#617 id=617 data-nosnippet>617</a>    /// hard-coded `"/admin"` — for default and overridden items alike, a URL an
-<a href=#618 id=618 data-nosnippet>618</a>    /// override spelled out stays exactly as written, and an override's `order`
-<a href=#619 id=619 data-nosnippet>619</a>    /// decides sidebar order.
-<a href=#620 id=620 data-nosnippet>620</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>nav_item&lt;R: Resource&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NavigationItem {
-<a href=#621 id=621 data-nosnippet>621</a>        R::navigation().resolved(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/{}"</span>, <span class="self">self</span>.prefix, R::slug()))
-<a href=#622 id=622 data-nosnippet>622</a>    }
-<a href=#623 id=623 data-nosnippet>623</a>}
-<a href=#624 id=624 data-nosnippet>624</a>
-<a href=#625 id=625 data-nosnippet>625</a><span class="attr">#[cfg(test)]
-<a href=#626 id=626 data-nosnippet>626</a></span><span class="kw">mod </span>tests;
+<a href=#588 id=588 data-nosnippet>588</a>
+<a href=#589 id=589 data-nosnippet>589</a>    <span class="doccomment">/// A muted line rendered under the login form, for demo credentials or
+<a href=#590 id=590 data-nosnippet>590</a>    /// deployment hints (e.g. `"Demo: admin@example.com / password"`).
+<a href=#591 id=591 data-nosnippet>591</a>    </span><span class="kw">pub fn </span>login_hint(<span class="kw-2">mut </span><span class="self">self</span>, hint: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+<a href=#592 id=592 data-nosnippet>592</a>        <span class="self">self</span>.login_hint = <span class="prelude-val">Some</span>(hint.into());
+<a href=#593 id=593 data-nosnippet>593</a>        <span class="self">self
+<a href=#594 id=594 data-nosnippet>594</a>    </span>}
+<a href=#595 id=595 data-nosnippet>595</a>}
+<a href=#596 id=596 data-nosnippet>596</a>
+<a href=#597 id=597 data-nosnippet>597</a><span class="doccomment">/// The segments the panel routes under its prefix itself (the auth routes),
+<a href=#598 id=598 data-nosnippet>598</a>/// which no resource or page may take as its slug.
+<a href=#599 id=599 data-nosnippet>599</a></span><span class="kw">const </span>RESERVED_SLUGS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"login"</span>, <span class="string">"logout"</span>];
+<a href=#600 id=600 data-nosnippet>600</a>
+<a href=#601 id=601 data-nosnippet>601</a><span class="doccomment">/// What the panel serves at its prefix.
+<a href=#602 id=602 data-nosnippet>602</a></span><span class="kw">enum </span>Root {
+<a href=#603 id=603 data-nosnippet>603</a>    <span class="doccomment">/// A redirect to the first declared resource's list.
+<a href=#604 id=604 data-nosnippet>604</a>    </span>Redirect(String),
+<a href=#605 id=605 data-nosnippet>605</a>    <span class="doccomment">/// The [`Panel::home`] page.
+<a href=#606 id=606 data-nosnippet>606</a>    </span>Home,
+<a href=#607 id=607 data-nosnippet>607</a>}
+<a href=#608 id=608 data-nosnippet>608</a>
+<a href=#609 id=609 data-nosnippet>609</a><span class="kw">impl </span>Panel {
+<a href=#610 id=610 data-nosnippet>610</a>    <span class="doccomment">/// Derive a [`NavigationItem`] for `R` using this panel's mount prefix.
+<a href=#611 id=611 data-nosnippet>611</a>    ///
+<a href=#612 id=612 data-nosnippet>612</a>    /// The one panel-aware navigation seam for a [`Resource`]:
+<a href=#613 id=613 data-nosnippet>613</a>    /// [`Panel::resource`](Self::resource) calls it, so a resource's
+<a href=#614 id=614 data-nosnippet>614</a>    /// [`Resource::navigation`] override reaches the sidebar instead of being
+<a href=#615 id=615 data-nosnippet>615</a>    /// dead API. The override owns the **label, ordering and
+<a href=#616 id=616 data-nosnippet>616</a>    /// grouping**; the panel owns the **URL**, because it is the only party
+<a href=#617 id=617 data-nosnippet>617</a>    /// that knows where the resource is mounted. Concretely: an explicit
+<a href=#618 id=618 data-nosnippet>618</a>    /// [`NavTarget::Url`] in `R::navigation()` is taken as returned, and only
+<a href=#619 id=619 data-nosnippet>619</a>    /// a [`NavTarget::Derived`] target — the default, which names no URL
+<a href=#620 id=620 data-nosnippet>620</a>    /// because [`Resource::navigation`] takes no prefix — is resolved to
+<a href=#621 id=621 data-nosnippet>621</a>    /// `{prefix}/{slug}`.
+<a href=#622 id=622 data-nosnippet>622</a>    ///
+<a href=#623 id=623 data-nosnippet>623</a>    /// So `Panel::new("backoffice")` yields `"/backoffice/{slug}"` — never a
+<a href=#624 id=624 data-nosnippet>624</a>    /// hard-coded `"/admin"` — for default and overridden items alike, a URL an
+<a href=#625 id=625 data-nosnippet>625</a>    /// override spelled out stays exactly as written, and an override's `order`
+<a href=#626 id=626 data-nosnippet>626</a>    /// decides sidebar order.
+<a href=#627 id=627 data-nosnippet>627</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>nav_item&lt;R: Resource&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NavigationItem {
+<a href=#628 id=628 data-nosnippet>628</a>        R::navigation().resolved(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/{}"</span>, <span class="self">self</span>.prefix, R::slug()))
+<a href=#629 id=629 data-nosnippet>629</a>    }
+<a href=#630 id=630 data-nosnippet>630</a>}
+<a href=#631 id=631 data-nosnippet>631</a>
+<a href=#632 id=632 data-nosnippet>632</a><span class="attr">#[cfg(test)]
+<a href=#633 id=633 data-nosnippet>633</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

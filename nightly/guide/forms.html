@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2d345057.js";
+            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -182,17 +182,25 @@
                     <main>
                         <h1 id="forms"><a class="header" href="#forms">Forms</a></h1>
 <p>A resource with create and edit pages declares two things: a <strong>record form</strong>, the typed struct a
-submission parses into, and a <strong>schema</strong> in <code>form()</code>, the controls the page renders. <code>Panel::build</code>
-checks that the two agree.</p>
+submission parses into, and a <strong>schema</strong> in <code>form(dx)</code>, the controls the page renders. <code>form</code>
+defaults to the record form’s derived schema, so a resource that wants one control per field in
+declaration order declares no <code>form</code> at all. <code>Panel::build</code> calls the declarations once and checks
+that the two agree.</p>
 <h2 id="the-record-form"><a class="header" href="#the-record-form">The record form</a></h2>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>#[derive(tablo_core::RecordForm)]
+</span>#[derive(tablo::Options)]
+enum Role {
+    Admin,
+    Member,
+}
+
+#[derive(tablo_core::RecordForm)]
 #[form(model = User)]
 pub struct UserForm {
     pub name: String,
     pub email: String,
-    #[form(blank = "member")]
+    #[form(options = Role, blank = Role::Member.value())]
     pub role: String,
     #[form(blank = 0)]
     pub age: i64,
@@ -205,23 +213,24 @@ marked <code>#[form(embed)]</code>.</p>
 <p>Leave out the columns the form does not write: the tenant column of a tenant-owned resource, which
 the framework sets on create, and columns with a Toasty <code>#[default(..)]</code> or <code>#[auto]</code>.</p>
 <p><strong>Blank values.</strong> <code>#[form(blank = &lt;expr&gt;)]</code> is what a field stores when its control is submitted
-empty. <code>String</code> stores <code>""</code> and <code>Option&lt;T&gt;</code> stores <code>None</code> without one; any other type needs
-<code>blank</code> when its control is optional.</p>
-<p>The resource names the struct as its <code>Form</code> and declares the controls:</p>
+empty. <code>String</code> answers <code>""</code> and <code>Option&lt;T&gt;</code> answers <code>None</code> through the type’s own blank, and a
+<code>bool</code> answers <code>false</code> through the derive’s default, since an unchecked toggle posts <code>false</code>. Any
+other type needs <code>blank</code> when its control is optional.</p>
+<p>The resource names the struct as its <code>Form</code> and, to arrange the controls, declares them from the
+derive’s <code>controls(dx)</code>:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    fn form(_cx: &amp;Cx) -&gt; Schema {
+    fn form(dx: &amp;DeclCx) -&gt; Schema {
+        let c = UserForm::controls(dx);
         Schema::new(Section::new("Profile").schema((
-            Field::text(User::fields().name()),
-            Field::text(User::fields().email()).email(),
-            Field::choice(User::fields().role())
-                .options(vec!["admin".into(), "member".into()])
-                .optional(),
-            Field::text(User::fields().age()).optional(),
+            c.name.placeholder("Ada Lovelace"),
+            c.email.email(),
+            c.role.optional(),
+            c.age.optional(),
         )))
     }
 
@@ -241,19 +250,36 @@ every form field has a control, every optional control’s field has a blank val
 <code>can_create</code> is allowed — every non-nullable column is filled by the form, by Toasty, by the tenant
 stamp, or by an overridden <code>create_record</code> that lists it in <code>Resource::CREATE_COLUMNS</code>.</p>
 <h2 id="controls"><a class="header" href="#controls">Controls</a></h2>
+<p>The derive picks each field’s control from the field: a <code>bool</code> is a toggle, <code>#[form(options = T)]</code>
+a choice over <code>T</code>’s options, <code>#[form(choice)]</code> a bare choice, <code>#[form(file)]</code> a file field,
+<code>#[form(embed)]</code> the embedded value’s schema, and any other field a text field. <code>controls(dx)</code>
+hands each one over ready for its modifiers, so an override arranges rather than rebinds:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>Schema::new((
+</span>let c = UserForm::controls(dx);
+Schema::new((
     Section::new("Account").schema((
-        Field::text(User::fields().email()).email(),
-        Field::choice(User::fields().role()).options(vec!["admin".into(), "member".into()]),
+        c.email.email(),
+        c.role,
     )),
     Grid::new(2).schema((
-        Field::text(User::fields().name()),
-        Field::text(User::fields().bio()).multiline(4),
+        c.name,
+        c.age,
     )),
 ))
 <span class="boring">}</span></code></pre>
+<p>The <code>role</code> control already offers <code>Role</code>’s options: <code>#[form(options = Role)]</code> chose a choice over
+that list. A closed set of values is a <code>#[derive(Options)]</code> enum, shared by the form, the filter
+and the column:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>Field::choice(User::fields().role()).options(Role::options())
+SelectFilter::r#for(User::fields().role(), Role::options())
+<span class="boring">}</span></code></pre>
+<p>Each variant stores its <code>snake_case</code> name and reads as that name in sentence case;
+<code>#[option(value = "..", label = "..")]</code> overrides either. The derive also gives the enum
+<code>value()</code>, <code>label()</code>, <code>from_value()</code> and, through the <code>Options</code> trait, <code>label_of()</code>. <code>.options</code>
+takes <code>Vec&lt;(String, String)&gt;</code> (an <code>Options</code> enum’s list), <code>Vec&lt;String&gt;</code>, or <code>[&amp;str; N]</code> (<code>["admin", "member"]</code>).</p>
 <p><strong>Layout blocks</strong> arrange fields: <code>Section::new(title)</code> is a titled card, <code>Group::new()</code> an untitled
 container, and <code>Grid::new(cols)</code> a grid of 1 to 12 columns. <code>Repeater::new(label)</code> is a titled group
 that may be left entirely empty: its fields’ rules apply once one of them is filled, and
@@ -263,23 +289,24 @@ nest a <code>Group</code> for more.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Constructor</th><th>Column</th><th>Control</th></tr>
+<tr><th>Constructor</th><th>Column</th><th>Control</th><th>Builder</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Field::text(lens)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td><code>&lt;input&gt;</code>, or <code>&lt;textarea&gt;</code> with <code>.multiline(rows)</code></td></tr>
-<tr><td><code>Field::choice(lens)</code></td><td>any</td><td><code>&lt;select&gt;</code> over static options or a relationship</td></tr>
-<tr><td><code>Field::file(lens)</code></td><td><code>String</code> holding the file’s path</td><td>file input: see <a href="#file-uploads">File uploads</a></td></tr>
-<tr><td><code>Field::toggle(lens)</code></td><td><code>bool</code></td><td>checkbox</td></tr>
-<tr><td><code>Field::custom(lens, control)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td>your own <code>Control</code>: see <a href="#custom-controls">Custom controls</a></td></tr>
+<tr><td><code>Field::text(lens)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td><code>&lt;input&gt;</code>, or <code>&lt;textarea&gt;</code> with <code>.multiline(rows)</code></td><td><code>TextField</code></td></tr>
+<tr><td><code>Field::choice(lens)</code></td><td>any</td><td><code>&lt;select&gt;</code> over static options or a relationship</td><td><code>ChoiceField</code></td></tr>
+<tr><td><code>Field::file(lens)</code></td><td><code>String</code> holding the file’s path</td><td>file input: see <a href="#file-uploads">File uploads</a></td><td><code>FileField</code></td></tr>
+<tr><td><code>Field::toggle(lens)</code></td><td><code>bool</code></td><td>checkbox</td><td><code>CustomField</code></td></tr>
+<tr><td><code>Field::custom(lens, control)</code></td><td><code>String</code>, a typed value, or an <code>Option</code> of one</td><td>your own <code>Control</code>: see <a href="#custom-controls">Custom controls</a></td><td><code>CustomField</code></td></tr>
 </tbody>
 </table>
 </div>
 <p>Every field takes <code>.label(..)</code>, <code>.required()</code> and <code>.optional()</code>. The label defaults to the column
-name in sentence case, and <code>required</code> defaults to whether the column is non-nullable. The other
-modifiers belong to one kind of field and panic on another, which <code>Panel::build</code> reports:</p>
+name in sentence case, and <code>required</code> defaults to whether the column is non-nullable. Each
+constructor returns its control’s builder, which offers only that control’s modifiers, so a
+modifier on the wrong control does not compile:</p>
 <ul>
-<li>text: <code>.email()</code>, <code>.unique()</code>, <code>.placeholder(..)</code>, <code>.multiline(rows)</code>;</li>
-<li>choice: <code>.options(..)</code>, <code>.options_with_labels(..)</code>, <code>.relationship(..)</code>, <code>.searchable()</code>.</li>
+<li>text (<code>TextField</code>): <code>.email()</code>, <code>.unique()</code>, <code>.placeholder(..)</code>, <code>.multiline(rows)</code>;</li>
+<li>choice (<code>ChoiceField</code>): <code>.options(..)</code>, <code>.relationship(..)</code>, <code>.searchable()</code>.</li>
 </ul>
 <h3 id="custom-controls"><a class="header" href="#custom-controls">Custom controls</a></h3>
 <p>A <code>Control</code> renders the input of a <code>Field::custom</code> field. The field keeps everything fields share —
@@ -303,8 +330,8 @@ Field::custom(Theme::fields().accent(), Color)
 like any other field’s: the value posted under the field’s key, the last one when it is posted
 twice. <code>Field::toggle</code> is built this way: <code>Toggle</code> renders a hidden <code>false</code> before the checkbox
 under the same name, so an unchecked box submits <code>false</code> rather than nothing. A toggle is
-optional, since it is never empty, so its record-form field declares the value an empty
-submission stores: <code>#[form(blank = false)] pub active: bool</code>.</p>
+optional, since it is never empty, and a <code>bool</code> record-form field reads an empty submission as
+<code>false</code> without a declared blank.</p>
 <h3 id="typed-values"><a class="header" href="#typed-values">Typed values</a></h3>
 <p><code>Field::text</code> binds more than strings. Over an integer, float, <code>bool</code>, <code>Uuid</code> or
 <code>jiff::Timestamp</code> column it renders the stored value and parses the submission back through the
@@ -422,8 +449,8 @@ pub struct Seo {
     pub description: String,
 }
 
-// In `form()`: one call renders a control per field.
-Section::new("SEO").schema(Seo::form(cx, Post::fields().seo()))
+// In `form(dx)`: one call renders a control per field.
+Section::new("SEO").schema(Seo::form(dx, Post::fields().seo()))
 
 // In the record form: the value is one field.
 #[derive(tablo_core::RecordForm)]
@@ -448,7 +475,7 @@ Without JavaScript every group renders, and the variant choice still decides.</l
 variant, and tuple structs.</li>
 </ul>
 <p>To bind a single embedded field on its own, pass a <code>ResolvedLens</code>:
-<code>Field::text(ResolvedLens::new(cx, Post::fields().seo().title()))</code> binds the flattened <code>seo_title</code>
+<code>Field::text(ResolvedLens::new(dx, Post::fields().seo().title()))</code> binds the flattened <code>seo_title</code>
 column. Such a field is optional unless you call <code>.required()</code>.</p>
 
                     </main>

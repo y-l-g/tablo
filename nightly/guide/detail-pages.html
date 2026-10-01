@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2d345057.js";
+            window.path_to_searchindex_js = "searchindex-8fbe119a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -182,15 +182,13 @@
                     <main>
                         <h1 id="detail-pages"><a class="header" href="#detail-pages">Detail pages</a></h1>
 <p>A detail page shows one record, read-only, at <code>GET /admin/{slug}/{id}</code>. A resource gets one by
-declaring <code>view()</code>: a <code>Schema</code> built from the same fields and layout blocks as a form.</p>
+declaring <code>view(dx)</code>: a <code>Schema</code> built from the same fields and layout blocks as a form. It takes
+a <code>DeclCx</code> carrying the app schema alone, like <code>form(dx)</code>, and the panel calls it once at build.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn view(_cx: &amp;Cx) -&gt; Schema {
-    Schema::new(Section::new("Post").schema((
-        Field::text(Post::fields().title()),
-        Field::text(Post::fields().body()).multiline(6),
-        Field::choice(Post::fields().status()).options(vec!["draft".into(), "published".into()]),
-    )))
+</span>fn view(dx: &amp;DeclCx) -&gt; Schema {
+    let c = PostForm::controls(dx);
+    Schema::new(Section::new("Post").schema((c.title, c.body.multiline(6), c.status)))
 }
 <span class="boring">}</span></code></pre>
 <p>Declaring a view adds a View action to each row. A resource without one has no detail page: the
