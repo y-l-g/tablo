@@ -1,4 +1,4 @@
-use xtask::gates::RealRunner;
+use xtask::gates::{CheckOptions, RealRunner};
 
 fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
@@ -28,7 +28,8 @@ fn main() -> anyhow::Result<()> {
             xtask::gates::external_check(&RealRunner, &root, &manifest)?;
         }
         "check" => {
-            xtask::gates::check(&RealRunner)?;
+            let rest: Vec<String> = args.collect();
+            xtask::gates::check(&RealRunner, CheckOptions::parse(&rest)?)?;
         }
         "bump-upstream" => {
             let rest: Vec<String> = args.collect();
@@ -60,7 +61,7 @@ USAGE:
     cargo xtask fmt
     cargo xtask verify-locks
     cargo xtask external-check
-    cargo xtask check
+    cargo xtask check [--quick]
     cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>
 
 COMMANDS:
@@ -97,8 +98,10 @@ COMMANDS:
     check              The gate set as a local fail-fast convenience runner:
                        the eight CONTRIBUTING gates in order, then docs,
                        detached-bench fmt, the external build, and the
-                       lockstep check. CI keeps one subcommand per parallel
-                       job instead.
+                       lockstep check. `--quick` leaves out the gates that
+                       need another toolchain or a build of a detached
+                       workspace. CI keeps one subcommand per parallel job
+                       instead.
     bump-upstream      Rewrite the `rev =` pins for both upstream repos in
                        every pinned manifest (workspace, bench,
                        quickstart), re-resolve both lockfiles, prove the
@@ -108,6 +111,8 @@ COMMANDS:
 OPTIONS:
     --dry-run          Print what would be copied without writing
     --prune            Also delete vendored files the vendored set no longer owns
+    --quick            `check`: leave out the gates needing another toolchain
+                       or a build of a detached workspace
     --help, -h         Show this help
 "#
     );

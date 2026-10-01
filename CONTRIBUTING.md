@@ -33,14 +33,16 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 ## The gate set
 
-CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml`;
-this list is the canonical copy — `AGENTS.md` and the `check` skill point here).
-The fast path is the xtask runner: gates are mutually independent, and `check`
-runs each command below in order, stopping at the first failure.
+CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml`
+and, for gates 6 and 8, `.github/workflows/msrv-udeps.yml`; this list is the
+canonical copy — `AGENTS.md` and the `check` skill point here). The fast path is
+the xtask runner: gates are mutually independent, and `check` runs each command
+below in order, stopping at the first failure.
 
 ```sh
-cargo xtask check   # the eight gates plus the extras
-cargo xtask fmt     # the formatting subset: nightly fmt, detached fmt, locked-rev topcoat fmt
+cargo xtask check          # the eight gates plus the extras
+cargo xtask check --quick  # the gates a code change can move
+cargo xtask fmt            # the formatting subset: nightly fmt, detached fmt, locked-rev topcoat fmt
 ```
 
 The raw commands — the expansion of `cargo xtask check`:
@@ -50,13 +52,29 @@ The raw commands — the expansion of `cargo xtask check`:
 3. `cargo +nightly-2026-08-24 fmt --all -- --check`
 4. `topcoat fmt`, then `git diff --exit-code`
 5. `cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings`
-6. `cargo +1.98 check --workspace --locked`
+6. `CARGO_TARGET_DIR=target/msrv cargo +1.98 check --workspace --locked`
 7. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js crates/tablo-ui/assets/live-search.test.js examples/showcase/assets/media.test.js`
-8. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --locked`
+8. `cargo +nightly-2026-08-24 install cargo-udeps --version 0.1.61 --locked`, then `CARGO_TARGET_DIR=target/udeps cargo +nightly-2026-08-24 udeps --workspace --all-targets --locked`
 
 Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
 nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
-Gate 8 guards unused dependencies (GH #271). Rustup installs a missing toolchain on first use.
+Gate 8 guards unused dependencies (GH #271) on its own dated nightly, with the
+`cargo-udeps` version pinned so the tool cannot move under it. Rustup installs a
+missing toolchain on first use.
+
+`cargo xtask check --quick` runs the gates a code change can move — 1, 2, 3, 4 and
+7, the detached-bench fmt, and the lockstep check — and leaves out gates 5, 6 and
+8, the docs builds, and the external build: each needs a toolchain the change
+cannot move or a build of a detached workspace. Gates 6 and 8 run in
+`.github/workflows/msrv-udeps.yml` — on `master`, weekly, and on the PRs that
+touch a manifest, a lockfile or `rust-toolchain.toml` — so leaving them out of a
+quick run is not a gap: gate 2 fails a std API above the floor through
+`clippy::incompatible_msrv`, and a dependency that raises the floor arrives
+through a manifest change. The `docs`, `external` and `bench-check` jobs keep
+running on every PR.
+
+Gates 6 and 8 build into `target/msrv` and `target/udeps`: a 1.98 or nightly
+build must not invalidate the stable artifacts in `target/`.
 
 CI runs five more checks outside the eight, and a change touching what they cover
 has to pass them too (`cargo xtask check` runs all five after the eight):

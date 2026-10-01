@@ -2,11 +2,13 @@ use std::cell::{Cell, RefCell};
 
 use super::*;
 
-type RecordedCommand = (String, Vec<String>, Option<PathBuf>);
+type RecordedCommand = (String, Vec<String>, Option<PathBuf>, Vec<(String, String)>);
 
 struct FakeRunner {
     commands: RefCell<Vec<RecordedCommand>>,
     fail_on: Option<usize>,
+    /// What `probe` answers, as if the command had printed it and exited zero.
+    probe_answer: Option<String>,
 }
 
 impl FakeRunner {
@@ -14,6 +16,7 @@ impl FakeRunner {
         Self {
             commands: RefCell::new(Vec::new()),
             fail_on: None,
+            probe_answer: None,
         }
     }
 
@@ -21,6 +24,15 @@ impl FakeRunner {
         Self {
             commands: RefCell::new(Vec::new()),
             fail_on: Some(index),
+            probe_answer: None,
+        }
+    }
+
+    /// A runner whose probe answers `answer`, e.g. an installed tool.
+    fn answering(answer: &str) -> Self {
+        Self {
+            probe_answer: Some(answer.to_string()),
+            ..Self::ok()
         }
     }
 
@@ -29,24 +41,39 @@ impl FakeRunner {
     }
 }
 
+/// The recorded commands as `prog args`, for readable assertions.
+fn lines(commands: &[RecordedCommand]) -> Vec<String> {
+    commands
+        .iter()
+        .map(|(prog, args, _, _)| format!("{prog} {}", args.join(" ")))
+        .collect()
+}
+
 impl Runner for FakeRunner {
     fn run(
         &self,
         prog: &str,
         args: &[&str],
         dir: Option<&Path>,
-        _env: &[(&str, &str)],
+        env: &[(&str, &str)],
     ) -> anyhow::Result<()> {
         let index = self.commands.borrow().len();
         self.commands.borrow_mut().push((
             prog.to_string(),
             args.iter().map(ToString::to_string).collect(),
             dir.map(Path::to_path_buf),
+            env.iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect(),
         ));
         if self.fail_on.is_some_and(|fail| fail == index) {
             anyhow::bail!("fake failure for {prog}");
         }
         Ok(())
+    }
+
+    fn probe(&self, _prog: &str, _args: &[&str]) -> Option<String> {
+        self.probe_answer.clone()
     }
 }
 
@@ -262,23 +289,158 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
 fn check_runs_gates_in_order_then_docs_fmt_and_lockstep() {
     let run = FakeRunner::ok();
     let verified = Cell::new(false);
-    check_with(&run, &|| Ok(PathBuf::from("/staged/Cargo.toml")), &|| {
-        verified.set(true);
-        Ok(())
-    })
+    check_with(
+        &run,
+        CheckOptions::default(),
+        &|| Ok(PathBuf::from("/staged/Cargo.toml")),
+        &|| {
+            verified.set(true);
+            Ok(())
+        },
+    )
     .expect("fake commands succeed");
     assert!(verified.get(), "lockstep closes the run");
     let progs: Vec<String> = run
         .commands()
         .iter()
-        .map(|(prog, _, _)| prog.clone())
+        .map(|(prog, _, _, _)| prog.clone())
         .collect();
     assert_eq!(
         progs,
         vec![
-            "cargo", "cargo", "cargo", "topcoat", "git", "cargo", "cargo", "node", "cargo",
-            "cargo", "cargo", "mdbook", "cargo", "cargo", "cargo", "cargo", "cargo",
+            "cargo", "cargo", "cargo", "topcoat", "git", "cargo", "cargo", "cargo", "cargo",
+            "node", "cargo", "mdbook", "cargo", "cargo", "cargo", "cargo", "cargo",
         ]
+    );
+}
+
+/// The default run covers every gate; `--quick` drops the ones needing another
+/// toolchain or a build of a detached workspace.
+#[test]
+fn check_quick_leaves_out_the_toolchain_and_detached_gates() {
+    let heavy = [
+        "benchmarks/tablo",
+        MSRV,
+        "udeps",
+        "doc --workspace",
+        "mdbook",
+    ];
+    let run = FakeRunner::ok();
+    check_with(
+        &run,
+        CheckOptions::default(),
+        &|| Ok(PathBuf::from("/staged/Cargo.toml")),
+        &|| Ok(()),
+    )
+    .expect("fake commands succeed");
+    let full = lines(&run.commands());
+    for gate in heavy {
+        assert!(
+            full.iter().any(|line| line.contains(gate)),
+            "the default run covers `{gate}`: {full:?}"
+        );
+    }
+
+    let run = FakeRunner::ok();
+    check_with(
+        &run,
+        CheckOptions { quick: true },
+        &|| Ok(PathBuf::from("/staged/Cargo.toml")),
+        &|| Ok(()),
+    )
+    .expect("fake commands succeed");
+    let quick = lines(&run.commands());
+    for gate in heavy {
+        assert!(
+            !quick.iter().any(|line| line.contains(gate)),
+            "`--quick` leaves out `{gate}`: {quick:?}"
+        );
+    }
+    for gate in [
+        "cargo test --workspace --locked",
+        "cargo clippy --workspace --all-targets --locked -- -D warnings",
+        "topcoat fmt",
+    ] {
+        assert!(
+            quick.iter().any(|line| line == gate),
+            "`--quick` keeps `{gate}`: {quick:?}"
+        );
+    }
+    assert!(
+        quick.iter().any(|line| line.starts_with("node --test ")),
+        "`--quick` keeps the asset suites"
+    );
+}
+
+/// The toolchain gates build into their own target directories: a 1.98 or
+/// nightly build must not invalidate the stable artifacts in `target/`.
+#[test]
+fn check_isolates_the_toolchain_targets() {
+    let run = FakeRunner::ok();
+    check_with(
+        &run,
+        CheckOptions::default(),
+        &|| Ok(PathBuf::from("/staged/Cargo.toml")),
+        &|| Ok(()),
+    )
+    .expect("fake commands succeed");
+    let commands = run.commands();
+    let env_of = |subcommand: &str| {
+        commands
+            .iter()
+            .find(|(_, args, _, _)| {
+                args.first().is_some_and(|arg| arg.starts_with('+'))
+                    && args.get(1).is_some_and(|arg| arg.as_str() == subcommand)
+            })
+            .unwrap_or_else(|| panic!("the {subcommand} gate runs"))
+            .3
+            .clone()
+    };
+    assert_eq!(
+        env_of("check"),
+        vec![("CARGO_TARGET_DIR".to_string(), MSRV_TARGET.to_string())]
+    );
+    assert_eq!(
+        env_of("udeps"),
+        vec![("CARGO_TARGET_DIR".to_string(), UDEPS_TARGET.to_string())]
+    );
+}
+
+/// Gate 8 installs the pinned tool only when the probe does not answer with it.
+#[test]
+fn udeps_installs_the_pinned_tool_only_when_it_is_missing() {
+    let pinned = format!("cargo-udeps {CARGO_UDEPS}");
+    let stale = "cargo-udeps 0.1.50".to_string();
+    for (answer, expected_install) in [(None, true), (Some(stale), true), (Some(pinned), false)] {
+        let run = answer
+            .as_deref()
+            .map_or_else(FakeRunner::ok, FakeRunner::answering);
+        check_with(
+            &run,
+            CheckOptions::default(),
+            &|| Ok(PathBuf::from("/staged/Cargo.toml")),
+            &|| Ok(()),
+        )
+        .expect("fake commands succeed");
+        let installed = lines(&run.commands())
+            .iter()
+            .any(|line| line.contains("install cargo-udeps"));
+        assert_eq!(
+            installed, expected_install,
+            "probe answered {answer:?}, install expected: {expected_install}"
+        );
+    }
+}
+
+#[test]
+fn check_rejects_an_unknown_flag() {
+    let error = CheckOptions::parse(&["--benchmark".to_string()])
+        .expect_err("an unknown flag must fail before any gate runs");
+    assert!(
+        error
+            .to_string()
+            .contains("unknown `check` flag: --benchmark"),
+        "unexpected message: {error}"
     );
 }
 
@@ -287,6 +449,7 @@ fn check_stops_at_the_first_failure() {
     let run = FakeRunner::failing_on(1);
     check_with(
         &run,
+        CheckOptions::default(),
         &|| panic!("staging must not run after a gate fails"),
         &|| panic!("lockstep must not run after a gate fails"),
     )
@@ -311,13 +474,37 @@ fn bump_rejects_a_non_sha_rev_before_touching_anything() {
 fn pins_match_ci_and_docs() {
     let root = repo_root();
     let ci = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).expect("read ci.yml");
+    let msrv_udeps = std::fs::read_to_string(root.join(".github/workflows/msrv-udeps.yml"))
+        .expect("read msrv-udeps.yml");
     let contributing =
         std::fs::read_to_string(root.join("CONTRIBUTING.md")).expect("read CONTRIBUTING.md");
+    let skill = std::fs::read_to_string(root.join(".agents/skills/check/SKILL.md"))
+        .expect("read the check skill");
     let manifest = std::fs::read_to_string(root.join("Cargo.toml")).expect("read Cargo.toml");
     assert!(ci.contains(NIGHTLY_FMT), "ci.yml names the nightly");
     assert!(
+        msrv_udeps.contains(NIGHTLY_UDEPS),
+        "msrv-udeps.yml names the udeps nightly"
+    );
+    assert!(
+        msrv_udeps.contains(CARGO_UDEPS),
+        "msrv-udeps.yml names the pinned cargo-udeps"
+    );
+    assert!(
+        msrv_udeps.contains(MSRV),
+        "msrv-udeps.yml names the MSRV floor"
+    );
+    assert!(
         contributing.contains(NIGHTLY_FMT),
         "CONTRIBUTING.md names the nightly"
+    );
+    assert!(
+        skill.contains(NIGHTLY_UDEPS),
+        "the check skill names the udeps nightly"
+    );
+    assert!(
+        skill.contains(CARGO_UDEPS),
+        "the check skill names the pinned cargo-udeps"
     );
     for bench in DETACHED_BENCHES {
         assert!(ci.contains(bench), "ci.yml covers {bench}");

@@ -7,9 +7,11 @@ description: Always use this skill to verify a change locally before committing 
 
 Run `cargo xtask check`: the gates in
 [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set), run in order with a
-stop at the first failure. To run one gate by hand, that list is the canonical
-copy (it mirrors `.github/workflows/ci.yml`); the extra checks outside the eight
-(docs, detached-bench fmt, external, bench-check) are listed there too. `cargo xtask fmt`
+stop at the first failure. `--quick` leaves out the gates that need another
+toolchain or a build of a detached workspace. To run one gate by hand, that list
+is the canonical copy (it mirrors `.github/workflows/ci.yml` and, for gates 6 and
+8, `.github/workflows/msrv-udeps.yml`); the extra checks outside the eight (docs,
+detached-bench fmt, external, bench-check) are listed there too. `cargo xtask fmt`
 covers the formatting subset alone.
 
 The asset suites are named rather than globbed, exactly as the CI `assets` job
@@ -36,8 +38,11 @@ Rules that catch the recurring failures:
 - Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with
   `cargo xtask sync-topcoat-ui`.
 - `cargo udeps` needs `cargo-udeps` on nightly for `-Z binary-dep-depinfo`:
-  `cargo +nightly install cargo-udeps --locked`, then the udeps gate in
-  [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set).
+  `cargo +nightly-2026-08-24 install cargo-udeps --version 0.1.61 --locked`, then
+  the udeps gate in
+  [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set). The gate probes
+  that pinned version and skips the install when it already answers.
 - A gate whose command names a toolchain installs it on demand; gate 3's dated
   nightly install is the `rustup toolchain install` step of the `fmt` job in
-  `.github/workflows/ci.yml`.
+  `.github/workflows/ci.yml`, and gate 8's is the same step in
+  `.github/workflows/msrv-udeps.yml`.

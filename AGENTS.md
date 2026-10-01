@@ -3,12 +3,15 @@
 ## Commands
 
 The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): eight commands
-mirroring `.github/workflows/ci.yml`. Run it via `cargo xtask check` (fail-fast),
-or the ones covering your change; all eight before merging. CI also runs the extra
-checks listed there (docs, detached-bench fmt, external, bench-check).
+mirroring `.github/workflows/ci.yml` and, for gates 6 and 8,
+`.github/workflows/msrv-udeps.yml`. Run it via `cargo xtask check` (fail-fast), or the
+ones covering your change; all eight before merging. `cargo xtask check --quick` leaves
+out the gates that need another toolchain or a build of a detached workspace. CI also
+runs the extra checks listed there (docs, detached-bench fmt, external, bench-check).
 
 ```sh
 cargo xtask check                                # the gate set, fail-fast
+cargo xtask check --quick                        # the gates a code change can move
 cargo xtask fmt                                  # nightly fmt + detached fmt + locked-rev topcoat fmt
 cargo xtask verify-locks                         # workspace vs bench vs quickstart rev equality
 cargo xtask external-check                       # build and test examples/quickstart outside the repo

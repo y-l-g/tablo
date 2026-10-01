@@ -1,0 +1,78 @@
+name: MSRV and udeps
+
+# The MSRV floor (Cargo.toml `rust-version`, GH #175) and the unused-dependency
+# guard (GH #271) are properties of the dependency graph, not of a code change:
+# each needs a full workspace build on a toolchain the per-PR jobs do not use.
+# They run here instead of in `ci.yml`, so a PR that cannot move them (docs, JS
+# assets) does not pay for them: on `master`, on the weekly schedule, and on the
+# PRs that touch a manifest, a lockfile, or the toolchain pin. The per-PR
+# `clippy` job still fails a std API above the floor
+# (`clippy::incompatible_msrv`), and a dependency that raises the floor arrives
+# through a manifest change — the paths below.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    paths:
+      # Globs, not a list: over-triggering costs one build, under-triggering
+      # costs a missed gate, so a manifest added later is covered on arrival.
+      # The root files stand beside the globs: whether `**/` matches zero
+      # directories is not a bet worth taking on a gate.
+      - Cargo.toml
+      - Cargo.lock
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - rust-toolchain.toml
+      - .github/workflows/msrv-udeps.yml
+  schedule:
+    # Weekly: the pins re-resolve against the dated toolchains even when nothing
+    # lands, so a yanked dependency or a moved runner image surfaces here
+    # instead of at the next unrelated PR.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: msrv-udeps-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  # Same reason as `ci.yml`: incremental artifacts (28 of 66 GB measured
+  # locally) bust the shared action-cache budget.
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  msrv:
+    name: msrv (1.98)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The workspace MSRV floor: a `main`-tracking dep can silently raise what
+      # it needs (GH #175), so pin the floor even though day-to-day CI rides
+      # stable.
+      - run: rustup toolchain install 1.98 --profile minimal
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo +1.98 check --workspace --locked
+
+  udeps:
+    name: udeps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # A dated nightly, not a floating one: `cargo-udeps` needs nightly for
+      # `-Z binary-dep-depinfo`, and rust-cache keys include the rustc version,
+      # so a floating nightly would throw the whole build away every day.
+      - run: rustup toolchain install nightly-2026-08-24 --profile minimal
+      - uses: Swatinem/rust-cache@v2
+      - name: Restore cargo-udeps cache
+        # Keyed on the pinned version, not on Cargo.lock: nothing in the
+        # lockfile pins a cargo subcommand.
+        id: cache-udeps
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/cargo-udeps
+          key: cargo-udeps-0.1.61
+      - name: Install cargo-udeps
+        if: steps.cache-udeps.outputs.cache-hit != 'true'
+        run: cargo +nightly-2026-08-24 install cargo-udeps --version 0.1.61 --locked
+      - run: cargo +nightly-2026-08-24 udeps --workspace --all-targets --locked

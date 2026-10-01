@@ -29,6 +29,15 @@ pub const NIGHTLY_FMT: &str = "nightly-2026-08-24";
 /// MSRV floor (`Cargo.toml` rust-version, GH #175).
 pub const MSRV: &str = "1.98";
 
+/// Dated nightly the udeps gate runs on: `cargo-udeps` needs nightly for
+/// `-Z binary-dep-depinfo`, and the date keeps the compiler the gate uses from
+/// moving under it — a floating nightly rebuilds the whole workspace nightly.
+pub const NIGHTLY_UDEPS: &str = "nightly-2026-08-24";
+
+/// The `cargo-udeps` version the udeps gate installs (GH #271), pinned so the
+/// tool cannot move without a commit.
+pub const CARGO_UDEPS: &str = "0.1.61";
+
 /// Detached bench workspaces, each with its own lockfile and fmt gate (GH #175).
 pub const DETACHED_BENCHES: &[&str] = &[
     "benchmarks/tablo",
@@ -82,6 +91,11 @@ pub trait Runner {
         dir: Option<&Path>,
         env: &[(&str, &str)],
     ) -> anyhow::Result<()>;
+
+    /// Ask a question a failing command answers instead of failing the run:
+    /// the trimmed stdout when `prog` exits zero, `None` when it fails or is
+    /// missing. The output is captured, never printed.
+    fn probe(&self, prog: &str, args: &[&str]) -> Option<String>;
 }
 
 /// The real runner: inherit stdio, fail on a non-zero exit.
@@ -111,6 +125,14 @@ impl Runner for RealRunner {
         } else {
             anyhow::bail!("`{prog} {}` exited with {status}", args.join(" "))
         }
+    }
+
+    fn probe(&self, prog: &str, args: &[&str]) -> Option<String> {
+        let output = Command::new(prog).args(args).output().ok()?;
+        output
+            .status
+            .success()
+            .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 }
 
@@ -556,12 +578,74 @@ pub fn external_check(run: &dyn Runner, root: &Path, manifest: &Path) -> anyhow:
 /// The gate set as a local fail-fast convenience runner: the eight CONTRIBUTING
 /// gates in order, then docs, detached-bench fmt, the external build, and the
 /// lockstep check.
-pub fn check(run: &dyn Runner) -> anyhow::Result<()> {
-    check_with(run, &|| stage_quickstart(&repo_root()), &verify_locks)
+pub fn check(run: &dyn Runner, options: CheckOptions) -> anyhow::Result<()> {
+    check_with(
+        run,
+        options,
+        &|| stage_quickstart(&repo_root()),
+        &verify_locks,
+    )
+}
+
+/// Which gates a run covers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CheckOptions {
+    /// `--quick` leaves out gates 5, 6 and 8, the docs builds, and the external
+    /// build: each needs a toolchain the change under test does not move or a
+    /// build of a detached workspace.
+    quick: bool,
+}
+
+impl CheckOptions {
+    /// Parse the flags after `check`; an unknown one fails before any gate runs.
+    pub fn parse(args: &[String]) -> anyhow::Result<Self> {
+        let mut options = Self::default();
+        for arg in args {
+            match arg.as_str() {
+                "--quick" => options.quick = true,
+                other => anyhow::bail!("unknown `check` flag: {other} (--quick)"),
+            }
+        }
+        Ok(options)
+    }
+}
+
+/// Target directory the MSRV check builds into. Relative, so it stays inside
+/// the worktree that ran the gate (AGENTS.md rule 4), and the 1.98 artifacts
+/// cannot invalidate the stable ones in `target/`.
+const MSRV_TARGET: &str = "target/msrv";
+
+/// Target directory the udeps gate builds into (see [`MSRV_TARGET`]).
+const UDEPS_TARGET: &str = "target/udeps";
+
+/// Install the pinned `cargo-udeps` unless the probe answers with it. The pin
+/// keeps the tool from moving between runs; the probe saves the crates.io round
+/// trip `cargo install` would spend learning it is current.
+fn ensure_cargo_udeps(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
+    let toolchain = format!("+{NIGHTLY_UDEPS}");
+    let installed = format!("cargo-udeps {CARGO_UDEPS}");
+    let probed = run.probe("cargo", &[&toolchain, "udeps", "--version"]);
+    if probed.as_deref() == Some(installed.as_str()) {
+        return Ok(());
+    }
+    run.run(
+        "cargo",
+        &[
+            &toolchain,
+            "install",
+            "cargo-udeps",
+            "--version",
+            CARGO_UDEPS,
+            "--locked",
+        ],
+        Some(root),
+        &[],
+    )
 }
 
 fn check_with(
     run: &dyn Runner,
+    options: CheckOptions,
     stage: &dyn Fn() -> anyhow::Result<PathBuf>,
     verify: &dyn Fn() -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
@@ -588,6 +672,25 @@ fn check_with(
     )?;
     nightly_fmt(run, &root)?;
     topcoat_fmt(run, &root)?;
+    if !options.quick {
+        toolchain_gates(run, &root)?;
+    }
+    let mut assets: Vec<&str> = vec!["--test"];
+    assets.extend_from_slice(ASSET_SUITES);
+    run.run("node", &assets, Some(&root), &[])?;
+    if !options.quick {
+        docs_gates(run, &root)?;
+    }
+    detached_fmt(run, &root)?;
+    if !options.quick {
+        external_check(run, &root, &stage()?)?;
+    }
+    verify()
+}
+
+/// Gate 5, gate 6, and gate 8: the detached-bench clippy, the MSRV floor, and
+/// the unused-dependency guard, each needing a toolchain of its own.
+fn toolchain_gates(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run(
         "cargo",
         &[
@@ -600,47 +703,35 @@ fn check_with(
             "-D",
             "warnings",
         ],
-        Some(&root),
+        Some(root),
         &[],
     )?;
     let msrv = format!("+{MSRV}");
     run.run(
         "cargo",
         &[&msrv, "check", "--workspace", "--locked"],
-        Some(&root),
-        &[],
+        Some(root),
+        &[("CARGO_TARGET_DIR", MSRV_TARGET)],
     )?;
-    let mut assets: Vec<&str> = vec!["--test"];
-    assets.extend_from_slice(ASSET_SUITES);
-    run.run("node", &assets, Some(&root), &[])?;
+    ensure_cargo_udeps(run, root)?;
+    let udeps = format!("+{NIGHTLY_UDEPS}");
     run.run(
         "cargo",
-        &["+nightly", "install", "cargo-udeps", "--locked"],
-        Some(&root),
-        &[],
-    )?;
-    run.run(
-        "cargo",
-        &[
-            "+nightly",
-            "udeps",
-            "--workspace",
-            "--all-targets",
-            "--locked",
-        ],
-        Some(&root),
-        &[],
-    )?;
+        &[&udeps, "udeps", "--workspace", "--all-targets", "--locked"],
+        Some(root),
+        &[("CARGO_TARGET_DIR", UDEPS_TARGET)],
+    )
+}
+
+/// The rustdoc and mdBook builds the CI `docs` job runs.
+fn docs_gates(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run(
         "cargo",
         &["doc", "--workspace", "--no-deps", "--locked"],
-        Some(&root),
+        Some(root),
         &[("RUSTDOCFLAGS", "-D warnings")],
     )?;
-    run.run("mdbook", &["build", "docs/guide"], Some(&root), &[])?;
-    detached_fmt(run, &root)?;
-    external_check(run, &root, &stage()?)?;
-    verify()
+    run.run("mdbook", &["build", "docs/guide"], Some(root), &[])
 }
 
 #[cfg(test)]
