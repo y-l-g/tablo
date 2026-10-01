@@ -61,7 +61,7 @@
 <a href=#61 id=61 data-nosnippet>61</a>}
 <a href=#62 id=62 data-nosnippet>62</a>
 <a href=#63 id=63 data-nosnippet>63</a><span class="kw">impl </span>Brand {
-<a href=#64 id=64 data-nosnippet>64</a>    <span class="doccomment">/// Create a brand with the given name (GH #102: surrounding whitespace is
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="doccomment">/// Create a brand with the given name (surrounding whitespace is
 <a href=#65 id=65 data-nosnippet>65</a>    /// trimmed so `" Acme "` cannot break the `flex h-16` header).
 <a href=#66 id=66 data-nosnippet>66</a>    </span><span class="kw">pub fn </span>new(name: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
 <a href=#67 id=67 data-nosnippet>67</a>        <span class="self">Self </span>{
@@ -70,7 +70,7 @@
 <a href=#70 id=70 data-nosnippet>70</a>        }
 <a href=#71 id=71 data-nosnippet>71</a>    }
 <a href=#72 id=72 data-nosnippet>72</a>
-<a href=#73 id=73 data-nosnippet>73</a>    <span class="doccomment">/// Attach a logo URL (GH #102: blank values are ignored so an empty
+<a href=#73 id=73 data-nosnippet>73</a>    <span class="doccomment">/// Attach a logo URL (blank values are ignored so an empty
 <a href=#74 id=74 data-nosnippet>74</a>    /// `logo("")` falls back to the name-only render instead of a
 <a href=#75 id=75 data-nosnippet>75</a>    /// broken-image icon).
 <a href=#76 id=76 data-nosnippet>76</a>    </span><span class="kw">pub fn </span>logo(<span class="kw-2">mut </span><span class="self">self</span>, logo: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
@@ -431,247 +431,246 @@
 <a href=#431 id=431 data-nosnippet>431</a>            </span><span class="prelude-val">None </span>=&gt; ().boxed(),
 <a href=#432 id=432 data-nosnippet>432</a>        };
 <a href=#433 id=433 data-nosnippet>433</a>        <span class="comment">// The page owns the live-toast signals; resolve the same handles here
-<a href=#434 id=434 data-nosnippet>434</a>        // (same helper, same request identity) and hand them to the shard
-<a href=#435 id=435 data-nosnippet>435</a>        // (GH #154 §3).
-<a href=#436 id=436 data-nosnippet>436</a>        </span><span class="kw">let </span>LiveToast {
-<a href=#437 id=437 data-nosnippet>437</a>            status: toast_status,
-<a href=#438 id=438 data-nosnippet>438</a>            title: toast_title,
-<a href=#439 id=439 data-nosnippet>439</a>            description: toast_description,
-<a href=#440 id=440 data-nosnippet>440</a>            serial: toast_serial,
-<a href=#441 id=441 data-nosnippet>441</a>        } = live_toast(cx);
-<a href=#442 id=442 data-nosnippet>442</a>
-<a href=#443 id=443 data-nosnippet>443</a>        <span class="prelude-val">Ok</span>(<span class="macro">view!</span> {
-<a href=#444 id=444 data-nosnippet>444</a>            cx =&gt;
-<a href=#445 id=445 data-nosnippet>445</a>            sidebar_provider(
-<a href=#446 id=446 data-nosnippet>446</a>                attrs: <span class="macro">attributes!</span> { class=(outer_class) },
-<a href=#447 id=447 data-nosnippet>447</a>                <span class="comment">// `sidebar_rail` is intentionally not rendered: the header
-<a href=#448 id=448 data-nosnippet>448</a>                // `sidebar_trigger` is the explicit toggle, and the rail's
-<a href=#449 id=449 data-nosnippet>449</a>                // edge hit-area reads as stray chrome as a primary toggle.
-<a href=#450 id=450 data-nosnippet>450</a>                // Keep the component available (`tablo_ui::sidebar_rail`)
-<a href=#451 id=451 data-nosnippet>451</a>                // for opt-in `variant=inset`/`floating` layouts.
-<a href=#452 id=452 data-nosnippet>452</a>                </span>sidebar(
-<a href=#453 id=453 data-nosnippet>453</a>                    open: $(sidebar_open.get()),
-<a href=#454 id=454 data-nosnippet>454</a>                    mobile_open: $(mobile_open.get()),
-<a href=#455 id=455 data-nosnippet>455</a>                    collapsible: SidebarCollapsible::Offcanvas,
-<a href=#456 id=456 data-nosnippet>456</a>                    sheet_attrs: <span class="macro">attributes!</span> {
-<a href=#457 id=457 data-nosnippet>457</a>                        id=<span class="string">"mobile-sidebar-sheet"
-<a href=#458 id=458 data-nosnippet>458</a>                        </span>aria-label=<span class="string">"Navigation"
-<a href=#459 id=459 data-nosnippet>459</a>                        </span>@keydown=$(|e: Event| {
-<a href=#460 id=460 data-nosnippet>460</a>                            <span class="kw">if </span>e.key == <span class="string">"Escape" </span>{
-<a href=#461 id=461 data-nosnippet>461</a>                                mobile_open.set(<span class="bool-val">false</span>);
-<a href=#462 id=462 data-nosnippet>462</a>                            }
-<a href=#463 id=463 data-nosnippet>463</a>                        })
-<a href=#464 id=464 data-nosnippet>464</a>                        @click=$(|e: Event| {
-<a href=#465 id=465 data-nosnippet>465</a>                            <span class="kw">if </span>e.target.id == <span class="string">"mobile-sidebar-sheet" </span>{
-<a href=#466 id=466 data-nosnippet>466</a>                                mobile_open.set(<span class="bool-val">false</span>);
-<a href=#467 id=467 data-nosnippet>467</a>                            }
-<a href=#468 id=468 data-nosnippet>468</a>                        })
-<a href=#469 id=469 data-nosnippet>469</a>                    },
-<a href=#470 id=470 data-nosnippet>470</a>                    sidebar_header(
-<a href=#471 id=471 data-nosnippet>471</a>                        &lt;div class=<span class="string">"flex items-center gap-2 px-2"</span>&gt;
-<a href=#472 id=472 data-nosnippet>472</a>                            (sidebar_brand)
-<a href=#473 id=473 data-nosnippet>473</a>                            <span class="comment">// Below `md` the sheet covers the inset header,
-<a href=#474 id=474 data-nosnippet>474</a>                            // so the sheet's own header carries the close
-<a href=#475 id=475 data-nosnippet>475</a>                            // control (upstream `examples/ui`); the mobile
-<a href=#476 id=476 data-nosnippet>476</a>                            // trigger in the inset header is behind the veil.
-<a href=#477 id=477 data-nosnippet>477</a>                            </span>tablo_ui::button(
-<a href=#478 id=478 data-nosnippet>478</a>                                variant: tablo_ui::ButtonVariant::Ghost,
-<a href=#479 id=479 data-nosnippet>479</a>                                size: tablo_ui::ButtonSize::Icon,
-<a href=#480 id=480 data-nosnippet>480</a>                                attrs: <span class="macro">attributes!</span> {
-<a href=#481 id=481 data-nosnippet>481</a>                                    <span class="kw">type</span>=<span class="string">"button"
-<a href=#482 id=482 data-nosnippet>482</a>                                    </span>class=<span class="string">"md:hidden ml-auto"
-<a href=#483 id=483 data-nosnippet>483</a>                                    </span>aria-label=<span class="string">"Close sidebar"
-<a href=#484 id=484 data-nosnippet>484</a>                                    </span>@click=$(|_e: Event| mobile_open.set(<span class="bool-val">false</span>))
-<a href=#485 id=485 data-nosnippet>485</a>                                },
-<a href=#486 id=486 data-nosnippet>486</a>                                icon(data: tablo_ui::icons::X)
-<a href=#487 id=487 data-nosnippet>487</a>                            )
-<a href=#488 id=488 data-nosnippet>488</a>                        &lt;/div&gt;
-<a href=#489 id=489 data-nosnippet>489</a>                    )
-<a href=#490 id=490 data-nosnippet>490</a>                    sidebar_content((navigation))
-<a href=#491 id=491 data-nosnippet>491</a>                )
-<a href=#492 id=492 data-nosnippet>492</a>                sidebar_inset(
-<a href=#493 id=493 data-nosnippet>493</a>                    sidebar_header(
-<a href=#494 id=494 data-nosnippet>494</a>                        <span class="comment">// The desktop trigger collapses the rail; below md the
-<a href=#495 id=495 data-nosnippet>495</a>                        // mobile trigger opens the sheet instead (shadcn
-<a href=#496 id=496 data-nosnippet>496</a>                        // SidebarTrigger pair, upstream `examples/ui`).
-<a href=#497 id=497 data-nosnippet>497</a>                        </span>sidebar_trigger(
-<a href=#498 id=498 data-nosnippet>498</a>                            open: $(sidebar_open.get()),
-<a href=#499 id=499 data-nosnippet>499</a>                            attrs: <span class="macro">attributes!</span> {
-<a href=#500 id=500 data-nosnippet>500</a>                                class=<span class="string">"max-md:hidden"
-<a href=#501 id=501 data-nosnippet>501</a>                                </span>aria-controls=<span class="string">"mobile-sidebar-sheet"
-<a href=#502 id=502 data-nosnippet>502</a>                                </span>@click=$(|_e: Event| sidebar_open.toggle())
-<a href=#503 id=503 data-nosnippet>503</a>                            }
-<a href=#504 id=504 data-nosnippet>504</a>                        )
-<a href=#505 id=505 data-nosnippet>505</a>                        sidebar_trigger(
-<a href=#506 id=506 data-nosnippet>506</a>                            open: $(mobile_open.get()),
-<a href=#507 id=507 data-nosnippet>507</a>                            attrs: <span class="macro">attributes!</span> {
-<a href=#508 id=508 data-nosnippet>508</a>                                class=<span class="string">"md:hidden"
-<a href=#509 id=509 data-nosnippet>509</a>                                </span>aria-controls=<span class="string">"mobile-sidebar-sheet"
-<a href=#510 id=510 data-nosnippet>510</a>                                </span>@click=$(|_e: Event| mobile_open.toggle())
-<a href=#511 id=511 data-nosnippet>511</a>                            }
-<a href=#512 id=512 data-nosnippet>512</a>                        )
-<a href=#513 id=513 data-nosnippet>513</a>                        <span class="comment">// The sidebar carries the brand on desktop; below md
-<a href=#514 id=514 data-nosnippet>514</a>                        // it hides in the sheet, so the topbar names the
-<a href=#515 id=515 data-nosnippet>515</a>                        // panel there.
-<a href=#516 id=516 data-nosnippet>516</a>                        </span>&lt;div class=<span class="string">"md:hidden font-semibold text-foreground"</span>&gt;
-<a href=#517 id=517 data-nosnippet>517</a>                            (header_title)
-<a href=#518 id=518 data-nosnippet>518</a>                        &lt;/div&gt;
-<a href=#519 id=519 data-nosnippet>519</a>                        <span class="comment">// The separator stays a direct child of the topbar,
-<a href=#520 id=520 data-nosnippet>520</a>                        // where `sidebar_inset` sizes a vertical rule.
-<a href=#521 id=521 data-nosnippet>521</a>                        </span>&lt;div class=<span class="string">"ml-auto"</span>&gt;(theme_toggle)&lt;/div&gt;
-<a href=#522 id=522 data-nosnippet>522</a>                        separator(orientation: SeparatorOrientation::Vertical)
-<a href=#523 id=523 data-nosnippet>523</a>                        (account_view)
-<a href=#524 id=524 data-nosnippet>524</a>                    )
-<a href=#525 id=525 data-nosnippet>525</a>                    <span class="comment">// `sidebar_inset` is the document's one `&lt;main&gt;`; a second
-<a href=#526 id=526 data-nosnippet>526</a>                    // nested landmark is invalid and confuses landmark
-<a href=#527 id=527 data-nosnippet>527</a>                    // navigation (upstream `examples/ui` uses a plain div).
-<a href=#528 id=528 data-nosnippet>528</a>                    // The page container (`tablo_ui::page`) owns the width
-<a href=#529 id=529 data-nosnippet>529</a>                    // and the padding.
-<a href=#530 id=530 data-nosnippet>530</a>                    </span>&lt;div class=<span class="string">"flex flex-1 flex-col"</span>&gt;(slot)&lt;/div&gt;
-<a href=#531 id=531 data-nosnippet>531</a>                )
-<a href=#532 id=532 data-nosnippet>532</a>                <span class="comment">// Toast stack — the shadcn/Sonner surface, fixed bottom-right
-<a href=#533 id=533 data-nosnippet>533</a>                // and a polite live region so streamed swaps are announced.
-<a href=#534 id=534 data-nosnippet>534</a>                // `live_toaster` is the page-owned
-<a href=#535 id=535 data-nosnippet>535</a>                // in-place transport (GH #154 §3); the flash cookie's toast
-<a href=#536 id=536 data-nosnippet>536</a>                // rides beside it.
-<a href=#537 id=537 data-nosnippet>537</a>                </span>tablo_ui::toaster(
-<a href=#538 id=538 data-nosnippet>538</a>                    (notification_view)
-<a href=#539 id=539 data-nosnippet>539</a>                    live_toaster(
-<a href=#540 id=540 data-nosnippet>540</a>                        status: $(toast_status),
-<a href=#541 id=541 data-nosnippet>541</a>                        title: $(toast_title),
-<a href=#542 id=542 data-nosnippet>542</a>                        description: $(toast_description),
-<a href=#543 id=543 data-nosnippet>543</a>                        serial: $(toast_serial)
-<a href=#544 id=544 data-nosnippet>544</a>                    )
-<a href=#545 id=545 data-nosnippet>545</a>                )
-<a href=#546 id=546 data-nosnippet>546</a>            ) <span class="comment">// Scripts are owned by the document (layout_shell).
-<a href=#547 id=547 data-nosnippet>547</a>        </span>}
-<a href=#548 id=548 data-nosnippet>548</a>        .boxed())
-<a href=#549 id=549 data-nosnippet>549</a>    }
-<a href=#550 id=550 data-nosnippet>550</a>
-<a href=#551 id=551 data-nosnippet>551</a>    <span class="doccomment">/// The panel shell around a page, as a complete HTML document: the layout
-<a href=#552 id=552 data-nosnippet>552</a>    /// every panel registers at its prefix unless [`Panel::layout`] replaces
-<a href=#553 id=553 data-nosnippet>553</a>    /// it, and what a replacement calls to keep the shell around its own
-<a href=#554 id=554 data-nosnippet>554</a>    /// markup.
-<a href=#555 id=555 data-nosnippet>555</a>    ///
-<a href=#556 id=556 data-nosnippet>556</a>    /// The stylesheet and font are supplied to the Panel builder with
-<a href=#557 id=557 data-nosnippet>557</a>    /// [`Self::shell_assets`]. A Panel without those values remains renderable
-<a href=#558 id=558 data-nosnippet>558</a>    /// for tests and custom document owners, but does not pretend that a CSS
-<a href=#559 id=559 data-nosnippet>559</a>    /// bundle exists. Errors from the page slot propagate unchanged when the
-<a href=#560 id=560 data-nosnippet>560</a>    /// document view is resolved.
-<a href=#561 id=561 data-nosnippet>561</a>    </span><span class="kw">pub fn </span>layout_shell&lt;<span class="lifetime">'a</span>&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, slot: Slot&lt;<span class="lifetime">'a</span>&gt;) -&gt; BoxView&lt;<span class="lifetime">'a</span>&gt; {
-<a href=#562 id=562 data-nosnippet>562</a>        Box::pin(ThenView::new(<span class="self">Self</span>::render_layout_shell(cx, slot)))
-<a href=#563 id=563 data-nosnippet>563</a>    }
-<a href=#564 id=564 data-nosnippet>564</a>
-<a href=#565 id=565 data-nosnippet>565</a>    <span class="kw">async fn </span>render_layout_shell&lt;<span class="lifetime">'a</span>&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, slot: Slot&lt;<span class="lifetime">'a</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
-<a href=#566 id=566 data-nosnippet>566</a>        <span class="kw">use </span>topcoat::router::request::uri;
-<a href=#567 id=567 data-nosnippet>567</a>        <span class="kw">let </span>path = uri(cx).path().to_string();
-<a href=#568 id=568 data-nosnippet>568</a>        <span class="comment">// The panel's sidebar, or a single Home entry outside any panel.
-<a href=#569 id=569 data-nosnippet>569</a>        </span><span class="kw">let </span>nav_items = current(cx)
-<a href=#570 id=570 data-nosnippet>570</a>            .map(|panel| panel.nav_items.clone())
-<a href=#571 id=571 data-nosnippet>571</a>            .filter(|items| !items.is_empty())
-<a href=#572 id=572 data-nosnippet>572</a>            .unwrap_or_else(|| <span class="macro">vec!</span>[NavigationItem::at(<span class="string">"Home"</span>, <span class="kw">super</span>::gate::panel_prefix(cx))]);
-<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">let </span>shell = <span class="self">Self</span>::render_shell(cx, <span class="kw-2">&amp;</span>nav_items, <span class="kw-2">&amp;</span>path, slot, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#574 id=574 data-nosnippet>574</a>        <span class="self">Self</span>::render_document(cx, brand_name(cx), shell).<span class="kw">await
-<a href=#575 id=575 data-nosnippet>575</a>    </span>}
-<a href=#576 id=576 data-nosnippet>576</a>
-<a href=#577 id=577 data-nosnippet>577</a>    <span class="doccomment">/// The complete HTML document around a page the panel does not own.
-<a href=#578 id=578 data-nosnippet>578</a>    ///
-<a href=#579 id=579 data-nosnippet>579</a>    /// An app-level `#[layout]` outside the panel prefix takes the panel's
-<a href=#580 id=580 data-nosnippet>580</a>    /// document from here, so a public page carries the same head as the admin
-<a href=#581 id=581 data-nosnippet>581</a>    /// shell: the dev script, the theme init, and — where
-<a href=#582 id=582 data-nosnippet>582</a>    /// [`Self::shell_assets`] registered them — the runtime script, the font,
-<a href=#583 id=583 data-nosnippet>583</a>    /// the stylesheet, and the shell scripts. Outside a prefix the panel is
-<a href=#584 id=584 data-nosnippet>584</a>    /// the router's only one; a router that mounts several has no panel there,
-<a href=#585 id=585 data-nosnippet>585</a>    /// and the head degrades to the dev script and the theme init, as it does
-<a href=#586 id=586 data-nosnippet>586</a>    /// for a router built without `.assets(..)`.
-<a href=#587 id=587 data-nosnippet>587</a>    ///
-<a href=#588 id=588 data-nosnippet>588</a>    /// `body` is the page's own content: the panel renders the `&lt;body&gt;` element,
-<a href=#589 id=589 data-nosnippet>589</a>    /// its dark-mode `&lt;html&gt;` class, and the head; the page owns its chrome
-<a href=#590 id=590 data-nosnippet>590</a>    /// inside. `title` is the page's own, where [`Self::layout_shell`] titles an
-<a href=#591 id=591 data-nosnippet>591</a>    /// admin page with the panel's [`Brand`].
-<a href=#592 id=592 data-nosnippet>592</a>    </span><span class="kw">pub async fn </span>document&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#593 id=593 data-nosnippet>593</a>        cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
-<a href=#594 id=594 data-nosnippet>594</a>        title: <span class="kw">impl </span>Into&lt;String&gt;,
-<a href=#595 id=595 data-nosnippet>595</a>        body: <span class="kw">impl </span>View + <span class="lifetime">'a</span>,
-<a href=#596 id=596 data-nosnippet>596</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
-<a href=#597 id=597 data-nosnippet>597</a>        <span class="self">Self</span>::render_document(cx, title.into(), body.boxed()).<span class="kw">await
-<a href=#598 id=598 data-nosnippet>598</a>    </span>}
-<a href=#599 id=599 data-nosnippet>599</a>
-<a href=#600 id=600 data-nosnippet>600</a>    <span class="doccomment">/// The complete HTML document around a rendered body: assets, dark-mode
-<a href=#601 id=601 data-nosnippet>601</a>    /// class, and title. [`Self::layout_shell`] frames the panel shell with
-<a href=#602 id=602 data-nosnippet>602</a>    /// it; the standalone login page (ADR-0013) uses the same document so
-<a href=#603 id=603 data-nosnippet>603</a>    /// brand and dark mode carry over.
-<a href=#604 id=604 data-nosnippet>604</a>    ///
-<a href=#605 id=605 data-nosnippet>605</a>    /// The eleven shell scripts ship `defer`red (deliberate all-load policy,
-<a href=#606 id=606 data-nosnippet>606</a>    /// ADR-0014): parsing never waits for them, and every one is safe
-<a href=#607 id=607 data-nosnippet>607</a>    /// deferred — document-level listeners install after parse, and the
-<a href=#608 id=608 data-nosnippet>608</a>    /// `DOMContentLoaded` handlers still run, since deferred scripts execute
-<a href=#609 id=609 data-nosnippet>609</a>    /// first. The blocking `theme_init_script` stays inline so the `dark`
-<a href=#610 id=610 data-nosnippet>610</a>    /// class lands pre-paint.
-<a href=#611 id=611 data-nosnippet>611</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>render_document&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#612 id=612 data-nosnippet>612</a>        cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
-<a href=#613 id=613 data-nosnippet>613</a>        title: String,
-<a href=#614 id=614 data-nosnippet>614</a>        body: BoxView&lt;<span class="lifetime">'a</span>&gt;,
-<a href=#615 id=615 data-nosnippet>615</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
-<a href=#616 id=616 data-nosnippet>616</a>        <span class="comment">// The panel's default: the `&lt;html class&gt;` a first-time visitor gets,
-<a href=#617 id=617 data-nosnippet>617</a>        // and the fallback the blocking script uses when nothing is stored.
-<a href=#618 id=618 data-nosnippet>618</a>        </span><span class="kw">let </span>default_dark = current(cx).is_some_and(|panel| panel.dark_mode);
-<a href=#619 id=619 data-nosnippet>619</a>        <span class="kw">let </span>head: BoxView&lt;<span class="lifetime">'_</span>&gt; = <span class="kw">match </span>current(cx).and_then(|panel| panel.shell_assets) {
-<a href=#620 id=620 data-nosnippet>620</a>            <span class="prelude-val">Some</span>(ShellAssets { stylesheet, font }) =&gt; <span class="macro">view!</span> {
-<a href=#621 id=621 data-nosnippet>621</a>                cx =&gt;
-<a href=#622 id=622 data-nosnippet>622</a>                topcoat::dev::script()
-<a href=#623 id=623 data-nosnippet>623</a>                tablo_ui::theme_init_script(default_dark: default_dark)
-<a href=#624 id=624 data-nosnippet>624</a>                topcoat::runtime::script()
-<a href=#625 id=625 data-nosnippet>625</a>                topcoat::font::link(font: font)
-<a href=#626 id=626 data-nosnippet>626</a>                &lt;link rel=<span class="string">"stylesheet" </span>href=(stylesheet)&gt;
-<a href=#627 id=627 data-nosnippet>627</a>                &lt;script src=(tablo_ui::SIDEBAR_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#628 id=628 data-nosnippet>628</a>                &lt;script src=(tablo_ui::THEME_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#629 id=629 data-nosnippet>629</a>                &lt;script src=(tablo_ui::DIALOG_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#630 id=630 data-nosnippet>630</a>                &lt;script src=(tablo_ui::WIRE_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#631 id=631 data-nosnippet>631</a>                &lt;script src=(tablo_ui::BULK_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#632 id=632 data-nosnippet>632</a>                &lt;script src=(tablo_ui::FILTERS_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#633 id=633 data-nosnippet>633</a>                &lt;script src=(tablo_ui::LIVE_SEARCH_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#634 id=634 data-nosnippet>634</a>                &lt;script src=(tablo_ui::SELECTS_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#635 id=635 data-nosnippet>635</a>                &lt;script src=(tablo_ui::VARIANT_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#636 id=636 data-nosnippet>636</a>                &lt;script src=(tablo_ui::NOTIFICATION_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#637 id=637 data-nosnippet>637</a>                &lt;script src=(tablo_ui::MUTATION_SUBMIT_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
-<a href=#638 id=638 data-nosnippet>638</a>            }
-<a href=#639 id=639 data-nosnippet>639</a>            .boxed(),
-<a href=#640 id=640 data-nosnippet>640</a>            <span class="prelude-val">None </span>=&gt; <span class="macro">view!</span> {
-<a href=#641 id=641 data-nosnippet>641</a>                cx =&gt;
-<a href=#642 id=642 data-nosnippet>642</a>                topcoat::dev::script()
-<a href=#643 id=643 data-nosnippet>643</a>                tablo_ui::theme_init_script(default_dark: default_dark)
-<a href=#644 id=644 data-nosnippet>644</a>            }
-<a href=#645 id=645 data-nosnippet>645</a>            .boxed(),
-<a href=#646 id=646 data-nosnippet>646</a>        };
-<a href=#647 id=647 data-nosnippet>647</a>        <span class="kw">let </span>dark = <span class="kw">match </span>request_cookie(cx, <span class="string">"theme"</span>).as_deref() {
-<a href=#648 id=648 data-nosnippet>648</a>            <span class="prelude-val">Some</span>(<span class="string">"dark"</span>) =&gt; <span class="bool-val">true</span>,
-<a href=#649 id=649 data-nosnippet>649</a>            <span class="prelude-val">Some</span>(<span class="string">"light"</span>) =&gt; <span class="bool-val">false</span>,
-<a href=#650 id=650 data-nosnippet>650</a>            <span class="kw">_ </span>=&gt; default_dark,
-<a href=#651 id=651 data-nosnippet>651</a>        };
-<a href=#652 id=652 data-nosnippet>652</a>        <span class="kw">let </span>html_class = dark.then_some(<span class="string">"dark"</span>);
-<a href=#653 id=653 data-nosnippet>653</a>        <span class="prelude-val">Ok</span>(<span class="macro">view!</span> {
-<a href=#654 id=654 data-nosnippet>654</a>            cx =&gt;
-<a href=#655 id=655 data-nosnippet>655</a>            &lt;!DOCTYPE html&gt;
-<a href=#656 id=656 data-nosnippet>656</a>            &lt;html class=(html_class)&gt;
-<a href=#657 id=657 data-nosnippet>657</a>                &lt;head&gt;
-<a href=#658 id=658 data-nosnippet>658</a>                    &lt;title&gt;(title)&lt;/title&gt;
-<a href=#659 id=659 data-nosnippet>659</a>                    (head)
-<a href=#660 id=660 data-nosnippet>660</a>                &lt;/head&gt;
-<a href=#661 id=661 data-nosnippet>661</a>                &lt;body&gt;(body)&lt;/body&gt;
-<a href=#662 id=662 data-nosnippet>662</a>            &lt;/html&gt;
-<a href=#663 id=663 data-nosnippet>663</a>        }
-<a href=#664 id=664 data-nosnippet>664</a>        .boxed())
-<a href=#665 id=665 data-nosnippet>665</a>    }
-<a href=#666 id=666 data-nosnippet>666</a>}
-<a href=#667 id=667 data-nosnippet>667</a>
-<a href=#668 id=668 data-nosnippet>668</a><span class="doccomment">/// The request's panel brand name, `Tablo` without one.
-<a href=#669 id=669 data-nosnippet>669</a></span><span class="kw">fn </span>brand_name(cx: <span class="kw-2">&amp;</span>Cx) -&gt; String {
-<a href=#670 id=670 data-nosnippet>670</a>    current(cx)
-<a href=#671 id=671 data-nosnippet>671</a>        .and_then(|panel| panel.brand.as_ref())
-<a href=#672 id=672 data-nosnippet>672</a>        .map_or_else(|| <span class="string">"Tablo"</span>.to_string(), |brand| brand.name.clone())
-<a href=#673 id=673 data-nosnippet>673</a>}
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a><span class="attr">#[cfg(test)]
-<a href=#676 id=676 data-nosnippet>676</a></span><span class="kw">mod </span>tests;
+<a href=#434 id=434 data-nosnippet>434</a>        // (same helper, same request identity) and hand them to the shard.
+<a href=#435 id=435 data-nosnippet>435</a>        </span><span class="kw">let </span>LiveToast {
+<a href=#436 id=436 data-nosnippet>436</a>            status: toast_status,
+<a href=#437 id=437 data-nosnippet>437</a>            title: toast_title,
+<a href=#438 id=438 data-nosnippet>438</a>            description: toast_description,
+<a href=#439 id=439 data-nosnippet>439</a>            serial: toast_serial,
+<a href=#440 id=440 data-nosnippet>440</a>        } = live_toast(cx);
+<a href=#441 id=441 data-nosnippet>441</a>
+<a href=#442 id=442 data-nosnippet>442</a>        <span class="prelude-val">Ok</span>(<span class="macro">view!</span> {
+<a href=#443 id=443 data-nosnippet>443</a>            cx =&gt;
+<a href=#444 id=444 data-nosnippet>444</a>            sidebar_provider(
+<a href=#445 id=445 data-nosnippet>445</a>                attrs: <span class="macro">attributes!</span> { class=(outer_class) },
+<a href=#446 id=446 data-nosnippet>446</a>                <span class="comment">// `sidebar_rail` is intentionally not rendered: the header
+<a href=#447 id=447 data-nosnippet>447</a>                // `sidebar_trigger` is the explicit toggle, and the rail's
+<a href=#448 id=448 data-nosnippet>448</a>                // edge hit-area reads as stray chrome as a primary toggle.
+<a href=#449 id=449 data-nosnippet>449</a>                // Keep the component available (`tablo_ui::sidebar_rail`)
+<a href=#450 id=450 data-nosnippet>450</a>                // for opt-in `variant=inset`/`floating` layouts.
+<a href=#451 id=451 data-nosnippet>451</a>                </span>sidebar(
+<a href=#452 id=452 data-nosnippet>452</a>                    open: $(sidebar_open.get()),
+<a href=#453 id=453 data-nosnippet>453</a>                    mobile_open: $(mobile_open.get()),
+<a href=#454 id=454 data-nosnippet>454</a>                    collapsible: SidebarCollapsible::Offcanvas,
+<a href=#455 id=455 data-nosnippet>455</a>                    sheet_attrs: <span class="macro">attributes!</span> {
+<a href=#456 id=456 data-nosnippet>456</a>                        id=<span class="string">"mobile-sidebar-sheet"
+<a href=#457 id=457 data-nosnippet>457</a>                        </span>aria-label=<span class="string">"Navigation"
+<a href=#458 id=458 data-nosnippet>458</a>                        </span>@keydown=$(|e: Event| {
+<a href=#459 id=459 data-nosnippet>459</a>                            <span class="kw">if </span>e.key == <span class="string">"Escape" </span>{
+<a href=#460 id=460 data-nosnippet>460</a>                                mobile_open.set(<span class="bool-val">false</span>);
+<a href=#461 id=461 data-nosnippet>461</a>                            }
+<a href=#462 id=462 data-nosnippet>462</a>                        })
+<a href=#463 id=463 data-nosnippet>463</a>                        @click=$(|e: Event| {
+<a href=#464 id=464 data-nosnippet>464</a>                            <span class="kw">if </span>e.target.id == <span class="string">"mobile-sidebar-sheet" </span>{
+<a href=#465 id=465 data-nosnippet>465</a>                                mobile_open.set(<span class="bool-val">false</span>);
+<a href=#466 id=466 data-nosnippet>466</a>                            }
+<a href=#467 id=467 data-nosnippet>467</a>                        })
+<a href=#468 id=468 data-nosnippet>468</a>                    },
+<a href=#469 id=469 data-nosnippet>469</a>                    sidebar_header(
+<a href=#470 id=470 data-nosnippet>470</a>                        &lt;div class=<span class="string">"flex items-center gap-2 px-2"</span>&gt;
+<a href=#471 id=471 data-nosnippet>471</a>                            (sidebar_brand)
+<a href=#472 id=472 data-nosnippet>472</a>                            <span class="comment">// Below `md` the sheet covers the inset header,
+<a href=#473 id=473 data-nosnippet>473</a>                            // so the sheet's own header carries the close
+<a href=#474 id=474 data-nosnippet>474</a>                            // control (upstream `examples/ui`); the mobile
+<a href=#475 id=475 data-nosnippet>475</a>                            // trigger in the inset header is behind the veil.
+<a href=#476 id=476 data-nosnippet>476</a>                            </span>tablo_ui::button(
+<a href=#477 id=477 data-nosnippet>477</a>                                variant: tablo_ui::ButtonVariant::Ghost,
+<a href=#478 id=478 data-nosnippet>478</a>                                size: tablo_ui::ButtonSize::Icon,
+<a href=#479 id=479 data-nosnippet>479</a>                                attrs: <span class="macro">attributes!</span> {
+<a href=#480 id=480 data-nosnippet>480</a>                                    <span class="kw">type</span>=<span class="string">"button"
+<a href=#481 id=481 data-nosnippet>481</a>                                    </span>class=<span class="string">"md:hidden ml-auto"
+<a href=#482 id=482 data-nosnippet>482</a>                                    </span>aria-label=<span class="string">"Close sidebar"
+<a href=#483 id=483 data-nosnippet>483</a>                                    </span>@click=$(|_e: Event| mobile_open.set(<span class="bool-val">false</span>))
+<a href=#484 id=484 data-nosnippet>484</a>                                },
+<a href=#485 id=485 data-nosnippet>485</a>                                icon(data: tablo_ui::icons::X)
+<a href=#486 id=486 data-nosnippet>486</a>                            )
+<a href=#487 id=487 data-nosnippet>487</a>                        &lt;/div&gt;
+<a href=#488 id=488 data-nosnippet>488</a>                    )
+<a href=#489 id=489 data-nosnippet>489</a>                    sidebar_content((navigation))
+<a href=#490 id=490 data-nosnippet>490</a>                )
+<a href=#491 id=491 data-nosnippet>491</a>                sidebar_inset(
+<a href=#492 id=492 data-nosnippet>492</a>                    sidebar_header(
+<a href=#493 id=493 data-nosnippet>493</a>                        <span class="comment">// The desktop trigger collapses the rail; below md the
+<a href=#494 id=494 data-nosnippet>494</a>                        // mobile trigger opens the sheet instead (shadcn
+<a href=#495 id=495 data-nosnippet>495</a>                        // SidebarTrigger pair, upstream `examples/ui`).
+<a href=#496 id=496 data-nosnippet>496</a>                        </span>sidebar_trigger(
+<a href=#497 id=497 data-nosnippet>497</a>                            open: $(sidebar_open.get()),
+<a href=#498 id=498 data-nosnippet>498</a>                            attrs: <span class="macro">attributes!</span> {
+<a href=#499 id=499 data-nosnippet>499</a>                                class=<span class="string">"max-md:hidden"
+<a href=#500 id=500 data-nosnippet>500</a>                                </span>aria-controls=<span class="string">"mobile-sidebar-sheet"
+<a href=#501 id=501 data-nosnippet>501</a>                                </span>@click=$(|_e: Event| sidebar_open.toggle())
+<a href=#502 id=502 data-nosnippet>502</a>                            }
+<a href=#503 id=503 data-nosnippet>503</a>                        )
+<a href=#504 id=504 data-nosnippet>504</a>                        sidebar_trigger(
+<a href=#505 id=505 data-nosnippet>505</a>                            open: $(mobile_open.get()),
+<a href=#506 id=506 data-nosnippet>506</a>                            attrs: <span class="macro">attributes!</span> {
+<a href=#507 id=507 data-nosnippet>507</a>                                class=<span class="string">"md:hidden"
+<a href=#508 id=508 data-nosnippet>508</a>                                </span>aria-controls=<span class="string">"mobile-sidebar-sheet"
+<a href=#509 id=509 data-nosnippet>509</a>                                </span>@click=$(|_e: Event| mobile_open.toggle())
+<a href=#510 id=510 data-nosnippet>510</a>                            }
+<a href=#511 id=511 data-nosnippet>511</a>                        )
+<a href=#512 id=512 data-nosnippet>512</a>                        <span class="comment">// The sidebar carries the brand on desktop; below md
+<a href=#513 id=513 data-nosnippet>513</a>                        // it hides in the sheet, so the topbar names the
+<a href=#514 id=514 data-nosnippet>514</a>                        // panel there.
+<a href=#515 id=515 data-nosnippet>515</a>                        </span>&lt;div class=<span class="string">"md:hidden font-semibold text-foreground"</span>&gt;
+<a href=#516 id=516 data-nosnippet>516</a>                            (header_title)
+<a href=#517 id=517 data-nosnippet>517</a>                        &lt;/div&gt;
+<a href=#518 id=518 data-nosnippet>518</a>                        <span class="comment">// The separator stays a direct child of the topbar,
+<a href=#519 id=519 data-nosnippet>519</a>                        // where `sidebar_inset` sizes a vertical rule.
+<a href=#520 id=520 data-nosnippet>520</a>                        </span>&lt;div class=<span class="string">"ml-auto"</span>&gt;(theme_toggle)&lt;/div&gt;
+<a href=#521 id=521 data-nosnippet>521</a>                        separator(orientation: SeparatorOrientation::Vertical)
+<a href=#522 id=522 data-nosnippet>522</a>                        (account_view)
+<a href=#523 id=523 data-nosnippet>523</a>                    )
+<a href=#524 id=524 data-nosnippet>524</a>                    <span class="comment">// `sidebar_inset` is the document's one `&lt;main&gt;`; a second
+<a href=#525 id=525 data-nosnippet>525</a>                    // nested landmark is invalid and confuses landmark
+<a href=#526 id=526 data-nosnippet>526</a>                    // navigation (upstream `examples/ui` uses a plain div).
+<a href=#527 id=527 data-nosnippet>527</a>                    // The page container (`tablo_ui::page`) owns the width
+<a href=#528 id=528 data-nosnippet>528</a>                    // and the padding.
+<a href=#529 id=529 data-nosnippet>529</a>                    </span>&lt;div class=<span class="string">"flex flex-1 flex-col"</span>&gt;(slot)&lt;/div&gt;
+<a href=#530 id=530 data-nosnippet>530</a>                )
+<a href=#531 id=531 data-nosnippet>531</a>                <span class="comment">// Toast stack — the shadcn/Sonner surface, fixed bottom-right
+<a href=#532 id=532 data-nosnippet>532</a>                // and a polite live region so streamed swaps are announced.
+<a href=#533 id=533 data-nosnippet>533</a>                // `live_toaster` is the page-owned
+<a href=#534 id=534 data-nosnippet>534</a>                // in-place transport; the flash cookie's toast
+<a href=#535 id=535 data-nosnippet>535</a>                // rides beside it.
+<a href=#536 id=536 data-nosnippet>536</a>                </span>tablo_ui::toaster(
+<a href=#537 id=537 data-nosnippet>537</a>                    (notification_view)
+<a href=#538 id=538 data-nosnippet>538</a>                    live_toaster(
+<a href=#539 id=539 data-nosnippet>539</a>                        status: $(toast_status),
+<a href=#540 id=540 data-nosnippet>540</a>                        title: $(toast_title),
+<a href=#541 id=541 data-nosnippet>541</a>                        description: $(toast_description),
+<a href=#542 id=542 data-nosnippet>542</a>                        serial: $(toast_serial)
+<a href=#543 id=543 data-nosnippet>543</a>                    )
+<a href=#544 id=544 data-nosnippet>544</a>                )
+<a href=#545 id=545 data-nosnippet>545</a>            ) <span class="comment">// Scripts are owned by the document (layout_shell).
+<a href=#546 id=546 data-nosnippet>546</a>        </span>}
+<a href=#547 id=547 data-nosnippet>547</a>        .boxed())
+<a href=#548 id=548 data-nosnippet>548</a>    }
+<a href=#549 id=549 data-nosnippet>549</a>
+<a href=#550 id=550 data-nosnippet>550</a>    <span class="doccomment">/// The panel shell around a page, as a complete HTML document: the layout
+<a href=#551 id=551 data-nosnippet>551</a>    /// every panel registers at its prefix unless [`Panel::layout`] replaces
+<a href=#552 id=552 data-nosnippet>552</a>    /// it, and what a replacement calls to keep the shell around its own
+<a href=#553 id=553 data-nosnippet>553</a>    /// markup.
+<a href=#554 id=554 data-nosnippet>554</a>    ///
+<a href=#555 id=555 data-nosnippet>555</a>    /// The stylesheet and font are supplied to the Panel builder with
+<a href=#556 id=556 data-nosnippet>556</a>    /// [`Self::shell_assets`]. A Panel without those values remains renderable
+<a href=#557 id=557 data-nosnippet>557</a>    /// for tests and custom document owners, but does not pretend that a CSS
+<a href=#558 id=558 data-nosnippet>558</a>    /// bundle exists. Errors from the page slot propagate unchanged when the
+<a href=#559 id=559 data-nosnippet>559</a>    /// document view is resolved.
+<a href=#560 id=560 data-nosnippet>560</a>    </span><span class="kw">pub fn </span>layout_shell&lt;<span class="lifetime">'a</span>&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, slot: Slot&lt;<span class="lifetime">'a</span>&gt;) -&gt; BoxView&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#561 id=561 data-nosnippet>561</a>        Box::pin(ThenView::new(<span class="self">Self</span>::render_layout_shell(cx, slot)))
+<a href=#562 id=562 data-nosnippet>562</a>    }
+<a href=#563 id=563 data-nosnippet>563</a>
+<a href=#564 id=564 data-nosnippet>564</a>    <span class="kw">async fn </span>render_layout_shell&lt;<span class="lifetime">'a</span>&gt;(cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx, slot: Slot&lt;<span class="lifetime">'a</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
+<a href=#565 id=565 data-nosnippet>565</a>        <span class="kw">use </span>topcoat::router::request::uri;
+<a href=#566 id=566 data-nosnippet>566</a>        <span class="kw">let </span>path = uri(cx).path().to_string();
+<a href=#567 id=567 data-nosnippet>567</a>        <span class="comment">// The panel's sidebar, or a single Home entry outside any panel.
+<a href=#568 id=568 data-nosnippet>568</a>        </span><span class="kw">let </span>nav_items = current(cx)
+<a href=#569 id=569 data-nosnippet>569</a>            .map(|panel| panel.nav_items.clone())
+<a href=#570 id=570 data-nosnippet>570</a>            .filter(|items| !items.is_empty())
+<a href=#571 id=571 data-nosnippet>571</a>            .unwrap_or_else(|| <span class="macro">vec!</span>[NavigationItem::at(<span class="string">"Home"</span>, <span class="kw">super</span>::gate::panel_prefix(cx))]);
+<a href=#572 id=572 data-nosnippet>572</a>        <span class="kw">let </span>shell = <span class="self">Self</span>::render_shell(cx, <span class="kw-2">&amp;</span>nav_items, <span class="kw-2">&amp;</span>path, slot, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#573 id=573 data-nosnippet>573</a>        <span class="self">Self</span>::render_document(cx, brand_name(cx), shell).<span class="kw">await
+<a href=#574 id=574 data-nosnippet>574</a>    </span>}
+<a href=#575 id=575 data-nosnippet>575</a>
+<a href=#576 id=576 data-nosnippet>576</a>    <span class="doccomment">/// The complete HTML document around a page the panel does not own.
+<a href=#577 id=577 data-nosnippet>577</a>    ///
+<a href=#578 id=578 data-nosnippet>578</a>    /// An app-level `#[layout]` outside the panel prefix takes the panel's
+<a href=#579 id=579 data-nosnippet>579</a>    /// document from here, so a public page carries the same head as the admin
+<a href=#580 id=580 data-nosnippet>580</a>    /// shell: the dev script, the theme init, and — where
+<a href=#581 id=581 data-nosnippet>581</a>    /// [`Self::shell_assets`] registered them — the runtime script, the font,
+<a href=#582 id=582 data-nosnippet>582</a>    /// the stylesheet, and the shell scripts. Outside a prefix the panel is
+<a href=#583 id=583 data-nosnippet>583</a>    /// the router's only one; a router that mounts several has no panel there,
+<a href=#584 id=584 data-nosnippet>584</a>    /// and the head degrades to the dev script and the theme init, as it does
+<a href=#585 id=585 data-nosnippet>585</a>    /// for a router built without `.assets(..)`.
+<a href=#586 id=586 data-nosnippet>586</a>    ///
+<a href=#587 id=587 data-nosnippet>587</a>    /// `body` is the page's own content: the panel renders the `&lt;body&gt;` element,
+<a href=#588 id=588 data-nosnippet>588</a>    /// its dark-mode `&lt;html&gt;` class, and the head; the page owns its chrome
+<a href=#589 id=589 data-nosnippet>589</a>    /// inside. `title` is the page's own, where [`Self::layout_shell`] titles an
+<a href=#590 id=590 data-nosnippet>590</a>    /// admin page with the panel's [`Brand`].
+<a href=#591 id=591 data-nosnippet>591</a>    </span><span class="kw">pub async fn </span>document&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#592 id=592 data-nosnippet>592</a>        cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
+<a href=#593 id=593 data-nosnippet>593</a>        title: <span class="kw">impl </span>Into&lt;String&gt;,
+<a href=#594 id=594 data-nosnippet>594</a>        body: <span class="kw">impl </span>View + <span class="lifetime">'a</span>,
+<a href=#595 id=595 data-nosnippet>595</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
+<a href=#596 id=596 data-nosnippet>596</a>        <span class="self">Self</span>::render_document(cx, title.into(), body.boxed()).<span class="kw">await
+<a href=#597 id=597 data-nosnippet>597</a>    </span>}
+<a href=#598 id=598 data-nosnippet>598</a>
+<a href=#599 id=599 data-nosnippet>599</a>    <span class="doccomment">/// The complete HTML document around a rendered body: assets, dark-mode
+<a href=#600 id=600 data-nosnippet>600</a>    /// class, and title. [`Self::layout_shell`] frames the panel shell with
+<a href=#601 id=601 data-nosnippet>601</a>    /// it; the standalone login page (ADR-0013) uses the same document so
+<a href=#602 id=602 data-nosnippet>602</a>    /// brand and dark mode carry over.
+<a href=#603 id=603 data-nosnippet>603</a>    ///
+<a href=#604 id=604 data-nosnippet>604</a>    /// The eleven shell scripts ship `defer`red (deliberate all-load policy,
+<a href=#605 id=605 data-nosnippet>605</a>    /// ADR-0014): parsing never waits for them, and every one is safe
+<a href=#606 id=606 data-nosnippet>606</a>    /// deferred — document-level listeners install after parse, and the
+<a href=#607 id=607 data-nosnippet>607</a>    /// `DOMContentLoaded` handlers still run, since deferred scripts execute
+<a href=#608 id=608 data-nosnippet>608</a>    /// first. The blocking `theme_init_script` stays inline so the `dark`
+<a href=#609 id=609 data-nosnippet>609</a>    /// class lands pre-paint.
+<a href=#610 id=610 data-nosnippet>610</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>render_document&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#611 id=611 data-nosnippet>611</a>        cx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Cx,
+<a href=#612 id=612 data-nosnippet>612</a>        title: String,
+<a href=#613 id=613 data-nosnippet>613</a>        body: BoxView&lt;<span class="lifetime">'a</span>&gt;,
+<a href=#614 id=614 data-nosnippet>614</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxView&lt;<span class="lifetime">'a</span>&gt;&gt; {
+<a href=#615 id=615 data-nosnippet>615</a>        <span class="comment">// The panel's default: the `&lt;html class&gt;` a first-time visitor gets,
+<a href=#616 id=616 data-nosnippet>616</a>        // and the fallback the blocking script uses when nothing is stored.
+<a href=#617 id=617 data-nosnippet>617</a>        </span><span class="kw">let </span>default_dark = current(cx).is_some_and(|panel| panel.dark_mode);
+<a href=#618 id=618 data-nosnippet>618</a>        <span class="kw">let </span>head: BoxView&lt;<span class="lifetime">'_</span>&gt; = <span class="kw">match </span>current(cx).and_then(|panel| panel.shell_assets) {
+<a href=#619 id=619 data-nosnippet>619</a>            <span class="prelude-val">Some</span>(ShellAssets { stylesheet, font }) =&gt; <span class="macro">view!</span> {
+<a href=#620 id=620 data-nosnippet>620</a>                cx =&gt;
+<a href=#621 id=621 data-nosnippet>621</a>                topcoat::dev::script()
+<a href=#622 id=622 data-nosnippet>622</a>                tablo_ui::theme_init_script(default_dark: default_dark)
+<a href=#623 id=623 data-nosnippet>623</a>                topcoat::runtime::script()
+<a href=#624 id=624 data-nosnippet>624</a>                topcoat::font::link(font: font)
+<a href=#625 id=625 data-nosnippet>625</a>                &lt;link rel=<span class="string">"stylesheet" </span>href=(stylesheet)&gt;
+<a href=#626 id=626 data-nosnippet>626</a>                &lt;script src=(tablo_ui::SIDEBAR_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#627 id=627 data-nosnippet>627</a>                &lt;script src=(tablo_ui::THEME_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#628 id=628 data-nosnippet>628</a>                &lt;script src=(tablo_ui::DIALOG_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#629 id=629 data-nosnippet>629</a>                &lt;script src=(tablo_ui::WIRE_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#630 id=630 data-nosnippet>630</a>                &lt;script src=(tablo_ui::BULK_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#631 id=631 data-nosnippet>631</a>                &lt;script src=(tablo_ui::FILTERS_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#632 id=632 data-nosnippet>632</a>                &lt;script src=(tablo_ui::LIVE_SEARCH_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#633 id=633 data-nosnippet>633</a>                &lt;script src=(tablo_ui::SELECTS_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#634 id=634 data-nosnippet>634</a>                &lt;script src=(tablo_ui::VARIANT_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#635 id=635 data-nosnippet>635</a>                &lt;script src=(tablo_ui::NOTIFICATION_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#636 id=636 data-nosnippet>636</a>                &lt;script src=(tablo_ui::MUTATION_SUBMIT_JS) defer=<span class="string">""</span>&gt;&lt;/script&gt;
+<a href=#637 id=637 data-nosnippet>637</a>            }
+<a href=#638 id=638 data-nosnippet>638</a>            .boxed(),
+<a href=#639 id=639 data-nosnippet>639</a>            <span class="prelude-val">None </span>=&gt; <span class="macro">view!</span> {
+<a href=#640 id=640 data-nosnippet>640</a>                cx =&gt;
+<a href=#641 id=641 data-nosnippet>641</a>                topcoat::dev::script()
+<a href=#642 id=642 data-nosnippet>642</a>                tablo_ui::theme_init_script(default_dark: default_dark)
+<a href=#643 id=643 data-nosnippet>643</a>            }
+<a href=#644 id=644 data-nosnippet>644</a>            .boxed(),
+<a href=#645 id=645 data-nosnippet>645</a>        };
+<a href=#646 id=646 data-nosnippet>646</a>        <span class="kw">let </span>dark = <span class="kw">match </span>request_cookie(cx, <span class="string">"theme"</span>).as_deref() {
+<a href=#647 id=647 data-nosnippet>647</a>            <span class="prelude-val">Some</span>(<span class="string">"dark"</span>) =&gt; <span class="bool-val">true</span>,
+<a href=#648 id=648 data-nosnippet>648</a>            <span class="prelude-val">Some</span>(<span class="string">"light"</span>) =&gt; <span class="bool-val">false</span>,
+<a href=#649 id=649 data-nosnippet>649</a>            <span class="kw">_ </span>=&gt; default_dark,
+<a href=#650 id=650 data-nosnippet>650</a>        };
+<a href=#651 id=651 data-nosnippet>651</a>        <span class="kw">let </span>html_class = dark.then_some(<span class="string">"dark"</span>);
+<a href=#652 id=652 data-nosnippet>652</a>        <span class="prelude-val">Ok</span>(<span class="macro">view!</span> {
+<a href=#653 id=653 data-nosnippet>653</a>            cx =&gt;
+<a href=#654 id=654 data-nosnippet>654</a>            &lt;!DOCTYPE html&gt;
+<a href=#655 id=655 data-nosnippet>655</a>            &lt;html class=(html_class)&gt;
+<a href=#656 id=656 data-nosnippet>656</a>                &lt;head&gt;
+<a href=#657 id=657 data-nosnippet>657</a>                    &lt;title&gt;(title)&lt;/title&gt;
+<a href=#658 id=658 data-nosnippet>658</a>                    (head)
+<a href=#659 id=659 data-nosnippet>659</a>                &lt;/head&gt;
+<a href=#660 id=660 data-nosnippet>660</a>                &lt;body&gt;(body)&lt;/body&gt;
+<a href=#661 id=661 data-nosnippet>661</a>            &lt;/html&gt;
+<a href=#662 id=662 data-nosnippet>662</a>        }
+<a href=#663 id=663 data-nosnippet>663</a>        .boxed())
+<a href=#664 id=664 data-nosnippet>664</a>    }
+<a href=#665 id=665 data-nosnippet>665</a>}
+<a href=#666 id=666 data-nosnippet>666</a>
+<a href=#667 id=667 data-nosnippet>667</a><span class="doccomment">/// The request's panel brand name, `Tablo` without one.
+<a href=#668 id=668 data-nosnippet>668</a></span><span class="kw">fn </span>brand_name(cx: <span class="kw-2">&amp;</span>Cx) -&gt; String {
+<a href=#669 id=669 data-nosnippet>669</a>    current(cx)
+<a href=#670 id=670 data-nosnippet>670</a>        .and_then(|panel| panel.brand.as_ref())
+<a href=#671 id=671 data-nosnippet>671</a>        .map_or_else(|| <span class="string">"Tablo"</span>.to_string(), |brand| brand.name.clone())
+<a href=#672 id=672 data-nosnippet>672</a>}
+<a href=#673 id=673 data-nosnippet>673</a>
+<a href=#674 id=674 data-nosnippet>674</a><span class="attr">#[cfg(test)]
+<a href=#675 id=675 data-nosnippet>675</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

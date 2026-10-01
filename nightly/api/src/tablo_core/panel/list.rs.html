@@ -269,7 +269,7 @@
 <a href=#269 id=269 data-nosnippet>269</a>/// The page streams: shell and header go out with the first content, while the
 <a href=#270 id=270 data-nosnippet>270</a>/// table body (toolbar/filter/bulk/pager included) loads inside a `suspense`
 <a href=#271 id=271 data-nosnippet>271</a>/// region that swaps in the skeleton → table without any client-side fetching
-<a href=#272 id=272 data-nosnippet>272</a>/// (GH #98: the skeleton is thead + placeholders only, so chrome pops in with
+<a href=#272 id=272 data-nosnippet>272</a>/// (the skeleton is thead + placeholders only, so chrome pops in with
 <a href=#273 id=273 data-nosnippet>273</a>/// the swap by design).
 <a href=#274 id=274 data-nosnippet>274</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>resource_list&lt;R: Resource&gt;(cx: <span class="kw-2">&amp;</span>Cx, _body: Body) -&gt; BoxView&lt;<span class="lifetime">'_</span>&gt; {
 <a href=#275 id=275 data-nosnippet>275</a>    Box::pin(HoistView::new(ThenView::new(<span class="kw">async move </span>{
@@ -355,7 +355,7 @@
 <a href=#355 id=355 data-nosnippet>355</a>        <span class="comment">// One normalization per request: the toolbar, the hoisted
 <a href=#356 id=356 data-nosnippet>356</a>        // filter bar, the skeleton, the dialog and the retry link all read
 <a href=#357 id=357 data-nosnippet>357</a>        // the state this page parsed, so it normalizes here and every seam
-<a href=#358 id=358 data-nosnippet>358</a>        // below takes the proof (: no unknown `?group_by=` in a link).
+<a href=#358 id=358 data-nosnippet>358</a>        // below takes the proof (no unknown `?group_by=` in a link).
 <a href=#359 id=359 data-nosnippet>359</a>        </span><span class="kw">let </span>state = table.normalize_state(<span class="kw-2">&amp;</span>state);
 <a href=#360 id=360 data-nosnippet>360</a>        <span class="kw">let </span>host = <span class="kw">if </span>table.search_enabled() {
 <a href=#361 id=361 data-nosnippet>361</a>            <span class="prelude-val">Some</span>(

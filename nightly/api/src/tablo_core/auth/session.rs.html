@@ -149,7 +149,7 @@
 <a href=#149 id=149 data-nosnippet>149</a><span class="doccomment">/// Drop up to [`SESSION_SWEEP_BATCH`] expired session rows, whoever owns them.
 <a href=#150 id=150 data-nosnippet>150</a>///
 <a href=#151 id=151 data-nosnippet>151</a>/// [`resolve`] purges a row when its token is looked up expired, so a row whose
-<a href=#152 id=152 data-nosnippet>152</a>/// token is never presented again stays in the table (GH #302). A successful
+<a href=#152 id=152 data-nosnippet>152</a>/// token is never presented again stays in the table. A successful
 <a href=#153 id=153 data-nosnippet>153</a>/// login is where the sweep runs, before the new row: a visitor who never signs
 <a href=#154 id=154 data-nosnippet>154</a>/// in does not reach it. Toasty's `Delete` carries no `LIMIT`, so the bound
 <a href=#155 id=155 data-nosnippet>155</a>/// comes from selecting the keys first, and the select rides `expires_at`'s

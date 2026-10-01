@@ -147,7 +147,7 @@
 <a href=#147 id=147 data-nosnippet>147</a>    /// The control's `type` is the type's `INPUT_TYPE`: `datetime-local` for a
 <a href=#148 id=148 data-nosnippet>148</a>    /// `jiff::Timestamp`, whose stored instant renders in UTC and whose
 <a href=#149 id=149 data-nosnippet>149</a>    /// submission is read back as UTC, and `text` otherwise (`email` overrides
-<a href=#150 id=150 data-nosnippet>150</a>    /// it). `unique` defaults from the column's unique index (GH #183).
+<a href=#150 id=150 data-nosnippet>150</a>    /// it). `unique` defaults from the column's unique index.
 <a href=#151 id=151 data-nosnippet>151</a>    ///
 <a href=#152 id=152 data-nosnippet>152</a>    /// `T` is [`IntoExpr`](toasty::stmt::IntoExpr) of itself so the unique
 <a href=#153 id=153 data-nosnippet>153</a>    /// probe compares the parsed value through the lens rather than its text.
@@ -319,7 +319,7 @@
 <a href=#319 id=319 data-nosnippet>319</a>
 <a href=#320 id=320 data-nosnippet>320</a>    <span class="doccomment">/// Whether an empty submit fails validation and the control renders as
 <a href=#321 id=321 data-nosnippet>321</a>    /// required: `required`, or a unique text field over a non-nullable
-<a href=#322 id=322 data-nosnippet>322</a>    /// column (GH #189). `validate` and the render read it, so the rule and
+<a href=#322 id=322 data-nosnippet>322</a>    /// column. `validate` and the render read it, so the rule and
 <a href=#323 id=323 data-nosnippet>323</a>    /// the marker cannot disagree.
 <a href=#324 id=324 data-nosnippet>324</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_required(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 <a href=#325 id=325 data-nosnippet>325</a>        <span class="self">self</span>.required || (<span class="self">self</span>.is_unique() &amp;&amp; !<span class="self">self</span>.nullable)

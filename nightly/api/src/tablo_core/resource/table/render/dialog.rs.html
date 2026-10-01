@@ -51,7 +51,7 @@
 <a href=#51 id=51 data-nosnippet>51</a>        <span class="kw">let </span>action = key.map(|key| <span class="self">self</span>.action_url(delete_action_url(prefix, key)));
 <a href=#52 id=52 data-nosnippet>52</a>        <span class="comment">// Only the URL-driven dialog mirrors its dismissal into the URL: a
 <a href=#53 id=53 data-nosnippet>53</a>        // dialog a row control opens client-side has no `?delete=` to close,
-<a href=#54 id=54 data-nosnippet>54</a>        // so dismissing it leaves the URL alone (GH #154 §3).
+<a href=#54 id=54 data-nosnippet>54</a>        // so dismissing it leaves the URL alone.
 <a href=#55 id=55 data-nosnippet>55</a>        </span><span class="kw">let </span>open_param = server_open.then(|| state.param(<span class="string">"open"</span>));
 <a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">let </span>csrf = <span class="kw">crate</span>::csrf::current_token(cx);
 <a href=#57 id=57 data-nosnippet>57</a>        <span class="kw">let </span>footer = <span class="macro">view!</span> {

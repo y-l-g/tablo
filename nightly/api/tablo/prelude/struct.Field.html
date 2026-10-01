@@ -38,7 +38,7 @@ unchanged is written back in the shape it was read.</li>
 <p>The control’s <code>type</code> is the type’s <code>INPUT_TYPE</code>: <code>datetime-local</code> for a
 <code>jiff::Timestamp</code>, whose stored instant renders in UTC and whose
 submission is read back as UTC, and <code>text</code> otherwise (<code>email</code> overrides
-it). <code>unique</code> defaults from the column’s unique index (GH #183).</p>
+it). <code>unique</code> defaults from the column’s unique index.</p>
 <p><code>T</code> is <a href="toasty::stmt::IntoExpr"><code>IntoExpr</code></a> of itself so the unique
 probe compares the parsed value through the lens rather than its text.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.choice" class="method"><a class="src rightside" href="../../src/tablo_core/schema/fields/mod.rs.html#192-194">Source</a><h4 class="code-header">pub fn <a href="#method.choice" class="fn">choice</a>&lt;M, T&gt;(lens: impl <a class="trait" href="https://doc.rust-lang.org/1.99.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../struct.ResolvedLens.html" title="struct tablo::ResolvedLens">ResolvedLens</a>&lt;M, T&gt;&gt;) -&gt; <a class="struct" href="../struct.ChoiceField.html" title="struct tablo::ChoiceField">ChoiceField</a><div class="where">where

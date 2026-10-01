@@ -70,7 +70,7 @@
 <a href=#70 id=70 data-nosnippet>70</a>    ///
 <a href=#71 id=71 data-nosnippet>71</a>    /// `query` is the caller's scope. The panel's list passes the resource's
 <a href=#72 id=72 data-nosnippet>72</a>    /// [`scoped_query`](crate::resource::scoped_query); a page that owns its
-<a href=#73 id=73 data-nosnippet>73</a>    /// table (GH #154 §2) passes its own, with the table from
+<a href=#73 id=73 data-nosnippet>73</a>    /// table passes its own, with the table from
 <a href=#74 id=74 data-nosnippet>74</a>    /// [`panel::wired_table`](crate::panel::wired_table) when it renders the
 <a href=#75 id=75 data-nosnippet>75</a>    /// resource's action chrome.
 <a href=#76 id=76 data-nosnippet>76</a>    ///
@@ -171,8 +171,8 @@
 <a href=#171 id=171 data-nosnippet>171</a><span class="doccomment">/// Whether `query` has a row past the cursor.
 <a href=#172 id=172 data-nosnippet>172</a>///
 <a href=#173 id=173 data-nosnippet>173</a>/// Toasty reports a cursor whenever a page comes back full, so a page that
-<a href=#174 id=174 data-nosnippet>174</a>/// ends exactly at the table's edge carries one with nothing behind it
-<a href=#175 id=175 data-nosnippet>175</a>/// (GH #397). The list loader validates the cursor its links carry with
+<a href=#174 id=174 data-nosnippet>174</a>/// ends exactly at the table's edge carries one with nothing behind it.
+<a href=#175 id=175 data-nosnippet>175</a>/// The list loader validates the cursor its links carry with
 <a href=#176 id=176 data-nosnippet>176</a>/// this, and the export asks it whether rows remain past its row cap.
 <a href=#177 id=177 data-nosnippet>177</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>row_exists_past&lt;M&gt;(
 <a href=#178 id=178 data-nosnippet>178</a>    db: <span class="kw-2">&amp;mut </span>toasty::Db,

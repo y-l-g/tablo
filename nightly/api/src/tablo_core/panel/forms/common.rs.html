@@ -40,7 +40,7 @@
 <a href=#40 id=40 data-nosnippet>40</a>/// buffered for an installed [`Uploader`](crate::Uploader).
 <a href=#41 id=41 data-nosnippet>41</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>MAX_FORM_BYTES: usize = <span class="number">10 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 <a href=#42 id=42 data-nosnippet>42</a>
-<a href=#43 id=43 data-nosnippet>43</a><span class="doccomment">/// Reject POST keys no declared Schema input owns (GH #89 mass-assignment
+<a href=#43 id=43 data-nosnippet>43</a><span class="doccomment">/// Reject POST keys no declared Schema input owns (mass-assignment
 <a href=#44 id=44 data-nosnippet>44</a>/// allow-list). `csrf_token` is a handler key, not a field, so it is filtered
 <a href=#45 id=45 data-nosnippet>45</a>/// before the check, as are `clear_&lt;field&gt;` flags for declared file
 <a href=#46 id=46 data-nosnippet>46</a>/// fields (explicit-clear convention — `truthy`); absent keys are fine (an
@@ -127,7 +127,7 @@
 <a href=#127 id=127 data-nosnippet>127</a>/// `keep_&lt;field&gt;`, because the browser's file input is empty on the next
 <a href=#128 id=128 data-nosnippet>128</a>/// attempt. The candidate is used only when the installed uploader still holds
 <a href=#129 id=129 data-nosnippet>129</a>/// the path ([`crate::upload::holds`]): a client-typed value is never stored,
-<a href=#130 id=130 data-nosnippet>130</a>/// which is the GH #277 rule the carry must not re-open. Without an installed
+<a href=#130 id=130 data-nosnippet>130</a>/// which the carry must not re-open. Without an installed
 <a href=#131 id=131 data-nosnippet>131</a>/// uploader nothing can vouch for a path, so nothing is restored.
 <a href=#132 id=132 data-nosnippet>132</a>///
 <a href=#133 id=133 data-nosnippet>133</a>/// A field that carried a file of its own in this submission, or one the user
