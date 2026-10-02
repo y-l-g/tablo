@@ -1,11 +1,4 @@
-//! Tenancy: which tenant a request acts for, and how a resource's rows belong
-//! to one.
-//!
-//! A resource declares its [`Tenancy`]. A scoped one requires a tenant in every
-//! handler, and the framework ANDs `<lens> = <tenant>` onto every loader
-//! through [`scoped_query`](crate::resource::scoped_query), so
-//! [`query`](crate::resource::Resource::query) stays the resource's
-//! *non-tenant* scoping seam and no loader can drop the filter by omission.
+//! Scopes resources to the request tenant.
 //!
 //! [`tenant_id`] answers the request's tenant: one of the signed-in user's
 //! [`tenants`](crate::auth::PanelUser::tenants) — the one the session selected

@@ -1,9 +1,4 @@
-//! The showcase panel: one resource per model, with three deliberate policy
-//! demos. One user is SSO-managed outside the panel, so writes refuse it
-//! while reads flow; one tenant is locked out of every blog; removed comments
-//! keep a placeholder row the policy refuses to show. They demo per-record
-//! rules, tenant gates, and filtered reads — pinned by the integration suite,
-//! but demos first.
+//! Serves the showcase panel with demo resources.
 
 use std::path::PathBuf;
 

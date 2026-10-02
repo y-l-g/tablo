@@ -1,14 +1,7 @@
-//! Authorization: what a resource lets the current user do.
+//! Authorizes resource abilities, denying by default.
 //!
-//! A [`Resource`] answers every check through one value, its
-//! [`policy`](Resource::policy). A policy is asked one [`Ability`] at a time —
-//! listing, viewing a record, creating, updating a record, deleting at all,
-//! deleting a record — and answers `true` to allow it. The default policy is
-//! [`Deny`], so a resource that declares none exposes no data and no mutation.
-//!
-//! Policies compose. [`Allow`], [`Deny`], [`ReadOnly`] and [`when`] are the
-//! building blocks, each with `and` and `or` to combine it with another
-//! policy, and a closure over the context and the ability is a policy too:
+//! Combines [`Allow`], [`Deny`], [`ReadOnly`], [`when`], and closures with
+//! `and`/`or`.
 //!
 //! ```ignore
 //! fn policy() -> impl Policy<Post> {

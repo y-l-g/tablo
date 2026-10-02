@@ -45,7 +45,7 @@ primary key the URLs carry. Either way, keys must be unique within a page.
   computed column uses the label you pass.
 - **Relations.** A column whose closure reads a relation declares it with `.include(..)`, and the
   list and the export load it with the page's rows in one query. A relation no column includes
-  is not loaded. Guard the read so a missing include fails loudly instead of showing blank data:
+  is not loaded. Guard the read so a missing include renders `(unloaded)` instead of blank data:
 
   ```rust
   TextColumn::computed("Author", |p: &Post| {
@@ -59,7 +59,7 @@ primary key the URLs carry. Either way, keys must be unique within a page.
   share of the space left over; a computed column defaults to a narrow share of the table (10%,
   scaled down when many columns claim one). Override with `.width(ColumnWidth::Percent(30))`,
   `Rem(8)`, `Narrow` or `Wide`. A cell wider than its column is truncated with an ellipsis. On a
-  narrow screen the table keeps a minimum width and scrolls horizontally instead of crushing its
+  narrow screen the table keeps a minimum width and scrolls horizontally instead of narrowing its
   columns.
 
 Two columns with the same name, two filters with the same name, a table with no columns, and a
@@ -212,7 +212,7 @@ checkbox, so select-all only selects rows something can be done to. A bulk delet
 400 records and deletes all of them or none: a selection holding a record that may not be deleted
 deletes nothing and returns to the list with an error notification.
 
-Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
+Both deletes require confirmation. The Delete action opens a confirmation dialog on the list page;
 confirming it deletes the row, shows a notification and refreshes the table without leaving the
 page. The bulk bar's button opens a dialog stating how many rows are selected. The delete
 handlers refuse a POST that was not confirmed through the dialog with 400, and without

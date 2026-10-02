@@ -1,8 +1,4 @@
-//! The smallest complete Tablo app: one model, one resource, and the panel
-//! that serves it, mounted on the app's router.
-//!
-//! `cargo run`, then open <http://127.0.0.1:3000/admin/books> and sign in as
-//! `admin@example.com` / `secret`.
+//! Serves one model through one panel on the app router.
 
 use tablo::{
     auth::{AdminUser, AuthSession, hash_password},

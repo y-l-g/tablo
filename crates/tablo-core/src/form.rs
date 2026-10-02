@@ -1,17 +1,9 @@
 //! Record forms: the typed value a form submission parses into, and the write
 //! that stores it.
 //!
-//! A form-bearing resource declares one struct with
-//! [`#[derive(RecordForm)]`](crate::RecordForm): one field per model column the
-//! form writes, named and typed like the model's field. The panel parses every
-//! submission into that struct, hydrates the edit and detail pages from it, and
-//! writes it through toasty's generated builders. ADR-0022 records the design.
-//!
-//! On edit, a declared key the submission does not post is **completed** from
-//! the stored record before the parse, so [`Resource::update_record`]
-//! receives a whole form, and [`Posted`] records which fields the submission
-//! **named**. The write assigns only named fields, plus what the model's own
-//! `#[update(..)]` defaults and `#[version]` column assign on every update.
+//! Declares one `RecordForm` struct with one field per written model column.
+//! Completes unposted keys from the stored record and writes only named fields
+//! plus model defaults.
 //!
 //! ```no_run
 //! #[derive(Debug, Clone, toasty::Model)]

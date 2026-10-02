@@ -1,8 +1,4 @@
-//! Panel shell: document, sidebar, brand, theme, and notification view.
-//!
-//! Renders the Filament-grade shell framing every admin page. Depends on
-//! `tablo-ui`, Topcoat's view and runtime, and the notification and
-//! [`NavigationItem`] types — never on the [`Resource`] trait.
+//! Renders the shell framing every admin page.
 
 use http::header::COOKIE;
 use topcoat::{
@@ -324,25 +320,7 @@ impl Panel {
         request_cookie(cx, "sidebar_state").as_deref() != Some("collapsed")
     }
 
-    /// Render the Filament-grade Shell that frames every admin page.
-    ///
-    /// Composes Topcoat's upstream `sidebar` primitives (ADR-0007): the
-    /// desktop panel and the mobile sheet share one navigation rendering, and
-    /// the open state lives in runtime signals — `open` seeds from the
-    /// `sidebar_state` cookie for the first paint, the triggers carry
-    /// `@click` handlers, and `assets/sidebar.js` persists changes back to
-    /// the cookie. Includes dark-mode toggle (Ghost button, persisted by
-    /// `theme.js` to `localStorage` + the `theme` cookie) and the toast stack
-    /// (shadcn/Sonner surface, fixed bottom-right). Additive `class` is
-    /// allowed on the outer container only (narrow seam).
-    ///
-    /// Asset note: desktop persistence needs `assets/sidebar.js`
-    /// (`tablo_ui::SIDEBAR_JS`), which [`Self::layout_shell`]'s document —
-    /// not this function — emits (scripts are owned by the document). The
-    /// mobile sheet (`#mobile-sidebar-sheet`) instead dismisses through its
-    /// own runtime `@keydown`/`@click` handlers, so it needs no asset; the
-    /// vendored `sheet`/`sidebar` primitives carry no note themselves
-    /// (ADR-0007 sync guard). See ADR-0014.
+    /// Renders the shell around `slot` with an optional outer class.
     pub async fn render_shell<'a>(
         cx: &'a Cx,
         nav_items: &[NavigationItem],
@@ -573,21 +551,7 @@ impl Panel {
         Self::render_document(cx, brand_name(cx), shell).await
     }
 
-    /// The complete HTML document around a page the panel does not own.
-    ///
-    /// An app-level `#[layout]` outside the panel prefix takes the panel's
-    /// document from here, so a public page carries the same head as the admin
-    /// shell: the dev script, the theme init, and — where
-    /// [`Self::shell_assets`] registered them — the runtime script, the font,
-    /// the stylesheet, and the shell scripts. Outside a prefix the panel is
-    /// the router's only one; a router that mounts several has no panel there,
-    /// and the head degrades to the dev script and the theme init, as it does
-    /// for a router built without `.assets(..)`.
-    ///
-    /// `body` is the page's own content: the panel renders the `<body>` element,
-    /// its dark-mode `<html>` class, and the head; the page owns its chrome
-    /// inside. `title` is the page's own, where [`Self::layout_shell`] titles an
-    /// admin page with the panel's [`Brand`].
+    /// Renders a complete HTML document around a page outside the panel prefix.
     pub async fn document<'a>(
         cx: &'a Cx,
         title: impl Into<String>,
@@ -596,17 +560,7 @@ impl Panel {
         Self::render_document(cx, title.into(), body.boxed()).await
     }
 
-    /// The complete HTML document around a rendered body: assets, dark-mode
-    /// class, and title. [`Self::layout_shell`] frames the panel shell with
-    /// it; the standalone login page (ADR-0013) uses the same document so
-    /// brand and dark mode carry over.
-    ///
-    /// The eleven shell scripts ship `defer`red (deliberate all-load policy,
-    /// ADR-0014): parsing never waits for them, and every one is safe
-    /// deferred — document-level listeners install after parse, and the
-    /// `DOMContentLoaded` handlers still run, since deferred scripts execute
-    /// first. The blocking `theme_init_script` stays inline so the `dark`
-    /// class lands pre-paint.
+    /// Renders the HTML document with assets and the dark-mode class.
     pub(crate) async fn render_document<'a>(
         cx: &'a Cx,
         title: String,

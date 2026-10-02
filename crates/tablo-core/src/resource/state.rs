@@ -1,9 +1,8 @@
 //! List state: [`TableState`], [`Cursor`], [`Sort`], the URL codec, and the
 //! live table's signals.
 //!
-//! The URL query is the one spelling of list state: the GET page and the live
-//! shard parse it with [`TableState::from_query`], and every link projects it
-//! back through one encoder.
+//! The URL query spells list state; [`TableState::from_query`] parses it and one
+//! encoder projects every link.
 
 use std::{borrow::Cow, collections::BTreeMap};
 
@@ -17,42 +16,15 @@ use crate::query_term::clamp_query_term;
 
 /// The live table's browser state: the list's query string and the bulk
 /// selection.
-///
-/// The page owns these signals and hands their handles to the `table_search`
-/// shard; each tracked read inside the shard becomes a `dep` marker the
-/// browser watches, so writing either re-renders the table in place, with no
-/// navigation and no scroll jump.
-///
-/// `query` is the URL query every control already spells in its `href`: a sort
-/// link or a pager link writes its own `href` query, and the search and filter
-/// scripts edit their own keys of the current value, clear links included, so
-/// the hoisted control a clear link names is cleared with the query. The
-/// shard parses it with [`TableState::from_query`], the GET path's parser, so
-/// the live table and the page cannot disagree about what a query means.
-/// `bulk` is the selection, which is not URL state and survives a rerun.
-///
-/// Both values are untrusted by the time the shard reads them back: the client
-/// owns the signals.
 #[derive(Clone)]
 pub(crate) struct TableSignals {
     /// The list's URL query, without the leading `?`.
     pub(crate) query: Signal<String>,
-    /// The bulk selection: comma-delimited record keys (`,a,b,`), empty when
-    /// nothing is selected. Row checkboxes carry no `checked` attribute:
-    /// `bulk.js` sets `checked` from the transport after every swap and
-    /// change, and the script writes the transport, whose bound `change`
-    /// handler writes this signal, so a rerun re-renders the boxes from the
-    /// selection instead of dropping it. The shard carries the handle without
-    /// reading it: a checkbox click must not reload rows.
+    /// The bulk selection as `,a,b,`-delimited keys; empty selects none.
     pub(crate) bulk: Signal<String>,
 }
 
-/// Test helper: whether the comma-delimited selection wire names `key`.
-///
-/// The wire is `,a,b,`-delimited on both ends so membership is an exact
-/// segment match, not a substring test that would confuse `b` with `ab`.
-/// [`parse_bulk_ids`](crate::panel) already ignores the empty segments the
-/// delimiters produce, so the same wire is the form transport.
+/// Tests exact segment membership on the `,a,b,` bulk wire.
 #[cfg(test)]
 pub(crate) fn bulk_wire_contains(wire: &str, key: &str) -> bool {
     wire.split(',').any(|segment| segment == key)
@@ -70,9 +42,7 @@ pub struct Sort {
 
 /// A pagination cursor: the page after, or the page before, an encoded row.
 ///
-/// Toasty pages from one cursor at a time, so one value holds it: a URL that
-/// names both `?after=` and `?before=` parses as no cursor, the first page,
-/// which is where the cursor retry lands anyway.
+/// Conflicting cursors parse as none and render the first page.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Cursor {
     /// `?after=` — the page after the encoded row.
@@ -82,19 +52,10 @@ pub enum Cursor {
 }
 
 /// Request-scoped table state, parsed from the list's URL query.
-///
-/// The single parse point shared by loaders (the search term, ordering via
-/// `Table::order_bys_for`) and render (active sort, toolbar values,
-/// pagination links), so the URL is the one truth for list state. A page that
-/// holds several tables — a record page with its relations — gives each a
-/// [`prefix`](Self::prefix) for its parameters (`comments.q=`), so the
-/// tables' states share one query without colliding.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TableState {
-    /// The prefix every parameter of this table carries (`comments` →
-    /// `comments.q=`), or `None` for a page's own list, whose parameters are
-    /// bare. Set by the parse ([`Self::from_query_prefixed`]); every link and
-    /// form input this state builds spells the same names.
+    /// The prefix every parameter of this table carries, or `None` for a page's
+    /// own list.
     pub prefix: Option<String>,
     /// `?q=` — trimmed and clamped to `MAX_QUERY_TERM` chars; `None` when
     /// absent or blank.
@@ -106,30 +67,17 @@ pub struct TableState {
     /// `?f.<name>=<value>`, one parameter per active filter, by name. A blank
     /// value is no filter.
     pub filters: BTreeMap<String, String>,
-    /// Filter parameters arrived that the parse dropped: more than
-    /// `MAX_FILTERS`, a name or value over `MAX_FILTER_LEN` bytes, or the
-    /// retired `?filters=` spelling. `Table::unapplied_filters` reports it, so
-    /// the list warns and the export refuses instead of exporting an
-    /// over-broad CSV. No link carries it: a link rebuilds the query from the
-    /// filters that applied.
+    /// Filter parameters the parse dropped.
     pub filters_dropped: bool,
     /// `?group_by=` — field name to group by (in-memory, `count` summarizer).
     pub group_by: Option<String>,
-    /// `?delete=` — the row key whose delete confirmation dialog opens on the
-    /// list page. The dialog's confirmed POST re-enters the delete
-    /// route; the parameter itself is never a write.
+    /// `?delete=` — the row key whose delete dialog opens; never a write.
     pub delete: Option<String>,
-    /// `?open=false` — set by `dialog.js` when Escape/backdrop dismisses the
-    /// delete dialog, so the next render stays closed. Absent (or `true`)
-    /// renders it open.
+    /// `?open=false` — renders the delete dialog closed.
     pub open: Option<bool>,
 }
 
-/// The URL parameters one table link projects, named so a call site reads
-/// which intent drops what.
-///
-/// `Default` is the projection that drops everything: a caller names only the
-/// parameters it keeps.
+/// The URL parameters one table link projects.
 #[derive(Default)]
 struct UrlProjection<'a> {
     /// `?q=` search term.
@@ -146,13 +94,10 @@ struct UrlProjection<'a> {
     delete: Option<&'a str>,
 }
 
-/// Most filters one query applies. Every filter is a map entry that every
-/// rebuilt URL echoes, and the live shard parses a client-owned query, so the
-/// count is bounded where the query is parsed.
+/// Caps applied filters per query.
 pub(crate) const MAX_FILTERS: usize = 32;
 
-/// Longest filter name or value one query applies, in bytes: the bound on
-/// what every rebuilt link echoes per filter.
+/// Caps filter name and value length in bytes.
 pub(crate) const MAX_FILTER_LEN: usize = 256;
 
 /// The prefix that names a filter parameter: `?f.status=published`.

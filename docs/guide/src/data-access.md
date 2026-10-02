@@ -1,6 +1,6 @@
 # Data access
 
-The panel's own pages load rows for you. This chapter covers querying Toasty from your code: a
+The panel loads rows on its own pages. This chapter covers querying Toasty from your code: a
 [page](./panel-and-routing.md#pages), a record function, or a public page. The
 [Toasty guide](https://tokio-rs.github.io/toasty/0.10.0/guide/) covers the query API in full.
 
