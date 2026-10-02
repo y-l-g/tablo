@@ -274,7 +274,8 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .layer(ShardPanel::new(TABLE_SEARCH_PATH, 0))
         .layer(ShardPanel::new(TABLE_RELATION_SEARCH_PATH, 1))
         .app_context(Panels::default());
-    // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten to a `GET`.
+    // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
+    // to a `GET`.
     if builder.get_app_context::<RuntimeSetup>().is_none() {
         builder = builder.runtime();
     }
@@ -284,7 +285,8 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     builder
 }
 
-/// Redirects the panel root of a panel with no [`home`](Panel::home) page to the first declared resource's list.
+/// Redirects the panel root of a panel with no [`home`](Panel::home) page to the first declared
+/// resource's list.
 pub(crate) fn panel_root_redirect(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         // Re-checks the resolved user so a mis-mounted gate cannot leak the slug.
@@ -304,7 +306,8 @@ pub(super) fn is_directory_pattern(path: &str) -> bool {
         .is_some_and(|segment| segment.as_catch_all().is_some())
 }
 
-/// Validates one path segment a panel derives routes from, refusing anything that cannot serve as a literal URL segment.
+/// Validates one path segment a panel derives routes from, refusing anything that cannot serve as a
+/// literal URL segment.
 pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), String> {
     if segment.is_empty() {
         return Err(format!("{kind}: path segment must not be empty"));
@@ -334,7 +337,8 @@ pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), St
 /// app's values and no request.
 pub(super) type ResourceCheck = fn(&Cx, &DeclCx, &mut Declarations) -> Result<(), String>;
 
-/// Checks what a declared resource promises before the panel serves it, building its declarations once for handlers to serve.
+/// Checks what a declared resource promises before the panel serves it, building its declarations
+/// once for handlers to serve.
 pub(super) fn check_resource<R: Resource>(
     cx: &Cx,
     dx: &DeclCx,

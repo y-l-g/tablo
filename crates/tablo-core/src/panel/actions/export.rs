@@ -15,7 +15,8 @@ use crate::{
     resource::{Past, Resource, Table, TableState, declared, row_exists_past},
 };
 
-/// Bounds the receivable rows an export delivers; a full raw window with rows left beyond it is a 413 so the export never returns a partial file.
+/// Bounds the receivable rows an export delivers; a full raw window with rows left beyond it is a
+/// 413 so the export never returns a partial file.
 const MAX_EXPORT_ROWS: usize = 10_000;
 
 /// Fetches this many models per cursor chunk on the export walk.

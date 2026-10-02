@@ -67,7 +67,8 @@ fn lens_field_unique_reads_the_model_index_list() {
     );
 }
 
-// `FieldResolver` reads the compiled schema the request carries, so these tests build a `Db` over one model carrying every shape the resolver reads.
+// `FieldResolver` reads the compiled schema the request carries, so these tests build a `Db` over
+// one model carrying every shape the resolver reads.
 
 /// An embedded struct: its leaves flatten into the parent's table.
 #[derive(Debug, Clone, toasty::Embed)]

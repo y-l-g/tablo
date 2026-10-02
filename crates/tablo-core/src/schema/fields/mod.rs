@@ -1,4 +1,5 @@
-//! One [`Field`] type whose control is text, choice, file, or an app's own [`Control`], built from a [`ResolvedLens`] binding a column or an embedded leaf.
+//! One [`Field`] type whose control is text, choice, file, or an app's own [`Control`], built from
+//! a [`ResolvedLens`] binding a column or an embedded leaf.
 
 mod builders;
 mod choice;
@@ -25,7 +26,8 @@ use super::{
 };
 use crate::form::{FieldError, FormScalar};
 
-/// One form field binding a lens to the control editing it, offering only that control's modifiers so a modifier on the wrong control does not compile.
+/// One form field binding a lens to the control editing it, offering only that control's modifiers
+/// so a modifier on the wrong control does not compile.
 ///
 /// ```ignore
 /// Field::text(User::fields().name()).placeholder("Ada Lovelace")   // TextField
@@ -101,7 +103,8 @@ impl Field {
         }
     }
 
-    /// Binds any [`FormScalar`] column, storing the type's own spelling and probing uniqueness through the lens.
+    /// Binds any [`FormScalar`] column, storing the type's own spelling and probing uniqueness
+    /// through the lens.
     pub fn text<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> TextField
     where
         M: toasty::schema::Model,
@@ -131,7 +134,8 @@ impl Field {
         ))
     }
 
-    /// A choice field over any column, with options from [`options`](ChoiceField::options) or [`relationship`](ChoiceField::relationship).
+    /// A choice field over any column, with options from [`options`](ChoiceField::options) or
+    /// [`relationship`](ChoiceField::relationship).
     pub fn choice<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> ChoiceField
     where
         M: toasty::schema::Model,
@@ -143,7 +147,8 @@ impl Field {
         ))
     }
 
-    /// A file field over a `String` column holding the uploaded path, rendering no `value` attribute.
+    /// A file field over a `String` column holding the uploaded path, rendering no `value`
+    /// attribute.
     pub fn file<M>(lens: impl Into<ResolvedLens<M, String>>) -> FileField
     where
         M: toasty::schema::Model,
@@ -175,7 +180,8 @@ impl Field {
         ))
     }
 
-    /// The variant control of an embedded enum, never required since an empty submit answers with the payload fallback.
+    /// The variant control of an embedded enum, never required since an empty submit answers with
+    /// the payload fallback.
     pub(crate) fn discriminant(name: String, variants: Vec<(String, String)>) -> Self {
         Self {
             label: capitalize(&name),

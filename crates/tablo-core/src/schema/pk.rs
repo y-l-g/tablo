@@ -1,6 +1,7 @@
 //! Parses URL ids into typed Toasty predicates through `toasty_core` (upstream #114).
 
-/// Parses a URL path segment into `M`'s primary-key value through `toasty_core` (upstream #114) and returns `None` when the id does not parse or the key is not a single primitive field.
+/// Parses a URL path segment into `M`'s primary-key value through `toasty_core` (upstream #114) and
+/// returns `None` when the id does not parse or the key is not a single primitive field.
 fn pk_field_value<M>(
     id: &str,
 ) -> Option<(toasty_core::schema::app::FieldId, toasty_core::stmt::Value)>
@@ -52,7 +53,8 @@ where
         .is_some_and(|root| root.primary_key.fields.len() > 1)
 }
 
-/// Builds the equality predicate on `M`'s primary key for a URL id and returns `None` when the id does not parse or the key is not a single primitive field.
+/// Builds the equality predicate on `M`'s primary key for a URL id and returns `None` when the id
+/// does not parse or the key is not a single primitive field.
 pub(crate) fn pk_eq_expr<M>(id: &str) -> Option<toasty::stmt::Expr<bool>>
 where
     M: toasty::schema::Model,
@@ -65,7 +67,8 @@ where
     Some(toasty::stmt::Expr::from_untyped(cond))
 }
 
-/// Builds the `IN` predicate over primary keys for a bulk id list and returns `None` when any id fails to parse or the key is not a single primitive field.
+/// Builds the `IN` predicate over primary keys for a bulk id list and returns `None` when any id
+/// fails to parse or the key is not a single primitive field.
 pub(crate) fn pk_in_expr<M>(ids: &[&str]) -> Option<toasty::stmt::Expr<bool>>
 where
     M: toasty::schema::Model,

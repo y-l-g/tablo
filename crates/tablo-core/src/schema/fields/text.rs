@@ -22,7 +22,8 @@ pub(crate) struct TextControl {
 }
 
 impl TextControl {
-    /// Parses a submission into `T` and compares through the lens, so `01` and `1` check as the stored integer.
+    /// Parses a submission into `T` and compares through the lens, so `01` and `1` check as the
+    /// stored integer.
     pub(super) fn new<M, T>(path: FieldLens<M, T>, unique: bool) -> Self
     where
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,

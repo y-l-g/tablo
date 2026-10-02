@@ -1,6 +1,9 @@
-//! Embedded values: a typed value and the flat form map converted in one declared place, plus the schema node that renders it.
+//! Embedded values: a typed value and the flat form map converted in one declared place, plus the
+//! schema node that renders it.
 //!
-//! An embedded leaf binds one flattened storage column and a value binds as a whole; a payload selects the variant only when the submission carries no discriminant at all, a shared column never selects one, and an unknown discriminant is refused.
+//! An embedded leaf binds one flattened storage column and a value binds as a whole; a payload
+//! selects the variant only when the submission carries no discriminant at all, a shared column
+//! never selects one, and an unknown discriminant is refused.
 //!
 //! # What an app writes
 //!
@@ -15,7 +18,8 @@
 //!
 //! # What is not covered
 //!
-//! A `#[document]` inside an embedded value, a relation inside one, and an embedded enum nested inside an enum variant are not covered.
+//! A `#[document]` inside an embedded value, a relation inside one, and an embedded enum nested
+//! inside an enum variant are not covered.
 //!
 //! Every leaf under an embedded step reports nullable.
 
@@ -33,9 +37,11 @@ use super::{
 };
 use crate::form::{FieldError, FormScalar};
 
-/// Reads an embedded value from and writes it to the flat form map; derive it to generate the value's schema.
+/// Reads an embedded value from and writes it to the flat form map; derive it to generate the
+/// value's schema.
 pub trait EmbeddedForm: Sized {
-    /// Writes this value's leaves into `out`, including the active variant's discriminant for an enum.
+    /// Writes this value's leaves into `out`, including the active variant's discriminant for an
+    /// enum.
     fn write_form<M>(
         &self,
         cx: &Cx,
@@ -48,7 +54,8 @@ pub trait EmbeddedForm: Sized {
         self.write_node(schema.embedded_root(), out);
     }
 
-    /// Reads a value back from a submission, taking an embedded enum's variant from the discriminant key and refusing a discriminant that names no variant.
+    /// Reads a value back from a submission, taking an embedded enum's variant from the
+    /// discriminant key and refusing a discriminant that names no variant.
     ///
     /// # Errors
     ///
@@ -154,7 +161,8 @@ impl Embedded {
         out.insert(e.key.clone(), e.variants[index].value.clone());
     }
 
-    /// Returns the variant a submission reads as, falling back to the first variant with a submitted payload when it names no discriminant, and refuses an unknown discriminant.
+    /// Returns the variant a submission reads as, falling back to the first variant with a
+    /// submitted payload when it names no discriminant, and refuses an unknown discriminant.
     pub fn variant_index(
         &self,
         values: &HashMap<String, String>,
@@ -277,7 +285,8 @@ impl Embedded {
         }
     }
 
-    /// Collects the field slots of every variant group the submission hides, hiding nothing when it names no variant.
+    /// Collects the field slots of every variant group the submission hides, hiding nothing when it
+    /// names no variant.
     pub(crate) fn hidden_fields(&self, values: &HashMap<String, String>, out: &mut Vec<usize>) {
         let nested = |members: &[Member], out: &mut Vec<usize>| {
             for member in members {
@@ -312,7 +321,8 @@ impl Embedded {
         }
     }
 
-    /// Renders the value, showing every variant group in a form and only the stored variant's group in a view.
+    /// Renders the value, showing every variant group in a form and only the stored variant's group
+    /// in a view.
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
@@ -410,7 +420,8 @@ fn is_present(values: &HashMap<String, String>, key: &str) -> bool {
         .is_some_and(|value| !value.trim().is_empty())
 }
 
-/// Builds an embedded value's schema node, one member at a time, in the order the derive declares them.
+/// Builds an embedded value's schema node, one member at a time, in the order the derive declares
+/// them.
 #[doc(hidden)]
 pub struct EmbeddedBuilder {
     fields: Vec<Field>,
@@ -427,7 +438,8 @@ impl EmbeddedBuilder {
         }
     }
 
-    /// Builds an enum value at `parent` from the app schema and panics when the schema is missing or `parent` names no embedded enum.
+    /// Builds an enum value at `parent` from the app schema and panics when the schema is missing
+    /// or `parent` names no embedded enum.
     pub fn enumeration<M, T>(dx: &DeclCx, parent: Path<M, T>) -> Self
     where
         M: toasty::schema::Model,
@@ -553,7 +565,8 @@ where
     T::build_schema(dx, parent.into()).embedded_root().keys()
 }
 
-/// Reads one leaf out of a submission by its resolved key, answering a blank with the member's declared blank or the type's own and refusing a blank with neither.
+/// Reads one leaf out of a submission by its resolved key, answering a blank with the member's
+/// declared blank or the type's own and refusing a blank with neither.
 #[doc(hidden)]
 pub fn parse_leaf<T>(
     key: &str,

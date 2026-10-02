@@ -63,7 +63,8 @@ async fn prepare_submission<R: Resource>(
     let (upload_errors, mut carried) =
         crate::upload::store_uploads(cx, &schema, &files, &mut values).await;
     carried.extend(restore_pending_uploads(cx, &schema, &mut values).await);
-    // An empty file input keeps the stored value; `clear_<field>` clears it unless a file was chosen.
+    // An empty file input keeps the stored value; `clear_<field>` clears it unless a file was
+    // chosen.
     for field in schema.fields().filter(|field| field.is_file()) {
         let name = field.name();
         let cleared = values
@@ -111,7 +112,8 @@ fn complete(
     }
 }
 
-/// Parses completed values and runs `validate_record`, refusing keys this submission renders nowhere.
+/// Parses completed values and runs `validate_record`, refusing keys this submission renders
+/// nowhere.
 fn parse_form<R: Resource>(
     cx: &Cx,
     schema: &Schema,

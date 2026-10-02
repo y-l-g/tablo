@@ -49,7 +49,8 @@ impl<M> Table<M> {
             .await
     }
 
-    /// Render the interactive body for a live table, excluding the row-delete dialog the caller renders separately.
+    /// Render the interactive body for a live table, excluding the row-delete dialog the caller
+    /// renders separately.
     pub(crate) async fn render_live<'a>(
         &self,
         cx: &'a Cx,
@@ -218,7 +219,8 @@ impl<M> Table<M> {
     }
 }
 
-/// Render the table's two wrappers shared by the loaded table and its skeleton, naming the region from the table's delete prefix.
+/// Render the table's two wrappers shared by the loaded table and its skeleton, naming the region
+/// from the table's delete prefix.
 pub(super) fn table_frame<'a>(
     cx: &'a Cx,
     busy: bool,

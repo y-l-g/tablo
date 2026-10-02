@@ -17,7 +17,8 @@ const CSP: header::HeaderName = header::CONTENT_SECURITY_POLICY;
 /// The panel's default directive: only the panel may frame itself.
 pub(crate) const DEFAULT_FRAME_ANCESTORS: &str = "'self'";
 
-/// Emits `Content-Security-Policy: frame-ancestors <directive>` on responses under the panel prefix.
+/// Emits `Content-Security-Policy: frame-ancestors <directive>` on responses under the panel
+/// prefix.
 #[derive(Debug, Clone)]
 pub(crate) struct FrameAncestors {
     directive: String,

@@ -28,7 +28,8 @@ impl<M> Table<M> {
             || self.row_custom_actions().next().is_some()
     }
 
-    /// Count the row links side by side in the actions column, counting a labeled custom action as two.
+    /// Count the row links side by side in the actions column, counting a labeled custom action as
+    /// two.
     fn action_link_count(&self) -> usize {
         usize::from(self.view_prefix.is_some())
             + usize::from(self.edit_prefix.is_some())

@@ -15,7 +15,8 @@ const ERROR_STATE_ACTION: StaticClass = class!("text-sm font-medium text-primary
 
 /// Renders a failed load inside the content region that failed.
 ///
-/// Keeps `detail` generic: never renders error internals (driver messages, SQL, paths) into the page.
+/// Keeps `detail` generic: never renders error internals (driver messages, SQL, paths) into the
+/// page.
 ///
 /// ```ignore
 /// let action = view! { cx => <a href=(list_url)>"Retry"</a> }.boxed();

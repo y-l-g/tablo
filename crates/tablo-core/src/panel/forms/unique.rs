@@ -6,7 +6,8 @@ use topcoat::{Result, context::Cx};
 
 use crate::{form::FieldErrors, resource::Resource};
 
-/// Refuses duplicated `unique()` values with `<Label> has already been taken`, skipping empty submits and the record's own value (#117).
+/// Refuses duplicated `unique()` values with `<Label> has already been taken`, skipping empty
+/// submits and the record's own value (#117).
 pub(super) async fn check_unique<R: Resource>(
     cx: &Cx,
     schema: &crate::schema::Schema,

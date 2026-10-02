@@ -3,7 +3,8 @@
 
 use topcoat::{context::Cx, view::*};
 
-/// Renders a field's input from a [`ControlInput`] and its stored value for display, using a hidden field for a state that submits nothing.
+/// Renders a field's input from a [`ControlInput`] and its stored value for display, using a hidden
+/// field for a state that submits nothing.
 ///
 /// ```ignore
 /// struct Color;

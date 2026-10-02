@@ -101,7 +101,8 @@ pub struct Panel {
     search_handlers: HashMap<String, SearchFn>,
     /// Each relation's live-search loader, by (parent slug, child slug).
     relation_handlers: HashMap<(String, String), RelationSearchFn>,
-    /// `Content-Security-Policy: frame-ancestors …` for every response under the prefix; `None` opts out, the default is `'self'`.
+    /// `Content-Security-Policy: frame-ancestors …` for every response under the prefix; `None`
+    /// opts out, the default is `'self'`.
     frame_ancestors: Option<String>,
     /// Per-resource declaration checks run at mount before anything is served.
     resource_checks: Vec<ResourceCheck>,
@@ -161,13 +162,15 @@ impl Panel {
         &self.prefix
     }
 
-    /// Installs the [`Uploader`](crate::Uploader) this panel's file fields store through; without one a file field stores the sanitized client filename.
+    /// Installs the [`Uploader`](crate::Uploader) this panel's file fields store through; without
+    /// one a file field stores the sanitized client filename.
     pub fn uploads(mut self, uploader: impl crate::Uploader) -> Self {
         self.uploads = Some(crate::upload::InstalledUploader::new(uploader));
         self
     }
 
-    /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all and sits outside the auth gate with hardening headers.
+    /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all and sits
+    /// outside the auth gate with hardening headers.
     pub fn serve_dir(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
         let path = path.into();
         if !is_directory_pattern(&path) {
@@ -179,13 +182,15 @@ impl Panel {
         self
     }
 
-    /// Registers the stylesheet and font the default shell links, resolved through the router's asset bundle.
+    /// Registers the stylesheet and font the default shell links, resolved through the router's
+    /// asset bundle.
     pub fn shell_assets(mut self, stylesheet: Asset, font: Font) -> Self {
         self.shell_assets = Some(ShellAssets { stylesheet, font });
         self
     }
 
-    /// Declares a `Resource` for this panel at `{prefix}/{slug}` with its routes, navigation entry, and mount-time declaration checks.
+    /// Declares a `Resource` for this panel at `{prefix}/{slug}` with its routes, navigation entry,
+    /// and mount-time declaration checks.
     pub fn resource<R: Resource>(mut self) -> Self {
         let Some(url) = self.register_common::<R>() else {
             return self;
@@ -218,7 +223,8 @@ impl Panel {
         self
     }
 
-    /// Registers the create page, edit page, and relationship-options endpoint of a resource with a record form.
+    /// Registers the create page, edit page, and relationship-options endpoint of a resource with a
+    /// record form.
     fn register_form_routes<R: Resource>(&mut self, url: &str) {
         let create_url = format!("{url}/{CREATE_ROUTE_SEGMENT}");
         self.pages.push(PageFn::new(
@@ -250,7 +256,8 @@ impl Panel {
         ));
     }
 
-    /// Registers a resource's shared routes and returns its list URL, or `None` when the slug is refused.
+    /// Registers a resource's shared routes and returns its list URL, or `None` when the slug is
+    /// refused.
     fn register_common<R: Resource>(&mut self) -> Option<String> {
         let url = self.claim_slug::<R>("Resource::slug", R::slug())?;
         self.resource_slugs.push(R::slug());
@@ -317,7 +324,8 @@ impl Panel {
         self.nav_items.push(nav_item);
     }
 
-    /// Claims `{prefix}/{slug}` for `T`, recording a refusal and returning `None` when the slug is unavailable.
+    /// Claims `{prefix}/{slug}` for `T`, recording a refusal and returning `None` when the slug is
+    /// unavailable.
     fn claim_slug<T: 'static>(&mut self, kind: &str, slug: String) -> Option<String> {
         let owner = std::any::type_name::<T>();
         let refused = if let Err(error) = validate_route_segment(kind, &slug) {
@@ -345,7 +353,8 @@ impl Panel {
         Some(url)
     }
 
-    /// Declares a [`Page`] at `{prefix}/{slug}` with its sidebar entry; pages share the resources' slug namespace.
+    /// Declares a [`Page`] at `{prefix}/{slug}` with its sidebar entry; pages share the resources'
+    /// slug namespace.
     pub fn page<P: Page>(mut self) -> Self {
         if let Some(url) = self.claim_slug::<P>("Page::slug", P::slug()) {
             let item = self.mount_page::<P>(&url);
@@ -354,7 +363,8 @@ impl Panel {
         self
     }
 
-    /// Declares the panel's home page at the panel prefix, replacing the redirect to the first resource's list.
+    /// Declares the panel's home page at the panel prefix, replacing the redirect to the first
+    /// resource's list.
     pub fn home<P: Page>(mut self) -> Self {
         if matches!(self.root, Some(Root::Home)) {
             self.registration_errors.push(format!(
@@ -380,7 +390,8 @@ impl Panel {
         P::navigation().resolved(url)
     }
 
-    /// Frames the panel's pages with `render` instead of the shipped shell; `render` usually wraps [`Panel::layout_shell`].
+    /// Frames the panel's pages with `render` instead of the shipped shell; `render` usually wraps
+    /// [`Panel::layout_shell`].
     pub fn layout(mut self, render: LayoutRenderFn) -> Self {
         self.layout = Some(render);
         self
@@ -392,7 +403,8 @@ impl Panel {
         self
     }
 
-    /// Sets the `frame-ancestors` directive the panel sends on every response under its prefix, defaulting to `'self'`.
+    /// Sets the `frame-ancestors` directive the panel sends on every response under its prefix,
+    /// defaulting to `'self'`.
     pub fn frame_ancestors(mut self, ancestors: impl Into<String>) -> Self {
         self.frame_ancestors = Some(ancestors.into());
         self
@@ -410,7 +422,8 @@ impl Panel {
         self
     }
 
-    /// Configures this panel's authentication, defaulting to password auth; sessions belong to the panel that signed them in.
+    /// Configures this panel's authentication, defaulting to password auth; sessions belong to the
+    /// panel that signed them in.
     pub fn auth(mut self, auth: crate::auth::Auth) -> Self {
         self.auth = auth;
         self
@@ -423,7 +436,8 @@ impl Panel {
     }
 }
 
-/// The segments the panel routes under its prefix itself, which no resource or page may take as its slug.
+/// The segments the panel routes under its prefix itself, which no resource or page may take as its
+/// slug.
 const RESERVED_SLUGS: &[&str] = &["login", "logout"];
 
 /// What the panel serves at its prefix.
@@ -435,7 +449,8 @@ enum Root {
 }
 
 impl Panel {
-    /// Derives `R`'s [`NavigationItem`] at `{prefix}/{slug}`, taking an explicit [`NavTarget::Url`] as written.
+    /// Derives `R`'s [`NavigationItem`] at `{prefix}/{slug}`, taking an explicit [`NavTarget::Url`]
+    /// as written.
     pub(crate) fn nav_item<R: Resource>(&self) -> NavigationItem {
         R::navigation().resolved(&format!("{}/{}", self.prefix, R::slug()))
     }

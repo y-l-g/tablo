@@ -17,7 +17,8 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// Render Previous/Next links from the executed page's real cursors, preserving search and sort state.
+    /// Render Previous/Next links from the executed page's real cursors, preserving search and sort
+    /// state.
     pub(super) async fn render_pager<'a>(
         &self,
         cx: &'a Cx,

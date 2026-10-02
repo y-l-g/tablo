@@ -84,7 +84,8 @@ async fn section_renders_title_and_child() {
         html.contains("name=\"name\""),
         "missing child field in {html}"
     );
-    // The field sits in a content wrapper below its title, stated as nesting rather than as a class.
+    // The field sits in a content wrapper below its title, stated as nesting rather than as a
+    // class.
     assert!(
         div_depth_of(&html, "data-slot=\"field\"") > div_depth_of(&html, "Account"),
         "the section's child must sit in a content wrapper below its title, got {html}"
@@ -116,7 +117,8 @@ async fn group_renders_children() {
 
 #[tokio::test]
 async fn grid_renders_with_cols_and_children() {
-    // Production emits one static literal per count, so the class is asserted as a derived `grid-cols-{cols}` over the whole table.
+    // Production emits one static literal per count, so the class is asserted as a derived
+    // `grid-cols-{cols}` over the whole table.
     let cx = cx();
     for cols in 1..=12u8 {
         let html = Schema::new(Grid::new(cols).schema((

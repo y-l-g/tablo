@@ -238,7 +238,8 @@ pub(super) struct RowView<'a> {
     group_header: Option<GroupHeader>,
 }
 
-/// One page-local group header: the label with its page-local count and the stable DOM id the injected header row carries.
+/// One page-local group header: the label with its page-local count and the stable DOM id the
+/// injected header row carries.
 #[derive(Clone)]
 struct GroupHeader {
     /// `"{label} ({n} on this page)"`.
@@ -247,7 +248,8 @@ struct GroupHeader {
 }
 
 impl<M> Table<M> {
-    /// Project the loaded page into the row presentation the template renders, requiring injective row keys within a page.
+    /// Project the loaded page into the row presentation the template renders, requiring injective
+    /// row keys within a page.
     pub(super) fn row_views<'a>(
         &self,
         cx: &'a Cx,

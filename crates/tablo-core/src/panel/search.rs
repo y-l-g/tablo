@@ -176,10 +176,12 @@ pub(crate) async fn table_search(
     entry(cx, path, TableSignals { query, bulk }).await
 }
 
-/// Names the [`table_search`] endpoint (topcoat#441) under `/_topcoat/runtime` so the panel's auth gate covers it.
+/// Names the [`table_search`] endpoint (topcoat#441) under `/_topcoat/runtime` so the panel's auth
+/// gate covers it.
 pub(crate) const TABLE_SEARCH_PATH: &str = "/_topcoat/runtime/shards/tablo-table-search";
 
-/// Resolves the relation handler for (`parent`, `child`), answering the gate before the registry lookup.
+/// Resolves the relation handler for (`parent`, `child`), answering the gate before the registry
+/// lookup.
 fn relation_entry(cx: &Cx, parent: &str, child: &str) -> Result<RelationSearchFn> {
     crate::auth::guard(cx)?;
     current(cx)
@@ -222,7 +224,8 @@ pub(crate) async fn table_relation_search(
     .await
 }
 
-/// Names the [`table_relation_search`] endpoint with the same stability and gate coverage as [`TABLE_SEARCH_PATH`].
+/// Names the [`table_relation_search`] endpoint with the same stability and gate coverage as
+/// [`TABLE_SEARCH_PATH`].
 pub(crate) const TABLE_RELATION_SEARCH_PATH: &str =
     "/_topcoat/runtime/shards/tablo-table-relation-search";
 

@@ -1,4 +1,5 @@
-//! The typed builders the [`Field`] constructors return, each offering only its control's modifiers so a modifier on the wrong control does not compile.
+//! The typed builders the [`Field`] constructors return, each offering only its control's modifiers
+//! so a modifier on the wrong control does not compile.
 
 use super::{
     super::{IntoSchema, OptionSource, Schema, relationship::RelatedPrimaryKey},
@@ -118,7 +119,8 @@ impl ChoiceField {
         self
     }
 
-    /// Loads options from a related source's tenant-scoped query, degrading to type-to-search past the option cap.
+    /// Loads options from a related source's tenant-scoped query, degrading to type-to-search past
+    /// the option cap.
     pub fn relationship<R>(
         mut self,
         value: impl Fn(&R::Model) -> RelatedPrimaryKey<R> + Send + Sync + 'static,

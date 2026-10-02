@@ -12,7 +12,8 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// Render the zero-rows cell spanning the table, with clear and back-to-first-page links when filtered.
+    /// Render the zero-rows cell spanning the table, with clear and back-to-first-page links when
+    /// filtered.
     pub(super) async fn render_empty_cell<'a>(
         &self,
         cx: &'a Cx,

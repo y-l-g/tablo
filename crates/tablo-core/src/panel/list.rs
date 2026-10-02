@@ -19,7 +19,8 @@ use crate::{
     },
 };
 
-/// Returns the retry link for a failed table load, dropping pagination for cursor failures and keeping it otherwise.
+/// Returns the retry link for a failed table load, dropping pagination for cursor failures and
+/// keeping it otherwise.
 pub(crate) fn retry_url_for_error(
     state: &TableState,
     error: &topcoat::Error,
@@ -42,7 +43,8 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
     }
 }
 
-/// Wires `R`'s delete, bulk, edit, view, and custom actions onto the table; `live` selects the shard variant.
+/// Wires `R`'s delete, bulk, edit, view, and custom actions onto the table; `live` selects the
+/// shard variant.
 pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::Model> {
     wire_table::<R>(cx, live, declared_chrome::<R>(cx))
 }
@@ -80,7 +82,8 @@ pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) 
     table
 }
 
-/// Attaches `R`'s custom actions to `table`, each gated per record by `View` and the action's `can_run`.
+/// Attaches `R`'s custom actions to `table`, each gated per record by `View` and the action's
+/// `can_run`.
 fn wire_custom_actions<R: Resource>(cx: &Cx, table: Table<R::Model>) -> Table<R::Model> {
     let actions = R::actions();
     if actions.entries().is_empty() {

@@ -19,7 +19,8 @@ use crate::{
     resource::{Resource, declared},
 };
 
-/// Renders the detail page, 404ing without a declared view or for unknown ids and 403ing view-denied records.
+/// Renders the detail page, 404ing without a declared view or for unknown ids and 403ing
+/// view-denied records.
 pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;

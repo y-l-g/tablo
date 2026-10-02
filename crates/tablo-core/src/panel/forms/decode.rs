@@ -50,7 +50,8 @@ fn is_multipart_content_type(ct: &str) -> bool {
         .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("multipart/form-data"))
 }
 
-/// Streams multipart fields with last-wins duplicates, counting every byte against `MAX_FORM_BYTES` and mapping over-limit bodies to 413.
+/// Streams multipart fields with last-wins duplicates, counting every byte against `MAX_FORM_BYTES`
+/// and mapping over-limit bodies to 413.
 async fn parse_multipart_values(
     cx: &Cx,
     body: Body,
@@ -183,7 +184,8 @@ fn form_values_from_request_parts(
     Ok(form_values_from_bytes(bytes))
 }
 
-/// Strips a client filename to a safe basename capped at 255 bytes, rejecting `.`, `..`, and Windows reserved names to empty.
+/// Strips a client filename to a safe basename capped at 255 bytes, rejecting `.`, `..`, and
+/// Windows reserved names to empty.
 fn sanitize_filename(raw: &str) -> String {
     let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw).trim();
     let clean: String = base.chars().filter(|c| !c.is_control()).collect();

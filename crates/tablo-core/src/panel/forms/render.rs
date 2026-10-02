@@ -48,7 +48,8 @@ impl<'a> FormChrome<'a> {
     }
 }
 
-/// Renders the shared create/edit shell with `FormChrome`, carrying uploader-answered uploads as hidden `keep_<field>` controls.
+/// Renders the shared create/edit shell with `FormChrome`, carrying uploader-answered uploads as
+/// hidden `keep_<field>` controls.
 pub(super) async fn render_form_page<'a, R: Resource>(
     cx: &'a Cx,
     chrome: FormChrome<'a>,

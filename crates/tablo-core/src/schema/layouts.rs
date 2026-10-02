@@ -156,7 +156,8 @@ impl Grid {
     }
 }
 
-/// Holds a nested `Schema` rendered once as a titled group and reports a `required` empty group under its label.
+/// Holds a nested `Schema` rendered once as a titled group and reports a `required` empty group
+/// under its label.
 #[derive(Debug)]
 pub struct Repeater {
     pub(crate) label: String,

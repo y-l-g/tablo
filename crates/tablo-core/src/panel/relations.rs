@@ -1,4 +1,5 @@
-//! Renders each [`Relation`](crate::resource::Relation) of a record page's resource as the related resource's table narrowed to the record.
+//! Renders each [`Relation`](crate::resource::Relation) of a record page's resource as the related
+//! resource's table narrowed to the record.
 
 use topcoat::{
     Result,

@@ -9,7 +9,8 @@ pub mod gates;
 
 use topcoat_ui::{Component, Dependency, Registry};
 
-/// The registry components Tablo vendors into `primitives/`; add a name here and run `cargo xtask sync-topcoat-ui`.
+/// The registry components Tablo vendors into `primitives/`; add a name here and run `cargo xtask
+/// sync-topcoat-ui`.
 pub const VENDORED_PRIMITIVES: &[&str] = &[
     "alert",
     "alert_dialog",
@@ -147,9 +148,11 @@ fn locate_registry() -> anyhow::Result<(Registry, String)> {
 /// What to run when a vendored file has drifted from the registry.
 const HINT: &str = "run `cargo xtask sync-topcoat-ui` to restore the verbatim copy";
 
-/// Copies every component in [`VENDORED_PRIMITIVES`] into `primitives/` verbatim under a SYNC header, then regenerates `mod.rs`.
+/// Copies every component in [`VENDORED_PRIMITIVES`] into `primitives/` verbatim under a SYNC
+/// header, then regenerates `mod.rs`.
 ///
-/// `prune` also deletes vendored files absent from the vendored set; without it, orphans are only reported.
+/// `prune` also deletes vendored files absent from the vendored set; without it, orphans are only
+/// reported.
 pub fn sync_topcoat_ui(dry_run: bool, prune: bool) -> anyhow::Result<()> {
     let dst_dir = primitives_dir();
     std::fs::create_dir_all(&dst_dir)?;
@@ -186,7 +189,8 @@ pub fn sync_topcoat_ui(dry_run: bool, prune: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Deletes vendored files absent from [`VENDORED_PRIMITIVES`], never pruning the regenerated `mod.rs`; dry runs only report.
+/// Deletes vendored files absent from [`VENDORED_PRIMITIVES`], never pruning the regenerated
+/// `mod.rs`; dry runs only report.
 fn prune_orphans(
     dst_dir: &Path,
     components: &[Component<'_>],
@@ -302,7 +306,8 @@ pub fn verify_sync() -> anyhow::Result<()> {
         )),
     }
 
-    // A component that left the vendored set must not linger as a stale file that still compiles when referenced.
+    // A component that left the vendored set must not linger as a stale file that still compiles
+    // when referenced.
     {
         let expected_files = vendored_files(&components);
         if let Ok(entries) = std::fs::read_dir(&dst_dir) {
@@ -355,7 +360,8 @@ pub fn assets_dir() -> PathBuf {
         .join("crates/tablo-ui/assets")
 }
 
-/// Each shell JS asset's file under `assets/` and the `tablo-ui` constant wiring it into the document head.
+/// Each shell JS asset's file under `assets/` and the `tablo-ui` constant wiring it into the
+/// document head.
 pub const ASSET_FILES: &[(&str, &str)] = &[
     ("sidebar.js", "SIDEBAR_JS"),
     ("theme.js", "THEME_JS"),
@@ -370,7 +376,8 @@ pub const ASSET_FILES: &[(&str, &str)] = &[
     ("mutation-submit.js", "MUTATION_SUBMIT_JS"),
 ];
 
-/// One hook-contract entry: `js` appears in the asset's source and `rust` appears in the Rust render sources.
+/// One hook-contract entry: `js` appears in the asset's source and `rust` appears in the Rust
+/// render sources.
 pub struct AssetHook {
     /// The asset file under `assets/` that consumes the hook.
     pub asset: &'static str,
@@ -487,7 +494,8 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         js: "data-filters-live",
         rust: "data-filters-live",
     },
-    // `data-live-search` matches only as the host attribute itself, not as a prefix of `data-live-search-input`.
+    // `data-live-search` matches only as the host attribute itself, not as a prefix of
+    // `data-live-search-input`.
     AssetHook {
         asset: "live-search.js",
         js: "data-live-search",
@@ -538,7 +546,8 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         js: "data-options-list",
         rust: "data-options-list",
     },
-    // `data-variant` matches only as the group's own attribute, not as a prefix of `data-variant-of` or `data-variant-select`.
+    // `data-variant` matches only as the group's own attribute, not as a prefix of
+    // `data-variant-of` or `data-variant-select`.
     AssetHook {
         asset: "variant.js",
         js: "data-variant-select",
@@ -712,7 +721,8 @@ pub fn verify_asset_hooks() -> anyhow::Result<()> {
         }
     }
 
-    // The Rust half reads the stripped sources, so an assertion or doc comment cannot stand in for the markup.
+    // The Rust half reads the stripped sources, so an assertion or doc comment cannot stand in for
+    // the markup.
     let rust_src = match rust_sources(root) {
         Ok(sources) => sources,
         Err(error) => {

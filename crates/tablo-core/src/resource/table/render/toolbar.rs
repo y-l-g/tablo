@@ -281,7 +281,8 @@ impl<M> Table<M> {
         .boxed())
     }
 
-    /// Render the `table_relation_search` shard invocation filling a live relation table's streamed region.
+    /// Render the `table_relation_search` shard invocation filling a live relation table's streamed
+    /// region.
     pub(crate) async fn render_live_relation_invocation<'a>(
         &self,
         cx: &'a Cx,

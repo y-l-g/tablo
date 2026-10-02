@@ -78,7 +78,8 @@ impl TypedValue for jiff::Timestamp {
     }
 }
 
-/// Converts a `datetime-local` value to the RFC 3339 string a timestamp parses, or `None` when the shape is not one the control sends.
+/// Converts a `datetime-local` value to the RFC 3339 string a timestamp parses, or `None` when the
+/// shape is not one the control sends.
 fn normalize_datetime_local(value: &str) -> Option<String> {
     let t = value.find('T')?;
     let after_t = &value[t + 1..];
@@ -95,7 +96,8 @@ fn normalize_datetime_local(value: &str) -> Option<String> {
     }
 }
 
-/// Formats a stored timestamp as the `datetime-local` value its control renders, rendering anything else empty.
+/// Formats a stored timestamp as the `datetime-local` value its control renders, rendering anything
+/// else empty.
 pub(crate) fn format_timestamp_input(storage: &str) -> String {
     let trimmed = storage.trim();
     if trimmed.is_empty() {
@@ -110,12 +112,14 @@ pub(crate) fn format_timestamp_input(storage: &str) -> String {
 /// Reads a submitted string back as the stored spelling or the error message.
 type ValueParser = fn(&str) -> Result<String, String>;
 
-/// Binds the parser for scalar type `T`, rejecting what `T` refuses and storing what `T`'s own form spelling produces.
+/// Binds the parser for scalar type `T`, rejecting what `T` refuses and storing what `T`'s own form
+/// spelling produces.
 fn scalar_parser<T: FormScalar>(value: &str) -> Result<String, String> {
     T::parse_form(value).map(|parsed| parsed.to_form())
 }
 
-/// Holds the rules a field declares on top of presence and the wording of every message they produce.
+/// Holds the rules a field declares on top of presence and the wording of every message they
+/// produce.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Rules {
     email: bool,
@@ -144,7 +148,8 @@ impl Rules {
         self.email
     }
 
-    /// Validates `value` in rule order and skips the email and typed-parse rules on an empty submit.
+    /// Validates `value` in rule order and skips the email and typed-parse rules on an empty
+    /// submit.
     pub(crate) fn validate(
         &self,
         key: &str,
@@ -173,7 +178,8 @@ impl Rules {
         errs
     }
 
-    /// Returns the stored spelling of an already-validated submission and reports a failure rather than guessing.
+    /// Returns the stored spelling of an already-validated submission and reports a failure rather
+    /// than guessing.
     pub(crate) fn normalize(&self, value: &str) -> Result<String, String> {
         let v = value.trim();
         match &self.parser {
@@ -191,7 +197,8 @@ pub(crate) fn required_error(label: &str) -> String {
 /// Caps the longest address the rule accepts.
 const EMAIL_MAX_LENGTH: usize = 254;
 
-/// Reports whether `value` is an address the email rule accepts, requiring a TLD and refusing display text.
+/// Reports whether `value` is an address the email rule accepts, requiring a TLD and refusing
+/// display text.
 fn is_email(value: &str) -> bool {
     value.len() <= EMAIL_MAX_LENGTH
         && EmailAddress::parse_with_options(

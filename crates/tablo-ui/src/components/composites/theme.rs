@@ -9,7 +9,8 @@ use topcoat::{
 ///
 /// A stored `light` removes a server-rendered `dark` class.
 ///
-/// Uses nested `if`s instead of `&&`, which HTML escaping would rewrite into a syntax error inside `<script>`.
+/// Uses nested `if`s instead of `&&`, which HTML escaping would rewrite into a syntax error inside
+/// `<script>`.
 fn theme_init_script_body(default_dark: bool) -> String {
     let mut script = String::from(
         "(function(){var t=null;try{t=localStorage.getItem('theme')}catch(e){}\
@@ -26,7 +27,8 @@ else document.documentElement.classList.remove('dark')})();",
 
 /// Renders in the `<head>` of every layout, before the stylesheet link.
 ///
-/// `default_dark` is the server's build-time preference, used only when the visitor has no stored choice.
+/// `default_dark` is the server's build-time preference, used only when the visitor has no stored
+/// choice.
 ///
 /// ```ignore
 /// <head>

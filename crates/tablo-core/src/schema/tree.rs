@@ -109,7 +109,8 @@ impl Node {
         }
     }
 
-    /// Returns the nodes a layout container holds, or `None` for a field slot and an embedded value.
+    /// Returns the nodes a layout container holds, or `None` for a field slot and an embedded
+    /// value.
     pub(crate) fn children(&self) -> Option<&[Node]> {
         match self {
             Node::Repeater(r) => Some(&r.children.nodes),
@@ -177,7 +178,8 @@ pub(crate) async fn render_nodes<'a>(
     .boxed())
 }
 
-/// Classifies the tree's groups against `values`, skipping fields in all-empty repeater groups and hidden variant groups and reporting a required absent repeater under its label.
+/// Classifies the tree's groups against `values`, skipping fields in all-empty repeater groups and
+/// hidden variant groups and reporting a required absent repeater under its label.
 pub(crate) fn walk_absent_groups(
     nodes: &[Node],
     fields: &[Field],

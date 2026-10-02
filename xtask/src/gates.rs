@@ -12,7 +12,8 @@ use std::{
 /// Crates pinned in lockstep across the workspace and bench lockfiles.
 pub const LOCKSTEP_CRATES: &[&str] = &["topcoat", "toasty"];
 
-/// Upstream repos pinned by `rev =` in every [`PINNED_MANIFESTS`] entry, in `set_upstream_revs`' rev-argument order.
+/// Upstream repos pinned by `rev =` in every [`PINNED_MANIFESTS`] entry, in `set_upstream_revs`'
+/// rev-argument order.
 pub const UPSTREAM_REPOS: &[(&str, &str)] = &[
     ("topcoat", "github.com/tokio-rs/topcoat"),
     ("toasty", "github.com/tokio-rs/toasty"),
@@ -215,7 +216,8 @@ pub fn check_manifest_lockstep(
     check_manifest_pins(workspace, bench, "bench")
 }
 
-/// [`check_manifest_lockstep`] against any manifest pinning the upstream repos, where `label` names the report.
+/// [`check_manifest_lockstep`] against any manifest pinning the upstream repos, where `label` names
+/// the report.
 pub fn check_manifest_pins(
     workspace: &BTreeMap<String, BTreeSet<String>>,
     other: &BTreeMap<String, BTreeSet<String>>,
@@ -262,7 +264,8 @@ pub fn check_manifest_pins(
     }
 }
 
-/// Runs `cargo metadata --locked` for one manifest, so a stale tree fails instead of healing the lockfile.
+/// Runs `cargo metadata --locked` for one manifest, so a stale tree fails instead of healing the
+/// lockfile.
 fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
     let output = Command::new("cargo")
         .args([
@@ -286,7 +289,8 @@ fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
         .map_err(|error| anyhow::anyhow!("could not parse cargo metadata: {error}"))
 }
 
-/// Fails unless the workspace, bench, and quickstart manifests and both lockfiles pin the same upstream revs.
+/// Fails unless the workspace, bench, and quickstart manifests and both lockfiles pin the same
+/// upstream revs.
 pub fn verify_locks() -> anyhow::Result<()> {
     let root = repo_root();
     let workspace_manifest = std::fs::read_to_string(root.join("Cargo.toml"))

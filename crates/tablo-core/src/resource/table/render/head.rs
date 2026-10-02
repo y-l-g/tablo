@@ -12,7 +12,8 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// Render the shared column-header row with sort links on sortable columns, writing the query signal on live tables.
+    /// Render the shared column-header row with sort links on sortable columns, writing the query
+    /// signal on live tables.
     pub(super) async fn render_thead<'a>(
         &self,
         cx: &'a Cx,

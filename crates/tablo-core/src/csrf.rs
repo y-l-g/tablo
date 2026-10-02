@@ -55,7 +55,8 @@ pub fn field<'a>(cx: &'a Cx, token: &str) -> topcoat::view::BoxView<'a> {
     topcoat::view::view! { cx => <input type="hidden" name=(FIELD_NAME) value=(token)> }.boxed()
 }
 
-/// Verifies the submitted token matches the cookie with a constant-time compare, failing closed with 403.
+/// Verifies the submitted token matches the cookie with a constant-time compare, failing closed
+/// with 403.
 pub fn verify(
     cx: &Cx,
     values: &std::collections::HashMap<String, String>,

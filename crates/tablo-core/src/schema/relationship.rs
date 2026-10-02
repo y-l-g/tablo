@@ -1,6 +1,7 @@
 //! Relationship option loading — bounded, memoized, policy-checked.
 //!
-//! Every relationship choice field over one source shares a single bounded load per `(request, tenant)` and fails closed instead of leaking labels.
+//! Every relationship choice field over one source shares a single bounded load per `(request,
+//! tenant)` and fails closed instead of leaking labels.
 
 use toasty::stmt::{Expr, List, OrderByExpr, Query};
 use topcoat::{Result, context::Cx};
@@ -12,10 +13,12 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     /// The model whose rows become options.
     type Model: toasty::schema::Model + Send + Sync + 'static;
 
-    /// States the tenant-scoped seed query every option load starts from and reports an unscopable source as misdeclared.
+    /// States the tenant-scoped seed query every option load starts from and reports an unscopable
+    /// source as misdeclared.
     fn scoped_query(cx: &Cx) -> Result<Query<List<Self::Model>>>;
 
-    /// States what the current user may see and fails the whole load closed when `ViewAny` is refused.
+    /// States what the current user may see and fails the whole load closed when `ViewAny` is
+    /// refused.
     fn policy() -> impl Policy<Self::Model> {
         Deny
     }
@@ -30,7 +33,8 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
         std::any::type_name::<Self>().to_string()
     }
 
-    /// States the related source's search predicate for `term`, or `None` when it declares no searchable column.
+    /// States the related source's search predicate for `term`, or `None` when it declares no
+    /// searchable column.
     fn search_expr(_cx: &Cx, _term: &str) -> Option<Expr<bool>> {
         None
     }
@@ -41,7 +45,8 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     }
 }
 
-/// Distinguishes a policy denial and an over-cap table from a retryable load failure so validation answers correctly.
+/// Distinguishes a policy denial and an over-cap table from a retryable load failure so validation
+/// answers correctly.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum OptionLoadError {
     Denied,
@@ -73,7 +78,8 @@ pub(crate) type RelationshipChecker = std::sync::Arc<
         + Sync,
 >;
 
-/// Refuses the option load closed when `ViewAny` is refused or a tenant-owned source gets a tenantless request.
+/// Refuses the option load closed when `ViewAny` is refused or a tenant-owned source gets a
+/// tenantless request.
 fn ensure_option_access<R>(cx: &Cx) -> Result<(), OptionLoadError>
 where
     R: OptionSource,
@@ -87,7 +93,8 @@ where
     Ok(())
 }
 
-/// Starts every option loader from the source's tenant-scoped seed query and reports an unscopable source as misdeclared.
+/// Starts every option loader from the source's tenant-scoped seed query and reports an unscopable
+/// source as misdeclared.
 fn option_query<R>(cx: &Cx) -> Result<Query<List<R::Model>>, OptionLoadError>
 where
     R: OptionSource,
@@ -109,7 +116,8 @@ pub const MAX_RELATIONSHIP_OPTIONS: usize = 200;
 pub(crate) type RelatedPrimaryKey<R> =
     <<R as OptionSource>::Model as toasty::schema::Model>::PrimaryKey;
 
-/// Loads option records for one related resource, memoized per request, and checks the cap on the raw fetch before filtering rows through `View`.
+/// Loads option records for one related resource, memoized per request, and checks the cap on the
+/// raw fetch before filtering rows through `View`.
 #[topcoat::context::memoize(as_ref)]
 pub(crate) async fn related_records<R>(
     cx: &Cx,
@@ -132,7 +140,8 @@ where
     .await
 }
 
-/// Fetches one row past the cap, refuses a set over the cap with `Overflow`, and drops rows the caller cannot view.
+/// Fetches one row past the cap, refuses a set over the cap with `Overflow`, and drops rows the
+/// caller cannot view.
 async fn bounded_options<R>(
     cx: &Cx,
     query: Query<List<R::Model>>,
@@ -168,7 +177,8 @@ where
     Ok(records)
 }
 
-/// Searches the related table's declared searchable columns in one bounded round-trip and fails past the cap with `Overflow`.
+/// Searches the related table's declared searchable columns in one bounded round-trip and fails
+/// past the cap with `Overflow`.
 pub(crate) async fn related_records_search<R>(
     cx: &Cx,
     q: String,
@@ -179,10 +189,10 @@ where
     ensure_option_access::<R>(cx)?;
     let term = crate::query_term::clamp_query_term(&q);
     let mut query = option_query::<R>(cx)?;
-    if !term.is_empty() {
-        if let Some(expr) = R::search_expr(cx, &term) {
-            query = query.filter(expr);
-        }
+    if !term.is_empty()
+        && let Some(expr) = R::search_expr(cx, &term)
+    {
+        query = query.filter(expr);
     }
     if let Some(ord) = R::order_by(cx) {
         query = query.order_by(ord);

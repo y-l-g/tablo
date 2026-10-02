@@ -1,8 +1,10 @@
 //! Unified Schema primitive — fields and layout blocks that compose via `view!`.
 //!
-//! `Schema` holds layout blocks, embedded values, and [`Field`] slots and resolves every field once into one list for rendering and validation.
+//! `Schema` holds layout blocks, embedded values, and [`Field`] slots and resolves every field once
+//! into one list for rendering and validation.
 //!
-//! `lens_field` reaches into `toasty_core` (upstream issue #114), alongside the `pk_*` bridge helpers and cursor values; retire the walk when Toasty exposes it (upstream #183).
+//! `lens_field` reaches into `toasty_core` (upstream issue #114), alongside the `pk_*` bridge
+//! helpers and cursor values; retire the walk when Toasty exposes it (upstream #183).
 
 pub(crate) mod embedded;
 mod fields;
@@ -76,7 +78,8 @@ impl Schema {
         self.nodes.is_empty()
     }
 
-    /// Builds a `Schema` from any `IntoSchema` and reports duplicate field names as declaration errors.
+    /// Builds a `Schema` from any `IntoSchema` and reports duplicate field names as declaration
+    /// errors.
     pub fn new(children: impl IntoSchema) -> Self {
         children.into_schema()
     }
@@ -122,7 +125,8 @@ impl Schema {
         }
     }
 
-    /// Rewrites submitted values into their fields' stored spelling and leaves empty submissions empty for the presence rule to refuse.
+    /// Rewrites submitted values into their fields' stored spelling and leaves empty submissions
+    /// empty for the presence rule to refuse.
     pub fn normalize_values(&self, values: &mut HashMap<String, String>) {
         for field in &self.fields {
             let Some(submitted) = values.get_mut(field.name()) else {
@@ -188,7 +192,8 @@ impl Schema {
             .collect()
     }
 
-    /// Lists keys in `values` that no declared input owns, sorted, so handlers reject client-controlled writes.
+    /// Lists keys in `values` that no declared input owns, sorted, so handlers reject
+    /// client-controlled writes.
     pub fn unknown_keys(&self, values: &HashMap<String, String>) -> Vec<String> {
         let known: HashSet<&str> = self.fields.iter().map(Field::name).collect();
         let mut out: Vec<String> = values
@@ -200,7 +205,8 @@ impl Schema {
         out
     }
 
-    /// Reports what is wrong with this declaration: a field whose lens binds no single column, and two fields sharing a name.
+    /// Reports what is wrong with this declaration: a field whose lens binds no single column, and
+    /// two fields sharing a name.
     pub fn declaration_errors(&self) -> Vec<String> {
         let mut errors = Vec::new();
         let mut seen = HashSet::new();
@@ -217,7 +223,8 @@ impl Schema {
         errors
     }
 
-    /// Validates submitted values against declared inputs, treating absent keys as empty and skipping fields in absent repeater groups and hidden variant groups.
+    /// Validates submitted values against declared inputs, treating absent keys as empty and
+    /// skipping fields in absent repeater groups and hidden variant groups.
     pub fn validate(&self, values: &HashMap<String, String>) -> FieldErrors {
         let mut errors = FieldErrors::new();
         let mut skip: HashSet<String> = HashSet::new();
@@ -256,7 +263,8 @@ impl Schema {
         skip
     }
 
-    /// Reports whether this submission renders an error under `key`, either a visible field or a repeater label.
+    /// Reports whether this submission renders an error under `key`, either a visible field or a
+    /// repeater label.
     pub(crate) fn renders_error_key(&self, values: &HashMap<String, String>, key: &str) -> bool {
         fn labels(nodes: &[Node], key: &str) -> bool {
             nodes.iter().any(|node| match node {

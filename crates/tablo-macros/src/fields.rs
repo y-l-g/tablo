@@ -40,7 +40,8 @@ pub(crate) struct FormAttrs {
     pub(crate) file: bool,
 }
 
-/// Every `#[form(..)]` attribute on `field`, rejecting unknown, unread, and misplaced keys at the attribute.
+/// Every `#[form(..)]` attribute on `field`, rejecting unknown, unread, and misplaced keys at the
+/// attribute.
 pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<FormAttrs> {
     let mut out = FormAttrs::default();
     for attr in &field.attrs {

@@ -1,6 +1,7 @@
 //! URL-safe encoding for Toasty pagination cursors.
 //!
-//! Encodes pagination cursors as URL-safe hex tokens preserving the exact value variant with depth-capped records.
+//! Encodes pagination cursors as URL-safe hex tokens preserving the exact value variant with
+//! depth-capped records.
 
 use toasty_core::stmt::Value;
 use topcoat::Result;

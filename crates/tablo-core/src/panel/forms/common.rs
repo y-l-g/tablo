@@ -25,7 +25,8 @@ pub(crate) struct FormParts {
     pub(crate) values: HashMap<String, String>,
     /// Holds staged bytes only when an uploader is installed.
     pub(crate) files: HashMap<String, crate::upload::StagedUpload>,
-    /// Names arriving as multipart parts carrying a `filename`; only these may set a file field's value.
+    /// Names arriving as multipart parts carrying a `filename`; only these may set a file field's
+    /// value.
     pub(crate) file_part_names: HashSet<String>,
 }
 
@@ -56,13 +57,15 @@ pub(crate) fn truthy(v: &str) -> bool {
     v == "1" || v == "true"
 }
 
-/// Strips `csrf_token`, `clear_<field>`, and `keep_<field>` keys before any record function sees them.
+/// Strips `csrf_token`, `clear_<field>`, and `keep_<field>` keys before any record function sees
+/// them.
 pub(super) fn strip_transport_keys(
     schema: &crate::schema::Schema,
     values: &mut HashMap<String, String>,
 ) {
     let declared: HashSet<&str> = schema.fields().map(crate::schema::Field::name).collect();
-    // A declared field keeps its own transport-shaped value; only undeclared transport keys are stripped.
+    // A declared field keeps its own transport-shaped value; only undeclared transport keys are
+    // stripped.
     values.retain(|k, _| {
         if k == crate::csrf::FIELD_NAME {
             return declared.contains(k.as_str());
@@ -90,7 +93,8 @@ pub(super) fn drop_client_typed_uploads(
     }
 }
 
-/// Restores `keep_<field>` paths only when the installed uploader still holds them, returning restored field names.
+/// Restores `keep_<field>` paths only when the installed uploader still holds them, returning
+/// restored field names.
 pub(super) async fn restore_pending_uploads(
     cx: &Cx,
     schema: &crate::schema::Schema,
@@ -122,7 +126,8 @@ pub(super) async fn restore_pending_uploads(
     restored
 }
 
-/// Drops the open transaction before re-rendering the form with inline errors, so option loaders never block on the held connection.
+/// Drops the open transaction before re-rendering the form with inline errors, so option loaders
+/// never block on the held connection.
 pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     cx: &'a Cx,
     tx: toasty::Transaction<'_>,
