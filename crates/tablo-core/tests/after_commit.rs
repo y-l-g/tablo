@@ -1,12 +1,3 @@
-//! The post-commit seam, end to end: a side effect that must not
-//! survive a rollback runs once per committed write, never when the write did
-//! not land, and cannot undo a write that did.
-//!
-//! Every test here goes through a real `Panel` and `Router`, because the
-//! guarantee being pinned is about *where* in the handler the hook runs — after
-//! `tx.commit()`, before the response — and no unit test of the hook alone
-//! could show that.
-
 use http::header::LOCATION;
 use tablo_core::{
     Ability, Allow, Committed, Field, Mutation, Policy, Resource, Schema, Table, TextColumn,
@@ -25,10 +16,6 @@ struct Note {
     title: String,
 }
 
-/// What a hook writes: one row per *call*, so "exactly once per write" is
-/// countable rather than inferred. `title` records the snapshot the hook was
-/// handed, which is how the documented pre-write contract for updates is
-/// pinned.
 #[derive(Debug, toasty::Model, Clone)]
 struct Audit {
     #[key]
@@ -40,8 +27,6 @@ struct Audit {
     rows: i64,
 }
 
-/// The audit row's spelling for a mutation — the app's own vocabulary, which
-/// is the point of the hook: `Mutation` names the kind, the app spells it.
 fn mutation_name(mutation: Mutation) -> &'static str {
     match mutation {
         Mutation::Create => "create",
@@ -52,7 +37,6 @@ fn mutation_name(mutation: Mutation) -> &'static str {
     }
 }
 
-/// The one line every hook in this file shares: record what it was handed.
 async fn audit(cx: &Cx, committed: &Committed<Note>) -> topcoat::Result<()> {
     let first = committed.records().first();
     let mut db = tablo_core::db::db(cx);
@@ -68,7 +52,6 @@ async fn audit(cx: &Cx, committed: &Committed<Note>) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// A resource that audits everything it commits.
 struct AuditedResource;
 
 impl Resource for AuditedResource {
@@ -103,8 +86,6 @@ impl Resource for AuditedResource {
 struct AuditedForm {
     title: String,
 }
-/// A resource that declares no hook: the default is a no-op, so nothing about
-/// its writes changes ('s "existing resources are unaffected").
 struct PlainResource;
 
 impl Resource for PlainResource {
@@ -134,7 +115,6 @@ impl Resource for PlainResource {
 struct PlainForm {
     title: String,
 }
-/// A resource whose record fn fails: nothing commits, so the hook must not run.
 struct FailingWriteResource;
 
 impl Resource for FailingWriteResource {
@@ -175,8 +155,6 @@ impl Resource for FailingWriteResource {
 struct FailingWriteForm {
     title: String,
 }
-/// A resource whose hook fails: the write is already committed, so the failure
-/// is logged and the write stands.
 struct FailingHookResource;
 
 impl Resource for FailingHookResource {
@@ -202,7 +180,6 @@ impl Resource for FailingHookResource {
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
-        // Ran, and left its evidence, before failing.
         audit(cx, &committed).await?;
         Err(std::io::Error::other("the webhook is down").into())
     }
@@ -248,8 +225,6 @@ async fn a_create_audits_the_row_it_committed_exactly_once() {
     assert_eq!(created.len(), 1);
     assert_eq!(created[0].title, "Alpha");
 
-    // One write, one hook call — and the call names the row the create
-    // returned, which is the only place the framework can learn the key.
     let audits = audits(&db).await;
     assert_eq!(audits.len(), 1, "one commit is one hook call");
     assert_eq!(audits[0].mutation, "create");
@@ -272,8 +247,6 @@ async fn an_edit_and_a_delete_each_audit_the_row_they_named() {
     assert_eq!(response.status(), 303, "a valid edit redirects");
     assert_eq!(notes(&db).await[0].title, "Beta");
 
-    // The hook is handed the row the handler loaded inside the transaction, so
-    // its title is the pre-write one — documented, and pinned here.
     let after_edit = audits(&db).await;
     assert_eq!(after_edit.len(), 1);
     assert_eq!(after_edit[0].mutation, "update");
@@ -330,8 +303,6 @@ async fn a_refused_submit_never_reaches_the_hook() {
     let db = seeded_db().await;
     let router = panel_router::<AuditedResource>(db.clone());
 
-    // `title` is required: validation re-renders the form and the transaction
-    // is never opened.
     let response = post_fields(&router, "/admin/notes/create", &[("title", "")]).await;
     assert_eq!(response.status(), 200, "the form re-renders");
 
@@ -415,8 +386,6 @@ async fn a_resource_without_the_hook_writes_exactly_as_before() {
         response.headers().get(LOCATION).is_none(),
         "a plain GET is not a redirect"
     );
-    // The rows stream in the body: read it, as a client does, so the render
-    // releases its connection before the check below queries the same pool.
     let html = tablo_test::body_string(response).await;
     assert!(
         html.contains("Alpha"),
@@ -424,7 +393,4 @@ async fn a_resource_without_the_hook_writes_exactly_as_before() {
     );
 
     assert_eq!(notes(&db).await.len(), 1);
-    // No `audits` assertion here: this resource declares no hook, so nothing in
-    // the framework could write that table and the check could never fail.
-    // The hook-bearing tests above own it.
 }

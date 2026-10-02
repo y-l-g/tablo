@@ -1,8 +1,3 @@
-//! A `Resource::query` override scopes the rows the resource sees.
-//!
-//! Both resources are hand-written, as the reference app's are. The
-//! trait's default returns every row, and the override returns the scoped set.
-
 use tablo_core::Resource;
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -15,7 +10,6 @@ struct User {
     name: String,
 }
 
-/// No `query` override: the trait default returns every row.
 struct Everyone;
 
 impl Resource for Everyone {
@@ -30,7 +24,6 @@ impl Resource for Everyone {
     }
 }
 
-/// Overrides `query`: every load through this resource sees only Ada.
 struct JustAda;
 
 impl Resource for JustAda {

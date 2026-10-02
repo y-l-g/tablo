@@ -1,11 +1,4 @@
 //! A resource's declarations, built once.
-//!
-//! Mounting a [`Panel`](crate::panel::Panel) calls each resource's
-//! [`table`](super::Resource::table), [`form`](super::Resource::form),
-//! [`view`](super::Resource::view) and
-//! [`relations`](super::Resource::relations) once, checks the values, and installs them
-//! on the router's app context. Every handler reads them from there, so a
-//! request builds no declaration and serves exactly what the checks saw.
 
 use std::{
     any::{Any, TypeId},
@@ -21,8 +14,6 @@ use crate::schema::{DeclCx, Schema};
 /// One resource's table, form schema, view schema and relations.
 pub(crate) struct Declared<R: Resource> {
     pub(crate) table: Table<R::Model>,
-    /// Shared, so a submission can hold the schema past the handler's
-    /// borrow of the declarations.
     pub(crate) form: Arc<Schema>,
     pub(crate) view: Schema,
     pub(crate) relations: Vec<Relation<R::Model>>,
@@ -39,16 +30,13 @@ impl<R: Resource> Declared<R> {
         }
     }
 
-    /// Whether the resource declares a detail page: a non-empty
-    /// [`view`](Resource::view). The detail route 404s without one, and the
-    /// row chrome leaves the View link off.
+    /// Whether the resource declares a detail page.
     pub(crate) fn viewed(&self) -> bool {
         !self.view.is_empty()
     }
 }
 
-/// Every registered resource's [`Declared`], keyed by the resource type: the
-/// app-context value [`declared`] reads.
+/// Every registered resource's [`Declared`], keyed by the resource type.
 #[derive(Default)]
 pub(crate) struct Declarations(HashMap<TypeId, Arc<dyn Any + Send + Sync>>);
 
@@ -57,8 +45,7 @@ impl Declarations {
         self.0.insert(TypeId::of::<R>(), declared);
     }
 
-    /// Add another panel's declarations. A resource two panels register is
-    /// declared by its type alone, so either build serves both.
+    /// Add another panel's declarations.
     pub(crate) fn extend(&mut self, other: Self) {
         for (resource, declared) in other.0 {
             self.0.entry(resource).or_insert(declared);
@@ -66,8 +53,7 @@ impl Declarations {
     }
 }
 
-/// `R`'s declarations: the ones a mounted panel built, or, for a resource no
-/// panel on this router registers, a fresh build from the request's app schema.
+/// `R`'s declarations.
 pub(crate) fn declared<R: Resource>(cx: &Cx) -> Arc<Declared<R>> {
     try_app_context::<Declarations>(cx)
         .and_then(|declarations| declarations.0.get(&TypeId::of::<R>()))

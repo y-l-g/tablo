@@ -1,12 +1,12 @@
 # Contributing to Tablo
 
 Small fixes, documentation corrections, and tests can go straight to a pull request. For a new
-feature or a public-API change, open an issue first and describe the problem: redirecting a
-design is cheaper than redirecting a patch. A change that reshapes `Panel`, `Resource`, `Table`,
-`Schema`, or the policy/tenancy seams is a good candidate for a design document under
-[`docs/dev/design/`](docs/dev/design/) first, on a trial basis: open the design, land it
-without implementation, then implement once it is accepted. Read
-[`AGENTS.md`](AGENTS.md) before your first change; it holds the rules this document expands.
+feature or a public-API change, open an issue first and describe the problem: discuss the
+design first. A change that reshapes `Panel`, `Resource`, `Table`, `Schema`, or the
+policy/tenancy seams needs a design document under [`docs/dev/design/`](docs/dev/design/)
+first: open the design, merge it without implementation, then implement once it is accepted.
+Read [`AGENTS.md`](AGENTS.md) before your first change; it holds the rules this document
+expands.
 
 ## Fork and branch
 
@@ -28,16 +28,14 @@ cargo run -p showcase
 
 `crates/tablo-core` is the framework. `examples/showcase` is the runnable admin, the reference
 for panel and resource declarations, and the home of the integration tests (`cargo test -p
-showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.test.js`
-(the explicit suite list is gate 7 in the gate set below).
+showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.test.js`.
 
 ## The gate set
 
-CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml`
-and, for gates 6 and 8, `.github/workflows/msrv-udeps.yml`;
-this list is the canonical copy — `AGENTS.md` and the `check` skill point here).
-The fast path is the xtask runner: gates are mutually independent, and `check`
-runs each command below in order, stopping at the first failure.
+CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml` and, for
+gates 6 and 8, `.github/workflows/msrv-udeps.yml`).
+The fast path is the xtask runner: `check` runs each command below in order, stopping at the
+first failure.
 
 ```sh
 cargo xtask check   # the eight gates plus the extras
@@ -57,9 +55,7 @@ The raw commands — the expansion of `cargo xtask check`:
 
 Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
 nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
-Gate 8 guards unused dependencies (GH #271). Rustup installs a missing toolchain on first use.
-Gates 6 and 8 run on `master`, weekly, and the PRs touching a manifest, a
-lockfile, or the toolchain pin — not on every PR.
+Gate 8 guards unused dependencies (GH #271).
 
 CI runs five more checks outside the eight, and a change touching what they cover
 has to pass them too (`cargo xtask check` runs all five after the eight):
@@ -69,18 +65,13 @@ has to pass them too (`cargo xtask check` runs all five after the eight):
   builds the guide with `mdbook build docs/guide`;
 - the `fmt` job runs `cargo fmt -- --check` inside each detached workspace
   (`benchmarks/tablo`, `benchmarks/axum-maud`, `benchmarks/leptos`,
-  `examples/quickstart`) — part of `cargo xtask fmt`;
-- the `external` job runs `cargo xtask external-check`: it copies the detached
-  `examples/quickstart` app to the system temp dir, points its `tablo` and
-  `tablo-build` dependencies at absolute paths, and runs its tests there. The app
-  must build, its panel must serve, and its generated stylesheet must hold
-  classes only Tablo's own sources write, so anything that resolves only inside
-  this repository fails it;
-- the `bench-check` job compiles the detached harness (gate 5 above) and
-  verifies that `Cargo.lock` and `benchmarks/tablo/Cargo.lock` pin identical
-  `topcoat` and `toasty` revs and that the workspace, bench, and quickstart
-  manifests' `rev =` pins agree (`cargo xtask verify-locks`, also run by the
-  xtask test suite on every `cargo test`).
+  `examples/quickstart`);
+- the `external` job runs `cargo xtask external-check`: the detached
+  `examples/quickstart` app must build, serve, and generate a stylesheet with
+  classes only Tablo's own sources write, so workspace-only resolutions fail it;
+- the `bench-check` job verifies that `Cargo.lock` and `benchmarks/tablo/Cargo.lock` pin
+  identical `topcoat` and `toasty` revs and that the workspace, bench, and quickstart
+  manifests' `rev =` pins agree (`cargo xtask verify-locks`).
 
 ### The `topcoat fmt` trap
 
@@ -100,8 +91,7 @@ the `Install topcoat CLI` step of the `fmt` job in
 crate verbatim, under a `SYNC` header recording the registry version and the
 source hash. Never hand-edit those files: update them with
 `cargo xtask sync-topcoat-ui`. `cargo xtask verify-topcoat-ui` fails when a
-vendored file has drifted, and the xtask test suite runs it on every
-`cargo test`. Components Tablo owns live in
+vendored file has drifted. Components Tablo owns live in
 `crates/tablo-ui/src/components/composites/` and are edited normally
 (ADR-0007).
 
@@ -139,16 +129,14 @@ builds.
 Every branch is squash-merged into `master`: one commit per branch, so no empty
 merge commits. The squashed commit is a Conventional Commit, with the issue
 reference in the subject when the change closes an issue.
-[`docs/dev/COMMITS.md`](docs/dev/COMMITS.md) is the
-authoritative format. Pull request titles follow the same format, since the
-title becomes the landed commit; reviewers check it.
+[`docs/dev/COMMITS.md`](docs/dev/COMMITS.md) is the authoritative format. Pull request titles
+follow the same format, since the title becomes the merged commit; reviewers check it.
 
 ## Triage
 
 Maintainers close issues and pull requests without detailed review when a change
 does not align with the project's direction, duplicates existing work, or is not
-worth the time to review. Closures are routine and carry no judgment: if context
-changes the picture, follow up in the thread.
+worth the time to review. If context changes the picture, follow up in the thread.
 
 ## Decisions and vocabulary
 

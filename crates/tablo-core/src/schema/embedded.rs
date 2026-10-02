@@ -1,19 +1,6 @@
-//! Embedded **values**: a typed value and the flat form map, converted in one
-//! declared place, and the schema node that renders it.
+//! Embedded values: a typed value and the flat form map converted in one declared place, plus the schema node that renders it.
 //!
-//! An embedded leaf binds one column: a lens through an embedded struct, an
-//! enum variant, or a `#[document]` resolves to its flattened storage column
-//! ([`ResolvedLens::new`](super::ResolvedLens::new)). A **value** binds as a
-//! whole. `#[derive(EmbeddedForm)]` builds its schema node — one resolved field
-//! per leaf, a nested node per `#[form(embed)]` value, and for an enum the
-//! variant control over the discriminant column plus one group per variant —
-//! and the codec reads and writes the flat map through that node's keys, so the
-//! app never spells a flattened name.
-//!
-//! A payload selects the variant only when the submission carries no
-//! discriminant at all (the create form has nothing to hydrate); a
-//! `#[shared(..)]` column belongs to several variants and never selects one. A
-//! named discriminant always wins, and an unknown one is refused.
+//! An embedded leaf binds one flattened storage column and a value binds as a whole; a payload selects the variant only when the submission carries no discriminant at all, a shared column never selects one, and an unknown discriminant is refused.
 //!
 //! # What an app writes
 //!
@@ -28,15 +15,9 @@
 //!
 //! # What is not covered
 //!
-//! A `#[document]` inside an embedded value (its fields share one column, so no
-//! per-field binding; a `#[document]` leaf binds through `ResolvedLens::new`),
-//! a relation inside one, and an embedded enum nested inside an enum variant.
-//! Nesting inside *structs* works at any depth. With JavaScript off every
-//! variant group renders.
+//! A `#[document]` inside an embedded value, a relation inside one, and an embedded enum nested inside an enum variant are not covered.
 //!
-//! Every leaf under an embedded step is **not required** by default: only the
-//! matching variant writes a variant payload column, so the resolver reports
-//! every embedded leaf nullable.
+//! Every leaf under an embedded step reports nullable.
 
 use std::collections::HashMap;
 
@@ -52,17 +33,9 @@ use super::{
 };
 use crate::form::{FieldError, FormScalar};
 
-/// An embedded value that can be read from, and written to, the flat form map.
-///
-/// Derive it with [`tablo_core::EmbeddedForm`](crate::EmbeddedForm), which also
-/// generates `form(dx, parent)`, the value's schema. The hidden methods are
-/// the derive's; the two provided ones are the codec.
+/// Reads an embedded value from and writes it to the flat form map; derive it to generate the value's schema.
 pub trait EmbeddedForm: Sized {
-    /// Write this value's leaves into `out`, under the columns the app schema
-    /// resolves for `parent`.
-    ///
-    /// For an enum, the **active variant's** leaves are written, plus its
-    /// discriminant: a value has one variant, and the form must say which.
+    /// Writes this value's leaves into `out`, including the active variant's discriminant for an enum.
     fn write_form<M>(
         &self,
         cx: &Cx,
@@ -75,12 +48,7 @@ pub trait EmbeddedForm: Sized {
         self.write_node(schema.embedded_root(), out);
     }
 
-    /// Read a value back from a submission.
-    ///
-    /// An embedded enum takes its variant from the discriminant key; a
-    /// submission naming one it does not declare is refused, and one that
-    /// carries no discriminant at all falls back to the first variant whose
-    /// own payload was submitted, else the first variant.
+    /// Reads a value back from a submission, taking an embedded enum's variant from the discriminant key and refusing a discriminant that names no variant.
     ///
     /// # Errors
     ///
@@ -104,22 +72,13 @@ pub trait EmbeddedForm: Sized {
     where
         M: toasty::schema::Model;
 
-    /// Whether every leaf answers a blank submission: a declared
-    /// `#[form(blank = ..)]`, the scalar's own blank answer, or — for a nested
-    /// value — every leaf of that value's.
-    ///
-    /// The panel's build check reads it: a control a submission can post empty
-    /// (an optional one, a variant group's payload, or a control inside a
-    /// `Repeater`) whose field answers none is a declaration the panel refuses
-    /// rather than a blank the parse would refuse at submit.
+    /// Reports whether every leaf answers a blank submission.
     #[doc(hidden)]
     fn answers_blank() -> bool;
 
-    /// Write through a built node.
     #[doc(hidden)]
     fn write_node(&self, node: &Embedded, out: &mut HashMap<String, String>);
 
-    /// Read through a built node.
     #[doc(hidden)]
     fn read_node(
         node: &Embedded,
@@ -127,8 +86,7 @@ pub trait EmbeddedForm: Sized {
     ) -> std::result::Result<Self, Vec<FieldError>>;
 }
 
-/// An embedded value's schema node: its resolved keys, the fields that render
-/// them, and for an enum its variant control and variant groups.
+/// Holds an embedded value's resolved keys, rendering fields, and variant groups for an enum.
 #[doc(hidden)]
 #[derive(Debug)]
 pub struct Embedded {
@@ -137,40 +95,27 @@ pub struct Embedded {
 
 #[derive(Debug)]
 enum Shape {
-    /// One member per struct field, in declaration order.
     Struct(Vec<Member>),
     Enum(EnumNode),
 }
 
 #[derive(Debug)]
 struct EnumNode {
-    /// The discriminant column.
     key: String,
-    /// The variant control's field slot.
     discriminant: usize,
-    /// The `#[shared(..)]` columns' field slots: each renders once, outside
-    /// every variant group, because the column belongs to several variants and
-    /// must stay editable whichever one is chosen.
     shared: Vec<usize>,
     variants: Vec<Variant>,
 }
 
 #[derive(Debug)]
 struct Variant {
-    /// The discriminant text this variant stores (`2`).
     value: String,
-    /// One member per payload field, in declaration order.
     members: Vec<Member>,
 }
 
 #[derive(Debug)]
 enum Member {
-    /// A leaf column: its key, and the field slot that renders it in place —
-    /// `None` for a shared column, which renders outside the variant groups.
-    Leaf {
-        key: String,
-        field: Option<usize>,
-    },
+    Leaf { key: String, field: Option<usize> },
     Nested(Embedded),
 }
 
@@ -183,7 +128,6 @@ impl Embedded {
         }
     }
 
-    /// The key of leaf `index` (of `variant`, for an enum).
     pub fn key(&self, variant: Option<usize>, index: usize) -> &str {
         match &self.members(variant)[index] {
             Member::Leaf { key, .. } => key,
@@ -191,7 +135,6 @@ impl Embedded {
         }
     }
 
-    /// The nested value at member `index` (of `variant`, for an enum).
     pub fn nested(&self, variant: Option<usize>, index: usize) -> &Embedded {
         match &self.members(variant)[index] {
             Member::Nested(nested) => nested,
@@ -206,24 +149,12 @@ impl Embedded {
         }
     }
 
-    /// Write variant `index`'s discriminant into `out`.
     pub fn write_variant(&self, index: usize, out: &mut HashMap<String, String>) {
         let e = self.enum_node();
         out.insert(e.key.clone(), e.variants[index].value.clone());
     }
 
-    /// The variant a submission reads as.
-    ///
-    /// A discriminant the submission **names** always wins, and one it names
-    /// but the enum does not declare is refused rather than read as another
-    /// variant. A submission that names none falls back to the first variant,
-    /// in declaration order, with a payload of its own submitted — a shared
-    /// column belongs to several variants and never selects one — else the
-    /// first variant.
-    ///
-    /// # Errors
-    ///
-    /// A discriminant that names no variant, keyed by the discriminant column.
+    /// Returns the variant a submission reads as, falling back to the first variant with a submitted payload when it names no discriminant, and refuses an unknown discriminant.
     pub fn variant_index(
         &self,
         values: &HashMap<String, String>,
@@ -249,8 +180,7 @@ impl Embedded {
             })
     }
 
-    /// Whether a submission mentions any key of this value: a leaf's non-empty
-    /// value, or an enum's discriminant.
+    /// Whether a submission mentions any key of this value.
     fn any_present(&self, values: &HashMap<String, String>) -> bool {
         let member = |member: &Member| match member {
             Member::Leaf { key, .. } => is_present(values, key),
@@ -265,8 +195,7 @@ impl Embedded {
         }
     }
 
-    /// Every form key the value occupies, each once: an enum's discriminant
-    /// first, then the leaf columns in declaration order.
+    /// Collects every form key the value occupies, each once.
     pub(crate) fn keys(&self) -> Vec<String> {
         let mut out = Vec::new();
         self.collect_keys(&mut out);
@@ -294,7 +223,6 @@ impl Embedded {
         }
     }
 
-    /// Shift every field slot by `by` (see [`Node::offset`]).
     pub(crate) fn offset(&mut self, by: usize) {
         let members = |members: &mut Vec<Member>| {
             for member in members {
@@ -322,7 +250,7 @@ impl Embedded {
         }
     }
 
-    /// Visit every field slot, with where the leaf sits in the form.
+    /// Visits every field slot with where the leaf sits in the form.
     pub(crate) fn visit_fields(&self, place: LeafPlace, f: &mut impl FnMut(usize, LeafPlace)) {
         fn members(members: &[Member], place: LeafPlace, f: &mut impl FnMut(usize, LeafPlace)) {
             for member in members {
@@ -349,9 +277,7 @@ impl Embedded {
         }
     }
 
-    /// The field slots of every variant group `values` hides: a group whose
-    /// variant is not the one the submission names. A submission naming no
-    /// variant hides nothing, because the payload fallback may read any group.
+    /// Collects the field slots of every variant group the submission hides, hiding nothing when it names no variant.
     pub(crate) fn hidden_fields(&self, values: &HashMap<String, String>, out: &mut Vec<usize>) {
         let nested = |members: &[Member], out: &mut Vec<usize>| {
             for member in members {
@@ -386,14 +312,7 @@ impl Embedded {
         }
     }
 
-    /// Render the value: a struct's members in order; an enum's variant
-    /// control, its shared columns, then its variant groups.
-    ///
-    /// A form renders every variant group, each marked with `data-variant`
-    /// (the value it stores) and `data-variant-of` (the discriminant column),
-    /// which `variant.js` reads to keep only the chosen one visible. A view
-    /// renders only the stored variant's group and the shared columns it
-    /// declares: the rest hold no values.
+    /// Renders the value, showing every variant group in a form and only the stored variant's group in a view.
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
@@ -415,9 +334,6 @@ impl Embedded {
                     .iter()
                     .find(|variant| stored == Some(variant.value.as_str()));
                 for index in &e.shared {
-                    // A view shows a shared column only when the stored
-                    // variant declares it: another variant's column holds no
-                    // value on this record.
                     let key = fields[*index].name();
                     let declared = stored_variant.is_some_and(|variant| {
                         variant
@@ -460,8 +376,7 @@ impl Embedded {
     }
 }
 
-/// The members of a struct or a variant group, in order; a shared leaf renders
-/// elsewhere.
+/// Renders a struct's or a variant group's members in order.
 async fn render_members<'a>(
     cx: &'a Cx,
     members: &[Member],
@@ -489,25 +404,21 @@ async fn render_members<'a>(
     .boxed())
 }
 
-/// Whether `values` carries a non-empty value for `key`.
 fn is_present(values: &HashMap<String, String>, key: &str) -> bool {
     values
         .get(key)
         .is_some_and(|value| !value.trim().is_empty())
 }
 
-/// Builds an embedded value's schema node, one member at a time, in the order
-/// the derive declares them.
+/// Builds an embedded value's schema node, one member at a time, in the order the derive declares them.
 #[doc(hidden)]
 pub struct EmbeddedBuilder {
     fields: Vec<Field>,
     shape: Shape,
-    /// The enum variant members are being added to.
     variant: Option<usize>,
 }
 
 impl EmbeddedBuilder {
-    /// A struct value.
     pub fn structure() -> Self {
         Self {
             fields: Vec::new(),
@@ -516,13 +427,7 @@ impl EmbeddedBuilder {
         }
     }
 
-    /// An enum value at `parent`: its discriminant column and variants come
-    /// from the app schema `dx` carries, and its variant control is the first
-    /// field.
-    ///
-    /// Panics without an app schema, or when `parent` names no embedded
-    /// enum: every caller is a declaration, and a lens that resolves to nothing
-    /// is a wiring bug.
+    /// Builds an enum value at `parent` from the app schema and panics when the schema is missing or `parent` names no embedded enum.
     pub fn enumeration<M, T>(dx: &DeclCx, parent: Path<M, T>) -> Self
     where
         M: toasty::schema::Model,
@@ -561,7 +466,7 @@ impl EmbeddedBuilder {
         }
     }
 
-    /// Start the next variant's members.
+    /// Starts the next variant's members.
     pub fn variant(&mut self) {
         let next = self.variant.map_or(0, |index| index + 1);
         let Shape::Enum(e) = &self.shape else {
@@ -582,7 +487,6 @@ impl EmbeddedBuilder {
         }
     }
 
-    /// A leaf rendered in place.
     pub fn leaf(&mut self, field: impl Into<Field>) {
         let field = field.into();
         let key = field.name().to_string();
@@ -594,8 +498,7 @@ impl EmbeddedBuilder {
         });
     }
 
-    /// A `#[shared(..)]` leaf: the first variant declaring its column renders
-    /// it, once, outside the variant groups.
+    /// Adds a `#[shared(..)]` leaf that renders once, outside the variant groups.
     pub fn shared(&mut self, field: impl Into<Field>) {
         let field = field.into();
         let key = field.name().to_string();
@@ -613,7 +516,7 @@ impl EmbeddedBuilder {
         self.members_mut().push(Member::Leaf { key, field: None });
     }
 
-    /// A nested value, from its own `build_schema`.
+    /// Adds a nested value from its own `build_schema`.
     pub fn nested(&mut self, schema: Schema) {
         let Schema { nodes, fields } = schema;
         let Ok([Node::Embedded(mut nested)]) = <[Node; 1]>::try_from(nodes) else {
@@ -624,7 +527,7 @@ impl EmbeddedBuilder {
         self.members_mut().push(Member::Nested(*nested));
     }
 
-    /// The value's schema: one embedded node.
+    /// Finishes the value's schema as one embedded node.
     pub fn finish(self) -> Schema {
         if let Shape::Enum(e) = &self.shape {
             assert_eq!(
@@ -640,8 +543,7 @@ impl EmbeddedBuilder {
     }
 }
 
-/// Every form key the embedded value at `parent` occupies: a record form binds
-/// them to the one field that holds the value.
+/// Collects every form key the embedded value at `parent` occupies.
 #[doc(hidden)]
 pub fn embedded_keys<M, T>(dx: &DeclCx, parent: impl Into<Path<M, T>>) -> Vec<String>
 where
@@ -651,16 +553,7 @@ where
     T::build_schema(dx, parent.into()).embedded_root().keys()
 }
 
-/// Read one leaf out of a submission, by its resolved key.
-///
-/// Trimmed; an absent or empty value is the member's declared blank answer,
-/// else the type's own, and a type with neither is refused inline — the rule
-/// ADR-0022 gives a record form's scalar.
-///
-/// # Errors
-///
-/// A blank the leaf has no answer for, and a value the type cannot parse,
-/// worded as the typed rule words it.
+/// Reads one leaf out of a submission by its resolved key, answering a blank with the member's declared blank or the type's own and refusing a blank with neither.
 #[doc(hidden)]
 pub fn parse_leaf<T>(
     key: &str,
@@ -679,8 +572,7 @@ where
     T::parse_form(trimmed).map_err(|message| FieldError::invalid(key, message))
 }
 
-/// Move `result`'s value out, or its errors into `errors`. Generated
-/// `read_node` bodies collect every leaf's error with it.
+/// Moves `result`'s value out, or its errors into `errors`.
 #[doc(hidden)]
 pub fn take_leaf<T>(
     result: std::result::Result<T, FieldError>,
@@ -689,7 +581,6 @@ pub fn take_leaf<T>(
     result.map_err(|error| errors.push(error)).ok()
 }
 
-/// [`take_leaf`] for a nested value's read.
 #[doc(hidden)]
 pub fn take_value<T>(
     result: std::result::Result<T, Vec<FieldError>>,

@@ -16,10 +16,7 @@ const PAGE_DESCRIPTION: StaticClass = class!("text-sm text-muted-foreground");
 const PAGE_ACTIONS: StaticClass = class!("flex shrink-0 flex-wrap items-center gap-2");
 const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 
-/// Standard container for an admin page (CONTEXT.md:Page container, ADR-0008).
-///
-/// Owns the max width, the padding and the vertical rhythm so pages declare
-/// title and content, not Tailwind layout classes.
+/// Standard container for an admin page, owning its max width, padding, and vertical rhythm.
 ///
 /// ```ignore
 /// page(

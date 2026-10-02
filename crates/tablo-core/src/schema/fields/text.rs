@@ -10,17 +10,11 @@ use super::{
 use crate::form::FormScalar;
 
 /// The equality expression a text field's unique probe binds.
-///
-/// `None` means the submitted value does not parse into the field's type:
-/// validation has already refused it, and the probe has nothing to compare.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
 
-/// What a text field declares beyond presence and its rules.
+/// The text control's input type, placeholder, rows, and unique probe.
 pub(crate) struct TextControl {
-    /// The control's `type`: the scalar type's `INPUT_TYPE` (`email`
-    /// overrides it at render).
     input_type: &'static str,
-    /// `Some` renders a `<textarea>` of that many lines.
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
     pub(super) unique: bool,
@@ -28,18 +22,11 @@ pub(crate) struct TextControl {
 }
 
 impl TextControl {
-    /// The control for a `T` column at `path`, its unique marker defaulting to
-    /// `unique`.
-    ///
-    /// The probe parses a submission into `T` and compares it through `path`,
-    /// so a value unique as text but not as the type (`01` and `1` to an
-    /// integer column) is checked for what the record will store.
+    /// Parses a submission into `T` and compares through the lens, so `01` and `1` check as the stored integer.
     pub(super) fn new<M, T>(path: FieldLens<M, T>, unique: bool) -> Self
     where
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
     {
-        // The untyped path, so the probe holds nothing of `M`: the same
-        // expression `Path::eq` builds.
         let path: toasty_core::stmt::Path = path.into();
         let probe: EqProbe = std::sync::Arc::new(move |value: &str| {
             let parsed = T::parse_form(value.trim()).ok()?;
@@ -57,9 +44,7 @@ impl TextControl {
         }
     }
 
-    /// The control of a derived embedded leaf: no unique probe, because
-    /// mounting the panel refuses a `unique()` marker on anything but a column
-    /// of the model, so `T` needs no expression form.
+    /// The control of a derived embedded leaf, with no unique probe.
     pub(super) fn leaf<T: FormScalar>() -> Self {
         Self {
             input_type: T::INPUT_TYPE,
@@ -70,16 +55,14 @@ impl TextControl {
         }
     }
 
-    /// The equality expression the app-side unique check probes with, or
-    /// `None` when the submission does not parse or the field has no probe.
+    /// The equality expression the app-side unique check probes with.
     pub(crate) fn eq_filter(&self, value: &str) -> Option<toasty::stmt::Expr<bool>> {
         self.probe.as_ref().and_then(|probe| probe(value))
     }
 }
 
 impl Field {
-    /// Render a text field: a read-only value in `Mode::View`, the control
-    /// with `value` and `error` otherwise.
+    /// Renders a text field's control and its read-only value.
     pub(super) fn render_text<'a>(
         &self,
         text: &TextControl,
@@ -89,21 +72,16 @@ impl Field {
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View {
-            // Free text reads as prose, single line or not; the prose class
-            // still breaks a long token (an address) rather than overflow.
             return render_value(cx, &self.label, value, ValueKind::Prose);
         }
         let name = self.name.clone();
-        // The marker reads the same predicate validation uses, so a unique
-        // field is never refused for emptiness while rendering as optional.
         let required = self.is_required();
         let placeholder = text.placeholder.clone();
         let chrome = FieldChrome::new(&self.name, error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let control = if let Some(rows) = text.rows {
-            // A `<textarea>` takes its initial value from content, not a
-            // `value` attribute.
+            // A `<textarea>` takes its initial value from content, not a `value` attribute.
             let value_owned = value.unwrap_or("").to_string();
             view! {
                 cx =>
@@ -128,8 +106,6 @@ impl Field {
             } else {
                 text.input_type
             };
-            // A timestamp renders its UTC `datetime-local` spelling, not the
-            // stored RFC 3339: the control carries no zone.
             let value_owned = value.map(|s| {
                 if text.input_type == "datetime-local" {
                     format_timestamp_input(s)

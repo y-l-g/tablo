@@ -9,8 +9,6 @@ use crate::common::{
 
 #[tokio::test]
 async fn logged_in_tenant_reaches_tenant_scoped_resources_without_headers() {
-    // The demo admin's tenant flows from the session, so tenant-scoped
-    // resources serve without any tenant header or request extension.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -43,7 +41,6 @@ async fn the_demo_admin_switches_between_their_two_blogs() {
         .await;
     assert_eq!(switched.status(), 303);
 
-    // The side project has no authors yet.
     let html = body_string(client.get("/admin/authors").await).await;
     assert!(!html.contains("Ada Author"), "{html}");
 }
@@ -80,7 +77,6 @@ async fn edit_with_wrong_tenant_yields_404_via_resource_query() {
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    // Find T1 post id
     let mut db2 = db.clone();
     let t1_post = Post::filter(Post::fields().tenant_id().eq(t1))
         .first()
@@ -116,9 +112,6 @@ async fn per_tenant_policy_deny_yields_403() {
 
 #[tokio::test]
 async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
-    // The tenant filter is the framework's, applied by `scoped_query`
-    // — the direct-query entry point app code must use, because
-    // `PostResource::query` is the unscoped base.
     use showcase::app::PostResource;
     use tablo_core::{Tenant, scoped_query};
     use topcoat::context::CxTestBuilder;
@@ -136,7 +129,6 @@ async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].title, "T1 Post");
 
-    // Different tenant via Cx::with
     let cx_t2 = cx_t1.with(Tenant(uuid::Uuid::from_u128(2)));
     let mut db_cx2 = tablo_core::db::db(&cx_t2);
     let rows2 = scoped_query::<PostResource>(&cx_t2)
@@ -187,7 +179,6 @@ async fn tenantless_requests_to_gated_resources_fail_closed() {
         .unwrap()
         .len();
     assert_eq!(before, after, "no nil-tenant orphan may be minted");
-    // Seeds themselves carry the demo tenant — no nil rows exist.
     let nil_rows = showcase::models::Post::filter(
         showcase::models::Post::fields()
             .tenant_id()
@@ -222,15 +213,12 @@ async fn tenantless_requests_to_the_comments_queue_fail_closed() {
         status, 403,
         "a tenantless comments list must fail closed, not list every tenant's queue"
     );
-    // The same gate covers the read-only export route.
     let resp = client.get("/admin/comments/export").await;
     assert_eq!(resp.status(), 403, "tenantless export must fail closed");
 }
 
 #[tokio::test]
 async fn create_assigns_the_logged_in_tenant() {
-    // Creates land in the tenant the logged-in user carries,
-    // never nil.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -266,12 +254,8 @@ async fn create_assigns_the_logged_in_tenant() {
 
 #[tokio::test]
 async fn x_tenant_id_header_no_longer_grants_a_tenant() {
-    // Learning another tenant's UUID must not make the caller that
-    // tenant, so a raw `x-tenant-id` header grants nothing.
     let db = full_db().await;
     let router = router(db.clone());
-    // Minted, not logged in: this replays a raw session cookie, and
-    // the login flow is not its subject.
     let session = mint_session(&db, TENANTLESS_ADMIN_EMAIL).await;
     let response = router
         .handle(
@@ -337,8 +321,6 @@ async fn bulk_delete_wrong_tenant_404s_and_deletes_nothing() {
 
 #[tokio::test]
 async fn comments_list_is_scoped_through_parent_post() {
-    // Comments carry no tenant of their own — `CommentResource`
-    // scopes them through the parent post's tenant.
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -370,8 +352,6 @@ async fn comments_list_is_scoped_through_parent_post() {
 
 #[tokio::test]
 async fn comments_search_is_scoped_through_parent_post() {
-    // Live search runs the tenant-scoped query, so a cross-tenant
-    // body match must not surface the other tenant's comment.
     let (db, t1, _) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -379,8 +359,6 @@ async fn comments_search_is_scoped_through_parent_post() {
     let resp = client.tenant(t1).get("/admin/comments?q=T2+comment").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
-    // The search term is echoed in the empty-state message and sort links,
-    // so assert on the empty state itself rather than term absence.
     assert!(
         html.contains("No matches"),
         "t1 search for T2 comment must return zero rows: {html}"
@@ -400,9 +378,6 @@ async fn comments_search_is_scoped_through_parent_post() {
 
 #[tokio::test]
 async fn comments_export_is_scoped_through_parent_post() {
-    // The export runs the tenant-scoped query — `Comment`'s
-    // own relation filter here — so each tenant's CSV carries only comments on
-    // its own posts.
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -428,8 +403,6 @@ async fn comments_export_is_scoped_through_parent_post() {
 
 #[tokio::test]
 async fn comments_edit_with_wrong_tenant_yields_404_via_resource_query() {
-    // The edit load runs the tenant-scoped query, so a cross-tenant
-    // comment id is not found.
     let (db, _, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -452,9 +425,6 @@ async fn comments_edit_with_wrong_tenant_yields_404_via_resource_query() {
 
 #[tokio::test]
 async fn comments_query_scopes_directly_through_parent_post() {
-    // The Cx-level proof alongside the HTTP tests above: the scope is
-    // declared in `CommentResource::tenancy` and applied by `scoped_query` —
-    // `CommentResource::query` is the tenant-unscoped base.
     use showcase::app::CommentResource;
     use tablo_core::{Tenant, scoped_query};
     use topcoat::context::CxTestBuilder;
@@ -485,9 +455,6 @@ async fn comments_query_scopes_directly_through_parent_post() {
 
 #[tokio::test]
 async fn export_is_scoped_by_tenant() {
-    // The export runs the tenant-scoped query, so each tenant
-    // sees only its own rows. `PostResource` states no tenant filter of its
-    // own, so this passes on the framework's derived one.
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -510,18 +477,12 @@ async fn export_is_scoped_by_tenant() {
     );
 }
 
-/// The app-side unique check scopes through
-/// `scoped_query::<AuthorResource>` — the tenant filter the framework derives
-/// So the constraint has to be scoped the same way. `Author.email`
-/// is `#[unique(tenant_id, email)]`, which makes two tenants sharing an email a
-/// legitimate pair.
 #[tokio::test]
 async fn two_tenants_may_share_an_author_email() {
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
 
-    // A1 already owns this email in t1.
     let mut db_q = db.clone();
     let taken = Author::all().exec(&mut db_q).await.unwrap();
     let existing = taken
@@ -530,7 +491,6 @@ async fn two_tenants_may_share_an_author_email() {
         .expect("t1 seeds an author");
     let email = existing.email.clone();
 
-    // t2 POSTs a create with the same email.
     let page = client.tenant(t2).get("/admin/authors/create").await;
     let html = body_string(page).await;
     let csrf = input_value(&html, "csrf_token").expect("create form carries csrf");
@@ -556,8 +516,6 @@ async fn two_tenants_may_share_an_author_email() {
     );
 }
 
-/// The other half of the scoping: a duplicate *within* one tenant is still
-/// refused, and refused inline rather than by the driver.
 #[tokio::test]
 async fn duplicate_email_within_one_tenant_is_reported_inline() {
     let (db, t1, _t2) = tenanted_db().await;
@@ -595,8 +553,6 @@ async fn duplicate_email_within_one_tenant_is_reported_inline() {
         "a same-tenant duplicate must re-render with an inline error, got {}",
         resp.status()
     );
-    // The inline wording is `panel::forms`'s; this pins that the same-tenant
-    // duplicate re-renders instead of writing.
     let mut db_check = db.clone();
     assert_eq!(
         Author::all().exec(&mut db_check).await.unwrap().len(),

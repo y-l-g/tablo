@@ -1,20 +1,14 @@
-/* Neutral theme — Tailwind + tokens, the showcase's copy.
-   The per-app contract: one styles.css + `tablo_build::tailwind()` in build.rs.
-   See ADR-0006. */
+/* Per-app contract: one styles.css + `tablo_build::tailwind()` in build.rs (ADR-0006). */
 
 @import "tailwindcss";
 
-/* Scan the app's Rust sources for Tailwind classes. `tablo_build::tailwind()`
-   (build.rs) adds Tablo's own sources, wherever Cargo put them. */
+/* `tablo_build::tailwind()` (build.rs) adds Tablo's own sources, wherever Cargo put them. */
 @source "./src/**/*.rs";
 
-/* Dark mode is opted into by putting the `dark` class on an ancestor,
-   typically <html>. */
+/* Dark mode: put the `dark` class on an ancestor, typically <html>. */
 @custom-variant dark (&:is(.dark *));
 
-/* Expose the tokens as Tailwind utilities (`bg-background`, `text-primary`,
-   `border-border`, ...). The indirection through plain variables on `:root`
-   and `.dark` is what lets the values swap when the color scheme changes. */
+/* Indirection through `:root`/`.dark` lets the values swap when the color scheme changes. */
 @theme inline {
   --font-sans: "Geist", sans-serif;
   --color-background: var(--background);
@@ -63,10 +57,7 @@
   --shadow-sm:
     0 1px 2px oklch(0.24 0.02 260 / 10%),
     0 2px 8px -2px oklch(0.24 0.02 260 / 9%);
-  /* Sidebar tokens per ADR-0009. Upstream's neutral theme spells out values
-     equal to its own page tokens for primary/border/ring; this theme re-tunes
-     --primary and --ring, so the sidebar aliases the page palette instead —
-     the sidebar keeps matching the app rather than upstream's numbers. */
+  /* Sidebar aliases the page palette: this theme re-tunes `--primary`/`--ring` (ADR-0009). */
   --sidebar: oklch(0.995 0.003 260);
   --sidebar-foreground: oklch(0.24 0.012 260);
   --sidebar-primary: var(--primary);
@@ -96,8 +87,6 @@
   /* Light-mode shadows disappear on a dark background, so these are deeper. */
   --shadow-xs: 0 1px 2px oklch(0 0 0 / 35%);
   --shadow-sm: 0 1px 2px oklch(0 0 0 / 35%), 0 2px 8px -2px oklch(0 0 0 / 30%);
-  /* Sidebar tokens — the dark variants, aliased to the page palette for the
-     same reason as the light block. */
   --sidebar: oklch(0.22 0.012 260);
   --sidebar-foreground: oklch(0.93 0.006 260);
   --sidebar-primary: var(--primary);
@@ -113,9 +102,7 @@
     @apply bg-background font-sans text-foreground;
   }
 
-  /* The media library's upload preview (GH #248): `media.js` draws the `<img>`
-     from the chosen file, and the app's stylesheet is what sizes it — the
-     script owns the behavior, this file owns the appearance (ADR-0006). */
+  /* Upload preview sizing; `media.js` owns the behavior (GH #248, ADR-0006). */
   [data-media-preview] img {
     @apply size-12 rounded-md border border-border object-cover;
   }

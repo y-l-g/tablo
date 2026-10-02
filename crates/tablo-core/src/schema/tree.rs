@@ -1,10 +1,4 @@
-//! Schema tree — `Node`, `Source`, `IntoSchema`, and the tree walks.
-//!
-//! `Node` composes field slots, layout containers (`layouts`), and embedded
-//! values (`embedded`) into one tree. A field slot indexes the root schema's
-//! field list, so every walk that needs the fields reads that list, and the
-//! walks here only add what the layout says about them: which fields a
-//! submission hides, and which container can skip a field's requiredness.
+//! Composes field slots, layout containers, and embedded values into one tree.
 
 use std::collections::{HashMap, HashSet};
 
@@ -30,41 +24,22 @@ pub(crate) enum Node {
     Embedded(Box<Embedded>),
 }
 
-/// Where a field's control sits in the form, for the record form's
-/// blank-agreement check (mounting the panel refuses an optional control, or one
-/// inside a `Repeater`, whose record-form field has no blank answer).
+/// Reports where a field's control sits in the form.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum LeafPlace {
-    /// The form renders the control wherever the value is submitted, so an
-    /// empty submission reaches the field's rule.
     Rendered,
-    /// A variant group's payload: `variant.js` hides the group of a variant the
-    /// discriminant does not name, so a hidden payload is never read and a live
-    /// one is the parse's blank to refuse and word. Inside a `Repeater` the
-    /// group can be absent for another reason — an all-empty repeater group
-    /// skips requiredness while the parse still reads it — so the leaf is asked
-    /// for an answer there.
     Payload,
-    /// An embedded enum's discriminant: an empty submission reaches the read's
-    /// fallback (a submitted payload, else the first variant), never a leaf's
-    /// rule.
     Discriminant,
 }
 
-/// Where a schema render reads field values and errors from, and which side of
-/// the record the render is for.
-///
-/// [`Source::form`] is the create/edit path; [`Source::view`] is the detail
-/// page, where a field shows its stored value instead of a control — a choice
-/// its option label, a file field its path — and layout keeps the structure it
-/// declares.
+/// Holds where a schema render reads field values and errors from for a form or a read-only view.
 pub struct Source<'a> {
     values: &'a HashMap<String, String>,
     errors: Option<&'a FieldErrors>,
 }
 
 impl<'a> Source<'a> {
-    /// A form render: controls hydrated with `values`, with `errors` inline.
+    /// Renders controls hydrated with `values` and inline `errors`.
     pub fn form(values: &'a HashMap<String, String>, errors: &'a FieldErrors) -> Self {
         Self {
             values,
@@ -72,10 +47,7 @@ impl<'a> Source<'a> {
         }
     }
 
-    /// A read-only render of a record's `values`.
-    ///
-    /// Every field reads its key from `values`: a key the map lacks renders
-    /// `(missing)` and fails a `debug_assert!`.
+    /// Renders a record's `values` read-only and renders a missing key as `(missing)`.
     pub fn view(values: &'a HashMap<String, String>) -> Self {
         Self {
             values,
@@ -91,13 +63,11 @@ impl<'a> Source<'a> {
         }
     }
 
-    /// The value for `name`, if this render has one.
     pub(crate) fn value(&self, name: &str) -> Option<&str> {
         self.values.get(name).map(String::as_str)
     }
 
-    /// The error `name` renders. A view has none: it renders a stored record,
-    /// so a validation slot would describe a submit that cannot happen.
+    /// Returns the error `name` renders.
     pub(crate) fn errors_for(&self, name: &str) -> Option<&str> {
         self.errors
             .and_then(|errors| errors.first(name))
@@ -105,17 +75,15 @@ impl<'a> Source<'a> {
     }
 }
 
-/// Which reading of a record a render is for.
+/// Distinguishes a form render from a read-only view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Mode {
-    /// Create/edit: fields render as controls, validation applies.
     Form,
-    /// Detail page: fields render their stored value, read-only.
     View,
 }
 
 impl Node {
-    /// Render this node from `source`, reading field slots from `fields`.
+    /// Renders this node from `source`, reading field slots from `fields`.
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
@@ -141,8 +109,7 @@ impl Node {
         }
     }
 
-    /// The nodes a layout container holds; `None` for a field slot and an
-    /// embedded value, whose structure is its own.
+    /// Returns the nodes a layout container holds, or `None` for a field slot and an embedded value.
     pub(crate) fn children(&self) -> Option<&[Node]> {
         match self {
             Node::Repeater(r) => Some(&r.children.nodes),
@@ -163,8 +130,7 @@ impl Node {
         }
     }
 
-    /// Shift every field slot under this node by `by`: the node joins a
-    /// schema whose field list already holds `by` fields.
+    /// Shifts every field slot under this node by `by`.
     pub(crate) fn offset(&mut self, by: usize) {
         match self {
             Node::Field(index) => *index += by,
@@ -177,8 +143,7 @@ impl Node {
         }
     }
 
-    /// Visit every field slot under this node, with where its control sits in
-    /// the form.
+    /// Visits every field slot under this node with where its control sits in the form.
     pub(crate) fn visit_fields(&self, f: &mut impl FnMut(usize, LeafPlace)) {
         match self {
             Node::Field(index) => f(*index, LeafPlace::Rendered),
@@ -192,7 +157,7 @@ impl Node {
     }
 }
 
-/// Render `nodes` in order, as one view.
+/// Renders `nodes` in order as one view.
 pub(crate) async fn render_nodes<'a>(
     cx: &'a Cx,
     nodes: &[Node],
@@ -212,24 +177,7 @@ pub(crate) async fn render_nodes<'a>(
     .boxed())
 }
 
-/// Classify the tree's groups against `values`: the repeaters that are absent
-/// and the variant groups the submission hides. Adds the names of the fields
-/// they hold to `skip`, and a required absent repeater's error to `errors`.
-///
-/// A repeater whose inner fields are all empty is **absent** — an untouched
-/// group submits empty strings or omits the keys, and both count — so its
-/// fields' requiredness must not fire, whatever the group's own. A `required`
-/// absent repeater records its one label-keyed error, unless it sits inside an
-/// already-absent repeater. A repeater with any non-empty inner value is
-/// present, and its inner `required` enforces as usual.
-///
-/// On edit, the untouched-file backfill runs before validation, so a
-/// group whose stored file path is non-empty counts as present there even if
-/// the browser submitted it empty — a kept file is real group data.
-///
-/// An embedded enum's variant group is **hidden** when the submission names a
-/// different variant: `variant.js` keeps only the named variant's group
-/// visible, so a value the user cannot see must not fail the submit.
+/// Classifies the tree's groups against `values`, skipping fields in all-empty repeater groups and hidden variant groups and reporting a required absent repeater under its label.
 pub(crate) fn walk_absent_groups(
     nodes: &[Node],
     fields: &[Field],
@@ -277,8 +225,7 @@ pub(crate) fn walk_absent_groups(
     }
 }
 
-/// Something that becomes a [`Schema`]: a field, a layout block, a tuple of
-/// either, or a schema.
+/// Converts a field, a layout block, a tuple of either, or a schema into a [`Schema`].
 pub trait IntoSchema {
     fn into_schema(self) -> Schema;
 }
@@ -298,11 +245,7 @@ impl IntoSchema for Field {
     }
 }
 
-/// Generate the single-node [`IntoSchema`] impl for every layout container.
-///
-/// A container's children keep their own field list until the container
-/// becomes a node: the list moves up to the schema the node starts, whose
-/// field slots it then indexes from 0, so the children's slots stay valid.
+/// Generates the single-node [`IntoSchema`] impl for every layout container.
 macro_rules! container_nodes {
     ($($ty:ident),+ $(,)?) => {
         $(
@@ -321,12 +264,7 @@ macro_rules! container_nodes {
 
 container_nodes!(Section, Group, Grid, Repeater);
 
-/// Generate the tuple impls of [`IntoSchema`] from one list per arity.
-///
-/// One invocation builds the destructured bindings and the appended schemas
-/// from the same list, so an element cannot reach one and not the other.
-/// Arity eight is the shared ceiling [`IntoColumns`](crate::resource::IntoColumns)
-/// documents.
+/// Generates the tuple impls of [`IntoSchema`] from one list per arity.
 macro_rules! into_schema_tuples {
     ($($T:ident => $v:ident),+ $(,)?) => {
         impl<$($T),+> IntoSchema for ($($T,)+)

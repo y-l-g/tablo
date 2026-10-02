@@ -1,12 +1,5 @@
-//! Build-script helpers for a Tablo app.
-//!
-//! The panel's markup lives in `tablo-core` and `tablo-ui`, so the app's
-//! Tailwind build has to scan their sources as well as its own. Where those
-//! sources are depends on how Cargo got the crates — a registry or git
-//! checkout under `~/.cargo`, or a path dependency — so the app's `styles.css`
-//! cannot name them. Each Tablo crate publishes its source directory to the
-//! build scripts of the packages that depend on it (Cargo `links` metadata),
-//! and [`tailwind`] adds those directories to the app's stylesheet.
+//! Build-script helpers: scans Tablo's sources for Tailwind classes the app's
+//! stylesheet cannot name, published via Cargo `links` metadata.
 //!
 //! In the app's `build.rs` `main`:
 //!
@@ -24,10 +17,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// The metadata variables Tablo's crates publish, as Cargo names them for a
-/// dependent's build script, each holding one source directory: the facade's
-/// forwarded pair, and each crate's own for an app that depends on the crates
-/// directly.
+/// Holds one published source directory each, as Cargo names them for a
+/// dependent's build script.
 const SOURCE_VARS: &[&str] = &[
     "DEP_TABLO_CORE",
     "DEP_TABLO_UI",
@@ -48,12 +39,7 @@ pub enum Error {
     /// outside a build script.
     NotABuildScript(&'static str),
     /// Reading the stylesheet or writing the generated input failed.
-    Io {
-        /// The file the operation named.
-        path: PathBuf,
-        /// The underlying error.
-        source: io::Error,
-    },
+    Io { path: PathBuf, source: io::Error },
     /// The Tailwind CLI could not be fetched or failed.
     Tailwind(topcoat::tailwind::BuildError),
 }
@@ -92,19 +78,10 @@ impl From<topcoat::tailwind::BuildError> for Error {
     }
 }
 
-/// Build the app's stylesheet with Tablo's sources in scope.
+/// Builds the app's stylesheet with Tablo's sources in scope, writing
+/// `$OUT_DIR/tailwind.css` and returning that path.
 ///
-/// Builds from [`STYLESHEET`] at the package root — the app's own file, which
-/// `@import`s `tailwindcss`, declares the theme tokens, and `@source`s the
-/// app's code — and writes `$OUT_DIR/tailwind.css` for
-/// `topcoat::tailwind::stylesheet!()`, returning that path. The Tailwind input is a file in
-/// `OUT_DIR` that imports the app's stylesheet by absolute path and adds one
-/// `@source` per Tablo source directory, so relative paths in the app's file
-/// keep resolving against the app.
-///
-/// Prints `cargo::rerun-if-changed` for the stylesheet and for each Tablo
-/// source directory; the app still names its own sources. A change in the
-/// published directories reruns the script through the `links` edge.
+/// Prints `cargo::rerun-if-changed` for the stylesheet and each source directory.
 ///
 /// # Errors
 ///
@@ -141,9 +118,7 @@ fn var(name: &'static str) -> Result<OsString, Error> {
     env::var_os(name).ok_or(Error::NotABuildScript(name))
 }
 
-/// Every directory the Tablo crates published, deduplicated in first-seen
-/// order: an app that depends on the facade and on a Tablo crate directly
-/// sees the same directory twice.
+/// Collects the published directories, deduplicated in first-seen order.
 fn source_dirs(lookup: impl Fn(&str) -> Option<OsString>) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
     for name in SOURCE_VARS {
@@ -158,8 +133,6 @@ fn source_dirs(lookup: impl Fn(&str) -> Option<OsString>) -> Vec<PathBuf> {
     dirs
 }
 
-/// The Tailwind input: the app's stylesheet, then one `@source` per Tablo
-/// source directory.
 fn input_css(stylesheet: &Path, sources: &[PathBuf]) -> String {
     let mut css = format!("@import {};\n", css_string(stylesheet));
     for dir in sources {
@@ -168,15 +141,11 @@ fn input_css(stylesheet: &Path, sources: &[PathBuf]) -> String {
     css
 }
 
-/// `path` as a CSS string literal, with forward slashes (the separator
-/// Tailwind's globs expect on every platform) and quotes escaped.
 fn css_string(path: &Path) -> String {
     let path = path.to_string_lossy().replace('\\', "/");
     format!("\"{}\"", path.replace('"', "\\\""))
 }
 
-/// Write `contents` unless the file already holds them, so the input's mtime
-/// stays put across builds that change nothing.
 fn write_if_changed(path: &Path, contents: &str) -> Result<(), Error> {
     if fs::read_to_string(path).is_ok_and(|existing| existing == contents) {
         return Ok(());

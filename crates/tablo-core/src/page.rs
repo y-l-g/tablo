@@ -10,13 +10,9 @@ use crate::resource::{
     naming::{kebab_case, sentence_case, type_stem},
 };
 
-/// A page the [`Panel`](crate::Panel) mounts and lists in its sidebar.
-///
-/// Registered with [`Panel::page`](crate::Panel::page) at `{prefix}/{slug}`,
-/// or with [`Panel::home`](crate::Panel::home) at the panel prefix itself.
-/// The panel owns the route and the sidebar entry, the way it owns a
-/// [`Resource`](crate::Resource)'s; the page owns its markup. The panel's
-/// layout frames it in the shell, as it frames every panel page.
+/// A panel page that is not a resource, mounted at `{prefix}/{slug}` with a
+/// sidebar entry; the panel owns the route and entry while the page owns its
+/// markup.
 ///
 /// ```ignore
 /// struct ReportsPage;
@@ -30,9 +26,8 @@ use crate::resource::{
 /// Panel::new("admin").page::<ReportsPage>() // GET /admin/reports
 /// ```
 ///
-/// A page serves one `GET` and always has a sidebar entry. A form it renders
-/// posts to a route the app declares with `#[route]`; under the panel prefix,
-/// the auth gate covers it.
+/// A page serves one `GET` with a sidebar entry; a form it renders posts to an
+/// app-declared route the auth gate covers.
 pub trait Page: Sized + Send + Sync + 'static {
     /// The URL segment under the panel prefix. Default: the type name without
     /// a `Page` suffix, kebab-cased (`MediaLibraryPage` → `media-library`).
@@ -49,8 +44,7 @@ pub trait Page: Sized + Send + Sync + 'static {
         sentence_case(type_stem::<Self>("Page"))
     }
 
-    /// The sidebar entry. Override it to set the `order` or the icon; the panel resolves
-    /// its URL, as it does for [`Resource::navigation`](crate::Resource::navigation).
+    /// The sidebar entry; override to set the `order` or the icon.
     fn navigation() -> NavigationItem {
         NavigationItem::for_page::<Self>()
     }

@@ -6,8 +6,7 @@ use crate::{
     panel::test_support::{Dummy, dummy_table, mount, panel_for, seed_dummies},
 };
 
-/// The [`Dummy`] resource both chunker walk tests drive: one table, no
-/// filters, so the walk exercises raw cursor paging.
+/// Drives both chunker walk tests over one table with no filters.
 struct ChunkerDummyResource;
 impl crate::resource::Resource for ChunkerDummyResource {
     type Model = Dummy;
@@ -84,12 +83,7 @@ async fn export_drops_rows_failing_view() {
     );
 }
 
-/// The export loads the relations the rendered columns include, and nothing
-/// else. Two resources over one model differ only in the declaration: both
-/// render a column that reads `parent`, and only one column declares
-/// `.include(Child::fields().parent())`. The cell therefore reports which
-/// query the export ran: the declared include loads the parent, the silent
-/// one does not.
+/// Asserts the export loads the relations its columns include and nothing else.
 #[tokio::test]
 async fn export_loads_the_relations_its_columns_include() {
     use http_body_util::BodyExt;
@@ -233,9 +227,7 @@ fn export_bom_flag_reads_bom_query_param() {
 
 #[test]
 fn export_cap_maps_one_row_past_the_limit_to_413() {
-    // the cap branch must produce a content-too-large error, not
-    // just a constant that happens to equal 10_000. Exercised at the
-    // boundary.
+    // Maps one row past the limit to 413, exercised at the boundary.
     enforce_export_cap_count(MAX_EXPORT_ROWS).unwrap();
     let err = enforce_export_cap_count(MAX_EXPORT_ROWS + 1).unwrap_err();
     assert!(
@@ -247,11 +239,7 @@ fn export_cap_maps_one_row_past_the_limit_to_413() {
 
 #[tokio::test]
 async fn export_streams_csv_in_chunks_with_parity() {
-    // the streamed body reassembles byte-for-byte to the
-    // buffered CSV (header + rows, BOM variant included), arrives without
-    // a Content-Length (chunked), and multi-chunk tables cross chunk
-    // boundaries without repeating or dropping rows.
-
+    // Streams chunked without Content-Length, crossing chunk boundaries without loss or repeat.
     use http_body_util::BodyExt;
 
     use crate::resource::Resource;
@@ -271,7 +259,7 @@ async fn export_streams_csv_in_chunks_with_parity() {
         }
     }
 
-    // 2 * chunk + a tail: crosses two chunk boundaries (500/500/203).
+    // Crosses two chunk boundaries (500/500/203).
     let total = 2 * EXPORT_CHUNK_ROWS + 203;
     let mut db = Db::builder()
         .models(toasty::models!(Dummy))
@@ -321,9 +309,7 @@ async fn export_streams_csv_in_chunks_with_parity() {
     assert_eq!(lines.next(), Some("Name"));
     let mut names: Vec<&str> = lines.collect();
     assert_eq!(names.len(), total);
-    // The export pins PK order when no sortable column is declared
-    // (: cursor chunks need a deterministic order), so compare as
-    // a set — chunking must neither drop nor repeat rows.
+    // Compares as a set; chunking neither drops nor repeats rows.
     names.sort_unstable();
     let mut expected: Vec<String> = (0..total).map(|i| format!("user-{i:05}")).collect();
     expected.sort();
@@ -339,11 +325,7 @@ async fn export_streams_csv_in_chunks_with_parity() {
 
 #[tokio::test]
 async fn export_of_an_empty_table_emits_the_header() {
-    // the header leads the body even when the window has no rows,
-    // so an empty table downloads a valid CSV (header, and the BOM when
-    // asked for) instead of a 0-byte file a consumer cannot tell from a
-    // failed download.
-
+    // An empty table downloads the header, not a 0-byte body.
     use http_body_util::BodyExt;
 
     use crate::resource::Resource;
@@ -397,10 +379,7 @@ async fn export_of_an_empty_table_emits_the_header() {
 
 #[tokio::test]
 async fn export_visibility_scan_loads_no_includes() {
-    // The counting pass loads no relation; only the streaming pass loads the
-    // ones the columns include. `View` observes which
-    // query loaded the row: the relation is unloaded in the scan and loaded
-    // in the stream, so both counters must fire.
+    // The counting pass loads no relation; the streaming pass loads the declared includes.
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use http_body_util::BodyExt;
@@ -525,11 +504,7 @@ async fn export_visibility_scan_loads_no_includes() {
 
 #[tokio::test]
 async fn export_counts_only_viewable_rows_within_the_window() {
-    // Preserved under streaming: visibility is
-    // counted before the cap inside the raw MAX+1 window, so interleaved
-    // denied rows yield a 200 with the visible subset — never a 413, and
-    // no count leak.
-
+    // Interleaved denied rows yield a 200 with the visible subset.
     use http_body_util::BodyExt;
 
     use crate::resource::Resource;
@@ -587,10 +562,7 @@ async fn export_counts_only_viewable_rows_within_the_window() {
 
 #[tokio::test]
 async fn export_refuses_when_viewable_rows_lie_past_the_window() {
-    // the cap counts viewable rows, but only inside the raw
-    // window. With rows left past it, a 200 would be a partial CSV — the
-    // export must refuse with the same 413 the cap uses.
-
+    // Rows left past the window refuse with 413 to avoid a partial CSV.
     use http_body_util::BodyExt;
 
     use crate::resource::Resource;
@@ -655,10 +627,7 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
 
 #[tokio::test]
 async fn export_chunker_stops_at_a_short_chunk() {
-    // A page without a cursor ends the walk — re-fetching cursor-free
-    // would rescan from the start and multiply the visible count past
-    // the cap.
-
+    // Stops at a short chunk; re-fetching cursor-free would rescan.
     let mut db = Db::builder()
         .models(toasty::models!(Dummy))
         .connect("sqlite::memory:")
@@ -699,12 +668,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
 
 #[tokio::test]
 async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
-    // A row count that is an exact multiple of the chunk size
-    // must not rescan from the start. On SQLite a full page carries a
-    // cursor and the empty follow-up ends the walk, so the walk yields
-    // one full chunk then stops; the cursor rule keeps this true even
-    // for backends that return a full page without a cursor.
-
+    // An exact multiple of the chunk size ends the walk without rescanning.
     let mut db = Db::builder()
         .models(toasty::models!(Dummy))
         .connect("sqlite::memory:")
@@ -738,11 +702,7 @@ async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
 
 #[tokio::test]
 async fn export_and_list_agree_on_rows_and_order() {
-    // both loaders apply the table declaration through one shared
-    // routine, so a search term, a filter and a sort cannot reach the list
-    // and miss the CSV. This drives the same state through both — the list
-    // through `TablePage::load`, the export through `export_base_query` — and
-    // compares the rows and their order.
+    // Drives the same state through list and export and compares rows and order.
     use std::collections::BTreeMap;
 
     use crate::resource::{Resource, SelectFilter, Sort, TableState, TextColumn};
@@ -847,10 +807,7 @@ async fn export_and_list_agree_on_rows_and_order() {
 
 #[tokio::test]
 async fn export_413s_above_the_cap_before_streaming() {
-    // The MAX_EXPORT_ROWS cap stays as the backstop
-    // above streaming — decided by the pre-body visibility scan, so the
-    // 413 carries no partial CSV.
-
+    // Decided by the pre-body visibility scan with no partial CSV.
     use crate::resource::Resource;
 
     struct CappedResource;
@@ -900,8 +857,7 @@ async fn export_413s_above_the_cap_before_streaming() {
 
 #[test]
 fn export_filename_cannot_split_the_disposition_header() {
-    // `slug()` is an overridable free-form String, so quote and
-    // control characters must never reach the Content-Disposition header.
+    // Hostile slugs never reach the Content-Disposition header.
     assert_eq!(export_filename("users"), "users.csv");
     for hostile in [
         "a\"b\r\nContent-Length: 0",

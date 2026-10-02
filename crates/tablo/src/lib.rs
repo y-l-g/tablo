@@ -12,12 +12,10 @@
 //! tablo-build = { git = "https://github.com/y-l-g/tablo" }
 //! ```
 //!
-//! It re-exports [`tablo_core`] at its root, the UI components as [`ui`],
-//! and, with the `testing` feature, the in-memory HTTP client as `testing`.
-//! The driver features (`sqlite`, `postgresql`, `mysql`) turn on Toasty's
-//! driver of the same name; the toolkit itself enables none. The app's
-//! `build.rs` calls `tablo_build::tailwind()`, which finds Tablo's sources
-//! through this crate.
+//! It re-exports [`tablo_core`] at its root, the UI components as [`ui`], and
+//! the in-memory HTTP client as `testing` with the `testing` feature; the driver
+//! features (`sqlite`, `postgresql`, `mysql`) turn on Toasty's driver of the same
+//! name, and the toolkit itself enables none.
 //!
 //! A minimal app is one model, one [`Resource`], and the [`Panel`] that serves
 //! it — the full version lives in `examples/quickstart`:

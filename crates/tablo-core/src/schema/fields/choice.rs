@@ -21,9 +21,7 @@ use super::{
 #[derive(Clone, Default)]
 pub(crate) struct ChoiceControl {
     pub(super) searchable: bool,
-    /// Whether this is an embedded enum's variant control: it renders
-    /// `data-variant-select`, which `variant.js` follows to show only the
-    /// chosen variant's group, and a read-only page shows the variant's name.
+    /// Whether this is an embedded enum's variant control.
     pub(super) discriminant: bool,
     /// Static `(value, label)` options.
     pub(super) options: Vec<(String, String)>,
@@ -39,9 +37,7 @@ pub(crate) struct Relationship {
     check: RelationshipChecker,
 }
 
-/// One `<option>`: the markup a choice field, the filter bar and the
-/// relationship options endpoint share, so the value and the label are
-/// escaped by the view layer in one place.
+/// One `<option>` with its value and label.
 pub(crate) fn option_view<'a>(
     cx: &'a Cx,
     value: String,
@@ -69,8 +65,6 @@ impl Relationship {
             let project = project.clone();
             let cx = cx.clone();
             Box::pin(async move {
-                // `#[memoize(as_ref)]` hands back a borrow, so clone the
-                // (small) error back into this future's owned result.
                 let records = related_records::<R>(&cx, crate::tenancy::tenant_id(&cx))
                     .await
                     .map_err(|error| error.clone())?;
@@ -96,8 +90,6 @@ impl Relationship {
     }
 }
 
-/// [`related_record_check`] as the boxed future a [`RelationshipChecker`]
-/// returns.
 fn check_record<'a, R>(
     cx: &'a Cx,
     value: String,
@@ -118,11 +110,7 @@ impl ChoiceControl {
         self.relationship.is_some()
     }
 
-    /// Server-side option search for the endpoint (D1/D5).
-    ///
-    /// Reuses the related table's searchable columns and bounds to
-    /// `MAX_RELATIONSHIP_OPTIONS`. Returns `Overflow` when the filtered set
-    /// still exceeds the cap (the caller renders "keep typing").
+    /// Searches options server-side, answering `Overflow` past the option cap.
     pub(crate) async fn search_options(
         &self,
         cx: &Cx,
@@ -141,14 +129,7 @@ impl ChoiceControl {
         }
     }
 
-    /// Existence-only check: whether a non-empty `value` matches an option.
-    ///
-    /// A loader failure is a field error rather than an empty-options
-    /// passthrough that would fail at FK write time. A policy denial reads
-    /// "not available" — retrying cannot fix a permission decision, and
-    /// "invalid" would misattribute it to the submitted value. An overflowed
-    /// load uses the targeted check for a searchable field (a legitimate key
-    /// beyond the cap validates) and keeps the retry error otherwise.
+    /// Checks whether a non-empty `value` matches an option.
     pub(super) async fn validate_exists(&self, cx: &Cx, label: &str, value: &str) -> Vec<String> {
         let trimmed = value.trim();
         if trimmed.is_empty() {
@@ -177,13 +158,7 @@ impl ChoiceControl {
         vec![format!("{label} {failure}")]
     }
 
-    /// Re-check a submitted relationship key through `ex`, the write's open
-    /// transaction: the related record must still exist in the tenant-scoped
-    /// query and be one the user may view. The pre-write
-    /// [`validate_exists`](Self::validate_exists) ran in another window, so a
-    /// record deleted, moved to another tenant or hidden since fails here, with
-    /// the wording that check uses. Empty for a static choice, whose options
-    /// cannot change.
+    /// Re-checks a submitted relationship key in the write's transaction.
     pub(super) async fn recheck(
         &self,
         cx: &Cx,
@@ -212,15 +187,12 @@ fn load_failure(error: &OptionLoadError) -> &'static str {
     match error {
         OptionLoadError::Denied => "is not available",
         OptionLoadError::LoadFailed | OptionLoadError::Overflow => "could not load options, retry",
-        // A misdeclaration is permanent: retrying cannot fix it, so it is
-        // reported without the retry wording.
         OptionLoadError::Misdeclared => "could not load options",
     }
 }
 
 impl Field {
-    /// Render a choice field: a read-only option label in `Mode::View`, the
-    /// select (and its filter) otherwise.
+    /// Renders a choice field's select and its read-only label.
     pub(super) async fn render_choice<'a>(
         &self,
         choice: &ChoiceControl,
@@ -230,21 +202,14 @@ impl Field {
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View {
-            // View mode resolves a static option label and never loads
-            // options: a detail page renders one record, so a relationship's
-            // option load would be a query per page, and its scoped/denied
-            // paths police a *choice* the page is not offering. A relationship
-            // therefore shows its stored key, and the detail page's own
-            // includes are what make a related record readable.
+            // Never loads options in view; a relationship shows its stored key.
             let stored = value.unwrap_or("").trim();
             let named = choice
                 .options
                 .iter()
                 .find(|(v, _)| v == stored)
                 .map(|(_, label)| label.clone());
-            // A variant control reads as the variant's **name** — `Published`,
-            // never the `3` the column holds (ADR-0016). A value the schema
-            // does not declare has no name to show and renders nothing.
+            // A variant control reads as the variant's name.
             if choice.discriminant {
                 return match named {
                     Some(name) => render_value(cx, &self.label, Some(&name), ValueKind::Prose),
@@ -259,14 +224,8 @@ impl Field {
         let searchable = choice.searchable;
         let current = value.unwrap_or("").trim().to_string();
         let loaded = choice.load_options(cx).await;
-        // A policy denial does not re-render the stored value: the related
-        // rows are not viewable, so neither is their label, and the submit
-        // fails closed with "not available". The denial also surfaces on GET
-        // (when the caller carries no error yet): the select has no options to
-        // pick, so the empty control explains itself. A failed or overflowed
-        // load keeps the stored key selectable, so an edit does not blank the
-        // relation into a required error; a searchable field then degrades to
-        // type-to-search with a hint, a non-searchable one to the retry path.
+        // A denial hides the stored label and fails closed.
+        // A failed load keeps the stored key selectable.
         let denied = matches!(&loaded, Err(OptionLoadError::Denied));
         let overflowed = matches!(&loaded, Err(OptionLoadError::Overflow));
         let overflow_searchable = overflowed && searchable && choice.is_relationship();
@@ -295,14 +254,9 @@ impl Field {
         for (val, lab) in &options {
             option_views.push(option_view(cx, val.clone(), lab.clone(), current == *val));
         }
-        // The `select` primitive brings the same `aria-invalid` error styling
-        // and focus ring as the `input` primitive, plus the chevron and the
-        // customizable picker.
         let list_id = format!("{name}-options-list");
         let filter_label = format!("Filter {} options", self.label);
-        // Server fetch only past the cap: a bounded searchable set keeps the
-        // client-side label filter, so `data-options-server` follows the
-        // overflow state. `selects.js` branches on it.
+        // Fetches from the server only past the cap.
         let options_field = overflow_searchable.then(|| name.clone());
         let options_server = overflow_searchable.then_some("true");
         let variant_of = choice.discriminant.then(|| name.clone());
@@ -312,15 +266,6 @@ impl Field {
         let control = view! {
             cx =>
             if searchable {
-                // The filter input and its suggestion list are one combobox.
-                // The list is what makes the filter visible: the native
-                // `<select>` popup is browser chrome the script cannot narrow
-                // (the primitive opts into `appearance: base-select`, where
-                // `option[hidden]` has no effect), so `selects.js` renders its
-                // own filtered list here, keeps `aria-expanded` and
-                // `aria-activedescendant` in step, and writes the chosen value
-                // onto the select. Without the script the input is inert and
-                // the plain select keeps working.
                 <div class="relative" data-options-combobox="">
                     ui_input(
                         attrs: attributes! {

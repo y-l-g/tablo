@@ -4,8 +4,6 @@ use tablo_core::Committed;
 
 use super::*;
 
-/// A wake reaches a subscriber: a feed waiting on a board resumes when the
-/// board is notified.
 #[tokio::test]
 async fn notify_wakes_a_subscriber() {
     let board = Board::default();
@@ -18,8 +16,6 @@ async fn notify_wakes_a_subscriber() {
         .expect("the sender outlives the receiver");
 }
 
-/// The resource hook wakes the process-wide board, so a committed write
-/// re-runs every connected feed.
 #[tokio::test]
 async fn a_committed_write_wakes_the_feed() {
     let mut changed = subscribe();

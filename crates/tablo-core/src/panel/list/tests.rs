@@ -6,22 +6,17 @@ use crate::{
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
-/// The minimal table-backed model the list-chrome tests share:
-/// `list_html` was declared twice with byte-identical bodies apart from one
-/// seeded row, so a change to the panel's list route had to be made twice.
-/// The `GET /admin/dummies` body for a resource registered with one seeded
-/// row, so the row-chrome assertions have a row to look at.
+/// Renders the list body with one seeded row.
 async fn list_html<R: Resource>() -> String {
     list_html_with::<R>(&["Ada"]).await
 }
 
-/// [`list_html`] with the named rows seeded in order, so a per-record
-/// policy has rows to disagree about.
+/// Renders the list body with the named rows seeded in order.
 async fn list_html_with<R: Resource>(names: &[&str]) -> String {
     list_html_via(names, panel_for::<R>).await
 }
 
-/// The list body of the panel `panel` builds over a db seeded with `names`.
+/// Renders the list body of the panel `panel` builds over a db seeded with `names`.
 async fn list_html_via(names: &[&str], panel: fn() -> crate::Panel) -> String {
     use http_body_util::BodyExt;
 
@@ -53,9 +48,7 @@ async fn list_html_via(names: &[&str], panel: fn() -> crate::Panel) -> String {
     String::from_utf8_lossy(&body).to_string()
 }
 
-/// Runtime navigation restores every signal the next page shares with
-/// the current one, so two resources' lists must declare different signal
-/// ids, or one list's search filters the next.
+/// Asserts two live lists declare distinct signal ids.
 #[tokio::test]
 async fn live_lists_declare_distinct_signal_ids() {
     use http_body_util::BodyExt;
@@ -89,8 +82,7 @@ async fn live_lists_declare_distinct_signal_ids() {
         .await
         .unwrap();
     db.push_schema().await.unwrap();
-    // The shell's sidebar signals are the same on every page by design; a
-    // bare layout leaves only the tables' own.
+    // The shell's sidebar signals match on every page; a bare layout leaves only the tables' own.
     fn bare<'a>(_cx: &'a Cx, slot: topcoat::router::Slot<'a>) -> topcoat::view::BoxView<'a> {
         topcoat::view::ViewExt::boxed(slot)
     }
@@ -244,10 +236,7 @@ async fn live_search_host_and_shard_dispatch() {
             serde_json::to_string(v).unwrap()
         )
     };
-    /// The signal id a rendered refresh control writes: read
-    /// from the control's own `data-topcoat-on:change` handler, which is
-    /// the side that re-runs the shard. Locating it by offset from the
-    /// marker instead would read whatever payload happened to follow.
+    /// Reads the signal id a rendered refresh control writes.
     fn revision_signal_id(html: &str) -> &str {
         const MARKER: &str = r#"id&quot;:&quot;"#;
         let at = html
@@ -645,9 +634,6 @@ async fn read_only_resource_hides_delete_chrome() {
 
 #[tokio::test]
 async fn list_header_renders_create_entry_point_when_allowed() {
-    // The Create link is eager page chrome (Filament's List page
-    // `CreateAction`), gated on `Create`.
-
     use crate::resource::Resource;
 
     struct CreatableResource;
@@ -775,17 +761,7 @@ async fn non_editable_resource_hides_edit_links() {
     );
 }
 
-/// A list whose rows the policy denies renders no Edit link and no delete
-/// chrome.
-///
-/// This resource has a form, so the Edit prefix is wired, and its
-/// default-deny `View` / `Update` withhold the link per row. Its
-/// `DeleteAny` is default-deny too, so no delete prefix is wired and
-/// neither the Delete control nor the bulk column renders.
-///
-/// The row assertion comes first so the negative assertions below cannot
-/// pass vacuously; the route assertion then records the route's own answer
-/// for the row the list never links.
+/// Asserts denied rows render no edit chrome.
 #[tokio::test]
 async fn denied_rows_render_no_edit_chrome() {
     use http_body_util::BodyExt;
@@ -874,14 +850,7 @@ async fn denied_rows_render_no_edit_chrome() {
     );
 }
 
-/// a resource whose chrome is wired narrows it per record. The
-/// panel wires each action from the predicate its route checks — `View`
-/// for View, `View` + `Update` for Edit, `View` + `Delete`
-/// for Delete and the bulk checkbox — so a refused row renders no link and
-/// no checkbox instead of a control the route answers 403 to.
-///
-/// This is the panel half, which the render-level test cannot cover: a
-/// hand-written row policy closure proves the renderer, not the wiring.
+/// Asserts per-record policy narrows the wired chrome.
 #[tokio::test]
 async fn per_record_policy_narrows_the_wired_chrome() {
     use crate::{
@@ -965,11 +934,7 @@ async fn per_record_policy_narrows_the_wired_chrome() {
     );
 }
 
-/// The `(record key, name cell)` pairs `html` renders, in document order.
-///
-/// A test cannot assume the seeding order — a paginated table with no
-/// sortable column orders by the PK fallback, and the keys are random — so
-/// it reads each row's own cells.
+/// Reads the `(record key, name cell)` pairs `html` renders in document order.
 fn rendered_rows(html: &str) -> Vec<(String, String)> {
     let mut rows = Vec::new();
     let mut rest = html;
@@ -994,8 +959,7 @@ fn rendered_rows(html: &str) -> Vec<(String, String)> {
     rows
 }
 
-/// The GET `?q=` term is clamped like the shard's: bounded
-/// echoed state.
+/// Asserts the GET `?q=` term is clamped like the shard's.
 #[test]
 fn from_cx_clamps_the_search_term() {
     use topcoat::context::CxTestBuilder;
@@ -1144,9 +1108,7 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
     );
 }
 
-/// A tenant-scoped resource whose request carries a tenant, and which
-/// overrides nothing else (`query` stays the default): the framework's tenant
-/// filter is the only thing scoping this list.
+/// Asserts a tenant-scoped resource scopes rows to the request tenant.
 #[tokio::test]
 async fn tenant_gated_resource_scopes_rows_to_the_request_tenant() {
     use crate::resource::Resource;

@@ -1,12 +1,5 @@
-# Labels for y-l-g/tablo.
-#
-# This file is the source of truth for repository labels. It is synced by
-# `.github/workflows/labels.yml`. Update this file — not the GitHub UI —
-# when adding or changing labels. Keep the descriptions identical to the
-# meanings in `docs/dev/LABELS.md`.
-#
-# See `docs/dev/LABELS.md` for the labeling scheme and how each label
-# should be used.
+# Source of truth synced by `.github/workflows/labels.yml`; update this file, not the GitHub
+# UI. Keep descriptions identical to `docs/dev/LABELS.md`.
 
 # Applied by an issue template.
 - name: bug

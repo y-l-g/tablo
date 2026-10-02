@@ -7,7 +7,5 @@ doc_comment_code_block_width = 100
 imports_granularity = "Crate"
 group_imports = "StdExternalCrate"
 
-# `components/primitives/` mirrors topcoat-ui-registry verbatim (ADR-0007):
-# reformatting it breaks the byte-exact `cargo xtask verify-topcoat-ui`
-# contract. Owned code in `components/composites/` formats normally.
+# `primitives/` mirrors the registry verbatim; reformatting breaks `verify-topcoat-ui`.
 ignore = ["crates/tablo-ui/src/components/primitives"]

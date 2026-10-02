@@ -1,9 +1,4 @@
-//! Field leaves: one [`Field`] type whose control is text, choice, file, or
-//! an app's own [`Control`].
-//!
-//! Every constructor takes a [`ResolvedLens`], which is the single source of
-//! truth for the field's key, label, and required default, so a field of any
-//! kind binds a top-level column or an embedded leaf alike.
+//! One [`Field`] type whose control is text, choice, file, or an app's own [`Control`], built from a [`ResolvedLens`] binding a column or an embedded leaf.
 
 mod builders;
 mod choice;
@@ -30,14 +25,7 @@ use super::{
 };
 use crate::form::{FieldError, FormScalar};
 
-/// One form field: a key, a label, the rules a submission meets, and the
-/// control that edits it.
-///
-/// A constructor picks the control and returns that control's builder, which
-/// offers only the modifiers the control has, so a modifier on the wrong
-/// control does not compile. Each binds any lens a [`ResolvedLens`] accepts —
-/// a column (`Post::fields().title()`) or an embedded leaf
-/// (`ResolvedLens::new(dx, Post::fields().seo().title())`):
+/// One form field binding a lens to the control editing it, offering only that control's modifiers so a modifier on the wrong control does not compile.
 ///
 /// ```ignore
 /// Field::text(User::fields().name()).placeholder("Ada Lovelace")   // TextField
@@ -50,14 +38,6 @@ use crate::form::{FieldError, FormScalar};
 /// Field::toggle(Post::fields().featured())                           // CustomField
 /// ```
 ///
-/// Every builder has `label`, `required` and `optional`. `required` defaults
-/// from the column's nullability: a non-nullable column is required, so an
-/// empty submit fails inline instead of at the driver. `.optional()` opts out
-/// and `.required()` opts back in.
-///
-/// A modifier on the wrong control does not compile: `options` is a choice
-/// modifier, so it is not a method on a text field.
-///
 /// ```compile_fail
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
@@ -65,9 +45,6 @@ use crate::form::{FieldError, FormScalar};
 /// tablo_core::Field::text(User::fields().name()).options(["admin", "member"]);
 /// # }
 /// ```
-///
-/// A builder converts into a `Field` wherever a schema takes one
-/// ([`IntoSchema`](super::IntoSchema)).
 pub struct Field {
     name: String,
     label: String,
@@ -78,16 +55,11 @@ pub struct Field {
     /// The email and scalar-parse rules, with their messages.
     rules: Rules,
     control: ControlKind,
-    /// Why the field's lens binds no column, when it does not
-    /// ([`Schema::declaration_errors`](super::Schema::declaration_errors)).
+    /// The declaration error when the lens binds no column.
     misdeclared: Option<String>,
 }
 
 /// The control a [`Field`] renders, with what only that control declares.
-///
-/// Text, choice, and file are the framework's own: the unique probe, the
-/// relationship option endpoint, and the multipart parser read them.
-/// Everything else is a [`Control`].
 pub(crate) enum ControlKind {
     /// A one-line `<input>`, or a `<textarea>` when `rows` is set.
     Text(TextControl),
@@ -101,8 +73,6 @@ pub(crate) enum ControlKind {
 
 impl std::fmt::Debug for Field {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // The probe and the loaders are closures with no useful Debug;
-        // everything a reader needs is the field's identity and its control.
         let control = match &self.control {
             ControlKind::Text(_) => "text",
             ControlKind::Choice(_) => "choice",
@@ -119,8 +89,6 @@ impl std::fmt::Debug for Field {
 }
 
 impl Field {
-    /// The field every constructor starts from: the lens's key, label and
-    /// required default, with `rules` and `control`.
     fn bound<M, T>(lens: ResolvedLens<M, T>, rules: Rules, control: ControlKind) -> Self {
         Self {
             name: lens.name,
@@ -133,24 +101,7 @@ impl Field {
         }
     }
 
-    /// A text field over a column of any [`FormScalar`] type: `String`, a
-    /// [`TypedValue`](crate::schema::TypedValue) type, or an `Option` of one.
-    ///
-    /// The control renders the stored value, and a typed column adds its
-    /// spelling rule:
-    ///
-    /// - a submission the type refuses is an inline field error naming the input (`` `2024-13-01`
-    ///   is not a valid timestamp ``);
-    /// - what is stored is the type's own spelling of the parsed value, so a value re-submitted
-    ///   unchanged is written back in the shape it was read.
-    ///
-    /// The control's `type` is the type's `INPUT_TYPE`: `datetime-local` for a
-    /// `jiff::Timestamp`, whose stored instant renders in UTC and whose
-    /// submission is read back as UTC, and `text` otherwise (`email` overrides
-    /// it). `unique` defaults from the column's unique index.
-    ///
-    /// `T` is [`IntoExpr`](toasty::stmt::IntoExpr) of itself so the unique
-    /// probe compares the parsed value through the lens rather than its text.
+    /// Binds any [`FormScalar`] column, storing the type's own spelling and probing uniqueness through the lens.
     pub fn text<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> TextField
     where
         M: toasty::schema::Model,
@@ -165,9 +116,7 @@ impl Field {
         ))
     }
 
-    /// The text field `#[derive(EmbeddedForm)]` renders for a leaf: bound
-    /// through the app schema, and bounded by `FormScalar` alone so a leaf of
-    /// another type fails at the derive's `FormScalar` assertion.
+    /// The text field `#[derive(EmbeddedForm)]` renders for a leaf.
     #[doc(hidden)]
     pub fn embedded_leaf<M, T>(dx: &DeclCx, path: toasty::stmt::Path<M, T>) -> TextField
     where
@@ -182,13 +131,7 @@ impl Field {
         ))
     }
 
-    /// A choice field over a column of any type, often a foreign key
-    /// (`Post::fields().author_id()`).
-    ///
-    /// A bare choice validates presence only; its options come from
-    /// [`options`](ChoiceField::options) or
-    /// [`relationship`](ChoiceField::relationship), which also checks that a
-    /// submitted key exists, tenant-aware.
+    /// A choice field over any column, with options from [`options`](ChoiceField::options) or [`relationship`](ChoiceField::relationship).
     pub fn choice<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> ChoiceField
     where
         M: toasty::schema::Model,
@@ -200,17 +143,7 @@ impl Field {
         ))
     }
 
-    /// A file field over a `String` column holding the uploaded file's
-    /// **path**, never its bytes.
-    ///
-    /// A form holding one renders `enctype="multipart/form-data"`, and the
-    /// POST parser extracts the file part; where the bytes go is the app's
-    /// decision, expressed by the [`Uploader`](crate::Uploader) installed with
-    /// [`Panel::uploads`](crate::Panel::uploads). With none, the sanitized
-    /// basename is stored. The file input renders no `value` attribute, which
-    /// browsers ignore for security, so an edit form shows the stored path and
-    /// a `clear_<field>` checkbox beside an empty input, and the input is
-    /// required only while nothing is stored.
+    /// A file field over a `String` column holding the uploaded path, rendering no `value` attribute.
     pub fn file<M>(lens: impl Into<ResolvedLens<M, String>>) -> FileField
     where
         M: toasty::schema::Model,
@@ -218,10 +151,7 @@ impl Field {
         FileField(Self::bound(lens.into(), Rules::new(), ControlKind::File))
     }
 
-    /// A checkbox over a `bool` column: the built-in [`Toggle`].
-    ///
-    /// An unchecked box submits `false`, so the field is never empty and
-    /// carries no required marker.
+    /// A checkbox over a `bool` column that submits `false` when unchecked.
     pub fn toggle<M>(lens: impl Into<ResolvedLens<M, bool>>) -> CustomField
     where
         M: toasty::schema::Model,
@@ -229,12 +159,7 @@ impl Field {
         Self::custom(lens, Toggle).optional()
     }
 
-    /// A field over a column of any [`FormScalar`] type, rendered by an
-    /// app's [`Control`].
-    ///
-    /// The field keeps the shared rules: the required default from the
-    /// column's nullability, the type's parse rule, and the error slot. The
-    /// control renders only the input.
+    /// A field over any [`FormScalar`] column, rendered by an app's [`Control`].
     pub fn custom<M, T>(
         lens: impl Into<ResolvedLens<M, T>>,
         control: impl Control + 'static,
@@ -250,13 +175,7 @@ impl Field {
         ))
     }
 
-    /// The variant control of an embedded enum: a choice over its
-    /// discriminant column, which the schema generates no lens for.
-    ///
-    /// Each option submits a variant's stored value and reads as its name. It
-    /// is never required: an empty submit is "no variant named", which the
-    /// value codec answers with its payload fallback, so refusing it would make
-    /// that fallback unreachable.
+    /// The variant control of an embedded enum, never required since an empty submit answers with the payload fallback.
     pub(crate) fn discriminant(name: String, variants: Vec<(String, String)>) -> Self {
         Self {
             label: capitalize(&name),
@@ -273,22 +192,18 @@ impl Field {
         }
     }
 
-    /// Why this field binds no column, when its lens refused to.
     pub(crate) fn misdeclared(&self) -> Option<&str> {
         self.misdeclared.as_deref()
     }
 
-    /// The key the control posts.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// The label the control renders.
     pub(crate) fn label_str(&self) -> &str {
         &self.label
     }
 
-    /// The choice control, when this is a choice field.
     pub(crate) fn as_choice(&self) -> Option<&ChoiceControl> {
         match &self.control {
             ControlKind::Choice(choice) => Some(choice),
@@ -296,10 +211,7 @@ impl Field {
         }
     }
 
-    /// The equality expression the app-side unique check probes with: the
-    /// submission parsed into the field's type, compared through its lens.
-    /// `None` for a submission the type refuses, and for a field that is not
-    /// text.
+    /// Probes uniqueness with the submission parsed through the lens.
     pub(crate) fn eq_filter(&self, value: &str) -> Option<toasty::stmt::Expr<bool>> {
         match &self.control {
             ControlKind::Text(text) => text.eq_filter(value),
@@ -307,44 +219,31 @@ impl Field {
         }
     }
 
-    /// Whether this is a file field.
     pub(crate) fn is_file(&self) -> bool {
         matches!(self.control, ControlKind::File)
     }
 
-    /// Whether this is a text field marked [`unique`](TextField::unique).
     pub(crate) fn is_unique(&self) -> bool {
         matches!(&self.control, ControlKind::Text(text) if text.unique)
     }
 
-    /// Whether an empty submit fails validation and the control renders as
-    /// required: `required`, or a unique text field over a non-nullable
-    /// column. `validate` and the render read it, so the rule and
-    /// the marker cannot disagree.
+    /// Whether an empty submit fails and the control renders as required.
     pub(crate) fn is_required(&self) -> bool {
         self.required || (self.is_unique() && !self.nullable)
     }
 
-    /// Validate a raw submitted value against the field's rules, each failure
-    /// keyed by the field's own name.
+    /// Validates a submitted value, each failure keyed by the field's own name.
     pub(crate) fn validate(&self, value: &str) -> Vec<FieldError> {
         self.rules
             .validate(&self.name, &self.label, self.is_required(), value)
     }
 
-    /// The stored spelling of a submission the caller has already validated:
-    /// the scalar parse's spelling for a text field, the trimmed submission
-    /// otherwise.
-    ///
-    /// A choice stores its trimmed submission because its presence rule and
-    /// its option-existence check both read the trimmed value, so the trimmed
-    /// value is the one that passed.
+    /// The stored spelling of a validated submission.
     pub(crate) fn normalize(&self, value: &str) -> Result<String, String> {
         self.rules.normalize(value)
     }
 
-    /// Existence of a submitted choice among its options: a static option, or
-    /// a relationship row the user may view. Empty for any other field.
+    /// Whether a submitted choice matches its options.
     pub(crate) async fn validate_exists(&self, cx: &Cx, value: &str) -> Vec<String> {
         match &self.control {
             ControlKind::Choice(choice) => choice.validate_exists(cx, &self.label, value).await,
@@ -352,8 +251,7 @@ impl Field {
         }
     }
 
-    /// [`ChoiceControl::recheck`] for a relationship choice, through `ex`.
-    /// Empty for any other field.
+    /// Re-checks a relationship choice in the write's transaction.
     pub(crate) async fn recheck(
         &self,
         cx: &Cx,
@@ -366,14 +264,7 @@ impl Field {
         }
     }
 
-    /// Render the field: its control in `Mode::Form`, its stored value in
-    /// `Mode::View`.
-    ///
-    /// A view field whose key the values do not carry renders `(missing)` and
-    /// fails a `debug_assert!`: neither the resource's `view_values` nor its
-    /// record form supplies the key, so the page would otherwise show a blank
-    /// that reads as an empty value. It is the contract the list columns keep
-    /// for an unloaded relation (ADR-0011).
+    /// Renders the field's control or its stored value.
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
@@ -402,8 +293,7 @@ impl Field {
         }
     }
 
-    /// Render an app [`Control`]: its `display` on the detail page, its
-    /// input inside the shared field chrome on a form.
+    /// Renders an app [`Control`] in its shared chrome.
     fn render_custom<'a>(
         &self,
         control: &dyn Control,
@@ -431,10 +321,6 @@ impl Field {
 }
 
 /// How a read-only value is presented.
-///
-/// Two shapes, because the difference is content, not styling: prose wraps at
-/// spaces (and breaks a token too long for its line), and a stored path has no
-/// spaces to break at, so it breaks anywhere and sets in mono.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ValueKind {
     /// Wrapping text: a title, a body, an address.
@@ -443,15 +329,7 @@ pub(crate) enum ValueKind {
     Machine,
 }
 
-/// The read-only half of a field: the label with the record's stored
-/// value under it, no control and no validation slot.
-///
-/// Every control renders its view through this, so a detail page reads
-/// uniformly. The label is the same `field_label` the form uses, inside the
-/// same `field` family, so a field is recognisable across the two pages.
-///
-/// An empty value renders empty: a `String` column stores `""` and a NULL
-/// hydrates as `""`, so the page cannot tell "no value" from an empty one.
+/// The read-only half of a field: the label with the record's stored value under it.
 fn render_value<'a>(
     cx: &'a Cx,
     label: &str,
@@ -467,12 +345,7 @@ fn render_value<'a>(
     render_value_view(cx, label, value)
 }
 
-/// The field chrome `render_value` puts around a rendered value, for
-/// a field whose read-only value is not a plain string.
-///
-/// A file field renders its stored path as a link and supplies that view
-/// here, so the label, the `field` family and the `ac-field` marker stay the
-/// ones every other read-only field renders through.
+/// The field chrome around a read-only value that is not a plain string.
 fn render_value_view<'a>(cx: &'a Cx, label: &str, value: BoxView<'a>) -> Result<BoxView<'a>> {
     let label = label.to_string();
     Ok(view! {
@@ -488,13 +361,7 @@ fn render_value_view<'a>(cx: &'a Cx, label: &str, value: BoxView<'a>) -> Result<
     .boxed())
 }
 
-/// The validation state a form control renders: the error id its
-/// `aria-describedby` points at, the message its error slot shows, and whether
-/// the field is invalid.
-///
-/// A field is invalid when it carries an error or when it has a `fallback`
-/// message of its own — the relationship denial a choice surfaces on GET,
-/// which has no `errors` entry yet.
+/// The validation state a form control renders.
 pub(crate) struct FieldChrome {
     name: String,
     error_id: String,
@@ -505,8 +372,6 @@ pub(crate) struct FieldChrome {
 impl FieldChrome {
     pub(crate) fn new(name: &str, error: Option<&str>, fallback: Option<String>) -> Self {
         let has_error = error.is_some() || fallback.is_some();
-        // An empty message is no message: the field's own fallback wording
-        // renders instead, if it has one.
         let error_text = match error {
             Some(message) if !message.is_empty() => message.to_string(),
             _ => fallback.unwrap_or_default(),
@@ -519,24 +384,16 @@ impl FieldChrome {
         }
     }
 
-    /// The control's `aria-invalid`: `"true"` also colors the field's label.
     pub(crate) fn aria_invalid(&self) -> &'static str {
         if self.has_error { "true" } else { "false" }
     }
 
-    /// The control's `aria-describedby`, pointing at the error slot while the
-    /// field is invalid. Owned because a rendered view outlives this value.
     pub(crate) fn described_by(&self) -> Option<String> {
         self.has_error.then(|| self.error_id.clone())
     }
 }
 
-/// The chrome every form control renders: the `field` wrapper carrying
-/// `ac-field` / `ac-field--error`, the label with the required marker, the
-/// control, and the error slot.
-///
-/// `attributes` carries the extra wrapper attributes a control needs — the
-/// choice option and filter hooks.
+/// The chrome every form control renders: wrapper, label, control, and error slot.
 pub(crate) fn render_field<'a>(
     cx: &'a Cx,
     chrome: &FieldChrome,
@@ -595,9 +452,7 @@ mod test_support {
         email: String,
     }
 
-    /// The whole opening tag carrying `needle` — how a test asserts on an
-    /// element whose attributes render in no guaranteed order (topcoat#122)
-    /// without depending on a marker attribute nothing consumes.
+    /// The opening tag carrying `needle` (attributes render unordered, topcoat#122).
     pub(super) fn tag_with<'h>(html: &'h str, needle: &str) -> &'h str {
         let at = html
             .find(needle)
@@ -605,12 +460,7 @@ mod test_support {
         opening_tag_at(html, html[..at].rfind('<').expect("its opening tag"))
     }
 
-    /// The opening tag that starts at `start`, sliced up to the `>` closing it.
-    ///
-    /// `Attributes` renders in no guaranteed order (topcoat#122), so a test
-    /// locates a tag by whichever attribute it can and asserts on the whole
-    /// tag. Quoting is honoured, so a `>` inside an attribute value (Tailwind
-    /// selectors carry them) does not end the slice.
+    /// Slices the opening tag at `start`, honouring quoting (topcoat#122).
     pub(super) fn opening_tag_at(html: &str, start: usize) -> &str {
         let mut quoted = false;
         for (offset, byte) in html.as_bytes()[start..].iter().enumerate() {
@@ -623,11 +473,7 @@ mod test_support {
         panic!("unterminated tag at byte {start} in {html}");
     }
 
-    /// The attributes of the opening tag carrying `needle`, sorted — quoting is
-    /// honoured, so a Tailwind class value stays one token.
-    ///
-    /// `Attributes` renders in no guaranteed order (topcoat#122), so two
-    /// renders of the same markup compare as sets of `name="value"` tokens.
+    /// The sorted attributes of the tag carrying `needle` (unordered, topcoat#122).
     pub(super) fn attributes_of(html: &str, needle: &str) -> Vec<String> {
         let mut quoted = false;
         let mut attrs: Vec<String> = Vec::new();

@@ -1,44 +1,23 @@
 # Tenancy via Cx, in-memory grouping and CSV export
 
-Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-22, 2026-09-24,
-2026-10-01
+Date: 2026-08-31 — Status: accepted
 
 ## Decision
 
-**Tenancy.** `tenant_id(cx)` answers the request's tenant: a `Tenant(uuid::Uuid)` request extension
-or `Cx`-scoped value (`cx.with(Tenant(id))`) when server code set one, else the signed-in user's
-membership the session selected (ADR-0013). A Tower layer is rejected: it would couple HTTP middleware to the domain and put the scope
-somewhere other than the resource. `Resource::tenancy` defaults to `Tenancy::none()`; when a
-resource declares a column or a relation path, the **framework** applies the tenant predicate to
-every loader through `scoped_query` (ADR-0002). The
-`x-tenant-id` header fallback is not part of the production path; tests and the harness inject
-`Tenant` through request extensions.
+**Tenancy.** `tenant_id(cx)` answers the request tenant: a `Tenant(uuid::Uuid)` request extension
+or `Cx`-scoped value when server code sets one, else the signed-in user's selected membership
+(ADR-0013). `Resource::tenancy` defaults to `Tenancy::none()`; the framework applies the tenant
+predicate to every loader through `scoped_query` (ADR-0002). Tests inject `Tenant` through
+request extensions.
 
 **Grouping.** `Table::group_by(key: impl Fn(&M) -> String)` stores a `GroupKey<M>`; `TableState`
-parses `?group_by=`; render groups the page's rows in memory through a `BTreeMap` and shows
-`{key} ({count} on this page)` headers — counts are page-local and labelled as such (GH #92). A real
-summarizer and the raw-SQL `trait Aggregate` shim are not part of the vocabulary (GH #107): a
-page-local sum would be a misleading number for exactly the large tables aggregation exists for, so
-a sum waits for upstream `GROUP BY` (#118), at which point `Table::group_by` can delegate without
-changing resources.
+parses `?group_by=`; render groups page rows in memory through a `BTreeMap` with `{key} ({count}
+on this page)` headers. A page-local sum waits for upstream `GROUP BY`; `Table::group_by` then
+delegates without changing resources.
 
-**Export.** `Table::csv_header` and `Table::csv_row` generate RFC4180 fragments (header + rows,
-quoting when a value holds `,`, `"` or a newline). `Panel` owns a per-resource
-`GET {prefix}/{slug}/export` route that serves
-`text/csv` with a sanitized `Content-Disposition: attachment; filename="..."`. The loader walks the
-filtered, sorted query in cursor chunks (GH #172), so a 10k-row export holds one chunk plus one CSV
-fragment, and the cap counts **viewable** rows: visibility is applied before the cap (GH #145). A
-full 10,001-row scan window with rows left beyond it refuses with the same 413 (GH #279), so the
-export never returns a partial file. It
-loads the tenant-scoped `query` with the relations the exported columns include
-(`TextColumn::include`, ADR-0018), so it is scoped exactly as the list is.
-
-## Consequences
-
-The showcase's posts list demonstrates tenancy (tenant 1 vs 2 rows),
-`SelectFilter`/`TernaryFilter`/`DateFilter`, grouping, export, file fields, `Repeater` and
-`Panel::brand`. It paints light by default: the stored `theme` preference wins in both directions, the
-header toggle is the only thing that turns dark on, and `dark_mode(true)` remains available for a
-dark-first panel. The `benchmarks/` `<40ms p50` figure is a target, not a gate — the harness
-prints it for reference only (GH #171) and `benchmarks/results/` is gitignored. Grouping and export
-stay in-memory shims until Toasty exposes `GROUP BY` (#118).
+**Export.** `Table::csv_header` and `Table::csv_row` generate RFC4180 fragments. `Panel` owns `GET
+{prefix}/{slug}/export` serving `text/csv` with a sanitized attachment filename. The loader walks
+the filtered, sorted query in cursor chunks; the cap counts viewable rows after visibility. A
+full scan window with rows left refuses with 413, so the export never returns a partial file. It
+loads the tenant-scoped query with the relations exported columns include (`TextColumn::include`,
+ADR-0018).

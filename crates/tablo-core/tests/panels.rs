@@ -1,7 +1,3 @@
-//! Panels mounted on an app-owned router: several per router, each with its
-//! own resources, shell, layout and auth, and the URL helpers that keep app
-//! code from spelling a prefix.
-
 use http::header::LOCATION;
 use tablo_core::{
     Ability, Auth, Brand, NavigationItem, Page, Panel, Policy, ReadOnly, Resource,
@@ -39,7 +35,6 @@ struct Note {
     body: String,
 }
 
-/// Registered by both panels.
 struct BookResource;
 
 impl Resource for BookResource {
@@ -68,7 +63,6 @@ impl Resource for BookResource {
     }
 }
 
-/// Registered by the admin panel only.
 struct NoteResource;
 
 impl Resource for NoteResource {
@@ -91,7 +85,6 @@ impl Resource for NoteResource {
     }
 }
 
-/// Renders the URL helpers' answers for the request's panel.
 struct UrlsPage;
 
 impl Page for UrlsPage {
@@ -127,8 +120,6 @@ async fn books_db() -> Db {
     db
 }
 
-/// `/admin` with books, notes and the URL page, and `/portal` with books and
-/// the URL page, both under `auth`, on one router.
 fn two_panels(db: Db, auth: fn() -> Auth) -> Router {
     Router::builder()
         .discover()
@@ -153,8 +144,6 @@ fn two_panels(db: Db, auth: fn() -> Auth) -> Router {
         .build()
 }
 
-/// A live-table shard re-render of the list at `path`, as the browser posts
-/// it, carrying the `Cookie` header `cookies` when given.
 fn shard(path: &str, cookies: Option<&str>) -> http::Request<Body> {
     let args = format!(
         r#"[{},{{"t":"Signal","id":"{:032x}","v":""}},{{"t":"Signal","id":"{:032x}","v":""}}]"#,
@@ -175,7 +164,6 @@ fn shard(path: &str, cookies: Option<&str>) -> http::Request<Body> {
         .unwrap()
 }
 
-/// The `data-urls` line a [`UrlsPage`] rendered.
 fn urls_line(html: &str) -> &str {
     let start = html.find("data-urls=\"\">").expect("the URL page renders") + 13;
     &html[start..start + html[start..].find('<').expect("the line ends")]
@@ -307,8 +295,6 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
         200,
         "the session opens the panel that issued it"
     );
-    // Drain the streamed list: its query holds the pooled connection the next
-    // request's session lookup needs.
     let _ = body_string(admin).await;
 
     let portal = get_with_cookies(&router, "/portal/books", &cookies).await;
@@ -322,7 +308,6 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
         "the portal sends to its own login, got {location}"
     );
 
-    // The runtime endpoints serve every panel: the session's panel decides.
     let header = tablo_test::cookie_header(jar.iter().map(|(n, v)| (n.as_str(), v.as_str())));
     let own = router
         .handle(shard("/admin/books", header.as_deref()))
@@ -339,12 +324,10 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
     assert_eq!(other.status(), 401, "and not another panel's");
 }
 
-/// A layout with no shell: the page content alone, marked.
 fn bare_layout<'a>(cx: &'a Cx, slot: Slot<'a>) -> BoxView<'a> {
     view! { cx => <div data-bare-layout="">(slot)</div> }.boxed()
 }
 
-/// The shell around the page, with the app's own wrapper inside it.
 fn wrapped_layout<'a>(cx: &'a Cx, slot: Slot<'a>) -> BoxView<'a> {
     let page = view! { cx => <div data-app-frame="">(slot)</div> }.boxed();
     Panel::layout_shell(cx, page.into())
@@ -399,7 +382,6 @@ async fn the_panel_frames_its_pages_in_its_own_layout() {
     );
 }
 
-/// An app route beside the panel.
 fn status(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move { "ok".into_response(cx) })
 }

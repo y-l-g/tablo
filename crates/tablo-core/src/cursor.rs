@@ -1,31 +1,15 @@
 //! URL-safe encoding for Toasty pagination cursors.
 //!
-//! Toasty's cursor-based pagination hands back opaque `stmt::Value`s
-//! (`Page::next_cursor` / `Page::prev_cursor`) that `.after()` / `.before()`
-//! accept to resume the walk. Server-rendered pagination needs those cursors
-//! in a URL query parameter, and Toasty does not provide a string round-trip,
-//! so this module encodes the value into a self-describing byte payload and
-//! hex-encodes that into an ASCII-safe token (no percent-encoding or escaping
-//! ambiguity in hrefs).
-//!
-//! The encoding preserves the exact [`Value`] variant (an `I64` decodes as an
-//! `I64`, a `Uuid` as a `Uuid`), which matters because the engine compares the
-//! cursor against the ordering column's typed value. Records round-trip: a
-//! multi-column cursor encodes and decodes recursively, with decode capped at
-//! `MAX_CURSOR_DEPTH` nesting levels so a tampered token cannot drive unbounded
-//! recursion. The variants with no tag — lists, objects, decimals — return an
-//! error rather than silently degrading, since an unsortable column has no
-//! business in a cursor anyway.
+//! Encodes pagination cursors as URL-safe hex tokens preserving the exact value variant with depth-capped records.
 
 use toasty_core::stmt::Value;
 use topcoat::Result;
 
 use crate::error::TabloError;
 
-/// Version tag byte — bump on an incompatible layout change.
+/// Version tag byte; bump on an incompatible layout change.
 const VERSION: u8 = 1;
 
-// Field tags. Single characters keep payloads compact.
 const TAG_NULL: u8 = b'n';
 const TAG_BOOL: u8 = b'b';
 const TAG_I8: u8 = b'1';
@@ -48,47 +32,33 @@ const TAG_BYTES: u8 = b'x';
 const TAG_ZONED: u8 = b'z';
 const TAG_RECORD: u8 = b'r';
 
-/// Encode a cursor value into a URL-safe token (`[0-9a-f]` only).
-///
-/// # Errors
-///
-/// Errors when the cursor contains a variant this codec does not support.
+/// Encodes a cursor value into a URL-safe token (`[0-9a-f]` only).
 pub fn encode(value: &Value) -> Result<String> {
     let mut payload = vec![VERSION];
     write_value(value, &mut payload)?;
     Ok(hex_encode(&payload))
 }
 
-/// A malformed token: the request's `?after=`/`?before=` value is at fault,
-/// so the list's retry link drops it ([`TabloError::Cursor`]).
+/// A malformed token carries the list retry that drops it.
 fn malformed(message: impl Into<String>) -> topcoat::Error {
     TabloError::Cursor(message.into()).into()
 }
 
-/// A value the codec cannot frame: an ordering column of an unsupported type,
-/// or one longer than the frame's length field. The request's token is not at
-/// fault, so the retry keeps its pagination.
+/// Reports an unframeable ordering-column value without blaming the request token.
 fn unencodable(message: impl Into<String>) -> topcoat::Error {
     TabloError::Declaration(message.into()).into()
 }
 
-/// The engine refused a paginated load that carried a cursor: the token
-/// decodes, but was cut from a different `ORDER BY` (the sort changed since
-/// the link was built). It shares the malformed token's retry contract.
+/// Reports a cursor cut from a different `ORDER BY` with the malformed-token retry contract.
 pub(crate) fn rejected(error: &topcoat::Error) -> topcoat::Error {
     TabloError::CursorRejected(error.to_string()).into()
 }
 
-/// Decode a token produced by [`encode`] back into a cursor [`Value`].
+/// Decodes a token produced by [`encode`] back into a cursor [`Value`].
 ///
 /// # Errors
 ///
-/// Errors on malformed input (wrong length, unknown tag or version) so a
-/// tampered or truncated `?after=`/`?before=` parameter fails loudly instead
-/// of silently restarting pagination. Record nesting is depth-capped
-/// so attacker-controlled tokens cannot drive unbounded recursion. Every
-/// failure is a cursor error, so the list page's retry link tells a tampered
-/// cursor (drop it) from a transient load failure (keep it, #98).
+/// Fails malformed or over-deep tokens as cursor errors so the retry link drops them (#98).
 pub fn decode(token: &str) -> Result<Value> {
     let payload = hex_decode(token)?;
     let mut buf = &payload[..];
@@ -106,16 +76,6 @@ pub fn decode(token: &str) -> Result<Value> {
 /// Max nested-record depth accepted on decode.
 const MAX_CURSOR_DEPTH: usize = 16;
 
-/// Generate the codec for the variants with a uniform payload from one table.
-///
-/// `bytes` rows are little-endian fixed-width scalars; `text` rows are
-/// length-prefixed `to_string` spellings parsed back into their jiff type,
-/// with `as "<label>"` naming the type in a decode error. `write_tagged` and
-/// `read_tagged` expand from the same rows, so a variant cannot reach one side
-/// of the codec only. The write side reports whether it encoded `value`; the
-/// read side reports whether it knows `tag`, leaving the variants with their
-/// own framing (`Null`, `Bool`, `String`, `Uuid`, `Bytes`, `Record`) to the
-/// matches below.
 macro_rules! cursor_tags {
     (
         bytes: $( $btag:ident => $bv:ident($bty:ty) ),* $(,)? ;
@@ -215,7 +175,6 @@ fn write_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
     Ok(())
 }
 
-/// Reads one tagged value with depth tracking; returns it plus the remaining buffer.
 fn read_value_with_depth(buf: &[u8], depth: usize) -> Result<(Value, &[u8])> {
     if depth > MAX_CURSOR_DEPTH {
         return Err(malformed("cursor: record nesting too deep"));
@@ -276,11 +235,7 @@ fn read_value_with_depth(buf: &[u8], depth: usize) -> Result<(Value, &[u8])> {
     }
 }
 
-/// Write a `u32` length prefix followed by `bytes`.
-///
-/// The length is the frame's own count, so a value longer than `u32::MAX`
-/// cannot be represented: it errors instead of writing a truncated prefix that
-/// would decode as a different, shorter frame.
+/// Writes a `u32` length prefix, erroring when the value exceeds it.
 fn write_len_prefixed(bytes: &[u8], out: &mut Vec<u8>) -> Result<()> {
     let len = u32::try_from(bytes.len())
         .map_err(|e| unencodable(format!("cursor: value too long: {e}")))?;
@@ -294,12 +249,7 @@ fn read_len_prefixed(buf: &mut &[u8]) -> Result<Vec<u8>> {
     Ok(take_slice(buf, len)?.to_vec())
 }
 
-/// Take exactly `N` bytes off the front, or fail closed.
-///
-/// `N` is a const parameter so a fixed-width decode's length is settled by the
-/// type rather than by a reader checking that the preceding `take` asked for
-/// the right count: `split_first_chunk` hands back the array, and the
-/// `from_le_bytes` conversions at the call sites need no fallible step.
+/// Takes exactly `N` bytes off the front, or fails closed.
 fn take<const N: usize>(buf: &mut &[u8]) -> Result<[u8; N]> {
     let Some((head, rest)) = buf.split_first_chunk::<N>() else {
         return Err(malformed("cursor: unexpected end of payload"));
@@ -308,8 +258,7 @@ fn take<const N: usize>(buf: &mut &[u8]) -> Result<[u8; N]> {
     Ok(*head)
 }
 
-/// Take `n` bytes off the front, or fail closed — the length-prefixed payload's
-/// runtime length, which has no const to pin it.
+/// Takes `n` bytes off the front, failing closed when short.
 fn take_slice<'a>(buf: &mut &'a [u8], n: usize) -> Result<&'a [u8]> {
     if buf.len() < n {
         return Err(malformed("cursor: unexpected end of payload"));

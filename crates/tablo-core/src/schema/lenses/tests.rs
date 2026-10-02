@@ -24,8 +24,7 @@ fn single_segment_lens_passes_traversal_is_refused() {
     assert!(error.contains("single-field lens"), "{error}");
 }
 
-/// The lens resolves to the field it names, labels it, and reports the
-/// nullability the required-default reads.
+/// Reports the lens's field name, label, and nullability.
 #[test]
 fn lens_field_resolves_name_label_and_nullability() {
     use toasty::schema::Model;
@@ -42,8 +41,7 @@ fn lens_field_resolves_name_label_and_nullability() {
     assert_eq!(lens_label(&name), "Name");
 }
 
-/// `#[unique]` lives on the model's index list, not the field, so
-/// uniqueness is a separate lookup — and a bare field is not unique.
+/// Reports uniqueness from the model's index list, where `#[unique]` lives.
 #[test]
 fn lens_field_unique_reads_the_model_index_list() {
     use toasty::schema::Model;
@@ -69,11 +67,7 @@ fn lens_field_unique_reads_the_model_index_list() {
     );
 }
 
-// === the resolver walk ==================================================
-//
-// `FieldResolver` reads the compiled schema the request carries, so these
-// tests build a `Db` over one model carrying every shape the walk branches
-// on, and drive the walk through its two production entries.
+// `FieldResolver` reads the compiled schema the request carries, so these tests build a `Db` over one model carrying every shape the resolver reads.
 
 /// An embedded struct: its leaves flatten into the parent's table.
 #[derive(Debug, Clone, toasty::Embed)]
@@ -220,7 +214,7 @@ async fn a_plain_leaf_resolves_through_the_app_field() {
     );
 }
 
-/// One embedded step: the walk follows it and names the flattened column.
+/// Resolves one embedded step to its flattened column.
 #[tokio::test]
 async fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
     let cx = lens_cx().await;
@@ -238,8 +232,7 @@ async fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
     );
 }
 
-/// A variant-rooted path through nested structs, three levels deep, landing
-/// on one flat column.
+/// Resolves a variant-rooted path through nested structs to one flat column.
 #[tokio::test]
 async fn a_leaf_in_a_struct_nested_in_an_enum_variant_resolves_to_one_column() {
     let cx = lens_cx().await;
@@ -278,11 +271,7 @@ async fn a_leaf_in_a_struct_nested_in_an_enum_variant_resolves_to_one_column() {
     assert!(leaf.nullable);
 }
 
-/// A variant-rooted path whose *parent* walks through an embedded struct:
-/// the payload accessor rebases onto the variant, so the parent path has
-/// two steps and both halves of the walk have to follow them to reach the
-/// enum — the app side to find its payload list, the mapping side to find
-/// its per-variant columns.
+/// Resolves a variant-rooted path through an embedded struct.
 #[tokio::test]
 async fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
     let cx = lens_cx().await;
@@ -304,8 +293,7 @@ async fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
     );
 }
 
-/// `#[shared(timestamp)]`: both variants' leaves name the one column the
-/// identifier declares, and a non-shared payload keeps its own.
+/// Resolves a shared column for every variant that declares it.
 #[tokio::test]
 async fn a_shared_column_resolves_for_every_variant_that_declares_it() {
     let cx = lens_cx().await;
@@ -334,8 +322,7 @@ async fn a_shared_column_resolves_for_every_variant_that_declares_it() {
     );
 }
 
-/// A `#[document]`: its inner fields share its one column, so the walk
-/// stops at the document however many steps remain.
+/// Resolves a document leaf to the document column.
 #[tokio::test]
 async fn a_document_leaf_resolves_to_the_document_column() {
     let cx = lens_cx().await;
@@ -350,8 +337,7 @@ async fn a_document_leaf_resolves_to_the_document_column() {
     );
 }
 
-/// The identity guard, on the id lookup: a schema that does not carry the
-/// lens's root model at all resolves to nothing.
+/// Resolves to nothing when the schema does not carry the lens's root model.
 #[tokio::test]
 async fn a_root_model_the_schema_does_not_carry_resolves_to_nothing() {
     let cx = cx_with(toasty::models!(Impostor)).await;
@@ -375,8 +361,7 @@ async fn a_root_model_the_schema_does_not_carry_resolves_to_nothing() {
     );
 }
 
-/// ... and through `resolve` the same path is refused instead of quietly
-/// resolving to nothing (the policy).
+/// Refuses a leaf lens the schema does not carry.
 #[tokio::test]
 async fn a_root_model_the_schema_does_not_carry_refuses_a_leaf_lens() {
     let cx = cx_with(toasty::models!(Impostor)).await;
@@ -389,9 +374,7 @@ async fn a_root_model_the_schema_does_not_carry_refuses_a_leaf_lens() {
     );
 }
 
-/// The identity guard, on the name: an id that *is* in the schema but names
-/// another model resolves to nothing, even though the impostor's field at
-/// that index would have answered with a column (`wrapper_label`).
+/// Resolves to nothing when the lens's id names another model.
 #[tokio::test]
 async fn an_id_that_names_another_model_resolves_to_nothing() {
     let cx = cx_with(models_with_a_foreign_root()).await;
@@ -409,8 +392,7 @@ async fn an_id_that_names_another_model_resolves_to_nothing() {
         "Impostor",
         "the id is the lens's, the name is another model's"
     );
-    // What an id-trusting walk would bind: the forged root's field at the
-    // lens's first step is `wrapper`, whose own leaf is another column.
+    // The forged root's field at the lens's first step would answer with another column.
     let mapping = schema
         .mapping
         .models
@@ -431,7 +413,7 @@ async fn an_id_that_names_another_model_resolves_to_nothing() {
     );
 }
 
-/// ... and through `resolve` it panics rather than misbinding.
+/// Refuses a leaf lens when the lens's id names another model.
 #[tokio::test]
 #[should_panic(expected = "does not resolve to a single column")]
 async fn an_id_that_names_another_model_refuses_a_leaf_lens() {
@@ -441,8 +423,7 @@ async fn an_id_that_names_another_model_refuses_a_leaf_lens() {
         .unwrap();
 }
 
-/// An enum: its discriminant column, and each variant's stored value and
-/// name, in declaration order.
+/// Resolves an embedded enum's discriminant and variants in declaration order.
 #[tokio::test]
 async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
     let cx = lens_cx().await;
@@ -459,7 +440,7 @@ async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
     );
 }
 
-/// An enum nested in a struct resolves through the struct's path.
+/// Resolves an enum nested in a struct through the struct's path.
 #[tokio::test]
 async fn an_enum_inside_a_struct_resolves_through_its_path() {
     let cx = lens_cx().await;
@@ -469,8 +450,7 @@ async fn an_enum_inside_a_struct_resolves_through_its_path() {
     assert_eq!(shape.discriminant, "wrapper_inner");
 }
 
-/// A struct, a plain column, a `#[document]`, and a variant-rooted path are
-/// not enums.
+/// Resolves anything but an enum to nothing.
 #[tokio::test]
 async fn anything_but_an_enum_resolves_to_nothing() {
     let cx = lens_cx().await;
@@ -500,7 +480,7 @@ async fn anything_but_an_enum_resolves_to_nothing() {
     );
 }
 
-/// Without a `Db` there is no schema, and an enum has no fallback.
+/// Resolves to nothing without a schema.
 #[test]
 fn without_a_schema_there_is_no_walk() {
     let cx = CxTestBuilder::new().build();

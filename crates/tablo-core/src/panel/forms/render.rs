@@ -20,19 +20,15 @@ use crate::{
     resource::{Resource, declared},
 };
 
-/// What a form page shows around its form: the create page and the edit page
-/// differ only here.
+/// What a form page shows around its form: the create page and the edit page differ only here.
 pub(super) struct FormChrome<'a> {
     title: String,
     submit_label: &'static str,
-    /// The record's public page, linked from the header.
     public_url: Option<String>,
-    /// The record's relation tables, below the form.
     relations: Vec<BoxView<'a>>,
 }
 
 impl<'a> FormChrome<'a> {
-    /// The create page: no record yet, so no public link and no relations.
     pub(super) fn create<R: Resource>() -> Self {
         Self {
             title: format!("Create {}", R::label()),
@@ -42,7 +38,6 @@ impl<'a> FormChrome<'a> {
         }
     }
 
-    /// The edit page of `record`.
     pub(super) fn edit<R: Resource>(cx: &'a Cx, record: &R::Model) -> Self {
         Self {
             title: format!("Edit {}", R::label()),
@@ -53,13 +48,7 @@ impl<'a> FormChrome<'a> {
     }
 }
 
-/// Shared create/edit page shell (multipart enctype, CSRF hidden
-/// input, inline error slot), with the page's [`FormChrome`] around it.
-///
-/// `carried` names the upload fields whose value is an uploader's answer rather
-/// than the record's: the shell renders each one's path as a hidden
-/// `keep_<field>` control, so the submit a corrected form makes can keep a file
-/// the browser's empty file input cannot resend.
+/// Renders the shared create/edit shell with `FormChrome`, carrying uploader-answered uploads as hidden `keep_<field>` controls.
 pub(super) async fn render_form_page<'a, R: Resource>(
     cx: &'a Cx,
     chrome: FormChrome<'a>,
@@ -78,8 +67,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
     let form_html = schema
         .render(cx, crate::schema::Source::form(values, errors))
         .await?;
-    // The form posts where it was served, keeping a validated `?return=` so
-    // the write lands where the page was opened from, and Cancel goes there.
+    // Posts to the current path, preserving a validated `?return=` target.
     let path = topcoat::router::request::uri(cx).path();
     let return_to = return_target(cx);
     let action = match &return_to {
@@ -87,14 +75,12 @@ pub(super) async fn render_form_page<'a, R: Resource>(
         None => path.to_string(),
     };
     let cancel = return_to.unwrap_or_else(|| list_url(cx, &R::slug()));
-    // Browsers only send `<input type="file">` content as multipart.
     let enctype: Option<String> = schema
         .fields()
         .any(|field| field.is_file())
         .then(|| "multipart/form-data".to_string());
     let csrf = crate::csrf::current_token(cx);
-    // The candidate paths, one hidden control each: the framework re-verifies
-    // them against the installed store before it uses one.
+    // Carried paths are re-verified against the store before use.
     let mut carried_fields: Vec<BoxView<'a>> = Vec::new();
     let mut carried_names: Vec<&String> = carried.iter().collect();
     carried_names.sort();
@@ -165,14 +151,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
     .boxed())
 }
 
-/// Create page GET.
-///
-/// A query parameter that names a relationship control seeds it
-/// (`?post_id=…`): a relation's create link opens the child's form with the
-/// owner already chosen. It is a prefill only — the POST parses and checks
-/// what is submitted, like any other value the user could have typed — and
-/// only a relationship is seeded, so a link cannot prefill free text or a
-/// stored file into the form an admin submits.
+/// Renders the create page, seeding only relationship controls from query parameters.
 pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
@@ -192,8 +171,7 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
     })))
 }
 
-/// The create form's initial values: the request's query parameters that
-/// name a relationship control of `R`'s form, first occurrence wins.
+/// Collects relationship-control query parameters for the create form, first occurrence wins.
 fn seeded_values<R: Resource>(cx: &Cx) -> HashMap<String, String> {
     let declared = declared::<R>(cx);
     let schema = &declared.form;

@@ -8,13 +8,7 @@ use topcoat::{context::Cx, view::*};
 
 use crate::schema::{FieldLens, IntoOptions, LensBinding};
 
-/// One table filter: a control in the filter bar, and the predicate its
-/// submitted value selects.
-///
-/// The value travels as `?f.<name>=<value>`. The built-in [`SelectFilter`],
-/// [`TernaryFilter`], [`DateFilter`] and [`VariantFilter`] implement this
-/// trait and nothing more, so an app filter has the same reach: implement
-/// it, and pass the value to [`Table::filters`](super::Table::filters).
+/// One table filter declares a control and its predicate.
 ///
 /// ```ignore
 /// struct Adults;
@@ -31,33 +25,24 @@ use crate::schema::{FieldLens, IntoOptions, LensBinding};
 /// }
 /// ```
 pub trait Filter<M>: Send + Sync {
-    /// The filter's identifier, distinct within its table: the `<name>` in
-    /// `?f.<name>=`.
+    /// The filter's identifier, distinct within its table.
     fn name(&self) -> &str;
 
     /// The label the control renders beside it.
     fn label(&self) -> &str;
 
-    /// The predicate `value` selects, or `None` for a value the filter
-    /// refuses. A refused value is reported above the table, and refuses
-    /// the export, unless [`is_noop_value`](Self::is_noop_value) accepts it.
+    /// The predicate `value` selects.
     fn to_expr(&self, value: &str) -> Option<Expr<bool>>;
 
-    /// Whether `value` is a documented "no filter" value, for which
-    /// [`to_expr`](Self::to_expr) returns `None` without the value being
-    /// invalid. Defaults to `false`.
+    /// Whether `value` selects no predicate without being invalid.
     fn is_noop_value(&self, _value: &str) -> bool {
         false
     }
 
-    /// The control in the filter bar. [`FilterInput`] carries the
-    /// parameter name the control submits and the current value, and
-    /// renders the built-in select.
+    /// The control in the filter bar.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a>;
 
-    /// What is wrong with this filter's declaration, which
-    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) reports. The built-in
-    /// filters record a lens that binds no single field here.
+    /// What is wrong with this filter's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<String> {
         None
@@ -68,15 +53,7 @@ pub trait Filter<M>: Send + Sync {
 const FILTER_LABEL_CLASS: StaticClass =
     class!("flex items-center gap-2 text-sm font-medium whitespace-nowrap text-muted-foreground");
 
-/// What a [`Filter::control`] renders for one request: the parameter its
-/// field submits, the current value, and the filter's label.
-///
-/// A control is a real field of the filter bar's GET form, named
-/// [`param`](Self::param), and carries `data-filter-name` set to
-/// [`name`](Self::name): `filters.js` submits the form on change, or, on a
-/// live table, rewrites the filter in the query. [`select`](Self::select)
-/// writes both; a control passed to [`labelled`](Self::labelled) carries them
-/// itself.
+/// What a [`Filter::control`] renders for one request.
 #[derive(Debug, Clone)]
 pub struct FilterInput {
     name: String,
@@ -100,8 +77,7 @@ impl FilterInput {
         &self.name
     }
 
-    /// The form field name the control submits: `f.<name>`, prefixed for a
-    /// relation table.
+    /// The form field name the control submits.
     pub fn param(&self) -> &str {
         &self.param
     }
@@ -111,17 +87,12 @@ impl FilterInput {
         &self.label
     }
 
-    /// The value the request carries for this filter, empty when none.
+    /// The value the request carries for this filter.
     pub fn value(&self) -> &str {
         &self.value
     }
 
-    /// A labelled `<select>` over `options`, `(value, text)` pairs, led by
-    /// the empty "All" option that clears the filter.
-    ///
-    /// The empty value is reserved for that option. Every pair renders
-    /// verbatim, so a filter whose options can include `""` supplies the text
-    /// that option shows.
+    /// A labelled `<select>` over `options`, led by the empty "All" option.
     pub fn select<'a>(self, cx: &'a Cx, options: Vec<(String, String)>) -> BoxView<'a> {
         let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
             .chain(options)
@@ -152,9 +123,7 @@ impl FilterInput {
         labelled(cx, label, control)
     }
 
-    /// `control` beside the filter's label, as the filter bar lays out every
-    /// control. The control itself carries [`param`](Self::param) as its
-    /// `name` and [`name`](Self::name) as its `data-filter-name`.
+    /// `control` beside the filter's label.
     pub fn labelled<'a>(self, cx: &'a Cx, control: BoxView<'a>) -> BoxView<'a> {
         labelled(cx, self.label, control)
     }
@@ -173,15 +142,6 @@ fn labelled<'a>(cx: &'a Cx, label: String, control: BoxView<'a>) -> BoxView<'a> 
 }
 
 /// Generate a built-in filter's `Clone` and its metadata-only `Debug`.
-///
-/// `debug` pairs each field `Debug` prints with the expression that renders it;
-/// that expression reads the receiver through the `this` bound alongside the
-/// type, because a macro body's own `self` is not visible to a call-site
-/// expression. `Clone` copies the `clone` list, lens included, because a cloned
-/// filter still builds the same predicate. `#[derive]` would put
-/// `M: Clone + Debug` on every impl, which `toasty::schema::Model` does not
-/// carry; `Path`'s `Clone` and `Debug` are unconditional at the pinned toasty
-/// rev, so the expanded impls stay bound-free.
 macro_rules! filter_impls {
     (
         $ty:ident, $this:ident {
@@ -208,7 +168,7 @@ macro_rules! filter_impls {
     };
 }
 
-/// Select filter — exact match on a `String` field (e.g. `status = "published"`).
+/// Select filter matching a `String` field exactly.
 pub struct SelectFilter<M> {
     name: String,
     label: String,
@@ -222,11 +182,7 @@ impl<M> SelectFilter<M>
 where
     M: toasty::schema::Model,
 {
-    /// Call sites read `SelectFilter::for(Post::fields().status(), Status::options())`:
-    /// the options are anything a choice field takes
-    /// ([`IntoOptions`](crate::schema::IntoOptions)) — values that are their
-    /// own label, `(value, label)` pairs, or an [`Options`](crate::Options)
-    /// enum's list.
+    /// Build a select filter from a lens and its options.
     pub fn r#for(lens: FieldLens<M, String>, options: impl IntoOptions) -> Self {
         let binding = LensBinding::of(lens.clone());
         Self {
@@ -238,7 +194,7 @@ where
         }
     }
 
-    /// The `(value, label)` options, in declaration order.
+    /// The `(value, label)` options in declaration order.
     pub fn options(&self) -> &[(String, String)] {
         &self.options
     }
@@ -261,15 +217,13 @@ where
         if v.is_empty() {
             return None;
         }
-        // Only allow values in options; otherwise ignore (no filter).
         if !self.options.is_empty() && !self.options.iter().any(|(value, _)| value == v) {
             return None;
         }
         Some(self.lens.clone().eq(v.to_string()))
     }
 
-    /// A select over the options. A declared empty option is the
-    /// clear-filter value, so it renders as the "All" option.
+    /// A select over the options.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
         let options = self
             .options
@@ -300,7 +254,7 @@ filter_impls! {
     clone { name, label, lens, options, misdeclared }
 }
 
-/// Ternary filter — `true` / `false` / `all` (no filter) on a `bool` field.
+/// Ternary filter matching a `bool` field.
 pub struct TernaryFilter<M> {
     name: String,
     label: String,
@@ -347,11 +301,7 @@ where
         }
     }
 
-    /// The documented no-op value: `all` selects no predicate, and
-    /// — unlike any other rejected value — it is neutral, never `"invalid
-    /// value"`. `to_expr` still returns `None` for it (there is no predicate
-    /// to build); `Table::unapplied_filters` consults this so the no-op is
-    /// never flagged and the export never refuses it.
+    /// The documented no-op value selecting no predicate.
     fn is_noop_value(&self, value: &str) -> bool {
         value.trim() == "all"
     }
@@ -375,9 +325,7 @@ filter_impls! {
     clone { name, label, lens, misdeclared }
 }
 
-/// Date filter — same-calendar-day match on a `Timestamp` field
-/// (e.g. `created_at = "2024-01-15"` selects that whole day).
-/// Range (`from`/`to`) support is future.
+/// Date filter matching a `Timestamp` field by calendar day.
 pub struct DateFilter<M> {
     name: String,
     label: String,
@@ -417,26 +365,15 @@ where
     }
 
     /// Build the predicate for a submitted value.
-    ///
-    /// Full RFC3339 timestamps match the exact instant (documented); a
-    /// date-only `YYYY-MM-DD` matches the whole UTC day
-    /// (`>= midnight AND < next midnight`), so rows stamped with any
-    /// time-of-day still match. A day whose end lies past
-    /// `jiff::Timestamp::MAX` (9999-12-30) has no instant for the upper bound
-    /// to exclude, so it matches `>= midnight` alone.
     fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
         let v = value.trim();
         if v.is_empty() {
             return None;
         }
-        // Accept RFC3339 or YYYY-MM-DD (whole UTC day).
         if let Ok(ts) = v.parse::<jiff::Timestamp>() {
             return Some(self.lens.clone().eq(ts));
         }
-        // Query decoding turns `+` into space, destroying numeric offsets
-        // (`?f.created_at=2024-01-15T09:30:00+02:00` arrives with a
-        // space). A timestamp never legitimately contains a space, so retry
-        // with `+` restored before giving up.
+        // Query decoding turns `+` into space.
         if v.contains(' ')
             && let Ok(ts) = v.replace(' ', "+").parse::<jiff::Timestamp>()
         {
@@ -444,9 +381,6 @@ where
         }
         if let Ok(date) = v.parse::<jiff::civil::Date>() {
             let start: jiff::Timestamp = format!("{date}T00:00:00Z").parse().ok()?;
-            // The day's end can lie past `Timestamp::MAX` (9999-12-30): `+` would panic
-            // on a user-supplied URL, so the last day is bounded below only — no instant
-            // exists past the maximum for the upper bound to exclude.
             return Some(match start.checked_add(jiff::Span::new().hours(24)) {
                 Ok(end) => self.lens.clone().ge(start).and(self.lens.clone().lt(end)),
                 Err(_) => self.lens.clone().ge(start),
@@ -455,8 +389,7 @@ where
         None
     }
 
-    /// A date input. `<input type=date>` takes `YYYY-MM-DD`, so an RFC3339
-    /// value is cut at its `T`.
+    /// A date input.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
         let value = input.value();
         let date_value = value.split('T').next().unwrap_or(value).to_string();
@@ -489,13 +422,7 @@ filter_impls! {
     clone { name, label, lens, misdeclared }
 }
 
-/// Variant filter — exact match on an embedded-enum variant (e.g. `vehicule = "Moto"`).
-///
-/// Unlike [`SelectFilter`] (a `String` lens + options), a variant has no single
-/// lens: Toasty stores it as one discriminant column plus one nullable column
-/// per variant field. The caller therefore supplies prebuilt expressions —
-/// typically `User::fields().vehicule().is_moto()` — one per option. Display
-/// stays `TextColumn::computed` (see).
+/// Variant filter matching an embedded-enum variant.
 pub struct VariantFilter<M> {
     name: String,
     label: String,
@@ -507,8 +434,7 @@ impl<M> VariantFilter<M>
 where
     M: toasty::schema::Model,
 {
-    /// Convenience alias so call sites read `VariantFilter::for("vehicule", "Véhicule",
-    /// vec![...])`.
+    /// Build a variant filter from a name, a label and its options.
     pub fn r#for(
         name: impl Into<String>,
         label: impl Into<String>,
@@ -550,7 +476,7 @@ where
             .map(|(_, e)| e.clone())
     }
 
-    /// A select over the variant keys, each shown as itself.
+    /// A select over the variant keys.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
         let options = self
             .options
@@ -573,12 +499,7 @@ filter_impls! {
 /// A table's filters, as the table stores them.
 pub(crate) type BoxFilter<M> = Arc<dyn Filter<M>>;
 
-/// Convert a single built-in filter, or a tuple of any [`Filter`]s, into a
-/// table's filter list.
-///
-/// A tuple takes filters of any type, an app's own among them; a single app
-/// filter is a one-element tuple, `(MyFilter,)`. Arity eight is the shared
-/// ceiling [`IntoColumns`](super::IntoColumns) documents.
+/// Convert a single built-in filter, or a tuple of any [`Filter`]s, into a table's filter list.
 pub trait IntoFilters<M> {
     #[doc(hidden)]
     fn into_filters(self) -> Vec<BoxFilter<M>>;
@@ -603,9 +524,6 @@ macro_rules! into_filters_single {
 into_filters_single!(SelectFilter, TernaryFilter, DateFilter, VariantFilter);
 
 /// Generate the tuple impls of [`IntoFilters`] from one list per arity.
-///
-/// One invocation builds the destructured bindings and the converted vector
-/// from the same list, so an element cannot reach one and not the other.
 macro_rules! into_filters_tuples {
     ($($T:ident => $v:ident),+ $(,)?) => {
         impl<M, $($T),+> IntoFilters<M> for ($($T,)+)

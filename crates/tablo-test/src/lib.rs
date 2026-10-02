@@ -1,21 +1,12 @@
-//! In-memory HTTP test client for Tablo panels.
-//!
-//! [`TestClient`] drives a built `Router` without a socket: it carries
-//! cookies, a CSRF token, and a tenant, and the helpers below write form and
-//! multipart bodies and read values back out of the rendered HTML. An app
-//! reaches it as `tablo::testing` with the facade's `testing` feature; the
-//! showcase and `tablo-core` suites use the same client. Seed and database
-//! fixtures stay with each suite: they name its own models.
+//! Drives a built `Router` without a socket, carrying cookies, CSRF token, and
+//! tenant; helpers write form and multipart bodies and read values back out of
+//! rendered HTML.
 
 use http::header::{CONTENT_TYPE, COOKIE};
 use http_body_util::BodyExt;
 use topcoat::router::{Body, Router};
 
-/// One request client for every suite.
-///
-/// Every request is built here, so a suite attaches cookies, a tenant, or a
-/// session in one place. Builder methods clone the client, leaving the base
-/// reusable: `client.tenant(t).csrf(&token).post_form(uri, body)`.
+/// Sends requests carrying cookies and tenant.
 #[derive(Clone)]
 pub struct TestClient<'a> {
     router: &'a Router,
@@ -32,8 +23,8 @@ impl<'a> TestClient<'a> {
         }
     }
 
-    /// Attach a cookie to every request this client sends. A later value for
-    /// the same name replaces the earlier one, like a browser jar.
+    /// Attaches a cookie to every request; a later value for the same name
+    /// replaces the earlier one.
     pub fn cookie(&self, name: &str, value: &str) -> Self {
         let mut client = self.clone();
         match client.cookies.iter_mut().find(|(kept, _)| kept == name) {
@@ -43,9 +34,8 @@ impl<'a> TestClient<'a> {
         client
     }
 
-    /// Attach every `(name, value)` pair, e.g. the cookies a response set.
-    /// Like a browser jar: a later value for the same name replaces the
-    /// earlier one instead of appending a duplicate `Cookie` entry.
+    /// Attaches every `(name, value)` pair, replacing earlier values for the
+    /// same name.
     pub fn cookies(&self, cookies: &[(String, String)]) -> Self {
         let mut client = self.clone();
         for (name, value) in cookies {
@@ -62,9 +52,8 @@ impl<'a> TestClient<'a> {
         self.cookie(tablo_core::csrf::COOKIE_NAME, token)
     }
 
-    /// Carry a tenant as a `Tenant` request extension — the server-set
-    /// override seam. It takes precedence over the logged-in user's
-    /// tenant, letting a suite scope one request to another tenant.
+    /// Scopes the request to another tenant, taking precedence over the
+    /// logged-in user's tenant.
     pub fn tenant(&self, tenant: uuid::Uuid) -> Self {
         let mut client = self.clone();
         client.tenant = Some(tenant);
@@ -77,7 +66,6 @@ impl<'a> TestClient<'a> {
             .await
     }
 
-    /// POST an urlencoded form.
     pub async fn post_form(&self, uri: &str, body: String) -> http::Response<Body> {
         let mut request = self.request(http::Method::POST, uri);
         request.headers_mut().insert(
@@ -88,7 +76,6 @@ impl<'a> TestClient<'a> {
         self.router.handle(request).await
     }
 
-    /// POST a multipart body (file uploads).
     pub async fn post_multipart(
         &self,
         uri: &str,
@@ -106,8 +93,7 @@ impl<'a> TestClient<'a> {
         self.router.handle(request).await
     }
 
-    /// POST a JSON body to a runtime endpoint (a shard or procedure), with the
-    /// page identity header the browser runtime sends.
+    /// Posts JSON with the page identity header the browser runtime sends.
     pub async fn post_json(&self, uri: &str, body: String, identity: &str) -> http::Response<Body> {
         let mut request = self.request(http::Method::POST, uri);
         request.headers_mut().insert(
@@ -122,7 +108,6 @@ impl<'a> TestClient<'a> {
         self.router.handle(request).await
     }
 
-    /// Build a request carrying this client's cookies and tenant.
     fn request(&self, method: http::Method, uri: &str) -> http::Request<Body> {
         let mut builder = http::Request::builder().method(method).uri(uri);
         if let Some(jar) = cookie_header(
@@ -140,8 +125,7 @@ impl<'a> TestClient<'a> {
     }
 }
 
-/// One `Cookie` header value from `(name, value)` pairs, or `None` when there
-/// are no pairs to send.
+/// One `Cookie` header value from `(name, value)` pairs, or `None` when empty.
 pub fn cookie_header<'a>(cookies: impl IntoIterator<Item = (&'a str, &'a str)>) -> Option<String> {
     let mut jar = String::new();
     for (name, value) in cookies {
@@ -180,15 +164,8 @@ pub fn form_body(pairs: &[(&str, &str)]) -> String {
     serializer.finish()
 }
 
-/// A multipart body, one part per entry: `None` is a text part, `Some("")` the
-/// browser's "no file chosen" file part, `Some(name)` a chosen file.
-///
-/// Parts carry no per-part `Content-Type`: neither server parser reads one.
-/// The framework parser (`tablo_core` multipart values, over Topcoat's
-/// multer-based extractor) tells file parts from text parts by the
-/// `filename` parameter alone, and the showcase media upload reads the part's
-/// content type only as a display-kind hint defaulting to file. A suite that
-/// needs a part content type (the media kind cases) builds that body ad-hoc.
+/// Builds a multipart body, one part per entry: `None` is a text part,
+/// `Some("")` the browser's "no file chosen" part, `Some(name)` a chosen file.
 pub fn multipart_body(boundary: &str, parts: &[(&str, Option<&str>, &str)]) -> String {
     let mut body = String::new();
     for (name, filename, content) in parts {
@@ -206,12 +183,8 @@ pub fn multipart_body(boundary: &str, parts: &[(&str, Option<&str>, &str)]) -> S
     body
 }
 
-/// The `value` attribute of the named `<input>` in rendered HTML, in either
-/// attribute order.
-///
-/// Handles both quote styles (`value="…"` and `value='…'`); the controlled
-/// UUID markup only emits double quotes today, but an encoder change must
-/// not silently turn every lookup into `None` (harness hardening).
+/// Reads the `value` of the named `<input>` in rendered HTML, in either
+/// attribute order or quote style.
 pub fn input_value(html: &str, name: &str) -> Option<String> {
     let double = format!("name=\"{name}\"");
     let single = format!("name='{name}'");
@@ -234,8 +207,7 @@ pub fn input_value(html: &str, name: &str) -> Option<String> {
     None
 }
 
-/// The session cookie name Topcoat's default token store writes (`__Host-`
-/// prefix plus the `session` name, per its hardened cookie contract).
+/// Names the session cookie Topcoat's default token store writes.
 pub const SESSION_COOKIE: &str = "__Host-session";
 
 /// The `(name, value)` pairs a response's `Set-Cookie` headers carry.

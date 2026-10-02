@@ -1,15 +1,4 @@
 //! The public blog: `/blog` and `/blog/{id}`, served with no session.
-//!
-//! The pages are app-level `#[page]`s under a `#[layout("/blog")]`, so they are
-//! public by construction. The panel gates two path prefixes — its own and
-//! `/_topcoat/runtime` — and a Topcoat layer wraps only the routes under its
-//! path prefix, so nothing under `/blog` is gated. The app owns the router:
-//! its `Router::builder().discover()` picks these pages up beside the panel it
-//! mounts.
-//!
-//! Both pages query the model directly. The panel's `Table` and its resource
-//! loaders are panel-scoped (auth, tenancy, chrome) and would drag the admin
-//! shell's assumptions into a page that has no session to resolve them from.
 
 use tablo_core::{Panel, db::db};
 use toasty::stmt::Include;
@@ -26,24 +15,12 @@ use topcoat::{
 
 use crate::models::{Author, MediaAsset, Post, PostStatus};
 
-// The status a post carries once it is visible to the public.
+// The status marking a post visible to the public.
 pub(crate) const PUBLISHED: &str = PostStatus::Published.value();
 
-// The record key in `/blog/{id}`: the post's `Uuid`, parsed from the segment.
 path_param!(pub id: uuid::Uuid);
 
-/// The public shell: the panel's document around the blog's own body.
-///
-/// [`Panel::document`] renders the document the admin shell renders — the dev
-/// script, the theme init, and, where the panel registered shell assets, the
-/// runtime script, the font, the stylesheet and the shell scripts — around the
-/// body content the page owns. The test router builds without assets
-/// (`router_for_tests`), and the document degrades to the dev script and the
-/// theme init there instead of panicking.
-///
-/// The path is explicit (`/blog`) rather than `/`: layout paths are prefixes,
-/// so a root layout would wrap `/admin` too and nest a document inside the
-/// admin's own document.
+/// The public shell.
 #[layout("/blog")]
 async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     Panel::document(
@@ -98,8 +75,7 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
 #[page("/blog")]
 async fn page(cx: &Cx) -> Result<impl View> {
     let mut db = db(cx);
-    // The author is included, not lazily read: an un-included `Deferred` panics
-    // in `get()`, and a per-row load would be one query per listed post.
+    // N+1 touch: the author is included.
     let include_author: Include<Post, Author> = Post::fields().author().into();
     let posts = Post::filter(Post::fields().status().eq(PUBLISHED.to_string()))
         .order_by(Post::fields().created_at().desc())
@@ -132,8 +108,6 @@ async fn page(cx: &Cx) -> Result<impl View> {
                                 " · "
                                 (post.created_at.strftime("%Y-%m-%d").to_string())
                             </p>
-                            // Guarded like the detail page's: a post with no
-                            // description renders no empty paragraph.
                             if !post.seo.description.is_empty() {
                                 <p class="mt-3 text-muted-foreground">
                                     (&post.seo.description)
@@ -147,14 +121,10 @@ async fn page(cx: &Cx) -> Result<impl View> {
     })
 }
 
-/// The detail page: the body, the cover, and the SEO description.
-///
-/// A draft 404s rather than rendering a preview: the list is the only index of
-/// what is public, and an unpublished id must not answer 200.
+/// Renders one published post; drafts answer not-found.
 #[page("/blog/{id}")]
 async fn post_page(cx: &Cx) -> Result<impl View> {
-    // A malformed id is a not-found, not a 400: the URL names a post, and no
-    // post has that key.
+    // A malformed id answers not-found.
     let id = path_param::<Id>(cx).map_err(|_| not_found())?.to_owned();
 
     let mut db = db(cx);
@@ -171,8 +141,6 @@ async fn post_page(cx: &Cx) -> Result<impl View> {
     .await?
     .ok_or_not_found()?;
 
-    // The post's cover, when the picker names one: a single library row the
-    // post's `cover_id` points at.
     let cover = match post.cover_id {
         Some(cover_id) => {
             MediaAsset::filter(MediaAsset::fields().id().eq(cover_id))
@@ -218,10 +186,7 @@ async fn post_page(cx: &Cx) -> Result<impl View> {
     })
 }
 
-/// The author's display name, read from the include the page's query declared.
-///
-/// The `is_unloaded` guard keeps a dropped include a visible placeholder rather
-/// than a panic inside `Deferred::get`, matching the admin table's columns.
+/// Reads the author's display name.
 fn author_name(post: &Post) -> String {
     if post.author.is_unloaded() {
         "(unknown author)".to_string()
@@ -230,12 +195,7 @@ fn author_name(post: &Post) -> String {
     }
 }
 
-/// The cover URL for a picked library row, or `None` when it names no servable
-/// path.
-///
-/// The row stores the served URL the uploader returned — a rooted path this
-/// app serves — so a row whose path is not one renders no image rather than a
-/// broken one.
+/// Returns the cover URL when the row names a servable path.
 fn cover_url(asset: &MediaAsset) -> Option<&str> {
     let path = asset.path.trim();
     path.starts_with('/').then_some(path)

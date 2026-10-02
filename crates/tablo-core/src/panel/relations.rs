@@ -1,6 +1,4 @@
-//! Relation tables on a record page: each
-//! [`Relation`](crate::resource::Relation) of the page's resource,
-//! rendered as the related resource's list table narrowed to the record.
+//! Renders each [`Relation`](crate::resource::Relation) of a record page's resource as the related resource's table narrowed to the record.
 
 use topcoat::{
     Result,
@@ -23,10 +21,7 @@ use crate::{
     },
 };
 
-/// The relation tables of `R`'s record `owner`, for the page at the request's
-/// path: one section per [`Resource::relations`] entry, in declaration order.
-/// A `read_only` page — the detail page — shows the rows without write
-/// actions, as Filament's view page does; the edit page carries them.
+/// Renders the relation tables of `R`'s record `owner`.
 pub(crate) fn render_relations<'a, R: Resource>(
     cx: &'a Cx,
     owner: &R::Model,
@@ -40,9 +35,7 @@ pub(crate) fn render_relations<'a, R: Resource>(
         .collect()
 }
 
-/// The action chrome of one relation's table: the resource's declared chrome,
-/// or view-only on a read-only page — the detail page shows the rows without
-/// write actions, as Filament's view page does; the edit page carries them.
+/// Derives one relation table's action chrome, view-only on a read-only page.
 pub(crate) fn relation_chrome<C: Resource>(cx: &Cx, read_only: bool) -> TableChrome {
     let declared = declared_chrome::<C>(cx);
     if read_only {
@@ -55,18 +48,7 @@ pub(crate) fn relation_chrome<C: Resource>(cx: &Cx, read_only: bool) -> TableChr
     }
 }
 
-/// One relation's section: `C`'s list table over the rows the owner holds,
-/// its URL parameters prefixed with the relation's key, and — unless the
-/// page is read-only — its write actions returning to this page and a create
-/// link that opens `C`'s form with the owner chosen.
-///
-/// `C`'s own gates apply: a request that lacks a tenant `C` requires, or that
-/// `ViewAny` refuses, gets no section, and the row actions keep their
-/// per-row policy. A live-search table renders its search and filter bars
-/// eagerly above the streamed region while the relation shard invocation
-/// fills the table below, so sort, search, filters and pagination re-render
-/// in place with focus and scroll surviving; the GET form stays inside
-/// `<noscript>` as the no-JS fallback.
+/// Renders one relation's section as `C`'s list table over the rows the owner holds.
 pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         if enforce_tenant::<C>(cx).is_err() || !can::<C>(cx, Ability::ViewAny) {
@@ -80,8 +62,6 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             read_only,
             ..
         } = relation;
-        // A write returns to the page as the table shows it, without a
-        // dialog left open on a row the write removed.
         let table = table.returning_to(state.list_url(page));
         let create_url =
             (!read_only && <C::Form as RecordForm>::HAS_FORM && can::<C>(cx, Ability::Create))
@@ -118,15 +98,7 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
     })))
 }
 
-/// A live-search relation's section: the same header and create link as the
-/// static section, the search and filter bars hoisted above the streamed
-/// region, and the relation shard invocation below.
-///
-/// The bars sit outside the swapped region for the same focus rationale as
-/// the live list page: a `<select>` change re-renders the table, and a
-/// control inside the swapped region would lose focus and collapse its popup
-/// mid-change. The signals are keyed by page and relation key, so several
-/// relations on one page never share a query or a selection.
+/// Renders a live-search relation's section with its bars hoisted above the streamed region.
 async fn relation_table_live<C: Resource>(
     cx: &Cx,
     table: Table<C::Model>,
@@ -146,13 +118,7 @@ where
         read_only,
         scope: _,
     } = relation;
-    // Seeded with the request's query as written: the shard parses its own
-    // prefixed parameters out of it and normalizes them as this page did.
-    //
-    // Keyed by page and relation key: runtime navigation carries every signal
-    // the next page shares with this one, and one call site would otherwise
-    // give every relation on the page the same ids — one relation's search
-    // would filter the next.
+    // Keyed by page and relation key so one relation's search never filters the next.
     let signals = TableState::signals_for(
         &cx.keyed(format!("{page}#{key}").as_str()),
         &request_query(cx),
@@ -166,9 +132,6 @@ where
     } else {
         None
     };
-    // The filter bar is hoisted next to the search host: a
-    // `<select>` change re-renders the table, and a control inside the
-    // swapped region would lose focus and collapse its popup mid-change.
     let filter_bar = if table.filter_bar_enabled() {
         Some(
             table
@@ -178,23 +141,12 @@ where
     } else {
         None
     };
-    // The shard's table renders neither bar, so neither does the placeholder
-    // it replaces.
-    // Nor does it draw a card: the section's card holds the bars and the
-    // table together.
     let table = table.hide_search().hide_filter_bar().unframed();
     let skeleton = table.render_skeleton(cx, &state).await?;
-    // The delete confirmation dialog is not part of the swapped table
-    // region: a keystroke starts a new result set and must never carry
-    // (or re-open) a dialog, so the live section renders it eagerly once.
     let delete_dialog = table.render_delete_dialog(cx, &state).await?;
     let header = relation_header::<C>(cx, label, create_url);
-    // The view below moves `key` into the section marker; the streamed rows
-    // only borrow it, so they take a clone.
     let invocation_key = key.clone();
     let lazy_rows = ThenView::new(async move {
-        // The retry link inside the table writes the same signals the
-        // toolbar does, so a bad cursor recovers in place.
         let retry_signals = signals.clone();
         let rendered = table
             .render_live_relation_invocation(
@@ -225,9 +177,6 @@ where
         cx =>
         <section class="flex flex-col gap-3" data-relation=(key)>
             (header)
-            // The section draws the table's card (`TABLE_CARD_CLASS`) so the
-            // hoisted bars share it with the table they drive, as on the live
-            // list page.
             <div class=(TABLE_CARD_CLASS)>
                 if let Some(host) = host {
                     (host)
@@ -245,8 +194,7 @@ where
     .boxed())
 }
 
-/// A relation section's heading row: the relation's label and, when the
-/// page allows it, the link that creates a child seeded with this owner.
+/// Renders a relation section's heading row with its create-child link.
 fn relation_header<C: Resource>(cx: &Cx, label: String, create_url: Option<String>) -> BoxView<'_> {
     let create_label = format!("New {}", C::label());
     view! {

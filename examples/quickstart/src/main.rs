@@ -1,4 +1,3 @@
-//! Serves one model through one panel on the app router.
 
 use tablo::{
     auth::{AdminUser, AuthSession, hash_password},
@@ -14,10 +13,8 @@ use topcoat::{
     tailwind,
 };
 
-/// The shell's sans font, self-hosted as a Topcoat asset.
 const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
-/// The persisted model: every column the panel renders comes from this type.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct Book {
     #[key]
@@ -26,7 +23,6 @@ pub struct Book {
     pub title: String,
 }
 
-/// What the create and edit forms parse into.
 #[derive(tablo::RecordForm)]
 #[form(model = Book)]
 pub struct BookForm {
@@ -39,7 +35,6 @@ impl Resource for BookResource {
     type Model = Book;
     type Form = BookForm;
 
-    /// Read, add and edit books; nobody deletes one.
     fn policy() -> impl Policy<Book> {
         |_cx: &Cx, ability: Ability<'_, Book>| {
             !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
@@ -60,19 +55,14 @@ impl Resource for BookResource {
     }
 }
 
-/// The panel, before assets: `main` adds the stylesheet, the tests mount it
-/// bare. It frames its pages in the admin shell itself.
 fn panel() -> Panel {
     Panel::new("admin").resource::<BookResource>()
 }
 
-/// The app's router, holding the `Db` every panel reads.
 fn router(db: Db) -> RouterBuilder {
     Router::builder().discover().app_context(db)
 }
 
-/// An in-memory database holding the app's model and the two tables the
-/// shipped password auth reads.
 async fn connect() -> Result<Db> {
     let db = Db::builder()
         .models(toasty::models!(Book, AdminUser, AuthSession))
@@ -95,8 +85,6 @@ async fn main() -> Result<()> {
     .exec(&mut db)
     .await?;
 
-    // The bundle sits beside a binary Topcoat's bundler built; a plain
-    // `cargo run` has none and serves the shell without its stylesheet.
     let router = match AssetBundle::load() {
         Ok(bundle) => router(db)
             .assets(bundle)
@@ -116,15 +104,10 @@ mod tests {
 
     use super::{connect, panel, router};
 
-    /// The stylesheet `build.rs` generated.
     const STYLESHEET: &str = include_str!(concat!(env!("OUT_DIR"), "/tailwind.css"));
 
     #[test]
     fn the_stylesheet_holds_classes_only_tablo_writes() {
-        // One class written only in `tablo-core` and one only in `tablo-ui`:
-        // each is in the stylesheet only if the build scanned that crate's
-        // sources where Cargo put them. The names are split so this file,
-        // which the build scans too, never spells them whole.
         for (stem, tail) in [("table-", "fixed"), ("tabular-", "nums")] {
             let rule = format!(".{stem}{tail}{{");
             assert!(STYLESHEET.contains(&rule), "{stem}{tail} is missing");

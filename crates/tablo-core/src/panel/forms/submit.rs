@@ -31,14 +31,9 @@ use crate::{
     schema::{DeclCx, Schema},
 };
 
-/// Failure-toast wording for the create/update handlers: one place,
-/// so the two paths cannot drift.
 const WRITE_CREATE: &str = "create the record";
 const WRITE_UPDATE: &str = "save the changes";
 
-/// The staged submission both write handlers carry into their transaction: the
-/// declared schema, the completed values, the validation errors so far, the
-/// upload paths a re-render keeps, and the keys the submission named.
 struct Submission {
     schema: Arc<Schema>,
     values: HashMap<String, String>,
@@ -47,15 +42,7 @@ struct Submission {
     named: HashSet<String>,
 }
 
-/// Stage a create/edit submission: reject undeclared keys, take file values
-/// only from file parts, store the uploads outside the transaction, restore the
-/// paths a re-rendered form carried, strip the transport keys, record the keys
-/// the submission names, complete the rest from `advisory`, and validate —
-/// required and unique-free checks first, then the async relationship
-/// existence check.
-///
-/// `advisory` is the edit path's pre-transaction snapshot. A create passes
-/// `None`, so nothing is completed and an absent key validates as `""`.
+/// Stages a create/edit submission, completing unnamed keys from the edit advisory snapshot.
 async fn prepare_submission<R: Resource>(
     cx: &Cx,
     parts: FormParts,
@@ -71,25 +58,12 @@ async fn prepare_submission<R: Resource>(
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
-    // A declared file field takes its value only from a file part:
-    // a text part or a url-encoded pair under the same name is client-typed,
-    // not an upload, and would otherwise reach the record and render as the
-    // file's link.
+    // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
-    // Uploaded bytes become stored paths before validation, and outside the
-    // transaction: an upload is a side effect in another system, so a
-    // rolled-back transaction must not have to undo it, and a store that
-    // rejects the file must be able to answer inline.
     let (upload_errors, mut carried) =
         crate::upload::store_uploads(cx, &schema, &files, &mut values).await;
-    // A form re-rendered after a failed submit carries the path its store just
-    // answered; the uploader must still hold it. A restored field is
-    // non-empty, so the untouched check below leaves it alone.
     carried.extend(restore_pending_uploads(cx, &schema, &mut values).await);
-    // An untouched file input is not named: the edit form renders an empty file
-    // input (browsers never pre-fill it), so an empty part means "keep", not
-    // "clear". An explicit `clear_<field>=1` names it empty; a chosen file
-    // still wins over the clear, because a replacement is not a removal.
+    // An empty file input keeps the stored value; `clear_<field>` clears it unless a file was chosen.
     for field in schema.fields().filter(|field| field.is_file()) {
         let name = field.name();
         let cleared = values
@@ -103,13 +77,11 @@ async fn prepare_submission<R: Resource>(
             values.remove(name);
         }
     }
-    // Transport keys never reach the record fn; see `strip_transport_keys`.
     strip_transport_keys(&schema, &mut values);
     let named: HashSet<String> = values.keys().cloned().collect();
     complete(&schema, &mut values, &named, &stored);
     let mut errors = schema.validate_async(cx, &values).await;
-    // A rejected upload owns its field's error slot: "required" would restate
-    // the symptom (nothing was stored) and hide the reason.
+    // A rejected upload owns its field's error slot.
     errors.replace(upload_errors);
     Ok(Submission {
         schema,
@@ -120,9 +92,7 @@ async fn prepare_submission<R: Resource>(
     })
 }
 
-/// Fill every declared key the submission did not name from `stored`, the
-/// record's form projection, and drop one `stored` does not hold. On create
-/// `stored` is empty and an unnamed key stays absent.
+/// Fills unnamed keys from the stored projection, dropping keys it does not hold.
 fn complete(
     schema: &Schema,
     values: &mut HashMap<String, String>,
@@ -141,26 +111,13 @@ fn complete(
     }
 }
 
-/// Parse the completed values into the resource's form and run its
-/// `validate_record`, adding each failure to `errors`.
-///
-/// A parse failure is added only to a key with no error yet, so a blank
-/// required control shows the schema's message once. `validate_record` needs a
-/// whole form, so it runs only when every field parsed.
-///
-/// # Errors
-///
-/// An error keyed to something this submission renders nowhere — a control the
-/// schema does not declare, a repeater group's label the schema does not carry,
-/// or a field of a variant group the submission names hides. No slot owns the
-/// message, and the write must not proceed past it.
+/// Parses completed values and runs `validate_record`, refusing keys this submission renders nowhere.
 fn parse_form<R: Resource>(
     cx: &Cx,
     schema: &Schema,
     values: &HashMap<String, String>,
     errors: &mut FieldErrors,
 ) -> Result<Option<R::Form>, topcoat::Error> {
-    // Typed fields parse their own spelling, not the browser's.
     let mut normalized = values.clone();
     schema.normalize_values(&mut normalized);
     match <R::Form as RecordForm>::parse(cx, &normalized) {
@@ -190,8 +147,6 @@ fn parse_form<R: Resource>(
                 if errors.contains_key(&failure.key) {
                     continue;
                 }
-                // A blank required control shows the wording the schema
-                // declares for it, when it declares one.
                 if failure.kind == FieldErrorKind::Required
                     && let Some(wording) = controls
                         .iter()
@@ -207,11 +162,7 @@ fn parse_form<R: Resource>(
     }
 }
 
-/// Re-check the submission's relationship keys inside the write's
-/// transaction, once nothing else refused it: the related records must still
-/// be in the tenant-scoped queries and viewable as the write sees them. A
-/// refusal re-renders the form with the field's error, like the pre-write
-/// check, and nothing is written.
+/// Re-checks relationship keys inside the write transaction before writing.
 async fn recheck_relationships(
     cx: &Cx,
     schema: &Schema,
@@ -234,7 +185,6 @@ fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> to
     .into()
 }
 
-/// The form fields with at least one key the submission named.
 fn named_fields<F: RecordForm>(cx: &Cx, named: &HashSet<String>) -> Vec<F::Field> {
     F::fields(&DeclCx::from_cx(cx))
         .into_iter()
@@ -251,8 +201,6 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         }
         let parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, &parts.values)?;
-        // A create has no stored value to keep, so it stages no advisory
-        // snapshot: a rejected file leaves its field empty beside the reason.
         let Submission {
             schema,
             values,
@@ -260,15 +208,10 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             carried,
             ..
         } = prepare_submission::<R>(cx, parts, None).await?;
-        // Framework-owned transaction, opened only after validation so that
-        // `validate_async` loaders still run before it opens (see `crate::db`
-        // pool discipline). The unique check and the write observe one snapshot
-        // and commit atomically; dropping `tx` without commit rolls back.
+        // Opens the transaction after validation so loaders never block on the held connection.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        // App-side unique check over every `unique()`-marked input — the only
-        // error layer until toasty exposes a unique-violation predicate
-        // (upstream gap #117; never string-match driver error messages).
+        // App-side unique check; toasty exposes no unique-violation predicate yet (#117).
         errors.extend(check_unique::<R>(cx, &schema, &values, &HashMap::new(), &mut tx).await?);
         let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
         recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
@@ -283,31 +226,19 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             )
             .await;
         };
-        // The row the record fn returns is what `after_commit` names for this
-        // write — the key is the database's to generate, so the row is the
-        // only place the framework can learn it.
         let written = R::create_record(cx, form, &mut tx).await;
         commit_write::<R, _>(cx, tx, written, Committed::created, "Created", WRITE_CREATE).await
     })))
 }
 
-/// Edit page POST — validates, checks `View` + `Update`, and writes
-/// the fields the submission named.
-///
-/// Requires both `View` and `Update` (matching GET, deny-by-default):
-/// a view-denied but writable record must not be mutable by direct POST.
+/// Validates the edit submission and writes named fields, requiring both `View` and `Update`.
 pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::new(async move {
         gate::<R>(cx)?;
         let parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, &parts.values)?;
         let id = topcoat::router::path_param_segment(cx, "id").to_string();
-        // Advisory load on a pooled handle: feeds the completion validation
-        // reads. The body is already parsed and CSRF-verified, so the load
-        // never runs for a forged POST. The authoritative load + policy check
-        // happens inside the framework transaction; validation's
-        // `validate_async` loaders run before it opens (see `crate::db` pool
-        // discipline).
+        // Advisory load feeds validation; the authoritative load runs inside the transaction.
         let mut db0 = db(cx);
         let advisory = find_by_key::<R>(cx, &id, &mut db0).await?;
         if !can::<R>(cx, Ability::View(&advisory)) {
@@ -323,9 +254,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             carried,
             named,
         } = prepare_submission::<R>(cx, parts, Some(&advisory)).await?;
-        // Authoritative load inside the framework transaction (#86):
-        // policy is checked on this snapshot and the same record flows into
-        // the write — never a silent re-load outside the checked snapshot.
+        // Authoritative load inside the transaction observes the write snapshot (#86).
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
         let record = find_by_key::<R>(cx, &id, &mut tx).await?;
@@ -335,9 +264,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         if !can::<R>(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }
-        // The unnamed keys come from this snapshot, not the advisory one: the
-        // parsed form reads what the write sees, and no unnamed key is ever
-        // written back.
+        // Unnamed keys complete from this snapshot and are never written back.
         let stored = <R::Form as RecordForm>::hydrate(cx, &record);
         complete(&schema, &mut values, &named, &stored);
         errors.extend(check_unique::<R>(cx, &schema, &values, &stored, &mut tx).await?);

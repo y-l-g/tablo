@@ -1,22 +1,6 @@
-//! Primary-key bridge — URL ids to typed Toasty predicates.
-//!
-//! Sole home of the `pk_*` helpers: parsing path-segment ids into the
-//! model's key type and building equality/`IN` predicates through
-//! `toasty_core` (upstream #114). Generic callers (panel loaders) cannot
-//! build the typed expressions without this dynamic-value bridge.
+//! Parses URL ids into typed Toasty predicates through `toasty_core` (upstream #114).
 
-/// Parse a URL path segment into `M`'s primary-key value.
-///
-/// The PK's application type decides the [`stmt::Value`] variant (`Uuid` PK
-/// → `Value::Uuid`, `i64` PK → `Value::I64`, …). Returns `None` when `id`
-/// does not parse (an unparseable id cannot exist — callers render
-/// not-found) or the PK is not a single primitive field (composite keys
-/// have no URL representation in Tablo; row keys are plain `String`s).
-///
-/// Bridge helper — reaches into `toasty_core` for the schema walk and the
-/// untyped equality construction (upstream issue #114): the facade's
-/// `find_by_primary_key` takes a typed `Expr<M::PrimaryKey>`, which generic
-/// code cannot build from a `String` without a dynamic-value bridge.
+/// Parses a URL path segment into `M`'s primary-key value through `toasty_core` (upstream #114) and returns `None` when the id does not parse or the key is not a single primitive field.
 fn pk_field_value<M>(
     id: &str,
 ) -> Option<(toasty_core::schema::app::FieldId, toasty_core::stmt::Value)>
@@ -47,14 +31,7 @@ where
         toasty_core::stmt::Type::U64 => toasty_core::stmt::Value::U64(id.parse().ok()?),
         toasty_core::stmt::Type::F32 => toasty_core::stmt::Value::F32(id.parse().ok()?),
         toasty_core::stmt::Type::F64 => toasty_core::stmt::Value::F64(id.parse().ok()?),
-        // Bytes PKs have no canonical URL text form; accept the UTF-8 bytes so
-        // list/edit round-trip instead of 404ing.
         toasty_core::stmt::Type::Bytes => toasty_core::stmt::Value::Bytes(id.as_bytes().to_vec()),
-        // Temporal PKs parse from their canonical string forms, in lockstep
-        // with the cursor codec. Decimal/net PKs need Toasty
-        // features this build doesn't enable (`rust_decimal`, `bigdecimal`,
-        // `net`) and composite keys have no URL representation — both stay
-        // documented limits.
         toasty_core::stmt::Type::Timestamp => toasty_core::stmt::Value::Timestamp(id.parse().ok()?),
         toasty_core::stmt::Type::Date => toasty_core::stmt::Value::Date(id.parse().ok()?),
         toasty_core::stmt::Type::Time => toasty_core::stmt::Value::Time(id.parse().ok()?),
@@ -65,10 +42,7 @@ where
     Some((fid, value))
 }
 
-/// Whether `M`'s primary key is composite: more than one field.
-/// Composite keys have no URL representation in Tablo (row keys are plain
-/// `String`s), so handlers fail loudly (500, programmer error) instead of
-/// 404ing every id and hiding the misconfiguration.
+/// Reports whether `M`'s primary key is composite, which has no URL representation.
 pub(crate) fn pk_is_composite<M>() -> bool
 where
     M: toasty::schema::Model,
@@ -78,14 +52,7 @@ where
         .is_some_and(|root| root.primary_key.fields.len() > 1)
 }
 
-/// Equality predicate on `M`'s primary key for a URL path-segment `id` —
-/// `pk == value`. `None` when the id does not parse as the PK's type or the
-/// PK is not a single primitive field.
-///
-/// Consumers: the panel's edit/delete loaders, which filter the
-/// tenant-scoped [`scoped_query`](crate::resource::scoped_query) instead of
-/// fetching
-/// every row and matching row keys in memory (item 1).
+/// Builds the equality predicate on `M`'s primary key for a URL id and returns `None` when the id does not parse or the key is not a single primitive field.
 pub(crate) fn pk_eq_expr<M>(id: &str) -> Option<toasty::stmt::Expr<bool>>
 where
     M: toasty::schema::Model,
@@ -98,13 +65,7 @@ where
     Some(toasty::stmt::Expr::from_untyped(cond))
 }
 
-/// `IN` predicate over primary keys for a bulk id list — `pk IN (a, b, …)`.
-/// `None` when any id fails to parse as the PK's type (an unparseable id
-/// cannot exist, so the batch fails closed) or the PK is not a single
-/// primitive field.
-///
-/// A single `IN` predicate, not an N-way `OR` chain: the batch is
-/// still bounded by `MAX_BULK_IDS` in the bulk-delete handler.
+/// Builds the `IN` predicate over primary keys for a bulk id list and returns `None` when any id fails to parse or the key is not a single primitive field.
 pub(crate) fn pk_in_expr<M>(ids: &[&str]) -> Option<toasty::stmt::Expr<bool>>
 where
     M: toasty::schema::Model,

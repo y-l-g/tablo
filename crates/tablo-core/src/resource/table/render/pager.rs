@@ -17,13 +17,7 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// Previous/Next pagination links from the executed page's real cursors.
-    /// Empty when the page has no neighbors —
-    /// no invented page numbers. Links preserve the search and sort state;
-    /// cursors travel via `?after=`/`?before=`.
-    ///
-    /// With `signals` (a live table) each link writes its own query to the
-    /// `query` signal; `href` stays the no-JS fallback.
+    /// Render Previous/Next links from the executed page's real cursors, preserving search and sort state.
     pub(super) async fn render_pager<'a>(
         &self,
         cx: &'a Cx,
@@ -32,8 +26,6 @@ impl<M> Table<M> {
         page: &TablePage<M>,
         signals: Option<&TableSignals>,
     ) -> Result<Vec<BoxView<'a>>> {
-        // Cursors only carry ordering values; the loader re-applies search and
-        // sort, so the links must carry that state along.
         let next_href = page
             .next_cursor
             .as_ref()

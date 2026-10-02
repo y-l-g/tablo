@@ -10,8 +10,7 @@ use crate::{
     schema::{Field, FieldLens, tree::Mode},
 };
 
-/// What a submit reports for one choice: its rules, then — when they pass —
-/// its option existence, as `Schema::validate_async` asks per field.
+/// Reports what a submit says for one choice: its rules, then its option existence when they pass.
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
     let errors = field.validate(value);
     if !errors.is_empty() {
@@ -19,13 +18,7 @@ async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
     }
     field.validate_exists(cx, value).await
 }
-/// Related-source fixtures shared by the option-policy tests.
-///
-/// Each one implements only the [`OptionSource`] surface its test reads —
-/// no `Resource`, no `Table`. `tenant_id` is optional so the
-/// fixtures that do not care about tenancy keep creating rows without one;
-/// `TenantScopedAuthors` filters on the `tenant_id` column, and the test
-/// that uses it creates its row with a tenant.
+/// Provides the related-source fixtures the option-policy tests share.
 #[derive(Debug, toasty::Model, Clone)]
 struct PolicyAuthor {
     #[key]
@@ -35,10 +28,7 @@ struct PolicyAuthor {
     name: String,
 }
 
-/// The search fixtures' one declared search expression: a substring `LIKE`
-/// over the model's `name` column, which is all the loaders ask a source
-/// for. A real resource answers it from its `Table`'s `searchable()`
-/// columns; that spelling is `Table::search_expr`'s own test.
+/// Provides the search fixtures' substring `LIKE` over `name`.
 fn name_search_expr<M: toasty::schema::Model>(
     path: FieldLens<M, String>,
     term: &str,
@@ -46,8 +36,7 @@ fn name_search_expr<M: toasty::schema::Model>(
     Some(path.like_with_escape(format!("%{term}%"), '\\'))
 }
 
-/// Denies every request: the whole load fails closed (the trait's
-/// `ViewAny` default).
+/// Denies every request and fails the whole load closed.
 struct DenyAllAuthors;
 impl OptionSource for DenyAllAuthors {
     type Model = PolicyAuthor;
@@ -75,8 +64,7 @@ struct TenantScopedAuthors;
 impl OptionSource for TenantScopedAuthors {
     type Model = PolicyAuthor;
 
-    /// What `Resource`'s blanket impl (`resource::scoped_query`) composes for
-    /// a resource with `Tenancy::column`.
+    /// Filters on the `tenant_id` column.
     fn scoped_query(cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
         let tenant = crate::tenancy::require_tenant(cx)?;
         Ok(Query::all().filter(PolicyAuthor::fields().tenant_id().eq(tenant)))
@@ -134,15 +122,13 @@ async fn relationship_loader_fails_past_option_cap() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let select = Field::choice(RefPost::fields().author_id())
         .relationship::<RefAuthorSource>(|a: &RefAuthor| a.id, |a: &RefAuthor| a.name.clone());
-    // Over the cap: bounded work, visible retry error — never an
-    // empty-options passthrough.
+    // Over the cap: bounded work and a visible retry error.
     let errs = check(&select, &cx, "whatever").await;
     assert!(
         errs.iter().any(|e| e.contains("could not load options")),
         "overflow must surface retry error, got {errs:?}"
     );
-    // An overflowed load keeps the stored FK selectable: a
-    // failed load must not blank the relation into a required-error.
+    // An overflowed load keeps the stored FK selectable.
     let html = select
         .render(&cx, Some("stored-fk"), None, Mode::Form)
         .await
@@ -159,11 +145,7 @@ async fn relationship_loader_fails_past_option_cap() {
 
 #[tokio::test]
 async fn relationship_option_values_are_primary_keys_not_table_ids() {
-    // the table key is a display projection — option
-    // values must come from the record's typed PK, or a display string
-    // silently stores a label in the FK column. The source surface has no
-    // table row-key projection to reach for at all, so the
-    // caller's typed projection is the only option-value seam.
+    // Option values come from the record's typed PK, never the display label.
     #[derive(Debug, toasty::Model, Clone)]
     struct RefAuthor {
         #[key]
@@ -224,9 +206,7 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
 
 #[tokio::test]
 async fn relationship_load_fails_closed_when_view_any_is_refused() {
-    // a related source that denies `ViewAny` must not
-    // leak labels or ids through a dependent form, and the error must be
-    // "not available" — retrying cannot fix a permission decision.
+    // A source that denies `ViewAny` leaks neither labels nor ids and reports "not available".
 
     let mut db = toasty::Db::builder()
         .models(toasty::models!(PolicyAuthor))
@@ -264,8 +244,7 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
         !html.contains(&pk),
         "denied values must not render either: {html}"
     );
-    // The empty select must explain itself on GET (no incoming error):
-    // otherwise the user sees an unrequireable field with no reason.
+    // The empty select explains itself on GET.
     assert!(
         html.contains("Id is not available"),
         "denied render must show the form-level error: {html}"
@@ -274,11 +253,7 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
 
 #[tokio::test]
 async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets() {
-    // option loads are another path into the related
-    // resource's rows; a tenant-scoped related resource must not serve
-    // unscoped options just because the parent form is reachable without a
-    // tenant, and the tenant filter must narrow the load to the request
-    // tenant's rows.
+    // A tenant-scoped source serves no unscoped options and narrows the load to the request tenant.
 
     let mut db = toasty::Db::builder()
         .models(toasty::models!(PolicyAuthor))
@@ -304,17 +279,10 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
         check(&select, &cx, &pk).await,
         vec!["Id is not available".to_string()]
     );
-    // A resolved tenant that owns the row loads normally (a separate
-    // memoize key too).
+    // A resolved tenant that owns the row loads normally.
     let tenanted = cx.with(crate::tenancy::Tenant(tenant));
     assert!(check(&select, &tenanted, &pk).await.is_empty());
-    // Another tenant's request sees nothing: the option load runs the
-    // source's `scoped_query` — the fixture spells out the tenant filter,
-    // and `Resource`'s blanket impl spells it as `scoped_query::<R>` — never
-    // an unscoped base. The load itself
-    // succeeds (the source is viewable), so the row is *absent from the
-    // options* rather than denied — "invalid", the empty-set answer, not
-    // the "not available" the gate gives.
+    // Another tenant's request reports the row as invalid.
     let foreign = cx.with(crate::tenancy::Tenant(uuid::Uuid::new_v4()));
     assert_eq!(
         check(&select, &foreign, &pk).await,
@@ -324,9 +292,7 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
 
 #[tokio::test]
 async fn relationship_load_filters_rows_by_view() {
-    // `View`-denied rows are absent from options and
-    // validation — a value outside the viewable set is invalid, not
-    // merely unlisted.
+    // `View`-denied rows are absent from options and validation.
 
     let mut db = toasty::Db::builder()
         .models(toasty::models!(PolicyAuthor))
@@ -375,10 +341,7 @@ async fn relationship_load_filters_rows_by_view() {
 
 #[tokio::test]
 async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
-    // The cap is checked on the raw bounded fetch. If it
-    // counted post-`View` rows, a single hidden record would defeat
-    // it and silently truncate a larger table, misreporting viewable FKs
-    // as "invalid" — the exact failure the cap exists to prevent.
+    // The cap is checked on the raw bounded fetch before `View` filtering.
 
     let mut db = toasty::Db::builder()
         .models(toasty::models!(PolicyAuthor))
@@ -387,8 +350,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
         .unwrap();
     db.push_schema().await.unwrap();
     let mut hidden_pk = String::new();
-    // One past the cap, with one hidden row: the raw fetch overflows
-    // even though the filtered count would fit.
+    // One past the cap, with one hidden row.
     for i in 0..=MAX_RELATIONSHIP_OPTIONS {
         let name = if i == 0 {
             "Hidden".to_string()
@@ -406,8 +368,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let select = Field::choice(PolicyAuthor::fields().id())
         .relationship::<HideOneAuthor>(|a: &PolicyAuthor| a.id, |a: &PolicyAuthor| a.name.clone());
-    // The raw fetch sees MAX+1 rows: overflow fails visibly instead of
-    // rendering the 200 viewable rows as if they were the whole table.
+    // The raw fetch overflows.
     assert_eq!(
         check(&select, &cx, &hidden_pk).await,
         vec!["Id could not load options, retry".to_string()]
@@ -416,9 +377,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
 
 #[tokio::test]
 async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
-    // `View` filtering happens before labels render, so a
-    // row the user may not view is absent from options and does not
-    // validate — and the stored value is not re-rendered on the form.
+    // A row `View` refuses is absent from options, validation, and re-render.
 
     let mut db = toasty::Db::builder()
         .models(toasty::models!(PolicyAuthor))
@@ -456,8 +415,7 @@ async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
 
 #[tokio::test]
 async fn relationship_options_share_one_load_per_request_and_tenant() {
-    // selects over one source share a single bounded load per
-    // (request, tenant) — validate and re-render share the one load.
+    // Selects over one source share a single bounded load per `(request, tenant)`.
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static OPTION_LOADS: AtomicUsize = AtomicUsize::new(0);
@@ -531,8 +489,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
 
 #[tokio::test]
 async fn relationship_overflow_is_distinct_from_load_failed() {
-    // Over-cap is `Overflow`, not `LoadFailed`, so searchable
-    // selects degrade to type-to-search while DB errors stay retryable.
+    // Over-cap reports `Overflow` so searchable selects degrade to type-to-search.
 
     #[derive(Debug, toasty::Model, Clone)]
     struct BigRef {
@@ -583,9 +540,7 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
 
 #[tokio::test]
 async fn relationship_search_narrows_past_the_cap() {
-    // `related_records_search` reuses the source's declared
-    // search expression — a 201-row table overflows unfiltered but a
-    // distinctive term returns its bounded match.
+    // A distinctive term returns its bounded match on a table that overflows unfiltered.
 
     #[derive(Debug, toasty::Model, Clone)]
     struct SearchRef {
@@ -630,7 +585,7 @@ async fn relationship_search_narrows_past_the_cap() {
     .unwrap();
     let cx = CxTestBuilder::new().app_context(db).build();
     let tenant = crate::tenancy::tenant_id(&cx);
-    // Unfiltered overflows (201 rows).
+    // Unfiltered overflows.
     let err = super::related_records::<SearchRefSource>(&cx, tenant)
         .await
         .unwrap_err();
@@ -641,12 +596,11 @@ async fn relationship_search_narrows_past_the_cap() {
         .unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Zebra Unique");
-    // Empty q is the bounded head → still overflows on this table.
+    // Empty q is the bounded head.
     let err = super::related_records_search::<SearchRefSource>(&cx, "".to_string())
         .await
         .unwrap_err();
     assert_eq!(err, super::OptionLoadError::Overflow);
-    // `ChoiceControl::search_options` shares the same seam.
     let select = Field::choice(SearchRef::fields().name())
         .searchable()
         .relationship::<SearchRefSource>(|r: &SearchRef| r.id, |r: &SearchRef| r.name.clone());
@@ -663,8 +617,7 @@ async fn relationship_search_narrows_past_the_cap() {
 
 #[tokio::test]
 async fn relationship_search_without_searchable_falls_back_to_cap() {
-    // No searchable columns → unfiltered bounded load, which
-    // overflows large tables instead of silently truncating.
+    // No searchable columns overflows large tables instead of truncating.
 
     #[derive(Debug, toasty::Model, Clone)]
     struct PlainRef {
@@ -673,8 +626,7 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
         id: uuid::Uuid,
         name: String,
     }
-    /// Declares no search expression (the trait's `None` default), which is
-    /// what a resource with no `searchable()` column answers.
+    /// Declares no search expression.
     struct PlainRefSource;
     impl OptionSource for PlainRefSource {
         type Model = PlainRef;
@@ -709,8 +661,7 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
 
 #[tokio::test]
 async fn relationship_overflowed_searchable_validates_via_targeted_check() {
-    // Searchable selects over overflowed tables validate
-    // legitimate FKs via the targeted PK check, not membership.
+    // Searchable selects over overflowed tables validate legitimate FKs via the targeted PK check.
 
     #[derive(Debug, toasty::Model, Clone)]
     struct CheckRef {
@@ -771,7 +722,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
         .relationship::<CheckRefSource>(|r: &CheckRef| r.id, |r: &CheckRef| r.name.clone());
     // Legitimate FK beyond the cap passes via targeted check.
     assert!(check(&searchable, &cx, &visible_pk).await.is_empty());
-    // Hidden row → invalid (not leaked), unknown → invalid.
+    // Hidden and unknown rows report invalid.
     assert_eq!(
         check(&searchable, &cx, &hidden_pk).await,
         vec!["Name is invalid".to_string()]
@@ -791,8 +742,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
 
 #[tokio::test]
 async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
-    // Over-cap searchable renders stored value + search input
-    // + hint, with server data-attributes for the fetch.
+    // Over-cap searchable renders the stored value, the search input, and the hint.
 
     #[derive(Debug, toasty::Model, Clone)]
     struct HintRef {
@@ -861,9 +811,7 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
 
 #[tokio::test]
 async fn relationship_bounded_searchable_keeps_client_filter() {
-    // Bounded searchable sets narrow by label substring in
-    // the browser — the server flag is overflow-only, or every small
-    // table pays a debounced round-trip per keystroke.
+    // Bounded searchable sets filter in the browser; the server flag is overflow-only.
 
     #[derive(Debug, toasty::Model, Clone)]
     struct SmallRef {
@@ -924,11 +872,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
     );
 }
 
-/// The write re-checks a relationship key through its own transaction: a key
-/// in the request's tenant passes, one in another tenant or hidden by the
-/// source's policy fails with the pre-write wording, and a row the
-/// transaction deleted fails too, because the check reads what the write
-/// sees rather than a pooled snapshot.
+/// Re-checks a relationship key through the write's own transaction.
 #[tokio::test]
 async fn recheck_resolves_the_key_through_the_write_transaction() {
     let mut db = toasty::Db::builder()

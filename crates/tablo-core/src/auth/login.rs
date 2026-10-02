@@ -15,13 +15,8 @@ use super::{
 };
 use crate::panel::{Panel, panel_prefix, state::current};
 
-/// Max body the login route accepts: 64 KiB.
-///
-/// A credential form submits an email, a password, a `next` and a CSRF token,
-/// all short strings; the panel's 10 MiB form cap is for multipart uploads,
-/// which the login route never carries. 64 KiB leaves room for the fields plus
-/// percent-encoding growth while keeping the one unauthenticated POST route
-/// from buffering a megabyte-scale body.
+/// Caps the login body at 64 KiB; the panel's 10 MiB form cap covers multipart
+/// uploads the login route never carries.
 pub(crate) const MAX_LOGIN_BYTES: usize = 64 * 1024;
 
 /// Form field carrying the login identifier (the shipped default reads it as
@@ -32,8 +27,8 @@ pub const PASSWORD_FIELD: &str = "password";
 /// Hidden form field carrying the validated post-login destination.
 pub const NEXT_FIELD: &str = "next";
 
-/// The one error every failed login renders, so accounts cannot be
-/// enumerated and panel membership stays private (ADR-0013).
+/// Renders for every failed login so accounts cannot be enumerated and panel
+/// membership stays private.
 pub(super) const GENERIC_ERROR: &str = "Invalid email or password.";
 
 /// Form field carrying the tenant the tenant switch selects.
@@ -66,9 +61,8 @@ pub(super) fn login_url_with_next(cx: &Cx) -> String {
     url
 }
 
-/// Accept only same-origin relative paths as a post-login destination
-/// (ADR-0013): absolute URLs, scheme-relative `//host` targets, backslash
-/// tricks, and control characters are rejected.
+/// Accepts only same-origin relative paths as a post-login destination;
+/// rejects absolute URLs, `//host` targets, backslashes, and control characters.
 pub(crate) fn safe_next(next: &str) -> Option<&str> {
     let next = next.trim();
     if !next.starts_with('/') || next.starts_with("//") {
@@ -89,25 +83,18 @@ fn next_from_query(cx: &Cx) -> Option<String> {
         .filter(|value| safe_next(value).is_some())
 }
 
-/// What a failed login attempt renders: the generic credential rejection, or
-/// the sign-in outage.
-///
-/// Two variants and no more, each with its own copy and status, so a failed
-/// attempt is always a deliberate answer: a driver failure is never rendered
-/// as a credential verdict, and a credential verdict never borrows the outage
-/// copy. Neither variant carries driver text.
+/// Renders a failed attempt as either a credential rejection or a sign-in
+/// outage, never mixing the two.
 #[derive(Debug, Clone, Copy)]
 enum LoginError {
     /// Wrong password, unknown account, empty fields, or valid credentials
-    /// without panel access: one 403 with one message (ADR-0013).
+    /// without panel access; answers 403.
     Credentials,
-    /// The database behind sign-in could not answer: a 503 that says so,
-    /// because the user must not read an outage as a rejected password.
+    /// The database behind sign-in could not answer; answers 503.
     Unavailable,
 }
 
 impl LoginError {
-    /// The message the login page's alert carries.
     fn message(self) -> &'static str {
         match self {
             Self::Credentials => GENERIC_ERROR,
@@ -115,7 +102,6 @@ impl LoginError {
         }
     }
 
-    /// The status a failed attempt answers with.
     fn status(self) -> http::StatusCode {
         match self {
             Self::Credentials => http::StatusCode::FORBIDDEN,
@@ -124,11 +110,6 @@ impl LoginError {
     }
 }
 
-/// The status and route a login attempt renders: a [`LoginError`] page or a
-/// redirect back to `next`.
-///
-/// The login page is a settled view, so [`ViewExt::single`] resolves it into
-/// an owned handle before the response is built — no borrowed view escapes.
 async fn login_response(
     cx: &Cx,
     error: Option<LoginError>,
@@ -147,11 +128,8 @@ pub(crate) fn login_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// `POST {prefix}/login` — verify, rotate the session, redirect to `next`.
 pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        // Login/logout carry no file parts: the values half is all they read.
         let values = crate::panel::parse_form_body(cx, body).await?.values;
         crate::csrf::verify(cx, &values)?;
-        // Keep a validated destination across a failed attempt so the retry
-        // form still returns where the visitor was headed (US6).
         let next = values
             .get(NEXT_FIELD)
             .and_then(|value| safe_next(value))
@@ -167,32 +145,24 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             {
                 match authenticator.verify(cx, login, password).await {
                     Ok(user) => user,
-                    // A driver failure is not a credential verdict: the page
-                    // says sign-in is unavailable instead of rendering a
-                    // rejection.
                     Err(error) => return failed(cx, error, next).await,
                 }
             }
             _ => None,
         };
-        // One path for every failure: wrong password, unknown account, empty
-        // fields, or valid credentials without panel access (ADR-0013).
+        // One 403 for every failure: wrong password, unknown account, empty
+        // fields, or valid credentials without panel access.
         let Some(user) = verified.filter(|user| user.can_access_panel()) else {
             return login_response(cx, Some(LoginError::Credentials), next).await;
         };
-        // Rotate on login: a token this request presented cannot be replayed.
+        // Rotate on login so a presented token cannot be replayed.
         if let Some(hash) = session::token_hash(cx).await? {
             delete_session(cx, &hash).await?;
         }
-        // Bounded housekeeping: the sweep goes with the rotation. A failure is
-        // logged rather than fatal — a credential that verified must not become
-        // a 503 because cleanup could not run.
         if let Err(error) = sweep_expired_sessions(cx).await {
             tracing::error!(error = %error, "expired-session sweep failed");
         }
         let session = session::start(cx).await?;
-        // The credentials were right but the row could not be recorded: the
-        // same outage page as a failed verification.
         if let Err(error) = record(cx, &session, &*user, panel).await {
             return failed(cx, error, next).await;
         }
@@ -207,8 +177,7 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     })
 }
 
-/// A login attempt that failed on `error`: the outage page for a driver
-/// failure, whose text goes to the log; an app-authored error keeps its
+/// Maps a driver failure to the outage page; an app-authored error keeps its
 /// mapping.
 async fn failed(
     cx: &Cx,
@@ -225,15 +194,11 @@ async fn failed(
 /// `POST {prefix}/logout` — delete the session row and clear the cookie.
 pub(crate) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        // Defense in depth: the route only exists on gated panels, but it
-        // re-checks so a missing layer cannot leave logout ungated. Any
-        // resolved user may log out — the gate answers this route for a user
-        // without panel access too, so demanding panel access here would
-        // strand their session row + cookie to expiry.
+        // Any resolved user may log out, including one without panel access,
+        // so the session row and cookie do not linger to expiry.
         if resolved(cx).is_none() {
             return Err(unauthenticated_error(cx));
         }
-        // Login/logout carry no file parts: the values half is all they read.
         let values = crate::panel::parse_form_body(cx, body).await?.values;
         crate::csrf::verify(cx, &values)?;
         if let Some(hash) = session::stop(cx).await? {
@@ -245,13 +210,7 @@ pub(crate) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
 }
 
 /// `POST {prefix}/tenant` — act for another of the user's tenants, then land
-/// on the panel root: a page of the old tenant's records has nothing to show
-/// under the new one.
-///
-/// A tenant that is not one of the user's [`tenants`](super::PanelUser::tenants)
-/// answers 403. The selection is stored on the session and checked against
-/// the memberships on every request, so a membership removed later stops
-/// applying at once.
+/// on the panel root; a tenant outside the user's memberships answers 403.
 pub(crate) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let Some(signed) = signed(cx) else {
@@ -280,9 +239,8 @@ pub(crate) fn tenant_url(cx: &Cx) -> String {
     format!("{}/tenant", panel_prefix(cx))
 }
 
-/// The standalone login document: brand and dark mode honored, CSRF hidden
-/// field, one error slot carrying a [`LoginError`]'s deliberate copy, no
-/// sidebar (ADR-0013).
+/// Renders the standalone login document with brand, CSRF field, and one error
+/// slot.
 async fn render_login_page<'a>(
     cx: &'a Cx,
     error: Option<LoginError>,

@@ -2,7 +2,7 @@
 
 This chapter builds a complete admin in one file: a `Book` model, a resource for it, and the
 `main` that serves it with a login page. `examples/quickstart` is this app with writes opened and the
-stylesheet wired in; CI builds it from outside the repository.
+stylesheet wired in.
 
 ## Dependencies
 

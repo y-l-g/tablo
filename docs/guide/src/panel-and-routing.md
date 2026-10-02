@@ -211,8 +211,6 @@ width and padding; `page_header` holds a `page_title`, an optional `page_descrip
 `styles.css` (`--card`, `--border`, `--primary`, …), so one theme restyles the panel's pages and
 yours.
 
-The showcase registers a dashboard as its home page, a media library and a live activity feed.
-
 ## Public pages
 
 A page outside the panel prefix is an ordinary Topcoat `#[page]` on your router. The auth gate
@@ -280,5 +278,4 @@ Router::builder()
 `shell_assets` also makes the shell load `tablo-ui`'s scripts: live search, confirmation dialogs,
 searchable selects, toasts and the sidebar and theme toggles. Mounting refuses `shell_assets` on a
 router with no asset bundle. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
-([Your first panel](./first-panel.md#the-stylesheet)); `examples/quickstart` has the smallest
-complete setup and `examples/showcase` the full one.
+([Your first panel](./first-panel.md#the-stylesheet)).

@@ -1,11 +1,4 @@
 //! Form decoding (urlencoded + streamed multipart) and create/edit handlers.
-//!
-//! Decoding helpers stay pure and request-free where possible so the size
-//! caps and filename sanitization are unit-testable at the boundary.
-//!
-//! Body decoding lives in `decode`, the form-page shell and create page in
-//! `render`, the app-side uniqueness probe in `unique`, the create/edit POST
-//! pipelines in `submit`, and the helpers the pipelines share in `common`.
 
 mod common;
 mod decode;

@@ -8,9 +8,7 @@ use crate::{
     },
 };
 
-/// A slug made of ordinary URL-segment characters still builds, and its
-/// list route resolves: rejecting the pattern characters must not
-/// reject the accepted ones.
+/// Builds and resolves a slug of ordinary URL-segment characters.
 #[tokio::test]
 async fn a_plain_slug_builds_and_resolves() {
     use crate::resource::Resource;
@@ -67,10 +65,7 @@ async fn a_plain_slug_builds_and_resolves() {
     );
 }
 
-/// A slug containing `*` builds and resolves: `*` is a literal
-/// static segment in the router, so rejecting it would break a slug that
-/// worked; only the `{*name}` catch-all spelling carries meaning, and the
-/// `{` it needs is already refused.
+/// Builds and resolves a slug containing `*`.
 #[tokio::test]
 async fn a_star_slug_builds_and_resolves() {
     use crate::resource::Resource;
@@ -127,9 +122,7 @@ async fn a_star_slug_builds_and_resolves() {
     );
 }
 
-/// CSRF does not depend on authentication: with `Auth::disabled()` there is
-/// no gate, and a create POST without a matching `csrf_token` is still 403,
-/// so opting out of sessions does not drop the double-submit check.
+/// Enforces CSRF with `Auth::disabled()`.
 #[tokio::test]
 async fn csrf_is_enforced_with_auth_disabled() {
     use crate::{
@@ -186,8 +179,7 @@ async fn csrf_is_enforced_with_auth_disabled() {
     );
 }
 
-/// `Panel::dark_mode` is the theme a first-time visitor gets. It
-/// must reach the rendered document's `<html class>`.
+/// Applies `Panel::dark_mode` to the rendered document's `<html class>`.
 #[tokio::test]
 async fn dark_mode_sets_the_document_class() {
     let db = Db::builder()
@@ -207,8 +199,7 @@ async fn dark_mode_sets_the_document_class() {
     )
     .expect("panel builds");
 
-    // The standalone login page renders the same document the admin shell
-    // does (ADR-0013), so it carries the theme class without a session.
+    // The login page carries the theme class without a session.
     let response = router
         .handle(
             http::Request::builder()
@@ -229,10 +220,7 @@ async fn dark_mode_sets_the_document_class() {
     );
 }
 
-/// The guard's other half: a unique index — single-field or composite —
-/// keeps building. `lens_field_unique` reads the model's index list, so
-/// `#[unique(tenant_id, email)]` (the tenant-scoped arrangement the panel
-/// documents) is not a false positive.
+/// Accepts unique markers with a backing index.
 #[tokio::test]
 async fn panel_build_accepts_unique_markers_with_a_backing_index() {
     use crate::{
@@ -291,7 +279,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
 /// A panel with no `Db` is a configuration error, not a panic.
 #[test]
 fn panel_build_errors_without_db() {
-    // `Router` has no `Debug`, so `expect_err` cannot report the Ok case.
+    // `Router` has no `Debug`.
     let Err(error) = mount_without_db(Panel::new("admin")) else {
         panic!("a panel without a Db must not build");
     };
@@ -301,8 +289,7 @@ fn panel_build_errors_without_db() {
     );
 }
 
-/// A `Db` missing the shipped auth models is a mount error naming them, not a
-/// panic: every other misconfiguration comes back as an error the caller logs.
+/// Reports a `Db` missing the shipped auth models as a mount error naming them.
 #[tokio::test]
 async fn panel_mount_reports_missing_auth_models() {
     let db = Db::builder()
@@ -344,9 +331,7 @@ struct Child {
     name: String,
 }
 
-/// `Tenancy::column` names the model's own column, so a lens through a
-/// relation is refused at mount with an error naming the resource and
-/// `Tenancy::via`, which is the declaration that path needs.
+/// Refuses a tenancy column through a relation.
 #[tokio::test]
 async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
     use crate::resource::{Resource, Table, TextColumn};
@@ -407,8 +392,7 @@ async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
     mount(db, panel().resource::<Inherited>()).expect("`Tenancy::via` scopes through a relation");
 }
 
-/// A `via` over the model's own column stamps nothing: the mount refuses it
-/// in favor of `Tenancy::column`.
+/// Refuses a tenancy `via` over its own column.
 #[tokio::test]
 async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
     use crate::resource::{Resource, Table, TextColumn};
@@ -451,8 +435,7 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
     );
 }
 
-/// A `via` resource writes its parent key through the form, so a form with no
-/// relationship field mounts nothing the write re-checks.
+/// Refuses a tenancy `via` without a relationship field.
 #[tokio::test]
 async fn panel_mount_rejects_a_tenancy_via_without_a_relationship_field() {
     use crate::{
@@ -512,9 +495,7 @@ async fn panel_mount_rejects_a_tenancy_via_without_a_relationship_field() {
     );
 }
 
-/// `slug()` is free-form and reaches route paths and response
-/// headers, so a hostile value fails registration instead of splitting a
-/// header or panicking in `route_path` at boot.
+/// Rejects a hostile slug at registration.
 #[test]
 fn panel_build_rejects_a_hostile_slug() {
     use crate::resource::Resource;
@@ -547,9 +528,7 @@ fn panel_build_rejects_a_hostile_slug() {
     );
 }
 
-/// `.unique()` is a promise about the column, so declaring
-/// it on a field with no unique index fails the build instead of turning on
-/// a check the database does not back.
+/// Rejects a `unique()` marker without a unique index.
 #[tokio::test]
 async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
     use crate::{
@@ -609,8 +588,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
     );
 }
 
-/// The table carries its key and columns by construction, so a keyed table
-/// builds with or without action chrome.
+/// Accepts keyed tables with and without chrome.
 #[tokio::test]
 async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
     use crate::{
@@ -702,10 +680,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         .expect("a keyed table with a detail view builds");
 }
 
-/// The marker is a property of the declaration, not of the policy serving
-/// it: a read-only resource — `Create` denied, the default —
-/// still fails the build on an unbacked `unique()`, so fixing the policy
-/// later cannot silently re-arm a check the database does not keep.
+/// Rejects an unbacked `unique()` marker even when create is denied.
 #[tokio::test]
 async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denied() {
     use crate::{
@@ -763,8 +738,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
     );
 }
 
-/// Duplicate slugs are reported by `build`, not asserted in the
-/// declarative builder — a panel is configured, then validated once.
+/// Rejects duplicate resource slugs.
 #[test]
 fn panel_build_rejects_duplicate_resource_slugs() {
     use crate::resource::Resource;
@@ -817,11 +791,7 @@ fn panel_build_rejects_duplicate_resource_slugs() {
     );
 }
 
-/// A slug carrying a route pattern character a literal segment
-/// cannot hold is a declared registration error, not a panic in
-/// [`route_path`]. `Path::from_str` starts a parameter segment at `{` and a
-/// group at `(`, so an unbalanced pair panics the route builder and a
-/// balanced one silently makes the slug a pattern.
+/// Rejects route pattern characters in a slug.
 #[test]
 fn panel_build_rejects_route_pattern_characters_in_a_slug() {
     use crate::resource::Resource;
@@ -879,8 +849,7 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
     );
 }
 
-/// A table's builders record a misdeclaration rather than panic, and `build`
-/// reports it as a registration error the caller can log or exit on.
+/// Reports recorded table misdeclarations.
 #[tokio::test]
 async fn panel_build_reports_recorded_table_misdeclarations() {
     use crate::resource::{Resource, Table, TextColumn};
@@ -1003,11 +972,7 @@ async fn panel_mounts_runtime_page_rerun_routes() {
     let db = Db::builder().connect("sqlite::memory:").await.unwrap();
     let router = mount(db, panel_for::<DummyResource>()).expect("panel builds");
 
-    // The list page denies by default (default-deny policy → 403). A
-    // POST carrying the runtime marker rewrites into a GET for the
-    // page's own URL, so it reaches the handler and reports 403;
-    // without `.runtime()` on the builder the marked POST never becomes
-    // a page GET. (Topcoat's `runtime::script` requires this layer.)
+    // A marked POST rewrites into a GET for the page's URL.
     let request = http::Request::builder()
         .method(http::Method::POST)
         .uri("/admin/dummies")
@@ -1019,9 +984,7 @@ async fn panel_mounts_runtime_page_rerun_routes() {
     assert_eq!(response.status(), http::StatusCode::FORBIDDEN);
 }
 
-/// The panel root answers the gate before reading `RootRedirect`
-/// (defense in depth): a mis-mounted gate must not leak the
-/// first resource's slug via the redirect target.
+/// Re-checks auth before reading the root target.
 #[tokio::test]
 async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
     use topcoat::{context::CxTestBuilder, router::response::IntoResponse};
@@ -1097,9 +1060,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
     assert_eq!(location, "/admin/users");
 }
 
-/// Every page the panel renders carries the clickjacking
-/// directive by default, and both escape hatches work — a deployment
-/// directive, and an opt-out for a proxy that owns the whole policy.
+/// Sends `frame-ancestors` unless opted out.
 #[tokio::test]
 async fn panel_sends_frame_ancestors_unless_opted_out() {
     use crate::resource::Resource;
@@ -1173,25 +1134,18 @@ async fn panel_sends_frame_ancestors_unless_opted_out() {
 fn serve_dir_accepts_only_a_catch_all_pattern() {
     assert!(is_directory_pattern("/uploads/{*file}"));
     assert!(is_directory_pattern("/{*file}"));
-    // Upstream allows a space in a static segment, so a pattern carrying
-    // one is still a pattern: the catch-all is what matters, not tidiness.
     assert!(is_directory_pattern("/up loads/{*file}"));
-    // Not a catch-all: a plain path, its trailing-slash form, a named
-    // parameter, an unnamed catch-all, and a catch-all that is not last.
     assert!(!is_directory_pattern("/uploads"));
     assert!(!is_directory_pattern("/uploads/"));
     assert!(!is_directory_pattern("/uploads/{file}"));
     assert!(!is_directory_pattern("/uploads/{*}"));
     assert!(!is_directory_pattern("/{*file}/more"));
-    // Not a route path at all: an unclosed brace, an empty segment, and a
-    // catch-all name that is not an identifier.
     assert!(!is_directory_pattern("/uploads/{*file"));
     assert!(!is_directory_pattern("/uploads//{*file}"));
     assert!(!is_directory_pattern("/uploads/{*fi-le}"));
 }
 
-/// A view's misdeclaration — here two fields over one column — fails the
-/// build, as a table's does, rather than the first detail request.
+/// Rejects a misdeclared view.
 #[tokio::test]
 async fn panel_build_rejects_a_misdeclared_view() {
     use crate::{
@@ -1231,9 +1185,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
     );
 }
 
-/// The served declarations are built once: mounting the panel calls the table, form and view
-/// once each (relations twice: once at registration for its handlers and keys, once here for
-/// the served copy), and every handler serves the cached copy across requests.
+/// Builds declarations once across requests.
 #[tokio::test]
 async fn declarations_are_built_once_across_requests() {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -1310,9 +1262,7 @@ async fn declarations_are_built_once_across_requests() {
         (&TABLE_CALLS, "table", 1),
         (&FORM_CALLS, "form", 1),
         (&VIEW_CALLS, "view", 1),
-        // `relations` also runs at registration, where the panel derives
-        // its relation handlers and keys: one call there, one for the
-        // served declarations built here.
+        // `relations` runs once at registration and once for the served declarations.
         (&RELATIONS_CALLS, "relations", 2),
     ] {
         assert_eq!(
@@ -1353,9 +1303,7 @@ async fn declarations_are_built_once_across_requests() {
     }
 }
 
-/// A resource no panel registers builds on demand: `declared` falls back to
-/// a fresh build from the request's app schema, which is what a page-owned
-/// table reads.
+/// Falls back to a fresh build for an unregistered resource.
 #[tokio::test]
 async fn declared_fallback_builds_for_an_unregistered_resource() {
     use crate::resource::{Resource, declared};

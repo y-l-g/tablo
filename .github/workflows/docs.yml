@@ -1,14 +1,5 @@
 name: Docs
 
-# Builds the mdBook guide and the rustdoc API reference and publishes both to
-# the `gh-pages` branch, under `nightly/`:
-#
-#   /nightly/guide/   the mdBook (docs/guide)
-#   /nightly/api/     cargo doc --workspace --no-deps
-#
-# `master` is the only deploy branch: there are no releases yet, so every
-# build is "nightly". Modeled on tokio-rs/toasty's docs workflow.
-
 on:
   push:
     branches: [master]
@@ -41,8 +32,7 @@ jobs:
       - name: Build guide
         run: mdbook build docs/guide
 
-      # Deliberately not `-D warnings`: rustdoc warnings are the source batch's
-      # problem, and the API reference should publish whatever does build.
+      # Not `-D warnings`: the API reference publishes whatever builds.
       - name: Build Rust API docs
         run: cargo doc --workspace --no-deps
 
@@ -84,8 +74,7 @@ jobs:
           HTML
           fi
 
-          # Prevent GitHub Pages from running Jekyll, which would skip dirs
-          # whose names start with an underscore (e.g. mdbook's _FontAwesome).
+          # `.nojekyll` keeps Pages from skipping underscore dirs (mdbook's _FontAwesome).
           touch gh-pages-tree/.nojekyll
 
           cd gh-pages-tree

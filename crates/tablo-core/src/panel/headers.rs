@@ -1,14 +1,4 @@
-//! Response hardening headers.
-//!
-//! The panel serves one document per request, and a document that anyone can
-//! frame is a clickjacking surface on every deployment by default. `Panel`
-//! installs [`FrameAncestors`] under its prefix unless the app opts out, so
-//! the threat is closed where it lands rather than in each deployment's proxy
-//! config.
-//!
-//! A served directory shares the panel's origin, so `Panel` also installs
-//! [`ServedFileHeaders`] on each one: the files an app accepts from
-//! its users are inert, whatever their extension.
+//! Response hardening headers for panel responses and served files.
 
 use http::{StatusCode, header};
 use topcoat::{
@@ -22,35 +12,12 @@ use topcoat::{
 
 use super::{build::route_path, state::under_prefix};
 
-/// Response header carrying the policy.
 const CSP: header::HeaderName = header::CONTENT_SECURITY_POLICY;
 
 /// The panel's default directive: only the panel may frame itself.
 pub(crate) const DEFAULT_FRAME_ANCESTORS: &str = "'self'";
 
-/// Emits `Content-Security-Policy: frame-ancestors <directive>` on every
-/// response to a request under the panel prefix, including the router's own
-/// 404 and 405 there.
-///
-/// `frame-ancestors` is the one CSP directive a `<meta>` tag cannot express, so
-/// it has to ride the response — which is also why it belongs here and not in
-/// [`render_document`](super::shell::Panel::render_document)'s markup.
-///
-/// A handler's response is hardened in place, and skipped when it already
-/// carries a policy, so on the `Ok` path an app that sets its own policy (its
-/// own layer or route) wins. An `Err` has no response yet — the router builds
-/// the 404 or 405 after the layers have returned — so the directive is queued
-/// through the router's [`response_headers`] slot instead, the mechanism the
-/// cookie layer uses to put `Set-Cookie` on an error response; the queue
-/// appends, so a layer outside this one that turns the error into a response
-/// carrying its own policy emits two `Content-Security-Policy` headers.
-///
-/// The layer has no path, because a path-scoped layer never sees a path no
-/// route matches, and it hardens only requests under its prefix: the app owns
-/// the router, so its own routes carry whatever policy the app sets. The
-/// router also builds three responses outside every registered layer: the
-/// origin layer's 403 for a cross-site request, the 400 for a malformed
-/// `x-topcoat-identity` header, and the bare 500 it answers a panic with.
+/// Emits `Content-Security-Policy: frame-ancestors <directive>` on responses under the panel prefix.
 #[derive(Debug, Clone)]
 pub(crate) struct FrameAncestors {
     directive: String,
@@ -90,45 +57,29 @@ impl Layer for FrameAncestors {
     }
 }
 
-/// Queue the directive for the error response the router builds after the
-/// layers have returned.
-///
-/// There is no response to inspect on this path, so the header is appended
-/// rather than inserted: the router's own error responses carry no policy for
-/// it to defer to. A layer outside this one that turns the error into a
-/// response carrying its own policy therefore emits two
-/// `Content-Security-Policy` headers.
+/// Queues the directive for the error response the router builds after the layers return.
 fn queue_frame_ancestors(cx: &Cx, directive: &str) {
     if let Ok(value) = header::HeaderValue::from_str(&format!("frame-ancestors {directive}")) {
         response_headers(cx).append(CSP, value);
     }
 }
 
-/// Add the directive unless the response already carries a policy.
+/// Adds the directive unless the response already carries a policy.
 fn insert_frame_ancestors(response: &mut Response, directive: &str) {
     if response.headers().contains_key(&CSP) {
         return;
     }
-    // The directive is app-supplied text (a header value, not markup): a value
-    // the header codec rejects is dropped rather than allowed to panic or
-    // truncate a response mid-stream.
+    // Drops a directive value the header codec rejects.
     if let Ok(value) = header::HeaderValue::from_str(&format!("frame-ancestors {directive}")) {
         response.headers_mut().insert(CSP, value);
     }
 }
 
-/// The one policy every served file carries.
-///
-/// `frame-ancestors 'self'` rides along because [`FrameAncestors`] only fills a
-/// gap: it runs outside this layer and skips a response that already has a
-/// policy, so this one has to speak for itself.
+/// The policy every served file carries.
 const SERVED_FILE_CSP: &str = "default-src 'none'; img-src 'self'; media-src 'self'; \
      style-src 'unsafe-inline'; sandbox; frame-ancestors 'self'";
 
 /// The content types a served file may render inline.
-///
-/// Everything here is passive: no script, no markup, no plugin. The list is the
-/// policy's source of truth, so widening it is the one way to re-open a type.
 const INLINE_TYPES: &[&str] = &[
     "image/png",
     "image/jpeg",
@@ -143,28 +94,14 @@ const INLINE_TYPES: &[&str] = &[
     "text/plain",
 ];
 
-/// Emits `X-Content-Type-Options: nosniff`, a fixed sandboxing
-/// `Content-Security-Policy` and `Content-Disposition: attachment` on every file
-/// response the directory route serves.
-///
-/// A served directory shares the panel's origin (ADR-0017 makes it public by
-/// decision), and Topcoat derives `Content-Type` from the file extension, so a
-/// user who uploads an `.html` or `.svg` document otherwise runs script with the
-/// admin's session. The policy is fixed rather than configurable: an app that
-/// serves active documents mounts them on its own origin. A disposition that
-/// already downloads is kept, so a route that names a file keeps its filename.
-///
-/// The directory route's own failures (404, 405) leave through `Err` and skip
-/// this layer; they render Topcoat's plain error response, which carries no file
-/// content.
+/// Hardens every file response the directory route serves.
 #[derive(Debug, Clone)]
 pub(crate) struct ServedFileHeaders {
     path: PathBuf,
 }
 
 impl ServedFileHeaders {
-    /// Wraps the directory route mounted at `pattern`, the same path
-    /// [`Panel::serve_dir`](super::Panel::serve_dir) registers.
+    /// Wraps the directory route mounted at `pattern`.
     pub(crate) fn new(pattern: &str) -> Self {
         Self {
             path: route_path(pattern),
@@ -174,8 +111,7 @@ impl ServedFileHeaders {
 
 impl Layer for ServedFileHeaders {
     fn path(&self) -> Option<&Path> {
-        // A route's own path is a prefix of itself, so this wraps exactly the
-        // served directory: the panel's own pages keep their policy.
+        // Wraps exactly the served directory.
         Some(&self.path)
     }
 
@@ -188,12 +124,7 @@ impl Layer for ServedFileHeaders {
     }
 }
 
-/// Make one file response the directory route served inert.
-///
-/// The policy overwrites whatever the directory route sent: a served file never
-/// needs a scriptable policy. `nosniff` and the policy apply to every file
-/// response. The disposition depends on the content type, so it is skipped on a
-/// `304 Not Modified`, which carries no content type and no body to render.
+/// Makes one file response the directory route served inert.
 fn harden_served_file(response: &mut Response) {
     let not_modified = response.status() == StatusCode::NOT_MODIFIED;
     let headers = response.headers_mut();
@@ -217,9 +148,7 @@ fn harden_served_file(response: &mut Response) {
     }
 }
 
-/// Whether `content_type` may render inline: the allow-list entry, with any
-/// parameters (`; charset=..`) stripped and the type lowercased. A missing or
-/// unreadable type downloads rather than rendering.
+/// Reports whether `content_type` may render inline.
 fn is_inline(content_type: Option<&header::HeaderValue>) -> bool {
     let Some(mime) = content_type.and_then(|value| value.to_str().ok()) else {
         return false;

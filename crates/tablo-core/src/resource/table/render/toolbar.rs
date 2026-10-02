@@ -12,12 +12,7 @@ use super::{
     dialog::{ConfirmDialog, chrome_dom_id, confirm_controls, confirm_dialog},
 };
 
-/// Keystroke-quiet delay before a live search input reloads the table
-/// (~150-250ms): `assets/live-search.js` waits this long after the
-/// last keystroke, then forwards the value through the bound transport below,
-/// so typing "published" triggers one reload instead of nine. The forwarded
-/// write is an ordinary signal write, so Topcoat's abort-in-flight
-/// coalescing still applies to the resulting rerun.
+/// Delay a live search input waits after the last keystroke before reloading the table.
 pub(crate) const LIVE_SEARCH_DEBOUNCE_MS: u32 = 200;
 
 /// The hidden inputs a table toolbar carries across its submit, in the order
@@ -44,26 +39,7 @@ pub(super) fn hidden_state_inputs<'a>(
 }
 
 impl<M> Table<M> {
-    /// The bulk bar — the custom bulk actions, then bulk delete and its
-    /// confirmation dialog — or the
-    /// placeholder that keeps the chrome's node order stable when
-    /// [`Self::bulk_enabled`] is off.
-    ///
-    /// One destructive form for the whole page: the transport is fed by the
-    /// row checkboxes (`bulk.js`) and ships `,a,b,`-delimited, while on a live
-    /// table the selection lives in a signal instead, so a shard
-    /// rerun re-renders the transport from the selection rather than dropping
-    /// it. The trigger ships enabled: the confirmation dialog gates
-    /// the write and reads the selection when it opens, so an empty selection
-    /// is answered by the dialog rather than by a disabled control whose state
-    /// has to be kept in step across a live swap.
-    ///
-    /// The dialog lives *inside* the form so its `confirm` marker ships with
-    /// the same payload as the selection — the confirm button is an ordinary
-    /// submit of that form, and the handler refuses a POST without the marker.
-    /// It renders closed and opens client-side (`showModal`) rather than
-    /// through a runtime signal: the trigger is `type="button"`, so opening
-    /// the dialog is not a result-set change and must not reload the table.
+    /// Render the bulk bar, or a placeholder keeping node order stable when bulk actions are off.
     pub(super) fn render_bulk_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -76,14 +52,10 @@ impl<M> Table<M> {
             .delete_prefix
             .clone()
             .filter(|_| self.bulk_delete_enabled());
-        // The list URL every bulk route hangs off: bulk delete's, else the
-        // custom actions'. `bulk_enabled` holds one or the other.
         let prefix = delete_prefix
             .clone()
             .or_else(|| self.actions_prefix.clone())
             .expect("bulk chrome rides the delete or the actions prefix (see bulk_enabled)");
-        // Each custom bulk action is a submit of this form to its own route
-        // (`formaction`), so it carries the same selection transport.
         let custom: Vec<(String, String)> = self
             .bulk_custom_actions()
             .map(|action| {
@@ -93,8 +65,6 @@ impl<M> Table<M> {
                 )
             })
             .collect();
-        // The form's own target is bulk delete's when it renders, so the
-        // confirm dialog's submit reaches it; otherwise the first action's.
         let bulk_action = match &delete_prefix {
             Some(prefix) => self.action_url(bulk_delete_url(prefix)),
             None => custom
@@ -103,12 +73,7 @@ impl<M> Table<M> {
                 .unwrap_or_default(),
         };
         let csrf = crate::csrf::current_token(cx);
-        // Stable ids so the dialog's confirm button can submit this form
-        // from inside the dialog.
         let bulk_form_id = chrome_dom_id(&prefix, "bulk-form");
-        // Destructive confirm: a batch is the one place a misclick costs many
-        // rows, so it asks first — the same alert dialog the row delete uses.
-        // It sits inside the bulk form, so its controls submit that form.
         let confirm = delete_prefix.as_ref().map(|_| {
             confirm_dialog(
                 cx,
@@ -138,11 +103,6 @@ impl<M> Table<M> {
                 .boxed()
             })
             .collect();
-        // No visible `ids` field: the transport is fed by the row
-        // checkboxes (`bulk.js`) and ships `,a,b,`-delimited. On a live
-        // table the selection lives in a signal instead, so a
-        // shard rerun re-renders the transport from the selection rather
-        // than dropping it.
         let transport_attrs = match signals {
             Some(signals) => {
                 let bulk = signals.bulk.clone();
@@ -191,9 +151,7 @@ impl<M> Table<M> {
         .boxed()
     }
 
-    /// The search toolbar (GET form); live tables instead render the host
-    /// input eagerly and the shard invocation in the streamed region (see
-    /// [`Self::render_live_search_bar`] / [`Self::render_live_invocation`]).
+    /// Render the search toolbar as a GET form.
     pub(super) async fn render_search_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -210,11 +168,7 @@ impl<M> Table<M> {
                 "asc".to_string()
             }
         });
-        // Pre-normalized by the render seams: `state.group_by` is
-        // the declared name or `None`, never an unknown value.
         let group_hidden = state.group_by.clone();
-        // Clear only renders when something survives the search term; every
-        // branch below projects the same URL, so one intent serves all three.
         let clear_url =
             (state.sort.is_some() || !state.filters.is_empty() || group_hidden.is_some())
                 .then(|| state.without_search(path));
@@ -265,20 +219,7 @@ impl<M> Table<M> {
         .boxed())
     }
 
-    /// Eager live-search input for live tables: the signal-backed
-    /// input plus the GET form as `<noscript>` fallback. Rendered eagerly
-    /// above the streamed region; the shard invocation that fills the table
-    /// lives in the streamed region (`Self::render_live_invocation`) so the
-    /// table can only ever render once per response.
-    ///
-    /// The visible input is deliberately unbound: typing stays
-    /// local until it pauses for `LIVE_SEARCH_DEBOUNCE_MS`, then
-    /// `assets/live-search.js` rewrites `q` in the hidden transport bound to
-    /// the `query` signal and drops the cursor (a new term is a new result
-    /// set). The shard re-renders in place.
-    ///
-    /// The panel's live list page (`panel::resource_list_live`) renders it
-    /// from the request's one normalized state.
+    /// Render the eager live-search input for live tables with the GET form as fallback.
     pub(crate) async fn render_live_search_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -289,9 +230,6 @@ impl<M> Table<M> {
         let fallback = self.render_search_bar(cx, state, path).await?;
         let q_display = state.search.clone().unwrap_or_default();
         let query = signals.query.clone();
-        // The query prefix a relation's parameters carry (`comments.`), so
-        // `live-search.js` rewrites the table's own `q` and cursor instead of
-        // the list's. Absent on a page-owned list, whose parameters are bare.
         let query_prefix = state.prefix.as_deref().map(|prefix| format!("{prefix}."));
         Ok(view! {
             cx =>
@@ -325,11 +263,7 @@ impl<M> Table<M> {
         .boxed())
     }
 
-    /// The `table_search` shard invocation filling a live table's streamed
-    /// region. The signal handles travel as arguments; every
-    /// tracked read inside the shard becomes a `dep` marker the browser
-    /// watches, so sort/filter/pager/search changes re-render the table in
-    /// place.
+    /// Render the `table_search` shard invocation filling a live table's streamed region.
     pub(crate) async fn render_live_invocation<'a>(
         &self,
         cx: &'a Cx,
@@ -338,8 +272,6 @@ impl<M> Table<M> {
     ) -> Result<BoxView<'a>> {
         use crate::panel::table_search;
 
-        // No snapshot here: grouping travels in the query (seeded from the
-        // request's query by the caller) and the shard normalizes on read.
         let live_path = path.to_string();
         let TableSignals { query, bulk } = signals;
         Ok(view! {
@@ -349,11 +281,7 @@ impl<M> Table<M> {
         .boxed())
     }
 
-    /// The `table_relation_search` shard invocation filling a live relation
-    /// table's streamed region. The signal handles travel as arguments; every
-    /// tracked read inside the shard becomes a `dep` marker the browser
-    /// watches, so sort/filter/pager/search changes re-render the table in
-    /// place.
+    /// Render the `table_relation_search` shard invocation filling a live relation table's streamed region.
     pub(crate) async fn render_live_relation_invocation<'a>(
         &self,
         cx: &'a Cx,
@@ -364,8 +292,6 @@ impl<M> Table<M> {
     ) -> Result<BoxView<'a>> {
         use crate::panel::table_relation_search;
 
-        // No snapshot here: grouping travels in the query (seeded from the
-        // request's query by the caller) and the shard normalizes on read.
         // Slugs never carry `/`, so the pair and the seed travel as one wire
         // arg, split off the front by the shard.
         let crate::panel::RelationRequest {

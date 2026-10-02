@@ -3,19 +3,7 @@
 
 use topcoat::{context::Cx, view::*};
 
-/// A form control a [`Field`](super::Field) renders through
-/// [`Field::custom`](super::Field::custom).
-///
-/// The field keeps what every field shares: its key, its label, the required
-/// rule, validation, the error slot, and the chrome around the control. The
-/// control renders the input itself, from a [`ControlInput`], and, on the
-/// detail page, the stored value.
-///
-/// The submission is read like any other field's: the form field named
-/// [`ControlInput::name`] is the value, last one wins. A control that submits
-/// nothing in some state (a checkbox left unchecked) renders a hidden field of
-/// the same name before it, carrying the value that state means, as
-/// [`Toggle`] does.
+/// Renders a field's input from a [`ControlInput`] and its stored value for display, using a hidden field for a state that submits nothing.
 ///
 /// ```ignore
 /// struct Color;
@@ -30,11 +18,9 @@ use topcoat::{context::Cx, view::*};
 /// Field::custom(Theme::fields().accent(), Color)
 /// ```
 pub trait Control: Send + Sync {
-    /// The input, named and identified by [`ControlInput::name`].
     fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a>;
 
-    /// The stored value as the detail page shows it. Defaults to the value as
-    /// text.
+    /// Shows the stored value, as text by default.
     fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
         let text = value.to_string();
         view! {
@@ -75,37 +61,26 @@ impl ControlInput {
         }
     }
 
-    /// The field's key: the control's `name` and `id`, which the field's
-    /// label points at.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// The value to show: the record's stored value on an edit, the
-    /// submission on a re-rendered form, `None` on an empty create.
     pub fn value(&self) -> Option<&str> {
         self.value.as_deref()
     }
 
-    /// Whether an empty submission fails validation.
     pub fn required(&self) -> bool {
         self.required
     }
 
-    /// Whether the field carries an error.
     pub fn invalid(&self) -> bool {
         self.invalid
     }
 
-    /// The id of the error message while the field carries one: the
-    /// control's `aria-describedby`.
     pub fn described_by(&self) -> Option<&str> {
         self.described_by.as_deref()
     }
 
-    /// The attributes a single input carries: `id`, `name`, `value`,
-    /// `required`, `aria-required`, `aria-invalid`, and `aria-describedby`
-    /// pointing at the error while there is one.
     pub fn attributes(&self, cx: &Cx) -> Attributes {
         let required = self.required;
         attributes! {
@@ -121,13 +96,7 @@ impl ControlInput {
     }
 }
 
-/// A checkbox over a `bool` field, built on [`Control`] alone:
-/// [`Field::toggle`](super::Field::toggle) declares one.
-///
-/// A hidden `false` precedes the checkbox under the same name, so an
-/// unchecked box submits `false` rather than nothing; a checked one submits
-/// `true` after it, and the last value wins. The detail page reads
-/// `"Yes"`/`"No"`.
+/// Renders a `bool` field as a checkbox preceded by a hidden `false`, displaying as `"Yes"`/`"No"`.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Toggle;
 

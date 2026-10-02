@@ -1,9 +1,4 @@
-//! The people who sign in to the panel: the showcase's own user table, with
-//! a seat in each blog (tenant) they work on.
-//!
-//! [`StaffAuth`] is the one [`Authenticator`] the panel installs. It loads a
-//! [`Staff`] row with its seats into a [`SignedStaff`], the panel's user
-//! type, which app code reads back with `auth::user::<SignedStaff>(cx)`.
+//! The people who sign in to the panel.
 
 use jiff::Timestamp;
 use tablo_core::{
@@ -30,8 +25,7 @@ pub struct Staff {
     pub created_at: Timestamp,
 }
 
-/// A blog: the showcase's tenant. Its id is the `tenant_id` every
-/// tenant-owned row carries.
+/// A blog: the showcase's tenant.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct Workspace {
     #[key]
@@ -80,7 +74,6 @@ impl PanelUser for SignedStaff {
 pub struct StaffAuth;
 
 impl StaffAuth {
-    /// `staff` with the workspaces they hold a seat in, ordered by name.
     async fn signed(cx: &Cx, staff: Staff) -> topcoat::Result<SignedStaff> {
         let mut db = tablo_core::db::db(cx);
         let seats: Vec<Uuid> = Seat::filter(Seat::fields().staff_id().eq(staff.id))
@@ -133,8 +126,7 @@ impl Authenticator for StaffAuth {
             .first()
             .exec(&mut db)
             .await?;
-        // A deactivated member of staff stops resolving: their sessions are
-        // purged and the next request redirects to login.
+        // Deactivated staff stop resolving.
         match staff.filter(|staff| staff.active) {
             Some(staff) => Ok(Some(Self::signed(cx, staff).await?)),
             None => Ok(None),
@@ -142,9 +134,7 @@ impl Authenticator for StaffAuth {
     }
 }
 
-/// Create an active member of staff with an Argon2id-hashed password and a
-/// seat in each of `workspaces`. Used by the showcase seed and the tenancy
-/// test fixtures.
+/// Creates an active member of staff with a seat in each of `workspaces`.
 pub async fn create_staff(
     db: &mut Db,
     email: &str,

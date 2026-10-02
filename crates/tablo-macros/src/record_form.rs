@@ -1,11 +1,4 @@
-//! `#[derive(RecordForm)]` — the typed value a resource's form writes.
-//!
-//! The derive binds each field by its ident: `M::fields().<ident>()` names the
-//! model field, so a field the model lacks is a rustc error at that ident, and
-//! a type assertion against the model's field refuses a mismatched type. A
-//! field is classified by `#[form(embed)]` (the shared `fields` module); a
-//! scalar's key is its resolved lens's, an embedded value's keys its schema's,
-//! never a name this derive spells.
+//! `#[derive(RecordForm)]` declares the typed value a resource's form writes.
 //!
 //! See `tablo-core`'s `form` module for the contract.
 
@@ -22,7 +15,6 @@ pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     }
 }
 
-/// One field as the derive reads it.
 struct FieldSpec {
     ident: syn::Ident,
     ty: Type,
@@ -35,8 +27,7 @@ struct FieldSpec {
     control: DefaultControl,
 }
 
-/// The control a field gets in the derived schema: chosen by the field's
-/// type and its `#[form(..)]` control key.
+/// The control a field gets in the derived schema.
 enum DefaultControl {
     /// A text field: any scalar without a control key.
     Text,
@@ -50,7 +41,6 @@ enum DefaultControl {
     Embed,
 }
 
-/// What `#[form(..)]` says on the struct.
 struct StructAttrs {
     model: syn::Path,
 }
@@ -202,8 +192,6 @@ fn expand_struct(
         let variant = &field.variant;
         let name_str = name.to_string();
         let name_str = name_str.trim_start_matches("r#");
-        // The field's path and key tokens, built once per field here; each
-        // generated fn resolves the key from them at run time.
         let path = quote! { <#model>::fields().#name() };
         let key = quote_spanned! {ty.span()=>
             #krate::__macro::ResolvedLens::<#model, #ty>::from(#path).name().to_string()
@@ -348,7 +336,7 @@ fn expand_struct(
         }
 
         impl #ident {
-            /// Every field's control, chosen from the field: a `bool` is a
+            /// Builds every field's control from the field: a `bool` is a
             /// toggle, `#[form(options = T)]` a choice over `T`'s options,
             /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
             /// `#[form(embed)]` the embedded value's schema, and any other
@@ -380,7 +368,6 @@ fn expand_struct(
                 cx: &#krate::__macro::Cx,
                 record: &#model,
             ) -> ::std::collections::HashMap<::std::string::String, ::std::string::String> {
-                // Each form field has the model field's type.
                 #(#asserts)*
                 let mut out = ::std::collections::HashMap::new();
                 #(#hydrates)*

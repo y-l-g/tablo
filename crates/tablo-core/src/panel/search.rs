@@ -1,7 +1,4 @@
-//! Live-search registry + shard dispatch.
-//!
-//! `#[shard]` inventory only discovers concrete fns, so each declared
-//! resource monomorphizes its table loader here, keyed by list path.
+//! Live-search registry and shard dispatch keyed by list path.
 
 use std::{future::Future, pin::Pin, sync::Arc};
 
@@ -31,11 +28,7 @@ use crate::{
     schema::FieldLens,
 };
 
-/// A monomorphized live-search table loader, one per declared resource.
-///
-/// `#[shard]` inventory only discovers concrete fns, so the single
-/// concrete [`table_search`] shard dispatches through this registry instead
-/// of going generic. Built by [`Panel::resource`], keyed by list path.
+/// Monomorphizes a resource's live-search table loader keyed by list path.
 pub(crate) type SearchFn = Arc<
     dyn for<'a> Fn(
             &'a Cx,
@@ -56,14 +49,7 @@ pub(crate) struct RelationRequest {
     pub(crate) read_only: bool,
 }
 
-/// A monomorphized live-search relation loader, one per declared relation.
-///
-/// Built by [`Relation::has_many`](crate::resource::Relation::has_many), which
-/// is the one site that names both the child resource and the typed foreign
-/// key, and keyed by `(parent slug, child slug)`. The seed travels as a string
-/// because shard arguments cross the browser; the handler parses it back
-/// through the key's [`FormScalar`] spelling, so a tampered seed that does not
-/// parse is refused rather than loaded.
+/// Monomorphizes a relation's live-search loader keyed by (parent slug, child slug).
 pub(crate) type RelationSearchFn = Arc<
     dyn for<'a> Fn(
             &'a Cx,
@@ -74,15 +60,7 @@ pub(crate) type RelationSearchFn = Arc<
         + Sync,
 >;
 
-/// Monomorphize `R`'s table loader into a [`SearchFn`]: tenancy + policy gate,
-/// then the same load + render the streamed list uses.
-///
-/// The table catches its own load errors: a tampered cursor in the query
-/// fails to decode inside the shard invocation, and the invocation must render
-/// the branded in-region `ErrorState` + retry link (via
-/// `super::list::table_error_view`, same as the streamed list) instead of
-/// erroring the shard. Auth/tenancy/policy failures still propagate — they
-/// are not table evidence.
+/// Monomorphizes `R`'s table loader into a [`SearchFn`].
 pub(crate) fn search_handler_for<R: Resource>() -> SearchFn {
     Arc::new(
         |cx: &Cx,
@@ -95,16 +73,10 @@ pub(crate) fn search_handler_for<R: Resource>() -> SearchFn {
                     return Err(forbidden().into());
                 }
                 let table = wire_table_actions::<R>(cx, true);
-                // The GET path's parser over the client-owned query, then one
-                // normalization: an unknown `group_by` must not echo
-                // through the retry link. The live page renders the delete
-                // dialog outside the swapped region, so the shard drops it.
                 let mut state = TableState::from_query(&signals.query.get());
                 state.delete = None;
                 state.open = None;
                 let state = table.normalize_state(&state);
-                // The retry link inside a failed table writes the same query
-                // signal the controls do, so keep a handle for it.
                 let retry_signals = signals.clone();
                 let rendered = async {
                     let page = load_table_page::<R>(cx, &table, &state).await?;
@@ -125,17 +97,7 @@ pub(crate) fn search_handler_for<R: Resource>() -> SearchFn {
     )
 }
 
-/// Monomorphize `C`'s relation loader over the typed foreign key into a
-/// [`RelationSearchFn`]: tenancy + policy gate, then the same scoped load +
-/// live render the streamed relation uses.
-///
-/// `read_only` selects the row chrome, exactly as the page does: a tampered
-/// flag only changes which links render, never what the routes answer — every
-/// write route re-checks its own policy. `page` must sit under the panel
-/// prefix, like every page the panel serves; anything else is refused rather
-/// than reflected into the table's links. The scope narrows the child rows to
-/// the owner, so the output is a subset of what `C`'s list serves the same
-/// caller — a tampered seed discloses no row the list hides.
+/// Monomorphizes `C`'s relation loader over the typed foreign key into a [`RelationSearchFn`].
 pub(crate) fn relation_search_handler_for<C: Resource, T>(
     foreign_key: FieldLens<C::Model, T>,
 ) -> RelationSearchFn
@@ -166,17 +128,11 @@ where
                 let scope = foreign_key.eq(owner);
                 let chrome = super::relations::relation_chrome::<C>(cx, ctx.read_only);
                 let table = super::list::wire_table::<C>(cx, true, chrome);
-                // The GET path's prefixed parser over the client-owned query,
-                // then one normalization: an unknown `group_by` must not echo
-                // through the retry link. The page renders the delete dialog
-                // outside the swapped region, so the shard drops it.
                 let mut state = TableState::from_query_prefixed(&signals.query.get(), &C::slug());
                 state.delete = None;
                 state.open = None;
                 let state = table.normalize_state(&state);
                 let table = table.returning_to(state.list_url(&ctx.page));
-                // The retry link inside a failed table writes the same query
-                // signal the controls do, so keep a handle for it.
                 let retry_signals = signals.clone();
                 let rendered = async {
                     let rows =
@@ -200,10 +156,7 @@ where
     )
 }
 
-/// Resolve the registered live-search handler for `path`, answering the gate
-/// first (defense in depth): the registry lookup runs only for an
-/// authenticated request, so an unknown `path` cannot be distinguished from a
-/// registered one by an unauthenticated probe (404-vs-401 oracle).
+/// Resolves the live-search handler for `path`, answering the gate before the registry lookup.
 fn search_entry(cx: &Cx, path: &str) -> Result<SearchFn> {
     crate::auth::guard(cx)?;
     current(cx)
@@ -211,20 +164,7 @@ fn search_entry(cx: &Cx, path: &str) -> Result<SearchFn> {
         .ok_or_else(|| topcoat::router::error::not_found().into())
 }
 
-/// Live table interactions: re-renders one resource's table as its signals
-/// change, morphing in place per Topcoat #392 (focus, scroll and typing
-/// survive; rows carry stable `id`s).
-///
-/// The shard owns no state: the page creates the signals ([`TableSignals`]),
-/// renders its controls against them, and passes their handles here. Search,
-/// sort, filters and pagination all write the `query` signal, so one
-/// dependency re-renders the table without a navigation or a scroll jump.
-///
-/// Every arg is untrusted shard input: `path` must name a registered list, and
-/// the query is parsed by [`TableState::from_query`] with the GET path's
-/// bounds. Authorization mirrors the list page (the resource's tenancy +
-/// `ViewAny`, row scoping via the tenant-scoped query); shard POSTs carry
-/// no CSRF token, and none is needed for this read-only rerun.
+/// Re-renders one resource's table as its signals change (Topcoat #392).
 #[shard("/_topcoat/runtime/shards/tablo-table-search")]
 pub(crate) async fn table_search(
     cx: &Cx,
@@ -236,24 +176,10 @@ pub(crate) async fn table_search(
     entry(cx, path, TableSignals { query, bulk }).await
 }
 
-/// The endpoint [`table_search`] is served at.
-///
-/// A shard that declares no path is served at a build-random one (topcoat#441);
-/// naming it keeps the endpoint stable across builds and legible in logs and
-/// tests. The `/tablo-` prefix separates it from a generated path, and the
-/// whole path stays under `/_topcoat/runtime`, so the panel's auth gate covers
-/// the shard and an unauthenticated rerun answers 401 rather than redirecting to
-/// the login page.
-///
-/// The literal in [`table_search`]'s attribute is the same path;
-/// `table_search_endpoint_is_the_named_path` pins the two together.
+/// Names the [`table_search`] endpoint (topcoat#441) under `/_topcoat/runtime` so the panel's auth gate covers it.
 pub(crate) const TABLE_SEARCH_PATH: &str = "/_topcoat/runtime/shards/tablo-table-search";
 
-/// Resolve the registered live-search relation handler for the
-/// (`parent`, `child`) pair, answering the gate first (defense in depth):
-/// the registry lookup runs only for an authenticated request, so an unknown
-/// pair cannot be distinguished from a registered one by an unauthenticated
-/// probe (404-vs-401 oracle).
+/// Resolves the relation handler for (`parent`, `child`), answering the gate before the registry lookup.
 fn relation_entry(cx: &Cx, parent: &str, child: &str) -> Result<RelationSearchFn> {
     crate::auth::guard(cx)?;
     current(cx)
@@ -266,24 +192,7 @@ fn relation_entry(cx: &Cx, parent: &str, child: &str) -> Result<RelationSearchFn
         .ok_or_else(|| topcoat::router::error::not_found().into())
 }
 
-/// Live relation-table interactions: re-renders one record page's relation
-/// table as its signals change, morphing in place per Topcoat #392 (focus,
-/// scroll and typing survive; rows carry stable `id`s).
-///
-/// The shard owns no state: the page creates the signals ([`TableSignals`])
-/// keyed by page and relation key, renders the search and filter bars against
-/// them above the swapped region, and passes their handles here. Search, sort,
-/// filters and pagination all write the `query` signal, so one dependency
-/// re-renders the table without a navigation or a scroll jump.
-///
-/// Every arg is untrusted shard input: `scope` must name a registered
-/// (`parent`, `child`) pair and the owner's seed as `{parent}/{child}/{seed}`,
-/// `page` must sit under the panel prefix, and the query is parsed by
-/// [`TableState::from_query_prefixed`] with the GET path's bounds.
-/// Authorization mirrors the relation table (the related resource's tenancy +
-/// `ViewAny`, row scoping via the tenant-scoped query plus the owner's
-/// scope); shard POSTs carry no CSRF token, and none is needed for this
-/// read-only rerun.
+/// Re-renders one record page's relation table as its signals change (Topcoat #392).
 #[shard("/_topcoat/runtime/shards/tablo-table-relation-search")]
 pub(crate) async fn table_relation_search(
     cx: &Cx,
@@ -293,9 +202,7 @@ pub(crate) async fn table_relation_search(
     query: topcoat::runtime::Signal<String>,
     bulk: topcoat::runtime::Signal<String>,
 ) -> Result<impl View> {
-    // Slugs never carry `/` (the panel refuses them at registration), so the
-    // pair splits off the front and the seed keeps the rest, slashes
-    // included; anything else misses the registry as 404.
+    // Slugs never carry `/`, so the pair splits off the front and the seed keeps the rest.
     let mut parts = scope.splitn(3, '/');
     let (parent, child, seed) = (
         parts.next().unwrap_or_default(),
@@ -315,29 +222,14 @@ pub(crate) async fn table_relation_search(
     .await
 }
 
-/// The endpoint [`table_relation_search`] is served at.
-///
-/// The same stability and gate coverage contract as
-/// [`TABLE_SEARCH_PATH`](self::TABLE_SEARCH_PATH): the literal in
-/// [`table_relation_search`]'s attribute is the same path;
-/// `table_relation_search_endpoint_is_the_named_path` pins the two together.
+/// Names the [`table_relation_search`] endpoint with the same stability and gate coverage as [`TABLE_SEARCH_PATH`].
 pub(crate) const TABLE_RELATION_SEARCH_PATH: &str =
     "/_topcoat/runtime/shards/tablo-table-relation-search";
 
-/// The largest shard request [`ShardPanel`] reads: arguments and signal
-/// values, a list path and a query string each, far below it.
+/// Bounds the shard request [`ShardPanel`] reads.
 const MAX_SHARD_BYTES: usize = 64 * 1024;
 
 /// Puts the panel a live table's shard re-renders for on the request.
-///
-/// A shard is served at one runtime path for every panel, so no panel's
-/// prefix layer runs for its re-render. The page names the panel in the
-/// shard's arguments — the list path [`table_search`] takes, the record page
-/// [`table_relation_search`] takes — and this layer reads that argument from
-/// the body Topcoat's runtime posts (`{"args": [..], ..}`), finds the panel
-/// serving it, and hands the request on with that panel and the same bytes.
-/// An argument no panel serves leaves the request as it came, and the shard's
-/// registry lookup answers 404.
 pub(crate) struct ShardPanel {
     path: PathBuf,
     /// The index of the argument holding a path under the panel's prefix.

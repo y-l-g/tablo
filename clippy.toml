@@ -1,5 +1,2 @@
-# The `too_many_lines` lint reads its budget here: the `[lints.clippy]` table in
-# `Cargo.toml` cannot express a threshold, so this file carries it. Functions
-# longer than this fail `cargo clippy --workspace --all-targets` (gate 2);
-# a longer function needs a phase-split issue, not a wider budget.
+# The lints table cannot express a threshold, so the budget lives here.
 too-many-lines-threshold = 300

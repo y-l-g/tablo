@@ -33,7 +33,7 @@ use crate::{
     schema::{DeclCx, Schema},
 };
 
-/// Mount a [`Panel`] on a router the app owns.
+/// Mounts a [`Panel`] on a router the app owns.
 ///
 /// ```ignore
 /// use tablo::prelude::*;
@@ -47,34 +47,7 @@ use crate::{
 ///     .build();
 /// ```
 pub trait RouterBuilderPanelExt: Sized {
-    /// Mount `panel` at its prefix: its resources' and pages' routes, its
-    /// shell layout, its login and logout routes, and the layers that gate,
-    /// size-limit and harden every request under the prefix.
-    ///
-    /// The router must already hold the `Db` (`.app_context(db)`) and, when
-    /// the panel links [`shell_assets`](Panel::shell_assets), the asset bundle
-    /// (`.assets(..)`). The first panel mounted also installs what every panel
-    /// shares: cookies, sessions unless the router already configures them,
-    /// the gate over Topcoat's runtime endpoints with the shard dispatch, and
-    /// the runtime layer with prefetching off unless the router already set
-    /// those up. The runtime
-    /// layer has no path, so mount panels after the app's own pathless layers:
-    /// a page re-run must reach them already rewritten to a `GET`.
-    ///
-    /// Each panel checks its resources' declarations here, so the handlers
-    /// serve exactly the values checked.
-    ///
-    /// # Errors
-    ///
-    /// Reports what the declarative builders could only record, and what
-    /// only the router can answer: a resource or page slug that is malformed,
-    /// reserved or already held, a second home page, a malformed prefix or one
-    /// that overlaps another panel's or Topcoat's runtime endpoints, a
-    /// relation to a resource the panel does not register, a misdeclared
-    /// resource, a missing `Db`, a `Db` missing the shipped auth models, or
-    /// `shell_assets` without an asset bundle.
-    /// Configuring a panel wrong is a boot failure, not a request-time panic,
-    /// so it comes back as an error the caller can log or exit on.
+    /// Mounts `panel` at its prefix with its routes, shell layout, and gating layers.
     fn panel(self, panel: Panel) -> Result<Self>;
 }
 
@@ -97,11 +70,6 @@ impl Panel {
                     .to_string(),
             ])
         })?;
-        // Declaration checks: a resource whose table or form could never
-        // render is a configuration error, and the declaration is knowable
-        // here — waiting for the first request only moves the failure
-        // somewhere less useful. Each check builds the resource's declarations
-        // once and keeps them: the handlers serve exactly the values checked.
         let mut declarations = Declarations::default();
         if !self.resource_checks.is_empty() {
             let cx = validation_cx(&db);
@@ -164,24 +132,14 @@ impl Panel {
             urls,
         });
         let prefix_path = route_path(&prefix);
-        // Form bodies (urlencoded buffered, multipart streamed) share one
-        // cap: without this layer Topcoat's 2 MiB default would 413 uploads
-        // the framework otherwise accepts.
         builder =
             builder.layer(topcoat::router::BodyLimit::max(MAX_FORM_BYTES).at(prefix_path.clone()));
-        // Clickjacking hardening: a response anyone can frame is a threat on
-        // every deployment, so the panel ships the directive itself and apps
-        // that need framing opt out (or supply their own policy, which wins —
-        // the layer only fills the gap).
         if let Some(directive) = frame_ancestors {
             builder = builder.layer(headers::FrameAncestors::new(directive, prefix.clone()));
         }
-        // Registered last of the prefix's layers, so it runs first: every
-        // other layer and handler under the prefix sees the panel.
+        // Registered last of the prefix's layers, so it runs first.
         builder = builder.layer(PanelGate::new(Arc::clone(&state)));
-        // Auth (ADR-0013): the login, logout and tenant-switch routes. A credential POST
-        // carries no upload, so the login route gets its own cap, scoped by
-        // path so it wins over the panel's form cap.
+        // The login route carries its own cap scoped by path.
         if state.gates() {
             let login_path = route_path(&format!("{prefix}/login"));
             let logout_path = route_path(&format!("{prefix}/logout"));
@@ -217,9 +175,6 @@ impl Panel {
             layout.unwrap_or(Panel::layout_shell),
         ));
         for (path, dir) in served_dirs {
-            // Files the panel serves share the app's origin, so each directory
-            // route is wrapped in the hardening layer that makes them inert.
-            // The same path scopes the layer to that route only.
             builder = builder
                 .layer(headers::ServedFileHeaders::new(&path))
                 .serve_dir(route_path(&path), dir);
@@ -230,9 +185,6 @@ impl Panel {
         for route in routes {
             builder = builder.route(route);
         }
-        // Without a home page, the prefix serves a redirect to the first
-        // resource's list so the mount point is never a dead URL; a home page
-        // registered its own route at the prefix.
         if root_redirect.is_some() {
             builder = builder.route(RouteFn::new(
                 http::Method::GET,
@@ -311,10 +263,7 @@ impl Panel {
     }
 }
 
-/// What every panel on a router shares, installed by the first one mounted:
-/// cookies and sessions, the gate over Topcoat's runtime endpoints and the
-/// layers that tell a live table's shard which panel it re-renders for, the
-/// runtime layer, and the [`Panels`] registry.
+/// Installs what every panel on a router shares.
 fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     builder = builder.cookies();
     if builder.get_app_context::<SessionConfig>().is_none() {
@@ -325,11 +274,7 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .layer(ShardPanel::new(TABLE_SEARCH_PATH, 0))
         .layer(ShardPanel::new(TABLE_RELATION_SEARCH_PATH, 1))
         .app_context(Panels::default());
-    // The runtime layer has no path: it runs outside every layer with one, so
-    // a page re-run reaches the panel's layers already rewritten to a `GET`.
-    // Panel links navigate through it without prefetching: a prefetch renders
-    // the destination, list queries included, for a page the user may never
-    // open.
+    // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten to a `GET`.
     if builder.get_app_context::<RuntimeSetup>().is_none() {
         builder = builder.runtime();
     }
@@ -339,14 +284,10 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     builder
 }
 
-/// The panel root of a panel with no [`home`](Panel::home) page: a temporary
-/// redirect to the first declared resource's list, so the mount point is never
-/// a dead URL.
+/// Redirects the panel root of a panel with no [`home`](Panel::home) page to the first declared resource's list.
 pub(crate) fn panel_root_redirect(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        // Defense in depth: every panel handler re-checks the
-        // resolved user, so a missing or mis-mounted gate cannot leak the
-        // first resource's slug via the redirect target.
+        // Re-checks the resolved user so a mis-mounted gate cannot leak the slug.
         crate::auth::guard(cx)?;
         let target = current(cx)
             .and_then(|panel| panel.root_redirect.clone())
@@ -355,16 +296,7 @@ pub(crate) fn panel_root_redirect(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     })
 }
 
-/// Whether a path is a route pattern ending in a catch-all, which is the only
-/// shape [`DirectoryRoute`](topcoat::router::DirectoryRoute) accepts.
-///
-/// Checked where the path is declared rather than where it is used: upstream
-/// `serve_dir` panics on anything else, and mounting a panel reports instead
-/// of panicking — but the path comes from the app, and it would panic first
-/// in [`route_path`] (which refuses to spell a route it cannot parse) and then
-/// inside `DirectoryRoute::new` (which needs the catch-all last). Asking both
-/// conditions here turns a typo into a mount error instead of a panic during
-/// the mount.
+/// Reports whether `path` is a route pattern ending in a catch-all.
 pub(super) fn is_directory_pattern(path: &str) -> bool {
     Path::from_str(path)
         .ok()
@@ -372,22 +304,7 @@ pub(super) fn is_directory_pattern(path: &str) -> bool {
         .is_some_and(|segment| segment.as_catch_all().is_some())
 }
 
-/// Validate one path segment a panel derives routes from: a resource's or a
-/// page's `slug()`, or a segment of the panel prefix.
-///
-/// Both reach a route path and, through the panel, a response body. A hostile
-/// value — quote, backslash, CR/LF, `..`, slash, URL punctuation, a route
-/// pattern character — must fail at registration rather than at request time,
-/// so this is the export filename sanitizer's rule tightened to what a URL
-/// segment can be: the export drops the offending characters because it must
-/// still produce a download, while a route has no meaningful fallback.
-///
-/// The route pattern characters that a literal segment cannot carry (`{`, `}`,
-/// `(`, `)`) are rejected rather than escaped: `Path::from_str` treats
-/// `{`/`(` as the start of a parameter or group segment, so a balanced pair
-/// silently becomes a pattern and an unbalanced one panics [`route_path`]. `*`
-/// stays accepted — it is a literal in a static segment — and the catch-all
-/// spelling `{*name}` needs the `{` this rule already refuses.
+/// Validates one path segment a panel derives routes from, refusing anything that cannot serve as a literal URL segment.
 pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), String> {
     if segment.is_empty() {
         return Err(format!("{kind}: path segment must not be empty"));
@@ -417,30 +334,12 @@ pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), St
 /// app's values and no request.
 pub(super) type ResourceCheck = fn(&Cx, &DeclCx, &mut Declarations) -> Result<(), String>;
 
-/// What a declared resource must be able to promise before the panel serves it.
-///
-/// The trait defaults every method but `table`, so a resource that overrides
-/// nothing else compiles and only fails when a user reaches the page that needs
-/// the missing piece. The essentials that are *declarations* are checked here,
-/// at build, and reported with the resource's type name: a
-/// [`Tenancy::column`](crate::Tenancy::column) lens that names a field of the
-/// model, what the table, the form and the view record as
-/// misdeclared ([`Table::declaration_errors`](crate::Table::declaration_errors),
-/// [`Schema::declaration_errors`]), the custom actions' names, and the
-/// agreement between the resource's `Form` and its `form()` schema
-/// ([`check_form_declaration`]). Runtime essentials (the record fns) keep their
-/// loud failure.
-///
-/// The declarations are built once, here, and handed back for the panel to
-/// serve: a request reads the values this check saw.
+/// Checks what a declared resource promises before the panel serves it, building its declarations once for handlers to serve.
 pub(super) fn check_resource<R: Resource>(
     cx: &Cx,
     dx: &DeclCx,
     declarations: &mut Declarations,
 ) -> Result<(), String> {
-    // A tenant column that is not one field of the model would filter on, and
-    // stamp, nothing: checked first because the tenancy governs every handler
-    // this resource registers.
     if let Some(Err(error)) = R::tenancy().column_field() {
         return Err(format!(
             "resource `{}`'s `Tenancy::column` lens binds no column of `{}`: {error} — name a \
@@ -449,8 +348,6 @@ pub(super) fn check_resource<R: Resource>(
             std::any::type_name::<R::Model>(),
         ));
     }
-    // A `via` over the model's own column stamps nothing, so creates would
-    // fail or orphan: that shape is `column`.
     if R::tenancy().via_is_single() == Some(true) {
         return Err(format!(
             "resource `{}`'s `Tenancy::via` lens names one field of `{}` — use `Tenancy::column` \
@@ -505,10 +402,7 @@ fn check_actions<R: Resource>() -> Result<(), String> {
     Ok(())
 }
 
-/// A resource with a record form declares its schema and runs
-/// [`check_form_inner`]. A resource whose form serves no pages
-/// ([`RecordForm::HAS_FORM`] false) declares no schema, and a policy that
-/// allows create would link to a page that does not exist.
+/// Checks a resource's form declaration against its record form.
 fn check_form_declaration<R: Resource>(
     cx: &Cx,
     dx: &DeclCx,
@@ -517,8 +411,6 @@ fn check_form_declaration<R: Resource>(
     let resource = std::any::type_name::<R>();
     let form = std::any::type_name::<R::Form>();
     if <R::Form as RecordForm>::HAS_FORM {
-        // A form with fields and an empty schema renders nothing to fill in;
-        // the key check below would only name the first field.
         if declared.form.is_empty() && !<R::Form as RecordForm>::fields(dx).is_empty() {
             return Err(format!(
                 "resource `{resource}` names record form `{form}`, but its `form()` declares no \
@@ -546,8 +438,6 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
     let resource = std::any::type_name::<R>();
     let fields = <R::Form as RecordForm>::fields(dx);
     let controls = form.controls();
-    // Key agreement, reported control-first: a control no field binds is the
-    // direction that drops what the user typed.
     for control in &controls {
         let claims = fields
             .iter()
@@ -577,11 +467,7 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
                 ));
             }
         }
-        // Blank agreement: an empty submission must resolve wherever the
-        // schema lets one through. The discriminant is not asked — an empty one
-        // reaches the read's fallback — and a variant group's payload only
-        // where the group sits inside a `Repeater`, whose all-empty group skips
-        // requiredness while the parse still reads the payload.
+        // An empty submission resolves wherever the schema lets one through.
         if field.answers_blank {
             continue;
         }
@@ -603,8 +489,7 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
             ));
         }
     }
-    // Tenant ownership: the framework stamps a scoped resource's tenant column
-    // on create; a form that claimed it would let the client choose.
+    // The framework stamps the tenant column on create.
     if let Some(column) = tenant_column::<R>()
         && let Some(field) = fields.iter().find(|field| field.keys.contains(&column))
     {
@@ -614,8 +499,6 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
             field.name
         ));
     }
-    // A `via` resource writes its parent key through the form, so without a
-    // relationship field nothing re-checks it inside the write.
     if R::tenancy().via_is_single() == Some(false)
         && !form.fields().any(|field| {
             field
@@ -628,22 +511,9 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
              field — declare the parent key as a relationship field over the parent's resource"
         ));
     }
-    // Column coverage: a create that leaves a non-nullable column unset fails
-    // at the driver on every submit, with no field to point the user at.
     if can::<R>(cx, Ability::Create) {
         check_create_columns::<R>(&fields)?;
     }
-    // `.unique()` is a promise the panel makes and the database has to keep
-    // (item 3): the marker turns the app-side pre-check on, so a field
-    // whose column carries no unique index makes the panel enforce a rule
-    // nothing else does — a duplicate the check lets through, or a rule the
-    // database never asked for. The declaration checks are the only place both
-    // halves are reachable without a request, so the pair is refused here
-    // rather than discovered by a user. It is checked whatever the policies say:
-    // a `unique()` marker is wrong on a form the panel would not even serve.
-    // `lens_field_unique` recognizes composite indexes too, which is what makes
-    // `#[unique(tenant_id, email)]` — the tenant-scoped arrangement the panel
-    // documents — pass.
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
     for field in form.fields().filter(|field| field.is_unique()) {
@@ -667,8 +537,7 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
     Ok(())
 }
 
-/// The name of `R`'s own tenant column, which the framework stamps on create:
-/// a [`Tenancy::column`](crate::Tenancy::column) that binds one.
+/// Names `R`'s own tenant column.
 fn tenant_column<R: Resource>() -> Option<String> {
     R::tenancy()
         .column_field()
@@ -676,9 +545,7 @@ fn tenant_column<R: Resource>() -> Option<String> {
         .map(|field| field.name.clone())
 }
 
-/// Every non-nullable column a create must set is set by something: the
-/// record form, toasty (`#[auto]`, `#[default(..)]`), the tenant stamp, or the
-/// resource's own `CREATE_COLUMNS`.
+/// Checks that every non-nullable column a create needs has a writer.
 fn check_create_columns<R: Resource>(
     fields: &[crate::form::FormField<<R::Form as RecordForm>::Field>],
 ) -> Result<(), String> {
@@ -729,19 +596,14 @@ fn check_create_columns<R: Resource>(
     Ok(())
 }
 
-/// A context for the build-time declaration checks: the app's own values, no
-/// request. Resources must be able to describe their table and form from this
-/// — that they cannot read a request here is the contract, not a limitation.
+/// Builds the context for the build-time declaration checks from the app's values with no request.
 fn validation_cx(db: &Db) -> Cx {
     let mut app_context = topcoat::context::AppContext::new();
     app_context.insert(db.clone());
     Cx::new(std::sync::Arc::new(app_context))
 }
 
-/// Parse a panel route path, panicking on malformed input — the paths are
-/// built from the panel prefix and a resource or page slug, both validated at
-/// registration ([`validate_route_segment`]), so a malformed path here is a
-/// framework bug rather than user input.
+/// Parses a panel route path, panicking on malformed input.
 pub(crate) fn route_path(path: &str) -> topcoat::router::PathBuf {
     Path::from_str(path)
         .expect("panel route paths are well-formed")

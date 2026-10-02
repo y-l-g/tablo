@@ -12,14 +12,7 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// The zero-rows cell, a [`tablo_ui::empty_state`] — one honest message, not two: "no records
-    /// yet" when unfiltered, "no results" with a Clear link when a search is
-    /// active. Wrapped in a single cell spanning the table so it sits inside
-    /// the table. For live tables (`signals`) the back link writes its own
-    /// query in place, and the clear link is cleared by the script that owns
-    /// the hoisted control it names (`data-search-clear`, `live-search.js`;
-    /// `data-filters-clear`, `filters.js`), so that control and the query
-    /// agree; `href` stays the fallback.
+    /// Render the zero-rows cell spanning the table, with clear and back-to-first-page links when filtered.
     pub(super) async fn render_empty_cell<'a>(
         &self,
         cx: &'a Cx,
@@ -40,10 +33,6 @@ impl<M> Table<M> {
             colspan += 1;
         }
         let filtered = state.search.is_some() || !state.filters.is_empty();
-        // Clear only the dimension the link names and keep the rest of the
-        // state (follow-up): the URL is rebuilt from the full state, so
-        // `group_by` survives, and a "Clear search" link leaves the filters
-        // alone.
         let clear_url = filtered.then(|| {
             if state.search.is_some() {
                 state.without_search(path)
@@ -51,8 +40,6 @@ impl<M> Table<M> {
                 state.without_filters(path)
             }
         });
-        // Search matches anywhere in the value, so the empty copy
-        // says "matches", not "prefix matches".
         let message = match &state.search {
             Some(term) => format!("No matches for \u{201c}{term}\u{201d}"),
             None if !state.filters.is_empty() => "No results for these filters".to_string(),
@@ -64,14 +51,7 @@ impl<M> Table<M> {
         } else {
             "Clear filters"
         };
-        // Void window: a cursor that lands past the last row (e.g.
-        // rows deleted under pagination) leaves an empty page with no pager —
-        // link back to the first page instead of a dead end. State is
-        // preserved, only the cursor is dropped.
         let first_page_url = state.cursor.is_some().then(|| state.without_cursor(path));
-        // A clear link written in place would leave the hoisted control
-        // showing the value it cleared, so its script clears both; without a
-        // live control on the page the link navigates.
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
             let attrs = attributes! {
                 cx =>

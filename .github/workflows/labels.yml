@@ -1,9 +1,6 @@
 name: Sync labels
 
-# `.github/labels.yml` is the source of truth for repository labels
-# (see `docs/dev/LABELS.md` for the scheme). Update that file — not the
-# GitHub UI — when adding or changing labels.
-# Modeled on tokio-rs/toasty's labels workflow.
+# `.github/labels.yml` is the source of truth; update that file, not the GitHub UI.
 
 on:
   push:

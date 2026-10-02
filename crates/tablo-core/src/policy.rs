@@ -19,28 +19,20 @@ use topcoat::context::Cx;
 
 use crate::resource::Resource;
 
-/// One thing a policy is asked to allow.
-///
-/// The record-free abilities decide what a page offers before any row loads;
-/// the record abilities are asked once per loaded row. The panel asks
-/// [`DeleteAny`](Self::DeleteAny) before [`Delete`](Self::Delete), and
-/// [`View`](Self::View) together with [`Update`](Self::Update) and
-/// [`Delete`](Self::Delete), so a record that cannot be viewed cannot be
-/// written by guessing its key.
+/// One thing a policy is asked to allow; record abilities are asked once per
+/// loaded row, and a record that cannot be viewed cannot be written by guessing
+/// its key.
 #[derive(Debug)]
 pub enum Ability<'a, M> {
-    /// Open the list, export it, and offer the records as relationship
-    /// options. Asked before any row loads, so it cannot read one.
+    /// Open the list, export it, and offer the records as relationship options.
     ViewAny,
-    /// See one record: its detail and edit pages, its export row, its
-    /// relationship option, its row actions.
+    /// See one record.
     View(&'a M),
     /// Open the create form and submit it.
     Create,
     /// Edit one record.
     Update(&'a M),
-    /// Delete at all: decides whether the list renders the delete controls,
-    /// and gates the delete routes before any record loads.
+    /// Delete at all.
     DeleteAny,
     /// Delete one record.
     Delete(&'a M),
@@ -55,7 +47,7 @@ impl<M> Clone for Ability<'_, M> {
 impl<M> Copy for Ability<'_, M> {}
 
 impl<'a, M> Ability<'a, M> {
-    /// The record the ability is asked about, when it names one.
+    /// The record the ability names, if any.
     pub fn record(self) -> Option<&'a M> {
         match self {
             Self::View(record) | Self::Update(record) | Self::Delete(record) => Some(record),
@@ -63,8 +55,7 @@ impl<'a, M> Ability<'a, M> {
         }
     }
 
-    /// Whether the ability only reads: [`ViewAny`](Self::ViewAny) or
-    /// [`View`](Self::View).
+    /// Whether the ability only reads.
     pub fn is_read(self) -> bool {
         matches!(self, Self::ViewAny | Self::View(_))
     }
@@ -72,27 +63,22 @@ impl<'a, M> Ability<'a, M> {
 
 /// Decides which [`Ability`]s the current user has over a resource's records.
 ///
-/// A closure `|cx: &Cx, ability: Ability<'_, M>| -> bool` is a policy, so a
-/// resource with one rule per ability matches on the ability. The building
-/// blocks in this module combine with their `and` and `or` methods; they are
-/// inherent rather than trait methods because a block such as [`Allow`] is a
-/// policy over every model, and a trait method would leave the model to
-/// infer.
+/// A closure `|cx: &Cx, ability: Ability<'_, M>| -> bool` is a policy, and the
+/// building blocks combine with `and` and `or`.
 pub trait Policy<M>: Send + Sync + 'static {
     /// Whether the current user may do `ability`.
     fn allows(&self, cx: &Cx, ability: Ability<'_, M>) -> bool;
 }
 
-/// `and` and `or` on a building block.
 macro_rules! combinators {
     ($($ty:ident $(<$($param:ident),+>)?),+ $(,)?) => {$(
         impl$(<$($param),+>)? $ty$(<$($param),+>)? {
-            /// A policy that allows what both `self` and `other` allow.
+            /// Allows what both `self` and `other` allow.
             pub fn and<P>(self, other: P) -> And<Self, P> {
                 And(self, other)
             }
 
-            /// A policy that allows what either `self` or `other` allows.
+            /// Allows what either `self` or `other` allows.
             pub fn or<P>(self, other: P) -> Or<Self, P> {
                 Or(self, other)
             }
@@ -141,10 +127,7 @@ impl<M> Policy<M> for ReadOnly {
     }
 }
 
-/// A policy that allows every ability while `predicate` holds for the request.
-///
-/// The building block for a rule about the request rather than a record —
-/// the user, the tenant — which applies to every ability alike:
+/// Allows every ability while `predicate` holds for the request.
 ///
 /// ```ignore
 /// fn editor(cx: &Cx) -> bool {
@@ -193,21 +176,14 @@ impl<M, A: Policy<M>, B: Policy<M>> Policy<M> for Or<A, B> {
     }
 }
 
-/// Whether `R`'s policy allows `ability` for the current request.
-///
-/// The question every panel handler asks, for app code that renders or writes
-/// `R`'s records itself. It does not check the panel's sign-in or `R`'s tenant
-/// requirement: [`can_list`] adds both for the list.
+/// Whether `R`'s policy allows `ability`; does not check sign-in or tenant
+/// scope.
 pub fn can<R: Resource>(cx: &Cx, ability: Ability<'_, R::Model>) -> bool {
     R::policy().allows(cx, ability)
 }
 
-/// Whether the current request may open `R`'s list: the panel's sign-in when
-/// it requires one, a tenant when `R` is tenant-scoped, and
+/// Whether the current request may open `R`'s list: sign-in, tenant scope, and
 /// [`Ability::ViewAny`].
-///
-/// The list handler refuses exactly what this refuses, so a page that links to
-/// a list — a dashboard tile — checks this rather than restating the three.
 pub fn can_list<R: Resource>(cx: &Cx) -> bool {
     crate::panel::gate::gate::<R>(cx).is_ok() && can::<R>(cx, Ability::ViewAny)
 }

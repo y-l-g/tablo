@@ -1,19 +1,5 @@
 //! The live feed: a Topcoat shard whose WebSocket connection keeps every open
 //! page current.
-//!
-//! The page renders `live_feed`, a shard, so a write re-renders the list
-//! without touching the page around it. The shard's body is a `live!` region
-//! that calls `connected`: during the HTTP render it emits the newest users and
-//! finishes, and the browser then opens a WebSocket and renders the shard
-//! again. On that render the body emits the current rows and waits on the
-//! board's wake channel, re-reading and emitting again after every write. The
-//! connection belongs to the shard, so the rest of the shell stays on HTTP and
-//! no polling script runs.
-//!
-//! The rows come from the request's own database, so one router's feed never
-//! shows another router's writes. The wake channel is a process-global because
-//! the router's app context carries only the `Db`; an app that owns a context of
-//! its own keeps the sender beside it instead.
 
 use std::sync::LazyLock;
 
@@ -37,9 +23,6 @@ const FEED_ROWS: usize = 20;
 static BOARD: LazyLock<Board> = LazyLock::new(Board::default);
 
 /// Wakes every connected feed after a committed write.
-///
-/// The board carries no event: a wake only tells each feed to re-read the rows
-/// it shows, so the rows stay per-request and the channel stays small.
 struct Board {
     changed: tokio::sync::broadcast::Sender<()>,
 }
@@ -53,34 +36,25 @@ impl Default for Board {
 }
 
 impl Board {
-    /// Wake every connected feed.
     fn notify(&self) {
-        // No connection listening is not a failure: the next HTTP render reads
-        // the rows.
         let _ = self.changed.send(());
     }
 
-    /// Subscribe before reading the rows, so a write between the read and the
-    /// wait is not missed.
     fn subscribe(&self) -> tokio::sync::broadcast::Receiver<()> {
         self.changed.subscribe()
     }
 }
 
-/// Wake every connected feed the process holds.
+/// Wakes every connected feed the process holds.
 pub(crate) fn notify() {
     BOARD.notify();
 }
 
-/// Subscribe to the process-wide board.
 fn subscribe() -> tokio::sync::broadcast::Receiver<()> {
     BOARD.subscribe()
 }
 
-/// The panel page holding the live feed, at [`LIVE_PATH`].
-///
-/// The panel mounts it at `{prefix}/live`; the integration test requests
-/// `LIVE_PATH`, so a drift between the two fails the test.
+/// The panel page holding the live feed.
 pub struct LiveActivityPage;
 
 impl Page for LiveActivityPage {
@@ -113,25 +87,15 @@ impl Page for LiveActivityPage {
     }
 }
 
-/// The feed itself: a shard whose live region streams the newest users to every
-/// open page.
-///
-/// The first emission is what the HTTP render sends; `connected` then returns
-/// false and asks the browser for a connection. The connected render runs the
-/// body from the top, so it emits the current rows again before it waits — a
-/// write between the two renders cannot be missed.
+/// Streams the newest users to every open page.
 #[shard]
 async fn live_feed(cx: &Cx) -> Result<impl View> {
-    // Runtime endpoints bypass page guards (Topcoat's shard contract), so the
-    // shard runs the panel's guard itself: a request without a permitted user
-    // must not read the rows, over HTTP or over the connection.
+    // The shard runs the panel's guard itself.
     tablo_core::auth::guard(cx)?;
     Ok(live! {
         let mut changed = subscribe();
         loop {
             let users = newest_users(cx).await?;
-            // The emptiness check borrows `users`, and the `else` arm then moves
-            // it into the view; the bool keeps the two uses apart.
             let empty = users.is_empty();
             let token = emit! {
                 if empty {
@@ -159,10 +123,7 @@ async fn live_feed(cx: &Cx) -> Result<impl View> {
                 break Ok(token);
             }
             match changed.recv().await {
-                // Re-emit immediately: the next pass re-reads the rows.
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
-                // The board lives for the process, so this arm is unreachable;
-                // ending the region is the safe answer if that changes.
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break Ok(token),
                 Ok(()) => {}
             }
