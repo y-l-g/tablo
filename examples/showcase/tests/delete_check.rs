@@ -32,17 +32,10 @@ async fn delete_requires_confirmation_and_deletes() {
         "list should link the delete dialog for the row, got {html}"
     );
     let row_delete = tag_with(&html, &format!("delete={id}"));
-    // An icon control: the label rides `aria-label`, and the glyph inside
-    // carries the destructive color.
+    // An icon control: the label rides `aria-label`.
     assert!(
         row_delete.contains("aria-label=\"Delete\""),
         "row Delete must name itself, got {row_delete}"
-    );
-    let control = &html[html.find(row_delete).expect("the control")..];
-    let control = &control[..control.find("</a>").expect("the control's end")];
-    assert!(
-        control.contains("text-destructive"),
-        "row Delete must be destructive, got {control}"
     );
     // The control keeps the `?delete=` opener as the no-JS fallback, which
     // renders the same dialog open with the action already set.

@@ -44,7 +44,7 @@ async fn comments_list_offers_row_and_bulk_delete() {
     let resp = client.get("/admin/comments").await;
     let html = body_string(resp).await;
     assert!(
-        html.contains("Delete selected"),
+        html.contains("data-bulk-form"),
         "the moderation queue must offer bulk delete: {html}"
     );
     // The row control is a `?delete=<key>` link that opens the confirmation
