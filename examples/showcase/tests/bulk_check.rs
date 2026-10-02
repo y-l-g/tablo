@@ -24,12 +24,17 @@ async fn bulk_delete_deletes_selected() {
     let ids: Vec<String> = users.iter().take(2).map(|u| u.id.to_string()).collect();
     let ids_param = ids.join(",");
 
-    // Check that list page contains Delete selected
+    // The list page carries the bulk chrome: the bulk form and its confirm trigger.
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
     assert!(
-        html.contains("Delete selected"),
-        "list should contain Delete selected, got {}",
+        html.contains("data-bulk-form"),
+        "list should carry the bulk form, got {}",
+        html
+    );
+    assert!(
+        html.contains("data-bulk-confirm-trigger"),
+        "list should carry the bulk confirm trigger, got {}",
         html
     );
     assert!(

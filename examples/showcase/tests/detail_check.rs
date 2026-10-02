@@ -152,7 +152,7 @@ async fn post_detail_renders_the_record_read_only() {
         "a detail page must not render form controls: {body}"
     );
     assert!(
-        !body.contains("ac-field--error"),
+        !body.contains("data-invalid"),
         "a stored record has nothing to be invalid about: {body}"
     );
     // A field is present as a value, not as a control: the read-only shape. The
