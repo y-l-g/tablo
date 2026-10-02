@@ -77,10 +77,7 @@ has to pass them too (`cargo xtask check` runs all five after the eight):
   verifies that `Cargo.lock` and `benchmarks/tablo/Cargo.lock` pin identical
   `topcoat` and `toasty` revs and that the workspace, bench, and quickstart
   manifests' `rev =` pins agree (`cargo xtask verify-locks`, also run by the
-  xtask test suite on every `cargo test`). It runs in
-  `.github/workflows/bench.yml` — on `master`, weekly, and the PRs touching
-  the harness, a manifest, a lockfile, or the lockstep check — instead of on
-  every PR;
+  xtask test suite on every `cargo test`).
 
 ### The `topcoat fmt` trap
 
