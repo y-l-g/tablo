@@ -1,21 +1,14 @@
 name: bench
 
-# The detached bench harness is not a per-PR gate: it rotted once, and neither
-# `cargo test --workspace` nor `clippy --workspace` sees it, so it still needs a
-# compile check — but only when it or the pins it measures can have moved.
-# It runs here instead of in `ci.yml`, so a PR that touches neither (docs, UI,
-# tests) does not pay for a harness build: on `master`, weekly, and on the PRs
-# that touch the harness, a manifest, a lockfile, the toolchain pin, or the
-# lockstep check itself.
+# The detached bench harness is not a per-PR gate: neither `cargo test
+# --workspace` nor `clippy --workspace` sees it, so it still needs a compile
+# check — but only when it or the pins it measures can have moved. It runs on
+# `master`, weekly, and the PRs touching the paths below.
 on:
   push:
     branches: [master]
   pull_request:
     paths:
-      # Globs, not a list: over-triggering costs one build, under-triggering
-      # costs a missed gate, so a manifest added later is covered on arrival.
-      # The root files stand beside the globs: whether `**/` matches zero
-      # directories is not a bet worth taking on a gate.
       - benchmarks/**
       - Cargo.toml
       - Cargo.lock
@@ -25,9 +18,6 @@ on:
       - xtask/**
       - .github/workflows/bench.yml
   schedule:
-    # Weekly: the harness re-resolves against the pinned toolchain even when
-    # nothing lands, so a yanked dependency or a moved runner image surfaces
-    # here instead of at the next unrelated PR.
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
