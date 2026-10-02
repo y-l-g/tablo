@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a44ea35c.js";
+            window.path_to_searchindex_js = "searchindex-1e72f0d7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -204,10 +204,7 @@ User::filter(User::fields().name().starts_with(prefix)).order_by(User::fields().
 <span class="boring">}</span></code></pre>
 <p>Toasty binds values as parameters. If you build a <code>LIKE</code> pattern from user input, escape <code>%</code>, <code>_</code>
 and your escape character first and pass it with <code>like_with_escape</code>, as the table search does.</p>
-<p><strong>Load a resource’s rows through <code>scoped_query</code>.</strong> <code>scoped_query::&lt;PostResource&gt;(cx)?</code> is the
-resource’s <code>query()</code> with its tenant scope applied, and answers 403 when the request has no
-tenant. <code>PostResource::query(cx)</code> has no tenant scope. See
-<a href="./policy-auth-tenancy.html#tenancy">Tenancy</a>.</p>
+<p><strong>Load a resource’s rows through <code>scoped_query</code>.</strong> See <a href="./policy-auth-tenancy.html#tenancy">Tenancy</a>.</p>
 <p>A public page has no resource behind it, so it states its own filters, tenant included:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

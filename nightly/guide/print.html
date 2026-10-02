@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a44ea35c.js";
+            window.path_to_searchindex_js = "searchindex-1e72f0d7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -239,7 +239,7 @@ disagrees with the code, the code is right: please open an issue.</p>
 <h1 id="your-first-panel"><a class="header" href="#your-first-panel">Your first panel</a></h1>
 <p>This chapter builds a complete admin in one file: a <code>Book</code> model, a resource for it, and the
 <code>main</code> that serves it with a login page. <code>examples/quickstart</code> is this app with writes opened and the
-stylesheet wired in; CI builds it from outside the repository.</p>
+stylesheet wired in.</p>
 <h2 id="dependencies"><a class="header" href="#dependencies">Dependencies</a></h2>
 <p>An app depends on the <code>tablo</code> facade, picks its database driver with a <code>tablo</code> feature, and builds
 its stylesheet with <code>tablo-build</code>. It names <code>topcoat</code> and <code>toasty</code> directly for their macros, at the
@@ -600,7 +600,6 @@ width and padding; <code>page_header</code> holds a <code>page_title</code>, an 
 <code>empty_state</code> for a region with nothing to show. They are styled by the design tokens in your
 <code>styles.css</code> (<code>--card</code>, <code>--border</code>, <code>--primary</code>, …), so one theme restyles the panel’s pages and
 yours.</p>
-<p>The showcase registers a dashboard as its home page, a media library and a live activity feed.</p>
 <h2 id="public-pages"><a class="header" href="#public-pages">Public pages</a></h2>
 <p>A page outside the panel prefix is an ordinary Topcoat <code>#[page]</code> on your router. The auth gate
 covers only the panel prefix and <code>/_topcoat/runtime</code>, so such a page is public.</p>
@@ -662,8 +661,7 @@ Router::builder()
 <p><code>shell_assets</code> also makes the shell load <code>tablo-ui</code>’s scripts: live search, confirmation dialogs,
 searchable selects, toasts and the sidebar and theme toggles. Mounting refuses <code>shell_assets</code> on a
 router with no asset bundle. The stylesheet comes from <code>tablo_build::tailwind()</code> in the app’s <code>build.rs</code>
-(<a href="#the-stylesheet">Your first panel</a>); <code>examples/quickstart</code> has the smallest
-complete setup and <code>examples/showcase</code> the full one.</p>
+(<a href="#the-stylesheet">Your first panel</a>).</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="resources"><a class="header" href="#resources">Resources</a></h1>
 <p>A resource is the admin for one Toasty model: which rows it lists, how its table and form look,
@@ -1654,7 +1652,6 @@ or once per panel.</li>
 to the panel that signed the user in: the session row records the panel’s prefix. Another
 panel’s gate treats the request as anonymous, and <code>auth::user</code> answers <code>None</code> there. One
 browser holds one session, so signing in to a second panel ends the first.</li>
-<li><strong>Rate limiting</strong> is not built in. Limit login attempts at your proxy or firewall.</li>
 </ul>
 <p>Read the signed-in user in your own code as your user type: <code>auth::user::&lt;AdminUser&gt;(cx)</code> returns
 <code>Option&lt;&amp;AdminUser&gt;</code>, and <code>auth::require_user::&lt;AdminUser&gt;(cx)?</code> answers the request as the table
@@ -1709,7 +1706,7 @@ same work, so response times do not reveal which accounts exist.</li>
 <li><strong><code>find_by_id</code></strong> reloads the user on every request, so deactivating a user or removing a
 membership takes effect immediately.</li>
 </ul>
-<p>Sessions stay in <code>AuthSession</code>, so register it; the shipped <code>AdminUser</code> is needed only by
+<p>Sessions stay in <code>AuthSession</code>, so register it; the provided <code>AdminUser</code> is needed only by
 <code>PasswordAuth</code>.</p>
 <h3 id="turning-it-off"><a class="header" href="#turning-it-off">Turning it off</a></h3>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -1720,14 +1717,15 @@ membership takes effect immediately.</li>
 demos and tests only.</p>
 <h2 id="tenancy"><a class="header" href="#tenancy">Tenancy</a></h2>
 <p>A tenant-owned resource shows each user only the rows of the tenant they act for. A user may act
-for each tenant <code>PanelUser::tenants</code> lists, as a <code>Membership { tenant, name }</code>; the shipped
+for each tenant <code>PanelUser::tenants</code> lists, as a <code>Membership { tenant, name }</code>; the provided
 <code>AdminUser</code> belongs to none, so a tenanted app signs in <a href="#your-own-user-table">its own user table</a>.</p>
 <ul>
 <li><strong>The request’s tenant</strong> is the membership the user selected, else their first, read with
 <code>tenant_id(cx)</code>; <code>membership(cx)</code> returns the whole <code>Membership</code>. A user with no membership has
 no tenant.</li>
 <li><strong>Switching.</strong> With two or more memberships, the top bar shows a tenant switcher. It posts to
-<code>{prefix}/tenant</code>, which stores the choice on the session and lands on the panel’s home page.
+<code>{prefix}/tenant</code>, which stores the choice on the session and returns to the panel’s home
+page.
 A tenant the user is not a member of answers 403, and a stored choice applies only while the
 membership lasts. The session table records the choice, so an existing <code>auth_session</code> table
 needs a nullable <code>tenant</code> column, typed as Toasty stores a <code>Uuid</code> on your database. One
@@ -1805,10 +1803,7 @@ User::filter(User::fields().name().starts_with(prefix)).order_by(User::fields().
 <span class="boring">}</span></code></pre>
 <p>Toasty binds values as parameters. If you build a <code>LIKE</code> pattern from user input, escape <code>%</code>, <code>_</code>
 and your escape character first and pass it with <code>like_with_escape</code>, as the table search does.</p>
-<p><strong>Load a resource’s rows through <code>scoped_query</code>.</strong> <code>scoped_query::&lt;PostResource&gt;(cx)?</code> is the
-resource’s <code>query()</code> with its tenant scope applied, and answers 403 when the request has no
-tenant. <code>PostResource::query(cx)</code> has no tenant scope. See
-<a href="#tenancy">Tenancy</a>.</p>
+<p><strong>Load a resource’s rows through <code>scoped_query</code>.</strong> See <a href="#tenancy">Tenancy</a>.</p>
 <p>A public page has no resource behind it, so it states its own filters, tenant included:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

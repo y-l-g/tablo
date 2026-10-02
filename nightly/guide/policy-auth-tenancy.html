@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a44ea35c.js";
+            window.path_to_searchindex_js = "searchindex-1e72f0d7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -313,7 +313,6 @@ or once per panel.</li>
 to the panel that signed the user in: the session row records the panel’s prefix. Another
 panel’s gate treats the request as anonymous, and <code>auth::user</code> answers <code>None</code> there. One
 browser holds one session, so signing in to a second panel ends the first.</li>
-<li><strong>Rate limiting</strong> is not built in. Limit login attempts at your proxy or firewall.</li>
 </ul>
 <p>Read the signed-in user in your own code as your user type: <code>auth::user::&lt;AdminUser&gt;(cx)</code> returns
 <code>Option&lt;&amp;AdminUser&gt;</code>, and <code>auth::require_user::&lt;AdminUser&gt;(cx)?</code> answers the request as the table
@@ -368,7 +367,7 @@ same work, so response times do not reveal which accounts exist.</li>
 <li><strong><code>find_by_id</code></strong> reloads the user on every request, so deactivating a user or removing a
 membership takes effect immediately.</li>
 </ul>
-<p>Sessions stay in <code>AuthSession</code>, so register it; the shipped <code>AdminUser</code> is needed only by
+<p>Sessions stay in <code>AuthSession</code>, so register it; the provided <code>AdminUser</code> is needed only by
 <code>PasswordAuth</code>.</p>
 <h3 id="turning-it-off"><a class="header" href="#turning-it-off">Turning it off</a></h3>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -379,14 +378,15 @@ membership takes effect immediately.</li>
 demos and tests only.</p>
 <h2 id="tenancy"><a class="header" href="#tenancy">Tenancy</a></h2>
 <p>A tenant-owned resource shows each user only the rows of the tenant they act for. A user may act
-for each tenant <code>PanelUser::tenants</code> lists, as a <code>Membership { tenant, name }</code>; the shipped
+for each tenant <code>PanelUser::tenants</code> lists, as a <code>Membership { tenant, name }</code>; the provided
 <code>AdminUser</code> belongs to none, so a tenanted app signs in <a href="#your-own-user-table">its own user table</a>.</p>
 <ul>
 <li><strong>The request’s tenant</strong> is the membership the user selected, else their first, read with
 <code>tenant_id(cx)</code>; <code>membership(cx)</code> returns the whole <code>Membership</code>. A user with no membership has
 no tenant.</li>
 <li><strong>Switching.</strong> With two or more memberships, the top bar shows a tenant switcher. It posts to
-<code>{prefix}/tenant</code>, which stores the choice on the session and lands on the panel’s home page.
+<code>{prefix}/tenant</code>, which stores the choice on the session and returns to the panel’s home
+page.
 A tenant the user is not a member of answers 403, and a stored choice applies only while the
 membership lasts. The session table records the choice, so an existing <code>auth_session</code> table
 needs a nullable <code>tenant</code> column, typed as Toasty stores a <code>Uuid</code> on your database. One

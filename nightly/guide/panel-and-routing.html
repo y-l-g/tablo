@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a44ea35c.js";
+            window.path_to_searchindex_js = "searchindex-1e72f0d7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -378,7 +378,6 @@ width and padding; <code>page_header</code> holds a <code>page_title</code>, an 
 <code>empty_state</code> for a region with nothing to show. They are styled by the design tokens in your
 <code>styles.css</code> (<code>--card</code>, <code>--border</code>, <code>--primary</code>, …), so one theme restyles the panel’s pages and
 yours.</p>
-<p>The showcase registers a dashboard as its home page, a media library and a live activity feed.</p>
 <h2 id="public-pages"><a class="header" href="#public-pages">Public pages</a></h2>
 <p>A page outside the panel prefix is an ordinary Topcoat <code>#[page]</code> on your router. The auth gate
 covers only the panel prefix and <code>/_topcoat/runtime</code>, so such a page is public.</p>
@@ -440,8 +439,7 @@ Router::builder()
 <p><code>shell_assets</code> also makes the shell load <code>tablo-ui</code>’s scripts: live search, confirmation dialogs,
 searchable selects, toasts and the sidebar and theme toggles. Mounting refuses <code>shell_assets</code> on a
 router with no asset bundle. The stylesheet comes from <code>tablo_build::tailwind()</code> in the app’s <code>build.rs</code>
-(<a href="./first-panel.html#the-stylesheet">Your first panel</a>); <code>examples/quickstart</code> has the smallest
-complete setup and <code>examples/showcase</code> the full one.</p>
+(<a href="./first-panel.html#the-stylesheet">Your first panel</a>).</p>
 
                     </main>
 
