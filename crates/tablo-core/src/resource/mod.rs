@@ -376,8 +376,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     }
 
     /// App-level rules on the parsed form. The errors render inline with a
-    /// 200 and nothing is written; a record fn error is a 500, so a range or
-    /// cross-field rule belongs here.
+    /// 200 and nothing is written; a record fn error keeps its own mapping, so
+    /// a range or cross-field rule belongs here.
     ///
     /// Each error names the key it renders under: a control's own key, or a
     /// [`Repeater`](crate::Repeater) group's label. A key the submitted form
