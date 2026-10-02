@@ -1,0 +1,53 @@
+name: msrv-udeps
+
+# The MSRV floor and the unused-dependency guard are not per-PR gates: each
+# needs a full workspace build on a toolchain the per-PR jobs do not use. They
+# run on `master`, weekly, and the PRs touching the paths below.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - rust-toolchain.toml
+      - .github/workflows/msrv-udeps.yml
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: msrv-udeps-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+# `target/debug/incremental` measured 28 of 66 GB locally: it busts the
+# shared action-cache budget, so CI disables incremental compilation and
+# trades a slower cold link for cache hits.
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  msrv:
+    name: msrv (1.98)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The workspace MSRV floor: a `main`-tracking dep can silently raise what
+      # it needs, so pin the floor even though day-to-day CI rides stable.
+      - run: rustup toolchain install 1.98 --profile minimal
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo +1.98 check --workspace --locked
+
+  udeps:
+    name: udeps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup update nightly && rustup default nightly
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-udeps --locked
+      # Unused-dependency guard.
+      - run: cargo +nightly udeps --workspace --all-targets --locked

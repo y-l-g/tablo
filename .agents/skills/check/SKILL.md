@@ -8,7 +8,8 @@ description: Always use this skill to verify a change locally before committing 
 Run `cargo xtask check`: the gates in
 [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set), run in order with a
 stop at the first failure. To run one gate by hand, that list is the canonical
-copy (it mirrors `.github/workflows/ci.yml`); the extra checks outside the eight
+copy (it mirrors `.github/workflows/ci.yml` and
+`.github/workflows/msrv-udeps.yml`); the extra checks outside the eight
 (docs, detached-bench fmt, external, bench-check) are listed there too. `cargo xtask fmt`
 covers the formatting subset alone.
 
