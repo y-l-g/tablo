@@ -2,10 +2,7 @@
 //! with Toasty.
 //!
 //! This crate is the one Tablo dependency an app names, beside `topcoat` and
-//! `toasty` at the revisions Tablo pins. It re-exports
-//! [`tablo_core`] at its root, the UI components as [`ui`], and, with the
-//! `testing` feature, the in-memory HTTP client as `testing`. The derives
-//! (`RecordForm`, `EmbeddedForm`) work through this crate alone.
+//! `toasty` at the revisions Tablo pins:
 //!
 //! ```toml
 //! [dependencies]
@@ -15,10 +12,66 @@
 //! tablo-build = { git = "https://github.com/y-l-g/tablo" }
 //! ```
 //!
+//! It re-exports [`tablo_core`] at its root, the UI components as [`ui`],
+//! and, with the `testing` feature, the in-memory HTTP client as `testing`.
 //! The driver features (`sqlite`, `postgresql`, `mysql`) turn on Toasty's
 //! driver of the same name; the toolkit itself enables none. The app's
 //! `build.rs` calls `tablo_build::tailwind()`, which finds Tablo's sources
-//! through this crate. The user guide starts at "Your first panel".
+//! through this crate.
+//!
+//! A minimal app is one model, one [`Resource`], and the [`Panel`] that serves
+//! it — the full version lives in `examples/quickstart`:
+//!
+//! ```ignore
+//! use tablo::prelude::*;
+//! use toasty::Db;
+//!
+//! #[derive(Debug, Clone, toasty::Model)]
+//! pub struct Book {
+//!     #[key]
+//!     #[auto]
+//!     pub id: uuid::Uuid,
+//!     pub title: String,
+//! }
+//!
+//! #[derive(tablo::RecordForm)]
+//! #[form(model = Book)]
+//! pub struct BookForm {
+//!     pub title: String,
+//! }
+//!
+//! pub struct BookResource;
+//!
+//! impl Resource for BookResource {
+//!     type Model = Book;
+//!     type Form = BookForm;
+//!
+//!     fn policy() -> impl Policy<Book> {
+//!         Allow
+//!     }
+//!
+//!     fn table() -> Table<Book> {
+//!         Table::new(
+//!             |b: &Book| b.id.to_string(),
+//!             TextColumn::r#for(Book::fields().title(), |b: &Book| b.title.clone())
+//!                 .searchable()
+//!                 .sortable(),
+//!         )
+//!     }
+//!
+//!     fn form(_dx: &tablo::DeclCx) -> Schema {
+//!         Schema::new(Field::text(Book::fields().title()))
+//!     }
+//! }
+//!
+//! let router = Router::builder()
+//!     .discover()
+//!     .app_context(db)
+//!     .panel(Panel::new("admin").resource::<BookResource>())?
+//!     .build();
+//! ```
+//!
+//! The user guide starts at "Your first panel".
 
 pub use tablo_core::*;
 #[cfg(feature = "testing")]
