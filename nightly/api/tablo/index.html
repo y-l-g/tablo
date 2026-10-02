@@ -1,19 +1,68 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Tablo — an admin toolkit for Rust, server-rendered on Topcoat and persisted with Toasty."><title>tablo - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="tablo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.0 (b940084d7 2026-09-28)" data-channel="1.99.0" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate tablo</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../tablo/index.html">tablo</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>tablo</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/tablo/lib.rs.html#1-39">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Tablo — an admin toolkit for Rust, server-rendered on Topcoat and persisted
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Tablo — an admin toolkit for Rust, server-rendered on Topcoat and persisted with Toasty."><title>tablo - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="tablo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.0 (b940084d7 2026-09-28)" data-channel="1.99.0" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate tablo</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../tablo/index.html">tablo</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>tablo</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/tablo/lib.rs.html#1-92">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Tablo — an admin toolkit for Rust, server-rendered on Topcoat and persisted
 with Toasty.</p>
 <p>This crate is the one Tablo dependency an app names, beside <code>topcoat</code> and
-<code>toasty</code> at the revisions Tablo pins. It re-exports
-<a href="../tablo_core/index.html" title="mod tablo_core"><code>tablo_core</code></a> at its root, the UI components as <a href="../tablo_ui/index.html" title="mod tablo_ui"><code>ui</code></a>, and, with the
-<code>testing</code> feature, the in-memory HTTP client as <code>testing</code>. The derives
-(<code>RecordForm</code>, <code>EmbeddedForm</code>) work through this crate alone.</p>
+<code>toasty</code> at the revisions Tablo pins:</p>
 <div class="example-wrap"><pre class="language-toml"><code>[dependencies]
 tablo = { git = &quot;https://github.com/y-l-g/tablo&quot;, features = [&quot;sqlite&quot;] }
 
 [build-dependencies]
 tablo-build = { git = &quot;https://github.com/y-l-g/tablo&quot; }</code></pre></div>
-<p>The driver features (<code>sqlite</code>, <code>postgresql</code>, <code>mysql</code>) turn on Toasty’s
+<p>It re-exports <a href="../tablo_core/index.html" title="mod tablo_core"><code>tablo_core</code></a> at its root, the UI components as <a href="../tablo_ui/index.html" title="mod tablo_ui"><code>ui</code></a>,
+and, with the <code>testing</code> feature, the in-memory HTTP client as <code>testing</code>.
+The driver features (<code>sqlite</code>, <code>postgresql</code>, <code>mysql</code>) turn on Toasty’s
 driver of the same name; the toolkit itself enables none. The app’s
 <code>build.rs</code> calls <code>tablo_build::tailwind()</code>, which finds Tablo’s sources
-through this crate. The user guide starts at “Your first panel”.</p>
+through this crate.</p>
+<p>A minimal app is one model, one <a href="trait.Resource.html" title="trait tablo::Resource"><code>Resource</code></a>, and the <a href="struct.Panel.html" title="struct tablo::Panel"><code>Panel</code></a> that serves
+it — the full version lives in <code>examples/quickstart</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tablo::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>toasty::Db;
+
+<span class="attr">#[derive(Debug, Clone, toasty::Model)]
+</span><span class="kw">pub struct </span>Book {
+    <span class="attr">#[key]
+    #[auto]
+    </span><span class="kw">pub </span>id: uuid::Uuid,
+    <span class="kw">pub </span>title: String,
+}
+
+<span class="attr">#[derive(tablo::RecordForm)]
+#[form(model = Book)]
+</span><span class="kw">pub struct </span>BookForm {
+    <span class="kw">pub </span>title: String,
+}
+
+<span class="kw">pub struct </span>BookResource;
+
+<span class="kw">impl </span>Resource <span class="kw">for </span>BookResource {
+    <span class="kw">type </span>Model = Book;
+    <span class="kw">type </span>Form = BookForm;
+
+    <span class="kw">fn </span>policy() -&gt; <span class="kw">impl </span>Policy&lt;Book&gt; {
+        Allow
+    }
+
+    <span class="kw">fn </span>table() -&gt; Table&lt;Book&gt; {
+        Table::new(
+            |b: <span class="kw-2">&amp;</span>Book| b.id.to_string(),
+            TextColumn::r#for(Book::fields().title(), |b: <span class="kw-2">&amp;</span>Book| b.title.clone())
+                .searchable()
+                .sortable(),
+        )
+    }
+
+    <span class="kw">fn </span>form(_dx: <span class="kw-2">&amp;</span>tablo::DeclCx) -&gt; Schema {
+        Schema::new(Field::text(Book::fields().title()))
+    }
+}
+
+<span class="kw">let </span>router = Router::builder()
+    .discover()
+    .app_context(db)
+    .panel(Panel::new(<span class="string">"admin"</span>).resource::&lt;BookResource&gt;())<span class="question-mark">?
+    </span>.build();</code></pre></div>
+<p>The user guide starts at “Your first panel”.</p>
 </div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.ui"><code>pub use <a class="mod" href="../tablo_ui/index.html" title="mod tablo_ui">tablo_ui</a> as ui;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="auth/index.html" title="mod tablo::auth">auth</a></dt><dd>Authentication — credentials, server-side sessions, and the panel gate
 (ADR-0013, spec #127).</dd><dt><a class="mod" href="csrf/index.html" title="mod tablo::csrf">csrf</a></dt><dd>CSRF protection via double-submit cookie.</dd><dt><a class="mod" href="cursor/index.html" title="mod tablo::cursor">cursor</a></dt><dd>URL-safe encoding for Toasty pagination cursors.</dd><dt><a class="mod" href="db/index.html" title="mod tablo::db">db</a></dt><dd>The <code>Db</code> glue: how Tablo code reaches the pooled Toasty database.</dd><dt><a class="mod" href="form/index.html" title="mod tablo::form">form</a></dt><dd>Record forms: the typed value a form submission parses into, and the write
 that stores it.</dd><dt><a class="mod" href="notification/index.html" title="mod tablo::notification">notification</a></dt><dd><code>Notification</code> — transient user-visible message (CONTEXT.md).</dd><dt><a class="mod" href="panel/index.html" title="mod tablo::panel">panel</a></dt><dd><code>Panel</code> — an admin panel an app mounts into its router.</dd><dt><a class="mod" href="policy/index.html" title="mod tablo::policy">policy</a></dt><dd>Authorization: what a resource lets the current user do.</dd><dt><a class="mod" href="prelude/index.html" title="mod tablo::prelude">prelude</a></dt><dd>The items a resource module names most: <code>use tablo::prelude::*;</code>.</dd><dt><a class="mod" href="resource/index.html" title="mod tablo::resource">resource</a></dt><dd><code>Resource</code> — maps one Toasty <a href="toasty::schema::Model"><code>Model</code></a> to its admin UI.</dd><dt><a class="mod" href="schema/index.html" title="mod tablo::schema">schema</a></dt><dd>Unified Schema primitive — fields and layout blocks that compose via <code>view!</code>.</dd><dt><a class="mod" href="tenancy/index.html" title="mod tablo::tenancy">tenancy</a></dt><dd>Tenancy: which tenant a request acts for, and how a resource’s rows belong
