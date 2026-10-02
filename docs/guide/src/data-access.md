@@ -29,10 +29,7 @@ User::filter(User::fields().name().starts_with(prefix)).order_by(User::fields().
 Toasty binds values as parameters. If you build a `LIKE` pattern from user input, escape `%`, `_`
 and your escape character first and pass it with `like_with_escape`, as the table search does.
 
-**Load a resource's rows through `scoped_query`.** `scoped_query::<PostResource>(cx)?` is the
-resource's `query()` with its tenant scope applied, and answers 403 when the request has no
-tenant. `PostResource::query(cx)` has no tenant scope. See
-[Tenancy](./policy-auth-tenancy.md#tenancy).
+**Load a resource's rows through `scoped_query`.** See [Tenancy](./policy-auth-tenancy.md#tenancy).
 
 A public page has no resource behind it, so it states its own filters, tenant included:
 

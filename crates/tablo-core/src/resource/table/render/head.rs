@@ -12,14 +12,8 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// The shared column-header row — the single source of the `<thead>`
-    /// markup: labels and **links** on sortable columns that toggle
-    /// `?sort=`/`?dir=` (a Lucide arrow with `aria-sort` when active,
-    /// `arrow-up-down` when inactive). Every render branch (skeleton / empty
-    /// / rows) composes it, so an a11y or styling change happens once.
-    ///
-    /// With `signals` (a live table) the link writes its own query, which drops
-    /// the cursor, to the `query` signal; its `href` stays the no-JS fallback.
+    /// Render the shared column-header row with sort links on sortable columns, writing the query
+    /// signal on live tables.
     pub(super) async fn render_thead<'a>(
         &self,
         cx: &'a Cx,
@@ -32,7 +26,6 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        // The active sort only counts when it names a declared sortable column.
         let active = state.sort.as_ref().filter(|s| {
             self.columns
                 .iter()
@@ -41,16 +34,8 @@ impl<M> Table<M> {
         let widths = self.column_widths();
         let mut heads: Vec<BoxView<'_>> = Vec::with_capacity(self.columns.len());
         for (index, col) in self.columns.iter().enumerate() {
-            // Owned per iteration: the view must not borrow the resolved list.
             let width = widths.cells[index].clone();
             let label = col.label().to_string();
-            // The declared width rides the header cell's inline `style`
-            // a Tailwind class assembled at render would emit no
-            // CSS, because Tailwind only generates the literals it finds in
-            // source. A wide column declares nothing and takes a share of what
-            // the declared columns leave.
-            // A static preview renders plain labels: no link to an interaction
-            // the page does not honor.
             let sortable = col.is_sortable();
             let (head_class, aria_sort, header) = if sortable {
                 let (aria, sort_icon, next_desc) = match active {
@@ -65,7 +50,6 @@ impl<M> Table<M> {
                         } else {
                             icons::ARROW_UP
                         },
-                        // toggling the active column flips the direction
                         !s.descending,
                     ),
                     _ => ("none", icons::ARROW_UP_DOWN, false),
@@ -118,12 +102,6 @@ impl<M> Table<M> {
             heads.push(
                 view! {
                     cx =>
-                    // The share sizes the column at wide viewports; the floor
-                    // sizes it to its buttons at narrow ones, where the share
-                    // alone would let them spill past the table. Each row's
-                    // `td` repeats only the floor.
-                    // The controls are icons, so the heading names the column
-                    // for assistive tech only.
                     table_head(
                         attrs: attributes! { style=(widths.actions.as_deref()) },
                         <span class="sr-only">"Actions"</span>
@@ -137,9 +115,6 @@ impl<M> Table<M> {
             table_header(
                 table_row(
                     if with_bulk {
-                        // The header row is the row `table-fixed` measures, so
-                        // the chrome columns declare their width here and
-                        // their `td`s declare none.
                         table_head(
                             attrs: attributes! { style=(widths.bulk.as_deref()) },
                             <input

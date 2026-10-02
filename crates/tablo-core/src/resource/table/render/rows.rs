@@ -37,9 +37,7 @@ pub(super) struct RenderedRow<'a> {
     pub(super) view: BoxView<'a>,
 }
 
-/// Render the page's rows for the table body. One body serves grouped and
-/// ungrouped pages: a grouped row carries the header its group's first row
-/// owns, so the header lands immediately above its own rows.
+/// Render the page's rows for the table body, carrying each group's header on its first row.
 pub(super) fn render_rows<'a>(
     cx: &'a Cx,
     rows: Vec<RowView<'a>>,
@@ -89,22 +87,13 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             }
             .boxed()
         } else {
-            // A refused row renders no checkbox: selecting it could only
-            // produce a batch the handler refuses. The cell stays so the row
-            // keeps its shape.
             view! { cx => table_cell() }.boxed()
         }
     });
-    // `row.cells` is built column-for-column, so the zip pairs each cell with
-    // the column that owns its width. The cell repeats the width its header
-    // declares and truncates: under the table's fixed layout a value wider than
-    // the column clips to an ellipsis instead of stretching the column.
     let cells: Vec<(BoxView<'a>, Option<Cow<'static, str>>)> = std::mem::take(&mut row.cells)
         .into_iter()
         .zip(chrome.cell_widths.iter().cloned())
         .collect();
-    // Every row carries the actions cell its header declares; a row refused
-    // every link keeps an empty cell so the row keeps its shape.
     let actions = chrome
         .with_actions
         .then(|| render_actions(cx, &row, chrome));
@@ -144,15 +133,9 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
         .clone()
         .zip(row.delete_action.clone())
         .map(|(url, action)| (url, action, chrome.delete_dialog_id.clone()));
-    // Icon-only controls: the label rides `aria-label` for assistive tech and
-    // `title` for a pointer, and the icon carries it on screen.
     let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
     let edit_class = link_class.clone();
     let delete_class = link_class.clone();
-    // Each custom action is its own POST form, marked like the delete forms:
-    // `mutation-submit.js` posts it and refreshes the table in place, keeping
-    // the list's query; without the script it POSTs and 303s. Its button
-    // carries the label, not an icon.
     let csrf = (!row.custom.is_empty()).then(|| crate::csrf::current_token(cx));
     let custom: Vec<BoxView<'a>> = row
         .custom
@@ -218,8 +201,6 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                         aria-label="Delete"
                         title="Delete"
                     >
-                        // The glyph carries the destructive color: the ghost
-                        // variant already sets the control's text color.
                         icon(
                             data: tablo_ui::icons::TRASH,
                             attrs: attributes! { class="text-destructive" }
@@ -232,82 +213,43 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     .boxed()
 }
 
-/// Precomputed per-row presentation for the table body: the display row key,
-/// the record key, the rendered cells, and the optional Edit / delete-dialog
-/// action URLs. A struct (not a tuple): five anonymous positions would
-/// mislead readers and trip `clippy::type_complexity`.
-///
-/// `key` is the display projection (keyed diffs, DOM ids);
-/// `record_id` is the record projection (URLs, bulk values), resolved
-/// by handlers as the typed PK.
+/// Precompute per-row presentation for the table body in owned data the lazy view captures.
 pub(super) struct RowView<'a> {
+    /// The display projection driving keyed diffs and DOM ids.
     key: String,
+    /// The record projection driving URLs and bulk values, resolved by handlers as the typed PK.
     record_id: String,
     /// One rendered cell per column, in column order.
     cells: Vec<BoxView<'a>>,
     view_url: Option<String>,
     edit_url: Option<String>,
     delete_url: Option<String>,
-    /// The row's delete POST target (`{prefix}/{key}/delete`): the
-    /// Delete control hands it to the shared dialog before opening it, so the
-    /// confirmed POST keeps the route the `?delete=` fallback uses.
+    /// The row's delete POST target handed to the shared dialog.
     delete_action: Option<String>,
     /// The custom row actions this record allows: each button's label and
     /// its POST target.
     custom: Vec<(String, String)>,
-    /// Whether the row renders a bulk checkbox: a row that neither bulk
-    /// delete nor any bulk custom action allows renders none, so `bulk.js`
-    /// never sees its key.
+    /// Whether the row renders a bulk checkbox.
     selectable: bool,
-    /// The row's group label, when `?group_by=` named the declared group.
-    /// Carried on every row so the page-local shim can order by it.
+    /// The row's group label, when `?group_by=` names the declared group.
     group: Option<String>,
     /// The header this row renders above itself, `Some` only on the first row
     /// of its group.
     group_header: Option<GroupHeader>,
 }
 
-/// One page-local group header: the label with its page-local count,
-/// and the stable DOM id the injected header row carries so the in-place morph
-/// can follow it (`row_dom_id`'s contract).
+/// One page-local group header: the label with its page-local count and the stable DOM id the
+/// injected header row carries.
 #[derive(Clone)]
 struct GroupHeader {
     /// `"{label} ({n} on this page)"`.
     text: String,
-    /// [`group_header_dom_id`] of the label.
     dom_id: String,
 }
 
 impl<M> Table<M> {
-    /// Project the loaded page into the row presentation the template renders.
-    ///
-    /// Precomputed so template bodies capture only owned data — the lazy view
-    /// outlives the render call, so it must never borrow `self` or `page`.
-    ///
-    /// The per-row delete URL opens the confirmation dialog on the list page
-    /// (`?delete=<key>`); the per-row edit URL links to `{prefix}/{key}/edit`.
-    /// Both — and the bulk checkbox values — carry the *record* key, resolved by
-    /// handlers as the model's typed PK; the display `key` stays on keyed diffs
-    /// and DOM ids.
-    ///
-    /// The chrome prefixes say which links the table *can* render; the
-    /// [`Table::row_actions`] policy says which of them *this* record may use.
-    /// A denied action emits no URL, and a row denied `delete` renders no bulk
-    /// checkbox. The policy is consulted only when a prefix is wired.
-    ///
-    /// The delete URL's shared parameters are encoded once for the whole page:
-    /// rebuilding them per row is work a client can inflate with an oversized
-    /// query.
-    ///
-    /// Page-local grouping is display-only: `group_by` is a bare key closure with
-    /// no lens, so no `ORDER BY` is derivable and a group cannot span pages. The
-    /// shim therefore reorders *this page's* rows by the group label — a stable
-    /// sort, so rows keep the query's order inside their group — and hangs each
-    /// group's header off its first row. The query, its cursors and the export
-    /// keep the declared ordering.
-    ///
-    /// Row keys must be injective within a page: duplicates corrupt keyed diffs
-    /// and bulk selection.
+    /// Project the loaded page into the row presentation the template renders, requiring injective
+    /// row keys within a page.
     pub(super) fn row_views<'a>(
         &self,
         cx: &'a Cx,
@@ -354,9 +296,6 @@ impl<M> Table<M> {
                     .as_ref()
                     .filter(|_| actions.delete)
                     .map(|base| base.delete_dialog(&record_id));
-                // The shared dialog's POST target for this row: the
-                // row control hands it over before opening the dialog, so the
-                // action and the control come from the one policy decision.
                 let delete_action = self
                     .delete_prefix
                     .as_ref()
@@ -404,10 +343,6 @@ impl<M> Table<M> {
                 {
                     end += 1;
                 }
-                // The count is page-local, and says so: a group split across
-                // pages must not read as a table total. The header
-                // carries an id derived from its label — never from its
-                // position — so the in-place morph can follow it.
                 row_data[start].group_header = Some(GroupHeader {
                     dom_id: group_header_dom_id(&label),
                     text: format!("{label} ({} on this page)", end - start),

@@ -1,15 +1,3 @@
-//! Shared HTTP harness for the `tablo-core` integration suite.
-//!
-//! One binary (`tests/it.rs`) compiles every module, so the request builders
-//! and the DB builder live here instead of being redeclared per module. The
-//! protocol helpers shared with the showcase suite (body readers, the
-//! multipart writer, the cookie jar, `input_value`) live in `tablo-test` and
-//! are re-exported below; the showcase suite's `tests/common` is the same
-//! idea on the app side.
-//!
-//! The auth-gated `auth_override` module is the only caller of the
-//! cookie-carrying helpers, so those carry the `auth` gate too.
-
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
 use tablo_core::{Auth, Panel, Resource, RouterBuilderPanelExt};
 use tablo_test::cookie_header;
@@ -18,7 +6,6 @@ use toasty::Db;
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt, response::Response};
 use uuid::Uuid;
 
-/// An in-memory SQLite `Db` with `models` registered and its schema pushed.
 pub async fn memory_db(models: toasty::schema::ModelSet) -> Db {
     let db = Db::builder()
         .models(models)
@@ -29,13 +16,10 @@ pub async fn memory_db(models: toasty::schema::ModelSet) -> Db {
     db
 }
 
-/// A panel at `/admin` with the auth gate off — the shape every suite here
-/// builds before adding its own resources.
 pub fn panel() -> Panel {
     Panel::new("admin").auth(Auth::disabled())
 }
 
-/// `panel` mounted on a router holding `db`, the way an app mounts one.
 pub fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
     Ok(Router::builder()
         .discover()
@@ -44,17 +28,14 @@ pub fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
         .build())
 }
 
-/// [`panel`] with one resource registered and mounted under `auth`.
 pub fn router_with<R: Resource>(db: Db, auth: Auth) -> Router {
     mount(db, Panel::new("admin").auth(auth).resource::<R>()).expect("panel builds")
 }
 
-/// A router over one resource, under the disabled auth gate.
 pub fn panel_router<R: Resource>(db: Db) -> Router {
     mount(db, panel().resource::<R>()).expect("panel builds")
 }
 
-/// A POST carrying a matching CSRF cookie + field (the double-submit pair).
 pub async fn post(
     router: &Router,
     uri: &str,
@@ -72,7 +53,6 @@ pub async fn post(
     router.handle(request).await
 }
 
-/// POST a multipart form (every upload form's enctype).
 pub async fn post_multipart(
     router: &Router,
     uri: &str,
@@ -90,7 +70,6 @@ pub async fn post_multipart(
     .await
 }
 
-/// A GET with no cookies.
 pub async fn get(router: &Router, uri: &str) -> Response<Body> {
     let request = http::Request::builder()
         .uri(uri)
@@ -99,7 +78,6 @@ pub async fn get(router: &Router, uri: &str) -> Response<Body> {
     router.handle(request).await
 }
 
-/// A GET carrying `cookies` as one `Cookie` header.
 pub async fn get_with_cookies(
     router: &Router,
     uri: &str,
@@ -112,7 +90,6 @@ pub async fn get_with_cookies(
     router.handle(request.body(Body::empty()).unwrap()).await
 }
 
-/// A url-encoded POST carrying `cookies`.
 pub async fn post_form(
     router: &Router,
     uri: &str,
@@ -129,7 +106,6 @@ pub async fn post_form(
     router.handle(request.body(Body::from(body)).unwrap()).await
 }
 
-/// A url-encoded POST minting its own CSRF pair and sending `fields`.
 pub async fn post_fields(router: &Router, uri: &str, fields: &[(&str, &str)]) -> Response<Body> {
     let csrf = new_csrf();
     let mut body = format!("csrf_token={csrf}");
@@ -146,12 +122,10 @@ pub async fn post_fields(router: &Router, uri: &str, fields: &[(&str, &str)]) ->
     .await
 }
 
-/// A new CSRF token, paired with the cookie the POST helpers send.
 pub fn new_csrf() -> String {
     Uuid::new_v4().to_string()
 }
 
-/// The `Content-Security-Policy` a response carries.
 pub fn csp(response: &Response<Body>) -> &str {
     response
         .headers()

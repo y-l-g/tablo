@@ -1,7 +1,4 @@
-//! Shared fixtures and request scaffolding for the showcase integration
-//! tests (#128). Every test crate includes this module via
-//! `mod common;` and uses a subset of it, so `dead_code` is expected here and
-//! allowed once instead of leaking per-crate warnings.
+//! Shared fixtures and request scaffolding for the showcase integration tests.
 
 #![allow(dead_code)]
 
@@ -16,8 +13,6 @@ pub use tablo_test::{
 use toasty::Db;
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
 
-/// `panel` mounted on a router holding `db`, the way the showcase mounts its
-/// own.
 pub fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
     Ok(Router::builder()
         .discover()
@@ -26,16 +21,7 @@ pub fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
         .build())
 }
 
-/// A fresh in-memory `Db` carrying the **full** showcase model set, schema
-/// pushed and no rows — the one place the model list is written.
-///
-/// The list is the whole showcase set even though most tests touch one or two
-/// tables: a lens path is resolved against the app schema, and the
-/// `Panel` registers every resource regardless of which tables a given test
-/// cares about. A narrower `models!(..)` made the panel's schema incomplete, so
-/// a form for an unregistered model could not resolve its embedded paths — and
-/// would have bound whichever model the id happened to name. An empty table
-/// costs nothing; an incomplete schema misleads.
+/// Returns a fresh in-memory `Db` with the full showcase schema and no rows.
 pub async fn empty_schema_db() -> Db {
     let db = Db::builder()
         .models(toasty::models!(
@@ -145,8 +131,6 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     .exec(&mut db)
     .await
     .expect("create post t2");
-    // One comment per tenant post: the inherit-through-the-relation
-    // fixture for the Comments queue's tenant scoping.
     toasty::create!(showcase::models::Comment {
         body: "T1 comment",
         post_id: p1.id,
@@ -164,30 +148,12 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     (db, t1, t2)
 }
 
-/// Log in through `{prefix}/login` like a browser: fetch the page, reuse its
-/// CSRF pair, post the credentials, and keep every cookie the exchange set.
-///
-/// This is a real GET + POST + Argon2id verify (~0.4s at the shipped
-/// parameters). Use it only where the login flow **is** the subject — the
-/// `auth_check` suite, session revocation, deactivation, rotation, failed
-/// logins, and the one test that needs a session cookie *without* the paired
-/// CSRF cookie. Everywhere else, an authenticated client is setup: use
-/// [`demo_client`] / [`tenantless_client`], which mint the session row instead.
+/// Logs in through `{prefix}/login` like a browser.
 pub async fn login<'a>(router: &'a Router, email: &str, password: &str) -> TestClient<'a> {
     login_next(router, email, password, "").await.0
 }
 
-/// The raw session cookie value for the seeded admin with `email`, minted
-/// directly into `db`.
-///
-/// The login handler writes one `AuthSession` row keyed by the SHA-256 of a
-/// random token and hands the client the encoded token; this does exactly that
-/// and nothing else. The request path afterwards is identical — the panel's gate
-/// resolves the cookie through `auth::resolve`, which looks the row up, rejects
-/// an expired one, and re-reads the user through `Authenticator::find_by_id`
-/// (so `active` and `can_access_panel` still apply). What is skipped is the
-/// password verification, which is the point: ~110 tests re-authenticated to
-/// get an authenticated client, at ~0.4s each.
+/// Mints a session cookie value for the seeded admin with `email`.
 pub async fn mint_session(db: &Db, email: &str) -> String {
     use std::{fmt::Write as _, time::SystemTime};
 
@@ -239,9 +205,7 @@ pub async fn tenantless_client<'a>(router: &'a Router, db: &Db) -> TestClient<'a
     signed_in_client(router, db, showcase::models::TENANTLESS_ADMIN_EMAIL).await
 }
 
-/// [`login`] with an explicit `next` destination. Returns the client (CSRF +
-/// session cookies) and the login POST response, so callers can assert on the
-/// redirect and the `Set-Cookie` headers.
+/// Logs in with an explicit `next` destination.
 pub async fn login_next<'a>(
     router: &'a Router,
     email: &str,
@@ -270,12 +234,7 @@ pub async fn login_next<'a>(
     )
 }
 
-/// The record key `kind` (`"delete"` or `"edit"`) from the first row action
-/// link, which carries it as a query parameter.
-///
-/// Reads the control the UI actually renders rather than re-deriving identity:
-/// the display key and the record key are separate projections, so a test that
-/// guessed from the display key would be asserting the wrong thing.
+/// Reads the record key `kind` from the first row action link.
 pub fn row_link_key(html: &str, kind: &str) -> Option<String> {
     let needle = format!("{kind}=");
     let mut rest = html;
@@ -290,12 +249,7 @@ pub fn row_link_key(html: &str, kind: &str) -> Option<String> {
     None
 }
 
-/// The first `href="…"` in `html` whose value contains `needle`, with the
-/// entities an HTML attribute encoder emits decoded.
-///
-/// The result is followed as a request URI, so it must be the URL a browser
-/// would send. `&amp;` is decoded *last* so `&amp;lt;` becomes the literal
-/// `&lt;`, exactly as a browser reads it.
+/// Finds the first `href` containing `needle`, decoded.
 pub fn find_href_with(html: &str, needle: &str) -> Option<String> {
     let mut rest = html;
     loop {
@@ -310,14 +264,7 @@ pub fn find_href_with(html: &str, needle: &str) -> Option<String> {
     }
 }
 
-/// The pager's `after=`/`before=` link: the first href carrying `needle` that
-/// is not the Delete dialog opener.
-///
-/// The Delete confirmation opener is built from the list URL, so it carries the
-/// whole query state — including the cursor — and appends `&delete=<key>`
-/// (`TableState::delete_dialog`). Following it opens a dialog instead of
-/// advancing the page, and on a page holding one row that href comes first.
-/// The View and Edit links are bare `{prefix}/{key}/…` paths with no query.
+/// Finds the pager link carrying `needle`.
 pub fn find_pager_href(html: &str, needle: &str) -> Option<String> {
     let mut rest = html;
     loop {
@@ -332,7 +279,6 @@ pub fn find_pager_href(html: &str, needle: &str) -> Option<String> {
     }
 }
 
-/// Decode the entities an HTML attribute encoder emits in a URL attribute.
 fn unescape_href(href: &str) -> String {
     href.replace("&quot;", "\"")
         .replace("&#x27;", "'")
@@ -341,12 +287,7 @@ fn unescape_href(href: &str) -> String {
         .replace("&amp;", "&")
 }
 
-/// The row titles rendered into a table table, in document order.
-///
-/// Reads each body row (`<tr id="row-…">`, group headers excluded) and takes
-/// its first non-empty cell: the checkbox cell carries no text, so refused
-/// rows without a checkbox read the same as the rest. Used by pagination and
-/// comments assertions that care about which rows a page actually holds.
+/// Reads the row titles in document order.
 pub fn row_titles(html: &str) -> Vec<String> {
     let mut out = Vec::new();
     for chunk in html.split("id=\"row-").skip(1) {
@@ -370,20 +311,12 @@ pub fn row_titles(html: &str) -> Vec<String> {
     out
 }
 
-/// The record key of every rendered row, in document order.
-///
-/// The bulk checkbox carries the record key as its `value`, so a
-/// pagination walk can assert the exact rows a page holds: tied display values
-/// cannot be told apart by their first cell. Attributes render in no
-/// guaranteed order (topcoat#122), so this reads each `<input>` tag whole
-/// rather than assuming `value` and the marker sit in a fixed order.
+/// Reads the record key of every rendered row.
 pub fn row_keys(html: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut rest = html;
     while let Some(at) = rest.find("<input") {
         rest = &rest[at..];
-        // The tag ends at the first `>` outside quotes; attribute values carry
-        // `>` when topcoat escapes an expression (`=&gt;`).
         let mut quoted = false;
         let mut end = rest.len();
         for (offset, byte) in rest.bytes().enumerate() {
@@ -414,11 +347,7 @@ pub fn row_keys(html: &str) -> Vec<String> {
     out
 }
 
-/// How many `Post` rows the database holds.
-///
-/// Rejected submissions assert "nothing was created" by comparing this before
-/// and after, rather than against a literal row count: a literal asserts the
-/// fixture's size instead of the handler's behaviour.
+/// Counts `Post` rows.
 pub async fn post_count(db: &Db) -> usize {
     let mut db = db.clone();
     showcase::models::Post::all()
@@ -428,11 +357,7 @@ pub async fn post_count(db: &Db) -> usize {
         .len()
 }
 
-/// How many `User` rows the database holds.
-///
-/// [`post_count`]'s pattern for the user list: a seeded-row literal like
-/// `8` asserts the fixture's size. Write/delete tests compare this before and
-/// after instead.
+/// Counts `User` rows.
 pub async fn user_count(db: &Db) -> usize {
     let mut db = db.clone();
     showcase::models::User::all()
@@ -442,7 +367,7 @@ pub async fn user_count(db: &Db) -> usize {
         .len()
 }
 
-/// How many `Comment` rows the database holds.
+/// Counts `Comment` rows.
 pub async fn comment_count(db: &Db) -> usize {
     let mut db = db.clone();
     showcase::models::Comment::all()

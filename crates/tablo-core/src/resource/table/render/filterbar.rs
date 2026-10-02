@@ -16,15 +16,7 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// The fail-visible filter banner: requested filters that produced
-    /// no predicate render as a `role=alert` banner; the list keeps a 200 while
-    /// the export refuses with 400 (see `resource_export`).
-    ///
-    /// No false tail: when other filters still apply, "unfiltered" would be a
-    /// lie — a malformed segment can ride alongside valid ones.
-    /// Conversely an invalid-only request applies nothing, so "other filter(s)"
-    /// would be the lie — the consequence keys off applied
-    /// predicates, not raw entries.
+    /// Render the fail-visible banner for requested filters that produce no predicate.
     pub(super) fn render_filter_warning<'a>(
         &self,
         cx: &'a Cx,
@@ -68,14 +60,7 @@ impl<M> Table<M> {
         )
     }
 
-    /// The filter bar for a live table, rendered eagerly by the page that owns
-    /// the signals — the counterpart of [`Self::render_live_search_bar`].
-    ///
-    /// Hoisting matters for focus: a `<select>` change writes the `query`
-    /// signal, and a bar rebuilt by that rerun would collapse the native popup
-    /// and drop keyboard context. The table renders without the bar
-    /// (`Table::hide_filter_bar`), so the control the user touched is never
-    /// replaced.
+    /// Render the filter bar for a live table from the page that owns the signals.
     pub(crate) async fn render_live_filter_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -89,12 +74,7 @@ impl<M> Table<M> {
         self.render_filter_bar(cx, state, path, Some(signals)).await
     }
 
-    /// The typed filter bar: a GET form whose controls are the `f.<name>`
-    /// parameters. `filters.js` submits it on change. For live tables
-    /// (`signals`) a hidden transport is bound to the `query` signal instead,
-    /// and `filters.js` rewrites the query's filter parameters in it, so the
-    /// shard re-renders the table in place; the form stays the no-JS fallback
-    /// and `href`s remain real.
+    /// Render the typed filter bar as a GET form of `f.<name>` controls.
     pub(super) async fn render_filter_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -105,8 +85,6 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        // No `filters.is_empty()` early return: the caller (`render_inner`)
-        // already guards on `show_filters`, so an empty bar is unreachable.
         let action = path.to_string();
         let sort_hidden = state.sort.as_ref().map(|s| s.column.clone());
         let dir_hidden = state.sort.as_ref().map(|s| {
@@ -132,12 +110,6 @@ impl<M> Table<M> {
         } else {
             None
         };
-        // One typed control per declared filter, each a real `f.<name>` field.
-        // `filters.js` submits on change; the Apply button survives only
-        // inside `<noscript>` as the no-JS path.
-        // The query prefix a relation's parameters carry (`comments.`), so
-        // `filters.js` rewrites the table's own filters and cursor instead of
-        // the list's. Absent on a page-owned list, whose parameters are bare.
         let query_prefix = state.prefix.as_deref().map(|prefix| format!("{prefix}."));
         let mut controls: Vec<BoxView<'_>> = Vec::with_capacity(self.filters.len());
         for f in &self.filters {
@@ -157,10 +129,6 @@ impl<M> Table<M> {
                 data-filters-live=""
             }
         };
-        // Live tables bind a transport to the `query` signal: `filters.js`
-        // rewrites the query's filter parameters in it and dispatches, and the
-        // shard re-renders in place. It has no `name`, so the GET form never
-        // submits it.
         let transport: Option<BoxView<'a>> = signals.map(|signals| {
             let query = signals.query.clone();
             view! {
@@ -174,9 +142,6 @@ impl<M> Table<M> {
             }
             .boxed()
         });
-        // A plain link: the bar is rendered once, so on a live table
-        // `filters.js` clears the filters from the transport's current query
-        // rather than writing this page-load URL over newer state.
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
             view! {
                 cx =>

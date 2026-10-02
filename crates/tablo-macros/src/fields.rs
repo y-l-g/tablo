@@ -40,11 +40,8 @@ pub(crate) struct FormAttrs {
     pub(crate) file: bool,
 }
 
-/// Every `#[form(..)]` attribute on `field`, checked.
-///
-/// An unknown key, a key the derive does not read, and a key that means
-/// nothing on an embedded value are compile errors at the attribute rather
-/// than silent no-ops.
+/// Every `#[form(..)]` attribute on `field`, rejecting unknown, unread, and misplaced keys at the
+/// attribute.
 pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<FormAttrs> {
     let mut out = FormAttrs::default();
     for attr in &field.attrs {
@@ -129,15 +126,13 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
     Ok(out)
 }
 
-/// A call asserting that `ty` is a form scalar, spanned on the type so the
-/// error names the field.
+/// Asserts `ty` is a form scalar, spanned on the type so the error names the field.
 pub(crate) fn assert_scalar(krate: &TokenStream2, ty: &Type) -> TokenStream2 {
     quote_spanned! {ty.span()=>
         #krate::__macro::assert_form_scalar::<#ty>();
     }
 }
 
-/// The last path segment of `ty`, when it is a path.
 pub(crate) fn last_segment(ty: &Type) -> Option<String> {
     match ty {
         Type::Path(path) => path.path.segments.last().map(|s| s.ident.to_string()),

@@ -134,7 +134,6 @@ without a session only when every panel is gated.
   to the panel that signed the user in: the session row records the panel's prefix. Another
   panel's gate treats the request as anonymous, and `auth::user` answers `None` there. One
   browser holds one session, so signing in to a second panel ends the first.
-- **Rate limiting** is not built in. Limit login attempts at your proxy or firewall.
 
 Read the signed-in user in your own code as your user type: `auth::user::<AdminUser>(cx)` returns
 `Option<&AdminUser>`, and `auth::require_user::<AdminUser>(cx)?` answers the request as the table
@@ -191,7 +190,7 @@ Panel::new("admin").auth(Auth::custom(StaffAuth))
 - **`find_by_id`** reloads the user on every request, so deactivating a user or removing a
   membership takes effect immediately.
 
-Sessions stay in `AuthSession`, so register it; the shipped `AdminUser` is needed only by
+Sessions stay in `AuthSession`, so register it; the provided `AdminUser` is needed only by
 `PasswordAuth`.
 
 ### Turning it off
@@ -206,14 +205,15 @@ demos and tests only.
 ## Tenancy
 
 A tenant-owned resource shows each user only the rows of the tenant they act for. A user may act
-for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; the shipped
+for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; the provided
 `AdminUser` belongs to none, so a tenanted app signs in [its own user table](#your-own-user-table).
 
 - **The request's tenant** is the membership the user selected, else their first, read with
   `tenant_id(cx)`; `membership(cx)` returns the whole `Membership`. A user with no membership has
   no tenant.
 - **Switching.** With two or more memberships, the top bar shows a tenant switcher. It posts to
-  `{prefix}/tenant`, which stores the choice on the session and lands on the panel's home page.
+  `{prefix}/tenant`, which stores the choice on the session and returns to the panel's home
+  page.
   A tenant the user is not a member of answers 403, and a stored choice applies only while the
   membership lasts. The session table records the choice, so an existing `auth_session` table
   needs a nullable `tenant` column, typed as Toasty stores a `Uuid` on your database. One

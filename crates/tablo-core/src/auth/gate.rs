@@ -23,10 +23,8 @@ use crate::panel::{
     state::{CurrentPanel, PanelState, panels},
 };
 
-/// The layer every request under a panel's prefix runs first (ADR-0013): it
-/// puts the panel on the request, then, on a gated panel, resolves the
-/// session into request `Cx` and answers fail-closed when the route has no
-/// permitted user.
+/// Resolves the panel prefix's session into request `Cx` and answers fail-closed
+/// without a permitted user.
 pub(crate) struct PanelGate {
     path: PathBuf,
     panel: Arc<PanelState>,
@@ -76,8 +74,7 @@ impl Layer for PanelGate {
                 Some(signed) if signed.user.can_access_panel() || logout_route => {
                     next.run(&cx.with(signed), body).await
                 }
-                // Authenticated but not permitted: 403, indistinguishable
-                // from bad credentials at login (ADR-0013). The logout route
+                // Authenticated but not permitted: 403. The logout route
                 // is answered above.
                 Some(_) => Err(forbidden().into()),
                 // Pages redirect to the login route with a validated `next`;
@@ -89,14 +86,11 @@ impl Layer for PanelGate {
     }
 }
 
-/// The layer over Topcoat's runtime endpoints (ADR-0013): shards and
-/// procedures every panel's pages call, served at one path for all of them.
+/// Guards Topcoat's runtime endpoints shared by all panels.
 ///
-/// A session names the panel that issued it, so the gate resolves it through
-/// that panel's auth and puts both the user and the panel on the request. A
-/// request with no session answers 401 when every mounted panel is gated; with
-/// an ungated panel mounted it passes on, and each panel's shard re-checks its
-/// own panel's gate.
+/// Resolves the session through its issuing panel's auth; answers 401 when
+/// every mounted panel is gated, otherwise passes on for each panel's shard
+/// to re-check.
 pub(crate) struct RuntimeGate {
     path: PathBuf,
 }

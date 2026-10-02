@@ -29,9 +29,6 @@ async fn text_input_renders_with_label_and_ac_field() {
         .await
         .unwrap()
         .render(&cx);
-    // The field/field-label composition is the contract; the
-    // input's Token classes (`border-border`, `bg-transparent`,
-    // `focus-visible:ring-ring`) are paint.
     assert!(
         html.contains("data-slot=\"field\"") && html.contains("data-slot=\"field-label\""),
         "missing field/field-label markup in {html}"
@@ -46,22 +43,14 @@ async fn text_input_renders_with_label_and_ac_field() {
         html.contains("for=\"name\""),
         "missing for/id linking in {html}"
     );
-    // No error → no error node: the primitive's contract is to render
-    // `field_error` only when there is an error, so a valid field leaves
-    // no empty `role="alert"` behind.
     assert!(
         !html.contains("role=\"alert\""),
         "a valid field must not render an error slot in {html}"
     );
-    // label derived from lens: DummyUser::fields().name() → "name" → "Name"
     assert!(html.contains(">Name"), "missing label in {html}");
 }
 
 /// A typed field shows its stored value on a detail page.
-///
-/// A typed column is a text field like any other, so a view renders its
-/// value instead of a control. A `Uuid` column is therefore readable, not
-/// only writable.
 #[tokio::test]
 async fn a_typed_field_renders_its_stored_value_read_only() {
     const ID: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
@@ -89,9 +78,7 @@ async fn a_typed_field_renders_its_stored_value_read_only() {
 
 #[tokio::test]
 async fn text_input_error_marks_the_field_invalid() {
-    // topcoat#420: `aria-invalid` drives the input's error border/ring and
-    // the label's destructive color; the reserved slot carries the id the
-    // control describes itself with.
+    // topcoat#420 pins `aria-invalid` and the error slot.
     let cx = cx();
     let schema = Schema::new(Field::text(DummyUser::fields().name()).required());
     let mut errors = FieldErrors::new();
@@ -150,8 +137,6 @@ fn text_input_required_validates_empty() {
 
 #[test]
 fn required_default_follows_lens_nullability() {
-    // `required` defaults from the DB column, with an explicit
-    // `.optional()` escape hatch. Pinned through the public constructor.
     #[derive(Debug, toasty::Model)]
     struct NullableDoc {
         #[key]
@@ -184,9 +169,6 @@ async fn text_input_required_renders_star_and_email_type() {
         .await
         .unwrap()
         .render(&cx);
-    // The required marker is the visible asterisk (`required` /
-    // `aria-required` below pin the attribute; the star is what a reader
-    // sees, and `>*<` is emitted only by it).
     assert!(
         html_req.contains(">*</span>"),
         "required should render its asterisk in {html_req}"
@@ -211,8 +193,6 @@ async fn text_input_required_renders_star_and_email_type() {
         .await
         .unwrap()
         .render(&cx);
-    // `r#type` would still contain the substring `type=`, so pin the
-    // attribute name itself.
     assert!(
         html_email.contains("type=\"email\"") && !html_email.contains("r#type"),
         "email should render type=email, not r#type=email, in {html_email}"
@@ -229,7 +209,6 @@ async fn text_input_required_renders_star_and_email_type() {
         html_text.contains("type=\"text\"") && !html_text.contains("r#type"),
         "plain should render type=text, not r#type=text, in {html_text}"
     );
-    // A required-but-valid field renders no error node either.
     assert!(
         !html_req.contains("role=\"alert\""),
         "a valid required field must not render an error slot in {html_req}"
@@ -251,9 +230,7 @@ fn text_input_email_validates() {
         input.validate("a@b.com").is_empty(),
         "email should accept valid"
     );
-    // `.optional()` still accepts an empty submit on a non-unique,
-    // nullable column. `DummyUser.email` is `#[unique]`, so
-    // there `.optional` cannot lift the required rule.
+    // `DummyUser.email` is unique, so `.optional` cannot lift presence there.
     assert!(
         Field::choice(NullableRef::fields().parent_id())
             .optional()
@@ -278,8 +255,6 @@ fn unique_implies_required_in_either_declaration_order() {
         Field::text(DummyUser::fields().email()).optional().unique(),
         Field::text(DummyUser::fields().email()).unique().optional(),
     ];
-    // Derived from the lens, with no `.unique()` call at all: the rule
-    // follows the column, not the declaration style.
     declarations.push(Field::text(DummyUser::fields().email()).optional());
 
     for (nth, input) in declarations.iter().enumerate() {
@@ -304,9 +279,7 @@ fn unique_implies_required_in_either_declaration_order() {
     }
 }
 
-/// The marker a user sees reads the same predicate validation
-/// does, so a unique field cannot be refused for emptiness while rendering
-/// as optional.
+/// A unique field renders the required marker.
 #[tokio::test]
 async fn unique_field_renders_the_required_marker() {
     let cx = cx();
@@ -336,20 +309,14 @@ fn text_input_email_edges() {
         "a@b.com",
         "user+tag@sub.example.co",
         "Ada@Example.COM",
-        // A unicode local part and domain.
         "用户@例え.jp",
-        // A quoted local part and a bracketed domain literal.
         "\"a b\"@example.com",
         "a@[IPv6:::1]",
-        // The crate's domain grammar, which accepts the local part's
-        // atext set in a label and a single-character TLD.
         "user@my_host.com",
         "a@b.c",
     ] {
         assert!(input.validate(ok).is_empty(), "{ok} should pass");
     }
-    // Rejected: a text domain without a dot, an empty label, a space, a
-    // display name, and parts over their own bound.
     for bad in [
         "a@b".to_string(),
         "a@b..c".to_string(),
@@ -363,15 +330,11 @@ fn text_input_email_edges() {
         "a@@b.com".to_string(),
         "a@-b.com".to_string(),
         "a@b-.com".to_string(),
-        // An unquoted local part carrying a special, and a domain label
-        // ending on one.
         "a,b@b.com".to_string(),
         "a(b@b.com".to_string(),
         "a@b!.com".to_string(),
         format!("{}@b.com", "a".repeat(65)),
         format!("a@{}.com", "b".repeat(64)),
-        // 255 octets: every part fits its own bound, the address does not
-        // fit RFC 5321 §4.5.3.1.3.
         format!(
             "{}@{}.{}.{}",
             "a".repeat(64),
@@ -395,8 +358,7 @@ fn email_rule_leaves_an_empty_value_to_presence() {
 
 #[tokio::test]
 async fn multiline_renders_a_textarea_with_the_stored_value() {
-    // Prose columns get a `<textarea>`, not a one-line input. The
-    // value is the control's child — a textarea has no `value` attribute.
+    // A `<textarea>` takes its value from content, not a `value` attribute.
     let cx = cx();
     let schema = Schema::new(Field::text(DummyUser::fields().name()).multiline(4));
     let mut values = HashMap::new();

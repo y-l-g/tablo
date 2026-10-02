@@ -18,9 +18,6 @@ async fn admin_resource_list_page_serve_seeded_users() {
     );
     let html = body_string(response).await;
 
-    // Light first paint: a visitor with no stored preference gets a
-    // light document, and the preference plumbing itself is covered in
-    // `auth_check`.
     assert!(
         html.contains("<html>"),
         "showcase must paint light by default in {html}"
@@ -29,9 +26,6 @@ async fn admin_resource_list_page_serve_seeded_users() {
         html.contains("data-sidebar=\"sidebar\"") || html.contains("data-sidebar=\"menu\""),
         "missing sidebar in {html}"
     );
-    // Sidebar lists one entry per resource: Users, Writers, Blog Posts,
-    // Comments. No manual saved view and no Showcase documentation
-    // entry.
     assert!(html.contains("Users"), "missing Users label in {html}");
     assert!(
         html.contains("href=\"/admin/users\"") || html.contains("/admin/users"),
@@ -58,9 +52,6 @@ async fn admin_resource_list_page_serve_seeded_users() {
         html.contains("href=\"/admin/comments\"") || html.contains("/admin/comments"),
         "missing Comments navigation url in {html}"
     );
-    // No Published saved view — it would duplicate the Blog Posts
-    // table with a filter, and it is the only arrangement that would highlight
-    // two sidebar entries at once.
     assert!(
         !html.contains("f.status=published"),
         "the redundant Published saved view must be gone: {html}"
@@ -69,12 +60,7 @@ async fn admin_resource_list_page_serve_seeded_users() {
         !html.contains("href=\"/admin/showcase\""),
         "showcase navigation must be gone in {html}"
     );
-    // List page content — production page size (25 per page) shows all
-    // seeded users on page 1; cursor pagination across pages is exercised by
-    // admin_list_pagination_walks_cursor_links, which seeds one row past the
-    // page size.
     assert!(html.contains("Users</h1>"), "missing heading in {html}");
-    // The create button names one record: the singular label, not the list's.
     assert!(
         html.contains("Create User<") && !html.contains("Create Users"),
         "missing singular create entry point in {html}"
@@ -101,9 +87,7 @@ async fn admin_unknown_route_is_not_found() {
     assert_eq!(response.status(), 404);
 }
 
-/// The `frame-ancestors` layer covers every response the panel's layer
-/// chain produces — the 404 for an unmatched path, the 405 for a wrong method,
-/// and the redirects the handlers build as errors — not only the 200 pages.
+/// Every panel response carries `frame-ancestors`.
 #[tokio::test]
 async fn error_responses_carry_frame_ancestors() {
     use topcoat::router::Body;
@@ -119,7 +103,6 @@ async fn error_responses_carry_frame_ancestors() {
             .map(str::to_string)
     };
 
-    // The success path keeps the directive.
     let response = client.get("/admin/users").await;
     assert!(
         response.status().is_success(),
@@ -130,12 +113,9 @@ async fn error_responses_carry_frame_ancestors() {
         csp(&response).is_some_and(|policy| policy.contains("frame-ancestors")),
         "a panel page must carry the directive"
     );
-    // Drain the streamed page before the next request: an undrained body keeps
-    // the list query's pooled connection, and a later request that resolves the
-    // session blocks on the pool.
+    // Drain the streamed page before the next request.
     let _ = body_string(response).await;
 
-    // A path the router does not match answers 404, hardened all the same.
     let response = client.get("/admin/unknown").await;
     assert_eq!(response.status(), 404);
     assert!(
@@ -143,8 +123,6 @@ async fn error_responses_carry_frame_ancestors() {
         "an unmatched route must carry the directive"
     );
 
-    // A method the login route does not accept answers 405. The login path
-    // bypasses the auth gate, so no session is needed to reach the route table.
     let request = http::Request::builder()
         .method(http::Method::PATCH)
         .uri("/admin/login")
@@ -157,8 +135,6 @@ async fn error_responses_carry_frame_ancestors() {
         "a wrong-method response must carry the directive"
     );
 
-    // The gate's login redirect does too: an unauthenticated page request is
-    // answered by a redirect to the login route.
     let anonymous = TestClient::new(&router);
     let response = anonymous.get("/admin/users").await;
     assert_eq!(
@@ -193,7 +169,6 @@ async fn admin_root_serves_the_dashboard_with_the_page_entries() {
         html.contains("Dashboard</h1>"),
         "the home page renders: {html}"
     );
-    // Each sidebar link, whole: an attribute value can hold a `>`.
     let links: Vec<&str> = html
         .match_indices("data-sidebar=\"menu-button\"")
         .map(|(at, _)| {
@@ -218,7 +193,6 @@ async fn admin_root_serves_the_dashboard_with_the_page_entries() {
             "{label} links to {href}: {links:?}"
         );
     }
-    // The home entry prefix-matches every panel path; only it is active here.
     let active: Vec<_> = links
         .iter()
         .filter(|link| link.contains("data-active=\"true\""))
@@ -273,7 +247,6 @@ async fn admin_list_renders_search_box_and_sort_links() {
         response.status()
     );
     let html = body_string(response).await;
-    // Real search UI — a GET form with a q input, not a URL-only affordance.
     assert!(
         html.contains("<form") && html.contains("name=\"q\""),
         "missing search form in {html}"
@@ -282,9 +255,6 @@ async fn admin_list_renders_search_box_and_sort_links() {
         html.contains("type=\"search\""),
         "missing search input type in {html}"
     );
-    // Real sort controls — links that drive ?sort/&dir, aria-sort present.
-    // Unsorted page: the first click sorts ascending; the active column
-    // carries aria-sort="none".
     assert!(
         html.contains("sort=name&amp;dir=asc"),
         "missing sort link in {html}"
@@ -294,8 +264,6 @@ async fn admin_list_renders_search_box_and_sort_links() {
         "missing aria-sort on sortable column in {html}"
     );
 
-    // Sorted ascending: the same link toggles to descending and the column
-    // declares aria-sort="ascending".
     let response = client.get("/admin/users?sort=name&dir=asc").await;
     assert!(
         response.status().is_success(),
@@ -312,7 +280,6 @@ async fn admin_list_renders_search_box_and_sort_links() {
         "missing aria-sort=ascending in {sorted}"
     );
 
-    // Sorted descending: direction is declared and the link toggles back.
     let response = client.get("/admin/users?sort=name&dir=desc").await;
     assert!(
         response.status().is_success(),
@@ -337,9 +304,6 @@ async fn admin_list_pagination_walks_cursor_links() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    // The overflow derives from the fixture and the page size. Production page size is 25, so page
-    // 1 holds the seeded roster plus `extra - 1` filler rows and exactly one filler row
-    // spills to page 2.
     let seeded = user_count(&db).await;
     let page_size = tablo_core::resource::DEFAULT_PAGE_SIZE.get();
     let extra = page_size - seeded + 1;
@@ -362,14 +326,10 @@ async fn admin_list_pagination_walks_cursor_links() {
             .unwrap();
         }
     }
-    // Sorted ascending so the cursor links carry two query parameters: the
-    // pager must preserve that state, which is also what makes the `&amp;`
-    // decoding below observable (a one-parameter URL has no `&` to encode).
     let response = client.get("/admin/users?sort=name&dir=asc").await;
     let page1 = body_string(response).await;
     let page1_titles = row_titles(&page1);
 
-    // Page 1 (name asc, 25 per page): Ada + Alan + Grace, not the last user; a real Next link.
     assert!(page1.contains("Ada Lovelace"), "page1 missing Ada: {page1}");
     assert!(page1.contains("Alan Turing"), "page1 missing Alan: {page1}");
     assert!(
@@ -382,8 +342,6 @@ async fn admin_list_pagination_walks_cursor_links() {
     );
     let next_href = find_href_with(&page1, "after=")
         .unwrap_or_else(|| panic!("page1 missing Next (after=) link: {page1}"));
-    // The href is followed as a request URI, so it must be the URL a
-    // browser would send — decoded, never `&amp;`.
     assert!(
         !next_href.contains("&amp;"),
         "the Next link must be followed decoded, got {next_href}"
@@ -413,7 +371,6 @@ async fn admin_list_pagination_walks_cursor_links() {
         "page2 missing Previous (before=) link: {page2}"
     );
 
-    // Following Previous returns to the first page.
     let prev_href = find_href_with(&page2, "before=").unwrap();
     assert!(
         !prev_href.contains("&amp;"),
@@ -426,8 +383,6 @@ async fn admin_list_pagination_walks_cursor_links() {
         response.status()
     );
     let page1_again = body_string(response).await;
-    // The same rows, in the same order: a one-row page, a repeated page 2, or
-    // a page that merely contains a seeded name would all pass a looser check.
     assert_eq!(
         row_titles(&page1_again),
         page1_titles,
@@ -435,13 +390,6 @@ async fn admin_list_pagination_walks_cursor_links() {
     );
 }
 
-/// The pager walks a descending ordering without skipping or repeating rows.
-///
-/// The cursor carries the ordering's sort values; the direction lives in
-/// `?dir=desc` and the query the loader builds from it. A page boundary that
-/// compared the cursor against the wrong ordering would drop the rest of the
-/// result set or serve page-1 rows again, and the row order would stop being
-/// descending.
 #[tokio::test]
 async fn admin_list_pagination_walks_descending_cursor_links() {
     use showcase::models::User;
@@ -451,7 +399,6 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
     let page_size = tablo_core::resource::DEFAULT_PAGE_SIZE.get();
-    // One row past a full page, so the walk spans exactly two pages.
     let extra = page_size - seeded + 1;
     {
         let mut db_q = db.clone();
@@ -498,7 +445,6 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
     descending.sort();
     descending.reverse();
     assert_eq!(names, descending, "the pages must stay in descending order");
-    // Keys cover every row but the SSO-guarded one, which renders no checkbox.
     let unique: std::collections::HashSet<_> = keys.iter().collect();
     assert_eq!(
         unique.len(),
@@ -507,12 +453,6 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
     );
 }
 
-/// The pager's cursor keeps its tie-breaker when the sort value repeats.
-///
-/// Every tied row has the same sort value, so only the primary key separates
-/// them: a boundary that compared the sort value alone would stop at the first
-/// tied row (dropping the rest) or serve the tie twice. The tied group spans
-/// the page boundary, so the walk must split it and still cover every row.
 #[tokio::test]
 async fn admin_list_pagination_keeps_tied_sort_values() {
     use showcase::models::User;
@@ -544,8 +484,6 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
     let page1 = body_string(client.get("/admin/users?sort=name&dir=asc").await).await;
     let page1_titles = row_titles(&page1);
     assert_eq!(page1_titles.len(), page_size, "page 1 must be full");
-    // Every seeded name sorts before "Tied", so the tie fills the tail of
-    // page 1 and all of page 2.
     assert_eq!(
         page1_titles.iter().filter(|title| *title == "Tied").count(),
         page_size - seeded,
@@ -564,9 +502,6 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
         "page 2 must continue the tied group: {page2}"
     );
 
-    // The tie-breaker is what makes the split exact: without it the second
-    // page would repeat the tie or drop it, so the keys would not cover every
-    // selectable row. Keys skip the SSO-guarded row, which has no checkbox.
     let mut keys = row_keys(&page1);
     keys.extend(row_keys(&page2));
     let unique: std::collections::HashSet<_> = keys.iter().collect();
@@ -577,15 +512,12 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
     );
 }
 
-/// Search matches anywhere in the value, not just a prefix, and the
-/// term is escaped — a literal `%` matches that character instead of acting as
-/// a wildcard (which would have matched every row).
+/// Search matches substrings with wildcards escaped.
 #[tokio::test]
 async fn admin_list_search_matches_substrings_and_escapes_wildcards() {
     let db = seeded_db().await;
     let router = router(db.clone());
 
-    // Mid-string term: "vela" sits inside "Ada Lovelace" -> 1 row.
     let client = demo_client(&router, &db).await;
     let response = client.get("/admin/users?q=vela").await;
     assert!(response.status().is_success());
@@ -599,7 +531,6 @@ async fn admin_list_search_matches_substrings_and_escapes_wildcards() {
         "a mid-string term must not match the other rows: {html}"
     );
 
-    // A user whose value contains a literal percent sign.
     toasty::create!(showcase::models::User {
         name: "100% Ada".to_string(),
         email: "percent@example.com".to_string(),
@@ -618,8 +549,6 @@ async fn admin_list_search_matches_substrings_and_escapes_wildcards() {
     .await
     .expect("seed the percent user");
 
-    // The same client: the new row is visible through the session it already
-    // holds.
     let response = client.get("/admin/users?q=100%25").await;
     let html = body_string(response).await;
     assert!(
@@ -686,8 +615,6 @@ async fn admin_list_filters_via_q_param() {
 
 #[tokio::test]
 async fn users_list_renders_live_search_host_with_get_fallback() {
-    // The users table opts into the keystroke-live shard; the ?q=
-    // GET toolbar stays as the no-JS fallback.
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -702,6 +629,5 @@ async fn users_list_renders_live_search_host_with_get_fallback() {
         html.contains("<noscript>"),
         "live list must keep the GET fallback, got {html}"
     );
-    // Seeded rows still stream in beneath the host.
     assert!(html.contains("Ada Lovelace"), "missing Ada in {html}");
 }

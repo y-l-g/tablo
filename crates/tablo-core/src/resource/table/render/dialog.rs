@@ -12,29 +12,7 @@ use super::super::{
 };
 
 impl<M> Table<M> {
-    /// The row-delete confirmation dialog, rendered with the table the panel
-    /// wired the delete route into.
-    ///
-    /// One dialog per table: the row Delete controls name it
-    /// (`data-row-delete-trigger`) and carry the record's POST target
-    /// (`data-row-delete-action`), which `assets/dialog.js` writes to the form
-    /// before opening it in place. The control keeps its `?delete=<row key>`
-    /// href, so a page without the script opens the dialog through the URL —
-    /// and that render ships it open. `?open=false`, the mirror `dialog.js`
-    /// writes on dismissal ([`TableState::open`](crate::resource::TableState::open)), leaves it
-    /// closed. Cancel is a `data-dialog-close` button on both paths, so dismissal never
-    /// navigates.
-    ///
-    /// [`Self::render_with_state`] renders it with the table; the live-search
-    /// page (`panel::resource_list_live`) calls this separately because the
-    /// shard swaps the table per keystroke and must not carry dialog state.
-    ///
-    /// Escape/backdrop dismissal, the `data-dialog-close` cancel hook and the
-    /// trigger wiring need `assets/dialog.js` (`tablo_ui::DIALOG_JS`),
-    /// emitted by `Panel::render_document` on every document with shell assets
-    /// (ADR-0014). Without the document scripts Cancel is inert and Delete still
-    /// POSTs; the dialog primitives are vendored under the ADR-0007 sync guard,
-    /// so they carry no note themselves.
+    /// Render the row-delete confirmation dialog for a table with the delete route wired.
     pub(crate) async fn render_delete_dialog<'a>(
         &self,
         cx: &'a Cx,
@@ -49,9 +27,6 @@ impl<M> Table<M> {
             .filter(|_| state.open != Some(false));
         let server_open = key.is_some();
         let action = key.map(|key| self.action_url(delete_action_url(prefix, key)));
-        // Only the URL-driven dialog mirrors its dismissal into the URL: a
-        // dialog a row control opens client-side has no `?delete=` to close,
-        // so dismissing it leaves the URL alone.
         let open_param = server_open.then(|| state.param("open"));
         let csrf = crate::csrf::current_token(cx);
         let footer = view! {
@@ -81,13 +56,7 @@ impl<M> Table<M> {
         )))
     }
 
-    /// The DOM id of a table's row-delete dialog: the delete prefix
-    /// with its slashes flattened, so two tables with different delete prefixes
-    /// never share an id. Two tables over one prefix (a page rendering the same
-    /// resource twice) derive the same ids; the panel renders one list table
-    /// per page — the list parameters are shared — so its own routes cannot
-    /// reach that. The row controls name the dialog they open, and its
-    /// `aria-labelledby`/`aria-describedby` ids derive from it.
+    /// Derive a table's row-delete dialog DOM id from its delete prefix.
     pub(super) fn delete_dialog_dom_id(prefix: &str) -> String {
         chrome_dom_id(prefix, "delete-dialog")
     }
@@ -107,17 +76,13 @@ pub(super) struct ConfirmDialog<'a> {
     /// Whether it renders open (a URL-driven dialog) or closed.
     pub(super) open: bool,
     pub(super) title: &'static str,
-    /// Extra attributes on the dialog element.
     pub(super) attrs: Attributes,
-    /// Extra attributes on the description.
     pub(super) description_attrs: Attributes,
-    /// The footer: [`confirm_controls`], wrapped in a form when the dialog is
-    /// not already inside the one it submits.
+    /// The footer submitting the dialog's form.
     pub(super) footer: BoxView<'a>,
 }
 
-/// An alert dialog asking to confirm a destructive action, labelled by its
-/// title and described by "This action cannot be undone.".
+/// Confirm a destructive action in an alert dialog.
 pub(super) fn confirm_dialog<'a>(cx: &'a Cx, dialog: ConfirmDialog<'a>) -> BoxView<'a> {
     let ConfirmDialog {
         id,
@@ -158,9 +123,7 @@ pub(super) fn confirm_dialog<'a>(cx: &'a Cx, dialog: ConfirmDialog<'a>) -> BoxVi
     .boxed()
 }
 
-/// The controls every delete confirmation submits: Cancel (closes the dialog
-/// through `dialog.js`), the `confirm=1` marker the handler requires, and the
-/// destructive submit.
+/// Submit Cancel, the `confirm=1` marker, and the destructive submit for every delete confirmation.
 pub(super) fn confirm_controls<'a>(cx: &'a Cx) -> BoxView<'a> {
     view! {
         cx =>

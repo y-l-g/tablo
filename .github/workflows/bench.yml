@@ -1,9 +1,5 @@
 name: bench
 
-# The detached bench harness is not a per-PR gate: neither `cargo test
-# --workspace` nor `clippy --workspace` sees it, so it still needs a compile
-# check — but only when it or the pins it measures can have moved. It runs on
-# `master`, weekly, and the PRs touching the paths below.
 on:
   push:
     branches: [master]
@@ -27,9 +23,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-# `target/debug/incremental` measured 28 of 66 GB locally: it busts the
-# shared action-cache budget, so CI disables incremental compilation and
-# trades a slower cold link for cache hits.
+# Incremental compilation busts the shared action-cache budget, so CI disables it.
   CARGO_INCREMENTAL: 0
 
 jobs:
@@ -41,17 +35,11 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
         with:
-          # The bench workspace is detached (see workspace `exclude`), so it
-          # has its own target dir and lockfile.
+          # Detached workspace: own target dir and lockfile.
           workspaces: benchmarks/tablo
-      # Compile and lint the harness locked: neither `cargo test --workspace`
-      # nor `clippy --workspace` sees the detached bench, so lint it by
-      # manifest path. Clippy compiles every target, so it is the compile
-      # check too.
+      # Lint the detached bench by manifest path; clippy is the compile check too.
       - name: Clippy detached bench workspace (locked)
         run: cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings
-      # Pin policy (Cargo.toml comment / ADR-0003): the bench must measure the
-      # same upstream revs the workspace ships, so the two lockfiles stay in
-      # lockstep through every bump. `verify-locks` fails on drift.
+      # The bench measures the same upstream revs the workspace provides (ADR-0003).
       - name: Lockstep pin check (workspace vs bench)
         run: cargo xtask verify-locks

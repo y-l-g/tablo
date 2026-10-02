@@ -7,9 +7,7 @@ use crate::{
     panel::test_support::{Dummy, current_panel, mount, panel_for, panel_state},
 };
 
-/// The shard's positional args as the browser sends them: the list path, the
-/// `query` signal holding the list's URL query built from `pairs`, and the
-/// `bulk` signal the table binds its selection transport to.
+/// Builds the shard's positional args as the browser sends them.
 fn shard_args(path: &str, pairs: &[(&str, &str)]) -> String {
     let query = form_urlencoded::Serializer::new(String::new())
         .extend_pairs(pairs)
@@ -27,10 +25,7 @@ fn shard_args(path: &str, pairs: &[(&str, &str)]) -> String {
         sig(2, "")
     )
 }
-/// The signal id the live retry link writes: read from the
-/// control's own `increment()` handler, which is the side that re-runs the
-/// shard. Locating it by offset from the marker instead would read whatever
-/// payload happened to follow.
+/// Reads the signal id the live retry link writes.
 fn retry_signal_id(html: &str) -> &str {
     const MARKER: &str = r#"id&quot;:&quot;"#;
     let at = html
@@ -61,9 +56,7 @@ fn retry_signal_id(html: &str) -> &str {
     id
 }
 
-/// The live-search shard answers the gate before the registry lookup
-/// an unauthenticated probe cannot distinguish a registered
-/// slug from an unregistered one.
+/// Asserts the live-search shard answers auth before the registry lookup.
 #[tokio::test]
 async fn search_shard_answers_auth_before_the_registry_lookup() {
     use topcoat::{context::CxTestBuilder, router::response::IntoResponse};
@@ -616,12 +609,7 @@ async fn live_shard_group_by_query_drives_grouping() {
     );
 }
 
-/// Post one live-table shard rerun with an optional `Tenant` request
-/// extension.
-///
-/// The first positional arg is the list path the registry is keyed by, so
-/// the caller chooses the resource; the identity header is the one the
-/// browser runtime sends.
+/// Posts one live-table shard rerun with an optional `Tenant` request extension.
 async fn post_table_shard(
     router: &topcoat::router::Router,
     path: &str,
@@ -642,11 +630,7 @@ async fn post_table_shard(
     router.handle(http::Request::from_parts(parts, body)).await
 }
 
-/// The live-search shard re-checks the tenant and policy gates itself,
-/// because page guards do not run on shard requests: a gated
-/// resource with no tenant must be refused instead of running an unscoped
-/// query, a tenanted rerun must serve only that tenant's rows, and a
-/// `ViewAny` denial is refused even with a tenant present.
+/// Asserts the live-search shard enforces tenant and policy gates.
 #[tokio::test]
 async fn live_shard_enforces_tenant_and_policy_gates() {
     use http_body_util::BodyExt;
@@ -780,9 +764,7 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
     );
 }
 
-/// Post one live relation-table shard rerun: the (`parent`, `child`) pair the
-/// relation registry is keyed by, the owner's seed, the record page, and the
-/// query pairs the `query` signal carries.
+/// Posts one live relation-table shard rerun.
 fn relation_shard_args(
     parent: &str,
     child: &str,
@@ -827,10 +809,7 @@ async fn post_relation_shard(
         .await
 }
 
-/// The relation shard serves one owner's rows through the child's own table:
-/// the seed scopes the load, the prefixed query drives search and sort, and
-/// the controls write the signals in place. An unregistered pair is a 404,
-/// and a seed or page the handler cannot honor is a 400.
+/// Asserts the relation shard serves the seeded owner in place.
 #[tokio::test]
 async fn live_relation_shard_serves_the_seeded_owner_in_place() {
     use http_body_util::BodyExt;
@@ -1071,8 +1050,7 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
     );
 }
 
-/// topcoat#441: the shard is served at the named path, so its endpoint is the
-/// same in every build and the tests post to it by name.
+/// Asserts the shard serves at the named path (topcoat#441).
 #[test]
 fn table_search_endpoint_is_the_named_path() {
     use topcoat::router::Route as _;
@@ -1080,8 +1058,7 @@ fn table_search_endpoint_is_the_named_path() {
     assert_eq!(table_search.path().as_str(), TABLE_SEARCH_PATH);
 }
 
-/// The relation shard's endpoint carries the same stability contract: the
-/// literal in [`table_relation_search`]'s attribute is the named path.
+/// Asserts the relation shard serves at the named path.
 #[test]
 fn table_relation_search_endpoint_is_the_named_path() {
     use topcoat::router::Route as _;

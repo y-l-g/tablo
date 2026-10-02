@@ -1,6 +1,3 @@
-//! Typed leaves at the form edge: a lens whose leaf is not a
-//! `String`, read and written through the type's own spelling.
-
 use std::collections::HashMap;
 
 use tablo_core::{
@@ -25,7 +22,6 @@ struct Measurement {
     recorded_at: jiff::Timestamp,
 }
 
-/// The messages `errors` carries for `key`, in the order it added them.
 fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
     errors
         .iter()
@@ -43,10 +39,6 @@ async fn cx() -> Cx {
     CxTestBuilder::new().app_context(db).build()
 }
 
-/// A typed field bound to a lens of the wrong type must not compile, which is
-/// the guarantee `r#for` carries and `typed` has to keep. There is no way to
-/// assert "does not compile" in a passing test, so the positive half is what is
-/// pinned: the leaf's own type compiles.
 #[tokio::test]
 async fn a_typed_field_renders_the_values_display() {
     let cx = cx().await;
@@ -73,8 +65,6 @@ async fn a_typed_field_renders_the_values_display() {
         html.contains("value=\"1240\""),
         "an integer field renders its value: {html}"
     );
-    // A timestamp renders `datetime-local` in UTC: the control carries no
-    // zone, so the stored instant shows as its UTC calendar spelling.
     assert!(
         html.contains("type=\"datetime-local\""),
         "a typed timestamp is a datetime-local input: {html}"
@@ -112,7 +102,6 @@ async fn a_bad_submission_is_an_inline_field_error() {
 #[tokio::test]
 async fn a_valid_submission_is_stored_in_the_types_spelling() {
     let schema = Schema::new(Field::text(Measurement::fields().recorded_at()));
-    // A spelling the browser may send that is not what `Display` produces.
     let mut values = HashMap::from([(
         "recorded_at".to_string(),
         "2024-01-02T03:04:05+00:00[UTC]".to_string(),
@@ -196,9 +185,6 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         fn table() -> tablo_core::Table<Reading> {
             tablo_core::Table::new(
                 |r: &Reading| r.id.to_string(),
-                // The list renders the integer through a computed column: a
-                // lens-bound column takes `Path<M, String>`, the same
-                // compile-time rule the typed field constructor respects.
                 tablo_core::TextColumn::computed("Words", |r: &Reading| r.word_count.to_string()),
             )
         }
@@ -268,14 +254,6 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     );
 }
 
-/// Empty is the presence rule's business, not the typed rule's.
-///
-/// A typed column has no spelling for "no value" — `""` is not an `i64` and not
-/// a `Timestamp` — so the panel answers empty where it answers it everywhere:
-/// `.required()` refuses it inline, and an optional typed field reaches its
-/// record fn as `""`, which the record fn defaults exactly as it would for any
-/// other optional column. Normalisation therefore leaves an empty submission
-/// alone rather than inventing a value the user never gave.
 #[tokio::test]
 async fn an_empty_submission_is_left_for_the_record_fn_to_default() {
     let schema = Schema::new(Field::text(Measurement::fields().word_count()).optional());
@@ -292,10 +270,6 @@ async fn an_empty_submission_is_left_for_the_record_fn_to_default() {
     );
 }
 
-/// Timezone and precision survive a round-trip (gotcha).
-///
-/// A `Display`/`FromStr` pair that drops the offset or truncates sub-second
-/// precision corrupts data on an edit the user never touched.
 #[tokio::test]
 async fn a_timestamp_round_trips_offset_and_subsecond_precision() {
     let schema = Schema::new(Field::text(Measurement::fields().recorded_at()));

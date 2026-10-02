@@ -24,7 +24,6 @@ async fn bulk_delete_deletes_selected() {
     let ids: Vec<String> = users.iter().take(2).map(|u| u.id.to_string()).collect();
     let ids_param = ids.join(",");
 
-    // The list page carries the bulk chrome: the bulk form and its confirm trigger.
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
     assert!(
@@ -43,7 +42,6 @@ async fn bulk_delete_deletes_selected() {
         html
     );
 
-    // Bulk delete
     let resp = client
         .csrf(&csrf)
         .post_form(
@@ -62,8 +60,6 @@ async fn bulk_delete_deletes_selected() {
         "redirect to list, got {}",
         loc
     );
-    // Post/Redirect/Get with one-time semantics (#126): 303, flash
-    // cookie on the redirect, clean Location.
     assert_eq!(resp.status(), 303, "a completed bulk delete is a 303 PRG");
     assert!(
         !loc.contains("notification"),
@@ -76,7 +72,6 @@ async fn bulk_delete_deletes_selected() {
         "the flash carries the action, got {flash}"
     );
 
-    // Check DB: exactly the two selected rows are gone.
     let remaining = user_count(&db).await;
     assert_eq!(
         remaining,
@@ -84,7 +79,6 @@ async fn bulk_delete_deletes_selected() {
         "bulk-deleting 2 of {before} must leave {}",
         before - 2
     );
-    // Follow redirect carrying the flash cookie and check the toast
     let resp2 = client.cookies(&response_cookies(&resp)).get(loc).await;
     let html2 = body_string(resp2).await;
     assert!(
@@ -96,9 +90,6 @@ async fn bulk_delete_deletes_selected() {
 
 #[tokio::test]
 async fn bulk_delete_without_ids_redirects_with_the_reason() {
-    // There is no visible ids input and the submit ships disabled,
-    // so a hand-crafted empty POST is a validation miss — the list comes back
-    // with an error toast, never the raw 400 page.
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -125,7 +116,6 @@ async fn bulk_delete_without_ids_redirects_with_the_reason() {
         flash.contains("error") && flash.contains("Select"),
         "the flash must be the selection error, got {flash}"
     );
-    // Nothing was deleted.
     assert_eq!(
         user_count(&db).await,
         before,
@@ -168,10 +158,6 @@ async fn bulk_delete_short_fetch_404s_and_deletes_nothing() {
 
 #[tokio::test]
 async fn bulk_bar_renders_checkboxes_with_row_keys() {
-    // Core (`bulk_checkboxes_render_with_keys_and_select_all`)
-    // owns the bulk-chrome detail (select-all, hidden transport, disabled
-    // submit); this pins the HTTP wiring — pagination, filtering, and the
-    // checkbox-joined POST format.
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -181,9 +167,6 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
     let roster = users.len();
     let ids: std::collections::HashSet<String> = users.iter().map(|u| u.id.to_string()).collect();
 
-    // The list streams (skeleton first, rows in the swap payload); the
-    // collected body contains both. The table paginates by 25, so the first
-    // page carries every seeded row's checkbox.
     let resp = client.get("/admin/users").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
@@ -196,8 +179,6 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
         roster - 1,
         html
     );
-    // Every rendered checkbox value is a real row key (the visible rows;
-    // delete forms carry ids in actions, never in `value=`).
     let mut found = 0;
     for u in &users {
         if u.name == "Ken Thompson" {
@@ -216,7 +197,6 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
         "all rendered row keys should be checkbox values in {}",
         html
     );
-    // A filtered list shows only the matching row's checkbox.
     let ada = users.iter().find(|u| u.name == "Ada Lovelace").unwrap();
     let resp = client.get("/admin/users?q=Ada").await;
     let html = body_string(resp).await;
@@ -232,7 +212,6 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
         "only the filtered row should be selectable in {}",
         html
     );
-    // Checkbox-joined POST uses the same comma format the handler parses.
     let ids_param = users
         .iter()
         .take(2)
@@ -276,8 +255,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     );
 
     let html = body_string(client.get("/admin/users").await).await;
-    // The rendered chrome is the fix: the denied row links no edit page and no
-    // delete dialog, and renders no checkbox at all.
     assert!(
         !html.contains(&format!("/admin/users/{}/edit", ken.id)),
         "the denied row must render no Edit link, got {html}"
@@ -290,8 +267,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
         !html.contains(&format!("value=\"{}\"", ken.id)),
         "the denied row must render no checkbox, got {html}"
     );
-    // The allowed rows keep both links, so the absences above are not passing
-    // on a page that renders no chrome at all.
     let ada = users
         .iter()
         .find(|u| u.name == "Ada Lovelace")
@@ -302,7 +277,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
         "an allowed row must keep its Edit and Delete links, got {html}"
     );
 
-    // What select-all submits: exactly the boxes `bulk.js` would check.
     let ids = selectable_row_ids(&html);
     assert_eq!(
         ids.len(),
@@ -338,7 +312,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     assert_eq!(remaining[0].name, "Ken Thompson");
 }
 
-/// The `<input …>` tag `html` starts with, up to the `>` that closes it.
 fn input_tag_at(html: &str) -> String {
     let mut quoted = false;
     for (offset, byte) in html.bytes().enumerate() {
@@ -351,9 +324,6 @@ fn input_tag_at(html: &str) -> String {
     panic!("unterminated <input> tag in {html}");
 }
 
-/// The row ids the page offers for bulk selection, in document order: every
-/// `data-row-select` checkbox. A row the per-record policy denies delete
-/// renders none — so this is what select-all submits.
 fn selectable_row_ids(html: &str) -> Vec<String> {
     let mut ids = Vec::new();
     let mut rest = html;
@@ -400,10 +370,7 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
                 Ability::ViewAny => true,
                 Ability::View(_rec) => true,
                 Ability::DeleteAny => true,
-                Ability::Delete(rec) => {
-                    // Deny second record (name == "b")
-                    rec.name != "b"
-                }
+                Ability::Delete(rec) => rec.name != "b",
                 _ => false,
             }
         }
@@ -457,7 +424,6 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
         "partial deny returns to the list with an error, got {}",
         resp.status()
     );
-    // Check no deletions happened
     let mut db_check = db.clone();
     let remaining = DummyUser::all().exec(&mut db_check).await.unwrap();
     assert_eq!(
@@ -467,9 +433,6 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
         remaining.len()
     );
 }
-/// The batch asks before it acts, and the guarantee is the server's.
-/// A POST that does not carry the confirming control's marker is refused —
-/// otherwise the dialog would be decoration that a crafted request skips.
 #[tokio::test]
 async fn bulk_delete_without_confirmation_is_refused() {
     let db = seeded_db().await;

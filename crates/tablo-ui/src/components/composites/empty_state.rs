@@ -14,13 +14,7 @@ const EMPTY_STATE_DETAIL: StaticClass = class!("text-sm text-muted-foreground");
 const EMPTY_STATE_ACTION: StaticClass =
     class!("mt-2 flex flex-wrap items-center justify-center gap-2");
 
-/// Zero-data rendering for a content region (CONTEXT.md:`EmptyState`).
-///
-/// A muted icon, a title, an optional detail line, and optional actions (a
-/// "Clear search" link, a Create button) in the region that holds no data.
-/// It draws no border of its own, so it sits inside whatever surface holds
-/// the region — a table cell, a card. [`error_state`](super::error_state::error_state)
-/// is its failed-load counterpart.
+/// Renders zero-data content inside the region that holds no data.
 ///
 /// ```ignore
 /// empty_state(title: "No records yet", detail: "Create the first one.")

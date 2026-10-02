@@ -13,18 +13,10 @@ const ERROR_STATE_TITLE: StaticClass = class!("text-sm font-medium text-destruct
 const ERROR_STATE_DETAIL: StaticClass = class!("text-sm text-muted-foreground");
 const ERROR_STATE_ACTION: StaticClass = class!("text-sm font-medium text-primary hover:underline");
 
-/// Failed-load rendering for a content region (CONTEXT.md:`ErrorState`).
+/// Renders a failed load inside the content region that failed.
 ///
-/// A destructive-accented block — icon, title, optional muted detail, and an
-/// optional action (typically a retry link) — rendered *inside* the region
-/// that failed, so the surrounding page (shell, header, toolbar) survives.
-/// Deliberately distinct from [`empty_state`](super::empty_state::empty_state),
-/// which it mirrors in shape: EmptyState says "no data", ErrorState says "no
-/// answer".
-///
-/// The `detail` line must stay generic: never interpolate error internals
-/// (driver messages, SQL, paths) into the page. Log the error at the call
-/// site and keep operators informed there; the markup stays leak-free.
+/// Keeps `detail` generic: never renders error internals (driver messages, SQL, paths) into the
+/// page.
 ///
 /// ```ignore
 /// let action = view! { cx => <a href=(list_url)>"Retry"</a> }.boxed();
@@ -51,8 +43,7 @@ pub async fn error_state(
     #[default]
     action: Option<Child<'_>>,
     /// Extra attributes for the container. Add `role="alert"` here when the
-    /// region swaps in during a visit and the failure should be announced
-    /// (same trade-off the `alert` primitive documents).
+    /// region swaps in during a visit and the failure should be announced.
     #[default]
     mut attrs: Attributes,
 ) -> Result<impl View> {

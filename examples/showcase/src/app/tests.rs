@@ -8,7 +8,7 @@ fn a_client_filename_is_reduced_to_a_basename() {
     assert_eq!(basename("  cover.png  "), "cover.png");
     assert_eq!(basename("cover\u{7}.png"), "cover.png");
     assert_eq!(basename("   "), "");
-    // Capped by bytes, keeping the tail so the extension survives.
+    // Caps by bytes, keeping the tail.
     let long = format!("{}{}", "a".repeat(300), ".png");
     let capped = basename(&long);
     assert_eq!(capped.len(), MAX_BASENAME_BYTES);
@@ -38,7 +38,7 @@ fn a_stored_name_becomes_a_url_path_segment() {
     );
     assert_eq!(url_segment("100%.png"), "100%25.png");
     assert_eq!(url_segment("a+b&c.png"), "a%2Bb%26c.png");
-    // Nothing a browser sends reaches the URL as a delimiter.
+    // No delimiter reaches the URL.
     for name in ["#", "?", "\"", " ", "%", "&", "+", "/", "\\"] {
         let encoded = url_segment(name);
         assert!(

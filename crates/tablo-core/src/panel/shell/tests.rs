@@ -323,13 +323,7 @@ async fn shell_notification_carries_dismiss_hooks() {
     );
 }
 
-/// The opening tag that starts at `start`, sliced up to the `>` closing it.
-///
-/// `Attributes` renders in no guaranteed order (topcoat#122), so a test
-/// locates a tag by whichever attribute it can and asserts on the whole
-/// tag. Quoting is honoured, so a `>` inside an attribute value (Tailwind
-/// selectors and arrow-function handlers both carry them) does not end
-/// the slice.
+/// Slices the opening tag at `start` (topcoat#122).
 fn opening_tag_at(html: &str, start: usize) -> &str {
     let mut quoted = false;
     for (offset, byte) in html.as_bytes()[start..].iter().enumerate() {
@@ -342,7 +336,7 @@ fn opening_tag_at(html: &str, start: usize) -> &str {
     panic!("unterminated tag at byte {start} in {html}");
 }
 
-/// Render the shell once with a flash cookie carrying `enc`.
+/// Renders the shell once with a flash cookie carrying `enc`.
 async fn shell_html_with_flash(enc: &str) -> String {
     use topcoat::{context::CxTestBuilder, cookie::CookieJarCell, view::view};
 
@@ -488,9 +482,7 @@ async fn panel_shell_renders_sidebar_with_active_and_tokens() {
         html.contains("data-state=\"expanded\"") && html.contains("data-topcoat-bind:data-state"),
         "missing bound data-state in {html}"
     );
-    // No separator: the dead "Resources" placeholder group it divided
-    // is gone, and a trailing rule with no following group is
-    // chrome noise.
+    // No separator with no following group.
     assert!(
         !html.contains("Managed via Resource::query seam"),
         "dead placeholder must be gone, got {html}"

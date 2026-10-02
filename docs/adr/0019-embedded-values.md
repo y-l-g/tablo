@@ -1,138 +1,43 @@
 # Embedded values: a derived codec, and the discriminant column as the variant rule
 
-Date: 2026-09-22 — Status: accepted — Amended: 2026-09-22, 2026-09-25, 2026-09-28, 2026-09-30
+Date: 2026-09-22 — Status: accepted
 
 ## Decision
 
-**1. The codec is derived from the type's shape; the keys come from the schema.**
-`#[derive(EmbeddedForm)]` (in `tablo-macros`) generates the flat-map ↔ typed conversion, the
-presence question, and a `form(cx, parent)` returning the value's controls. The app declares the value
-per type — one derive, no field bindings — and calls `write_embedded` / `read_embedded` / `submitted`
-where it hydrates and writes. It never spells a column: each leaf is addressed by a typed path
-(`path_field`, variant-rooted for payloads) and resolved by the framework (`leaf_key`, `enum_spec`).
-The derive supplies the Rust shape, the schema supplies the storage, and neither re-derives the other.
+**1. The codec derives from the type shape; keys come from the schema node.**
+`#[derive(EmbeddedForm)]` builds one schema node per value through a hidden builder: one resolved
+`Field` per leaf, a nested node per `#[form(embed)]` field, and for an enum the variant control,
+the `#[shared(..)]` columns once, and one group per variant. The node holds its keys; the app
+surface is `EmbeddedForm::{write_form, read_form}` plus the generated `form`. Each call builds the
+node once from the request app schema. A field is embedded only when marked `#[form(embed)]`;
+every other field is a scalar asserting `FormScalar`, so an app `TypedValue` is a leaf.
 
-**2. A field is a leaf or a value, decided at macro time.** A type the panel can spell — `String`, a
-type with a `TypedValue` impl (`i8`…`i128`, `isize`, `u8`…`u128`, `usize`, `f32`, `f64`, `bool`,
-`Uuid`, `jiff::Timestamp`), or an `Option` of one — is one column; anything else (a relation, a
-nested value without `#[form(embed)]`, a `#[document]`) fails at that bound rather than binding
-quietly. Per-field overrides are `#[form(label = "…")]`, `#[form(multiline = N)]`, and
-`#[form(blank = ..)]` to declare a leaf's blank answer; an unknown `#[form(..)]`
-key is a compile error.
+**2. A field is a leaf or a value.** A scalar leaf answers blank through `#[form(blank = ..)]`,
+else `""` for `String` or `None` for `Option<T>`; a leaf with neither refuses its key inline.
+Per-field overrides are `#[form(label = "…")]`, `#[form(textarea, rows = N)]`, and
+`#[form(blank = ..)]`; an unknown key rejects at compile time.
 
-**3. The variant is the discriminant column.** An enum's `write_form` writes the discriminant and the
-active variant's leaves; its `read_form` reads the variant from the submitted discriminant in this
-order:
+**3. The variant is the discriminant column.** `write_form` writes the discriminant and the active
+variant's leaves; `read_form` returns `Result` and reads the variant from the submitted
+discriminant in this order: a named discriminant always wins, and an undeclared one is a
+`FieldError` on its key; with no discriminant named at all, the first variant in declaration
+order with a payload of its own submitted (a `#[shared(..)]` column never selects); otherwise
+the first variant.
 
-1. A discriminant the submission names always wins, and one the enum does not declare is refused
-   loudly (`read_form` panics) rather than read as some other variant, which would store a value the
-   caller never asked for — a stale payload is not a vote.
-2. Only when no discriminant is named at all — the create form, which has no stored variant to
-   hydrate, or a hand-written POST — the first variant, in declaration order, with a payload **of its
-   own** submitted. A `#[shared(..)]` column belongs to several variants, so it never selects one. The
-   rule is reimplemented through the keys the schema resolves (`leaf_key`, and the nested value's own
-   `any_present`) instead of remembered column names, so renaming a payload cannot change its meaning.
-3. Otherwise the first variant.
+**4. The variant control is a `Select` over the discriminant.** It renders one option per declared
+variant; each payload sits in its group carrying `data-variant` markers, and `assets/variant.js`
+hides non-matching groups scoped to the form. With JavaScript off every group renders and the
+server parse is unchanged. A create form opens on the empty choice, deliberately not `required`,
+so an empty submit reaches the payload fallback. A `#[shared(..)]` column renders once outside
+every group; a unit variant gets its group too.
 
-**4. The variant control rides the form as a `Select` over the discriminant column.**
-`discriminant_select` renders one option per variant the schema declares — each submitting the stored
-value and reading as the variant's name (`value_of_index` / `name_of_index`) — and the derive wraps
-each variant's payload in `Group::variant(discriminant, value)`, which renders `data-variant-select`
-on the control and `data-variant` / `data-variant-of` on the groups. `assets/variant.js` (registered
-in `xtask`'s `ASSET_FILES` / `ASSET_HOOKS`) hides the groups whose marker is not the control's value,
-scoped to the form so two enums never toggle each other. It is markup-only, so with JavaScript off
-every group renders and nothing the server parses is lost; a create form opens on the empty choice
-(`-- Select --`), and the control is deliberately not `required`, so an empty submit still reaches
-rule 2's payload fallback. A `#[shared(..)]` column renders once, outside every group, because it
-belongs to several variants and must stay editable whichever one is chosen; only a variant's own
-payload goes inside its group. A unit variant gets its group too, so the marker set is the schema's
-variant list and a variant added later cannot silently lose its group
-(`the_variant_groups_are_exactly_the_schemas_variants`).
+**5. Hydration is the record form's.** A record form binds the whole value with
+`#[record_form(embed)]` (ADR-0022); the edit handler decides which keys posted. A leaf of a
+variant group the discriminant hides is not read. `any_present` serves an enum payload fallback
+over a nested value.
 
-**5. Hydration takes the request context.** `Resource::hydrate_form_values(cx, record)` — its keys come
-from the compiled mapping, which lives on the request's app schema; the alternative, the app spelling
-flattened names, is what the derived codec exists to remove. This is a breaking signature change for
-every resource, mechanical (`_cx` where unused) and documented as the upgrade cost.
-
-**6. What is not covered is part of the decision.** A `#[document]` inside an embedded value (its
-fields share one column: the walk refuses rather than hand one column back for several fields), a
-relation inside one, an `Option` of a nested value, an embedded enum nested inside an enum *variant*
-(value resolution starts at a model root; nesting inside structs works at any depth), and a tuple or
-unit struct. A derived form's labels default to the humanized Rust field name (`Seo Title` → `Title`)
-and are overridable per field, and `Schema::extend` exists because `IntoSchema`'s tuple form stops at
-four
-nodes.
-
-## Consequences
-
-- The showcase's embedded form sections are two declarations (`Seo::form(..)`,
-  `Publication::form(..)`), and its update path stops spelling flattened column names
-  to decide whether a value was submitted.
-- **Editing keeps the stored variant** because the browser carries the discriminant back; a hand-written
-  POST that names one switches it (`post_edit_switches_the_publication_variant_explicitly`).
-  **Creating** works as it must: the create form has no stored variant, so rule 2 selects the variant
-  its payload names (`post_create_keeps_the_variant_its_payload_names`).
-- Derived controls are not required by binding policy: the resolver reports `nullable=true` for every
-  leaf under an embedded step, since only the matching variant writes a variant payload column — a
-  declaration change, not a validation change, since the flags resolve identically. That is the binding
-  default, not a storage fact: the flattened column of a required embedded struct is `NOT NULL`. A
-  `Textarea` keeps its height through `#[form(multiline = 3)]`.
-- The read-only page names the stored variant (`Published` / `Archived`) instead of printing its
-  discriminant; that row says which state the record is in, and a record with no stored variant renders
-  no row at all (ADR-0016).
-- It is a visible breaking change: the discriminant is a visible `Select`, not a hidden input, so an app
-  or test reading the form markup for it updates. The submitted value, `read_form`, the
-  unknown-discriminant refusal and the fallback are unchanged.
-
-## Amendment — 2026-09-25
-
-**The `IntoSchema` tuple ceiling is eight.** Rule 6's "`IntoSchema`'s tuple form stops at four
-nodes" is superseded by this amendment: the ceiling is the one `IntoColumns`, `IntoFilters` and
-`IntoRelationColumns` share, one `macro_rules!` invocation per arity 2..=8, so `Schema::extend`
-remains the seam for a derived form with more controls than a tuple holds.
-
-**`IntoRelationColumns` takes a flat tuple.** Every element is a `RelationColumn<R>`; a nested tuple
-such as `(a, (b, c))` does not convert.
-
-## Amendment — 2026-09-28
-
-**`read_form` reports errors instead of panicking.** Rule 1's `submitted`, rule 3's loud refusal of
-an undeclared discriminant, and rule 5's `Resource::hydrate_form_values` are superseded by this
-amendment. `EmbeddedForm::read_form`, `read_embedded` and
-`parse_leaf` return `Result`: a leaf its type refuses and a discriminant that names no variant are
-`FieldError`s on their own key, rendered inline by the submit pipeline. A record form binds the whole
-value with `#[record_form(embed)]` (ADR-0022), and `value_keys` names the keys it occupies,
-discriminant first. `submitted` is removed: the edit handler decides which keys were posted.
-`any_present` stays, for an enum's payload fallback over a nested value. Hydration is
-`RecordForm::hydrate` for a form resource and `Resource::view_values` for a list-only one.
-
-## Amendment — 2026-09-30
-
-**An embedded value is a schema node (GH #392).** `#[derive(EmbeddedForm)]` builds one node per
-value through a hidden builder: one resolved `Field` per leaf, a nested node per `#[form(embed)]`
-field, and for an enum the variant control, the `#[shared(..)]` columns once, and one group per
-variant. The node holds its keys, so the codec reads and writes through them and a record form's
-keys are the node's; variant hiding is a property of the node rather than of a marked `Group`.
-`leaf_key`, `value_keys`, `read_embedded`, `write_embedded`, `parse_leaf`, `enum_spec`,
-`discriminant_select`, `EnumSpec`, and `Group::variant` leave the public API: the app-facing
-surface is `EmbeddedForm::{write_form, read_form}` and the generated `form`, and the derive reaches
-its builder and parse helpers through the hidden `__macro` module (macro support). Each codec call
-builds the node once, from the request's app schema. A field is classified by
-attribute, never by type name: `#[form(embed)]` marks a nested value, and every other field is a
-scalar asserted `FormScalar` at the field, so an app type implementing `TypedValue` is a leaf.
-`#[form(textarea, rows = N)]` is `#[form(multiline = N)]`, and a leaf binds as `Field::text`,
-multi-line with `.multiline(rows)`. A view renders only the stored variant's group and the
-shared columns that variant declares.
-
-## Amendment — 2026-09-30
-
-**`IntoRelationColumns` is gone.** A relation renders the related resource's list table (ADR-0016,
-2026-09-30 amendment), so the tuple ceiling of eight is shared by `IntoSchema`, `IntoColumns` and
-`IntoFilters`.
-
-**A blank leaf takes the scalar rule (GH #371).** Point 2's leaf decides a blank submission the way a
-record form's scalar does (ADR-0022 point 4): `#[form(blank = ..)]` declares the answer, else the
-type's own answers (`""` for `String`, `None` for `Option<T>`), and a leaf with neither refuses its
-key inline instead of storing its type's `Default`. A leaf of a variant group the discriminant hides
-is not read, so only a rendered leaf refuses. `EmbeddedForm::answers_blank` reports the value's
-answer to the panel mount, which refuses a declaration whose control can be posted empty with none.
+**6. Boundaries.** A `#[document]` inside a value, a relation inside one, an `Option` of a nested
+value, an enum nested inside an enum variant, and tuple or unit structs stay unsupported. Labels
+default to the humanized field name and accept overrides; `Schema::extend` serves a derived form
+with more controls than a tuple holds. The shared tuple ceiling is eight for `IntoSchema`,
+`IntoColumns`, and `IntoFilters`.

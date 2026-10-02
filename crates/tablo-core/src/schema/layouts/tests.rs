@@ -84,15 +84,8 @@ async fn section_renders_title_and_child() {
         html.contains("name=\"name\""),
         "missing child field in {html}"
     );
-    // The field sits one `<div>` deeper than the title text, inside
-    // `card_content` — the sibling of `card_header` that carries the gap, so
-    // never a direct child of the card, where it would be flush against the
-    // title. The title text's depth is 2 only because `card_title` renders
-    // an `<h3>`; a `<div>` title would sit at the field's own depth and this
-    // comparison would have to anchor on the header element instead. The
-    // wrapper's gap is a class and class literals are not asserted
-    // that the wrapper exists is structure, so it is stated as
-    // nesting rather than as a class.
+    // The field sits in a content wrapper below its title, stated as nesting rather than as a
+    // class.
     assert!(
         div_depth_of(&html, "data-slot=\"field\"") > div_depth_of(&html, "Account"),
         "the section's child must sit in a content wrapper below its title, got {html}"
@@ -113,9 +106,7 @@ async fn group_renders_children() {
         .await
         .unwrap()
         .render(&cx);
-    // The `field_group` wrapper's only observable is its utility
-    // class. What the layout
-    // owes is the child it holds — once.
+    // The layout owes the child it holds — once.
     assert!(html.contains("Inside group"), "missing child in {html}");
     assert_eq!(
         html.matches("data-slot=\"field\"").count(),
@@ -126,13 +117,8 @@ async fn group_renders_children() {
 
 #[tokio::test]
 async fn grid_renders_with_cols_and_children() {
-    // The declared column count is the caller's value, and production emits
-    // one static literal per count (Tailwind only sees literal substrings —
-    // see `Grid::render_source`), so the class is its *only* transport. It
-    // is asserted as a derived `grid-cols-{cols}` over the whole table
-    // rather than as one pinned literal per caller: the mapping
-    // stays covered, and the other fourteen class literals this test used
-    // to pin are gone.
+    // Production emits one static literal per count, so the class is asserted as a derived
+    // `grid-cols-{cols}` over the whole table.
     let cx = cx();
     for cols in 1..=12u8 {
         let html = Schema::new(Grid::new(cols).schema((
@@ -205,8 +191,7 @@ fn a_repeater_label_is_an_error_key() {
 #[tokio::test]
 async fn repeater_required_error_renders_inline() {
     let cx = cx();
-    // Single-entry repeater: the required error is keyed by label
-    // until repeaters become field-bound.
+    // The required error is keyed by label.
     let schema = Schema::new(
         Repeater::new("Tags")
             .required()
@@ -230,10 +215,7 @@ async fn repeater_required_error_renders_inline() {
         html.contains("Tags is required"),
         "repeater error must reach the HTML, got {html}"
     );
-    // Same inline error contract as a field, wired to the group: the
-    // panel carries the invalid state and describes itself with the
-    // error node's id. The title's colour is paint, not state:
-    // these three state hooks are what a regression would break.
+    // The panel carries the invalid state and describes itself with the error node's id.
     assert!(
         html.contains("data-invalid=\"true\"")
             && html.contains("aria-invalid=\"true\"")

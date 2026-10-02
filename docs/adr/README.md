@@ -1,9 +1,8 @@
 # Architecture Decision Records
 
-An ADR records one decision plus the reasoning a reader needs to work with the code today. These are
-**amended in place**: the Decision states the current rule, the header lists the surviving amendment
-dates, and a reversal is folded in rather than kept as a chain. There is no `Supersedes` field. If the
-code and an ADR disagree, the code wins and the ADR is the thing to fix.
+An ADR records one decision and the reasoning needed to work with the code. Records are amended
+in place: the Decision states the current rule. There is no `Supersedes` field. Where code and an
+ADR disagree, the code wins and the ADR is fixed.
 
 | ADR | Decision |
 | --- | --- |
@@ -26,9 +25,9 @@ code and an ADR disagree, the code wins and the ADR is the thing to fix.
 | [0018](0018-export-include-scoping.md) | Columns declare typed includes; `query` scopes rows, `view_query` feeds the detail page |
 | [0019](0019-embedded-values.md) | Embedded values derive their codec; the discriminant picks the variant |
 | [0020](0020-confirmed-mutations.md) | A confirmed mutation re-runs the table's shard; the client never morphs the response |
-| [0021](0021-media-library.md) | The media library is a polymorphic `medias` table in the showcase |
+| [0021](0021-media-library.md) | The media library is a `medias` table in the showcase |
 | [0022](0022-record-forms.md) | A form writes through a derived typed struct, completed from the stored record |
 
-**Numbers are permanent.** An ADR keeps its number and subject matter for the life of the repo,
-because code comments, vendored headers, and rustdoc cite them (ADR-0007 in every synced primitive
-header, ADR-0013 on the auth seam). A number is never reused, and a retired number stays retired.
+**Numbers are permanent.** An ADR keeps its number and subject for the life of the repo, because
+code comments, vendored headers, and rustdoc cite them. A number is never reused, and a retired
+number stays retired.

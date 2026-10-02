@@ -1,8 +1,5 @@
-//! The typed field builders the [`Field`] constructors return.
-//!
-//! Each builder wraps a `Field` whose control is its own kind and offers only
-//! that control's modifiers, so `.placeholder(..)` on a choice is a compile
-//! error rather than a declaration the panel refuses.
+//! The typed builders the [`Field`] constructors return, each offering only its control's modifiers
+//! so a modifier on the wrong control does not compile.
 
 use super::{
     super::{IntoSchema, OptionSource, Schema, relationship::RelatedPrimaryKey},
@@ -13,27 +10,21 @@ use super::{
 macro_rules! common_modifiers {
     ($builder:ident) => {
         impl $builder {
-            /// Override the label.
             pub fn label(mut self, label: impl Into<String>) -> Self {
                 self.0.label = label.into();
                 self
             }
 
-            /// Refuse an empty submission.
             pub fn required(mut self) -> Self {
                 self.0.required = true;
                 self
             }
 
-            /// Accept an empty submission: for a nullable column, or for a
-            /// column a record fn fills when the form leaves it empty. The
-            /// browser-side `required` attribute drops too.
             pub fn optional(mut self) -> Self {
                 self.0.required = false;
                 self
             }
 
-            /// The key the control posts.
             pub fn name(&self) -> &str {
                 &self.0.name
             }
@@ -85,16 +76,7 @@ impl TextField {
         self
     }
 
-    /// Mark the field as backed by a unique index, which the app-side
-    /// pre-check probes before the write.
-    ///
-    /// **Uniqueness implies presence on a non-nullable column**: an empty
-    /// `String` stores `""`, which the index admits only once, so an empty
-    /// submit is refused inline as `"<Label> is required"` instead of being
-    /// written, and the probe never sees it. `.optional()` does not lift that
-    /// rule, whichever order the two are called in (ADR-0010). A nullable
-    /// column (`Option<T>`) stores NULL for an empty submit, which the index
-    /// admits any number of times, so it stays optional when declared so.
+    /// Probes a unique index before the write, implying presence on a non-nullable column.
     pub fn unique(mut self) -> Self {
         self.text().unique = true;
         self
@@ -131,51 +113,14 @@ impl ChoiceField {
         self
     }
 
-    /// Filter the options as the user types.
-    ///
-    /// Renders a filter input and a suggestion listbox above the select.
-    /// Typing narrows the list by label substring for a bounded set, and a pick
-    /// writes the chosen option onto the select, which stays the form control.
-    /// Past the option cap, a relationship fetches
-    /// `GET {parent_list_url}/options?field=&q=` (debounced, in-flight
-    /// requests aborted, selection preserved) and re-renders the list from the
-    /// answer, searching the related table's `searchable()` columns; a
-    /// non-searchable relationship keeps the cap error.
-    ///
-    /// Needs `assets/selects.js` (`tablo_ui::SELECTS_JS`), emitted by
-    /// `Panel::render_document` on every document with shell assets
-    /// (ADR-0014); without it the input is inert and the plain select keeps
-    /// working.
+    /// Filters options as the user types, fetching from the relationship past the option cap.
     pub fn searchable(mut self) -> Self {
         self.choice().searchable = true;
         self
     }
 
-    /// Load the options from a related source's tenant-scoped query.
-    ///
-    /// `R` is any [`OptionSource`]; every `Resource` is one. The loader calls
-    /// the source's scoped query, so its tenant gate and filter apply. `value`
-    /// projects a record to the model's **primary key**, whose `Display` is the
-    /// `<option value>`, and `label` maps it to its label. A projection to
-    /// anything but the key type fails to compile, and an edit form hydrates the
-    /// foreign key with the same string.
-    ///
-    /// Policy-checked: the related source's policy must allow `ViewAny` and,
-    /// when the source is tenant-scoped, the request must have a tenant; each
-    /// loaded row is filtered through `View`. A denial fails the load closed —
-    /// no options and not the stored value, `{label} is not available` on GET,
-    /// and a submit that carries a value fails with that message.
-    ///
-    /// Re-checked inside the write: the create and edit handlers resolve the
-    /// submitted key again through the source's tenant-scoped query in the
-    /// write's transaction, so a record deleted, moved to another tenant or
-    /// hidden since the form validated refuses the write with the same field
-    /// error.
-    ///
-    /// Bounded and memoized: at most one row past `MAX_RELATIONSHIP_OPTIONS`
-    /// loads per `(request, tenant)`. Past the cap a searchable field degrades
-    /// to type-to-search with a targeted existence check, and a non-searchable
-    /// one reports `could not load options, retry`.
+    /// Loads options from a related source's tenant-scoped query, degrading to type-to-search past
+    /// the option cap.
     pub fn relationship<R>(
         mut self,
         value: impl Fn(&R::Model) -> RelatedPrimaryKey<R> + Send + Sync + 'static,
@@ -191,11 +136,7 @@ impl ChoiceField {
 }
 
 /// A choice's static options as `(value, label)` pairs, in display order.
-///
-/// Implemented for a list of values that are their own label, for a list of
-/// pairs, and for an array of string slices.
 pub trait IntoOptions {
-    /// The `(value, label)` pairs.
     fn into_options(self) -> Vec<(String, String)>;
 }
 

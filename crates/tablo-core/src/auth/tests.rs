@@ -56,9 +56,8 @@ fn token_keys_are_hex_encoded_sha256() {
     assert!(key.chars().all(|c| c.is_ascii_hexdigit()));
 }
 
-/// A `Db` that declares the shipped auth models but never pushed their
-/// schema: the tables are missing, so the first statement fails at the
-/// driver.
+/// Declares the shipped auth models without pushing their schema, so the first
+/// statement fails at the driver.
 async fn schema_less_db() -> Db {
     Db::builder()
         .models(toasty::models!(AdminUser, AuthSession))
@@ -67,9 +66,8 @@ async fn schema_less_db() -> Db {
         .expect("connect to in-memory sqlite")
 }
 
-/// An auth or session operation that fails at the driver is an
-/// infrastructure failure, so it carries the opaque sign-in copy — never
-/// the driver's text, and never the login page's credential rejection.
+/// Maps a driver failure to the opaque sign-in copy, never the driver's text or
+/// the credential rejection.
 #[test]
 fn infrastructure_failure_maps_driver_errors_to_the_opaque_sign_in_copy() {
     let err = super::infrastructure_failure(toasty::Error::from_args(format_args!(
@@ -100,10 +98,7 @@ fn infrastructure_failure_keeps_an_app_error_intact() {
     );
 }
 
-/// A `Cx` for a login POST: the request parts the handler reads (method,
-/// content type, CSRF cookie) plus the cookie jar, over the shipped
-/// password authenticator. `token` is both the CSRF cookie and the form
-/// value the caller submits.
+/// Builds the `Cx` for a login POST over the password authenticator.
 fn login_cx(db: Db, token: &str) -> Cx {
     use topcoat::{context::CxTestBuilder, cookie::CookieJarCell};
 
@@ -132,8 +127,7 @@ fn login_cx(db: Db, token: &str) -> Cx {
         .build()
 }
 
-/// Runs the real login handler and renders the status and body a browser
-/// would be handed.
+/// Runs the login handler and renders the status and body a browser receives.
 async fn post_login(cx: &Cx, form: String) -> (http::StatusCode, String) {
     let response = login_post(cx, Body::from(form))
         .await
@@ -149,23 +143,14 @@ async fn post_login(cx: &Cx, form: String) -> (http::StatusCode, String) {
     (status, body)
 }
 
-/// A database failure during credential verification
-/// must not echo the driver's text — the property `db.rs` pins for
-/// `unavailable`, reached through the real login handler — and must not
-/// render the login page's credential copy either, or an outage would tell
-/// the user their password was wrong.
-///
-/// Positive-controlled: the same query is
-/// asserted to carry driver text outside the handler first, so the
-/// assertions below cannot pass vacuously.
+/// A driver failure during verification answers the outage copy with no driver
+/// text and no credential copy.
 #[tokio::test]
 async fn a_driver_login_failure_does_not_echo_driver_text() {
-    // Schema never pushed: the credential query cannot run, so the failure
-    // is the driver's own.
+    // The credential query fails at the driver without a pushed schema.
     let db = schema_less_db().await;
 
-    // Positive control: the same query outside the handler really does
-    // carry driver text.
+    // The same query outside the handler carries driver text.
     let mut raw = db.clone();
     let driver = AdminUser::filter(
         AdminUser::fields()
@@ -210,10 +195,7 @@ async fn a_driver_login_failure_does_not_echo_driver_text() {
     );
 }
 
-/// A genuine credential rejection keeps the login
-/// page's generic 403 — the same setup as the outage test with a working
-/// store and a wrong password, so the two answers cannot be confused in
-/// either direction.
+/// A wrong password keeps the generic 403, never the outage copy.
 #[tokio::test]
 async fn a_rejected_password_still_renders_the_generic_error() {
     let mut db = schema_less_db().await;
@@ -252,13 +234,12 @@ async fn a_rejected_password_still_renders_the_generic_error() {
     );
 }
 
-/// A router for a password-auth panel over `db`.
+/// Builds a router for a password-auth panel over `db`.
 fn auth_router(db: Db) -> topcoat::router::Router {
     mount(db, Panel::new("admin").auth(Auth::password())).expect("panel builds")
 }
 
-/// A login POST as the router sees it: urlencoded, carrying the CSRF cookie
-/// the double-submit check reads.
+/// Builds a login POST carrying the CSRF cookie the double-submit check reads.
 fn login_request(body: String, csrf: &str) -> http::Request<Body> {
     http::Request::builder()
         .method(http::Method::POST)
@@ -275,7 +256,7 @@ fn login_request(body: String, csrf: &str) -> http::Request<Body> {
         .unwrap()
 }
 
-/// The `Set-Cookie` header for the session token, when the response set one.
+/// Reads the session token's `Set-Cookie` header, when the response set one.
 fn session_cookie(response: &http::Response<Body>) -> Option<String> {
     response
         .headers()
@@ -286,7 +267,7 @@ fn session_cookie(response: &http::Response<Body>) -> Option<String> {
         .map(str::to_string)
 }
 
-/// A `Db` with the shipped auth models, schema pushed, and one active admin.
+/// Builds a `Db` with pushed schema and one active admin.
 async fn db_with_admin(email: &str) -> Db {
     let mut db = Db::builder()
         .models(toasty::models!(AdminUser, AuthSession))
@@ -307,8 +288,7 @@ async fn db_with_admin(email: &str) -> Db {
     db
 }
 
-/// The login route caps its body at a credential form's size, not
-/// the panel's 10 MiB form cap.
+/// A login body over the credential cap answers 413 and starts no session.
 #[tokio::test]
 async fn an_oversized_login_post_is_refused() {
     let db = db_with_admin("ada@example.com").await;
@@ -351,10 +331,7 @@ async fn an_oversized_login_post_is_refused() {
     );
 }
 
-/// Login sweeps expired session rows, whoever owns them, including the
-/// signing-in user's. A row whose token is never presented
-/// again would otherwise stay in the table forever, because [`resolve`] only
-/// purges a row it looks up.
+/// Login sweeps every expired session row, whoever owns it.
 #[tokio::test]
 async fn login_sweeps_every_expired_session() {
     let mut db = db_with_admin("ada@example.com").await;
@@ -459,8 +436,7 @@ async fn login_sweeps_every_expired_session() {
     );
 }
 
-/// The sweep is bounded: one login drops at most [`SESSION_SWEEP_BATCH`] rows,
-/// so a large table cannot turn a login into an unbounded delete.
+/// One login sweeps at most [`SESSION_SWEEP_BATCH`] rows.
 #[tokio::test]
 async fn login_sweeps_at_most_a_batch() {
     let mut db = db_with_admin("ada@example.com").await;
@@ -516,9 +492,7 @@ async fn login_sweeps_at_most_a_batch() {
     );
 }
 
-/// The sweep's own failure maps through the same opaque seam as the rest of the
-/// session paths, so a login whose cleanup cannot run reports sign-in trouble
-/// rather than driver text.
+/// A sweep failure answers the opaque sign-in copy with no driver text.
 #[tokio::test]
 async fn a_sweep_failure_maps_to_the_opaque_sign_in_copy() {
     let cx = login_cx(schema_less_db().await, "token");
@@ -536,17 +510,14 @@ async fn a_sweep_failure_maps_to_the_opaque_sign_in_copy() {
     );
 }
 
-/// The session-row paths map through the same seam,
-/// so a delete that fails at the driver answers the opaque copy too —
-/// driver text stays in the log there as well.
+/// A failed session delete answers the opaque copy with no driver text.
 #[tokio::test]
 async fn a_driver_session_delete_failure_does_not_echo_driver_text() {
     use topcoat::context::CxTestBuilder;
 
     let db = schema_less_db().await;
 
-    // Positive control: the same delete outside the handler really does
-    // carry driver text.
+    // The same delete outside the handler carries driver text.
     let mut raw = db.clone();
     let driver = AuthSession::filter(AuthSession::fields().user_id().eq("ada".to_string()))
         .delete()
@@ -576,17 +547,14 @@ async fn a_driver_session_delete_failure_does_not_echo_driver_text() {
     );
 }
 
-/// An app route mounted at the login path under a method the login routes do
-/// not serve. Discovery installs it in every test router; only the test below
-/// requests it.
+/// An app route at the login path under a method the login routes do not serve.
 #[topcoat::router::route(PUT "/admin/login")]
 async fn app_put_at_the_login_path() -> topcoat::Result<&'static str> {
     Ok("app route ran")
 }
 
-/// The login bypass admits only the methods the login routes serve: a
-/// logged-out PUT at the login path is answered by the gate, so the app route
-/// above never runs unauthenticated.
+/// Admits only the login methods at the login path: a logged-out PUT stops at
+/// the gate.
 #[tokio::test]
 async fn the_login_bypass_is_scoped_to_the_login_methods() {
     let db = db_with_admin("ada@example.com").await;

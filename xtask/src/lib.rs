@@ -9,16 +9,8 @@ pub mod gates;
 
 use topcoat_ui::{Component, Dependency, Registry};
 
-/// The registry components Tablo vendors into `primitives/` (ADR-0007).
-///
-/// The set is the transitive closure of what `crates/tablo-ui/src/lib.rs`
-/// re-exports: the re-exported components plus the components they depend on.
-/// `vendored_components` resolves the set and checks that closure against
-/// `Component::dependencies`, so the sync and the guards fail with the missing
-/// name when a vendored component grows a dependency. `sync-topcoat-ui` writes
-/// these and `verify-topcoat-ui` expects exactly these, so a registry component
-/// the app never calls is not vendored. Add a component by adding its registry
-/// name here and running `cargo xtask sync-topcoat-ui`.
+/// The registry components Tablo vendors into `primitives/`; add a name here and run `cargo xtask
+/// sync-topcoat-ui`.
 pub const VENDORED_PRIMITIVES: &[&str] = &[
     "alert",
     "alert_dialog",
@@ -39,11 +31,6 @@ pub const VENDORED_PRIMITIVES: &[&str] = &[
     "textarea",
 ];
 
-/// Resolve [`VENDORED_PRIMITIVES`] against the loaded registry and check that
-/// the set is closed: every same-registry dependency a vendored component
-/// declares is itself vendored. A dependency in another registry
-/// ([`Dependency::Other`]) is not mirrored into `primitives/`, so only
-/// same-registry names are checked.
 fn vendored_components(registry: &Registry) -> anyhow::Result<Vec<Component<'_>>> {
     let components: Vec<Component<'_>> = VENDORED_PRIMITIVES
         .iter()
@@ -71,8 +58,6 @@ fn vendored_components(registry: &Registry) -> anyhow::Result<Vec<Component<'_>>
     Ok(components)
 }
 
-/// The file names `primitives/` owns: every vendored component's file plus the
-/// generated `mod.rs`.
 fn vendored_files(components: &[Component<'_>]) -> HashSet<String> {
     let mut files: HashSet<String> = components
         .iter()
@@ -82,47 +67,30 @@ fn vendored_files(components: &[Component<'_>]) -> HashSet<String> {
     files
 }
 
-/// The one-line header prepended to every synced file.
-///
-/// `hash` is the registry source's `sha256:` content hash (see
-/// `topcoat_ui::content_hash`), so a guard can tell a drifted file
-/// from a merely stale header without a sibling clone.
+/// Prepends to every synced file, where `hash` is the registry source's `sha256:` content hash.
 fn sync_header(version: &str, hash: &str) -> String {
     format!(
         "// SYNC: topcoat-ui-registry@{version} {hash} — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).\n"
     )
 }
 
-/// The header for the generated `mod.rs` (it is not a copy of any source, so
-/// it carries only the registry version).
 fn mod_header(version: &str) -> String {
     format!(
         "// SYNC: topcoat-ui-registry@{version} — generated from the registry manifest. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).\n"
     )
 }
 
-/// The destination directory for synced primitives.
 pub fn primitives_dir() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // xtask is at <repo>/xtask, so repo root is parent of manifest_dir
     manifest_dir
         .parent()
         .unwrap_or(Path::new("."))
         .join("crates/tablo-ui/src/components/primitives")
 }
 
-/// The registry Cargo resolved for this workspace, plus its crate version.
-///
-/// Located through `cargo metadata` — the same mechanism `topcoat ui` itself
-/// uses (topcoat-ui/src/manage/workspace.rs) — so the synced sources always
-/// come from the exact `topcoat-ui-registry` the workspace compiles against,
-/// pinned by `Cargo.lock`. The registry directory is read from the data
-/// crate's `[package.metadata.topcoat-ui] registry` declaration.
+/// Loads the registry Cargo resolved for this workspace, plus its crate version.
 fn locate_registry() -> anyhow::Result<(Registry, String)> {
-    // Anchored at xtask's own manifest: a bare `cargo metadata`
-    // resolves the caller's CWD, so invoking from a detached workspace
-    // (e.g. benchmarks/tablo, which has no topcoat-ui-registry in its
-    // graph) failed with a misleading "must be a dependency of xtask".
+    // Anchored at xtask's own manifest so a detached workspace never resolves the caller's CWD.
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let output = std::process::Command::new("cargo")
         .args([
@@ -180,18 +148,11 @@ fn locate_registry() -> anyhow::Result<(Registry, String)> {
 /// What to run when a vendored file has drifted from the registry.
 const HINT: &str = "run `cargo xtask sync-topcoat-ui` to restore the verbatim copy";
 
-/// Copy every component in [`VENDORED_PRIMITIVES`] into `primitives/`
-/// **verbatim** under a SYNC header recording the registry version and the
-/// source's sha256, then regenerate `mod.rs` from the vendored set. Never
-/// touches `composites/` (ADR-0007).
+/// Copies every component in [`VENDORED_PRIMITIVES`] into `primitives/` verbatim under a SYNC
+/// header, then regenerates `mod.rs`.
 ///
-/// No sibling clone required — the registry comes from the same git source
-/// Cargo compiles against.
-///
-/// `prune` deletes vendored files absent from the vendored set (the orphan
-/// guard in `verify_sync` otherwise leaves `verify` red after a component
-/// leaves it, with `sync` alone unable to fix that). Without it, orphans are
-/// only reported — pass `--prune` to converge.
+/// `prune` also deletes vendored files absent from the vendored set; without it, orphans are only
+/// reported.
 pub fn sync_topcoat_ui(dry_run: bool, prune: bool) -> anyhow::Result<()> {
     let dst_dir = primitives_dir();
     std::fs::create_dir_all(&dst_dir)?;
@@ -228,9 +189,8 @@ pub fn sync_topcoat_ui(dry_run: bool, prune: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Delete vendored files absent from [`VENDORED_PRIMITIVES`]: the
-/// same expected-set as the `verify_sync` orphan guard (`mod.rs` included — it
-/// is regenerated, never pruned). Dry runs only report.
+/// Deletes vendored files absent from [`VENDORED_PRIMITIVES`], never pruning the regenerated
+/// `mod.rs`; dry runs only report.
 fn prune_orphans(
     dst_dir: &Path,
     components: &[Component<'_>],
@@ -261,7 +221,6 @@ fn prune_orphans(
     Ok(())
 }
 
-/// Regenerate `primitives/mod.rs` from the vendored set.
 fn ensure_primitives_mod(
     dst_dir: &Path,
     version: &str,
@@ -282,15 +241,7 @@ fn ensure_primitives_mod(
     Ok(())
 }
 
-/// Guard: every vendored primitive is still the registry's verbatim source,
-/// every SYNC header records the current version *and* the current content
-/// hash, `mod.rs` still lists exactly [`VENDORED_PRIMITIVES`], and the set is
-/// closed under the registry's same-registry dependencies.
-///
-/// This is Tablo's counterpart of topcoat's own
-/// `examples/ui/tests/registry_sync.rs`: because the sync is byte-for-byte
-/// (no injected headers *inside* the source, no string patches), a hash
-/// comparison is meaningful and drift cannot hide.
+/// Fails when any vendored primitive has drifted from the registry.
 pub fn verify_sync() -> anyhow::Result<()> {
     let dst_dir = primitives_dir();
     let (registry, version) = locate_registry()?;
@@ -315,7 +266,6 @@ pub fn verify_sync() -> anyhow::Result<()> {
         if installed == expected {
             continue;
         }
-        // Distinguish a stale/mismatched header from a hand edit of the body.
         let header_matches = installed
             .strip_prefix("// SYNC: topcoat-ui-registry@")
             .is_some_and(|rest| {
@@ -339,7 +289,6 @@ pub fn verify_sync() -> anyhow::Result<()> {
         }
     }
 
-    // mod.rs must list exactly the vendored components.
     let mod_path = dst_dir.join("mod.rs");
     let mut expected = mod_header(&version);
     for component in &components {
@@ -357,9 +306,8 @@ pub fn verify_sync() -> anyhow::Result<()> {
         )),
     }
 
-    // Orphan guard: a component no longer in the vendored set must
-    // not linger as a stale vendored file that still compiles when referenced.
-    // Flag any file in primitives/ the set does not own.
+    // A component that left the vendored set must not linger as a stale file that still compiles
+    // when referenced.
     {
         let expected_files = vendored_files(&components);
         if let Ok(entries) = std::fs::read_dir(&dst_dir) {
@@ -393,8 +341,6 @@ pub fn verify_sync() -> anyhow::Result<()> {
     }
 }
 
-/// Guard: [`VENDORED_PRIMITIVES`] is closed under the registry's
-/// same-registry dependencies (`vendored_components` enforces this too).
 pub fn verify_vendored_closure() -> anyhow::Result<()> {
     let (registry, _version) = locate_registry()?;
     let components = vendored_components(&registry)?;
@@ -405,18 +351,17 @@ pub fn verify_vendored_closure() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// The directory holding the hand-written shell JS assets (ADR-0014).
+/// The directory holding the hand-written shell JS assets.
 pub fn assets_dir() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // xtask is at <repo>/xtask, so repo root is parent of manifest_dir
     manifest_dir
         .parent()
         .unwrap_or(Path::new("."))
         .join("crates/tablo-ui/assets")
 }
 
-/// Shell JS assets (ADR-0014): the file under `assets/` plus the
-/// `tablo-ui` constant that wires it into the document head.
+/// Each shell JS asset's file under `assets/` and the `tablo-ui` constant wiring it into the
+/// document head.
 pub const ASSET_FILES: &[(&str, &str)] = &[
     ("sidebar.js", "SIDEBAR_JS"),
     ("theme.js", "THEME_JS"),
@@ -431,12 +376,8 @@ pub const ASSET_FILES: &[(&str, &str)] = &[
     ("mutation-submit.js", "MUTATION_SUBMIT_JS"),
 ];
 
-/// One hook-contract entry (ADR-0014): `js` must appear in the
-/// asset's source and `rust` must appear somewhere in the Rust render sources
-/// (`tablo-ui/src` + `tablo-core/src`; test modules and comment-only
-/// lines are stripped). Usually both are the same attribute hook;
-/// dataset-mapped hooks name each side's spelling (`dialogOpenParam` reads
-/// `data-dialog-open-param`).
+/// One hook-contract entry: `js` appears in the asset's source and `rust` appears in the Rust
+/// render sources.
 pub struct AssetHook {
     /// The asset file under `assets/` that consumes the hook.
     pub asset: &'static str,
@@ -446,17 +387,7 @@ pub struct AssetHook {
     pub rust: &'static str,
 }
 
-/// The checked-in hook list. Deliberately attribute hooks only —
-/// structural selectors (`.relative`, `pre code`, `select option`,
-/// `dialog[open]`, `#mobile-sidebar-sheet`, which has no JS consumer: the
-/// sheet backdrop is a runtime `@click` handler) and the inverse direction (a
-/// rendered hook with no consumer) are out of scope, as are generic storage
-/// keys (`theme`, whose substring matches everything).
-///
-/// Track new hooks here as they land. The check runs one way — every entry
-/// must still appear in both its asset and the Rust sources — so an entry that
-/// outlives its hook fails loudly, while a hook
-/// that lands without an entry is caught by review, not here.
+/// Track new hooks here as they land.
 pub const ASSET_HOOKS: &[AssetHook] = &[
     AssetHook {
         asset: "sidebar.js",
@@ -488,8 +419,6 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         js: "dialogOpenParam",
         rust: "data-dialog-open-param",
     },
-    // The row-delete dialog: the trigger names its table's dialog and
-    // carries the record's POST target, which the dialog's form takes.
     AssetHook {
         asset: "dialog.js",
         js: "data-row-delete-trigger",
@@ -515,8 +444,6 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         js: "data-table-root",
         rust: "data-table-root",
     },
-    // The confirmation dialog: the trigger opens it, and the dialog
-    // carries the `confirm` field the handler refuses a POST without.
     AssetHook {
         asset: "bulk.js",
         js: "data-bulk-confirm-trigger",
@@ -567,9 +494,8 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         js: "data-filters-live",
         rust: "data-filters-live",
     },
-    // The live-search debounce. The boundary rule carries weight
-    // here: `data-live-search` must be found as the host attribute itself, and
-    // `data-live-search-input`'s prefix must not stand in for it.
+    // `data-live-search` matches only as the host attribute itself, not as a prefix of
+    // `data-live-search-input`.
     AssetHook {
         asset: "live-search.js",
         js: "data-live-search",
@@ -600,9 +526,6 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         js: "data-options-filter",
         rust: "data-options-filter",
     },
-    // The overflow search: the wrapper flags a server-backed
-    // set and names the field the debounced fetch queries, the input and its
-    // listbox form the combobox, and the list receives the server's options.
     AssetHook {
         asset: "selects.js",
         js: "data-options-field",
@@ -623,9 +546,8 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         js: "data-options-list",
         rust: "data-options-list",
     },
-    // The embedded-enum variant toggle. `data-variant` must be found
-    // as the group's own attribute, and neither `data-variant-of`'s nor
-    // `data-variant-select`'s prefix may stand in for it.
+    // `data-variant` matches only as the group's own attribute, not as a prefix of
+    // `data-variant-of` or `data-variant-select`.
     AssetHook {
         asset: "variant.js",
         js: "data-variant-select",
@@ -656,9 +578,6 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         js: "dataset.mounted",
         rust: "data-mounted",
     },
-    // The confirmed mutation: the marker both delete confirms carry,
-    // the live table's refresh control, the region the response's table
-    // replaces, and the toaster the response's toast mounts into.
     AssetHook {
         asset: "mutation-submit.js",
         js: "data-mutation-submit",
@@ -681,19 +600,7 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
     },
 ];
 
-/// Whether `needle` appears in `haystack` as a hook, not as a prefix of a
-/// longer name.
-///
-/// A plain substring check misses renames by extension (`data-copy-button` →
-/// `data-copy-button-2` still contains the shorter name), so an occurrence only
-/// counts when neither neighbor continues the name. Still structural: any
-/// spelling (`[data-x]`, `data-x=""`, `dataset.x`) matches.
-///
-/// The Rust half of the contract is checked against the sources with test
-/// modules and comment lines removed ([`rust_sources`]). Without that, the
-/// check proves nothing about the render sites. Reading the actual
-/// rendering would be stronger still, but that means building a Db, a panel and
-/// a request per hook — the attributes are the cheaper proxy.
+/// Counts `needle` only when neither neighbor continues the name.
 fn contains_hook(haystack: &str, needle: &str) -> bool {
     if needle.is_empty() {
         return true;
@@ -705,19 +612,10 @@ fn contains_hook(haystack: &str, needle: &str) -> bool {
     })
 }
 
-/// Source text with test modules and comment-only lines dropped.
-///
-/// `#[cfg(test)]` items are cut out: a braced one by brace nesting, a bodiless
-/// one (`mod tests;`, a `use`, a `const`) at its `;`. Any line whose
-/// first non-space characters are `//` (or `//!`, `///`, `/*`, `*`) is dropped:
-/// a hook named in an assertion or a doc comment is not a hook the markup
-/// renders. Only whole-line comments are removed, so trailing `// data-x`
-/// annotations stay in the haystack — over-inclusion here only makes the check
-/// more forgiving, never falsely red.
+/// Strips test modules and comment-only lines from source text.
 fn production_sources(src: &str) -> String {
     let mut out = String::with_capacity(src.len());
     let mut rest = src;
-    // Drop `#[cfg(test)]` items: to the matching brace, or to a bodiless `;`.
     while let Some(at) = rest.find("#[cfg(test)]") {
         out.push_str(&rest[..at]);
         let after = &rest[at + "#[cfg(test)]".len()..];
@@ -757,9 +655,6 @@ fn production_sources(src: &str) -> String {
         .join("\n")
 }
 
-/// Concatenate the workspace's Rust sources with test modules and comment lines
-/// removed, for the hook contract's Rust half. A `tests.rs` file is a test
-/// module declared `#[cfg(test)] mod tests;`, so it is skipped whole.
 fn rust_sources(root: &Path) -> anyhow::Result<String> {
     let mut out = String::new();
     for dir in ["crates/tablo-ui/src", "crates/tablo-core/src"] {
@@ -777,15 +672,12 @@ fn rust_sources(root: &Path) -> anyhow::Result<String> {
     Ok(out)
 }
 
-/// Characters that continue a hook/identifier name.
 fn is_hook_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '-' || c == '_'
 }
 
-/// What to do when the hook contract breaks.
 const HOOK_HINT: &str = "update the hook list and both sides together (ADR-0014)";
 
-/// Collect every `.rs` file under `dir`, recursively.
 fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
@@ -799,16 +691,7 @@ fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Guard: every shell JS asset still exists and stays wired to its `lib.rs`
-/// constant, and every hook in [`ASSET_HOOKS`] still appears in both its JS
-/// asset and the Rust render sources.
-///
-/// This is the hook-contract counterpart of [`verify_sync`]: `asset!` does
-/// not stat its source at compile time, so a deleted/renamed `.js` passes
-/// `cargo test`, and a rename on either side of a string-selector coupling is
-/// otherwise silent. The check is structural on purpose (hook-name presence
-/// with identifier-boundary matching, never classes or pixel markup) so
-/// restyles cannot fail it.
+/// Fails when any shell JS asset or hook has drifted from the hook contract.
 pub fn verify_asset_hooks() -> anyhow::Result<()> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let root = manifest_dir.parent().unwrap_or(Path::new("."));
@@ -818,7 +701,6 @@ pub fn verify_asset_hooks() -> anyhow::Result<()> {
     let lib_rs = std::fs::read_to_string(root.join("crates/tablo-ui/src/lib.rs"))
         .map_err(|error| anyhow::anyhow!("cannot read tablo-ui/src/lib.rs: {error}"))?;
 
-    // Every asset file exists and stays wired to its constant.
     let mut sources: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
     for (file, constant) in ASSET_FILES {
         let path = assets.join(file);
@@ -839,9 +721,8 @@ pub fn verify_asset_hooks() -> anyhow::Result<()> {
         }
     }
 
-    // Every hook appears in both its JS asset and the Rust sources — the
-    // latter with test modules and comment lines removed, so an assertion or a
-    // doc comment cannot stand in for the markup (see `contains_hook`).
+    // The Rust half reads the stripped sources, so an assertion or doc comment cannot stand in for
+    // the markup.
     let rust_src = match rust_sources(root) {
         Ok(sources) => sources,
         Err(error) => {

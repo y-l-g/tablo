@@ -7,22 +7,10 @@ use super::super::{
     Table,
 };
 
-/// The share of the table the bulk-selection column claims: one
-/// checkbox plus the cell's `p-3` padding at the widths a list is read at. A
-/// percentage, not a length: the column keeps its share as the table narrows,
-/// and the columns that declare none keep theirs.
+/// The share of the table the bulk-selection column claims.
 pub(super) const BULK_COLUMN_PERCENT: u8 = 5;
 
-/// The width every column of one render declares: one `style` value
-/// per declared column, in column order, plus the two chrome columns.
-/// `None` is a column that declares no width — a wide column, which takes a
-/// share of what the declared ones leave.
-///
-/// `actions_min` is the actions column's content floor for its body cells
-/// (the header carries the share *and* the floor); `table_min_width` is the
-/// table-level floor — the sum of the declared widths — that lets the
-/// wrapper's `overflow-x-auto` scroll on a narrow viewport instead of
-/// crushing the cells.
+/// The width every column of one render declares, in column order, plus the chrome columns.
 pub(super) struct ColumnWidths {
     pub(super) cells: Vec<Option<Cow<'static, str>>>,
     pub(super) bulk: Option<Cow<'static, str>>,
@@ -40,9 +28,8 @@ impl<M> Table<M> {
             || self.row_custom_actions().next().is_some()
     }
 
-    /// How many row links sit side by side in the actions column. A custom
-    /// action's button carries its label rather than an icon, so it counts
-    /// as two.
+    /// Count the row links side by side in the actions column, counting a labeled custom action as
+    /// two.
     fn action_link_count(&self) -> usize {
         usize::from(self.view_prefix.is_some())
             + usize::from(self.edit_prefix.is_some())
@@ -50,10 +37,7 @@ impl<M> Table<M> {
             + 2 * self.row_custom_actions().count()
     }
 
-    /// The share of the table the row-actions column claims: the row
-    /// links sit side by side and each is a fixed-size control, so the share
-    /// grows with the number of links the table renders. The values hold the
-    /// widest set at a 1280px window and the narrower sets inside it.
+    /// Claim the share of the table the row-actions column takes by link count.
     fn actions_percent(&self) -> u8 {
         match self.action_link_count() {
             2 => 12,
@@ -62,14 +46,7 @@ impl<M> Table<M> {
         }
     }
 
-    /// The content floor of the row-actions column, in whole rem: one row of
-    /// `Icon` buttons (2.25rem each, 0.25rem apart) plus the cell's `p-3`
-    /// padding, by link count. The share
-    /// above is a fraction of the table and shrinks with it, so on a narrow
-    /// viewport the buttons would spill past the table and clip against the
-    /// chrome's `overflow-hidden`; the floor keeps the column as wide as its
-    /// buttons, and the table's `min-width` keeps the table as wide as its
-    /// columns, so the wrapper scrolls instead.
+    /// Floor the row-actions column to its buttons by link count.
     fn actions_min_rem(&self) -> u8 {
         match self.action_link_count() {
             2 => 7,
@@ -78,25 +55,7 @@ impl<M> Table<M> {
         }
     }
 
-    /// The width every column of this table declares.
-    ///
-    /// The kind defaults — a [`ColumnWidth::Narrow`] column, the bulk
-    /// checkbox, the row actions — are shares of the table, scaled down
-    /// together when their nominal total exceeds
-    /// `DEFAULT_WIDTH_BUDGET_PERCENT`: the wide columns take what the
-    /// declared ones leave, and a table that spends every percent on declared
-    /// columns leaves them none. An explicit `Rem`/`Percent` is emitted as
-    /// declared.
-    ///
-    /// The table-level `min-width` is the sum of those declarations: every
-    /// share as emitted, every `Rem` verbatim, the actions column's content
-    /// floor, and one `WIDE_COLUMN_MIN_REM` per wide column (which declares
-    /// nothing and would otherwise crush to zero). With `w-full` the table
-    /// never exceeds its container on its own, so without the floor the
-    /// wrapper's `overflow-x-auto` never scrolls; with it the table keeps its
-    /// measure on a narrow viewport and the wrapper scrolls. Emitted only
-    /// when the sum carries a length — shares alone are a fraction of the
-    /// container and can never overflow it.
+    /// Resolve the width every column of this table declares.
     pub(super) fn column_widths(&self) -> ColumnWidths
     where
         M: toasty::schema::Model,
@@ -119,8 +78,6 @@ impl<M> Table<M> {
             .iter()
             .map(|col| column_width_style(col.column_width(), total))
             .collect();
-        // The `min-width` terms, in layout order. A scaled share is the
-        // emitted one, so the floor and the column agree.
         let mut min_width = MinWidth::default();
         if let Some(share) = bulk {
             min_width.share(scaled_default_percent(share, total));
@@ -147,22 +104,10 @@ impl<M> Table<M> {
     }
 }
 
-/// The table-level floor a wide column contributes to the table's
-/// `min-width`, in whole rem.
-///
-/// A wide column declares no width, so a sum of declared widths alone would
-/// let it crush to zero on a narrow viewport. Six rem keeps body text readable
-/// and, summed across the wide columns, trips the wrapper's horizontal scroll
-/// before the fixed layout crushes them.
+/// Contribute six rem per wide column to the table's `min-width`.
 const WIDE_COLUMN_MIN_REM: u8 = 6;
 
-/// The most of the table the kind defaults claim together.
-///
-/// The defaults are shares of the table, and the columns that declare none
-/// take what they leave: a total over 100% gives those columns no space at
-/// all, and `table-fixed` renders a column with no space at zero width, header
-/// text included. The budget keeps the rest of the table for them whatever the
-/// column set.
+/// Cap the kind defaults' combined share of the table so undeclared columns keep space.
 pub(super) const DEFAULT_WIDTH_BUDGET_PERCENT: u8 = 60;
 
 /// The share a kind default claims, scaled down when the table's defaults
@@ -181,10 +126,7 @@ fn default_width_style(percent: u8) -> Cow<'static, str> {
     Cow::Owned(format!("width: {percent}%"))
 }
 
-/// The `style` a data column's cells carry: an explicit `Rem`/`Percent`
-/// verbatim, a kind default scaled against the table's defaults (`total`), and
-/// nothing for a wide column, which takes a share of what the declared ones
-/// leave.
+/// Resolve a data column's cell `style` from its explicit CSS or scaled kind default.
 fn column_width_style(width: ColumnWidth, total: u32) -> Option<Cow<'static, str>> {
     width.explicit_css().or_else(|| {
         width
@@ -193,12 +135,7 @@ fn column_width_style(width: ColumnWidth, total: u32) -> Option<Cow<'static, str
     })
 }
 
-/// The terms of a fixed-layout table's `min-width`: every share as emitted and
-/// the lengths as one rem total.
-///
-/// With `w-full` the table never exceeds its container on its own, so without
-/// the floor the wrapper's `overflow-x-auto` never scrolls; with it the table
-/// keeps its measure on a narrow viewport and the wrapper scrolls.
+/// Accumulate a fixed-layout table's `min-width` terms.
 #[derive(Default)]
 struct MinWidth {
     percent: Vec<u8>,

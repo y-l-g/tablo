@@ -1,9 +1,4 @@
-//! The override seam, proven end to end (spec #127, ticket #132): a
-//! test-local user model implements `PanelUser` through its own type and
-//! `Authenticator` loads it, a minimal `Panel` is gated over it, and a full
-//! login round-trip runs through `Router::handle`. This is the "bring your
-//! own user table" path ADR-0013 promises, with users who belong to several
-//! tenants.
+//! The override seam, proven end to end (spec #127, ticket #132).
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo_core::{
@@ -23,7 +18,7 @@ use crate::common::{
     router_with,
 };
 
-/// A custom user table — deliberately not `AdminUser`.
+/// A custom user table.
 #[derive(Debug, Clone, toasty::Model)]
 struct Member {
     #[key]
@@ -52,8 +47,7 @@ const ACME: Uuid = Uuid::from_u128(7);
 const GLOBEX: Uuid = Uuid::from_u128(8);
 const INITECH: Uuid = Uuid::from_u128(9);
 
-/// The signed-in member: the row plus the seats `find_by_id` loads with it.
-/// The user type is the app's, and need not be a model.
+/// The signed-in member.
 #[derive(Debug)]
 struct SignedMember {
     member: Member,
@@ -192,8 +186,7 @@ impl Resource for NoteResource {
     }
 }
 
-/// Ada, with seats in Acme and Globex, and Grace, with none; one note per
-/// tenant, Initech's included.
+/// Ada, with seats in Acme and Globex, and Grace, with none.
 async fn seeded_db() -> Db {
     let mut db = memory_db(toasty::models!(
         Member,
@@ -247,7 +240,7 @@ async fn seeded_db() -> Db {
     db
 }
 
-/// A router gated by `MemberAuth` over members and notes.
+/// A router gated by `MemberAuth`.
 fn notes_router(db: Db) -> Router {
     mount(
         db,
@@ -266,8 +259,7 @@ fn cookie_value(response: &Response<Body>, name: &str) -> Option<String> {
         .map(|(_, value)| value)
 }
 
-/// Scrape the login page's CSRF pair (cookie + hidden token) — the shared
-/// first step of every login flow in this suite.
+/// Scrape the login page's CSRF pair.
 async fn csrf_pair(router: &Router) -> (String, String) {
     let page = get_with_cookies(router, "/admin/login", &[]).await;
     let csrf_cookie = cookie_value(&page, tablo_core::csrf::COOKIE_NAME).expect("CSRF cookie");
@@ -295,17 +287,14 @@ async fn login_as(router: &Router, handle: &str) -> String {
     cookie_value(&login, "__Host-session").expect("session cookie")
 }
 
-/// A member whose panel access is revoked mid-session must still be able to
-/// log out: the gate answers the logout route for any resolved
-/// user, so the session row + cookie are cleared instead of lingering to
-/// expiry behind a 403.
+/// A member whose panel access is revoked mid-session can still log out.
 #[tokio::test]
 async fn revoked_panel_access_can_still_log_out() {
     let db = seeded_db().await;
     let router = router_with::<MemberResource>(db.clone(), Auth::custom(MemberAuth));
     let session = login_session(&router).await;
 
-    // Revoke the member's panel access; the live session still resolves.
+    // Revoke the member's panel access.
     let mut db2 = db.clone();
     let mut member = Member::filter(Member::fields().handle().eq("ada".to_string()))
         .first()
@@ -318,7 +307,7 @@ async fn revoked_panel_access_can_still_log_out() {
         .await
         .unwrap();
 
-    // Panel pages now 403 the de-permitted user...
+    // Panel pages now 403 the de-permitted user.
     let response = get_with_cookies(
         &router,
         "/admin/members",
@@ -327,7 +316,7 @@ async fn revoked_panel_access_can_still_log_out() {
     .await;
     assert_eq!(response.status(), 403, "pages deny the de-permitted user");
 
-    // ...but logout still answers: 303 to login, row deleted, cookie cleared.
+    // Logout still answers.
     let logout_csrf = Uuid::new_v4().to_string();
     let logout = post_form(
         &router,
@@ -377,7 +366,7 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
     let db = seeded_db().await;
     let router = router_with::<MemberResource>(db, Auth::custom(MemberAuth));
 
-    // No session: the panel gate redirects to the login page with `next`.
+    // No session: the panel gate redirects to login.
     let response = get_with_cookies(&router, "/admin/members", &[]).await;
     assert_eq!(response.status(), 307);
     assert_eq!(
@@ -385,13 +374,10 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
         "/admin/login?next=%2Fadmin%2Fmembers"
     );
 
-    // Log in through the shipped login page: its CSRF pair is reused, and a
-    // wrong secret gets the one generic 403.
+    // Log in through the shipped login page.
     let (csrf_cookie, csrf) = csrf_pair(&router).await;
 
     let csrf_cookies = [(tablo_core::csrf::COOKIE_NAME, csrf_cookie)];
-    // The shipped login form posts `email`/`password`; the custom
-    // authenticator interprets those values as its handle/secret.
     let wrong = post_form(
         &router,
         "/admin/login",
@@ -427,8 +413,7 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
     let html = body_string(response).await;
     assert!(html.contains("ada"), "member list must render: {html}");
 
-    // The session is server-side: logging out revokes it and the cookie
-    // stops reaching the panel.
+    // The session is server-side.
     let logout_csrf = Uuid::new_v4().to_string();
     let logout = router
         .handle(
@@ -456,7 +441,7 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
     assert_eq!(response.status(), 307, "logout must revoke the session");
 }
 
-/// `POST /admin/tenant` with a fresh CSRF pair, as the switcher submits it.
+/// `POST /admin/tenant` with a fresh CSRF pair.
 async fn switch_tenant(router: &Router, session: &str, tenant: Uuid) -> Response<Body> {
     let csrf = Uuid::new_v4().to_string();
     post_form(
@@ -519,7 +504,7 @@ async fn a_member_cannot_switch_to_a_tenant_they_do_not_belong_to() {
     );
     assert!(!html.contains("initech note"));
 
-    // Without a CSRF field the switch is refused before anything is read.
+    // Without a CSRF field the switch is refused.
     let forged = post_form(
         &router,
         "/admin/tenant",

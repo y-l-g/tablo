@@ -1,20 +1,6 @@
 //! CSRF protection via double-submit cookie.
 //!
-//! Every state-changing form embeds `csrf_token`, and every POST handler
-//! verifies the form value matches the cookie. No server-side session is
-//! needed: the token is a random UUID the server sets (and reads) via the
-//! cookie layer, and the browser's same-origin policy keeps an attacker
-//! from reading the token to forge the form field. `confirm=1` stays
-//! a UX step, never a security boundary.
-//!
-//! The cookie is `__Host-`-prefixed and `Secure`, matching the
-//! session cookie's hardened contract: a cookie-writable position
-//! (subdomain, cleartext HTTP) cannot pin a known token to the jar. The
-//! compare is constant-time so a mismatch cannot be probed byte-by-byte.
-//! The token deliberately stays a bare random UUID — binding it to the
-//! server (HMAC via Topcoat's signed jar) would need a `Key` app context
-//! a mounted panel does not register; that stays an upstream-gap decision,
-//! not a hand-rolled one.
+//! Verifies state-changing POSTs with a double-submit `__Host-` cookie compared in constant time.
 
 use subtle::ConstantTimeEq;
 use topcoat::{
@@ -22,19 +8,11 @@ use topcoat::{
     cookie::{Cookie, CookieJarCell, Cookies, cookies},
 };
 
-/// Cookie carrying the CSRF token (`__Host-` prefix: `Secure` + `Path=/` +
-/// no `Domain` are required by the prefix contract).
+/// Names the `__Host-`-prefixed CSRF cookie.
 pub const COOKIE_NAME: &str = "__Host-tablo_csrf";
-/// Hidden form field carrying the CSRF token.
 pub const FIELD_NAME: &str = "csrf_token";
 
-/// Ensure a token exists for this request, setting the cookie when needed.
-///
-/// Must be called before response headers are sent (i.e. in the page handler,
-/// not inside a streamed `suspense` child — setting cookies after headers
-/// panics). Returns the token to embed in forms. When no cookie layer is
-/// present (bare unit renders), returns an empty string so renders never panic;
-/// POST handlers behind the real router always have the layer and enforce.
+/// Ensures a request token before headers send, returning `""` without a cookie layer.
 pub fn ensure_token(cx: &Cx) -> String {
     if try_request_context::<CookieJarCell>(cx).is_none() {
         return String::new();
@@ -57,10 +35,7 @@ pub fn ensure_token(cx: &Cx) -> String {
     token
 }
 
-/// Read the current token without setting one.
-///
-/// Safe inside streamed `suspense` children that outlive header send: renders
-/// embed the already-ensured token, or `""` when none was ensured.
+/// Reads the current token without setting one, safe inside streamed children.
 pub fn current_token(cx: &Cx) -> String {
     if try_request_context::<CookieJarCell>(cx).is_none() {
         return String::new();
@@ -72,31 +47,16 @@ pub fn current_token(cx: &Cx) -> String {
         .unwrap_or_default()
 }
 
-/// The hidden field every state-changing form embeds.
-///
-/// The token is passed in, never resolved here: whether a site calls
-/// [`ensure_token`] (which sets the cookie and must run before response headers
-/// are sent) or [`current_token`] (the only one safe inside a streamed
-/// `suspense` child) is the site's decision, and a helper that guessed would
-/// either panic after header send or silently embed nothing. What the helper
-/// owns is the spelling — [`FIELD_NAME`] is what [`verify`] reads, so a rename
-/// that missed a form would be a silent 403 on every POST.
+/// Renders the hidden field embedding the given token.
 pub fn field<'a>(cx: &'a Cx, token: &str) -> topcoat::view::BoxView<'a> {
     use topcoat::view::ViewExt;
 
-    // Own the token before the `view!` block: the emitted view must borrow the
-    // request context and nothing else, or a caller's local `String` would have
-    // to outlive the page.
     let token = token.to_string();
     topcoat::view::view! { cx => <input type="hidden" name=(FIELD_NAME) value=(token)> }.boxed()
 }
 
-/// Verify the submitted form token matches the cookie.
-///
-/// Fails closed: missing cookie, missing field, or mismatch all yield 403.
-/// The mismatch compare is constant-time so a failed double-submit
-/// cannot be probed byte-by-byte; the token itself stays a random UUID, so
-/// a length difference is not a secret.
+/// Verifies the submitted token matches the cookie with a constant-time compare, failing closed
+/// with 403.
 pub fn verify(
     cx: &Cx,
     values: &std::collections::HashMap<String, String>,

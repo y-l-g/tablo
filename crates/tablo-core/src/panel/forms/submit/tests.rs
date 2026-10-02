@@ -8,9 +8,6 @@ use crate::{
     schema::{Field, Schema},
 };
 
-/// Completion fills an unnamed key from the stored projection it is
-/// handed — the edit path hands it the in-transaction record — keeps a
-/// named key as posted, and drops an unnamed key the projection lacks.
 #[test]
 fn completion_fills_unnamed_keys_from_the_stored_projection() {
     let schema = Schema::new(Field::text(Dummy::fields().name()));
@@ -81,7 +78,6 @@ async fn edit_post_requires_view_as_well_as_update() {
     .unwrap();
     let router = mount(db, panel_for::<ViewDeniedResource>()).expect("panel builds");
     let url = format!("/admin/dummies/{}/edit", row.id);
-    // GET already required both; POST must match.
     let get = router
         .handle(
             http::Request::builder()
@@ -91,7 +87,7 @@ async fn edit_post_requires_view_as_well_as_update() {
         )
         .await;
     assert_eq!(get.status(), http::StatusCode::FORBIDDEN);
-    // Valid CSRF token still 403 on policy (not on CSRF).
+    // A valid token still 403s on policy, not on CSRF.
     let token = uuid::Uuid::new_v4().to_string();
     let post = router
         .handle(
@@ -132,10 +128,7 @@ async fn edit_post_requires_view_as_well_as_update() {
     assert_eq!(no_token.status(), http::StatusCode::FORBIDDEN);
 }
 
-/// Framework transport keys never reach the write: the create POST carries
-/// `csrf_token` (and, for file schemas, `clear_<field>` and the
-/// `keep_<field>` candidate a re-rendered form adds), which the framework
-/// strips before the parse, and the client-typed candidate is never stored.
+/// Transport keys never reach the write.
 #[tokio::test]
 async fn transport_keys_never_reach_the_write() {
     use crate::schema::{Field, Schema};
@@ -191,9 +184,6 @@ async fn transport_keys_never_reach_the_write() {
     db.push_schema().await.unwrap();
     let router = mount(db.clone(), panel_for::<CapturingResource>()).expect("panel builds");
     let csrf = uuid::Uuid::new_v4().to_string();
-    // `path` is a file field, so it arrives as a file part;
-    // `clear_path`, the client-typed `keep_path` candidate and
-    // `csrf_token` are the transport keys under test.
     let boundary = "----TransportBoundary";
     let body = format!(
         "--{b}\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\nx\r\n\
@@ -242,10 +232,7 @@ async fn transport_keys_never_reach_the_write() {
     );
 }
 
-/// A write that fails at the driver surfaces the
-/// opaque mapping, never the driver's own text — the property
-/// `db.rs` pins for `unavailable`, one layer up and through the real
-/// create handler.
+/// A failing driver write surfaces the opaque mapping, never driver text.
 #[tokio::test]
 async fn a_driver_create_failure_does_not_echo_driver_text() {
     use topcoat::{context::CxTestBuilder, cookie::CookieJarCell};
@@ -285,16 +272,13 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     struct WritingForm {
         name: String,
     }
-    // Schema never pushed: the INSERT cannot run, so the failure is the
-    // driver's own (the `unique_check_propagates_probe_errors` setup).
     let db = Db::builder()
         .models(toasty::models!(Dummy))
         .connect("sqlite::memory:")
         .await
         .unwrap();
 
-    // Positive control: the same insert outside the handler really does
-    // carry driver text, so the assertions below cannot pass vacuously.
+    // Positive control carries driver text, so the assertions cannot pass vacuously.
     let mut raw = db.clone();
     let driver = toasty::create!(Dummy {
         name: "Ada".to_string(),
@@ -350,14 +334,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     );
 }
 
-/// The update arm is the same seam as create's, and a
-/// write that fails at the driver must not echo the driver's text there
-/// either. The failing write is a unique violation the app-side check
-/// never saw.
-///
-/// The edit handler needs the `{id}` the router captures, so the test
-/// mounts it behind a route of its own and renders the error it returns —
-/// the body is exactly what a page would be handed.
+/// A failing driver write on update surfaces the opaque mapping, never driver text.
 #[tokio::test]
 async fn a_driver_update_failure_does_not_echo_driver_text() {
     use topcoat::{
@@ -370,9 +347,6 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         schema::{Field, Schema},
     };
 
-    // The hook's own write targets this model: its unique column is not
-    // one the panel's form probes, so the duplicate is the driver's to
-    // refuse.
     #[derive(Debug, toasty::Model, Clone)]
     struct Ghost {
         #[key]
@@ -395,8 +369,6 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
             _posted: crate::form::Posted<EditingForm>,
             ex: &mut dyn toasty::Executor,
         ) -> Result<Dummy> {
-            // The write the hook performs is the one that fails: the name
-            // is taken, and only the database knows it.
             toasty::create!(Ghost {
                 name: "taken".to_string(),
             })
@@ -430,8 +402,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     struct EditingForm {
         name: String,
     }
-    /// Runs the edit handler under a route that captures `{id}`, and hands
-    /// its error back as the body.
+    /// Runs the edit handler and returns its error as the response body.
     fn edit_error(cx: &Cx, body: Body) -> RouteFuture<'_> {
         Box::pin(async move {
             let error = resource_edit_post::<EditingResource>(cx, body)
@@ -461,8 +432,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     .await
     .unwrap();
 
-    // Positive control: the hook's own write really does carry driver
-    // text, so the assertions below cannot pass vacuously.
+    // Positive control carries driver text, so the assertions cannot pass vacuously.
     let mut raw = db.clone();
     let driver = toasty::create!(Ghost {
         name: "taken".to_string(),
@@ -522,10 +492,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     );
 }
 
-/// Post/Redirect/Get (#126): a mutation answers 303, the flash
-/// cookie rides the error response (Topcoat flushes `Set-Cookie` on `Err`,
-/// topcoat#408), and nothing rides the `Location` query. Following the
-/// redirect consumes the cookie, so a reload does not replay the toast.
+/// A mutation answers 303 with the flash cookie, never the query (#126, topcoat#408).
 #[tokio::test]
 async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     use crate::resource::Resource;
@@ -537,9 +504,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
         type Model = Dummy;
         type Form = NotifyingForm;
         fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
-            // A real field, optional so the test's csrf-only POST still
-            // passes validation: the record form's field needs a control
-            // to bind (the key-agreement build check).
+            // Optional so the csrf-only POST passes validation.
             crate::schema::Schema::new(
                 crate::schema::Field::text(Dummy::fields().name()).optional(),
             )
@@ -549,8 +514,6 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
             _form: NotifyingForm,
             ex: &mut dyn toasty::Executor,
         ) -> Result<Dummy> {
-            // The row the write produced is what the handler needs back
-            // so a test double writes a real one.
             toasty::create!(Dummy {
                 name: "created".to_string(),
             })
@@ -640,8 +603,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     );
 }
 
-/// Through the real panel, two submits with an empty
-/// `unique()` field re-render inline and write nothing.
+/// Through the real panel, two empty `unique()` submits re-render inline and write nothing.
 #[tokio::test]
 async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     use crate::{
@@ -662,8 +624,6 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
         type Model = Subscriber;
         type Form = SubscriberForm;
         fn form(_dx: &crate::schema::DeclCx) -> Schema {
-            // `.optional()` lets an empty submit probe instead of failing
-            // on presence: uniqueness wins.
             Schema::new(
                 Field::text(Subscriber::fields().email())
                     .unique()
@@ -702,9 +662,6 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     let router = mount(db.clone(), panel_for::<SubscriberResource>()).expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
-    // `+` decodes to a space and an empty pair to `""`: both trim to an
-    // empty submit, which the presence rule refuses and which must not
-    // reach the database. Neither may write.
     for (attempt, submitted) in ["+", ""].into_iter().enumerate() {
         let attempt = attempt + 1;
         let resp = router
@@ -749,9 +706,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     );
 }
 
-/// `Uploader::holds` defaults to `false`, so a store that does not
-/// implement it cannot vouch for a carried path — a forged `keep_<field>`
-/// leaves the field empty and the create refuses.
+/// A forged `keep_<field>` without `holds` leaves the field empty.
 #[tokio::test]
 async fn a_forged_carry_is_refused_by_the_default_holds() {
     #[derive(Debug, toasty::Model, Clone)]
@@ -763,7 +718,6 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         path: String,
     }
 
-    /// A store that implements only `store`: `holds` stays the default.
     struct NoHoldsUploader;
 
     impl crate::Uploader for NoHoldsUploader {
@@ -829,7 +783,6 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
     .expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
-    // A forged candidate with no file part: nothing stored the path.
     let response = router
         .handle(
             http::Request::builder()

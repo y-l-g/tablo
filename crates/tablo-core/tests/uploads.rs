@@ -1,10 +1,4 @@
-//! The upload seam end to end: what an installed [`Uploader`] does
-//! with a file field's bytes, what happens when it refuses, what the clear
-//! control empties, and that `Panel::serve_dir` hands a stored path back.
-//!
-//! With no uploader installed the sanitized basename is still the stored
-//! value, so installing the seam is additive for every app that never installs
-//! one.
+//! The upload seam end to end.
 
 use std::{
     path::PathBuf,
@@ -29,8 +23,7 @@ use crate::common::{
     post_multipart,
 };
 
-/// A document with one required and one optional upload: the two ends of the
-/// clear-control rule.
+/// A document with one required and one optional upload.
 #[derive(Debug, Clone, toasty::Model)]
 struct Doc {
     #[key]
@@ -46,8 +39,7 @@ struct Doc {
 /// What an uploader was handed: sanitized filename and bytes.
 type Seen = Arc<Mutex<Vec<(String, Vec<u8>)>>>;
 
-/// An uploader that records what it was handed and answers a deterministic
-/// path, so a test can prove the *bytes* arrived and not just the name.
+/// An uploader that records what it was handed and answers a deterministic path.
 #[derive(Clone, Default)]
 struct RecordingUploader {
     seen: Seen,
@@ -93,8 +85,7 @@ impl Resource for DocResource {
         ))
     }
 
-    // Every policy hook defaults to deny, so a panel that only exercises the
-    // upload seam opens them all (the permissive end of the contract).
+    // Every policy hook defaults to deny.
     fn policy() -> impl Policy<Doc> {
         |_cx: &Cx, ability: Ability<'_, Doc>| {
             matches!(
@@ -123,9 +114,7 @@ async fn seeded_db() -> Db {
     memory_db(toasty::models!(Doc)).await
 }
 
-/// The same DB, with the shipped auth models registered so a panel can be
-/// mounted with the gate **on** (the default): mounting refuses a panel
-/// whose `AdminUser`/`AuthSession` pair is missing.
+/// The same DB with the shipped auth models registered.
 async fn auth_seeded_db() -> Db {
     memory_db(toasty::models!(
         Doc,
@@ -135,11 +124,8 @@ async fn auth_seeded_db() -> Db {
     .await
 }
 
-/// A panel over `Doc`, optionally with an uploader — the seam's own on/off
-/// switch, which is the whole point of the default being additive.
+/// A panel over `Doc`, optionally with an uploader.
 fn router(db: Db, uploader: Option<impl Uploader>) -> Router {
-    // The upload seam is what these tests exercise; the auth gate is covered
-    // by its own suite, so `panel` disables it.
     let panel = panel();
     let panel = match uploader {
         Some(uploader) => panel.uploads(uploader),
@@ -148,15 +134,14 @@ fn router(db: Db, uploader: Option<impl Uploader>) -> Router {
     mount(db, panel.resource::<DocResource>()).expect("panel builds")
 }
 
-/// A directory of this test's own, removed with the process's temp dir.
+/// A directory of this test's own.
 fn temp_dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("tablo-uploads-{tag}-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     dir
 }
 
-/// A GET that revalidates: the directory route answers `304` when the file has
-/// not changed since `since`.
+/// A GET that revalidates.
 async fn get_if_modified_since(router: &Router, uri: &str, since: &str) -> Response<Body> {
     let request = http::Request::builder()
         .uri(uri)
@@ -166,9 +151,7 @@ async fn get_if_modified_since(router: &Router, uri: &str, since: &str) -> Respo
     router.handle(request).await
 }
 
-/// The exact directive a served file must carry. Spelled out rather than read
-/// from the implementation constant: the `frame-ancestors` directive is the one
-/// `FrameAncestors` cannot supply for a response that already has a policy.
+/// The exact directive a served file carries.
 const SERVED_FILE_POLICY: &str = "default-src 'none'; img-src 'self'; media-src 'self'; \
      style-src 'unsafe-inline'; sandbox; frame-ancestors 'self'";
 
@@ -208,14 +191,13 @@ async fn an_installed_uploader_stores_the_bytes_and_the_path_reaches_the_record(
     let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
     assert_eq!(response.status(), 303, "a valid create redirects");
 
-    // The record stores what the uploader returned, not the client filename.
+    // The record stores what the uploader returned.
     let created = docs(&db).await;
     assert_eq!(created.len(), 1);
     assert_eq!(created[0].cover, "/uploads/cover.png");
     assert_eq!(created[0].attachment, "/uploads/spec.pdf");
 
-    // And the uploader saw the bytes under sanitized names. Order is not part
-    // of the contract (uploads are independent), so the pairs are sorted.
+    // The uploader saw the bytes under sanitized names.
     let mut seen = uploader.seen();
     seen.sort();
     assert_eq!(
@@ -230,8 +212,6 @@ async fn an_installed_uploader_stores_the_bytes_and_the_path_reaches_the_record(
 
 #[tokio::test]
 async fn without_an_uploader_the_sanitized_basename_is_still_stored() {
-    // The seam is additive: an app that installs nothing keeps exactly what it
-    // had.
     let db = seeded_db().await;
     let router = router(db.clone(), None::<RecordingUploader>);
     let csrf = new_csrf();
@@ -268,8 +248,6 @@ async fn a_refused_upload_is_an_inline_field_error_and_writes_nothing() {
     );
 
     let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
-    // A rejected upload is user input, not infrastructure: the form comes back
-    // with the reason against the field, and no 500 page.
     assert_eq!(response.status(), 200, "the form re-renders");
     let html = body_string(response).await;
     assert!(
@@ -297,8 +275,7 @@ async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces
     let router = router(db.clone(), Some(uploader.clone()));
     let doc = seed_doc(&db, "Original", "cover.png", "spec.pdf").await;
 
-    // A browser submits every file input; untouched ones arrive with an empty
-    // filename.
+    // A browser submits every file input.
     let csrf = new_csrf();
     let body = multipart_body(
         "B",
@@ -350,10 +327,7 @@ async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces
     assert_eq!(docs(&db).await[0].cover, "/uploads/new.png");
 }
 
-/// A url-encoded pair under a declared file field's name is text the
-/// client typed, not an upload. It is dropped before validation, so the
-/// required field is empty and nothing is written — the typed value never
-/// reaches the record and never renders as the file's link.
+/// A url-encoded pair under a declared file field's name is dropped before validation.
 #[tokio::test]
 async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
     let db = seeded_db().await;
@@ -375,8 +349,6 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
         "the form re-renders with the required error"
     );
     let html = body_string(response).await;
-    // The required error is attached to the upload field (its own error id),
-    // which is what proves the typed value was dropped rather than written.
     assert!(
         html.contains("cover-error"),
         "the typed value leaves the required field empty: {html}"
@@ -391,9 +363,7 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
     );
 }
 
-/// A multipart text part (no `filename`) under a declared
-/// file field's name is client-typed too. On edit the stored value is restored,
-/// so the forged value cannot replace the file the record names.
+/// A multipart text part under a declared file field's name is dropped too.
 #[tokio::test]
 async fn a_text_value_for_a_file_upload_keeps_the_stored_file_on_edit() {
     let db = seeded_db().await;
@@ -433,10 +403,7 @@ async fn a_text_value_for_a_file_upload_keeps_the_stored_file_on_edit() {
     );
 }
 
-/// Duplicate part names are last-write-wins, and the file-part
-/// set follows. A text part after a file part under the same name takes the
-/// name out of the set, so the typed value is dropped instead of stored. With
-/// no uploader nothing replaces the typed value.
+/// Duplicate part names are last-write-wins.
 #[tokio::test]
 async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     let db = seeded_db().await;
@@ -473,9 +440,7 @@ async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     );
 }
 
-/// The same duplicate-name bypass on edit, with an uploader
-/// installed. The later text part discards the staged bytes, so the uploader
-/// never sees the earlier file part and the record keeps the file it names.
+/// The same duplicate-name bypass on edit, with an uploader installed.
 #[tokio::test]
 async fn a_text_part_after_a_file_part_keeps_the_stored_file_on_edit() {
     let db = seeded_db().await;
@@ -517,8 +482,7 @@ async fn a_text_part_after_a_file_part_keeps_the_stored_file_on_edit() {
     );
 }
 
-/// The duplicate-name bypass on edit with no uploader, where
-/// nothing replaces a stored typed value.
+/// The duplicate-name bypass on edit with no uploader.
 #[tokio::test]
 async fn a_text_part_after_a_file_part_keeps_the_stored_file_without_an_uploader() {
     let db = seeded_db().await;
@@ -551,8 +515,7 @@ async fn a_text_part_after_a_file_part_keeps_the_stored_file_without_an_uploader
     );
 }
 
-/// The last part wins in the other order too — a file part
-/// after a text part under the same name is the upload.
+/// The last part wins in the other order too.
 #[tokio::test]
 async fn a_file_part_after_a_text_part_wins_on_create() {
     let db = seeded_db().await;
@@ -577,9 +540,7 @@ async fn a_file_part_after_a_text_part_wins_on_create() {
     );
 }
 
-/// A later file part whose name sanitizes to empty discards the
-/// bytes an earlier part staged, rather than letting the uploader store a file
-/// the last part did not name.
+/// A later file part whose name sanitizes to empty discards the staged bytes.
 #[tokio::test]
 async fn a_rejected_filename_after_a_file_part_discards_the_staged_bytes() {
     let db = seeded_db().await;
@@ -647,9 +608,6 @@ async fn clearing_an_optional_upload_empties_the_stored_path() {
 
 #[tokio::test]
 async fn clearing_a_required_upload_is_refused_inline() {
-    // `required` is not waived by an explicit clear: a record that must have a
-    // file cannot lose it, and the refusal is the ordinary required error
-    // rather than a silent empty write.
     let db = seeded_db().await;
     let router = router(db.clone(), Some(RecordingUploader::default()));
     let doc = seed_doc(&db, "Original", "cover.png", "spec.pdf").await;
@@ -688,9 +646,6 @@ async fn clearing_a_required_upload_is_refused_inline() {
 
 #[tokio::test]
 async fn a_refused_edit_upload_keeps_showing_the_stored_file() {
-    // The store refused, so nothing changed: the re-rendered form must still
-    // show what is stored rather than the empty value a cleared field would
-    // have.
     let db = seeded_db().await;
     let router = router(db.clone(), Some(FailingUploader));
     let doc = seed_doc(&db, "Notes", "/uploads/old.png", "spec.pdf").await;
@@ -732,9 +687,6 @@ async fn a_refused_edit_upload_keeps_showing_the_stored_file() {
 
 #[tokio::test]
 async fn an_over_cap_body_still_413s_with_an_uploader_installed() {
-    // The seam must not widen the body contract. The bytes are
-    // buffered rather than drained in this configuration, so the cap is
-    // asserted on the path that holds them.
     let db = seeded_db().await;
     let router = router(db.clone(), Some(RecordingUploader::default()));
     let csrf = new_csrf();
@@ -789,8 +741,6 @@ async fn the_edit_form_links_the_stored_files() {
 
 #[tokio::test]
 async fn a_create_form_offers_no_stored_value_and_no_clear_control() {
-    // Both belong to a stored value: a create has none, and an empty file
-    // input cannot express "remove what is not there".
     let db = seeded_db().await;
     let router = router(db.clone(), Some(RecordingUploader::default()));
 
@@ -825,8 +775,7 @@ async fn serve_dir_serves_the_upload_directory_through_the_panel() {
     assert_eq!(response.status(), 200, "the stored path is fetchable");
     assert_eq!(body_bytes(response).await, b"PNG-FILE");
 
-    // The directory route's own rules hold through the panel, so exposing one
-    // cannot widen them: a traversal attempt is not a file.
+    // The directory route's own rules hold through the panel.
     let escaped = get(&router, "/uploads/%2e%2e/Cargo.toml").await;
     assert_eq!(
         escaped.status(),
@@ -839,12 +788,6 @@ async fn serve_dir_serves_the_upload_directory_through_the_panel() {
 
 #[tokio::test]
 async fn a_served_directory_is_reachable_without_a_session() {
-    // ADR-0017 (decision 2026-09-22): a served directory is **public**. The
-    // auth gate installs exactly two layers — the panel prefix and the runtime
-    // prefix (ADR-0013) — so a directory mounted anywhere else is ungated by
-    // construction. This pins that shape: the gate is demonstrably on, and the
-    // same anonymous client still gets the file. An app that needs protected
-    // files owns that route itself.
     let db = auth_seeded_db().await;
     let dir = temp_dir("serve-anonymous");
     std::fs::write(dir.join("cat.png"), b"PNG-FILE").expect("write upload");
@@ -852,14 +795,13 @@ async fn a_served_directory_is_reachable_without_a_session() {
     let router = mount(
         db,
         Panel::new("admin")
-            // No `.auth(..)` call: the shipped gate is on, which is the point.
+            // No `.auth(..)` call.
             .serve_dir("/uploads/{*file}", dir.clone())
             .resource::<DocResource>(),
     )
     .expect("panel builds");
 
-    // The gate is live: an anonymous panel page is redirected to the login
-    // route (the same 307 the auth suite pins).
+    // The gate is live.
     let page = get(&router, "/admin/docs").await;
     assert_eq!(
         page.status(),
@@ -884,10 +826,6 @@ async fn a_served_directory_is_reachable_without_a_session() {
 
 #[tokio::test]
 async fn served_active_content_is_inert() {
-    // A served directory shares the panel's origin, so a document a user
-    // uploads must not run its script there: every file the directory
-    // route serves is sniff-proof and sandboxed, and only the passive
-    // allow-list opens inline.
     let db = seeded_db().await;
     let dir = temp_dir("serve-inert");
     std::fs::write(dir.join("cat.png"), b"PNG-FILE").expect("write upload");
@@ -970,8 +908,7 @@ async fn served_active_content_is_inert() {
         );
     }
 
-    // The layer is scoped to the served path: a panel page keeps the panel's
-    // own policy, not the served file's.
+    // The layer is scoped to the served path.
     let page = get(&router, "/admin/docs").await;
     assert_eq!(page.status(), 200);
     assert_eq!(
@@ -983,9 +920,6 @@ async fn served_active_content_is_inert() {
 
 #[tokio::test]
 async fn a_serve_dir_path_without_a_catch_all_fails_the_build() {
-    // `DirectoryRoute::new` panics on a pattern it cannot resolve; the panel
-    // reports instead of panicking, which is what the mount returns a
-    // `Result` for.
     let db = seeded_db().await;
     let Err(error) = mount(
         db,

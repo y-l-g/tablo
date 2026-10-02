@@ -1,6 +1,4 @@
-//! Record forms, end to end: the derived parse and write, the edit path's
-//! completion and naming, and the panel-build checks that keep a form's struct
-//! and its `Schema` in agreement.
+//! Record forms, end to end.
 
 use std::collections::{HashMap, HashSet};
 
@@ -131,9 +129,7 @@ fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
-/// The upstream fact `into_update`'s `Option` rests on: toasty refuses an
-/// update with no assignment. The assert runs on the connection's worker task,
-/// so the caller sees the dropped reply channel.
+/// The upstream fact `into_update`'s `Option` rests on.
 #[tokio::test]
 #[should_panic(expected = "RecvError")]
 async fn toasty_refuses_an_update_with_no_assignment() {
@@ -143,8 +139,7 @@ async fn toasty_refuses_an_update_with_no_assignment() {
     let _ = record.update().exec(&mut db).await;
 }
 
-/// `into_update` borrows the record for the builder's life, `exec` consumes
-/// the builder, and the record then holds the written row.
+/// The derived update reloads the record it wrote.
 #[tokio::test]
 async fn the_derived_update_reloads_the_record_it_wrote() {
     let db = item_db().await;
@@ -254,9 +249,7 @@ async fn a_create_writes_the_parsed_form() {
     assert!(!items[0].done);
 }
 
-/// An edit that posts one key changes one field: every other key is completed
-/// from the stored record, and an omitted required key keeps its value rather
-/// than failing validation.
+/// An edit that posts one key changes one field.
 #[tokio::test]
 async fn an_edit_writes_only_the_fields_it_names() {
     let db = item_db().await;
@@ -298,8 +291,7 @@ async fn an_emptied_control_stores_its_blank_answer() {
     assert_eq!(stored.title, "Stored");
 }
 
-/// A submission naming no form field runs no statement: toasty would refuse
-/// the empty update, and nothing changed.
+/// A submission naming no form field runs no statement.
 #[tokio::test]
 async fn an_edit_naming_no_field_writes_nothing_and_redirects() {
     let db = item_db().await;
@@ -312,8 +304,7 @@ async fn an_edit_naming_no_field_writes_nothing_and_redirects() {
     assert_eq!(stored.priority, 7);
 }
 
-/// A schema error and a `validate_record` error in one submission render
-/// together, and nothing is written.
+/// Schema and record errors render in one round.
 #[tokio::test]
 async fn schema_and_record_errors_render_in_one_round() {
     let db = item_db().await;
@@ -333,8 +324,7 @@ async fn schema_and_record_errors_render_in_one_round() {
     assert_eq!(stored.priority, 7, "a refused submission writes nothing");
 }
 
-/// A `validate_record` error keyed to a repeater group's label renders in the
-/// group's own slot, with a 200: the label is a key like any other.
+/// A repeater label-keyed rule renders in the group.
 #[tokio::test]
 async fn a_repeater_label_keyed_rule_renders_in_the_group() {
     struct Tagged;
@@ -343,8 +333,7 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
         type Model = Item;
         type Form = ItemForm;
 
-        /// Every control `ItemForm` binds, with the tagged ones inside the
-        /// group the rule answers for.
+        /// Every control `ItemForm` binds.
         fn form(_dx: &tablo_core::DeclCx) -> Schema {
             Schema::new((
                 Field::text(Item::fields().title()),
@@ -395,8 +384,7 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
     assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
 }
 
-/// The detail page of a form resource reads the form's projection, so the page
-/// and the form agree about what a field holds without a `view_values`.
+/// The detail page of a form resource reads the form's projection.
 #[tokio::test]
 async fn the_detail_page_reads_the_forms_projection() {
     let db = item_db().await;
@@ -582,8 +570,7 @@ async fn build_refuses_a_repeater_control_with_no_blank_answer() {
 
 #[tokio::test]
 async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
-    /// A shared column: it renders outside the variant groups, whichever
-    /// variant is chosen, so a blank submission always reaches it.
+    /// A shared column.
     #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
     enum Life {
         #[column(variant = 1)]
@@ -689,9 +676,7 @@ async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
         }
     }
 
-    // An all-empty `Repeater` group skips its controls' requiredness, so the
-    // parse reaches the payload of the row's first variant: the leaf needs an
-    // answer like any control the submission can post empty.
+    // An all-empty `Repeater` group skips requiredness.
     let error = form_build_error::<ClipResource>(memory_db(toasty::models!(Clip)).await);
     assert!(
         error.contains("record form field `body`")
@@ -739,8 +724,7 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
     );
 }
 
-/// A `NoForm` resource over [`Item`] whose `Create` and `form()` answer
-/// the given values.
+/// A `NoForm` resource over [`Item`].
 macro_rules! list_only_resource {
     ($name:ident, $create:expr, $schema:expr) => {
         struct $name;
@@ -802,7 +786,7 @@ async fn a_list_only_resource_serves_no_form_route() {
     let item = seed_item(&db).await;
     let router = panel_router::<Listed>(db.clone());
     let edit = format!("/admin/items/{}/edit", item.id);
-    // `create` falls to the GET-only detail route, so its POST is a 405.
+    // `create` falls to the GET-only detail route.
     for (response, status) in [
         (
             get(&router, "/admin/items/create").await,
@@ -879,8 +863,6 @@ async fn a_form_resource_serves_create_and_edit() {
     .expect("panel builds");
     let create = get(&router, "/admin/items/create").await;
     assert_eq!(create.status(), StatusCode::OK);
-    // Every rendered control posts its key, which is what lets an unposted key
-    // mean "keep".
     let html = body_string(create).await;
     for name in ["title", "notes", "priority", "done"] {
         assert!(
@@ -896,8 +878,7 @@ async fn a_form_resource_serves_create_and_edit() {
     );
 }
 
-/// A resource over [`Item`] that allows create through `F`, whose form writes
-/// only `title`.
+/// A resource over [`Item`] that allows create through `F`.
 macro_rules! title_only_resource {
     ($name:ident, $columns:expr) => {
         struct $name;
@@ -948,8 +929,7 @@ async fn create_columns_names_what_an_override_sets() {
     assert!(error.contains("`nope` in `CREATE_COLUMNS`"), "{error}");
 }
 
-/// A value the control lets through but the field's type refuses renders
-/// inline through the real handler, and nothing is written.
+/// A value the control lets through but the field's type refuses renders inline.
 #[tokio::test]
 async fn a_value_the_form_type_refuses_renders_inline() {
     struct Loose;
@@ -999,8 +979,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
     assert_eq!(reload(&db, item.id).await.priority, 7);
 }
 
-/// A `validate_record` error on a field the form binds to no key cannot
-/// render, so the submit fails closed instead of writing past it.
+/// An unkeyable record rule fails closed.
 #[tokio::test]
 async fn an_unkeyable_record_rule_fails_closed() {
     /// [`PriorityForm`] with no keys: nothing can render its errors.
@@ -1022,7 +1001,6 @@ async fn an_unkeyable_record_rule_fails_closed() {
             _cx: &Cx,
             _values: &HashMap<String, String>,
         ) -> Result<Self, Vec<tablo_core::FieldError>> {
-            // The form binds no key, so the submission holds nothing to read.
             Ok(Keyless(PriorityForm { priority: 1 }))
         }
 
@@ -1085,8 +1063,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
     assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
 }
 
-/// A form whose own parse refuses a key the schema renders nowhere fails
-/// closed too: the message could never reach the page.
+/// An unkeyable parse failure fails closed.
 #[tokio::test]
 async fn an_unkeyable_parse_failure_fails_closed() {
     /// [`PriorityForm`] with no keys, refusing on a key nothing renders.
@@ -1167,9 +1144,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
     assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
 }
 
-/// A list-only resource serves no create route, so its list links to none —
-/// even when a request-scoped `Create` allows create and the build check,
-/// which runs with no request, could not see it.
+/// A list-only resource never links to create.
 #[tokio::test]
 async fn a_list_only_resource_never_links_to_create() {
     struct TenantCreates;
@@ -1208,9 +1183,7 @@ async fn a_list_only_resource_never_links_to_create() {
     assert!(!html.contains("/admin/items/create"), "{html}");
 }
 
-/// The derived default form, end to end: a resource with no `form`
-/// override serves `RecordForm::schema` — a text field, a choice over the
-/// `Options` list, and a toggle, in declaration order — and writes through it.
+/// The derived default form renders and writes.
 #[tokio::test]
 async fn the_derived_default_form_renders_and_writes() {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]

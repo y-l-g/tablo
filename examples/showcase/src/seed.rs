@@ -10,9 +10,7 @@ use crate::{
     staff::{create_staff, ensure_workspace},
 };
 
-/// Seed the users the panel lists. Names sort deterministically (name-asc):
-/// Ada and Alan stay first for pagination and search tests, followed by six
-/// more engineers.
+/// Seeds the users the panel lists.
 pub async fn seed(db: &mut Db) -> toasty::Result<()> {
     toasty::create!(User::[
         {
@@ -101,9 +99,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
     seed_staff(db).await
 }
 
-/// Seed the two blogs and the staff who sign in: the demo admin, with a seat
-/// in both blogs, and an admin with no seat, for the tenancy fail-closed
-/// tests.
+/// Seeds the two blogs and the staff who sign in.
 pub async fn seed_staff(db: &mut Db) -> toasty::Result<()> {
     ensure_workspace(db, DEMO_TENANT, "Main Blog").await?;
     ensure_workspace(db, SIDE_TENANT, "Side Project").await?;
@@ -126,34 +122,21 @@ pub async fn seed_staff(db: &mut Db) -> toasty::Result<()> {
     Ok(())
 }
 
-/// The tenant owning all showcase seed rows: seeds never mint
-/// nil-tenant orphans, and the demo admin acts for it first.
+/// The tenant owning all showcase seed rows.
 pub const DEMO_TENANT: uuid::Uuid = uuid::Uuid::from_u128(100);
 
-/// A second, empty blog the demo admin also holds a seat in: the top bar's
-/// tenant switcher moves between the two.
+/// A second, empty blog the demo admin also holds a seat in.
 pub const SIDE_TENANT: uuid::Uuid = uuid::Uuid::from_u128(101);
 
-/// A deterministic id for the `index`th seeded post.
-///
-/// The six narrative rows take ids 0..=5 and the pagination filler ids above
-/// `7fff…` (`FILLER_ID_BASE`), so primary-key order reads the stories first and
-/// the filler behind them. With `#[auto]` ids each row would land wherever its
-/// random UUID fell.
+/// Returns the deterministic id for the `index`th seeded post.
 fn seeded_post_id(index: usize) -> uuid::Uuid {
     uuid::Uuid::from_u128(index as u128)
 }
 
-/// First id handed to a pagination filler row: above `7fff…`, so the
-/// filler always sorts after the narrative rows, whose ids start at zero.
+/// The first id handed to a pagination filler row.
 const FILLER_ID_BASE: u128 = 0x8000_0000_0000_0000_0000_0000_0000_0000;
 
-/// Backlog titles for the pagination fixture: sixty drafts, which
-/// with the six rows above and `PostResource`'s page size of 25 give three
-/// pages — enough to walk forward, walk back, and land mid-list.
-///
-/// A `const` with a compile-time length assertion, so shrinking it below a
-/// few pages fails the build rather than silently removing the demo.
+/// Backlog titles for the pagination fixture.
 const PAGINATION_FILLER_TITLES: [&str; 60] = [
     "Cursor Pagination, Explained Slowly",
     "What We Learned From a 500-Row Admin Table",
@@ -216,38 +199,20 @@ const PAGINATION_FILLER_TITLES: [&str; 60] = [
     "Benchmarking What Users Feel",
     "Writing Down the Decisions",
 ];
-/// A tenant whose Policy denies everything: the legible deny path for
-/// tenancy tests (no magic values at call sites).
+/// A tenant whose policy denies everything.
 pub const BLOCKED_TENANT: uuid::Uuid = uuid::Uuid::from_u128(9999);
 
-/// Demo administrator credentials, shown on the login page and in the README.
+/// Demo administrator credentials.
 pub const DEMO_ADMIN_EMAIL: &str = "admin@example.com";
 pub const DEMO_ADMIN_PASSWORD: &str = "password";
 
-/// A seeded administrator with no tenant, for the tenancy fail-closed
-/// tests: valid credentials, no tenant to bridge.
+/// A seeded administrator with no tenant.
 pub const TENANTLESS_ADMIN_EMAIL: &str = "root@example.com";
 
-/// The body of a comment whose content the panel has removed.
-///
-/// The row stays so a thread keeps its shape. `CommentResource`'s policy
-/// refuses it, so the surfaces that trim by that predicate — the post's
-/// relation table and the CSV export — omit it, and the comments list shows it
-/// without row actions.
+/// The body of a removed comment.
 pub const REMOVED_COMMENT_BODY: &str = "[removed]";
 
-/// The Argon2id PHC hash of a demo password, computed once per process.
-///
-/// Argon2id at the shipped parameters costs ~0.4s in a debug build *by design*,
-/// and the integration suite seats a fresh database for almost every test —
-/// so the same two demo passwords were being hashed ~260 times per run, which
-/// was the suite's single largest setup cost. The hash is a pure
-/// function of the password, so compute it once and hand the same PHC string to
-/// every caller.
-///
-/// Verification is untouched: a login still runs a real Argon2id verify against
-/// this string, at the shipped parameters, and the login tests still exercise
-/// that. Only the *hashing* is memoised, and only in this demo seeder.
+/// Returns the Argon2id PHC hash of a demo password, memoized per process.
 pub(crate) fn memoized_password_hash(password: &str) -> String {
     use std::{
         collections::HashMap,
@@ -263,11 +228,7 @@ pub(crate) fn memoized_password_hash(password: &str) -> String {
         .or_insert_with(|| hash_password(password).expect("hash a demo password"))
         .clone()
 }
-/// The embedded shapes a filler/backlog row carries.
-///
-/// A compact, valid default so the pagination filler does not repeat two
-/// nested literals sixty times. The narrative rows below spell theirs out, so
-/// the showcase has real embedded data to look at.
+/// Returns the embedded shapes a filler row carries.
 fn filler_embedded() -> (Seo, Publication) {
     (
         Seo {
@@ -281,20 +242,8 @@ fn filler_embedded() -> (Seo, Publication) {
     )
 }
 
-/// Seed content rows (Authors + Posts + Comments) — call only when DB was built with all
-/// models.
-///
-/// The two original rows keep their identity (filter/group/export tests pin
-/// them); the four extra posts are drafts with `featured = false` so the
-/// published/featured filter assertions keep holding while the list shows a
-/// believable backlog.
-///
-/// The pagination filler below puts the list well past one page. Assertions
-/// that need a specific row narrow by `?q=` rather than assuming it is on the
-/// title-ordered first page, and "nothing was created" assertions compare a
-/// before/after count instead of a literal seed size.
+/// Seeds authors, posts, and comments.
 pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
-    // Authors
     if Author::all().exec(db).await?.is_empty() {
         let tenant = DEMO_TENANT;
         let ada_author = toasty::create!(Author {
@@ -335,8 +284,6 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             created_at: "2024-01-15T09:30:00Z".parse::<Timestamp>().unwrap(),
             cover_id: None,
             tags: "rust,async".to_string(),
-            // Embedded shapes with real values: an embedded struct and an
-            // embedded enum whose timestamps share one column.
             seo: Seo {
                 title: "Hello Toasty — the admin panel".to_string(),
                 description: "How we render admin tables over Toasty.".to_string(),
@@ -422,20 +369,6 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             .exec(db)
             .await?;
         }
-        // Pagination filler: `PostResource` paginates at 25, and the
-        // six rows above do not fill one page — these sixty drafts make the
-        // list three pages, so the pager is walkable. They are drafts with
-        // `featured = false`, which keeps every published/featured assertion
-        // holding.
-        //
-        // Deterministic on purpose: titles are a fixed ordered list, ids and
-        // `created_at` are both derived from the index.
-        //
-        // The ids are pinned high on purpose. `PostResource`'s list orders by
-        // its first sortable column (`title` asc), and toasty appends the
-        // primary key to a cursor ordering as the tie-breaker, so the narrative
-        // rows keep ids 0..=5 and the filler sits behind them rather than ahead
-        // of them.
         for (index, title) in PAGINATION_FILLER_TITLES.iter().enumerate() {
             let created_at = jiff::civil::date(2024, 7, 1)
                 .at(9, 0, 0, 0)
@@ -485,8 +418,6 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             .exec(db)
             .await?;
         }
-        // A removed comment: the fixture the relation's `View`
-        // filter needs, since every other seeded comment is viewable.
         toasty::create!(Comment {
             body: REMOVED_COMMENT_BODY,
             post_id: first_post.id,

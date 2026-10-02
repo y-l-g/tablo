@@ -19,20 +19,6 @@ use super::{
 impl<M> Table<M> {
     /// Render the table for the given loaded page.
     ///
-    /// Real chrome, no fake affordances: the header renders sort **links**
-    /// driving `?sort=`/`?dir=` and a search toolbar driving `?q=` (shown by
-    /// default when any column is `searchable()`), rows are keyed by the
-    /// projection declared via [`Table::new`](super::super::Table::new) per
-    /// `CONTEXT.md` and rendered via
-    /// each column's typed projection, pagination shows Previous/Next links
-    /// built from the executed page's **real** cursors (never invented page
-    /// numbers), and the empty state reflects whether a search was active.
-    ///
-    /// Composes the synced `tablo-ui` primitives and Token classes
-    /// (`border-border` on the chrome, `bg-background`/`shadow-xs` on the
-    /// toolbar controls, `text-muted-foreground` on the captions) — no raw
-    /// colors, no `ac-*`.
-    ///
     /// # Errors
     ///
     /// A misdeclared table ([`Table::declaration_errors`]) fails with its
@@ -48,12 +34,7 @@ impl<M> Table<M> {
         self.render_with_state(cx, page, &state, &path).await
     }
 
-    /// Render with explicit list state and path instead of reading them from
-    /// `cx`: a page that owns its table passes the state it parsed and the
-    /// list URL its links should target.
-    ///
-    /// Normalizes the state it is handed, so an unknown `?group_by=` never
-    /// echoes through a link.
+    /// Render with explicit list state and path, normalizing the state before rendering links.
     pub async fn render_with_state<'a>(
         &self,
         cx: &'a Cx,
@@ -68,18 +49,8 @@ impl<M> Table<M> {
             .await
     }
 
-    /// Render the interactive body for a live table: the same
-    /// presentation as [`Self::render_with_state`], with the sort links, the
-    /// pager, the filter bar, and the empty-state clear links writing the
-    /// `query` signal — each interaction writes it and the browser morphs the
-    /// shard's new output in place, without a navigation or a scroll jump.
-    /// Every bound control keeps its real `href`/form, so a page without JS
-    /// still navigates as before.
-    ///
-    /// The row-delete dialog is not part of this output: it lives
-    /// outside the region a rerun swaps, rendered once by the page that owns
-    /// the signals, so a caller rendering only through this method renders
-    /// [`Self::render_delete_dialog`] itself to keep the `?delete=` fallback.
+    /// Render the interactive body for a live table, excluding the row-delete dialog the caller
+    /// renders separately.
     pub(crate) async fn render_live<'a>(
         &self,
         cx: &'a Cx,
@@ -106,8 +77,6 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model + Send + Sync + 'static,
     {
-        // A panel refused a misdeclared table at build; a table an app renders
-        // itself fails here rather than render a sort or a filter that lies.
         let errors = self.declaration_errors();
         if !errors.is_empty() {
             return Err(crate::error::TabloError::Declaration(errors.join("; ")).into());
@@ -138,34 +107,14 @@ impl<M> Table<M> {
             .render_pager(cx, state, path, &page, signals.as_ref())
             .await?;
         let filter_warning = self.render_filter_warning(cx, state, path);
-        // The declared grouping, when `?group_by=` names it. Read
-        // before the row projection so each row can carry its group label,
-        // which the page-local shim orders by.
         let group_key = self.effective_group_key(state);
         let row_data = self.row_views(cx, state, path, &page, group_key.as_ref());
-        // The confirmation dialog lives with the delete chrome and
-        // ships closed, so a row control opens it in place. A live
-        // output carries none: the page that owns the signals renders it once,
-        // outside the region a rerun swaps (`panel::resource_list_live`). The
-        // dialog renders on every page with delete chrome, not only under
-        // `?delete=`, so without this gate every shard rerun would morph a
-        // second copy — and its ids — into the page.
         let delete_dialog = if signals.is_none() {
             self.render_delete_dialog(cx, state).await?
         } else {
             None
         };
 
-        // Body-only branch: the empty and rows pages share the one
-        // chrome wrapper built below — only the table body differs. Group
-        // headers and the pager exist solely on rows pages: an empty page
-        // renders the honest empty cell instead (its pager would be empty
-        // anyway, and grouping an empty page yields no headers).
-        //
-        // The declared widths are a property of the columns, not of the row,
-        // so they are resolved once here: the same CSS for every row, and a
-        // `for` whose expression names `self.columns` would carry the table's
-        // borrow into the view.
         let ColumnWidths {
             cells: cell_widths,
             actions_min,
@@ -188,8 +137,6 @@ impl<M> Table<M> {
             .boxed()
         } else {
             pager_views = pager;
-            // The one dialog every row control on this table opens; empty
-            // without delete chrome, where no control renders one.
             let chrome = RowChrome {
                 with_bulk,
                 with_actions,
@@ -206,14 +153,6 @@ impl<M> Table<M> {
             let rows = render_rows(cx, row_data, &chrome);
             view! {
                 cx =>
-                // The table-level layout is a static class: Tailwind sees the
-                // literal, and the decision carries no per-column value. Each
-                // column's width, which does, rides the `th`/`td` inline
-                // `style`. Fixed layout is what stops a filter or a page change
-                // from re-measuring the columns. The `min-width` is the sum of
-                // those declared widths: with `w-full` the table never exceeds
-                // its container on its own, so without the floor the wrapper's
-                // `overflow-x-auto` never scrolls.
                 table(
                     attrs: attributes! { class="table-fixed" style=(table_min_width.as_deref()) },
                     (head)
@@ -228,26 +167,6 @@ impl<M> Table<M> {
             .boxed()
         };
 
-        // The refresh control: a live table's region re-renders when
-        // a signal its shard tracked changes, and a mutation changes rows the
-        // tracked inputs do not describe — the query is the same, the data is
-        // not. One write that means "re-read the table" is therefore the
-        // mutation's only honest in-place effect: the client bumps this
-        // revision token and the shard re-runs the query, morphing and
-        // re-hydrating the region through the seam that already exists.
-        //
-        // The signal is declared here, inside the shard's own output, so it
-        // belongs to the shard's content scope: its id derives from the shard
-        // invocation's identity, this call site, and the list path, so it is
-        // stable across reruns and distinct per list (every resource's list
-        // runs the same shard), and the runtime keeps its value when the
-        // declaration renders again. Reading it for the input's initial
-        // value is what declares the dependency; the token itself is opaque.
-        //
-        // A static table renders no control at all: it has no shard to re-run,
-        // its region is inert markup, and the client replaces it wholesale
-        // So the control's presence *is* the page's answer to
-        // "can this table refresh in place?".
         let revision_attrs = signals.as_ref().map(|_| {
             let revision = topcoat::runtime::signal(&cx.keyed(path), || "0".to_string());
             attributes! {
@@ -260,12 +179,6 @@ impl<M> Table<M> {
             }
         });
 
-        // One chrome for both branches: search bar, filter bar, bulk bar,
-        // warning, table body, pager, dialog, inside the frame the morph swaps.
-        //
-        // The search form and the bulk form share the first toolbar row, the
-        // search at the start and the bulk control at the end; a table with
-        // neither renders no row, only the bulk placeholder.
         let toolbar_row = show_search || with_bulk;
         let content = view! {
             cx =>
@@ -306,17 +219,8 @@ impl<M> Table<M> {
     }
 }
 
-/// The table's two wrappers, shared by the loaded table and its skeleton so
-/// the swap lands on the same shape: the `data-boundary` region the morph
-/// swaps, and the root inside it — the table's card when `framed`, a plain
-/// block inside the page's card otherwise. A loading skeleton marks both
-/// `aria-busy`: the boundary so assistive tech sees the live region, the root
-/// so the busy state reads on the table itself.
-///
-/// `name` is the table's delete prefix — its resource's list path — when it
-/// has delete chrome: a page holding several tables (a record page's
-/// relations) names each region, so a mutation's response swaps into the
-/// table the mutation came from (`mutation-submit.js`).
+/// Render the table's two wrappers shared by the loaded table and its skeleton, naming the region
+/// from the table's delete prefix.
 pub(super) fn table_frame<'a>(
     cx: &'a Cx,
     busy: bool,

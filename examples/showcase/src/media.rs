@@ -1,13 +1,4 @@
 //! The media library: the `medias` table and the page that fills it.
-//!
-//! A WordPress-style library: one row per stored file with the tenant that
-//! uploaded it, the `path` the `Uploader` returned, the client's `filename`,
-//! a `kind`, and a timestamp. Rows carry no owner: a post shows one row as its
-//! cover through its own `cover_id`, and the library lists one tenant's rows
-//! (ADR-0021). The page uploads through the app's own [`Uploader`] — the
-//! `DirUploader` the panel installs for its file fields — writes the row, and
-//! lists what the library holds: a thumbnail for an image, a link for anything
-//! else.
 
 use std::collections::HashMap;
 
@@ -33,33 +24,21 @@ use crate::{
     models::MediaAsset,
 };
 
-/// The upload route's path. A `#[route]` path is a literal, so it spells the
-/// panel prefix; the page's form and the redirect after an upload take the
-/// page's URL from `tablo_core::url::page` instead.
+/// The upload route's path.
 pub const MEDIA_PATH: &str = "/admin/media";
 
 /// The widget script the page emits.
-///
-/// An app asset: ADR-0014's nine scripts are the shell's, and this one belongs
-/// to the page that renders the widget. The page links it `defer`red, and only
-/// when the router carries an asset bundle — the test router has none, like the
-/// public blog's document.
 pub const MEDIA_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/media.js");
 
-/// The `kind` of a row whose bytes are an image: the row renders a thumbnail.
+/// The `kind` of a row whose bytes are an image.
 pub const KIND_IMAGE: &str = "image";
 
-/// The `kind` of every other row: it renders a link.
+/// The `kind` of every other row.
 pub const KIND_FILE: &str = "file";
 
-/// The upload form's file field.
 const FILE_FIELD: &str = "file";
 
-/// The media library as a relationship source: one tenant's rows.
-///
-/// A post's cover picker loads its options through this source, so the tenant
-/// gate and the tenant filter apply to the choice exactly as they apply to the
-/// page that lists the same rows.
+/// One tenant's media rows as a relationship source.
 pub struct MediaLibrary;
 
 impl OptionSource for MediaLibrary {
@@ -100,13 +79,7 @@ impl OptionSource for MediaLibrary {
     }
 }
 
-/// One media row's file: a thumbnail for an image, a link for anything else.
-///
-/// The framework's file field links every stored path the same way;
-/// telling an image from the rest is the media library's job, and `kind` is
-/// what the row recorded when the upload was stored. The public blog renders a
-/// post's cover through this too, so one row looks the same wherever it is
-/// shown.
+/// Renders one media row's file.
 pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
     if asset.kind == KIND_IMAGE {
         let src = asset.path.clone();
@@ -138,11 +111,7 @@ pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
     }
 }
 
-/// The media library: every row this tenant holds, and the form that adds one.
-///
-/// The list is one query, not a paginated `Table`: a `Table` renders text
-/// columns, and a thumbnail is not text. A library that outgrows one page wants
-/// its own loader and pager, which is a different seam from this demo's.
+/// Lists every row this tenant holds, and the form that adds one.
 pub struct MediaLibraryPage;
 
 impl Page for MediaLibraryPage {
@@ -150,19 +119,14 @@ impl Page for MediaLibraryPage {
         NavigationItem::for_page::<Self>().icon(tablo_ui::icons::IMAGE)
     }
 
-    /// The library's segment under the panel prefix; the upload route at
-    /// [`MEDIA_PATH`] shares the URL.
     fn slug() -> String {
         "media".to_string()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        // One tenant's library: a tenantless request is refused rather
-        // than served every tenant's rows.
+        // Refuses tenantless requests.
         let tenant = require_tenant(cx)?;
         let mut db = db(cx);
-        // No resource owns `MediaAsset`, so its tenant filter is this page's —
-        // written once, on the column the model declares.
         let media = MediaAsset::filter(MediaAsset::fields().tenant_id().eq(tenant))
             .order_by(MediaAsset::fields().created_at().desc())
             .exec(&mut db)
@@ -207,12 +171,6 @@ impl Page for MediaLibraryPage {
                                                 data-media-file=""
                                             }
                                         )
-                                        // The × is a reset control: with no script
-                                        // the browser resets the form and the file
-                                        // input empties; `media.js` empties the input
-                                        // and the preview itself and cancels that
-                                        // reset, so a file clear keeps the form
-                                        // usable (ADR-0021).
                                         tablo_ui::button(
                                             variant: tablo_ui::ButtonVariant::Outline,
                                             size: tablo_ui::ButtonSize::Icon,
@@ -288,13 +246,7 @@ impl Page for MediaLibraryPage {
     }
 }
 
-/// `POST /admin/media` — store one uploaded file and write the row for it.
-///
-/// The page renders its own form, so it parses its own multipart body: the
-/// framework's parser serves the fields a `Schema` declares, and this form is
-/// not one. The bytes go through the app's own [`Uploader`] — the same
-/// `DirUploader` the app gives `Panel::uploads` — outside any
-/// transaction, like every upload (ADR-0017).
+/// Stores one uploaded file and writes the row for it.
 #[route(POST "/admin/media")]
 async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     let tenant = require_tenant(cx)?;
@@ -317,22 +269,13 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
             values.insert(name, field.text().await?);
         }
     }
-    // The framework verifies the forms it renders; this one is the
-    // app's, so the check is the app's too.
     csrf::verify(cx, &values)?;
     let part = file.ok_or_else(|| bad_request("Choose a file before uploading."))?;
-    // The name the row records and the store writes: one rule, so the row's
-    // `filename` and the file on disk cannot disagree.
     let filename = basename(&part.filename);
     if filename.is_empty() || part.bytes.is_empty() {
         return Err(bad_request("Choose a file before uploading.").into());
     }
     let mut db = db(cx);
-    // The app's own store, pointed at the directory the panel serves: the
-    // `Uploader` `Panel::uploads` installs lives on the panel for the
-    // framework's form parser and is not readable from a page, so the page
-    // builds the same store from the same configuration. What it returns is
-    // the row's `path` verbatim — a URL that resolves back to these bytes.
     let path = DirUploader::new(upload_dir())
         .store(&filename, &part.bytes)
         .await
@@ -359,14 +302,7 @@ struct UploadedPart {
     bytes: Vec<u8>,
 }
 
-/// Whether an uploaded part is an image, from the content type the browser sent
-/// with it.
-///
-/// The framework's file field reads no extension and renders every stored path
-/// the same way; deciding that a thumbnail suits *these* bytes is the
-/// media library's, and the part's `Content-Type` is what the browser says they
-/// are. It is a claim, not a sniff: a library that served those bytes to other
-/// people would read their magic numbers instead.
+/// Classifies an uploaded part as image or file.
 fn kind_of(content_type: &str) -> &'static str {
     if content_type
         .trim()

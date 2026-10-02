@@ -1,7 +1,4 @@
-//! Layout containers — `Section`, `Group`, `Grid`, `Repeater`.
-//!
-//! The compositional seams for form layout; each holds a child `Schema`
-//! rendered through the tree walk.
+//! Holds the `Section`, `Group`, `Grid`, and `Repeater` containers that compose form layout.
 
 use tablo_ui::{
     card_content, card_header, card_title, field_error as ui_field_error,
@@ -19,22 +16,12 @@ use super::{
     tree::{IntoSchema, Mode, Source, render_nodes},
 };
 
-/// The one titled-group container: `Section` and `Repeater` render the same
-/// panel, so every titled group on a form looks alike.
-///
-/// The surface is the `card` primitive's — border, `bg-card` fill and
-/// `shadow-sm`, with its header/content rhythm — the same surface a table and
-/// an app page's cards draw, so every panel on a page reads as one family and
-/// a theme restyles them all through the `--card` and `--shadow-sm` tokens.
+/// Renders the one titled-group panel that `Section` and `Repeater` share.
 const PANEL: StaticClass = class!(
     "flex flex-col gap-5 rounded-xl border border-border bg-card py-6 text-card-foreground shadow-sm"
 );
 
-/// Section — titled container with an optional child `Schema`.
-///
-/// The single customization seam for form layout in v1: additive `class` is
-/// allowed on the panel container only (narrow seam, no per-field `attrs`).
-/// This keeps Token editing in `styles.css` as the primary theming mechanism.
+/// Holds a titled container with an optional child `Schema`.
 #[derive(Debug)]
 pub struct Section {
     title: String,
@@ -56,8 +43,7 @@ impl Section {
         self
     }
 
-    /// Additive `class` hook on the panel container (narrow seam).
-    /// Merged via `class!` against the panel classes, never replacing them.
+    /// Adds an additive `class` hook on the panel container.
     pub fn class(mut self, class: impl Into<String>) -> Self {
         self.extra_class = Some(class.into());
         self
@@ -85,11 +71,6 @@ impl Section {
             }
             .boxed())
         } else {
-            // Header-only on purpose: the panel is `flex flex-col gap-5`, so an
-            // empty `card_content` would be a zero-height flex item that still
-            // takes a gap slot and adds 20px below the title for nothing.
-            // The gap-6 class rides `card_content` only where there
-            // are children to space.
             Ok(view! {
                 cx =>
                 <div class=(class!(PANEL, extra.clone()))>
@@ -101,7 +82,7 @@ impl Section {
     }
 }
 
-/// Group — unlabelled container, useful for grouping fields.
+/// Holds an unlabelled container for grouping fields.
 #[derive(Debug, Default)]
 pub struct Group {
     pub(crate) children: Schema,
@@ -128,7 +109,7 @@ impl Group {
     }
 }
 
-/// Grid — column container. `cols` is 1..12.
+/// Holds a column container with `cols` clamped to 1..12.
 #[derive(Debug)]
 pub struct Grid {
     cols: u8,
@@ -175,18 +156,8 @@ impl Grid {
     }
 }
 
-/// Repeater — nested Schema repeated as a group (in-memory for v1, no DB array).
-///
-/// v1 honesty: this is a single-entry group, not a multi-row repeater —
-/// one titled panel with its nested schema once, no add/remove UI, no JS, no
-/// indexed field names (`tags[0]`). Indexed multi-entry semantics, per-entry
-/// validation, and hydration via split/join or a real relation are deferred.
-/// `required` means "the inner fields must not all be empty" and its error is
-/// keyed by label and rendered inline.
-///
-/// The panel is `Section`'s panel: one container style for every titled group,
-/// with the title inside the box. A `Section` is the titled group; the
-/// repeater is only the repeat mechanism. `Group` draws no box.
+/// Holds a nested `Schema` rendered once as a titled group and reports a `required` empty group
+/// under its label.
 #[derive(Debug)]
 pub struct Repeater {
     pub(crate) label: String,
@@ -226,9 +197,6 @@ impl Repeater {
         let title = self.label.clone();
         let title_id = repeater_title_id(&self.label);
         let has_children = !self.children.nodes.is_empty();
-        // A view renders the group's label over its children's values:
-        // a required group is a statement about a submit that cannot happen
-        // here, so no `*`, no `aria-invalid`, no error slot.
         if source.mode() == Mode::View {
             let child_view = if has_children {
                 Some(render_nodes(cx, &self.children.nodes, fields, source).await?)
@@ -259,25 +227,15 @@ impl Repeater {
             .boxed());
         }
         let required = self.required;
-        // Own error lives under the label key (see `walk_absent_groups`).
-        // Field errors key by field name; repeaters have no field name yet, so the
-        // label is the only stable key until repeaters become field-bound.
-        // `errors_for` is the one place "view mode has no errors" lives, so a
-        // second layout that reads errors cannot forget it.
         let own_error = source.errors_for(&self.label);
         let has_error = own_error.is_some();
         let error_text = own_error.unwrap_or_default().to_string();
-        // The group's error is described by the panel, so it needs an id to
-        // be referenced by; the label is the key, and a label is not
-        // usable as one (ids cannot carry whitespace).
         let error_id = repeater_error_id(&self.label);
         let container_class = if has_error {
             "ac-field ac-field--error"
         } else {
             "ac-field"
         };
-        // `card_title` has no invalid state of its own, so the group colors
-        // its title when it is invalid.
         let title_class = if has_error { "text-destructive" } else { "" };
         if has_children {
             let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
@@ -361,17 +319,12 @@ impl Repeater {
     }
 }
 
-/// The DOM id of a repeater's error node.
-///
-/// Repeaters are keyed by their label until they become field-bound
-/// and an id may not carry the label's whitespace, so the label is
-/// slugged: ASCII alphanumerics lowercased, every other run collapsed to one
-/// `-`.
+/// Returns the DOM id of a repeater's error node, slugging the label.
 fn repeater_error_id(label: &str) -> String {
     format!("{}-error", repeater_slug(label))
 }
 
-/// The DOM id of a repeater's title node, labelling the panel as a group.
+/// Returns the DOM id of a repeater's title node.
 fn repeater_title_id(label: &str) -> String {
     format!("{}-title", repeater_slug(label))
 }

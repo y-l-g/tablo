@@ -1,9 +1,4 @@
-//! The app's Lucide icons, resolved once from the staged icon set.
-//!
-//! `iconify_icon!` resolves against the **compiling crate's** staged sets
-//! (ADR-0007 stages Lucide in this crate's build script), so the consts live
-//! here and `tablo-core` renders them with `icon` instead of staging a
-//! second copy of the set.
+//! Resolves the app's Lucide icons once from the staged set.
 
 use topcoat::icon::{IconData, iconify::iconify_icon};
 
@@ -50,9 +45,7 @@ pub const CHEVRON_DOWN: IconData = iconify_icon!("lucide:chevron-down");
 /// The selected choice in a menu.
 pub const CHECK: IconData = iconify_icon!("lucide:check");
 
-// Navigation icons an app can hand to `NavigationItem::icon` without staging
-// its own icon set.
-
+// Navigation icons for `NavigationItem::icon`.
 /// Navigation: a dashboard or home page.
 pub const LAYOUT_DASHBOARD: IconData = iconify_icon!("lucide:layout-dashboard");
 /// Navigation: people.

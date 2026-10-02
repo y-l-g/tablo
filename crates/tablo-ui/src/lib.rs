@@ -1,18 +1,11 @@
-//! The styled Topcoat components `tablo-core` renders: the vendored primitives
-//! (table, field, sidebar, dialog, …) and the composites an app's own pages
-//! use (page container, empty and error states, toasts).
-//!
-//! Apps depend on this crate instead of running `topcoat ui add`. The
-//! components read the design tokens the app declares in its `styles.css`.
+//! Renders the styled components `tablo-core` uses; apps depend on this crate
+//! instead of running `topcoat ui add`.
 
 pub mod components;
 pub mod icons;
 
-// Re-exported at the crate root for ergonomic `tablo_ui::card` etc. The
-// `primitives` half mirrors the vendored `topcoat-ui-registry` components
-// verbatim (sync with `cargo xtask sync-topcoat-ui`, ADR-0007 — edit the
-// registry, not these); the `composites` half is owned Tablo code in
-// `components/composites/`.
+// Mirrors the vendored registry components verbatim (sync with
+// `cargo xtask sync-topcoat-ui`); owned code lives in `components/composites/`.
 pub use components::{
     composites::{
         empty_state::empty_state,
@@ -65,8 +58,6 @@ pub use components::{
     },
 };
 
-// Assets for shell JS — via `asset!` + `AssetBundle` + `topcoat::runtime::script()` (ADR-0009 /
-// T28.5)
 pub const SIDEBAR_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/sidebar.js");
 pub const THEME_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/theme.js");
 pub const DIALOG_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/dialog.js");

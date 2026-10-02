@@ -1,11 +1,4 @@
-//! First-class embedded values.
-//!
-//! A value codec derived from the type's shape, with every key resolved from the
-//! compiled app schema: the flat form map ↔ a typed embedded value, and a form
-//! declaration that derives its controls instead of listing them.
-//!
-//! The proof is what these tests never do: spell a flattened column name, or
-//! decide a variant from which payload columns happen to be non-empty.
+//! Embedded values.
 
 use std::collections::HashMap;
 
@@ -15,7 +8,6 @@ use topcoat::{
     view::ViewExt,
 };
 
-/// Whether `values` carries any key of the value `schema` declares.
 fn mentions(schema: &Schema, values: &HashMap<String, String>) -> bool {
     schema
         .fields()
@@ -41,8 +33,7 @@ struct Poster {
     credit: Credit,
 }
 
-/// A shared column across three variants: the timestamp coalesces into one
-/// `publication_timestamp` column, whichever variant declares it.
+/// A shared column across three variants.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 enum Publication {
     #[column(variant = 1)]
@@ -65,7 +56,7 @@ enum Publication {
     },
 }
 
-/// An enum carrying a nested struct inside a variant, and a typed leaf.
+/// An enum carrying a nested struct inside a variant.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 enum Media {
     #[column(variant = 1)]
@@ -78,7 +69,7 @@ enum Media {
     },
 }
 
-/// A unit variant carries no payload: the discriminant alone is the value.
+/// A unit variant carries no payload.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 enum Visibility {
     #[column(variant = 1)]
@@ -87,8 +78,7 @@ enum Visibility {
     Private { reason: String },
 }
 
-/// A struct holding an enum: the nested enum's discriminant is a form key of
-/// the value too, not only its payloads.
+/// A struct holding an enum.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 struct Wrapper {
     label: String,
@@ -96,8 +86,7 @@ struct Wrapper {
     inner: Media,
 }
 
-/// Variant idents the schema normalises (`OK` reads `Ok`): a codec addresses
-/// variants by declaration index, so no casing has to round-trip.
+/// Variant idents the schema normalises.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 enum Casing {
     #[column(variant = 1)]
@@ -106,9 +95,7 @@ enum Casing {
     Draft,
 }
 
-/// The leaf types the panel can spell (+ 's widening): `bool`
-/// and the whole integer family, not only the three the showcase happened to
-/// use.
+/// The leaf types the panel spells.
 #[derive(Debug, Clone, Default, PartialEq, toasty::Embed, EmbeddedForm)]
 struct Flags {
     featured: bool,
@@ -156,8 +143,7 @@ fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
-/// The framework names every key; the app never spells one. This pins the names
-/// the resolver produces.
+/// The framework names every key.
 #[tokio::test]
 async fn keys_come_from_the_compiled_mapping() {
     let cx = post_cx().await;
@@ -198,8 +184,7 @@ async fn keys_come_from_the_compiled_mapping() {
         ]
     );
 
-    // A value knows which keys are its own: the discriminant and every leaf,
-    // the shared column included (once — it is one column).
+    // A value knows which keys are its own.
     assert!(mentions(
         &Publication::form(
             &tablo_core::DeclCx::from_cx(&cx),
@@ -223,7 +208,7 @@ async fn keys_come_from_the_compiled_mapping() {
     ));
 }
 
-/// A struct: leaves in, leaves out, no discriminant.
+/// A struct round-trips through the flat map.
 #[tokio::test]
 async fn a_struct_round_trips_through_the_flat_map() {
     let cx = post_cx().await;
@@ -245,8 +230,7 @@ async fn a_struct_round_trips_through_the_flat_map() {
     assert_eq!(read, seo);
 }
 
-/// An enum: the active variant's leaves **plus its discriminant**, and reading
-/// picks the variant from the discriminant rather than from payload emptiness.
+/// An enum round-trips with an explicit discriminant.
 #[tokio::test]
 async fn an_enum_round_trips_with_an_explicit_discriminant() {
     let cx = post_cx().await;
@@ -271,9 +255,7 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
         .expect("the value reads");
     assert_eq!(read, published);
 
-    // The discriminating case: a submission whose *payloads* say Published but
-    // whose discriminant says Archived is read as Archived. Emptiness is never
-    // consulted — this is what the hand-written reassembly got wrong.
+    // The discriminating case.
     let contradictory = map(&[
         ("publication", "3"),
         ("publication_timestamp", "2026-09-22T00:00:00Z"),
@@ -293,11 +275,7 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
     );
 }
 
-/// A submission without a discriminant — the create form, or a hand-written
-/// POST — falls back to the rule the panel used before the discriminant
-/// existed: the first variant (in declaration order) with a payload of its own
-/// submitted. Reached only when no discriminant is named; an explicit one
-/// always wins.
+/// A missing discriminant infers the variant from its payload.
 #[tokio::test]
 async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
     let cx = post_cx().await;
@@ -333,8 +311,7 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
         "a submitted Archived payload must infer Archived"
     );
 
-    // A *shared* payload cannot say which variant was meant (it belongs to all
-    // three), so on its own it infers nothing: the first variant.
+    // A shared payload infers nothing.
     let shared_only = map(&[("publication_timestamp", "2026-09-22T00:00:00Z")]);
     let read: Publication =
         EmbeddedForm::read_form(&cx, Post::fields().publication(), &shared_only)
@@ -349,9 +326,7 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
     );
 }
 
-/// A discriminant the submission **names** but the enum does not declare is
-/// refused on the discriminant's key. Reading it as some other variant would
-/// store a value the caller never asked for.
+/// An unknown discriminant is refused.
 #[tokio::test]
 async fn an_unknown_discriminant_is_refused() {
     let cx = post_cx().await;
@@ -366,8 +341,7 @@ async fn an_unknown_discriminant_is_refused() {
     assert_eq!(errors[0].kind, FieldErrorKind::Invalid);
 }
 
-/// Nesting: a struct inside a variant delegates to that struct's own codec, and
-/// its leaves land three levels deep in the flattened column.
+/// Nested values delegate to their own codec.
 #[tokio::test]
 async fn nested_values_delegate_to_their_own_codec() {
     let cx = post_cx().await;
@@ -400,8 +374,7 @@ async fn nested_values_delegate_to_their_own_codec() {
     assert_eq!(read, video);
 }
 
-/// A unit variant has no payload: the discriminant is the whole value, and a
-/// control set that renders nothing for it still round-trips.
+/// A unit variant round-trips on its discriminant alone.
 #[tokio::test]
 async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
     let cx = post_cx().await;
@@ -432,7 +405,7 @@ async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
     );
 }
 
-/// A typed leaf keeps its own spelling rule: `Display` out, `FromStr` back.
+/// A typed leaf keeps its own spelling rule.
 #[tokio::test]
 async fn typed_leaves_round_trip() {
     let cx = post_cx().await;
@@ -455,8 +428,7 @@ async fn typed_leaves_round_trip() {
     assert_eq!(read, stats);
 }
 
-/// A blank leaf takes its own answer, or is refused on its key: the scalar
-/// rule (ADR-0022 rule 4), never a silent `Default`.
+/// A blank leaf takes its own answer, or is refused on its key.
 #[tokio::test]
 async fn a_blank_leaf_takes_its_answer_or_is_refused() {
     let cx = post_cx().await;
@@ -488,9 +460,7 @@ async fn a_blank_leaf_takes_its_answer_or_is_refused() {
     assert_eq!(errors[0].kind, FieldErrorKind::Required);
 }
 
-/// A value answers a blank when every leaf does: the panel's build check reads
-/// this to refuse a declaration whose control can be posted empty with nothing
-/// to resolve it.
+/// A value answers a blank when every leaf does.
 #[tokio::test]
 async fn a_value_answers_a_blank_when_every_leaf_does() {
     assert!(Seo::answers_blank());
@@ -504,8 +474,7 @@ async fn a_value_answers_a_blank_when_every_leaf_does() {
     );
 }
 
-/// A value the type cannot parse is refused on its own key, worded as the
-/// typed rule words it.
+/// An unparseable typed leaf is refused.
 #[tokio::test]
 async fn an_unparseable_typed_leaf_is_refused() {
     let cx = post_cx().await;
@@ -517,8 +486,7 @@ async fn an_unparseable_typed_leaf_is_refused() {
     assert_eq!(errors[0].message, "`many` is not a valid whole number");
 }
 
-/// A value's keys are every column it occupies, so a record form binds a
-/// submission naming any of them to the one field that holds the value.
+/// Value keys name every key of a value.
 #[tokio::test]
 async fn value_keys_name_every_key_of_a_value() {
     let cx = post_cx().await;
@@ -540,8 +508,7 @@ async fn value_keys_name_every_key_of_a_value() {
     ));
 }
 
-/// A nested enum contributes its discriminant to the value's form keys: a
-/// submission that names only the nested variant has mentioned the value.
+/// A nested enum contributes its discriminant.
 #[tokio::test]
 async fn a_nested_enum_contributes_its_discriminant() {
     let cx = post_cx().await;
@@ -586,8 +553,7 @@ async fn a_nested_enum_contributes_its_discriminant() {
     assert_eq!(read, wrapper);
 }
 
-/// Variant idents the schema normalises still round-trip: the codec addresses
-/// variants by declaration index, not by a name it would have to re-derive.
+/// Variant casing needs no normalisation.
 #[tokio::test]
 async fn variant_casing_needs_no_normalisation() {
     let cx = post_cx().await;
@@ -619,9 +585,7 @@ async fn variant_casing_needs_no_normalisation() {
     .render(&cx);
     assert!(html.contains("name=\"casing\""), "got {html}");
     assert!(html.contains("name=\"casing_at\""), "got {html}");
-    // The label is the *normalised* name — `OK` reads `Ok` — which is exactly
-    // why the codec addresses variants by index and the label is never a
-    // handle: a normalized name need not round-trip.
+    // The label is the normalised name.
     assert_eq!(
         variant_option_labels(&html),
         vec!["-- Select --", "Ok", "Draft"],
@@ -629,7 +593,7 @@ async fn variant_casing_needs_no_normalisation() {
     );
 }
 
-/// `bool` and the wider integer types are leaves too.
+/// Typed leaves cover bool and the integer family.
 #[tokio::test]
 async fn typed_leaves_cover_bool_and_the_integer_family() {
     let cx = post_cx().await;
@@ -653,8 +617,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
         EmbeddedForm::read_form(&cx, Post::fields().flags(), &values).expect("the value reads");
     assert_eq!(read, flags);
 
-    // A bad `bool` is refused by the typed control before a record fn runs, so
-    // the codec only ever sees a spelling the type accepts.
+    // A bad `bool` is refused before a record fn runs.
     let bad = map(&[("flags_featured", "yes")]);
     assert!(
         Schema::new(Flags::form(
@@ -667,9 +630,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
     );
 }
 
-/// The generated form: the variant control, every variant's payload in its own
-/// marked group, and in view mode no control at all and only the stored
-/// variant's payload.
+/// The derived form renders the variant select and every payload.
 #[tokio::test]
 async fn the_derived_form_renders_the_variant_select_and_every_payload() {
     let cx = post_cx().await;
@@ -711,10 +672,7 @@ async fn the_derived_form_renders_the_variant_select_and_every_payload() {
         "an unlabelled field is humanized from its name, got {html}"
     );
 
-    // Read-only: the control itself must not render, and the page names the
-    // stored variant instead of printing the machine value it stores
-    // (ADR-0016) — the payload rows are every variant's, so the name is what
-    // says which state the record is in.
+    // Read-only: no control renders.
     let view = render_view(&cx, &schema, &values).await;
     assert!(
         !view.contains("<select") && !view.contains("<input"),
@@ -809,15 +767,7 @@ fn variant_option_labels(html: &str) -> Vec<String> {
         .collect()
 }
 
-/// One marked group per variant, and the marker set **is** the
-/// schema's variant list — so a variant added to the enum cannot silently lose
-/// its group, and no group can name a variant the schema does not declare.
-///
-/// The markers are the discriminant values the variant control offers, which is what
-/// makes `variant.js` able to compare them with the submitted value — so the
-/// control's options are asserted against the same list, values **and** labels:
-/// an option labelled with the value it submits (`3`) is the hidden input made
-/// clickable, not a variant a person can choose.
+/// The variant groups are exactly the schema's variants.
 #[tokio::test]
 async fn the_variant_groups_are_exactly_the_schemas_variants() {
     let cx = post_cx().await;
@@ -831,7 +781,7 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
     )
     .await;
 
-    // `Publication` stores 1, 2, and 3 (`#[column(variant = N)]`).
+    // `Publication` stores 1, 2, and 3.
     let expected = ["1", "2", "3"];
     assert_eq!(
         variant_markers(&html),
@@ -871,9 +821,7 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
     );
 }
 
-/// A unit variant has no payload but still gets its group: the marker set is
-/// the variant list, so the one variant with nothing to show cannot be the one
-/// that loses its marker. Its option is labelled like any other.
+/// A unit variant still gets its group.
 #[tokio::test]
 async fn a_unit_variant_still_gets_its_group() {
     let cx = post_cx().await;
@@ -899,10 +847,7 @@ async fn a_unit_variant_still_gets_its_group() {
     );
 }
 
-/// Each variant's own payload renders **inside** its own group, and a
-/// `#[shared(..)]` column renders once outside every group: the marker is what
-/// `variant.js` toggles, so a leaf outside it would show for the wrong variant,
-/// and a shared column inside one would vanish for the other two.
+/// Each variant's payload sits in its own group.
 #[tokio::test]
 async fn each_variants_payload_sits_in_its_own_group() {
     let cx = post_cx().await;

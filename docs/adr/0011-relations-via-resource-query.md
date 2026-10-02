@@ -1,61 +1,42 @@
 # Relations: no new Relation trait, includes declared where they are read
 
-Date: 2026-08-31 — Status: accepted — Amended: 2026-09-10, 2026-09-15, 2026-09-18, 2026-09-22,
-2026-09-25, 2026-09-28, 2026-10-01
+Date: 2026-08-31 — Status: accepted
 
 ## Decision
 
-Relations ride the resource query seam; there is no top-level `Relation` trait. `Table` and `Schema`
-never write their own `#[shard]` or relation query, and `via` many-to-many stays SQL-only and out of
-scope for v1 tables (use the join model's query when it is needed).
+Relations ride the resource query seam; there is no top-level `Relation` trait. `Table` and
+`Schema` write no `#[shard]` or relation query. `via` many-to-many stays SQL-only, out of scope
+for v1 tables.
 
-**Loader.** A page that needs a relation declares an explicit, typed `include` where it reads it: a
-list column with `TextColumn::include(Post::fields().author())`, the detail page on
-`Resource::view_query` (ADR-0018). A list of relation cells is therefore one round trip
-(`NestedMerge` + correlated subquery, no N+1). A cell that reads an unloaded `Deferred` renders
-`"(unloaded)"` with a `debug_assert!` instead of silently reading data (GH #101).
+**Loader.** A page needing a relation declares a typed `include` where it reads it: a list column
+with `TextColumn::include(Post::fields().author())`, the detail page on `Resource::view_query`
+(ADR-0018). A relation-cell list is one round trip (`NestedMerge` plus correlated subquery). A
+cell reading an unloaded `Deferred` renders `"(unloaded)"` with a `debug_assert!`.
 
-**Table.** Relation cells are `TextColumn::computed("Author", |p: &Post| p.author.get().map(|a|
-a.name.clone()).unwrap_or_default())`: typed, and `searchable`/`sortable` only on local columns,
-since a computed column declares no predicate.
+**Table.** Relation cells are `TextColumn::computed("Author", |p: &Post| ...)`; `searchable` and
+`sortable` apply only to local columns.
 
-**Schema.** `Field::choice(Post::fields().author_id()).relationship(..)` is a thin helper over the
-same seam, not a second query vocabulary. It takes a **typed primary-key projection**
-(`Fn(&R::Model) -> R::Model::PrimaryKey`) whose `Display` string becomes the `<option value>`; a
-wrong projection fails to compile where the type differs from the PK, and the related PK must be a
-single primitive implementing `Display` (composite-key and `Bytes`-key models cannot declare
-relationship selects — use static options). An edit form must hydrate the FK with the same canonical
-string the projection produces, or the stored value renders unselected.
+**Schema.** `Field::choice(Post::fields().author_id()).relationship(..)` takes a typed
+primary-key projection whose `Display` becomes `<option value>`; a wrong projection rejects at
+compile time where the type differs from the PK. The related PK is a single primitive `Display`
+type. An edit form hydrates the FK with the projection's canonical string.
 
-**Policy.** Option loads respect the related resource's policy (GH #108): a refused `ViewAny` denies the
-whole load — no options and not the stored value, and the field surfaces `{label} is not available`
-(on GET too) — while `View` filters loaded rows before any label renders, so a filtered-out
-value is reported as invalid. The option cap counts the raw bounded fetch, before that filtering (GH
-#91).
+**Policy.** Option loads respect the related policy: refused `ViewAny` denies the load and the
+field reports `{label} is not available`, while `View` filters rows before labels render. The cap
+counts the raw bounded fetch before filtering.
 
-**Tenancy.** The option loaders are generic over `schema::OptionSource`, whose `scoped_query` is a
-required method; `option_query` runs `R::scoped_query(cx)`, which carries only the relations the
-resource's `query` includes (ADR-0018, GH #298), so every related load carries the framework's
-tenant predicate, and a direct `OptionSource` whose `scoped_query` fails is a `Misdeclared` option
-error rather than an unscoped fetch (GH #208, ADR-0002). `relationship::<R>(value, label)` names
-the source by its type parameter alone.
+**Tenancy.** Option loaders take `schema::OptionSource::scoped_query`; `option_query` runs
+`R::scoped_query(cx)`, carrying the framework tenant predicate. `relationship::<R>(value, label)`
+names the source by type parameter alone.
 
-**Option search (GH #150).** Above the cap the failure splits into `Overflow` (distinct from a
-driver `LoadFailed`): a searchable select degrades to type-to-search, a non-searchable one keeps the
-retry error. Search reuses the related `Table`'s declared `searchable()` columns through
-`search_expr(q)` — no option-specific hook; zero searchable columns means the hard-cap fallback. The
-endpoint is `GET {parent_list_url}/options?field=&q=`, `field` allow-listed to a declared searchable
-relationship choice in the parent's form (400 otherwise), `q` trimmed and clamped to the shared
-query bound, bounded at `limit(201)`, `View` before labels, `Denied` → 403, driver failure →
-500, filtered overflow → 200 with a keep-typing hint option, and never a whole-table load.
-Validation for an overflowed searchable select is a targeted `pk_eq_expr` + `R::scoped_query` +
-`View` check (viewable → pass, hidden/not-found → `invalid`, denied → `not available`, DB
-failure → retry); bounded sets keep membership validation. The UI is a native `<select>` plus
-`selects.js` (debounced 200 ms, aborts in-flight requests, preserves selection and placeholder);
-without JavaScript the plain select keeps working.
+**Option search.** Above the cap the failure splits into `Overflow`: a searchable select degrades
+to type-to-search, a non-searchable one keeps the retry error. Search reuses the related
+`Table`'s `searchable()` columns through `search_expr(q)`. The endpoint is `GET
+{parent_list_url}/options?field=&q=`, allow-listed to a declared searchable relationship choice,
+bounded at `limit(201)`, never a whole-table load. Validation for an overflowed searchable select
+is a targeted `pk_eq_expr` plus `scoped_query` plus `View` check; bounded sets keep membership
+validation. The UI is a native `<select>` plus `selects.js`; without JavaScript the select works.
 
-**Row identity.** `Table::new(key, columns)` declares the table's row key and record key together:
-the projection drives keyed diffs and DOM ids, and the edit/delete URLs and bulk checkbox values
-handlers resolve as the model's typed PK. `Table::new_split(display, record, columns)` splits the
-two for a table whose display projects a non-PK value (2026-09-28 amendment, GH #384). Single and
-bulk deletes require `View` + `Delete` (GH #168).
+**Row identity.** `Table::new(key, columns)` declares row and record key together from the typed
+PK projection; `Table::new_split(display, record, columns)` splits them for non-PK display. Single
+and bulk deletes require `View` plus `Delete`.

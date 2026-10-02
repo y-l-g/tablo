@@ -1,86 +1,38 @@
 # Media uploads: an app-level `Uploader` and a clear control
 
-Date: 2026-09-22 — Status: accepted — Amended: 2026-09-22, 2026-09-23, 2026-09-24, 2026-09-25, 2026-10-01
+Date: 2026-09-22 — Status: accepted
 
 ## Decision
 
-**The seam is an app-level trait, not a per-field declaration.**
-`Uploader::store(filename, bytes) -> Result<String, String>`, installed once with
-`Panel::uploads(uploader)` and found on the app context the way `Db` is — an object store is an app
-dependency, and threading it through every `.for(..)` call site would put infrastructure in the schema
-declaration. The public trait returns `impl Future` (the house style, no `async_trait`), and a private
-dyn-compatible shim holds it so `Panel` does not become generic over the app's store. The request side
-is the framework's already: the 10 MiB body cap, the multipart stream, and filename sanitization to a
-basename.
+**The seam is an app-level trait.** `Uploader::store(filename, bytes) -> Result<String, String>`,
+installed once with `Panel::uploads(uploader)` and read from app context like `Db`. The trait
+returns `impl Future`; a private shim keeps `Panel` non-generic. The framework owns the 10 MiB
+body cap, multipart stream, and basename sanitization.
 
-**Bytes are buffered, not streamed to the store,** because the body cap already bounds memory; the
-buffer is taken only when an uploader is installed, so with none the parser keeps draining and
-discarding. **A refusal is user input, not infrastructure:** `Err(reason)` renders
-`"<Label> could not be uploaded: <reason>"` against the field and re-renders the form with the
-submitted values — the framework owns the sentence, the uploader owns the reason, and the reason is
-printed to the user, so never a driver message or a path. **The framework stores the returned string
-verbatim and renders it verbatim:** the field still binds a `String`, the record fn's contract is
-unchanged, and a stored value renders as a link to the file — on the edit form and on the detail
-page. The field reads no extension and owns no image pipeline, so it neither previews a path nor
-guesses a URL convention (GH #242). **A file field's value comes only from a file part** — the
-uploader's answer, or the sanitized basename with no uploader — from the stored value on an untouched
-edit, or empty on `clear_<field>`; text a client typed under the field's name is dropped (GH #277).
-**A form that re-renders with errors carries the path its store just answered** in a hidden
-`keep_<field>` control, and the next submit re-uses it only when `Uploader::holds(path)` confirms the
-store still has it (GH #297): the value still originates in the store, so the carry does not widen
-the GH #277 rule. `holds` is defaulted and answers `false` — no carry, the behaviour of a store that
-does not implement it — and its contract is ownership rather than existence: `true` only for a path
-the store itself produced and resolves inside its own root, never for a client-supplied path, or it
-becomes a path-traversal gate.
-**A stored value renders as a link only when it is rooted (`/…`, not `//host`) or an absolute
-`http(s)://…` URL**, and as text otherwise, so a stored scheme cannot become a clickable `href`.
+**Bytes buffer; refusals are input.** The body cap bounds memory; the buffer is taken only with an
+uploader installed. `Err(reason)` renders `"<Label> could not be uploaded: <reason>"` and
+re-renders with submitted values; the reason reaches the user, so it carries no driver message or
+path. The framework stores the returned string verbatim and renders it verbatim; the field binds
+a `String` and the record-fn contract is unchanged. A file field's value comes only from a file
+part, the stored value on an untouched edit, or empty on `clear_<field>`; typed text under the
+field name is dropped. A re-render carries the fresh path in hidden `keep_<field>` and reuses it
+only when `Uploader::holds(path)` confirms store ownership inside its own root (`false` by
+default). A stored value links only when rooted (`/…`, not `//host`) or absolute `http(s)://…`.
 
-**The primitive stops at the file input.** A thumbnail in the stored row, an × that clears the input
-and the preview, drag-and-drop and upload progress are media-library work: the showcase renders the
-first two (GH #248, ADR-0021) from its own `medias` table and its own asset, drag-and-drop and
-progress stay unbuilt, and a generic `String`-bound field is the wrong place to guess any of them.
+**The primitive stops at the file input.** Thumbnails, clear affordances, drag-and-drop, and
+progress belong to the media library (ADR-0021), not the generic field.
 
-**The clear control is a declared transport key.** A file field renders a `clear_<field>` checkbox
-whenever a value is stored, alongside the hint that an empty file input keeps what is there.
-Strip-before-record-fn (GH #148) is unchanged, so a generic `Resource` impl still cannot be handed the
-flag as a write. Clearing does not waive `required`: the value is empty, the ordinary required error
-answers, and the record keeps its file — a resource that may lose its file declares `.optional()`.
+**The clear control is a transport key.** A file field renders `clear_<field>` with a stored
+value; strip-before-record-fn applies, so clearing never reaches the record fn as a write.
+Clearing never waives `required`: the value is empty and the record keeps its file unless the
+field is `.optional()`.
 
-**`Panel::serve_dir(path, dir)` mounts an app-owned directory** on the app's router, wrapped in the
-hardening headers that keep an uploaded file inert on the panel's origin. The passthrough is
-deliberately narrow (upstream's `serve_dir`, path pattern included), and the path is not
-panel-relative: a served directory holds files a record points at, not panel pages, and its URLs must
-not move when the panel is mounted elsewhere. A served directory is **public by decision** (GH #225):
-the auth gate covers two path prefixes — the panel prefix and `/_topcoat/runtime` (ADR-0013) — so a
-directory mounted outside both is ungated by construction. Public media is a legitimate shape, and
-gating a served directory remains a possible future option; the rule for apps is that a directory meant
-to be private is mounted behind the app's own gate, never assumed private from the mount path.
-`a_served_directory_is_reachable_without_a_session` in `crates/tablo-core/tests/uploads.rs` pins
-the anonymous case.
+**`Panel::serve_dir(path, dir)` mounts an app-owned directory** on the app router with hardening
+headers keeping files inert on the panel origin. The path is not panel-relative. A served
+directory is public: the auth gate covers only the panel prefix and `/_topcoat/runtime`
+(ADR-0013). The directory serves `X-Content-Type-Options: nosniff`, a sandboxing
+`Content-Security-Policy`, and `Content-Disposition: attachment` except for common raster,
+audio/video, or `text/plain` types.
 
-**A served directory is public and inert** (GH #278): because it shares the panel's origin, every file
-response the directory route serves carries `X-Content-Type-Options: nosniff` and a fixed sandboxing
-`Content-Security-Policy`, and `Content-Disposition: attachment` unless the `Content-Type` is a
-common raster image, audio/video or `text/plain` — an app that serves active documents mounts them on
-its own origin, since the policy is not configurable. A 404 keeps Topcoat's `text/plain` error page;
-a 405 carries only `Allow` and an empty body. Neither carries user content.
-
-Uploads run **before** the write transaction and outside it: an upload is a side effect in another
-system, and a rolled-back transaction must not have to undo it. A file stored for a form that then
-fails validation is unreferenced, not wrong, and a store with a real write cost wants its own janitor.
-
-## Consequences
-
-- An app that never installs an `Uploader` stores the sanitized basename; a bare basename is not
-  rooted, so the stored value renders as text rather than a link (GH #277).
-- A cleared upload empties the stored value, not the bytes: the framework cannot delete from a store
-  it does not know. An app that wants the bytes gone acts on the empty value its record fn receives.
-- A rejected store drops the submitted value rather than blanking it, which is why the edit handler
-  stores before it backfills: a re-rendered edit shows the file still on disk, and a re-rendered create
-  shows an empty field beside the reason.
-- The showcase demonstrates the whole path: `DirUploader` writes into a served directory, the record
-  stores the returned URL, and the URL fetches the bytes back (GH #188).
-- `tablo-core` enables topcoat's `fs` feature, which upstream's directory route lives behind, and
-  both lockfiles carry the crates it pulls. Image handling (thumbnails, transcoding, dimensions) and
-  storage drivers stay out of scope: the field links a stored path, and the trait is the seam for the
-  bytes.
+Uploads run before the write transaction and outside it; a rolled-back write never undoes a
+store, and an unreferenced file after failed validation wants an app janitor.

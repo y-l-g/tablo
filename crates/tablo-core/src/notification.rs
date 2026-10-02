@@ -1,17 +1,6 @@
-//! `Notification` — transient user-visible message (CONTEXT.md).
-//!
-//! Produced by an `Action`'s result and rendered in the `Panel` shell's
-//! top-level boundary so it survives `Table` swaps. Status + title (plus an
-//! optional description), auto-dismissed after ~4s by
-//! `tablo-ui/assets/notifications.js` and dismissible through the toast's
-//! close button — the shadcn/Sonner toast surface.
-//!
-//! The flash cookie is Topcoat's `CookieStore` (serde JSON); the jar
-//! defaults carry the hardened attributes (HttpOnly, Secure, SameSite=Lax,
-//! Path=/ — the `__Host-` name requires them) on writes and removals
-//! alike, so set and clear cannot drift. One-time semantics ride the cookie
-//! alone: Topcoat flushes `Set-Cookie` on error responses too (topcoat#408), so
-//! the mutation `Err` redirects carry the flash in the cookie alone.
+//! Transient user-visible message produced by an `Action`'s result and rendered
+//! in the `Panel` shell; stored as a JSON flash cookie with hardened attributes
+//! that Topcoat flushes on error responses too (topcoat#408).
 
 use serde::{Deserialize, Serialize};
 use tablo_ui::{
@@ -54,9 +43,8 @@ impl NotificationStatus {
 pub struct Notification {
     pub status: NotificationStatus,
     pub title: String,
-    /// Optional supporting line under the title, rendered as the toast
-    /// description. Absent (`None`) keeps the cookie wire format, so
-    /// cookies written before the field existed still decode.
+    /// Supporting line under the title; `None` keeps the cookie wire format so
+    /// older cookies still decode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
@@ -95,12 +83,8 @@ impl Notification {
 
 pub(crate) const COOKIE_NAME: &str = "__Host-tablo_notification";
 
-/// The jar defaults the flash cookie relies on: `CookieStore`
-/// commits a bare cookie, so the hardened attributes live here and apply to
-/// writes *and* removals alike — the `Map` adapter transforms both. The
-/// `__Host-` name requires Secure + Path=/ + no Domain; the
-/// session and CSRF cookies set their own attributes and are unaffected
-/// (`default_*` only fills what is unset).
+/// Applies the hardened cookie attributes the flash cookie relies on to writes
+/// and removals alike.
 fn hardened(jar: &CookieJar) -> impl Cookies + '_ {
     jar.default_path("/")
         .default_http_only(true)
@@ -113,10 +97,6 @@ pub fn set_notification(cx: &Cx, notification: Notification) {
     if try_request_context::<CookieJarCell>(cx).is_none() {
         return;
     }
-    // `commit` serializes to JSON and queues the Set-Cookie — one hand-rolled
-    // wire format less. A failed commit must not fail the mutation
-    // it rides on, but swallowing it retries a completed write with no toast
-    // Log it for operators instead.
     if let Err(error) = cookie_store::<Notification, _>(hardened(cookies(cx)), COOKIE_NAME)
         .set(notification)
         .commit()
@@ -125,22 +105,9 @@ pub fn set_notification(cx: &Cx, notification: Notification) {
     }
 }
 
-/// Flash the failure of a write that passed validation but did not land.
-///
-/// Every mutation handler (create, update, delete, bulk delete) routes its
-/// write and commit failures through this before returning the error, so the
-/// user gets "couldn't …" instead of a bare 500 that leaves them guessing
-/// whether the write went through. The title names the operation, never the
-/// driver's text — internals stay in the server log.
-///
-/// Delivery: the flash rides a `Set-Cookie`, and Topcoat's cookie layer writes
-/// pending cookies on **both** paths — on `Err` it stashes them in
-/// `response_headers`, which the router applies once the error response exists
-/// (`topcoat-router/src/router.rs`), so the 500 response carries the cookie. Its
-/// body is Topcoat's plain-text error page, which renders no toast: the message
-/// appears on the next panel page, whose shell consumes the flash
-/// ([`take_notification`]). `a_failed_write_toasts_on_the_next_panel_page` pins
-/// that delivery.
+/// Flashes the failure of a write that passed validation but did not land; the
+/// title names the operation, never the driver's text, and the message appears
+/// on the next panel page.
 pub(crate) fn notify_write_failure(cx: &Cx, action: &str) {
     set_notification(
         cx,
@@ -154,15 +121,12 @@ pub fn take_notification(cx: &Cx) -> Option<Notification> {
     try_request_context::<CookieJarCell>(cx)?;
     let unparsed = cookie_store::<Notification, _>(hardened(cookies(cx)), COOKIE_NAME);
     match unparsed.parse() {
-        // Present and readable: hand it out, then expire it (the removal
-        // carries the same hardened attributes through the jar defaults).
         Ok(Some(store)) => {
             let notification = store.get();
             store.remove();
             Some(notification)
         }
-        // Unreadable garbage (a corrupted or foreign value): expire it, no
-        // toast.
+        // Unreadable value: expire it with no toast.
         Err(_) => {
             cookie_store::<Notification, _>(hardened(cookies(cx)), COOKIE_NAME).remove();
             None
@@ -171,16 +135,7 @@ pub fn take_notification(cx: &Cx) -> Option<Notification> {
     }
 }
 
-/// Render one notification as the shadcn/Sonner toast.
-///
-/// The status picks Sonner's icon under shadcn's theming (`circle-check`,
-/// `info`, `triangle-alert`, `octagon-x`); the error icon reads
-/// `text-destructive` so a failure cannot look like an info toast.
-///
-/// `attrs` are merged onto the toast surface. The shell's flash stack passes
-/// an empty set; the live transport ([`live_toaster`]) adds a per-mount `id`
-/// so re-rendering the same variant replaces the mounted toast instead of
-/// re-syncing its `data-mounted` state.
+/// Renders one notification as the toast, with `attrs` merged onto its surface.
 pub async fn render_notification<'a>(
     cx: &'a Cx,
     notification: Notification,
@@ -220,17 +175,10 @@ pub async fn render_notification<'a>(
     .boxed())
 }
 
-/// The signals a page owns to mount a [`Notification`] in place.
-///
-/// [`live_toast`] creates them; a click handler writes a procedure's returned
-/// `(status, title, description)` into them and bumps `serial` (a repeat of
-/// the same variant must still be a change), and the shell's [`live_toaster`]
-/// shard reads them and mounts the real Sonner surface — no navigation, no
-/// scroll reset. Every value is client input by the time the shard reads it.
+/// Owns the signals that mount a [`Notification`] in place without navigation.
 #[derive(Clone)]
 pub struct LiveToast {
-    /// The Sonner status token (`success`/`info`/`warning`/`error`); empty
-    /// means "no toast mounted".
+    /// Sonner status token; empty means no toast mounted.
     pub status: Signal<String>,
     /// The toast title.
     pub title: Signal<String>,
@@ -241,9 +189,6 @@ pub struct LiveToast {
 }
 
 /// The live toast signals for this request (call once per page).
-///
-/// The signals are created here, so both the page's handlers and the shell's
-/// [`live_toaster`] resolve the same handles in one request.
 pub fn live_toast(cx: &Cx) -> LiveToast {
     LiveToast {
         status: signal(cx, String::new),
@@ -253,32 +198,14 @@ pub fn live_toast(cx: &Cx) -> LiveToast {
     }
 }
 
-/// The endpoint [`live_toaster`] is served at.
-///
-/// A shard that declares no path is served at a build-random one (topcoat#441);
-/// naming it keeps the endpoint stable across builds and legible in logs and
-/// tests. The `/tablo-` prefix separates it from a generated path, and the
-/// whole path stays under `/_topcoat/runtime`, so the panel's auth gate covers
-/// the shard and an unauthenticated rerun answers 401 rather than redirecting to
-/// the login page.
-///
-/// The literal in [`live_toaster`]'s attribute is the same path;
-/// `live_toaster_endpoint_is_the_named_path` pins the two together.
+/// Names the live-toaster endpoint so it stays stable across builds
+/// (topcoat#441); staying under `/_topcoat/runtime` keeps the panel's auth gate
+/// covering it.
 #[cfg(test)]
 pub(crate) const LIVE_TOASTER_PATH: &str = "/_topcoat/runtime/shards/tablo-live-toaster";
 
-/// The shell's live toaster shard: reads the page's
-/// [`LiveToast`] signals and mounts the toast in place when one is set.
-///
-/// A shard rather than an eager read, so writing the signals re-renders only
-/// this stack — the page, its scroll, and its focus stay put. The mount `id`
-/// carries the serial: the browser's morph matches by id, so a new mount is a
-/// fresh toast node (with `data-mounted="false"`) that `notifications.js`
-/// arms, instead of rewriting the already-mounted one.
-///
-/// The body lives in `render_live_toaster`: the shard macro's generated
-/// handler cannot name the request lifetime its `impl View` would capture, so
-/// the helper resolves the boxed view and the shard only forwards it.
+/// Reads the page's [`LiveToast`] signals and mounts the toast in place when one
+/// is set.
 #[shard("/_topcoat/runtime/shards/tablo-live-toaster")]
 pub async fn live_toaster(
     cx: &Cx,
@@ -297,16 +224,12 @@ async fn render_live_toaster<'a>(
     description: &Signal<String>,
     serial: &Signal<u64>,
 ) -> topcoat::Result<BoxView<'a>> {
-    // Runtime endpoints bypass page guards (topcoat shard contract), so the
-    // shard restates the panel gate; a slot with no live toast needs no auth
-    // to render empty, but a direct POST must not mount toasts unauthenticated.
+    // The shard restates the panel gate; an empty slot renders without auth,
+    // but a direct POST must not mount toasts unauthenticated.
     crate::auth::guard(cx)?;
     let status = status.get();
     let mount = serial.get();
     if status.is_empty() {
-        // No `<span>` placeholder: the shell mounts this slot inside
-        // the toaster `<ol>`, which permits only `li`/`script`/`template`
-        // children — the empty view renders nothing.
         return Ok(().boxed());
     }
     let title = title.get();

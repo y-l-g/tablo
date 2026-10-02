@@ -45,8 +45,6 @@ fn table_state_parses_query_params() {
     );
 }
 
-/// The GET page and the live shard parse one query the same way: `from_cx`
-/// is `from_query` over the request URI.
 #[test]
 fn from_cx_is_from_query_over_the_request() {
     let query = "q=Ada&sort=name&dir=desc&f.status=published&group_by=status&before=tok";
@@ -68,9 +66,7 @@ fn the_search_term_is_clamped() {
 
 #[test]
 fn table_state_duplicate_params_keep_first_and_never_fail_open() {
-    // A duplicate param keeps its first value and never fails open: answering
-    // empty state would drop every filter (and export's fail-closed guard
-    // along with it).
+    // A duplicate param keeps its first value.
     let state = TableState::from_query("f.status=published&f.status=draft&q=Ada&q=Grace");
     assert_eq!(
         state.filters.get("status").map(String::as_str),
@@ -119,8 +115,6 @@ fn filters_past_the_cap_are_dropped_and_flagged() {
 
 #[test]
 fn oversized_filters_are_dropped_and_flagged() {
-    // Every link echoes every applied filter, so a filter is bounded where the
-    // query is parsed, like the count.
     let long = "a".repeat(MAX_FILTER_LEN + 1);
     for query in [format!("f.status={long}"), format!("f.{long}=v")] {
         let state = TableState::from_query(&format!("{query}&f.featured=true"));
@@ -134,16 +128,12 @@ fn oversized_filters_are_dropped_and_flagged() {
 
 #[test]
 fn the_retired_filters_parameter_is_flagged_not_ignored() {
-    // A saved `?filters=` link must warn, and its export refuse, rather than
-    // list the whole table as if it were unfiltered.
     assert!(TableState::from_query("filters=status:draft").filters_dropped);
     assert!(!TableState::from_query("filters=").filters_dropped);
 }
 
 #[test]
 fn unknown_keys_are_skipped_without_being_remembered() {
-    // The parse keeps nothing per unknown key, so a client-owned query of
-    // many distinct keys parses in time linear in its length.
     let query = (0..20_000)
         .map(|i| format!("x{i}=v"))
         .chain(["q=Ada".to_string(), "q=Grace".to_string()])
@@ -153,8 +143,6 @@ fn unknown_keys_are_skipped_without_being_remembered() {
     assert_eq!(state.search.as_deref(), Some("Ada"));
 }
 
-/// Toasty pages from one cursor: a URL naming both lands on the first page,
-/// the recovery the cursor retry gives.
 #[test]
 fn both_cursors_parse_as_the_first_page() {
     assert_eq!(TableState::from_query("after=a&before=b").cursor, None);
@@ -176,8 +164,6 @@ fn path_segment_encoding_keeps_uuids_and_escapes_reserved() {
 
 #[test]
 fn row_dom_ids_are_stable_and_html_safe() {
-    // morph follows `id`s across reruns — derived from the row
-    // key (record-stable), never a loop index, sanitized to tokens.
     assert_eq!(
         row_dom_id("550e8400-e29b-41d4-a716-446655440000"),
         row_dom_id("550e8400-e29b-41d4-a716-446655440000"),
@@ -196,9 +182,6 @@ fn row_dom_ids_are_stable_and_html_safe() {
 
 #[test]
 fn group_header_dom_ids_are_stable_and_distinct_from_row_ids() {
-    // the injected group header is moved and removed as the page
-    // is re-sorted, so it needs a stable id of its own — and it must never
-    // collide with a row id, or the morph would follow the wrong element.
     assert_eq!(
         group_header_dom_id("draft"),
         group_header_dom_id("draft"),
@@ -223,9 +206,7 @@ fn group_header_dom_ids_are_stable_and_distinct_from_row_ids() {
     assert_ne!(group_header_dom_id("draft"), row_dom_id("draft"));
 }
 
-/// Fully populated projection source: every intent projects
-/// from this through the real parser (`from_query`), asserting the typed
-/// delta — state, not URL bytes.
+/// Fully populated projection source.
 fn populated_state() -> TableState {
     TableState {
         prefix: None,
@@ -257,7 +238,6 @@ fn without_dialog(mut state: TableState) -> TableState {
 
 #[test]
 fn projection_list_url_round_trips_full_state() {
-    // Full state including the cursor; never `delete`/`open`.
     let source = populated_state();
     assert_eq!(
         reparse(&source.list_url("/admin/users")),
@@ -271,7 +251,6 @@ fn projection_list_url_round_trips_full_state() {
 
 #[test]
 fn projection_without_search_drops_query() {
-    // Drops `q` (and its result set's cursor + dialog); keeps the filters.
     let source = populated_state();
     let mut expected = without_dialog(source.clone());
     expected.search = None;
@@ -281,8 +260,6 @@ fn projection_without_search_drops_query() {
 
 #[test]
 fn projection_without_filters_drops_filters() {
-    // Drops the filters (and their result set's cursor + dialog); keeps the
-    // search term.
     let source = populated_state();
     let mut expected = without_dialog(source.clone());
     expected.filters = BTreeMap::new();
@@ -292,7 +269,6 @@ fn projection_without_filters_drops_filters() {
 
 #[test]
 fn projection_without_cursor_drops_pagination() {
-    // Drops the cursor; keeps everything else.
     let source = populated_state();
     let mut expected = without_dialog(source.clone());
     expected.cursor = None;
@@ -301,7 +277,6 @@ fn projection_without_cursor_drops_pagination() {
 
 #[test]
 fn projection_with_cursor_replaces_the_cursor() {
-    // Full state with the new cursor, in either direction, and no dialog.
     let source = populated_state();
     for cursor in [
         Cursor::After("tok2".to_string()),
@@ -318,7 +293,6 @@ fn projection_with_cursor_replaces_the_cursor() {
 
 #[test]
 fn projection_sorted_by_replaces_sort() {
-    // Replaces `sort`/`dir`, drops the cursor and the dialog.
     let source = populated_state();
     let mut expected = without_dialog(source.clone());
     expected.sort = Some(Sort {
@@ -334,13 +308,10 @@ fn projection_sorted_by_replaces_sort() {
 
 #[test]
 fn projection_row_url_base_adds_the_delete_dialog_key() {
-    // Full state including the cursor + `delete=key`; never `open`.
     let source = populated_state();
     let mut expected = source.clone();
     expected.delete = Some("row-9".to_string());
     expected.open = None;
-    // Spelled as the page's shared base plus the row key — exactly what a
-    // table render does per row.
     assert_eq!(
         reparse(&source.row_url_base("/admin/users").delete_dialog("row-9")),
         expected
@@ -354,9 +325,7 @@ fn projection_row_url_base_adds_the_delete_dialog_key() {
     );
 }
 
-/// the bulk wire is delimited on both ends so membership is exact
-/// (`b` is not selected by `,ab,`), and the delimiters ride through the
-/// form transport the bulk handler already parses.
+/// Membership is exact: delimiters bound both ends.
 #[test]
 fn bulk_wire_membership_is_exact() {
     let wire = ",row-1,row-2,";
@@ -368,9 +337,6 @@ fn bulk_wire_membership_is_exact() {
     assert!(!bulk_wire_contains("", "row-1"));
 }
 
-/// A prefixed table reads only its own parameters, and every link it
-/// builds spells them back with the same prefix, so two tables share one
-/// query without colliding.
 #[test]
 fn prefixed_states_share_one_query_without_colliding() {
     let query = "q=list&comments.q=ada&comments.sort=body&comments.dir=desc\

@@ -25,8 +25,6 @@ async fn edit_page_hydrates_and_updates() {
         resp.status()
     );
     let html = body_string(resp).await;
-    // Core owns the field detail; the edit page pins
-    // hydration — the stored values arrive in the form.
     assert!(
         html.contains(&user.name),
         "edit should contain hydrated name {}, got {}",
@@ -54,7 +52,6 @@ async fn edit_page_hydrates_and_updates() {
         "should contain validation error, got {}",
         html
     );
-    // Check DB not mutated
     let mut db_check = db.clone();
     let fresh = User::get_by_id(&mut db_check, &user.id).await.unwrap();
     assert_eq!(fresh.name, user.name, "should not mutate on invalid");
@@ -77,8 +74,6 @@ async fn edit_page_hydrates_and_updates() {
         "redirect to list, got {}",
         loc
     );
-    // Post/Redirect/Get with one-time semantics (#126): 303, flash
-    // cookie on the redirect, clean Location.
     assert_eq!(resp.status(), 303, "a completed update is a 303 PRG");
     assert!(
         !loc.contains("notification"),
@@ -136,7 +131,6 @@ async fn edit_rejects_forged_post_before_probing_the_record() {
     let csrf = uuid::Uuid::new_v4().to_string();
     let cookie_mismatch = uuid::Uuid::new_v4().to_string();
     for (body, label) in [
-        // Field value differs from the cookie value.
         (format!("name=x&csrf_token={csrf}"), "mismatched token"),
         ("name=x".to_string(), "missing token"),
     ] {
@@ -152,8 +146,6 @@ async fn edit_rejects_forged_post_before_probing_the_record() {
         );
     }
 }
-/// An edit that posts only `email` changes only `email`: the framework fills
-/// every unposted key from the stored record and writes only the named fields.
 #[tokio::test]
 async fn an_edit_writes_only_the_fields_it_posts() {
     let db = seeded_db().await;
@@ -189,8 +181,6 @@ async fn an_edit_writes_only_the_fields_it_posts() {
     assert_eq!(fresh.age, user.age);
 }
 
-/// Emptying an optional select stores the field's blank answer: the create
-/// default, never the stored value.
 #[tokio::test]
 async fn an_emptied_select_stores_its_blank_answer() {
     let db = seeded_db().await;
@@ -205,7 +195,6 @@ async fn an_emptied_select_stores_its_blank_answer() {
         .expect("an admin is seeded");
     let csrf = uuid::Uuid::new_v4().to_string();
     let url = format!("/admin/users/{}/edit", admin.id);
-    // Deactivate first, so the emptied `active` below has a value to change.
     let resp = client
         .csrf(&csrf)
         .post_form(&url, format!("active=false&csrf_token={csrf}"))
@@ -232,7 +221,6 @@ async fn an_emptied_select_stores_its_blank_answer() {
     assert_eq!(fresh.name, admin.name, "an unposted field keeps its value");
 }
 
-/// The post form's optional selects store their create defaults when emptied.
 #[tokio::test]
 async fn an_emptied_post_select_stores_its_blank_answer() {
     use showcase::models::Post;
@@ -287,7 +275,6 @@ async fn an_emptied_post_select_stores_its_blank_answer() {
 
 #[tokio::test]
 async fn edit_sso_managed_user_is_forbidden() {
-    // Row-level Policy on the update path: Ken's page and POST both deny.
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -339,8 +326,6 @@ async fn edit_sso_managed_user_is_forbidden() {
 
 #[tokio::test]
 async fn post_body_renders_as_a_textarea() {
-    // A post body is prose, so the edit form renders a
-    // `<textarea>` for it while `title` stays a one-line input.
     use showcase::models::Post;
 
     let db = crate::common::full_db().await;
@@ -360,9 +345,6 @@ async fn post_body_renders_as_a_textarea() {
     assert_eq!(resp.status(), 200, "GET post edit should be 200");
     let html = body_string(resp).await;
 
-    // Slice this field's control: from its own label to the closing
-    // `</textarea>`. Slicing on the `field` wrapper would swallow the
-    // neighbouring `title` input, since the wrapper carries no id of its own.
     let label = html
         .find("for=\"body\"")
         .expect("the body field must render a label");
@@ -384,9 +366,6 @@ async fn post_body_renders_as_a_textarea() {
     );
 }
 
-/// An embedded field's control posts its **flattened column**, and
-/// saving it actually persists — the whole point of resolving the lens through
-/// the app schema rather than the model alone.
 #[tokio::test]
 async fn post_edit_binds_and_saves_embedded_fields() {
     use showcase::models::Post;
@@ -403,8 +382,6 @@ async fn post_edit_binds_and_saves_embedded_fields() {
         .unwrap()
         .expect("the seeded post");
 
-    // The form renders the flattened names, and the stored values hydrate into
-    // those controls. `seo_title` is the embedded struct's leaf.
     let resp = client.get(&format!("/admin/posts/{}/edit", post.id)).await;
     assert_eq!(resp.status(), 200);
     let html = body_string(resp).await;
@@ -416,14 +393,11 @@ async fn post_edit_binds_and_saves_embedded_fields() {
         html.contains(&format!("value=\"{}\"", post.seo.title)),
         "the stored embedded value must hydrate, got {html}"
     );
-    // The nested-embed demo is the `Seo` struct only: no deeper nesting.
     assert!(
         !html.contains("media_") && !html.contains("Attachment"),
         "no nested-embed demo beyond Seo may render, got {html}"
     );
 
-    // Save with new embedded values; the flattened columns must reach the
-    // record fn and land in the row.
     let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
         .csrf(&csrf)
@@ -458,9 +432,6 @@ async fn post_edit_binds_and_saves_embedded_fields() {
     assert_eq!(saved.seo.description, "Desc");
 }
 
-/// Posting one leaf of an embedded struct names the whole value: the other
-/// leaf is completed from the stored record, so the value is written whole
-/// without blanking it. The other post fields are not posted and keep theirs.
 #[tokio::test]
 async fn post_edit_naming_one_embedded_leaf_keeps_the_other() {
     use showcase::models::Post;
@@ -513,13 +484,6 @@ async fn post_edit_naming_one_embedded_leaf_keeps_the_other() {
     assert_eq!(saved.publication, post.publication);
 }
 
-/// The edit form carries the **stored variant**, and a submit that
-/// names a different one switches the value — even while the stored variant's
-/// payload is still filled in.
-///
-/// The submitted discriminant decides, never which payload columns happen to be
-/// non-empty: a stale `publication_canonical_url` must not outvote the variant
-/// the user meant.
 #[tokio::test]
 async fn post_edit_switches_the_publication_variant_explicitly() {
     use showcase::models::{Post, Publication};
@@ -540,9 +504,6 @@ async fn post_edit_switches_the_publication_variant_explicitly() {
         "the fixture must start Published"
     );
 
-    // Hydration: the stored variant reaches the form as the selected
-    // option of the variant control — the control a user changes it with, and
-    // the driver `variant.js` toggles the payload groups by.
     let html = body_string(client.get(&format!("/admin/posts/{}/edit", post.id)).await).await;
     let publication_select = html
         .split_once("data-variant-select=\"publication\"")
@@ -558,24 +519,17 @@ async fn post_edit_switches_the_publication_variant_explicitly() {
         publication_select.contains("value=\"2\" selected"),
         "the stored Published variant must be the selected option, got {publication_select}"
     );
-    // And the chooser reads as the lifecycle states, not as the discriminants
-    // the column stores: `1` / `2` / `3` would be the hidden input made
-    // clickable, which is not a variant anyone can pick.
     for name in ["Scheduled", "Published", "Archived"] {
         assert!(
             publication_select.contains(&format!(">{name}<")),
             "the option must read as the variant name {name}, got {publication_select}"
         );
     }
-    // The timestamp control is a `datetime-local` input reading UTC.
     assert!(
         html.contains("type=\"datetime-local\""),
         "the publication timestamp must render datetime-local, got {html}"
     );
 
-    // Submit Archived while leaving the Published payload filled in: the
-    // discriminant decides, so the post is Archived and the stale canonical URL
-    // is not what the row carries. Timestamps post as ISO strings.
     let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
         .csrf(&csrf)
@@ -622,13 +576,6 @@ async fn post_edit_switches_the_publication_variant_explicitly() {
     }
 }
 
-/// The **create** form carries no discriminant (there is no stored variant to
-/// hydrate), so a submission that fills a variant's payload creates that
-/// variant, driven by the keys the app schema resolves rather than remembered
-/// column names.
-///
-/// Without this, every created post was `Scheduled` and the payload the author
-/// typed was silently dropped: the hidden discriminant renders empty on create.
 #[tokio::test]
 async fn post_create_keeps_the_variant_its_payload_names() {
     use showcase::models::{Post, Publication};
@@ -644,7 +591,6 @@ async fn post_create_keeps_the_variant_its_payload_names() {
         .unwrap()
         .expect("a seeded author");
 
-    // The create page renders the discriminant empty — nothing to hydrate.
     let html = body_string(client.get("/admin/posts/create").await).await;
     assert!(
         html.contains("name=\"publication\""),
@@ -688,8 +634,6 @@ async fn post_create_keeps_the_variant_its_payload_names() {
     );
 }
 
-/// Word counts are computed, not stored: an empty body reads zero words and
-/// zero minutes, and the detail page shows the reading stats.
 #[tokio::test]
 async fn post_detail_shows_computed_word_counts() {
     use showcase::{
@@ -726,7 +670,6 @@ async fn post_detail_shows_computed_word_counts() {
         html.contains("min read"),
         "the detail page must show the reading time, got {html}"
     );
-    // Detail-only: the create and edit forms carry no word-count fields.
     let create = body_string(client.get("/admin/posts/create").await).await;
     assert!(
         !create.contains("word_count") && !create.contains("read_minutes"),
@@ -734,8 +677,6 @@ async fn post_detail_shows_computed_word_counts() {
     );
 }
 
-/// The stored-integer demo is `User.age`: optional, zero or more, shown in the
-/// user detail.
 #[tokio::test]
 async fn user_age_round_trips_and_refuses_a_negative() {
     use showcase::models::User;
@@ -746,13 +687,11 @@ async fn user_age_round_trips_and_refuses_a_negative() {
     let mut db_q = db.clone();
     let user = User::all().exec(&mut db_q).await.unwrap().remove(0);
 
-    // The form carries the typed control, hydrated with the stored value.
     let html = body_string(client.get(&format!("/admin/users/{}/edit", user.id)).await).await;
     assert!(
         html.contains("name=\"age\"") && html.contains(&format!("value=\"{}\"", user.age)),
         "the typed integer must hydrate its control, got {html}"
     );
-    // And the detail page shows it.
     let detail = body_string(client.get(&format!("/admin/users/{}", user.id)).await).await;
     assert!(
         detail.contains(&user.age.to_string()),
@@ -760,8 +699,6 @@ async fn user_age_round_trips_and_refuses_a_negative() {
     );
 
     let csrf = uuid::Uuid::new_v4().to_string();
-    // A negative age is refused inline and writes nothing; a valid one
-    // round-trips, and an empty one stores zero like a create.
     let before = User::filter(User::fields().id().eq(user.id))
         .first()
         .exec(&mut db_q)
@@ -820,8 +757,6 @@ async fn user_age_round_trips_and_refuses_a_negative() {
         .expect("the user still exists");
     assert_eq!(saved.age, 42);
 
-    // Clearing the input stores zero like a create, instead of failing the
-    // parse.
     let resp = client
         .csrf(&csrf)
         .post_form(

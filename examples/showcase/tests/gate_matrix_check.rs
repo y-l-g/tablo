@@ -1,14 +1,3 @@
-//! The route gate matrix: every panel route's auth, CSRF, tenant and
-//! policy gates restated as a request-level assertion.
-//!
-//! The handlers apply every gate; the point of this module is that each one is
-//! pinned at the route it protects, not inferred from another route's test. The
-//! CSRF rows cover the routes no other suite posts a forged token to (bulk
-//! delete, multipart create/edit, login, logout), the cross-tenant rows send a
-//! *valid* token from the wrong tenant, and the policy/anonymity rows enumerate
-//! the read and mutation shapes. A refactor that drops one of these gates fails
-//! here instead of passing the whole suite.
-
 use http::header::LOCATION;
 use showcase::models::{
     Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, Publication, Seo,
@@ -21,19 +10,10 @@ use crate::common::{
     tenanted_db, user_count,
 };
 
-/// A session-holding POST with **no** CSRF cookie and no `csrf_token` field is
-/// refused: the double-submit check needs both halves, so an absent
-/// cookie must not read as "nothing to compare" and let the write through.
-///
-/// The forged rows above always present a CSRF cookie; this pins the
-/// conjunction on the url-encoded create route their multipart rows do not
-/// cover.
 #[tokio::test]
 async fn a_csrf_cookie_and_field_are_both_required() {
     let db = full_db().await;
     let router = router(db.clone());
-    // A real session, so the auth gate passes and the CSRF check is the only
-    // gate that can refuse the request.
     let session = mint_session(&db, DEMO_ADMIN_EMAIL).await;
     let client = TestClient::new(&router).cookie(SESSION_COOKIE, &session);
     let before = user_count(&db).await;
@@ -91,7 +71,6 @@ async fn forged_posts_answer_403_and_change_nothing() {
     let cookie = Uuid::new_v4().to_string();
     let before = post_count(&db).await;
 
-    // 1. Row delete, url-encoded.
     for (body, label) in [
         (format!("confirm=1&csrf_token={field}"), "mismatched token"),
         ("confirm=1".to_string(), "missing token"),
@@ -113,7 +92,6 @@ async fn forged_posts_answer_403_and_change_nothing() {
         "a forged delete must remove nothing"
     );
 
-    // 2. Bulk delete, url-encoded.
     for (body, label) in [
         (
             format!("ids={}&confirm=1&csrf_token={field}", post.id),
@@ -138,7 +116,6 @@ async fn forged_posts_answer_403_and_change_nothing() {
         "a forged bulk delete must remove nothing"
     );
 
-    // 3./4. Multipart create and edit: the multipart path shares the CSRF verify.
     let boundary = "----GateMatrixBoundary";
     let author_id = author.id.to_string();
     for (csrf, label) in [

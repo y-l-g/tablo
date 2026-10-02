@@ -13,7 +13,6 @@ use topcoat::{
     view::ViewExt,
 };
 
-/// Author for bench — tenant_id + posts HasMany (mirrors showcase).
 #[derive(Debug, Clone, toasty::Model)]
 pub struct Author {
     #[key]
@@ -93,7 +92,6 @@ impl Resource for PostResource {
         Schema::new(Field::text(Post::fields().title()).required())
     }
 
-    /// Enforces tenant and policy on the measured list path.
     fn policy() -> impl Policy<Post> {
         |_cx: &Cx, ability: Ability<'_, Post>| !matches!(ability, Ability::Create)
     }
@@ -129,8 +127,6 @@ impl Resource for PostResource {
     }
 }
 
-/// The post form: the title alone, so the edit chrome the list measures has a
-/// page to link to.
 #[derive(tablo_core::RecordForm)]
 #[form(model = Post)]
 pub struct PostForm {
@@ -150,7 +146,6 @@ async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
         .expect("create author");
         author_ids.push(a.id);
     }
-    // Create 50 posts, each with a comment
     for i in 0..50 {
         let aid = author_ids[i % author_ids.len()];
         let post = toasty::create!(Post {
@@ -181,11 +176,6 @@ async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
     }
 }
 
-/// Fresh request `Cx` for one bench iteration: the pooled `Db` on the app
-/// context, the run's tenant (production reads the signed-in user's tenant;
-/// the bench sets `Tenant` directly), and real request `Parts` carrying
-/// the list URI so `TableState::from_cx` parses a genuine (empty: first page,
-/// no search/filter/sort) query instead of the no-request-context early return.
 fn bench_cx(db: &Db, tenant: uuid::Uuid) -> Cx {
     let parts = http::Request::builder()
         .uri("/admin/posts")
@@ -212,15 +202,6 @@ fn summarize(mut times: Vec<f64>) -> (f64, f64, f64, f64, f64) {
     )
 }
 
-/// The honest list path (GH #171): `TableState::from_cx` → `TablePage::load`
-/// (the tenant-scoped query, the columns' includes, the declared
-/// `.paginate(50)`, tenancy set, policy enforced) → `render_with_state` →
-/// HTML. Fresh `Cx` per iteration.
-///
-/// `TablePage::load` over `scoped_query` is the loader the panel's list runs,
-/// so the harness measures the shipped path rather than a copy of it. The
-/// declared page size is asserted so the `.paginate(50)` on the resource table
-/// is genuinely exercised through the loader, not merely declared.
 async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<f64> {
     let mut times_ms = Vec::with_capacity(iterations);
     for _ in 0..iterations {
@@ -233,8 +214,6 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
         );
         let start = Instant::now();
         let state = TableState::from_cx(&cx);
-        // The wired table the panel serves: row Delete + bulk bar + Edit
-        // chrome per row — a bench without it would under-measure render cost.
         let table = tablo_core::panel::wired_table::<PostResource>(&cx);
         assert_eq!(
             table.page_size(),
@@ -267,11 +246,6 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
     times_ms
 }
 
-/// Query-only diagnostic (GH #171): the tenant-scoped query with the list's two
-/// includes, exec'd and touched on a fresh `Cx` — no `TablePage::load`, no
-/// render. Kept as a labeled
-/// diagnostic next to the list-path number; it is not the budget path and is
-/// not gated.
 async fn bench_query_only(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<f64> {
     let mut times_ms = Vec::with_capacity(iterations);
     for _ in 0..iterations {
@@ -300,9 +274,6 @@ async fn bench_query_only(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec
 }
 
 async fn run_leg(db: Db, label: &str, iterations: usize) {
-    // Fresh tenant per run: reruns (notably Postgres, a persistent server)
-    // stay exact without cleanup — prior runs' rows belong to dead tenants
-    // the tenancy-scoped query filters out.
     let tenant = uuid::Uuid::new_v4();
     let mut seed_db = db.clone();
     seed_50(&mut seed_db, tenant).await;
@@ -316,9 +287,7 @@ async fn run_leg(db: Db, label: &str, iterations: usize) {
     println!("query-only diagnostic (cold Cx, no load/render), 20 iters — p50: {q50:.2}ms");
 }
 
-/// Refuse a Postgres URL whose database does not look disposable (GH #171
-/// review): the leg drops the named database, so a production URL pasted
-/// into the env var must fail loud, never wipe.
+/// Refuses a Postgres URL whose database does not look disposable.
 fn assert_bench_database(url: &str) {
     let dbname = url
         .rsplit_once('/')
@@ -364,7 +333,6 @@ async fn run_bench(iterations: usize) {
         "budget: <40ms p50 (50 rows, 2 includes) — reference only; UNGATED while GH #171 collects numbers, gating follows in a follow-up"
     );
 
-    // SQLite leg — always runs.
     let sqlite = Db::builder()
         .models(toasty::models!(Author, Post, Comment))
         .connect("sqlite::memory:")
@@ -373,26 +341,17 @@ async fn run_bench(iterations: usize) {
     sqlite.push_schema().await.expect("push_schema sqlite");
     run_leg(sqlite, "sqlite (sqlite::memory:)", iterations).await;
 
-    // Postgres leg — runs when pointed at a server (GH #171: SQLite AND
-    // Postgres). No local Postgres is assumed: set
-    // TABLO_BENCH_POSTGRES_URL to opt in (CI provides the service). The
-    // URL must name a disposable bench database — the leg resets it, pushes
-    // schema, and seeds under a fresh tenant each run.
+    // Postgres leg runs when pointed at a server.
+    // The URL must name a disposable bench database.
     match std::env::var("TABLO_BENCH_POSTGRES_URL") {
         Err(_) => println!(
             "--- postgres --- skipped (set TABLO_BENCH_POSTGRES_URL=postgresql://... to run)"
         ),
         Ok(url) => {
-            // The leg drops the named database: refuse anything that does
-            // not look disposable, so a pasted production URL fails loud
-            // instead of wiping real data.
+            // Refuses anything that does not look disposable.
             assert_bench_database(&url);
             // The bench database is disposable by contract: drop it first so
-            // reruns start empty — `push_schema` is not idempotent on
-            // Postgres (`relation "authors" already exists` on the second
-            // run). Resetting drops the database out from under the handle's
-            // pool, so reconnect afterwards. Seeding then uses a fresh tenant
-            // per run regardless.
+            // reruns start empty.
             let pg = Db::builder()
                 .models(toasty::models!(Author, Post, Comment))
                 .connect(&url)
@@ -412,9 +371,6 @@ async fn run_bench(iterations: usize) {
     println!("done (ungated — no PASS/FAIL; the p50 gate follows in a follow-up per GH #171)");
 }
 
-/// The tenant the HTTP mode seeds and serves. The HTTP mode runs with
-/// `Auth::disabled()`, so no signed-in user carries a tenant; the layer below
-/// supplies this value for every `/admin` request.
 const SERVER_TENANT: uuid::Uuid = uuid::Uuid::nil();
 
 /// Supplies the HTTP mode's tenant.
@@ -456,7 +412,6 @@ async fn main() {
         return;
     }
 
-    // Server mode — build DB, seed, start Topcoat
     let mut db = Db::builder()
         .models(toasty::models!(Author, Post, Comment))
         .connect("sqlite::memory:")

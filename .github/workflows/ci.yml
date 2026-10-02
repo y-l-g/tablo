@@ -11,18 +11,12 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-# `target/debug/incremental` measured 28 of 66 GB locally: it busts the
-# shared action-cache budget, so CI disables incremental compilation and
-# trades a slower cold link for cache hits.
+# Incremental compilation busts the shared action-cache budget, so CI disables it.
   CARGO_INCREMENTAL: 0
-# Warning denial lives in [workspace.lints.rust] (Cargo.toml), not in RUSTFLAGS:
-# RUSTFLAGS is hashed into every unit's fingerprint, so setting it here forced a
-# from-scratch rebuild whenever it differed from a contributor's local build.
+# Warning denial lives in [workspace.lints.rust], not RUSTFLAGS: RUSTFLAGS partitions the build
+# cache through every unit's fingerprint.
 
-# Topcoat and Toasty are git dependencies pinned to exact revs in both
-# manifests — nothing to clone here. Bump them deliberately with
-# `cargo update -p topcoat --precise <rev>` and
-# `cargo update -p toasty --precise <rev>`.
+# Topcoat and Toasty are pinned to exact revs; bump via `cargo xtask bump-upstream` (GH #103).
 
 jobs:
   test:
@@ -34,12 +28,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --locked
 
-  # The JS assets are plain browser scripts loaded through `asset!`: no build
-  # step, no dependencies, nothing to install, and the runner's Node runs them
-  # as-is. A job of its own keeps a JS failure attributable to the assets and
-  # off the Rust job's queue. The suites are named rather than globbed: a glob
-  # would silently shrink the run when a suite is renamed, while a missing path
-  # fails the job.
+  # The suites are named rather than globbed: a glob would silently shrink the run when a
+  # suite is renamed, while a missing path fails the job.
   assets:
     name: assets
     runs-on: ubuntu-latest
@@ -73,29 +63,18 @@ jobs:
       - uses: actions/checkout@v7
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
-      # Nothing else here builds the docs: `cargo test` and `cargo clippy` never
-      # run rustdoc, so 44 errors in tablo-core (broken intra-doc links to
-      # private items, unclosed HTML tags, an unparseable Rust code block)
-      # accumulated unnoticed and left the Pages workflow red on master.
-      # `-D warnings` promotes every rustdoc lint to a failure, so the next one
-      # breaks this job instead of printing a warning nobody reads. Workspace
-      # only: the detached benchmarks/* are separate workspaces.
+      # `-D warnings` promotes every rustdoc lint to a failure. Workspace only: the detached
+      # benchmarks/* are separate workspaces.
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
       - name: Install mdBook and mdbook-linkcheck2
         uses: taiki-e/install-action@v2
         with:
           tool: mdbook@0.5.2,mdbook-linkcheck2
-      # docs.yml publishes the guide, but it only runs on master, so a broken
-      # relative link would reach the site before anything caught it. Build the
-      # book here too: it is seconds, and linkcheck fails the build on a bad link.
+      # Build the book here too: docs.yml only runs on master, so linkcheck catches a bad link
+      # first.
       - run: mdbook build docs/guide
 
-  # The quickstart built as a dependent in its own repository builds Tablo:
-  # xtask copies it to the runner's temp dir, rewrites its `path` dependencies
-  # to absolute ones, and runs its tests. A source path, a feature, or a derive
-  # path that resolves only inside this workspace fails here, as does a
-  # stylesheet that misses the classes Tablo's own sources write. Its target
-  # dir is `target/external-check`, inside the cached `target`.
+  # Its target dir is `target/external-check`, inside the cached `target`.
   external:
     name: external
     runs-on: ubuntu-latest
@@ -105,8 +84,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo xtask external-check
 
-# Gates 6 (msrv) and 8 (udeps) run in `.github/workflows/msrv-udeps.yml`,
-# not here: each needs its own toolchain.
+# Gates 6 (msrv) and 8 (udeps) run in `msrv-udeps.yml`: each needs its own toolchain.
 
   fmt:
     name: fmt
@@ -118,7 +96,7 @@ jobs:
       - run: rustup toolchain install nightly-2026-08-24 --profile minimal --component rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Restore topcoat CLI cache
-        # CLI build is ~4 min; cache restores the Cargo.lock-pinned rev.
+        # The cache restores the Cargo.lock-pinned rev.
         id: cache-topcoat
         uses: actions/cache@v6
         with:
@@ -126,24 +104,14 @@ jobs:
           key: topcoat-cli-${{ hashFiles('Cargo.lock') }}
       - name: Install topcoat CLI (for `topcoat fmt`)
         if: steps.cache-topcoat.outputs.cache-hit != 'true'
-        # Install the formatter built from the same topcoat revision the
-        # workspace locks (Cargo.lock) — the version-matched install the CLI
-        # itself recommends ("depends on topcoat 0.6.2, but the topcoat CLI
-        # is 0.7.0"), precise to the rev because the manifests pin an exact
-        # rev. Reading the rev from the lock keeps library and
-        # formatter in lockstep through every `cargo xtask bump-upstream`.
+        # Install the formatter at the Cargo.lock-pinned rev, read from the lock (GH #103).
         run: |
           REV=$(grep -A 2 '^name = "topcoat"$' Cargo.lock | grep -o '#[0-9a-f]\{40\}' | head -1 | cut -c2-)
           test -n "$REV" || { echo "could not read topcoat rev from Cargo.lock"; exit 1; }
           echo "Installing topcoat-cli at locked revision $REV"
           cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli --locked
       - name: topcoat fmt (locked rev, via xtask)
-        # The three format checks — workspace nightly fmt (`fmt --all` covers
-        # every member; the detached packages keep their own stable checks),
-        # detached fmt (benchmarks/tablo, benchmarks/axum-maud,
-        # benchmarks/leptos, examples/quickstart), locked-rev `topcoat fmt`
-        # plus diff guard — run
-        # through `cargo xtask fmt`: one subcommand per job, jobs stay
-        # parallel. The toolchain and CLI installs above stay in CI: xtask
-        # runs the check half only, never the ~4-minute CLI reinstall.
+        # The toolchain and CLI installs stay in CI: xtask runs the check half only.
+        # Covers detached fmt (benchmarks/tablo, benchmarks/axum-maud, benchmarks/leptos,
+        # examples/quickstart).
         run: cargo xtask fmt

@@ -6,9 +6,7 @@ use topcoat::{Result, context::Cx};
 use super::state::current;
 use crate::resource::{RETURN_PARAM, Resource};
 
-/// Enforce tenancy for a tenant-scoped resource: 403 when the request has no
-/// tenant, instead of serving unscoped rows. A no-op for a resource whose
-/// [`tenancy`](Resource::tenancy) is none.
+/// Rejects tenant-scoped requests without a tenant, never serving unscoped rows.
 pub(crate) fn enforce_tenant<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error> {
     if R::tenancy().is_scoped() {
         crate::tenancy::require_tenant(cx)?;
@@ -16,20 +14,12 @@ pub(crate) fn enforce_tenant<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error>
     Ok(())
 }
 
-/// The gate every resource handler runs first: the panel's sign-in
-/// ([`auth::guard`](crate::auth::guard)), then the resource's tenant.
 pub(crate) fn gate<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error> {
     crate::auth::guard(cx)?;
     enforce_tenant::<R>(cx)
 }
 
-/// The request's panel prefix, else the request path's first segment, else
-/// `/admin`.
-///
-/// Every resource URL derives from it as `{prefix}/{slug}`, correct by
-/// construction even when a table renders away from its own list route. A
-/// bare `CxTestBuilder` mounts no panel, so a test rendering under
-/// `/admin/...` still derives `/admin`.
+/// The request's panel prefix, else the request path's first segment, else `/admin`.
 pub(crate) fn panel_prefix(cx: &Cx) -> String {
     current(cx)
         .map(|panel| panel.prefix.clone())
@@ -43,17 +33,11 @@ pub(crate) fn panel_prefix(cx: &Cx) -> String {
         })
 }
 
-/// The list URL for a resource: `{panel prefix}/{slug}`.
 pub(crate) fn list_url(cx: &Cx, slug: &str) -> String {
     format!("{}/{slug}", panel_prefix(cx))
 }
 
-/// The request's `?return=` target, when it is a same-origin path under the
-/// panel prefix ([`safe_next`](crate::auth::safe_next), no `.` or `..`
-/// segment — raw or percent-encoded — that the browser would resolve out of
-/// the prefix, then the prefix check): a relation table's actions carry it so
-/// a write lands back on the record page it started from. Anything else is
-/// ignored, never followed.
+/// Returns the validated `?return=` target under the panel prefix, else `None`.
 pub(crate) fn return_target(cx: &Cx) -> Option<String> {
     let query = topcoat::router::request::uri(cx).query()?;
     let prefix = panel_prefix(cx);
@@ -78,8 +62,6 @@ fn has_dot_segment(target: &str) -> bool {
     })
 }
 
-/// Where a write on the resource `slug` lands: the request's
-/// [`return_target`], else the resource's list.
 pub(crate) fn landing_url(cx: &Cx, slug: &str) -> String {
     return_target(cx).unwrap_or_else(|| list_url(cx, slug))
 }

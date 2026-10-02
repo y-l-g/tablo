@@ -30,23 +30,15 @@ use crate::{
     staff::StaffAuth,
 };
 
-/// The theme's sans font, pulled from Fontsource and self-hosted as a Topcoat
-/// asset.
-///
-/// Registered as the panel's shell font, so the admin shell and every document
-/// `Panel::document` renders link the same typeface.
+/// The theme's sans font.
 const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
-/// How many words `body` holds: whitespace-separated tokens.
-///
-/// Empty bodies hold none.
+/// Counts the whitespace-separated words in `body`.
 pub fn word_count(body: &str) -> usize {
     body.split_whitespace().count()
 }
 
-/// How many minutes `words` take to read at 200 words per minute, rounded up.
-///
-/// Empty bodies read in no minutes.
+/// Counts the minutes `words` take to read at 200 words per minute.
 pub fn read_minutes(words: usize) -> i64 {
     if words == 0 {
         0
@@ -55,14 +47,7 @@ pub fn read_minutes(words: usize) -> i64 {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Resource — single Model → Resource, see CONTEXT.md
-// ---------------------------------------------------------------------------
-
 /// Admin resource for `User`.
-///
-/// A hand-written `Resource` impl: this one declares a custom `Table`, and the
-/// hooks are the declaration, so there is nothing for a derive to fill in.
 pub struct UserResource;
 
 impl Resource for UserResource {
@@ -73,10 +58,6 @@ impl Resource for UserResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::USERS)
     }
 
-    /// The derived controls, arranged into one section: each binding, label
-    /// and control kind comes from `UserForm`, so this only adds what the
-    /// fields cannot say — placeholders, the email rule, and which controls may
-    /// be left empty.
     fn form(dx: &DeclCx) -> Schema {
         let c = UserForm::controls(dx);
         Schema::new(Section::new("Profile").schema((
@@ -84,14 +65,11 @@ impl Resource for UserResource {
             c.email.email().unique().placeholder("ada@example.com"),
             c.role.optional(),
             c.active,
-            // A stored integer: optional, zero or more.
             c.age.optional(),
         )))
     }
 
-    /// A stored integer holds zero or more: a non-number is the typed rule's
-    /// error, and a negative is this rule's. Both render inline with a 200 and
-    /// write nothing, never a 500 from a record fn.
+    /// Refuses a negative age.
     fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors {
         let mut errors = FieldErrors::new();
         if form.age < 0 {
@@ -100,9 +78,7 @@ impl Resource for UserResource {
         errors
     }
 
-    /// Everyone may do everything but write Ken's account: it is SSO-managed
-    /// outside the panel, so the panel never updates or deletes it, while
-    /// reads still flow.
+    /// Refuses writes to Ken's account.
     fn policy() -> impl Policy<User> {
         |_cx: &Cx, ability: Ability<'_, User>| match ability {
             Ability::Update(user) | Ability::Delete(user) => user.name != "Ken Thompson",
@@ -122,8 +98,6 @@ impl Resource for UserResource {
                 TextColumn::computed("Status", |u: &User| {
                     if u.active { "Active" } else { "Inactive" }.to_string()
                 }),
-                // A date's length is known: the column declares it rather
-                // than take a narrow share that clips it on a smaller window.
                 TextColumn::computed("Created", |u: &User| {
                     u.created_at.strftime("%Y-%m-%d").to_string()
                 })
@@ -133,25 +107,18 @@ impl Resource for UserResource {
         .live_search()
     }
 
-    /// The form's controls, read-only: a choice shows its option's label and
-    /// the toggle reads Yes or No.
     fn view(dx: &DeclCx) -> Schema {
         let c = UserForm::controls(dx);
         Schema::new(Section::new("Profile").schema((c.name, c.email, c.role, c.active, c.age)))
     }
 
-    /// Wake the live feed after a committed write, so an open page re-reads the
-    /// users it shows.
+    /// Wakes the live feed after a committed write.
     async fn after_commit(_cx: &Cx, _committed: Committed<User>) -> Result<()> {
         crate::live::notify();
         Ok(())
     }
 }
 
-/// What the user form writes, and the controls it renders: `role` is a choice
-/// over [`Role`], `active` a toggle, the rest text. `role`, `active`, and `age`
-/// are optional controls, so each declares what an emptied control stores: the
-/// create defaults, and zero for a stored integer.
 #[derive(tablo_core::RecordForm)]
 #[form(model = User)]
 pub struct UserForm {
@@ -188,9 +155,6 @@ impl Resource for AuthorResource {
         when(blog_open)
     }
 
-    /// Each author belongs to one tenant: every handler requires a tenant, and
-    /// the framework filters every query on this column and stamps it on
-    /// create, so no `query` override restates it.
     fn tenancy() -> Tenancy<Author> {
         Tenancy::column(Author::fields().tenant_id())
     }
@@ -210,8 +174,6 @@ impl Resource for AuthorResource {
     }
 }
 
-/// What the author form writes. The tenant is the framework's to stamp on
-/// create, so it is not a field.
 #[derive(tablo_core::RecordForm)]
 #[form(model = Author)]
 pub struct AuthorForm {
@@ -219,8 +181,7 @@ pub struct AuthorForm {
     pub email: String,
 }
 
-/// Whether the request's tenant may use the blog: the demo locks
-/// [`BLOCKED_TENANT`] out of every author and post, whatever the ability.
+/// Refuses the blocked tenant.
 fn blog_open(cx: &Cx) -> bool {
     tenant_id(cx) != Some(BLOCKED_TENANT)
 }
@@ -240,15 +201,11 @@ impl Resource for PostResource {
         Schema::new((
             Section::new("Content").schema((
                 c.title.placeholder("A title editors click"),
-                // Prose, so a textarea rather than a one-line input.
-                // Optional so quick draft stubs submit; full stories fill it.
                 c.body
                     .multiline(6)
                     .placeholder("The full story…")
                     .optional(),
             )),
-            // Grouped metadata: lifecycle selects beside the author picker,
-            // titled like the detail page's "Details" panel.
             Group::new().schema((
                 Section::new("Details").schema((
                     Grid::new(2).schema((c.status.optional(), c.featured)),
@@ -259,8 +216,6 @@ impl Resource for PostResource {
                         )
                         .searchable()
                         .label("Author"),
-                    // One media source: the cover is a picked library row, not an
-                    // upload. Optional and single: empty clears the cover.
                     c.cover_id
                         .relationship::<MediaLibrary>(
                             |m: &MediaAsset| m.id,
@@ -272,10 +227,6 @@ impl Resource for PostResource {
                 )),
                 Repeater::new("Tags").schema(c.tags.label("Tag")),
             )),
-            // Embedded **values**: the controls, their flattened names, and the
-            // enum's discriminant all come from the app schema and the type's
-            // own shape — nothing here spells `seo_title`, and no variant is
-            // recovered from which payload columns happen to be filled in.
             Group::new().schema((
                 Section::new("SEO").schema(c.seo),
                 Section::new("Publication").schema(c.publication),
@@ -287,16 +238,12 @@ impl Resource for PostResource {
         "Blog Post".to_string()
     }
 
-    /// The post's title, so the detail heading names the post rather than its
-    /// record key.
+    /// Names the detail heading with the post title.
     fn record_label(_cx: &Cx, record: &Post) -> Option<String> {
         Some(record.title.clone())
     }
 
-    /// The post's public page, linked from the detail and edit headers.
-    ///
-    /// The blog serves published posts only, so an unpublished record links
-    /// nothing: the URL would answer not-found.
+    /// Links the post's public page.
     fn public_url(_cx: &Cx, record: &Post) -> Option<String> {
         if record.status == crate::blog::PUBLISHED {
             Some(format!("/blog/{}", record.id))
@@ -305,14 +252,6 @@ impl Resource for PostResource {
         }
     }
 
-    /// One post, read-only, from the form's own controls, so a field means
-    /// the same thing on both pages.
-    ///
-    /// What is absent, and why: the **author key** (`Uuid`) and the **cover key**
-    /// (`Option<Uuid>`), because a key renders as an id rather than a name —
-    /// the cover's key renders through [`Self::view_content`] — and the
-    /// **comments**, which render as a relation ([`Self::relations`]). The
-    /// publication shows its one date rather than every variant's payload.
     fn view(dx: &DeclCx) -> Schema {
         let c = PostForm::controls(dx);
         Schema::new((
@@ -331,7 +270,7 @@ impl Resource for PostResource {
         ))
     }
 
-    /// The post's computed reading stats and its cover, above its comments.
+    /// Shows the computed reading stats and the cover.
     fn view_content<'a>(cx: &'a Cx, record: &Post) -> Option<topcoat::view::BoxView<'a>> {
         let words = word_count(&record.body);
         let minutes = read_minutes(words);
@@ -354,14 +293,12 @@ impl Resource for PostResource {
         )
     }
 
-    /// Publish drafts from a row or for the selection.
+    /// Publishes drafts from a row or for the selection.
     fn actions() -> Actions<Self> {
         Actions::new().add::<PublishPosts>()
     }
 
-    /// The post's comments: the comments list's own table, narrowed to this
-    /// post, on its detail and edit pages, with a create link that opens the
-    /// comment form with this post chosen.
+    /// Lists the post's comments.
     fn relations() -> Vec<Relation<Post>> {
         vec![Relation::has_many::<CommentResource, _>(
             Comment::fields().post_id(),
@@ -384,21 +321,12 @@ impl Resource for PostResource {
                 TextColumn::r#for(Post::fields().title(), |p: &Post| p.title.clone())
                     .searchable()
                     .sortable(),
-                // a status is narrow by content, not by kind — `r#for`
-                // binds a `String` field, which the framework cannot tell from
-                // a title. Featured and Comments below keep their narrow
-                // default.
                 TextColumn::r#for(Post::fields().status(), |p: &Post| {
                     PostStatus::label_of(&p.status)
                 })
                 .width(ColumnWidth::Narrow),
                 BooleanColumn::r#for(Post::fields().featured(), |p: &Post| p.featured),
-                // The other override direction: a computed column that holds a
-                // name is body text, so it takes a share of the free width.
                 TextColumn::computed("Author", |p: &Post| {
-                    // Loud on missing includes: a silent "-" reads as data.
-                    // The list and the export load author because this column
-                    // includes it, so this fires only if that `.include` goes.
                     debug_assert!(
                         !p.author.is_unloaded(),
                         "the Author column declares `.include(Post::fields().author())`"
@@ -429,10 +357,6 @@ impl Resource for PostResource {
             SelectFilter::r#for(Post::fields().status(), PostStatus::options()),
             TernaryFilter::r#for(Post::fields().featured()),
             DateFilter::r#for(Post::fields().created_at()),
-            // Prebuilt-expression VariantFilter (no embedded enum needed):
-            // the editorial facet, where each option pairs the featured
-            // flag with the lifecycle status — `Promoted` is featured and
-            // published, `Backlog` is a draft that is not featured.
             VariantFilter::r#for(
                 "promoted",
                 "Promoted",
@@ -461,11 +385,7 @@ impl Resource for PostResource {
     }
 }
 
-/// Publish draft posts, from a row or for the selection.
-///
-/// The framework loads the posts through the tenant-scoped query inside its
-/// transaction and checks `View` and `can_run` on each before `run`
-/// writes through the same transaction.
+/// Publishes draft posts.
 pub struct PublishPosts;
 
 impl Action<PostResource> for PublishPosts {
@@ -491,9 +411,6 @@ impl Action<PostResource> for PublishPosts {
     }
 }
 
-/// What the post form writes: every column but the tenant (stamped by the
-/// framework), `created_at` (a model default), and the relations. The embedded
-/// values are written whole.
 #[derive(tablo_core::RecordForm)]
 #[form(model = Post)]
 pub struct PostForm {
@@ -513,17 +430,7 @@ pub struct PostForm {
     pub publication: Publication,
 }
 
-/// Comments resource over `Comment`: the moderation queue.
-///
-/// Comments carry no tenant of their own: each belongs to its post's tenant,
-/// which [`tenancy`](Resource::tenancy) reaches through the relation. The
-/// framework requires a tenant in every handler, filters every query through
-/// the post, and re-checks the chosen post against the posts' tenant-scoped
-/// query inside each write, so a comment cannot be pointed at another tenant's
-/// post.
-///
-/// The queue moderates: its policy allows delete, and bulk delete rides the
-/// framework default that loops `delete_record`.
+/// Moderates comments.
 pub struct CommentResource;
 
 impl Resource for CommentResource {
@@ -537,8 +444,6 @@ impl Resource for CommentResource {
     fn form(dx: &DeclCx) -> Schema {
         let c = CommentForm::controls(dx);
         Schema::new((
-            // Prose, so a textarea rather than a one-line input — the same
-            // shape the post body uses.
             c.body.multiline(4).placeholder("Write a reply…"),
             c.post_id
                 .relationship::<PostResource>(|p: &Post| p.id, |p: &Post| p.title.clone())
@@ -548,17 +453,10 @@ impl Resource for CommentResource {
     }
 
     fn navigation_label() -> String {
-        // "Comments", not "Discussion": the entity is a comment, the
-        // route and model say so, and a discussion — if it means anything here
-        // — would be the set of comments on one post, which is not a record the
-        // panel can list or moderate.
         "Comments".to_string()
     }
 
-    /// A removed comment keeps its row as a placeholder with no content to
-    /// read, so the policy refuses to show it and the post's relation omits
-    /// it. The queue renders no row action for a record it may not view, which
-    /// is the same answer: a placeholder has nothing to edit or delete.
+    /// Hides removed comments.
     fn policy() -> impl Policy<Comment> {
         |_cx: &Cx, ability: Ability<'_, Comment>| match ability {
             Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
@@ -588,8 +486,6 @@ impl Resource for CommentResource {
                         c.post.get().title.clone()
                     }
                 })
-                // a post title is body text, not the narrow badge a
-                // computed column defaults to.
                 .width(ColumnWidth::Wide)
                 .include(Comment::fields().post()),
             ),
@@ -598,7 +494,6 @@ impl Resource for CommentResource {
     }
 }
 
-/// What the comment form writes.
 #[derive(tablo_core::RecordForm)]
 #[form(model = Comment)]
 pub struct CommentForm {
@@ -611,8 +506,7 @@ pub fn router(db: Db) -> Router {
     build_router(db, Some(load_assets()), Some(upload_dir()))
 }
 
-/// Where the showcase writes uploaded bytes: `SHOWCASE_UPLOAD_DIR`, or
-/// `target/showcase-uploads` so a local run works with no configuration.
+/// The directory uploaded bytes are written to.
 pub fn upload_dir() -> PathBuf {
     std::env::var_os("SHOWCASE_UPLOAD_DIR")
         .map(PathBuf::from)
@@ -620,25 +514,9 @@ pub fn upload_dir() -> PathBuf {
 }
 
 /// The URL prefix uploads are served under.
-///
-/// It matches the `serve_dir` route below, and the app owns both ends: the
-/// store decides the path it returns, so the framework never has to guess a
-/// URL convention.
 pub const UPLOAD_URL_PREFIX: &str = "/uploads";
 
-/// The showcase's own uploader: write the bytes into the served directory and
-/// return the URL they are served at.
-///
-/// A demo, not a framework default — the trait is the seam and drivers are the
-/// app's business. The UUID prefix keeps two uploads of `cover.png` apart, and
-/// the framework hands this store a name already sanitized to a basename.
-/// Writing the file is this app's job; swapping in an object store
-/// means replacing this type and nothing else.
-///
-/// The media library's page builds this store too: it parses its own
-/// multipart body, so the sanitized name is not the framework's to guarantee
-/// there — the store applies [`basename`] itself rather than trusting every
-/// caller to have done it.
+/// Writes uploaded bytes into the served directory.
 pub(crate) struct DirUploader {
     dir: PathBuf,
 }
@@ -652,29 +530,16 @@ impl DirUploader {
 impl Uploader for DirUploader {
     async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
         let name = format!("{}-{}", uuid::Uuid::new_v4(), basename(filename));
-        // Failure reasons are rendered to the user, so they say what the user
-        // can act on and never leak the path that failed.
         tokio::fs::create_dir_all(&self.dir)
             .await
             .map_err(|_| "the upload directory is not writable".to_string())?;
         tokio::fs::write(self.dir.join(&name), bytes)
             .await
             .map_err(|_| "the upload could not be written".to_string())?;
-        // The caller stores this string and renders it verbatim as the file's
-        // URL, so it has to be one: the segment is percent-encoded,
-        // or `cover #1.png` would be served as `cover ` plus a fragment, and a
-        // `%22` the browser sent in the filename would decode to a quote the
-        // file on disk does not carry.
         Ok(format!("{UPLOAD_URL_PREFIX}/{}", url_segment(&name)))
     }
 
-    /// Whether the served directory still holds the file a URL names.
-    ///
-    /// The candidate comes from a form the panel re-rendered, so it is a URL
-    /// this store itself produced; the check is a lookup rather than a path
-    /// join — every entry in the store's own root is encoded back to its URL
-    /// form and compared, so a `%2F`, a `..` or an absolute path a client
-    /// submits never reaches the filesystem.
+    /// Reports whether the served directory holds the file a URL names.
     async fn holds(&self, path: &str) -> bool {
         let Some(segment) = path.strip_prefix(UPLOAD_URL_PREFIX) else {
             return false;
@@ -698,19 +563,9 @@ impl Uploader for DirUploader {
 }
 
 /// The longest client filename the showcase keeps, in bytes.
-///
-/// 255 bytes is the common per-component limit on Linux filesystems, and the
-/// store's `{uuid}-` prefix takes 37 of them, so the basename is capped to what
-/// is left. The media library records the name it stores, so the row's
-/// `filename` and the file on disk cannot disagree.
 const MAX_BASENAME_BYTES: usize = 218;
 
-/// Reduce a client-supplied filename to the basename this app stores and shows.
-/// Strips directory components (`../../etc/passwd` → `passwd`), drops control
-/// characters, trims the ends, and caps the byte length preserving the tail, so
-/// the extension survives. The framework sanitizes the names its own form
-/// parser hands an [`Uploader`]; the media library's page parses its own
-/// multipart body, and this is the one rule both callers apply.
+/// Reduces a client-supplied filename to the stored basename.
 pub(crate) fn basename(raw: &str) -> String {
     let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
     let clean: String = base.chars().filter(|c| !c.is_control()).collect();
@@ -718,8 +573,6 @@ pub(crate) fn basename(raw: &str) -> String {
     if trimmed.len() <= MAX_BASENAME_BYTES {
         return trimmed.to_string();
     }
-    // Walk the cut point forward to a char boundary: slicing a multibyte
-    // character would panic on an attacker-controlled filename.
     let mut start = trimmed.len() - MAX_BASENAME_BYTES;
     while !trimmed.is_char_boundary(start) {
         start += 1;
@@ -727,13 +580,7 @@ pub(crate) fn basename(raw: &str) -> String {
     trimmed[start..].to_string()
 }
 
-/// `name` as one URL path segment: everything outside the unreserved set is
-/// percent-encoded (RFC 3986 §2.3).
-///
-/// The store's contract is that the string it returns is fetchable verbatim
-/// and a client filename is arbitrary: a space must not become the
-/// end of the URL, a `#` must not start a fragment, and a `%` must not decode
-/// to something else.
+/// Encodes `name` as one URL path segment.
 fn url_segment(name: &str) -> String {
     use std::fmt::Write as _;
 
@@ -753,17 +600,12 @@ fn url_segment(name: &str) -> String {
 
 pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
     let mut panel = Panel::new("admin")
-        // Staff sign in against the showcase's own table, and each holds a
-        // seat in the blogs (tenants) they work on.
         .auth(Auth::custom(StaffAuth))
         .brand(
             Brand::new("Tablo Blog").logo(
                 "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'%20fill='%236366f1'/%3E%3Ctext%20x='12'%20y='16'%20text-anchor='middle'%20font-size='12'%20fill='white'%20font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E",
             ),
         )
-        // Light by default: the header toggle is the only thing that
-        // turns dark on. `Panel::dark_mode` stays available for an app that
-        // wants a dark-first panel.
         .home::<Dashboard>()
         .resource::<UserResource>()
         .resource::<AuthorResource>()
@@ -771,29 +613,16 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
         .resource::<CommentResource>()
         .page::<MediaLibraryPage>()
         .page::<LiveActivityPage>();
-    // No "Published" saved-view entry: it would point at
-    // `/admin/posts?f.status=published`, i.e. the Blog Posts table with a
-    // filter — the same page twice in the sidebar, and the one arrangement the
-    // shell's path matching highlights twice at once.
-    // Demo credentials stay available for local development via
-    // SHOWCASE_LOGIN_HINT, but the default login page is shippable with no
-    // hint. Empty values install nothing (no empty hint paragraph).
     if let Ok(hint) = std::env::var("SHOWCASE_LOGIN_HINT")
         && !hint.trim().is_empty()
     {
         panel = panel.login_hint(hint);
     }
     if let Some(dir) = uploads {
-        // Both ends of the demo: the store writes into `dir` and
-        // returns `{UPLOAD_URL_PREFIX}/…`, and the panel serves exactly that
-        // prefix from the same directory — which is why the stored path is
-        // fetchable without the framework inventing a URL convention.
         panel = panel
             .serve_dir(format!("{UPLOAD_URL_PREFIX}/{{*file}}"), dir.clone())
             .uploads(DirUploader::new(dir));
     }
-    // The app owns the router: the public blog's pages and the panel's are
-    // discovered and mounted side by side.
     let mut builder = Router::builder().discover().app_context(db);
     if let Some(bundle) = bundle {
         builder = builder.assets(bundle);
@@ -806,8 +635,6 @@ fn load_assets() -> AssetBundle {
     match AssetBundle::load() {
         Ok(bundle) => bundle,
         Err(near_executable) => {
-            // Cargo places test executables in `target/*/deps`, while the
-            // bundle remains beside the package binary in `target/*`.
             let test_bundle = std::env::current_exe()
                 .ok()
                 .and_then(|exe| {

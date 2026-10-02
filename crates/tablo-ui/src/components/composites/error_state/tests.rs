@@ -31,13 +31,10 @@ async fn error_state_renders_title_detail_and_styled_action() {
         html.contains("Something went wrong while loading the records."),
         "detail missing: {html}"
     );
-    // The caller's action reaches the output intact (the classes
-    // that style it are paint; the href is the caller's own markup).
     assert!(
         html.contains("Retry") && html.contains("href=\"/admin/users\""),
         "caller action missing: {html}"
     );
-    // Icon present; its colour is paint.
     assert!(html.contains("<svg"), "icon missing: {html}");
 }
 
@@ -61,9 +58,7 @@ async fn error_state_detail_is_optional_and_attrs_survive() {
         html.contains("Couldn't load Users"),
         "title missing: {html}"
     );
-    // No detail line: the title is the only `<p>` element the component
-    // renders when `detail` is empty. Spelled `<p ` / `<p>` so the icon's
-    // `<path>` cannot count as one.
+    // Spelled `<p ` / `<p>` so the icon's `<path>` cannot count as one.
     assert_eq!(
         html.matches("<p ").count() + html.matches("<p>").count(),
         1,

@@ -1,121 +1,37 @@
 # Detail pages: `Resource::view` and one Schema, read two ways
 
-Date: 2026-09-21 — Status: accepted — Amended: 2026-09-25, 2026-09-28, 2026-09-29, 2026-09-30, 2026-10-01
+Date: 2026-09-21 — Status: accepted
 
 ## Decision
 
-**One Schema, rendered read-only.** `Resource::view(cx) -> Schema` defaults to `Schema::empty()`; a
-resource that declares a view links a `View` row action and serves the page. Rendering threads a
-mode rather than a parallel field set: `Schema::render_readonly` is the entry point and `Mode::View`
-rides `RenderSource`; each field type branches — `TextInput`/`Textarea` render a label and the
-stored value, `Select` resolves a static option label (falling back to the stored value, a
-relationship key included), `FileUpload` renders its path — while layout keeps the structure it
-declares (`Grid` stays a grid, `Section`/`Group` keep their chrome). Error slots are empty in view
-mode by construction: `RenderSource::errors_for` returns nothing in `Mode::View`, the one place that
-rule lives, so a layout cannot forget it and a stored record cannot render as invalid.
+**One Schema, rendered read-only.** `Resource::view(dx: &DeclCx)` defaults to `Schema::empty()`;
+a resource declaring a view links a `View` row action and serves the page. The declaration carries
+the app schema alone; the panel calls it once at build and serves the cached schema. Rendering is
+`Schema::render(cx, Source::view(values))` with `Mode::View` on `RenderSource`; each field binds
+`Field::text`, `Field::choice`, or `Field::file` and renders label plus stored value, while
+`Grid`, `Section`, and `Group` keep their structure. `RenderSource::errors_for` returns nothing in
+`Mode::View`. An embedded enum renders its stored variant's group and the shared columns that
+variant declares.
 
-**`viewed(cx)` is derived, never declared.** `Resource::viewed` is `!Self::view(cx).is_empty()`, so
-the row link, the handler's answer, and the schema that renders the page cannot disagree.
-`Panel::resource` registers the detail route unconditionally — it runs at build with no request, so
-`R::view(cx)` is not declarable there — and the handler 404s a resource that declares no view, which
-is the same answer an unknown id gets.
+**Existence is derived.** Whether the page exists is the cached declarations' `viewed()`, a
+non-empty view schema. `Panel::resource` registers the detail route unconditionally; the handler
+404s a resource with no view, the same answer as an unknown ID.
 
-**The route rides the router's own precedence.** topcoat routes through `matchit`, whose documented
-behavior is that a static segment outranks a parameter one and a longer path outranks a shorter
-prefix — independent of registration order — so `/admin/posts/create` still reaches the create page
-and `/admin/posts/{id}/edit` still reaches the edit page. This is pinned by
-`the_detail_route_does_not_shadow_create_or_edit`.
+**Routes keep precedence.** Topcoat routes through `matchit`: static segments outrank parameters
+and longer paths outrank shorter prefixes, so `/create` and `/{id}/edit` still resolve.
 
-**The page loads through the one query seam.** The detail GET loads `Resource::view_query` under the
-same tenant scope and PK filter the edit GET applies to `query` (ADR-0002, ADR-0018), so tenancy,
-soft-delete scoping, and the 404 for an unknown *or* out-of-scope id come from the seam rather than
-a second implementation. A refused `View` on the loaded record is a 403, not a 404: the record exists and
-this caller may not see it.
+**Loading uses the one query seam.** The GET loads `Resource::view_query` under the same tenant
+scope and PK filter as the edit GET (ADR-0002, ADR-0018), so tenancy and the 404 for unknown or
+out-of-scope IDs come from the seam. A refused `View` is a 403. A view field whose key the values
+lack renders `(missing)` and fails a `debug_assert!`.
 
-**Relations render from the record, beside the Schema.** `Resource::view_query` includes the related
-rows the detail page renders (ADR-0018), so they arrive with the record. They cannot go *in* the
-Schema: `Resource::view(cx)` takes no record — it is a declaration, read at build time as well as
-per request — and a `Schema` renders the record's string projection (one `HashMap<String, String>`)
-while a relation is a list of records, so a relation node would need the render tree to carry a
-record of the caller's type. Instead the detail page has a second, typed half:
-`Resource::view_relations(cx, record) -> Option<BoxView>`, rendered under the Schema's fields, so
-the record arrives with its type intact and a relation renderer can take typed column projections
-with no erasure. That hook is also where the no-N+1 contract lives: it reads the rows the one
-`include` loaded and issues no query of its own; `is_unloaded` is the guard the framework's own
-columns use, and the showcase counts the statements a detail page runs with and without related
-rows.
+**Relations are the related list table.** `Resource::relations() -> Vec<Relation<Self::Model>>`
+declares each `Relation::has_many` by related resource and foreign key. The panel renders each on
+detail and edit pages as the related resource's own `Table` through its scoped query narrowed to
+the owner. Detail relations keep only the View link; edit relations carry writes and a create link
+seeding the foreign key. URL parameters prefix with the related slug; writes carry `?return=`
+followed only under the panel prefix. Free-form record content renders through `view_content`.
 
-## Consequences
-
-- `GET {prefix}/{slug}/{id}` serves a detail page for any resource that declares a `view`; the panel
-  adds the row link, and only for those resources (2026-09-28 amendment, GH #384).
-- A detail page is the Schema *plus* `view_relations`, so a resource with related rows to show
-  declares both; `view` alone is a page of scalar fields.
-- A view binds the same fields a form can — `TextInput::r#for` for `String` lenses, `TextInput::typed`
-  (GH #192) for the rest — while a relation renders through `view_relations` rather than as a Schema
-  field. The showcase documents both where a reader hits them.
-- Values come from `hydrate_form_values`, so a field that hydrates for the form renders on the page; a
-  resource that hydrates nothing renders a view of empty labels, a declaration error the page cannot
-  detect.
-- `Schema::is_empty` is public: `viewed()` reads it, and a caller deciding whether to link a page needs
-  the same answer the framework uses.
-- The tuple limit on `IntoSchema` (four) is visible to consumers: a view with more than four top-level
-  blocks needs a `Group` wrapper.
-
-## Amendment — 2026-09-25
-
-**The tuple ceiling is eight, shared.** The consequence above that fixes the `IntoSchema` limit at
-four — "a view with more than four top-level blocks needs a `Group` wrapper" — is superseded by
-this amendment: `IntoSchema`, `IntoColumns`, `IntoFilters` and `IntoRelationColumns` are each
-generated by one `macro_rules!` invocation per arity 2..=8, so a view with more than eight top-level
-blocks wraps the rest in a `Group`.
-
-**`IntoRelationColumns` takes a flat tuple.** Every element is a `RelationColumn<R>`, so a related
-table spells its columns in one list; a nested tuple such as `(a, (b, c))` does not convert.
-
-## Amendment — 2026-09-28
-
-**Values come from the form's projection.** The consequence "values come from
-`hydrate_form_values`" is superseded by this amendment. A resource renders its detail page from
-`RecordForm::hydrate`, extended with `Resource::view_values` for keys only the view shows
-(ADR-0022); the form's keys win. A `NoForm` resource's projection is empty, so it supplies every key
-through `view_values`, which is `hydrate_form_values` renamed.
-
-## Amendment — 2026-09-30
-
-**One render entry, and a checked key set (GH #392).** `Schema::render(cx, Source::view(values))`
-is the read-only render, and `Schema::render(cx, Source::form(values, errors))` the form's; the
-per-kind field types are one `Field` whose control is text, choice, or file, so a view binds
-`Field::text`, `Field::choice`, and `Field::file`. A view field whose key the values lack renders
-`(missing)` and fails a `debug_assert!`, the contract a list column keeps for an unloaded relation
-(ADR-0011), so the "view of empty labels" consequence above is detected rather than rendered. An
-embedded enum renders only its stored variant's group, and the shared columns that variant declares,
-on a view. `view`, `view_values`, and
-`viewed` stay: like Filament's infolist, the detail page has its own layout, shows keys the form does
-not, and exists for a list-only resource.
-
-## Amendment — 2026-09-30
-
-**Relations are the related resource's list table (GH #408).** The typed second half above —
-`view_relations` rendering an included relation through `render_relation`, `RelationColumn` and
-`MAX_RELATION_ROWS`, with no query of its own — is superseded by this amendment. A resource declares
-`Resource::relations() -> Vec<Relation<Self::Model>>`, each a `Relation::has_many` naming the
-related resource and its foreign key. The panel renders each on the owner's detail and edit pages as
-the related resource's own `Table`, loaded through its scoped query narrowed to the owner, so a
-record's related rows and the related list render through one table vocabulary. The detail page
-stays read-only — its relations keep only the View link, as Filament's view page does — and the edit
-page carries the row and bulk writes and a create link that seeds the foreign key. The relation's URL
-parameters are prefixed with the related slug, and writes started there return to the owner's page
-through a `?return=` the panel follows only under its own prefix. Free-form content read off the record renders through
-`view_content`, which is what remains of the typed half.
-
-## Amendment — 2026-10-01
-
-**Declarations take no request and serve from the build.** The decision's `Resource::view(cx)` is
-`Resource::view(dx: &DeclCx)`: the declaration carries the app schema alone, so it cannot read a
-user, tenant or query string, and the panel calls it once at build, serving the cached schema to
-every request rather than reading it per request. `Resource::viewed(cx)` no longer exists: whether
-the detail page exists is the cached declarations' `viewed()`, a non-empty view schema. A view
-binds the typed builders — `Field::text`, `Field::choice`, `Field::file` — so the consequence's
-`TextInput::r#for` and `TextInput::typed` names are superseded, and a view that shows what the form
-edits starts from the same `controls(dx)`.
+Values come from `RecordForm::hydrate`, extended with `Resource::view_values` for view-only keys;
+the form's keys win. The tuple limit on `IntoSchema`, `IntoColumns`, and `IntoFilters` is eight;
+more top-level blocks wrap in a `Group`.

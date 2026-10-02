@@ -16,15 +16,12 @@ use crate::panel::state::{PanelState, current};
 /// How long a session stays valid: seven days, fixed (ADR-0013).
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
 
-/// The shipped server-side session record (ADR-0013): the SHA-256 hash of the
-/// client token, the user it authenticates (opaque id), the panel that signed
-/// the user in, the tenant the user selected, and its expiry.
-///
-/// The raw token is never stored; a leaked session table contains nothing a
-/// client could present. Register this model alongside the app's user model.
+/// Shipped server-side session record: the SHA-256 hash of the client token,
+/// the user it authenticates, the panel that signed the user in, and its
+/// expiry. The raw token is never stored.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct AuthSession {
-    /// Hex-encoded SHA-256 of the session token (the raw token stays client-side).
+    /// Hex-encoded SHA-256 of the session token.
     #[key]
     pub token_hash: String,
     /// [`PanelUser::user_id`] of the authenticated user.
@@ -33,19 +30,14 @@ pub struct AuthSession {
     /// The prefix of the panel that signed the user in (e.g. `/admin`): the
     /// only panel the session authenticates.
     pub panel: String,
-    /// The tenant the user selected with the tenant switcher. It applies only
-    /// while it is one of the user's [`tenants`](PanelUser::tenants); `None` acts
-    /// for the first.
+    /// The tenant the user selected; `None` acts for the first.
     pub tenant: Option<Uuid>,
-    /// Indexed for the login sweep, whose filter is a range scan on this
-    /// column; an app migrating an existing table adds the index with the
-    /// model's own schema change.
+    /// Indexed for the login sweep's range scan on this column.
     #[index]
     pub expires_at: Timestamp,
     pub created_at: Timestamp,
 }
 
-/// Hex-encode a token hash into its storage key.
 pub(super) fn token_key(hash: &TokenHash) -> String {
     use std::fmt::Write as _;
 
@@ -56,7 +48,6 @@ pub(super) fn token_key(hash: &TokenHash) -> String {
     key
 }
 
-/// Record a new session for `user` on `panel`.
 pub(super) async fn record(
     cx: &Cx,
     session: &session::Session,
@@ -78,7 +69,6 @@ pub(super) async fn record(
     Ok(())
 }
 
-/// Store `tenant` as the tenant the request's session acts for.
 pub(super) async fn select_tenant(cx: &Cx, tenant: Uuid) -> topcoat::Result<()> {
     let Some(hash) = session::token_hash(cx).await? else {
         return Err(topcoat::router::error::forbidden().into());
@@ -93,12 +83,10 @@ pub(super) async fn select_tenant(cx: &Cx, tenant: Uuid) -> topcoat::Result<()> 
     Ok(())
 }
 
-/// Delete the session row a token hash names, if any.
 pub(super) async fn delete_session(cx: &Cx, hash: &TokenHash) -> topcoat::Result<()> {
     delete_session_row(cx, &token_key(hash)).await
 }
 
-/// Delete one stored session row by its hex token-hash key.
 async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
     let mut db = crate::db::db(cx);
     AuthSession::filter(AuthSession::fields().token_hash().eq(key.to_string()))
@@ -109,18 +97,8 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// Revoke every live session of `user_id` (ADR-0013).
-///
-/// Call this whenever a credential changes out from under live sessions —
-/// password reset/change and deactivation alike. Nothing in-core calls it
-/// (there is no password-change flow in the framework); sessions otherwise
-/// stay valid for their full fixed lifetime, so a reset that skips this
-/// leaves a stolen session usable. A password-reset flow must call it,
-/// and custom `Authenticator` apps own the same obligation.
-///
-/// On a panel's request it revokes the sessions that panel issued, since
-/// another panel's `user_id` may name someone else; outside any panel it
-/// revokes `user_id`'s sessions on every panel.
+/// Revokes every live session of `user_id` for the current panel, or on every
+/// panel outside any panel; call it whenever a credential changes.
 ///
 /// # Errors
 ///
@@ -146,14 +124,7 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
 /// login from deleting an unbounded number of rows.
 pub(super) const SESSION_SWEEP_BATCH: usize = 500;
 
-/// Drop up to [`SESSION_SWEEP_BATCH`] expired session rows, whoever owns them.
-///
-/// [`resolve`] purges a row when its token is looked up expired, so a row whose
-/// token is never presented again stays in the table. A successful
-/// login is where the sweep runs, before the new row: a visitor who never signs
-/// in does not reach it. Toasty's `Delete` carries no `LIMIT`, so the bound
-/// comes from selecting the keys first, and the select rides `expires_at`'s
-/// index.
+/// Drops up to [`SESSION_SWEEP_BATCH`] expired session rows on successful login.
 pub(super) async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     let now = Timestamp::now();
     let mut db = crate::db::db(cx);
@@ -168,8 +139,7 @@ pub(super) async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     if expired.is_empty() {
         return Ok(());
     }
-    // The expiry is re-read here: the select and the delete are two statements,
-    // so a row whose lifetime was extended between them is no longer expired.
+    // The expiry is re-checked: the select and the delete are two statements.
     AuthSession::filter(
         AuthSession::fields()
             .token_hash()
@@ -183,8 +153,8 @@ pub(super) async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// The request's live session row, lazily and without touching the database
-/// when no session cookie is present. An expired row is purged on the way out.
+/// Returns the request's live session row, purging it when expired and reading
+/// nothing when no session cookie is present.
 pub(super) async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>> {
     let Some(hash) = session::token_hash(cx).await? else {
         return Ok(None);
@@ -206,9 +176,8 @@ pub(super) async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>>
     Ok(Some(row))
 }
 
-/// The user `row` signs in to `panel` through `authenticator`. A row naming a
-/// user who no longer authenticates (deleted or deactivated) is purged, so
-/// removal is real (US11).
+/// Resolves `row` to its user, purging the row when the user no longer
+/// authenticates.
 pub(super) async fn session_user(
     cx: &Cx,
     row: AuthSession,
@@ -232,8 +201,8 @@ pub(super) async fn session_user(
     }
 }
 
-/// Resolve the request's session into `panel`'s user. A session another panel
-/// issued resolves to no one here, and stays valid there.
+/// Resolves the request's session into `panel`'s user; a session another panel
+/// issued resolves to no one here and stays valid there.
 pub(super) async fn resolve(
     cx: &Cx,
     panel: &Arc<PanelState>,

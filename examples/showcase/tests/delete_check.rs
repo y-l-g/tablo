@@ -21,10 +21,6 @@ async fn delete_requires_confirmation_and_deletes() {
     let delete_url = format!("/admin/users/{}/delete", id);
     let csrf = uuid::Uuid::new_v4().to_string();
 
-    // The list renders a Delete link that opens the confirmation dialog
-    // (`?delete=<key>`) — no per-row POST form, no navigation to open. The
-    // row action is destructive, matching the bulk Delete and
-    // the dialog's confirm.
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
     assert!(
@@ -32,30 +28,21 @@ async fn delete_requires_confirmation_and_deletes() {
         "list should link the delete dialog for the row, got {html}"
     );
     let row_delete = tag_with(&html, &format!("delete={id}"));
-    // An icon control: the label rides `aria-label`.
     assert!(
         row_delete.contains("aria-label=\"Delete\""),
         "row Delete must name itself, got {row_delete}"
     );
-    // The control keeps the `?delete=` opener as the no-JS fallback, which
-    // renders the same dialog open with the action already set.
     let href = attr_value(row_delete, "href");
     assert!(
         href.starts_with("/admin/users?") && href.ends_with(&format!("delete={id}")),
         "the control must keep its fallback href, got {href}"
     );
-    // The control opens the table's one dialog in place: it names
-    // that dialog and carries this record's POST target, so the click costs no
-    // navigation and the dialog's Delete posts to the clicked row.
     let dialog_id = attr_value(row_delete, "data-row-delete-trigger");
     assert_eq!(
         attr_value(row_delete, "data-row-delete-action"),
         format!("/admin/users/{id}/delete"),
         "the control must carry the row's POST target, got {row_delete}"
     );
-    // The dialog itself ships closed — an ordinary list page renders no open
-    // dialog — and takes its action from the control, not from the server. One
-    // dialog for the page: the streamed table carries none of its own.
     assert_eq!(
         html.matches(&format!("id=\"{dialog_id}\"")).count(),
         1,
@@ -72,8 +59,6 @@ async fn delete_requires_confirmation_and_deletes() {
         "the closed dialog takes its action from the row control, got {form}"
     );
 
-    // ?delete=<id> renders the alert dialog on the list page: destructive
-    // confirm, Cancel, and the confirmed POST target.
     let resp = client.get(&format!("/admin/users?delete={id}")).await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
@@ -82,10 +67,6 @@ async fn delete_requires_confirmation_and_deletes() {
         dialog.contains("open=\"\""),
         "?delete= must render the row dialog open, got {dialog}"
     );
-    // The open one is the only one: the streamed table's shard output carries
-    // no dialog of its own, so the live page's eager copy stands
-    // alone. A second copy would duplicate the dialog's ids and give the morph
-    // one to replace mid-dismissal.
     assert_eq!(
         html.matches(&format!("id=\"{dialog_id}\"")).count(),
         1,
@@ -96,8 +77,6 @@ async fn delete_requires_confirmation_and_deletes() {
         "role=\"alertdialog\"",
         "Delete this record?",
         "data-dialog-close",
-        // URL-driven dialogs carry the marker dialog.js mirrors `?open=`
-        // through; signal-driven dialogs do not.
         "data-dialog-open-param=\"open\"",
         "bg-destructive",
         action.as_str(),
@@ -105,8 +84,6 @@ async fn delete_requires_confirmation_and_deletes() {
     ] {
         assert!(html.contains(needle), "dialog missing {needle} in {html}");
     }
-    // Cancel is a button: dismissal closes in place instead of
-    // navigating to the list URL.
     let from_title = &html[html
         .find("Delete this record?")
         .expect("the row dialog's title")..];
@@ -116,14 +93,10 @@ async fn delete_requires_confirmation_and_deletes() {
         "the row dialog's Cancel must be a button, got {cancel}"
     );
 
-    // dialog.js mirrors Escape/backdrop dismissal into the URL; the server
-    // honors it so a reload stays closed.
     let resp = client
         .get(&format!("/admin/users?delete={id}&open=false"))
         .await;
     let html = body_string(resp).await;
-    // The row dialog specifically: the page also carries the bulk bar's own
-    // confirm dialog, which is unrelated to `?delete=`/`?open=`.
     let dialog = tag_with(&html, &format!("id=\"{dialog_id}\""));
     assert!(
         !dialog.contains("open=\"\""),
@@ -134,8 +107,6 @@ async fn delete_requires_confirmation_and_deletes() {
         "a closed dialog has no dismissal to mirror, got {dialog}"
     );
 
-    // POST without the dialog's confirmation marker is malformed now that
-    // the confirmation page is gone.
     let resp = client
         .csrf(&csrf)
         .post_form(&delete_url, format!("csrf_token={csrf}"))
@@ -147,7 +118,6 @@ async fn delete_requires_confirmation_and_deletes() {
         resp.status()
     );
 
-    // POST with confirm should delete and redirect with notification
     let resp = client
         .csrf(&csrf)
         .post_form(&delete_url, format!("confirm=1&csrf_token={csrf}"))
@@ -163,8 +133,6 @@ async fn delete_requires_confirmation_and_deletes() {
         "redirect to list, got {}",
         loc
     );
-    // Post/Redirect/Get with one-time semantics (#126): 303, flash
-    // cookie on the redirect, clean Location.
     assert_eq!(resp.status(), 303, "a completed delete is a 303 PRG");
     assert!(
         !loc.contains("notification"),
@@ -177,7 +145,6 @@ async fn delete_requires_confirmation_and_deletes() {
         "the flash carries the action, got {flash}"
     );
 
-    // Check DB: user should be gone, and only that one.
     assert_eq!(
         user_count(&db).await,
         before - 1,
@@ -192,7 +159,6 @@ async fn delete_requires_confirmation_and_deletes() {
         .unwrap();
     assert!(gone.is_none(), "deleted user should be gone");
 
-    // Follow redirect carrying the flash cookie and check the toast
     let resp2 = client.cookies(&response_cookies(&resp)).get(loc).await;
     let html2 = body_string(resp2).await;
     assert!(
@@ -229,18 +195,12 @@ async fn delete_404_for_an_unknown_id() {
     );
 }
 
-/// The real record is untouched too: a forged POST on an existing id must
-/// not reach the delete either.
 #[tokio::test]
 async fn forged_delete_runs_no_record_query() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use tablo_core::{Resource, Table, TextColumn};
 
-    // Every load (find_by_key, the tx fetch) starts from the tenant-scoped
-    // query, which calls the resource's `query` override the counter sits on.
-    // A counter there proves "no find_by_key query observed" (acceptance)
-    // instead of inferring it from a status.
     static QUERIES: AtomicUsize = AtomicUsize::new(0);
     fn counted_query(_cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Dummy>> {
         QUERIES.fetch_add(1, Ordering::SeqCst);
@@ -302,7 +262,6 @@ async fn forged_delete_runs_no_record_query() {
     let csrf = uuid::Uuid::new_v4().to_string();
     let cookie_mismatch = uuid::Uuid::new_v4().to_string();
 
-    // A valid flow consults the query seam (the counter is live).
     let resp = client
         .csrf(&csrf)
         .post_form(&delete_url, format!("confirm=1&csrf_token={csrf}"))
@@ -339,8 +298,6 @@ async fn forged_delete_runs_no_record_query() {
 }
 #[tokio::test]
 async fn delete_sso_managed_user_is_forbidden() {
-    // Row-level Policy over HTTP: Ken's SSO-managed account cannot be
-    // deleted from the panel, while every other row still can.
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -373,10 +330,6 @@ async fn delete_sso_managed_user_is_forbidden() {
     );
 }
 
-/// The in-place delete path is client-side only: both confirms opt
-/// in through `data-mutation-submit`, and without JavaScript the markup is the
-/// ordinary POST it always was — same method, same action, same 303 the
-/// redirect test above pins.
 #[tokio::test]
 async fn delete_forms_opt_in_without_changing_the_post() {
     let db = seeded_db().await;
@@ -416,8 +369,6 @@ async fn delete_forms_opt_in_without_changing_the_post() {
     );
 }
 
-/// The opening tag of the element carrying `marker`: from the nearest `<`
-/// before it to its closing `>`.
 fn tag_with<'a>(html: &'a str, marker: &str) -> &'a str {
     let at = html
         .find(marker)
@@ -427,7 +378,6 @@ fn tag_with<'a>(html: &'a str, marker: &str) -> &'a str {
     &html[start..=end]
 }
 
-/// The value of `name="…"` inside `tag`.
 fn attr_value<'a>(tag: &'a str, name: &str) -> &'a str {
     let at = tag
         .find(&format!("{name}=\""))

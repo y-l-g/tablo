@@ -65,14 +65,10 @@ async fn table_search_filters_via_column() {
     let rows = User::filter(expr).exec(&mut db).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Ada");
-    // Empty term → None
     assert!(col.search_expr("").is_none());
     assert!(col.search_expr("   ").is_none());
 }
 
-/// The panel's page-owned seam must attach the chrome the resource
-/// declares. `bulk_enabled` is the witness and is private to this module,
-/// which is why the test lives here.
 #[tokio::test]
 async fn wired_table_carries_the_declared_action_chrome() {
     struct ChromeResource;
@@ -100,8 +96,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    // The wiring derives the action URLs from the request path, so the Cx
-    // needs one; a bare builder has no request for `panel_prefix` to read.
+    // The wiring derives the action URLs from the request path, so the Cx needs one.
     let parts = http::Request::builder()
         .uri("/admin/dummies")
         .body(())
@@ -112,8 +107,6 @@ async fn wired_table_carries_the_declared_action_chrome() {
         .app_context(db)
         .request_context(parts)
         .build();
-    // The declaration alone carries no chrome: `Resource::table` is bare,
-    // so a table that renders action links comes from the panel's wiring.
     assert!(!ChromeResource::table().bulk_enabled());
     let wired = crate::panel::wired_table::<ChromeResource>(&cx);
     assert!(
@@ -149,7 +142,6 @@ fn table_search_expr_ors_across_searchable_columns() {
 
 #[test]
 fn table_order_by_returns_first_sortable() {
-    // distinct names — title sortable + status plain.
     let tasks_table = Table::<Task>::new(
         |t| t.id.to_string(),
         (
@@ -165,8 +157,6 @@ fn table_order_by_returns_first_sortable() {
     assert!(table_none.order_by(false).is_none());
 }
 
-/// A page of no rows is a misdeclaration, refused where it is written: the
-/// panel calls `Resource::table` at build, so this surfaces at boot.
 #[test]
 fn paginate_records_a_zero_page_size() {
     let errors = Table::<User>::new(
@@ -190,12 +180,8 @@ fn table_order_bys_single_sort_column() {
         TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
     );
     let orders = users_table.order_bys_for(&TableState::default());
-    // Single sortable column, no app-level PK suffix — toasty's engine
-    // appends the physical PK columns to ambiguous cursor orderings
-    // internally.
     assert_eq!(orders.len(), 1, "sortable column only, got {orders:?}");
-    // No sortable column → the PK alone, the deterministic order cursor
-    // pagination needs.
+    // No sortable column → the PK alone.
     let table_none = Table::<User>::new(
         |u| u.id.to_string(),
         TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
@@ -226,7 +212,6 @@ fn order_bys_for_resolves_sort_param_with_fallbacks() {
     let orders = sorted.order_bys_for(&state);
     assert_eq!(orders.len(), 1, "sort column only, got {orders:?}");
 
-    // Unknown sort column → declared default (name asc)
     let state = TableState {
         sort: Some(Sort {
             column: "nope".to_string(),
@@ -236,7 +221,6 @@ fn order_bys_for_resolves_sort_param_with_fallbacks() {
     };
     assert_eq!(sorted.order_bys_for(&state).len(), 1);
 
-    // No sort at all → declared default
     assert_eq!(sorted.order_bys_for(&TableState::default()).len(), 1);
 
     // No sortable column → PK-only deterministic order
@@ -271,7 +255,7 @@ async fn table_page_round_trips_real_cursors() {
     );
     let mut db = crate::db::db(&cx);
 
-    // Page 1 of 1-per-page: full page → real next cursor.
+    // Page 1 of 1-per-page.
     let page1 = users_table
         .order_bys_for(&TableState::default())
         .iter()
@@ -285,7 +269,6 @@ async fn table_page_round_trips_real_cursors() {
     assert_eq!(tp1.rows[0].name, "Ada");
     let cursor = tp1.next_cursor.expect("full page has a next cursor");
 
-    // The encoded cursor resumes the walk without skipping tied rows.
     let tp1_decoded = crate::cursor::decode(&cursor).unwrap();
     let page2 = User::all()
         .order_by(User::fields().name().asc())
@@ -300,9 +283,6 @@ async fn table_page_round_trips_real_cursors() {
 
 #[tokio::test]
 async fn table_renders_inside_the_boundary_region() {
-    // Core owns the boundary contract; the showcase owns HTTP wiring, and
-    // the topcoat `#[memoize]` half stays upstream. The region is
-    // unconditional, so the table always lands where a morph can swap it.
     use topcoat::view::ViewExt;
 
     let cx = CxTestBuilder::new().build();
@@ -334,8 +314,6 @@ async fn table_renders_inside_the_boundary_region() {
 
 #[test]
 fn unapplied_filters_flags_unknown_keys_and_rejected_values() {
-    // typo'd keys and allowlist-missed values must be visible,
-    // never silently unfiltered.
     let tbl = status_table();
     assert!(tbl.unapplied_filters(&filters_state(&[])).is_empty());
     assert!(
@@ -355,10 +333,6 @@ fn unapplied_filters_flags_unknown_keys_and_rejected_values() {
 
 #[test]
 fn unapplied_filters_flags_dropped_filters() {
-    // Filters the parse drops (past the cap, too long, or the retired
-    // `filters=` spelling) read as their own reason, so the list banner
-    // explains itself and the export's 400 is the fail-closed guard instead of
-    // a silent drop.
     let tbl = status_table();
     let too_many = std::iter::once("f.status=published".to_string())
         .chain((0..crate::resource::state::MAX_FILTERS).map(|i| format!("f.k{i}=v")))
@@ -381,9 +355,6 @@ fn unapplied_filters_flags_dropped_filters() {
 
 #[test]
 fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
-    // `all` is the documented TernaryFilter no-op — it selects
-    // no predicate AND is never flagged, so the list shows no warning
-    // and the export (which refuses on any unapplied filter) stays 200.
     let tbl = Table::<Task>::new(
         |t| t.id.to_string(),
         TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
@@ -408,10 +379,6 @@ fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
 
 #[tokio::test]
 async fn filter_banner_reports_unfiltered_when_nothing_applies() {
-    // an invalid-only request applies no predicate, so the
-    // banner must say "showing unfiltered results" — "other filter(s)
-    // still apply" would be the lie. Mixed valid+invalid keeps the other
-    // filters.
     use topcoat::view::ViewExt;
     let cx = CxTestBuilder::new().build();
     let tbl = status_table();
@@ -437,9 +404,6 @@ async fn filter_banner_reports_unfiltered_when_nothing_applies() {
     );
 }
 
-/// A column source that yields none: the one way to reach the
-/// constructor's column guard now that every shipped [`IntoColumns`] impl
-/// yields at least one column.
 struct NoColumns;
 
 impl<M> IntoColumns<M> for NoColumns {
@@ -461,9 +425,6 @@ fn empty_column_set_is_misdeclared() {
 
 #[test]
 fn duplicate_column_name_is_misdeclared_on_field_computed_collision() {
-    // computed("Status") derives name "status", colliding with
-    // the field column's name — the TextColumn::name namespace must stay
-    // unique even though computeds are never sortable today.
     let errors = Table::<Task>::new(
         |t| t.id.to_string(),
         (
@@ -482,8 +443,6 @@ fn duplicate_column_name_is_misdeclared_on_field_computed_collision() {
 
 #[test]
 fn duplicate_column_name_is_misdeclared_on_case_only_computed_collision() {
-    // computed names are label.to_lowercase(), so labels
-    // differing only by case still collide.
     let errors = Table::<User>::new(
         |u| u.id.to_string(),
         (
@@ -502,7 +461,6 @@ fn duplicate_column_name_is_misdeclared_on_case_only_computed_collision() {
 
 #[test]
 fn duplicate_column_name_is_misdeclared_on_duplicate_field() {
-    // same guard covers two bindings of one field.
     let errors = Table::<User>::new(
         |u| u.id.to_string(),
         (
@@ -521,9 +479,6 @@ fn duplicate_column_name_is_misdeclared_on_duplicate_field() {
 
 #[test]
 fn duplicate_filter_name_is_misdeclared_on_duplicate_field() {
-    // the transport names a filter by its field, and the parser
-    // keeps the first value for a duplicated key, so two filters on one
-    // field would silently drop one. Refuse the declaration instead.
     let errors = Table::<Task>::new(
         |t| t.id.to_string(),
         TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
@@ -541,8 +496,6 @@ fn duplicate_filter_name_is_misdeclared_on_duplicate_field() {
     );
 }
 
-/// Rendering a misdeclared table fails with its declaration errors rather
-/// than a sort link or filter that lies.
 #[tokio::test]
 async fn a_misdeclared_table_fails_to_render() {
     let table = Table::<User>::new(
@@ -591,12 +544,6 @@ fn paged_users_table(per_page: usize) -> Table<User> {
 
 #[tokio::test]
 async fn full_walk_reaches_every_row_exactly_once_without_phantoms() {
-    // prev/next existence must be exact at every boundary — no
-    // phantom links to empty pages, and no skipped rows. A `LIMIT
-    // per_page+1` fold with the extra row trimmed would anchor the next
-    // link past the extra row (the engine derives cursors from the last
-    // *fetched* row), dropping every `(per_page+1)`th row from forward
-    // walks — this walk fails loudly if that ever lands.
     let cx = seeded_users(&["u01", "u02", "u03", "u04", "u05"]).await;
     let tbl = paged_users_table(2);
     let query = || toasty::stmt::Query::<List<User>>::all();
@@ -643,9 +590,6 @@ async fn full_walk_reaches_every_row_exactly_once_without_phantoms() {
 
 #[tokio::test]
 async fn exact_boundary_pages_carry_exact_cursors() {
-    // a full page sitting exactly at the boundary (4 rows,
-    // `paginate(2)`) must report no next page — the engine's optimistic
-    // `next_cursor` alone would be a phantom link to an empty page.
     let cx = seeded_users(&["u01", "u02", "u03", "u04"]).await;
     let tbl = paged_users_table(2);
     let query = || toasty::stmt::Query::<List<User>>::all();
@@ -678,12 +622,6 @@ async fn exact_boundary_pages_carry_exact_cursors() {
 }
 
 /// Counts sqlite driver executions inside the `gh172-budget` marker span.
-/// Tracing caches per-callsite interest globally at first use: a sibling
-/// test executing first pins the driver's callsite as `never`, after
-/// which no thread-local subscriber can observe it. So the budget test
-/// installs this as the *global* default once (registration then sticks
-/// at `always`) and attributes execs by span — sibling tests' execs fall
-/// outside the marker span and are ignored.
 struct BudgetState {
     count: std::sync::atomic::AtomicUsize,
     next_span: std::sync::atomic::AtomicU64,
@@ -773,10 +711,7 @@ impl tracing::Subscriber for BudgetState {
 static BUDGET_INSTALL: std::sync::OnceLock<std::sync::Arc<BudgetState>> =
     std::sync::OnceLock::new();
 
-/// Install the budget counter as the process-global default (once) and
-/// hand back its handle. Later interest-cache state cannot regress: no
-/// other subscriber exists in this binary, so the driver's callsite stays
-/// `always` from here on.
+/// Install the budget counter as the process-global default.
 fn install_budget_counter() -> std::sync::Arc<BudgetState> {
     BUDGET_INSTALL
         .get_or_init(|| {
@@ -794,14 +729,6 @@ fn install_budget_counter() -> std::sync::Arc<BudgetState> {
 
 #[tokio::test(flavor = "current_thread")]
 async fn full_page_costs_main_plus_single_direction_probe() {
-    // a full page costs the main fetch plus exactly one `LIMIT
-    // 1` existence probe — next on forward/first landings, prev on
-    // backward landings (each direction probes only the edge that can
-    // lie). A short forward page costs the main fetch alone. Counts are
-    // calibrated in-test against bare toasty execs, so no
-    // engine-internal constant is pinned. `current_thread`: the marker
-    // span is entered and polled on one thread (no hops), so the
-    // thread-local attribution below holds.
     use std::sync::atomic::Ordering;
     let cx = seeded_users(&["u01", "u02", "u03", "u04"]).await;
     let tbl = paged_users_table(2);
@@ -815,7 +742,6 @@ async fn full_page_costs_main_plus_single_direction_probe() {
     };
     let ordered = || User::all().order_by(User::fields().name().asc());
     let mut db = crate::db::db(&cx);
-    // Baselines: one bare main-shaped exec and one bare probe-shaped exec.
     count_around(true);
     let bare_main = ordered().paginate(2).exec(&mut db).await.unwrap();
     let bare_main_cost = count_around(false);
@@ -848,8 +774,7 @@ async fn full_page_costs_main_plus_single_direction_probe() {
         "full page must cost exactly main + one next probe"
     );
     assert_eq!(first.rows.len(), 2);
-    // Short terminal page: main alone, no probe (paginate(3) over 4
-    // rows ends on a 1-row page).
+    // Short terminal page: main alone, no probe.
     let tbl3 = paged_users_table(3);
     count_around(true);
     let head = TablePage::load(
@@ -884,8 +809,6 @@ async fn full_page_costs_main_plus_single_direction_probe() {
         short_cost, bare_short_cost,
         "short page must cost exactly one bare fetch (no probe)"
     );
-    // Backward landing on a full page: main + exactly one prev probe
-    // (pp=2 table: page 2 [u03,u04], then back to full page 1).
     let p1 = TablePage::load(
         &cx,
         &tbl,
@@ -941,11 +864,6 @@ async fn full_page_costs_main_plus_single_direction_probe() {
 
 #[tokio::test]
 async fn stale_cursor_is_marked_for_retry() {
-    // a token cut from another ordering decodes but the engine
-    // refuses the statement (the cursor's field count no longer matches
-    // the query's `ORDER BY`). That failure is the cursor's, so it carries
-    // a cursor marker and the retry drops pagination instead of repeating
-    // the identical failing request forever.
     use toasty::stmt::Value;
     use toasty_core::stmt::ValueRecord;
 
@@ -1008,17 +926,14 @@ async fn stale_cursor_is_marked_for_retry() {
         "the refusal is not a decode failure, got {error}"
     );
 
-    // A transient failure keeps the cursor: a failure the cursor
-    // did not cause carries no marker, so `retry_url_for_error` keeps the
-    // pagination it was given.
+    // A transient failure keeps the cursor.
     let transient = crate::error::unavailable("connection reset");
     assert!(
         !crate::error::TabloError::is_cursor(&transient),
         "only cursor failures drop pagination on retry"
     );
 
-    // A cursor cut from this query's own ordering round-trips: the guard
-    // marks a rejected cursor, not every request that carries one.
+    // A cursor cut from this query's own ordering round-trips.
     let first = TablePage::load(
         &cx,
         &table(),

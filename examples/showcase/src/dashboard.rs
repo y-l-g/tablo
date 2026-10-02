@@ -32,8 +32,6 @@ async fn stat<R: Resource>(cx: &Cx, glyph: IconData) -> Option<Stat> {
         return None;
     }
     let url = tablo_core::url::resource::<R>(cx)?;
-    // The list's own scoped query, so the tile counts exactly the rows the
-    // list would page through.
     let count = match scoped_query::<R>(cx) {
         Ok(query) => query.count().exec(&mut db(cx)).await.ok(),
         Err(_) => None,

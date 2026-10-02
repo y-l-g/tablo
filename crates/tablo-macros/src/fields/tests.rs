@@ -1,6 +1,5 @@
 use super::*;
 
-/// The attributes of the first field of the struct `source` declares.
 fn attrs(source: &str, derive: Derive) -> syn::Result<FormAttrs> {
     let input: syn::DeriveInput = syn::parse_str(source).expect("the derive input parses");
     let syn::Data::Struct(data) = &input.data else {
@@ -21,8 +20,6 @@ fn refusal(source: &str, derive: Derive) -> String {
     }
 }
 
-/// `embed` is the one classifier both derives read; nothing else marks a
-/// field embedded.
 #[test]
 fn embed_marks_an_embedded_value_in_both_derives() {
     for derive in [Derive::Embedded, Derive::Record] {
@@ -35,8 +32,6 @@ fn embed_marks_an_embedded_value_in_both_derives() {
     }
 }
 
-/// Each derive reads its own keys: a key the other derive owns is as unknown
-/// as a typo, so it cannot be a silent no-op.
 #[test]
 fn a_key_the_derive_does_not_read_is_refused() {
     let message = refusal(

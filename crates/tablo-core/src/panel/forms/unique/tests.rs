@@ -4,7 +4,6 @@ use topcoat::router::Body;
 use super::*;
 use crate::panel::test_support::{Tagged, TaggedResource, mount, panel_for, response_html};
 
-/// The messages `errors` carries for `key`, in the order it added them.
 fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
     errors
         .iter()
@@ -60,7 +59,6 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
     let mut values = HashMap::new();
     values.insert("email".to_string(), "a@b.c".to_string());
 
-    // Create: duplicate → inline error on the field, label-derived.
     let errors =
         check_unique::<SubscriberResource>(&cx, &schema, &values, &HashMap::new(), &mut ex)
             .await
@@ -71,7 +69,6 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         "duplicate must be flagged, got {errors:?}"
     );
 
-    // Fresh value → no error.
     let mut fresh = HashMap::new();
     fresh.insert("email".to_string(), "other@b.c".to_string());
     let errors = check_unique::<SubscriberResource>(&cx, &schema, &fresh, &HashMap::new(), &mut ex)
@@ -79,7 +76,6 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         .unwrap();
     assert!(errors.is_empty(), "fresh value must pass, got {errors:?}");
 
-    // Edit: the record's own unchanged value is not a duplicate.
     let mut current = HashMap::new();
     current.insert("email".to_string(), "a@b.c".to_string());
     let errors = check_unique::<SubscriberResource>(&cx, &schema, &values, &current, &mut ex)
@@ -90,7 +86,6 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         "own unchanged value must be skipped, got {errors:?}"
     );
 
-    // Edit: changed to someone else's value → flagged again.
     let mut changed_current = HashMap::new();
     changed_current.insert("email".to_string(), "old@b.c".to_string());
     let errors =
@@ -103,9 +98,6 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         "changed-to-duplicate must be flagged, got {errors:?}"
     );
 
-    // Empty submits are never probed: a `unique` field is
-    // required, so validation has already refused the submit — on a field
-    // whose `.optional()` was overridden, too, in either call order.
     let mut empty = HashMap::new();
     empty.insert("email".to_string(), "   ".to_string());
     let optional_schema = Schema::new(
@@ -123,11 +115,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
     );
 }
 
-/// At the layer below the handler, an explicitly `unique()` field
-/// is required even when `.optional()` follows it, validation says so, and
-/// the probe stays out of the empty case. What the two submits *write* is
-/// pinned end to end by
-/// [`two_empty_submits_on_a_unique_field_re_render_and_write_nothing`].
+/// An explicitly `unique()` field stays required even when marked `.optional()`.
 #[tokio::test]
 async fn unique_field_is_required_however_it_is_marked() {
     use topcoat::context::CxTestBuilder;
@@ -167,9 +155,6 @@ async fn unique_field_is_required_however_it_is_marked() {
     let cx = CxTestBuilder::new().app_context(db.clone()).build();
     let mut ex = crate::db::db(&cx);
 
-    // Declared `.optional()` and still required: uniqueness implies
-    // presence, so the declaration cannot promise an empty value the index
-    // refuses to hold twice.
     let schema = Schema::new(
         Field::text(Subscriber::fields().email())
             .unique()
@@ -183,9 +168,6 @@ async fn unique_field_is_required_however_it_is_marked() {
         "an empty unique field must fail validation as required"
     );
 
-    // Validation owns the empty case, so the probe adds nothing and no
-    // query runs — this is what keeps the second empty submit off the
-    // unique index.
     let errors = check_unique::<SubscriberResource>(&cx, &schema, &first, &HashMap::new(), &mut ex)
         .await
         .unwrap();
@@ -194,8 +176,6 @@ async fn unique_field_is_required_however_it_is_marked() {
         "an empty unique submit must not be probed, got {errors:?}"
     );
 
-    // The submit never reaches the write, so the stored table stays empty
-    // and the second empty submit cannot collide with the first.
     let mut db_check = db;
     let stored = Subscriber::all().exec(&mut db_check).await.unwrap();
     assert!(
@@ -205,10 +185,7 @@ async fn unique_field_is_required_however_it_is_marked() {
     );
 }
 
-/// uniqueness comes from the lens as well as the builder
-/// (`#[unique]` → `lens_field_unique`), so a field that was never marked by
-/// hand is required too — the rule is a property of the field, not of the
-/// declaration style.
+/// Lens-derived `#[unique]` fields are required without a `.unique()` call.
 #[tokio::test]
 async fn lens_derived_unique_is_required_without_a_unique_call() {
     use topcoat::context::CxTestBuilder;
@@ -301,8 +278,7 @@ async fn unique_check_propagates_probe_errors() {
         }
     }
 
-    // Schema never pushed: the probe query cannot run, so the check must
-    // fail the submit instead of silently passing it.
+    // Schema never pushed, so the probe cannot run.
     let db = Db::builder()
         .models(toasty::models!(Probe))
         .connect("sqlite::memory:")
@@ -375,8 +351,7 @@ async fn unique_check_ignores_absent_repeater_groups() {
         ),
     );
 
-    // Absent group (all-inner-empty) with a stored `""`: validation calls
-    // it clean, so the unique check must agree.
+    // An absent group validates clean, so the unique check agrees.
     let mut absent = HashMap::new();
     absent.insert("nickname".to_string(), "".to_string());
     assert!(
@@ -391,7 +366,6 @@ async fn unique_check_ignores_absent_repeater_groups() {
         "absent group must not be unique-checked, got {errors:?}"
     );
 
-    // Present group still checks: a taken value flags inline.
     let mut present = HashMap::new();
     present.insert("nickname".to_string(), "taken".to_string());
     toasty::create!(Nicknamed {
@@ -410,11 +384,7 @@ async fn unique_check_ignores_absent_repeater_groups() {
     );
 }
 
-/// the app-side unique probe binds the leaf's declared type. The
-/// stored token's canonical spelling is lower case, so an upper-case
-/// submission is a different string and the same `Uuid`: a text comparison
-/// finds no duplicate — and on this non-text column it cannot run at all —
-/// while the typed comparison refuses the submit.
+/// A typed unique field probes the declared type, not its text spelling.
 #[tokio::test]
 async fn a_typed_unique_field_probes_the_declared_type() {
     const TOKEN: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
@@ -452,8 +422,6 @@ async fn a_typed_unique_field_probes_the_declared_type() {
             .unwrap()
     };
 
-    // The upper-case spelling is not the stored one, so a text probe sees
-    // no duplicate; the typed probe sees the same `Uuid`.
     let response = router
         .handle(request(format!(
             "name=two&token={}&csrf_token={csrf}",
@@ -477,7 +445,6 @@ async fn a_typed_unique_field_probes_the_declared_type() {
         "a refused create writes nothing"
     );
 
-    // The other direction: a genuinely different token still creates.
     let response = router
         .handle(request(format!(
             "name=two&token=3f8fad5b-d9cb-469f-a165-70867728950e&csrf_token={csrf}"
@@ -496,9 +463,7 @@ async fn a_typed_unique_field_probes_the_declared_type() {
     );
 }
 
-/// the edit exclusion normalises both sides through the leaf's own
-/// rule, so a re-spelled equivalent of the record's own value is that value
-/// and the save succeeds; another record's value still refuses.
+/// An edit re-spelling the record's own typed value still saves.
 #[tokio::test]
 async fn a_typed_unique_field_skips_the_records_own_value_on_edit() {
     const MINE: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
@@ -547,8 +512,6 @@ async fn a_typed_unique_field_skips_the_records_own_value_on_edit() {
             .unwrap()
     };
 
-    // The record's own token, re-spelled: the same value, so the save
-    // succeeds instead of probing this record's own row.
     let response = router.handle(edit(&MINE.to_uppercase())).await;
     assert!(
         response.status().is_redirection(),
@@ -569,7 +532,6 @@ async fn a_typed_unique_field_skips_the_records_own_value_on_edit() {
         "the re-spelled value is stored canonically"
     );
 
-    // Another record holds the submitted token: refused, nothing written.
     let response = router.handle(edit(THEIRS)).await;
     assert_eq!(
         response.status(),

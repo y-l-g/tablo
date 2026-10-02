@@ -1,8 +1,6 @@
 //! Gate orchestration: `fmt`, `bump-upstream`, `verify-locks`,
 //! `external-check`, `check`.
 //!
-//! Each CI job calls one subcommand instead of inlining its own bash loop, so
-//! the loops are typed, tested, and runnable locally. Jobs stay parallel —
 //! `check` is a local fail-fast convenience runner only, never a CI job.
 
 use std::{
@@ -14,10 +12,8 @@ use std::{
 /// Crates pinned in lockstep across the workspace and bench lockfiles.
 pub const LOCKSTEP_CRATES: &[&str] = &["topcoat", "toasty"];
 
-/// Upstream repos pinned by `rev =` in every [`PINNED_MANIFESTS`] entry, in the same order as
-/// `set_upstream_revs`' rev arguments. The writer and the `verify-locks`
-/// manifest guard match through this table, so they cannot disagree on what
-/// a repo is.
+/// Upstream repos pinned by `rev =` in every [`PINNED_MANIFESTS`] entry, in `set_upstream_revs`'
+/// rev-argument order.
 pub const UPSTREAM_REPOS: &[(&str, &str)] = &[
     ("topcoat", "github.com/tokio-rs/topcoat"),
     ("toasty", "github.com/tokio-rs/toasty"),
@@ -36,9 +32,7 @@ pub const DETACHED_BENCHES: &[&str] = &[
     "benchmarks/leptos",
 ];
 
-/// The detached app `external-check` builds from outside the repository. Its
-/// manifest pins the upstream repos too, so `bump-upstream` rewrites it and
-/// `verify-locks` checks it; it commits no lockfile.
+/// The detached app `external-check` builds from outside the repository.
 pub const QUICKSTART: &str = "examples/quickstart";
 
 /// Every manifest carrying `rev =` upstream pins, which `bump-upstream`
@@ -62,7 +56,6 @@ pub const ASSET_SUITES: &[&str] = &[
     "examples/showcase/assets/media.test.js",
 ];
 
-/// The repo root (xtask lives at `<root>/xtask`).
 pub fn repo_root() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest_dir
@@ -71,9 +64,7 @@ pub fn repo_root() -> PathBuf {
         .to_path_buf()
 }
 
-/// How a gate command runs: `prog` with `args` in `dir`, plus extra `env`.
-/// Commands inherit stdio and propagate their exit code — never through a
-/// pipe, so no status gets masked (AGENTS.md rule 5).
+/// Runs `prog` with `args` in `dir`, inheriting stdio; never pipes, so no status gets masked.
 pub trait Runner {
     fn run(
         &self,
@@ -84,7 +75,6 @@ pub trait Runner {
     ) -> anyhow::Result<()>;
 }
 
-/// The real runner: inherit stdio, fail on a non-zero exit.
 pub struct RealRunner;
 
 impl Runner for RealRunner {
@@ -125,8 +115,7 @@ pub fn nightly_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     )
 }
 
-/// The detached fmt checks — each bench and the quickstart: `cargo fmt` never
-/// sees a package outside the workspace.
+/// Checks fmt for each detached bench and the quickstart.
 pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     for bench in DETACHED_BENCHES.iter().chain([&QUICKSTART]) {
         run.run(
@@ -143,8 +132,6 @@ pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
 const TOPCOAT_INSTALL: &str = "REV=$(grep -A 2 '^name = \"topcoat\"$' Cargo.lock | grep -o '#[0-9a-f]\\{40\\}' | head -1 | cut -c2-) && cargo install --git https://github.com/tokio-rs/topcoat --rev \"$REV\" topcoat-cli --locked";
 
 /// The locked-rev `topcoat fmt` check plus diff guard (CONTRIBUTING gate 4).
-/// Check-half only: installing the CLI (~4 min build) stays in CI's cache-keyed
-/// step, so a missing or wrong-rev CLI fails here with the install command.
 pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run("topcoat", &["fmt"], Some(root), &[])
         .map_err(|error| {
@@ -168,7 +155,6 @@ pub fn fmt_check(run: &dyn Runner) -> anyhow::Result<()> {
     topcoat_fmt(run, &root)
 }
 
-/// The `source` field's resolved git sha (`git+https://…?rev=<sha>#<sha>`).
 fn git_pin(source: &str) -> Option<&str> {
     source
         .rsplit_once('#')
@@ -176,8 +162,7 @@ fn git_pin(source: &str) -> Option<&str> {
         .filter(|sha| !sha.is_empty())
 }
 
-/// The lockstep pins parsed from one `cargo metadata` document (serde_json is
-/// already an xtask dep, so no new `toml` dep risks the MSRV floor).
+/// Parses the lockstep pins from one `cargo metadata` document.
 pub fn pins_from_metadata(metadata: &serde_json::Value) -> BTreeMap<String, String> {
     let mut pins = BTreeMap::new();
     for package in metadata["packages"].as_array().into_iter().flatten() {
@@ -192,7 +177,7 @@ pub fn pins_from_metadata(metadata: &serde_json::Value) -> BTreeMap<String, Stri
     pins
 }
 
-/// Fail unless every lockstep crate pins the same rev in both lockfiles.
+/// Fails unless every lockstep crate pins the same rev in both lockfiles.
 pub fn check_lockstep(
     workspace: &BTreeMap<String, String>,
     bench: &BTreeMap<String, String>,
@@ -223,9 +208,7 @@ pub fn check_lockstep(
     }
 }
 
-/// Fail unless both manifests pin the same single rev per upstream repo —
-/// the companion pins (`toasty-core`, `topcoat-ui*`) `bump-upstream` manages,
-/// which the lock comparison never sees.
+/// Fails unless both manifests pin the same single rev per upstream repo.
 pub fn check_manifest_lockstep(
     workspace: &BTreeMap<String, BTreeSet<String>>,
     bench: &BTreeMap<String, BTreeSet<String>>,
@@ -233,8 +216,8 @@ pub fn check_manifest_lockstep(
     check_manifest_pins(workspace, bench, "bench")
 }
 
-/// [`check_manifest_lockstep`] against any manifest that pins the upstream
-/// repos, named `label` in the report.
+/// [`check_manifest_lockstep`] against any manifest pinning the upstream repos, where `label` names
+/// the report.
 pub fn check_manifest_pins(
     workspace: &BTreeMap<String, BTreeSet<String>>,
     other: &BTreeMap<String, BTreeSet<String>>,
@@ -281,10 +264,8 @@ pub fn check_manifest_pins(
     }
 }
 
-/// `cargo metadata` for one manifest. `--locked` (not `--frozen`): a stale
-/// tree must fail instead of healing the lockfile, but fresh CI caches
-/// legitimately need the network to resolve — `--offline` would mask the
-/// drift signal with download errors.
+/// Runs `cargo metadata --locked` for one manifest, so a stale tree fails instead of healing the
+/// lockfile.
 fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
     let output = Command::new("cargo")
         .args([
@@ -308,13 +289,8 @@ fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
         .map_err(|error| anyhow::anyhow!("could not parse cargo metadata: {error}"))
 }
 
-/// Workspace vs bench rev equality, local and CI (the `bench-check` lockstep):
-/// the `rev =` manifest pins `bump-upstream` manages, grouped by repo — the
-/// bench's and the quickstart's against the workspace's — then the resolved
-/// lock pins. Manifests are plain file reads first — no
-/// subprocess, no network, nothing to heal — so a hand-edited manifest
-/// reports drift here instead of failing inside `cargo metadata --locked`
-/// with a resolution error.
+/// Fails unless the workspace, bench, and quickstart manifests and both lockfiles pin the same
+/// upstream revs.
 pub fn verify_locks() -> anyhow::Result<()> {
     let root = repo_root();
     let workspace_manifest = std::fs::read_to_string(root.join("Cargo.toml"))
@@ -344,29 +320,23 @@ fn is_rev(rev: &str) -> bool {
     rev.len() == 40 && rev.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-/// The byte span of the `rev = "…"` value on one manifest line, if present.
 fn rev_span(line: &str) -> Option<(usize, usize)> {
     let start = line.find("rev = \"")? + "rev = \"".len();
     let end = line[start..].find('"')? + start;
     Some((start, end))
 }
 
-/// The `rev = "…"` value on one manifest line, if present.
 fn read_rev(line: &str) -> Option<&str> {
     let (start, end) = rev_span(line)?;
     Some(&line[start..end])
 }
 
-/// Replace the `rev = "…"` value on one manifest line.
 fn replace_rev(line: &str, rev: &str) -> Option<String> {
     let (start, end) = rev_span(line)?;
     Some(format!("{}{rev}{}", &line[..start], &line[end..]))
 }
 
-/// The `rev =` pins in one manifest, grouped by repo short name: each repo
-/// maps to its distinct pinned revs (one element when the manifest agrees
-/// with itself). Reads through [`UPSTREAM_REPOS`], the same table
-/// `set_upstream_revs` writes through.
+/// Collects the `rev =` pins in one manifest, grouped by repo short name.
 pub fn manifest_revs(manifest: &str) -> BTreeMap<String, BTreeSet<String>> {
     let mut pins: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for line in manifest.split('\n') {
@@ -382,9 +352,7 @@ pub fn manifest_revs(manifest: &str) -> BTreeMap<String, BTreeSet<String>> {
     pins
 }
 
-/// Rewrite the `rev =` pins for both upstream repos in one manifest.
-/// Matches through [`UPSTREAM_REPOS`] so `toasty-core` and `topcoat-ui*`
-/// follow their repo.
+/// Rewrites the `rev =` pins for both upstream repos in one manifest.
 pub fn set_upstream_revs(
     manifest: &str,
     topcoat_rev: &str,
@@ -482,9 +450,7 @@ pub fn external_stage(root: &Path) -> PathBuf {
     std::env::temp_dir().join(format!("tablo-external-check-{:016x}", hasher.finish()))
 }
 
-/// Rewrite the quickstart manifest's `path = "../../crates/…"` dependencies
-/// to absolute paths under `root`, so the staged copy reaches the crates
-/// without sitting beside them.
+/// Rewrites the quickstart manifest's relative crate paths to absolute paths under `root`.
 pub fn absolute_crate_paths(manifest: &str, root: &Path) -> anyhow::Result<String> {
     const RELATIVE: &str = "path = \"../../crates/";
     if !manifest.contains(RELATIVE) {
@@ -510,9 +476,7 @@ fn copy_dir(from: &Path, to: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Copy the quickstart's sources out of the repository with absolute
-/// dependency paths, seeded with the workspace lockfile so it resolves the
-/// versions the workspace tests. Returns the staged manifest.
+/// Stages the quickstart's sources out of the repository, seeded with the workspace lockfile.
 pub fn stage_quickstart(root: &Path) -> anyhow::Result<PathBuf> {
     let source = root.join(QUICKSTART);
     let stage = external_stage(root);
@@ -537,10 +501,9 @@ pub fn stage_quickstart(root: &Path) -> anyhow::Result<PathBuf> {
     Ok(stage.join("Cargo.toml"))
 }
 
-/// Test the staged quickstart: it builds against Tablo only through absolute
-/// paths, generates its stylesheet with `tablo_build::tailwind`, and asserts
-/// that stylesheet holds classes only Tablo's own sources write. The target
-/// directory stays under the repository's `target/`, which CI caches.
+/// Tests the staged quickstart: it builds against Tablo only through absolute
+/// paths, generates its stylesheet, and asserts that stylesheet holds classes
+/// only Tablo's own sources write.
 pub fn external_check(run: &dyn Runner, root: &Path, manifest: &Path) -> anyhow::Result<()> {
     let target = root.join("target/external-check");
     let manifest = manifest.to_string_lossy();

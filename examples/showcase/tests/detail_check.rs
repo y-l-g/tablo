@@ -1,9 +1,3 @@
-//! Detail page: `GET /admin/{slug}/{id}`, read-only.
-//!
-//! The page's own rendering is pinned in `tablo-core`'s unit tests (the
-//! schema walk and the read-only field shapes); this module pins the HTTP
-//! contract — routing, policy, and the answers a bad id gets.
-
 use showcase::models::{Author, Post, User};
 
 use crate::common::{
@@ -11,7 +5,6 @@ use crate::common::{
     tenantless_client,
 };
 
-/// A post id from the database — title-first, so it is deterministic.
 async fn a_post_id(db: &mut toasty::Db) -> String {
     Post::all()
         .order_by(Post::fields().title().asc())
@@ -23,8 +16,6 @@ async fn a_post_id(db: &mut toasty::Db) -> String {
         .to_string()
 }
 
-/// A published post id — the blog serves published posts only, so this is the
-/// fixture whose record pages carry a public link.
 async fn a_published_post_id(db: &mut toasty::Db) -> String {
     Post::filter(Post::fields().status().eq("published".to_string()))
         .order_by(Post::fields().title().asc())
@@ -36,7 +27,6 @@ async fn a_published_post_id(db: &mut toasty::Db) -> String {
         .to_string()
 }
 
-/// An unpublished post id — the fixture whose record pages link nothing.
 async fn an_unpublished_post_id(db: &mut toasty::Db) -> String {
     Post::filter(Post::fields().status().eq("draft".to_string()))
         .order_by(Post::fields().title().asc())
@@ -48,7 +38,6 @@ async fn an_unpublished_post_id(db: &mut toasty::Db) -> String {
         .to_string()
 }
 
-/// The detail page's `<h1>` text — the title line.
 fn page_heading(html: &str) -> String {
     let heading = html
         .split("<h1")
@@ -61,8 +50,6 @@ fn page_heading(html: &str) -> String {
 
 #[tokio::test]
 async fn post_detail_heading_names_the_post() {
-    // `PostResource::record_label` returns the title, so the heading
-    // names the post instead of falling back to `Blog Posts <record key>`.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -108,7 +95,6 @@ async fn post_detail_renders_the_record_read_only() {
     );
     let html = body_string(resp).await;
 
-    // The record's own values, rendered as text.
     assert!(
         html.contains(&post.title),
         "detail page must show the title: {html}"
@@ -117,8 +103,6 @@ async fn post_detail_renders_the_record_read_only() {
         html.contains(&post.status),
         "detail page must show the status: {html}"
     );
-    // Each value carries the label the form and the table use: the
-    // flag reads "Featured".
     assert!(
         html.contains("Featured</div>"),
         "detail page must label the flag as featured: {html}"
@@ -127,8 +111,6 @@ async fn post_detail_renders_the_record_read_only() {
         html.contains("Back to list"),
         "detail page must offer a way back: {html}"
     );
-    // The row's Edit gate holds on the page too: a record the caller may
-    // update links its edit form from the heading.
     assert!(
         html.contains(&format!("href=\"/admin/posts/{id}/edit\"")),
         "an editable record's detail page must link its edit form: {html}"
@@ -138,10 +120,6 @@ async fn post_detail_renders_the_record_read_only() {
         "detail page must show the computed reading stats: {html}"
     );
 
-    // Read-only means read-only. The shell carries its own chrome (the sign-out
-    // form), and the comments relation is the comments table with its own
-    // controls, so the claim is scoped to the record: everything from the page
-    // heading to the first relation section.
     let body = html
         .split("<h1")
         .nth(1)
@@ -155,9 +133,6 @@ async fn post_detail_renders_the_record_read_only() {
         !body.contains("data-invalid"),
         "a stored record has nothing to be invalid about: {body}"
     );
-    // A field is present as a value, not as a control: the read-only shape. The
-    // form's label carries `data-slot="field-label"`; the read-only title
-    // deliberately does not.
     assert!(
         body.contains("data-slot=\"field\"") && !body.contains("data-slot=\"field-label\""),
         "the page renders values through the read-only field shape: {body}"
@@ -166,8 +141,6 @@ async fn post_detail_renders_the_record_read_only() {
 
 #[tokio::test]
 async fn an_unpublished_post_links_no_public_page() {
-    // The blog serves published posts only, so a draft's record pages must
-    // link nothing: the URL the link would name answers not-found.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -188,8 +161,6 @@ async fn an_unpublished_post_links_no_public_page() {
 
 #[tokio::test]
 async fn post_record_pages_link_the_public_post() {
-    // A published post's public page is linked from both record headers, so an
-    // editor reaches it without returning to the list.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -211,9 +182,6 @@ async fn post_record_pages_link_the_public_post() {
 
 #[tokio::test]
 async fn post_detail_is_scoped_like_every_other_route() {
-    // Unknown id and wrong tenant are one answer (ADR-0002): the load runs
-    // through the tenant-scoped query, so the page cannot tell the caller
-    // which ids exist outside their scope.
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -254,8 +222,6 @@ async fn post_detail_is_scoped_like_every_other_route() {
 
 #[tokio::test]
 async fn resources_without_a_view_declaration_have_no_detail_page() {
-    // `AuthorResource` declares no `view`, so the route answers as if there
-    // were none — which is what makes the missing row link honest.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -269,7 +235,6 @@ async fn resources_without_a_view_declaration_have_no_detail_page() {
         "a resource that declares no view has no detail page"
     );
 
-    // …and the list offers no View link for it, while the posts list does.
     let authors = body_string(client.get("/admin/authors").await).await;
     assert!(
         !authors.contains("aria-label=\"View\""),
@@ -280,8 +245,6 @@ async fn resources_without_a_view_declaration_have_no_detail_page() {
         posts.contains("aria-label=\"View\""),
         "a declared view means a View link per row: {posts}"
     );
-    // The link carries a *record* key, so the href is the seeded
-    // post's own id and not a display key.
     let mut db_q = db;
     let post_id = a_post_id(&mut db_q).await;
     assert!(
@@ -292,9 +255,6 @@ async fn resources_without_a_view_declaration_have_no_detail_page() {
 
 #[tokio::test]
 async fn the_detail_route_does_not_shadow_create_or_edit() {
-    // `/{slug}/{id}` shares its segment position with the literal `create`
-    // route and prefixes `/{id}/edit`: the router prefers the static segment
-    // and the longer path, so neither page is lost to the detail route.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -328,9 +288,6 @@ async fn the_detail_route_does_not_shadow_create_or_edit() {
 
 #[tokio::test]
 async fn post_detail_enforces_the_tenancy() {
-    // `PostResource` is tenant-scoped (#131): a signed-in user
-    // with no tenant must be refused here too, not shown an unscoped record —
-    // even for an id that exists.
     let db = full_db().await;
     let router = router(db.clone());
     let mut db_q = db.clone();
@@ -374,8 +331,6 @@ async fn post_detail_hides_the_record_from_a_denied_tenant() {
 
 #[tokio::test]
 async fn a_record_the_caller_may_not_update_offers_no_edit_action() {
-    // Ken's account is SSO-managed: `UserResource`'s policy refuses to update it, so
-    // the detail page renders no Edit control, as the row renders none.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;

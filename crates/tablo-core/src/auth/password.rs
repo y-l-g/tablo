@@ -12,14 +12,8 @@ use super::{Authenticator, PanelUser, infrastructure_failure};
 /// Generated with `Argon2::default()` parameters (`m=19456,t=2,p=1`).
 const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$h3oXdPBVwhcgZ1OTO/PuzQ$zLrHLgIkwhqu4ZlLTfSyB8mPuL6mAtaswv/eXJ5ADO8";
 
-/// The shipped credential model (ADR-0013): unique email, Argon2id PHC hash,
-/// display name, and an active flag. It belongs to no tenant; an app whose
-/// users belong to tenants implements [`PanelUser`] for its own model.
-///
-/// Register it (plus [`AuthSession`](super::AuthSession)) in the app's `Db`
-/// model list, seed one row, and the default [`PasswordAuth`] works with no
-/// further wiring:
-/// `toasty::models!(…, tablo_core::auth::AdminUser, tablo_core::auth::AuthSession)`.
+/// Shipped credential model with unique email, Argon2id PHC hash, display name,
+/// and active flag; belongs to no tenant.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct AdminUser {
     #[key]
@@ -27,7 +21,7 @@ pub struct AdminUser {
     pub id: Uuid,
     #[unique]
     pub email: String,
-    /// Argon2id password hash in PHC string format.
+    /// Argon2id hash in PHC string format; never stores the plaintext.
     pub password_hash: String,
     pub display_name: String,
     /// `false` denies login and panel access immediately.
@@ -49,8 +43,7 @@ impl PanelUser for AdminUser {
     }
 }
 
-/// The shipped default authenticator: Argon2id verification against
-/// [`AdminUser`]. An inactive user does not authenticate.
+/// Shipped default authenticator: Argon2id verification against [`AdminUser`].
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PasswordAuth;
 
@@ -86,18 +79,13 @@ impl Authenticator for PasswordAuth {
             .exec(&mut db)
             .await
             .map_err(infrastructure_failure)?;
-        // A deactivated account stops resolving: its live sessions are
-        // purged and the next request redirects to login (spec #127 US11).
+        // A deactivated account stops resolving, so its live sessions purge.
         Ok(user.filter(|user| user.active))
     }
 }
 
-/// Hash a password with Argon2id into a PHC string (the shipped storage
-/// format). Seeds and record fns call this; it never stores the plaintext.
-///
-/// # Errors
-///
-/// When Argon2 cannot hash, which the default parameters do not cause.
+/// Hashes a password with Argon2id into a PHC string for storage; never stores
+/// the plaintext.
 pub fn hash_password(password: &str) -> topcoat::Result<String> {
     use argon2::password_hash::PasswordHasher;
 
@@ -107,13 +95,9 @@ pub fn hash_password(password: &str) -> topcoat::Result<String> {
         .map_err(topcoat::Error::from)
 }
 
-/// Verify a password against the account's Argon2id PHC hash, or `None` for
-/// an account that does not exist.
-///
-/// An unknown account is verified against a dummy hash and answers `false`,
-/// so it costs the same work as a wrong password and response times do not
-/// reveal which accounts exist. A malformed hash answers `false`. An
-/// [`Authenticator`] over its own user table calls it with the hash it loaded:
+/// Verifies a password against an Argon2id PHC hash, or `None` for an unknown
+/// account; unknown accounts verify against a dummy hash so response times do
+/// not reveal which accounts exist.
 ///
 /// ```ignore
 /// let staff = Staff::filter_by_email(login).first().exec(&mut db).await?;

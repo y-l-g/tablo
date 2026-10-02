@@ -9,17 +9,7 @@ use super::{
 };
 
 impl<M> Table<M> {
-    /// The skeleton placeholder table — three pulsing rows under the real
-    /// column header. This is the [`suspense`] fallback for tables whose rows
-    /// stream in. Built in the same frame as the real table
-    /// ([`table_frame`](super::core::table_frame)), busy while loading, with a
-    /// pulse for each bar the loaded table renders, so the swap lands without
-    /// a layout shift.
-    ///
-    /// Takes the state already normalized: the panel parses and normalizes
-    /// once per request and renders the streamed placeholder from that same
-    /// state, so the placeholder header links never echo an unknown
-    /// `?group_by=`.
+    /// Render the skeleton placeholder table shown while rows stream in.
     pub(crate) async fn render_skeleton<'a>(
         &self,
         cx: &'a Cx,
@@ -31,29 +21,17 @@ impl<M> Table<M> {
         let path = topcoat::context::try_request_context::<http::request::Parts>(cx)
             .map(|parts| parts.uri.path().to_string())
             .unwrap_or_default();
-        // The action column exists for any of the three row links, matching
-        // `render_inner` — a `with_view`-only table must not swap a
-        // narrower skeleton for a wider table.
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
         let head = self
             .render_thead(cx, state, &path, with_actions, with_bulk, None)
             .await?;
-        // The same floor the loaded table carries, so the swap lands without
-        // a layout shift.
         let table_min_width = self.column_widths().table_min_width;
         let column_count = self.columns.len();
-        // The chrome pulses follow the loaded table's own predicates, so a
-        // table with no searchable column, no filters or no bulk delete shows
-        // no pulse for a bar it will never render. The pager pulse always shows: every table
-        // paginates, and whether this page has neighbors is only known once it
-        // loads.
         let search_pulse = self.search_enabled();
         let filter_pulse = self.filter_bar_enabled();
         let content = view! {
             cx =>
-            // One row for the search and the bulk control, as the loaded
-            // toolbar draws them.
             if search_pulse || with_bulk {
                 <div
                     class="flex items-center gap-2 border-b border-border p-3"

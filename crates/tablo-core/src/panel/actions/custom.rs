@@ -49,17 +49,7 @@ pub(crate) fn resource_bulk_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
     run_action::<R>(cx, body, Target::Bulk)
 }
 
-/// The handler both routes share.
-///
-/// The order is the delete handlers': the gate, the declared action, CSRF
-/// and the selection before any database work; then the transaction, the
-/// records through the tenant-scoped query, and the policy on every loaded
-/// record before the action runs. A record the caller cannot view is a 403,
-/// and so is a row refused the action, as a refused delete is. A selection
-/// holding a record the action refuses writes nothing and answers with an
-/// error notification on the list: the bulk bar offers the action for the
-/// whole selection, so mixing rows it refuses is a user path, not a crafted
-/// request.
+/// Runs the custom action both routes share.
 fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
     Box::pin(HoistView::new(ThenView::<_, BoxView<'_>>::new(
         async move {
@@ -99,8 +89,6 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
             let mut db = db(cx);
             let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
             let rows = load_targets::<R>(cx, &ids, target, &mut tx).await?;
-            // A record the caller cannot view never renders, so naming one is
-            // a crafted request: 403, for the row and the selection alike.
             if rows.iter().any(|row| !can::<R>(cx, Ability::View(row))) {
                 return Err(forbidden().into());
             }
@@ -124,9 +112,7 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
     )))
 }
 
-/// The records `ids` names, through the tenant-scoped query inside the
-/// transaction. A key that matches no visible record is a 404, for the row
-/// and for the selection alike.
+/// Loads the records `ids` names through the tenant-scoped query inside the transaction.
 async fn load_targets<R: Resource>(
     cx: &Cx,
     ids: &[String],
@@ -154,9 +140,7 @@ async fn load_targets<R: Resource>(
     Ok(rows)
 }
 
-/// The answer to a target holding `refused` records the action may not run
-/// on: a 403 for a row, the list with an error notification for a
-/// selection. The transaction is dropped uncommitted either way.
+/// Answers a target holding `refused` records the action may not run on.
 fn refuse<R: Resource>(
     cx: &Cx,
     action: &ActionEntry<R>,

@@ -1,11 +1,4 @@
-//! `#[derive(EmbeddedForm)]` — the typed half of an embedded value.
-//!
-//! The derive knows the Rust shape (which fields exist, their types, which
-//! variants there are); the framework knows the storage (which column each leaf
-//! occupies, what the discriminant column is called). The derive builds the
-//! value's schema node through the framework's builder, one resolved field per
-//! leaf, and reads and writes through that node's keys, so it never spells a
-//! flattened name itself.
+//! `#[derive(EmbeddedForm)]` declares the typed half of an embedded value.
 //!
 //! See `tablo-core`'s `schema::embedded` module for the contract.
 
@@ -20,9 +13,6 @@ pub fn expand(input: DeriveInput) -> TokenStream {
     expand_tokens(input).into()
 }
 
-/// The expansion over `proc_macro2` tokens: the proc-macro entry point converts
-/// its result once, and the attribute checks stay unit-testable without a
-/// proc-macro context.
 fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(&input) {
         Ok(tokens) => tokens,
@@ -41,7 +31,6 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
     })
 }
 
-/// One named field as the derive binds it.
 struct Member {
     ident: syn::Ident,
     ty: Type,
@@ -117,14 +106,8 @@ fn members<'a>(fields: impl IntoIterator<Item = &'a syn::Field>) -> syn::Result<
         .collect()
 }
 
-/// The path to field `index` of `owner`, chained onto `parent`, rooted at
-/// variant `variant` when it is `Some`.
-///
-/// The field's value type is the member's own, so the chained path is typed.
-/// `Path::chain` drops the chained path's root, so this composes under whatever
-/// parent it is chained onto. A variant payload is addressed from the variant
-/// root: the enum's payload index is variant-local, so the variant step comes
-/// first.
+/// The path to field `index` of `owner`: `Path::chain` drops the chained path's
+/// root, so the result composes under whatever parent it is chained onto.
 fn chained(
     krate: &TokenStream2,
     owner: &syn::Ident,
@@ -148,10 +131,7 @@ fn chained(
     }
 }
 
-/// The label a derived control renders: the Rust field name, humanized.
-///
-/// The name is read through [`IdentExt::unraw`], so a raw identifier drops only
-/// the `r#` prefix a keyword needs: `r#type` renders `Type`, not `R#type`.
+/// Humanizes the Rust field name, dropping only the `r#` prefix from a raw identifier.
 fn label(ident: &syn::Ident) -> String {
     let name = ident.unraw().to_string();
     let mut out = String::with_capacity(name.len());
@@ -171,9 +151,6 @@ fn label(ident: &syn::Ident) -> String {
     out
 }
 
-/// The builder call adding member `index`: a nested value's schema, or a
-/// leaf's text field — labelled, multi-line when asked, and shared when
-/// several variants declare its column.
 fn build_member(
     krate: &TokenStream2,
     owner: &syn::Ident,
@@ -214,7 +191,6 @@ fn build_member(
     }
 }
 
-/// The write of member `index`, held in `binding`, through `node`.
 fn write_member(
     krate: &TokenStream2,
     member: &Member,
@@ -240,7 +216,6 @@ fn write_member(
     }
 }
 
-/// The read of member `index` through `node`, its errors collected.
 fn read_member(
     krate: &TokenStream2,
     member: &Member,
@@ -268,7 +243,6 @@ fn read_member(
     }
 }
 
-/// Member's declared blank answer, or `None` when it declares none.
 fn declared_blank(member: &Member) -> TokenStream2 {
     let ty = &member.ty;
     match &member.attrs.blank {
@@ -296,11 +270,9 @@ fn answers_blank(krate: &TokenStream2, member: &Member) -> TokenStream2 {
     }
 }
 
-/// A read body: read every member, collecting each one's errors into
-/// `errors`, and build `ctor` only when none failed.
-///
-/// Each value binds under a prefixed name, so a field called `values` or
-/// `errors` cannot shadow the reads after it.
+/// A read body building `ctor` only when no member failed: each value binds
+/// under a prefixed name, so a field called `values` or `errors` cannot shadow
+/// the reads after it.
 fn collected_read(
     krate: &TokenStream2,
     ctor: &TokenStream2,
@@ -324,7 +296,6 @@ fn collected_read(
     }
 }
 
-/// The trait impl plus the `form` constructor, around the four bodies.
 fn wrap(
     krate: &TokenStream2,
     input: &DeriveInput,
@@ -368,12 +339,7 @@ fn wrap(
         }
 
         impl #impl_generics #ident #ty_generics #where_clause {
-            /// The form schema for this embedded value under `parent`: one
-            /// control per leaf column, resolved from the app schema.
-            ///
-            /// The app composes it into a layout —
-            /// `Section::new("SEO").schema(Seo::form(dx, Post::fields().seo()))`
-            /// — and declares no field bindings of its own.
+            /// Builds this value's form schema under `parent` for the app to compose into a layout.
             pub fn form<M>(
                 dx: &#krate::__macro::DeclCx,
                 parent: impl ::std::convert::Into<#krate::__macro::Path<M, Self>>,
@@ -387,7 +353,6 @@ fn wrap(
     }
 }
 
-/// One builder call, write, and read per named field.
 fn expand_struct(krate: &TokenStream2, input: &DeriveInput, members: &[Member]) -> TokenStream2 {
     let owner = &input.ident;
     let none = quote! { ::std::option::Option::None };
@@ -423,8 +388,6 @@ fn answers_blank_body(members: impl Iterator<Item = TokenStream2>) -> TokenStrea
     quote! { true #(&& #checks)* }
 }
 
-/// The variant control, then per variant its members, its write arm, and its
-/// read arm.
 fn expand_enum(
     krate: &TokenStream2,
     input: &DeriveInput,
@@ -439,8 +402,6 @@ fn expand_enum(
         let selector = quote! { ::std::option::Option::Some(#variant_index) };
         adds.push(quote! { builder.variant(); });
         let Some(members) = &variant.members else {
-            // A unit variant carries no payload: only its discriminant names
-            // it, and its group is empty.
             write_arms.push(quote! {
                 Self::#name => node.write_variant(#variant_index, out),
             });

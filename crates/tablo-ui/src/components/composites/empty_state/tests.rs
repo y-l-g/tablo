@@ -34,7 +34,6 @@ async fn empty_state_renders_title_detail_and_action() {
         "caller action missing: {html}"
     );
     assert!(html.contains("data-empty"), "attrs dropped: {html}");
-    // The icon is decoration: hidden from assistive tech.
     assert!(
         html.contains("aria-hidden=\"true\"") && html.contains("<svg"),
         "decorative icon missing: {html}"
@@ -50,7 +49,6 @@ async fn empty_state_detail_and_action_are_optional() {
         .await
         .unwrap()
         .render(&cx);
-    // Title only: one paragraph, no action wrapper.
     assert_eq!(html.matches("<p class").count(), 1, "got {html}");
     assert!(!html.contains("<a"), "got {html}");
 }

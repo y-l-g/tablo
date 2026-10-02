@@ -1,96 +1,41 @@
 # Confirmed mutations: the response is a page, the table is re-run by its shard
 
-Date: 2026-09-23 — Status: accepted — Amended: 2026-10-01
+Date: 2026-09-23 — Status: accepted
 
 ## Decision
 
-**A confirmed delete stays a POST that 303s to the list.** The handlers, their policy and
-confirmation checks, their flash notification, and the no-JS path are unchanged
-(`panel/actions/`, ADR-0004, ADR-0010). What changes is who follows the redirect: a form marked
-`data-mutation-submit` — the row-delete confirm and the bulk confirm — is posted by
-`crates/tablo-ui/assets/mutation-submit.js` with `fetch`, and the response is applied in place.
-Without JavaScript the marker is inert and the same form POSTs and 303s.
+**A confirmed delete stays a POST that 303s to the list.** Handlers, policy and confirmation
+checks, flash notification, and the no-JS path are unchanged (ADR-0004, ADR-0010). A form marked
+`data-mutation-submit` — row-delete and bulk confirms — is posted by `mutation-submit.js` with
+`fetch` and applied in place. Without JavaScript the marker is inert and the form POSTs and 303s.
+The bulk form carries bulk custom actions as submit buttons with their own `formaction`; the
+script posts to it when present, else to the form action. A row custom action is a plain form
+that POSTs and 303s.
 
-The bulk form also carries the resource's bulk custom actions, as submit buttons with their own
-`formaction`, so they post the same selection to `{list}/actions/{NAME}`. The script posts to the
-submitting button's `formaction` when it has one, and to the form's `action` otherwise. A row's
-custom action is a plain form outside this marker: it POSTs and 303s.
+**The mutation response is the whole list page; the client reads two things.** The toast surfaces
+(`[data-sonner-toast]`) are inserted into the shell toaster, never morphed. The table is not taken
+from the response on a live table.
 
-**The mutation response is the whole list page, and the client reads exactly two things out of it.**
+**The table refreshes through its own shard.** A live table renders a hidden
+`[data-table-revision]` input declared by `Table::render_inner`; writing it changes a signal the
+`table_search` shard tracks, so the runtime re-fetches and morphs the region for the current
+query. The signal lives in the shard content scope, stable across reruns and distinct per shard.
+The client bumps a monotonic counter. A static table region is replaced wholesale: with no
+signals there is no binding or shard.
 
-- **The toast**, because following the redirect consumed the one-time flash cookie that carries it
-  (ADR-0010). The response's `[data-sonner-toast]` surfaces are inserted into the shell's toaster.
-  They are inserted, never morphed: a morph re-syncs `data-mounted` from the response (`false`) on a
-  surface `notifications.js` has already mounted, and its arming observer only sees *added* nodes,
-  so the toast would stay hidden.
-- **The table**, which it does **not** take from the response on a live table.
+**The client finds the table from the form.** The bulk form lives inside its
+`[data-table-root]`; the row confirm lives in the page dialog, so its table is the one holding
+the control that opened it. No matching control leaves the page to the browser.
 
-**The table is refreshed by the shard that already owns it.** A live table renders a refresh
-control inside its region — a hidden `[data-table-revision]` input, declared and read by
-`Table::render_inner` when the render is a live one. Writing it changes a signal the `table_search`
-shard tracks, so the runtime re-fetches the shard and morphs the region: fresh rows for the *current*
-query, markup hydrated by the runtime, and any rerun still in flight cancelled by the runtime's
-request controller. The signal is declared inside the shard's own output, so it belongs to the
-shard's content scope: its id derives from the shard invocation's identity and its call site, which
-makes it stable across reruns and distinct per shard, and the runtime keeps its value when the
-declaration renders again. The token is opaque; the client bumps a monotonic counter, because a
-same-value signal write schedules nothing.
+**The client never morphs the response into a live document.** The response renders the bare list
+URL while live query state lives in signals and the page-owned toolbar outside
+`[data-boundary="table"]`, which the client cannot read or reset. A morph would show page 1
+unfiltered under a stale toolbar until the next rerun.
 
-**A static table's region is replaced wholesale**, because it is inert markup: with no signals there
-is no binding, no handler, and no shard (pinned by
-`a_static_table_renders_no_runtime_bindings_at_all`). The control's presence is therefore the page's
-own answer to "can this table refresh in place?", and the client needs no other test.
+**Failure paths stay the browser's.** A self-answered POST (4xx/5xx) wrote nothing, so the client
+returns the form with `form.submit()`. A request never completing and a followed redirect with a
+failed list render reload instead, since posting again risks a second write.
 
-**The client finds the table from the form, not from the document.** The bulk form lives inside its
-table's `[data-table-root]`; the row confirm lives in the dialog the page owns, outside every table,
-so its table is the one holding the control that opened it — the control carries the same POST target
-`dialog.js` copies onto the form. A target that matches no control resolves to no table, and the
-client then leaves the page to the browser. Both paths read the region, the refresh control and the
-bulk transport through that one root, so a page rendering two tables cannot have one table's delete
-touch the other's.
-
-**The client never morphs the response into the live document.** The reason is state, not markup:
-
-- **The response renders the bare list URL, the page keeps its live state.** A delete 303s to
-  `list_url(cx, slug)` — prefix and slug, no query (`panel/gate.rs`). A live table's query state
-  lives in its signals and in the page-owned toolbar, both *outside* `[data-boundary="table"]`, and
-  the client can neither read them (only `q`, `filters` and `bulk` have DOM transports; `sort`,
-  `dir`, `cursor` and `group_by` are registry-only) nor reset them. Morphing the region would leave
-  a table showing page 1 unfiltered under a toolbar still reading `?q=ada`, and the next shard rerun
-  would snap the table back to the query the toolbar no longer shows.
-
-A hand-written morph would also start its inserted nodes unbound — the runtime exposes no morph or
-hydrate entry point, so a sort or pager link a morph inserts falls back to its `href` until the next
-rerun, which re-hydrates the whole range it morphs (`ShardUnit.insert` morphs and then hydrates;
-`hydrate` re-attaches every `data-topcoat-on:*` handler it walks). That is a transient downgrade, not
-a reason to reject the morph; the state above is.
-
-**Failure paths stay the browser's.** A POST the server answers itself (4xx/5xx) wrote nothing — the
-handlers verify CSRF and confirmation and check policy before opening the write, and any failure
-rolls the transaction back — so the client hands the form back with `form.submit()` and the browser
-shows the same response a no-JS POST would, at the same URL. Two cases reload instead, because
-posting again would be a second write: a request that never completes (the outcome is unknown) and a
-redirect that was followed but whose list render failed (the delete committed; only the render behind
-it did not).
-
-**What the swap preserves.** The URL keeps the state the table still holds; only the dialog's own
-`delete`/`open` parameters are dropped (a static table mirrors the response URL, whose state its
-region now shows). The bulk selection is pruned by exactly the keys the write removed — the batch a
-bulk form carried, or the record a row action names — and written back through the transport, so a
-row delete leaves the rest of the selection standing while a batch clears it. Focus moves to the row
-that took the deleted row's place (its own Delete control first), else the bulk trigger; a modal
-dialog is closed by the client *before* the rerun, because a dialog the response's markup closes by
-dropping `open` strands the document inert.
-
-## Consequences
-
-`Table::render_inner`'s live branch declares one extra signal per shard and renders one hidden input;
-the shard's wire arguments and `TableSignals` are unchanged, and a mutation carries no markup. The
-`table_search` shard re-runs on a write it did not have before, so a mutation costs one shard request
-in addition to the POST it always made. `mutation-submit.js` joins the shell assets (ADR-0014) with
-`data-mutation-submit`, `data-table-revision`, `data-boundary` and `data-sonner-toaster` as its hook
-contract, and its pure decisions — which region a response hands over, which keys a write removed,
-which submits it answers — are covered by `node --test`. `Table::live_search` is opt-in, so
-the shard path is the one a resource opts into: all four showcase resources do, and every other
-table — a downstream app's included — takes the wholesale replacement, which is exercised only by
-suppressing the control on a live page.
+The URL keeps table state; only dialog `delete`/`open` parameters drop. Bulk selection prunes by
+exactly the removed keys. Focus moves to the row taking the deleted row's place, else the bulk
+trigger; a modal dialog closes before the rerun.
