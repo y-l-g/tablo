@@ -223,7 +223,7 @@ Field::choice(Post::fields().author_id())
   flattened key, or a repeater's label. An error keyed to something the form does not render
   fails the request instead of being dropped.
 - **Unknown keys are refused.** A POST carrying a key the form does not declare answers 400, so a
-  client cannot smuggle in `role` or `tenant_id`. The CSRF token and the file fields' `clear_` and
+  client cannot write `role` or `tenant_id`. The CSRF token and the file fields' `clear_` and
   `keep_` keys are the exceptions.
 - **An edit writes only what was posted.** On an edit, a declared key missing from the submission
   keeps its stored value, and the update assigns only the fields the submission named, plus the

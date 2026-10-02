@@ -1,14 +1,4 @@
-//! xtask — repo tasks (ADR-0007).
-//!
-//! `sync-topcoat-ui` mirrors the [`VENDORED_PRIMITIVES`] subset of the
-//! `topcoat-ui-registry` sources into
-//! `crates/tablo-ui/src/components/primitives/` **verbatim**: every file is
-//! the registry's byte-for-byte source under a one-line SYNC header that
-//! records the registry version *and* the sha256 content hash of the source
-//! (the same hash scheme topcoat's own registry and `topcoat ui` use). Because
-//! the copy is verbatim, drift — a hand edit, a stale file, a component the
-//! vendored set gained or dropped — is detectable by [`verify_sync`], which
-//! the `xtask` test suite runs as a guard.
+//! Mirrors [`VENDORED_PRIMITIVES`] into `primitives/` verbatim under SYNC headers.
 
 use std::{
     collections::HashSet,

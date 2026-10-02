@@ -81,7 +81,7 @@ A resource list page runs, in order:
 6. Render the table inside a `suspense` region: the skeleton is sent with the shell, the loaded rows
    swap in.
 
-The list asks `ViewAny` only, so pagination stays honest; the per-row `View` trims the export
+The list asks `ViewAny` only, so page sizes stay exact; the per-row `View` trims the export
 and the relationship option lists. A detail page loads through the tenant-scoped `view_query`, so an
 unknown id and one outside the tenant are the same 404, while a row the caller may not view is a 403.
 Each of its relations then loads the related resource's list through that resource's own scoped
@@ -144,7 +144,7 @@ splits them with `Table::new_split(display, record, columns)`.
 
 ## Reactivity
 
-The toolkit ships no client framework. Two Topcoat mechanisms cover the interactive parts:
+The toolkit includes no client framework. Two Topcoat mechanisms cover the interactive parts:
 
 - **`suspense`** streams a region's content after the first render. The resource list uses it so the
   page shell and skeleton arrive first and the table swaps in.

@@ -39,17 +39,10 @@ warnings = "deny"
 # A function over budget needs a phase-split issue, not a wider budget.
 too_many_lines = "deny"
 
-# Topcoat and Toasty are git dependencies pinned to exact revs. Bump deliberately
-# (`cargo update -p topcoat --precise <rev>` and `cargo update -p toasty --precise
-# <rev>`, then `cargo check --offline`); sync `benchmarks/tablo/Cargo.lock` in the same commit. See
-# CONTRIBUTING.md "Dependency pins" (GH #103). `topcoat fmt` needs the CLI built from the
-# locked rev (see the fmt job in `.github/workflows/ci.yml`). For temporary live-editing
-# against a local checkout, add an uncommitted `[patch]` section redirecting to
-# `../topcoat` / `../toasty`.
+# Pins are exact revs; bump via `cargo xtask bump-upstream` (GH #103) and sync
+# `benchmarks/tablo/Cargo.lock` in the same commit.
 #
-# `toasty` enables no database driver here: the libraries reach the database
-# through `Db` and `Executor` only, and each app or test suite names its driver
-# on its own `toasty` dependency (`features = ["sqlite"]`).
+# Libraries use `Db`/`Executor` only; apps and tests name their driver.
 [workspace.dependencies]
 topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "f7eb477242da9690458d183efa2e0aaa1b21b9da", default-features = false, features = ["view", "router", "discover"] }
 toasty = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790", default-features = false, features = ["jiff"] }

@@ -93,12 +93,7 @@ impl Resource for PostResource {
         Schema::new(Field::text(Post::fields().title()).required())
     }
 
-    /// The shipped list answers 403 unless the policy allows `ViewAny` and the
-    /// request has a tenant, so the measured path is the enforced one, not an
-    /// open query. `bench_list_path` renders the wired table, so the row
-    /// abilities — `View`, `Update`, `Delete` — are each asked once per
-    /// rendered row inside the timed region: the row policy is part of what is
-    /// measured.
+    /// Enforces tenant and policy on the measured list path.
     fn policy() -> impl Policy<Post> {
         |_cx: &Cx, ability: Ability<'_, Post>| !matches!(ability, Ability::Create)
     }

@@ -260,7 +260,7 @@ Nothing is stamped on create: a comment's tenant is its post's. Declare the fore
 be one of the request tenant's posts.
 
 **A deliberately cross-tenant resource** — a super-admin view — declares no tenancy and filters in
-`query()` by hand. That gives up both the gate and the scope.
+`query()`. That gives up both the gate and the scope.
 
 **In your own code**, load rows with `scoped_query::<PostResource>(cx)?`. It applies the tenant
 scope and answers 403 when the request has no tenant. `PostResource::query(cx)` does not apply the

@@ -15,8 +15,7 @@ Tablo is a layer over two upstream projects:
 ## What you get
 
 - **Server-rendered pages, no SPA.** There is no client build step and no WASM bundle. Search,
-  sort, filters and pagination work without JavaScript; the shipped scripts add in-place updates
-  on top.
+  sort, filters and pagination work without JavaScript; the scripts add in-place updates.
 - **Typed declarations.** Columns, form fields and filters are built from Toasty field lenses
   such as `User::fields().email()`, so a renamed or retyped column is a compile error.
 - **Checks at startup.** Mounting the panel validates every declaration — a form struct that disagrees

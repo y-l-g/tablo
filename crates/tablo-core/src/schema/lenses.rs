@@ -1,19 +1,4 @@
-//! Field lenses — typed Toasty paths and their app-level metadata.
-//!
-//! Base bridge layer (with `pk`): these two modules are the only schema modules
-//! that name `toasty_core` (upstream #114/#183), so upstream churn has one
-//! blast radius.
-//!
-//! [`lens_field`] hands callers the built `app::Field`, so name, label,
-//! nullability, storage name, `FieldTy`, `auto` and `constraints` all come from
-//! one walk; [`lens_field_unique`] covers uniqueness, which `Field` does not
-//! carry because Toasty keeps it on the model's index list.
-//!
-//! [`FieldResolver`] is the schema-aware walk: with the app schema in hand an
-//! embedded path resolves to its **flattened storage column**, so a
-//! [`ResolvedLens::new`] binding reaches a field inside an embedded struct or a
-//! `#[document]`. Without a schema the single-segment rule applies, because
-//! the owned `app::Model` cannot see embedded models.
+//! Resolves typed Toasty paths to form keys and field metadata.
 
 use std::sync::Arc;
 

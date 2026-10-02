@@ -1,27 +1,8 @@
-//! Authentication — credentials, server-side sessions, and the panel gate
-//! (ADR-0013, spec #127).
+//! Authenticates panel users and gates panel routes.
 //!
-//! A [`Panel`](crate::Panel) is gated by default. The shipped
-//! [`PasswordAuth`] verifies Argon2id PHC hashes against the [`AdminUser`]
-//! model, a session cookie issued by Topcoat's token transport identifies one
-//! server-side [`AuthSession`] row, and the signed-in user travels in request
-//! `Cx` for pages, shards, and app code. An app with its own user table
-//! implements [`PanelUser`] for its model and [`Authenticator`] to load it, and
-//! installs it with [`Auth::custom`]; [`Auth::disabled`] is the explicit,
-//! greppable opt-out for public demos.
-//!
-//! App code reads the user with its own type: [`user::<Staff>(cx)`](user)
-//! answers `Option<&Staff>`, and [`require_user`] answers the request as the
-//! panel's own pages do when there is none.
-//!
-//! Sessions are always the framework's: the shipped [`AuthSession`] table maps
-//! a token hash to a user id, the panel that signed the user in, and the
-//! tenant the user selected, so an app registers it whatever authenticator it
-//! uses.
-//!
-//! Every panel on a router has its own [`Auth`]. A session belongs to the
-//! panel that issued it: another panel's gate does not resolve it, and
-//! [`user`] answers only on the panel the user signed in to.
+//! Gates panels by default; installs [`PasswordAuth`] or a custom [`Authenticator`].
+//! Reads the signed-in user through [`user`] and [`require_user`]. Stores sessions in
+//! [`AuthSession`] for every authenticator, scoped to the issuing panel.
 
 mod gate;
 mod login;

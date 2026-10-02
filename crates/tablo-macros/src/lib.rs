@@ -9,15 +9,9 @@ mod record_form;
 use proc_macro::TokenStream;
 use syn::DeriveInput;
 
-/// Derive `EmbeddedForm` for an embedded struct or enum.
+/// Derives `EmbeddedForm` for an embedded struct or enum.
 ///
-/// The generated impl builds the value's schema node from the columns the app
-/// schema resolves for the parent path — one text field per leaf, a nested
-/// node per `#[form(embed)]` value, and for an enum the variant control plus
-/// one group per variant — and converts the value to and from the panel's flat
-/// form map through that node's keys. It also generates `form(cx, parent)`,
-/// the value's schema. The framework supplies the storage names, the derive
-/// supplies the Rust shape.
+/// Builds the schema node and converts the value through that node's keys.
 ///
 /// ```ignore
 /// #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]

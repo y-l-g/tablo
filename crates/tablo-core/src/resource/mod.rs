@@ -1,11 +1,4 @@
 //! `Resource` — maps one Toasty [`Model`](toasty::schema::Model) to its admin UI.
-//!
-//! One `Model` → one `Resource`. The trait is the single seam for query
-//! scoping (`query`), the form and table declarations, and navigation. See
-//! `CONTEXT.md` and ADR-0002.
-//!
-//! The declarations live in submodules — `table`, `column`, `filter`,
-//! `action`, `state`, `relation`, `navigation` and `naming` — re-exported here.
 
 use std::collections::HashMap;
 
@@ -68,47 +61,19 @@ pub(crate) use crate::query_term::clamp_query_term;
 ///
 /// # Contract
 ///
-/// **Every item but [`Model`](Self::Model), [`Form`](Self::Form) and
-/// [`table`](Self::table) has a default**, so a resource compiles as soon as it
-/// declares its model, its record form (or [`NoForm`](crate::NoForm)) and its
-/// list view — and an omission must fail loudly rather than silently:
-///
-/// - **Built once and checked when the panel is mounted**: [`table`], [`form`], [`view`] and
-///   [`relations`] are declarations — the table and the relations take no context, the schemas a
-///   [`DeclCx`] carrying the app schema alone — so the panel builds each once, refuses what they
-///   record as misdeclared ([`Table::declaration_errors`], [`Schema::declaration_errors`]), and
-///   serves the same values to every request. [`form`] must agree with [`Form`](Self::Form): a
-///   record form's fields are the schema's controls, and a [`NoForm`](crate::NoForm) resource
-///   declares no schema. A resource with no form must not allow
-///   [`Ability::Create`](crate::policy::Ability::Create), which the mount asks with a context
-///   holding only the `Db`.
+/// Requires [`Model`](Self::Model), [`Form`](Self::Form), and [`table`](Self::table);
+/// every other item has a default. Declarations build once at mount and serve
+/// every request; record fns run inside the handler transaction and fail
+/// without partial writes. Row chrome follows the declarations; the default
+/// policy denies all.
 ///
 /// [`table`]: Self::table
 /// [`form`]: Self::form
 /// [`view`]: Self::view
 /// [`relations`]: Self::relations
 /// [`Schema::declaration_errors`]: crate::schema::Schema::declaration_errors
-/// - **Loud at request time**: a record fn's error fails the write and rolls its transaction back,
-///   never a partial write. [`delete_record`](Self::delete_record) defaults to deleting the row
-///   through [`scoped_query`], filtered to the record's key, and refuses a table whose record key
-///   does not parse back as the primary key — naming the override that fixes it — rather than
-///   deleting the wrong row or nothing. [`bulk_delete_records`](Self::bulk_delete_records) loops
-///   `delete_record` by default, so an override covers bulk delete too.
-/// - **Chrome follows the declarations**: the row Delete control and the bulk column render when
-///   the [`policy`](Self::policy) allows [`Ability::DeleteAny`](crate::policy::Ability::DeleteAny),
-///   the Edit link when the resource has a record form, and the View link when it declares
-///   [`view`](Self::view); the record abilities then gate each row.
-/// - **Default-deny**: the default policy is [`Deny`]; an unconfigured resource exposes no data and
-///   no mutation.
 pub trait Resource: Sized + Send + Sync + 'static {
     /// The persisted model this resource administers.
-    ///
-    /// `Send + Sync` holds for every data-only model struct and is required
-    /// for concurrent rendering of the resource's pages.
-    ///
-    /// `Clone` is part of the contract because a committed mutation names its
-    /// rows: a handler keeps a copy of the rows it loaded while the
-    /// record fn consumes them, so the hook can be handed what was written.
     type Model: toasty::schema::Model + Send + Sync + Clone + 'static;
 
     /// The typed value the create and edit forms parse into.
@@ -122,98 +87,32 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// The columns an overriding [`Self::create_record`] sets itself, beyond
     /// the form's fields.
-    ///
-    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses a resource
-    /// that allows create when a non-nullable column is neither a form field, nor filled by
-    /// toasty (`#[auto]`, `#[default(..)]`), nor the stamped tenant column: the
-    /// create would fail at the driver on every submit. A record fn that sets
-    /// such a column by hand names it here.
     const CREATE_COLUMNS: &'static [&'static str] = &[];
 
-    /// What the current user may do with this resource's records.
-    ///
-    /// Every handler asks it before it serves or writes: the list and the
-    /// export ask [`Ability::ViewAny`](crate::policy::Ability::ViewAny) before
-    /// any row loads and [`Ability::View`](crate::policy::Ability::View) per
-    /// row, a write asks the record ability on the row it loaded inside its
-    /// transaction, and a relationship field over this resource offers only the
-    /// records it may view. The default is [`Deny`].
-    ///
-    /// The list checks `ViewAny` for membership and `View` only for each row's
-    /// actions: a policy is Rust that cannot run in SQL, and filtering rows
-    /// after cursor pagination would mislabel pages. Row-level visibility that
-    /// must hold on the list belongs in [`Self::query`].
-    ///
-    /// Mounting the panel asks [`Ability::Create`](crate::policy::Ability::Create)
-    /// with a context holding only the `Db` to decide which declaration checks
-    /// apply, so a policy that reads the request answers as it would for an
-    /// anonymous request there.
+    /// Gates every handler; defaults to [`Deny`]. Row scoping belongs in
+    /// [`query`](Self::query), not policy.
     fn policy() -> impl Policy<Self::Model> {
         Deny
     }
 
-    /// How this resource's rows belong to a tenant. The default,
-    /// [`Tenancy::none`], serves [`Self::query`] as written.
-    ///
-    /// A scoped tenancy ([`Tenancy::column`], [`Tenancy::via`]) makes every
-    /// handler answer 403 to a request with no tenant, and every loader AND the
-    /// tenant filter onto the base query through [`scoped_query`]. A resource
-    /// that must serve more than the request's tenant declares none and
-    /// scopes in [`Self::query`] by hand, giving up the gate with the filter.
+    /// Declares how rows belong to a tenant; defaults to unscoped.
     fn tenancy() -> Tenancy<Self::Model> {
         Tenancy::none()
     }
 
-    /// How one record is displayed on the detail page, read-only.
-    ///
-    /// The same [`Schema`](crate::schema::Schema) vocabulary a form uses,
-    /// rendered for reading: a text field shows its stored value instead of an
-    /// `<input>`, a choice shows the option label the form offered, and a
-    /// layout block keeps the structure it declares. Like Filament's infolist,
-    /// it is its own declaration: it may show keys the form does not, and a
-    /// resource with no form declares one too. Declaring a view is what turns
-    /// the detail page on — the default declares nothing, so the route 404s
-    /// and no `View` row action renders.
-    ///
-    /// Values come from [`view_values`](Self::view_values) and the record
-    /// form's `hydrate`. A field whose key neither supplies renders
-    /// `(missing)` and fails a `debug_assert!`. A relation is not one of these
-    /// fields — it is a list of records, not a string — and renders through
-    /// [`relations`](Self::relations).
-    ///
-    /// Read-only is a promise, not a disabled form: nothing here validates or
-    /// submits, and no field renders a required marker or an error slot.
-    ///
-    /// Like [`form`](Self::form), it receives the app schema alone and is
-    /// called once, at build. A view that shows what the form edits can start
-    /// from the same controls: `PostForm::controls(dx)`.
+    /// Declares the read-only detail schema; empty disables the detail route.
     fn view(_dx: &DeclCx) -> crate::schema::Schema {
         crate::schema::Schema::empty()
     }
 
-    /// Free-form content on this resource's detail page, below the
-    /// [`view`](Self::view) schema and above the [`relations`](Self::relations):
-    /// anything computed from the loaded record that is not one of its fields,
-    /// such as a word count.
-    ///
-    /// Returns `None` (the default) to render nothing. The two lifetimes are
-    /// deliberately separate: the returned view may borrow the request context,
-    /// never the record — a view holding the record would pin the handler's
-    /// local binding for as long as the page, which does not compile.
+    /// Renders free-form content below [`view`](Self::view) and above
+    /// [`relations`](Self::relations).
     fn view_content<'a>(_cx: &'a Cx, _record: &Self::Model) -> Option<topcoat::view::BoxView<'a>> {
         None
     }
 
-    /// The related resources whose rows belong to a record: each renders on
-    /// this resource's detail and edit pages as the related resource's own
-    /// list table, narrowed to the record (Filament's relation managers) —
-    /// read-only on the detail page, and on the edit page with its write
-    /// actions and a create link that opens its form with the record already
-    /// chosen.
-    ///
-    /// Takes no `Cx`, like [`navigation`](Self::navigation): the relations are
-    /// a declaration, and each related resource's policies decide per request
-    /// what its table shows. The default declares none.
+    /// Declares related resources rendered as narrowed tables on detail and
+    /// edit pages.
     fn relations() -> Vec<Relation<Self::Model>> {
         Vec::new()
     }

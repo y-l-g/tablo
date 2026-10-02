@@ -113,19 +113,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # The workspace check runs on the pinned nightly: rustfmt.toml's keys are
-      # nightly-only (GH #269) and stable rustfmt ignores them with a warning.
-      # The date is fixed so the rustfmt version the gate enforces cannot move
-      # without a commit here; rust-toolchain.toml records the choice. The
-      # default toolchain stays stable so the detached-bench checks xtask runs
-      # and the topcoat-cli build keep running on it.
+      # Workspace fmt uses the pinned nightly: rustfmt.toml keys are nightly-only (GH #269).
       - run: rustup update stable && rustup default stable
       - run: rustup toolchain install nightly-2026-08-24 --profile minimal --component rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Restore topcoat CLI cache
-        # `cargo install` builds the CLI from source (~4 minutes); the binary
-        # is rev-pinned, so a cache keyed on Cargo.lock restores exactly the
-        # revision `topcoat fmt` requires.
+        # CLI build is ~4 min; cache restores the Cargo.lock-pinned rev.
         id: cache-topcoat
         uses: actions/cache@v6
         with:

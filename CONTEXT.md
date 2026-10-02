@@ -289,7 +289,7 @@ _Avoid_: Container, Wrapper, Layout
 
 ### Theme
 
-The set of design Tokens that sets the admin's look. Tablo ships no stylesheet: each app declares
+The set of design Tokens that sets the admin's look. Tablo provides no stylesheet: each app declares
 the Tokens in its own `styles.css`, and `examples/showcase/styles.css` is the reference.
 
 _Avoid_: Skin, Style, Palette
