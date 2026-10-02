@@ -238,9 +238,13 @@ where
     R: OptionSource,
 {
     ensure_option_access::<R>(cx)?;
+    let mut query = option_query::<R>(cx)?;
+    if let Some(ord) = R::order_by(cx) {
+        query = query.order_by(ord);
+    }
     bounded_options::<R>(
         cx,
-        option_query::<R>(cx)?,
+        query,
         "relationship option load failed",
         "relationship option table overflows the cap",
     )
