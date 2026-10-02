@@ -238,181 +238,185 @@
 <a href=#238 id=238 data-nosnippet>238</a>    </span>R: OptionSource,
 <a href=#239 id=239 data-nosnippet>239</a>{
 <a href=#240 id=240 data-nosnippet>240</a>    ensure_option_access::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#241 id=241 data-nosnippet>241</a>    bounded_options::&lt;R&gt;(
-<a href=#242 id=242 data-nosnippet>242</a>        cx,
-<a href=#243 id=243 data-nosnippet>243</a>        option_query::&lt;R&gt;(cx)<span class="question-mark">?</span>,
-<a href=#244 id=244 data-nosnippet>244</a>        <span class="string">"relationship option load failed"</span>,
-<a href=#245 id=245 data-nosnippet>245</a>        <span class="string">"relationship option table overflows the cap"</span>,
-<a href=#246 id=246 data-nosnippet>246</a>    )
-<a href=#247 id=247 data-nosnippet>247</a>    .<span class="kw">await
-<a href=#248 id=248 data-nosnippet>248</a></span>}
-<a href=#249 id=249 data-nosnippet>249</a>
-<a href=#250 id=250 data-nosnippet>250</a><span class="doccomment">/// The bounded option load shared by [`related_records`] and
-<a href=#251 id=251 data-nosnippet>251</a>/// [`related_records_search`]: fetch one row past the cap, map a query failure
-<a href=#252 id=252 data-nosnippet>252</a>/// to `LoadFailed`, refuse a set over the cap with `Overflow`, then drop the
-<a href=#253 id=253 data-nosnippet>253</a>/// rows the caller cannot view.
-<a href=#254 id=254 data-nosnippet>254</a>///
-<a href=#255 id=255 data-nosnippet>255</a>/// The cap is checked on the **raw** bounded fetch, before `View`
-<a href=#256 id=256 data-nosnippet>256</a>/// filtering: counting filtered rows would let one hidden record
-<a href=#257 id=257 data-nosnippet>257</a>/// defeat the cap and silently truncate a larger table, misreporting
-<a href=#258 id=258 data-nosnippet>258</a>/// legitimate FKs as "invalid". `failed` and `overflow` are the warning
-<a href=#259 id=259 data-nosnippet>259</a>/// messages the caller's load reports.
-<a href=#260 id=260 data-nosnippet>260</a></span><span class="kw">async fn </span>bounded_options&lt;R&gt;(
-<a href=#261 id=261 data-nosnippet>261</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#262 id=262 data-nosnippet>262</a>    query: Query&lt;List&lt;R::Model&gt;&gt;,
-<a href=#263 id=263 data-nosnippet>263</a>    failed: <span class="kw-2">&amp;</span>str,
-<a href=#264 id=264 data-nosnippet>264</a>    overflow: <span class="kw-2">&amp;</span>str,
-<a href=#265 id=265 data-nosnippet>265</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;R::Model&gt;, OptionLoadError&gt;
-<a href=#266 id=266 data-nosnippet>266</a><span class="kw">where
-<a href=#267 id=267 data-nosnippet>267</a>    </span>R: OptionSource,
-<a href=#268 id=268 data-nosnippet>268</a>{
-<a href=#269 id=269 data-nosnippet>269</a>    <span class="kw">let </span><span class="kw-2">mut </span>db = <span class="kw">crate</span>::db::db(cx);
-<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">let </span><span class="kw-2">mut </span>records = query
-<a href=#271 id=271 data-nosnippet>271</a>        .limit(MAX_RELATIONSHIP_OPTIONS + <span class="number">1</span>)
-<a href=#272 id=272 data-nosnippet>272</a>        .exec(<span class="kw-2">&amp;mut </span>db)
-<a href=#273 id=273 data-nosnippet>273</a>        .<span class="kw">await
-<a href=#274 id=274 data-nosnippet>274</a>        </span>.map_err(|e| {
-<a href=#275 id=275 data-nosnippet>275</a>            <span class="macro">tracing::warn!</span>(
-<a href=#276 id=276 data-nosnippet>276</a>                resource = R::slug(),
-<a href=#277 id=277 data-nosnippet>277</a>                error = %e,
-<a href=#278 id=278 data-nosnippet>278</a>                <span class="string">"{failed}"
-<a href=#279 id=279 data-nosnippet>279</a>            </span>);
-<a href=#280 id=280 data-nosnippet>280</a>            OptionLoadError::LoadFailed
-<a href=#281 id=281 data-nosnippet>281</a>        })<span class="question-mark">?</span>;
-<a href=#282 id=282 data-nosnippet>282</a>    <span class="kw">if </span>records.len() &gt; MAX_RELATIONSHIP_OPTIONS {
-<a href=#283 id=283 data-nosnippet>283</a>        <span class="comment">// Fail visibly: validating against a silent truncation
-<a href=#284 id=284 data-nosnippet>284</a>        // would reject legitimate FKs as "invalid" while rendering a
-<a href=#285 id=285 data-nosnippet>285</a>        // misleading subset. Counted before policy filtering. Distinct
-<a href=#286 id=286 data-nosnippet>286</a>        // `Overflow` so searchable selects degrade to type-to-
-<a href=#287 id=287 data-nosnippet>287</a>        // search instead of a retry error.
-<a href=#288 id=288 data-nosnippet>288</a>        </span><span class="macro">tracing::warn!</span>(
-<a href=#289 id=289 data-nosnippet>289</a>            resource = R::slug(),
-<a href=#290 id=290 data-nosnippet>290</a>            max = MAX_RELATIONSHIP_OPTIONS,
-<a href=#291 id=291 data-nosnippet>291</a>            <span class="string">"{overflow}"
-<a href=#292 id=292 data-nosnippet>292</a>        </span>);
-<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(OptionLoadError::Overflow);
-<a href=#294 id=294 data-nosnippet>294</a>    }
-<a href=#295 id=295 data-nosnippet>295</a>    <span class="kw">let </span>policy = R::policy();
-<a href=#296 id=296 data-nosnippet>296</a>    records.retain(|record| policy.allows(cx, Ability::View(record)));
-<a href=#297 id=297 data-nosnippet>297</a>    <span class="prelude-val">Ok</span>(records)
-<a href=#298 id=298 data-nosnippet>298</a>}
-<a href=#299 id=299 data-nosnippet>299</a>
-<a href=#300 id=300 data-nosnippet>300</a><span class="doccomment">/// Bounded server-side option search.
-<a href=#301 id=301 data-nosnippet>301</a>///
-<a href=#302 id=302 data-nosnippet>302</a>/// Reuses the related table's declared `searchable()` columns via
-<a href=#303 id=303 data-nosnippet>303</a>/// `R::search_expr(cx, q)` (D1): documented as "option search searches
-<a href=#304 id=304 data-nosnippet>304</a>/// the related resource's declared searchable columns". No option-specific
-<a href=#305 id=305 data-nosnippet>305</a>/// hook until a real caller needs it.
-<a href=#306 id=306 data-nosnippet>306</a>///
-<a href=#307 id=307 data-nosnippet>307</a>/// * Empty/blank `q` → bounded head (same cap as [`related_records`]).
-<a href=#308 id=308 data-nosnippet>308</a>/// * `q` non-empty but `search_expr` is `None` (no searchable columns) → fallback to the hard-cap
-<a href=#309 id=309 data-nosnippet>309</a>///   path (D1a): unfiltered bounded load, `Overflow` when over the cap. Non-searchable selects use
-<a href=#310 id=310 data-nosnippet>310</a>///   the hard-cap path.
-<a href=#311 id=311 data-nosnippet>311</a>/// * Filtered fetch carries `limit(MAX+1)` and fails with `Overflow` past the cap instead of
-<a href=#312 id=312 data-nosnippet>312</a>///   scanning the table — one bounded round-trip per keystroke burst, never the whole table.
-<a href=#313 id=313 data-nosnippet>313</a>/// * Policy mirrors the base load: `ViewAny` + tenant gate fail closed (`Denied`), rows filter
-<a href=#314 id=314 data-nosnippet>314</a>///   through `View` before labels.
-<a href=#315 id=315 data-nosnippet>315</a>/// * `q` is clamped to [`crate::query_term::MAX_QUERY_TERM`] chars (same bound as `?q=`), trimmed.
-<a href=#316 id=316 data-nosnippet>316</a>/// * One bounded round-trip per call, never the whole table; not memoized (`q` is unbounded per
-<a href=#317 id=317 data-nosnippet>317</a>///   keystroke, and the endpoint serves one field and one term per request, so sharing would only
-<a href=#318 id=318 data-nosnippet>318</a>///   grow the per-request cache).
-<a href=#319 id=319 data-nosnippet>319</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>related_records_search&lt;R&gt;(
-<a href=#320 id=320 data-nosnippet>320</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#321 id=321 data-nosnippet>321</a>    q: String,
-<a href=#322 id=322 data-nosnippet>322</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;R::Model&gt;, OptionLoadError&gt;
-<a href=#323 id=323 data-nosnippet>323</a><span class="kw">where
-<a href=#324 id=324 data-nosnippet>324</a>    </span>R: OptionSource,
-<a href=#325 id=325 data-nosnippet>325</a>{
-<a href=#326 id=326 data-nosnippet>326</a>    ensure_option_access::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#327 id=327 data-nosnippet>327</a>    <span class="kw">let </span>term = <span class="kw">crate</span>::query_term::clamp_query_term(<span class="kw-2">&amp;</span>q);
-<a href=#328 id=328 data-nosnippet>328</a>    <span class="kw">let </span><span class="kw-2">mut </span>query = option_query::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#329 id=329 data-nosnippet>329</a>    <span class="kw">if </span>!term.is_empty() {
-<a href=#330 id=330 data-nosnippet>330</a>        <span class="comment">// D1: reuse the related table's declared searchable columns. When it
-<a href=#331 id=331 data-nosnippet>331</a>        // declares none, `search_expr` is None and we fall through unfiltered
-<a href=#332 id=332 data-nosnippet>332</a>        // to the capped exec below (D1a fallback: hard-cap path, `Overflow`
-<a href=#333 id=333 data-nosnippet>333</a>        // on large tables). Non-searchable selects use the hard-cap path.
-<a href=#334 id=334 data-nosnippet>334</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(expr) = R::search_expr(cx, <span class="kw-2">&amp;</span>term) {
-<a href=#335 id=335 data-nosnippet>335</a>            query = query.filter(expr);
-<a href=#336 id=336 data-nosnippet>336</a>        }
-<a href=#337 id=337 data-nosnippet>337</a>    }
-<a href=#338 id=338 data-nosnippet>338</a>    <span class="comment">// The declared default ordering only — the first sortable column, asc, or
-<a href=#339 id=339 data-nosnippet>339</a>    // nothing. Deliberately not a list-mode resolution: the
-<a href=#340 id=340 data-nosnippet>340</a>    // option search has no table state, and the PK fallback a paginated table
-<a href=#341 id=341 data-nosnippet>341</a>    // would add is an ordering change this endpoint never had.
-<a href=#342 id=342 data-nosnippet>342</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(ord) = R::order_by(cx) {
-<a href=#343 id=343 data-nosnippet>343</a>        query = query.order_by(ord);
-<a href=#344 id=344 data-nosnippet>344</a>    }
-<a href=#345 id=345 data-nosnippet>345</a>    bounded_options::&lt;R&gt;(
-<a href=#346 id=346 data-nosnippet>346</a>        cx,
-<a href=#347 id=347 data-nosnippet>347</a>        query,
-<a href=#348 id=348 data-nosnippet>348</a>        <span class="string">"relationship option search failed"</span>,
-<a href=#349 id=349 data-nosnippet>349</a>        <span class="string">"relationship option search overflows the cap"</span>,
-<a href=#350 id=350 data-nosnippet>350</a>    )
-<a href=#351 id=351 data-nosnippet>351</a>    .<span class="kw">await
-<a href=#352 id=352 data-nosnippet>352</a></span>}
-<a href=#353 id=353 data-nosnippet>353</a>
-<a href=#354 id=354 data-nosnippet>354</a><span class="doccomment">/// Outcome of the targeted existence check for overflowed selects (D4).
-<a href=#355 id=355 data-nosnippet>355</a></span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-<a href=#356 id=356 data-nosnippet>356</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>RelatedCheck {
-<a href=#357 id=357 data-nosnippet>357</a>    <span class="doccomment">/// PK parses and resolves through the tenant-scoped query and passes
-<a href=#358 id=358 data-nosnippet>358</a>    /// `View`.
-<a href=#359 id=359 data-nosnippet>359</a>    </span>FoundViewable,
-<a href=#360 id=360 data-nosnippet>360</a>    <span class="doccomment">/// PK resolves but `View` is refused (maps to "invalid", never leaks).
-<a href=#361 id=361 data-nosnippet>361</a>    </span>FoundHidden,
-<a href=#362 id=362 data-nosnippet>362</a>    <span class="doccomment">/// PK does not parse or no row matches (maps to "invalid").
-<a href=#363 id=363 data-nosnippet>363</a>    </span>NotFound,
-<a href=#364 id=364 data-nosnippet>364</a>}
-<a href=#365 id=365 data-nosnippet>365</a>
-<a href=#366 id=366 data-nosnippet>366</a><span class="doccomment">/// Targeted FK existence check, through `ex`.
-<a href=#367 id=367 data-nosnippet>367</a>///
-<a href=#368 id=368 data-nosnippet>368</a>/// Validates one submitted key directly: parse via `pk_eq_expr`, fetch through
-<a href=#369 id=369 data-nosnippet>369</a>/// the tenant-scoped query, then `View`. The pre-write validation runs it for
-<a href=#370 id=370 data-nosnippet>370</a>/// an overflowed set, which membership in the bounded set cannot validate, and
-<a href=#371 id=371 data-nosnippet>371</a>/// the write runs it for every relationship key inside its transaction, so the
-<a href=#372 id=372 data-nosnippet>372</a>/// key is checked against the rows the write sees.
-<a href=#373 id=373 data-nosnippet>373</a>/// * `Denied` when `ViewAny` is refused or tenant is missing (maps to "not available").
-<a href=#374 id=374 data-nosnippet>374</a>/// * `LoadFailed` on driver failure (maps to retry).
-<a href=#375 id=375 data-nosnippet>375</a>/// * `Ok(FoundViewable/FoundHidden/NotFound)` otherwise.
-<a href=#376 id=376 data-nosnippet>376</a>/// * Single targeted round-trip per call, not memoized (one value per validation; sharing would
-<a href=#377 id=377 data-nosnippet>377</a>///   only grow the per-request cache).
-<a href=#378 id=378 data-nosnippet>378</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>related_record_check&lt;R&gt;(
-<a href=#379 id=379 data-nosnippet>379</a>    cx: <span class="kw-2">&amp;</span>Cx,
-<a href=#380 id=380 data-nosnippet>380</a>    value: String,
-<a href=#381 id=381 data-nosnippet>381</a>    ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>toasty::Executor,
-<a href=#382 id=382 data-nosnippet>382</a>) -&gt; <span class="prelude-ty">Result</span>&lt;RelatedCheck, OptionLoadError&gt;
-<a href=#383 id=383 data-nosnippet>383</a><span class="kw">where
-<a href=#384 id=384 data-nosnippet>384</a>    </span>R: OptionSource,
-<a href=#385 id=385 data-nosnippet>385</a>{
-<a href=#386 id=386 data-nosnippet>386</a>    ensure_option_access::&lt;R&gt;(cx)<span class="question-mark">?</span>;
-<a href=#387 id=387 data-nosnippet>387</a>    <span class="kw">let </span>trimmed = value.trim();
-<a href=#388 id=388 data-nosnippet>388</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(expr) = <span class="kw">crate</span>::schema::pk_eq_expr::&lt;R::Model&gt;(trimmed) <span class="kw">else </span>{
-<a href=#389 id=389 data-nosnippet>389</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(RelatedCheck::NotFound);
-<a href=#390 id=390 data-nosnippet>390</a>    };
-<a href=#391 id=391 data-nosnippet>391</a>    <span class="kw">let </span>row = option_query::&lt;R&gt;(cx)<span class="question-mark">?
-<a href=#392 id=392 data-nosnippet>392</a>        </span>.filter(expr)
-<a href=#393 id=393 data-nosnippet>393</a>        .first()
-<a href=#394 id=394 data-nosnippet>394</a>        .exec(ex)
-<a href=#395 id=395 data-nosnippet>395</a>        .<span class="kw">await
-<a href=#396 id=396 data-nosnippet>396</a>        </span>.map_err(|e| {
-<a href=#397 id=397 data-nosnippet>397</a>            <span class="macro">tracing::warn!</span>(
-<a href=#398 id=398 data-nosnippet>398</a>                resource = R::slug(),
-<a href=#399 id=399 data-nosnippet>399</a>                error = %e,
-<a href=#400 id=400 data-nosnippet>400</a>                <span class="string">"relationship option check failed"
-<a href=#401 id=401 data-nosnippet>401</a>            </span>);
-<a href=#402 id=402 data-nosnippet>402</a>            OptionLoadError::LoadFailed
-<a href=#403 id=403 data-nosnippet>403</a>        })<span class="question-mark">?</span>;
-<a href=#404 id=404 data-nosnippet>404</a>    <span class="kw">match </span>row {
-<a href=#405 id=405 data-nosnippet>405</a>        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(RelatedCheck::NotFound),
-<a href=#406 id=406 data-nosnippet>406</a>        <span class="prelude-val">Some</span>(record) =&gt; {
-<a href=#407 id=407 data-nosnippet>407</a>            <span class="kw">if </span>R::policy().allows(cx, Ability::View(<span class="kw-2">&amp;</span>record)) {
-<a href=#408 id=408 data-nosnippet>408</a>                <span class="prelude-val">Ok</span>(RelatedCheck::FoundViewable)
-<a href=#409 id=409 data-nosnippet>409</a>            } <span class="kw">else </span>{
-<a href=#410 id=410 data-nosnippet>410</a>                <span class="prelude-val">Ok</span>(RelatedCheck::FoundHidden)
-<a href=#411 id=411 data-nosnippet>411</a>            }
-<a href=#412 id=412 data-nosnippet>412</a>        }
-<a href=#413 id=413 data-nosnippet>413</a>    }
-<a href=#414 id=414 data-nosnippet>414</a>}
-<a href=#415 id=415 data-nosnippet>415</a>
-<a href=#416 id=416 data-nosnippet>416</a><span class="attr">#[cfg(test)]
-<a href=#417 id=417 data-nosnippet>417</a></span><span class="kw">mod </span>tests;
+<a href=#241 id=241 data-nosnippet>241</a>    <span class="kw">let </span><span class="kw-2">mut </span>query = option_query::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#242 id=242 data-nosnippet>242</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(ord) = R::order_by(cx) {
+<a href=#243 id=243 data-nosnippet>243</a>        query = query.order_by(ord);
+<a href=#244 id=244 data-nosnippet>244</a>    }
+<a href=#245 id=245 data-nosnippet>245</a>    bounded_options::&lt;R&gt;(
+<a href=#246 id=246 data-nosnippet>246</a>        cx,
+<a href=#247 id=247 data-nosnippet>247</a>        query,
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="string">"relationship option load failed"</span>,
+<a href=#249 id=249 data-nosnippet>249</a>        <span class="string">"relationship option table overflows the cap"</span>,
+<a href=#250 id=250 data-nosnippet>250</a>    )
+<a href=#251 id=251 data-nosnippet>251</a>    .<span class="kw">await
+<a href=#252 id=252 data-nosnippet>252</a></span>}
+<a href=#253 id=253 data-nosnippet>253</a>
+<a href=#254 id=254 data-nosnippet>254</a><span class="doccomment">/// The bounded option load shared by [`related_records`] and
+<a href=#255 id=255 data-nosnippet>255</a>/// [`related_records_search`]: fetch one row past the cap, map a query failure
+<a href=#256 id=256 data-nosnippet>256</a>/// to `LoadFailed`, refuse a set over the cap with `Overflow`, then drop the
+<a href=#257 id=257 data-nosnippet>257</a>/// rows the caller cannot view.
+<a href=#258 id=258 data-nosnippet>258</a>///
+<a href=#259 id=259 data-nosnippet>259</a>/// The cap is checked on the **raw** bounded fetch, before `View`
+<a href=#260 id=260 data-nosnippet>260</a>/// filtering: counting filtered rows would let one hidden record
+<a href=#261 id=261 data-nosnippet>261</a>/// defeat the cap and silently truncate a larger table, misreporting
+<a href=#262 id=262 data-nosnippet>262</a>/// legitimate FKs as "invalid". `failed` and `overflow` are the warning
+<a href=#263 id=263 data-nosnippet>263</a>/// messages the caller's load reports.
+<a href=#264 id=264 data-nosnippet>264</a></span><span class="kw">async fn </span>bounded_options&lt;R&gt;(
+<a href=#265 id=265 data-nosnippet>265</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#266 id=266 data-nosnippet>266</a>    query: Query&lt;List&lt;R::Model&gt;&gt;,
+<a href=#267 id=267 data-nosnippet>267</a>    failed: <span class="kw-2">&amp;</span>str,
+<a href=#268 id=268 data-nosnippet>268</a>    overflow: <span class="kw-2">&amp;</span>str,
+<a href=#269 id=269 data-nosnippet>269</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;R::Model&gt;, OptionLoadError&gt;
+<a href=#270 id=270 data-nosnippet>270</a><span class="kw">where
+<a href=#271 id=271 data-nosnippet>271</a>    </span>R: OptionSource,
+<a href=#272 id=272 data-nosnippet>272</a>{
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="kw">let </span><span class="kw-2">mut </span>db = <span class="kw">crate</span>::db::db(cx);
+<a href=#274 id=274 data-nosnippet>274</a>    <span class="kw">let </span><span class="kw-2">mut </span>records = query
+<a href=#275 id=275 data-nosnippet>275</a>        .limit(MAX_RELATIONSHIP_OPTIONS + <span class="number">1</span>)
+<a href=#276 id=276 data-nosnippet>276</a>        .exec(<span class="kw-2">&amp;mut </span>db)
+<a href=#277 id=277 data-nosnippet>277</a>        .<span class="kw">await
+<a href=#278 id=278 data-nosnippet>278</a>        </span>.map_err(|e| {
+<a href=#279 id=279 data-nosnippet>279</a>            <span class="macro">tracing::warn!</span>(
+<a href=#280 id=280 data-nosnippet>280</a>                resource = R::slug(),
+<a href=#281 id=281 data-nosnippet>281</a>                error = %e,
+<a href=#282 id=282 data-nosnippet>282</a>                <span class="string">"{failed}"
+<a href=#283 id=283 data-nosnippet>283</a>            </span>);
+<a href=#284 id=284 data-nosnippet>284</a>            OptionLoadError::LoadFailed
+<a href=#285 id=285 data-nosnippet>285</a>        })<span class="question-mark">?</span>;
+<a href=#286 id=286 data-nosnippet>286</a>    <span class="kw">if </span>records.len() &gt; MAX_RELATIONSHIP_OPTIONS {
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="comment">// Fail visibly: validating against a silent truncation
+<a href=#288 id=288 data-nosnippet>288</a>        // would reject legitimate FKs as "invalid" while rendering a
+<a href=#289 id=289 data-nosnippet>289</a>        // misleading subset. Counted before policy filtering. Distinct
+<a href=#290 id=290 data-nosnippet>290</a>        // `Overflow` so searchable selects degrade to type-to-
+<a href=#291 id=291 data-nosnippet>291</a>        // search instead of a retry error.
+<a href=#292 id=292 data-nosnippet>292</a>        </span><span class="macro">tracing::warn!</span>(
+<a href=#293 id=293 data-nosnippet>293</a>            resource = R::slug(),
+<a href=#294 id=294 data-nosnippet>294</a>            max = MAX_RELATIONSHIP_OPTIONS,
+<a href=#295 id=295 data-nosnippet>295</a>            <span class="string">"{overflow}"
+<a href=#296 id=296 data-nosnippet>296</a>        </span>);
+<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(OptionLoadError::Overflow);
+<a href=#298 id=298 data-nosnippet>298</a>    }
+<a href=#299 id=299 data-nosnippet>299</a>    <span class="kw">let </span>policy = R::policy();
+<a href=#300 id=300 data-nosnippet>300</a>    records.retain(|record| policy.allows(cx, Ability::View(record)));
+<a href=#301 id=301 data-nosnippet>301</a>    <span class="prelude-val">Ok</span>(records)
+<a href=#302 id=302 data-nosnippet>302</a>}
+<a href=#303 id=303 data-nosnippet>303</a>
+<a href=#304 id=304 data-nosnippet>304</a><span class="doccomment">/// Bounded server-side option search.
+<a href=#305 id=305 data-nosnippet>305</a>///
+<a href=#306 id=306 data-nosnippet>306</a>/// Reuses the related table's declared `searchable()` columns via
+<a href=#307 id=307 data-nosnippet>307</a>/// `R::search_expr(cx, q)` (D1): documented as "option search searches
+<a href=#308 id=308 data-nosnippet>308</a>/// the related resource's declared searchable columns". No option-specific
+<a href=#309 id=309 data-nosnippet>309</a>/// hook until a real caller needs it.
+<a href=#310 id=310 data-nosnippet>310</a>///
+<a href=#311 id=311 data-nosnippet>311</a>/// * Empty/blank `q` → bounded head (same cap as [`related_records`]).
+<a href=#312 id=312 data-nosnippet>312</a>/// * `q` non-empty but `search_expr` is `None` (no searchable columns) → fallback to the hard-cap
+<a href=#313 id=313 data-nosnippet>313</a>///   path (D1a): unfiltered bounded load, `Overflow` when over the cap. Non-searchable selects use
+<a href=#314 id=314 data-nosnippet>314</a>///   the hard-cap path.
+<a href=#315 id=315 data-nosnippet>315</a>/// * Filtered fetch carries `limit(MAX+1)` and fails with `Overflow` past the cap instead of
+<a href=#316 id=316 data-nosnippet>316</a>///   scanning the table — one bounded round-trip per keystroke burst, never the whole table.
+<a href=#317 id=317 data-nosnippet>317</a>/// * Policy mirrors the base load: `ViewAny` + tenant gate fail closed (`Denied`), rows filter
+<a href=#318 id=318 data-nosnippet>318</a>///   through `View` before labels.
+<a href=#319 id=319 data-nosnippet>319</a>/// * `q` is clamped to [`crate::query_term::MAX_QUERY_TERM`] chars (same bound as `?q=`), trimmed.
+<a href=#320 id=320 data-nosnippet>320</a>/// * One bounded round-trip per call, never the whole table; not memoized (`q` is unbounded per
+<a href=#321 id=321 data-nosnippet>321</a>///   keystroke, and the endpoint serves one field and one term per request, so sharing would only
+<a href=#322 id=322 data-nosnippet>322</a>///   grow the per-request cache).
+<a href=#323 id=323 data-nosnippet>323</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>related_records_search&lt;R&gt;(
+<a href=#324 id=324 data-nosnippet>324</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#325 id=325 data-nosnippet>325</a>    q: String,
+<a href=#326 id=326 data-nosnippet>326</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;R::Model&gt;, OptionLoadError&gt;
+<a href=#327 id=327 data-nosnippet>327</a><span class="kw">where
+<a href=#328 id=328 data-nosnippet>328</a>    </span>R: OptionSource,
+<a href=#329 id=329 data-nosnippet>329</a>{
+<a href=#330 id=330 data-nosnippet>330</a>    ensure_option_access::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#331 id=331 data-nosnippet>331</a>    <span class="kw">let </span>term = <span class="kw">crate</span>::query_term::clamp_query_term(<span class="kw-2">&amp;</span>q);
+<a href=#332 id=332 data-nosnippet>332</a>    <span class="kw">let </span><span class="kw-2">mut </span>query = option_query::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#333 id=333 data-nosnippet>333</a>    <span class="kw">if </span>!term.is_empty() {
+<a href=#334 id=334 data-nosnippet>334</a>        <span class="comment">// D1: reuse the related table's declared searchable columns. When it
+<a href=#335 id=335 data-nosnippet>335</a>        // declares none, `search_expr` is None and we fall through unfiltered
+<a href=#336 id=336 data-nosnippet>336</a>        // to the capped exec below (D1a fallback: hard-cap path, `Overflow`
+<a href=#337 id=337 data-nosnippet>337</a>        // on large tables). Non-searchable selects use the hard-cap path.
+<a href=#338 id=338 data-nosnippet>338</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(expr) = R::search_expr(cx, <span class="kw-2">&amp;</span>term) {
+<a href=#339 id=339 data-nosnippet>339</a>            query = query.filter(expr);
+<a href=#340 id=340 data-nosnippet>340</a>        }
+<a href=#341 id=341 data-nosnippet>341</a>    }
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="comment">// The declared default ordering only — the first sortable column, asc, or
+<a href=#343 id=343 data-nosnippet>343</a>    // nothing. Deliberately not a list-mode resolution: the
+<a href=#344 id=344 data-nosnippet>344</a>    // option search has no table state, and the PK fallback a paginated table
+<a href=#345 id=345 data-nosnippet>345</a>    // would add is an ordering change this endpoint never had.
+<a href=#346 id=346 data-nosnippet>346</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(ord) = R::order_by(cx) {
+<a href=#347 id=347 data-nosnippet>347</a>        query = query.order_by(ord);
+<a href=#348 id=348 data-nosnippet>348</a>    }
+<a href=#349 id=349 data-nosnippet>349</a>    bounded_options::&lt;R&gt;(
+<a href=#350 id=350 data-nosnippet>350</a>        cx,
+<a href=#351 id=351 data-nosnippet>351</a>        query,
+<a href=#352 id=352 data-nosnippet>352</a>        <span class="string">"relationship option search failed"</span>,
+<a href=#353 id=353 data-nosnippet>353</a>        <span class="string">"relationship option search overflows the cap"</span>,
+<a href=#354 id=354 data-nosnippet>354</a>    )
+<a href=#355 id=355 data-nosnippet>355</a>    .<span class="kw">await
+<a href=#356 id=356 data-nosnippet>356</a></span>}
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a><span class="doccomment">/// Outcome of the targeted existence check for overflowed selects (D4).
+<a href=#359 id=359 data-nosnippet>359</a></span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<a href=#360 id=360 data-nosnippet>360</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>RelatedCheck {
+<a href=#361 id=361 data-nosnippet>361</a>    <span class="doccomment">/// PK parses and resolves through the tenant-scoped query and passes
+<a href=#362 id=362 data-nosnippet>362</a>    /// `View`.
+<a href=#363 id=363 data-nosnippet>363</a>    </span>FoundViewable,
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="doccomment">/// PK resolves but `View` is refused (maps to "invalid", never leaks).
+<a href=#365 id=365 data-nosnippet>365</a>    </span>FoundHidden,
+<a href=#366 id=366 data-nosnippet>366</a>    <span class="doccomment">/// PK does not parse or no row matches (maps to "invalid").
+<a href=#367 id=367 data-nosnippet>367</a>    </span>NotFound,
+<a href=#368 id=368 data-nosnippet>368</a>}
+<a href=#369 id=369 data-nosnippet>369</a>
+<a href=#370 id=370 data-nosnippet>370</a><span class="doccomment">/// Targeted FK existence check, through `ex`.
+<a href=#371 id=371 data-nosnippet>371</a>///
+<a href=#372 id=372 data-nosnippet>372</a>/// Validates one submitted key directly: parse via `pk_eq_expr`, fetch through
+<a href=#373 id=373 data-nosnippet>373</a>/// the tenant-scoped query, then `View`. The pre-write validation runs it for
+<a href=#374 id=374 data-nosnippet>374</a>/// an overflowed set, which membership in the bounded set cannot validate, and
+<a href=#375 id=375 data-nosnippet>375</a>/// the write runs it for every relationship key inside its transaction, so the
+<a href=#376 id=376 data-nosnippet>376</a>/// key is checked against the rows the write sees.
+<a href=#377 id=377 data-nosnippet>377</a>/// * `Denied` when `ViewAny` is refused or tenant is missing (maps to "not available").
+<a href=#378 id=378 data-nosnippet>378</a>/// * `LoadFailed` on driver failure (maps to retry).
+<a href=#379 id=379 data-nosnippet>379</a>/// * `Ok(FoundViewable/FoundHidden/NotFound)` otherwise.
+<a href=#380 id=380 data-nosnippet>380</a>/// * Single targeted round-trip per call, not memoized (one value per validation; sharing would
+<a href=#381 id=381 data-nosnippet>381</a>///   only grow the per-request cache).
+<a href=#382 id=382 data-nosnippet>382</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>related_record_check&lt;R&gt;(
+<a href=#383 id=383 data-nosnippet>383</a>    cx: <span class="kw-2">&amp;</span>Cx,
+<a href=#384 id=384 data-nosnippet>384</a>    value: String,
+<a href=#385 id=385 data-nosnippet>385</a>    ex: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>toasty::Executor,
+<a href=#386 id=386 data-nosnippet>386</a>) -&gt; <span class="prelude-ty">Result</span>&lt;RelatedCheck, OptionLoadError&gt;
+<a href=#387 id=387 data-nosnippet>387</a><span class="kw">where
+<a href=#388 id=388 data-nosnippet>388</a>    </span>R: OptionSource,
+<a href=#389 id=389 data-nosnippet>389</a>{
+<a href=#390 id=390 data-nosnippet>390</a>    ensure_option_access::&lt;R&gt;(cx)<span class="question-mark">?</span>;
+<a href=#391 id=391 data-nosnippet>391</a>    <span class="kw">let </span>trimmed = value.trim();
+<a href=#392 id=392 data-nosnippet>392</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(expr) = <span class="kw">crate</span>::schema::pk_eq_expr::&lt;R::Model&gt;(trimmed) <span class="kw">else </span>{
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(RelatedCheck::NotFound);
+<a href=#394 id=394 data-nosnippet>394</a>    };
+<a href=#395 id=395 data-nosnippet>395</a>    <span class="kw">let </span>row = option_query::&lt;R&gt;(cx)<span class="question-mark">?
+<a href=#396 id=396 data-nosnippet>396</a>        </span>.filter(expr)
+<a href=#397 id=397 data-nosnippet>397</a>        .first()
+<a href=#398 id=398 data-nosnippet>398</a>        .exec(ex)
+<a href=#399 id=399 data-nosnippet>399</a>        .<span class="kw">await
+<a href=#400 id=400 data-nosnippet>400</a>        </span>.map_err(|e| {
+<a href=#401 id=401 data-nosnippet>401</a>            <span class="macro">tracing::warn!</span>(
+<a href=#402 id=402 data-nosnippet>402</a>                resource = R::slug(),
+<a href=#403 id=403 data-nosnippet>403</a>                error = %e,
+<a href=#404 id=404 data-nosnippet>404</a>                <span class="string">"relationship option check failed"
+<a href=#405 id=405 data-nosnippet>405</a>            </span>);
+<a href=#406 id=406 data-nosnippet>406</a>            OptionLoadError::LoadFailed
+<a href=#407 id=407 data-nosnippet>407</a>        })<span class="question-mark">?</span>;
+<a href=#408 id=408 data-nosnippet>408</a>    <span class="kw">match </span>row {
+<a href=#409 id=409 data-nosnippet>409</a>        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(RelatedCheck::NotFound),
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="prelude-val">Some</span>(record) =&gt; {
+<a href=#411 id=411 data-nosnippet>411</a>            <span class="kw">if </span>R::policy().allows(cx, Ability::View(<span class="kw-2">&amp;</span>record)) {
+<a href=#412 id=412 data-nosnippet>412</a>                <span class="prelude-val">Ok</span>(RelatedCheck::FoundViewable)
+<a href=#413 id=413 data-nosnippet>413</a>            } <span class="kw">else </span>{
+<a href=#414 id=414 data-nosnippet>414</a>                <span class="prelude-val">Ok</span>(RelatedCheck::FoundHidden)
+<a href=#415 id=415 data-nosnippet>415</a>            }
+<a href=#416 id=416 data-nosnippet>416</a>        }
+<a href=#417 id=417 data-nosnippet>417</a>    }
+<a href=#418 id=418 data-nosnippet>418</a>}
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a><span class="attr">#[cfg(test)]
+<a href=#421 id=421 data-nosnippet>421</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>
