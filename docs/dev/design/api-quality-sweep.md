@@ -131,34 +131,16 @@ Fix: add a query-count test first proving selection writes cause no row
 reload; then align the shard comment with the bind-without-dependency
 semantics and leave the transport where it is.
 
-13. Relationship `<select>` order is driver-dependent. The base relationship
-loader issues no `ORDER BY`; the `/options` endpoint applies
-`R::order_by(cx)`.
-Fix: one `if let` in the base loader.
-
-14. `TabloError::Declaration` messages never reach a log. Both constructors
+13. `TabloError::Declaration` messages never reach a log. Both constructors
 propagate as `Err` to the router rather than being dropped; the true defect
 is narrower — the constructors never log, and the closed error type plus the
 response mapper decide what anyone sees.
 Fix: log in the constructors; test that the message reaches a tracing
 subscriber. Leave response mapping to the existing error conversion.
 
-15. The record-fn error doc says a record fn error is a server error — it is
-passthrough. `panel/write.rs` keeps non-toasty mappings, so a
-`create_record` returning `not_found()` answers with the app's own mapping
-after the failure toast is already queued.
-Fix the doc to passthrough semantics; leave any enveloping of app-authored
-errors to an explicit opt-in, never the default path.
-
-16. Checked-in numbers contradict the tree. The cargo config, the test-binary
+14. Checked-in numbers contradict the tree. The cargo config, the test-binary
 ADR, and the core test comment disagree with each other, and `ci.yml` tells
 readers to run the `--precise` command `CONTRIBUTING.md` forbids. Re-measure
 the numbers on the way past rather than trusting any figure quoted here.
 Extend `pins_match_ci_and_docs` from substrings to parsed vectors and numbers
 so the gate checks revs, not just toolchains.
-
-17. Two xtask guards disagree on locking. `xtask/src/lib.rs` runs
-`cargo metadata` unlocked while `gates.rs` passes `--locked` with a written
-rationale; a stale lockfile passes one guard (which heals it) and fails the
-other.
-Fix: add `--locked`; memoize the registry lookup in a `OnceLock`.
