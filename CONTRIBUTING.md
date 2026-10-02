@@ -33,7 +33,8 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 ## The gate set
 
-CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml`;
+CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml`
+and, for gates 6 and 8, `.github/workflows/msrv-udeps.yml`;
 this list is the canonical copy — `AGENTS.md` and the `check` skill point here).
 The fast path is the xtask runner: gates are mutually independent, and `check`
 runs each command below in order, stopping at the first failure.
@@ -57,6 +58,8 @@ The raw commands — the expansion of `cargo xtask check`:
 Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
 nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
 Gate 8 guards unused dependencies (GH #271). Rustup installs a missing toolchain on first use.
+Gates 6 and 8 run on `master`, weekly, and the PRs touching a manifest, a
+lockfile, or the toolchain pin — not on every PR.
 
 CI runs five more checks outside the eight, and a change touching what they cover
 has to pass them too (`cargo xtask check` runs all five after the eight):
