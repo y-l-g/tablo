@@ -268,8 +268,8 @@ this once, when it is mounted, and refuses a
 record form field this schema does not declare, and a schema on a
 resource whose <a href="trait.Resource.html#associatedtype.Form" title="associated type tablo::Resource::Form"><code>Form</code></a> is <a href="struct.NoForm.html" title="struct tablo::NoForm"><code>NoForm</code></a>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.validate_record" class="method"><a class="src rightside" href="../src/tablo_core/resource/mod.rs.html#386">Source</a><h4 class="code-header">fn <a href="#method.validate_record" class="fn">validate_record</a>(_cx: &amp;Cx, _form: &amp;Self::<a class="associatedtype" href="trait.Resource.html#associatedtype.Form" title="type tablo::Resource::Form">Form</a>) -&gt; <a class="struct" href="struct.FieldErrors.html" title="struct tablo::FieldErrors">FieldErrors</a></h4></section></summary><div class="docblock"><p>App-level rules on the parsed form. The errors render inline with a
-200 and nothing is written; a record fn error is a 500, so a range or
-cross-field rule belongs here.</p>
+200 and nothing is written; a record fn error keeps its own mapping, so
+a range or cross-field rule belongs here.</p>
 <p>Each error names the key it renders under: a control’s own key, or a
 <a href="struct.Repeater.html" title="struct tablo::Repeater"><code>Repeater</code></a> group’s label. A key the submitted form
 renders nowhere fails the submit as a declaration error instead of
