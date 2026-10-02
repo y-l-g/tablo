@@ -135,7 +135,13 @@ fn locate_registry() -> anyhow::Result<(Registry, String)> {
     // graph) failed with a misleading "must be a dependency of xtask".
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let output = std::process::Command::new("cargo")
-        .args(["metadata", "--locked", "--format-version", "1", "--manifest-path"])
+        .args([
+            "metadata",
+            "--locked",
+            "--format-version",
+            "1",
+            "--manifest-path",
+        ])
         .arg(&manifest)
         .output()
         .map_err(|error| anyhow::anyhow!("failed to run cargo metadata: {error}"))?;
