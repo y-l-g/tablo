@@ -7,30 +7,14 @@ and gated by one <a href="struct.Auth.html" title="struct tablo::Auth"><code>Aut
     .discover()
     .app_context(db)
     .panel(Panel::new(<span class="string">"admin"</span>).resource::&lt;UserResource&gt;())<span class="question-mark">?
-    </span>.build();</code></pre></div></div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Panel" class="impl"><a class="src rightside" href="../src/tablo_core/panel/shell.rs.html#97">Source</a><a href="#impl-Panel" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.Panel.html" title="struct tablo::Panel">Panel</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.render_shell" class="method"><a class="src rightside" href="../src/tablo_core/panel/shell.rs.html#346-352">Source</a><h4 class="code-header">pub async fn <a href="#method.render_shell" class="fn">render_shell</a>&lt;'a&gt;(
+    </span>.build();</code></pre></div></div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Panel" class="impl"><a class="src rightside" href="../src/tablo_core/panel/shell.rs.html#93">Source</a><a href="#impl-Panel" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.Panel.html" title="struct tablo::Panel">Panel</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.render_shell" class="method"><a class="src rightside" href="../src/tablo_core/panel/shell.rs.html#324-330">Source</a><h4 class="code-header">pub async fn <a href="#method.render_shell" class="fn">render_shell</a>&lt;'a&gt;(
     cx: &amp;'a Cx,
     nav_items: &amp;[<a class="struct" href="struct.NavigationItem.html" title="struct tablo::NavigationItem">NavigationItem</a>],
     current_path: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.99.0/std/primitive.str.html">str</a>,
     slot: Child&lt;'a&gt;,
     extra_class: <a class="enum" href="https://doc.rust-lang.org/1.99.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.99.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn View + 'a&gt;&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>Render the Filament-grade Shell that frames every admin page.</p>
-<p>Composes Topcoat’s upstream <code>sidebar</code> primitives (ADR-0007): the
-desktop panel and the mobile sheet share one navigation rendering, and
-the open state lives in runtime signals — <code>open</code> seeds from the
-<code>sidebar_state</code> cookie for the first paint, the triggers carry
-<code>@click</code> handlers, and <code>assets/sidebar.js</code> persists changes back to
-the cookie. Includes dark-mode toggle (Ghost button, persisted by
-<code>theme.js</code> to <code>localStorage</code> + the <code>theme</code> cookie) and the toast stack
-(shadcn/Sonner surface, fixed bottom-right). Additive <code>class</code> is
-allowed on the outer container only (narrow seam).</p>
-<p>Asset note: desktop persistence needs <code>assets/sidebar.js</code>
-(<code>tablo_ui::SIDEBAR_JS</code>), which <a href="struct.Panel.html#method.layout_shell" title="associated function tablo::Panel::layout_shell"><code>Self::layout_shell</code></a>’s document —
-not this function — emits (scripts are owned by the document). The
-mobile sheet (<code>#mobile-sidebar-sheet</code>) instead dismisses through its
-own runtime <code>@keydown</code>/<code>@click</code> handlers, so it needs no asset; the
-vendored <code>sheet</code>/<code>sidebar</code> primitives carry no note themselves
-(ADR-0007 sync guard). See ADR-0014.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.layout_shell" class="method"><a class="src rightside" href="../src/tablo_core/panel/shell.rs.html#560">Source</a><h4 class="code-header">pub fn <a href="#method.layout_shell" class="fn">layout_shell</a>&lt;'a&gt;(cx: &amp;'a Cx, slot: Child&lt;'a&gt;) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.99.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn View + 'a&gt;&gt;</h4></section></summary><div class="docblock"><p>The panel shell around a page, as a complete HTML document: the layout
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.99.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn View + 'a&gt;&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>Renders the shell around <code>slot</code> with an optional outer class.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.layout_shell" class="method"><a class="src rightside" href="../src/tablo_core/panel/shell.rs.html#538">Source</a><h4 class="code-header">pub fn <a href="#method.layout_shell" class="fn">layout_shell</a>&lt;'a&gt;(cx: &amp;'a Cx, slot: Child&lt;'a&gt;) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.99.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn View + 'a&gt;&gt;</h4></section></summary><div class="docblock"><p>The panel shell around a page, as a complete HTML document: the layout
 every panel registers at its prefix unless <a href="struct.Panel.html#method.layout" title="method tablo::Panel::layout"><code>Panel::layout</code></a> replaces
 it, and what a replacement calls to keep the shell around its own
 markup.</p>
@@ -39,23 +23,11 @@ markup.</p>
 for tests and custom document owners, but does not pretend that a CSS
 bundle exists. Errors from the page slot propagate unchanged when the
 document view is resolved.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.document" class="method"><a class="src rightside" href="../src/tablo_core/panel/shell.rs.html#591-595">Source</a><h4 class="code-header">pub async fn <a href="#method.document" class="fn">document</a>&lt;'a&gt;(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.document" class="method"><a class="src rightside" href="../src/tablo_core/panel/shell.rs.html#555-559">Source</a><h4 class="code-header">pub async fn <a href="#method.document" class="fn">document</a>&lt;'a&gt;(
     cx: &amp;'a Cx,
     title: impl <a class="trait" href="https://doc.rust-lang.org/1.99.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
     body: impl View + 'a,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.99.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn View + 'a&gt;&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>The complete HTML document around a page the panel does not own.</p>
-<p>An app-level <code>#[layout]</code> outside the panel prefix takes the panel’s
-document from here, so a public page carries the same head as the admin
-shell: the dev script, the theme init, and — where
-<a href="struct.Panel.html#method.shell_assets" title="method tablo::Panel::shell_assets"><code>Self::shell_assets</code></a> registered them — the runtime script, the font,
-the stylesheet, and the shell scripts. Outside a prefix the panel is
-the router’s only one; a router that mounts several has no panel there,
-and the head degrades to the dev script and the theme init, as it does
-for a router built without <code>.assets(..)</code>.</p>
-<p><code>body</code> is the page’s own content: the panel renders the <code>&lt;body&gt;</code> element,
-its dark-mode <code>&lt;html&gt;</code> class, and the head; the page owns its chrome
-inside. <code>title</code> is the page’s own, where <a href="struct.Panel.html#method.layout_shell" title="associated function tablo::Panel::layout_shell"><code>Self::layout_shell</code></a> titles an
-admin page with the panel’s <a href="struct.Brand.html" title="struct tablo::Brand"><code>Brand</code></a>.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.99.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn View + 'a&gt;&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>Renders a complete HTML document around a page outside the panel prefix.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Panel-1" class="impl"><a class="src rightside" href="../src/tablo_core/panel/mod.rs.html#156">Source</a><a href="#impl-Panel-1" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.Panel.html" title="struct tablo::Panel">Panel</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../src/tablo_core/panel/mod.rs.html#159">Source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>(prefix: impl <a class="trait" href="https://doc.rust-lang.org/1.99.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.99.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;) -&gt; <a class="struct" href="struct.Panel.html" title="struct tablo::Panel">Panel</a></h4></section></summary><div class="docblock"><p>Create a <code>Panel</code> mounted at <code>prefix</code> (e.g. <code>"admin"</code> → <code>"/admin"</code>).
 An empty prefix mounts at <code>"/admin"</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.prefix" class="method"><a class="src rightside" href="../src/tablo_core/panel/mod.rs.html#202">Source</a><h4 class="code-header">pub fn <a href="#method.prefix" class="fn">prefix</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.99.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Returns the mount prefix, e.g. <code>"/admin"</code>.</p>

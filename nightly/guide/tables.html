@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0a28162c.js";
+            window.path_to_searchindex_js = "searchindex-a44ea35c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -230,7 +230,7 @@ computed column uses the label you pass.</p>
 <li>
 <p><strong>Relations.</strong> A column whose closure reads a relation declares it with <code>.include(..)</code>, and the
 list and the export load it with the page’s rows in one query. A relation no column includes
-is not loaded. Guard the read so a missing include fails loudly instead of showing blank data:</p>
+is not loaded. Guard the read so a missing include renders <code>(unloaded)</code> instead of blank data:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>TextColumn::computed("Author", |p: &amp;Post| {
@@ -245,7 +245,7 @@ its widest cell, so paging and filtering never shift the columns. A field column
 share of the space left over; a computed column defaults to a narrow share of the table (10%,
 scaled down when many columns claim one). Override with <code>.width(ColumnWidth::Percent(30))</code>,
 <code>Rem(8)</code>, <code>Narrow</code> or <code>Wide</code>. A cell wider than its column is truncated with an ellipsis. On a
-narrow screen the table keeps a minimum width and scrolls horizontally instead of crushing its
+narrow screen the table keeps a minimum width and scrolls horizontally instead of narrowing its
 columns.</p>
 </li>
 </ul>
@@ -393,7 +393,7 @@ a checkbox column and a bulk bar. A row that neither delete nor any bulk action 
 checkbox, so select-all only selects rows something can be done to. A bulk delete accepts at most
 400 records and deletes all of them or none: a selection holding a record that may not be deleted
 deletes nothing and returns to the list with an error notification.</p>
-<p>Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
+<p>Both deletes require confirmation. The Delete action opens a confirmation dialog on the list page;
 confirming it deletes the row, shows a notification and refreshes the table without leaving the
 page. The bulk bar’s button opens a dialog stating how many rows are selected. The delete
 handlers refuse a POST that was not confirmed through the dialog with 400, and without

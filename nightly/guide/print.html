@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0a28162c.js";
+            window.path_to_searchindex_js = "searchindex-a44ea35c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -193,8 +193,7 @@ directly, so the model is the single source of truth for columns, relations and 
 <h2 id="what-you-get"><a class="header" href="#what-you-get">What you get</a></h2>
 <ul>
 <li><strong>Server-rendered pages, no SPA.</strong> There is no client build step and no WASM bundle. Search,
-sort, filters and pagination work without JavaScript; the shipped scripts add in-place updates
-on top.</li>
+sort, filters and pagination work without JavaScript; the scripts add in-place updates.</li>
 <li><strong>Typed declarations.</strong> Columns, form fields and filters are built from Toasty field lenses
 such as <code>User::fields().email()</code>, so a renamed or retyped column is a compile error.</li>
 <li><strong>Checks at startup.</strong> Mounting the panel validates every declaration — a form struct that disagrees
@@ -885,7 +884,7 @@ computed column uses the label you pass.</p>
 <li>
 <p><strong>Relations.</strong> A column whose closure reads a relation declares it with <code>.include(..)</code>, and the
 list and the export load it with the page’s rows in one query. A relation no column includes
-is not loaded. Guard the read so a missing include fails loudly instead of showing blank data:</p>
+is not loaded. Guard the read so a missing include renders <code>(unloaded)</code> instead of blank data:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>TextColumn::computed("Author", |p: &amp;Post| {
@@ -900,7 +899,7 @@ its widest cell, so paging and filtering never shift the columns. A field column
 share of the space left over; a computed column defaults to a narrow share of the table (10%,
 scaled down when many columns claim one). Override with <code>.width(ColumnWidth::Percent(30))</code>,
 <code>Rem(8)</code>, <code>Narrow</code> or <code>Wide</code>. A cell wider than its column is truncated with an ellipsis. On a
-narrow screen the table keeps a minimum width and scrolls horizontally instead of crushing its
+narrow screen the table keeps a minimum width and scrolls horizontally instead of narrowing its
 columns.</p>
 </li>
 </ul>
@@ -1048,7 +1047,7 @@ a checkbox column and a bulk bar. A row that neither delete nor any bulk action 
 checkbox, so select-all only selects rows something can be done to. A bulk delete accepts at most
 400 records and deletes all of them or none: a selection holding a record that may not be deleted
 deletes nothing and returns to the list with an error notification.</p>
-<p>Both deletes ask first. The Delete action opens a confirmation dialog on the list page;
+<p>Both deletes require confirmation. The Delete action opens a confirmation dialog on the list page;
 confirming it deletes the row, shows a notification and refreshes the table without leaving the
 page. The bulk bar’s button opens a dialog stating how many rows are selected. The delete
 handlers refuse a POST that was not confirmed through the dialog with 400, and without
@@ -1311,7 +1310,7 @@ parses. Each error names the key it renders under: the control’s key, an embed
 flattened key, or a repeater’s label. An error keyed to something the form does not render
 fails the request instead of being dropped.</li>
 <li><strong>Unknown keys are refused.</strong> A POST carrying a key the form does not declare answers 400, so a
-client cannot smuggle in <code>role</code> or <code>tenant_id</code>. The CSRF token and the file fields’ <code>clear_</code> and
+client cannot write <code>role</code> or <code>tenant_id</code>. The CSRF token and the file fields’ <code>clear_</code> and
 <code>keep_</code> keys are the exceptions.</li>
 <li><strong>An edit writes only what was posted.</strong> On an edit, a declared key missing from the submission
 keeps its stored value, and the update assigns only the fields the submission named, plus the
@@ -1771,7 +1770,7 @@ filters exactly as it does for a column:</p>
 <a href="#relationships">relationship field</a> over the post’s resource, so a submitted post must
 be one of the request tenant’s posts.</p>
 <p><strong>A deliberately cross-tenant resource</strong> — a super-admin view — declares no tenancy and filters in
-<code>query()</code> by hand. That gives up both the gate and the scope.</p>
+<code>query()</code>. That gives up both the gate and the scope.</p>
 <p><strong>In your own code</strong>, load rows with <code>scoped_query::&lt;PostResource&gt;(cx)?</code>. It applies the tenant
 scope and answers 403 when the request has no tenant. <code>PostResource::query(cx)</code> does not apply the
 tenant scope.</p>
@@ -1783,7 +1782,7 @@ write with the same field error. A <code>create_record</code> or <code>update_re
 POSTs call needs no check of its own.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="data-access"><a class="header" href="#data-access">Data access</a></h1>
-<p>The panel’s own pages load rows for you. This chapter covers querying Toasty from your code: a
+<p>The panel loads rows on its own pages. This chapter covers querying Toasty from your code: a
 <a href="#pages">page</a>, a record function, or a public page. The
 <a href="https://tokio-rs.github.io/toasty/0.10.0/guide/">Toasty guide</a> covers the query API in full.</p>
 <h2 id="getting-the-database"><a class="header" href="#getting-the-database">Getting the database</a></h2>

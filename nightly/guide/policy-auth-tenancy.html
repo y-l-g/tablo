@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0a28162c.js";
+            window.path_to_searchindex_js = "searchindex-a44ea35c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -429,7 +429,7 @@ filters exactly as it does for a column:</p>
 <a href="./forms.html#relationships">relationship field</a> over the post’s resource, so a submitted post must
 be one of the request tenant’s posts.</p>
 <p><strong>A deliberately cross-tenant resource</strong> — a super-admin view — declares no tenancy and filters in
-<code>query()</code> by hand. That gives up both the gate and the scope.</p>
+<code>query()</code>. That gives up both the gate and the scope.</p>
 <p><strong>In your own code</strong>, load rows with <code>scoped_query::&lt;PostResource&gt;(cx)?</code>. It applies the tenant
 scope and answers 403 when the request has no tenant. <code>PostResource::query(cx)</code> does not apply the
 tenant scope.</p>

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0a28162c.js";
+            window.path_to_searchindex_js = "searchindex-a44ea35c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bb41c840.js"></script>
@@ -384,7 +384,7 @@ parses. Each error names the key it renders under: the control’s key, an embed
 flattened key, or a repeater’s label. An error keyed to something the form does not render
 fails the request instead of being dropped.</li>
 <li><strong>Unknown keys are refused.</strong> A POST carrying a key the form does not declare answers 400, so a
-client cannot smuggle in <code>role</code> or <code>tenant_id</code>. The CSRF token and the file fields’ <code>clear_</code> and
+client cannot write <code>role</code> or <code>tenant_id</code>. The CSRF token and the file fields’ <code>clear_</code> and
 <code>keep_</code> keys are the exceptions.</li>
 <li><strong>An edit writes only what was posted.</strong> On an edit, a declared key missing from the submission
 keeps its stored value, and the update assigns only the fields the submission named, plus the
