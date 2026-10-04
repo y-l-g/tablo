@@ -33,11 +33,11 @@ too_many_lines = "deny"
 
 # Exact revs; bump via `cargo xtask bump-upstream` (GH #103) with bench lock sync.
 [workspace.dependencies]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "f7eb477242da9690458d183efa2e0aaa1b21b9da", default-features = false, features = ["view", "router", "discover"] }
+topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "3e7bb43948a61dadcdba5a79d99c0f3a75de1abc", default-features = false, features = ["view", "router", "discover"] }
 toasty = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790", default-features = false, features = ["jiff"] }
 toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790" }
-topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "f7eb477242da9690458d183efa2e0aaa1b21b9da" }
-topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "f7eb477242da9690458d183efa2e0aaa1b21b9da" }
+topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "3e7bb43948a61dadcdba5a79d99c0f3a75de1abc" }
+topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "3e7bb43948a61dadcdba5a79d99c0f3a75de1abc" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"
 jiff = "0.2"
