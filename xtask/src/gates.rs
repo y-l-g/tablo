@@ -129,7 +129,7 @@ pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
 }
 
 /// Where the locked-rev CLI install the `topcoat fmt` check needs lives.
-const TOPCOAT_INSTALL: &str = "REV=$(grep -A 2 '^name = \"topcoat\"$' Cargo.lock | grep -o '#[0-9a-f]\\{40\\}' | head -1 | cut -c2-) && cargo install --git https://github.com/tokio-rs/topcoat --rev \"$REV\" topcoat-cli --locked";
+const TOPCOAT_INSTALL: &str = "REV=$(grep -A 2 '^name = \"topcoat\"$' Cargo.lock | grep -o '#[0-9a-f]\\{40\\}' | head -1 | cut -c2-) && cargo install --git https://github.com/tokio-rs/topcoat --rev \"$REV\" topcoat-cli --locked --force";
 
 /// The locked-rev `topcoat fmt` check plus diff guard (CONTRIBUTING gate 4).
 pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {

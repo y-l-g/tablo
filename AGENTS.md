@@ -19,7 +19,7 @@ cargo xtask verify-topcoat-ui                    # fail on vendored drift
 
 # `topcoat fmt` only agrees with the CLI built from the rev Cargo.lock pins.
 REV=$(grep -A 2 '^name = "topcoat"$' Cargo.lock | grep -o '#[0-9a-f]\{40\}' | head -1 | cut -c2-)
-cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli --locked
+cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli --locked --force
 ```
 
 ## Rules
