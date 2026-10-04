@@ -2,7 +2,7 @@ use toasty::stmt::List;
 use topcoat::context::Cx;
 
 use super::*;
-use crate::test_support::User;
+use crate::{lens, test_support::User};
 
 struct UserResource;
 
@@ -11,10 +11,7 @@ impl Resource for UserResource {
     type Form = crate::NoForm<Self::Model>;
 
     fn table() -> crate::resource::Table<User> {
-        crate::resource::Table::new(
-            |r: &User| r.id.to_string(),
-            crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| r.name.clone()),
-        )
+        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(User.name)))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<User>> {

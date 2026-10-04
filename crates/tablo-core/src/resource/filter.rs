@@ -3,10 +3,10 @@
 
 use std::sync::Arc;
 
-use toasty::stmt::Expr;
+use toasty::stmt::{Expr, Path};
 use topcoat::{context::Cx, view::*};
 
-use crate::schema::{FieldLens, IntoOptions, LensBinding};
+use crate::schema::{IntoOptions, LensBinding};
 
 /// One table filter declares a control and its predicate.
 ///
@@ -172,7 +172,7 @@ macro_rules! filter_impls {
 pub struct SelectFilter<M> {
     name: String,
     label: String,
-    lens: FieldLens<M, String>,
+    lens: Path<M, String>,
     /// `(value, label)` pairs.
     options: Vec<(String, String)>,
     misdeclared: Option<String>,
@@ -182,8 +182,9 @@ impl<M> SelectFilter<M>
 where
     M: toasty::schema::Model,
 {
-    /// Build a select filter from a lens and its options.
-    pub fn r#for(lens: FieldLens<M, String>, options: impl IntoOptions) -> Self {
+    /// Filter the `String` field `lens` binds to one of `options`.
+    pub fn new(lens: impl Into<Path<M, String>>, options: impl IntoOptions) -> Self {
+        let lens = lens.into();
         let binding = LensBinding::of(lens.clone());
         Self {
             name: binding.name,
@@ -258,7 +259,7 @@ filter_impls! {
 pub struct TernaryFilter<M> {
     name: String,
     label: String,
-    lens: FieldLens<M, bool>,
+    lens: Path<M, bool>,
     misdeclared: Option<String>,
 }
 
@@ -266,7 +267,9 @@ impl<M> TernaryFilter<M>
 where
     M: toasty::schema::Model,
 {
-    pub fn r#for(lens: FieldLens<M, bool>) -> Self {
+    /// Filter the `bool` field `lens` binds to true, false, or either.
+    pub fn new(lens: impl Into<Path<M, bool>>) -> Self {
+        let lens = lens.into();
         let binding = LensBinding::of(lens.clone());
         Self {
             name: binding.name,
@@ -329,7 +332,7 @@ filter_impls! {
 pub struct DateFilter<M> {
     name: String,
     label: String,
-    lens: FieldLens<M, jiff::Timestamp>,
+    lens: Path<M, jiff::Timestamp>,
     misdeclared: Option<String>,
 }
 
@@ -337,7 +340,9 @@ impl<M> DateFilter<M>
 where
     M: toasty::schema::Model,
 {
-    pub fn r#for(lens: FieldLens<M, jiff::Timestamp>) -> Self {
+    /// Filter the `Timestamp` field `lens` binds to one calendar day.
+    pub fn new(lens: impl Into<Path<M, jiff::Timestamp>>) -> Self {
+        let lens = lens.into();
         let binding = LensBinding::of(lens.clone());
         Self {
             name: binding.name,
@@ -422,38 +427,44 @@ filter_impls! {
     clone { name, label, lens, misdeclared }
 }
 
-/// Variant filter matching an embedded-enum variant.
-pub struct VariantFilter<M> {
+/// A filter offering named predicates, such as an embedded-enum variant or any query the app
+/// names.
+///
+/// ```ignore
+/// QueryFilter::new("promoted", "Promoted")
+///     .option("Promoted", Post::fields().featured().eq(true))
+///     .option("Backlog", Post::fields().featured().eq(false))
+/// ```
+pub struct QueryFilter<M> {
     name: String,
     label: String,
     options: Vec<(String, Expr<bool>)>,
     _marker: std::marker::PhantomData<M>,
 }
 
-impl<M> VariantFilter<M>
+impl<M> QueryFilter<M>
 where
     M: toasty::schema::Model,
 {
-    /// Build a variant filter from a name, a label and its options.
-    pub fn r#for(
-        name: impl Into<String>,
-        label: impl Into<String>,
-        options: Vec<(String, Expr<bool>)>,
-    ) -> Self {
+    /// A filter whose URL parameter is `name` and whose control reads `label`, with no option
+    /// yet.
+    pub fn new(name: impl Into<String>, label: impl Into<String>) -> Self {
         Self {
             name: name.into(),
             label: label.into(),
-            options,
+            options: Vec::new(),
             _marker: std::marker::PhantomData,
         }
     }
 
-    pub fn options(&self) -> &[(String, Expr<bool>)] {
-        &self.options
+    /// Offer `predicate` as the option `label`, which is also its URL value.
+    pub fn option(mut self, label: impl Into<String>, predicate: Expr<bool>) -> Self {
+        self.options.push((label.into(), predicate));
+        self
     }
 }
 
-impl<M> Filter<M> for VariantFilter<M>
+impl<M> Filter<M> for QueryFilter<M>
 where
     M: toasty::schema::Model + Send + Sync,
 {
@@ -476,7 +487,7 @@ where
             .map(|(_, e)| e.clone())
     }
 
-    /// A select over the variant keys.
+    /// A select over the option labels.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
         let options = self
             .options
@@ -488,7 +499,7 @@ where
 }
 
 filter_impls! {
-    VariantFilter, this {
+    QueryFilter, this {
         name: &this.name,
         label: &this.label,
         options: &this.options.iter().map(|(k, _)| k).collect::<Vec<_>>(),
@@ -521,7 +532,7 @@ macro_rules! into_filters_single {
     };
 }
 
-into_filters_single!(SelectFilter, TernaryFilter, DateFilter, VariantFilter);
+into_filters_single!(SelectFilter, TernaryFilter, DateFilter, QueryFilter);
 
 /// Generate the tuple impls of [`IntoFilters`] from one list per arity.
 macro_rules! into_filters_tuples {

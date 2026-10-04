@@ -75,29 +75,37 @@ _Avoid_: Tenant scope, Multi-tenancy mode
 ### Table
 
 The declaration of a Resource's list view: its Columns, Filters, search, sort, grouping and page
-size. Its row key is the model's primary key, declared in the constructor
-(`Table::new(|u| u.id.to_string(), columns)`) and never a loop index. `Table::new_split` separates
-the key that identifies a row in the page from the primary key the action URLs carry.
+size, declared as `Table::new(columns)`. Its row key is each record's primary key, which the action
+URLs carry; it is never a loop index.
 
 _Avoid_: Grid, Listing, DataTable
 
 _Documented exception_: `Grid` is also a Schema layout block, `Grid::new(2)`. Only the layout block
 uses the name; the rendered list is a Table everywhere, including comments and local variables.
 
+### Lens
+
+A model field named once: `lens!(User.name)` pairs the field's query path with the reader of its
+value off a loaded record, so a Column sorts on the field it renders. A chain reaches an embedded
+leaf (`lens!(Post.seo.title)`), never a relation; a Column binds one field of the model. Builders
+that only query take a lens or a plain Toasty path.
+
+_Avoid_: Accessor, Getter, statePath
+
 ### Column
 
 One cell of a Table row: a `Column` renders it from the record, as a view and as text for the
-export. `TextColumn::r#for` binds a `String` field through a lens and may be searchable and
-sortable; `TextColumn::computed` renders any value and supports neither; `BooleanColumn` renders a
+export. `TextColumn::new(lens)` renders a field and may be sortable, and searchable on a `String`
+field; `ComputedColumn::new` renders any value and supports neither; `BooleanColumn` renders a
 `bool` as an icon. An app implements `Column` for its own. A Column that reads a relation declares
-it (`TextColumn::include`, `Column::includes`).
+it (`ComputedColumn::include`, `Column::includes`).
 
 _Avoid_: Field (in a table), Cell, Attribute
 
 ### Filter
 
 A predicate a Table adds to its query from a UI control, implementing `Filter`: `SelectFilter`,
-`TernaryFilter`, `DateFilter`, `VariantFilter`, or an app's own. Active Filters combine with AND.
+`TernaryFilter`, `DateFilter`, `QueryFilter`, or an app's own. Active Filters combine with AND.
 
 _Avoid_: Scope, Constraint, Where
 

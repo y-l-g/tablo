@@ -40,7 +40,7 @@ use self::{
     search::{SearchFn, search_handler_for},
     shell::ShellAssets,
 };
-pub use self::{build::RouterBuilderPanelExt, shell::Brand};
+pub use self::{build::RouterBuilderPanelExt, gate::can_list, shell::Brand};
 pub(crate) use self::{
     build::route_path,
     forms::parse_form_body,

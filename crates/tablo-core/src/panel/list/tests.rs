@@ -2,7 +2,7 @@ use toasty::Db;
 
 use super::{super::TABLE_SEARCH_PATH, *};
 use crate::{
-    Ability, Policy, ReadOnly, Tenancy,
+    Ability, Policy, ReadOnly, Tenancy, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
@@ -162,14 +162,11 @@ async fn live_search_host_and_shard_dispatch() {
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                })
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(Dummy.name))
+                    .searchable()
+                    .sortable(),
             )
-            .filters(crate::resource::TernaryFilter::r#for(
+            .filters(crate::resource::TernaryFilter::new(
                 Dummy::fields().featured(),
             ))
             .paginate(1)
@@ -383,11 +380,9 @@ async fn live_search_host_and_shard_dispatch() {
     // handlers clear them in the browser, so a live cursor always belongs
     // to the current query; crafting one past a new query is the client's
     // own read-only inconsistency.
-    let paged = crate::resource::Table::<Dummy>::new(
-        |d: &Dummy| d.id.to_string(),
-        crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
-    )
-    .paginate(1);
+    let paged =
+        crate::resource::Table::<Dummy>::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
+            .paginate(1);
     for name in ["Bob", "Cara"] {
         toasty::create!(Dummy {
             name: name.to_string(),
@@ -469,12 +464,9 @@ async fn live_search_input_debounces_keystrokes() {
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                })
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(Dummy.name))
+                    .searchable()
+                    .sortable(),
             )
             .paginate(25)
             .live_search()
@@ -1038,13 +1030,8 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
             Tenancy::column(Dummy::fields().tenant_id())
         }
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                }),
-            )
-            .paginate(25)
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
+                .paginate(25)
         }
     }
     #[derive(crate::RecordForm)]
@@ -1135,13 +1122,8 @@ async fn tenant_gated_resource_scopes_rows_to_the_request_tenant() {
             Tenancy::column(Scoped::fields().tenant_id())
         }
         fn table() -> crate::resource::Table<Scoped> {
-            crate::resource::Table::new(
-                |s: &Scoped| s.id.to_string(),
-                crate::resource::TextColumn::r#for(Scoped::fields().name(), |s: &Scoped| {
-                    s.name.clone()
-                }),
-            )
-            .paginate(25)
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Scoped.name)))
+                .paginate(25)
         }
     }
 
@@ -1226,14 +1208,8 @@ async fn list_renders_error_state_when_load_fails() {
             // A realistic paginated table: the tampered cursor must reach
             // the decode inside `load_table_page` (only paginated loads
             // decode cursors), not die earlier on missing declarations.
-            Table::<Subscriber>::new(
-                |s| s.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    Subscriber::fields().email(),
-                    |s: &Subscriber| s.email.clone(),
-                ),
-            )
-            .paginate(25)
+            Table::<Subscriber>::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
+                .paginate(25)
         }
     }
 
@@ -1310,7 +1286,7 @@ async fn list_renders_error_state_when_load_fails() {
     // a cursor that decodes but was cut from another ordering is
     // refused by the engine, not the decoder. It is the same retry
     // contract — drop pagination rather than loop on the identical URL.
-    let stale = crate::cursor::encode(&toasty::stmt::Value::Record(
+    let stale = crate::toasty_compat::cursor::encode(&toasty::stmt::Value::Record(
         toasty_core::stmt::ValueRecord::from_vec(vec![
             toasty::stmt::Value::String("a@b.c".to_string()),
             toasty::stmt::Value::String("x".to_string()),
@@ -1371,14 +1347,8 @@ async fn both_cursors_render_the_first_page() {
         }
 
         fn table() -> Table<Self::Model> {
-            Table::<Subscriber>::new(
-                |s| s.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    Subscriber::fields().email(),
-                    |s: &Subscriber| s.email.clone(),
-                ),
-            )
-            .paginate(1)
+            Table::<Subscriber>::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
+                .paginate(1)
         }
     }
 
@@ -1458,7 +1428,8 @@ fn retry_url_for_error_drops_only_bad_cursors() {
         cursor: Some(crate::resource::Cursor::After("cur".to_string())),
         ..TableState::default()
     };
-    let bad_cursor = crate::cursor::decode("zz").expect_err("malformed cursor must fail");
+    let bad_cursor =
+        crate::toasty_compat::cursor::decode("zz").expect_err("malformed cursor must fail");
     let retry = retry_url_for_error(&state, &bad_cursor, "/admin/users");
     assert!(
         !retry.contains("after="),

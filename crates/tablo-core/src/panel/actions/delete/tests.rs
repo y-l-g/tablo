@@ -3,7 +3,7 @@ use topcoat::Result;
 
 use super::*;
 use crate::{
-    Ability, Policy,
+    Ability, Policy, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
@@ -166,15 +166,14 @@ async fn delete_and_bulk_delete_require_delete_any() {
 }
 
 #[tokio::test]
-async fn delete_resolves_record_key_not_display_key() {
-    // The display key projects a non-PK value
-    // (the name), the record key carries the typed PK. Handlers must 404
-    // the display value and accept the record key, for single and bulk.
+async fn delete_resolves_the_primary_key_only() {
+    // Handlers resolve the URL id as the typed primary key: another column's
+    // value (the name) 404s, for single and bulk.
 
     use crate::resource::Resource;
 
-    struct NameKeyResource;
-    impl Resource for NameKeyResource {
+    struct KeyedResource;
+    impl Resource for KeyedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
         fn slug() -> String {
@@ -189,13 +188,7 @@ async fn delete_resolves_record_key_not_display_key() {
             }
         }
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new_split(
-                |d: &Dummy| d.name.clone(),
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
         async fn delete_record(
             _cx: &Cx,
@@ -225,7 +218,7 @@ async fn delete_resolves_record_key_not_display_key() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = mount(db, panel_for::<NameKeyResource>()).expect("panel builds");
+    let router = mount(db, panel_for::<KeyedResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
     let post = |uri: String, body: String| {
         router.handle(
@@ -244,19 +237,19 @@ async fn delete_resolves_record_key_not_display_key() {
                 .unwrap(),
         )
     };
-    // Single delete with the display value 404s — it is not a PK.
-    let display_single = post(
+    // Single delete with the name 404s — it is not the primary key.
+    let name_single = post(
         "/admin/dummies/Ada/delete".to_string(),
         format!("confirm=1&csrf_token={token}"),
     )
     .await;
     assert_eq!(
-        display_single.status(),
+        name_single.status(),
         http::StatusCode::NOT_FOUND,
-        "display key must not resolve, got {}",
-        display_single.status()
+        "a non-key value must not resolve, got {}",
+        name_single.status()
     );
-    // Single delete with the record key succeeds.
+    // Single delete with the primary key succeeds.
     let record_single = post(
         format!("/admin/dummies/{}/delete", row.id),
         format!("confirm=1&csrf_token={token}"),
@@ -264,22 +257,22 @@ async fn delete_resolves_record_key_not_display_key() {
     .await;
     assert!(
         record_single.status().is_redirection(),
-        "record key must delete, got {}",
+        "the primary key must delete, got {}",
         record_single.status()
     );
-    // Bulk with the display value 404s.
-    let display_bulk = post(
+    // Bulk with the name 404s.
+    let name_bulk = post(
         "/admin/dummies/bulk-delete".to_string(),
         format!("ids=Ada&confirm=1&csrf_token={token}"),
     )
     .await;
     assert_eq!(
-        display_bulk.status(),
+        name_bulk.status(),
         http::StatusCode::NOT_FOUND,
-        "display key must not resolve in bulk, got {}",
-        display_bulk.status()
+        "a non-key value must not resolve in bulk, got {}",
+        name_bulk.status()
     );
-    // Bulk with the record key succeeds.
+    // Bulk with the primary key succeeds.
     let record_bulk = post(
         "/admin/dummies/bulk-delete".to_string(),
         format!("ids={}&confirm=1&csrf_token={token}", row.id),
@@ -287,7 +280,7 @@ async fn delete_resolves_record_key_not_display_key() {
     .await;
     assert!(
         record_bulk.status().is_redirection(),
-        "record key must bulk-delete, got {}",
+        "the primary key must bulk-delete, got {}",
         record_bulk.status()
     );
 }

@@ -1,7 +1,7 @@
 //! Dropping an undrained streamed list body frees its pooled connection.
 
 use tablo_core::{
-    Policy, ReadOnly,
+    Policy, ReadOnly, lens,
     resource::{Resource, Table, TextColumn},
 };
 use uuid::Uuid;
@@ -31,11 +31,7 @@ impl Resource for PoolResource {
     }
 
     fn table() -> Table<PoolDummy> {
-        Table::new(
-            |d: &PoolDummy| d.id.to_string(),
-            TextColumn::r#for(PoolDummy::fields().name(), |d: &PoolDummy| d.name.clone()),
-        )
-        .paginate(25)
+        Table::new(TextColumn::new(lens!(PoolDummy.name))).paginate(25)
     }
 }
 

@@ -12,7 +12,7 @@
 //! }
 //! ```
 //!
-//! [`can`] asks a resource's policy from app code, and [`can_list`] answers
+//! [`can`] asks a resource's policy from app code, and [`can_list`](crate::can_list) answers
 //! whether the current request may open a resource's list at all.
 
 use topcoat::context::Cx;
@@ -180,12 +180,6 @@ impl<M, A: Policy<M>, B: Policy<M>> Policy<M> for Or<A, B> {
 /// scope.
 pub fn can<R: Resource>(cx: &Cx, ability: Ability<'_, R::Model>) -> bool {
     R::policy().allows(cx, ability)
-}
-
-/// Whether the current request may open `R`'s list: sign-in, tenant scope, and
-/// [`Ability::ViewAny`].
-pub fn can_list<R: Resource>(cx: &Cx) -> bool {
-    crate::panel::gate::gate::<R>(cx).is_ok() && can::<R>(cx, Ability::ViewAny)
 }
 
 #[cfg(test)]

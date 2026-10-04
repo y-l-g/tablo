@@ -3,6 +3,7 @@ use tablo_core::{
     Ability, Auth, Brand, NavigationItem, Page, Panel, Policy, ReadOnly, Resource,
     RouterBuilderPanelExt, Table, TextColumn,
     auth::{AdminUser, AuthSession, hash_password},
+    lens,
 };
 use toasty::Db;
 use topcoat::{
@@ -50,12 +51,9 @@ impl Resource for BookResource {
     }
 
     fn table() -> Table<Book> {
-        Table::new(
-            |book: &Book| book.id.to_string(),
-            TextColumn::r#for(Book::fields().title(), |book: &Book| book.title.clone()),
-        )
-        .paginate(25)
-        .live_search()
+        Table::new(TextColumn::new(lens!(Book.title)))
+            .paginate(25)
+            .live_search()
     }
 
     fn view(_dx: &tablo_core::DeclCx) -> tablo_core::Schema {
@@ -78,10 +76,7 @@ impl Resource for NoteResource {
     }
 
     fn table() -> Table<Note> {
-        Table::new(
-            |note: &Note| note.id.to_string(),
-            TextColumn::r#for(Note::fields().body(), |note: &Note| note.body.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Note.body)))
     }
 }
 
@@ -409,6 +404,52 @@ async fn the_apps_own_routes_stay_outside_the_panel() {
             .get(http::header::CONTENT_SECURITY_POLICY)
             .is_none(),
         "the panel's frame-ancestors stays under its prefix"
+    );
+}
+
+#[tokio::test]
+async fn mounting_refuses_a_directory_another_panel_serves() {
+    let db = books_db().await;
+    let dir = std::env::temp_dir();
+    let error = Router::builder()
+        .discover()
+        .app_context(db.clone())
+        .panel(
+            Panel::new("admin")
+                .auth(Auth::disabled())
+                .serve_dir("/uploads/{*file}", &dir),
+        )
+        .expect("the first panel mounts")
+        .panel(
+            Panel::new("portal")
+                .auth(Auth::disabled())
+                .serve_dir("/uploads/{*path}", &dir),
+        )
+        .map(|_| ())
+        .expect_err("a directory another panel serves is refused");
+    assert!(
+        error.to_string().contains(
+            "serve_dir path '/uploads/{*path}' is already served by the panel mounted at '/admin'"
+        ),
+        "got {error}"
+    );
+
+    let error = Router::builder()
+        .discover()
+        .app_context(db)
+        .panel(
+            Panel::new("admin")
+                .auth(Auth::disabled())
+                .serve_dir("/uploads/{*file}", &dir)
+                .serve_dir("/uploads/{*file}", &dir),
+        )
+        .map(|_| ())
+        .expect_err("a directory served twice is refused");
+    assert!(
+        error
+            .to_string()
+            .contains("serve_dir path '/uploads/{*file}' is declared twice"),
+        "got {error}"
     );
 }
 

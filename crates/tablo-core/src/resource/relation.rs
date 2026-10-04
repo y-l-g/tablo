@@ -2,14 +2,11 @@
 
 use std::sync::Arc;
 
-use toasty::stmt::{Expr, IntoExpr};
+use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::{context::Cx, view::BoxView};
 
 use super::Resource;
-use crate::{
-    form::FormScalar,
-    schema::{FieldLens, LensBinding},
-};
+use crate::{form::FormScalar, schema::LensBinding, toasty_compat::pk};
 
 /// One relation of a parent resource's records.
 ///
@@ -17,10 +14,7 @@ use crate::{
 ///
 /// ```ignore
 /// fn relations() -> Vec<Relation<Post>> {
-///     vec![Relation::has_many::<CommentResource, _>(
-///         Comment::fields().post_id(),
-///         |post: &Post| post.id,
-///     )]
+///     vec![Relation::has_many::<CommentResource>(Comment::fields().post_id())]
 /// }
 /// ```
 pub struct Relation<P> {
@@ -58,19 +52,49 @@ pub(crate) struct BoundRelation {
     pub(crate) read_only: bool,
 }
 
-impl<P> Relation<P> {
-    /// Declare a `has_many` child resource.
+/// A foreign-key column type referencing a primary key of type `K`: `K` itself, or `Option<K>`
+/// for an optional reference. Sealed: these are the only two.
+pub trait ForeignKey<K>:
+    sealed::Sealed<K> + IntoExpr<Self> + FormScalar + Send + Sync + 'static
+{
+}
+
+impl<K> ForeignKey<K> for K where K: IntoExpr<K> + FormScalar + Send + Sync + 'static {}
+
+impl<K> ForeignKey<K> for Option<K> where
+    Option<K>: IntoExpr<Self> + FormScalar + Send + Sync + 'static
+{
+}
+
+mod sealed {
+    pub trait Sealed<K> {}
+
+    impl<K> Sealed<K> for K {}
+
+    impl<K> Sealed<K> for Option<K> {}
+}
+
+impl<P> Relation<P>
+where
+    P: toasty::schema::Model + IntoExpr<P> + 'static,
+{
+    /// Declare a `has_many` child resource whose `foreign_key` holds the owner's primary key, a
+    /// single column.
     ///
     /// ```ignore
-    /// Relation::has_many::<CommentResource, _>(Comment::fields().post_id(), |post: &Post| post.id)
+    /// Relation::has_many::<CommentResource>(Comment::fields().post_id())
     /// ```
-    pub fn has_many<C, T>(
-        foreign_key: FieldLens<C::Model, T>,
-        owner_key: impl Fn(&P) -> T + Send + Sync + 'static,
-    ) -> Self
+    pub fn has_many<C>(foreign_key: Path<C::Model, impl ForeignKey<P::PrimaryKey>>) -> Self
     where
         C: Resource,
-        T: IntoExpr<T> + FormScalar + Send + Sync + 'static,
+    {
+        Self::bound_by::<C, _>(foreign_key)
+    }
+
+    fn bound_by<C, T>(foreign_key: Path<C::Model, T>) -> Self
+    where
+        C: Resource,
+        T: ForeignKey<P::PrimaryKey>,
     {
         let binding = LensBinding::of(foreign_key.clone());
         let search = crate::panel::relation_search_handler_for::<C, T>(foreign_key.clone());
@@ -80,15 +104,16 @@ impl<P> Relation<P> {
             foreign_key: binding.name,
             misdeclared: binding.misdeclared,
             bind: Arc::new(move |owner| {
-                let value = owner_key(owner);
-                let seed = value.to_form();
-                (foreign_key.clone().eq(value), seed)
+                let scope = foreign_key.clone().eq(pk::pk_expr::<P, T>(owner));
+                (scope, pk::pk_text(owner))
             }),
             render: crate::panel::relation_table::<C>,
             search,
         }
     }
+}
 
+impl<P> Relation<P> {
     /// Title the section `label`.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = label.into();

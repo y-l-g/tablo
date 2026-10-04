@@ -10,7 +10,7 @@ mod text;
 use std::sync::Arc;
 
 pub use builders::{ChoiceField, CustomField, FileField, IntoOptions, TextField};
-pub(crate) use choice::{ChoiceControl, option_view};
+pub(crate) use choice::{ChoiceControl, model_name, option_view};
 pub use custom::{Control, ControlInput, Toggle};
 use tablo_ui::{
     field as ui_field, field_content as ui_field_content, field_error as ui_field_error,

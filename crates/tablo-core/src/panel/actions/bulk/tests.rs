@@ -3,7 +3,7 @@ use topcoat::Result;
 
 use super::*;
 use crate::{
-    Ability, Policy,
+    Ability, Policy, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
@@ -19,11 +19,11 @@ fn parse_bulk_ids_dedupes_and_trims() {
 }
 
 #[tokio::test]
-async fn bulk_delete_caps_ids_and_ignores_display_key() {
+async fn bulk_delete_caps_ids_and_checks_the_token() {
     use crate::resource::Resource;
 
-    struct UpperKeyResource;
-    impl Resource for UpperKeyResource {
+    struct KeyedResource;
+    impl Resource for KeyedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
         fn slug() -> String {
@@ -38,17 +38,7 @@ async fn bulk_delete_caps_ids_and_ignores_display_key() {
             }
         }
         fn table() -> crate::resource::Table<Dummy> {
-            // Non-canonical display key: bulk must still resolve
-            // via the typed PK fetch alone. The record key stays canonical
-            // The renderer emits it for bulk values, so the
-            // display/URL split is exercised, not bypassed.
-            crate::resource::Table::new_split(
-                |d: &Dummy| d.id.to_string().to_uppercase(),
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
         async fn bulk_delete_records(
             _cx: &Cx,
@@ -71,8 +61,8 @@ async fn bulk_delete_caps_ids_and_ignores_display_key() {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = mount(db, panel_for::<UpperKeyResource>()).expect("panel builds");
-    // Canonical lowercase id succeeds despite an uppercase display key.
+    let router = mount(db, panel_for::<KeyedResource>()).expect("panel builds");
+    // The primary key resolves the row.
     let token = uuid::Uuid::new_v4().to_string();
     let ok = router
         .handle(
@@ -96,7 +86,7 @@ async fn bulk_delete_caps_ids_and_ignores_display_key() {
         .await;
     assert!(
         ok.status().is_redirection(),
-        "PK-authenticated bulk must not 404 on display-key mismatch, got {}",
+        "a bulk delete by primary key succeeds, got {}",
         ok.status()
     );
     // Over-cap batch is a clear 400 before any DB work.

@@ -36,6 +36,8 @@ pub(crate) struct PanelState {
     pub(crate) auth: Auth,
     pub(crate) login_hint: Option<String>,
     pub(crate) uploads: Option<InstalledUploader>,
+    /// The route patterns of the directories the panel serves.
+    pub(crate) served_paths: Vec<String>,
     /// The URL each registered resource and page is served at, by type.
     pub(crate) urls: HashMap<TypeId, String>,
 }

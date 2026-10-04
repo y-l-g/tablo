@@ -5,7 +5,7 @@ use super::Table;
 impl<M> Table<M> {
     /// CSV header line for this table (labels, RFC4180 escaped, trailing
     /// newline included) — the first fragment of a streamed export.
-    pub fn csv_header(&self) -> String
+    pub(crate) fn csv_header(&self) -> String
     where
         M: toasty::schema::Model,
     {
@@ -22,7 +22,7 @@ impl<M> Table<M> {
     /// non-whitespace/control character is `=`, `+`, `-`, `@`, `|` or `%`,
     /// including CR/LF- or tab-led variants) so a stored value like
     /// `=1+1` opens as text, not a live spreadsheet formula.
-    pub fn csv_row(&self, row: &M) -> String
+    pub(crate) fn csv_row(&self, row: &M) -> String
     where
         M: toasty::schema::Model,
     {

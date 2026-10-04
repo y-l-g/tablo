@@ -117,6 +117,7 @@ impl Panel {
             Some(Root::Redirect(target)) => Some(target),
             Some(Root::Home) | None => None,
         };
+        let served_paths = served_dirs.iter().map(|(path, _)| path.clone()).collect();
         let state = Arc::new(PanelState {
             prefix: prefix.clone(),
             nav_items,
@@ -129,6 +130,7 @@ impl Panel {
             auth,
             login_hint,
             uploads,
+            served_paths,
             urls,
         });
         let prefix_path = route_path(&prefix);
@@ -218,8 +220,30 @@ impl Panel {
                 self.prefix
             ));
         }
+        for (index, (path, _)) in self.served_dirs.iter().enumerate() {
+            let root = served_root(path);
+            if self.served_dirs[..index]
+                .iter()
+                .any(|(seen, _)| served_root(seen) == root)
+            {
+                errors.push(format!("serve_dir path '{path}' is declared twice"));
+            }
+        }
         if let Some(panels) = builder.get_app_context::<Panels>() {
             for other in &panels.0 {
+                for (path, _) in &self.served_dirs {
+                    if other
+                        .served_paths
+                        .iter()
+                        .any(|served| served_root(served) == served_root(path))
+                    {
+                        errors.push(format!(
+                            "serve_dir path '{path}' is already served by the panel mounted at \
+                             '{}'",
+                            other.prefix
+                        ));
+                    }
+                }
                 if under_prefix(&other.prefix, &self.prefix)
                     || under_prefix(&self.prefix, &other.prefix)
                 {
@@ -503,17 +527,19 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
             field.name
         ));
     }
-    if R::tenancy().via_is_single() == Some(false)
-        && !form.fields().any(|field| {
-            field
-                .as_choice()
-                .is_some_and(|choice| choice.is_relationship())
-        })
-    {
+    if let Some(field) = form.fields().find(|field| {
+        field
+            .as_choice()
+            .is_some_and(|choice| choice.has_composite_source())
+    }) {
         return Err(format!(
-            "resource `{resource}` uses `Tenancy::via` but its form declares no relationship \
-             field — declare the parent key as a relationship field over the parent's resource"
+            "resource `{resource}`'s relationship field `{}` loads a model with a composite \
+             primary key, which no option value can spell",
+            field.name()
         ));
+    }
+    if R::tenancy().via_is_single() == Some(false) {
+        check_via_foreign_keys::<R>(dx, form)?;
     }
     if can::<R>(cx, Ability::Create) {
         check_create_columns::<R>(&fields)?;
@@ -608,6 +634,88 @@ fn validation_cx(db: &Db) -> Cx {
 }
 
 /// Parses a panel route path, panicking on malformed input.
+/// A `Tenancy::via` resource inherits its tenant from the parent its foreign key names, so the
+/// form must write that key through a relationship field over the parent's tenant-scoped
+/// resource: the write re-checks only such a field's key against the request's tenant.
+fn check_via_foreign_keys<R: Resource>(dx: &DeclCx, form: &Schema) -> Result<(), String> {
+    let resource = std::any::type_name::<R>();
+    let Some((parent, keys)) = via_relation::<R>(dx) else {
+        return Err(format!(
+            "resource `{resource}` uses `Tenancy::via`, but its lens does not start at a \
+             `belongs_to` relation: the tenant must be the parent's its foreign key names"
+        ));
+    };
+    let unguarded: Vec<&str> = keys
+        .iter()
+        .map(String::as_str)
+        .filter(|key| {
+            !form.fields().any(|field| {
+                field.name() == *key
+                    && field
+                        .as_choice()
+                        .and_then(|choice| choice.tenant_scoped_model())
+                        == Some(parent.as_str())
+            })
+        })
+        .collect();
+    if unguarded.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "resource `{resource}` uses `Tenancy::via`, but its form does not write the foreign key \
+         `{}` through a relationship field over a tenant-scoped `{parent}` resource — the write \
+         re-checks only such a field's key, so any other could attach the row to another \
+         tenant's parent",
+        unguarded.join("`, `")
+    ))
+}
+
+/// The parent model and foreign-key columns of the `belongs_to` relation a `Tenancy::via` lens
+/// steps through first, read off the linked app schema; `None` when the first step is no
+/// `belongs_to`.
+fn via_relation<R: Resource>(dx: &DeclCx) -> Option<(String, Vec<String>)> {
+    let hop = R::tenancy().via_hop()?;
+    let schema = dx.schema()?;
+    let name = crate::schema::model_name(R::Model::schema().as_root()?);
+    let named = |model: &&toasty::schema::app::ModelRoot| crate::schema::model_name(model) == name;
+    // The accessor's `ModelId` and the schema's may come from different `models!(..)`
+    // expansions: the id names this model, or one model alone carries its name.
+    let root = match schema
+        .app
+        .get_model(R::Model::id())
+        .and_then(|m| m.as_root())
+    {
+        Some(root) if named(&root) => root,
+        _ => {
+            let mut roots = schema
+                .app
+                .models()
+                .filter_map(|m| m.as_root())
+                .filter(named);
+            let root = roots.next()?;
+            roots.next().is_none().then_some(root)?
+        }
+    };
+    let toasty::schema::app::FieldTy::BelongsTo(relation) = &root.fields.get(hop)?.ty else {
+        return None;
+    };
+    let parent = crate::schema::model_name(schema.app.get_model(relation.target)?.as_root()?);
+    let keys = relation
+        .foreign_key
+        .fields
+        .iter()
+        .filter_map(|key| root.fields.get(key.source.index))
+        .map(|field| field.name.app_unwrap().to_string())
+        .collect::<Vec<_>>();
+    (!keys.is_empty()).then_some((parent, keys))
+}
+
+/// A served directory's pattern without its catch-all's name: the router treats
+/// `/uploads/{*file}` and `/uploads/{*path}` as one route.
+fn served_root(path: &str) -> &str {
+    path.rsplit_once("{*").map_or(path, |(root, _)| root)
+}
+
 pub(crate) fn route_path(path: &str) -> topcoat::router::PathBuf {
     Path::from_str(path)
         .expect("panel route paths are well-formed")

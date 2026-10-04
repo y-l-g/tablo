@@ -183,10 +183,9 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
             }
         }
         fn table() -> tablo_core::Table<Reading> {
-            tablo_core::Table::new(
-                |r: &Reading| r.id.to_string(),
-                tablo_core::TextColumn::computed("Words", |r: &Reading| r.word_count.to_string()),
-            )
+            tablo_core::Table::new(tablo_core::ComputedColumn::new("Words", |r: &Reading| {
+                r.word_count.to_string()
+            }))
         }
     }
     #[derive(tablo_core::RecordForm)]

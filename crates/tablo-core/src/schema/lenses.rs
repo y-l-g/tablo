@@ -2,8 +2,11 @@
 
 use std::sync::Arc;
 
+use toasty::stmt::Path;
 use toasty_core::stmt::PathRoot;
 use topcoat::context::Cx;
+
+use crate::Lens;
 
 /// What a declaration may read: the app schema a lens resolves through, and
 /// nothing from a request.
@@ -16,8 +19,8 @@ use topcoat::context::Cx;
 ///
 /// The schema is what binds an embedded leaf
 /// ([`ResolvedLens::new`]) to its flattened storage column. A `DeclCx`
-/// without one ([`DeclCx::empty`]) resolves single-field lenses only, as a
-/// plain [`FieldLens`] does.
+/// without one ([`DeclCx::empty`]) resolves single-field paths only, as a
+/// plain [`Path`] does.
 #[derive(Clone, Default)]
 pub struct DeclCx {
     schema: Option<Arc<toasty_core::Schema>>,
@@ -39,6 +42,11 @@ impl DeclCx {
         }
     }
 
+    /// The app schema, when the context carries one.
+    pub(crate) fn schema(&self) -> Option<&toasty_core::Schema> {
+        self.schema.as_deref()
+    }
+
     /// A declaration context with no app schema: single-field lenses only.
     pub fn empty() -> Self {
         Self::default()
@@ -51,11 +59,6 @@ impl DeclCx {
     }
 }
 
-/// Spec alias — ADR-0001 typed lens. Currently uses `toasty::stmt::Path` directly;
-/// a richer `FieldLens` trait will replace this alias if Toasty exposes the
-/// metadata walk directly (see upstream issue #183).
-pub type FieldLens<M, T> = toasty::stmt::Path<M, T>;
-
 /// A field lens resolved to the form key it binds and the metadata a field
 /// defaults from.
 ///
@@ -67,7 +70,7 @@ pub type FieldLens<M, T> = toasty::stmt::Path<M, T>;
 /// Field::text(ResolvedLens::new(cx, Post::fields().seo().title()))      // an embedded leaf
 /// ```
 ///
-/// A plain [`FieldLens`] converts through [`From`], resolving against the
+/// A plain [`Path`] or a [`Lens`] converts through [`From`], resolving against the
 /// model alone: that covers a single-field lens and refuses a traversal
 /// path, because the owned `app::Model` cannot see embedded models. A refused
 /// lens is a misdeclaration the field records and
@@ -85,7 +88,7 @@ pub type FieldLens<M, T> = toasty::stmt::Path<M, T>;
 /// column of a required embedded struct is `NOT NULL` — so a field opts in
 /// with `.required()`.
 pub struct ResolvedLens<M, T> {
-    pub(crate) path: FieldLens<M, T>,
+    pub(crate) path: Path<M, T>,
     pub(crate) name: String,
     pub(crate) label: String,
     pub(crate) nullable: bool,
@@ -111,14 +114,15 @@ where
     /// Without one ([`DeclCx::empty`]) this resolves as [`From`] does and
     /// refuses a traversal lens, so a test cannot silently bind the wrong
     /// column.
-    pub fn new(dx: &DeclCx, path: FieldLens<M, T>) -> Self {
+    pub fn new(dx: &DeclCx, path: impl Into<Path<M, T>>) -> Self {
+        let path = path.into();
         let leaf = FieldResolver::new(dx).resolve(path.clone());
         Self::bound(path, leaf)
     }
 
     /// The lens bound to `leaf`, or a misdeclared placeholder named after
     /// the lens's steps so it reads as no other field's duplicate.
-    fn bound(path: FieldLens<M, T>, leaf: Result<LeafField, String>) -> Self {
+    fn bound(path: Path<M, T>, leaf: Result<LeafField, String>) -> Self {
         match leaf {
             Ok(leaf) => Self {
                 path,
@@ -143,11 +147,20 @@ where
     }
 }
 
-impl<M, T> From<FieldLens<M, T>> for ResolvedLens<M, T>
+impl<M, T> From<Lens<M, T>> for ResolvedLens<M, T>
 where
     M: toasty::schema::Model,
 {
-    fn from(path: FieldLens<M, T>) -> Self {
+    fn from(lens: Lens<M, T>) -> Self {
+        Path::from(lens).into()
+    }
+}
+
+impl<M, T> From<Path<M, T>> for ResolvedLens<M, T>
+where
+    M: toasty::schema::Model,
+{
+    fn from(path: Path<M, T>) -> Self {
         let model = M::schema();
         let leaf = lens_field(path.clone(), &model).map(|field| LeafField {
             name: field.name.app_unwrap().to_string(),
@@ -227,7 +240,7 @@ impl<'a> FieldResolver<'a> {
     /// # Errors
     ///
     /// A lens that resolves to no single column.
-    pub(crate) fn resolve<M, T>(&self, path: FieldLens<M, T>) -> Result<LeafField, String>
+    pub(crate) fn resolve<M, T>(&self, path: Path<M, T>) -> Result<LeafField, String>
     where
         M: toasty::schema::Model,
     {
@@ -364,7 +377,7 @@ impl<'a> FieldResolver<'a> {
     /// `path` addresses the embedded field itself (`Post::fields().publication()`),
     /// not one of its leaves: a variant-rooted path names a *variant* of a
     /// value, not the value, and yields `None`.
-    pub(crate) fn resolve_enum<M, T>(&self, path: FieldLens<M, T>) -> Option<EnumShape>
+    pub(crate) fn resolve_enum<M, T>(&self, path: Path<M, T>) -> Option<EnumShape>
     where
         M: toasty::schema::Model,
     {
@@ -396,7 +409,7 @@ impl<'a> FieldResolver<'a> {
             .variants
             .iter()
             .map(|v| {
-                discriminant_text(&v.discriminant)
+                crate::toasty_compat::value_text(&v.discriminant)
                     .map(|value| (value, capitalize(&v.name.snake_case())))
             })
             .collect::<Option<Vec<_>>>()?;
@@ -423,28 +436,6 @@ pub(crate) struct EnumShape {
     pub(crate) discriminant: String,
     /// Each variant's stored value and name, in declaration order.
     pub(crate) variants: Vec<(String, String)>,
-}
-
-/// The text an embedded enum's discriminant stores.
-///
-/// Toasty's discriminants are integers or strings, and the form carries that
-/// same text — so what a submission posts is what a row stores. Anything else
-/// is reported rather than guessed.
-fn discriminant_text(value: &toasty_core::stmt::Value) -> Option<String> {
-    use toasty_core::stmt::Value;
-    match value {
-        Value::Bool(v) => Some(v.to_string()),
-        Value::I8(v) => Some(v.to_string()),
-        Value::I16(v) => Some(v.to_string()),
-        Value::I32(v) => Some(v.to_string()),
-        Value::I64(v) => Some(v.to_string()),
-        Value::U8(v) => Some(v.to_string()),
-        Value::U16(v) => Some(v.to_string()),
-        Value::U32(v) => Some(v.to_string()),
-        Value::U64(v) => Some(v.to_string()),
-        Value::String(v) => Some(v.clone()),
-        _ => None,
-    }
 }
 
 /// A `mapping::Field`, aliased so the traversal signatures stay readable.
@@ -624,7 +615,7 @@ fn mapping_field_at<'a>(fields: &'a [MappingField], steps: &[usize]) -> Option<&
 /// A traversal lens, worded as the misdeclaration the declaring builder
 /// records ([`LensBinding`]).
 pub(crate) fn lens_field<M, T>(
-    path: FieldLens<M, T>,
+    path: Path<M, T>,
     model: &toasty::schema::app::Model,
 ) -> Result<toasty::schema::app::Field, String>
 where
@@ -659,7 +650,7 @@ pub(crate) struct LensBinding {
 }
 
 impl LensBinding {
-    pub(crate) fn of<M, T>(path: FieldLens<M, T>) -> Self
+    pub(crate) fn of<M, T>(path: Path<M, T>) -> Self
     where
         M: toasty::schema::Model,
     {

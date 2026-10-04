@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use crate::{
-    Ability, Panel, Policy, RouterBuilderPanelExt,
+    Ability, Panel, Policy, RouterBuilderPanelExt, lens,
     resource::{Resource, Table, TextColumn},
     schema::{Field, Schema},
 };
@@ -24,12 +24,9 @@ pub(crate) struct Dummy {
     pub(crate) name: String,
 }
 
-/// [`Dummy`]'s canonical table: display key, record key, one name column.
+/// [`Dummy`]'s canonical table: one name column.
 pub(crate) fn dummy_table() -> Table<Dummy> {
-    Table::<Dummy>::new(
-        |d: &Dummy| d.id.to_string(),
-        TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
-    )
+    Table::<Dummy>::new(TextColumn::new(lens!(Dummy.name)))
 }
 
 /// A panel at `/admin` with one resource and the auth gate off.
@@ -54,6 +51,7 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         auth,
         login_hint: None,
         uploads: None,
+        served_paths: Vec::new(),
         urls: std::collections::HashMap::new(),
     }
 }
@@ -142,12 +140,7 @@ impl crate::resource::Resource for TaggedResource {
     }
 
     fn table() -> crate::resource::Table<Tagged> {
-        crate::resource::Table::new(
-            |row: &Tagged| row.id.to_string(),
-            crate::resource::TextColumn::r#for(Tagged::fields().name(), |row: &Tagged| {
-                row.name.clone()
-            }),
-        )
+        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Tagged.name)))
     }
 }
 

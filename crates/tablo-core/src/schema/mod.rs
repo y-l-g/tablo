@@ -3,15 +3,14 @@
 //! `Schema` holds layout blocks, embedded values, and [`Field`] slots and resolves every field once
 //! into one list for rendering and validation.
 //!
-//! `lens_field` reaches into `toasty_core` (upstream issue #114), alongside the `pk_*` bridge
-//! helpers and cursor values; retire the walk when Toasty exposes it (upstream #183).
+//! `lens_field` reaches into `toasty_core` (upstream issue #114); retire the walk when Toasty
+//! exposes it (upstream #183).
 
 pub(crate) mod embedded;
 mod fields;
 mod layouts;
 mod lenses;
 mod options;
-mod pk;
 mod relationship;
 mod tree;
 mod validation;
@@ -19,16 +18,15 @@ mod validation;
 use std::collections::{HashMap, HashSet};
 
 pub use embedded::EmbeddedForm;
-pub(crate) use fields::option_view;
 pub use fields::{
     ChoiceField, Control, ControlInput, CustomField, Field, FileField, IntoOptions, TextField,
     Toggle,
 };
+pub(crate) use fields::{model_name, option_view};
 pub use layouts::{Grid, Group, Repeater, Section};
-pub use lenses::{DeclCx, FieldLens, ResolvedLens};
+pub use lenses::{DeclCx, ResolvedLens};
 pub(crate) use lenses::{LensBinding, capitalize, lens_field, lens_field_unique};
 pub use options::Options;
-pub(crate) use pk::{pk_eq_expr, pk_in_expr, pk_is_composite};
 pub(crate) use relationship::OptionLoadError;
 pub use relationship::{MAX_RELATIONSHIP_OPTIONS, OptionSource};
 use topcoat::{Result, context::Cx, view::*};

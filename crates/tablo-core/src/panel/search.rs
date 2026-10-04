@@ -25,7 +25,6 @@ use crate::{
     form::FormScalar,
     policy::{Ability, can},
     resource::{Resource, TableSignals, TableState},
-    schema::FieldLens,
 };
 
 /// Monomorphizes a resource's live-search table loader keyed by list path.
@@ -99,7 +98,7 @@ pub(crate) fn search_handler_for<R: Resource>() -> SearchFn {
 
 /// Monomorphizes `C`'s relation loader over the typed foreign key into a [`RelationSearchFn`].
 pub(crate) fn relation_search_handler_for<C: Resource, T>(
-    foreign_key: FieldLens<C::Model, T>,
+    foreign_key: toasty::stmt::Path<C::Model, T>,
 ) -> RelationSearchFn
 where
     T: IntoExpr<T> + FormScalar + Send + Sync + 'static,

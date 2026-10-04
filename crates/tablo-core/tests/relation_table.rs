@@ -3,7 +3,7 @@
 //! the relation, and the writes it starts return to the owner's page.
 
 use http::header::LOCATION;
-use tablo_core::{Ability, Field, Policy, Relation, Resource, Schema, Table, TextColumn};
+use tablo_core::{Ability, Field, Policy, Relation, Resource, Schema, Table, TextColumn, lens};
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
@@ -51,16 +51,12 @@ impl Resource for OwnerResource {
     }
 
     fn table() -> Table<Owner> {
-        Table::new(
-            |owner: &Owner| owner.id.to_string(),
-            TextColumn::r#for(Owner::fields().name(), |owner: &Owner| owner.name.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Owner.name)))
     }
 
     fn relations() -> Vec<Relation<Owner>> {
-        vec![Relation::has_many::<ChildResource, _>(
+        vec![Relation::has_many::<ChildResource>(
             Child::fields().owner_id(),
-            |owner: &Owner| owner.id,
         )]
     }
 }
@@ -81,10 +77,7 @@ impl Resource for ChildResource {
         Schema::new((
             Field::text(Child::fields().body()),
             Field::choice(Child::fields().owner_id())
-                .relationship::<OwnerResource>(
-                    |owner: &Owner| owner.id,
-                    |owner: &Owner| owner.name.clone(),
-                )
+                .relationship::<OwnerResource>(|owner: &Owner| owner.name.clone())
                 .label("Owner"),
         ))
     }
@@ -101,12 +94,7 @@ impl Resource for ChildResource {
     }
 
     fn table() -> Table<Child> {
-        Table::new(
-            |child: &Child| child.id.to_string(),
-            TextColumn::r#for(Child::fields().body(), |child: &Child| child.body.clone())
-                .searchable()
-                .sortable(),
-        )
+        Table::new(TextColumn::new(lens!(Child.body)).searchable().sortable())
     }
 }
 
@@ -347,12 +335,7 @@ async fn two_relations_to_one_child_do_not_build() {
         }
 
         fn relations() -> Vec<Relation<Owner>> {
-            let relation = || {
-                Relation::has_many::<ChildResource, _>(
-                    Child::fields().owner_id(),
-                    |owner: &Owner| owner.id,
-                )
-            };
+            let relation = || Relation::has_many::<ChildResource>(Child::fields().owner_id());
             vec![relation(), relation()]
         }
     }

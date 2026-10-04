@@ -2,7 +2,7 @@ use toasty::Db;
 
 use super::*;
 use crate::{
-    Ability, Panel, Policy, ReadOnly,
+    Ability, Panel, Policy, ReadOnly, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for, seed_dummies},
 };
 
@@ -121,7 +121,7 @@ async fn export_loads_the_relations_its_columns_include() {
             ReadOnly
         }
         fn table() -> crate::resource::Table<Child> {
-            let column = crate::resource::TextColumn::computed("Parent", |c: &Child| {
+            let column = crate::resource::ComputedColumn::new("Parent", |c: &Child| {
                 if c.parent.is_unloaded() {
                     "(unloaded)".to_string()
                 } else {
@@ -133,7 +133,7 @@ async fn export_loads_the_relations_its_columns_include() {
             } else {
                 column
             };
-            crate::resource::Table::new(|c: &Child| c.id.to_string(), column)
+            crate::resource::Table::new(column)
         }
     }
 
@@ -432,8 +432,7 @@ async fn export_visibility_scan_loads_no_includes() {
         }
         fn table() -> crate::resource::Table<Child> {
             crate::resource::Table::new(
-                |c: &Child| c.id.to_string(),
-                crate::resource::TextColumn::computed("Parent", |c: &Child| {
+                crate::resource::ComputedColumn::new("Parent", |c: &Child| {
                     if c.parent.is_unloaded() {
                         "(unloaded)".to_string()
                     } else {
@@ -726,16 +725,11 @@ async fn export_and_list_agree_on_rows_and_order() {
             ReadOnly
         }
         fn table() -> crate::resource::Table<Task> {
-            crate::resource::Table::new(
-                |t: &Task| t.id.to_string(),
-                TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone())
-                    .searchable()
-                    .sortable(),
-            )
-            .filters(SelectFilter::r#for(
-                Task::fields().status(),
-                vec!["published".to_string(), "draft".to_string()],
-            ))
+            crate::resource::Table::new(TextColumn::new(lens!(Task.title)).searchable().sortable())
+                .filters(SelectFilter::new(
+                    Task::fields().status(),
+                    vec!["published".to_string(), "draft".to_string()],
+                ))
         }
     }
 

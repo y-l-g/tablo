@@ -31,7 +31,7 @@ pub(super) struct RowChrome {
 
 /// One rendered row, keyed for the body's diff.
 pub(super) struct RenderedRow<'a> {
-    /// The row's display key: stable for the record, never a loop index.
+    /// The record's primary key: stable for the record, never a loop index.
     pub(super) key: String,
     /// The group header the row opens, if any, then the row itself.
     pub(super) view: BoxView<'a>,
@@ -73,7 +73,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     });
     let bulk_cell = chrome.with_bulk.then(|| {
         if row.selectable {
-            let value = row.record_id.clone();
+            let value = row.key.clone();
             view! {
                 cx =>
                 table_cell(
@@ -215,10 +215,8 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
 
 /// Precompute per-row presentation for the table body in owned data the lazy view captures.
 pub(super) struct RowView<'a> {
-    /// The display projection driving keyed diffs and DOM ids.
+    /// The record's primary key, driving keyed diffs, DOM ids, URLs and bulk values.
     key: String,
-    /// The record projection driving URLs and bulk values, resolved by handlers as the typed PK.
-    record_id: String,
     /// One rendered cell per column, in column order.
     cells: Vec<BoxView<'a>>,
     view_url: Option<String>,
@@ -248,8 +246,7 @@ struct GroupHeader {
 }
 
 impl<M> Table<M> {
-    /// Project the loaded page into the row presentation the template renders, requiring injective
-    /// row keys within a page.
+    /// Project the loaded page into the row presentation the template renders.
     pub(super) fn row_views<'a>(
         &self,
         cx: &'a Cx,
@@ -273,8 +270,7 @@ impl<M> Table<M> {
             .rows
             .iter()
             .map(|row| {
-                let key = (self.row_key)(row);
-                let record_id = (self.record_key)(row);
+                let key = self.key_of(row);
                 let actions = if gated {
                     self.actions_for(row)
                 } else {
@@ -286,21 +282,21 @@ impl<M> Table<M> {
                     .edit_prefix
                     .as_ref()
                     .filter(|_| actions.edit)
-                    .map(|prefix| self.action_url(row_edit_url(prefix, &record_id)));
+                    .map(|prefix| self.action_url(row_edit_url(prefix, &key)));
                 let view_url = self
                     .view_prefix
                     .as_ref()
                     .filter(|_| actions.view)
-                    .map(|prefix| row_view_url(prefix, &record_id));
+                    .map(|prefix| row_view_url(prefix, &key));
                 let delete_url = delete_url_base
                     .as_ref()
                     .filter(|_| actions.delete)
-                    .map(|base| base.delete_dialog(&record_id));
+                    .map(|base| base.delete_dialog(&key));
                 let delete_action = self
                     .delete_prefix
                     .as_ref()
                     .filter(|_| actions.delete)
-                    .map(|prefix| self.action_url(delete_action_url(prefix, &record_id)));
+                    .map(|prefix| self.action_url(delete_action_url(prefix, &key)));
                 let custom = self
                     .actions_prefix
                     .as_ref()
@@ -308,7 +304,7 @@ impl<M> Table<M> {
                         self.row_custom_actions()
                             .filter(|action| (action.allowed)(row))
                             .map(|action| {
-                                let url = row_action_url(prefix, &record_id, action.name);
+                                let url = row_action_url(prefix, &key, action.name);
                                 (action.label.clone(), self.action_url(url))
                             })
                             .collect()
@@ -320,7 +316,6 @@ impl<M> Table<M> {
                         .any(|action| (action.allowed)(row));
                 RowView {
                     key,
-                    record_id,
                     cells,
                     view_url,
                     edit_url,
@@ -350,13 +345,6 @@ impl<M> Table<M> {
                 start = end;
             }
         }
-        debug_assert!(
-            {
-                let mut seen = std::collections::HashSet::new();
-                row_data.iter().all(|row| seen.insert(row.key.clone()))
-            },
-            "duplicate table keys in one page: the key projection must be injective"
-        );
         row_data
     }
 }

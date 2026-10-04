@@ -7,9 +7,9 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{
     super::{
         relationship::{
-            OptionLoadError, OptionSource, RelatedCheck, RelatedPrimaryKey,
-            RelationshipCheckFuture, RelationshipChecker, RelationshipLoadFuture,
-            RelationshipLoader, RelationshipSearchLoader, related_record_check, related_records,
+            OptionLoadError, OptionSource, RelatedCheck, RelationshipCheckFuture,
+            RelationshipChecker, RelationshipLoadFuture, RelationshipLoader,
+            RelationshipSearchLoader, related_record_check, related_records,
             related_records_search,
         },
         tree::Mode,
@@ -35,6 +35,11 @@ pub(crate) struct Relationship {
     load: RelationshipLoader,
     search: RelationshipSearchLoader,
     check: RelationshipChecker,
+    /// The source model's name when its rows are tenant-owned, so a key the
+    /// write re-checks cannot name another tenant's row.
+    tenant_scoped_model: Option<String>,
+    /// Whether the source's primary key is composite, which no option value can spell.
+    composite: bool,
 }
 
 /// One `<option>` with its value and label.
@@ -48,17 +53,13 @@ pub(crate) fn option_view<'a>(
 }
 
 impl Relationship {
-    /// The loaders for source `R`, projecting each row to its key and label.
-    pub(super) fn new<R>(
-        value: impl Fn(&R::Model) -> RelatedPrimaryKey<R> + Send + Sync + 'static,
-        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
-    ) -> Self
+    /// The loaders for source `R`, projecting each row to its primary key and label.
+    pub(super) fn new<R>(label: impl Fn(&R::Model) -> String + Send + Sync + 'static) -> Self
     where
         R: OptionSource + 'static,
-        RelatedPrimaryKey<R>: std::fmt::Display,
     {
         let project = std::sync::Arc::new(move |record: &R::Model| {
-            (value(record).to_string(), label(record))
+            (crate::toasty_compat::pk::pk_text(record), label(record))
         });
         let search_project = project.clone();
         let load = std::sync::Arc::new(move |cx: &Cx| {
@@ -86,8 +87,21 @@ impl Relationship {
             load,
             search,
             check,
+            tenant_scoped_model: R::requires_tenant()
+                .then(|| {
+                    <R::Model as toasty::schema::Model>::schema()
+                        .as_root()
+                        .map(model_name)
+                })
+                .flatten(),
+            composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
         }
     }
+}
+
+/// A root model's name, as the app schema spells it.
+pub(crate) fn model_name(root: &toasty::schema::app::ModelRoot) -> String {
+    root.name.upper_camel_case()
 }
 
 fn check_record<'a, R>(
@@ -108,6 +122,20 @@ impl ChoiceControl {
 
     pub(crate) fn is_relationship(&self) -> bool {
         self.relationship.is_some()
+    }
+
+    /// Whether the options come from a model with a composite primary key.
+    pub(crate) fn has_composite_source(&self) -> bool {
+        self.relationship
+            .as_ref()
+            .is_some_and(|relationship| relationship.composite)
+    }
+
+    /// The name of the model the options come from, when its rows are tenant-owned.
+    pub(crate) fn tenant_scoped_model(&self) -> Option<&str> {
+        self.relationship
+            .as_ref()
+            .and_then(|relationship| relationship.tenant_scoped_model.as_deref())
     }
 
     /// Searches options server-side, answering `Overflow` past the option cap.

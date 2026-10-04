@@ -3,10 +3,11 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Ability, Action, Actions, Auth, BooleanColumn, Brand, ColumnWidth, Committed, DateFilter,
-    DeclCx, Field, FieldErrors, Grid, Group, NavigationItem, Options, Panel, Policy, Relation,
-    Repeater, ResolvedLens, Resource, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
-    Tenancy, TernaryFilter, TextColumn, Uploader, VariantFilter, tenant_id, when,
+    Ability, Action, Actions, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
+    DateFilter, DeclCx, Field, FieldErrors, Grid, Group, NavigationItem, Options, Panel, Policy,
+    QueryFilter, Relation, Repeater, ResolvedLens, Resource, RouterBuilderPanelExt, Schema,
+    Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id,
+    when,
 };
 use toasty::Db;
 use topcoat::{
@@ -87,23 +88,16 @@ impl Resource for UserResource {
     }
 
     fn table() -> Table<User> {
-        Table::new(
-            |u: &User| u.id.to_string(),
-            (
-                TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
-                    .searchable()
-                    .sortable(),
-                TextColumn::r#for(User::fields().email(), |u: &User| u.email.clone()).searchable(),
-                TextColumn::r#for(User::fields().role(), |u: &User| u.role.clone()),
-                TextColumn::computed("Status", |u: &User| {
-                    if u.active { "Active" } else { "Inactive" }.to_string()
-                }),
-                TextColumn::computed("Created", |u: &User| {
-                    u.created_at.strftime("%Y-%m-%d").to_string()
-                })
+        Table::new((
+            TextColumn::new(lens!(User.name)).searchable().sortable(),
+            TextColumn::new(lens!(User.email)).searchable(),
+            TextColumn::new(lens!(User.role)),
+            BooleanColumn::new(lens!(User.active)),
+            TextColumn::new(lens!(User.created_at))
+                .format(|at| at.strftime("%Y-%m-%d").to_string())
+                .sortable()
                 .width(ColumnWidth::Rem(8)),
-            ),
-        )
+        ))
         .live_search()
     }
 
@@ -160,16 +154,10 @@ impl Resource for AuthorResource {
     }
 
     fn table() -> Table<Author> {
-        Table::new(
-            |a: &Author| a.id.to_string(),
-            (
-                TextColumn::r#for(Author::fields().name(), |a: &Author| a.name.clone())
-                    .searchable()
-                    .sortable(),
-                TextColumn::r#for(Author::fields().email(), |a: &Author| a.email.clone())
-                    .searchable(),
-            ),
-        )
+        Table::new((
+            TextColumn::new(lens!(Author.name)).searchable().sortable(),
+            TextColumn::new(lens!(Author.email)).searchable(),
+        ))
         .live_search()
     }
 }
@@ -210,17 +198,11 @@ impl Resource for PostResource {
                 Section::new("Details").schema((
                     Grid::new(2).schema((c.status.optional(), c.featured)),
                     c.author_id
-                        .relationship::<AuthorResource>(
-                            |a: &Author| a.id,
-                            |a: &Author| a.name.clone(),
-                        )
+                        .relationship::<AuthorResource>(|a: &Author| a.name.clone())
                         .searchable()
                         .label("Author"),
                     c.cover_id
-                        .relationship::<MediaLibrary>(
-                            |m: &MediaAsset| m.id,
-                            |m: &MediaAsset| m.filename.clone(),
-                        )
+                        .relationship::<MediaLibrary>(|m: &MediaAsset| m.filename.clone())
                         .searchable()
                         .label("Cover")
                         .optional(),
@@ -300,9 +282,8 @@ impl Resource for PostResource {
 
     /// Lists the post's comments.
     fn relations() -> Vec<Relation<Post>> {
-        vec![Relation::has_many::<CommentResource, _>(
+        vec![Relation::has_many::<CommentResource>(
             Comment::fields().post_id(),
-            |post: &Post| post.id,
         )]
     }
 
@@ -315,72 +296,61 @@ impl Resource for PostResource {
     }
 
     fn table() -> Table<Post> {
-        Table::new(
-            |p: &Post| p.id.to_string(),
-            (
-                TextColumn::r#for(Post::fields().title(), |p: &Post| p.title.clone())
-                    .searchable()
-                    .sortable(),
-                TextColumn::r#for(Post::fields().status(), |p: &Post| {
-                    PostStatus::label_of(&p.status)
-                })
+        Table::new((
+            TextColumn::new(lens!(Post.title)).searchable().sortable(),
+            TextColumn::new(lens!(Post.status))
+                .format(|status| PostStatus::label_of(status))
                 .width(ColumnWidth::Narrow),
-                BooleanColumn::r#for(Post::fields().featured(), |p: &Post| p.featured),
-                TextColumn::computed("Author", |p: &Post| {
-                    debug_assert!(
-                        !p.author.is_unloaded(),
-                        "the Author column declares `.include(Post::fields().author())`"
-                    );
-                    if p.author.is_unloaded() {
-                        "(unloaded)".to_string()
-                    } else {
-                        p.author.get().name.clone()
-                    }
-                })
-                .width(ColumnWidth::Wide)
-                .include(Post::fields().author()),
-                TextColumn::computed("Comments", |p: &Post| {
-                    debug_assert!(
-                        !p.comments.is_unloaded(),
-                        "the Comments column declares `.include(Post::fields().comments())`"
-                    );
-                    if p.comments.is_unloaded() {
-                        "(unloaded)".to_string()
-                    } else {
-                        p.comments.get().len().to_string()
-                    }
-                })
-                .include(Post::fields().comments()),
-            ),
-        )
-        .filters((
-            SelectFilter::r#for(Post::fields().status(), PostStatus::options()),
-            TernaryFilter::r#for(Post::fields().featured()),
-            DateFilter::r#for(Post::fields().created_at()),
-            VariantFilter::r#for(
-                "promoted",
-                "Promoted",
-                vec![
-                    (
-                        "Promoted".to_string(),
-                        Post::fields().featured().eq(true).and(
-                            Post::fields()
-                                .status()
-                                .eq(PostStatus::Published.value().to_string()),
-                        ),
-                    ),
-                    (
-                        "Backlog".to_string(),
-                        Post::fields().featured().eq(false).and(
-                            Post::fields()
-                                .status()
-                                .eq(PostStatus::Draft.value().to_string()),
-                        ),
-                    ),
-                ],
-            ),
+            BooleanColumn::new(lens!(Post.featured)),
+            ComputedColumn::new("Author", |p: &Post| {
+                debug_assert!(
+                    !p.author.is_unloaded(),
+                    "the Author column declares `.include(Post::fields().author())`"
+                );
+                if p.author.is_unloaded() {
+                    "(unloaded)".to_string()
+                } else {
+                    p.author.get().name.clone()
+                }
+            })
+            .width(ColumnWidth::Wide)
+            .include(Post::fields().author()),
+            ComputedColumn::new("Comments", |p: &Post| {
+                debug_assert!(
+                    !p.comments.is_unloaded(),
+                    "the Comments column declares `.include(Post::fields().comments())`"
+                );
+                if p.comments.is_unloaded() {
+                    "(unloaded)".to_string()
+                } else {
+                    p.comments.get().len().to_string()
+                }
+            })
+            .include(Post::fields().comments()),
         ))
-        .group_by("status", |p: &Post| p.status.clone())
+        .filters((
+            SelectFilter::new(Post::fields().status(), PostStatus::options()),
+            TernaryFilter::new(Post::fields().featured()),
+            DateFilter::new(Post::fields().created_at()),
+            QueryFilter::new("promoted", "Promoted")
+                .option(
+                    "Promoted",
+                    Post::fields().featured().eq(true).and(
+                        Post::fields()
+                            .status()
+                            .eq(PostStatus::Published.value().to_string()),
+                    ),
+                )
+                .option(
+                    "Backlog",
+                    Post::fields().featured().eq(false).and(
+                        Post::fields()
+                            .status()
+                            .eq(PostStatus::Draft.value().to_string()),
+                    ),
+                ),
+        ))
+        .group_by(lens!(Post.status))
         .live_search()
     }
 }
@@ -446,7 +416,7 @@ impl Resource for CommentResource {
         Schema::new((
             c.body.multiline(4).placeholder("Write a reply…"),
             c.post_id
-                .relationship::<PostResource>(|p: &Post| p.id, |p: &Post| p.title.clone())
+                .relationship::<PostResource>(|p: &Post| p.title.clone())
                 .searchable()
                 .label("Post"),
         ))
@@ -469,27 +439,22 @@ impl Resource for CommentResource {
     }
 
     fn table() -> Table<Comment> {
-        Table::new(
-            |c: &Comment| c.id.to_string(),
-            (
-                TextColumn::r#for(Comment::fields().body(), |c: &Comment| c.body.clone())
-                    .searchable()
-                    .sortable(),
-                TextColumn::computed("Post", |c: &Comment| {
-                    debug_assert!(
-                        !c.post.is_unloaded(),
-                        "the Post column declares `.include(Comment::fields().post())`"
-                    );
-                    if c.post.is_unloaded() {
-                        "(unloaded)".to_string()
-                    } else {
-                        c.post.get().title.clone()
-                    }
-                })
-                .width(ColumnWidth::Wide)
-                .include(Comment::fields().post()),
-            ),
-        )
+        Table::new((
+            TextColumn::new(lens!(Comment.body)).searchable().sortable(),
+            ComputedColumn::new("Post", |c: &Comment| {
+                debug_assert!(
+                    !c.post.is_unloaded(),
+                    "the Post column declares `.include(Comment::fields().post())`"
+                );
+                if c.post.is_unloaded() {
+                    "(unloaded)".to_string()
+                } else {
+                    c.post.get().title.clone()
+                }
+            })
+            .width(ColumnWidth::Wide)
+            .include(Comment::fields().post()),
+        ))
         .live_search()
     }
 }

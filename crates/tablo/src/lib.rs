@@ -49,12 +49,7 @@
 //!     }
 //!
 //!     fn table() -> Table<Book> {
-//!         Table::new(
-//!             |b: &Book| b.id.to_string(),
-//!             TextColumn::r#for(Book::fields().title(), |b: &Book| b.title.clone())
-//!                 .searchable()
-//!                 .sortable(),
-//!         )
+//!         Table::new(TextColumn::new(lens!(Book.title)).searchable().sortable())
 //!     }
 //!
 //!     fn form(_dx: &tablo::DeclCx) -> Schema {
@@ -80,11 +75,11 @@ pub use tablo_ui as ui;
 pub mod prelude {
     pub use tablo_core::{
         Ability, Action, Actions, Allow, Auth, BooleanColumn, Brand, ChoiceField, Column,
-        ColumnWidth, Committed, Control, ControlInput, CustomField, DateFilter, DeclCx, Deny,
-        EmbeddedForm, Field, FieldErrors, FileField, Filter, FilterInput, Grid, Group, Includes,
-        IntoOptions, NavigationItem, NoForm, Options, Page, Panel, Policy, Posted, ReadOnly,
-        RecordForm, Relation, Repeater, ResolvedLens, Resource, RouterBuilderPanelExt, Schema,
-        Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, TextField, Toggle,
-        VariantFilter, can, can_list, scoped_query, tenant_id, when,
+        ColumnWidth, Committed, ComputedColumn, Control, ControlInput, CustomField, DateFilter,
+        DeclCx, Deny, EmbeddedForm, Field, FieldErrors, FileField, Filter, FilterInput, Grid,
+        Group, Includes, IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy,
+        Posted, QueryFilter, ReadOnly, RecordForm, Relation, Repeater, ResolvedLens, Resource,
+        RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
+        TextColumn, TextField, Toggle, can, can_list, lens, scoped_query, tenant_id, when,
     };
 }

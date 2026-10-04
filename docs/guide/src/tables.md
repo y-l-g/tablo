@@ -1,54 +1,55 @@
 # Tables
 
-A resource's `table()` declares its list page: the columns, the row key, and the search, sort,
-filter, grouping and pagination the list offers. It takes no context: the panel calls it once at
+A resource's `table()` declares its list page: the columns, and the search, sort, filter,
+grouping and pagination the list offers. It takes no context: the panel calls it once at
 build and serves that table to every request. The same declaration drives the CSV export.
 
 ```rust
 fn table() -> Table<User> {
-    Table::new(
-        |u: &User| u.id.to_string(),
-        (
-            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
-                .searchable()
-                .sortable(),
-            TextColumn::r#for(User::fields().email(), |u: &User| u.email.clone()).searchable(),
-            TextColumn::computed("Status", |u: &User| {
-                if u.active { "Active" } else { "Inactive" }.to_string()
-            }),
-        ),
-    )
+    Table::new((
+        TextColumn::new(lens!(User.name)).searchable().sortable(),
+        TextColumn::new(lens!(User.email)).searchable(),
+        TextColumn::new(lens!(User.age)).sortable(),
+        BooleanColumn::new(lens!(User.active)),
+    ))
     .paginate(20)
 }
 ```
 
-## The row key
+Each row is keyed by its record's primary key: the table identifies rows for selection and
+in-place updates by it, and the action URLs and bulk checkboxes carry it. A composite primary key
+has no URL form, so its rows render without row actions or bulk selection.
 
-`Table::new(key, columns)` takes the row key first. It must be the model's primary key as a
-string: the table uses it to identify rows for selection and in-place updates, and the action
-URLs and bulk checkboxes carry it, where handlers parse it back into the primary key. A key that
-is not the primary key makes every delete answer 404.
+## Lenses
 
-When rows must be keyed by something else in the page, `Table::new_split(display, record,
-columns)` takes the two keys separately: `display` identifies rows in the page and `record` is the
-primary key the URLs carry. Either way, keys must be unique within a page.
+`lens!(User.name)` names a field once and yields both halves a column needs: the path a query
+sorts and searches on (`User::fields().name()`) and the reader that renders the loaded value
+(`&user.name`). The two cannot disagree. A column binds one field of the model; a lens through a
+relation does not compile, since a relation's records are not part of the row. Builders that only
+query, such as the filters and `Field` constructors, take either a lens or a plain path.
 
 ## Columns
 
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
-| `TextColumn::r#for(lens, project)` | `project(row)`, bound to a `String` field | `.searchable()`, `.sortable()` |
-| `TextColumn::computed(label, project)` | `project(row)` | neither is available: requesting either is a misdeclaration the build refuses |
-| `BooleanColumn::r#for(lens, project)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
+| `TextColumn::new(lens)` | the field's value as text, or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
+| `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
+| `BooleanColumn::new(lens)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
+
+```rust
+TextColumn::new(lens!(Post.status)).format(|status| PostStatus::label_of(status))
+TextColumn::new(lens!(User.created_at)).format(|at| at.strftime("%Y-%m-%d").to_string())
+```
 
 - **Labels.** A field column is labelled from its field name (`created_at` → "Created at"); a
   computed column uses the label you pass.
-- **Relations.** A column whose closure reads a relation declares it with `.include(..)`, and the
-  list and the export load it with the page's rows in one query. A relation no column includes
-  is not loaded. Guard the read so a missing include renders `(unloaded)` instead of blank data:
+- **Relations.** A computed column whose closure reads a relation declares it with
+  `.include(..)`, and the list and the export load it with the page's rows in one query. A
+  relation no column includes is not loaded. Guard the read so a missing include renders
+  `(unloaded)` instead of blank data:
 
   ```rust
-  TextColumn::computed("Author", |p: &Post| {
+  ComputedColumn::new("Author", |p: &Post| {
       if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
   })
   .include(Post::fields().author())
@@ -68,8 +69,8 @@ fails with the same errors.
 
 ### Your own columns
 
-A column is anything that implements `Column<M>`. `TextColumn` and `BooleanColumn` implement it and
-nothing more, so a column of your own reaches as far as theirs:
+A column is anything that implements `Column<M>`. The built-in columns implement it and nothing
+more, so a column of your own reaches as far as theirs:
 
 ```rust
 struct Initials;
@@ -119,7 +120,7 @@ The URL holds the list's whole state, so every view of a list is a link you can 
 ### Live updates
 
 ```rust
-Table::new(|u: &User| u.id.to_string(), columns).live_search()
+Table::new(columns).live_search()
 ```
 
 With `live_search()`, typing in the search box, sorting, filtering and paging update the table
@@ -130,24 +131,32 @@ remain for visitors without JavaScript.
 
 ```rust
 .filters((
-    SelectFilter::r#for(Post::fields().status(), PostStatus::options()),
-    TernaryFilter::r#for(Post::fields().featured()),
-    DateFilter::r#for(Post::fields().created_at()),
+    SelectFilter::new(Post::fields().status(), PostStatus::options()),
+    TernaryFilter::new(Post::fields().featured()),
+    DateFilter::new(Post::fields().created_at()),
 ))
 ```
 
 | Filter | Field | Values |
 | --- | --- | --- |
-| `SelectFilter::r#for(lens, options)` | `String` | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an [`Options`](./forms.md#controls) list), `Vec<String>`, or `[&str; N]` |
-| `TernaryFilter::r#for(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
-| `DateFilter::r#for(lens)` | `jiff::Timestamp` | a date `2024-01-15` matches that UTC day; an RFC 3339 timestamp matches that instant |
-| `VariantFilter::r#for(name, label, options)` | any | named options, each a Toasty predicate you build |
+| `SelectFilter::new(lens, options)` | `String` | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an [`Options`](./forms.md#controls) list), `Vec<String>`, or `[&str; N]` |
+| `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
+| `DateFilter::new(lens)` | `jiff::Timestamp` | a date `2024-01-15` matches that UTC day; an RFC 3339 timestamp matches that instant |
+| `QueryFilter::new(name, label).option(label, predicate)` | any | named options, each a Toasty predicate you build |
 
-Each active filter is one parameter, `?f.<name>=<value>`, named after the field, and active
+Each active filter is one parameter, `?f.<name>=<value>`, named after the field (a
+`QueryFilter` after its name), and active
 filters combine with AND.
 
 A filter is anything that implements `Filter<M>`: a name, a label, the predicate a value selects,
 and the control the filter bar renders. The four filters above implement it and nothing more.
+
+```rust
+QueryFilter::new("promoted", "Promoted")
+    .option("Promoted", Post::fields().featured().eq(true))
+    .option("Backlog", Post::fields().featured().eq(false))
+```
+
 `FilterInput` carries the parameter the control submits and the current value, and
 `input.select(cx, options)` renders the built-in select:
 
@@ -176,12 +185,12 @@ request with 400 rather than export more rows than asked.
 ## Grouping
 
 ```rust
-.group_by("status", |p: &Post| p.status.clone())
+.group_by(lens!(Post.status))
 ```
 
-`?group_by=status` groups the current page's rows under headers with a row count. Grouping runs
-on the loaded page, so the counts cover that page, not the whole table. A `?group_by=` value the
-table does not declare is ignored.
+`?group_by=status`, named after the field, groups the current page's rows under headers with a
+row count. Grouping runs on the loaded page, so the counts cover that page, not the whole table. A
+`?group_by=` value the table does not declare is ignored.
 
 ## Export
 

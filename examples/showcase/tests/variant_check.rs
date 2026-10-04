@@ -7,7 +7,7 @@
 //! embedded value over a real model and a real panel — with a typed leaf in the
 //! inactive variant so a validated group would refuse the submission.
 
-use tablo_core::{Ability, Auth, Field, Panel, Policy, Resource, Schema, Table, TextColumn};
+use tablo_core::{Ability, Auth, Field, Panel, Policy, Resource, Schema, Table, TextColumn, lens};
 use toasty::Db;
 use uuid::Uuid;
 
@@ -56,10 +56,7 @@ impl Resource for ClipResource {
     }
 
     fn table() -> Table<Clip> {
-        Table::new(
-            |clip: &Clip| clip.id.to_string(),
-            TextColumn::r#for(Clip::fields().title(), |clip: &Clip| clip.title.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Clip.title)))
     }
 }
 #[derive(tablo_core::RecordForm)]

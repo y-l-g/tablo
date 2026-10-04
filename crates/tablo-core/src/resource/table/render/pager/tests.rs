@@ -2,21 +2,18 @@ use topcoat::context::CxTestBuilder;
 
 use super::{super::core::tests::User, *};
 use crate::{
-    TablePage, TableState,
+    TablePage, TableState, lens,
     resource::{Sort, TextColumn},
 };
 
 #[tokio::test]
 async fn group_by_survives_pager_and_labels_page_local_counts() {
     let cx = CxTestBuilder::new().build();
-    let grouped = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
-    )
-    .group_by("status", |u| u.name.clone())
-    .paginate(1);
+    let grouped = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable())
+        .group_by(lens!(User.name))
+        .paginate(1);
     let state = TableState {
-        group_by: Some("status".to_string()),
+        group_by: Some("name".to_string()),
         sort: Some(Sort {
             column: "name".to_string(),
             descending: false,
@@ -55,11 +52,7 @@ async fn void_window_links_back_to_first_page() {
     // a cursor past the last row (rows deleted under pagination)
     // must offer navigation, never a pager-less dead end.
     let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
-    )
-    .paginate(1);
+    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable()).paginate(1);
     let void_page = TablePage {
         rows: Vec::new(),
         next_cursor: None,

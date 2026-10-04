@@ -123,7 +123,7 @@ async fn load_targets<R: Resource>(
         return Ok(vec![find_by_key::<R>(cx, &ids[0], tx).await?]);
     }
     let keys: Vec<&str> = ids.iter().map(String::as_str).collect();
-    let Some(pk_filter) = crate::schema::pk_in_expr::<R::Model>(&keys) else {
+    let Some(pk_filter) = crate::toasty_compat::pk::pk_in_expr::<R::Model>(&keys) else {
         if let Some(error) = composite_pk_error::<R>() {
             return Err(error);
         }

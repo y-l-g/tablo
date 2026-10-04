@@ -1,6 +1,6 @@
 use http::header::{LOCATION, SET_COOKIE};
 use showcase::models::User;
-use tablo_core::{Ability, Policy};
+use tablo_core::{Ability, Policy, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -216,10 +216,7 @@ async fn create_policy_deny() {
             }
         }
         fn table() -> Table<DummyUser> {
-            Table::new(
-                |u: &DummyUser| u.id.to_string(),
-                TextColumn::r#for(DummyUser::fields().name(), |u: &DummyUser| u.name.clone()),
-            )
+            Table::new(TextColumn::new(lens!(DummyUser.name)))
         }
     }
     #[derive(tablo_core::RecordForm)]
@@ -412,11 +409,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
             }
         }
         fn table() -> Table<Widget> {
-            Table::new(
-                |w: &Widget| w.id.to_string(),
-                TextColumn::r#for(Widget::fields().name(), |w: &Widget| w.name.clone()),
-            )
-            .paginate(25)
+            Table::new(TextColumn::new(lens!(Widget.name))).paginate(25)
         }
     }
     #[derive(tablo_core::RecordForm)]

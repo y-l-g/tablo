@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use jiff::Timestamp;
 use tablo_core::{
-    Ability, Field, Panel, Policy, Resource, RouterBuilderPanelExt, Schema, Table, TablePage,
-    TableState, Tenancy, Tenant, TextColumn,
+    Ability, ComputedColumn, Field, Panel, Policy, Resource, RouterBuilderPanelExt, Schema, Table,
+    TablePage, TableState, Tenancy, Tenant, TextColumn, lens,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
@@ -71,15 +71,10 @@ impl Resource for AuthorResource {
         Tenancy::column(Author::fields().tenant_id())
     }
     fn table() -> Table<Author> {
-        Table::new(
-            |a: &Author| a.id.to_string(),
-            (
-                TextColumn::r#for(Author::fields().name(), |a: &Author| a.name.clone())
-                    .searchable()
-                    .sortable(),
-                TextColumn::r#for(Author::fields().email(), |a: &Author| a.email.clone()),
-            ),
-        )
+        Table::new((
+            TextColumn::new(lens!(Author.name)).searchable().sortable(),
+            TextColumn::new(lens!(Author.email)),
+        ))
         .paginate(2)
     }
 }
@@ -99,30 +94,25 @@ impl Resource for PostResource {
         Tenancy::column(Post::fields().tenant_id())
     }
     fn table() -> Table<Post> {
-        Table::new(
-            |p: &Post| p.id.to_string(),
-            (
-                TextColumn::r#for(Post::fields().title(), |p: &Post| p.title.clone())
-                    .searchable()
-                    .sortable(),
-                TextColumn::computed("Author", |p: &Post| {
-                    if p.author.is_unloaded() {
-                        "-".to_string()
-                    } else {
-                        p.author.get().name.clone()
-                    }
-                })
-                .include(Post::fields().author()),
-                TextColumn::computed("Comments", |p: &Post| {
-                    if p.comments.is_unloaded() {
-                        "0".to_string()
-                    } else {
-                        p.comments.get().len().to_string()
-                    }
-                })
-                .include(Post::fields().comments()),
-            ),
-        )
+        Table::new((
+            TextColumn::new(lens!(Post.title)).searchable().sortable(),
+            ComputedColumn::new("Author", |p: &Post| {
+                if p.author.is_unloaded() {
+                    "-".to_string()
+                } else {
+                    p.author.get().name.clone()
+                }
+            })
+            .include(Post::fields().author()),
+            ComputedColumn::new("Comments", |p: &Post| {
+                if p.comments.is_unloaded() {
+                    "0".to_string()
+                } else {
+                    p.comments.get().len().to_string()
+                }
+            })
+            .include(Post::fields().comments()),
+        ))
         .paginate(50)
     }
 }

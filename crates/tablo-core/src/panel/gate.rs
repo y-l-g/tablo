@@ -19,6 +19,12 @@ pub(crate) fn gate<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error> {
     enforce_tenant::<R>(cx)
 }
 
+/// Whether the current request may open `R`'s list: sign-in, tenant scope, and
+/// [`Ability::ViewAny`](crate::Ability::ViewAny).
+pub fn can_list<R: Resource>(cx: &Cx) -> bool {
+    gate::<R>(cx).is_ok() && crate::can::<R>(cx, crate::Ability::ViewAny)
+}
+
 /// The request's panel prefix, else the request path's first segment, else `/admin`.
 pub(crate) fn panel_prefix(cx: &Cx) -> String {
     current(cx)

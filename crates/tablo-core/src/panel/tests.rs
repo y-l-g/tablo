@@ -1,5 +1,5 @@
 use super::*;
-use crate::panel::test_support::Dummy;
+use crate::{lens, panel::test_support::Dummy};
 
 /// `Resource::navigation()` reaches the sidebar, and its order is
 /// what the rendered shell sorts by.
@@ -13,12 +13,7 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn navigation() -> NavigationItem {
@@ -36,12 +31,7 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn slug() -> String {
@@ -74,12 +64,7 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn slug() -> String {
@@ -114,12 +99,7 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn slug() -> String {
@@ -144,12 +124,7 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn slug() -> String {
@@ -174,12 +149,7 @@ fn panel_navigation_item_respects_prefix() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
     }
 
@@ -210,12 +180,7 @@ fn panel_navigation_items_are_distinct_for_multiple_resources() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
     }
     struct CategoryResource;
@@ -224,12 +189,7 @@ fn panel_navigation_items_are_distinct_for_multiple_resources() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn slug() -> String {
@@ -276,12 +236,7 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn slug() -> String {
@@ -302,12 +257,7 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn slug() -> String {

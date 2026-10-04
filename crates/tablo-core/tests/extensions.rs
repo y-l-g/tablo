@@ -8,7 +8,7 @@
 
 use tablo_core::{
     Ability, Action, Actions, BooleanColumn, Column, Committed, Control, ControlInput, Field,
-    Filter, FilterInput, Mutation, Policy, Resource, Schema, Table, TextColumn,
+    Filter, FilterInput, Mutation, Policy, Resource, Schema, Table, TextColumn, lens,
 };
 use toasty::{Db, stmt::Expr};
 use topcoat::{context::Cx, view::*};
@@ -203,14 +203,11 @@ impl Resource for TaskResource {
     }
 
     fn table() -> Table<Task> {
-        Table::new(
-            |t: &Task| t.id.to_string(),
-            (
-                TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()).sortable(),
-                Highlighted,
-                BooleanColumn::r#for(Task::fields().done(), |t: &Task| t.done),
-            ),
-        )
+        Table::new((
+            TextColumn::new(lens!(Task.title)).sortable(),
+            Highlighted,
+            BooleanColumn::new(lens!(Task.done)),
+        ))
         .filters((Initial,))
     }
 
@@ -648,10 +645,7 @@ impl Resource for TwiceResource {
     type Form = tablo_core::NoForm<Task>;
 
     fn table() -> Table<Task> {
-        Table::new(
-            |t: &Task| t.id.to_string(),
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Task.title)))
     }
 
     fn actions() -> Actions<Self> {

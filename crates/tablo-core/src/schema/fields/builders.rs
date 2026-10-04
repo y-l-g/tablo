@@ -2,7 +2,7 @@
 //! so a modifier on the wrong control does not compile.
 
 use super::{
-    super::{IntoSchema, OptionSource, Schema, relationship::RelatedPrimaryKey},
+    super::{IntoSchema, OptionSource, Schema},
     ChoiceControl, ControlKind, Field, TextControl, choice,
 };
 
@@ -119,18 +119,16 @@ impl ChoiceField {
         self
     }
 
-    /// Loads options from a related source's tenant-scoped query, degrading to type-to-search past
-    /// the option cap.
+    /// Loads options from a related source's tenant-scoped query, each valued by its primary key
+    /// and labelled by `label`, degrading to type-to-search past the option cap.
     pub fn relationship<R>(
         mut self,
-        value: impl Fn(&R::Model) -> RelatedPrimaryKey<R> + Send + Sync + 'static,
         label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
     ) -> Self
     where
         R: OptionSource + 'static,
-        RelatedPrimaryKey<R>: std::fmt::Display,
     {
-        self.choice().relationship = Some(choice::Relationship::new::<R>(value, label));
+        self.choice().relationship = Some(choice::Relationship::new::<R>(label));
         self
     }
 }

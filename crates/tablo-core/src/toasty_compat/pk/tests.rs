@@ -110,3 +110,100 @@ async fn temporal_pks_parse_from_url_ids() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Ada");
 }
+
+#[derive(Debug, Clone, toasty::Model)]
+#[key(owner, slot)]
+struct Seat {
+    owner: String,
+    slot: i64,
+    label: String,
+}
+
+#[test]
+fn pk_text_spells_the_key_as_its_url_id() {
+    let user = DummyUser {
+        id: uuid::Uuid::new_v4(),
+        name: "Ada".to_string(),
+        email: "ada@example.com".to_string(),
+    };
+    assert_eq!(pk_text(&user), user.id.to_string());
+    assert!(pk_eq_expr::<DummyUser>(&pk_text(&user)).is_some());
+    let seat = Seat {
+        owner: "ada".to_string(),
+        slot: 2,
+        label: "Aisle".to_string(),
+    };
+    assert_eq!(pk_text(&seat), "ada,2");
+}
+
+#[tokio::test]
+async fn pk_filter_selects_one_record_by_a_composite_key() {
+    let mut db = toasty::Db::builder()
+        .models(toasty::models!(Seat))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    for (owner, slot) in [("ada", 1), ("ada", 2), ("bob", 2)] {
+        toasty::create!(Seat {
+            owner: owner.to_string(),
+            slot,
+            label: format!("{owner}-{slot}"),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let target = Seat {
+        owner: "ada".to_string(),
+        slot: 2,
+        label: String::new(),
+    };
+    let rows = Seat::filter(pk_filter(&target))
+        .exec(&mut db)
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].label, "ada-2");
+}
+
+#[tokio::test]
+async fn pk_expr_matches_an_optional_foreign_key() {
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Sheet {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        owner_id: Option<uuid::Uuid>,
+    }
+
+    let mut db = toasty::Db::builder()
+        .models(toasty::models!(DummyUser, Sheet))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let owner = toasty::create!(DummyUser {
+        name: "Ada".to_string(),
+        email: "ada@example.com".to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    for owner_id in [Some(owner.id), None] {
+        toasty::create!(Sheet { owner_id })
+            .exec(&mut db)
+            .await
+            .unwrap();
+    }
+    let rows = Sheet::filter(
+        Sheet::fields()
+            .owner_id()
+            .eq(pk_expr::<DummyUser, Option<uuid::Uuid>>(&owner)),
+    )
+    .exec(&mut db)
+    .await
+    .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].owner_id, Some(owner.id));
+}

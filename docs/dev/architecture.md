@@ -133,14 +133,12 @@ committed write, and a failure in it is logged without rolling the write back.
 | `RecordForm` / `NoForm` | `form.rs` | the typed value a form writes, and the form of a resource with none |
 | `Uploader` | `upload.rs` | where a file field's bytes go |
 | `PanelUser` / `Authenticator` | `auth/mod.rs` | the app's user type, its tenant memberships, and how credentials and a session's id load it |
-| `auth::guard`, `auth::user`, `can`, `can_list` | `auth/mod.rs`, `policy.rs` | the panel's sign-in and policy checks, for the app's own pages, routes and shards |
-| `Table::new` / `Table::new_split` | `resource/table/mod.rs` | row identity for keyed diffs and for action URLs |
+| `auth::guard`, `auth::user`, `can`, `can_list` | `auth/mod.rs`, `policy.rs`, `panel/gate.rs` | the panel's sign-in and policy checks, for the app's own pages, routes and shards |
 | `panel::wired_table` | `panel/mod.rs` | the wired list table a page-owned table renders |
 
-Row identity is two projections. `Table::new` takes one key projection and uses it for both halves:
-the display key that drives keyed diffs and DOM ids, and the record key that handlers
-resolve as the model's typed primary key. A table whose display projects a non-PK value
-splits them with `Table::new_split(display, record, columns)`.
+A row's identity is its record's primary key, read off the record through Toasty's derived
+`IntoExpr` (`toasty_compat::pk`). The same text drives keyed diffs, DOM ids and the action URLs,
+and handlers parse it back into the typed primary key.
 
 ## Reactivity
 
@@ -179,9 +177,9 @@ crates/tablo-core/src/
   resource/   mod, table/{mod,render,export}, column, declared, page, state, filter,
               relation, navigation, naming, commit
   schema/     mod, fields/{mod,builders,choice,custom,file,text}, lenses, options, layouts,
-              tree, relationship, embedded, pk, validation
-  auth, csrf, cursor, db, error, form, notification, page, policy, query_term, tenancy,
-  upload
+              tree, relationship, embedded, validation
+  auth, csrf, db, error, form, lens, notification, page, policy, query_term, tenancy,
+  toasty_compat, toasty_compat/{cursor, pk}, upload
 ```
 
 The three largest modules split along the request shape rather than by type: `panel/` holds the

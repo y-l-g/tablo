@@ -1,6 +1,6 @@
 use http::header::LOCATION;
 use tablo_core::{
-    Ability, Allow, Committed, Field, Mutation, Policy, Resource, Schema, Table, TextColumn,
+    Ability, Allow, Committed, Field, Mutation, Policy, Resource, Schema, Table, TextColumn, lens,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Body};
@@ -70,11 +70,7 @@ impl Resource for AuditedResource {
     }
 
     fn table() -> Table<Note> {
-        Table::new(
-            |note: &Note| note.id.to_string(),
-            TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
-        )
-        .paginate(25)
+        Table::new(TextColumn::new(lens!(Note.title))).paginate(25)
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
@@ -104,10 +100,7 @@ impl Resource for PlainResource {
     }
 
     fn table() -> Table<Note> {
-        Table::new(
-            |note: &Note| note.id.to_string(),
-            TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Note.title)))
     }
 }
 #[derive(tablo_core::RecordForm)]
@@ -140,10 +133,7 @@ impl Resource for FailingWriteResource {
     }
 
     fn table() -> Table<Note> {
-        Table::new(
-            |note: &Note| note.id.to_string(),
-            TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Note.title)))
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
@@ -173,10 +163,7 @@ impl Resource for FailingHookResource {
     }
 
     fn table() -> Table<Note> {
-        Table::new(
-            |note: &Note| note.id.to_string(),
-            TextColumn::r#for(Note::fields().title(), |note: &Note| note.title.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Note.title)))
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
