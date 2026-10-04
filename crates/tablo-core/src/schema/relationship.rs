@@ -11,7 +11,7 @@ use crate::policy::{Ability, Deny, Policy};
 /// Describes the source a relationship option loader reads.
 pub trait OptionSource: Sized + Send + Sync + 'static {
     /// The model whose rows become options.
-    type Model: toasty::schema::Model + Send + Sync + 'static;
+    type Model: toasty::schema::Model + toasty::stmt::IntoExpr<Self::Model> + Send + Sync + 'static;
 
     /// States the tenant-scoped seed query every option load starts from and reports an unscopable
     /// source as misdeclared.
@@ -111,10 +111,6 @@ where
 
 /// Caps the options a relationship choice field loads instead of scanning a large table per select.
 pub const MAX_RELATIONSHIP_OPTIONS: usize = 200;
-
-/// The related model's primary key type — the identity a relationship option stores.
-pub(crate) type RelatedPrimaryKey<R> =
-    <<R as OptionSource>::Model as toasty::schema::Model>::PrimaryKey;
 
 /// Loads option records for one related resource, memoized per request, and checks the cap on the
 /// raw fetch before filtering rows through `View`.
@@ -225,7 +221,7 @@ where
 {
     ensure_option_access::<R>(cx)?;
     let trimmed = value.trim();
-    let Some(expr) = crate::schema::pk_eq_expr::<R::Model>(trimmed) else {
+    let Some(expr) = crate::toasty_compat::pk::pk_eq_expr::<R::Model>(trimmed) else {
         return Ok(RelatedCheck::NotFound);
     };
     let row = option_query::<R>(cx)?

@@ -27,7 +27,7 @@ body:
       description: A concrete API sketch — the types, methods, or attributes that would exist, and how they behave.
       placeholder: |
         ```rust
-        Panel::new().global_filter(SelectFilter::r#for(User::fields().role()))
+        Panel::new().global_filter(SelectFilter::new(User::fields().role(), Role::options()))
         ```
         The filter renders on every table and merges into the table's query.
     validations:

@@ -4,15 +4,12 @@ use super::{
     super::core::tests::{User, normalized_table_tag, table_tag},
     *,
 };
-use crate::{TableState, TextColumn};
+use crate::{TableState, TextColumn, lens};
 
 #[tokio::test]
 async fn skeleton_shares_the_table_root_with_the_swapped_body() {
     let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)));
     let html = tbl
         .render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
         .await
@@ -85,11 +82,8 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
     // The skeleton's action column must count every row link `render_inner`
     // renders, `with_view` included, or the swap changes the table width.
     let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_view("/admin/users".to_string());
+    let tbl =
+        Table::<User>::new(TextColumn::new(lens!(User.name))).with_view("/admin/users".to_string());
     let skeleton = tbl
         .render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
         .await
@@ -137,10 +131,7 @@ async fn skeleton_pulses_only_the_bars_the_table_renders() {
             .unwrap()
             .render(&cx)
     }
-    let plain = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let plain = Table::<User>::new(TextColumn::new(lens!(User.name)));
     let plain_bars = plain.search_enabled() || plain.filter_bar_enabled();
     let html = skeleton(plain).await;
     assert!(!plain_bars, "the plain table renders neither bar");
@@ -150,10 +141,7 @@ async fn skeleton_pulses_only_the_bars_the_table_renders() {
         "no bar pulse for a table without bars, got {html}"
     );
 
-    let searchable = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable(),
-    );
+    let searchable = Table::<User>::new(TextColumn::new(lens!(User.name)).searchable());
     assert!(searchable.search_enabled() && !searchable.filter_bar_enabled());
     let html = skeleton(searchable).await;
     assert_eq!(
@@ -169,14 +157,11 @@ async fn skeleton_pulses_only_the_bars_the_table_renders() {
 #[tokio::test]
 async fn skeleton_pulses_the_bulk_bar_and_not_the_hoisted_bars() {
     let cx = CxTestBuilder::new().build();
-    let live_shape = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable(),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_bulk_delete(true)
-    .hide_search()
-    .hide_filter_bar();
+    let live_shape = Table::<User>::new(TextColumn::new(lens!(User.name)).searchable())
+        .with_delete("/admin/users".to_string())
+        .with_bulk_delete(true)
+        .hide_search()
+        .hide_filter_bar();
     let html = live_shape
         .render_skeleton(&cx, &TableState::default())
         .await

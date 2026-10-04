@@ -1,12 +1,9 @@
 use super::*;
-use crate::{resource::TextColumn, test_support::User};
+use crate::{lens, resource::TextColumn, test_support::User};
 
 #[test]
 fn csv_row_defuses_formula_cells_per_owasp() {
-    let csv_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let csv_table = Table::<User>::new(TextColumn::new(lens!(User.name)));
     for payload in ["=1+1", "+1+1", "-1+1", "@SUM(1+1)", "|id", "%x", "  =cmd"] {
         let user = User {
             id: uuid::Uuid::nil(),
@@ -38,10 +35,7 @@ fn csv_row_defuses_cr_lf_led_formula_cells() {
     // are RFC4180-quoted (they carry a newline); a tab-led cell has no
     // quote/comma/newline and stays bare — either way the `'` leads the
     // defused content.
-    let csv_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let csv_table = Table::<User>::new(TextColumn::new(lens!(User.name)));
     for (payload, defused) in [
         ("\r=1+1", "'\r=1+1"),
         ("\n@cmd", "'\n@cmd"),

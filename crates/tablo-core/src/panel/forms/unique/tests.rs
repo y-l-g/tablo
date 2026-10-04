@@ -2,7 +2,10 @@ use toasty::Db;
 use topcoat::router::Body;
 
 use super::*;
-use crate::panel::test_support::{Tagged, TaggedResource, mount, panel_for, response_html};
+use crate::{
+    lens,
+    panel::test_support::{Tagged, TaggedResource, mount, panel_for, response_html},
+};
 
 fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
     errors
@@ -32,13 +35,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Subscriber> {
-            crate::resource::Table::new(
-                |r: &Subscriber| r.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    Subscriber::fields().email(),
-                    |r: &Subscriber| r.email.clone(),
-                ),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
         }
     }
 
@@ -136,13 +133,7 @@ async fn unique_field_is_required_however_it_is_marked() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Subscriber> {
-            crate::resource::Table::new(
-                |r: &Subscriber| r.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    Subscriber::fields().email(),
-                    |r: &Subscriber| r.email.clone(),
-                ),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
         }
     }
 
@@ -206,13 +197,7 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Subscriber> {
-            crate::resource::Table::new(
-                |r: &Subscriber| r.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    Subscriber::fields().email(),
-                    |r: &Subscriber| r.email.clone(),
-                ),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
         }
     }
 
@@ -269,12 +254,7 @@ async fn unique_check_propagates_probe_errors() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Probe> {
-            crate::resource::Table::new(
-                |r: &Probe| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Probe::fields().email(), |r: &Probe| {
-                    r.email.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Probe.email)))
         }
     }
 
@@ -318,13 +298,7 @@ async fn unique_check_ignores_absent_repeater_groups() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Nicknamed> {
-            crate::resource::Table::new(
-                |r: &Nicknamed| r.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    Nicknamed::fields().nickname(),
-                    |r: &Nicknamed| r.nickname.clone(),
-                ),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Nicknamed.nickname)))
         }
     }
 

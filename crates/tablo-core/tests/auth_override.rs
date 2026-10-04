@@ -4,7 +4,7 @@ use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo_core::{
     Ability, Auth, Membership, PanelUser, Policy, Resource, Table, Tenancy, TextColumn,
     auth::{self, Authenticator, verify_password},
-    when,
+    lens, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -138,13 +138,7 @@ impl Resource for MemberResource {
     }
 
     fn table() -> Table<Member> {
-        Table::new(
-            |member: &Member| member.id.to_string(),
-            TextColumn::r#for(Member::fields().handle(), |member: &Member| {
-                member.handle.clone()
-            }),
-        )
-        .paginate(25)
+        Table::new(TextColumn::new(lens!(Member.handle))).paginate(25)
     }
 }
 
@@ -178,11 +172,7 @@ impl Resource for NoteResource {
     }
 
     fn table() -> Table<Note> {
-        Table::new(
-            |note: &Note| note.id.to_string(),
-            TextColumn::r#for(Note::fields().body(), |note: &Note| note.body.clone()),
-        )
-        .paginate(25)
+        Table::new(TextColumn::new(lens!(Note.body))).paginate(25)
     }
 }
 

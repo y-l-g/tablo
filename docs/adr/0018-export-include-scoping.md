@@ -5,7 +5,7 @@ Date: 2026-09-22 — Status: accepted
 ## Decision
 
 **1. A column declares the relations its projection reads, as typed paths.**
-`TextColumn::include(Post::fields().author())` takes a Toasty include over the table model, so a
+`ComputedColumn::include(Post::fields().author())` takes a Toasty include over the table model, so a
 missing relation rejects at compile time. Repeat calls accumulate; a column reading no relation
 declares nothing.
 

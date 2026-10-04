@@ -3,7 +3,7 @@ use topcoat::router::Body;
 
 use super::*;
 use crate::{
-    Ability, Policy,
+    Ability, Policy, lens,
     panel::test_support::{mount, panel_for},
 };
 
@@ -25,13 +25,7 @@ async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Subscriber> {
-            crate::resource::Table::new(
-                |r: &Subscriber| r.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    Subscriber::fields().email(),
-                    |r: &Subscriber| r.email.clone(),
-                ),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
         }
     }
 
@@ -111,12 +105,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
             }
         }
         fn table() -> crate::resource::Table<Pair> {
-            crate::resource::Table::new(
-                |p: &Pair| format!("{}-{}", p.a, p.b),
-                crate::resource::TextColumn::r#for(Pair::fields().name(), |p: &Pair| {
-                    p.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Pair.name)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -184,10 +173,9 @@ async fn record_loads_skip_the_detail_pages_includes() {
             Query::<List<Child>>::all().include(parent)
         }
         fn table() -> crate::resource::Table<Child> {
-            crate::resource::Table::new(
-                |c: &Child| c.id.to_string(),
-                crate::resource::TextColumn::computed("Id", |c: &Child| c.id.to_string()),
-            )
+            crate::resource::Table::new(crate::resource::ComputedColumn::new("Id", |c: &Child| {
+                c.id.to_string()
+            }))
         }
     }
 

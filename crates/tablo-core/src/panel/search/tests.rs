@@ -3,7 +3,7 @@ use topcoat::router::Body;
 
 use super::{super::Panel, *};
 use crate::{
-    Ability, Policy, ReadOnly, Tenancy,
+    Ability, Policy, ReadOnly, Tenancy, lens,
     panel::test_support::{Dummy, current_panel, mount, panel_for, panel_state},
 };
 
@@ -69,12 +69,7 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
     }
 
@@ -176,12 +171,9 @@ async fn live_shard_malformed_cursor_renders_error_state() {
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                })
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(Dummy.name))
+                    .searchable()
+                    .sortable(),
             )
             .paginate(1)
             .live_search()
@@ -338,12 +330,9 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                })
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(Dummy.name))
+                    .searchable()
+                    .sortable(),
             )
             .paginate(1)
             .live_search()
@@ -368,7 +357,7 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
 
     // The query orders by name then the primary key, so three fields is
     // one too many: the token decodes, the statement does not verify.
-    let stale = crate::cursor::encode(&Value::Record(ValueRecord::from_vec(vec![
+    let stale = crate::toasty_compat::cursor::encode(&Value::Record(ValueRecord::from_vec(vec![
         Value::String("Ada".to_string()),
         Value::String("x".to_string()),
         Value::I64(1),
@@ -441,14 +430,11 @@ async fn live_shard_retry_preserves_the_query() {
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                })
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(Dummy.name))
+                    .searchable()
+                    .sortable(),
             )
-            .filters(crate::resource::TernaryFilter::r#for(
+            .filters(crate::resource::TernaryFilter::new(
                 Dummy::fields().featured(),
             ))
             .live_search()
@@ -539,14 +525,11 @@ async fn live_shard_group_by_query_drives_grouping() {
         }
         fn table() -> crate::resource::Table<Dummy> {
             crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                })
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(Dummy.name))
+                    .searchable()
+                    .sortable(),
             )
-            .group_by("name", |d: &Dummy| d.name.clone())
+            .group_by(lens!(Dummy.name))
             .paginate(25)
             .live_search()
         }
@@ -662,13 +645,9 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
         }
         fn table() -> crate::resource::Table<TenantDummy> {
             crate::resource::Table::new(
-                |d: &TenantDummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    TenantDummy::fields().name(),
-                    |d: &TenantDummy| d.name.clone(),
-                )
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(TenantDummy.name))
+                    .searchable()
+                    .sortable(),
             )
             .paginate(10)
             .live_search()
@@ -693,13 +672,9 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
         }
         fn table() -> crate::resource::Table<TenantDummy> {
             crate::resource::Table::new(
-                |d: &TenantDummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(
-                    TenantDummy::fields().name(),
-                    |d: &TenantDummy| d.name.clone(),
-                )
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(TenantDummy.name))
+                    .searchable()
+                    .sortable(),
             )
             .paginate(10)
             .live_search()
@@ -845,12 +820,9 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
         }
         fn table() -> crate::resource::Table<Book> {
             crate::resource::Table::new(
-                |b: &Book| b.id.to_string(),
-                crate::resource::TextColumn::r#for(Book::fields().title(), |b: &Book| {
-                    b.title.clone()
-                })
-                .searchable()
-                .sortable(),
+                crate::resource::TextColumn::new(lens!(Book.title))
+                    .searchable()
+                    .sortable(),
             )
             .live_search()
         }
@@ -867,18 +839,12 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
             ReadOnly
         }
         fn relations() -> Vec<Relation<Shelf>> {
-            vec![Relation::has_many::<BookResource, _>(
+            vec![Relation::has_many::<BookResource>(
                 Book::fields().shelf_id(),
-                |shelf: &Shelf| shelf.id,
             )]
         }
         fn table() -> crate::resource::Table<Shelf> {
-            crate::resource::Table::new(
-                |s: &Shelf| s.id.to_string(),
-                crate::resource::TextColumn::r#for(Shelf::fields().name(), |s: &Shelf| {
-                    s.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Shelf.name)))
         }
     }
 

@@ -69,12 +69,7 @@ impl Resource for BookResource {
     }
 
     fn table() -> Table<Book> {
-        Table::new(
-            |b: &Book| b.id.to_string(),
-            TextColumn::r#for(Book::fields().title(), |b: &Book| b.title.clone())
-                .searchable()
-                .sortable(),
-        )
+        Table::new(TextColumn::new(lens!(Book.title)).searchable().sortable())
     }
 
     fn form(_dx: &DeclCx) -> Schema {

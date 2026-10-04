@@ -9,7 +9,7 @@ use http::header::{
     CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, LOCATION, X_CONTENT_TYPE_OPTIONS,
 };
 use tablo_core::{
-    Ability, Auth, Field, Panel, Policy, Resource, Schema, Table, TextColumn, Uploader,
+    Ability, Auth, Field, Panel, Policy, Resource, Schema, Table, TextColumn, Uploader, lens,
 };
 use toasty::Db;
 use topcoat::{
@@ -96,11 +96,7 @@ impl Resource for DocResource {
     }
 
     fn table() -> Table<Doc> {
-        Table::new(
-            |doc: &Doc| doc.id.to_string(),
-            TextColumn::r#for(Doc::fields().title(), |doc: &Doc| doc.title.clone()),
-        )
-        .paginate(25)
+        Table::new(TextColumn::new(lens!(Doc.title))).paginate(25)
     }
 }
 #[derive(tablo_core::RecordForm)]

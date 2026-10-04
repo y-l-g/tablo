@@ -3,7 +3,7 @@ use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
 use crate::{
-    Ability, Policy,
+    Ability, ComputedColumn, Policy, lens,
     resource::{
         Column, Resource, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn,
     },
@@ -22,11 +22,7 @@ struct Task {
 }
 
 fn status_table() -> Table<Task> {
-    Table::<Task>::new(
-        |t| t.id.to_string(),
-        TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
-    )
-    .filters(SelectFilter::r#for(
+    Table::<Task>::new(TextColumn::new(lens!(Task.title))).filters(SelectFilter::new(
         Task::fields().status(),
         vec!["published".to_string(), "draft".to_string()],
     ))
@@ -59,7 +55,7 @@ async fn table_search_filters_via_column() {
         .await
         .unwrap();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let col = TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable();
+    let col = TextColumn::new(lens!(User.name)).searchable();
     let expr = col.search_expr("Ada").unwrap();
     let mut db = crate::db::db(&cx);
     let rows = User::filter(expr).exec(&mut db).await.unwrap();
@@ -77,11 +73,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> Table<User> {
-            Table::new(
-                |u: &User| u.id.to_string(),
-                TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-            )
-            .paginate(25)
+            Table::new(TextColumn::new(lens!(User.name))).paginate(25)
         }
 
         fn policy() -> impl Policy<User> {
@@ -123,48 +115,33 @@ async fn wired_table_carries_the_declared_action_chrome() {
 #[test]
 fn table_search_expr_ors_across_searchable_columns() {
     // distinct names — title + status, not one field twice.
-    let tasks_table = Table::<Task>::new(
-        |t| t.id.to_string(),
-        (
-            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()).searchable(),
-            TextColumn::r#for(Task::fields().status(), |t| t.status.clone()).searchable(),
-        ),
-    );
+    let tasks_table = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)).searchable(),
+        TextColumn::new(lens!(Task.status)).searchable(),
+    ));
     assert!(tasks_table.search_expr("Ada").is_some());
     assert!(tasks_table.search_expr("").is_none());
     assert!(tasks_table.search_expr("   ").is_none());
-    let table_none = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let table_none = Table::<User>::new(TextColumn::new(lens!(User.name)));
     assert!(table_none.search_expr("Ada").is_none());
 }
 
 #[test]
 fn table_order_by_returns_first_sortable() {
-    let tasks_table = Table::<Task>::new(
-        |t| t.id.to_string(),
-        (
-            TextColumn::r#for(Task::fields().title(), |t| t.title.clone()).sortable(),
-            TextColumn::r#for(Task::fields().status(), |t| t.status.clone()),
-        ),
-    );
+    let tasks_table = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)).sortable(),
+        TextColumn::new(lens!(Task.status)),
+    ));
     assert!(tasks_table.order_by(false).is_some());
-    let table_none = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let table_none = Table::<User>::new(TextColumn::new(lens!(User.name)));
     assert!(table_none.order_by(false).is_none());
 }
 
 #[test]
 fn paginate_records_a_zero_page_size() {
-    let errors = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-    )
-    .paginate(0)
-    .declaration_errors();
+    let errors = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .paginate(0)
+        .declaration_errors();
     assert!(
         errors
             .iter()
@@ -175,17 +152,11 @@ fn paginate_records_a_zero_page_size() {
 
 #[test]
 fn table_order_bys_single_sort_column() {
-    let users_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
-    );
+    let users_table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
     let orders = users_table.order_bys_for(&TableState::default());
     assert_eq!(orders.len(), 1, "sortable column only, got {orders:?}");
     // No sortable column → the PK alone.
-    let table_none = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let table_none = Table::<User>::new(TextColumn::new(lens!(User.name)));
     assert_eq!(
         table_none.order_bys_for(&TableState::default()).len(),
         1,
@@ -195,11 +166,7 @@ fn table_order_bys_single_sort_column() {
 
 #[test]
 fn order_bys_for_resolves_sort_param_with_fallbacks() {
-    let sorted = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
-    )
-    .paginate(25);
+    let sorted = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable()).paginate(25);
 
     // ?sort=name&dir=desc → name desc (toasty appends PK internally)
     let state = TableState {
@@ -224,11 +191,7 @@ fn order_bys_for_resolves_sort_param_with_fallbacks() {
     assert_eq!(sorted.order_bys_for(&TableState::default()).len(), 1);
 
     // No sortable column → PK-only deterministic order
-    let unsorted = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .paginate(25);
+    let unsorted = Table::<User>::new(TextColumn::new(lens!(User.name))).paginate(25);
     let orders = unsorted.order_bys_for(&TableState::default());
     assert_eq!(
         orders.len(),
@@ -249,10 +212,7 @@ async fn table_page_round_trips_real_cursors() {
         toasty::create!(User { name }).exec(&mut db).await.unwrap();
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let users_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
-    );
+    let users_table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
     let mut db = crate::db::db(&cx);
 
     // Page 1 of 1-per-page.
@@ -269,7 +229,7 @@ async fn table_page_round_trips_real_cursors() {
     assert_eq!(tp1.rows[0].name, "Ada");
     let cursor = tp1.next_cursor.expect("full page has a next cursor");
 
-    let tp1_decoded = crate::cursor::decode(&cursor).unwrap();
+    let tp1_decoded = crate::toasty_compat::cursor::decode(&cursor).unwrap();
     let page2 = User::all()
         .order_by(User::fields().name().asc())
         .paginate(1)
@@ -286,10 +246,7 @@ async fn table_renders_inside_the_boundary_region() {
     use topcoat::view::ViewExt;
 
     let cx = CxTestBuilder::new().build();
-    let table = Table::<User>::new(
-        |u: &User| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-    );
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)));
 
     let page = crate::resource::TablePage::<User>::from(vec![]);
     let html = table
@@ -355,11 +312,8 @@ fn unapplied_filters_flags_dropped_filters() {
 
 #[test]
 fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
-    let tbl = Table::<Task>::new(
-        |t| t.id.to_string(),
-        TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
-    )
-    .filters(TernaryFilter::r#for(Task::fields().featured()));
+    let tbl = Table::<Task>::new(TextColumn::new(lens!(Task.title)))
+        .filters(TernaryFilter::new(Task::fields().featured()));
     let state = filters_state(&[("featured", "all")]);
     assert!(
         tbl.filter_expr(&state).is_none(),
@@ -414,7 +368,7 @@ impl<M> IntoColumns<M> for NoColumns {
 
 #[test]
 fn empty_column_set_is_misdeclared() {
-    let errors = Table::<User>::new(|u| u.id.to_string(), NoColumns).declaration_errors();
+    let errors = Table::<User>::new(NoColumns).declaration_errors();
     assert!(
         errors
             .iter()
@@ -425,13 +379,10 @@ fn empty_column_set_is_misdeclared() {
 
 #[test]
 fn duplicate_column_name_is_misdeclared_on_field_computed_collision() {
-    let errors = Table::<Task>::new(
-        |t| t.id.to_string(),
-        (
-            TextColumn::r#for(Task::fields().status(), |t: &Task| t.status.clone()).sortable(),
-            TextColumn::computed("Status", |t: &Task| t.status.clone()),
-        ),
-    )
+    let errors = Table::<Task>::new((
+        TextColumn::new(lens!(Task.status)).sortable(),
+        ComputedColumn::new("Status", |t: &Task| t.status.clone()),
+    ))
     .declaration_errors();
     assert!(
         errors
@@ -443,13 +394,10 @@ fn duplicate_column_name_is_misdeclared_on_field_computed_collision() {
 
 #[test]
 fn duplicate_column_name_is_misdeclared_on_case_only_computed_collision() {
-    let errors = Table::<User>::new(
-        |u| u.id.to_string(),
-        (
-            TextColumn::computed("Status", |u: &User| u.name.clone()),
-            TextColumn::computed("STATUS", |u: &User| u.name.clone()),
-        ),
-    )
+    let errors = Table::<User>::new((
+        ComputedColumn::new("Status", |u: &User| u.name.clone()),
+        ComputedColumn::new("STATUS", |u: &User| u.name.clone()),
+    ))
     .declaration_errors();
     assert!(
         errors
@@ -461,13 +409,10 @@ fn duplicate_column_name_is_misdeclared_on_case_only_computed_collision() {
 
 #[test]
 fn duplicate_column_name_is_misdeclared_on_duplicate_field() {
-    let errors = Table::<User>::new(
-        |u| u.id.to_string(),
-        (
-            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-        ),
-    )
+    let errors = Table::<User>::new((
+        TextColumn::new(lens!(User.name)),
+        TextColumn::new(lens!(User.name)),
+    ))
     .declaration_errors();
     assert!(
         errors
@@ -479,15 +424,12 @@ fn duplicate_column_name_is_misdeclared_on_duplicate_field() {
 
 #[test]
 fn duplicate_filter_name_is_misdeclared_on_duplicate_field() {
-    let errors = Table::<Task>::new(
-        |t| t.id.to_string(),
-        TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
-    )
-    .filters((
-        SelectFilter::r#for(Task::fields().status(), vec!["published".to_string()]),
-        SelectFilter::r#for(Task::fields().status(), vec!["draft".to_string()]),
-    ))
-    .declaration_errors();
+    let errors = Table::<Task>::new(TextColumn::new(lens!(Task.title)))
+        .filters((
+            SelectFilter::new(Task::fields().status(), vec!["published".to_string()]),
+            SelectFilter::new(Task::fields().status(), vec!["draft".to_string()]),
+        ))
+        .declaration_errors();
     assert!(
         errors
             .iter()
@@ -498,13 +440,10 @@ fn duplicate_filter_name_is_misdeclared_on_duplicate_field() {
 
 #[tokio::test]
 async fn a_misdeclared_table_fails_to_render() {
-    let table = Table::<User>::new(
-        |u| u.id.to_string(),
-        (
-            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-        ),
-    );
+    let table = Table::<User>::new((
+        TextColumn::new(lens!(User.name)),
+        TextColumn::new(lens!(User.name)),
+    ));
     let cx = CxTestBuilder::new().build();
     let page = crate::resource::TablePage::<User>::from(vec![]);
     let Err(error) = table.render(&cx, page).await else {
@@ -535,11 +474,7 @@ async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {
 }
 
 fn paged_users_table(per_page: usize) -> Table<User> {
-    Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()).sortable(),
-    )
-    .paginate(per_page)
+    Table::<User>::new(TextColumn::new(lens!(User.name)).sortable()).paginate(per_page)
 }
 
 #[tokio::test]
@@ -887,16 +822,10 @@ async fn stale_cursor_is_marked_for_retry() {
     let cx = topcoat::context::CxTestBuilder::new()
         .app_context(db)
         .build();
-    let table = || {
-        Table::<Task>::new(
-            |t| t.id.to_string(),
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()).sortable(),
-        )
-        .paginate(2)
-    };
+    let table = || Table::<Task>::new(TextColumn::new(lens!(Task.title)).sortable()).paginate(2);
     // The query orders by `title` then the PK to break ties, so a cursor
     // with three fields has one too many.
-    let wide = crate::cursor::encode(&Value::Record(ValueRecord::from_vec(vec![
+    let wide = crate::toasty_compat::cursor::encode(&Value::Record(ValueRecord::from_vec(vec![
         Value::String("Alpha".to_string()),
         Value::String("x".to_string()),
         Value::I64(1),

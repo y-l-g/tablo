@@ -4,7 +4,7 @@ use tablo_ui::{input as ui_input, textarea as ui_textarea};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    super::{lenses::FieldLens, tree::Mode, validation::format_timestamp_input},
+    super::{tree::Mode, validation::format_timestamp_input},
     Field, FieldChrome, ValueKind, render_field, render_value,
 };
 use crate::form::FormScalar;
@@ -24,7 +24,7 @@ pub(crate) struct TextControl {
 impl TextControl {
     /// Parses a submission into `T` and compares through the lens, so `01` and `1` check as the
     /// stored integer.
-    pub(super) fn new<M, T>(path: FieldLens<M, T>, unique: bool) -> Self
+    pub(super) fn new<M, T>(path: toasty::stmt::Path<M, T>, unique: bool) -> Self
     where
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
     {

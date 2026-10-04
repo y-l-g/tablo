@@ -102,7 +102,7 @@ and the column:
 
 ```rust
 Field::choice(User::fields().role()).options(Role::options())
-SelectFilter::r#for(User::fields().role(), Role::options())
+SelectFilter::new(User::fields().role(), Role::options())
 ```
 
 Each variant stores its `snake_case` name and reads as that name in sentence case;
@@ -194,13 +194,13 @@ A choice over a foreign key loads its options from the related resource:
 
 ```rust
 Field::choice(Post::fields().author_id())
-    .relationship::<AuthorResource>( // the source; options load through its scoped query
-        |a: &Author| a.id,            // the option value: the primary key
-        |a: &Author| a.name.clone(),  // the option label
-    )
+    // The source, whose scoped query loads the options, and each option's label.
+    .relationship::<AuthorResource>(|a: &Author| a.name.clone())
     .searchable()
     .label("Author")
 ```
+
+Each option's value is the related record's primary key.
 
 - Options come from the related resource's tenant-scoped query and follow its policy: the list is
   empty and the field shows "not available" unless the related resource's policy allows

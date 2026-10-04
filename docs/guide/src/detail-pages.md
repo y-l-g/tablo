@@ -98,14 +98,13 @@ record's detail and edit pages as that resource's own list table, narrowed to th
 
 ```rust
 fn relations() -> Vec<Relation<Post>> {
-    vec![Relation::has_many::<CommentResource, _>(
-        Comment::fields().post_id(), // the related model's foreign key
-        |post: &Post| post.id,       // the owner's value for it
-    )]
+    // The related model's foreign key, which holds the post's primary key.
+    vec![Relation::has_many::<CommentResource>(Comment::fields().post_id())]
 }
 ```
 
-For a nullable foreign key, the owner's value is wrapped in `Some`. The table is
+The foreign key's type is the owner's primary key type, or its `Option` for a nullable foreign
+key; any other type does not compile. The table is
 `CommentResource`'s — its columns, search, sort, filters and pager — over its tenant-scoped query
 plus `post_id = <this post>`. It is titled with the related resource's `navigation_label()`, or
 `.label(..)`.

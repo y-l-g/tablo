@@ -3,7 +3,7 @@ use topcoat::view::ViewExt;
 
 use super::*;
 use crate::{
-    Ability, Panel, Policy,
+    Ability, Panel, Policy, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for, response_html},
     schema::{Field, Schema},
 };
@@ -162,12 +162,7 @@ async fn transport_keys_never_reach_the_write() {
             }
         }
         fn table() -> crate::resource::Table<Doc> {
-            crate::resource::Table::new(
-                |d: &Doc| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Doc::fields().title(), |d: &Doc| {
-                    d.title.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Doc.title)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -251,12 +246,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
         }
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
         fn slug() -> String {
             "dummies".to_string()
@@ -378,12 +368,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         }
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
         fn slug() -> String {
             "dummies".to_string()
@@ -531,12 +516,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
             }
         }
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -640,12 +620,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
             }
         }
         fn table() -> Table<Subscriber> {
-            Table::new(
-                |s: &Subscriber| s.id.to_string(),
-                TextColumn::r#for(Subscriber::fields().email(), |s: &Subscriber| {
-                    s.email.clone()
-                }),
-            )
+            Table::new(TextColumn::new(lens!(Subscriber.email)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -753,12 +728,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         }
 
         fn table() -> crate::resource::Table<Doc> {
-            crate::resource::Table::new(
-                |row: &Doc| row.id.to_string(),
-                crate::resource::TextColumn::r#for(Doc::fields().title(), |row: &Doc| {
-                    row.title.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Doc.title)))
         }
     }
     #[derive(crate::RecordForm)]

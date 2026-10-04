@@ -4,9 +4,12 @@ use super::{
     super::widths::{BULK_COLUMN_PERCENT, DEFAULT_WIDTH_BUDGET_PERCENT},
     *,
 };
-use crate::resource::{
-    ColumnWidth, RowActions, SelectFilter, Sort, TextColumn, VariantFilter,
-    state::group_header_dom_id,
+use crate::{
+    ComputedColumn, lens,
+    resource::{
+        ColumnWidth, QueryFilter, RowActions, SelectFilter, Sort, TextColumn,
+        state::group_header_dom_id,
+    },
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -51,23 +54,14 @@ pub(crate) struct Driver {
     vehicule: Vehicule,
 }
 
-pub(crate) fn vehicule_filter() -> VariantFilter<Driver> {
-    VariantFilter::r#for(
-        "vehicule",
-        "Véhicule",
-        vec![
-            ("Auto".to_string(), Driver::fields().vehicule().is_auto()),
-            ("Moto".to_string(), Driver::fields().vehicule().is_moto()),
-        ],
-    )
+pub(crate) fn vehicule_filter() -> QueryFilter<Driver> {
+    QueryFilter::new("vehicule", "Véhicule")
+        .option("Auto", Driver::fields().vehicule().is_auto())
+        .option("Moto", Driver::fields().vehicule().is_moto())
 }
 
 pub(crate) fn status_table() -> Table<Task> {
-    Table::<Task>::new(
-        |t| t.id.to_string(),
-        TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
-    )
-    .filters(SelectFilter::r#for(
+    Table::<Task>::new(TextColumn::new(lens!(Task.title))).filters(SelectFilter::new(
         Task::fields().status(),
         vec!["published".to_string(), "draft".to_string()],
     ))
@@ -135,13 +129,10 @@ pub(crate) fn declared_percents(html: &str) -> Vec<u32> {
 #[tokio::test]
 async fn table_for_columns_renders_with_keyed_rows() {
     let cx = CxTestBuilder::new().build();
-    let tasks_table = Table::<Task>::new(
-        |t| t.id.to_string(),
-        (
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()).searchable(),
-            TextColumn::r#for(Task::fields().status(), |t: &Task| t.status.clone()).sortable(),
-        ),
-    );
+    let tasks_table = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)).searchable(),
+        TextColumn::new(lens!(Task.status)).sortable(),
+    ));
     let rows = vec![
         Task {
             id: uuid::Uuid::new_v4(),
@@ -194,14 +185,10 @@ async fn table_for_columns_renders_with_keyed_rows() {
 #[tokio::test]
 async fn table_lays_out_fixed_and_emits_declared_column_widths() {
     let cx = CxTestBuilder::new().build();
-    let width_table = Table::<Task>::new(
-        |t| t.id.to_string(),
-        (
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
-            TextColumn::computed("Status", |t: &Task| t.status.clone())
-                .width(ColumnWidth::Percent(30)),
-        ),
-    );
+    let width_table = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)),
+        ComputedColumn::new("Status", |t: &Task| t.status.clone()).width(ColumnWidth::Percent(30)),
+    ));
     let page: TablePage<Task> = vec![Task {
         id: uuid::Uuid::new_v4(),
         title: "Ada".to_string(),
@@ -239,13 +226,10 @@ async fn table_lays_out_fixed_and_emits_declared_column_widths() {
 #[tokio::test]
 async fn kind_defaults_claim_a_share_of_the_table() {
     let cx = CxTestBuilder::new().build();
-    let default_table = Table::<Task>::new(
-        |t| t.id.to_string(),
-        (
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
-            TextColumn::computed("Status", |t: &Task| t.status.clone()),
-        ),
-    );
+    let default_table = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)),
+        ComputedColumn::new("Status", |t: &Task| t.status.clone()),
+    ));
     let page: TablePage<Task> = vec![Task {
         id: uuid::Uuid::new_v4(),
         title: "Ada".to_string(),
@@ -281,11 +265,8 @@ async fn chrome_columns_declare_their_widths() {
         [(1, "8%", "4rem"), (2, "12%", "7rem"), (3, "15%", "9rem")];
     for (links, expected, floor) in cases {
         let cx = CxTestBuilder::new().build();
-        let mut chrome_table = Table::<User>::new(
-            |u| u.id.to_string(),
-            TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-        )
-        .with_view("/admin/users".to_string());
+        let mut chrome_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+            .with_view("/admin/users".to_string());
         if links > 1 {
             chrome_table = chrome_table.with_edit("/admin/users".to_string());
         }
@@ -331,16 +312,13 @@ async fn chrome_columns_declare_their_widths() {
 #[tokio::test]
 async fn kind_defaults_stay_inside_their_budget() {
     let cx = CxTestBuilder::new().build();
-    let crowded = Table::<Task>::new(
-        |t| t.id.to_string(),
-        (
-            TextColumn::r#for(Task::fields().title(), |t: &Task| t.title.clone()),
-            TextColumn::computed("Status", |t: &Task| t.status.clone()),
-            TextColumn::computed("Featured", |t: &Task| t.featured.to_string()),
-            TextColumn::computed("Created", |t: &Task| t.created_at.to_string()),
-            TextColumn::computed("Id", |t: &Task| t.id.to_string()),
-        ),
-    )
+    let crowded = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)),
+        ComputedColumn::new("Status", |t: &Task| t.status.clone()),
+        ComputedColumn::new("Featured", |t: &Task| t.featured.to_string()),
+        ComputedColumn::new("Created", |t: &Task| t.created_at.to_string()),
+        ComputedColumn::new("Id", |t: &Task| t.id.to_string()),
+    ))
     .with_delete("/admin/tasks".to_string())
     .with_edit("/admin/tasks".to_string())
     .with_view("/admin/tasks".to_string())
@@ -395,12 +373,9 @@ async fn kind_defaults_stay_inside_their_budget() {
 #[tokio::test]
 async fn edit_links_render_beside_delete_in_actions_column() {
     let cx = CxTestBuilder::new().build();
-    let action_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_edit("/admin/users".to_string());
+    let action_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string());
     let rows = vec![User {
         id: uuid::Uuid::new_v4(),
         name: "Ada".to_string(),
@@ -425,10 +400,7 @@ async fn edit_links_render_beside_delete_in_actions_column() {
         html.contains("Delete"),
         "Delete link must survive, got {html}"
     );
-    let plain = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let plain = Table::<User>::new(TextColumn::new(lens!(User.name)));
     let page: TablePage<User> = vec![User {
         id: uuid::Uuid::new_v4(),
         name: "Ada".to_string(),
@@ -461,19 +433,16 @@ async fn denied_rows_render_no_links_and_no_checkbox() {
     };
     let ken_id = ken.id.to_string();
     let ada_id = ada.id.to_string();
-    let policy_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_edit("/admin/users".to_string())
-    .with_view("/admin/users".to_string())
-    .with_bulk_delete(true)
-    .row_actions(|u: &User| RowActions {
-        view: true,
-        edit: u.name != "Ken",
-        delete: u.name != "Ken",
-    });
+    let policy_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_view("/admin/users".to_string())
+        .with_bulk_delete(true)
+        .row_actions(|u: &User| RowActions {
+            view: true,
+            edit: u.name != "Ken",
+            delete: u.name != "Ken",
+        });
     let page: TablePage<User> = vec![ada, ken].into();
     let html = policy_table
         .render(&cx, page)
@@ -536,21 +505,18 @@ async fn fully_locked_rows_keep_their_actions_cell_with_no_links() {
         name: "Ken".to_string(),
     };
     let ada_id = ada.id.to_string();
-    let policy_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_edit("/admin/users".to_string())
-    .with_bulk_delete(true)
-    .row_actions(|u: &User| {
-        let allowed = u.name != "Ken";
-        RowActions {
-            view: allowed,
-            edit: allowed,
-            delete: allowed,
-        }
-    });
+    let policy_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_bulk_delete(true)
+        .row_actions(|u: &User| {
+            let allowed = u.name != "Ken";
+            RowActions {
+                view: allowed,
+                edit: allowed,
+                delete: allowed,
+            }
+        });
     let page: TablePage<User> = vec![ada, ken].into();
     let html = policy_table
         .render(&cx, page)
@@ -587,14 +553,11 @@ async fn a_chromeless_table_never_consults_the_row_policy() {
     let cx = CxTestBuilder::new().build();
     let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let counted = calls.clone();
-    let policy_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .row_actions(move |_: &User| {
-        counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        RowActions::ALL
-    });
+    let policy_table =
+        Table::<User>::new(TextColumn::new(lens!(User.name))).row_actions(move |_: &User| {
+            counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            RowActions::ALL
+        });
     let page: TablePage<User> = vec![User {
         id: uuid::Uuid::new_v4(),
         name: "Ada".to_string(),
@@ -620,65 +583,13 @@ async fn a_chromeless_table_never_consults_the_row_policy() {
 }
 
 #[tokio::test]
-async fn action_chrome_emits_record_keys_not_display_keys() {
+async fn rows_carry_the_primary_key_in_every_action() {
     use topcoat::view::ViewExt;
     let cx = CxTestBuilder::new().build();
-    let key_table = Table::<User>::new_split(
-        |u| u.id.to_string().to_uppercase(),
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_edit("/admin/users".to_string())
-    .with_bulk_delete(true);
-    let rows = vec![User {
-        id: uuid::Uuid::new_v4(),
-        name: "Ada".to_string(),
-    }];
-    let lower = rows[0].id.to_string();
-    let upper = lower.to_uppercase();
-    let page: TablePage<User> = rows.into();
-    let html = key_table
-        .render(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(
-        html.contains(&format!("href=\"/admin/users/{lower}/edit\"")),
-        "edit URL must carry the record key in {html}"
-    );
-    assert!(
-        html.contains(&format!("value=\"{lower}\"")),
-        "bulk value must carry the record key in {html}"
-    );
-    assert!(
-        html.contains(&format!("?delete={lower}")),
-        "delete dialog link must carry the record key in {html}"
-    );
-    assert!(
-        !html.contains(&format!("value=\"{upper}\"")),
-        "display key must never be a bulk value in {html}"
-    );
-    assert!(
-        html.contains(&upper),
-        "display key must still render (DOM/keyed diff) in {html}"
-    );
-}
-
-#[tokio::test]
-async fn pk_only_table_renders_display_from_record_key() {
-    use topcoat::view::ViewExt;
-    let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_edit("/admin/users".to_string())
-    .with_bulk_delete(true);
+    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .with_delete("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_bulk_delete(true);
     let rows = vec![User {
         id: uuid::Uuid::new_v4(),
         name: "Ada".to_string(),
@@ -710,24 +621,31 @@ async fn pk_only_table_renders_display_from_record_key() {
             "id=\"{}\"",
             crate::resource::state::row_dom_id(&key)
         )),
-        "the row DOM id must fall back to the record key in {html}"
+        "the row DOM id must carry the record key in {html}"
     );
 }
 
 #[tokio::test]
-async fn id_only_non_pk_display_emits_display_urls() {
+async fn composite_key_rows_render_no_action() {
     use topcoat::view::ViewExt;
+
+    #[derive(Debug, Clone, toasty::Model)]
+    #[key(owner, slot)]
+    struct Seat {
+        owner: String,
+        slot: i64,
+        label: String,
+    }
+
     let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(
-        |u| u.name.clone(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_edit("/admin/users".to_string())
-    .with_bulk_delete(true);
-    let page: TablePage<User> = vec![User {
-        id: uuid::Uuid::new_v4(),
-        name: "Ada".to_string(),
+    let tbl = Table::<Seat>::new(TextColumn::new(lens!(Seat.label)))
+        .with_delete("/admin/seats".to_string())
+        .with_edit("/admin/seats".to_string())
+        .with_bulk_delete(true);
+    let page: TablePage<Seat> = vec![Seat {
+        owner: "ada".to_string(),
+        slot: 2,
+        label: "Aisle".to_string(),
     }]
     .into();
     let html = tbl
@@ -738,29 +656,19 @@ async fn id_only_non_pk_display_emits_display_urls() {
         .await
         .unwrap()
         .render(&cx);
+    assert!(html.contains("Aisle"), "the row renders in {html}");
     assert!(
-        html.contains("href=\"/admin/users/Ada/edit\""),
-        "edit URL carries the display value without a split record key in {html}"
-    );
-    assert!(
-        html.contains("value=\"Ada\""),
-        "bulk value carries the display value without a split record key in {html}"
-    );
-    assert!(
-        html.contains("?delete=Ada"),
-        "delete dialog link carries the display value without a split record key in {html}"
+        !html.contains("/admin/seats/") && !html.contains("data-row-select"),
+        "a key with no URL form must render no action in {html}"
     );
 }
 
 #[tokio::test]
 async fn group_by_unknown_value_renders_no_headers_and_drops_param() {
     let cx = CxTestBuilder::new().build();
-    let grouped = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable(),
-    )
-    .group_by("status", |u| u.name.clone())
-    .paginate(1);
+    let grouped = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable())
+        .group_by(lens!(User.name))
+        .paginate(1);
     let state = TableState {
         group_by: Some("email".to_string()),
         sort: Some(Sort {
@@ -799,11 +707,8 @@ async fn group_by_unknown_value_renders_no_headers_and_drops_param() {
 #[tokio::test]
 async fn group_by_orders_each_row_under_its_own_header() {
     let cx = CxTestBuilder::new().build();
-    let grouped = Table::<Task>::new(
-        |t| t.id.to_string(),
-        TextColumn::r#for(Task::fields().title(), |t| t.title.clone()),
-    )
-    .group_by("status", |t| t.status.clone());
+    let grouped =
+        Table::<Task>::new(TextColumn::new(lens!(Task.title))).group_by(lens!(Task.status));
     let state = TableState {
         group_by: Some("status".to_string()),
         ..TableState::default()
@@ -865,11 +770,8 @@ async fn group_by_orders_each_row_under_its_own_header() {
 async fn table_render_reuses_one_list_url_base_across_rows() {
     let cx = CxTestBuilder::new().build();
     let state = filters_state(&[("status", "published"), ("featured", "true")]);
-    let tbl = Table::<User>::new(
-        |u: &User| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string());
+    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .with_delete("/admin/users".to_string());
     let rows = |n: usize| -> Vec<User> {
         (0..n)
             .map(|i| User {
@@ -918,12 +820,9 @@ async fn table_render_reuses_one_list_url_base_across_rows() {
 #[tokio::test]
 async fn a_static_table_renders_no_runtime_bindings_at_all() {
     let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_bulk_delete(true);
+    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .with_delete("/admin/users".to_string())
+        .with_bulk_delete(true);
     let rows = vec![User {
         id: uuid::Uuid::nil(),
         name: "Ada".to_string(),
@@ -949,10 +848,7 @@ async fn a_static_table_renders_no_runtime_bindings_at_all() {
 #[tokio::test]
 async fn rendered_rows_carry_stable_dom_ids() {
     let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)));
     let rows = vec![
         User {
             id: uuid::Uuid::nil(),

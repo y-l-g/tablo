@@ -255,9 +255,11 @@ fn tenancy() -> Tenancy<Comment> {
 }
 ```
 
-Nothing is stamped on create: a comment's tenant is its post's. Declare the foreign key as a
-[relationship field](./forms.md#relationships) over the post's resource, so a submitted post must
-be one of the request tenant's posts.
+Nothing is stamped on create: a comment's tenant is its post's. The lens starts at a `belongs_to`
+relation, and the form declares that relation's foreign key (`post_id`) as a
+[relationship field](./forms.md#relationships) over a tenant-scoped resource, so a submitted post
+must be one of the request tenant's posts. Mounting the panel refuses a form that writes the key any
+other way, or a lens that does not start at a `belongs_to`.
 
 **A deliberately cross-tenant resource** — a super-admin view — declares no tenancy and filters in
 `query()`. That gives up both the gate and the scope.

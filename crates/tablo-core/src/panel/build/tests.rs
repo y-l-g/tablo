@@ -2,7 +2,7 @@ use toasty::Db;
 
 use super::*;
 use crate::{
-    Ability, Policy, Tenancy,
+    Ability, Policy, Tenancy, lens,
     panel::test_support::{
         Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state,
     },
@@ -24,13 +24,8 @@ async fn a_plain_slug_builds_and_resolves() {
             |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                }),
-            )
-            .paginate(25)
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
+                .paginate(25)
         }
     }
 
@@ -81,13 +76,8 @@ async fn a_star_slug_builds_and_resolves() {
             |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
         }
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |d: &Dummy| d.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                    d.name.clone()
-                }),
-            )
-            .paginate(25)
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
+                .paginate(25)
         }
     }
 
@@ -257,10 +247,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
             }
         }
         fn table() -> Table<Author> {
-            Table::new(
-                |a: &Author| a.id.to_string(),
-                TextColumn::r#for(Author::fields().email(), |a: &Author| a.email.clone()),
-            )
+            Table::new(TextColumn::new(lens!(Author.email)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -337,10 +324,7 @@ async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
     use crate::resource::{Resource, Table, TextColumn};
 
     fn child_table() -> Table<Child> {
-        Table::new(
-            |c: &Child| c.id.to_string(),
-            TextColumn::r#for(Child::fields().name(), |c: &Child| c.name.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Child.name)))
     }
 
     struct ColumnThroughRelation;
@@ -408,10 +392,7 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
             Tenancy::via(Child::fields().parent_id())
         }
         fn table() -> Table<Child> {
-            Table::new(
-                |c: &Child| c.id.to_string(),
-                TextColumn::r#for(Child::fields().name(), |c: &Child| c.name.clone()),
-            )
+            Table::new(TextColumn::new(lens!(Child.name)))
         }
     }
 
@@ -435,63 +416,203 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
     );
 }
 
-/// Refuses a tenancy `via` without a relationship field.
+/// Refuses a tenancy `via` unless the form writes the relation's foreign key through a
+/// relationship field over a tenant-scoped resource.
 #[tokio::test]
-async fn panel_mount_rejects_a_tenancy_via_without_a_relationship_field() {
+async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
     use crate::{
         resource::{Resource, Table, TextColumn},
-        schema::{Field, Schema},
+        schema::{DeclCx, Field, Schema},
     };
+
+    fn parent_table() -> Table<Parent> {
+        Table::new(TextColumn::new(lens!(Parent.name)))
+    }
+
+    struct ScopedParents;
+    impl Resource for ScopedParents {
+        type Model = Parent;
+        type Form = crate::NoForm<Self::Model>;
+        fn slug() -> String {
+            "parents".to_string()
+        }
+        fn tenancy() -> Tenancy<Parent> {
+            Tenancy::column(Parent::fields().tenant_id())
+        }
+        fn table() -> Table<Parent> {
+            parent_table()
+        }
+    }
+
+    struct OpenParents;
+    impl Resource for OpenParents {
+        type Model = Parent;
+        type Form = crate::NoForm<Self::Model>;
+        fn slug() -> String {
+            "open-parents".to_string()
+        }
+        fn table() -> Table<Parent> {
+            parent_table()
+        }
+    }
 
     #[derive(crate::RecordForm)]
     #[form(model = Child)]
-    struct ChildForm {
+    struct NameForm {
         name: String,
     }
 
-    struct ViaWithoutRelationship;
-    impl Resource for ViaWithoutRelationship {
-        type Model = Child;
-        type Form = ChildForm;
-        fn slug() -> String {
-            "children".to_string()
-        }
-        fn tenancy() -> Tenancy<Child> {
-            Tenancy::via(Child::fields().parent().tenant_id())
-        }
-        fn policy() -> impl Policy<Child> {
-            |_cx: &Cx, ability: Ability<'_, Child>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
-            Schema::new(Field::text(Child::fields().name()))
-        }
-        fn table() -> Table<Child> {
-            Table::new(
-                |c: &Child| c.id.to_string(),
-                TextColumn::r#for(Child::fields().name(), |c: &Child| c.name.clone()),
-            )
-        }
+    #[derive(crate::RecordForm)]
+    #[form(model = Child)]
+    struct KeyedForm {
+        name: String,
+        #[form(choice)]
+        parent_id: uuid::Uuid,
     }
+
+    /// A child resource inheriting its tenant through `parent`, whose form `form` declares.
+    macro_rules! via_child {
+        ($name:ident, $form:ty, $schema:expr) => {
+            struct $name;
+            impl Resource for $name {
+                type Model = Child;
+                type Form = $form;
+                fn slug() -> String {
+                    "children".to_string()
+                }
+                fn tenancy() -> Tenancy<Child> {
+                    Tenancy::via(Child::fields().parent().tenant_id())
+                }
+                fn policy() -> impl Policy<Child> {
+                    |_cx: &Cx, ability: Ability<'_, Child>| {
+                        matches!(ability, Ability::ViewAny | Ability::Create)
+                    }
+                }
+                fn form(dx: &DeclCx) -> Schema {
+                    $schema(dx)
+                }
+                fn table() -> Table<Child> {
+                    Table::new(TextColumn::new(lens!(Child.name)))
+                }
+            }
+        };
+    }
+
+    via_child!(WithoutKey, NameForm, |_dx: &DeclCx| Schema::new(
+        Field::text(Child::fields().name())
+    ));
+    via_child!(OverOpenParent, KeyedForm, |dx: &DeclCx| {
+        let c = KeyedForm::controls(dx);
+        Schema::new((
+            c.name,
+            c.parent_id
+                .relationship::<OpenParents>(|p: &Parent| p.name.clone()),
+        ))
+    });
+    via_child!(OverScopedParent, KeyedForm, |dx: &DeclCx| {
+        let c = KeyedForm::controls(dx);
+        Schema::new((
+            c.name,
+            c.parent_id
+                .relationship::<ScopedParents>(|p: &Parent| p.name.clone()),
+        ))
+    });
 
     let db = Db::builder()
         .models(toasty::models!(Parent, Child))
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = mount(
+    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
+
+    for error in [
+        mount(db.clone(), panel().resource::<WithoutKey>()).err(),
+        mount(db.clone(), panel().resource::<OverOpenParent>()).err(),
+    ] {
+        let error = format!(
+            "{}",
+            error.expect("an unguarded foreign key must not mount")
+        );
+        assert!(
+            error.contains("Tenancy::via") && error.contains("`parent_id`"),
+            "the error must name the declaration and the foreign key, got {error}"
+        );
+    }
+    mount(db, panel().resource::<OverScopedParent>())
+        .expect("a foreign key over the tenant-scoped parent mounts");
+}
+
+/// Refuses a relationship over a model whose composite primary key no option value can spell.
+#[tokio::test]
+async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
+    use crate::{
+        resource::{Resource, Table, TextColumn},
+        schema::{DeclCx, Schema},
+    };
+
+    #[derive(Debug, Clone, toasty::Model)]
+    #[key(owner, slot)]
+    struct Seat {
+        owner: String,
+        slot: i64,
+        label: String,
+    }
+
+    struct Seats;
+    impl Resource for Seats {
+        type Model = Seat;
+        type Form = crate::NoForm<Self::Model>;
+        fn table() -> Table<Seat> {
+            Table::new(TextColumn::new(lens!(Seat.label)))
+        }
+    }
+
+    #[derive(crate::RecordForm)]
+    #[form(model = Child)]
+    struct SeatedForm {
+        name: String,
+        #[form(choice)]
+        parent_id: uuid::Uuid,
+    }
+
+    struct Seated;
+    impl Resource for Seated {
+        type Model = Child;
+        type Form = SeatedForm;
+        fn policy() -> impl Policy<Child> {
+            |_cx: &Cx, ability: Ability<'_, Child>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            }
+        }
+        fn form(dx: &DeclCx) -> Schema {
+            let c = SeatedForm::controls(dx);
+            Schema::new((
+                c.name,
+                c.parent_id
+                    .relationship::<Seats>(|s: &Seat| s.label.clone()),
+            ))
+        }
+        fn table() -> Table<Child> {
+            Table::new(TextColumn::new(lens!(Child.name)))
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Parent, Child, Seat))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let error = mount(
         db,
         Panel::new("admin")
             .auth(crate::Auth::disabled())
-            .resource::<ViaWithoutRelationship>(),
-    ) else {
-        panic!("a `via` with no relationship field must not mount");
-    };
-    let error = format!("{error}");
+            .resource::<Seated>(),
+    )
+    .err()
+    .expect("a relationship over a composite key must not mount");
     assert!(
-        error.contains("ViaWithoutRelationship") && error.contains("no relationship"),
-        "the error must name the resource and the missing field, got {error}"
+        format!("{error}").contains("`parent_id` loads a model with a composite primary key"),
+        "got {error}"
     );
 }
 
@@ -506,12 +627,7 @@ fn panel_build_rejects_a_hostile_slug() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
 
         fn slug() -> String {
@@ -560,12 +676,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
             }
         }
         fn table() -> Table<Subscriber> {
-            Table::new(
-                |s: &Subscriber| s.id.to_string(),
-                TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
-                    s.nickname.clone()
-                }),
-            )
+            Table::new(TextColumn::new(lens!(Subscriber.nickname)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -605,12 +716,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
     }
 
     fn keyed_table() -> Table<Subscriber> {
-        Table::new(
-            |s: &Subscriber| s.id.to_string(),
-            TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
-                s.nickname.clone()
-            }),
-        )
+        Table::new(TextColumn::new(lens!(Subscriber.nickname)))
     }
 
     struct ChromeResource;
@@ -711,12 +817,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
         }
         // `Create` keeps its default (deny); only the form is declared.
         fn table() -> Table<Subscriber> {
-            Table::new(
-                |s: &Subscriber| s.id.to_string(),
-                TextColumn::r#for(Subscriber::fields().nickname(), |s: &Subscriber| {
-                    s.nickname.clone()
-                }),
-            )
+            Table::new(TextColumn::new(lens!(Subscriber.nickname)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -749,12 +850,7 @@ fn panel_build_rejects_duplicate_resource_slugs() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
         fn slug() -> String {
             "dummies".to_string()
@@ -766,12 +862,7 @@ fn panel_build_rejects_duplicate_resource_slugs() {
         type Form = crate::NoForm<Self::Model>;
 
         fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                |r: &Dummy| r.id.to_string(),
-                crate::resource::TextColumn::r#for(Dummy::fields().name(), |r: &Dummy| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
         fn slug() -> String {
             "dummies".to_string()
@@ -806,12 +897,7 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
                     $slug.to_string()
                 }
                 fn table() -> crate::resource::Table<Dummy> {
-                    crate::resource::Table::new(
-                        |d: &Dummy| d.id.to_string(),
-                        crate::resource::TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| {
-                            d.name.clone()
-                        }),
-                    )
+                    crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
                 }
             }
         };
@@ -877,13 +963,10 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
             "docs".to_string()
         }
         fn table() -> Table<Doc> {
-            Table::new(
-                |d: &Doc| d.id.to_string(),
-                (
-                    TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
-                    TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
-                ),
-            )
+            Table::new((
+                TextColumn::new(lens!(Doc.title)),
+                TextColumn::new(lens!(Doc.title)),
+            ))
         }
     }
 
@@ -897,10 +980,7 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
             "docs".to_string()
         }
         fn table() -> Table<Doc> {
-            Table::new(
-                |d: &Doc| d.id.to_string(),
-                TextColumn::r#for(Doc::fields().meta().note(), |d: &Doc| d.meta.note.clone()),
-            )
+            Table::new(TextColumn::new(lens!(Doc.meta.note)))
         }
     }
 
@@ -913,11 +993,7 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
             "docs".to_string()
         }
         fn table() -> Table<Doc> {
-            Table::new(
-                |d: &Doc| d.id.to_string(),
-                TextColumn::r#for(Doc::fields().title(), |d: &Doc| d.title.clone()),
-            )
-            .paginate(0)
+            Table::new(TextColumn::new(lens!(Doc.title))).paginate(0)
         }
     }
 

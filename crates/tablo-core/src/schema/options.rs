@@ -17,8 +17,8 @@
 /// }
 ///
 /// Field::choice(Post::fields().status()).options(Status::options())
-/// SelectFilter::r#for(Post::fields().status(), Status::options())
-/// TextColumn::r#for(Post::fields().status(), |p| Status::label_of(&p.status))
+/// SelectFilter::new(Post::fields().status(), Status::options())
+/// TextColumn::new(lens!(Post.status)).format(|status| Status::label_of(status))
 /// ```
 ///
 /// The derive also gives the enum `value()`, `label()` and `from_value()`, so
@@ -92,12 +92,10 @@ mod tests {
             !schema.validate_async(&cx, &bogus).await.is_empty(),
             "an unlisted value fails"
         );
-        let filter = crate::SelectFilter::r#for(StatusField::fields().status(), options.clone());
+        let filter = crate::SelectFilter::new(StatusField::fields().status(), options.clone());
         assert_eq!(filter.options(), options.as_slice());
-        let column =
-            crate::TextColumn::r#for(StatusField::fields().status(), |row: &StatusField| {
-                Status::label_of(&row.status)
-            });
+        let column = crate::TextColumn::new(crate::lens!(StatusField.status))
+            .format(|status| Status::label_of(status));
         let row = StatusField {
             id: uuid::Uuid::nil(),
             status: "published".to_string(),

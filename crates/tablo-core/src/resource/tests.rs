@@ -2,7 +2,7 @@ use toasty::Db;
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::{Tenancy, test_support::User};
+use crate::{Tenancy, lens, test_support::User};
 
 struct UserResource;
 
@@ -11,10 +11,7 @@ impl Resource for UserResource {
     type Form = crate::NoForm<Self::Model>;
 
     fn table() -> crate::resource::Table<User> {
-        crate::resource::Table::new(
-            |r: &User| r.id.to_string(),
-            crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| r.name.clone()),
-        )
+        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(User.name)))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<User>> {
@@ -30,10 +27,7 @@ impl Resource for BareResource {
     type Form = crate::NoForm<Self::Model>;
 
     fn table() -> crate::resource::Table<User> {
-        crate::resource::Table::new(
-            |r: &User| r.id.to_string(),
-            crate::resource::TextColumn::r#for(User::fields().name(), |r: &User| r.name.clone()),
-        )
+        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(User.name)))
     }
 }
 
@@ -85,10 +79,7 @@ impl Resource for OwnedResource {
     type Form = crate::NoForm<Self::Model>;
 
     fn table() -> crate::resource::Table<Owned> {
-        crate::resource::Table::new(
-            |r: &Owned| r.id.to_string(),
-            crate::resource::TextColumn::r#for(Owned::fields().name(), |r: &Owned| r.name.clone()),
-        )
+        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Owned.name)))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<Owned>> {

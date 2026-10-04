@@ -36,15 +36,10 @@ struct Driver {
     vehicule: Vehicule,
 }
 
-fn vehicule_filter() -> VariantFilter<Driver> {
-    VariantFilter::r#for(
-        "vehicule",
-        "Véhicule",
-        vec![
-            ("Auto".to_string(), Driver::fields().vehicule().is_auto()),
-            ("Moto".to_string(), Driver::fields().vehicule().is_moto()),
-        ],
-    )
+fn vehicule_filter() -> QueryFilter<Driver> {
+    QueryFilter::new("vehicule", "Véhicule")
+        .option("Auto", Driver::fields().vehicule().is_auto())
+        .option("Moto", Driver::fields().vehicule().is_moto())
 }
 
 #[tokio::test]
@@ -70,7 +65,7 @@ async fn date_filter_date_only_matches_whole_day() {
         .await
         .unwrap();
     }
-    let f = DateFilter::r#for(Task::fields().created_at());
+    let f = DateFilter::new(Task::fields().created_at());
     let expr = f.to_expr("2024-01-15").expect("date-only must build");
     let mut db2 = db.clone();
     let mut rows = Task::filter(expr).exec(&mut db2).await.unwrap();
@@ -91,7 +86,7 @@ async fn date_filter_date_only_matches_whole_day() {
 
 #[test]
 fn date_filter_recovers_plus_offsets_mangled_by_query_decode() {
-    let f = DateFilter::r#for(Task::fields().created_at());
+    let f = DateFilter::new(Task::fields().created_at());
     // `+02:00` arrives as ` 02:00` after `+`-as-space decoding.
     assert!(f.to_expr("2024-01-15T09:30:00 02:00").is_some());
     assert!(f.to_expr("2024-01-15T09:30:00+02:00").is_some());
@@ -101,7 +96,7 @@ fn date_filter_recovers_plus_offsets_mangled_by_query_decode() {
 
 #[test]
 fn date_filter_on_the_last_representable_day_does_not_panic() {
-    let f = DateFilter::r#for(Task::fields().created_at());
+    let f = DateFilter::new(Task::fields().created_at());
     assert!(
         f.to_expr("9999-12-30").is_some(),
         "the last day builds a lower-bounded predicate"
@@ -117,7 +112,7 @@ fn date_filter_on_the_last_representable_day_does_not_panic() {
 }
 
 #[test]
-fn variant_filter_to_expr_contract() {
+fn query_filter_to_expr_contract() {
     let f = vehicule_filter();
     assert_eq!(f.name(), "vehicule");
     assert_eq!(f.label(), "Véhicule");
@@ -144,8 +139,8 @@ fn variant_filter_to_expr_contract() {
 #[test]
 fn select_filter_to_expr_contract() {
     // Core owns the predicate contract.
-    let f = SelectFilter::r#for(
-        Task::fields().status(),
+    let f = SelectFilter::new(
+        crate::lens!(Task.status),
         vec!["draft".to_string(), "published".to_string()],
     );
     assert_eq!(f.name(), "status");
@@ -172,7 +167,7 @@ fn select_filter_to_expr_contract() {
 
 #[test]
 fn ternary_filter_to_expr_contract() {
-    let f = TernaryFilter::r#for(Task::fields().featured());
+    let f = TernaryFilter::new(Task::fields().featured());
     assert_eq!(f.name(), "featured");
     assert!(f.to_expr("true").is_some());
     assert!(f.to_expr("false").is_some());
@@ -188,7 +183,7 @@ fn ternary_filter_to_expr_contract() {
 }
 
 #[tokio::test]
-async fn variant_filter_hits_only_the_variant() {
+async fn query_filter_hits_only_the_variant() {
     let mut db = Db::builder()
         .models(toasty::models!(Driver))
         .connect("sqlite::memory:")

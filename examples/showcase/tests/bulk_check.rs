@@ -1,6 +1,6 @@
 use http::header::LOCATION;
 use showcase::models::User;
-use tablo_core::{Ability, Policy};
+use tablo_core::{Ability, Policy, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -375,10 +375,7 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
             }
         }
         fn table() -> Table<DummyUser> {
-            Table::new(
-                |u: &DummyUser| u.id.to_string(),
-                TextColumn::r#for(DummyUser::fields().name(), |u: &DummyUser| u.name.clone()),
-            )
+            Table::new(TextColumn::new(lens!(DummyUser.name)))
         }
     }
 

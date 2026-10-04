@@ -19,10 +19,7 @@
 //!     }
 //!
 //!     fn table() -> Table<Book> {
-//!         Table::new(
-//!             |b: &Book| b.id.to_string(),
-//!             TextColumn::r#for(Book::fields().title(), |b: &Book| b.title.clone()).searchable(),
-//!         )
+//!         Table::new(TextColumn::new(lens!(Book.title)).searchable())
 //!     }
 //!
 //!     fn form(_dx: &crate::schema::DeclCx) -> Schema {
@@ -71,10 +68,10 @@ pub mod __macro {
 // Tenancy, CSRF, and the `Db` glue.
 pub mod auth;
 pub mod csrf;
-pub mod cursor;
 pub mod db;
 mod error;
 pub mod form;
+mod lens;
 pub mod notification;
 mod page;
 pub mod panel;
@@ -85,6 +82,7 @@ pub mod schema;
 pub mod tenancy;
 #[cfg(test)]
 mod test_support;
+mod toasty_compat;
 pub mod upload;
 
 pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth};
@@ -92,20 +90,21 @@ pub use form::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
     write_create, write_update,
 };
+pub use lens::Lens;
 pub use notification::{Notification, NotificationStatus};
 pub use page::Page;
-pub use panel::{Brand, Panel, RouterBuilderPanelExt, url};
-pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, can, can_list, when};
+pub use panel::{Brand, Panel, RouterBuilderPanelExt, can_list, url};
+pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, can, when};
 pub use resource::{
-    Action, Actions, BooleanColumn, Column, ColumnWidth, Committed, Cursor, DateFilter, Filter,
-    FilterInput, Includes, IntoColumns, IntoFilters, Mutation, NavTarget, NavigationItem, Relation,
-    Resource, RowKey, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
-    VariantFilter, scoped_query, scoped_view_query,
+    Action, Actions, BooleanColumn, Column, ColumnWidth, Committed, ComputedColumn, Cursor,
+    DateFilter, Filter, FilterInput, ForeignKey, Includes, IntoColumns, IntoFilters, Mutation,
+    NavTarget, NavigationItem, QueryFilter, Relation, Resource, SelectFilter, Sort, Table,
+    TablePage, TableState, TernaryFilter, TextColumn, scoped_query, scoped_view_query,
 };
 pub use schema::{
-    ChoiceField, Control, ControlInput, CustomField, DeclCx, EmbeddedForm, Field, FieldLens,
-    FileField, Grid, Group, IntoOptions, IntoSchema, Options, Repeater, ResolvedLens, Schema,
-    Section, Source, TextField, Toggle,
+    ChoiceField, Control, ControlInput, CustomField, DeclCx, EmbeddedForm, Field, FileField, Grid,
+    Group, IntoOptions, IntoSchema, Options, Repeater, ResolvedLens, Schema, Section, Source,
+    TextField, Toggle,
 };
 pub use tablo_macros::{EmbeddedForm, Options, RecordForm};
 pub use tenancy::{Membership, Tenancy, Tenant, membership, require_tenant, tenant_id};

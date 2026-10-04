@@ -1,6 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
 use super::*;
+use crate::{can_list, lens};
 
 struct Post {
     locked: bool,
@@ -106,10 +107,7 @@ struct Note {
 }
 
 fn note_table() -> crate::resource::Table<Note> {
-    crate::resource::Table::new(
-        |n: &Note| n.id.to_string(),
-        crate::resource::TextColumn::r#for(Note::fields().title(), |n: &Note| n.title.clone()),
-    )
+    crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Note.title)))
 }
 
 struct OpenNotes;

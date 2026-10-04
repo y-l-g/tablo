@@ -221,21 +221,6 @@ async fn removed_showcase_routes_are_not_found() {
 }
 
 #[tokio::test]
-async fn admin_table_via_resource_has_searchable_sortable() {
-    use showcase::app::UserResource;
-    use tablo_core::Resource;
-    let table = UserResource::table();
-    assert!(
-        table.search_expr("Ada").is_some(),
-        "searchable column should produce expr"
-    );
-    assert!(
-        table.order_by(false).is_some(),
-        "sortable column should produce order_by"
-    );
-}
-
-#[tokio::test]
 async fn admin_list_renders_search_box_and_sort_links() {
     let db = seeded_db().await;
     let router = router(db.clone());

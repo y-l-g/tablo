@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use http::StatusCode;
 use tablo_core::{
     Ability, Field, FieldErrorKind, FieldErrors, NoForm, Panel, Policy, RecordForm, Repeater,
-    Resource, Schema, Table, Tenancy, Tenant, TextColumn, write_create,
+    Resource, Schema, Table, Tenancy, Tenant, TextColumn, lens, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -48,10 +48,7 @@ fn item_schema() -> Schema {
 }
 
 fn item_table() -> Table<Item> {
-    Table::new(
-        |item: &Item| item.id.to_string(),
-        TextColumn::r#for(Item::fields().title(), |item: &Item| item.title.clone()),
-    )
+    Table::new(TextColumn::new(lens!(Item.title)))
 }
 
 struct ItemResource;
@@ -436,10 +433,7 @@ impl Resource for OwnedResource {
     }
 
     fn table() -> Table<Owned> {
-        Table::new(
-            |row: &Owned| row.id.to_string(),
-            TextColumn::r#for(Owned::fields().title(), |row: &Owned| row.title.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Owned.title)))
     }
 }
 
@@ -613,10 +607,7 @@ async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
         }
 
         fn table() -> Table<Dated> {
-            Table::new(
-                |row: &Dated| row.id.to_string(),
-                TextColumn::r#for(Dated::fields().title(), |row: &Dated| row.title.clone()),
-            )
+            Table::new(TextColumn::new(lens!(Dated.title)))
         }
     }
 
@@ -669,10 +660,7 @@ async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
         }
 
         fn table() -> Table<Clip> {
-            Table::new(
-                |row: &Clip| row.id.to_string(),
-                TextColumn::r#for(Clip::fields().title(), |row: &Clip| row.title.clone()),
-            )
+            Table::new(TextColumn::new(lens!(Clip.title)))
         }
     }
 
@@ -1233,10 +1221,7 @@ async fn the_derived_default_form_renders_and_writes() {
         }
 
         fn table() -> Table<Widget> {
-            Table::new(
-                |row: &Widget| row.id.to_string(),
-                TextColumn::r#for(Widget::fields().name(), |row: &Widget| row.name.clone()),
-            )
+            Table::new(TextColumn::new(lens!(Widget.name)))
         }
     }
 

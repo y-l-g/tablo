@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::{Ability, Panel, Policy, ReadOnly, panel::test_support::mount};
+use crate::{Ability, Panel, Policy, ReadOnly, lens, panel::test_support::mount};
 
 #[tokio::test]
 async fn options_endpoint_searches_and_gates() {
@@ -30,11 +30,7 @@ async fn options_endpoint_searches_and_gates() {
         }
         fn table() -> crate::resource::Table<OptAuthor> {
             crate::resource::Table::new(
-                |a: &OptAuthor| a.id.to_string(),
-                crate::resource::TextColumn::r#for(OptAuthor::fields().name(), |a: &OptAuthor| {
-                    a.name.clone()
-                })
-                .searchable(),
+                crate::resource::TextColumn::new(lens!(OptAuthor.name)).searchable(),
             )
         }
     }
@@ -54,10 +50,7 @@ async fn options_endpoint_searches_and_gates() {
         fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(OptPost::fields().author_id())
-                    .relationship::<OptAuthorResource>(
-                        |a: &OptAuthor| a.id,
-                        |a: &OptAuthor| a.name.clone(),
-                    )
+                    .relationship::<OptAuthorResource>(|a: &OptAuthor| a.name.clone())
                     .searchable(),
             )
         }
@@ -69,12 +62,7 @@ async fn options_endpoint_searches_and_gates() {
             ReadOnly
         }
         fn table() -> crate::resource::Table<OptPost> {
-            crate::resource::Table::new(
-                |p: &OptPost| p.id.to_string(),
-                crate::resource::TextColumn::r#for(OptPost::fields().title(), |p: &OptPost| {
-                    p.title.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(OptPost.title)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -207,11 +195,8 @@ async fn option_load_loads_no_relation() {
         }
         fn table() -> crate::resource::Table<Child> {
             crate::resource::Table::new(
-                |c: &Child| c.id.to_string(),
-                crate::resource::TextColumn::r#for(Child::fields().name(), |c: &Child| {
-                    c.name.clone()
-                })
-                .include(Child::fields().parent()),
+                crate::resource::ComputedColumn::new("Name", |c: &Child| c.name.clone())
+                    .include(Child::fields().parent()),
             )
         }
     }
@@ -232,7 +217,7 @@ async fn option_load_loads_no_relation() {
         fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(Owner::fields().child_id())
-                    .relationship::<ChildSource>(|c: &Child| c.id, |c: &Child| c.name.clone())
+                    .relationship::<ChildSource>(|c: &Child| c.name.clone())
                     .searchable(),
             )
         }
@@ -241,12 +226,7 @@ async fn option_load_loads_no_relation() {
             "owners".to_string()
         }
         fn table() -> crate::resource::Table<Owner> {
-            crate::resource::Table::new(
-                |o: &Owner| o.id.to_string(),
-                crate::resource::TextColumn::r#for(Owner::fields().name(), |o: &Owner| {
-                    o.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Owner.name)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -335,11 +315,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         }
         fn table() -> crate::resource::Table<BigA> {
             crate::resource::Table::new(
-                |a: &BigA| a.id.to_string(),
-                crate::resource::TextColumn::r#for(BigA::fields().name(), |a: &BigA| {
-                    a.name.clone()
-                })
-                .searchable(),
+                crate::resource::TextColumn::new(lens!(BigA.name)).searchable(),
             )
         }
     }
@@ -361,7 +337,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(BigP::fields().author_id())
-                    .relationship::<BigAResource>(|a: &BigA| a.id, |a: &BigA| a.name.clone())
+                    .relationship::<BigAResource>(|a: &BigA| a.name.clone())
                     .searchable(),
             )
         }
@@ -370,12 +346,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
             "big-ps".to_string()
         }
         fn table() -> crate::resource::Table<BigP> {
-            crate::resource::Table::new(
-                |r: &BigP| r.id.to_string(),
-                crate::resource::TextColumn::r#for(BigP::fields().name(), |r: &BigP| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(BigP.name)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -390,7 +361,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(BigP::fields().author_id())
-                    .relationship::<BigAResource>(|a: &BigA| a.id, |a: &BigA| a.name.clone()),
+                    .relationship::<BigAResource>(|a: &BigA| a.name.clone()),
             )
         }
 
@@ -398,12 +369,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
             "plain-ps".to_string()
         }
         fn table() -> crate::resource::Table<BigP> {
-            crate::resource::Table::new(
-                |r: &BigP| r.id.to_string(),
-                crate::resource::TextColumn::r#for(BigP::fields().name(), |r: &BigP| {
-                    r.name.clone()
-                }),
-            )
+            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(BigP.name)))
         }
     }
     #[derive(crate::RecordForm)]

@@ -344,7 +344,7 @@ impl TableState {
     /// The shared parameters of every row-action URL on one page, encoded
     /// once.
     ///
-    /// A row's action URL is this base plus the row's record key, so a table
+    /// A row's action URL is this base plus the row's primary key, so a table
     /// render pays for the projection once, however many rows the page holds.
     /// Build it before the row loop and call [`RowUrlBase::delete_dialog`] per
     /// row; that pair is the full-state-plus-`delete` projection, which keeps
@@ -464,7 +464,7 @@ impl RowUrlBase {
 /// The record placeholder the route table registers: `{id}`.
 ///
 /// A route *pattern*, not a URL — the link helpers below take the encoded
-/// record key instead.
+/// primary key instead.
 pub(crate) const RECORD_ROUTE_PARAM: &str = "{id}";
 
 /// Path segment of the list page's create page.

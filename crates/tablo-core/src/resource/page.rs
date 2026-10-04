@@ -49,12 +49,12 @@ impl<M: toasty::schema::Model> TablePage<M> {
             next_cursor: page
                 .next_cursor
                 .as_ref()
-                .map(crate::cursor::encode)
+                .map(crate::toasty_compat::cursor::encode)
                 .transpose()?,
             prev_cursor: page
                 .prev_cursor
                 .as_ref()
-                .map(crate::cursor::encode)
+                .map(crate::toasty_compat::cursor::encode)
                 .transpose()?,
         })
     }
@@ -98,10 +98,10 @@ where
         // holds at most one.
         match &state.cursor {
             Some(Cursor::After(token)) => {
-                paginated = paginated.after(crate::cursor::decode(token)?);
+                paginated = paginated.after(crate::toasty_compat::cursor::decode(token)?);
             }
             Some(Cursor::Before(token)) => {
-                paginated = paginated.before(crate::cursor::decode(token)?);
+                paginated = paginated.before(crate::toasty_compat::cursor::decode(token)?);
             }
             None => {}
         }
@@ -134,7 +134,7 @@ where
         // never to silently skipped rows.
         if matches!(state.cursor, Some(Cursor::Before(_))) {
             if let Some(cursor) = page.prev_cursor.clone() {
-                let past = Past::Before(crate::cursor::decode(&cursor)?);
+                let past = Past::Before(crate::toasty_compat::cursor::decode(&cursor)?);
                 if !row_exists_past(&mut db, base_query, past)
                     .await
                     .map_err(crate::error::unavailable)?
@@ -144,7 +144,7 @@ where
             }
         } else if page.rows.len() == per_page {
             if let Some(cursor) = page.next_cursor.clone() {
-                let past = Past::After(crate::cursor::decode(&cursor)?);
+                let past = Past::After(crate::toasty_compat::cursor::decode(&cursor)?);
                 if !row_exists_past(&mut db, base_query, past)
                     .await
                     .map_err(crate::error::unavailable)?
@@ -205,7 +205,7 @@ fn reject_cursor(error: topcoat::Error, state: &TableState) -> topcoat::Error {
         .downcast_ref::<toasty::Error>()
         .is_some_and(toasty::Error::is_invalid_statement);
     if cursored && rejected {
-        crate::cursor::rejected(&error)
+        crate::toasty_compat::cursor::rejected(&error)
     } else {
         crate::error::unavailable(error)
     }

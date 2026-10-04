@@ -34,7 +34,7 @@ const TAG_ZONED: u8 = b'z';
 const TAG_RECORD: u8 = b'r';
 
 /// Encodes a cursor value into a URL-safe token (`[0-9a-f]` only).
-pub fn encode(value: &Value) -> Result<String> {
+pub(crate) fn encode(value: &Value) -> Result<String> {
     let mut payload = vec![VERSION];
     write_value(value, &mut payload)?;
     Ok(hex_encode(&payload))
@@ -60,7 +60,7 @@ pub(crate) fn rejected(error: &topcoat::Error) -> topcoat::Error {
 /// # Errors
 ///
 /// Fails malformed or over-deep tokens as cursor errors so the retry link drops them (#98).
-pub fn decode(token: &str) -> Result<Value> {
+pub(crate) fn decode(token: &str) -> Result<Value> {
     let payload = hex_decode(token)?;
     let mut buf = &payload[..];
     let version = take::<1>(&mut buf)?[0];

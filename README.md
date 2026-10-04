@@ -45,13 +45,7 @@ impl Resource for UserResource {
     }
 
     fn table() -> Table<User> {
-        Table::new(
-            |u: &User| u.id.to_string(),
-            TextColumn::r#for(User::fields().name(), |u: &User| u.name.clone())
-                .searchable()
-                .sortable(),
-        )
-        .paginate(20)
+        Table::new(TextColumn::new(lens!(User.name)).searchable().sortable()).paginate(20)
     }
 }
 ```

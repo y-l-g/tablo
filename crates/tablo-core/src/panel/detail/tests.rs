@@ -1,6 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
 use super::*;
+use crate::lens;
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Note {
@@ -19,10 +20,7 @@ impl Resource for Unlabelled {
     type Form = crate::NoForm<Self::Model>;
 
     fn table() -> crate::resource::Table<Note> {
-        crate::resource::Table::new(
-            |r: &Note| r.id.to_string(),
-            crate::resource::TextColumn::r#for(Note::fields().title(), |r: &Note| r.title.clone()),
-        )
+        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Note.title)))
     }
 }
 
@@ -34,10 +32,7 @@ impl Resource for Labelled {
     type Form = crate::NoForm<Self::Model>;
 
     fn table() -> crate::resource::Table<Note> {
-        crate::resource::Table::new(
-            |r: &Note| r.id.to_string(),
-            crate::resource::TextColumn::r#for(Note::fields().title(), |r: &Note| r.title.clone()),
-        )
+        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Note.title)))
     }
 
     fn record_label(_cx: &Cx, record: &Note) -> Option<String> {

@@ -6,6 +6,10 @@ Line citations refer to the tree this design was written against, `f9750974`.
 Citations under `crates/toasty/` and `crates/toasty-macros/` name the pinned
 Toasty checkout.
 
+Status: superseded in full. `TextColumn::new(lens!(User.name))` renders a field without a
+projection closure, with no upstream API (ADR-0001); the halves below, `field` and `typed` alike,
+are the record of the proposal.
+
 The checkbox half of this design is implemented as `Field::toggle` and the
 `Toggle` control (`schema/fields/custom.rs`), which post the hidden `"false"`
 companion this design describes. The `Select::checkbox` sections below are

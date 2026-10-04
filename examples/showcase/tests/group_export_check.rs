@@ -1,4 +1,4 @@
-use tablo_core::{Policy, ReadOnly};
+use tablo_core::{Policy, ReadOnly, lens};
 
 use crate::common::{
     body_string, demo_client, full_db, mount, routers::router_for_tests as router,
@@ -181,10 +181,7 @@ async fn export_over_cap_413s_at_route_level() {
             ReadOnly
         }
         fn table() -> Table<Dummy> {
-            Table::new(
-                |d: &Dummy| d.id.to_string(),
-                TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
-            )
+            Table::new(TextColumn::new(lens!(Dummy.name)))
         }
     }
 

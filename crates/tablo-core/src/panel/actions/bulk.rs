@@ -59,7 +59,7 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             }
             // Fetches only the requested rows through the tenancy-scoped query.
             let keys: Vec<&str> = ids.iter().map(String::as_str).collect();
-            let Some(pk_filter) = crate::schema::pk_in_expr::<R::Model>(&keys) else {
+            let Some(pk_filter) = crate::toasty_compat::pk::pk_in_expr::<R::Model>(&keys) else {
                 if let Some(error) = composite_pk_error::<R>() {
                     return Err(error);
                 }

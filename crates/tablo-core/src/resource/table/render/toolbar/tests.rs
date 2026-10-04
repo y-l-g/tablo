@@ -1,7 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
 use super::{super::core::tests::User, *};
-use crate::{TablePage, TextColumn};
+use crate::{TablePage, TextColumn, lens};
 
 #[test]
 fn live_search_debounce_sits_in_the_locked_band() {
@@ -16,12 +16,9 @@ fn live_search_debounce_sits_in_the_locked_band() {
 #[tokio::test]
 async fn bulk_checkboxes_render_with_keys_and_select_all() {
     let cx = CxTestBuilder::new().build();
-    let bulk_table = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    )
-    .with_delete("/admin/users".to_string())
-    .with_bulk_delete(true);
+    let bulk_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .with_delete("/admin/users".to_string())
+        .with_bulk_delete(true);
     let rows = vec![
         User {
             id: uuid::Uuid::new_v4(),
@@ -133,10 +130,7 @@ async fn bulk_checkboxes_render_with_keys_and_select_all() {
     );
 
     // Without bulk: no checkboxes, no bulk form.
-    let plain = Table::<User>::new(
-        |u| u.id.to_string(),
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone()),
-    );
+    let plain = Table::<User>::new(TextColumn::new(lens!(User.name)));
     let page: TablePage<User> = rows.into();
     let html = plain
         .render(&cx, page)

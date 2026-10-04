@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_support::User;
+use crate::{ComputedColumn, lens, test_support::User};
 
 /// `%` and `_` in a search term are literal characters, not
 /// wildcards, and the term is wrapped for a substring match.
@@ -13,13 +13,13 @@ fn search_pattern_escapes_like_metacharacters() {
 
 #[test]
 fn text_column_searchable_produces_a_substring_pattern() {
-    let col = TextColumn::r#for(User::fields().name(), |u| u.name.clone()).searchable();
+    let col = TextColumn::new(lens!(User.name)).searchable();
     assert!(
         col.search_expr("Ada").is_some(),
         "searchable should produce expr"
     );
     assert!(
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone())
+        TextColumn::new(lens!(User.name))
             .search_expr("Ada")
             .is_none(),
         "non-searchable should be None"
@@ -28,23 +28,21 @@ fn text_column_searchable_produces_a_substring_pattern() {
 
 #[test]
 fn text_column_sortable_produces_order_by() {
-    let col = TextColumn::r#for(User::fields().name(), |u| u.name.clone()).sortable();
+    let col = TextColumn::new(lens!(User.name)).sortable();
     assert!(
         col.order_by(false).is_some(),
         "sortable should produce order_by"
     );
     assert!(
-        TextColumn::r#for(User::fields().name(), |u| u.name.clone())
-            .order_by(false)
-            .is_none(),
+        TextColumn::new(lens!(User.name)).order_by(false).is_none(),
         "non-sortable should be None"
     );
 }
 
 #[test]
 fn text_column_renders_cells_via_typed_projection() {
-    let plain = TextColumn::r#for(User::fields().name(), |u| u.name.clone());
-    let decorated = TextColumn::r#for(User::fields().name(), |u| format!("{}!", u.name));
+    let plain = TextColumn::new(lens!(User.name));
+    let decorated = TextColumn::new(lens!(User.name)).format(|name| format!("{name}!"));
     let row = User {
         id: uuid::Uuid::nil(),
         name: "Ada".to_string(),
@@ -56,37 +54,8 @@ fn text_column_renders_cells_via_typed_projection() {
 }
 
 #[test]
-fn computed_searchable_is_misdeclared() {
-    let errors = Column::misdeclared(
-        &TextColumn::computed("Status", |u: &User| u.name.clone()).searchable(),
-    )
-    .into_iter()
-    .collect::<Vec<_>>();
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("searchable() on computed column")),
-        "{errors:?}"
-    );
-}
-
-#[test]
-fn computed_sortable_is_misdeclared() {
-    let errors =
-        Column::misdeclared(&TextColumn::computed("Status", |u: &User| u.name.clone()).sortable())
-            .into_iter()
-            .collect::<Vec<_>>();
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("sortable() on computed column")),
-        "{errors:?}"
-    );
-}
-
-#[test]
 fn computed_columns_declare_no_predicate_chrome_agreement() {
-    let col = TextColumn::computed("Status", |u: &User| u.name.clone());
+    let col = ComputedColumn::new("Status", |u: &User| u.name.clone());
     assert!(!col.is_searchable() && !col.is_sortable());
     assert!(col.search_expr("x").is_none());
     assert!(col.order_by(false).is_none());
@@ -97,10 +66,10 @@ fn computed_columns_declare_no_predicate_chrome_agreement() {
 /// CSS it writes on the `th`/`td`, never a Tailwind class.
 #[test]
 fn text_column_width_defaults_by_kind() {
-    let field = TextColumn::r#for(User::fields().name(), |u| u.name.clone());
+    let field = TextColumn::new(lens!(User.name));
     assert_eq!(field.column_width(), ColumnWidth::Wide);
 
-    let computed = TextColumn::computed("Status", |u: &User| u.name.clone());
+    let computed = ComputedColumn::new("Status", |u: &User| u.name.clone());
     assert_eq!(computed.column_width(), ColumnWidth::Narrow);
 
     let declared = computed.width(ColumnWidth::Percent(30));
@@ -151,7 +120,7 @@ fn text_column_includes_accumulate_once_per_relation() {
         vet: toasty::Deferred<Owner>,
     }
 
-    let column = TextColumn::computed("Owner", |p: &Pet| p.id.to_string())
+    let column = ComputedColumn::new("Owner", |p: &Pet| p.id.to_string())
         .include(Pet::fields().owner())
         .include(Pet::fields().vet())
         .include(Pet::fields().owner());

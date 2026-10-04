@@ -30,12 +30,14 @@ mod table;
 
 pub(crate) use action::ActionEntry;
 pub use action::{Action, Actions};
-pub use column::{BooleanColumn, Column, ColumnWidth, Includes, IntoColumns, TextColumn};
+pub use column::{
+    BooleanColumn, Column, ColumnWidth, ComputedColumn, Includes, IntoColumns, TextColumn,
+};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub(crate) use declared::{Declarations, Declared, declared};
 pub use filter::{
-    DateFilter, Filter, FilterInput, IntoFilters, SelectFilter, TernaryFilter, VariantFilter,
+    DateFilter, Filter, FilterInput, IntoFilters, QueryFilter, SelectFilter, TernaryFilter,
 };
 use naming::{kebab_case, pluralize, type_short_name, type_stem};
 pub(crate) use navigation::runtime_link;
@@ -43,14 +45,14 @@ pub use navigation::{NavTarget, NavigationItem};
 pub use page::TablePage;
 pub(crate) use page::{Past, row_exists_past};
 pub(crate) use relation::BoundRelation;
-pub use relation::Relation;
+pub use relation::{ForeignKey, Relation};
 pub(crate) use state::{
     ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
     DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM, RETURN_PARAM, TableSignals,
     create_page_url, query_of, request_query, with_return,
 };
 pub use state::{Cursor, Sort, TableState};
-pub use table::{DEFAULT_PAGE_SIZE, GroupKey, RowKey, Table};
+pub use table::{DEFAULT_PAGE_SIZE, Table};
 pub(crate) use table::{RowActions, TABLE_CARD_CLASS, TableAction, TableChrome};
 
 #[cfg(test)]
@@ -74,7 +76,12 @@ pub(crate) use crate::query_term::clamp_query_term;
 /// [`Schema::declaration_errors`]: crate::schema::Schema::declaration_errors
 pub trait Resource: Sized + Send + Sync + 'static {
     /// The persisted model this resource administers.
-    type Model: toasty::schema::Model + Send + Sync + Clone + 'static;
+    type Model: toasty::schema::Model
+        + toasty::stmt::IntoExpr<Self::Model>
+        + Send
+        + Sync
+        + Clone
+        + 'static;
 
     /// The typed value the create and edit forms parse into.
     ///
@@ -143,10 +150,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// arguments and returns `None`.
     ///
     /// A label is display text, not a key. Two records can share one (two
-    /// users named Ada), so it cannot replace the table key, whose projection
-    /// must stay injective within a page for keyed diffs and bulk selection,
-    /// or the record key, which the action routes resolve as the
-    /// model's typed PK.
+    /// users named Ada), so it cannot replace the primary key that keys the
+    /// table's rows and the action routes.
     fn record_label(_cx: &Cx, _record: &Self::Model) -> Option<String> {
         None
     }
@@ -197,7 +202,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// soft deletes and row-level visibility. Every loader starts from it.
     ///
     /// **Relations are not this method's job.** The list and the export load
-    /// the relations the table's columns declare ([`TextColumn::include`]), and
+    /// the relations the table's columns declare ([`ComputedColumn::include`]), and
     /// the detail page loads [`Self::view_query`]. Include a relation here only
     /// when a closure no column covers reads it on every loader's rows: one
     /// [`policy`](Self::policy) reads, or one a table's `group_by` or row
@@ -344,9 +349,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// receives the snapshot once the delete commits.
     ///
     /// The default deletes the row through [`scoped_query`], filtered to the
-    /// record's key: the table's record key, which is the model's primary key
-    /// (see [`Table::new_split`]). Override to delete another way, such as a
-    /// soft delete.
+    /// record's primary key. Override to delete another way, such as a soft
+    /// delete.
     fn delete_record(
         cx: &Cx,
         record: &Self::Model,
@@ -355,23 +359,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     where
         Self: Sized,
     {
-        let key = declared::<Self>(cx).table.record_key_of(record);
-        let query = scoped_query::<Self>(cx).and_then(|query| {
-            let filter = crate::schema::pk_eq_expr::<Self::Model>(&key).ok_or_else(|| {
-                // The handler found the row by this key, so a key that does
-                // not parse back is a table whose record key is not the
-                // primary key (`Table::new_split`). The detail stays in the
-                // log; the page gets the delete-failure toast.
-                tracing::error!(
-                    resource = Self::slug(),
-                    key,
-                    "default delete_record: the table's record key does not parse as the primary \
-                     key; declare the primary key as the record key or override delete_record"
-                );
-                TabloError::Declaration("delete failed".to_string())
-            })?;
-            Ok(query.filter(filter))
-        });
+        let filter = crate::toasty_compat::pk::pk_filter(record);
+        let query = scoped_query::<Self>(cx).map(|query| query.filter(filter));
         async move {
             query?
                 .delete()

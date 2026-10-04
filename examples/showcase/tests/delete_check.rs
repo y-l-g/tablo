@@ -1,6 +1,6 @@
 use http::header::LOCATION;
 use showcase::models::User;
-use tablo_core::{Ability, Policy};
+use tablo_core::{Ability, Policy, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -231,10 +231,7 @@ async fn forged_delete_runs_no_record_query() {
             }
         }
         fn table() -> Table<Dummy> {
-            Table::new(
-                |d: &Dummy| d.id.to_string(),
-                TextColumn::r#for(Dummy::fields().name(), |d: &Dummy| d.name.clone()),
-            )
+            Table::new(TextColumn::new(lens!(Dummy.name)))
         }
     }
 

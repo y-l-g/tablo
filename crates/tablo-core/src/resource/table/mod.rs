@@ -11,17 +11,15 @@ use super::{
     filter::{BoxFilter, IntoFilters},
     state::{TableState, with_return},
 };
+use crate::{Lens, form::FormScalar, schema::LensBinding};
 
 mod export;
 mod render;
 
 pub(crate) use render::TABLE_CARD_CLASS;
 
-/// Row-key projection reads the row identity off one model instance (upstream gap #119).
-pub type RowKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
-
 /// Group-label projection reads a row's group off one model instance.
-pub type GroupKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
+pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
 
 /// Per-record action policy reads which row actions one model instance allows.
 pub(crate) type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
@@ -107,8 +105,11 @@ pub struct Table<M> {
     misdeclared: Vec<String>,
     filters: Vec<BoxFilter<M>>,
     group_by: Option<GroupDef<M>>,
-    row_key: RowKey<M>,
-    record_key: RowKey<M>,
+    /// A row's key: its record's primary key, as its action URLs carry it.
+    key: fn(&M) -> String,
+    /// Whether a row's key resolves as a URL id; a composite key does not, so its rows carry no
+    /// action.
+    addressable: bool,
     row_policy: Option<RowPolicy<M>>,
     page_size: NonZeroUsize,
     hide_search: bool,
@@ -136,8 +137,8 @@ impl<M> Clone for Table<M> {
             misdeclared: self.misdeclared.clone(),
             filters: self.filters.clone(),
             group_by: self.group_by.clone(),
-            row_key: Arc::clone(&self.row_key),
-            record_key: Arc::clone(&self.record_key),
+            key: self.key,
+            addressable: self.addressable,
             row_policy: self.row_policy.clone(),
             page_size: self.page_size,
             hide_search: self.hide_search,
@@ -189,48 +190,20 @@ impl<M> std::fmt::Debug for Table<M> {
 }
 
 impl<M> Table<M> {
-    /// Declare a table with its row key and columns.
+    /// Declare a table of `cols`.
     ///
-    /// The projection must be injective within a page.
-    pub fn new(
-        key: impl Fn(&M) -> String + Send + Sync + 'static,
-        cols: impl IntoColumns<M>,
-    ) -> Self
+    /// Each row is keyed by its record's primary key, which the row's action URLs carry.
+    pub fn new(cols: impl IntoColumns<M>) -> Self
     where
-        M: toasty::schema::Model,
-    {
-        let key = Arc::new(key);
-        Self::from_keys(key.clone(), key, cols)
-    }
-
-    /// Declare a table whose display projects a non-PK value.
-    pub fn new_split(
-        display: impl Fn(&M) -> String + Send + Sync + 'static,
-        record: impl Fn(&M) -> String + Send + Sync + 'static,
-        cols: impl IntoColumns<M>,
-    ) -> Self
-    where
-        M: toasty::schema::Model,
-    {
-        Self::from_keys(Arc::new(display), Arc::new(record), cols)
-    }
-
-    /// The record key of `record`.
-    pub(crate) fn record_key_of(&self, record: &M) -> String {
-        (self.record_key)(record)
-    }
-
-    fn from_keys(row_key: RowKey<M>, record_key: RowKey<M>, cols: impl IntoColumns<M>) -> Self
-    where
-        M: toasty::schema::Model,
+        M: toasty::schema::Model + toasty::stmt::IntoExpr<M>,
     {
         Self {
             columns: cols.into_columns(),
             misdeclared: Vec::new(),
             filters: Vec::new(),
             group_by: None,
-            row_key,
-            record_key,
+            key: crate::toasty_compat::pk::pk_text::<M>,
+            addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),
             row_policy: None,
             page_size: DEFAULT_PAGE_SIZE,
             hide_search: false,
@@ -292,7 +265,7 @@ impl<M> Table<M> {
     }
 
     /// Filter predicate for the current `TableState`.
-    pub fn filter_expr(&self, state: &TableState) -> Option<Expr<bool>>
+    pub(crate) fn filter_expr(&self, state: &TableState) -> Option<Expr<bool>>
     where
         M: toasty::schema::Model,
     {
@@ -314,7 +287,7 @@ impl<M> Table<M> {
     }
 
     /// Requested filters that produce no predicate.
-    pub fn unapplied_filters(&self, state: &TableState) -> Vec<(String, String)>
+    pub(crate) fn unapplied_filters(&self, state: &TableState) -> Vec<(String, String)>
     where
         M: toasty::schema::Model,
     {
@@ -342,15 +315,17 @@ impl<M> Table<M> {
         out
     }
 
-    /// Group rows in-memory by a named key.
-    pub fn group_by(
-        mut self,
-        name: impl Into<String>,
-        key: impl Fn(&M) -> String + Send + Sync + 'static,
-    ) -> Self {
+    /// Offer grouping the page's rows by the field `lens` reads, under the field's name.
+    pub fn group_by<T>(mut self, lens: Lens<M, T>) -> Self
+    where
+        M: toasty::schema::Model + Send + Sync + 'static,
+        T: FormScalar + Send + Sync + 'static,
+    {
+        let binding = LensBinding::of(lens.path().clone());
+        self.misdeclared.extend(binding.misdeclared);
         self.group_by = Some(GroupDef {
-            name: name.into(),
-            key: Arc::new(key),
+            name: binding.name,
+            key: Arc::new(move |record| lens.read(record).to_form()),
         });
         self
     }
@@ -388,7 +363,7 @@ impl<M> Table<M> {
         let mut errors = self.misdeclared.clone();
         if self.columns.is_empty() {
             errors.push(
-                "a Table needs at least one column: declare columns with Table::new(key, columns)"
+                "a Table needs at least one column: declare columns with Table::new(columns)"
                     .to_string(),
             );
         }
@@ -420,6 +395,11 @@ impl<M> Table<M> {
     /// The page size.
     pub fn page_size(&self) -> usize {
         self.page_size.get()
+    }
+
+    /// The key of `record`'s row: its primary key's URL id.
+    pub(crate) fn key_of(&self, record: &M) -> String {
+        (self.key)(record)
     }
 
     /// Which row actions `record` allows.
@@ -455,19 +435,25 @@ impl<M> Table<M> {
 
     /// Enable row-level `Delete` action.
     pub(crate) fn with_delete(mut self, prefix: String) -> Self {
-        self.delete_prefix = Some(prefix);
+        if self.addressable {
+            self.delete_prefix = Some(prefix);
+        }
         self
     }
 
     /// Enable row-level `Edit` action.
     pub(crate) fn with_edit(mut self, prefix: String) -> Self {
-        self.edit_prefix = Some(prefix);
+        if self.addressable {
+            self.edit_prefix = Some(prefix);
+        }
         self
     }
 
     /// Enable the row-level `View` action.
     pub(crate) fn with_view(mut self, prefix: String) -> Self {
-        self.view_prefix = Some(prefix);
+        if self.addressable {
+            self.view_prefix = Some(prefix);
+        }
         self
     }
 
@@ -496,8 +482,10 @@ impl<M> Table<M> {
         prefix: String,
         actions: Vec<TableAction<M>>,
     ) -> Self {
-        self.actions_prefix = Some(prefix);
-        self.custom_actions = actions;
+        if self.addressable {
+            self.actions_prefix = Some(prefix);
+            self.custom_actions = actions;
+        }
         self
     }
 
@@ -522,7 +510,7 @@ impl<M> Table<M> {
     }
 
     /// Global search predicate across searchable columns.
-    pub fn search_expr(&self, term: &str) -> Option<Expr<bool>>
+    pub(crate) fn search_expr(&self, term: &str) -> Option<Expr<bool>>
     where
         M: toasty::schema::Model,
     {
@@ -536,7 +524,7 @@ impl<M> Table<M> {
     }
 
     /// First sortable column's order_by (tokio-rs/toasty#1142).
-    pub fn order_by(&self, descending: bool) -> Option<OrderByExpr>
+    pub(crate) fn order_by(&self, descending: bool) -> Option<OrderByExpr>
     where
         M: toasty::schema::Model,
     {
@@ -565,7 +553,7 @@ impl<M> Table<M> {
     }
 
     /// Resolve the full query ordering for a request.
-    pub fn order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
+    pub(crate) fn order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
     where
         M: toasty::schema::Model,
     {

@@ -53,7 +53,7 @@ for post in &posts {
 ```
 
 Reading a relation that was not included panics in `get()`; check `is_unloaded()` first where a
-missing include is possible. In a table column, declare the relation with `TextColumn::include`
+missing include is possible. In a table column, declare the relation with `ComputedColumn::include`
 instead: see [Tables](./tables.md#columns).
 
 ## A resource's table on your own page

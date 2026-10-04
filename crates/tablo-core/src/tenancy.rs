@@ -8,10 +8,8 @@
 //! header supplies a tenant: learning another tenant's UUID does not make
 //! anyone that tenant.
 
-use toasty::stmt::{Expr, IntoExpr};
+use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::context::{Cx, try_request_context};
-
-use crate::schema::FieldLens;
 
 /// One tenant a user may act for: its id, and the name the tenant switcher
 /// shows. A [`PanelUser`](crate::auth::PanelUser) lists its memberships in
@@ -136,6 +134,9 @@ enum Scope {
         /// column stamps nothing, so the mount refuses it in favor of
         /// [`Tenancy::column`](Self::column).
         single: bool,
+        /// The model field the lens's first step names: the relation whose
+        /// foreign key the form must write through a relationship field.
+        hop: Option<usize>,
     },
 }
 
@@ -161,12 +162,13 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     /// tenant into it on create, so the record form must not claim it.
     /// Mounting the panel refuses a lens that is not a single field of the
     /// model.
-    pub fn column<T>(lens: FieldLens<M, T>) -> Self
+    pub fn column<T>(lens: impl Into<Path<M, T>>) -> Self
     where
         T: Send + Sync + 'static,
         M: Send + Sync,
         uuid::Uuid: IntoExpr<T>,
     {
+        let lens = lens.into();
         let field =
             crate::schema::lens_field(lens.clone(), &M::schema()).map(|field| TenantColumn {
                 index: field.id.index,
@@ -182,20 +184,28 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     /// tenant column, as `Comment::fields().post().tenant_id()` does.
     ///
     /// The framework filters every loader on it. It stamps nothing on create:
-    /// a row's tenant is its parent's, so the foreign key the form writes must
-    /// be a relationship field over the parent's resource, whose key the
-    /// framework re-checks against the parent's tenant-scoped query inside the
-    /// write.
-    pub fn via<T>(lens: FieldLens<M, T>) -> Self
+    /// a row's tenant is its parent's. The lens starts at a `belongs_to`
+    /// relation, and mounting the panel requires the form to write that
+    /// relation's foreign key through a relationship field over a tenant-scoped
+    /// resource, whose key the framework re-checks against that resource's
+    /// tenant-scoped query inside the write.
+    pub fn via<T>(lens: impl Into<Path<M, T>>) -> Self
     where
         T: Send + Sync + 'static,
         M: Send + Sync,
         uuid::Uuid: IntoExpr<T>,
     {
+        let lens = lens.into();
+        let hop = toasty_core::stmt::Path::from(lens.clone())
+            .projection
+            .as_slice()
+            .first()
+            .copied();
         let single = crate::schema::lens_field(lens.clone(), &M::schema()).is_ok();
         Self::scoped(Scope::Via {
             filter: Box::new(move |tenant| lens.clone().eq(tenant)),
             single,
+            hop,
         })
     }
 
@@ -218,6 +228,14 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     pub(crate) fn via_is_single(&self) -> Option<bool> {
         match &self.scope {
             Scope::Via { single, .. } => Some(*single),
+            Scope::None | Scope::Column { .. } => None,
+        }
+    }
+
+    /// The model field a [`via`](Self::via) lens steps through first.
+    pub(crate) fn via_hop(&self) -> Option<usize> {
+        match &self.scope {
+            Scope::Via { hop, .. } => *hop,
             Scope::None | Scope::Column { .. } => None,
         }
     }

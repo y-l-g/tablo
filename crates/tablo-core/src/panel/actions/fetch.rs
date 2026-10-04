@@ -37,7 +37,7 @@ pub(crate) async fn find_by_key<R: Resource>(
 /// batch carries no single-key representation. `None` means the model
 /// has a single-column key.
 pub(super) fn composite_pk_error<R: Resource>() -> Option<topcoat::Error> {
-    if !crate::schema::pk_is_composite::<R::Model>() {
+    if !crate::toasty_compat::pk::pk_is_composite::<R::Model>() {
         return None;
     }
     tracing::error!(
@@ -63,7 +63,7 @@ async fn find_by_key_in<R: Resource>(
     ex: &mut dyn toasty::Executor,
     seed: impl FnOnce() -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>>,
 ) -> Result<R::Model> {
-    let Some(expr) = crate::schema::pk_eq_expr::<R::Model>(id) else {
+    let Some(expr) = crate::toasty_compat::pk::pk_eq_expr::<R::Model>(id) else {
         // Composite PKs have no URL representation: fail loudly so
         // the misconfiguration surfaces instead of 404ing every id.
         if let Some(error) = composite_pk_error::<R>() {

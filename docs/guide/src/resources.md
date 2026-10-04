@@ -18,10 +18,7 @@ impl Resource for AuditResource {
     }
 
     fn table() -> Table<Audit> {
-        Table::new(
-            |a: &Audit| a.id.to_string(),
-            TextColumn::r#for(Audit::fields().action(), |a: &Audit| a.action.clone()),
-        )
+        Table::new(TextColumn::new(lens!(Audit.action)))
     }
 }
 ```
@@ -87,7 +84,7 @@ Two things do not belong in `query`:
 - **The tenant filter.** For a tenant-owned resource the framework adds it to `query` at every
   loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
 - **Relations.** The list and the export load the relations their columns declare with
-  `TextColumn::include`, and the detail page loads `view_query`. Include a relation in `query`
+  `ComputedColumn::include`, and the detail page loads `view_query`. Include a relation in `query`
   only when every loader reads it, for example because the policy does.
 
 In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
@@ -157,10 +154,10 @@ Mounting the panel calls each resource's declarations once — `table()` with no
 and `view(dx)` with a `DeclCx` carrying the app schema alone, and `relations()` — and refuses
 the resource when:
 
-- `table()`, `form()` or `view()` is malformed: a duplicate column, filter or field name, a
-  zero page size, an empty column set, a lens that binds no column, or a search or sort on a
-  computed column. Rendering such a table through `Table::render` (or `render_with_state`) or
-  such a schema through `Schema::render` fails with the same errors;
+- `table()`, `form()` or `view()` is malformed: a duplicate column, filter or field name, a zero
+  page size, an empty column set, or a lens that binds no column. Rendering such a table through
+  `Table::render` (or `render_with_state`) or such a schema through `Schema::render` fails with the
+  same errors;
 - the record form and `form()` disagree: a control no form field binds, a form field with no
   control, an optional control whose field has no blank value, a `unique()` field with no
   unique index, or a tenant-owned resource's form claiming its tenant column;

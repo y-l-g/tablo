@@ -1,4 +1,4 @@
-//! Table columns: the [`Column`] trait, the built-in [`TextColumn`] and
+//! Table columns: the [`Column`] trait, the built-in [`TextColumn`], [`ComputedColumn`] and
 //! [`BooleanColumn`], and the [`IntoColumns`] seam.
 
 use std::{borrow::Cow, sync::Arc};
@@ -6,7 +6,7 @@ use std::{borrow::Cow, sync::Arc};
 use toasty::stmt::{Expr, OrderByExpr};
 use topcoat::{context::Cx, icon::icon, view::*};
 
-use crate::schema::{FieldLens, LensBinding};
+use crate::{Lens, form::FormScalar, schema::LensBinding};
 
 /// One table column declares its header, its cell, and its query predicates.
 ///
@@ -167,24 +167,41 @@ impl ColumnWidth {
     }
 }
 
-/// Text column bound to a typed lens and a typed projection (upstream gap #119).
-#[derive(Clone)]
-pub struct TextColumn<M> {
-    /// The query-side lens; `None` for [`Self::computed`] columns, which
-    /// render a value but declare no predicates.
-    path: Option<FieldLens<M, String>>,
+/// A column of one field, rendered as text and bound through a [`Lens`] for sorting and search.
+///
+/// ```ignore
+/// TextColumn::new(lens!(User.name)).searchable().sortable()
+/// TextColumn::new(lens!(User.age)).sortable()
+/// TextColumn::new(lens!(Post.status)).format(|status| PostStatus::label_of(status))
+/// ```
+///
+/// The cell is the value's form spelling ([`FormScalar::to_form`]) unless
+/// [`format`](Self::format) says otherwise. Only a string field is
+/// [`searchable`](Self::searchable):
+///
+/// ```compile_fail
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
+/// # fn main() {
+/// tablo_core::TextColumn::new(tablo_core::lens!(User.age)).searchable();
+/// # }
+/// ```
+pub struct TextColumn<M, T> {
+    lens: Lens<M, T>,
     name: String,
     label: String,
-    project: Arc<dyn Fn(&M) -> String + Send + Sync>,
-    searchable: bool,
+    format: Arc<dyn Fn(&T) -> String + Send + Sync>,
+    /// The `LIKE` predicate for a search pattern, when [`searchable`](Self::searchable).
+    search: Option<SearchFn>,
     sortable: bool,
     /// The width this column claims in the table's fixed layout.
     width: ColumnWidth,
-    /// Relations this column's projection reads.
-    includes: Includes<M>,
     /// What is wrong with the declaration ([`Column::misdeclared`]).
     misdeclared: Option<String>,
 }
+
+/// A searchable column's predicate for an escaped `LIKE` pattern.
+type SearchFn = Arc<dyn Fn(String) -> Expr<bool> + Send + Sync>;
 
 /// The escape character the search pattern declares to `LIKE`.
 pub(crate) const LIKE_ESCAPE: char = '\\';
@@ -203,74 +220,38 @@ pub(crate) fn escape_like_pattern(term: &str) -> String {
     pattern
 }
 
-impl<M> TextColumn<M>
+impl<M, T> TextColumn<M, T>
 where
     M: toasty::schema::Model,
 {
-    /// Bind a column to a `String` field lens plus a projection closure.
-    pub fn r#for(
-        path: FieldLens<M, String>,
-        project: impl Fn(&M) -> String + Send + Sync + 'static,
-    ) -> Self {
-        let binding = LensBinding::of(path.clone());
+    /// Bind a column to the field `lens` reads, which must be one field of the model.
+    pub fn new(lens: Lens<M, T>) -> Self
+    where
+        T: FormScalar + Send + Sync + 'static,
+    {
+        let binding = LensBinding::of(lens.path().clone());
         Self {
-            path: Some(path),
+            lens,
             name: binding.name,
             label: binding.label,
-            project: Arc::new(project),
-            searchable: false,
+            format: Arc::new(T::to_form),
+            search: None,
             sortable: false,
             width: ColumnWidth::Wide,
-            includes: Includes::new(),
             misdeclared: binding.misdeclared,
         }
     }
 
-    /// Declare a computed, display-only column.
-    pub fn computed(
-        label: impl Into<String>,
-        project: impl Fn(&M) -> String + Send + Sync + 'static,
-    ) -> Self {
-        let label = label.into();
-        let name = label.to_lowercase();
-        Self {
-            path: None,
-            name,
-            label,
-            project: Arc::new(project),
-            searchable: false,
-            sortable: false,
-            width: ColumnWidth::Narrow,
-            includes: Includes::new(),
-            misdeclared: None,
-        }
-    }
-
-    /// Declare a relation this column's projection reads.
-    pub fn include<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
-        self.includes = self.includes.with(relation);
+    /// Render the field's value through `format`.
+    pub fn format(mut self, format: impl Fn(&T) -> String + Send + Sync + 'static) -> Self {
+        self.format = Arc::new(format);
         self
     }
 
-    pub fn searchable(mut self) -> Self {
-        self.refuse_computed("searchable");
-        self.searchable = true;
-        self
-    }
-
+    /// Make the header a sort link.
     pub fn sortable(mut self) -> Self {
-        self.refuse_computed("sortable");
         self.sortable = true;
         self
-    }
-
-    fn refuse_computed(&mut self, modifier: &str) {
-        if self.path.is_none() && self.misdeclared.is_none() {
-            self.misdeclared = Some(format!(
-                "{modifier}() on computed column '{}': computed columns map to no query predicate",
-                self.label
-            ));
-        }
     }
 
     /// Declare this column's width.
@@ -280,7 +261,154 @@ where
     }
 }
 
-impl<M> Column<M> for TextColumn<M>
+impl<M, T> TextColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: toasty::schema::Field<Inner = String> + Send + Sync + 'static,
+{
+    /// Join the table's search with a substring match on this string field.
+    pub fn searchable(mut self) -> Self {
+        let path = self.lens.path().clone();
+        self.search = Some(Arc::new(move |pattern| {
+            path.clone().like_with_escape(pattern, LIKE_ESCAPE)
+        }));
+        self
+    }
+}
+
+impl<M, T> Column<M> for TextColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: Send + Sync + 'static,
+{
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn label(&self) -> &str {
+        &self.label
+    }
+
+    fn text(&self, row: &M) -> String {
+        (self.format)(self.lens.read(row))
+    }
+
+    fn column_width(&self) -> ColumnWidth {
+        self.width
+    }
+
+    fn is_searchable(&self) -> bool {
+        self.search.is_some()
+    }
+
+    /// A portable, escaped substring match.
+    fn search_expr(&self, term: &str) -> Option<Expr<bool>> {
+        let t = term.trim();
+        let search = self.search.as_ref()?;
+        (!t.is_empty()).then(|| search(escape_like_pattern(t)))
+    }
+
+    fn is_sortable(&self) -> bool {
+        self.sortable
+    }
+
+    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
+        self.sortable.then(|| {
+            let path = self.lens.path().clone();
+            if descending { path.desc() } else { path.asc() }
+        })
+    }
+
+    fn misdeclared(&self) -> Option<String> {
+        self.misdeclared.clone()
+    }
+}
+
+impl<M, T> Clone for TextColumn<M, T> {
+    fn clone(&self) -> Self {
+        Self {
+            lens: self.lens.clone(),
+            name: self.name.clone(),
+            label: self.label.clone(),
+            format: Arc::clone(&self.format),
+            search: self.search.clone(),
+            sortable: self.sortable,
+            width: self.width,
+            misdeclared: self.misdeclared.clone(),
+        }
+    }
+}
+
+impl<M, T> std::fmt::Debug for TextColumn<M, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TextColumn")
+            .field("name", &self.name)
+            .field("label", &self.label)
+            .field("searchable", &self.search.is_some())
+            .field("sortable", &self.sortable)
+            .field("width", &self.width)
+            .finish_non_exhaustive()
+    }
+}
+
+/// A display-only column rendering any text from the row, with no query predicate.
+///
+/// ```ignore
+/// ComputedColumn::new("Author", |p: &Post| p.author.get().name.clone())
+///     .include(Post::fields().author())
+/// ```
+///
+/// It maps to no column, so it neither searches nor sorts:
+///
+/// ```compile_fail
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # fn main() {
+/// tablo_core::ComputedColumn::new("Name", |u: &User| u.name.clone()).sortable();
+/// # }
+/// ```
+pub struct ComputedColumn<M> {
+    name: String,
+    label: String,
+    project: Arc<dyn Fn(&M) -> String + Send + Sync>,
+    width: ColumnWidth,
+    /// Relations the projection reads.
+    includes: Includes<M>,
+}
+
+impl<M> ComputedColumn<M>
+where
+    M: toasty::schema::Model,
+{
+    /// Declare a column headed `label` rendering `project(row)`.
+    pub fn new(
+        label: impl Into<String>,
+        project: impl Fn(&M) -> String + Send + Sync + 'static,
+    ) -> Self {
+        let label = label.into();
+        Self {
+            name: label.to_lowercase(),
+            label,
+            project: Arc::new(project),
+            width: ColumnWidth::Narrow,
+            includes: Includes::new(),
+        }
+    }
+
+    /// Declare a relation the projection reads, so the table loads it.
+    pub fn include<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
+        self.includes = self.includes.with(relation);
+        self
+    }
+
+    /// Declare this column's width.
+    pub fn width(mut self, width: ColumnWidth) -> Self {
+        self.width = width;
+        self
+    }
+}
+
+impl<M> Column<M> for ComputedColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
@@ -292,7 +420,6 @@ where
         &self.label
     }
 
-    /// The typed projection's output.
     fn text(&self, row: &M) -> String {
         (self.project)(row)
     }
@@ -301,52 +428,28 @@ where
         self.width
     }
 
-    fn is_searchable(&self) -> bool {
-        self.searchable
-    }
-
-    /// A portable, escaped substring match.
-    fn search_expr(&self, term: &str) -> Option<Expr<bool>> {
-        let t = term.trim();
-        if !self.searchable || t.is_empty() {
-            return None;
-        }
-        Some(
-            self.path
-                .clone()?
-                .like_with_escape(escape_like_pattern(t), LIKE_ESCAPE),
-        )
-    }
-
-    fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
-    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
-        if self.sortable {
-            let path = self.path.clone()?;
-            Some(if descending { path.desc() } else { path.asc() })
-        } else {
-            None
-        }
-    }
-
     fn includes(&self) -> Includes<M> {
         self.includes.clone()
     }
+}
 
-    fn misdeclared(&self) -> Option<String> {
-        self.misdeclared.clone()
+impl<M> Clone for ComputedColumn<M> {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            label: self.label.clone(),
+            project: Arc::clone(&self.project),
+            width: self.width,
+            includes: self.includes.clone(),
+        }
     }
 }
 
-impl<M> std::fmt::Debug for TextColumn<M> {
+impl<M> std::fmt::Debug for ComputedColumn<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TextColumn")
+        f.debug_struct("ComputedColumn")
             .field("name", &self.name)
             .field("label", &self.label)
-            .field("searchable", &self.searchable)
-            .field("sortable", &self.sortable)
             .field("width", &self.width)
             .field("includes", &self.includes.len())
             .finish_non_exhaustive()
@@ -356,13 +459,12 @@ impl<M> std::fmt::Debug for TextColumn<M> {
 /// A column of a `bool` field rendered as an icon.
 ///
 /// ```ignore
-/// BooleanColumn::r#for(Post::fields().featured(), |p: &Post| p.featured).sortable()
+/// BooleanColumn::new(lens!(Post.featured)).sortable()
 /// ```
 pub struct BooleanColumn<M> {
-    path: FieldLens<M, bool>,
+    lens: Lens<M, bool>,
     name: String,
     label: String,
-    project: Arc<dyn Fn(&M) -> bool + Send + Sync>,
     sortable: bool,
     labels: (String, String),
     misdeclared: Option<String>,
@@ -372,17 +474,13 @@ impl<M> BooleanColumn<M>
 where
     M: toasty::schema::Model,
 {
-    /// Bind the column to a `bool` field lens and a projection (upstream gap #119).
-    pub fn r#for(
-        path: FieldLens<M, bool>,
-        project: impl Fn(&M) -> bool + Send + Sync + 'static,
-    ) -> Self {
-        let binding = LensBinding::of(path.clone());
+    /// Bind the column to the `bool` field `lens` reads.
+    pub fn new(lens: Lens<M, bool>) -> Self {
+        let binding = LensBinding::of(lens.path().clone());
         Self {
-            path,
+            lens,
             name: binding.name,
             label: binding.label,
-            project: Arc::new(project),
             sortable: false,
             labels: ("Yes".to_string(), "No".to_string()),
             misdeclared: binding.misdeclared,
@@ -415,7 +513,7 @@ where
     }
 
     fn text(&self, row: &M) -> String {
-        if (self.project)(row) {
+        if *self.lens.read(row) {
             self.labels.0.clone()
         } else {
             self.labels.1.clone()
@@ -423,7 +521,7 @@ where
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        let value = (self.project)(row);
+        let value = *self.lens.read(row);
         let text = self.text(row);
         let (data, class) = if value {
             (tablo_ui::icons::CIRCLE_CHECK, "size-4 text-primary")
@@ -449,10 +547,11 @@ where
 
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
         self.sortable.then(|| {
-            let path = self.path.clone();
+            let path = self.lens.path().clone();
             if descending { path.desc() } else { path.asc() }
         })
     }
+
     fn misdeclared(&self) -> Option<String> {
         self.misdeclared.clone()
     }
@@ -479,7 +578,17 @@ pub trait IntoColumns<M> {
     fn into_columns(self) -> Vec<BoxColumn<M>>;
 }
 
-impl<M> IntoColumns<M> for TextColumn<M>
+impl<M, T> IntoColumns<M> for TextColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: Send + Sync + 'static,
+{
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![Arc::new(self)]
+    }
+}
+
+impl<M> IntoColumns<M> for ComputedColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
