@@ -28,6 +28,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --locked
 
+  # The guide companion builds against the published crates, so it is a
+  # detached workspace with its own test and clippy runs.
+  guide:
+    name: guide
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Detached workspace: own target dir and lockfile.
+          workspaces: examples/guide
+      - run: cargo test --locked --manifest-path examples/guide/Cargo.toml
+      - run: cargo clippy --locked --manifest-path examples/guide/Cargo.toml --all-targets -- -D warnings
+
   # The suites are named rather than globbed: a glob would silently shrink the run when a
   # suite is renamed, while a missing path fails the job.
   assets:
@@ -107,5 +122,5 @@ jobs:
       - name: topcoat fmt (pinned CLI, via xtask)
         # The toolchain and CLI installs stay in CI: xtask runs the check half only.
         # Covers detached fmt (benchmarks/tablo, benchmarks/axum-maud, benchmarks/leptos,
-        # examples/quickstart).
+        # examples/quickstart, examples/guide).
         run: cargo xtask fmt

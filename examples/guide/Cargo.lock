@@ -690,9 +690,9 @@ dependencies = [
 
 [[package]]
 name = "ctutils"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d5515a3834141de9eafb9717ad39eea8247b5674e6066c404e8c4b365d2a29e"
+checksum = "03bb0e1cc970d482d121d9a1744999169b69a07470b3d644a7894e53fcaf4574"
 dependencies = [
  "cmov",
 ]
@@ -1186,6 +1186,21 @@ name = "glob"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
+
+[[package]]
+name = "guide"
+version = "0.1.0"
+dependencies = [
+ "jiff",
+ "tablo",
+ "tablo-build",
+ "tablo-core",
+ "tablo-ui",
+ "toasty",
+ "tokio",
+ "topcoat",
+ "uuid",
+]
 
 [[package]]
 name = "h2"
@@ -2289,7 +2304,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "986d2e952779af96ea048f160fd9194e1751b4faea78bcf3ceb456efe008088e"
 dependencies = [
  "der 0.8.2",
- "spki 0.8.0",
+ "spki 0.8.1",
 ]
 
 [[package]]
@@ -2299,7 +2314,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "451913da69c775a56034ea8d9003d27ee8948e12443eae7c038ba100a4f21cb7"
 dependencies = [
  "der 0.8.2",
- "spki 0.8.0",
+ "spki 0.8.1",
 ]
 
 [[package]]
@@ -2691,7 +2706,7 @@ dependencies = [
  "pkcs8",
  "rand_core 0.10.1",
  "signature",
- "spki 0.8.0",
+ "spki 0.8.1",
  "zeroize",
 ]
 
@@ -3088,23 +3103,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
-name = "showcase"
-version = "0.1.0"
-dependencies = [
- "http",
- "http-body-util",
- "jiff",
- "tablo-build",
- "tablo-core",
- "tablo-test",
- "tablo-ui",
- "toasty",
- "tokio",
- "topcoat",
- "uuid",
-]
-
-[[package]]
 name = "shuttle"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3227,9 +3225,9 @@ dependencies = [
 
 [[package]]
 name = "spki"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d9efca8738c78ee9484207732f728b1ef517bbb1833d6fc0879ca898a522f6f"
+checksum = "7ef958a98b9d5da290cfc78946e9f3e61e1e62a18db0d92cac0b83cc161491a9"
 dependencies = [
  "base64ct",
  "der 0.8.2",
@@ -3392,6 +3390,8 @@ dependencies = [
 [[package]]
 name = "tablo"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b143d2239d008c5efa6497b01a0a48bcf2e917d4847b16f67635a0cadbf5c96"
 dependencies = [
  "tablo-core",
  "tablo-test",
@@ -3403,6 +3403,8 @@ dependencies = [
 [[package]]
 name = "tablo-build"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8705512e0ec0f765385e4a1af0b40dc8b47873f0041559dc0af0476a82256db"
 dependencies = [
  "topcoat",
 ]
@@ -3410,6 +3412,8 @@ dependencies = [
 [[package]]
 name = "tablo-core"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcd2606887697709846f1f8bacd1a531e6cdd6c2afbd735197236e101b84fb3a"
 dependencies = [
  "argon2",
  "bytes",
@@ -3425,7 +3429,6 @@ dependencies = [
  "serde_json",
  "subtle",
  "tablo-macros",
- "tablo-test",
  "tablo-ui",
  "toasty",
  "toasty-core",
@@ -3438,6 +3441,8 @@ dependencies = [
 [[package]]
 name = "tablo-macros"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1df0c9fcc4726cd1044dc5edccb5b84fafff677d957eb64da50044f4e1ddf6a9"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -3448,6 +3453,8 @@ dependencies = [
 [[package]]
 name = "tablo-test"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98b4e4cafe786404652dca397d6ba5e1b2304de222685b3773b73f5d19eafe55"
 dependencies = [
  "form_urlencoded",
  "http",
@@ -3460,9 +3467,10 @@ dependencies = [
 [[package]]
 name = "tablo-ui"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14a1285310ea17a16dea295141549ee8269b54f9ff81e85bc6b2336c8b58c8bf"
 dependencies = [
  "http",
- "tokio",
  "topcoat",
 ]
 
@@ -4232,25 +4240,6 @@ dependencies = [
  "topcoat-core",
  "ureq",
 ]
-
-[[package]]
-name = "topcoat-ui"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63550ec6c2fd5f85586f86224487bcb757763cb656f6daadcb82d39899e50757"
-dependencies = [
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror",
- "toml",
-]
-
-[[package]]
-name = "topcoat-ui-registry"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26f89db150ff2c4c2086b134f73886b7883b204729f6325b61c8c100825359df"
 
 [[package]]
 name = "topcoat-view"
@@ -5103,16 +5092,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "xtask"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde_json",
- "topcoat-ui",
- "topcoat-ui-registry",
-]
-
-[[package]]
 name = "yoke"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5137,18 +5116,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.59"
+version = "0.8.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6df92bf3d9227be3d53173901ddbffac2babc27ae50f397776ffd6dc33f800cb"
+checksum = "6400fc4bb7426f6faac3fb07566122bb18622e3022bd2c36426a92ed489b1dbe"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.59"
+version = "0.8.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac4f328cf2f05d084e496c3e9c3f33ed0a183656a16e1fcec4d464d8373aec82"
+checksum = "99c27cc7525bad4df59a45e073c45b2c2aa820efb588234cc23a547ec69a34db"
 dependencies = [
  "proc-macro2",
  "quote",
