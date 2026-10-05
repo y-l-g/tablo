@@ -183,14 +183,37 @@ pub use table::{
 /// # Per-field attributes
 ///
 /// - `#[form(embed)]` — a nested `EmbeddedForm` value.
-/// - `#[form(label = "Canonical URL")]` — the control's label (default: the field name, humanized).
+/// - `#[form(label = "Canonical URL")]` — the control's label (default: the field name,
+///   humanized).
 /// - `#[form(multiline = 3)]` — a `<textarea>` of 3 rows.
 /// - `#[form(blank = ..)]` — what an empty submission reads as, overriding the leaf type's own
 ///   answer.
 ///
-/// Anything else in `#[form(..)]` is a compile error, as are `label`, `multiline`, and `blank` on
-/// an embedded value.
+/// Anything else in `#[form(..)]` is a compile error, as are `label`, `multiline`, and `blank`
+/// on an embedded value.
 pub use tablo_macros::EmbeddedForm;
+/// Derive `Options` for a unit-variant enum: the `(value, label)` list a
+/// choice field, a select filter and a column share.
+///
+/// ```rust
+/// # use tablo_core::Options;
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+/// pub enum Status {
+///     Draft,
+///     #[option(label = "Live")]
+///     Published,
+/// }
+///
+/// assert_eq!(Status::Published.value(), "published");
+/// assert_eq!(Status::Published.label(), "Live");
+/// assert_eq!(Status::from_value("draft"), Some(Status::Draft));
+/// ```
+///
+/// Each variant stores its `snake_case` name and reads as that name in
+/// sentence case. `#[option(value = "..")]` and `#[option(label = "..")]`
+/// override either. A generic enum, a variant with fields, two variants
+/// storing one value, and an unknown key are compile errors.
+pub use tablo_macros::Options;
 /// Derive `RecordForm` for the typed value a resource's form writes.
 ///
 /// One field per model column the form writes, named and typed like the
@@ -233,11 +256,12 @@ pub use tablo_macros::EmbeddedForm;
 /// # Attributes
 ///
 /// - `#[form(model = User)]` on the struct: the model the form writes.
-/// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as, overriding the
-///   default (`String` answers `""` and `Option<T>` answers `None` through the type's own blank,
-///   and `bool` answers `false` through the derive's default).
+/// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as, overriding
+///   the default (`String` answers `""` and `Option<T>` answers `None` through the type's own
+///   blank, and `bool` answers `false` through the derive's default).
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
-/// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` may add.
+/// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` may
+///   add.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
 ///
@@ -246,27 +270,5 @@ pub use tablo_macros::EmbeddedForm;
 /// errors. So are a field the model lacks, a type the model's field does not
 /// have, and a scalar that is not a `FormScalar`.
 pub use tablo_macros::RecordForm;
-/// Derive `Options` for a unit-variant enum: the `(value, label)` list a
-/// choice field, a select filter and a column share.
-///
-/// ```rust
-/// # use tablo_core::Options;
-/// #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
-/// pub enum Status {
-///     Draft,
-///     #[option(label = "Live")]
-///     Published,
-/// }
-///
-/// assert_eq!(Status::Published.value(), "published");
-/// assert_eq!(Status::Published.label(), "Live");
-/// assert_eq!(Status::from_value("draft"), Some(Status::Draft));
-/// ```
-///
-/// Each variant stores its `snake_case` name and reads as that name in
-/// sentence case. `#[option(value = "..")]` and `#[option(label = "..")]`
-/// override either. A generic enum, a variant with fields, two variants
-/// storing one value, and an unknown key are compile errors.
-pub use tablo_macros::Options;
 pub use tenancy::{Membership, Tenancy, Tenant, require_tenant, tenant_id};
 pub use upload::Uploader;

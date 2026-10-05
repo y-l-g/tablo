@@ -16,7 +16,8 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
     embedded::expand(input)
 }
 
-/// Derive `RecordForm` for the typed value a resource's form writes; documented on the `tablo-core` re-export.
+/// Derive `RecordForm` for the typed value a resource's form writes; documented on the `tablo-core`
+/// re-export.
 #[proc_macro_derive(RecordForm, attributes(form))]
 pub fn record_form(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
