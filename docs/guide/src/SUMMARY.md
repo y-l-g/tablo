@@ -9,5 +9,6 @@
 - [Detail pages](./detail-pages.md)
 - [Policy, auth, tenancy](./policy-auth-tenancy.md)
 - [Data access](./data-access.md)
+- [Extension points](./extension-points.md)
 - [Security](./security.md)
 - [Testing and benchmarks](./testing-and-benchmarks.md)

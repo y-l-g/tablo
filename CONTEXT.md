@@ -127,7 +127,7 @@ _Avoid_: Relation manager, Sub-table, Nested resource
 
 A user-invoked mutation, on one record or on the bulk selection.
 
-_Avoid_: Command, Mutation, Operation, Modal
+_Avoid_: Command, Operation, Modal
 
 ### Authenticator
 
