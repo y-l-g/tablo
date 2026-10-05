@@ -35,8 +35,9 @@ contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
   tests.
 - `crates/tablo-ui/assets/*.test.js` — the browser-asset suites, run with
   `node --test`. Each suite's header names the behavior it protects; DOM halves
-  are covered by the integration suite instead.
-- `xtask/tests/it.rs` — the contract guards (asset hooks, registry sync, lockstep);
+  are covered by the integration suite instead. `sidebar.js`, `theme.js`, and
+  `variant.js` have no suite.
+- `xtask/tests/it.rs` — the contract guards (asset hooks, registry sync);
   edge cases live as unit tests in `xtask/src/tests.rs`.
 
 Both `examples/showcase` and `crates/tablo-core` set `autotests = false` and declare a single

@@ -248,6 +248,10 @@ async fn posts_list_renders_live_search_host() {
         html.contains("data-live-search"),
         "posts list must render the live host, got {html}"
     );
+    assert!(
+        html.contains("data-topcoat-swap"),
+        "the live table must ship its swap envelope, got {html}"
+    );
 }
 
 #[tokio::test]
