@@ -130,3 +130,28 @@ fn text_column_includes_accumulate_once_per_relation() {
         "two relations, one repeated: the column keeps each once"
     );
 }
+
+/// Shared columns, declared once and spliced into any table of `User`.
+fn shared_columns() -> Vec<BoxColumn<User>> {
+    vec![
+        Arc::new(TextColumn::new(lens!(User.name))) as BoxColumn<User>,
+        Arc::new(ComputedColumn::new("Initial", |user: &User| {
+            user.name.clone()
+        })) as BoxColumn<User>,
+    ]
+}
+
+#[test]
+fn column_collections_compose_without_respelling() {
+    let from_vec = crate::table::Table::<User>::new(shared_columns()).declaration_errors();
+    assert!(
+        from_vec.is_empty(),
+        "shared vec columns must declare, got {from_vec:?}"
+    );
+    let from_slice =
+        crate::table::Table::<User>::new(shared_columns().as_slice()).declaration_errors();
+    assert!(
+        from_slice.is_empty(),
+        "shared slice columns must declare, got {from_slice:?}"
+    );
+}
