@@ -142,8 +142,20 @@ flattened column wherever a declaration names one. It refuses the resource when:
 - the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
   Toasty default, not the tenant stamp, and not listed in `CREATE_COLUMNS`;
 - a `NoForm` resource declares `form()` or its policy allows `Create`;
-- a `Tenancy::column` lens is not one field of the model;
+- a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
+  of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
+  field over a tenant-scoped resource;
+- two actions share a `NAME`;
 - a relation names a resource the panel does not register, or names one twice.
+
+The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
+`MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
+it is in (`Table`, `Form`, `View`, `Tenancy`, a `Relation`) and a `DeclarationErrorKind`, whose
+`Display` is the message. [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test
+matching on the kind.
+
+An action's `NAME` is checked when the app compiles: `Actions::add` does not compile an action
+whose name is not one URL segment.
 
 A modifier on the wrong kind of field does not compile: each `Field` constructor returns its
 control's builder (`TextField`, `ChoiceField`, `FileField`, `CustomField`), which offers only

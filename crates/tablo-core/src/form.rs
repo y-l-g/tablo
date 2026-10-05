@@ -604,10 +604,9 @@ pub async fn write_create<R: Resource>(
             );
         }
         Some(Err(error)) => {
-            return Err(TabloError::Declaration(format!(
-                "resource `{}`'s `Tenancy::column` lens binds no column: {error}",
-                std::any::type_name::<R>(),
-            ))
+            return Err(TabloError::Declaration(
+                crate::DeclarationError::of::<R>(crate::Site::Tenancy, error).to_string(),
+            )
             .into());
         }
         None => {}

@@ -25,7 +25,7 @@ pub struct Relation<P> {
     render: RenderFn,
     search: crate::panel::RelationSearchFn,
     /// Why `foreign_key` binds no column, when it does not.
-    misdeclared: Option<String>,
+    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 /// An owner's rows filter on the child.
@@ -121,8 +121,8 @@ impl<P> Relation<P> {
     }
 
     /// Why the relation's foreign key binds no column.
-    pub(crate) fn misdeclared(&self) -> Option<&str> {
-        self.misdeclared.as_deref()
+    pub(crate) fn misdeclared(&self) -> Option<&crate::DeclarationErrorKind> {
+        self.misdeclared.as_ref()
     }
 
     /// The prefix of this relation's URL parameters.

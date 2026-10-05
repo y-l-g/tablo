@@ -10,6 +10,8 @@ use toasty::stmt::Path;
 use toasty_core::stmt::PathRoot;
 use topcoat::context::Cx;
 
+use crate::DeclarationErrorKind;
+
 thread_local! {
     static SCHEMA: RefCell<Option<Arc<toasty_core::Schema>>> = const { RefCell::new(None) };
 }
@@ -72,7 +74,7 @@ pub(crate) struct ResolvedLens<M, T> {
     pub(crate) unique: bool,
     /// Why the path binds no column, when it does not: the builder records this, and
     /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) reports it.
-    pub(crate) misdeclared: Option<String>,
+    pub(crate) misdeclared: Option<DeclarationErrorKind>,
 }
 
 impl<M, T> ResolvedLens<M, T>
@@ -180,7 +182,7 @@ impl FieldResolver {
     /// # Errors
     ///
     /// A lens that resolves to no single column.
-    pub(crate) fn resolve<M, T>(&self, path: Path<M, T>) -> Result<LeafField, String>
+    pub(crate) fn resolve<M, T>(&self, path: Path<M, T>) -> Result<LeafField, DeclarationErrorKind>
     where
         M: toasty::schema::Model,
     {
@@ -194,20 +196,16 @@ impl FieldResolver {
         let is_embedded_path = segments > 1 || matches!(core_path.root, PathRoot::Variant { .. });
         if is_embedded_path && let Some(schema) = self.schema.as_deref() {
             return Self::walk_embedded(schema, &core_path).ok_or_else(|| {
-                format!(
-                    "lens path {projection:?} does not resolve to a single column for {}: \
-                         only embedded steps (embedded structs, enum variant fields, and \
-                         `#[document]` fields) can be bound, not relation hops, and only when \
-                         the model is in the app schema",
-                    std::any::type_name::<M>(),
-                    projection = core_path.projection.as_slice(),
-                )
+                DeclarationErrorKind::UnresolvedLens {
+                    model: std::any::type_name::<M>(),
+                    steps: core_path.projection.as_slice().to_vec(),
+                }
             });
         }
         // No schema: the single-segment rule is all an owned `app::Model` can
         // answer, so resolve the first step against `ModelRoot.fields` and let
         // `single_segment` refuse a traversal lens.
-        let idx = single_segment(&core_path, "lens")?;
+        let idx = single_segment(&core_path)?;
         let field = model
             .as_root_unwrap()
             .fields
@@ -533,17 +531,16 @@ fn mapping_field_at<'a>(fields: &'a [MappingField], steps: &[usize]) -> Option<&
 ///
 /// # Errors
 ///
-/// A traversal lens, worded as the misdeclaration the declaring builder
-/// records.
+/// A traversal lens.
 pub(crate) fn lens_field<M, T>(
     path: Path<M, T>,
     model: &toasty::schema::app::Model,
-) -> Result<toasty::schema::app::Field, String>
+) -> Result<toasty::schema::app::Field, DeclarationErrorKind>
 where
     M: toasty::schema::Model,
 {
     let core_path: toasty_core::stmt::Path = path.into();
-    let idx = single_segment(&core_path, "lens")?;
+    let idx = single_segment(&core_path)?;
     Ok(model
         .as_root_unwrap()
         .fields
@@ -599,14 +596,13 @@ pub(crate) fn lens_field_unique(
 ///
 /// # Errors
 ///
-/// A path of any other length than one, naming `what` bound it.
-pub(crate) fn single_segment(path: &toasty_core::stmt::Path, what: &str) -> Result<usize, String> {
+/// A path of any other length than one.
+pub(crate) fn single_segment(
+    path: &toasty_core::stmt::Path,
+) -> Result<usize, DeclarationErrorKind> {
     match path.projection.as_slice() {
         [index] => Ok(*index),
-        steps => Err(format!(
-            "{what} requires a single-field lens, got a {}-segment traversal path",
-            steps.len()
-        )),
+        steps => Err(DeclarationErrorKind::TraversalLens { steps: steps.len() }),
     }
 }
 

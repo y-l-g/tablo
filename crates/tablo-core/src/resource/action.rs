@@ -76,8 +76,34 @@ use super::Resource;
 /// a row that no bulk action and no delete allows renders no checkbox.
 pub trait Action<R: Resource>: 'static {
     /// The action's URL segment, distinct among the resource's actions.
-    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses one that is
-    /// not a single path segment, or that another action of the resource shares.
+    ///
+    /// [`Actions::add`] refuses to compile a name that is not a single path segment, and
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses one that
+    /// another action of the resource shares.
+    ///
+    /// ```rust,compile_fail
+    /// # use tablo_core::{Action, Actions, Allow, NoForm, Policy, Resource, Table, TextColumn, lens};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
+    /// #     fn table() -> Table<Post> { Table::new(TextColumn::new(lens!(Post.title))) }
+    /// #     fn policy() -> impl Policy<Post> { Allow }
+    /// # }
+    /// struct Archive;
+    ///
+    /// impl Action<PostResource> for Archive {
+    ///     const NAME: &'static str = "archive/all";
+    /// #   fn label() -> String { String::new() }
+    /// #   fn can_run(_: &Cx, _: &Post) -> bool { true }
+    /// #   async fn run(_: &Cx, _: &[Post], _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
+    /// }
+    ///
+    /// let actions = Actions::<PostResource>::new().add::<Archive>();
+    /// ```
     const NAME: &'static str;
 
     /// Whether a row renders the action's button. Defaults to `true`.
@@ -141,7 +167,17 @@ impl<R: Resource> Actions<R> {
     }
 
     /// Append the action `A`.
+    ///
+    /// Fails to compile when `A::NAME` is not a single path segment: empty, `.` or `..`, or
+    /// holding whitespace, a control character, a quote, a backslash or one of
+    /// `/ ? # % & = { } ( )`.
     pub fn add<A: Action<R>>(mut self) -> Self {
+        const {
+            assert!(
+                crate::declaration::segment_fault(A::NAME).is_none(),
+                "`Action::NAME` must be a single path segment"
+            );
+        }
         self.entries.push(ActionEntry {
             name: A::NAME,
             label: A::label,

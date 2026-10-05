@@ -101,7 +101,7 @@ impl Schema {
     pub async fn render<'a>(&self, cx: &'a Cx, source: Source<'_>) -> Result<BoxView<'a>> {
         let errors = self.declaration_errors();
         if !errors.is_empty() {
-            return Err(crate::error::TabloError::Declaration(errors.join("; ")).into());
+            return Err(crate::error::misdeclared(&errors));
         }
         render_nodes(cx, &self.nodes, &self.fields, &source).await
     }
@@ -207,16 +207,17 @@ impl Schema {
 
     /// Reports what is wrong with this declaration: a field whose lens binds no single column, and
     /// two fields sharing a name.
-    pub fn declaration_errors(&self) -> Vec<String> {
+    pub fn declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
         let mut errors = Vec::new();
         let mut seen = HashSet::new();
         for field in &self.fields {
             match field.misdeclared() {
-                Some(error) => errors.push(format!("field `{}`: {error}", field.name())),
-                None if !seen.insert(field.name()) => errors.push(format!(
-                    "duplicate field name '{}': each Schema input needs a distinct field",
-                    field.name()
-                )),
+                Some(error) => errors.push(error.clone()),
+                None if !seen.insert(field.name()) => {
+                    errors.push(crate::DeclarationErrorKind::DuplicateField {
+                        name: field.name().to_string(),
+                    });
+                }
                 None => {}
             }
         }

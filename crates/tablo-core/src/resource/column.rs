@@ -82,7 +82,7 @@ pub trait Column<M>: Send + Sync {
 
     /// What is wrong with this column's declaration.
     #[doc(hidden)]
-    fn misdeclared(&self) -> Option<String> {
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         None
     }
 }
@@ -223,7 +223,7 @@ pub struct TextColumn<M, T> {
     /// The width this column claims in the table's fixed layout.
     width: ColumnWidth,
     /// What is wrong with the declaration ([`Column::misdeclared`]).
-    misdeclared: Option<String>,
+    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 /// A searchable column's predicate for an escaped `LIKE` pattern.
@@ -345,7 +345,7 @@ where
         })
     }
 
-    fn misdeclared(&self) -> Option<String> {
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         self.misdeclared.clone()
     }
 }
@@ -504,7 +504,7 @@ pub struct BooleanColumn<M> {
     label: String,
     sortable: bool,
     labels: (String, String),
-    misdeclared: Option<String>,
+    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 impl<M> BooleanColumn<M>
@@ -589,7 +589,7 @@ where
         })
     }
 
-    fn misdeclared(&self) -> Option<String> {
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         self.misdeclared.clone()
     }
 }

@@ -61,8 +61,8 @@ cargo run
 - **`resource::<BookResource>()`** registers the resource's routes under `/admin/books`, adds its
   sidebar entry, and, because the panel has no home page, makes `/admin` redirect to the book
   list. [Panel and routing](./panel-and-routing.md) lists every route.
-- **`.panel(..)`** checks every declaration and mounts the panel, or returns an error naming the
-  misdeclaration. **`build()`** returns the `Router`.
+- **`.panel(..)`** checks every declaration and mounts the panel, or returns a `MountError`
+  listing every mistake it found. **`build()`** returns the `Router`.
 - **`topcoat::start`** serves the router on `HOST`:`PORT` (default `127.0.0.1:3000`) until Ctrl+C
   or `SIGTERM`.
 

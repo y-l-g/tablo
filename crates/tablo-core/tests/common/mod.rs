@@ -1,5 +1,5 @@
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
-use tablo_core::{Auth, Panel, Resource, RouterBuilderPanelExt};
+use tablo_core::{Auth, DeclarationError, MountError, Panel, Resource, RouterBuilderPanelExt};
 use tablo_test::cookie_header;
 pub use tablo_test::{body_bytes, body_string, input_value, multipart_body, response_cookies};
 use toasty::Db;
@@ -26,6 +26,18 @@ pub fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
         .app_context(db)
         .panel(panel)?
         .build())
+}
+
+/// The mistakes a panel refused to mount with.
+pub fn refusal<T>(mounted: topcoat::Result<T>) -> Vec<DeclarationError> {
+    let Err(error) = mounted else {
+        panic!("the panel must not mount");
+    };
+    error
+        .downcast_ref::<MountError>()
+        .unwrap_or_else(|| panic!("a declaration mistake refuses the panel, got {error}"))
+        .errors()
+        .to_vec()
 }
 
 pub fn router_with<R: Resource>(db: Db, auth: Auth) -> Router {

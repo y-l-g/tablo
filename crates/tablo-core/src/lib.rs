@@ -86,6 +86,7 @@ pub mod __macro {
 pub mod auth;
 pub mod csrf;
 pub mod db;
+mod declaration;
 mod error;
 pub mod form;
 mod lens;
@@ -104,6 +105,7 @@ mod topcoat_compat;
 pub mod upload;
 
 pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth};
+pub use declaration::{DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site};
 pub use form::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
     write_create, write_update,

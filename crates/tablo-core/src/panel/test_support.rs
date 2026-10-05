@@ -76,6 +76,18 @@ pub(crate) fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
         .build())
 }
 
+/// The mistakes a panel refused to mount with.
+pub(crate) fn refusal(mounted: topcoat::Result<Router>) -> Vec<crate::DeclarationError> {
+    let Err(error) = mounted else {
+        panic!("the panel must not mount");
+    };
+    error
+        .downcast_ref::<crate::MountError>()
+        .unwrap_or_else(|| panic!("a declaration mistake refuses the panel, got {error}"))
+        .errors()
+        .to_vec()
+}
+
 /// The body of `response`, for an inline-error assertion.
 pub(crate) async fn response_html(response: http::Response<Body>) -> String {
     String::from_utf8_lossy(

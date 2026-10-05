@@ -79,7 +79,7 @@ impl<M> Table<M> {
     {
         let errors = self.declaration_errors();
         if !errors.is_empty() {
-            return Err(crate::error::TabloError::Declaration(errors.join("; ")).into());
+            return Err(crate::error::misdeclared(&errors));
         }
         let delete_prefix = self.delete_prefix.clone();
         let with_actions = self.with_actions();

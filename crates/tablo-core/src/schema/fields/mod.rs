@@ -91,7 +91,7 @@ pub struct Field {
     rules: Rules,
     control: ControlKind,
     /// The declaration error when the lens binds no column.
-    misdeclared: Option<String>,
+    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 /// The control a [`Field`] renders, with what only that control declares.
@@ -232,8 +232,8 @@ impl Field {
         }
     }
 
-    pub(crate) fn misdeclared(&self) -> Option<&str> {
-        self.misdeclared.as_deref()
+    pub(crate) fn misdeclared(&self) -> Option<&crate::DeclarationErrorKind> {
+        self.misdeclared.as_ref()
     }
 
     pub fn name(&self) -> &str {

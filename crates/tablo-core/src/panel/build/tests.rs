@@ -4,7 +4,7 @@ use super::*;
 use crate::{
     Ability, Policy, Tenancy, lens,
     panel::test_support::{
-        Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state,
+        Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state, refusal,
     },
 };
 
@@ -266,13 +266,9 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
 /// A panel with no `Db` is a configuration error, not a panic.
 #[test]
 fn panel_build_errors_without_db() {
-    // `Router` has no `Debug`.
-    let Err(error) = mount_without_db(Panel::new("admin")) else {
-        panic!("a panel without a Db must not build");
-    };
-    assert!(
-        format!("{error}").contains("holds no Db"),
-        "the error must name the missing Db, got {error}"
+    assert_eq!(
+        refusal(mount_without_db(Panel::new("admin"))),
+        [DeclarationError::panel(DeclarationErrorKind::MissingDb)]
     );
 }
 
@@ -284,13 +280,13 @@ async fn panel_mount_reports_missing_auth_models() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = mount(db, Panel::new("admin")) else {
-        panic!("a Db without the auth models must not mount a gated panel");
-    };
-    let error = format!("{error}");
-    assert!(
-        error.contains("AuthSession") && error.contains("AdminUser"),
-        "the error must name the missing models, got {error}"
+    assert_eq!(
+        refusal(mount(db, Panel::new("admin"))),
+        [DeclarationError::panel(
+            DeclarationErrorKind::MissingAuthModels {
+                models: vec!["AuthSession", "AdminUser"],
+            }
+        )]
     );
 }
 
@@ -364,13 +360,15 @@ async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
         .unwrap();
     let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
-    let Err(error) = mount(db.clone(), panel().resource::<ColumnThroughRelation>()) else {
-        panic!("a tenant column through a relation must not mount");
-    };
-    let error = format!("{error}");
-    assert!(
-        error.contains("ColumnThroughRelation") && error.contains("Tenancy::via"),
-        "the error must name the resource and the declaration that fits, got {error}"
+    assert_eq!(
+        refusal(mount(
+            db.clone(),
+            panel().resource::<ColumnThroughRelation>()
+        )),
+        [DeclarationError::of::<ColumnThroughRelation>(
+            Site::Tenancy,
+            DeclarationErrorKind::TenancyColumnNotAField,
+        )]
     );
 
     mount(db, panel().resource::<Inherited>()).expect("`Tenancy::via` scopes through a relation");
@@ -401,18 +399,17 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = mount(
-        db,
-        Panel::new("admin")
-            .auth(crate::Auth::disabled())
-            .resource::<ViaOwnColumn>(),
-    ) else {
-        panic!("a `via` over its own column must not mount");
-    };
-    let error = format!("{error}");
-    assert!(
-        error.contains("ViaOwnColumn") && error.contains("Tenancy::column"),
-        "the error must name the resource and the declaration that fits, got {error}"
+    assert_eq!(
+        refusal(mount(
+            db,
+            Panel::new("admin")
+                .auth(crate::Auth::disabled())
+                .resource::<ViaOwnColumn>(),
+        )),
+        [DeclarationError::of::<ViaOwnColumn>(
+            Site::Tenancy,
+            DeclarationErrorKind::TenancyViaOwnColumn,
+        )]
     );
 }
 
@@ -525,19 +522,25 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
         .unwrap();
     let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
-    for error in [
-        mount(db.clone(), panel().resource::<WithoutKey>()).err(),
-        mount(db.clone(), panel().resource::<OverOpenParent>()).err(),
-    ] {
-        let error = format!(
-            "{}",
-            error.expect("an unguarded foreign key must not mount")
-        );
-        assert!(
-            error.contains("Tenancy::via") && error.contains("`parent_id`"),
-            "the error must name the declaration and the foreign key, got {error}"
-        );
-    }
+    let unguarded = DeclarationErrorKind::UnguardedForeignKey {
+        relation: "parent".to_string(),
+        keys: vec!["parent_id".to_string()],
+    };
+    let errors = refusal(mount(db.clone(), panel().resource::<WithoutKey>()));
+    assert!(
+        errors.contains(&DeclarationError::of::<WithoutKey>(
+            Site::Form,
+            unguarded.clone()
+        )),
+        "{errors:?}"
+    );
+    assert_eq!(
+        refusal(mount(db.clone(), panel().resource::<OverOpenParent>())),
+        [DeclarationError::of::<OverOpenParent>(
+            Site::Form,
+            unguarded
+        )]
+    );
     mount(db, panel().resource::<OverScopedParent>())
         .expect("a foreign key over the tenant-scoped parent mounts");
 }
@@ -602,17 +605,20 @@ async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let error = mount(
+    let errors = refusal(mount(
         db,
         Panel::new("admin")
             .auth(crate::Auth::disabled())
             .resource::<Seated>(),
-    )
-    .err()
-    .expect("a relationship over a composite key must not mount");
+    ));
     assert!(
-        format!("{error}").contains("`parent_id` loads a model with a composite primary key"),
-        "got {error}"
+        errors.contains(&DeclarationError::of::<Seated>(
+            Site::Form,
+            DeclarationErrorKind::CompositeKeyChoice {
+                field: "parent_id".to_string(),
+            },
+        )),
+        "{errors:?}"
     );
 }
 
@@ -635,12 +641,19 @@ fn panel_build_rejects_a_hostile_slug() {
         }
     }
 
-    let Err(error) = mount_without_db(Panel::new("admin").resource::<HostileResource>()) else {
-        panic!("a slug with quotes and CRLF must not build");
-    };
-    assert!(
-        format!("{error}").contains("Resource::slug"),
-        "the error must name the offending slug, got {error}"
+    let errors = refusal(mount_without_db(
+        Panel::new("admin").resource::<HostileResource>(),
+    ));
+    assert_eq!(
+        errors[0],
+        DeclarationError::of::<HostileResource>(
+            Site::Registration,
+            DeclarationErrorKind::InvalidSegment {
+                item: "Resource::slug",
+                segment: "a\"b\r\n".to_string(),
+                fault: crate::SegmentFault::Char('"'),
+            },
+        )
     );
 }
 
@@ -689,13 +702,14 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = mount(db, Panel::new("admin").resource::<UnbackedResource>()) else {
-        panic!("a `unique()` marker with no unique index must not build");
-    };
-    let error = format!("{error}");
-    assert!(
-        error.contains("`nickname`") && error.contains("no unique index"),
-        "the error must name the field and the missing index, got {error}"
+    assert_eq!(
+        refusal(mount(db, panel_for::<UnbackedResource>())),
+        [DeclarationError::of::<UnbackedResource>(
+            Site::Form,
+            DeclarationErrorKind::UniqueWithoutIndex {
+                field: "nickname".to_string(),
+            },
+        )]
     );
 }
 
@@ -830,12 +844,14 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = mount(db, Panel::new("admin").resource::<ReadOnlyResource>()) else {
-        panic!("the marker is unbacked whether or not create is allowed");
-    };
-    assert!(
-        format!("{error}").contains("no unique index"),
-        "the error must be the marker's, not the policy's, got {error}"
+    assert_eq!(
+        refusal(mount(db, panel_for::<ReadOnlyResource>())),
+        [DeclarationError::of::<ReadOnlyResource>(
+            Site::Form,
+            DeclarationErrorKind::UniqueWithoutIndex {
+                field: "nickname".to_string(),
+            },
+        )]
     );
 }
 
@@ -869,16 +885,19 @@ fn panel_build_rejects_duplicate_resource_slugs() {
         }
     }
 
-    let Err(error) = mount_without_db(
+    let errors = refusal(mount_without_db(
         Panel::new("admin")
             .resource::<FirstResource>()
             .resource::<SecondResource>(),
-    ) else {
-        panic!("two resources over one slug must not build");
-    };
-    assert!(
-        format!("{error}").contains("duplicate slug"),
-        "the error must name the duplicate, got {error}"
+    ));
+    assert_eq!(
+        errors[0],
+        DeclarationError::of::<SecondResource>(
+            Site::Registration,
+            DeclarationErrorKind::DuplicateSlug {
+                slug: "dummies".to_string(),
+            },
+        )
     );
 }
 
@@ -909,14 +928,17 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
 
     macro_rules! rejects {
         ($name:ident, $slug:literal) => {{
-            let Err(error) = mount_without_db(Panel::new("admin").resource::<$name>()) else {
-                panic!("a slug containing {} must not build", $slug);
-            };
-            let error = format!("{error}");
+            let errors = refusal(mount_without_db(Panel::new("admin").resource::<$name>()));
             assert!(
-                error.contains("Resource::slug") && error.contains($slug),
-                "the error must name the offending slug {:?}, got {error}",
-                $slug
+                matches!(
+                    &errors[0].kind,
+                    DeclarationErrorKind::InvalidSegment {
+                        item: "Resource::slug",
+                        segment,
+                        ..
+                    } if segment == $slug
+                ),
+                "{errors:?}"
             );
         }};
     }
@@ -926,12 +948,14 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
     rejects!(ParenClose, "a)b");
 
     // The prefix goes through the same rule, once per segment.
-    let Err(error) = mount_without_db(Panel::new("adm{in}")) else {
-        panic!("a panel prefix with a route pattern character must not build");
-    };
-    assert!(
-        format!("{error}").contains("panel prefix"),
-        "the error must name the panel prefix, got {error}"
+    let errors = refusal(mount_without_db(Panel::new("adm{in}")));
+    assert_eq!(
+        errors[0],
+        DeclarationError::panel(DeclarationErrorKind::InvalidSegment {
+            item: "panel prefix",
+            segment: "adm{in}".to_string(),
+            fault: crate::SegmentFault::Char('{'),
+        })
     );
 }
 
@@ -984,22 +1008,24 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
         .unwrap();
     let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
-    let Err(error) = mount(db.clone(), panel().resource::<DuplicateColumnResource>()) else {
-        panic!("a duplicate column name must not build");
-    };
-    let error = format!("{error}");
-    assert!(
-        error.contains("is misdeclared") && error.contains("table: duplicate column name"),
-        "the recorded misdeclaration must reach the registration error, got {error}"
+    assert_eq!(
+        refusal(mount(
+            db.clone(),
+            panel().resource::<DuplicateColumnResource>()
+        )),
+        [DeclarationError::of::<DuplicateColumnResource>(
+            Site::Table,
+            DeclarationErrorKind::DuplicateColumn {
+                name: "title".to_string(),
+            },
+        )]
     );
-
-    let Err(error) = mount(db.clone(), panel().resource::<ZeroPageResource>()) else {
-        panic!("a zero page size must not build");
-    };
-    let error = format!("{error}");
-    assert!(
-        error.contains("is misdeclared") && error.contains("page size"),
-        "the recorded misdeclaration must reach the registration error, got {error}"
+    assert_eq!(
+        refusal(mount(db.clone(), panel().resource::<ZeroPageResource>())),
+        [DeclarationError::of::<ZeroPageResource>(
+            Site::Table,
+            DeclarationErrorKind::ZeroPageSize,
+        )]
     );
 }
 
@@ -1222,13 +1248,14 @@ async fn panel_build_rejects_a_misdeclared_view() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let Err(error) = mount(db, panel_for::<BadView>()) else {
-        panic!("a view declaring one field twice must not build");
-    };
-    let error = format!("{error}");
-    assert!(
-        error.contains("view: duplicate field name 'name'"),
-        "the error names the part and the field, got {error}"
+    assert_eq!(
+        refusal(mount(db, panel_for::<BadView>())),
+        [DeclarationError::of::<BadView>(
+            Site::View,
+            DeclarationErrorKind::DuplicateField {
+                name: "name".to_string(),
+            },
+        )]
     );
 }
 

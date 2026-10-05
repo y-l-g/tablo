@@ -3,12 +3,15 @@
 //! the relation, and the writes it starts return to the owner's page.
 
 use http::header::LOCATION;
-use tablo_core::{Ability, Field, Policy, Relation, Resource, Schema, Table, TextColumn, lens};
+use tablo_core::{
+    Ability, DeclarationErrorKind, Field, Policy, Relation, Resource, Schema, Site, Table,
+    TextColumn, lens,
+};
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel, post_fields};
+use crate::common::{body_string, get, memory_db, mount, panel, post_fields, refusal};
 
 #[derive(Debug, toasty::Model, Clone)]
 struct Owner {
@@ -308,13 +311,10 @@ async fn a_write_returns_to_a_panel_page_and_ignores_any_other_target() {
 #[tokio::test]
 async fn a_relation_to_an_unregistered_resource_does_not_build() {
     let db = memory_db(toasty::models!(Owner, Child)).await;
-    let Err(error) = mount(db, panel().resource::<OwnerResource>()) else {
-        panic!("a relation to an unregistered resource must not build");
-    };
-    assert!(
-        error.to_string().contains("relates to `children`"),
-        "got {error}"
-    );
+    let errors = refusal(mount(db, panel().resource::<OwnerResource>()));
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(errors[0].site, Site::Relation("children".to_string()));
+    assert_eq!(errors[0].kind, DeclarationErrorKind::UnregisteredRelation);
 }
 
 /// Two relations of one resource to the same child would share one parameter
@@ -341,16 +341,13 @@ async fn two_relations_to_one_child_do_not_build() {
     }
 
     let db = memory_db(toasty::models!(Owner, Child)).await;
-    let Err(error) = mount(
+    let errors = refusal(mount(
         db,
         panel()
             .resource::<TwiceResource>()
             .resource::<ChildResource>(),
-    ) else {
-        panic!("two relations to one child must not build");
-    };
-    assert!(
-        error.to_string().contains("two relations to `children`"),
-        "got {error}"
-    );
+    ));
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(errors[0].site, Site::Relation("children".to_string()));
+    assert_eq!(errors[0].kind, DeclarationErrorKind::DuplicateRelation);
 }

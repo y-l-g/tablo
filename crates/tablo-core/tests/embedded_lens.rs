@@ -15,7 +15,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{Field, FieldErrors, Schema, Source};
+use tablo_core::{DeclarationErrorKind, Field, FieldErrors, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -168,7 +168,7 @@ async fn a_relation_traversal_is_refused_rather_than_misbound() {
     assert!(
         errors
             .iter()
-            .any(|error| error.contains("only embedded steps")),
+            .any(|error| matches!(error, DeclarationErrorKind::UnresolvedLens { .. })),
         "{errors:?}"
     );
 }
@@ -180,12 +180,7 @@ async fn a_relation_traversal_is_refused_rather_than_misbound() {
 #[tokio::test]
 async fn without_a_schema_a_traversal_lens_is_still_refused() {
     let errors = Schema::new(Field::text(Article::fields().meta().note())).declaration_errors();
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("single-field lens")),
-        "{errors:?}"
-    );
+    assert_eq!(errors, [DeclarationErrorKind::TraversalLens { steps: 2 }]);
 }
 
 /// Every kind of field binds an embedded leaf in a declaration scope,

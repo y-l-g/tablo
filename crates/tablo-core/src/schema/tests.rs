@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
+use crate::DeclarationErrorKind;
 #[derive(Debug, toasty::Model)]
 struct DummyUser {
     #[key]
@@ -45,11 +46,11 @@ fn schema_records_duplicate_field_names() {
         Field::text(DummyUser::fields().name()),
     ))
     .declaration_errors();
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("duplicate field name")),
-        "{errors:?}"
+    assert_eq!(
+        errors,
+        [DeclarationErrorKind::DuplicateField {
+            name: "name".to_string()
+        }]
     );
 }
 
@@ -67,10 +68,10 @@ async fn a_misdeclared_schema_fails_to_render() {
     let Err(error) = schema.render(&cx, Source::form(&values, &errors)).await else {
         panic!("a misdeclared schema must not render");
     };
-    assert!(
-        format!("{error}").contains("duplicate field name"),
-        "the render error carries the declaration errors, got {error}"
-    );
+    let duplicate = DeclarationErrorKind::DuplicateField {
+        name: "name".to_string(),
+    };
+    assert_eq!(error.to_string(), duplicate.to_string());
 }
 
 #[test]
@@ -130,10 +131,10 @@ fn extend_keeps_the_duplicate_field_check() {
         .extend(Schema::new(input()))
         .extend(Schema::new(input()))
         .declaration_errors();
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("duplicate field name 'name'")),
-        "{errors:?}"
+    assert_eq!(
+        errors,
+        [DeclarationErrorKind::DuplicateField {
+            name: "name".to_string()
+        }]
     );
 }
