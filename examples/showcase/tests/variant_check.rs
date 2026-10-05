@@ -40,9 +40,8 @@ struct ClipResource;
 impl Resource for ClipResource {
     type Model = Clip;
     type Form = ClipForm;
-    fn form(dx: &tablo_core::DeclCx) -> Schema {
-        Schema::new(Field::text(Clip::fields().title()))
-            .extend(Body::form(dx, Clip::fields().body()))
+    fn form() -> Schema {
+        Schema::new(Field::text(Clip::fields().title())).extend(Body::form(Clip::fields().body()))
     }
 
     fn slug() -> String {

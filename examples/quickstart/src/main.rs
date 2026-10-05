@@ -39,14 +39,6 @@ impl Resource for BookResource {
             !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
         }
     }
-
-    fn table() -> Table<Book> {
-        Table::new(TextColumn::new(lens!(Book.title)).searchable().sortable())
-    }
-
-    fn form(_dx: &tablo::DeclCx) -> Schema {
-        Schema::new(Field::text(Book::fields().title()))
-    }
 }
 
 fn panel() -> Panel {

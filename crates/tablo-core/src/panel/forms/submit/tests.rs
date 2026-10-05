@@ -41,7 +41,7 @@ async fn edit_post_requires_view_as_well_as_update() {
     impl Resource for ViewDeniedResource {
         type Model = Dummy;
         type Form = ViewDeniedForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
 
@@ -146,7 +146,7 @@ async fn transport_keys_never_reach_the_write() {
     impl crate::resource::Resource for CapturingResource {
         type Model = Doc;
         type Form = CapturingForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new((
                 Field::text(Doc::fields().title()),
                 Field::file(Doc::fields().path()),
@@ -241,7 +241,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     impl Resource for WritingResource {
         type Model = Dummy;
         type Form = WritingForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
 
@@ -350,7 +350,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     impl Resource for EditingResource {
         type Model = Dummy;
         type Form = EditingForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
         async fn update_record(
@@ -488,7 +488,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     impl Resource for NotifyingResource {
         type Model = Dummy;
         type Form = NotifyingForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             // Optional so the csrf-only POST passes validation.
             crate::schema::Schema::new(
                 crate::schema::Field::text(Dummy::fields().name()).optional(),
@@ -603,7 +603,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     impl Resource for SubscriberResource {
         type Model = Subscriber;
         type Form = SubscriberForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(
                 Field::text(Subscriber::fields().email())
                     .unique()
@@ -710,7 +710,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
     impl crate::resource::Resource for DocResource {
         type Model = Doc;
         type Form = DocForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new((
                 Field::text(Doc::fields().title()),
                 Field::file(Doc::fields().path()),

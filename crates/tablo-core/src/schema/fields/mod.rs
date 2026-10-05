@@ -1,5 +1,5 @@
 //! One [`Field`] type whose control is text, choice, file, or an app's own [`Control`], built from
-//! a [`ResolvedLens`] binding a column or an embedded leaf.
+//! a path binding a column or an embedded leaf.
 
 mod builders;
 mod choice;
@@ -10,17 +10,18 @@ mod text;
 use std::sync::Arc;
 
 pub use builders::{ChoiceField, CustomField, FileField, IntoOptions, TextField};
-pub(crate) use choice::{ChoiceControl, model_name, option_view};
+pub(crate) use choice::{ChoiceControl, option_view};
 pub use custom::{Control, ControlInput, Toggle};
 use tablo_ui::{
     field as ui_field, field_content as ui_field_content, field_error as ui_field_error,
     field_label as ui_field_label, field_title as ui_field_title,
 };
 pub(crate) use text::TextControl;
+use toasty::stmt::Path;
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    lenses::{DeclCx, ResolvedLens, capitalize},
+    lenses::{ResolvedLens, capitalize},
     tree::Mode,
     validation::Rules,
 };
@@ -105,12 +106,12 @@ impl Field {
 
     /// Binds any [`FormScalar`] column, storing the type's own spelling and probing uniqueness
     /// through the lens.
-    pub fn text<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> TextField
+    pub fn text<M, T>(lens: impl Into<Path<M, T>>) -> TextField
     where
         M: toasty::schema::Model,
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
     {
-        let lens = lens.into();
+        let lens = ResolvedLens::of(lens);
         let control = TextControl::new::<M, T>(lens.path.clone(), lens.unique);
         TextField(Self::bound(
             lens,
@@ -121,12 +122,12 @@ impl Field {
 
     /// The text field `#[derive(EmbeddedForm)]` renders for a leaf.
     #[doc(hidden)]
-    pub fn embedded_leaf<M, T>(dx: &DeclCx, path: toasty::stmt::Path<M, T>) -> TextField
+    pub fn embedded_leaf<M, T>(path: Path<M, T>) -> TextField
     where
         M: toasty::schema::Model,
         T: FormScalar,
     {
-        let lens = ResolvedLens::new(dx, path);
+        let lens = ResolvedLens::of(path);
         TextField(Self::bound(
             lens,
             Rules::new().scalar::<T>(),
@@ -136,12 +137,12 @@ impl Field {
 
     /// A choice field over any column, with options from [`options`](ChoiceField::options) or
     /// [`relationship`](ChoiceField::relationship).
-    pub fn choice<M, T>(lens: impl Into<ResolvedLens<M, T>>) -> ChoiceField
+    pub fn choice<M, T>(lens: impl Into<Path<M, T>>) -> ChoiceField
     where
         M: toasty::schema::Model,
     {
         ChoiceField(Self::bound(
-            lens.into(),
+            ResolvedLens::of(lens),
             Rules::new(),
             ControlKind::Choice(ChoiceControl::default()),
         ))
@@ -149,15 +150,19 @@ impl Field {
 
     /// A file field over a `String` column holding the uploaded path, rendering no `value`
     /// attribute.
-    pub fn file<M>(lens: impl Into<ResolvedLens<M, String>>) -> FileField
+    pub fn file<M>(lens: impl Into<Path<M, String>>) -> FileField
     where
         M: toasty::schema::Model,
     {
-        FileField(Self::bound(lens.into(), Rules::new(), ControlKind::File))
+        FileField(Self::bound(
+            ResolvedLens::of(lens),
+            Rules::new(),
+            ControlKind::File,
+        ))
     }
 
     /// A checkbox over a `bool` column that submits `false` when unchecked.
-    pub fn toggle<M>(lens: impl Into<ResolvedLens<M, bool>>) -> CustomField
+    pub fn toggle<M>(lens: impl Into<Path<M, bool>>) -> CustomField
     where
         M: toasty::schema::Model,
     {
@@ -165,16 +170,13 @@ impl Field {
     }
 
     /// A field over any [`FormScalar`] column, rendered by an app's [`Control`].
-    pub fn custom<M, T>(
-        lens: impl Into<ResolvedLens<M, T>>,
-        control: impl Control + 'static,
-    ) -> CustomField
+    pub fn custom<M, T>(lens: impl Into<Path<M, T>>, control: impl Control + 'static) -> CustomField
     where
         M: toasty::schema::Model,
         T: FormScalar,
     {
         CustomField(Self::bound(
-            lens.into(),
+            ResolvedLens::of(lens),
             Rules::new().scalar::<T>(),
             ControlKind::Custom(Arc::new(control)),
         ))

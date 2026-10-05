@@ -11,8 +11,9 @@ so a renamed or retyped column rejects at compile time. Keys resolve at run time
 key of an `EmbeddedForm` value and writes it whole. A `bool` is a toggle reading empty as
 `false`; `#[form(options = T)]` is a choice over `T`'s `Options` list, `#[form(choice)]` a bare
 choice, `#[form(file)]` a file field, any other field a text field. The derive emits
-`controls(dx)` plus the default `schema` arranging one per field; `Resource::form` defaults to
-that schema and an override arranges the controls into a layout. Each constructor returns its
+`controls()` plus the default `schema` arranging one per field, and the default `table` listing
+each field a column can show; `Resource::form` and `Resource::table` default to them, and
+`Resource::view` to the form. An override arranges or extends them. Each constructor returns its
 control's builder, so a modifier on the wrong control does not compile.
 
 **2. The form lives on `Resource`, registered once.** `type Form`, `CREATE_COLUMNS`, `form`,

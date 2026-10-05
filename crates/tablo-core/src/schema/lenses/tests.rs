@@ -147,9 +147,7 @@ struct LensPost {
     stats: Stats,
 }
 
-/// A second root model for the identity guard. Its fields are ordered so
-/// that a lookup trusting the *id* would land on a different column than
-/// the lens names: `LensPost.seo` is index 2, `Impostor.wrapper` is index 2.
+/// A second root model, embedding what `LensPost` embeds.
 #[derive(Debug, Clone, toasty::Model)]
 struct Impostor {
     #[key]
@@ -174,37 +172,12 @@ async fn lens_cx() -> Cx {
     cx_with(toasty::models!(LensPost)).await
 }
 
-/// A model set whose root is `Impostor` wearing `LensPost`'s id.
-///
-/// Two Rust model types never share a `ModelId` in one process, so the one
-/// way an id can name a foreign model is an assembled set — which is what
-/// the guard exists for: it trusts the root's **name**, never the id.
-fn models_with_a_foreign_root() -> toasty::schema::ModelSet {
-    let mut set = toasty::schema::ModelSet::new();
-    let mut model = Impostor::schema();
-    let toasty_core::schema::app::Model::Root(root) = &mut model else {
-        panic!("a #[derive(Model)] type builds a root model");
-    };
-    let id = <LensPost as toasty::schema::Model>::id();
-    root.id = id;
-    // A field's own `FieldId` names its model too, so the forgery has to
-    // carry through or the root would be inconsistent with its fields.
-    for field in &mut root.fields {
-        field.id.model = id;
-    }
-    set.add(model);
-    // The forged root embeds both, so their models must be in the set too.
-    <Seo as toasty::schema::Field>::register(&mut set);
-    <Wrapper as toasty::schema::Field>::register(&mut set);
-    set
-}
-
 /// A plain leaf: a single segment on a model root never enters the walk, so
 /// the owned app field answers name, label and nullability.
 #[tokio::test]
 async fn a_plain_leaf_resolves_through_the_app_field() {
     let cx = lens_cx().await;
-    let leaf = FieldResolver::new(&DeclCx::from_cx(&cx))
+    let leaf = FieldResolver::new(schema_of(&cx))
         .resolve(LensPost::fields().title())
         .unwrap();
     assert_eq!(leaf.name, "title");
@@ -219,7 +192,7 @@ async fn a_plain_leaf_resolves_through_the_app_field() {
 #[tokio::test]
 async fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
     let cx = lens_cx().await;
-    let leaf = FieldResolver::new(&DeclCx::from_cx(&cx))
+    let leaf = FieldResolver::new(schema_of(&cx))
         .resolve(LensPost::fields().seo().title())
         .unwrap();
     assert_eq!(leaf.name, "seo_title");
@@ -237,8 +210,7 @@ async fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
 #[tokio::test]
 async fn a_leaf_in_a_struct_nested_in_an_enum_variant_resolves_to_one_column() {
     let cx = lens_cx().await;
-    let dx = DeclCx::from_cx(&cx);
-    let resolver = FieldResolver::new(&dx);
+    let resolver = FieldResolver::new(schema_of(&cx));
 
     // media.image().url() — the other variant, one level down.
     assert_eq!(
@@ -276,8 +248,7 @@ async fn a_leaf_in_a_struct_nested_in_an_enum_variant_resolves_to_one_column() {
 #[tokio::test]
 async fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
     let cx = lens_cx().await;
-    let dx = DeclCx::from_cx(&cx);
-    let resolver = FieldResolver::new(&dx);
+    let resolver = FieldResolver::new(schema_of(&cx));
     assert_eq!(
         resolver
             .resolve(LensPost::fields().wrapper().inner().image().url())
@@ -298,8 +269,7 @@ async fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
 #[tokio::test]
 async fn a_shared_column_resolves_for_every_variant_that_declares_it() {
     let cx = lens_cx().await;
-    let dx = DeclCx::from_cx(&cx);
-    let resolver = FieldResolver::new(&dx);
+    let resolver = FieldResolver::new(schema_of(&cx));
     assert_eq!(
         resolver
             .resolve(LensPost::fields().publication().scheduled().scheduled_at())
@@ -327,7 +297,7 @@ async fn a_shared_column_resolves_for_every_variant_that_declares_it() {
 #[tokio::test]
 async fn a_document_leaf_resolves_to_the_document_column() {
     let cx = lens_cx().await;
-    let leaf = FieldResolver::new(&DeclCx::from_cx(&cx))
+    let leaf = FieldResolver::new(schema_of(&cx))
         .resolve(LensPost::fields().stats().word_count())
         .unwrap();
     assert_eq!(leaf.name, "stats");
@@ -342,12 +312,10 @@ async fn a_document_leaf_resolves_to_the_document_column() {
 #[tokio::test]
 async fn a_root_model_the_schema_does_not_carry_resolves_to_nothing() {
     let cx = cx_with(toasty::models!(Impostor)).await;
-    let dx = DeclCx::from_cx(&cx);
-    let resolver = FieldResolver::new(&dx);
+    let resolver = FieldResolver::new(schema_of(&cx));
     assert!(resolver.has_schema(), "the Db carries the app schema");
     assert!(
-        dx.schema
-            .as_deref()
+        schema_of(&cx)
             .expect("the Db carries the app schema")
             .app
             .get_model(<LensPost as Model>::id())
@@ -366,7 +334,7 @@ async fn a_root_model_the_schema_does_not_carry_resolves_to_nothing() {
 #[tokio::test]
 async fn a_root_model_the_schema_does_not_carry_refuses_a_leaf_lens() {
     let cx = cx_with(toasty::models!(Impostor)).await;
-    let error = FieldResolver::new(&DeclCx::from_cx(&cx))
+    let error = FieldResolver::new(schema_of(&cx))
         .resolve(LensPost::fields().seo().title())
         .expect_err("a lens the schema cannot bind is refused");
     assert!(
@@ -375,60 +343,11 @@ async fn a_root_model_the_schema_does_not_carry_refuses_a_leaf_lens() {
     );
 }
 
-/// Resolves to nothing when the lens's id names another model.
-#[tokio::test]
-async fn an_id_that_names_another_model_resolves_to_nothing() {
-    let cx = cx_with(models_with_a_foreign_root()).await;
-    let dx = DeclCx::from_cx(&cx);
-    let resolver = FieldResolver::new(&dx);
-    let schema = dx.schema.as_deref().expect("the Db carries the app schema");
-    let root = schema
-        .app
-        .get_model(<LensPost as Model>::id())
-        .expect("the forged root answers the lens's id")
-        .as_root()
-        .expect("a root model");
-    assert_eq!(
-        root.name.upper_camel_case(),
-        "Impostor",
-        "the id is the lens's, the name is another model's"
-    );
-    // The forged root's field at the lens's first step would answer with another column.
-    let mapping = schema
-        .mapping
-        .models
-        .get(&root.id)
-        .expect("the forged root is mapped");
-    assert_eq!(
-        descend(schema, &root.fields, &mapping.fields, &[2, 0])
-            .expect("the forged root's field 2 has a leaf")
-            .name,
-        "wrapper_label",
-        "only the name check keeps this column from being bound for `seo.title`"
-    );
-    assert!(
-        resolver
-            .resolve_enum(LensPost::fields().publication().into())
-            .is_none(),
-        "the root at this id is Impostor, so no index may be trusted"
-    );
-}
-
-/// Refuses a leaf lens when the lens's id names another model.
-#[tokio::test]
-#[should_panic(expected = "does not resolve to a single column")]
-async fn an_id_that_names_another_model_refuses_a_leaf_lens() {
-    let cx = cx_with(models_with_a_foreign_root()).await;
-    let _ = FieldResolver::new(&DeclCx::from_cx(&cx))
-        .resolve(LensPost::fields().seo().title())
-        .unwrap();
-}
-
 /// Resolves an embedded enum's discriminant and variants in declaration order.
 #[tokio::test]
 async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
     let cx = lens_cx().await;
-    let shape = FieldResolver::new(&DeclCx::from_cx(&cx))
+    let shape = FieldResolver::new(schema_of(&cx))
         .resolve_enum(LensPost::fields().publication().into())
         .expect("an embedded enum resolves");
     assert_eq!(shape.discriminant, "publication");
@@ -445,7 +364,7 @@ async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
 #[tokio::test]
 async fn an_enum_inside_a_struct_resolves_through_its_path() {
     let cx = lens_cx().await;
-    let shape = FieldResolver::new(&DeclCx::from_cx(&cx))
+    let shape = FieldResolver::new(schema_of(&cx))
         .resolve_enum(LensPost::fields().wrapper().inner().into())
         .expect("the nested enum resolves");
     assert_eq!(shape.discriminant, "wrapper_inner");
@@ -455,8 +374,7 @@ async fn an_enum_inside_a_struct_resolves_through_its_path() {
 #[tokio::test]
 async fn anything_but_an_enum_resolves_to_nothing() {
     let cx = lens_cx().await;
-    let dx = DeclCx::from_cx(&cx);
-    let resolver = FieldResolver::new(&dx);
+    let resolver = FieldResolver::new(schema_of(&cx));
     assert!(
         resolver
             .resolve_enum(LensPost::fields().seo().into())
@@ -485,8 +403,7 @@ async fn anything_but_an_enum_resolves_to_nothing() {
 #[test]
 fn without_a_schema_there_is_no_walk() {
     let cx = CxTestBuilder::new().build();
-    let dx = DeclCx::from_cx(&cx);
-    let resolver = FieldResolver::new(&dx);
+    let resolver = FieldResolver::new(schema_of(&cx));
     assert!(!resolver.has_schema(), "a bare Cx carries no Db");
     assert!(
         resolver

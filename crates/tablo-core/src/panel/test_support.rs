@@ -119,7 +119,7 @@ impl crate::resource::Resource for TaggedResource {
     type Model = Tagged;
     type Form = TaggedForm;
 
-    fn form(_dx: &crate::schema::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new((
             Field::text(Tagged::fields().name()),
             Field::text(Tagged::fields().token()).unique(),

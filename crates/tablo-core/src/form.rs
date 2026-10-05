@@ -101,8 +101,8 @@ use topcoat::{Result, context::Cx};
 
 use crate::{
     error::TabloError,
-    resource::Resource,
-    schema::{DeclCx, Schema, TypedValue},
+    resource::{Resource, Table},
+    schema::{Schema, TypedValue},
     tenancy::require_tenant,
 };
 
@@ -299,24 +299,34 @@ pub struct FormField<K> {
 /// hand-written impl is what the derive expands to.
 pub trait RecordForm: Sized + Send + 'static {
     /// The model the form writes.
-    type Model: Model + Send + Sync + 'static;
+    type Model: Model + toasty::stmt::IntoExpr<Self::Model> + Send + Sync + 'static;
 
     /// One variant per form field: the key [`Posted`] uses. Its bound form keys
     /// are [`Self::fields`]'.
     type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
 
     /// Every field, in declaration order, with the keys it binds.
-    fn fields(dx: &DeclCx) -> Vec<FormField<Self::Field>>;
+    fn fields() -> Vec<FormField<Self::Field>>;
 
     /// The form's default schema: one control per field, in declaration
-    /// order. [`Resource::form`] defaults to
-    /// it.
+    /// order. [`Resource::form`] defaults to it.
     ///
     /// The derive chooses each control from the field (see
     /// [`RecordForm`](derive@crate::RecordForm)); the default here declares
     /// none, which is what [`NoForm`] wants.
-    fn schema(_dx: &DeclCx) -> Schema {
+    fn schema() -> Schema {
         Schema::empty()
+    }
+
+    /// The form's default table: one column per field a column can show, in declaration order.
+    /// [`Resource::table`] defaults to it.
+    ///
+    /// The derive lists each text field in a sortable column, searchable over a `String`, an
+    /// options field by its option's label, and a toggle as yes or no (see
+    /// [`RecordForm`](derive@crate::RecordForm)). The default here lists none, so a resource
+    /// whose form lists nothing, such as one naming [`NoForm`], declares its own.
+    fn table() -> Table<Self::Model> {
+        Table::new(())
     }
 
     /// The stored record as the form spells it.
@@ -373,19 +383,19 @@ pub trait RecordForm: Sized + Send + 'static {
 /// future [`exec_update`](RecordForm::exec_update) returns panics when polled.
 pub struct NoForm<M>(std::marker::PhantomData<fn() -> M>);
 
-impl<M: Model + Send + Sync + 'static> NoForm<M> {
+impl<M: Model + toasty::stmt::IntoExpr<M> + Send + Sync + 'static> NoForm<M> {
     fn unreachable() -> ! {
         panic!("`NoForm<{}>` has no form", std::any::type_name::<M>())
     }
 }
 
-impl<M: Model + Send + Sync + 'static> RecordForm for NoForm<M> {
+impl<M: Model + toasty::stmt::IntoExpr<M> + Send + Sync + 'static> RecordForm for NoForm<M> {
     type Model = M;
     type Field = std::convert::Infallible;
 
     const HAS_FORM: bool = false;
 
-    fn fields(_dx: &DeclCx) -> Vec<FormField<Self::Field>> {
+    fn fields() -> Vec<FormField<Self::Field>> {
         Vec::new()
     }
 

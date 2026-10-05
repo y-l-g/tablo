@@ -4,6 +4,17 @@ A resource's `table()` declares its list page: the columns, and the search, sort
 grouping and pagination the list offers. It takes no context: the panel calls it once at
 build and serves that table to every request. The same declaration drives the CSV export.
 
+`table()` defaults to the record form's derived table, `UserForm::table()`: a sortable column per
+text field, searchable over a `String`, an `#[form(options = ..)]` field by its option's label,
+and a `bool` as yes or no. A bare choice, a file and an embedded value get no column. Extend the
+derived table, or declare the columns yourself:
+
+```rust
+fn table() -> Table<User> {
+    UserForm::table().filters(TernaryFilter::new(User::fields().active()))
+}
+```
+
 ```rust
 fn table() -> Table<User> {
     Table::new((
@@ -24,9 +35,10 @@ has no URL form, so its rows render without row actions or bulk selection.
 
 `lens!(User.name)` names a field once and yields both halves a column needs: the path a query
 sorts and searches on (`User::fields().name()`) and the reader that renders the loaded value
-(`&user.name`). The two cannot disagree. A column binds one field of the model; a lens through a
-relation does not compile, since a relation's records are not part of the row. Builders that only
-query, such as the filters and `Field` constructors, take either a lens or a plain path.
+(`&user.name`). The two cannot disagree. A lens names a field of the model or, through an embedded
+value, its leaf (`lens!(Post.seo.title)`), which binds the flattened `seo_title` column; a lens
+through a relation does not compile, since a relation's records are not part of the row. Builders
+that only query, such as the filters and `Field` constructors, take either a lens or a plain path.
 
 ## Columns
 

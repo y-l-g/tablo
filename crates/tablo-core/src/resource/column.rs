@@ -6,7 +6,7 @@ use std::{borrow::Cow, sync::Arc};
 use toasty::stmt::{Expr, OrderByExpr};
 use topcoat::{context::Cx, icon::icon, view::*};
 
-use crate::{Lens, form::FormScalar, schema::LensBinding};
+use crate::{Lens, form::FormScalar, schema::ResolvedLens};
 
 /// One table column declares its header, its cell, and its query predicates.
 ///
@@ -229,7 +229,7 @@ where
     where
         T: FormScalar + Send + Sync + 'static,
     {
-        let binding = LensBinding::of(lens.path().clone());
+        let binding = ResolvedLens::of(lens.path().clone());
         Self {
             lens,
             name: binding.name,
@@ -476,7 +476,7 @@ where
 {
     /// Bind the column to the `bool` field `lens` reads.
     pub fn new(lens: Lens<M, bool>) -> Self {
-        let binding = LensBinding::of(lens.path().clone());
+        let binding = ResolvedLens::of(lens.path().clone());
         Self {
             lens,
             name: binding.name,
@@ -570,7 +570,8 @@ impl<M> std::fmt::Debug for BooleanColumn<M> {
 /// A table's columns, as the table stores them.
 pub(crate) type BoxColumn<M> = Arc<dyn Column<M>>;
 
-/// Convert a single built-in column, or a tuple of any [`Column`]s, into a table's column list.
+/// Convert a single built-in column, a tuple of any [`Column`]s, or `()` for none yet, into a
+/// table's column list.
 ///
 /// [`Table::column`](super::Table::column) appends past it.
 pub trait IntoColumns<M> {
@@ -603,6 +604,12 @@ where
 {
     fn into_columns(self) -> Vec<BoxColumn<M>> {
         vec![Arc::new(self)]
+    }
+}
+
+impl<M> IntoColumns<M> for () {
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        Vec::new()
     }
 }
 

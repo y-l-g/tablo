@@ -47,14 +47,6 @@
 //!     fn policy() -> impl Policy<Book> {
 //!         Allow
 //!     }
-//!
-//!     fn table() -> Table<Book> {
-//!         Table::new(TextColumn::new(lens!(Book.title)).searchable().sortable())
-//!     }
-//!
-//!     fn form(_dx: &tablo::DeclCx) -> Schema {
-//!         Schema::new(Field::text(Book::fields().title()))
-//!     }
 //! }
 //!
 //! let router = Router::builder()
@@ -76,10 +68,10 @@ pub mod prelude {
     pub use tablo_core::{
         Ability, Action, Actions, Allow, Auth, BooleanColumn, Brand, ChoiceField, Column,
         ColumnWidth, Committed, ComputedColumn, Control, ControlInput, CustomField, DateFilter,
-        DeclCx, Deny, EmbeddedForm, Field, FieldErrors, FileField, Filter, FilterInput, Grid,
-        Group, Includes, IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy,
-        Posted, QueryFilter, ReadOnly, RecordForm, Relation, Repeater, ResolvedLens, Resource,
-        RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
-        TextColumn, TextField, Toggle, can, can_list, lens, scoped_query, tenant_id, when,
+        Deny, EmbeddedForm, Field, FieldErrors, FileField, Filter, FilterInput, Grid, Group,
+        Includes, IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy, Posted,
+        QueryFilter, ReadOnly, RecordForm, Relation, Repeater, Resource, RouterBuilderPanelExt,
+        Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, TextField,
+        Toggle, can, can_list, lens, scoped_query, tenant_id, when,
     };
 }

@@ -27,10 +27,10 @@ use super::{
 use crate::{
     auth::{PanelGate, RUNTIME_PREFIX, RuntimeGate, SESSION_LIFETIME},
     error::TabloError,
-    form::RecordForm,
+    form::{FormField, RecordForm},
     policy::{Ability, can},
     resource::{Declarations, Declared, Resource},
-    schema::{DeclCx, Schema},
+    schema::{Schema, schema_of},
 };
 
 /// Mounts a [`Panel`] on a router the app owns.
@@ -73,11 +73,10 @@ impl Panel {
         let mut declarations = Declarations::default();
         if !self.resource_checks.is_empty() {
             let cx = validation_cx(&db);
-            let dx = DeclCx::new(&db);
             let failures: Vec<String> = self
                 .resource_checks
                 .iter()
-                .filter_map(|check| check(&cx, &dx, &mut declarations).err())
+                .filter_map(|check| check(&cx, &mut declarations).err())
                 .collect();
             if !failures.is_empty() {
                 return Err(self.refused(&failures));
@@ -359,13 +358,12 @@ pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), St
 /// A resource's declaration check: monomorphized once per declared resource
 /// by [`Panel::resource`], run by [`RouterBuilderPanelExt::panel`] with the
 /// app's values and no request.
-pub(super) type ResourceCheck = fn(&Cx, &DeclCx, &mut Declarations) -> Result<(), String>;
+pub(super) type ResourceCheck = fn(&Cx, &mut Declarations) -> Result<(), String>;
 
 /// Checks what a declared resource promises before the panel serves it, building its declarations
 /// once for handlers to serve.
 pub(super) fn check_resource<R: Resource>(
     cx: &Cx,
-    dx: &DeclCx,
     declarations: &mut Declarations,
 ) -> Result<(), String> {
     if let Some(Err(error)) = R::tenancy().column_field() {
@@ -385,7 +383,7 @@ pub(super) fn check_resource<R: Resource>(
             std::any::type_name::<R::Model>(),
         ));
     }
-    let declared = Declared::<R>::build(dx);
+    let declared = Declared::<R>::build(schema_of(cx));
     let misdeclared: Vec<String> = [
         ("table", declared.table.declaration_errors()),
         ("form", declared.form.declaration_errors()),
@@ -406,7 +404,7 @@ pub(super) fn check_resource<R: Resource>(
         ));
     }
     check_actions::<R>()?;
-    check_form_declaration::<R>(cx, dx, &declared)?;
+    check_form_declaration::<R>(cx, &declared)?;
     declarations.insert(Arc::new(declared));
     Ok(())
 }
@@ -431,21 +429,17 @@ fn check_actions<R: Resource>() -> Result<(), String> {
 }
 
 /// Checks a resource's form declaration against its record form.
-fn check_form_declaration<R: Resource>(
-    cx: &Cx,
-    dx: &DeclCx,
-    declared: &Declared<R>,
-) -> Result<(), String> {
+fn check_form_declaration<R: Resource>(cx: &Cx, declared: &Declared<R>) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
     let form = std::any::type_name::<R::Form>();
     if <R::Form as RecordForm>::HAS_FORM {
-        if declared.form.is_empty() && !<R::Form as RecordForm>::fields(dx).is_empty() {
+        if declared.form.is_empty() && !declared.fields.is_empty() {
             return Err(format!(
                 "resource `{resource}` names record form `{form}`, but its `form()` declares no \
                  controls — drop the override to render the derived schema"
             ));
         }
-        return check_form_inner::<R>(cx, dx, &declared.form);
+        return check_form_inner::<R>(cx, &declared.fields, &declared.form);
     }
     if !declared.form.is_empty() {
         return Err(format!(
@@ -462,9 +456,12 @@ fn check_form_declaration<R: Resource>(
     Ok(())
 }
 
-fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<(), String> {
+fn check_form_inner<R: Resource>(
+    cx: &Cx,
+    fields: &[FormField<<R::Form as RecordForm>::Field>],
+    form: &Schema,
+) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
-    let fields = <R::Form as RecordForm>::fields(dx);
     let controls = form.controls();
     for control in &controls {
         let claims = fields
@@ -485,7 +482,7 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
             ));
         }
     }
-    for field in &fields {
+    for field in fields {
         for key in &field.keys {
             if !controls.iter().any(|control| &control.name == key) {
                 return Err(format!(
@@ -539,10 +536,10 @@ fn check_form_inner<R: Resource>(cx: &Cx, dx: &DeclCx, form: &Schema) -> Result<
         ));
     }
     if R::tenancy().via_is_single() == Some(false) {
-        check_via_foreign_keys::<R>(dx, form)?;
+        check_via_foreign_keys::<R>(form)?;
     }
     if can::<R>(cx, Ability::Create) {
-        check_create_columns::<R>(&fields)?;
+        check_create_columns::<R>(fields)?;
     }
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
@@ -577,7 +574,7 @@ fn tenant_column<R: Resource>() -> Option<String> {
 
 /// Checks that every non-nullable column a create needs has a writer.
 fn check_create_columns<R: Resource>(
-    fields: &[crate::form::FormField<<R::Form as RecordForm>::Field>],
+    fields: &[FormField<<R::Form as RecordForm>::Field>],
 ) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
     let prefilled = crate::form::prefilled_fields::<R::Model>();
@@ -637,9 +634,9 @@ fn validation_cx(db: &Db) -> Cx {
 /// A `Tenancy::via` resource inherits its tenant from the parent its foreign key names, so the
 /// form must write that key through a relationship field over the parent's tenant-scoped
 /// resource: the write re-checks only such a field's key against the request's tenant.
-fn check_via_foreign_keys<R: Resource>(dx: &DeclCx, form: &Schema) -> Result<(), String> {
+fn check_via_foreign_keys<R: Resource>(form: &Schema) -> Result<(), String> {
     let resource = std::any::type_name::<R>();
-    let Some((parent, keys)) = via_relation::<R>(dx) else {
+    let Some((relation, parent, keys)) = via_relation::<R>() else {
         return Err(format!(
             "resource `{resource}` uses `Tenancy::via`, but its lens does not start at a \
              `belongs_to` relation: the tenant must be the parent's its foreign key names"
@@ -654,7 +651,7 @@ fn check_via_foreign_keys<R: Resource>(dx: &DeclCx, form: &Schema) -> Result<(),
                     && field
                         .as_choice()
                         .and_then(|choice| choice.tenant_scoped_model())
-                        == Some(parent.as_str())
+                        == Some(parent)
             })
         })
         .collect();
@@ -663,43 +660,23 @@ fn check_via_foreign_keys<R: Resource>(dx: &DeclCx, form: &Schema) -> Result<(),
     }
     Err(format!(
         "resource `{resource}` uses `Tenancy::via`, but its form does not write the foreign key \
-         `{}` through a relationship field over a tenant-scoped `{parent}` resource — the write \
-         re-checks only such a field's key, so any other could attach the row to another \
-         tenant's parent",
+         `{}` through a relationship field over a tenant-scoped resource of `{relation}`'s model \
+         — the write re-checks only such a field's key, so any other could attach the row to \
+         another tenant's parent",
         unguarded.join("`, `")
     ))
 }
 
-/// The parent model and foreign-key columns of the `belongs_to` relation a `Tenancy::via` lens
-/// steps through first, read off the linked app schema; `None` when the first step is no
-/// `belongs_to`.
-fn via_relation<R: Resource>(dx: &DeclCx) -> Option<(String, Vec<String>)> {
+/// The name, parent model and foreign-key columns of the `belongs_to` relation a `Tenancy::via`
+/// lens steps through first; `None` when the first step is no `belongs_to`.
+fn via_relation<R: Resource>() -> Option<(String, toasty::schema::app::ModelId, Vec<String>)> {
     let hop = R::tenancy().via_hop()?;
-    let schema = dx.schema()?;
-    let name = crate::schema::model_name(R::Model::schema().as_root()?);
-    let named = |model: &&toasty::schema::app::ModelRoot| crate::schema::model_name(model) == name;
-    // The accessor's `ModelId` and the schema's may come from different `models!(..)`
-    // expansions: the id names this model, or one model alone carries its name.
-    let root = match schema
-        .app
-        .get_model(R::Model::id())
-        .and_then(|m| m.as_root())
-    {
-        Some(root) if named(&root) => root,
-        _ => {
-            let mut roots = schema
-                .app
-                .models()
-                .filter_map(|m| m.as_root())
-                .filter(named);
-            let root = roots.next()?;
-            roots.next().is_none().then_some(root)?
-        }
-    };
-    let toasty::schema::app::FieldTy::BelongsTo(relation) = &root.fields.get(hop)?.ty else {
+    let model = R::Model::schema();
+    let root = model.as_root()?;
+    let field = root.fields.get(hop)?;
+    let toasty::schema::app::FieldTy::BelongsTo(relation) = &field.ty else {
         return None;
     };
-    let parent = crate::schema::model_name(schema.app.get_model(relation.target)?.as_root()?);
     let keys = relation
         .foreign_key
         .fields
@@ -707,7 +684,7 @@ fn via_relation<R: Resource>(dx: &DeclCx) -> Option<(String, Vec<String>)> {
         .filter_map(|key| root.fields.get(key.source.index))
         .map(|field| field.name.app_unwrap().to_string())
         .collect::<Vec<_>>();
-    (!keys.is_empty()).then_some((parent, keys))
+    (!keys.is_empty()).then(|| (field.name.app_unwrap().to_string(), relation.target, keys))
 }
 
 /// A served directory's pattern without its catch-all's name: the router treats

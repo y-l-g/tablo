@@ -221,35 +221,27 @@ async fn post_detail_is_scoped_like_every_other_route() {
 }
 
 #[tokio::test]
-async fn resources_without_a_view_declaration_have_no_detail_page() {
+async fn a_resource_without_a_view_declaration_shows_its_form_read_only() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let author = Author::all().exec(&mut db_q).await.unwrap().remove(0);
 
-    let resp = client.get(&format!("/admin/authors/{}", author.id)).await;
-    assert_eq!(
-        resp.status(),
-        404,
-        "a resource that declares no view has no detail page"
+    let detail = body_string(client.get(&format!("/admin/authors/{}", author.id)).await).await;
+    assert!(
+        detail.contains(&author.name) && detail.contains(&author.email),
+        "the detail page shows the form's fields: {detail}"
+    );
+    assert!(
+        !detail.contains("name=\"email\""),
+        "the detail page renders values, not controls: {detail}"
     );
 
     let authors = body_string(client.get("/admin/authors").await).await;
     assert!(
-        !authors.contains("aria-label=\"View\""),
-        "no view declaration means no View link: {authors}"
-    );
-    let posts = body_string(client.get("/admin/posts").await).await;
-    assert!(
-        posts.contains("aria-label=\"View\""),
-        "a declared view means a View link per row: {posts}"
-    );
-    let mut db_q = db;
-    let post_id = a_post_id(&mut db_q).await;
-    assert!(
-        posts.contains(&format!("href=\"/admin/posts/{post_id}\"")),
-        "the View link points at the detail route with the record key: {posts}"
+        authors.contains(&format!("href=\"/admin/authors/{}\"", author.id)),
+        "each row links its detail page: {authors}"
     );
 }
 

@@ -18,14 +18,16 @@ mod validation;
 use std::collections::{HashMap, HashSet};
 
 pub use embedded::EmbeddedForm;
+pub(crate) use fields::option_view;
 pub use fields::{
     ChoiceField, Control, ControlInput, CustomField, Field, FileField, IntoOptions, TextField,
     Toggle,
 };
-pub(crate) use fields::{model_name, option_view};
 pub use layouts::{Grid, Group, Repeater, Section};
-pub use lenses::{DeclCx, ResolvedLens};
-pub(crate) use lenses::{LensBinding, capitalize, lens_field, lens_field_unique};
+pub(crate) use lenses::{
+    ResolvedLens, capitalize, declare_with, lens_field, lens_field_unique, schema_of,
+};
+pub use lenses::{declare, form_key};
 pub use options::Options;
 pub(crate) use relationship::OptionLoadError;
 pub use relationship::{MAX_RELATIONSHIP_OPTIONS, OptionSource};

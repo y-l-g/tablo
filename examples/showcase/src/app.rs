@@ -4,10 +4,9 @@ use std::path::PathBuf;
 
 use tablo_core::{
     Ability, Action, Actions, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
-    DateFilter, DeclCx, Field, FieldErrors, Grid, Group, NavigationItem, Options, Panel, Policy,
-    QueryFilter, Relation, Repeater, ResolvedLens, Resource, RouterBuilderPanelExt, Schema,
-    Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id,
-    when,
+    DateFilter, Field, FieldErrors, Grid, Group, NavigationItem, Options, Panel, Policy,
+    QueryFilter, RecordForm, Relation, Repeater, Resource, RouterBuilderPanelExt, Schema, Section,
+    SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -59,8 +58,8 @@ impl Resource for UserResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::USERS)
     }
 
-    fn form(dx: &DeclCx) -> Schema {
-        let c = UserForm::controls(dx);
+    fn form() -> Schema {
+        let c = UserForm::controls();
         Schema::new(Section::new("Profile").schema((
             c.name.placeholder("Ada Lovelace"),
             c.email.email().unique().placeholder("ada@example.com"),
@@ -88,22 +87,14 @@ impl Resource for UserResource {
     }
 
     fn table() -> Table<User> {
-        Table::new((
-            TextColumn::new(lens!(User.name)).searchable().sortable(),
-            TextColumn::new(lens!(User.email)).searchable(),
-            TextColumn::new(lens!(User.role)),
-            BooleanColumn::new(lens!(User.active)),
-            TextColumn::new(lens!(User.created_at))
-                .format(|at| at.strftime("%Y-%m-%d").to_string())
-                .sortable()
-                .width(ColumnWidth::Rem(8)),
-        ))
-        .live_search()
-    }
-
-    fn view(dx: &DeclCx) -> Schema {
-        let c = UserForm::controls(dx);
-        Schema::new(Section::new("Profile").schema((c.name, c.email, c.role, c.active, c.age)))
+        UserForm::table()
+            .column(
+                TextColumn::new(lens!(User.created_at))
+                    .format(|at| at.strftime("%Y-%m-%d").to_string())
+                    .sortable()
+                    .width(ColumnWidth::Rem(8)),
+            )
+            .live_search()
     }
 
     /// Wakes the live feed after a committed write.
@@ -136,8 +127,8 @@ impl Resource for AuthorResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::PEN_LINE)
     }
 
-    fn form(dx: &DeclCx) -> Schema {
-        let c = AuthorForm::controls(dx);
+    fn form() -> Schema {
+        let c = AuthorForm::controls();
         Schema::new((c.name, c.email.email()))
     }
 
@@ -154,11 +145,7 @@ impl Resource for AuthorResource {
     }
 
     fn table() -> Table<Author> {
-        Table::new((
-            TextColumn::new(lens!(Author.name)).searchable().sortable(),
-            TextColumn::new(lens!(Author.email)).searchable(),
-        ))
-        .live_search()
+        AuthorForm::table().live_search()
     }
 }
 
@@ -184,8 +171,8 @@ impl Resource for PostResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::FILE_TEXT)
     }
 
-    fn form(dx: &DeclCx) -> Schema {
-        let c = PostForm::controls(dx);
+    fn form() -> Schema {
+        let c = PostForm::controls();
         Schema::new((
             Section::new("Content").schema((
                 c.title.placeholder("A title editors click"),
@@ -234,20 +221,17 @@ impl Resource for PostResource {
         }
     }
 
-    fn view(dx: &DeclCx) -> Schema {
-        let c = PostForm::controls(dx);
+    fn view() -> Schema {
+        let c = PostForm::controls();
         Schema::new((
             Section::new("Post").schema((c.title, c.body.multiline(6))),
             Section::new("Details")
                 .schema(Group::new().schema((Grid::new(2).schema((c.status, c.featured)), c.tags))),
             Section::new("SEO").schema(c.seo),
             Section::new("Publication").schema(
-                Field::text(ResolvedLens::new(
-                    dx,
-                    Post::fields().publication().published().published_at(),
-                ))
-                .label("Published at")
-                .optional(),
+                Field::text(Post::fields().publication().published().published_at())
+                    .label("Published at")
+                    .optional(),
             ),
         ))
     }
@@ -411,8 +395,8 @@ impl Resource for CommentResource {
         NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::MESSAGE_SQUARE)
     }
 
-    fn form(dx: &DeclCx) -> Schema {
-        let c = CommentForm::controls(dx);
+    fn form() -> Schema {
+        let c = CommentForm::controls();
         Schema::new((
             c.body.multiline(4).placeholder("Write a reply…"),
             c.post_id

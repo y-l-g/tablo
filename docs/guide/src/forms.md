@@ -1,7 +1,7 @@
 # Forms
 
 A resource with create and edit pages declares two things: a **record form**, the typed struct a
-submission parses into, and a **schema** in `form(dx)`, the controls the page renders. `form`
+submission parses into, and a **schema** in `form()`, the controls the page renders. `form`
 defaults to the record form's derived schema, so a resource that wants one control per field in
 declaration order declares no `form` at all. Mounting the panel calls the declarations once and checks
 that the two agree.
@@ -41,15 +41,15 @@ empty. `String` answers `""` and `Option<T>` answers `None` through the type's o
 other type needs `blank` when its control is optional.
 
 The resource names the struct as its `Form` and, to arrange the controls, declares them from the
-derive's `controls(dx)`:
+derive's `controls()`:
 
 ```rust
 impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    fn form(dx: &DeclCx) -> Schema {
-        let c = UserForm::controls(dx);
+    fn form() -> Schema {
+        let c = UserForm::controls();
         Schema::new(Section::new("Profile").schema((
             c.name.placeholder("Ada Lovelace"),
             c.email.email(),
@@ -79,11 +79,11 @@ stamp, or by an overridden `create_record` that lists it in `Resource::CREATE_CO
 
 The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options = T)]`
 a choice over `T`'s options, `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
-`#[form(embed)]` the embedded value's schema, and any other field a text field. `controls(dx)`
+`#[form(embed)]` the embedded value's schema, and any other field a text field. `controls()`
 hands each one over ready for its modifiers, so an override arranges rather than rebinds:
 
 ```rust
-let c = UserForm::controls(dx);
+let c = UserForm::controls();
 Schema::new((
     Section::new("Account").schema((
         c.email.email(),
@@ -293,8 +293,8 @@ pub struct Seo {
     pub description: String,
 }
 
-// In `form(dx)`: one call renders a control per field.
-Section::new("SEO").schema(Seo::form(dx, Post::fields().seo()))
+// In `form()`: one call renders a control per field.
+Section::new("SEO").schema(Seo::form(Post::fields().seo()))
 
 // In the record form: the value is one field.
 #[derive(tablo_core::RecordForm)]
@@ -318,6 +318,7 @@ pub struct PostForm {
 - Not supported inside a value: a `#[document]` field, a relation, an enum nested inside an enum
   variant, and tuple structs.
 
-To bind a single embedded field on its own, pass a `ResolvedLens`:
-`Field::text(ResolvedLens::new(dx, Post::fields().seo().title()))` binds the flattened `seo_title`
-column. Such a field is optional unless you call `.required()`.
+To bind a single embedded field on its own, pass its path: `Field::text(Post::fields().seo().title())`
+binds the flattened `seo_title` column, which the panel resolves through the database schema when
+it mounts. Such a field is optional unless you call `.required()`. A schema built outside a panel,
+such as one a custom page renders, resolves the same way inside `tablo::declare(&db, || ..)`.

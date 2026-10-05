@@ -6,7 +6,7 @@ use std::sync::Arc;
 use toasty::stmt::{Expr, Path};
 use topcoat::{context::Cx, view::*};
 
-use crate::schema::{IntoOptions, LensBinding};
+use crate::schema::{IntoOptions, ResolvedLens};
 
 /// One table filter declares a control and its predicate.
 ///
@@ -185,7 +185,7 @@ where
     /// Filter the `String` field `lens` binds to one of `options`.
     pub fn new(lens: impl Into<Path<M, String>>, options: impl IntoOptions) -> Self {
         let lens = lens.into();
-        let binding = LensBinding::of(lens.clone());
+        let binding = ResolvedLens::of(lens.clone());
         Self {
             name: binding.name,
             label: binding.label,
@@ -270,7 +270,7 @@ where
     /// Filter the `bool` field `lens` binds to true, false, or either.
     pub fn new(lens: impl Into<Path<M, bool>>) -> Self {
         let lens = lens.into();
-        let binding = LensBinding::of(lens.clone());
+        let binding = ResolvedLens::of(lens.clone());
         Self {
             name: binding.name,
             label: binding.label,
@@ -343,7 +343,7 @@ where
     /// Filter the `Timestamp` field `lens` binds to one calendar day.
     pub fn new(lens: impl Into<Path<M, jiff::Timestamp>>) -> Self {
         let lens = lens.into();
-        let binding = LensBinding::of(lens.clone());
+        let binding = ResolvedLens::of(lens.clone());
         Self {
             name: binding.name,
             label: binding.label,

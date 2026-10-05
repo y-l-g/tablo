@@ -6,7 +6,7 @@ use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::{context::Cx, view::BoxView};
 
 use super::Resource;
-use crate::{form::FormScalar, schema::LensBinding, toasty_compat::pk};
+use crate::{form::FormScalar, schema::ResolvedLens, toasty_compat::pk};
 
 /// One relation of a parent resource's records.
 ///
@@ -96,7 +96,7 @@ where
         C: Resource,
         T: ForeignKey<P::PrimaryKey>,
     {
-        let binding = LensBinding::of(foreign_key.clone());
+        let binding = ResolvedLens::of(foreign_key.clone());
         let search = crate::panel::relation_search_handler_for::<C, T>(foreign_key.clone());
         Self {
             key: C::slug(),

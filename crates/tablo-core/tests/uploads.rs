@@ -75,7 +75,7 @@ struct DocResource;
 impl Resource for DocResource {
     type Model = Doc;
     type Form = DocForm;
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new((
             Field::text(Doc::fields().title()),
             Field::file(Doc::fields().cover()).label("Cover"),

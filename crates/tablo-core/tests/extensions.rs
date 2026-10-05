@@ -191,15 +191,15 @@ impl Resource for TaskResource {
         }
     }
 
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new((
             Field::custom(Task::fields().title(), Shouty),
             Field::toggle(Task::fields().done()),
         ))
     }
 
-    fn view(dx: &tablo_core::DeclCx) -> Schema {
-        Self::form(dx)
+    fn view() -> Schema {
+        Self::form()
     }
 
     fn table() -> Table<Task> {

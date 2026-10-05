@@ -1,10 +1,10 @@
 //! Embedded lens resolution through the request's app schema.
 //!
-//! A plain lens binds a top-level field: it resolves against the owned
-//! `app::Model`, which cannot see embedded models, so a path through an
-//! embedded struct is rejected as a traversal lens. `ResolvedLens::new`
-//! resolves through the request's app schema instead, so the leaf arrives as
-//! its flattened storage column.
+//! Outside a declaration scope a path resolves against the owned `app::Model`,
+//! which cannot see embedded models, so a path through an embedded struct is
+//! rejected as a traversal lens. Inside one (`tablo_core::declare`, or a panel
+//! mount) it resolves through the app schema, so the leaf arrives as its
+//! flattened storage column.
 //!
 //! This is the render-path proof: the flattened name is what the form posts
 //! and what the unknown-key allow-list accepts, or a bound embedded field
@@ -15,7 +15,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{Field, FieldErrors, ResolvedLens, Schema, Source};
+use tablo_core::{Field, FieldErrors, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -65,6 +65,12 @@ async fn article_cx() -> Cx {
     CxTestBuilder::new().app_context(db).build()
 }
 
+/// Run `declarations` with the app schema of the `Db` `cx` carries in scope, as a panel mount does.
+fn declared<T>(cx: &Cx, declarations: impl FnOnce() -> T) -> T {
+    let db = topcoat::context::try_app_context::<toasty::Db>(cx).expect("the cx carries a Db");
+    tablo_core::declare(db, declarations)
+}
+
 async fn render(schema: &Schema, cx: &Cx, values: HashMap<String, String>) -> String {
     schema
         .render(cx, Source::form(&values, &FieldErrors::new()))
@@ -80,10 +86,7 @@ async fn render(schema: &Schema, cx: &Cx, values: HashMap<String, String>) -> St
 async fn embedded_leaf_resolves_to_its_flattened_column() {
     let cx = article_cx().await;
     // Two levels deep: Article.meta.seo.title -> meta_seo_title.
-    let input = Field::text(ResolvedLens::new(
-        &tablo_core::DeclCx::from_cx(&cx),
-        Article::fields().meta().seo().title(),
-    ));
+    let input = declared(&cx, || Field::text(Article::fields().meta().seo().title()));
     assert_eq!(
         input.name(),
         "meta_seo_title",
@@ -109,14 +112,8 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
 async fn the_flattened_name_participates_in_allow_list_and_validation() {
     let cx = article_cx().await;
     let schema = Schema::new((
-        Field::text(ResolvedLens::new(
-            &tablo_core::DeclCx::from_cx(&cx),
-            Article::fields().title(),
-        )),
-        Field::text(ResolvedLens::new(
-            &tablo_core::DeclCx::from_cx(&cx),
-            Article::fields().meta().seo().title(),
-        )),
+        declared(&cx, || Field::text(Article::fields().title())),
+        declared(&cx, || Field::text(Article::fields().meta().seo().title())),
     ));
 
     let mut values = HashMap::new();
@@ -142,10 +139,9 @@ async fn the_flattened_name_participates_in_allow_list_and_validation() {
 
     // ...but a required one is still required when asked for explicitly.
     let required = Schema::new(
-        Field::text(ResolvedLens::new(
-            &tablo_core::DeclCx::from_cx(&cx),
-            Article::fields().meta().seo().description(),
-        ))
+        declared(&cx, || {
+            Field::text(Article::fields().meta().seo().description())
+        })
         .required(),
     );
     assert!(
@@ -165,10 +161,9 @@ async fn the_flattened_name_participates_in_allow_list_and_validation() {
 #[tokio::test]
 async fn a_relation_traversal_is_refused_rather_than_misbound() {
     let cx = article_cx().await;
-    let errors = Schema::new(Field::text(ResolvedLens::new(
-        &tablo_core::DeclCx::from_cx(&cx),
-        Article::fields().author().name(),
-    )))
+    let errors = Schema::new(declared(&cx, || {
+        Field::text(Article::fields().author().name())
+    }))
     .declaration_errors();
     assert!(
         errors
@@ -184,11 +179,7 @@ async fn a_relation_traversal_is_refused_rather_than_misbound() {
 /// form binding uses.
 #[tokio::test]
 async fn without_a_schema_a_traversal_lens_is_still_refused() {
-    let errors = Schema::new(Field::text(ResolvedLens::new(
-        &tablo_core::DeclCx::empty(),
-        Article::fields().meta().note(),
-    )))
-    .declaration_errors();
+    let errors = Schema::new(Field::text(Article::fields().meta().note())).declaration_errors();
     assert!(
         errors
             .iter()
@@ -197,20 +188,18 @@ async fn without_a_schema_a_traversal_lens_is_still_refused() {
     );
 }
 
-/// Every kind of field binds an embedded leaf through `ResolvedLens::new`,
+/// Every kind of field binds an embedded leaf in a declaration scope,
 /// and posts its flattened column.
 #[tokio::test]
 async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     let cx = article_cx().await;
-    let choice = Field::choice(ResolvedLens::new(
-        &tablo_core::DeclCx::from_cx(&cx),
-        Article::fields().meta().seo().title(),
-    ))
+    let choice = declared(&cx, || {
+        Field::choice(Article::fields().meta().seo().title())
+    })
     .options(vec!["draft".to_string()]);
-    let file = Field::file(ResolvedLens::new(
-        &tablo_core::DeclCx::from_cx(&cx),
-        Article::fields().meta().seo().description(),
-    ));
+    let file = declared(&cx, || {
+        Field::file(Article::fields().meta().seo().description())
+    });
     assert_eq!(choice.name(), "meta_seo_title");
     assert_eq!(file.name(), "meta_seo_description");
 
@@ -227,5 +216,69 @@ async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     assert!(
         schema.validate(&HashMap::new()).is_empty(),
         "an embedded leaf is optional by default, for every kind"
+    );
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Page {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    title: String,
+    seo: Seo,
+}
+
+struct PageResource;
+
+impl tablo_core::Resource for PageResource {
+    type Model = Page;
+    type Form = tablo_core::NoForm<Page>;
+
+    fn policy() -> impl tablo_core::Policy<Page> {
+        tablo_core::ReadOnly
+    }
+
+    fn table() -> tablo_core::Table<Page> {
+        tablo_core::Table::new((
+            tablo_core::TextColumn::new(tablo_core::lens!(Page.title)),
+            tablo_core::TextColumn::new(tablo_core::lens!(Page.seo.title))
+                .sortable()
+                .searchable(),
+        ))
+    }
+}
+
+/// A column binds an embedded leaf at mount: it renders, sorts and searches by the flattened
+/// column.
+#[tokio::test]
+async fn a_column_binds_an_embedded_leaf() {
+    let mut db = crate::common::memory_db(toasty::models!(Page)).await;
+    for (title, seo) in [("First", "Zulu"), ("Second", "Alpha")] {
+        toasty::create!(Page {
+            title: title.to_string(),
+            seo: Seo {
+                title: seo.to_string(),
+                description: String::new(),
+            },
+        })
+        .exec(&mut db)
+        .await
+        .expect("create");
+    }
+    let router = crate::common::panel_router::<PageResource>(db);
+    let list = |uri: &'static str| {
+        let router = &router;
+        async move { crate::common::body_string(crate::common::get(router, uri).await).await }
+    };
+
+    let sorted = list("/admin/pages?sort=seo_title&dir=asc").await;
+    assert!(sorted.contains("Seo title"), "{sorted}");
+    let (alpha, zulu) = (sorted.find("Alpha").unwrap(), sorted.find("Zulu").unwrap());
+    assert!(alpha < zulu, "sorted by the embedded leaf, got {sorted}");
+
+    let searched = list("/admin/pages?q=zul").await;
+    assert!(
+        searched.contains("First") && !searched.contains("Second"),
+        "searched by the embedded leaf, got {searched}"
     );
 }

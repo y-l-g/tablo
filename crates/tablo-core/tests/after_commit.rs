@@ -57,7 +57,7 @@ struct AuditedResource;
 impl Resource for AuditedResource {
     type Model = Note;
     type Form = AuditedForm;
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new(Field::text(Note::fields().title()))
     }
 
@@ -87,7 +87,7 @@ struct PlainResource;
 impl Resource for PlainResource {
     type Model = Note;
     type Form = PlainForm;
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new(Field::text(Note::fields().title()))
     }
 
@@ -113,7 +113,7 @@ struct FailingWriteResource;
 impl Resource for FailingWriteResource {
     type Model = Note;
     type Form = FailingWriteForm;
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new(Field::text(Note::fields().title()))
     }
     async fn create_record(
@@ -150,7 +150,7 @@ struct FailingHookResource;
 impl Resource for FailingHookResource {
     type Model = Note;
     type Form = FailingHookForm;
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new(Field::text(Note::fields().title()))
     }
 

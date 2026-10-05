@@ -89,7 +89,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
     impl Resource for PairResource {
         type Model = Pair;
         type Form = PairForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Pair::fields().name()))
         }
 
