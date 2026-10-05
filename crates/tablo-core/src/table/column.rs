@@ -246,6 +246,20 @@ pub(crate) fn escape_like_pattern(term: &str) -> String {
     pattern
 }
 
+/// Escaped substring predicate for `lens` matching `term`.
+pub fn contains_expr<M, T>(lens: &Lens<M, T>, term: &str) -> Option<Expr<bool>>
+where
+    M: toasty::schema::Model,
+    T: toasty::schema::Field<Inner = String>,
+{
+    let trimmed = term.trim();
+    (!trimmed.is_empty()).then(|| {
+        lens.path()
+            .clone()
+            .like_with_escape(escape_like_pattern(trimmed), LIKE_ESCAPE)
+    })
+}
+
 impl<M, T> TextColumn<M, T>
 where
     M: toasty::schema::Model,
@@ -504,6 +518,7 @@ pub struct BooleanColumn<M> {
     label: String,
     sortable: bool,
     labels: (String, String),
+    width: ColumnWidth,
     misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
@@ -520,6 +535,7 @@ where
             label: binding.label,
             sortable: false,
             labels: ("Yes".to_string(), "No".to_string()),
+            width: ColumnWidth::Narrow,
             misdeclared: binding.misdeclared,
         }
     }
@@ -527,6 +543,12 @@ where
     /// Make the header a sort link.
     pub fn sortable(mut self) -> Self {
         self.sortable = true;
+        self
+    }
+
+    /// Declare this column's width.
+    pub fn width(mut self, width: ColumnWidth) -> Self {
+        self.width = width;
         self
     }
 
@@ -555,6 +577,10 @@ where
         } else {
             self.labels.1.clone()
         }
+    }
+
+    fn column_width(&self) -> ColumnWidth {
+        self.width
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
@@ -594,12 +620,27 @@ where
     }
 }
 
+impl<M> Clone for BooleanColumn<M> {
+    fn clone(&self) -> Self {
+        Self {
+            lens: self.lens.clone(),
+            name: self.name.clone(),
+            label: self.label.clone(),
+            sortable: self.sortable,
+            labels: self.labels.clone(),
+            width: self.width,
+            misdeclared: self.misdeclared.clone(),
+        }
+    }
+}
+
 impl<M> std::fmt::Debug for BooleanColumn<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BooleanColumn")
             .field("name", &self.name)
             .field("label", &self.label)
             .field("sortable", &self.sortable)
+            .field("width", &self.width)
             .finish_non_exhaustive()
     }
 }

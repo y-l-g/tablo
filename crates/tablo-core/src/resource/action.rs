@@ -113,7 +113,9 @@ pub trait Action<R: Resource>: 'static {
     fn label() -> String;
 
     /// Whether the action may run on `record`.
-    fn can_run(cx: &Cx, record: &R::Model) -> bool;
+    fn can_run(_cx: &Cx, _record: &R::Model) -> bool {
+        true
+    }
 
     /// Perform the action on `records`, all of which passed
     /// [`can_run`](Self::can_run), through the framework's transaction `ex`.
