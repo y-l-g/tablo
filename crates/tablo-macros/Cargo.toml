@@ -21,7 +21,7 @@ syn = { version = "3", features = ["full"] }
 # Named in rustdoc only: the derives expand against these crates, which
 # `cargo-udeps` cannot see (doctest-only usage).
 [dev-dependencies]
-tablo-core = { path = "../tablo-core" }
+tablo-core = { path = "../tablo-core", version = "0.1.0" }
 toasty.workspace = true
 uuid.workspace = true
 
