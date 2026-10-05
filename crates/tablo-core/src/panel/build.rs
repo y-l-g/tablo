@@ -363,10 +363,7 @@ pub(super) fn check_resource<R: Resource>(
         );
     }
     check_actions::<R>(errors);
-    // A misdeclared field's placeholder name would only echo as an unbound control.
-    if form_is_sound {
-        check_form_declaration::<R>(cx, &declared, errors);
-    }
+    check_form_declaration::<R>(cx, &declared, form_is_sound, errors);
     declarations.insert(Arc::new(declared));
 }
 
@@ -394,12 +391,14 @@ fn form_error<R: Resource>(kind: DeclarationErrorKind) -> DeclarationError {
 fn check_form_declaration<R: Resource>(
     cx: &Cx,
     declared: &Declared<R>,
+    form_is_sound: bool,
     errors: &mut Vec<DeclarationError>,
 ) {
     if <R::Form as RecordForm>::HAS_FORM {
         if declared.form.is_empty() && !declared.fields.is_empty() {
             errors.push(form_error::<R>(DeclarationErrorKind::EmptyFormOverride));
-        } else {
+        } else if form_is_sound {
+            // A misdeclared field's placeholder name would only echo as an unbound control.
             check_form_inner::<R>(cx, &declared.fields, &declared.form, errors);
         }
     } else if !declared.form.is_empty() {

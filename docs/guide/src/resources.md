@@ -150,7 +150,7 @@ flattened column wherever a declaration names one. It refuses the resource when:
 
 The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
 `MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
-it is in (`Table`, `Form`, `View`, `Tenancy`, a `Relation`) and a `DeclarationErrorKind`, whose
+it is in (`Registration`, `Table`, `Form`, `View`, `Tenancy`, a `Relation`) and a `DeclarationErrorKind`, whose
 `Display` is the message. [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test
 matching on the kind.
 
