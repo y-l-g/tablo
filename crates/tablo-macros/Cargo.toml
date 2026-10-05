@@ -18,8 +18,12 @@ proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "3", features = ["full"] }
 
-# Named in rustdoc only: the derives expand against these crates.
+# Named in rustdoc only: the derives expand against these crates, which
+# `cargo-udeps` cannot see (doctest-only usage).
 [dev-dependencies]
 tablo-core = { path = "../tablo-core" }
 toasty.workspace = true
 uuid.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+dev = ["tablo-core", "toasty", "uuid"]
