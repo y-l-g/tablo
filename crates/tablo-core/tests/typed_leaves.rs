@@ -10,7 +10,7 @@ use topcoat::{
     view::ViewExt,
 };
 
-use crate::common::mount;
+use crate::common::{field_error, input_value, mount};
 
 #[derive(Debug, toasty::Model)]
 struct Measurement {
@@ -61,16 +61,18 @@ async fn a_typed_field_renders_the_values_display() {
         .await
         .unwrap()
         .render(&cx);
-    assert!(
-        html.contains("value=\"1240\""),
+    assert_eq!(
+        input_value(&html, "word_count").as_deref(),
+        Some("1240"),
         "an integer field renders its value: {html}"
     );
     assert!(
         html.contains("type=\"datetime-local\""),
         "a typed timestamp is a datetime-local input: {html}"
     );
-    assert!(
-        html.contains("value=\"2024-01-02T03:04\""),
+    assert_eq!(
+        input_value(&html, "recorded_at").as_deref(),
+        Some("2024-01-02T03:04"),
         "the timestamp renders in UTC for the control: {html}"
     );
     assert!(html.contains("Word count"), "label from the lens: {html}");
@@ -231,12 +233,14 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         .unwrap()
         .to_bytes();
     let html = String::from_utf8_lossy(&body);
-    assert!(
-        html.contains("`lots` is not a valid whole number"),
+    assert_eq!(
+        field_error(&html, "word_count").as_deref(),
+        Some("`lots` is not a valid whole number"),
         "the field carries the parse error inline: {html}"
     );
-    assert!(
-        html.contains("value=\"lots\""),
+    assert_eq!(
+        input_value(&html, "word_count").as_deref(),
+        Some("lots"),
         "the control keeps what the user typed so they can fix it: {html}"
     );
 

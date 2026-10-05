@@ -20,8 +20,8 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{
-    body_bytes, body_string, csp, get, memory_db, mount, multipart_body, new_csrf, panel, post,
-    post_multipart, refusal,
+    body_bytes, body_string, csp, field_error, get, memory_db, mount, multipart_body, new_csrf,
+    panel, post, post_multipart, refusal,
 };
 
 /// A document with one required and one optional upload.
@@ -243,8 +243,9 @@ async fn a_refused_upload_is_an_inline_field_error_and_writes_nothing() {
     let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
     assert_eq!(response.status(), 200, "the form re-renders");
     let html = body_string(response).await;
-    assert!(
-        html.contains("Cover could not be uploaded: this deployment has no room left"),
+    assert_eq!(
+        field_error(&html, "cover").as_deref(),
+        Some("Cover could not be uploaded: this deployment has no room left"),
         "the uploader's reason must reach the field's inline error: {html}"
     );
     assert!(
@@ -342,8 +343,9 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
         "the form re-renders with the required error"
     );
     let html = body_string(response).await;
-    assert!(
-        html.contains("cover-error"),
+    assert_eq!(
+        field_error(&html, "cover").as_deref(),
+        Some("Cover is required"),
         "the typed value leaves the required field empty: {html}"
     );
     assert!(
@@ -419,8 +421,9 @@ async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
         "the form re-renders with the required error"
     );
     let html = body_string(response).await;
-    assert!(
-        html.contains("cover-error"),
+    assert_eq!(
+        field_error(&html, "cover").as_deref(),
+        Some("Cover is required"),
         "the later text part leaves the field empty: {html}"
     );
     assert!(
@@ -626,8 +629,9 @@ async fn clearing_a_required_upload_is_refused_inline() {
     .await;
     assert_eq!(response.status(), 200, "the form re-renders with the error");
     let html = body_string(response).await;
-    assert!(
-        html.contains("Cover is required"),
+    assert_eq!(
+        field_error(&html, "cover").as_deref(),
+        Some("Cover is required"),
         "a required upload refuses the clear inline: {html}"
     );
     assert_eq!(
@@ -663,8 +667,9 @@ async fn a_refused_edit_upload_keeps_showing_the_stored_file() {
     .await;
     assert_eq!(response.status(), 200, "the form re-renders");
     let html = body_string(response).await;
-    assert!(
-        html.contains("Cover could not be uploaded: this deployment has no room left"),
+    assert_eq!(
+        field_error(&html, "cover").as_deref(),
+        Some("Cover could not be uploaded: this deployment has no room left"),
         "the reason must reach the field: {html}"
     );
     assert!(

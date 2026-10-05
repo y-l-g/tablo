@@ -2,7 +2,7 @@ use showcase::models::{Comment, Post};
 
 use crate::common::{
     body_string, demo_client, form_body, full_db, input_value, response_cookies,
-    routers::router_for_tests as router, row_link_key, tenanted_db,
+    routers::router_for_tests as router, tenanted_db,
 };
 
 #[tokio::test]
@@ -47,14 +47,29 @@ async fn comments_list_offers_row_and_bulk_delete() {
         html.contains("data-bulk-form"),
         "the moderation queue must offer bulk delete: {html}"
     );
+    let rendered = tablo_test::rows(&html);
+    assert!(
+        !rendered.is_empty(),
+        "the fixture must seed comments: {html}"
+    );
     // The row control is a `?delete=<key>` link that opens the confirmation
     // dialog; the confirmed POST is what removes the row.
     assert!(
-        html.contains("delete="),
+        rendered.iter().any(|row| row
+            .actions
+            .delete_href
+            .as_deref()
+            .is_some_and(|href| href.contains("delete="))),
         "the moderation queue must offer row delete: {html}"
     );
     assert!(
-        html.contains("aria-label=\"Edit\""),
+        rendered
+            .iter()
+            .any(|row| row.actions.delete_action.is_some()),
+        "the row control must carry its POST target: {html}"
+    );
+    assert!(
+        rendered.iter().any(|row| row.actions.edit.is_some()),
         "queue must keep edit links: {html}"
     );
 }
@@ -71,15 +86,15 @@ async fn comments_row_delete_removes_the_comment() {
     let resp = client.get("/admin/comments").await;
     let html = body_string(resp).await;
     let csrf = input_value(&html, "csrf_token").expect("the list carries csrf");
-    // Follow the row control the moderator actually clicks: identity is two
-    // projections, and the delete route takes the record key the
-    // `?delete=` link carries — not the table's display key.
-    let key = row_link_key(&html, "delete").expect("a row delete control");
+    let target = tablo_test::rows(&html)
+        .into_iter()
+        .find_map(|row| row.actions.delete_action)
+        .expect("a row delete control");
 
     let resp = client
         .csrf(&csrf)
         .post_form(
-            &format!("/admin/comments/{key}/delete"),
+            &target,
             form_body(&[("confirm", "1"), ("csrf_token", &csrf)]),
         )
         .await;
@@ -237,8 +252,9 @@ async fn comments_refuse_another_tenants_post() {
         "a refused create re-renders the form"
     );
     let html = body_string(created).await;
-    assert!(
-        html.contains("Post is invalid"),
+    assert_eq!(
+        tablo_test::field_error(&html, "post_id").as_deref(),
+        Some("Post is invalid"),
         "the post field names the refusal: {html}"
     );
 
@@ -254,8 +270,9 @@ async fn comments_refuse_another_tenants_post() {
         .await;
     assert_eq!(edited.status(), 200, "a refused edit re-renders the form");
     let html = body_string(edited).await;
-    assert!(
-        html.contains("Post is invalid"),
+    assert_eq!(
+        tablo_test::field_error(&html, "post_id").as_deref(),
+        Some("Post is invalid"),
         "the post field names the refusal: {html}"
     );
 

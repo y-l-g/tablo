@@ -54,13 +54,15 @@ async fn create_invalid_submission_rerenders_with_inline_errors() {
         status.is_success(),
         "invalid POST should re-render 200, not redirect, got {status}"
     );
-    assert!(
-        html.contains("is required"),
-        "should contain is required error, got {html}"
+    assert_eq!(
+        tablo_test::field_error(&html, "name").as_deref(),
+        Some("Name is required"),
+        "the name slot names its refusal, got {html}"
     );
-    assert!(
-        html.contains("must be a valid email"),
-        "should contain email error, got {html}"
+    assert_eq!(
+        tablo_test::field_error(&html, "email").as_deref(),
+        Some("Email must be a valid email"),
+        "the email slot names its refusal, got {html}"
     );
     assert_eq!(
         user_count(&db).await,

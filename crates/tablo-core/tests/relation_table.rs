@@ -11,7 +11,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel, post_fields, refusal};
+use crate::common::{body_string, get, memory_db, mount, panel, post_fields, refusal, rows};
 
 #[derive(Debug, toasty::Model, Clone)]
 struct Owner {
@@ -187,10 +187,40 @@ async fn the_detail_page_is_read_only_and_the_edit_page_carries_the_writes() {
     let (router, _db, ada, _bob) = fixture().await;
     let detail = body_string(get(&router, &format!("/admin/owners/{}", ada.id)).await).await;
     let relation = &detail[detail.find("data-relation=").expect("the relation renders")..];
-    for write in ["/create", "/edit", "/delete", "data-bulk-form"] {
+    for write in ["/create", "data-bulk-form"] {
         assert!(
             !relation.contains(write),
             "no {write} on the detail page: {relation}"
+        );
+    }
+    let found = rows(&detail);
+    assert_eq!(found.len(), 2, "the relation lists its two rows: {detail}");
+    for body in ["ada-first", "ada-second"] {
+        assert!(
+            found
+                .iter()
+                .any(|row| row.cells.iter().any(|cell| cell == body)),
+            "the relation lists {body}: {detail}"
+        );
+    }
+    for row in &found {
+        assert_eq!(
+            row.actions.edit, None,
+            "no edit on the detail page: {detail}"
+        );
+        assert_eq!(
+            row.actions.delete_href, None,
+            "no delete on the detail page: {detail}"
+        );
+        assert_eq!(
+            row.actions.delete_action, None,
+            "no delete on the detail page: {detail}"
+        );
+        assert!(
+            row.cells
+                .iter()
+                .any(|cell| cell == "ada-first" || cell == "ada-second"),
+            "the denied row keeps its value: {detail}"
         );
     }
 
@@ -200,10 +230,25 @@ async fn the_detail_page_is_read_only_and_the_edit_page_carries_the_writes() {
     let return_to = format!("return=%2Fadmin%2Fowners%2F{}%2Fedit", ada.id);
     let create = format!("/admin/children/create?owner_id={}&amp;{return_to}", ada.id);
     assert!(html.contains(&create), "create link {create}: {html}");
-    assert!(
-        html.contains(&format!("/edit?{return_to}")),
-        "row edit returns: {html}"
-    );
+    let found = rows(&html);
+    assert_eq!(found.len(), 2, "the relation lists its two rows: {html}");
+    for body in ["ada-first", "ada-second"] {
+        assert!(
+            found
+                .iter()
+                .any(|row| row.cells.iter().any(|cell| cell == body)),
+            "the relation lists {body}: {html}"
+        );
+    }
+    for row in &found {
+        assert!(
+            row.actions
+                .edit
+                .as_deref()
+                .is_some_and(|edit| edit.contains(&return_to)),
+            "row edit returns: {html}"
+        );
+    }
     assert!(
         html.contains(&format!("/bulk-delete?{return_to}")),
         "bulk returns: {html}"

@@ -47,10 +47,15 @@ async fn edit_page_hydrates_and_updates() {
         resp.status()
     );
     let html = body_string(resp).await;
-    assert!(
-        html.contains("is required") || html.contains("must be a valid email"),
-        "should contain validation error, got {}",
-        html
+    assert_eq!(
+        tablo_test::field_error(&html, "name").as_deref(),
+        Some("Name is required"),
+        "the name slot names its refusal, got {html}"
+    );
+    assert_eq!(
+        tablo_test::field_error(&html, "email").as_deref(),
+        Some("Email must be a valid email"),
+        "the email slot names its refusal, got {html}"
     );
     let mut db_check = db.clone();
     let fresh = User::get_by_id(&mut db_check, &user.id).await.unwrap();
@@ -385,13 +390,10 @@ async fn post_edit_binds_and_saves_embedded_fields() {
     let resp = client.get(&format!("/admin/posts/{}/edit", post.id)).await;
     assert_eq!(resp.status(), 200);
     let html = body_string(resp).await;
-    assert!(
-        html.contains("name=\"seo_title\""),
-        "the embedded leaf must render as its flattened column, got {html}"
-    );
-    assert!(
-        html.contains(&format!("value=\"{}\"", post.seo.title)),
-        "the stored embedded value must hydrate, got {html}"
+    assert_eq!(
+        tablo_test::input_value(&html, "seo_title").as_deref(),
+        Some(post.seo.title.as_str()),
+        "the embedded leaf hydrates its flattened column, got {html}"
     );
     assert!(
         !html.contains("media_") && !html.contains("Attachment"),
@@ -688,8 +690,9 @@ async fn user_age_round_trips_and_refuses_a_negative() {
     let user = User::all().exec(&mut db_q).await.unwrap().remove(0);
 
     let html = body_string(client.get(&format!("/admin/users/{}/edit", user.id)).await).await;
-    assert!(
-        html.contains("name=\"age\"") && html.contains(&format!("value=\"{}\"", user.age)),
+    assert_eq!(
+        tablo_test::input_value(&html, "age"),
+        Some(user.age.to_string()),
         "the typed integer must hydrate its control, got {html}"
     );
     let detail = body_string(client.get(&format!("/admin/users/{}", user.id)).await).await;
@@ -723,9 +726,10 @@ async fn user_age_round_trips_and_refuses_a_negative() {
         resp.status()
     );
     let html = body_string(resp).await;
-    assert!(
-        html.contains("Age must be zero or more"),
-        "the refusal must name the range inline, got {html}"
+    assert_eq!(
+        tablo_test::field_error(&html, "age").as_deref(),
+        Some("Age must be zero or more"),
+        "the age slot names the range refusal, got {html}"
     );
     let still = User::filter(User::fields().id().eq(user.id))
         .first()

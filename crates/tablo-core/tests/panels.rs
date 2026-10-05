@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::common::{
     body_string, get, get_with_cookies, memory_db, mount, new_csrf, post_form, refusal,
-    response_cookies,
+    response_cookies, rows,
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -186,9 +186,19 @@ async fn each_panel_serves_its_own_resources_in_its_own_shell() {
         !portal.contains("/admin/"),
         "no admin URL on the portal, got {portal}"
     );
+    let found = rows(&portal);
+    assert_eq!(found.len(), 1, "the portal lists its one row: {portal}");
     assert!(
-        portal.contains("href=\"/portal/books/"),
-        "the row links stay in the portal"
+        found[0].cells.iter().any(|cell| cell == "Dune"),
+        "the row carries the title: {portal}"
+    );
+    assert!(
+        found[0]
+            .actions
+            .view
+            .as_deref()
+            .is_some_and(|view| view.starts_with("/portal/books/")),
+        "the row links stay in the portal: {portal}"
     );
 
     assert_eq!(get(&router, "/portal/notes").await.status(), 404);
@@ -222,9 +232,15 @@ async fn a_live_table_shard_re_renders_for_the_panel_its_path_names() {
         html.contains("Dune"),
         "the shard renders the row, got {html}"
     );
+    let found = rows(&html);
+    assert_eq!(found.len(), 1, "the shard renders the one row: {html}");
     assert!(
-        html.contains("/portal/books/"),
-        "the row links stay in the portal"
+        found[0]
+            .actions
+            .view
+            .as_deref()
+            .is_some_and(|view| view.starts_with("/portal/books/")),
+        "the row links stay in the portal: {html}"
     );
     assert!(
         !html.contains("/admin/"),

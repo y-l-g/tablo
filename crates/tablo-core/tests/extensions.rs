@@ -16,7 +16,8 @@ use topcoat::{context::Cx, view::*};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, get, memory_db, mount, panel, panel_router, post_fields, refusal, response_cookies,
+    body_string, filter_options, get, input_value, memory_db, mount, panel, panel_router,
+    post_fields, refusal, response_cookies, rows,
 };
 
 /// The flash notification a response set, decoded: the text the list shows
@@ -316,13 +317,19 @@ async fn an_app_filter_renders_its_control_and_applies_its_predicate() {
     let router = panel_router::<TaskResource>(db.clone());
 
     let html = body_string(get(&router, "/admin/tasks").await).await;
-    assert!(
-        html.contains("data-filter-name=\"initial\""),
-        "the control carries the hook filters.js reads: {html}"
-    );
-    assert!(
-        html.contains("name=\"f.initial\""),
-        "and submits f.<name>: {html}"
+    let options = filter_options(&html, "initial")
+        .unwrap_or_else(|| panic!("the initial filter renders: {html}"));
+    assert_eq!(
+        options
+            .iter()
+            .map(|option| (
+                option.value.as_str(),
+                option.label.as_str(),
+                option.selected
+            ))
+            .collect::<Vec<_>>(),
+        [("", "All", true), ("A", "A…", false), ("B", "B…", false)],
+        "the control offers the filter's options: {html}"
     );
 
     let html = body_string(get(&router, "/admin/tasks?f.initial=B").await).await;
@@ -350,8 +357,9 @@ async fn an_app_control_renders_inside_the_field_chrome() {
         html.contains("data-shouty=\"\""),
         "the control's input: {html}"
     );
-    assert!(
-        html.contains("value=\"Alpha\""),
+    assert_eq!(
+        input_value(&html, "title").as_deref(),
+        Some("Alpha"),
         "with the stored value: {html}"
     );
     assert!(
@@ -458,7 +466,20 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
     );
     // Both rows take a bulk action (`explode` runs on any task), so both
     // render a checkbox.
-    assert_eq!(html.matches("data-row-select").count(), 2, "{html}");
+    let found = rows(&html);
+    assert_eq!(found.len(), 2, "both rows render: {html}");
+    for title in ["Open", "Done"] {
+        assert!(
+            found
+                .iter()
+                .any(|row| row.cells.iter().any(|cell| cell == title)),
+            "the list shows {title}: {html}"
+        );
+    }
+    assert!(
+        found.iter().all(|row| row.select_value.is_some()),
+        "both rows take a bulk action, so both render a checkbox: {html}"
+    );
 }
 
 #[tokio::test]

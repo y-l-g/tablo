@@ -274,12 +274,10 @@ async fn a_comment_deleted_from_the_post_edit_page_returns_to_it() {
 
     let html = body_string(client.get(&page).await).await;
     let csrf = input_value(&html, "csrf_token").expect("the page carries csrf");
-    let action = html
-        .split("data-row-delete-action=\"")
-        .nth(1)
-        .and_then(|rest| rest.split('"').next())
-        .expect("a row carries its delete action")
-        .replace("&amp;", "&");
+    let action = tablo_test::rows(&html)
+        .into_iter()
+        .find_map(|row| row.actions.delete_action)
+        .expect("a row carries its delete action");
     assert!(
         action.contains("?return="),
         "the delete carries the return: {action}"
