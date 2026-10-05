@@ -46,24 +46,7 @@ the pinned-CLI install pipeline (today in `gates.rs`, `AGENTS.md`, and
 or tuples; shared columns are re-spelled at each `Table::new`.
 Fix: `impl<M> IntoColumns<M> for Vec<BoxColumn<M>>` and for slices.
 
-5. The benchmark apparatus is sized for a number nothing gates. The
-benchmarks readme says the axum-maud and leptos comparators are compile-only
-stubs; `verify_parity.sh` builds them but runs in no workflow; the workspace
-and bench lockfiles can drift with no version-parity gate.
-Fix: gate version parity between the workspace and bench lockfiles.
-
-6. The JS/Rust guard misses the riskiest hook. `verify_asset_hooks` covers
-the Tablo-owned hooks, and the swap-envelope template selector in
-`mutation-submit.js` stays out of that registry as upstream-internal markup
-Tablo reads but never renders. Some assets have no suite (`sidebar.js`,
-`theme.js`, `variant.js`), and `docs/dev/TESTING.md` does not name which
-assets lack suites or what covers them.
-Fix: assert in the showcase live-table check that a live-table body contains
-the template; correct the `TESTING.md` coverage claim to name which assets
-lack suites and what covers them. No browser harness: the JS assets stay
-dependency-free with HTTP-level coverage.
-
-7. `_Avoid_` lines have no checker, and one contradicts the code.
+5. `_Avoid_` lines have no checker, and one contradicts the code.
 `CONTEXT.md` bans `Mutation` under the app-vocabulary heading, but
 `Mutation` is a public enum re-exported at the crate root and used in the
 guide. Several exported types (`Sort`, `Cursor`, `OptionSource`) appear in
@@ -72,7 +55,7 @@ Fix: either delete the `_Avoid_` lines or table-drive them in a gate that
 fails on a public identifier match. Add one "Extension points" guide page
 covering the undocumented types — it closes the doc gaps at once.
 
-8. The live shard threads the bulk signal through without loading from it.
+6. The live shard threads the bulk signal through without loading from it.
 `panel/search.rs` passes `bulk` through the search shard while `list_search`
 derives state from `query` only, and the live toolbar branch in
 `table/render/toolbar.rs` binds the bulk signal. No query-count test covers
@@ -80,17 +63,9 @@ selection writes.
 Fix: add a query-count test proving selection writes cause no row reload;
 leave the transport where it is.
 
-9. `TabloError::Declaration` messages never reach a log. Both constructors
+7. `TabloError::Declaration` messages never reach a log. Both constructors
 propagate as `Err` to the router rather than being dropped; the true defect
 is narrower — the constructors never log, and the closed error type plus the
 response mapper decide what anyone sees.
 Fix: log in the constructors; test that the message reaches a tracing
 subscriber. Leave response mapping to the existing error conversion.
-
-10. The pins gate does not cover the pinned tool versions.
-`pins_match_ci_and_docs` checks substrings only and covers neither the
-pinned `topcoat-cli` version in `xtask/src/gates.rs` nor the pinned mdbook
-version in `ci.yml`. Re-measure the pins on the way past rather than trusting
-any figure quoted here.
-Fix: extend `pins_match_ci_and_docs` to parsed versions so the gate checks
-tool versions, not just toolchains.
