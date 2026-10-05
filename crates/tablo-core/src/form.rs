@@ -321,8 +321,8 @@ pub trait RecordForm: Sized + Send + 'static {
     /// The form's default table: one column per field a column can show, in declaration order.
     /// [`Resource::table`] defaults to it.
     ///
-    /// The derive lists each text field in a sortable column, searchable over a `String`, an
-    /// options field by its option's label, and a toggle as yes or no (see
+    /// The derive lists each text field in a sortable column, searchable over a `String` or
+    /// `Option<String>`, an options field by its option's label, and a toggle as yes or no (see
     /// [`RecordForm`](derive@crate::RecordForm)). The default here lists none, so a resource
     /// whose form lists nothing, such as one naming [`NoForm`], declares its own.
     fn table() -> Table<Self::Model> {

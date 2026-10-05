@@ -72,6 +72,6 @@ pub mod prelude {
         Includes, IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy, Posted,
         QueryFilter, ReadOnly, RecordForm, Relation, Repeater, Resource, RouterBuilderPanelExt,
         Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, TextField,
-        Toggle, can, can_list, lens, scoped_query, tenant_id, when,
+        Toggle, can, can_list, declare, lens, scoped_query, tenant_id, when,
     };
 }

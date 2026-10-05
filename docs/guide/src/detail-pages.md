@@ -3,7 +3,8 @@
 A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource declares it in
 `view()`: a `Schema` built from the same fields and layout blocks as a form, which the panel calls
 once at build. `view()` defaults to `form()`, so a resource with a form has a detail page showing
-the form's fields read-only. Override it to show other fields or another layout:
+the form's fields read-only. A form with fields that must stay off the detail page overrides
+`view()` with a subset or `Schema::empty()`. Override it to show other fields or another layout:
 
 ```rust
 fn view() -> Schema {

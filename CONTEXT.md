@@ -141,7 +141,7 @@ _Avoid_: Nested form, Sub-form, Composite field, Inline model
 The typed struct a Resource's form submission parses into: `#[derive(RecordForm)]`, with one
 field per model column the form writes, named and typed like the model's field. The derive emits
 one control per field (`controls()`), chosen from the field, the default schema arranging them in
-order, and the default Table listing them; the resource overrides `form()` or `table()` to arrange
+order, and the default Table listing those a column can show; the resource overrides `form()` or `table()` to arrange
 or extend them instead. The Panel
 hydrates edit forms and detail pages from it and writes it through Toasty's builders.
 

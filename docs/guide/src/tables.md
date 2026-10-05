@@ -5,8 +5,8 @@ grouping and pagination the list offers. It takes no context: the panel calls it
 build and serves that table to every request. The same declaration drives the CSV export.
 
 `table()` defaults to the record form's derived table, `UserForm::table()`: a sortable column per
-text field, searchable over a `String`, an `#[form(options = ..)]` field by its option's label,
-and a `bool` as yes or no. A bare choice, a file and an embedded value get no column. Extend the
+text field, searchable over a `String` or `Option<String>`, an `#[form(options = ..)]` field by
+its option's label, and a `bool` as yes or no. A bare choice, a file and an embedded value get no column. Extend the
 derived table, or declare the columns yourself:
 
 ```rust

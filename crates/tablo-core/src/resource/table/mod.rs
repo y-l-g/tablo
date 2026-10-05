@@ -363,7 +363,7 @@ impl<M> Table<M> {
         let mut errors = self.misdeclared.clone();
         if self.columns.is_empty() {
             errors.push(
-                "a Table needs at least one column: declare them in `Resource::table`".to_string(),
+                "a Table needs at least one column: declare columns with `Table::new(columns)` or in `Resource::table`".to_string(),
             );
         }
         let mut seen = std::collections::HashSet::with_capacity(self.columns.len());

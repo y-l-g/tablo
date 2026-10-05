@@ -156,7 +156,8 @@ Mounting the panel calls each resource's declarations once — `table()`, `form(
 flattened column wherever a declaration names one. It refuses the resource when:
 
 - `table()`, `form()` or `view()` is malformed: a duplicate column, filter or field name, a zero
-  page size, an empty column set (a `NoForm` resource declares its own `table()`), or a lens that
+  page size, an empty column set (a resource whose derived table lists nothing declares its own
+  `table()`), or a lens that
   binds no column. Rendering such a table through
   `Table::render` (or `render_with_state`) or such a schema through `Schema::render` fails with the
   same errors;
