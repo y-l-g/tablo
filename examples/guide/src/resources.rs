@@ -159,7 +159,6 @@ impl Resource for CommentResource {
         posted: Posted<CommentForm>,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Comment> {
-        // `Posted` derefs to the form.
         tablo_core::write_update::<Self>(cx, record, posted, ex).await
     }
     // ANCHOR_END: comment-update-record
