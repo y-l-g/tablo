@@ -100,6 +100,7 @@ pub mod tenancy;
 #[cfg(test)]
 mod test_support;
 mod toasty_compat;
+mod topcoat_compat;
 pub mod upload;
 
 pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth};

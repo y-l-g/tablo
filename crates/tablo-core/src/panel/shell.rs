@@ -9,15 +9,14 @@ use topcoat::{
     icon::icon,
     router::Slot,
     runtime::{Event, Signal, signal},
-    view::{
-        Attributes, BoxView, Child, HoistView, View, ViewExt, attributes, internal::ThenView, view,
-    },
+    view::{Attributes, BoxView, Child, View, ViewExt, attributes, internal::ThenView, view},
 };
 
 use super::{Panel, state::current};
 use crate::{
     notification::{LiveToast, live_toast, live_toaster, take_notification},
     resource::NavigationItem,
+    topcoat_compat::async_page,
 };
 
 /// `extra` plus the attribute that sends a sidebar link through runtime
@@ -333,9 +332,9 @@ impl Panel {
         // copies pin the caller's navigation to the lazy body's lifetime.
         let nav_items = nav_items.to_vec();
         let current_path = current_path.to_string();
-        Ok(Box::pin(HoistView::new(ThenView::new(async move {
+        Ok(async_page(async move {
             Self::render_shell_body(cx, &nav_items, &current_path, slot, extra_class).await
-        }))))
+        }))
     }
 
     async fn render_shell_body<'a>(

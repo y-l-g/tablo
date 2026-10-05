@@ -7,7 +7,7 @@ use topcoat::{
         Body,
         error::{bad_request, forbidden, not_found, see_other},
     },
-    view::{BoxView, HoistView, internal::ThenView},
+    view::BoxView,
 };
 
 use super::{
@@ -24,6 +24,7 @@ use crate::{
     notification::{Notification, set_notification},
     policy::{Ability, can},
     resource::{ActionEntry, Committed, Resource},
+    topcoat_compat::async_page,
 };
 
 /// Failure-toast wording for a custom action.
@@ -51,65 +52,61 @@ pub(crate) fn resource_bulk_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
 
 /// Runs the custom action both routes share.
 fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::<_, BoxView<'_>>::new(
-        async move {
-            gate::<R>(cx)?;
-            if !can::<R>(cx, Ability::ViewAny) {
-                return Err(forbidden().into());
+    async_page(async move {
+        gate::<R>(cx)?;
+        if !can::<R>(cx, Ability::ViewAny) {
+            return Err(forbidden().into());
+        }
+        let name = topcoat::router::path_param_segment(cx, "action").to_string();
+        let actions = R::actions();
+        let Some(action) = actions.find(&name).filter(|action| match target {
+            Target::Row => action.row,
+            Target::Bulk => action.bulk,
+        }) else {
+            return Err(not_found().into());
+        };
+        let values = parse_form_body(cx, body).await?.values;
+        crate::csrf::verify(cx, &values)?;
+        let ids = match target {
+            Target::Row => {
+                vec![topcoat::router::path_param_segment(cx, "id").to_string()]
             }
-            let name = topcoat::router::path_param_segment(cx, "action").to_string();
-            let actions = R::actions();
-            let Some(action) = actions.find(&name).filter(|action| match target {
-                Target::Row => action.row,
-                Target::Bulk => action.bulk,
-            }) else {
-                return Err(not_found().into());
-            };
-            let values = parse_form_body(cx, body).await?.values;
-            crate::csrf::verify(cx, &values)?;
-            let ids = match target {
-                Target::Row => {
-                    vec![topcoat::router::path_param_segment(cx, "id").to_string()]
+            Target::Bulk => {
+                let raw = values.get("ids").cloned().unwrap_or_default();
+                let ids = parse_bulk_ids(&raw, MAX_BULK_IDS);
+                if ids.is_empty() {
+                    set_notification(cx, Notification::error("Select at least one row first"));
+                    return Err(see_other(landing_url(cx, &R::slug())).into());
                 }
-                Target::Bulk => {
-                    let raw = values.get("ids").cloned().unwrap_or_default();
-                    let ids = parse_bulk_ids(&raw, MAX_BULK_IDS);
-                    if ids.is_empty() {
-                        set_notification(cx, Notification::error("Select at least one row first"));
-                        return Err(see_other(landing_url(cx, &R::slug())).into());
-                    }
-                    if ids.len() > MAX_BULK_IDS {
-                        return Err(
-                            bad_request(format!("too many ids (max {MAX_BULK_IDS})")).into()
-                        );
-                    }
-                    ids
+                if ids.len() > MAX_BULK_IDS {
+                    return Err(bad_request(format!("too many ids (max {MAX_BULK_IDS})")).into());
                 }
-            };
-            let mut db = db(cx);
-            let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-            let rows = load_targets::<R>(cx, &ids, target, &mut tx).await?;
-            if rows.iter().any(|row| !can::<R>(cx, Ability::View(row))) {
-                return Err(forbidden().into());
+                ids
             }
-            let refused = rows.iter().filter(|row| !(action.can_run)(cx, row)).count();
-            if refused > 0 {
-                return Err(refuse::<R>(cx, action, target, refused));
-            }
-            let count = rows.len();
-            let written = (action.run)(cx, &rows, &mut tx).await.map(|()| rows);
-            let name = action.name;
-            commit_write::<R, _>(
-                cx,
-                tx,
-                written,
-                |rows| Committed::acted(name, rows),
-                (action.success)(count),
-                WRITE_ACTION,
-            )
-            .await
-        },
-    )))
+        };
+        let mut db = db(cx);
+        let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
+        let rows = load_targets::<R>(cx, &ids, target, &mut tx).await?;
+        if rows.iter().any(|row| !can::<R>(cx, Ability::View(row))) {
+            return Err(forbidden().into());
+        }
+        let refused = rows.iter().filter(|row| !(action.can_run)(cx, row)).count();
+        if refused > 0 {
+            return Err(refuse::<R>(cx, action, target, refused));
+        }
+        let count = rows.len();
+        let written = (action.run)(cx, &rows, &mut tx).await.map(|()| rows);
+        let name = action.name;
+        commit_write::<R, _>(
+            cx,
+            tx,
+            written,
+            |rows| Committed::acted(name, rows),
+            (action.success)(count),
+            WRITE_ACTION,
+        )
+        .await
+    })
 }
 
 /// Loads the records `ids` names through the tenant-scoped query inside the transaction.

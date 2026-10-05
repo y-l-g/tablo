@@ -7,7 +7,7 @@ use topcoat::{
     context::Cx,
     icon::icon,
     router::{Body, error::forbidden},
-    view::{BoxView, HoistView, ViewExt, attributes, internal::ThenView, view},
+    view::{BoxView, ViewExt, attributes, view},
 };
 
 use super::super::{
@@ -18,6 +18,7 @@ use crate::{
     form::FieldErrors,
     policy::{Ability, can},
     resource::{Resource, declared},
+    topcoat_compat::async_page,
 };
 
 /// What a form page shows around its form: the create page and the edit page differ only here.
@@ -154,7 +155,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
 
 /// Renders the create page, seeding only relationship controls from query parameters.
 pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::new(async move {
+    async_page(async move {
         gate::<R>(cx)?;
         if !can::<R>(cx, Ability::Create) {
             return Err(forbidden().into());
@@ -169,7 +170,7 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
         )
         .await?;
         Ok(html)
-    })))
+    })
 }
 
 /// Collects relationship-control query parameters for the create form, first occurrence wins.

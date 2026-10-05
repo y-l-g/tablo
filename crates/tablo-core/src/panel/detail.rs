@@ -4,7 +4,7 @@ use topcoat::{
     context::Cx,
     icon::icon,
     router::{Body, error::not_found, path_param_segment},
-    view::{BoxView, HoistView, ViewExt, internal::ThenView, view},
+    view::{BoxView, ViewExt, view},
 };
 
 use super::{
@@ -17,12 +17,13 @@ use crate::{
     form::RecordForm,
     policy::{Ability, can},
     resource::{Resource, declared},
+    topcoat_compat::async_page,
 };
 
 /// Renders the detail page, 404ing without a declared view or for unknown ids and 403ing
 /// view-denied records.
 pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::new(async move {
+    async_page(async move {
         gate::<R>(cx)?;
         let declared = declared::<R>(cx);
         if !declared.viewed() {
@@ -100,7 +101,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             )
         }
         .boxed())
-    })))
+    })
 }
 
 /// Builds the detail title from the record label, else the page name and record key.

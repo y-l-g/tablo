@@ -9,7 +9,7 @@ use topcoat::{
     Result,
     context::Cx,
     router::{Body, error::forbidden},
-    view::{BoxView, HoistView, internal::ThenView},
+    view::BoxView,
 };
 
 use super::{
@@ -29,6 +29,7 @@ use crate::{
     policy::{Ability, can},
     resource::{Committed, Resource, declared},
     schema::Schema,
+    topcoat_compat::async_page,
 };
 
 const WRITE_CREATE: &str = "create the record";
@@ -200,7 +201,7 @@ fn named_fields<R: Resource>(
 }
 
 pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::new(async move {
+    async_page(async move {
         gate::<R>(cx)?;
         if !can::<R>(cx, Ability::Create) {
             return Err(forbidden().into());
@@ -234,12 +235,12 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         };
         let written = R::create_record(cx, form, &mut tx).await;
         commit_write::<R, _>(cx, tx, written, Committed::created, "Created", WRITE_CREATE).await
-    })))
+    })
 }
 
 /// Validates the edit submission and writes named fields, requiring both `View` and `Update`.
 pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::new(async move {
+    async_page(async move {
         gate::<R>(cx)?;
         let parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, &parts.values)?;
@@ -290,7 +291,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let posted = Posted::new(form, named_fields::<R>(cx, &named));
         let written = R::update_record(cx, record, posted, &mut tx).await;
         commit_write::<R, _>(cx, tx, written, Committed::updated, "Updated", WRITE_UPDATE).await
-    })))
+    })
 }
 
 #[cfg(test)]

@@ -6,7 +6,7 @@ use topcoat::{
     Result,
     context::Cx,
     router::{Body, error::forbidden},
-    view::{BoxView, HoistView, internal::ThenView},
+    view::BoxView,
 };
 
 use super::{
@@ -18,6 +18,7 @@ use crate::{
     form::{FieldErrors, RecordForm},
     policy::{Ability, can},
     resource::Resource,
+    topcoat_compat::async_page,
 };
 
 /// A decoded form body: the text values plus any file parts.
@@ -142,7 +143,7 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
 
 /// Renders the edit form hydrated from the tenant-scoped record.
 pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::new(async move {
+    async_page(async move {
         gate::<R>(cx)?;
         let mut db = db(cx);
         let record = load_viewable::<R>(cx, &mut db).await?;
@@ -160,7 +161,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         )
         .await?;
         Ok(html)
-    })))
+    })
 }
 #[cfg(test)]
 mod tests;
