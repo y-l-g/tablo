@@ -6,13 +6,12 @@
 
 use std::{borrow::Cow, collections::BTreeMap};
 
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use topcoat::{
     context::Cx,
     runtime::{Signal, signal},
 };
 
-use crate::query_term::clamp_query_term;
+use crate::{query_term::clamp_query_term, topcoat_compat::href};
 
 /// The live table's browser state: the list's query string and the bulk
 /// selection.
@@ -285,7 +284,7 @@ impl TableState {
     /// Full state, including the cursor; never `delete`/`open`. The streamed
     /// retry link for failures that keep their evidence.
     pub(crate) fn list_url(&self, path: &str) -> String {
-        with_query(path, &self.query())
+        href::with_query(path, &self.query())
     }
 
     /// Drops `q` (and the cursor + dialog of its result set); keeps the
@@ -296,7 +295,7 @@ impl TableState {
             cursor: None,
             ..self.full()
         };
-        with_query(path, &self.project(projection))
+        href::with_query(path, &self.project(projection))
     }
 
     /// Drops the filters (and the cursor + dialog of their result set); keeps
@@ -307,7 +306,7 @@ impl TableState {
             cursor: None,
             ..self.full()
         };
-        with_query(path, &self.project(projection))
+        href::with_query(path, &self.project(projection))
     }
 
     /// Drops the cursor; keeps everything else. Back-to-first-page and the
@@ -317,7 +316,7 @@ impl TableState {
             cursor: None,
             ..self.full()
         };
-        with_query(path, &self.project(projection))
+        href::with_query(path, &self.project(projection))
     }
 
     /// Full state with `cursor` in place of the current one, and no dialog:
@@ -327,7 +326,7 @@ impl TableState {
             cursor: Some(cursor),
             ..self.full()
         };
-        with_query(path, &self.project(projection))
+        href::with_query(path, &self.project(projection))
     }
 
     /// Replaces `sort`/`dir`, drops the cursor and the dialog: a new ordering
@@ -338,7 +337,7 @@ impl TableState {
             cursor: None,
             ..self.full()
         };
-        with_query(path, &self.project(projection))
+        href::with_query(path, &self.project(projection))
     }
 
     /// The shared parameters of every row-action URL on one page, encoded
@@ -419,7 +418,7 @@ impl TableState {
         ])
         .filter_map(|(key, value)| value.map(|value| (key, value)))
         .collect();
-        encode_query(&pairs)
+        href::encode_query(&pairs)
     }
 }
 
@@ -447,8 +446,8 @@ impl RowUrlBase {
         format!(
             "{}{separator}{}={}",
             self.base,
-            encode_query_value(&self.delete_param),
-            encode_query_value(key)
+            href::encode_query_value(&self.delete_param),
+            href::encode_query_value(key)
         )
     }
 }
@@ -489,19 +488,22 @@ pub(crate) const ACTION_ROUTE_PARAM: &str = "{action}";
 
 /// The row's `Edit` link: `{prefix}/{key}/edit`.
 pub(crate) fn row_edit_url(prefix: &str, key: &str) -> String {
-    format!("{prefix}/{}/{EDIT_ROUTE_SEGMENT}", encode_path_segment(key))
+    format!(
+        "{prefix}/{}/{EDIT_ROUTE_SEGMENT}",
+        href::encode_path_segment(key)
+    )
 }
 
 /// The row's `View` link: `{prefix}/{key}` — the detail page.
 pub(crate) fn row_view_url(prefix: &str, key: &str) -> String {
-    format!("{prefix}/{}", encode_path_segment(key))
+    format!("{prefix}/{}", href::encode_path_segment(key))
 }
 
 /// The row delete form's POST target: `{prefix}/{key}/delete`.
 pub(crate) fn delete_action_url(prefix: &str, key: &str) -> String {
     format!(
         "{prefix}/{}/{DELETE_ROUTE_SEGMENT}",
-        encode_path_segment(key)
+        href::encode_path_segment(key)
     )
 }
 
@@ -509,7 +511,7 @@ pub(crate) fn delete_action_url(prefix: &str, key: &str) -> String {
 pub(crate) fn row_action_url(prefix: &str, key: &str, name: &str) -> String {
     format!(
         "{prefix}/{}/{ACTIONS_ROUTE_SEGMENT}/{name}",
-        encode_path_segment(key)
+        href::encode_path_segment(key)
     )
 }
 
@@ -535,30 +537,7 @@ pub(crate) const RETURN_PARAM: &str = "return";
 
 /// `url`, which carries no query, with `?return={target}`.
 pub(crate) fn with_return(url: &str, target: &str) -> String {
-    format!("{url}?{RETURN_PARAM}={}", encode_query_value(target))
-}
-
-/// Every byte outside the RFC 3986 `unreserved` set (`A-Z a-z 0-9 - _ . ~`)
-/// is percent-encoded in a query value or path segment.
-const NON_UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC
-    .remove(b'-')
-    .remove(b'_')
-    .remove(b'.')
-    .remove(b'~');
-
-/// Percent-encode a query parameter value (`unreserved` RFC 3986 set passes).
-fn encode_query_value(value: &str) -> String {
-    utf8_percent_encode(value, NON_UNRESERVED).to_string()
-}
-
-/// Percent-encode a single path segment.
-///
-/// Row keys are `String` by contract, so `/`, `?`, `#`, `%`, `+` inside a key
-/// must not rewrite the action URL. Topcoat's `path_param_segment` returns
-/// the percent-decoded segment, so this round-trips; UUID keys pass through
-/// unchanged.
-pub(crate) fn encode_path_segment(value: &str) -> String {
-    encode_query_value(value)
+    format!("{url}?{RETURN_PARAM}={}", href::encode_query_value(target))
 }
 
 /// FNV-1a (32-bit): stable across runs and Rust versions, no dependency.
@@ -605,24 +584,6 @@ fn dom_id(prefix: &str, key: &str) -> String {
     }
     out.push_str(&format!("-{:08x}", fnv1a_32(key)));
     out
-}
-
-/// Encode ordered `key=value` pairs as a URL query, without the leading `?`.
-fn encode_query(pairs: &[(String, &str)]) -> String {
-    pairs
-        .iter()
-        .map(|(key, value)| format!("{}={}", encode_query_value(key), encode_query_value(value)))
-        .collect::<Vec<_>>()
-        .join("&")
-}
-
-/// `path?query`, or `path` alone for an empty query.
-fn with_query(path: &str, query: &str) -> String {
-    if query.is_empty() {
-        path.to_string()
-    } else {
-        format!("{path}?{query}")
-    }
 }
 
 /// The request's URL query, without the leading `?`; empty without a

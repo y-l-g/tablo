@@ -6,7 +6,7 @@ use topcoat::{
     icon::icon,
     router::{Body, error::forbidden},
     runtime::Event,
-    view::{BoxView, HoistView, ViewExt, attributes, internal::ThenView, suspense, view},
+    view::{BoxView, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
 use super::gate::{gate, list_url};
@@ -17,6 +17,7 @@ use crate::{
         Resource, RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage,
         TableSignals, TableState, create_page_url, declared, request_query,
     },
+    topcoat_compat::async_page,
 };
 
 /// Returns the retry link for a failed table load, dropping pagination for cursor failures and
@@ -195,7 +196,7 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
 
 /// Serves the list page every declared [`Resource`] gets at `{prefix}/{slug}`.
 pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::new(async move {
+    async_page(async move {
         gate::<R>(cx)?;
         if !can::<R>(cx, Ability::ViewAny) {
             return Err(forbidden().into());
@@ -234,7 +235,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             )
         }
         .boxed())
-    })))
+    })
 }
 
 /// Serves the live list page for `Table::live_search` tables.
@@ -245,7 +246,7 @@ pub(crate) fn resource_list_live<R: Resource>(
     title: String,
     list_path: String,
 ) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::new(async move {
+    async_page(async move {
         // Keyed by the list so one list's search never filters the next.
         let signals = TableState::signals_for(&cx.keyed(list_path.as_str()), &request_query(cx));
         // Normalizes once per request.
@@ -307,7 +308,7 @@ pub(crate) fn resource_list_live<R: Resource>(
                 )
             )
         })
-    })))
+    })
 }
 
 /// Loads `R`'s list page for `state` from the tenant-scoped query.

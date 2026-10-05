@@ -5,7 +5,7 @@ use topcoat::{
     Result,
     context::Cx,
     icon::icon,
-    view::{BoxView, HoistView, ViewExt, internal::ThenView, suspense, view},
+    view::{BoxView, ViewExt, internal::ThenView, suspense, view},
 };
 
 use super::{
@@ -20,6 +20,7 @@ use crate::{
         BoundRelation, RETURN_PARAM, Resource, TABLE_CARD_CLASS, Table, TableChrome, TableState,
         create_page_url, declared, request_query, runtime_link,
     },
+    topcoat_compat::async_page,
 };
 
 /// Renders the relation tables of `R`'s record `owner`.
@@ -51,7 +52,7 @@ pub(crate) fn relation_chrome<C: Resource>(cx: &Cx, read_only: bool) -> TableChr
 
 /// Renders one relation's section as `C`'s list table over the rows the owner holds.
 pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> BoxView<'_> {
-    Box::pin(HoistView::new(ThenView::new(async move {
+    async_page(async move {
         if enforce_tenant::<C>(cx).is_err() || !can::<C>(cx, Ability::ViewAny) {
             return Ok(().boxed());
         }
@@ -96,7 +97,7 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             </section>
         }
         .boxed())
-    })))
+    })
 }
 
 /// Renders a live-search relation's section with its bars hoisted above the streamed region.

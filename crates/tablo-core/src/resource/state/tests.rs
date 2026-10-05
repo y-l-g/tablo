@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
-use crate::query_term::MAX_QUERY_TERM;
+use crate::{query_term::MAX_QUERY_TERM, topcoat_compat::href::encode_path_segment};
 
 fn cx_with_query(query: &str) -> Cx {
     let uri = if query.is_empty() {
