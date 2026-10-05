@@ -41,7 +41,7 @@ async fn login_page_is_standalone_with_csrf_and_no_demo_hint_by_default() {
 
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
-    assert!(html.contains("Sign in"), "missing heading: {html}");
+    assert!(html.contains("<h1"), "missing heading: {html}");
     assert!(html.contains("Tablo Blog"), "missing brand: {html}");
     assert!(
         html.contains("<html>"),

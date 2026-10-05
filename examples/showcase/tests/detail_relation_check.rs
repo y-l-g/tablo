@@ -73,8 +73,8 @@ async fn the_post_page_lists_its_own_comments_through_the_comments_table() {
         );
     }
     assert!(
-        other.contains("No records yet"),
-        "an empty relation says so: {other}"
+        tablo_test::rows(&other).is_empty(),
+        "an empty relation renders no rows: {other}"
     );
 }
 

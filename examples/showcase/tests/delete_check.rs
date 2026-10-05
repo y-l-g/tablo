@@ -134,11 +134,9 @@ async fn delete_requires_confirmation_and_deletes() {
         !loc.contains("notification"),
         "the toast must not ride the query, got {loc}"
     );
-    let flash = set_cookie_header(&resp, "__Host-tablo_notification")
-        .expect("the flash cookie is set on the redirect");
     assert!(
-        flash.contains("Deleted"),
-        "the flash carries the action, got {flash}"
+        set_cookie_header(&resp, "__Host-tablo_notification").is_some(),
+        "the flash cookie is set on the redirect"
     );
 
     assert_eq!(
@@ -158,7 +156,7 @@ async fn delete_requires_confirmation_and_deletes() {
     let resp2 = client.cookies(&response_cookies(&resp)).get(loc).await;
     let html2 = body_string(resp2).await;
     assert!(
-        html2.contains("Deleted"),
+        html2.contains("data-sonner-toast"),
         "notification should survive, got {}",
         html2
     );

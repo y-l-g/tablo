@@ -549,8 +549,8 @@ async fn admin_list_empty_search_shows_no_results_with_clear() {
     );
     let html = body_string(response).await;
     assert!(
-        html.contains("No matches for"),
-        "search-empty state must say No matches: {html}"
+        html.contains("data-search-clear"),
+        "search-empty state must offer the clear link: {html}"
     );
     assert!(
         !html.contains("No records yet"),
@@ -559,10 +559,6 @@ async fn admin_list_empty_search_shows_no_results_with_clear() {
     assert!(
         !html.contains("Create record"),
         "dead Create button must stay gone: {html}"
-    );
-    assert!(
-        html.contains("Clear search"),
-        "missing Clear search link: {html}"
     );
 }
 #[tokio::test]

@@ -181,9 +181,8 @@ async fn posts_filter_composes_and() {
         html
     );
     assert!(
-        html.contains("No records") || html.contains("No results"),
-        "should show empty {}",
-        html
+        row_titles(&html).is_empty(),
+        "the AND filter must match nothing: {html}"
     );
 }
 
