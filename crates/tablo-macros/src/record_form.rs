@@ -425,8 +425,8 @@ fn expand_struct(
 }
 
 /// The column the default table lists a field in: a sortable text column, searchable over a
-/// `String` or `Option<String>`, a choice's option label, or a toggle's yes or no. A bare choice, which holds a key, a
-/// file path and an embedded value get none.
+/// `String` or `Option<String>`, a choice's option label, or a toggle's yes or no. A bare choice,
+/// which holds a key, a file path and an embedded value get none.
 fn default_column(
     krate: &TokenStream2,
     model: &syn::Path,
