@@ -12,7 +12,7 @@ versions Tablo uses:
 
 ```toml
 [dependencies]
-tablo = { git = "https://github.com/y-l-g/tablo", features = ["sqlite"] }
+tablo = { version = "0.1", features = ["sqlite"] }
 topcoat = { version = "0.10", default-features = false, features = ["tailwind", "font", "font-fontsource", "asset"] }
 toasty = { version = "0.11", default-features = false, features = ["jiff"] }
 jiff = "0.2"
@@ -20,7 +20,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1"
 
 [build-dependencies]
-tablo-build = { git = "https://github.com/y-l-g/tablo" }
+tablo-build = "0.1"
 ```
 
 The toolkit enables no driver itself: `sqlite`, `postgresql` and `mysql` each turn on Toasty's
