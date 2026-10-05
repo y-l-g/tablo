@@ -59,7 +59,7 @@ use super::Resource;
 /// The framework owns everything around [`run`](Self::run), as it does for
 /// a delete:
 ///
-/// - the route, `{list}/{key}/actions/{NAME}` for a row and `{list}/actions/{NAME}` for the
+/// - the route, `{list}/{key}/-/actions/{NAME}` for a row and `{list}/-/actions/{NAME}` for the
 ///   selection, and its CSRF check;
 /// - the transaction: the records are loaded through [`scoped_query`](super::scoped_query) inside
 ///   it, `run` writes through the same executor, and an error rolls everything back;

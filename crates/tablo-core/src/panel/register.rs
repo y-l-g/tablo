@@ -30,7 +30,8 @@ use crate::{
     schema::declare_with,
     table::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
-        DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM, TableSignals,
+        DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
+        TableSignals,
     },
 };
 
@@ -283,17 +284,19 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, has_actions:
         &format!("{url}/{BULK_DELETE_ROUTE_SEGMENT}"),
         resource_bulk_delete::<R>,
     );
-    // Registered only for a resource that declares some: the static `actions` segment would
-    // otherwise shadow the edit and delete routes of a record whose key is `actions`.
+    // The `-` segment keeps `actions` from shadowing the edit and delete
+    // routes of a record whose key is `actions`.
     if has_actions {
         registry.page(
             Method::POST,
-            &format!("{url}/{RECORD_ROUTE_PARAM}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"),
+            &format!(
+                "{url}/{RECORD_ROUTE_PARAM}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"
+            ),
             resource_row_action::<R>,
         );
         registry.page(
             Method::POST,
-            &format!("{url}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"),
+            &format!("{url}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"),
             resource_bulk_action::<R>,
         );
     }
