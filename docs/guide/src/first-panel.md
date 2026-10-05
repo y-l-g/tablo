@@ -8,13 +8,13 @@ stylesheet wired in.
 
 An app depends on the `tablo` facade, picks its database driver with a `tablo` feature, and builds
 its stylesheet with `tablo-build`. It names `topcoat` and `toasty` directly for their macros, at the
-revisions Tablo pins:
+versions Tablo uses:
 
 ```toml
 [dependencies]
 tablo = { git = "https://github.com/y-l-g/tablo", features = ["sqlite"] }
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "<the rev Tablo pins>", features = ["tailwind", "font", "font-fontsource", "asset"] }
-toasty = { git = "https://github.com/tokio-rs/toasty", rev = "<the rev Tablo pins>", features = ["jiff"] }
+topcoat = { version = "0.10", default-features = false, features = ["tailwind", "font", "font-fontsource", "asset"] }
+toasty = { version = "0.11", default-features = false, features = ["jiff"] }
 jiff = "0.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1"
@@ -25,7 +25,7 @@ tablo-build = { git = "https://github.com/y-l-g/tablo" }
 
 The toolkit enables no driver itself: `sqlite`, `postgresql` and `mysql` each turn on Toasty's
 driver of the same name. The `[workspace.dependencies]` of Tablo's `Cargo.toml` hold the pinned
-revisions. `tablo` re-exports `tablo_core` at its root, so `tablo_core::X` in the other chapters is
+versions. `tablo` re-exports `tablo_core` at its root, so `tablo_core::X` in the other chapters is
 `tablo::X` here, and the derives work with `tablo` as the only Tablo dependency.
 
 ## The app

@@ -5,21 +5,18 @@
 The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): eight commands
 mirroring `.github/workflows/ci.yml` and `.github/workflows/msrv-udeps.yml`. Run it via `cargo xtask check` (fail-fast),
 or the ones covering your change; all eight before merging. CI also runs the extra
-checks listed there (docs, detached-bench fmt, external, bench-check).
+checks listed there (docs, detached-bench fmt, external).
 
 ```sh
 cargo xtask check                                # the gate set, fail-fast
-cargo xtask fmt                                  # nightly fmt + detached fmt + locked-rev topcoat fmt
-cargo xtask verify-locks                         # workspace vs bench vs quickstart rev equality
+cargo xtask fmt                                  # nightly fmt + detached fmt + pinned topcoat fmt
 cargo xtask external-check                       # build and test examples/quickstart outside the repo
-cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>  # bump every pinned manifest, assert lockstep
 cargo run -p showcase                            # http://localhost:3000/admin/users
 cargo xtask sync-topcoat-ui                      # re-vendor primitives, verbatim
 cargo xtask verify-topcoat-ui                    # fail on vendored drift
 
-# `topcoat fmt` only agrees with the CLI built from the rev Cargo.lock pins.
-REV=$(grep -A 2 '^name = "topcoat"$' Cargo.lock | grep -o '#[0-9a-f]\{40\}' | head -1 | cut -c2-)
-cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli --locked --force
+# `topcoat fmt` only agrees with the pinned CLI version.
+cargo install topcoat-cli --version 0.10.0 --locked --force
 ```
 
 ## Rules
@@ -33,14 +30,13 @@ cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli
    a file.
 6. `cargo fmt` covers workspace members only; the detached `benchmarks/*` and
    `examples/quickstart` packages are formatted and linted by manifest path.
-7. Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit, with
-   identical `topcoat`/`toasty` revs.
+7. Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit.
 8. Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with xtask. Owned
    components live in `components/composites/`.
 9. Hunting dead code: prefer `pub` API, always-same-value config, and test-only paths.
    `unsafe_code` and `warnings` are denied; `too_many_lines` is denied with the
    budget in the workspace-root `clippy.toml` (`too-many-lines-threshold = 300`).
-10. Run `topcoat fmt` with the locked-rev CLI after changing `view!` markup; another CLI's
+10. Run `topcoat fmt` with the pinned CLI after changing `view!` markup; another CLI's
     diff is not a fix. See `CONTRIBUTING.md`.
 
 ## Git
@@ -57,10 +53,9 @@ guide is `docs/guide/` (mdBook), decisions are in `docs/adr/`, contributor specs
 
 ## Renovate PRs
 
-Bump `topcoat`/`toasty` deliberately, never with a blanket `cargo update`; sync
-`benchmarks/tablo/Cargo.lock` in the same commit. Coupled sets (e.g. `argon2` +
-`password-hash`) merge as one combined manual bump. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md#dependency-pins) for the commands and GH #103.
+Renovate groups `topcoat`/`toasty` bumps; sync `benchmarks/tablo/Cargo.lock`
+in the same commit. Coupled sets (e.g. `argon2` +
+`password-hash`) merge as one combined manual bump.
 Two `syn` majors remain (GH #181, GH #193); do not force-unify.
 
 ## Further reading

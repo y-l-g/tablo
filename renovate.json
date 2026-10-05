@@ -2,20 +2,16 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "prBodyNotes": [
-    "Pin policy (GH #103): any change to the workspace Cargo.lock must sync benchmarks/tablo/Cargo.lock in the same commit, keeping topcoat/toasty revs identical.",
-    "Topcoat and Toasty are pinned to exact revs and bumped with cargo xtask bump-upstream, never by Renovate or a blanket cargo update."
+    "Upstream policy: any change to the workspace Cargo.lock syncs benchmarks/tablo/Cargo.lock in the same commit."
   ],
   "lockFileMaintenance": {
     "enabled": false
   },
-  "ignoreDeps": ["topcoat", "topcoat-ui", "topcoat-ui-registry", "toasty", "toasty-core"],
   "packageRules": [
     {
-      "description": "Topcoat and Toasty stay pinned; bump via cargo xtask bump-upstream",
-      "matchManagers": ["cargo"],
-      "matchDepNames": ["topcoat", "topcoat-*", "toasty", "toasty-*"],
+      "description": "Topcoat and Toasty bump as one grouped set",
       "matchPackageNames": ["topcoat", "topcoat-*", "toasty", "toasty-*"],
-      "enabled": false
+      "groupName": "topcoat-toasty"
     },
     {
       "description": "argon2 + password-hash bump as one coupled set, never separately",

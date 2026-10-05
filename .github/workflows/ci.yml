@@ -16,7 +16,7 @@ env:
 # Warning denial lives in [workspace.lints.rust], not RUSTFLAGS: RUSTFLAGS partitions the build
 # cache through every unit's fingerprint.
 
-# Topcoat and Toasty are pinned to exact revs; bump via `cargo xtask bump-upstream` (GH #103).
+# Topcoat and Toasty track crates.io releases; Renovate groups their bumps.
 
 jobs:
   test:
@@ -96,21 +96,15 @@ jobs:
       - run: rustup toolchain install nightly-2026-08-24 --profile minimal --component rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Restore topcoat CLI cache
-        # The cache restores the Cargo.lock-pinned rev.
         id: cache-topcoat
         uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/topcoat
-          key: topcoat-cli-${{ hashFiles('Cargo.lock') }}
+          key: topcoat-cli-0.10.0
       - name: Install topcoat CLI (for `topcoat fmt`)
         if: steps.cache-topcoat.outputs.cache-hit != 'true'
-        # Install the formatter at the Cargo.lock-pinned rev, read from the lock (GH #103).
-        run: |
-          REV=$(grep -A 2 '^name = "topcoat"$' Cargo.lock | grep -o '#[0-9a-f]\{40\}' | head -1 | cut -c2-)
-          test -n "$REV" || { echo "could not read topcoat rev from Cargo.lock"; exit 1; }
-          echo "Installing topcoat-cli at locked revision $REV"
-          cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli --locked --force
-      - name: topcoat fmt (locked rev, via xtask)
+        run: cargo install topcoat-cli --version 0.10.0 --locked --force
+      - name: topcoat fmt (pinned CLI, via xtask)
         # The toolchain and CLI installs stay in CI: xtask runs the check half only.
         # Covers detached fmt (benchmarks/tablo, benchmarks/axum-maud, benchmarks/leptos,
         # examples/quickstart).
