@@ -4,7 +4,7 @@ use super::*;
 use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
-    test_support::cx,
+    test_support::{DummyUser, cx},
 };
 
 /// The `<div>` nesting depth at the first occurrence of `marker` in `html`,
@@ -25,16 +25,6 @@ fn div_depth_of(html: &str, marker: &str) -> usize {
         }
     }
     depth
-}
-
-#[derive(Debug, toasty::Model)]
-struct DummyUser {
-    #[key]
-    #[auto]
-    id: uuid::Uuid,
-    name: String,
-    #[unique]
-    email: String,
 }
 
 #[tokio::test]

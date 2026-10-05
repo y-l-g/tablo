@@ -4,7 +4,7 @@ use topcoat::view::ViewExt;
 use super::*;
 use crate::{
     Ability, Panel, ResourceDef, lens,
-    panel::test_support::{Dummy, dummy_table, mount, panel_for, response_html},
+    panel::test_support::{Dummy, Subscriber, dummy_table, mount, panel_for, response_html},
     schema::{Field, Schema},
 };
 
@@ -579,14 +579,6 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
         table::{Table, TextColumn},
     };
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        #[unique]
-        email: String,
-    }
     struct SubscriberResource;
     impl Resource for SubscriberResource {
         type Model = Subscriber;

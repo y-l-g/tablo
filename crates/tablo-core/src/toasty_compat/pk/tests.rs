@@ -1,13 +1,5 @@
 use super::*;
-#[derive(Debug, toasty::Model)]
-struct DummyUser {
-    #[key]
-    #[auto]
-    id: uuid::Uuid,
-    name: String,
-    #[unique]
-    email: String,
-}
+use crate::test_support::DummyUser;
 
 #[test]
 fn composite_pk_has_no_url_representation() {

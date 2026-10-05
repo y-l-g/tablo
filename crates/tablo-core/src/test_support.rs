@@ -34,3 +34,14 @@ pub(crate) struct User {
     pub(crate) id: uuid::Uuid,
     pub(crate) name: String,
 }
+
+/// The three-column model schema tests resolve lenses against.
+#[derive(Debug, toasty::Model)]
+pub(crate) struct DummyUser {
+    #[key]
+    #[auto]
+    pub(crate) id: uuid::Uuid,
+    pub(crate) name: String,
+    #[unique]
+    pub(crate) email: String,
+}

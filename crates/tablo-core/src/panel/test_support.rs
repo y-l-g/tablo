@@ -1,7 +1,7 @@
 //! Fixtures shared by the panel's `#[cfg(test)]` modules.
 //!
-//! Every module's resource declares the same two-column model and the same
-//! table over it, and mounts the same panel; one copy lives here.
+//! The models panel tests declare, the canonical name table, and the panel
+//! mounting helpers; one copy lives here.
 
 use toasty::Db;
 use topcoat::{
@@ -28,6 +28,16 @@ pub(crate) struct Dummy {
 /// [`Dummy`]'s canonical table: one name column.
 pub(crate) fn dummy_table() -> Table<Dummy> {
     Table::<Dummy>::new(TextColumn::new(lens!(Dummy.name)))
+}
+
+/// The unique-email model form tests submit.
+#[derive(Debug, Clone, toasty::Model)]
+pub(crate) struct Subscriber {
+    #[key]
+    #[auto]
+    pub(crate) id: uuid::Uuid,
+    #[unique]
+    pub(crate) email: String,
 }
 
 /// A panel at `/admin` with one resource and the auth gate off.

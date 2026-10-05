@@ -2,16 +2,7 @@ use toasty::schema::Model;
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-
-#[derive(Debug, toasty::Model)]
-struct DummyUser {
-    #[key]
-    #[auto]
-    id: uuid::Uuid,
-    name: String,
-    #[unique]
-    email: String,
-}
+use crate::test_support::DummyUser;
 
 #[test]
 fn single_segment_lens_passes_traversal_is_refused() {

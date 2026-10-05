@@ -1,17 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::schema::Source;
-
-#[derive(Debug, toasty::Model)]
-struct DummyUser {
-    #[key]
-    #[auto]
-    id: uuid::Uuid,
-    name: String,
-    #[unique]
-    email: String,
-}
+use crate::{schema::Source, test_support::DummyUser};
 
 /// An enum node over the discriminant column `kind`, one variant per value,
 /// built as `EmbeddedBuilder::enumeration` builds it from the app schema.

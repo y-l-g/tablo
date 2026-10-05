@@ -4,21 +4,13 @@ use topcoat::router::Body;
 use super::*;
 use crate::{
     Ability, ResourceDef, lens,
-    panel::test_support::{mount, panel_for},
+    panel::test_support::{Subscriber, mount, panel_for},
 };
 
 #[tokio::test]
 async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
     use topcoat::context::CxTestBuilder;
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        #[unique]
-        email: String,
-    }
     struct SubscriberResource;
     impl Resource for SubscriberResource {
         type Model = Subscriber;
