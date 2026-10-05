@@ -8,10 +8,7 @@ use toasty::{
 };
 use topcoat::{Result, context::Cx};
 
-use crate::{
-    error::TabloError,
-    form::{FieldErrors, Posted, RecordForm},
-};
+use crate::form::{FieldErrors, Posted, RecordForm};
 
 mod action;
 mod commit;
@@ -366,10 +363,9 @@ impl<R: Resource> Mounted<R> {
             return Ok(query);
         }
         if let Some(Err(error)) = self.tenancy.column_field() {
-            return Err(TabloError::Declaration(
+            return Err(crate::error::declaration(
                 crate::DeclarationError::of::<R>(crate::Site::Tenancy, error).to_string(),
-            )
-            .into());
+            ));
         }
         let tenant = crate::tenancy::require_tenant(cx)?;
         Ok(match self.tenancy.filter(tenant) {

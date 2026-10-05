@@ -47,7 +47,7 @@ fn malformed(message: impl Into<String>) -> topcoat::Error {
 
 /// Reports an unframeable ordering-column value without blaming the request token.
 fn unencodable(message: impl Into<String>) -> topcoat::Error {
-    TabloError::Declaration(message.into()).into()
+    crate::error::declaration(message)
 }
 
 /// Reports a cursor cut from a different `ORDER BY` with the malformed-token retry contract.

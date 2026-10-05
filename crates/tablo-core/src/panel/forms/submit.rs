@@ -24,7 +24,6 @@ use super::{
 };
 use crate::{
     db::db,
-    error::TabloError,
     form::{FieldErrorKind, FieldErrors, Posted, RecordForm},
     policy::Ability,
     resource::{Committed, Mounted, Resource},
@@ -182,11 +181,10 @@ async fn recheck_relationships(
 /// Refuse an error whose key this submission renders nowhere: no slot would
 /// carry the message, and writing anyway would drop it.
 fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> topcoat::Error {
-    TabloError::Declaration(format!(
+    crate::error::declaration(format!(
         "{source} refused {key:?}, which `{}` renders nowhere for this submission: {message}",
         std::any::type_name::<R::Form>()
     ))
-    .into()
 }
 
 fn named_fields<R: Resource>(

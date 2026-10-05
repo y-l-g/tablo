@@ -51,11 +51,19 @@ impl std::error::Error for TabloError {}
 
 /// Refuses to render a declaration with `errors`.
 pub(crate) fn misdeclared(errors: &[crate::DeclarationErrorKind]) -> topcoat::Error {
-    let message = errors
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join("; ");
+    declaration(
+        errors
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("; "),
+    )
+}
+
+/// Raises a declaration failure, logging the message for operators.
+pub(crate) fn declaration(message: impl Into<String>) -> topcoat::Error {
+    let message = message.into();
+    tracing::error!(error = %message, "declaration failure");
     TabloError::Declaration(message).into()
 }
 

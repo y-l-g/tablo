@@ -5,7 +5,6 @@ use topcoat::{Result, context::Cx};
 
 use super::{Resource, require_mounted};
 use crate::{
-    error::TabloError,
     form::{Posted, RecordForm},
     tenancy::require_tenant,
 };
@@ -37,10 +36,9 @@ pub async fn write_create<R: Resource>(
             );
         }
         Some(Err(error)) => {
-            return Err(TabloError::Declaration(
+            return Err(crate::error::declaration(
                 crate::DeclarationError::of::<R>(crate::Site::Tenancy, error).to_string(),
-            )
-            .into());
+            ));
         }
         None => {}
     }
