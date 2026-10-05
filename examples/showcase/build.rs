@@ -1,6 +1,6 @@
 fn main() {
     // Per-app Tailwind contract: one styles.css + `tablo_build::tailwind()`,
-    // which adds Tablo's own sources and watches them. See ADR-0006.
+    // which adds Tablo's own sources and watches them. See ADR-0007.
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src");
     // Try to build Tailwind; on failure (e.g. offline) create empty fallback so `cargo test` stays

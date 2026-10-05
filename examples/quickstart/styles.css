@@ -1,4 +1,4 @@
-/* Per-app contract: one styles.css + `tablo_build::tailwind()` in build.rs (ADR-0006). */
+/* Per-app contract: one styles.css + `tablo_build::tailwind()` in build.rs (see ADR-0007). */
 
 @import "tailwindcss";
 
@@ -57,7 +57,7 @@
   --shadow-sm:
     0 1px 2px oklch(0.24 0.02 260 / 10%),
     0 2px 8px -2px oklch(0.24 0.02 260 / 9%);
-  /* Sidebar aliases the page palette: this theme re-tunes `--primary`/`--ring` (ADR-0009). */
+  /* Sidebar aliases the page palette: this theme re-tunes `--primary`/`--ring`. */
   --sidebar: oklch(0.995 0.003 260);
   --sidebar-foreground: oklch(0.24 0.012 260);
   --sidebar-primary: var(--primary);
@@ -102,7 +102,7 @@
     @apply bg-background font-sans text-foreground;
   }
 
-  /* Upload preview sizing; `media.js` owns the behavior (GH #248, ADR-0006). */
+  /* Upload preview sizing; `media.js` owns the behavior (GH #248). */
   [data-media-preview] img {
     @apply size-12 rounded-md border border-border object-cover;
   }

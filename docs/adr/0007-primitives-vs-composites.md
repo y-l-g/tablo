@@ -18,4 +18,7 @@ is missing. Adding a component adds one line plus a sync run.
 `sync-topcoat-ui` resolves the registry through `cargo metadata` and reads sources through the
 registry API, so synced content matches what Cargo compiles. Topcoat and Toasty pin exact `rev`s.
 A two-crate split is rejected as proliferation; per-app copy-source vendoring is rejected for
-upgrade breakage (ADR-0006).
+upgrade breakage.
+
+The Tailwind seam stays per app: the app owns its `styles.css` and the `tablo_build::tailwind()`
+build, and token editing is the customization seam. There is no `Panel::theme` builder.

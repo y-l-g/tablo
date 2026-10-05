@@ -33,7 +33,7 @@
 // `[data-table-root]` so multiple tables never cross-talk.
 (() => {
 // The selection-wire codec lives in `wire.js`, which the document loads before
-// this script (ADR-0014): the browser global in the browser, `require`d in the
+// this script: the browser global in the browser, `require`d in the
 // Node test (there is no JS test runner in this workspace, and this file must
 // stay a plain browser script loaded by `asset!`, so it cannot be an ES module).
 const { wireOf, wireFrom } =

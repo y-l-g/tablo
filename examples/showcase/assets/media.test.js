@@ -13,8 +13,8 @@
 // * the clear control clears the file input and the preview **without**
 //   resetting the form: the owner the user picked has to survive a file clear,
 //   which is why the script cancels the reset the markup's button would
-//   otherwise perform. With the script off that reset is the no-JS fallback,
-//   and ADR-0021 records both paths;
+//   otherwise perform. With the script off that reset is the no-JS fallback;
+//   `media.js` documents both paths;
 // * the object URL is revoked when the preview is replaced or cleared, so a
 //   page left open does not pin the file's bytes.
 

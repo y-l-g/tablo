@@ -20,7 +20,7 @@ only when `Uploader::holds(path)` confirms store ownership inside its own root (
 default). A stored value links only when rooted (`/…`, not `//host`) or absolute `http(s)://…`.
 
 **The primitive stops at the file input.** Thumbnails, clear affordances, drag-and-drop, and
-progress belong to the media library (ADR-0021), not the generic field.
+progress belong to an app media library, not the generic field.
 
 **The clear control is a transport key.** A file field renders `clear_<field>` with a stored
 value; strip-before-record-fn applies, so clearing never reaches the record fn as a write.

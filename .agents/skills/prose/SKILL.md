@@ -5,15 +5,16 @@ description: Always use this skill before writing long-form markdown documentati
 
 # Prose
 
-Write per [`PROSE.md`](../../../docs/dev/PROSE.md). It is the authoritative
-source for voice, banned words, structure, and where each kind of writing lives.
+Write per [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#prose). It is the authoritative
+source for voice, banned words, and structure; the [where-writing-lives
+list](../../../CONTRIBUTING.md#decisions-and-vocabulary) is authoritative for placement.
 The rules below are the ones agents miss most often.
 
 ## Placement
 
 - Vocabulary and domain terms: `CONTEXT.md`.
 - Decisions: `docs/adr/`.
-- Prospective API designs: `docs/dev/design/`.
+- Transient API proposals: `docs/dev/design/`.
 - Upstream API freshness: `docs/dev/upstream-notes.md`.
 - User guide: `docs/guide/` (mdBook); `README.md` is the short entry point.
 - Contributor specs (commits, prose, labels, testing): `docs/dev/`.

@@ -9,7 +9,8 @@ description = "The core toolkit types for Tablo, a server-rendered admin toolkit
 # app's Tailwind build scans (`DEP_TABLO_CORE_SRC`).
 links = "tablo-core"
 
-# GH #179 / ADR-0015: one integration-test binary per crate. Cargo autodiscovers
+# GH #179, see `docs/dev/TESTING.md`: one integration-test binary per crate. Cargo
+# autodiscovers
 # every file under `tests/` as its own target, which is exactly the per-file
 # link cost this consolidation removes — so the module files are declared as one
 # target and autodiscovery stays off.

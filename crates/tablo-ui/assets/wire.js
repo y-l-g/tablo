@@ -7,7 +7,7 @@
 // desyncs prune vs write. Delimiters make membership exact: `,ab,`
 // never matches `b`.
 //
-// The document loads this before both consumers (ADR-0014), which read the
+// The document loads this before both consumers, which read the
 // codec off the namespace below in the browser and `require` it in Node.
 (() => {
 function wireOf(value) {

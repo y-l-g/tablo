@@ -36,8 +36,14 @@ contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
 - `crates/tablo-ui/assets/*.test.js` — the browser-asset suites, run with
   `node --test`. Each suite's header names the behavior it protects; DOM halves
   are covered by the integration suite instead.
-- `xtask/tests/it.rs` — the two contract guards (asset hooks, registry sync);
+- `xtask/tests/it.rs` — the contract guards (asset hooks, registry sync, lockstep);
   edge cases live as unit tests in `xtask/src/tests.rs`.
+
+Both `examples/showcase` and `crates/tablo-core` set `autotests = false` and declare a single
+`[[test]] name = "it"` target. `tests/it.rs` declares each test file as a module of one binary,
+so shared fixtures compile once per crate. A file's tests are its module's:
+`cargo test --test it admin::`. Modules share one process; nothing here mutates process-wide
+state, which makes that safe. A test needing isolation gets a dedicated target.
 
 ## Shared harness
 

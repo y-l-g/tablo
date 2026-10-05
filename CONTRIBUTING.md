@@ -4,7 +4,9 @@ Small fixes, documentation corrections, and tests can go straight to a pull requ
 feature or a public-API change, open an issue first and describe the problem: discuss the
 design first. A change that reshapes `Panel`, `Resource`, `Table`, `Schema`, or the
 policy/tenancy seams needs a design document under [`docs/dev/design/`](docs/dev/design/)
-first: open the design, merge it without implementation, then implement once it is accepted.
+first: open the design, merge it without implementation, then implement once it is accepted and
+delete the design document in the implementation PR, moving the durable reasoning to an ADR and
+the usage to the guide and rustdoc.
 Read [`AGENTS.md`](AGENTS.md) before your first change; it holds the rules this document
 expands.
 
@@ -140,11 +142,50 @@ worth the time to review. If context changes the picture, follow up in the threa
 
 ## Decisions and vocabulary
 
-Record durable design decisions in [`docs/adr/`](docs/adr/). Domain terms and
-the synonyms to avoid live in [`CONTEXT.md`](CONTEXT.md); use its words in code,
-issues, and commits. All human-readable text follows
-[`docs/dev/PROSE.md`](docs/dev/PROSE.md). Test discipline lives in
+Record durable design decisions in [`docs/adr/`](docs/adr/): one record per decision, keeping
+only the decision, the rejected alternatives, and the constraint future code must respect.
+Behaviour lives in the guide and in rustdoc. Domain terms and the synonyms to avoid live in
+[`CONTEXT.md`](CONTEXT.md); use its words in code, issues, and commits. Test discipline lives in
 [`docs/dev/TESTING.md`](docs/dev/TESTING.md).
+
+This file is the single home for where each kind of writing lives:
+
+- Vocabulary and domain terms: `CONTEXT.md`
+- Decisions: `docs/adr/`
+- User guide: `docs/guide/` (mdBook); `README.md` is the short entry point
+- Contributor specs — commits, labels, testing: `docs/dev/`; prose rules: below (`#prose`)
+- Transient API proposals: `docs/dev/design/`; upstream API freshness: `docs/dev/upstream-notes.md`
+- Issue bodies: the templates in `.github/ISSUE_TEMPLATE/`
+- Agent tracker notes: `docs/agents/`
+
+## Prose
+
+Rules for every human-readable text in this repo: documentation, the README, ADRs, code comments,
+PR descriptions, issue bodies, and commit bodies.
+
+- State what things are and what they do.
+- Use active voice and present tense: "the engine executes the query", not "the query is
+  executed".
+- Document current behavior only. Omit historical decisions, deprecated approaches, removed APIs,
+  and planned work. A sentence explaining what the code used to do belongs in a commit message
+  or an ADR, not in the source.
+- Prefer concrete examples to description: show the call, the output, or the error.
+- Cut fluff. Every sentence carries information.
+- No buzzwords or business jargon ("leverage", "synergy", "paradigm", "stakeholders",
+  "deliverables", "action items").
+- No weasel words: "very", "really", "quite", "somewhat".
+- No dramatic terms ("critical", "crucial", "vital") unless something actually breaks.
+- No figurative metaphors — pick the literal word. Recurring offenders to avoid by name: "under
+  the hood" (say what the code does), "out of the box" (say "by default"), "first-class" (say
+  what is supported), "magic" (say what happens), "lights up" (say "enables"), "footgun" (name
+  the failure), and "lands" or "ships" as verbs for code existing (say "is added", "exists", or
+  "releases").
+- Start with what the thing is, then why it exists, then what it does, then how to use it. Lead
+  with a code sample where a sample answers the question.
+- A comment earns its place by explaining WHY: a non-obvious invariant, a workaround for a named
+  upstream bug, or a safety argument. A comment that restates what the next line plainly does is
+  noise. Prefer one precise sentence to a paragraph, and do not narrate the refactor or the
+  debugging session that produced the code.
 
 By contributing, you agree that your contributions are licensed under the
 [MIT license](LICENSE).
