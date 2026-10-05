@@ -249,7 +249,7 @@ async fn posts_list_renders_live_search_host() {
     );
     assert!(
         html.contains("data-topcoat-swap"),
-        "the live table must ship its swap envelope, got {html}"
+        "posts list must render the swap envelope, got {html}"
     );
 }
 

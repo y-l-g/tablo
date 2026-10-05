@@ -191,7 +191,7 @@ pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run("git", &["diff", "--exit-code"], Some(root), &[])
         .map_err(|error| {
             anyhow::anyhow!(
-                "{error}\n`topcoat fmt` rewrote the tree before this check: review it with `git diff --name-only` and revert what you did not mean to reformat with `git checkout -- <path>`. A diff that only reflows `view!` markup means the CLI is the wrong version, not a hand-fix: {TOPCOAT_INSTALL}"
+                "{error}\n`topcoat fmt` rewrites the tree before this check: review it with `git diff --name-only` and revert what you did not mean to reformat with `git checkout -- <path>`. A diff that only reflows `view!` markup means the CLI is the wrong version, not a hand-fix: {TOPCOAT_INSTALL}"
             )
         })
 }
