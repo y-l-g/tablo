@@ -20,6 +20,7 @@ mod state;
 pub use self::{
     column::{
         BooleanColumn, Column, ColumnWidth, ComputedColumn, Includes, IntoColumns, TextColumn,
+        contains_expr,
     },
     filter::{
         DateFilter, Filter, FilterInput, IntoFilters, QueryFilter, SelectFilter, TernaryFilter,

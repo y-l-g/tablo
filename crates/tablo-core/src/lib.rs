@@ -130,7 +130,7 @@ pub use schema::{
 pub use table::{
     BooleanColumn, Column, ColumnWidth, ComputedColumn, Cursor, DateFilter, Filter, FilterInput,
     Includes, IntoColumns, IntoFilters, QueryFilter, SelectFilter, Sort, Table, TablePage,
-    TableState, TernaryFilter, TextColumn,
+    TableState, TernaryFilter, TextColumn, contains_expr,
 };
 pub use tablo_macros::{EmbeddedForm, Options, RecordForm};
 pub use tenancy::{Membership, Tenancy, Tenant, require_tenant, tenant_id};
