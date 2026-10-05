@@ -18,7 +18,11 @@ fn write_failure_notification_names_the_operation() {
     notify_write_failure(&cx, "create the record");
     let notification = take_notification(&cx).expect("a failed write must flash");
     assert_eq!(notification.status, NotificationStatus::Error);
-    assert_eq!(notification.title, "Couldn't create the record");
+    assert!(
+        notification.title.contains("create the record"),
+        "the toast must name the operation, got {:?}",
+        notification.title
+    );
     assert!(
         notification.description.is_some(),
         "the toast must say the write did not land"

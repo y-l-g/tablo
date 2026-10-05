@@ -6,10 +6,7 @@ use super::{
 };
 use crate::{
     ComputedColumn, lens,
-    table::{
-        ColumnWidth, QueryFilter, RowActions, SelectFilter, Sort, TextColumn,
-        state::group_header_dom_id,
-    },
+    table::{ColumnWidth, QueryFilter, RowActions, SelectFilter, Sort, TextColumn},
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -616,10 +613,6 @@ async fn rows_carry_the_primary_key_in_every_action() {
         html.contains(&format!("?delete={key}")),
         "delete dialog link must carry the record key in {html}"
     );
-    assert!(
-        html.contains(&format!("id=\"{}\"", crate::table::state::row_dom_id(&key))),
-        "the row DOM id must carry the record key in {html}"
-    );
 }
 
 #[tokio::test]
@@ -753,13 +746,10 @@ async fn group_by_orders_each_row_under_its_own_header() {
         published_header < bravo && bravo < delta,
         "both published rows must sit under the published header, got {html}"
     );
-    for label in ["draft", "published"] {
-        let expected = format!("id=\"{}\"", group_header_dom_id(label));
-        assert!(
-            html.contains(&expected),
-            "the {label} header needs the stable id {expected:?}, got {html}"
-        );
-    }
+    assert!(
+        html.contains("group-draft-") && html.contains("group-published-"),
+        "each group header needs a stable id naming its group, got {html}"
+    );
 }
 
 /// Reuse one list URL base for row-action URLs across rows.

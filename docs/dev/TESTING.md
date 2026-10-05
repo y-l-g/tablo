@@ -21,6 +21,8 @@ contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
 - If a test is useless, delete it. A test that passes on nearly any page, or
   that pins today's rendering choice against the documented roadmap, proves
   nothing and constrains the planned feature.
+- One predicate, one home: a behavior is pinned once, by a unit test or an
+  integration test, never both. Grep for the behavior before pinning it.
 
 ## Where tests live
 

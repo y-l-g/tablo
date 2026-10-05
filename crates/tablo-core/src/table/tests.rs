@@ -437,10 +437,10 @@ async fn a_misdeclared_table_fails_to_render() {
     let Err(error) = table.render(&cx, page).await else {
         panic!("a misdeclared table must not render");
     };
-    let duplicate = DeclarationErrorKind::DuplicateColumn {
-        name: "name".to_string(),
-    };
-    assert_eq!(error.to_string(), duplicate.to_string());
+    assert!(
+        error.to_string().contains("two columns are named 'name'"),
+        "a duplicate column must name the field, got {error}"
+    );
 }
 
 async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {

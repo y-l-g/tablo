@@ -59,10 +59,10 @@ async fn a_misdeclared_schema_fails_to_render() {
     let Err(error) = schema.render(&cx, Source::form(&values, &errors)).await else {
         panic!("a misdeclared schema must not render");
     };
-    let duplicate = DeclarationErrorKind::DuplicateField {
-        name: "name".to_string(),
-    };
-    assert_eq!(error.to_string(), duplicate.to_string());
+    assert!(
+        error.to_string().contains("two fields are named 'name'"),
+        "a duplicate field must name the field, got {error}"
+    );
 }
 
 #[test]

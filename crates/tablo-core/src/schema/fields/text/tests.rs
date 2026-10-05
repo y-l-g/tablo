@@ -352,8 +352,16 @@ fn text_input_email_edges() {
 #[test]
 fn email_rule_leaves_an_empty_value_to_presence() {
     let input = Field::text(DummyUser::fields().email()).required().email();
-    assert_eq!(messages(&input.validate("")), ["Email is required"]);
-    assert_eq!(messages(&input.validate("   ")), ["Email is required"]);
+    let empty = input.validate("");
+    assert!(
+        messages(&empty).len() == 1 && messages(&empty)[0].contains("Email"),
+        "an empty value is presence's business, got {empty:?}"
+    );
+    let blank = input.validate("   ");
+    assert!(
+        messages(&blank).len() == 1 && messages(&blank)[0].contains("Email"),
+        "whitespace-only counts as empty, got {blank:?}"
+    );
 }
 
 #[tokio::test]

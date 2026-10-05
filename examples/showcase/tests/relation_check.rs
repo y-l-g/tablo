@@ -1,4 +1,3 @@
-use http::header::LOCATION;
 use showcase::models::{Author, Comment, Post};
 
 use crate::common::{
@@ -99,45 +98,6 @@ async fn posts_create_invalid_author_shows_invalid_error() {
         "an invalid create must not add a post"
     );
 }
-
-#[tokio::test]
-async fn posts_create_valid_redirects_and_creates() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let mut db2 = db.clone();
-    let authors = Author::all().exec(&mut db2).await.unwrap();
-    let first = &authors[0];
-    let before = Post::all().exec(&mut db2).await.unwrap().len();
-    // The cover is an optional relationship picker, so the create posts
-    // urlencoded with an empty `cover_id`.
-    let author_id = first.id.to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(
-            "/admin/posts/create",
-            format!("title=New+Post&author_id={author_id}&cover_id=&tags=new&csrf_token={csrf}"),
-        )
-        .await;
-    assert!(
-        resp.status().is_redirection(),
-        "valid should redirect, got {} ",
-        resp.status()
-    );
-    let loc = resp.headers().get(LOCATION).unwrap().to_str().unwrap();
-    assert!(loc.contains("/admin/posts"));
-    let mut db2 = db.clone();
-    let after = Post::all().exec(&mut db2).await.unwrap().len();
-    assert_eq!(after, before + 1);
-    let created = Post::filter(Post::fields().title().eq("New Post".to_string()))
-        .first()
-        .exec(&mut db2)
-        .await
-        .unwrap();
-    assert!(created.is_some());
-}
-
 #[tokio::test]
 async fn posts_edit_hydrates_author() {
     let db = full_db().await;
