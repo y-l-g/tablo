@@ -1,4 +1,4 @@
-//! One integration-test binary for the showcase (ADR-0015).
+//! One integration-test binary for the showcase (see `docs/dev/TESTING.md`).
 //!
 //! Every test file is a module of one binary: one link for the whole suite, and
 //! `tests/common` is compiled once.

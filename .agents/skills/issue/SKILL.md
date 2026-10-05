@@ -5,7 +5,7 @@ description: Always use this skill before opening an issue in the Tablo reposito
 
 # Opening Issues
 
-Write per [`PROSE.md`](../../../docs/dev/PROSE.md): current behavior, active
+Write per [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#prose): current behavior, active
 voice, no filler. State what happened or what is proposed, not how important
 it is.
 

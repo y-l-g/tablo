@@ -1,6 +1,6 @@
 //! xtask's repo guards, in one test target so a single link covers all of them.
 
-/// Guards the shell-JS hook contract (ADR-0014): every hand-written
+/// Guards the shell-JS hook contract: every hand-written
 /// asset under `crates/tablo-ui/assets/` still exists and stays wired to
 /// its `tablo-ui` constant, and every hook in the checked-in
 /// [`xtask::ASSET_HOOKS`] list still appears in both its JS asset and a Rust

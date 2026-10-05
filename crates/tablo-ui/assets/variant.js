@@ -49,7 +49,7 @@ function install() {
     const select = target.closest && target.closest('[data-variant-select]');
     if (select) applyVariant(select);
   });
-  // Every asset is `defer`red (ADR-0014), so the markup is parsed by the time
+  // Every asset is `defer`red, so the markup is parsed by the time
   // this runs.
   applyVariants();
   // Runtime navigation morphs the next page into this one without running

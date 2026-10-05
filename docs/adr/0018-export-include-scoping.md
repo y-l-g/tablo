@@ -18,7 +18,7 @@ loader starts from it. A relation every loader reads belongs in `query`: one the
 reads, or one a `group_by` or row key reads.
 
 **4. The detail page loads `Resource::view_query`.** Relation tables run the related resource's
-own loader (ADR-0016), so `view_query`, defaulting to `query`, carries only what `view_values`
+own loader, so `view_query`, defaulting to `query`, carries only what `view_values`
 and `view_content` read off the record. The framework ANDs the tenant scope onto it as onto
 `query` (ADR-0002).
 

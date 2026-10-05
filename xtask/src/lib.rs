@@ -676,7 +676,7 @@ fn is_hook_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '-' || c == '_'
 }
 
-const HOOK_HINT: &str = "update the hook list and both sides together (ADR-0014)";
+const HOOK_HINT: &str = "update the hook list and both sides together";
 
 fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
     for entry in std::fs::read_dir(dir)? {

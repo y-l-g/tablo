@@ -83,7 +83,7 @@ function install() {
 if (typeof document !== 'undefined') install();
 
 // Exposed for the Node unit test (`media.test.js`), guarded so the browser
-// branch stays inert; see ADR-0014 for the no-build stance.
+// branch stays inert; the file stays a plain browser script with no build step.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { showPreview, clearPreview };
 }

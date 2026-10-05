@@ -25,7 +25,7 @@ cargo install --git https://github.com/tokio-rs/topcoat --rev "$REV" topcoat-cli
 ## Rules
 
 1. Verify every factual claim in a doc, comment, or commit message against the code.
-2. Document current behavior only; no "used to", "previously". See `docs/dev/PROSE.md`.
+2. Document current behavior only; no "used to", "previously". See `CONTRIBUTING.md#prose`.
 3. Run the gate set for the area you touched, plus `cargo test --workspace --locked` on the
    merged result: branches can merge cleanly and not compile.
 4. Give each worktree its own target directory; a shared `CARGO_TARGET_DIR` cross-contaminates.
@@ -67,6 +67,6 @@ Two `syn` majors remain (GH #181, GH #193); do not force-unify.
 
 - Build and verify: [`CONTRIBUTING.md`](CONTRIBUTING.md), `docs/dev/architecture.md`,
   `docs/dev/TESTING.md`
-- Write: `docs/dev/PROSE.md`, `docs/dev/COMMITS.md`, `docs/dev/LABELS.md`, `docs/guide/`,
-  `CONTEXT.md`
+- Write: [`CONTRIBUTING.md`](CONTRIBUTING.md#prose), `docs/dev/COMMITS.md`, `docs/dev/LABELS.md`,
+  `docs/guide/`, `CONTEXT.md`
 - Decide: `docs/adr/`, `docs/dev/design/`, `docs/dev/upstream-notes.md`, `docs/agents/`.

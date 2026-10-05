@@ -31,7 +31,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let id = path_param_segment(cx, "id").to_string();
         let mut db = db(cx);
         let record = load_detail::<R>(cx, &mut db).await?;
-        // Projects the form over `view_values` (ADR-0016).
+        // Projects the form over `view_values`; see `Resource::view_values`.
         let mut values = R::view_values(cx, &record);
         values.extend(<R::Form as RecordForm>::hydrate(cx, &record));
         let body = declared

@@ -57,5 +57,5 @@ BREAKING CHANGE: an embedded enum's discriminant is now visible, and
 
 Explain what changed and why it changed. Do not restate the diff, and do not
 narrate the path that produced it — describe the change the commit makes.
-Write the body per [`PROSE.md`](PROSE.md): current behavior, active voice,
-no filler.
+Write the body per [`CONTRIBUTING.md`](../../CONTRIBUTING.md#prose): current behavior, active
+voice, no filler.

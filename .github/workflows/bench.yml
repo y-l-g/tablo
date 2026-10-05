@@ -40,6 +40,7 @@ jobs:
       # Lint the detached bench by manifest path; clippy is the compile check too.
       - name: Clippy detached bench workspace (locked)
         run: cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings
-      # The bench measures the same upstream revs the workspace provides (ADR-0003).
+      # The bench measures the same upstream revs the workspace provides (see the
+      # dependency pins in CONTRIBUTING.md).
       - name: Lockstep pin check (workspace vs bench)
         run: cargo xtask verify-locks
