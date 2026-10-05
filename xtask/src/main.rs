@@ -58,7 +58,7 @@ COMMANDS:
                        verbatim, under a SYNC header recording the registry
                        version and the source's sha256 content hash. Never
                        touches composites/. No sibling clone required — the
-                       registry comes from the same git source Cargo
+                       registry comes from the same registry source Cargo
                        compiles against.
     verify-topcoat-ui  Guard: fail when any vendored primitive (or mod.rs)
                        has drifted from the registry. The xtask test suite
