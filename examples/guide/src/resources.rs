@@ -34,7 +34,6 @@ impl Resource for UserResource {
     // ANCHOR_END: user-table
 
     // ANCHOR: user-policy
-    // …
     fn policy() -> impl Policy<User> {
         |cx: &Cx, ability: Ability<'_, User>| match ability {
             Ability::ViewAny | Ability::View(_) => true,

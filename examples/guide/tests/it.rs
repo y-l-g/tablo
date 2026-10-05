@@ -37,7 +37,7 @@ async fn first_book_id(db: &Db) -> uuid::Uuid {
 // ANCHOR: testing-no-delete
 #[tokio::test]
 async fn books_cannot_be_deleted() {
-    let db = seeded_db().await; // your fixture: an in-memory database with rows
+    let mut db = seeded_db().await; // your fixture: an in-memory database with rows
     let id = first_book_id(&db).await;
     let router = Router::builder()
         .discover()
@@ -63,5 +63,8 @@ async fn books_cannot_be_deleted() {
         )
         .await;
     assert_eq!(response.status(), 403); // the policy does not allow `DeleteAny`
+
+    let books = Book::all().exec(&mut db).await.expect("list books");
+    assert_eq!(books.len(), 1); // nothing was deleted
 }
 // ANCHOR_END: testing-no-delete

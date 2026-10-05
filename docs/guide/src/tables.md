@@ -51,9 +51,9 @@ that only query, such as the filters and `Field` constructors, take either a len
   relation no column includes is not loaded. Guard the read so a missing include renders
   `(unloaded)` instead of blank data:
 
-  ```rust
-  {{#include ../../../examples/guide/src/tables.rs:table-relation-column}}
-  ```
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-relation-column}}
+```
 
 - **Widths.** The table uses a fixed layout: a column's width is what it declares, not the width of
   its widest cell, so paging and filtering never shift the columns. A field column takes an equal

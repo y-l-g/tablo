@@ -88,6 +88,87 @@ pub fn primitives_dir() -> PathBuf {
         .join("crates/tablo-ui/src/components/primitives")
 }
 
+/// Whether `file` delimits `anchor` with an `ANCHOR`/`ANCHOR_END` marker
+/// pair. Both markers must name the anchor exactly: a renamed opener would
+/// otherwise prefix-match and render empty without failing the book build.
+fn has_anchor(file: &str, anchor: &str) -> bool {
+    let (mut open, mut close) = (false, false);
+    for line in file.lines() {
+        let line = line.trim();
+        if *line == format!("// ANCHOR: {anchor}") {
+            open = true;
+        }
+        if *line == format!("// ANCHOR_END: {anchor}") {
+            close = true;
+        }
+    }
+    open && close
+}
+
+/// One `{{#include path}}` or `{{#include path:anchor}}` in a guide chapter.
+fn guide_include(line: &str) -> Option<(String, Option<String>)> {
+    let at = line.find("{{#include")?;
+    let rest = line[at + "{{#include".len()..].strip_prefix(' ')?;
+    let end = rest.find("}}")?;
+    let target = rest[..end].trim();
+    let (target, anchor) = match target.find(':') {
+        Some(at) => (target[..at].to_string(), Some(target[at + 1..].to_string())),
+        None => (target.to_string(), None),
+    };
+    Some((target, anchor))
+}
+
+/// Every guide include fails closed: `mdbook build` renders a missing file or
+/// anchor as empty without failing, so this resolves each one against the
+/// tree instead.
+pub fn verify_guide_includes() -> anyhow::Result<()> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = manifest_dir.parent().unwrap_or(Path::new("."));
+    let guide = root.join("docs/guide/src");
+    let mut failures = Vec::new();
+    let mut chapters: Vec<_> = std::fs::read_dir(&guide)
+        .map_err(|error| anyhow::anyhow!("cannot list {}: {error}", guide.display()))?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
+        .collect();
+    chapters.sort();
+    for chapter in &chapters {
+        let src = std::fs::read_to_string(chapter)
+            .map_err(|error| anyhow::anyhow!("cannot read {}: {error}", chapter.display()))?;
+        for (line, text) in src.lines().enumerate() {
+            let Some((target, anchor)) = guide_include(text) else {
+                continue;
+            };
+            let path = chapter.parent().unwrap_or(Path::new(".")).join(&target);
+            let Ok(file) = std::fs::read_to_string(&path) else {
+                failures.push(format!(
+                    "{}:{} includes {}, which cannot be read",
+                    chapter.display(),
+                    line + 1,
+                    path.display()
+                ));
+                continue;
+            };
+            if let Some(anchor) = anchor
+                && !has_anchor(&file, &anchor)
+            {
+                failures.push(format!(
+                    "{}:{} includes :{anchor} of {}, which names no such anchor",
+                    chapter.display(),
+                    line + 1,
+                    path.display()
+                ));
+            }
+        }
+    }
+    if failures.is_empty() {
+        println!("verified: every guide include resolves to an anchored source");
+        Ok(())
+    } else {
+        anyhow::bail!("guide include drift detected:\n{}", failures.join("\n"));
+    }
+}
+
 /// Loads the registry Cargo resolved for this workspace, plus its crate version.
 fn locate_registry() -> anyhow::Result<(Registry, String)> {
     // Anchored at xtask's own manifest so a detached workspace never resolves the caller's CWD.

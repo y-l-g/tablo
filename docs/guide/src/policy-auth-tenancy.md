@@ -210,7 +210,10 @@ that does. `Tenancy::via` names the tenant through the relation, and the framewo
 filters exactly as it does for a column:
 
 ```rust
+impl Resource for CommentResource {
+    // …
 {{#include ../../../examples/guide/src/resources.rs:comment-tenancy-via}}
+}
 ```
 
 Nothing is stamped on create: a comment's tenant is its post's. The lens starts at a `belongs_to`

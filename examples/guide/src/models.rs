@@ -85,14 +85,6 @@ pub struct Audit {
 }
 
 #[derive(Debug, Clone, toasty::Model)]
-pub struct Doc {
-    #[key]
-    #[auto]
-    pub id: uuid::Uuid,
-    pub path: String,
-}
-
-#[derive(Debug, Clone, toasty::Model)]
 pub struct Theme {
     #[key]
     #[auto]
