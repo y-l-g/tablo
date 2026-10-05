@@ -648,8 +648,8 @@ impl<M> std::fmt::Debug for BooleanColumn<M> {
 /// A table's columns, as the table stores them.
 pub(crate) type BoxColumn<M> = Arc<dyn Column<M>>;
 
-/// Convert a single built-in column, a tuple of any [`Column`]s, or `()` for none yet, into a
-/// table's column list.
+/// Convert a single built-in column, a tuple of any [`Column`]s, a `Vec` or slice
+/// of boxed columns, or `()` for none yet, into a table's column list.
 ///
 /// [`Table::column`](super::Table::column) appends past it.
 pub trait IntoColumns<M> {
@@ -688,6 +688,18 @@ where
 impl<M> IntoColumns<M> for () {
     fn into_columns(self) -> Vec<BoxColumn<M>> {
         Vec::new()
+    }
+}
+
+impl<M> IntoColumns<M> for Vec<BoxColumn<M>> {
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        self
+    }
+}
+
+impl<M> IntoColumns<M> for &[BoxColumn<M>] {
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        self.to_vec()
     }
 }
 
