@@ -480,16 +480,7 @@ pub(crate) fn render_field<'a>(
 
 #[cfg(test)]
 mod test_support {
-    pub(super) use crate::test_support::cx;
-    #[derive(Debug, toasty::Model)]
-    pub(super) struct DummyUser {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-        #[unique]
-        email: String,
-    }
+    pub(super) use crate::test_support::{DummyUser, cx};
 
     /// The opening tag carrying `needle` (attributes render unordered, topcoat#122).
     pub(super) fn tag_with<'h>(html: &'h str, needle: &str) -> &'h str {

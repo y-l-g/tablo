@@ -1,16 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::DeclarationErrorKind;
-#[derive(Debug, toasty::Model)]
-struct DummyUser {
-    #[key]
-    #[auto]
-    id: uuid::Uuid,
-    name: String,
-    #[unique]
-    email: String,
-}
+use crate::{DeclarationErrorKind, test_support::DummyUser};
 
 /// Building a schema resolves every field once into its field list, nested
 /// blocks included, so a question about the form's fields reads one list.

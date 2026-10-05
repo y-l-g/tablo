@@ -4,7 +4,7 @@ use topcoat::router::Body;
 use super::*;
 use crate::{
     ResourceDef, lens,
-    panel::test_support::{Tagged, TaggedResource, mount, panel_for, response_html},
+    panel::test_support::{Subscriber, Tagged, TaggedResource, mount, panel_for, response_html},
 };
 
 fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
@@ -21,14 +21,6 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
 
     use crate::schema::{Field, Schema};
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        #[unique]
-        email: String,
-    }
     struct SubscriberResource;
     impl Resource for SubscriberResource {
         type Model = Subscriber;
@@ -153,14 +145,6 @@ async fn unique_field_is_required_however_it_is_marked() {
 
     use crate::schema::{Field, Schema};
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        #[unique]
-        email: String,
-    }
     struct SubscriberResource;
     impl Resource for SubscriberResource {
         type Model = Subscriber;
@@ -226,14 +210,6 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
 
     use crate::schema::{Field, Schema};
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        #[unique]
-        email: String,
-    }
     struct SubscriberResource;
     impl Resource for SubscriberResource {
         type Model = Subscriber;

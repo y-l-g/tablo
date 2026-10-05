@@ -8,6 +8,14 @@ use crate::{
     },
 };
 
+#[derive(Debug, toasty::Model, Clone)]
+struct Subscriber {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    nickname: String,
+}
+
 /// Builds and resolves a slug of ordinary URL-segment characters.
 #[tokio::test]
 async fn a_plain_slug_builds_and_resolves() {
@@ -658,13 +666,6 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
         table::{Table, TextColumn},
     };
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        nickname: String,
-    }
     struct UnbackedResource;
     impl Resource for UnbackedResource {
         type Model = Subscriber;
@@ -711,14 +712,6 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         schema::{Field, Schema},
         table::{Table, TextColumn},
     };
-
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        nickname: String,
-    }
 
     fn keyed_table() -> Table<Subscriber> {
         Table::new(TextColumn::new(lens!(Subscriber.nickname)))
@@ -791,13 +784,6 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
         table::{Table, TextColumn},
     };
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        nickname: String,
-    }
     struct ReadOnlyResource;
     impl Resource for ReadOnlyResource {
         type Model = Subscriber;

@@ -3,7 +3,7 @@ use toasty::Db;
 use super::{super::TABLE_SEARCH_PATH, *};
 use crate::{
     Ability, ReadOnly, ResourceDef, Tenancy, lens,
-    panel::test_support::{Dummy, dummy_table, mount, panel_for},
+    panel::test_support::{Dummy, Subscriber, dummy_table, mount, panel_for},
 };
 
 /// Renders the list body with one seeded row.
@@ -1163,14 +1163,6 @@ async fn tenant_gated_resource_scopes_rows_to_the_request_tenant() {
 async fn list_renders_error_state_when_load_fails() {
     use topcoat::router::Body;
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        #[unique]
-        email: String,
-    }
     struct SubscriberResource;
     impl Resource for SubscriberResource {
         type Model = Subscriber;
@@ -1309,14 +1301,6 @@ async fn both_cursors_render_the_first_page() {
     // cursor retry lands anyway. Both tokens below are valid.
     use topcoat::router::Body;
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Subscriber {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        #[unique]
-        email: String,
-    }
     struct SubscriberResource;
     impl Resource for SubscriberResource {
         type Model = Subscriber;

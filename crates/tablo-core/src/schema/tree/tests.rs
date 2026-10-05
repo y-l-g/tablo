@@ -4,18 +4,8 @@ use super::*;
 use crate::{
     form::FieldErrors,
     schema::{Group, Schema, Section},
-    test_support::cx,
+    test_support::{DummyUser, cx},
 };
-
-#[derive(Debug, toasty::Model)]
-struct DummyUser {
-    #[key]
-    #[auto]
-    id: uuid::Uuid,
-    name: String,
-    #[unique]
-    email: String,
-}
 
 #[tokio::test]
 async fn fields_compose_in_a_tuple() {
