@@ -57,7 +57,8 @@ the same columns, filters and row actions as the resource's list:
 {{#include ../../../examples/guide/src/data_access.rs:data-access-wired-table}}
 ```
 
-`wired_table` adds the row actions the resource's policy allows. The last argument of
+`wired_table` is the table the request's panel mounted for the resource, with the row actions
+its policy allows; it returns an error when that panel does not mount the resource. The last argument of
 `render_with_state` is the URL the table's search, sort and pager links point at: the page's own.
 
 ## Schema setup

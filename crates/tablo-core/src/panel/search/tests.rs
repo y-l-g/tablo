@@ -3,7 +3,7 @@ use topcoat::router::Body;
 
 use super::{super::Panel, *};
 use crate::{
-    Ability, Policy, ReadOnly, Tenancy, lens,
+    Ability, ReadOnly, ResourceDef, Tenancy, lens,
     panel::test_support::{Dummy, current_panel, mount, panel_for, panel_state},
 };
 
@@ -68,8 +68,10 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Dummy.name),
+            )))
         }
     }
 
@@ -79,12 +81,12 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
         let mut panel = panel_state("/admin", auth);
         panel
             .search
-            .insert("users".to_string(), search_handler_for::<DummyResource>());
+            .insert("users".to_string(), list_search::<DummyResource>);
         current_panel(panel)
     };
     let (parts, ()) = http::Request::builder()
         .method(http::Method::POST)
-        .uri(crate::auth::RUNTIME_PREFIX)
+        .uri(crate::topcoat_compat::RUNTIME_PREFIX)
         .body(())
         .unwrap()
         .into_parts();
@@ -125,7 +127,7 @@ async fn search_shard_answers_auth_before_the_registry_lookup() {
     // registered path resolves and an unknown path is a plain 404 again.
     let (parts, ()) = http::Request::builder()
         .method(http::Method::POST)
-        .uri(crate::auth::RUNTIME_PREFIX)
+        .uri(crate::topcoat_compat::RUNTIME_PREFIX)
         .body(())
         .unwrap()
         .into_parts();
@@ -163,20 +165,17 @@ async fn live_shard_malformed_cursor_renders_error_state() {
     impl Resource for LiveResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(Dummy.name))
-                    .searchable()
-                    .sortable(),
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().slug("dummies").policy(ReadOnly).table(
+                crate::table::Table::new(
+                    crate::table::TextColumn::new(lens!(Dummy.name))
+                        .searchable()
+                        .sortable(),
+                )
+                .paginate(1)
+                .live_search(),
             )
-            .paginate(1)
-            .live_search()
         }
     }
 
@@ -322,20 +321,17 @@ async fn live_shard_stale_cursor_retry_drops_pagination() {
     impl Resource for LiveResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(Dummy.name))
-                    .searchable()
-                    .sortable(),
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().slug("dummies").policy(ReadOnly).table(
+                crate::table::Table::new(
+                    crate::table::TextColumn::new(lens!(Dummy.name))
+                        .searchable()
+                        .sortable(),
+                )
+                .paginate(1)
+                .live_search(),
             )
-            .paginate(1)
-            .live_search()
         }
     }
 
@@ -422,22 +418,17 @@ async fn live_shard_retry_preserves_the_query() {
     impl Resource for FailingLive {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(Dummy.name))
-                    .searchable()
-                    .sortable(),
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().slug("dummies").policy(ReadOnly).table(
+                crate::table::Table::new(
+                    crate::table::TextColumn::new(lens!(Dummy.name))
+                        .searchable()
+                        .sortable(),
+                )
+                .filters(crate::table::TernaryFilter::new(Dummy::fields().featured()))
+                .live_search(),
             )
-            .filters(crate::resource::TernaryFilter::new(
-                Dummy::fields().featured(),
-            ))
-            .live_search()
         }
     }
 
@@ -517,21 +508,18 @@ async fn live_shard_group_by_query_drives_grouping() {
     impl Resource for GroupedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(Dummy.name))
-                    .searchable()
-                    .sortable(),
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().slug("dummies").policy(ReadOnly).table(
+                crate::table::Table::new(
+                    crate::table::TextColumn::new(lens!(Dummy.name))
+                        .searchable()
+                        .sortable(),
+                )
+                .group_by(lens!(Dummy.name))
+                .paginate(25)
+                .live_search(),
             )
-            .group_by(lens!(Dummy.name))
-            .paginate(25)
-            .live_search()
         }
     }
 
@@ -634,23 +622,21 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
     impl Resource for TenantLive {
         type Model = TenantDummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "tenant-dummies".to_string()
-        }
-        fn policy() -> impl Policy<TenantDummy> {
-            ReadOnly
-        }
-        fn tenancy() -> Tenancy<TenantDummy> {
-            Tenancy::column(TenantDummy::fields().tenant_id())
-        }
-        fn table() -> crate::resource::Table<TenantDummy> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(TenantDummy.name))
-                    .searchable()
-                    .sortable(),
-            )
-            .paginate(10)
-            .live_search()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("tenant-dummies")
+                .policy(ReadOnly)
+                .tenancy(Tenancy::column(TenantDummy::fields().tenant_id()))
+                .table(
+                    crate::table::Table::new(
+                        crate::table::TextColumn::new(lens!(TenantDummy.name))
+                            .searchable()
+                            .sortable(),
+                    )
+                    .paginate(10)
+                    .live_search(),
+                )
         }
     }
 
@@ -658,26 +644,26 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
     impl Resource for DeniedLive {
         type Model = TenantDummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "denied-dummies".to_string()
-        }
-        fn policy() -> impl Policy<TenantDummy> {
-            |_cx: &Cx, ability: Ability<'_, TenantDummy>| match ability {
-                Ability::ViewAny => false,
-                _ => false,
-            }
-        }
-        fn tenancy() -> Tenancy<TenantDummy> {
-            Tenancy::column(TenantDummy::fields().tenant_id())
-        }
-        fn table() -> crate::resource::Table<TenantDummy> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(TenantDummy.name))
-                    .searchable()
-                    .sortable(),
-            )
-            .paginate(10)
-            .live_search()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("denied-dummies")
+                .policy(
+                    |_cx: &Cx, ability: Ability<'_, TenantDummy>| match ability {
+                        Ability::ViewAny => false,
+                        _ => false,
+                    },
+                )
+                .tenancy(Tenancy::column(TenantDummy::fields().tenant_id()))
+                .table(
+                    crate::table::Table::new(
+                        crate::table::TextColumn::new(lens!(TenantDummy.name))
+                            .searchable()
+                            .sortable(),
+                    )
+                    .paginate(10)
+                    .live_search(),
+                )
         }
     }
 
@@ -789,7 +775,7 @@ async fn post_relation_shard(
 async fn live_relation_shard_serves_the_seeded_owner_in_place() {
     use http_body_util::BodyExt;
 
-    use crate::resource::{Relation, Resource};
+    use crate::resource::{Relation, Resource, ResourceDef};
 
     #[derive(Debug, Clone, toasty::Model)]
     struct Shelf {
@@ -812,19 +798,16 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
     impl Resource for BookResource {
         type Model = Book;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "books".to_string()
-        }
-        fn policy() -> impl Policy<Book> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Book> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(Book.title))
-                    .searchable()
-                    .sortable(),
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().slug("books").policy(ReadOnly).table(
+                crate::table::Table::new(
+                    crate::table::TextColumn::new(lens!(Book.title))
+                        .searchable()
+                        .sortable(),
+                )
+                .live_search(),
             )
-            .live_search()
         }
     }
 
@@ -832,19 +815,17 @@ async fn live_relation_shard_serves_the_seeded_owner_in_place() {
     impl Resource for ShelfResource {
         type Model = Shelf;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "shelves".to_string()
-        }
-        fn policy() -> impl Policy<Shelf> {
-            ReadOnly
-        }
-        fn relations() -> Vec<Relation<Shelf>> {
-            vec![Relation::has_many::<BookResource>(
-                Book::fields().shelf_id(),
-            )]
-        }
-        fn table() -> crate::resource::Table<Shelf> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Shelf.name)))
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("shelves")
+                .policy(ReadOnly)
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Shelf.name),
+                )))
+                .relation(Relation::has_many::<BookResource>(
+                    Book::fields().shelf_id(),
+                ))
         }
     }
 

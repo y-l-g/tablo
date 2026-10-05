@@ -34,8 +34,8 @@ impl Resource for BookResource {
 
     // The default policy denies everything; this one opens the list and
     // the records, and nothing else.
-    fn policy() -> impl Policy<Book> {
-        ReadOnly
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().policy(ReadOnly)
     }
 }
 

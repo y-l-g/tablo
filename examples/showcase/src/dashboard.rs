@@ -1,6 +1,6 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
-use tablo_core::{NavigationItem, Page, Resource, can_list, db::db, scoped_query};
+use tablo_core::{NavigationItem, Page, Resource, can_list, db::db, panel, scoped_query};
 use topcoat::{
     Result,
     context::Cx,
@@ -13,12 +13,12 @@ use crate::app::{AuthorResource, CommentResource, PostResource, UserResource};
 /// The page the panel serves at its prefix.
 pub struct Dashboard;
 
-/// One resource's tile: its label, its list, and how many records the
-/// caller can see there.
+/// One resource's tile: its sidebar label, list and icon, and how many records the caller can
+/// see there.
 struct Stat {
     label: String,
     url: String,
-    icon: IconData,
+    icon: Option<IconData>,
     /// `None` when the count could not be read: the tile shows a dash rather
     /// than a wrong zero.
     count: Option<u64>,
@@ -27,19 +27,20 @@ struct Stat {
 /// `R`'s tile, or `None` when the caller may not open `R`'s list, so the
 /// dashboard links to no list that would answer 403, or when the panel does
 /// not register `R`.
-async fn stat<R: Resource>(cx: &Cx, glyph: IconData) -> Option<Stat> {
+async fn stat<R: Resource>(cx: &Cx) -> Option<Stat> {
     if !can_list::<R>(cx) {
         return None;
     }
-    let url = tablo_core::url::resource::<R>(cx)?;
+    let item = panel::navigation::<R>(cx)?;
+    let url = panel::url::resource::<R>(cx)?;
     let count = match scoped_query::<R>(cx) {
         Ok(query) => query.count().exec(&mut db(cx)).await.ok(),
         Err(_) => None,
     };
     Some(Stat {
-        label: R::navigation_label(),
         url,
-        icon: glyph,
+        label: item.label,
+        icon: item.icon,
         count,
     })
 }
@@ -65,7 +66,9 @@ fn stat_card(cx: &Cx, stat: Stat) -> BoxView<'_> {
                             class="text-muted-foreground [&>svg]:size-4"
                             aria-hidden="true"
                         >
-                            icon(data: stat.icon)
+                            if let Some(glyph) = stat.icon {
+                                icon(data: glyph)
+                            }
                         </span>
                     </div>
                     <p
@@ -87,10 +90,10 @@ impl Page for Dashboard {
 
     async fn render(cx: &Cx) -> Result<impl View> {
         let stats = [
-            stat::<UserResource>(cx, tablo_ui::icons::USERS).await,
-            stat::<AuthorResource>(cx, tablo_ui::icons::PEN_LINE).await,
-            stat::<PostResource>(cx, tablo_ui::icons::FILE_TEXT).await,
-            stat::<CommentResource>(cx, tablo_ui::icons::MESSAGE_SQUARE).await,
+            stat::<UserResource>(cx).await,
+            stat::<AuthorResource>(cx).await,
+            stat::<PostResource>(cx).await,
+            stat::<CommentResource>(cx).await,
         ];
         let cards: Vec<BoxView<'_>> = stats
             .into_iter()

@@ -1,6 +1,6 @@
 use http::header::{LOCATION, SET_COOKIE};
 use showcase::models::User;
-use tablo_core::{Ability, Policy, lens};
+use tablo_core::{Ability, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -189,7 +189,7 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
 
 #[tokio::test]
 async fn create_policy_deny() {
-    use tablo_core::{Field, Resource, Schema, Table, TextColumn};
+    use tablo_core::{Field, Resource, ResourceDef, Schema, Table, TextColumn};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct DummyUser {
@@ -204,19 +204,20 @@ async fn create_policy_deny() {
     impl Resource for DenyCreateResource {
         type Model = DummyUser;
         type Form = DenyCreateForm;
-        fn form() -> Schema {
-            Schema::new(Field::text(DummyUser::fields().name()).required())
-        }
 
-        fn policy() -> impl Policy<DummyUser> {
-            |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
-                Ability::ViewAny => true,
-                Ability::Create => false,
-                _ => false,
-            }
-        }
-        fn table() -> Table<DummyUser> {
-            Table::new(TextColumn::new(lens!(DummyUser.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .policy(
+                    |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
+                        Ability::ViewAny => true,
+                        Ability::Create => false,
+                        _ => false,
+                    },
+                )
+                .table(Table::new(TextColumn::new(lens!(DummyUser.name))))
+                .form(Schema::new(
+                    Field::text(DummyUser::fields().name()).required(),
+                ))
         }
     }
     #[derive(tablo_core::RecordForm)]
@@ -239,7 +240,7 @@ async fn create_policy_deny() {
     .expect("panel builds");
     let client = TestClient::new(&router);
 
-    let slug = DenyCreateResource::slug();
+    let slug = "deny-creates";
     let create_url = format!("/admin/{}/create", slug);
     // GET create should be 403
     let resp = client.get(&create_url).await;
@@ -374,7 +375,7 @@ async fn users_create_static_selects_set_role_and_active() {
 /// `notify_write_failure`'s doc comment describes this delivery.
 #[tokio::test]
 async fn a_failed_write_toasts_on_the_next_panel_page() {
-    use tablo_core::{Field, Resource, Schema, Table, TextColumn};
+    use tablo_core::{Field, Resource, ResourceDef, Schema, Table, TextColumn};
     use topcoat::context::Cx;
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -388,9 +389,17 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     impl Resource for FailingResource {
         type Model = Widget;
         type Form = FailingForm;
-        fn form() -> Schema {
-            Schema::new(Field::text(Widget::fields().name()))
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("widgets")
+                .policy(|_cx: &topcoat::context::Cx, ability: Ability<'_, Widget>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(Table::new(TextColumn::new(lens!(Widget.name))).paginate(25))
+                .form(Schema::new(Field::text(Widget::fields().name())))
         }
+
         async fn create_record(
             _cx: &Cx,
             _form: FailingForm,
@@ -398,18 +407,6 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         ) -> topcoat::Result<Widget> {
             // Validation passed; the write itself did not land.
             Err(std::io::Error::other("the write did not land").into())
-        }
-
-        fn slug() -> String {
-            "widgets".to_string()
-        }
-        fn policy() -> impl Policy<Widget> {
-            |_cx: &topcoat::context::Cx, ability: Ability<'_, Widget>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn table() -> Table<Widget> {
-            Table::new(TextColumn::new(lens!(Widget.name))).paginate(25)
         }
     }
     #[derive(tablo_core::RecordForm)]

@@ -1,9 +1,6 @@
 //! Dropping an undrained streamed list body frees its pooled connection.
 
-use tablo_core::{
-    Policy, ReadOnly, lens,
-    resource::{Resource, Table, TextColumn},
-};
+use tablo_core::{ReadOnly, Resource, ResourceDef, Table, TextColumn, lens};
 use uuid::Uuid;
 
 use crate::common::{body_string, get, memory_db, mount, panel};
@@ -22,16 +19,11 @@ impl Resource for PoolResource {
     type Model = PoolDummy;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn slug() -> String {
-        "dummies".to_string()
-    }
-
-    fn policy() -> impl Policy<PoolDummy> {
-        ReadOnly
-    }
-
-    fn table() -> Table<PoolDummy> {
-        Table::new(TextColumn::new(lens!(PoolDummy.name))).paginate(25)
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("dummies")
+            .policy(ReadOnly)
+            .table(Table::new(TextColumn::new(lens!(PoolDummy.name))).paginate(25))
     }
 }
 

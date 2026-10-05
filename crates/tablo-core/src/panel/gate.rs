@@ -1,28 +1,39 @@
 //! The panel gate: auth and tenant enforcement plus the prefix-derived URLs
 //! every handler builds on.
 
+use std::sync::Arc;
+
 use topcoat::{Result, context::Cx};
 
 use super::state::current;
-use crate::resource::{RETURN_PARAM, Resource};
+use crate::{
+    resource::{Mounted, Resource, mounted, require_mounted},
+    table::RETURN_PARAM,
+};
 
 /// Rejects tenant-scoped requests without a tenant, never serving unscoped rows.
-pub(crate) fn enforce_tenant<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error> {
-    if R::tenancy().is_scoped() {
+pub(crate) fn enforce_tenant<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> Result<()> {
+    if resource.tenancy.is_scoped() {
         crate::tenancy::require_tenant(cx)?;
     }
     Ok(())
 }
 
-pub(crate) fn gate<R: Resource>(cx: &Cx) -> Result<(), topcoat::Error> {
+/// Signs in and scopes the request for `R`, answering `R` as the request's panel mounted it.
+pub(crate) fn gate<R: Resource>(cx: &Cx) -> Result<Arc<Mounted<R>>> {
     crate::auth::guard(cx)?;
-    enforce_tenant::<R>(cx)
+    let resource = require_mounted::<R>(cx)?;
+    enforce_tenant(cx, &resource)?;
+    Ok(resource)
 }
 
-/// Whether the current request may open `R`'s list: sign-in, tenant scope, and
-/// [`Ability::ViewAny`](crate::Ability::ViewAny).
+/// Whether the current request may open `R`'s list: the request's panel mounts `R`, and
+/// sign-in, tenant scope, and [`Ability::ViewAny`](crate::Ability::ViewAny) allow it.
 pub fn can_list<R: Resource>(cx: &Cx) -> bool {
-    gate::<R>(cx).is_ok() && crate::can::<R>(cx, crate::Ability::ViewAny)
+    crate::auth::guard(cx).is_ok()
+        && mounted::<R>(cx).is_some_and(|resource| {
+            enforce_tenant(cx, &resource).is_ok() && resource.can(cx, crate::Ability::ViewAny)
+        })
 }
 
 /// The request's panel prefix, else the request path's first segment, else `/admin`.
@@ -37,10 +48,6 @@ pub(crate) fn panel_prefix(cx: &Cx) -> String {
                 .map(|s| format!("/{s}"))
                 .unwrap_or_else(|| "/admin".to_string())
         })
-}
-
-pub(crate) fn list_url(cx: &Cx, slug: &str) -> String {
-    format!("{}/{slug}", panel_prefix(cx))
 }
 
 /// Returns the validated `?return=` target under the panel prefix, else `None`.
@@ -68,8 +75,9 @@ fn has_dot_segment(target: &str) -> bool {
     })
 }
 
-pub(crate) fn landing_url(cx: &Cx, slug: &str) -> String {
-    return_target(cx).unwrap_or_else(|| list_url(cx, slug))
+/// The validated `?return=` target, else `list_url`.
+pub(crate) fn landing_url(cx: &Cx, list_url: &str) -> String {
+    return_target(cx).unwrap_or_else(|| list_url.to_string())
 }
 
 #[cfg(test)]

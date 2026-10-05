@@ -7,7 +7,9 @@
 //! embedded value over a real model and a real panel — with a typed leaf in the
 //! inactive variant so a validated group would refuse the submission.
 
-use tablo_core::{Ability, Auth, Field, Panel, Policy, Resource, Schema, Table, TextColumn, lens};
+use tablo_core::{
+    Ability, Auth, Field, Panel, Resource, ResourceDef, Schema, Table, TextColumn, lens,
+};
 use toasty::Db;
 use uuid::Uuid;
 
@@ -40,22 +42,18 @@ struct ClipResource;
 impl Resource for ClipResource {
     type Model = Clip;
     type Form = ClipForm;
-    fn form() -> Schema {
-        Schema::new(Field::text(Clip::fields().title())).extend(Body::form(Clip::fields().body()))
-    }
 
-    fn slug() -> String {
-        "clips".to_string()
-    }
-
-    fn policy() -> impl Policy<Clip> {
-        |_cx: &topcoat::context::Cx, ability: Ability<'_, Clip>| {
-            matches!(ability, Ability::ViewAny | Ability::Create)
-        }
-    }
-
-    fn table() -> Table<Clip> {
-        Table::new(TextColumn::new(lens!(Clip.title)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("clips")
+            .policy(|_cx: &topcoat::context::Cx, ability: Ability<'_, Clip>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            })
+            .table(Table::new(TextColumn::new(lens!(Clip.title))))
+            .form(
+                Schema::new(Field::text(Clip::fields().title()))
+                    .extend(Body::form(Clip::fields().body())),
+            )
     }
 }
 #[derive(tablo_core::RecordForm)]

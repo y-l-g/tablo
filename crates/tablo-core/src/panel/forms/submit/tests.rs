@@ -3,7 +3,7 @@ use topcoat::view::ViewExt;
 
 use super::*;
 use crate::{
-    Ability, Panel, Policy, lens,
+    Ability, Panel, ResourceDef, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for, response_html},
     schema::{Field, Schema},
 };
@@ -41,22 +41,17 @@ async fn edit_post_requires_view_as_well_as_update() {
     impl Resource for ViewDeniedResource {
         type Model = Dummy;
         type Form = ViewDeniedForm;
-        fn form() -> Schema {
-            Schema::new(Field::text(Dummy::fields().name()))
-        }
 
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
-                Ability::View(_record) => false,
-                Ability::Update(_record) => true,
-                _ => false,
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                    Ability::View(_record) => false,
+                    Ability::Update(_record) => true,
+                    _ => false,
+                })
+                .table(dummy_table())
+                .form(Schema::new(Field::text(Dummy::fields().name())))
         }
     }
     #[derive(crate::RecordForm)]
@@ -146,23 +141,20 @@ async fn transport_keys_never_reach_the_write() {
     impl crate::resource::Resource for CapturingResource {
         type Model = Doc;
         type Form = CapturingForm;
-        fn form() -> Schema {
-            Schema::new((
-                Field::text(Doc::fields().title()),
-                Field::file(Doc::fields().path()),
-            ))
-        }
 
-        fn slug() -> String {
-            "docs".to_string()
-        }
-        fn policy() -> impl Policy<Doc> {
-            |_cx: &Cx, ability: Ability<'_, Doc>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn table() -> crate::resource::Table<Doc> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Doc.title)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("docs")
+                .policy(|_cx: &Cx, ability: Ability<'_, Doc>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Doc.title),
+                )))
+                .form(Schema::new((
+                    Field::text(Doc::fields().title()),
+                    Field::file(Doc::fields().path()),
+                )))
         }
     }
     #[derive(crate::RecordForm)]
@@ -241,20 +233,17 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     impl Resource for WritingResource {
         type Model = Dummy;
         type Form = WritingForm;
-        fn form() -> Schema {
-            Schema::new(Field::text(Dummy::fields().name()))
-        }
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
+                .form(Schema::new(Field::text(Dummy::fields().name())))
         }
     }
     #[derive(crate::RecordForm)]
@@ -350,9 +339,22 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     impl Resource for EditingResource {
         type Model = Dummy;
         type Form = EditingForm;
-        fn form() -> Schema {
-            Schema::new(Field::text(Dummy::fields().name()))
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(
+                        ability,
+                        Ability::ViewAny | Ability::View(_) | Ability::Update(_)
+                    )
+                })
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
+                .form(Schema::new(Field::text(Dummy::fields().name())))
         }
+
         async fn update_record(
             _cx: &Cx,
             record: Dummy,
@@ -365,21 +367,6 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
             .exec(&mut *ex)
             .await?;
             Ok(record)
-        }
-
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(
-                    ability,
-                    Ability::ViewAny | Ability::View(_) | Ability::Update(_)
-                )
-            }
         }
     }
     #[derive(crate::RecordForm)]
@@ -488,12 +475,24 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     impl Resource for NotifyingResource {
         type Model = Dummy;
         type Form = NotifyingForm;
-        fn form() -> crate::schema::Schema {
-            // Optional so the csrf-only POST passes validation.
-            crate::schema::Schema::new(
-                crate::schema::Field::text(Dummy::fields().name()).optional(),
-            )
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
+                .form(
+                    // Optional so the csrf-only POST passes validation.
+                    crate::schema::Schema::new(
+                        crate::schema::Field::text(Dummy::fields().name()).optional(),
+                    ),
+                )
         }
+
         async fn create_record(
             _cx: &Cx,
             _form: NotifyingForm,
@@ -505,18 +504,6 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
             .exec(&mut *ex)
             .await
             .map_err(|error| -> topcoat::Error { error.into() })
-        }
-
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
         }
     }
     #[derive(crate::RecordForm)]
@@ -587,8 +574,9 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
 #[tokio::test]
 async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     use crate::{
-        resource::{Resource, Table, TextColumn},
+        resource::{Resource, ResourceDef},
         schema::{Field, Schema},
+        table::{Table, TextColumn},
     };
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -603,24 +591,19 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     impl Resource for SubscriberResource {
         type Model = Subscriber;
         type Form = SubscriberForm;
-        fn form() -> Schema {
-            Schema::new(
-                Field::text(Subscriber::fields().email())
-                    .unique()
-                    .optional(),
-            )
-        }
 
-        fn slug() -> String {
-            "subscribers".to_string()
-        }
-        fn policy() -> impl Policy<Subscriber> {
-            |_cx: &Cx, ability: Ability<'_, Subscriber>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn table() -> Table<Subscriber> {
-            Table::new(TextColumn::new(lens!(Subscriber.email)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("subscribers")
+                .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(Table::new(TextColumn::new(lens!(Subscriber.email))))
+                .form(Schema::new(
+                    Field::text(Subscriber::fields().email())
+                        .unique()
+                        .optional(),
+                ))
         }
     }
     #[derive(crate::RecordForm)]
@@ -710,25 +693,20 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
     impl crate::resource::Resource for DocResource {
         type Model = Doc;
         type Form = DocForm;
-        fn form() -> Schema {
-            Schema::new((
-                Field::text(Doc::fields().title()),
-                Field::file(Doc::fields().path()),
-            ))
-        }
 
-        fn slug() -> String {
-            "docs".to_string()
-        }
-
-        fn policy() -> impl Policy<Doc> {
-            |_cx: &Cx, ability: Ability<'_, Doc>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-
-        fn table() -> crate::resource::Table<Doc> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Doc.title)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("docs")
+                .policy(|_cx: &Cx, ability: Ability<'_, Doc>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Doc.title),
+                )))
+                .form(Schema::new((
+                    Field::text(Doc::fields().title()),
+                    Field::file(Doc::fields().path()),
+                )))
         }
     }
     #[derive(crate::RecordForm)]

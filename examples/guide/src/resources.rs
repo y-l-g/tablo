@@ -21,39 +21,42 @@ impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    // ANCHOR: user-table
-    fn table() -> Table<User> {
-        Table::new((
-            TextColumn::new(lens!(User.name)).searchable().sortable(),
-            TextColumn::new(lens!(User.email)).searchable(),
-            TextColumn::new(lens!(User.age)).sortable(),
-            BooleanColumn::new(lens!(User.active)),
-        ))
-        .paginate(20)
-    }
-    // ANCHOR_END: user-table
-
-    // ANCHOR: user-policy
-    fn policy() -> impl Policy<User> {
-        |cx: &Cx, ability: Ability<'_, User>| match ability {
-            Ability::ViewAny | Ability::View(_) => true,
-            Ability::Create | Ability::DeleteAny | Ability::Delete(_) => is_admin(cx),
-            Ability::Update(user) => !user.sso_managed,
-        }
-    }
-    // ANCHOR_END: user-policy
-
-    // ANCHOR: user-form
-    fn form() -> Schema {
+    fn declare() -> ResourceDef<Self> {
         let c = UserForm::controls();
-        Schema::new(Section::new("Profile").schema((
-            c.name.placeholder("Ada Lovelace"),
-            c.email.email(),
-            c.role.optional(),
-            c.age.optional(),
-        )))
+        ResourceDef::new()
+            // ANCHOR: user-table
+            .table(
+                Table::new((
+                    TextColumn::new(lens!(User.name)).searchable().sortable(),
+                    TextColumn::new(lens!(User.email)).searchable(),
+                    TextColumn::new(lens!(User.age)).sortable(),
+                    BooleanColumn::new(lens!(User.active)),
+                ))
+                .paginate(20),
+            )
+            // ANCHOR_END: user-table
+            // ANCHOR: user-policy
+            .policy(|cx: &Cx, ability: Ability<'_, User>| match ability {
+                Ability::ViewAny | Ability::View(_) => true,
+                Ability::Create | Ability::DeleteAny | Ability::Delete(_) => is_admin(cx),
+                Ability::Update(user) => !user.sso_managed,
+            })
+            // ANCHOR_END: user-policy
+            // ANCHOR: user-form
+            .form(Schema::new(Section::new("Profile").schema((
+                c.name.placeholder("Ada Lovelace"),
+                c.email.email(),
+                c.role.optional(),
+                c.age.optional(),
+            ))))
+            // ANCHOR_END: user-form
+            // ANCHOR: user-navigation
+            .navigation_order(-1)
+            .icon(tablo_ui::icons::USERS)
+        // ANCHOR_END: user-navigation
     }
 
+    // ANCHOR: user-validate
     fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors {
         let mut errors = FieldErrors::new();
         if form.age < 0 {
@@ -61,17 +64,7 @@ impl Resource for UserResource {
         }
         errors
     }
-    // ANCHOR_END: user-form
-
-    // ANCHOR: user-navigation
-    fn navigation() -> NavigationItem {
-        NavigationItem {
-            order: -1,
-            ..NavigationItem::for_resource::<Self>()
-        }
-        .icon(tablo_ui::icons::USERS)
-    }
-    // ANCHOR_END: user-navigation
+    // ANCHOR_END: user-validate
 }
 
 // ANCHOR: user-record-form
@@ -93,28 +86,33 @@ impl Resource for PostResource {
     type Model = Post;
     type Form = PostForm;
 
-    fn table() -> Table<Post> {
-        Table::new(TextColumn::new(lens!(Post.title)))
-    }
-
-    // ANCHOR: post-policy-editors
-    fn policy() -> impl Policy<Post> {
-        ReadOnly.or(when(editors_only))
-    }
-    // ANCHOR_END: post-policy-editors
-
-    // ANCHOR: post-tenancy
-    fn tenancy() -> Tenancy<Post> {
-        Tenancy::column(Post::fields().tenant_id())
-    }
-    // ANCHOR_END: post-tenancy
-
-    // ANCHOR: post-view
-    fn view() -> Schema {
+    fn declare() -> ResourceDef<Self> {
         let c = PostForm::controls();
-        Schema::new(Section::new("Post").schema((c.title, c.body.multiline(6), c.status)))
+        ResourceDef::new()
+            .table(Table::new(TextColumn::new(lens!(Post.title))))
+            // ANCHOR: post-policy-editors
+            .policy(ReadOnly.or(when(editors_only)))
+            // ANCHOR_END: post-policy-editors
+            // ANCHOR: post-tenancy
+            .tenancy(Tenancy::column(Post::fields().tenant_id()))
+            // ANCHOR_END: post-tenancy
+            // ANCHOR: post-view
+            .view(Schema::new(Section::new("Post").schema((
+                c.title,
+                c.body.multiline(6),
+                c.status,
+            ))))
+            // ANCHOR_END: post-view
+            // ANCHOR: post-relations
+            // The related model's foreign key, which holds the post's primary key.
+            .relation(Relation::has_many::<CommentResource>(
+                Comment::fields().post_id(),
+            ))
+            // ANCHOR_END: post-relations
+            // ANCHOR: post-actions
+            .action::<Publish>()
+        // ANCHOR_END: post-actions
     }
-    // ANCHOR_END: post-view
 
     // ANCHOR: post-view-query
     fn view_query(cx: &Cx) -> Query<List<Post>> {
@@ -122,21 +120,6 @@ impl Resource for PostResource {
         Self::query(cx).include(author)
     }
     // ANCHOR_END: post-view-query
-
-    // ANCHOR: post-relations
-    fn relations() -> Vec<Relation<Post>> {
-        // The related model's foreign key, which holds the post's primary key.
-        vec![Relation::has_many::<CommentResource>(
-            Comment::fields().post_id(),
-        )]
-    }
-    // ANCHOR_END: post-relations
-
-    // ANCHOR: post-actions
-    fn actions() -> Actions<Self> {
-        Actions::new().add::<Publish>()
-    }
-    // ANCHOR_END: post-actions
 }
 
 // ANCHOR: post-record-form
@@ -155,15 +138,13 @@ impl Resource for CommentResource {
     type Model = Comment;
     type Form = CommentForm;
 
-    fn table() -> Table<Comment> {
-        Table::new(TextColumn::new(lens!(Comment.body)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .table(Table::new(TextColumn::new(lens!(Comment.body))))
+            // ANCHOR: comment-tenancy-via
+            .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
+        // ANCHOR_END: comment-tenancy-via
     }
-
-    // ANCHOR: comment-tenancy-via
-    fn tenancy() -> Tenancy<Comment> {
-        Tenancy::via(Comment::fields().post().tenant_id())
-    }
-    // ANCHOR_END: comment-tenancy-via
 
     // ANCHOR: comment-update-record
     async fn update_record(
@@ -200,15 +181,13 @@ impl Resource for AuthorResource {
     type Model = Author;
     type Form = AuthorForm;
 
-    fn table() -> Table<Author> {
-        Table::new(TextColumn::new(lens!(Author.name)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .table(Table::new(TextColumn::new(lens!(Author.name))))
+            // ANCHOR: author-policy-editors
+            .policy(when(editors_only))
+        // ANCHOR_END: author-policy-editors
     }
-
-    // ANCHOR: author-policy-editors
-    fn policy() -> impl Policy<Author> {
-        when(editors_only)
-    }
-    // ANCHOR_END: author-policy-editors
 }
 
 #[derive(Debug, Clone, tablo_core::RecordForm)]
@@ -224,12 +203,10 @@ impl Resource for AuditResource {
     type Model = Audit;
     type Form = NoForm<Audit>; // list-only: no create or edit pages
 
-    fn policy() -> impl Policy<Audit> {
-        ReadOnly
-    }
-
-    fn table() -> Table<Audit> {
-        Table::new(TextColumn::new(lens!(Audit.action)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(ReadOnly)
+            .table(Table::new(TextColumn::new(lens!(Audit.action))))
     }
 }
 // ANCHOR_END: audit-resource
@@ -240,8 +217,8 @@ impl Resource for OrderResource {
     type Model = Order;
     type Form = NoForm<Order>;
 
-    fn table() -> Table<Order> {
-        Table::new(TextColumn::new(lens!(Order.id)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(Table::new(TextColumn::new(lens!(Order.id))))
     }
 }
 

@@ -4,7 +4,7 @@
 
 use http::header::LOCATION;
 use tablo_core::{
-    Ability, DeclarationErrorKind, Field, Policy, Relation, Resource, Schema, Site, Table,
+    Ability, DeclarationErrorKind, Field, Relation, Resource, ResourceDef, Schema, Site, Table,
     TextColumn, lens,
 };
 use toasty::Db;
@@ -36,31 +36,20 @@ impl Resource for OwnerResource {
     type Model = Owner;
     type Form = OwnerForm;
 
-    fn form() -> Schema {
-        Schema::new(Field::text(Owner::fields().name()))
-    }
-
-    fn view() -> Schema {
-        Schema::new(Field::text(Owner::fields().name()))
-    }
-
-    fn policy() -> impl Policy<Owner> {
-        |_cx: &Cx, ability: Ability<'_, Owner>| {
-            matches!(
-                ability,
-                Ability::ViewAny | Ability::View(_) | Ability::Update(_)
-            )
-        }
-    }
-
-    fn table() -> Table<Owner> {
-        Table::new(TextColumn::new(lens!(Owner.name)))
-    }
-
-    fn relations() -> Vec<Relation<Owner>> {
-        vec![Relation::has_many::<ChildResource>(
-            Child::fields().owner_id(),
-        )]
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(|_cx: &Cx, ability: Ability<'_, Owner>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Update(_)
+                )
+            })
+            .table(Table::new(TextColumn::new(lens!(Owner.name))))
+            .form(Schema::new(Field::text(Owner::fields().name())))
+            .view(Schema::new(Field::text(Owner::fields().name())))
+            .relation(Relation::has_many::<ChildResource>(
+                Child::fields().owner_id(),
+            ))
     }
 }
 
@@ -76,28 +65,25 @@ impl Resource for ChildResource {
     type Model = Child;
     type Form = ChildForm;
 
-    fn form() -> Schema {
-        Schema::new((
-            Field::text(Child::fields().body()),
-            Field::choice(Child::fields().owner_id())
-                .relationship::<OwnerResource>(|owner: &Owner| owner.name.clone())
-                .label("Owner"),
-        ))
-    }
-
-    fn policy() -> impl Policy<Child> {
-        |cx: &Cx, ability: Ability<'_, Child>| match ability {
-            Ability::ViewAny => !has_header(cx, "x-deny-children"),
-            Ability::View(_record) => true,
-            Ability::Create => !has_header(cx, "x-no-create"),
-            Ability::Update(_record) => true,
-            Ability::DeleteAny => true,
-            Ability::Delete(_) => true,
-        }
-    }
-
-    fn table() -> Table<Child> {
-        Table::new(TextColumn::new(lens!(Child.body)).searchable().sortable())
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(|cx: &Cx, ability: Ability<'_, Child>| match ability {
+                Ability::ViewAny => !has_header(cx, "x-deny-children"),
+                Ability::View(_record) => true,
+                Ability::Create => !has_header(cx, "x-no-create"),
+                Ability::Update(_record) => true,
+                Ability::DeleteAny => true,
+                Ability::Delete(_) => true,
+            })
+            .table(Table::new(
+                TextColumn::new(lens!(Child.body)).searchable().sortable(),
+            ))
+            .form(Schema::new((
+                Field::text(Child::fields().body()),
+                Field::choice(Child::fields().owner_id())
+                    .relationship::<OwnerResource>(|owner: &Owner| owner.name.clone())
+                    .label("Owner"),
+            )))
     }
 }
 
@@ -313,7 +299,11 @@ async fn a_relation_to_an_unregistered_resource_does_not_build() {
     let db = memory_db(toasty::models!(Owner, Child)).await;
     let errors = refusal(mount(db, panel().resource::<OwnerResource>()));
     assert_eq!(errors.len(), 1, "{errors:?}");
-    assert_eq!(errors[0].site, Site::Relation("children".to_string()));
+    // An unregistered child has no slug on the panel, so the site names its type.
+    assert_eq!(
+        errors[0].site,
+        Site::Relation(std::any::type_name::<ChildResource>().to_string())
+    );
     assert_eq!(errors[0].kind, DeclarationErrorKind::UnregisteredRelation);
 }
 
@@ -326,17 +316,13 @@ async fn two_relations_to_one_child_do_not_build() {
         type Model = Owner;
         type Form = tablo_core::NoForm<Owner>;
 
-        fn slug() -> String {
-            "twice".to_string()
-        }
-
-        fn table() -> Table<Owner> {
-            OwnerResource::table()
-        }
-
-        fn relations() -> Vec<Relation<Owner>> {
+        fn declare() -> ResourceDef<Self> {
             let relation = || Relation::has_many::<ChildResource>(Child::fields().owner_id());
-            vec![relation(), relation()]
+            ResourceDef::new()
+                .slug("twice")
+                .table(Table::new(TextColumn::new(lens!(Owner.name))))
+                .relation(relation())
+                .relation(relation())
         }
     }
 
@@ -345,7 +331,8 @@ async fn two_relations_to_one_child_do_not_build() {
         db,
         panel()
             .resource::<TwiceResource>()
-            .resource::<ChildResource>(),
+            .resource::<ChildResource>()
+            .resource::<OwnerResource>(),
     ));
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert_eq!(errors[0].site, Site::Relation("children".to_string()));

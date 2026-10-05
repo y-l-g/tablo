@@ -5,7 +5,7 @@ use super::{
     *,
 };
 use crate::{
-    Ability, Policy,
+    Ability, ResourceDef,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
@@ -87,17 +87,16 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
     impl Resource for DummyResource {
         type Model = Dummy;
         type Form = DummyForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::Field::file(Dummy::fields().name()))
-        }
 
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(dummy_table())
+                .form(crate::schema::Schema::new(crate::schema::Field::file(
+                    Dummy::fields().name(),
+                )))
         }
     }
     #[derive(crate::RecordForm)]

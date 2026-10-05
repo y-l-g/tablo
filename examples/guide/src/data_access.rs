@@ -50,7 +50,7 @@ pub async fn load_author_names(mut db: Db) -> topcoat::Result<()> {
 
 pub async fn featured_table(cx: &Cx) -> topcoat::Result<()> {
     // ANCHOR: data-access-wired-table
-    let table = tablo_core::panel::wired_table::<PostResource>(cx);
+    let table = tablo_core::panel::wired_table::<PostResource>(cx)?;
     let state = TableState::from_cx(cx);
     let query = scoped_query::<PostResource>(cx)?.filter(Post::fields().featured().eq(true));
     let page = TablePage::load(cx, &table, query, &state).await?;

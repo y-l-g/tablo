@@ -22,8 +22,8 @@ use super::{
 use crate::{
     db::db,
     notification::{Notification, set_notification},
-    policy::{Ability, can},
-    resource::{ActionEntry, Committed, Resource},
+    policy::Ability,
+    resource::{ActionEntry, Committed, Mounted, Resource},
     topcoat_compat::async_page,
 };
 
@@ -53,13 +53,12 @@ pub(crate) fn resource_bulk_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
 /// Runs the custom action both routes share.
 fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
-        if !can::<R>(cx, Ability::ViewAny) {
+        let resource = gate::<R>(cx)?;
+        if !resource.can(cx, Ability::ViewAny) {
             return Err(forbidden().into());
         }
         let name = topcoat::router::path_param_segment(cx, "action").to_string();
-        let actions = R::actions();
-        let Some(action) = actions.find(&name).filter(|action| match target {
+        let Some(action) = resource.actions.find(&name).filter(|action| match target {
             Target::Row => action.row,
             Target::Bulk => action.bulk,
         }) else {
@@ -76,7 +75,7 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
                 let ids = parse_bulk_ids(&raw, MAX_BULK_IDS);
                 if ids.is_empty() {
                     set_notification(cx, Notification::error("Select at least one row first"));
-                    return Err(see_other(landing_url(cx, &R::slug())).into());
+                    return Err(see_other(landing_url(cx, &resource.url)).into());
                 }
                 if ids.len() > MAX_BULK_IDS {
                     return Err(bad_request(format!("too many ids (max {MAX_BULK_IDS})")).into());
@@ -86,19 +85,20 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
         };
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        let rows = load_targets::<R>(cx, &ids, target, &mut tx).await?;
-        if rows.iter().any(|row| !can::<R>(cx, Ability::View(row))) {
+        let rows = load_targets(cx, &resource, &ids, target, &mut tx).await?;
+        if rows.iter().any(|row| !resource.can(cx, Ability::View(row))) {
             return Err(forbidden().into());
         }
         let refused = rows.iter().filter(|row| !(action.can_run)(cx, row)).count();
         if refused > 0 {
-            return Err(refuse::<R>(cx, action, target, refused));
+            return Err(refuse(cx, &resource, action, target, refused));
         }
         let count = rows.len();
         let written = (action.run)(cx, &rows, &mut tx).await.map(|()| rows);
         let name = action.name;
-        commit_write::<R, _>(
+        commit_write(
             cx,
+            &resource,
             tx,
             written,
             |rows| Committed::acted(name, rows),
@@ -112,21 +112,23 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
 /// Loads the records `ids` names through the tenant-scoped query inside the transaction.
 async fn load_targets<R: Resource>(
     cx: &Cx,
+    resource: &Mounted<R>,
     ids: &[String],
     target: Target,
     tx: &mut toasty::Transaction<'_>,
 ) -> Result<Vec<R::Model>, topcoat::Error> {
     if let Target::Row = target {
-        return Ok(vec![find_by_key::<R>(cx, &ids[0], tx).await?]);
+        return Ok(vec![find_by_key(cx, resource, &ids[0], tx).await?]);
     }
     let keys: Vec<&str> = ids.iter().map(String::as_str).collect();
     let Some(pk_filter) = crate::toasty_compat::pk::pk_in_expr::<R::Model>(&keys) else {
-        if let Some(error) = composite_pk_error::<R>() {
+        if let Some(error) = composite_pk_error(resource) {
             return Err(error);
         }
         return Err(not_found().into());
     };
-    let rows = crate::resource::scoped_query::<R>(cx)?
+    let rows = resource
+        .scoped_query(cx)?
         .filter(pk_filter)
         .exec(tx)
         .await
@@ -140,6 +142,7 @@ async fn load_targets<R: Resource>(
 /// Answers a target holding `refused` records the action may not run on.
 fn refuse<R: Resource>(
     cx: &Cx,
+    resource: &Mounted<R>,
     action: &ActionEntry<R>,
     target: Target,
     refused: usize,
@@ -155,7 +158,7 @@ fn refuse<R: Resource>(
                     (action.label)()
                 )),
             );
-            see_other(landing_url(cx, &R::slug())).into()
+            see_other(landing_url(cx, &resource.url)).into()
         }
     }
 }

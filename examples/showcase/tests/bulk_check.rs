@@ -1,6 +1,6 @@
 use http::header::LOCATION;
 use showcase::models::User;
-use tablo_core::{Ability, Policy, lens};
+use tablo_core::{Ability, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -351,7 +351,7 @@ fn selectable_row_ids(html: &str) -> Vec<String> {
 /// handler's own `Delete` check would leave this test green.
 #[tokio::test]
 async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
-    use tablo_core::{Resource, Table, TextColumn};
+    use tablo_core::{Resource, ResourceDef, Table, TextColumn};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct DummyUser {
@@ -365,17 +365,19 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
     impl Resource for PartialDenyResource {
         type Model = DummyUser;
         type Form = tablo_core::NoForm<Self::Model>;
-        fn policy() -> impl Policy<DummyUser> {
-            |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
-                Ability::ViewAny => true,
-                Ability::View(_rec) => true,
-                Ability::DeleteAny => true,
-                Ability::Delete(rec) => rec.name != "b",
-                _ => false,
-            }
-        }
-        fn table() -> Table<DummyUser> {
-            Table::new(TextColumn::new(lens!(DummyUser.name)))
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .policy(
+                    |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
+                        Ability::ViewAny => true,
+                        Ability::View(_rec) => true,
+                        Ability::DeleteAny => true,
+                        Ability::Delete(rec) => rec.name != "b",
+                        _ => false,
+                    },
+                )
+                .table(Table::new(TextColumn::new(lens!(DummyUser.name))))
         }
     }
 
@@ -405,7 +407,7 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
     )
     .expect("panel builds");
     let client = TestClient::new(&router);
-    let slug = PartialDenyResource::slug();
+    let slug = "partial-denies";
     let ids = format!("{},{}", a.id, b.id);
     let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client

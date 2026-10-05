@@ -1,6 +1,6 @@
 use http::header::LOCATION;
 use showcase::models::User;
-use tablo_core::{Ability, Policy, lens};
+use tablo_core::{Ability, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -199,7 +199,7 @@ async fn delete_404_for_an_unknown_id() {
 async fn forged_delete_runs_no_record_query() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use tablo_core::{Resource, Table, TextColumn};
+    use tablo_core::{Resource, ResourceDef, Table, TextColumn};
 
     static QUERIES: AtomicUsize = AtomicUsize::new(0);
     fn counted_query(_cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Dummy>> {
@@ -219,19 +219,23 @@ async fn forged_delete_runs_no_record_query() {
     impl Resource for CountingResource {
         type Model = Dummy;
         type Form = tablo_core::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .policy(|_cx: &topcoat::context::Cx, ability: Ability<'_, Dummy>| {
+                    matches!(
+                        ability,
+                        Ability::ViewAny
+                            | Ability::View(_)
+                            | Ability::DeleteAny
+                            | Ability::Delete(_)
+                    )
+                })
+                .table(Table::new(TextColumn::new(lens!(Dummy.name))))
+        }
+
         fn query(cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Dummy>> {
             counted_query(cx)
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &topcoat::context::Cx, ability: Ability<'_, Dummy>| {
-                matches!(
-                    ability,
-                    Ability::ViewAny | Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
-                )
-            }
-        }
-        fn table() -> Table<Dummy> {
-            Table::new(TextColumn::new(lens!(Dummy.name)))
         }
     }
 
@@ -255,7 +259,7 @@ async fn forged_delete_runs_no_record_query() {
     )
     .expect("panel builds");
     let client = TestClient::new(&router);
-    let delete_url = format!("/admin/{}/{}/delete", CountingResource::slug(), rec.id);
+    let delete_url = format!("/admin/countings/{}/delete", rec.id);
     let csrf = uuid::Uuid::new_v4().to_string();
     let cookie_mismatch = uuid::Uuid::new_v4().to_string();
 

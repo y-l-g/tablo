@@ -4,12 +4,16 @@ use std::collections::HashMap;
 
 use topcoat::{Result, context::Cx};
 
-use crate::{form::FieldErrors, resource::Resource};
+use crate::{
+    form::FieldErrors,
+    resource::{Mounted, Resource},
+};
 
 /// Refuses duplicated `unique()` values with `<Label> has already been taken`, skipping empty
 /// submits and the record's own value (#117).
 pub(super) async fn check_unique<R: Resource>(
     cx: &Cx,
+    resource: &Mounted<R>,
     schema: &crate::schema::Schema,
     values: &HashMap<String, String>,
     current: &HashMap<String, String>,
@@ -45,7 +49,8 @@ pub(super) async fn check_unique<R: Resource>(
             continue;
         };
         // Probes inside the write transaction through the tenant-scoped query.
-        let rows = crate::resource::scoped_query::<R>(cx)?
+        let rows = resource
+            .scoped_query(cx)?
             .filter(filter)
             .limit(1)
             .exec(&mut *ex)

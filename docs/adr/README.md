@@ -19,6 +19,8 @@ code must respect.
 | [0018](0018-export-include-scoping.md) | Columns declare typed includes; `query` scopes rows, `view_query` feeds the detail page |
 | [0019](0019-embedded-values.md) | Embedded values derive their codec; the discriminant picks the variant |
 | [0022](0022-record-forms.md) | A form writes through a derived typed struct, completed from the stored record |
+| [0023](0023-resource-definitions.md) | A resource declares one `ResourceDef`; each panel owns the copy it mounts |
+| [0024](0024-core-layers.md) | `tablo-core`'s modules form four layers a test enforces |
 
 ## Retired
 

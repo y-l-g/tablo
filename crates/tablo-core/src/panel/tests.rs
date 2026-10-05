@@ -1,28 +1,28 @@
 use super::*;
-use crate::{lens, panel::test_support::Dummy};
+use crate::{lens, navigation::NavigationItem, panel::test_support::Dummy, resource::Mounted};
 
-/// `Resource::navigation()` reaches the sidebar, and its order is
+/// `R`'s sidebar entry on `panel`.
+fn nav_item<R: Resource>(panel: &Panel) -> NavigationItem {
+    Mounted::new(R::declare(), panel.prefix()).navigation
+}
+
+/// The def's navigation reaches the sidebar, and its order is
 /// what the rendered shell sorts by.
 #[test]
 fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
-    use crate::resource::{NavigationItem, Resource};
-
     struct DummyResource;
     impl Resource for DummyResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-
-        fn navigation() -> NavigationItem {
-            // The override cannot know the panel prefix, so it decorates
-            // the default item: order here, URL from the panel.
-            NavigationItem {
-                order: -1,
-                ..NavigationItem::for_resource::<Self>()
-            }
+        fn declare() -> ResourceDef<Self> {
+            // The def cannot know the panel prefix, so it sets the order and the panel resolves
+            // the URL.
+            ResourceDef::new()
+                .navigation_order(-1)
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
     }
     struct PlainResource;
@@ -30,24 +30,24 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-
-        fn slug() -> String {
-            "plain".to_string()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("plain")
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
     }
 
     // Non-`/admin` panel + overridden navigation: the order survives and
     // the URL is resolved under this panel's prefix, not `/admin`.
     let panel = Panel::new("backoffice");
-    let item = panel.nav_item::<DummyResource>();
+    let item = nav_item::<DummyResource>(&panel);
     assert_eq!(item.order, -1);
     assert_eq!(item.label, "Dummies");
     assert_eq!(item.url(), Some("/backoffice/dummies"));
     // A resource without an override keeps the default (declaration order).
-    assert_eq!(panel.nav_item::<PlainResource>().order, 0);
+    assert_eq!(nav_item::<PlainResource>(&panel).order, 0);
 }
 
 /// A URL an override spells out is the author's, not the panel's —
@@ -56,37 +56,28 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
 /// *including* one that looks like the origin mount.
 #[test]
 fn panel_navigation_item_keeps_urls_the_override_spells_out() {
-    use crate::resource::{NavTarget, NavigationItem, Resource};
+    use crate::navigation::NavTarget;
 
     struct DraftsResource;
     impl Resource for DraftsResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-
-        fn slug() -> String {
-            "drafts".to_string()
-        }
-
-        fn navigation_label() -> String {
-            "Drafts".to_string()
-        }
-
-        fn navigation() -> NavigationItem {
+        fn declare() -> ResourceDef<Self> {
             // Order only, no URL: still the panel's to resolve.
-            NavigationItem {
-                order: 3,
-                ..NavigationItem::for_resource::<Self>()
-            }
+            ResourceDef::new()
+                .slug("drafts")
+                .plural_label("Drafts")
+                .navigation_order(3)
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
     }
 
     // `label`/`order` decorate the default item without touching its URL,
     // so the panel still owns (and resolves) the URL.
-    let decorated = Panel::new("backoffice").nav_item::<DraftsResource>();
+    let decorated = nav_item::<DraftsResource>(&Panel::new("backoffice"));
     assert_eq!(decorated.label, "Drafts");
     assert_eq!(decorated.order, 3);
     assert_eq!(decorated.url(), Some("/backoffice/drafts"));
@@ -98,19 +89,19 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-
-        fn slug() -> String {
-            "reports".to_string()
-        }
-
-        fn navigation() -> NavigationItem {
-            NavigationItem::at("Draft posts", "/admin/posts?f.status=draft")
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("reports")
+                .navigation(NavigationItem::at(
+                    "Draft posts",
+                    "/admin/posts?f.status=draft",
+                ))
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
     }
-    let spelled_out = Panel::new("backoffice").nav_item::<ReportsResource>();
+    let spelled_out = nav_item::<ReportsResource>(&Panel::new("backoffice"));
     assert_eq!(spelled_out.url(), Some("/admin/posts?f.status=draft"));
     assert_eq!(spelled_out.label, "Draft posts");
     assert!(matches!(spelled_out.target, NavTarget::Url(_)));
@@ -123,64 +114,61 @@ fn panel_navigation_item_keeps_urls_the_override_spells_out() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-
-        fn slug() -> String {
-            "users".to_string()
-        }
-
-        fn navigation() -> NavigationItem {
-            NavigationItem::at("Users (legacy)", "/admin/users")
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("users")
+                .navigation(NavigationItem::at("Users (legacy)", "/admin/users"))
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
     }
-    let own_slug = Panel::new("backoffice").nav_item::<OwnSlugResource>();
+    let own_slug = nav_item::<OwnSlugResource>(&Panel::new("backoffice"));
     assert_eq!(own_slug.url(), Some("/admin/users"));
 }
 
 #[test]
 fn panel_navigation_item_respects_prefix() {
-    use crate::resource::Resource;
-
     struct DummyResource;
     impl Resource for DummyResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Dummy.name),
+            )))
         }
     }
 
     let panel = Panel::new("backoffice");
-    let item = panel.nav_item::<DummyResource>();
+    let item = nav_item::<DummyResource>(&panel);
     // Label: pluralized model name ("Dummy" → "Dummies"); URL: prefix +
     // resource slug ("DummyResource" → "dummies"), resolved by the panel.
     assert_eq!(item.label, "Dummies");
     assert_eq!(item.url(), Some("/backoffice/dummies"));
 
-    let default = Panel::new("admin").nav_item::<DummyResource>();
+    let default = nav_item::<DummyResource>(&Panel::new("admin"));
     assert_eq!(default.url(), Some("/admin/dummies"));
     // Mount normalisation is `Panel::new`'s (slashes trimmed, `/admin` when
     // empty), and the resolved URL follows it.
-    let slashed = Panel::new("/backoffice/").nav_item::<DummyResource>();
+    let slashed = nav_item::<DummyResource>(&Panel::new("/backoffice/"));
     assert_eq!(slashed.url(), Some("/backoffice/dummies"));
-    let bare = Panel::new("").nav_item::<DummyResource>();
+    let bare = nav_item::<DummyResource>(&Panel::new(""));
     assert_eq!(bare.url(), Some("/admin/dummies"));
 }
 
 #[test]
 fn panel_navigation_items_are_distinct_for_multiple_resources() {
-    use crate::resource::Resource;
-
     struct UserResource;
     impl Resource for UserResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Dummy.name),
+            )))
         }
     }
     struct CategoryResource;
@@ -188,22 +176,19 @@ fn panel_navigation_items_are_distinct_for_multiple_resources() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-
-        fn slug() -> String {
-            "categories".to_string()
-        }
-
-        fn navigation_label() -> String {
-            "Categories".to_string()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("categories")
+                .plural_label("Categories")
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
     }
 
     let panel = Panel::new("admin");
-    let users = panel.nav_item::<UserResource>();
-    let categories = panel.nav_item::<CategoryResource>();
+    let users = nav_item::<UserResource>(&panel);
+    let categories = nav_item::<CategoryResource>(&panel);
     assert_eq!(users.url(), Some("/admin/users"));
     assert_eq!(categories.url(), Some("/admin/categories"));
     assert_ne!(users.url(), categories.url());
@@ -228,27 +213,19 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
         view::{ViewExt, view},
     };
 
-    use crate::resource::{NavigationItem, Resource};
-
     struct PinnedResource;
     impl Resource for PinnedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-
-        fn slug() -> String {
-            "pinned".to_string()
-        }
-
-        fn navigation() -> NavigationItem {
-            // An override that only sets order.
-            NavigationItem {
-                order: -1,
-                ..NavigationItem::for_resource::<Self>()
-            }
+        fn declare() -> ResourceDef<Self> {
+            // A def that only sets the order.
+            ResourceDef::new()
+                .slug("pinned")
+                .navigation_order(-1)
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
     }
     struct OtherResource;
@@ -256,24 +233,21 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
-
-        fn slug() -> String {
-            "other".to_string()
-        }
-
-        fn navigation_label() -> String {
-            "Other".to_string()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("other")
+                .plural_label("Other")
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
     }
 
     // `PinnedResource` is declared last, so only the override can move it up.
     let panel = Panel::new("backoffice");
     let nav_items = vec![
-        panel.nav_item::<OtherResource>(),
-        panel.nav_item::<PinnedResource>(),
+        nav_item::<OtherResource>(&panel),
+        nav_item::<PinnedResource>(&panel),
     ];
     let (parts, ()) = http::Request::builder()
         .uri("/backoffice/other")

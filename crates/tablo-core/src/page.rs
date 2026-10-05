@@ -5,9 +5,9 @@ use std::future::Future;
 
 use topcoat::{Result, context::Cx, view::View};
 
-use crate::resource::{
-    NavigationItem,
+use crate::{
     naming::{kebab_case, sentence_case, type_stem},
+    navigation::NavigationItem,
 };
 
 /// A panel page that is not a resource, mounted at `{prefix}/{slug}` with a
@@ -52,6 +52,16 @@ pub trait Page: Sized + Send + Sync + 'static {
     /// Render the page body. The panel checks for a resolved user before
     /// calling it.
     fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send;
+}
+
+impl NavigationItem {
+    /// The default sidebar entry for the [`Page`] `P`.
+    pub fn for_page<P: Page>() -> Self {
+        Self {
+            label: P::navigation_label(),
+            ..Self::default()
+        }
+    }
 }
 
 #[cfg(test)]

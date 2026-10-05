@@ -34,10 +34,10 @@ impl Resource for BookResource {
     type Model = Book;
     type Form = BookForm;
 
-    fn policy() -> impl Policy<Book> {
-        |_cx: &Cx, ability: Ability<'_, Book>| {
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().policy(|_cx: &Cx, ability: Ability<'_, Book>| {
             !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
-        }
+        })
     }
 }
 

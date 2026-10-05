@@ -1,45 +1,114 @@
 //! Renders each [`Relation`](crate::resource::Relation) of a record page's resource as the related
 //! resource's table narrowed to the record.
 
+use std::{future::Future, pin::Pin, sync::Arc};
+
+use toasty::stmt::Expr;
 use topcoat::{
     Result,
     context::Cx,
     icon::icon,
+    router::error::{bad_request, forbidden},
     view::{BoxView, ViewExt, internal::ThenView, suspense, view},
 };
 
 use super::{
-    gate::{enforce_tenant, list_url},
+    gate::{enforce_tenant, gate, panel_prefix},
     list::{declared_chrome, load_scoped_page, table_error_view, wire_table},
-    search::RelationRequest,
+    search::{RelationRequest, relation_search_invocation},
+    state::current,
 };
 use crate::{
     form::RecordForm,
-    policy::{Ability, can},
-    resource::{
-        BoundRelation, RETURN_PARAM, Resource, TABLE_CARD_CLASS, Table, TableChrome, TableState,
-        create_page_url, declared, request_query, runtime_link,
+    navigation::runtime_link,
+    policy::Ability,
+    resource::{Mounted, Resource, mounted},
+    table::{
+        RETURN_PARAM, TABLE_CARD_CLASS, Table, TableChrome, TableSignals, TableState,
+        create_page_url, request_query,
     },
     topcoat_compat::async_page,
 };
 
-/// Renders the relation tables of `R`'s record `owner`.
+/// A registered resource as the child of other resources' relations.
+pub(crate) struct Child {
+    pub(crate) slug: String,
+    pub(crate) plural_label: String,
+    /// Renders the child's table narrowed to one owner.
+    pub(crate) render: for<'a> fn(&'a Cx, BoundRelation) -> BoxView<'a>,
+}
+
+/// A child's live-search loader over the rows a request's owner scope admits; `None` when the
+/// request names no owner.
+pub(crate) type ChildSearchFn =
+    for<'a> fn(
+        &'a Cx,
+        RelationRequest,
+        TableSignals,
+        Option<Expr<bool>>,
+    ) -> Pin<Box<dyn Future<Output = Result<BoxView<'a>>> + Send + 'a>>;
+
+/// A relation resolved against one owner record.
+pub(crate) struct BoundRelation {
+    /// The slug of the resource that owns the record.
+    pub(crate) parent: String,
+    /// The child's slug: the prefix of the table's URL parameters.
+    pub(crate) key: String,
+    /// The section title.
+    pub(crate) label: String,
+    /// The child's rows that belong to the owner.
+    pub(crate) scope: Expr<bool>,
+    /// The child's form key for the owner, and the owner's value for it.
+    pub(crate) seed: (String, String),
+    /// The path of the page that renders the table.
+    pub(crate) page: String,
+    /// Whether the page only shows the rows.
+    pub(crate) read_only: bool,
+}
+
+/// Renders the relation tables of `resource`'s record `owner`.
 pub(crate) fn render_relations<'a, R: Resource>(
     cx: &'a Cx,
+    resource: &Mounted<R>,
     owner: &R::Model,
     read_only: bool,
 ) -> Vec<BoxView<'a>> {
+    let Some(panel) = current(cx) else {
+        return Vec::new();
+    };
     let page = topcoat::router::request::uri(cx).path().to_string();
-    declared::<R>(cx)
+    resource
         .relations
         .iter()
-        .map(|relation| relation.render(cx, owner, &page, read_only, &R::slug()))
+        .filter_map(|relation| {
+            let child = panel.children.get(&relation.child)?;
+            let (scope, value) = relation.bind(owner);
+            Some((child.render)(
+                cx,
+                BoundRelation {
+                    parent: resource.slug.clone(),
+                    key: child.slug.clone(),
+                    label: relation
+                        .label
+                        .clone()
+                        .unwrap_or_else(|| child.plural_label.clone()),
+                    scope,
+                    seed: (relation.foreign_key.clone(), value),
+                    page: page.clone(),
+                    read_only,
+                },
+            ))
+        })
         .collect()
 }
 
 /// Derives one relation table's action chrome, view-only on a read-only page.
-pub(crate) fn relation_chrome<C: Resource>(cx: &Cx, read_only: bool) -> TableChrome {
-    let declared = declared_chrome::<C>(cx);
+pub(crate) fn relation_chrome<C: Resource>(
+    cx: &Cx,
+    resource: &Mounted<C>,
+    read_only: bool,
+) -> TableChrome {
+    let declared = declared_chrome(cx, resource);
     if read_only {
         TableChrome {
             view: declared.view,
@@ -53,10 +122,14 @@ pub(crate) fn relation_chrome<C: Resource>(cx: &Cx, read_only: bool) -> TableChr
 /// Renders one relation's section as `C`'s list table over the rows the owner holds.
 pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> BoxView<'_> {
     async_page(async move {
-        if enforce_tenant::<C>(cx).is_err() || !can::<C>(cx, Ability::ViewAny) {
+        let Some(resource) = mounted::<C>(cx) else {
+            return Ok(().boxed());
+        };
+        if enforce_tenant(cx, &resource).is_err() || !resource.can(cx, Ability::ViewAny) {
             return Ok(().boxed());
         }
-        let table = wire_table::<C>(cx, false, relation_chrome::<C>(cx, relation.read_only));
+        let chrome = relation_chrome(cx, &resource, relation.read_only);
+        let table = wire_table(cx, &resource, false, chrome);
         let state = table.normalize_state(&TableState::from_cx_prefixed(cx, &relation.key));
         let BoundRelation {
             ref seed,
@@ -66,16 +139,16 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
         } = relation;
         let table = table.returning_to(state.list_url(page));
         let create_url =
-            (!read_only && <C::Form as RecordForm>::HAS_FORM && can::<C>(cx, Ability::Create))
+            (!read_only && <C::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
                 .then(|| {
                     let query = form_urlencoded::Serializer::new(String::new())
                         .append_pair(&seed.0, &seed.1)
                         .append_pair(RETURN_PARAM, &state.list_url(page))
                         .finish();
-                    format!("{}?{query}", create_page_url(&list_url(cx, &C::slug())))
+                    format!("{}?{query}", create_page_url(&resource.url))
                 });
         if table.is_live_search() {
-            return relation_table_live::<C>(cx, table, state, relation, create_url).await;
+            return relation_table_live(cx, resource, table, state, relation, create_url).await;
         }
         let BoundRelation {
             key,
@@ -84,11 +157,11 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             page,
             ..
         } = relation;
-        let body = match load_scoped_page::<C>(cx, &table, &state, scope).await {
+        let body = match load_scoped_page(cx, &resource, &table, &state, scope).await {
             Ok(rows) => table.render_with_state(cx, rows, &state, &page).await?,
-            Err(error) => table_error_view::<C>(cx, &state, &error, &page, None),
+            Err(error) => table_error_view(cx, &resource, &state, &error, &page, None),
         };
-        let header = relation_header::<C>(cx, label, create_url);
+        let header = relation_header(cx, &resource, label, create_url);
         Ok(view! {
             cx =>
             <section class="flex flex-col gap-3" data-relation=(key)>
@@ -103,6 +176,7 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
 /// Renders a live-search relation's section with its bars hoisted above the streamed region.
 async fn relation_table_live<C: Resource>(
     cx: &Cx,
+    resource: Arc<Mounted<C>>,
     table: Table<C::Model>,
     state: TableState,
     relation: BoundRelation,
@@ -146,33 +220,20 @@ where
     let table = table.hide_search().hide_filter_bar().unframed();
     let skeleton = table.render_skeleton(cx, &state).await?;
     let delete_dialog = table.render_delete_dialog(cx, &state).await?;
-    let header = relation_header::<C>(cx, label, create_url);
+    let header = relation_header(cx, &resource, label, create_url);
     let invocation_key = key.clone();
     let lazy_rows = ThenView::new(async move {
-        let retry_signals = signals.clone();
-        let rendered = table
-            .render_live_relation_invocation(
-                cx,
-                &parent,
-                &invocation_key,
-                RelationRequest {
-                    seed: seed.1.clone(),
-                    page: page.clone(),
-                    read_only,
-                },
-                signals,
-            )
-            .await;
-        match rendered {
-            Ok(view) => Ok(view),
-            Err(error) => Ok(table_error_view::<C>(
-                cx,
-                &state,
-                &error,
-                &page,
-                Some(&retry_signals),
-            )),
-        }
+        Ok::<_, topcoat::Error>(relation_search_invocation(
+            cx,
+            &parent,
+            &invocation_key,
+            RelationRequest {
+                seed: seed.1,
+                page,
+                read_only,
+            },
+            signals,
+        ))
     });
 
     Ok(view! {
@@ -197,8 +258,13 @@ where
 }
 
 /// Renders a relation section's heading row with its create-child link.
-fn relation_header<C: Resource>(cx: &Cx, label: String, create_url: Option<String>) -> BoxView<'_> {
-    let create_label = format!("New {}", C::label());
+fn relation_header<'a, C: Resource>(
+    cx: &'a Cx,
+    resource: &Mounted<C>,
+    label: String,
+    create_url: Option<String>,
+) -> BoxView<'a> {
+    let create_label = format!("New {}", resource.label);
     view! {
         cx =>
         <div class="flex items-center justify-between gap-4">
@@ -220,4 +286,53 @@ fn relation_header<C: Resource>(cx: &Cx, label: String, create_url: Option<Strin
         </div>
     }
     .boxed()
+}
+
+/// Serves a live relation table's search: `C`'s table over the rows `scope` admits.
+pub(crate) fn relation_search<C: Resource>(
+    cx: &Cx,
+    request: RelationRequest,
+    signals: TableSignals,
+    scope: Option<Expr<bool>>,
+) -> Pin<Box<dyn Future<Output = Result<BoxView<'_>>> + Send + '_>> {
+    Box::pin(async move {
+        let resource = gate::<C>(cx)?;
+        if !resource.can(cx, Ability::ViewAny) {
+            return Err(forbidden().into());
+        }
+        let prefix = panel_prefix(cx);
+        if request
+            .page
+            .strip_prefix(prefix.as_str())
+            .is_none_or(|rest| !rest.is_empty() && !rest.starts_with(['/', '?']))
+        {
+            return Err(bad_request("unknown relation page").into());
+        }
+        let scope = scope.ok_or_else(|| bad_request("unknown relation owner"))?;
+        let chrome = relation_chrome(cx, &resource, request.read_only);
+        let table = wire_table(cx, &resource, true, chrome);
+        let mut state = TableState::from_query_prefixed(&signals.query.get(), &resource.slug);
+        state.delete = None;
+        state.open = None;
+        let state = table.normalize_state(&state);
+        let table = table.returning_to(state.list_url(&request.page));
+        let retry_signals = signals.clone();
+        let rendered = async {
+            let rows = load_scoped_page(cx, &resource, &table, &state, scope).await?;
+            table
+                .render_live(cx, rows, &state, &request.page, signals)
+                .await
+        };
+        match rendered.await {
+            Ok(view) => Ok(view),
+            Err(error) => Ok(table_error_view(
+                cx,
+                &resource,
+                &state,
+                &error,
+                &request.page,
+                Some(&retry_signals),
+            )),
+        }
+    })
 }

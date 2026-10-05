@@ -26,8 +26,8 @@ use crate::{
     db::db,
     error::TabloError,
     form::{FieldErrorKind, FieldErrors, Posted, RecordForm},
-    policy::{Ability, can},
-    resource::{Committed, Resource, declared},
+    policy::Ability,
+    resource::{Committed, Mounted, Resource},
     schema::Schema,
     topcoat_compat::async_page,
 };
@@ -46,10 +46,11 @@ struct Submission {
 /// Stages a create/edit submission, completing unnamed keys from the edit advisory snapshot.
 async fn prepare_submission<R: Resource>(
     cx: &Cx,
+    resource: &Mounted<R>,
     parts: FormParts,
     advisory: Option<&R::Model>,
 ) -> Result<Submission, topcoat::Error> {
-    let schema = Arc::clone(&declared::<R>(cx).form);
+    let schema = Arc::clone(&resource.form);
     reject_unknown_form_keys(&schema, &parts.values)?;
     let FormParts {
         mut values,
@@ -189,10 +190,10 @@ fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> to
 }
 
 fn named_fields<R: Resource>(
-    cx: &Cx,
+    resource: &Mounted<R>,
     named: &HashSet<String>,
 ) -> Vec<<R::Form as RecordForm>::Field> {
-    declared::<R>(cx)
+    resource
         .fields
         .iter()
         .filter(|field| field.keys.iter().any(|key| named.contains(key)))
@@ -202,8 +203,8 @@ fn named_fields<R: Resource>(
 
 pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
-        if !can::<R>(cx, Ability::Create) {
+        let resource = gate::<R>(cx)?;
+        if !resource.can(cx, Ability::Create) {
             return Err(forbidden().into());
         }
         let parts = parse_form_body(cx, body).await?;
@@ -214,19 +215,21 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             mut errors,
             carried,
             ..
-        } = prepare_submission::<R>(cx, parts, None).await?;
+        } = prepare_submission(cx, &resource, parts, None).await?;
         // Opens the transaction after validation so loaders never block on the held connection.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
         // App-side unique check; toasty exposes no unique-violation predicate yet (#117).
-        errors.extend(check_unique::<R>(cx, &schema, &values, &HashMap::new(), &mut tx).await?);
+        errors
+            .extend(check_unique(cx, &resource, &schema, &values, &HashMap::new(), &mut tx).await?);
         let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
         recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
-            return rerender_invalid_form::<R>(
+            return rerender_invalid_form(
                 cx,
+                &resource,
                 tx,
-                FormChrome::create::<R>(),
+                FormChrome::create(&resource),
                 &values,
                 &errors,
                 &carried,
@@ -234,24 +237,33 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             .await;
         };
         let written = R::create_record(cx, form, &mut tx).await;
-        commit_write::<R, _>(cx, tx, written, Committed::created, "Created", WRITE_CREATE).await
+        commit_write(
+            cx,
+            &resource,
+            tx,
+            written,
+            Committed::created,
+            "Created",
+            WRITE_CREATE,
+        )
+        .await
     })
 }
 
 /// Validates the edit submission and writes named fields, requiring both `View` and `Update`.
 pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
+        let resource = gate::<R>(cx)?;
         let parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, &parts.values)?;
         let id = topcoat::router::path_param_segment(cx, "id").to_string();
         // Advisory load feeds validation; the authoritative load runs inside the transaction.
         let mut db0 = db(cx);
-        let advisory = find_by_key::<R>(cx, &id, &mut db0).await?;
-        if !can::<R>(cx, Ability::View(&advisory)) {
+        let advisory = find_by_key(cx, &resource, &id, &mut db0).await?;
+        if !resource.can(cx, Ability::View(&advisory)) {
             return Err(forbidden().into());
         }
-        if !can::<R>(cx, Ability::Update(&advisory)) {
+        if !resource.can(cx, Ability::Update(&advisory)) {
             return Err(forbidden().into());
         }
         let Submission {
@@ -260,37 +272,47 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             mut errors,
             carried,
             named,
-        } = prepare_submission::<R>(cx, parts, Some(&advisory)).await?;
+        } = prepare_submission(cx, &resource, parts, Some(&advisory)).await?;
         // Authoritative load inside the transaction observes the write snapshot (#86).
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        let record = find_by_key::<R>(cx, &id, &mut tx).await?;
-        if !can::<R>(cx, Ability::View(&record)) {
+        let record = find_by_key(cx, &resource, &id, &mut tx).await?;
+        if !resource.can(cx, Ability::View(&record)) {
             return Err(forbidden().into());
         }
-        if !can::<R>(cx, Ability::Update(&record)) {
+        if !resource.can(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }
         // Unnamed keys complete from this snapshot and are never written back.
         let stored = <R::Form as RecordForm>::hydrate(cx, &record);
         complete(&schema, &mut values, &named, &stored);
-        errors.extend(check_unique::<R>(cx, &schema, &values, &stored, &mut tx).await?);
+        errors.extend(check_unique(cx, &resource, &schema, &values, &stored, &mut tx).await?);
         let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
         recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
-            return rerender_invalid_form::<R>(
+            return rerender_invalid_form(
                 cx,
+                &resource,
                 tx,
-                FormChrome::edit::<R>(cx, &record),
+                FormChrome::edit(cx, &resource, &record),
                 &values,
                 &errors,
                 &carried,
             )
             .await;
         };
-        let posted = Posted::new(form, named_fields::<R>(cx, &named));
+        let posted = Posted::new(form, named_fields(&resource, &named));
         let written = R::update_record(cx, record, posted, &mut tx).await;
-        commit_write::<R, _>(cx, tx, written, Committed::updated, "Updated", WRITE_UPDATE).await
+        commit_write(
+            cx,
+            &resource,
+            tx,
+            written,
+            Committed::updated,
+            "Updated",
+            WRITE_UPDATE,
+        )
+        .await
     })
 }
 

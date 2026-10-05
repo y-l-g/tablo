@@ -11,13 +11,13 @@ use topcoat::{
 };
 
 use super::super::{
-    gate::{gate, list_url, return_target},
+    gate::{gate, return_target},
     relations::render_relations,
 };
 use crate::{
     form::FieldErrors,
-    policy::{Ability, can},
-    resource::{Resource, declared},
+    policy::Ability,
+    resource::{Mounted, Resource},
     topcoat_compat::async_page,
 };
 
@@ -30,21 +30,21 @@ pub(super) struct FormChrome<'a> {
 }
 
 impl<'a> FormChrome<'a> {
-    pub(super) fn create<R: Resource>() -> Self {
+    pub(super) fn create<R: Resource>(resource: &Mounted<R>) -> Self {
         Self {
-            title: format!("Create {}", R::label()),
+            title: format!("Create {}", resource.label),
             submit_label: "Create",
             public_url: None,
             relations: Vec::new(),
         }
     }
 
-    pub(super) fn edit<R: Resource>(cx: &'a Cx, record: &R::Model) -> Self {
+    pub(super) fn edit<R: Resource>(cx: &'a Cx, resource: &Mounted<R>, record: &R::Model) -> Self {
         Self {
-            title: format!("Edit {}", R::label()),
+            title: format!("Edit {}", resource.label),
             submit_label: "Save",
             public_url: R::public_url(cx, record),
-            relations: render_relations::<R>(cx, record, false),
+            relations: render_relations(cx, resource, record, false),
         }
     }
 }
@@ -53,6 +53,7 @@ impl<'a> FormChrome<'a> {
 /// hidden `keep_<field>` controls.
 pub(super) async fn render_form_page<'a, R: Resource>(
     cx: &'a Cx,
+    resource: &Mounted<R>,
     chrome: FormChrome<'a>,
     values: &HashMap<String, String>,
     errors: &FieldErrors,
@@ -64,8 +65,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
         public_url,
         relations,
     } = chrome;
-    let declared = declared::<R>(cx);
-    let schema = &declared.form;
+    let schema = &resource.form;
     let form_html = schema
         .render(cx, crate::schema::Source::form(values, errors))
         .await?;
@@ -73,10 +73,10 @@ pub(super) async fn render_form_page<'a, R: Resource>(
     let path = topcoat::router::request::uri(cx).path();
     let return_to = return_target(cx);
     let action = match &return_to {
-        Some(target) => crate::resource::with_return(path, target),
+        Some(target) => crate::table::with_return(path, target),
         None => path.to_string(),
     };
-    let cancel = return_to.unwrap_or_else(|| list_url(cx, &R::slug()));
+    let cancel = return_to.unwrap_or_else(|| resource.url.clone());
     let enctype: Option<String> = schema
         .fields()
         .any(|field| field.is_file())
@@ -134,7 +134,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
                             (submit_label)
                         )
                         <a
-                            (crate::resource::runtime_link(cx, &cancel))
+                            (crate::navigation::runtime_link(cx, &cancel))
                             class=(tablo_ui::button_variants(
                                 tablo_ui::ButtonVariant::Outline,
                                 tablo_ui::ButtonSize::Md,
@@ -156,15 +156,16 @@ pub(super) async fn render_form_page<'a, R: Resource>(
 /// Renders the create page, seeding only relationship controls from query parameters.
 pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
-        if !can::<R>(cx, Ability::Create) {
+        let resource = gate::<R>(cx)?;
+        if !resource.can(cx, Ability::Create) {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
-        let html = render_form_page::<R>(
+        let html = render_form_page(
             cx,
-            FormChrome::create::<R>(),
-            &seeded_values::<R>(cx),
+            &resource,
+            FormChrome::create(&resource),
+            &seeded_values(cx, &resource),
             &FieldErrors::new(),
             &HashSet::new(),
         )
@@ -174,9 +175,8 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
 }
 
 /// Collects relationship-control query parameters for the create form, first occurrence wins.
-fn seeded_values<R: Resource>(cx: &Cx) -> HashMap<String, String> {
-    let declared = declared::<R>(cx);
-    let schema = &declared.form;
+fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> HashMap<String, String> {
+    let schema = &resource.form;
     let seedable: Vec<&str> = schema
         .fields()
         .filter(|field| {

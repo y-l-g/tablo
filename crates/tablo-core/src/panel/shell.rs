@@ -14,15 +14,15 @@ use topcoat::{
 
 use super::{Panel, state::current};
 use crate::{
+    navigation::NavigationItem,
     notification::{LiveToast, live_toast, live_toaster, take_notification},
-    resource::NavigationItem,
     topcoat_compat::async_page,
 };
 
 /// `extra` plus the attribute that sends a sidebar link through runtime
 /// navigation. The menu button writes the `href` itself, so this carries none.
 fn sidebar_link(cx: &Cx, mut extra: Attributes) -> Attributes {
-    let mut attrs = crate::resource::runtime_link(cx, "");
+    let mut attrs = crate::navigation::runtime_link(cx, "");
     attrs.remove("href");
     extra.extend(attrs);
     extra
@@ -101,7 +101,7 @@ impl Panel {
         if tenants.len() < 2 {
             return ().boxed();
         }
-        let current = crate::tenancy::membership(cx);
+        let current = crate::auth::membership(cx);
         let label = current.map_or_else(|| "Select a tenant".to_string(), |m| m.name.clone());
         let current = current.map(|membership| membership.tenant);
         let action = crate::auth::tenant_url(cx);

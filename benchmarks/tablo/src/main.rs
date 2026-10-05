@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use jiff::Timestamp;
 use tablo_core::{
-    Ability, ComputedColumn, Field, Panel, Policy, Resource, RouterBuilderPanelExt, Schema, Table,
-    TablePage, TableState, Tenancy, Tenant, TextColumn, lens,
+    Ability, ComputedColumn, Field, Panel, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
+    Table, TablePage, TableState, Tenancy, Tenant, TextColumn, lens,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
@@ -67,15 +67,17 @@ pub struct AuthorResource;
 impl Resource for AuthorResource {
     type Model = Author;
     type Form = tablo_core::NoForm<Self::Model>;
-    fn tenancy() -> Tenancy<Author> {
-        Tenancy::column(Author::fields().tenant_id())
-    }
-    fn table() -> Table<Author> {
-        Table::new((
-            TextColumn::new(lens!(Author.name)).searchable().sortable(),
-            TextColumn::new(lens!(Author.email)),
-        ))
-        .paginate(2)
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .tenancy(Tenancy::column(Author::fields().tenant_id()))
+            .table(
+                Table::new((
+                    TextColumn::new(lens!(Author.name)).searchable().sortable(),
+                    TextColumn::new(lens!(Author.email)),
+                ))
+                .paginate(2),
+            )
     }
 }
 
@@ -83,37 +85,34 @@ pub struct PostResource;
 impl Resource for PostResource {
     type Model = Post;
     type Form = PostForm;
-    fn form() -> Schema {
-        Schema::new(Field::text(Post::fields().title()).required())
-    }
 
-    fn policy() -> impl Policy<Post> {
-        |_cx: &Cx, ability: Ability<'_, Post>| !matches!(ability, Ability::Create)
-    }
-    fn tenancy() -> Tenancy<Post> {
-        Tenancy::column(Post::fields().tenant_id())
-    }
-    fn table() -> Table<Post> {
-        Table::new((
-            TextColumn::new(lens!(Post.title)).searchable().sortable(),
-            ComputedColumn::new("Author", |p: &Post| {
-                if p.author.is_unloaded() {
-                    "-".to_string()
-                } else {
-                    p.author.get().name.clone()
-                }
-            })
-            .include(Post::fields().author()),
-            ComputedColumn::new("Comments", |p: &Post| {
-                if p.comments.is_unloaded() {
-                    "0".to_string()
-                } else {
-                    p.comments.get().len().to_string()
-                }
-            })
-            .include(Post::fields().comments()),
-        ))
-        .paginate(50)
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(|_cx: &Cx, ability: Ability<'_, Post>| !matches!(ability, Ability::Create))
+            .tenancy(Tenancy::column(Post::fields().tenant_id()))
+            .table(
+                Table::new((
+                    TextColumn::new(lens!(Post.title)).searchable().sortable(),
+                    ComputedColumn::new("Author", |p: &Post| {
+                        if p.author.is_unloaded() {
+                            "-".to_string()
+                        } else {
+                            p.author.get().name.clone()
+                        }
+                    })
+                    .include(Post::fields().author()),
+                    ComputedColumn::new("Comments", |p: &Post| {
+                        if p.comments.is_unloaded() {
+                            "0".to_string()
+                        } else {
+                            p.comments.get().len().to_string()
+                        }
+                    })
+                    .include(Post::fields().comments()),
+                ))
+                .paginate(50),
+            )
+            .form(Schema::new(Field::text(Post::fields().title()).required()))
     }
 }
 
@@ -204,7 +203,8 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
         );
         let start = Instant::now();
         let state = TableState::from_cx(&cx);
-        let table = tablo_core::panel::wired_table::<PostResource>(&cx);
+        let table =
+            tablo_core::panel::wired_table::<PostResource>(&cx).expect("PostResource is mounted");
         assert_eq!(
             table.page_size(),
             50,

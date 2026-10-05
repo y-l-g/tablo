@@ -8,8 +8,9 @@ use topcoat::{
 
 use crate::{
     DeclarationError, DeclarationErrorKind, Page, Panel, SegmentFault, Site,
+    navigation::NavigationItem,
     panel::test_support::{Dummy, dummy_table, mount, mount_without_db, refusal, response_html},
-    resource::{NavigationItem, Resource},
+    resource::{Resource, ResourceDef},
 };
 
 struct Dashboard;
@@ -38,8 +39,8 @@ impl Resource for DummyResource {
     type Model = Dummy;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table() -> crate::resource::Table<Dummy> {
-        dummy_table()
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(dummy_table())
     }
 }
 
@@ -67,12 +68,15 @@ async fn get(router: &topcoat::router::Router, uri: &str) -> (http::StatusCode, 
 /// when registered last.
 #[tokio::test]
 async fn pages_mount_under_the_prefix_with_their_sidebar_entries() {
-    let panel = Panel::new("backoffice")
-        .auth(crate::Auth::disabled())
-        .resource::<DummyResource>()
-        .page::<ReportsPage>()
-        .home::<Dashboard>();
-    let entries: Vec<_> = panel
+    let panel = || {
+        Panel::new("backoffice")
+            .auth(crate::Auth::disabled())
+            .resource::<DummyResource>()
+            .page::<ReportsPage>()
+            .home::<Dashboard>()
+    };
+    let registered = panel().registered();
+    let entries: Vec<_> = registered
         .nav_items
         .iter()
         .map(|item| (item.label.as_str(), item.url(), item.order))
@@ -85,7 +89,7 @@ async fn pages_mount_under_the_prefix_with_their_sidebar_entries() {
             ("Reports", Some("/backoffice/reports"), -1),
         ]
     );
-    let router = mount(db().await, panel).expect("the panel builds");
+    let router = mount(db().await, panel()).expect("the panel builds");
 
     let (status, html) = get(&router, "/backoffice").await;
     assert_eq!(

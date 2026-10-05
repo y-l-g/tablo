@@ -11,8 +11,9 @@ use topcoat::{
 use super::super::gate::gate;
 use crate::{
     db::db,
-    policy::{Ability, can},
-    resource::{Past, Resource, Table, TableState, declared, row_exists_past},
+    policy::Ability,
+    resource::{Mounted, Resource},
+    table::{Past, Table, TableState, row_exists_past},
 };
 
 /// Bounds the receivable rows an export delivers; a full raw window with rows left beyond it is a
@@ -62,12 +63,12 @@ fn export_wants_bom(cx: &Cx) -> bool {
 /// Streams the tenant-scoped query as a CSV download.
 pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        gate::<R>(cx)?;
-        if !can::<R>(cx, Ability::ViewAny) {
+        let resource = gate::<R>(cx)?;
+        if !resource.can(cx, Ability::ViewAny) {
             return Err(forbidden().into());
         }
         let state = TableState::from_cx(cx);
-        let table = declared::<R>(cx).table.clone();
+        let table = resource.table.clone();
         // Fails closed on unapplied filters.
         if !table.unapplied_filters(&state).is_empty() {
             return Err(topcoat::router::error::bad_request(format!(
@@ -81,13 +82,13 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             ))
             .into());
         }
-        let mut chunker = ExportChunker::new(export_base_query::<R>(cx, &table, &state)?);
+        let mut chunker = ExportChunker::new(export_base_query(cx, &resource, &table, &state)?);
         let mut db_handle = db(cx);
         let mut visible = 0usize;
         while let Some(rows) = chunker.next_chunk(&mut db_handle).await? {
             visible += rows
                 .iter()
-                .filter(|r| can::<R>(cx, Ability::View(r)))
+                .filter(|r| resource.can(cx, Ability::View(r)))
                 .count();
         }
         if chunker.beyond_window() {
@@ -97,12 +98,13 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         let want_bom = export_wants_bom(cx);
         let (tx, body) = http_body_util::Channel::<bytes::Bytes, std::io::Error>::new(8);
         let cx2 = cx.clone();
+        let filename = export_filename(&resource.slug);
         tokio::spawn(async move {
             let mut tx = tx;
-            let mut chunker = match export_base_query::<R>(&cx2, &table, &state) {
+            let mut chunker = match export_base_query(&cx2, &resource, &table, &state) {
                 Ok(query) => ExportChunker::new(table.include_relations(query)),
                 Err(error) => {
-                    tracing::error!(resource = R::slug(), error = %error, "export stream failed");
+                    tracing::error!(resource = resource.slug, error = %error, "export stream failed");
                     tx.abort(std::io::Error::other("export unavailable"));
                     return;
                 }
@@ -121,19 +123,19 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                     Ok(Some(rows)) => rows,
                     Ok(None) => break,
                     Err(error) => {
-                        tracing::error!(resource = R::slug(), error = %error, "export stream failed");
+                        tracing::error!(resource = resource.slug, error = %error, "export stream failed");
                         tx.abort(std::io::Error::other("export unavailable"));
                         return;
                     }
                 };
                 let mut fragment = String::new();
                 for row in &rows {
-                    if can::<R>(&cx2, Ability::View(row)) {
+                    if resource.can(&cx2, Ability::View(row)) {
                         visible += 1;
                         if visible > MAX_EXPORT_ROWS {
                             // Aborts when rows changed between the passes.
                             tracing::error!(
-                                resource = R::slug(),
+                                resource = resource.slug,
                                 "export overflowed its cap mid-stream"
                             );
                             tx.abort(std::io::Error::other("export overflowed its cap"));
@@ -148,11 +150,13 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                 }
             }
             if chunker.beyond_window() {
-                tracing::error!(resource = R::slug(), "export window overflowed mid-stream");
+                tracing::error!(
+                    resource = resource.slug,
+                    "export window overflowed mid-stream"
+                );
                 tx.abort(std::io::Error::other("export overflowed its window"));
             }
         });
-        let filename = export_filename(&R::slug());
         let res = http::Response::builder()
             .status(200)
             .header(http::header::CONTENT_TYPE, "text/csv; charset=utf-8")
@@ -169,10 +173,11 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
 /// Builds the export's filtered and ordered base query from the tenant-scoped query.
 fn export_base_query<R: Resource>(
     cx: &Cx,
+    resource: &Mounted<R>,
     table: &Table<R::Model>,
     state: &TableState,
 ) -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>> {
-    Ok(table.apply_declaration(crate::resource::scoped_query::<R>(cx)?, state))
+    Ok(table.apply_declaration(resource.scoped_query(cx)?, state))
 }
 
 /// Walks an export base query in cursor chunks.

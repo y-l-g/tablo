@@ -2,7 +2,7 @@ use toasty::Db;
 
 use super::{super::TABLE_SEARCH_PATH, *};
 use crate::{
-    Ability, Policy, ReadOnly, Tenancy, lens,
+    Ability, ReadOnly, ResourceDef, Tenancy, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
@@ -61,14 +61,14 @@ async fn live_lists_declare_distinct_signal_ids() {
             impl Resource for $name {
                 type Model = Dummy;
                 type Form = crate::NoForm<Self::Model>;
-                fn slug() -> String {
-                    $slug.to_string()
-                }
-                fn policy() -> impl Policy<Dummy> {
-                    |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
-                }
-                fn table() -> crate::resource::Table<Dummy> {
-                    dummy_table().paginate(25).live_search()
+
+                fn declare() -> ResourceDef<Self> {
+                    ResourceDef::new()
+                        .slug($slug)
+                        .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                            matches!(ability, Ability::ViewAny)
+                        })
+                        .table(dummy_table().paginate(25).live_search())
                 }
             }
         };
@@ -147,30 +147,31 @@ async fn live_search_host_and_shard_dispatch() {
     impl Resource for LiveResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        // the bulk transport this test pins renders where the policy
-        // allows delete.
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(
-                    ability,
-                    Ability::ViewAny | Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                // the bulk transport this test pins renders where the policy
+                // allows delete.
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(
+                        ability,
+                        Ability::ViewAny
+                            | Ability::View(_)
+                            | Ability::DeleteAny
+                            | Ability::Delete(_)
+                    )
+                })
+                .table(
+                    crate::table::Table::new(
+                        crate::table::TextColumn::new(lens!(Dummy.name))
+                            .searchable()
+                            .sortable(),
+                    )
+                    .filters(crate::table::TernaryFilter::new(Dummy::fields().featured()))
+                    .paginate(1)
+                    .live_search(),
                 )
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(Dummy.name))
-                    .searchable()
-                    .sortable(),
-            )
-            .filters(crate::resource::TernaryFilter::new(
-                Dummy::fields().featured(),
-            ))
-            .paginate(1)
-            .live_search()
         }
     }
 
@@ -380,9 +381,8 @@ async fn live_search_host_and_shard_dispatch() {
     // handlers clear them in the browser, so a live cursor always belongs
     // to the current query; crafting one past a new query is the client's
     // own read-only inconsistency.
-    let paged =
-        crate::resource::Table::<Dummy>::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-            .paginate(1);
+    let paged = crate::table::Table::<Dummy>::new(crate::table::TextColumn::new(lens!(Dummy.name)))
+        .paginate(1);
     for name in ["Bob", "Cara"] {
         toasty::create!(Dummy {
             name: name.to_string(),
@@ -392,10 +392,14 @@ async fn live_search_host_and_shard_dispatch() {
         .await
         .unwrap();
     }
-    let page1 =
-        load_table_page::<LiveResource>(&cx, &paged, &crate::resource::TableState::default())
-            .await
-            .unwrap();
+    let page1 = load_table_page(
+        &cx,
+        &crate::resource::require_mounted::<LiveResource>(&cx).unwrap(),
+        &paged,
+        &crate::table::TableState::default(),
+    )
+    .await
+    .unwrap();
     assert_eq!(page1.rows.len(), 1);
     let first_name = page1.rows[0].name.clone();
     let cursor = page1
@@ -456,20 +460,17 @@ async fn live_search_input_debounces_keystrokes() {
     impl Resource for LiveResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(Dummy.name))
-                    .searchable()
-                    .sortable(),
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().slug("dummies").policy(ReadOnly).table(
+                crate::table::Table::new(
+                    crate::table::TextColumn::new(lens!(Dummy.name))
+                        .searchable()
+                        .sortable(),
+                )
+                .paginate(25)
+                .live_search(),
             )
-            .paginate(25)
-            .live_search()
         }
     }
 
@@ -569,14 +570,12 @@ async fn read_only_resource_hides_delete_chrome() {
     impl Resource for ReadOnlyResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table().paginate(25)
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .table(dummy_table().paginate(25))
         }
     }
 
@@ -632,20 +631,17 @@ async fn list_header_renders_create_entry_point_when_allowed() {
     impl Resource for CreatableResource {
         type Model = Dummy;
         type Form = CreatableForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
-        }
 
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table().paginate(25)
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(dummy_table().paginate(25))
+                .form(crate::schema::Schema::new(crate::schema::Field::text(
+                    Dummy::fields().name(),
+                )))
         }
     }
     #[derive(crate::RecordForm)]
@@ -657,14 +653,12 @@ async fn list_header_renders_create_entry_point_when_allowed() {
     impl Resource for DenyCreateResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            CreatableResource::table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .table(dummy_table().paginate(25))
         }
     }
 
@@ -692,26 +686,23 @@ async fn non_editable_resource_hides_edit_links() {
     impl Resource for WritableResource {
         type Model = Dummy;
         type Form = WritableForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
-        }
 
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        // The row policy mirrors the edit route's own `View`
-        // + `Update` check, so a form beside default-deny predicates
-        // renders no link.
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(
-                    ability,
-                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
-                )
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table().paginate(25)
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                // The row policy mirrors the edit route's own `View`
+                // + `Update` check, so a form beside default-deny predicates
+                // renders no link.
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(
+                        ability,
+                        Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                    )
+                })
+                .table(dummy_table().paginate(25))
+                .form(crate::schema::Schema::new(crate::schema::Field::text(
+                    Dummy::fields().name(),
+                )))
         }
     }
     #[derive(crate::RecordForm)]
@@ -723,14 +714,12 @@ async fn non_editable_resource_hides_edit_links() {
     impl Resource for LockedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            WritableResource::table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .table(dummy_table().paginate(25))
         }
     }
 
@@ -767,18 +756,15 @@ async fn denied_rows_render_no_edit_chrome() {
     impl Resource for DeniedResource {
         type Model = Dummy;
         type Form = DeniedForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
-        }
 
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table().paginate(25)
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .table(dummy_table().paginate(25))
+                .form(crate::schema::Schema::new(crate::schema::Field::text(
+                    Dummy::fields().name(),
+                )))
         }
     }
     #[derive(crate::RecordForm)]
@@ -856,28 +842,21 @@ async fn per_record_policy_narrows_the_wired_chrome() {
     impl Resource for RowPolicyResource {
         type Model = Dummy;
         type Form = RowPolicyForm;
-        fn form() -> Schema {
-            Schema::new(Field::text(Dummy::fields().name()))
-        }
 
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
-                Ability::ViewAny => true,
-                Ability::View(record) => record.name != "Hidden",
-                Ability::Update(record) => record.name != "Locked",
-                Ability::DeleteAny => true,
-                Ability::Delete(record) => record.name != "Locked",
-                _ => false,
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table().paginate(25)
-        }
-        fn view() -> Schema {
-            Schema::new(Field::text(Dummy::fields().name()))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                    Ability::ViewAny => true,
+                    Ability::View(record) => record.name != "Hidden",
+                    Ability::Update(record) => record.name != "Locked",
+                    Ability::DeleteAny => true,
+                    Ability::Delete(record) => record.name != "Locked",
+                    _ => false,
+                })
+                .table(dummy_table().paginate(25))
+                .form(Schema::new(Field::text(Dummy::fields().name())))
+                .view(Schema::new(Field::text(Dummy::fields().name())))
         }
     }
     #[derive(crate::RecordForm)]
@@ -970,7 +949,7 @@ fn from_cx_clamps_the_search_term() {
     let state = state_for(&format!("/admin/users?q={long}"));
     assert_eq!(
         state.search.as_deref().map(str::len),
-        Some(crate::resource::MAX_QUERY_TERM),
+        Some(crate::query_term::MAX_QUERY_TERM),
         "the GET term is clamped to the same bound as the shard"
     );
     // Blank and absent stay None.
@@ -1014,24 +993,21 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
     impl Resource for GatedResource {
         type Model = Dummy;
         type Form = GatedForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
-        }
 
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn tenancy() -> Tenancy<Dummy> {
-            Tenancy::column(Dummy::fields().tenant_id())
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-                .paginate(25)
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .tenancy(Tenancy::column(Dummy::fields().tenant_id()))
+                .table(
+                    crate::table::Table::new(crate::table::TextColumn::new(lens!(Dummy.name)))
+                        .paginate(25),
+                )
+                .form(crate::schema::Schema::new(crate::schema::Field::text(
+                    Dummy::fields().name(),
+                )))
         }
     }
     #[derive(crate::RecordForm)]
@@ -1112,18 +1088,18 @@ async fn tenant_gated_resource_scopes_rows_to_the_request_tenant() {
     impl Resource for ScopedResource {
         type Model = Scoped;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "scoped".to_string()
-        }
-        fn policy() -> impl Policy<Scoped> {
-            |_cx: &Cx, ability: Ability<'_, Scoped>| matches!(ability, Ability::ViewAny)
-        }
-        fn tenancy() -> Tenancy<Scoped> {
-            Tenancy::column(Scoped::fields().tenant_id())
-        }
-        fn table() -> crate::resource::Table<Scoped> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Scoped.name)))
-                .paginate(25)
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("scoped")
+                .policy(|_cx: &Cx, ability: Ability<'_, Scoped>| {
+                    matches!(ability, Ability::ViewAny)
+                })
+                .tenancy(Tenancy::column(Scoped::fields().tenant_id()))
+                .table(
+                    crate::table::Table::new(crate::table::TextColumn::new(lens!(Scoped.name)))
+                        .paginate(25),
+                )
         }
     }
 
@@ -1200,16 +1176,20 @@ async fn list_renders_error_state_when_load_fails() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn policy() -> impl Policy<Subscriber> {
-            |_cx: &Cx, ability: Ability<'_, Subscriber>| matches!(ability, Ability::ViewAny)
-        }
-
-        fn table() -> Table<Self::Model> {
-            // A realistic paginated table: the tampered cursor must reach
-            // the decode inside `load_table_page` (only paginated loads
-            // decode cursors), not die earlier on missing declarations.
-            Table::<Subscriber>::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
-                .paginate(25)
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+                    matches!(ability, Ability::ViewAny)
+                })
+                .table(
+                    // A realistic paginated table: the tampered cursor must reach
+                    // the decode inside `load_table_page` (only paginated loads
+                    // decode cursors), not die earlier on missing declarations.
+                    Table::<Subscriber>::new(crate::table::TextColumn::new(lens!(
+                        Subscriber.email
+                    )))
+                    .paginate(25),
+                )
         }
     }
 
@@ -1342,13 +1322,17 @@ async fn both_cursors_render_the_first_page() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn policy() -> impl Policy<Subscriber> {
-            |_cx: &Cx, ability: Ability<'_, Subscriber>| matches!(ability, Ability::ViewAny)
-        }
-
-        fn table() -> Table<Self::Model> {
-            Table::<Subscriber>::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
-                .paginate(1)
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+                    matches!(ability, Ability::ViewAny)
+                })
+                .table(
+                    Table::<Subscriber>::new(crate::table::TextColumn::new(lens!(
+                        Subscriber.email
+                    )))
+                    .paginate(1),
+                )
         }
     }
 
@@ -1378,10 +1362,18 @@ async fn both_cursors_render_the_first_page() {
         .request_context(parts)
         .app_context(db)
         .build();
-    let table = SubscriberResource::table();
-    let first = load_table_page::<SubscriberResource>(&cx, &table, &TableState::default())
-        .await
-        .unwrap();
+    let table = crate::resource::require_mounted::<SubscriberResource>(&cx)
+        .unwrap()
+        .table
+        .clone();
+    let first = load_table_page(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &table,
+        &TableState::default(),
+    )
+    .await
+    .unwrap();
     let cursor = first
         .next_cursor
         .clone()
@@ -1425,7 +1417,7 @@ fn retry_url_for_error_drops_only_bad_cursors() {
     // pagination; any other failure keeps the full evidence.
     let state = TableState {
         search: Some("Ada".to_string()),
-        cursor: Some(crate::resource::Cursor::After("cur".to_string())),
+        cursor: Some(crate::table::Cursor::After("cur".to_string())),
         ..TableState::default()
     };
     let bad_cursor =

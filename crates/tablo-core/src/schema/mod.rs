@@ -24,9 +24,7 @@ pub use fields::{
     Toggle,
 };
 pub use layouts::{Grid, Group, Repeater, Section};
-pub(crate) use lenses::{
-    ResolvedLens, capitalize, declare_with, lens_field, lens_field_unique, schema_of,
-};
+pub(crate) use lenses::{ResolvedLens, declare_with, lens_field, lens_field_unique, schema_of};
 pub use lenses::{declare, form_key};
 pub use options::Options;
 pub(crate) use relationship::OptionLoadError;

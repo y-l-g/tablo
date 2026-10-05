@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    NavigationItem, Notification, Page, Policy, ReadOnly, Uploader, csrf, db::db,
+    Ability, NavigationItem, Notification, Page, Uploader, csrf, db::db,
     notification::set_notification, require_tenant, schema::OptionSource,
 };
 use topcoat::{
@@ -50,16 +50,12 @@ impl OptionSource for MediaLibrary {
             .filter(MediaAsset::fields().tenant_id().eq(tenant)))
     }
 
-    fn policy() -> impl Policy<MediaAsset> {
-        ReadOnly
+    fn allows(_cx: &Cx, ability: Ability<'_, MediaAsset>) -> bool {
+        ability.is_read()
     }
 
-    fn requires_tenant() -> bool {
+    fn requires_tenant(_cx: &Cx) -> bool {
         true
-    }
-
-    fn slug() -> String {
-        "media".to_string()
     }
 
     fn search_expr(_cx: &Cx, term: &str) -> Option<toasty::stmt::Expr<bool>> {

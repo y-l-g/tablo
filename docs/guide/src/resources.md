@@ -2,7 +2,8 @@
 
 A resource is the admin for one Toasty model: which rows it lists, how its table and form look,
 who may see and change a record, and how a write runs. You implement the `Resource` trait on a
-unit struct and register it with `Panel::resource`.
+unit struct, return what it declares from `declare()` as one `ResourceDef` value, and register it
+with `Panel::resource`.
 
 The smallest resource lists rows and nothing else:
 
@@ -12,48 +13,62 @@ The smallest resource lists rows and nothing else:
 
 A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form`. The
 derive lays out the rest from the struct's fields: a table column per field a column can show,
-one form control per field, and a detail page showing the form read-only. Override `table()`,
-`form()` or `view()` to arrange or extend one; see [Tables](./tables.md) and [Forms](./forms.md).
+one form control per field, and a detail page showing the form read-only. Set the def's `table`,
+`form` or `view` to arrange or extend one; see [Tables](./tables.md) and [Forms](./forms.md).
 
-## Trait items
+## The definition
 
-Only `Model` and `Form` are required. Every other item has a default.
+`declare()` returns a `ResourceDef`, and every setting has a default:
 
-| Item | Default | Purpose |
+| `ResourceDef` method | Default | Purpose |
 | --- | --- | --- |
-| `type Model` | required | the Toasty model; must be `Clone + Send + Sync` |
-| `type Form` | required | a record form, or `NoForm<Self::Model>` for a list-only resource |
-| `table()` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
-| `form()` | the record form's derived schema | the create and edit form's controls: [Forms](./forms.md) |
-| `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
-| `view()` | `form()` | the detail page's fields; an empty schema turns the page off: [Detail pages](./detail-pages.md) |
-| `view_values(cx, record)`, `view_content(cx, record)` | none | what the detail page shows beyond the form's fields |
+| `table(..)` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
+| `form(..)` | the record form's derived schema | the create and edit form's controls: [Forms](./forms.md) |
+| `view(..)` | the form | the detail page's fields; an empty schema turns the page off: [Detail pages](./detail-pages.md) |
+| `relation(..)` | none | a related resource shown as a table on the detail and edit pages |
+| `action::<A>()` | none | a custom action: [Tables](./tables.md#custom-actions) |
+| `policy(..)` | `Deny` | what the user may do: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
+| `tenancy(..)` | `Tenancy::none()` | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
+| `create_columns(..)` | none | columns an overridden `create_record` sets itself |
+| `slug(..)`, `label(..)`, `plural_label(..)` | from the type names | URLs and titles: [Naming](#naming) |
+| `icon(..)`, `navigation_order(..)`, `navigation(..)` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
+
+The panel builds the def once when it mounts and serves that copy to every request.
+`Panel::resource_with` adjusts it for one panel, so the same resource can mount read-only in a
+second panel:
+
+```rust
+Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
+```
+
+## Trait methods
+
+`Model` and `Form` are required. The methods, each with a default, receive the request:
+
+| Method | Default | Purpose |
+| --- | --- | --- |
+| `query(cx)` | every row | the base query every loader starts from: [Scoping](#scoping-the-query) |
 | `view_query(cx)` | `query(cx)` | the detail page's query, with the relations it reads |
+| `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
+| `view_values(cx, record)`, `view_content(cx, record)` | none | what the detail page shows beyond the form's fields |
 | `record_label(cx, record)` | `None` | the detail page's heading |
 | `public_url(cx, record)` | `None` | a link to the record's public page on its detail and edit pages |
-| `relations()` | none | related resources shown as tables on the detail and edit pages |
-| `query(cx)` | every row | the base query every loader starts from: [Scoping](#scoping-the-query) |
-| `tenancy()` | `Tenancy::none()` | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
-| `policy()` | `Deny` | what the user may do: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
 | `create_record`, `update_record` | the derived write | the create and update writes: [Writes](#writes) |
 | `delete_record`, `bulk_delete_records` | delete by primary key | the delete writes |
 | `after_commit(cx, committed)` | nothing | side effects after a write commits |
-| `CREATE_COLUMNS` | none | columns an overridden `create_record` sets itself |
-| `slug()`, `label()`, `navigation_label()` | from the type names | URLs and titles: [Naming](#naming) |
-| `navigation()` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
 
 ## Naming
 
 The names default from the type names, following Filament's conventions:
 
-| Item | Default | `BlogPostResource` over `BlogPost` |
+| `ResourceDef` method | Default | `BlogPostResource` over `BlogPost` |
 | --- | --- | --- |
-| `slug()` | resource name without `Resource`, pluralized, kebab-cased | `blog-posts` |
-| `label()` | the model's type name; used in "Create …" and "Edit …" | `BlogPost` |
-| `navigation_label()` | `label()` pluralized; the sidebar entry and list title | `BlogPosts` |
+| `slug(..)` | resource name without `Resource`, pluralized, kebab-cased | `blog-posts` |
+| `label(..)` | the model's type name; used in "Create …" and "Edit …" | `BlogPost` |
+| `plural_label(..)` | the label pluralized; the sidebar entry and list title | `BlogPosts` |
 
-Override `label()` to rename a record, and `navigation_label()` only when the plural rules guess
-wrong. Name resources in the singular: `UsersResource` pluralizes to `userses`.
+Set `label` to rename a record, and `plural_label` only when the plural rules guess wrong. Name
+resources in the singular: `UsersResource` pluralizes to `userses`.
 
 ## Scoping the query
 
@@ -74,8 +89,10 @@ Two things do not belong in `query`:
   only when every loader reads it, for example because the policy does.
 
 In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
-`scoped_query` is `query` with the tenant filter applied, and returns an error rather than an
-unscoped query when the request has no tenant.
+`scoped_query` is `query` with the tenant filter of the def the request's panel mounted, and
+returns an error rather than an unscoped query when the request has no tenant or the panel does
+not mount `R`. A context with no panel, such as a test's or a background job's, uses the def
+`R::declare()` returns.
 
 The unique-value check on forms probes through the same scoped query, so a `#[unique]` index
 wider than the scope is invisible to it: the check misses the collision and the database refuses
@@ -126,41 +143,41 @@ when nothing committed. An error it returns is logged; the write stays committed
 
 ## Startup checks
 
-Mounting the panel calls each resource's declarations once — `table()`, `form()`, `view()` and
-`relations()` — with the database schema in scope, so a path through an embedded value binds its
-flattened column wherever a declaration names one. It refuses the resource when:
+Mounting the panel builds each resource's def once, calling `declare()` with the database schema
+in scope, so a path through an embedded value binds its flattened column wherever a declaration
+names one. It refuses the resource when:
 
-- `table()`, `form()` or `view()` is malformed: a duplicate column, filter or field name, a zero
-  page size, an empty column set (a resource whose derived table lists nothing declares its own
-  `table()`), or a lens that
-  binds no column. Rendering such a table through
-  `Table::render` (or `render_with_state`) or such a schema through `Schema::render` fails with the
-  same errors;
-- the record form and `form()` disagree: a control no form field binds, a form field with no
-  control, an optional control whose field has no blank value, a `unique()` field with no
+- its table, form or view is malformed: a duplicate column, filter or field name, a zero page
+  size, an empty column set (a resource whose derived table lists nothing declares its own
+  `table`), or a lens that binds no column. Rendering such a table through `Table::render` (or
+  `render_with_state`) or such a schema through `Schema::render` fails with the same errors;
+- the record form and the form schema disagree: a control no form field binds, a form field with
+  no control, an optional control whose field has no blank value, a `unique()` field with no
   unique index, or a tenant-owned resource's form claiming its tenant column;
+- a relationship field takes its options from a resource the panel does not register;
 - the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
-  Toasty default, not the tenant stamp, and not listed in `CREATE_COLUMNS`;
-- a `NoForm` resource declares `form()` or its policy allows `Create`;
+  Toasty default, not the tenant stamp, and not listed in `create_columns`;
+- a `NoForm` resource declares a form or its policy allows `Create`;
 - a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
 - two actions share a `NAME`;
-- a relation names a resource the panel does not register, or names one twice.
+- a relation names a resource the panel does not register, or names one twice;
+- the panel registers the resource twice.
 
 The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
 `MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
-it is in (`Registration`, `Table`, `Form`, `View`, `Tenancy`, a `Relation`) and a `DeclarationErrorKind`, whose
-`Display` is the message. [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test
-matching on the kind.
+it is in (`Registration`, `Table`, `Form`, `View`, `Tenancy`, a `Relation`) and a
+`DeclarationErrorKind`, whose `Display` is the message.
+[Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test matching on the kind.
 
-An action's `NAME` is checked when the app compiles: `Actions::add` does not compile an action
-whose name is not one URL segment.
+An action's `NAME` is checked when the app compiles: `ResourceDef::action` does not compile an
+action whose name is not one URL segment.
 
 A modifier on the wrong kind of field does not compile: each `Field` constructor returns its
 control's builder (`TextField`, `ChoiceField`, `FileField`, `CustomField`), which offers only
 that control's modifiers.
 
-The panel serves the checked declarations to every request, so `table()`, `form()` and
-`view()` must not depend on the request: a declaration takes no user, tenant or query
-string, and a check that reads one sees an anonymous request at startup.
+The panel serves the checked def to every request, so `declare()` must not depend on the request:
+it takes no user, tenant or query string. Request-dependent decisions belong to the policy and to
+the trait methods, which receive `cx`.

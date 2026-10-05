@@ -1,4 +1,4 @@
-use tablo_core::{Policy, ReadOnly, lens};
+use tablo_core::{ReadOnly, lens};
 
 use crate::common::{
     body_string, demo_client, full_db, mount, routers::router_for_tests as router,
@@ -157,7 +157,7 @@ async fn posts_export_streams_csv_with_content_disposition() {
 async fn export_over_cap_413s_at_route_level() {
     // The 413 mapping is unit-tested (`export_cap_maps_one_row…`);
     // this pins the route wiring — a table past the cap answers 413.
-    use tablo_core::{Resource, Table, TextColumn};
+    use tablo_core::{Resource, ResourceDef, Table, TextColumn};
     use toasty::Db;
 
     use crate::common::TestClient;
@@ -174,14 +174,12 @@ async fn export_over_cap_413s_at_route_level() {
     impl Resource for BigResource {
         type Model = Dummy;
         type Form = tablo_core::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            ReadOnly
-        }
-        fn table() -> Table<Dummy> {
-            Table::new(TextColumn::new(lens!(Dummy.name)))
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(ReadOnly)
+                .table(Table::new(TextColumn::new(lens!(Dummy.name))))
         }
     }
 

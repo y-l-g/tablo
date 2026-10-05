@@ -17,7 +17,7 @@ use super::{
 };
 use crate::{
     db::db,
-    policy::{Ability, can},
+    policy::Ability,
     resource::{Committed, Resource},
     topcoat_compat::async_page,
 };
@@ -39,10 +39,10 @@ const WRITE_DELETE: &str = "delete the record";
 /// policy/tenancy checks run against the loaded record here.
 pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
+        let resource = gate::<R>(cx)?;
         // The whole-resource half of the policy, before the body is read:
         // a resource that allows no delete renders no delete chrome.
-        if !can::<R>(cx, Ability::DeleteAny) {
+        if !resource.can(cx, Ability::DeleteAny) {
             return Err(forbidden().into());
         }
         // Delete/bulk-delete carry no file parts: only the values half is read.
@@ -69,11 +69,11 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
         // The delete path reads only the record's own columns:
         // `View`/`Delete` are Rust predicates over those, and
         // `delete_record` reads the same snapshot.
-        let record = find_by_key::<R>(cx, &id, &mut tx).await?;
-        if !can::<R>(cx, Ability::View(&record)) {
+        let record = find_by_key(cx, &resource, &id, &mut tx).await?;
+        if !resource.can(cx, Ability::View(&record)) {
             return Err(forbidden().into());
         }
-        if !can::<R>(cx, Ability::Delete(&record)) {
+        if !resource.can(cx, Ability::Delete(&record)) {
             return Err(forbidden().into());
         }
         // The hook names what was removed: the pre-delete snapshot, since
@@ -81,7 +81,16 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
         let written = R::delete_record(cx, &record, &mut tx)
             .await
             .map(|()| vec![record]);
-        commit_write::<R, _>(cx, tx, written, Committed::deleted, "Deleted", WRITE_DELETE).await
+        commit_write(
+            cx,
+            &resource,
+            tx,
+            written,
+            Committed::deleted,
+            "Deleted",
+            WRITE_DELETE,
+        )
+        .await
     })
 }
 

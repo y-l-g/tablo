@@ -6,7 +6,7 @@ use topcoat::{
 
 use super::*;
 use crate::{
-    Ability, Policy, ReadOnly,
+    Ability,
     schema::{Field, tree::Mode},
 };
 
@@ -51,8 +51,8 @@ impl OptionSource for HideOneAuthor {
     fn scoped_query(_cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
         Ok(Query::all())
     }
-    fn policy() -> impl Policy<PolicyAuthor> {
-        |_cx: &Cx, ability: Ability<'_, PolicyAuthor>| match ability {
+    fn allows(_cx: &Cx, ability: Ability<'_, PolicyAuthor>) -> bool {
+        match ability {
             Ability::ViewAny => true,
             Ability::View(record) => record.name != "Hidden",
             _ => false,
@@ -70,10 +70,10 @@ impl OptionSource for TenantScopedAuthors {
         Ok(Query::all().filter(PolicyAuthor::fields().tenant_id().eq(tenant)))
     }
 
-    fn policy() -> impl Policy<PolicyAuthor> {
-        ReadOnly
+    fn allows(_cx: &Cx, ability: Ability<'_, PolicyAuthor>) -> bool {
+        ability.is_read()
     }
-    fn requires_tenant() -> bool {
+    fn requires_tenant(_cx: &Cx) -> bool {
         true
     }
 }
@@ -93,8 +93,8 @@ async fn relationship_loader_fails_past_option_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<RefAuthor> {
-            ReadOnly
+        fn allows(_cx: &Cx, ability: Ability<'_, RefAuthor>) -> bool {
+            ability.is_read()
         }
     }
     #[derive(Debug, toasty::Model)]
@@ -159,8 +159,8 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<RefAuthor> {
-            ReadOnly
+        fn allows(_cx: &Cx, ability: Ability<'_, RefAuthor>) -> bool {
+            ability.is_read()
         }
     }
 
@@ -432,8 +432,8 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
             OPTION_LOADS.fetch_add(1, Ordering::SeqCst);
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<Ref> {
-            ReadOnly
+        fn allows(_cx: &Cx, ability: Ability<'_, Ref>) -> bool {
+            ability.is_read()
         }
     }
 
@@ -502,8 +502,8 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<BigRef>>> {
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<BigRef> {
-            ReadOnly
+        fn allows(_cx: &Cx, ability: Ability<'_, BigRef>) -> bool {
+            ability.is_read()
         }
     }
 
@@ -553,8 +553,8 @@ async fn relationship_search_narrows_past_the_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<SearchRef>>> {
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<SearchRef> {
-            ReadOnly
+        fn allows(_cx: &Cx, ability: Ability<'_, SearchRef>) -> bool {
+            ability.is_read()
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(SearchRef::fields().name(), term)
@@ -631,8 +631,8 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<PlainRef>>> {
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<PlainRef> {
-            ReadOnly
+        fn allows(_cx: &Cx, ability: Ability<'_, PlainRef>) -> bool {
+            ability.is_read()
         }
     }
 
@@ -674,8 +674,8 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<CheckRef>>> {
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<CheckRef> {
-            |_cx: &Cx, ability: Ability<'_, CheckRef>| match ability {
+        fn allows(_cx: &Cx, ability: Ability<'_, CheckRef>) -> bool {
+            match ability {
                 Ability::ViewAny => true,
                 Ability::View(record) => record.name != "Hidden",
                 _ => false,
@@ -755,8 +755,8 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<HintRef>>> {
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<HintRef> {
-            ReadOnly
+        fn allows(_cx: &Cx, ability: Ability<'_, HintRef>) -> bool {
+            ability.is_read()
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(HintRef::fields().name(), term)
@@ -824,8 +824,8 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<SmallRef>>> {
             Ok(Query::all())
         }
-        fn policy() -> impl Policy<SmallRef> {
-            ReadOnly
+        fn allows(_cx: &Cx, ability: Ability<'_, SmallRef>) -> bool {
+            ability.is_read()
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(SmallRef::fields().name(), term)

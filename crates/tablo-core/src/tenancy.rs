@@ -1,15 +1,13 @@
 //! Scopes resources to the request tenant.
 //!
-//! [`tenant_id`] answers the request's tenant: one of the signed-in user's
-//! [`tenants`](crate::auth::PanelUser::tenants) — the one the session selected
-//! with the tenant switcher, else the first — unless a server-set `Tenant`
-//! request extension or a `Tenant` scoped value overrides it, so app
-//! middleware and `Router::handle` tests can set it deliberately. No request
-//! header supplies a tenant: learning another tenant's UUID does not make
+//! [`tenant_id`] answers the request's tenant: the signed-in user's
+//! [`membership`](crate::membership) unless a server-set `Tenant` request extension or a `Tenant`
+//! scoped value overrides it, so app middleware and `Router::handle` tests can set it
+//! deliberately. No request header supplies a tenant: learning another tenant's UUID does not make
 //! anyone that tenant.
 
 use toasty::stmt::{Expr, IntoExpr, Path};
-use topcoat::context::{Cx, try_request_context};
+use topcoat::context::{Cx, try_app_context, try_request_context};
 
 use crate::DeclarationErrorKind;
 
@@ -45,7 +43,7 @@ pub struct Tenant(pub uuid::Uuid);
 /// Checks a `Tenant` request extension first (a server-set override — the
 /// deliberate seam app middleware and `Router::handle` tests use), then a
 /// `Tenant` scoped value app code put on the `Cx`, then the signed-in user's
-/// [`membership`]. No request header is consulted.
+/// [`membership`](crate::membership). No request header is consulted.
 pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
     if let Some(parts) = try_request_context::<http::request::Parts>(cx)
         && let Some(t) = parts.extensions.get::<Tenant>()
@@ -55,29 +53,13 @@ pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
     if let Some(t) = try_request_context::<Tenant>(cx) {
         return Some(t.0);
     }
-    selected(cx).map(|membership| membership.tenant)
+    let TenantSource(session) = try_app_context::<TenantSource>(cx)?;
+    session(cx)
 }
 
-/// The signed-in user's membership the request acts under: the tenant the
-/// session selected while it is still one of the user's
-/// [`tenants`](crate::auth::PanelUser::tenants), else the first. `None` without a
-/// signed-in user, for a user with no tenant, and when a `Tenant` override
-/// names a tenant the user is not a member of.
-pub fn membership(cx: &Cx) -> Option<&Membership> {
-    let tenant = tenant_id(cx)?;
-    let signed = crate::auth::signed(cx)?;
-    signed.user.tenants().iter().find(|m| m.tenant == tenant)
-}
-
-/// The session's selected membership, else the user's first.
-fn selected(cx: &Cx) -> Option<&Membership> {
-    let signed = crate::auth::signed(cx)?;
-    let tenants = signed.user.tenants();
-    signed
-        .tenant
-        .and_then(|tenant| tenants.iter().find(|m| m.tenant == tenant))
-        .or_else(|| tenants.first())
-}
+/// Finds the tenant the request's session acts for; the first panel mounted on a router installs
+/// it in the app context.
+pub(crate) struct TenantSource(pub(crate) fn(&Cx) -> Option<uuid::Uuid>);
 
 /// Requires a tenant, returning an error if missing (for tenancy-gated resources).
 ///
@@ -90,17 +72,13 @@ pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
 
 /// How a resource's rows belong to a tenant.
 ///
-/// [`Resource::tenancy`](crate::resource::Resource::tenancy) returns one. A
+/// A resource declares one with [`ResourceDef::tenancy`](crate::ResourceDef::tenancy). A
 /// scoped tenancy names, by lens, the tenant UUID each row is filtered on:
 ///
 /// ```text
-/// fn tenancy() -> Tenancy<Post> {
-///     Tenancy::column(Post::fields().tenant_id())
-/// }
+/// ResourceDef::new().tenancy(Tenancy::column(Post::fields().tenant_id()))
 ///
-/// fn tenancy() -> Tenancy<Comment> {
-///     Tenancy::via(Comment::fields().post().tenant_id())
-/// }
+/// ResourceDef::new().tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
 /// ```
 ///
 /// A scoped resource answers 403 to a request with no tenant, in every handler,

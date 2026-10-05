@@ -1,22 +1,27 @@
 # Tables
 
-A resource's `table()` declares its list page: the columns, and the search, sort, filter,
-grouping and pagination the list offers. It takes no context: the panel calls it once at
-build and serves that table to every request. The same declaration drives the CSV export.
+A resource's `Table`, set with `ResourceDef::table`, declares its list page: the columns, and
+the search, sort, filter, grouping and pagination the list offers. It depends on no request: the
+panel builds it once when it mounts and serves that table to every request. The same declaration
+drives the CSV export.
 
-`table()` defaults to the record form's derived table, `UserForm::table()`: a sortable column per
+The table defaults to the record form's derived table, `UserForm::table()`: a sortable column per
 text field, searchable over a `String` or `Option<String>`, an `#[form(options = ..)]` field by
-its option's label, and a `bool` as yes or no. A bare choice, a file and an embedded value get no column. Extend the
-derived table, or declare the columns yourself:
+its option's label, and a `bool` as yes or no. A bare choice, a file and an embedded value get no
+column. Extend the derived table, or declare the columns yourself:
 
 ```rust
-fn table() -> Table<User> {
-    UserForm::table().filters(TernaryFilter::new(User::fields().active()))
-}
+ResourceDef::new().table(UserForm::table().filters(TernaryFilter::new(User::fields().active())))
 ```
 
 ```rust
+impl Resource for UserResource {
+    // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
 {{#include ../../../examples/guide/src/resources.rs:user-table}}
+    }
+}
 ```
 
 Each row is keyed by its record's primary key: the table identifies rows for selection and
@@ -175,7 +180,7 @@ search, filters and sort applied, and the relations the columns include loaded.
 
 Each row shows the actions its record allows:
 
-- **View** when the resource declares a detail page (`view()`) and the policy allows `View` of the
+- **View** when the resource declares a detail page (a non-empty view) and the policy allows `View` of the
   record;
 - **Edit** when the resource has a record form and the policy allows `View` and `Update`;
 - **Delete** when the policy allows `DeleteAny`, and `View` and `Delete` of the record;
@@ -198,14 +203,18 @@ JavaScript the Delete link renders the list with its dialog already open.
 ### Custom actions
 
 An action is a mutation beyond create, update and delete, declared as a type implementing
-`Action<R>` and listed by `Resource::actions`:
+`Action<R>` and added to the def with `ResourceDef::action`:
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-publish-action}}
 
 impl Resource for PostResource {
-{{#include ../../../examples/guide/src/resources.rs:post-actions}}
     // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
+{{#include ../../../examples/guide/src/resources.rs:post-actions}}
+    }
 }
 ```
 

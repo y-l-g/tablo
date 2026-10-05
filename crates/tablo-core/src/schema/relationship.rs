@@ -6,9 +6,12 @@
 use toasty::stmt::{Expr, List, OrderByExpr, Query};
 use topcoat::{Result, context::Cx};
 
-use crate::policy::{Ability, Deny, Policy};
+use crate::policy::Ability;
 
 /// Describes the source a relationship option loader reads.
+///
+/// Every [`Resource`](crate::Resource) is one, answering from its def as the request's panel
+/// mounted it.
 pub trait OptionSource: Sized + Send + Sync + 'static {
     /// The model whose rows become options.
     type Model: toasty::schema::Model + toasty::stmt::IntoExpr<Self::Model> + Send + Sync + 'static;
@@ -17,20 +20,15 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     /// source as misdeclared.
     fn scoped_query(cx: &Cx) -> Result<Query<List<Self::Model>>>;
 
-    /// States what the current user may see and fails the whole load closed when `ViewAny` is
-    /// refused.
-    fn policy() -> impl Policy<Self::Model> {
-        Deny
-    }
-
-    /// Declares whether the source's rows are tenant-owned and fails a tenantless request closed.
-    fn requires_tenant() -> bool {
+    /// Whether the current user may see the rows `ability` names; refusing `ViewAny` fails the
+    /// whole load closed. Defaults to refusing everything.
+    fn allows(_cx: &Cx, _ability: Ability<'_, Self::Model>) -> bool {
         false
     }
 
-    /// States a short name for the loaders' log fields.
-    fn slug() -> String {
-        std::any::type_name::<Self>().to_string()
+    /// Declares whether the source's rows are tenant-owned and fails a tenantless request closed.
+    fn requires_tenant(_cx: &Cx) -> bool {
+        false
     }
 
     /// States the related source's search predicate for `term`, or `None` when it declares no
@@ -42,6 +40,13 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     /// States the related source's declared default ordering.
     fn order_by(_cx: &Cx) -> Option<OrderByExpr> {
         None
+    }
+
+    /// Whether the request's panel can load from the source: a resource only when the panel
+    /// mounts it.
+    #[doc(hidden)]
+    fn available(_cx: &Cx) -> bool {
+        true
     }
 }
 
@@ -84,10 +89,10 @@ fn ensure_option_access<R>(cx: &Cx) -> Result<(), OptionLoadError>
 where
     R: OptionSource,
 {
-    if !R::policy().allows(cx, Ability::ViewAny) {
+    if !R::allows(cx, Ability::ViewAny) {
         return Err(OptionLoadError::Denied);
     }
-    if R::requires_tenant() && crate::tenancy::tenant_id(cx).is_none() {
+    if R::requires_tenant(cx) && crate::tenancy::tenant_id(cx).is_none() {
         return Err(OptionLoadError::Denied);
     }
     Ok(())
@@ -101,7 +106,7 @@ where
 {
     R::scoped_query(cx).map_err(|error| {
         tracing::error!(
-            resource = R::slug(),
+            resource = std::any::type_name::<R>(),
             error = %error,
             "relationship option load cannot scope the related resource"
         );
@@ -154,7 +159,7 @@ where
         .await
         .map_err(|e| {
             tracing::warn!(
-                resource = R::slug(),
+                resource = std::any::type_name::<R>(),
                 error = %e,
                 "{failed}"
             );
@@ -162,14 +167,13 @@ where
         })?;
     if records.len() > MAX_RELATIONSHIP_OPTIONS {
         tracing::warn!(
-            resource = R::slug(),
+            resource = std::any::type_name::<R>(),
             max = MAX_RELATIONSHIP_OPTIONS,
             "{overflow}"
         );
         return Err(OptionLoadError::Overflow);
     }
-    let policy = R::policy();
-    records.retain(|record| policy.allows(cx, Ability::View(record)));
+    records.retain(|record| R::allows(cx, Ability::View(record)));
     Ok(records)
 }
 
@@ -231,7 +235,7 @@ where
         .await
         .map_err(|e| {
             tracing::warn!(
-                resource = R::slug(),
+                resource = std::any::type_name::<R>(),
                 error = %e,
                 "relationship option check failed"
             );
@@ -240,7 +244,7 @@ where
     match row {
         None => Ok(RelatedCheck::NotFound),
         Some(record) => {
-            if R::policy().allows(cx, Ability::View(&record)) {
+            if R::allows(cx, Ability::View(&record)) {
                 Ok(RelatedCheck::FoundViewable)
             } else {
                 Ok(RelatedCheck::FoundHidden)

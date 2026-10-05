@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    Ability, FieldErrors, Policy,
+    Ability, FieldErrors,
     schema::{Field, Schema, Source},
 };
 use toasty::Db;
@@ -156,7 +156,7 @@ async fn a_text_field_is_untouched_by_the_typed_path() {
 /// proves the wiring — that the create handler reaches it and re-renders inline.
 #[tokio::test]
 async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
-    use tablo_core::{Auth, Panel, Resource};
+    use tablo_core::{Auth, Panel, Resource, ResourceDef};
     use topcoat::router::{Body, Router};
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -170,22 +170,18 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     impl Resource for ReadingResource {
         type Model = Reading;
         type Form = ReadingForm;
-        fn form() -> Schema {
-            Schema::new(Field::text(Reading::fields().word_count()))
-        }
 
-        fn slug() -> String {
-            "readings".to_string()
-        }
-        fn policy() -> impl Policy<Reading> {
-            |_cx: &Cx, ability: Ability<'_, Reading>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            }
-        }
-        fn table() -> tablo_core::Table<Reading> {
-            tablo_core::Table::new(tablo_core::ComputedColumn::new("Words", |r: &Reading| {
-                r.word_count.to_string()
-            }))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("readings")
+                .policy(|_cx: &Cx, ability: Ability<'_, Reading>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(tablo_core::Table::new(tablo_core::ComputedColumn::new(
+                    "Words",
+                    |r: &Reading| r.word_count.to_string(),
+                )))
+                .form(Schema::new(Field::text(Reading::fields().word_count())))
         }
     }
     #[derive(tablo_core::RecordForm)]

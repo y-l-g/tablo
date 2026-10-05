@@ -12,12 +12,13 @@ key of an `EmbeddedForm` value and writes it whole. A `bool` is a toggle reading
 `false`; `#[form(options = T)]` is a choice over `T`'s `Options` list, `#[form(choice)]` a bare
 choice, `#[form(file)]` a file field, any other field a text field. The derive emits
 `controls()` plus the default `schema` arranging one per field, and the default `table` listing
-each field a column can show; `Resource::form` and `Resource::table` default to them, and
-`Resource::view` to the form. An override arranges or extends them. Each constructor returns its
+each field a column can show; a `ResourceDef` without a `form` or `table` uses them, and one
+without a `view` shows the form. A def's own form or table arranges or extends them. Each constructor returns its
 control's builder, so a modifier on the wrong control does not compile.
 
-**2. The form lives on `Resource`, registered once.** `type Form`, `CREATE_COLUMNS`, `form`,
-`validate_record`, `create_record`, and `update_record` live on `Resource` with `Panel::resource`.
+**2. The form lives on `Resource`, registered once.** `type Form`, `validate_record`,
+`create_record`, and `update_record` live on `Resource`, and the form schema and `create_columns`
+on its `ResourceDef`, registered with `Panel::resource`.
 A list-only resource names `type Form = NoForm<Self::Model>`; `RecordForm::HAS_FORM` decides
 whether create, edit, and options routes exist and whether the list links to create.
 
@@ -37,12 +38,12 @@ column and executes the create builder; `write_update` executes `Posted::into_up
 
 **6. Mounting checks struct against schema.** Every control binds exactly one field and every
 field owns a control; an optional or `Repeater` control binds a field answering blank; a gated
-form omits its tenant column; a form resource overrides `form()`; `NoForm` declares no schema
+form omits its tenant column; a form resource declares no empty form; `NoForm` declares no schema
 and allows no create or edit. A skippable control is exempt: an embedded enum discriminant and a
 hidden variant payload. A payload in a `Repeater` is asked like any control.
 
 **7. A create sets every non-nullable column.** Where policy allows `Create`, each non-nullable,
-non-relation column is a form field, a Toasty fill, the tenant stamp, or a `CREATE_COLUMNS` entry
+non-relation column is a form field, a Toasty fill, the tenant stamp, or a `create_columns` entry
 for an override. The check reads defaults off `M::Create::default()`.
 
 **8. One round of errors.** Schema rules, unique probe, parse, and `validate_record` merge into one

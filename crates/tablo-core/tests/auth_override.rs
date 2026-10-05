@@ -2,7 +2,7 @@
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo_core::{
-    Ability, Auth, Membership, PanelUser, Policy, Resource, Table, Tenancy, TextColumn,
+    Ability, Auth, Membership, PanelUser, Resource, ResourceDef, Table, Tenancy, TextColumn,
     auth::{self, Authenticator, verify_password},
     lens, when,
 };
@@ -133,12 +133,10 @@ impl Resource for MemberResource {
     type Model = Member;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn policy() -> impl Policy<Member> {
-        |_cx: &Cx, ability: Ability<'_, Member>| matches!(ability, Ability::ViewAny)
-    }
-
-    fn table() -> Table<Member> {
-        Table::new(TextColumn::new(lens!(Member.handle))).paginate(25)
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(|_cx: &Cx, ability: Ability<'_, Member>| matches!(ability, Ability::ViewAny))
+            .table(Table::new(TextColumn::new(lens!(Member.handle))).paginate(25))
     }
 }
 
@@ -163,16 +161,11 @@ impl Resource for NoteResource {
     type Model = Note;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn policy() -> impl Policy<Note> {
-        when(is_ada).and(tablo_core::ReadOnly)
-    }
-
-    fn tenancy() -> Tenancy<Note> {
-        Tenancy::column(Note::fields().tenant_id())
-    }
-
-    fn table() -> Table<Note> {
-        Table::new(TextColumn::new(lens!(Note.body))).paginate(25)
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(when(is_ada).and(tablo_core::ReadOnly))
+            .tenancy(Tenancy::column(Note::fields().tenant_id()))
+            .table(Table::new(TextColumn::new(lens!(Note.body))).paginate(25))
     }
 }
 

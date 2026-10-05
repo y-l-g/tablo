@@ -1,7 +1,7 @@
 use http::header::LOCATION;
 use tablo_core::{
-    Ability, Auth, Brand, DeclarationErrorKind, NavigationItem, Page, Panel, Policy, ReadOnly,
-    Resource, RouterBuilderPanelExt, Table, TextColumn,
+    Ability, Auth, Brand, DeclarationErrorKind, NavigationItem, Page, Panel, ReadOnly, Resource,
+    ResourceDef, RouterBuilderPanelExt, Table, TextColumn,
     auth::{AdminUser, AuthSession, hash_password},
     lens,
 };
@@ -43,22 +43,18 @@ impl Resource for BookResource {
     type Model = Book;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn slug() -> String {
-        "books".to_string()
-    }
-
-    fn policy() -> impl Policy<Book> {
-        ReadOnly
-    }
-
-    fn table() -> Table<Book> {
-        Table::new(TextColumn::new(lens!(Book.title)))
-            .paginate(25)
-            .live_search()
-    }
-
-    fn view() -> tablo_core::Schema {
-        tablo_core::Schema::new(tablo_core::Field::text(Book::fields().title()))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("books")
+            .policy(ReadOnly)
+            .table(
+                Table::new(TextColumn::new(lens!(Book.title)))
+                    .paginate(25)
+                    .live_search(),
+            )
+            .view(tablo_core::Schema::new(tablo_core::Field::text(
+                Book::fields().title(),
+            )))
     }
 }
 
@@ -68,16 +64,11 @@ impl Resource for NoteResource {
     type Model = Note;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn slug() -> String {
-        "notes".to_string()
-    }
-
-    fn policy() -> impl Policy<Note> {
-        |_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny)
-    }
-
-    fn table() -> Table<Note> {
-        Table::new(TextColumn::new(lens!(Note.body)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("notes")
+            .policy(|_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny))
+            .table(Table::new(TextColumn::new(lens!(Note.body))))
     }
 }
 

@@ -2,7 +2,7 @@ use toasty::Db;
 
 use super::*;
 use crate::{
-    Ability, Panel, Policy, ReadOnly, lens,
+    Ability, Panel, ReadOnly, ResourceDef, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for, seed_dummies},
 };
 
@@ -11,14 +11,12 @@ struct ChunkerDummyResource;
 impl crate::resource::Resource for ChunkerDummyResource {
     type Model = Dummy;
     type Form = crate::NoForm<Self::Model>;
-    fn slug() -> String {
-        "dummies".to_string()
-    }
-    fn policy() -> impl Policy<Dummy> {
-        |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
-    }
-    fn table() -> crate::resource::Table<Dummy> {
-        dummy_table()
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("dummies")
+            .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+            .table(dummy_table())
     }
 }
 
@@ -32,18 +30,16 @@ async fn export_drops_rows_failing_view() {
     impl Resource for RowPolicyResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
-                Ability::ViewAny => true,
-                Ability::View(record) => record.name != "denied",
-                _ => false,
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                    Ability::ViewAny => true,
+                    Ability::View(record) => record.name != "denied",
+                    _ => false,
+                })
+                .table(dummy_table())
         }
     }
 
@@ -114,14 +110,8 @@ async fn export_loads_the_relations_its_columns_include() {
     impl<const DECLARES: bool> Resource for ExportResource<DECLARES> {
         type Model = Child;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            if DECLARES { "declared" } else { "bare" }.to_string()
-        }
-        fn policy() -> impl Policy<Child> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Child> {
-            let column = crate::resource::ComputedColumn::new("Parent", |c: &Child| {
+        fn declare() -> ResourceDef<Self> {
+            let column = crate::table::ComputedColumn::new("Parent", |c: &Child| {
                 if c.parent.is_unloaded() {
                     "(unloaded)".to_string()
                 } else {
@@ -133,7 +123,10 @@ async fn export_loads_the_relations_its_columns_include() {
             } else {
                 column
             };
-            crate::resource::Table::new(column)
+            ResourceDef::new()
+                .slug(if DECLARES { "declared" } else { "bare" })
+                .policy(ReadOnly)
+                .table(crate::table::Table::new(column))
         }
     }
 
@@ -248,14 +241,12 @@ async fn export_streams_csv_in_chunks_with_parity() {
     impl Resource for ChunkedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(ReadOnly)
+                .table(dummy_table())
         }
     }
 
@@ -334,14 +325,12 @@ async fn export_of_an_empty_table_emits_the_header() {
     impl Resource for EmptyResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny)
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .table(dummy_table())
         }
     }
 
@@ -413,34 +402,32 @@ async fn export_visibility_scan_loads_no_includes() {
     impl Resource for ScanResource {
         type Model = Child;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "children".to_string()
-        }
-        fn policy() -> impl Policy<Child> {
-            |_cx: &Cx, ability: Ability<'_, Child>| match ability {
-                Ability::ViewAny => true,
-                Ability::View(record) => {
-                    if record.parent.is_unloaded() {
-                        SCAN_UNLOADED.fetch_add(1, Ordering::SeqCst);
-                    } else {
-                        STREAM_LOADED.fetch_add(1, Ordering::SeqCst);
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("children")
+                .policy(|_cx: &Cx, ability: Ability<'_, Child>| match ability {
+                    Ability::ViewAny => true,
+                    Ability::View(record) => {
+                        if record.parent.is_unloaded() {
+                            SCAN_UNLOADED.fetch_add(1, Ordering::SeqCst);
+                        } else {
+                            STREAM_LOADED.fetch_add(1, Ordering::SeqCst);
+                        }
+                        true
                     }
-                    true
-                }
-                _ => false,
-            }
-        }
-        fn table() -> crate::resource::Table<Child> {
-            crate::resource::Table::new(
-                crate::resource::ComputedColumn::new("Parent", |c: &Child| {
-                    if c.parent.is_unloaded() {
-                        "(unloaded)".to_string()
-                    } else {
-                        c.parent.get().name.clone()
-                    }
+                    _ => false,
                 })
-                .include(Child::fields().parent()),
-            )
+                .table(crate::table::Table::new(
+                    crate::table::ComputedColumn::new("Parent", |c: &Child| {
+                        if c.parent.is_unloaded() {
+                            "(unloaded)".to_string()
+                        } else {
+                            c.parent.get().name.clone()
+                        }
+                    })
+                    .include(Child::fields().parent()),
+                ))
         }
     }
 
@@ -512,18 +499,16 @@ async fn export_counts_only_viewable_rows_within_the_window() {
     impl Resource for MixedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
-                Ability::ViewAny => true,
-                Ability::View(record) => !record.name.starts_with("denied-"),
-                _ => false,
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                    Ability::ViewAny => true,
+                    Ability::View(record) => !record.name.starts_with("denied-"),
+                    _ => false,
+                })
+                .table(dummy_table())
         }
     }
 
@@ -570,18 +555,16 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
     impl Resource for WindowedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
-                Ability::ViewAny => true,
-                Ability::View(record) => !record.name.starts_with("denied-"),
-                _ => false,
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                    Ability::ViewAny => true,
+                    Ability::View(record) => !record.name.starts_with("denied-"),
+                    _ => false,
+                })
+                .table(dummy_table())
         }
     }
 
@@ -644,10 +627,19 @@ async fn export_chunker_stops_at_a_short_chunk() {
     let cx = topcoat::context::CxTestBuilder::new()
         .app_context(db.clone())
         .build();
-    let table = ChunkerDummyResource::table();
-    let state = crate::resource::TableState::default();
+    let table = crate::resource::require_mounted::<ChunkerDummyResource>(&cx)
+        .unwrap()
+        .table
+        .clone();
+    let state = crate::table::TableState::default();
     let mut chunker = ExportChunker::new(
-        export_base_query::<ChunkerDummyResource>(&cx, &table, &state).expect("tenant scope"),
+        export_base_query(
+            &cx,
+            &crate::resource::require_mounted::<ChunkerDummyResource>(&cx).unwrap(),
+            &table,
+            &state,
+        )
+        .expect("tenant scope"),
     );
     let first = chunker
         .next_chunk(&mut db)
@@ -678,10 +670,19 @@ async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
     let cx = topcoat::context::CxTestBuilder::new()
         .app_context(db.clone())
         .build();
-    let table = ChunkerDummyResource::table();
-    let state = crate::resource::TableState::default();
+    let table = crate::resource::require_mounted::<ChunkerDummyResource>(&cx)
+        .unwrap()
+        .table
+        .clone();
+    let state = crate::table::TableState::default();
     let mut chunker = ExportChunker::new(
-        export_base_query::<ChunkerDummyResource>(&cx, &table, &state).expect("tenant scope"),
+        export_base_query(
+            &cx,
+            &crate::resource::require_mounted::<ChunkerDummyResource>(&cx).unwrap(),
+            &table,
+            &state,
+        )
+        .expect("tenant scope"),
     );
     let first = chunker
         .next_chunk(&mut db)
@@ -704,7 +705,10 @@ async fn export_and_list_agree_on_rows_and_order() {
     // Drives the same state through list and export and compares rows and order.
     use std::collections::BTreeMap;
 
-    use crate::resource::{Resource, SelectFilter, Sort, TableState, TextColumn};
+    use crate::{
+        resource::{Resource, ResourceDef},
+        table::{SelectFilter, Sort, TableState, TextColumn},
+    };
 
     #[derive(Debug, Clone, toasty::Model)]
     struct Task {
@@ -718,18 +722,17 @@ async fn export_and_list_agree_on_rows_and_order() {
     impl Resource for TaskResource {
         type Model = Task;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "tasks".to_string()
-        }
-        fn policy() -> impl Policy<Task> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Task> {
-            crate::resource::Table::new(TextColumn::new(lens!(Task.title)).searchable().sortable())
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().slug("tasks").policy(ReadOnly).table(
+                crate::table::Table::new(
+                    TextColumn::new(lens!(Task.title)).searchable().sortable(),
+                )
                 .filters(SelectFilter::new(
                     Task::fields().status(),
                     vec!["published".to_string(), "draft".to_string()],
-                ))
+                )),
+            )
         }
     }
 
@@ -771,9 +774,12 @@ async fn export_and_list_agree_on_rows_and_order() {
         ..TableState::default()
     };
 
-    let table = TaskResource::table();
+    let table = crate::resource::require_mounted::<TaskResource>(&cx)
+        .unwrap()
+        .table
+        .clone();
     let listed: Vec<String> =
-        crate::resource::TablePage::load(&cx, &table, TaskResource::query(&cx), &state)
+        crate::table::TablePage::load(&cx, &table, TaskResource::query(&cx), &state)
             .await
             .unwrap()
             .rows
@@ -787,7 +793,13 @@ async fn export_and_list_agree_on_rows_and_order() {
     );
 
     let mut chunker = ExportChunker::new(
-        export_base_query::<TaskResource>(&cx, &table, &state).expect("tenant scope"),
+        export_base_query(
+            &cx,
+            &crate::resource::require_mounted::<TaskResource>(&cx).unwrap(),
+            &table,
+            &state,
+        )
+        .expect("tenant scope"),
     );
     let mut exported: Vec<String> = Vec::new();
     while let Some(rows) = chunker.next_chunk(&mut db).await.unwrap() {
@@ -808,14 +820,12 @@ async fn export_413s_above_the_cap_before_streaming() {
     impl Resource for CappedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(ReadOnly)
+                .table(dummy_table())
         }
     }
 

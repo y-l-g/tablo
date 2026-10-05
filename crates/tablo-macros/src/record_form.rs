@@ -263,7 +263,7 @@ fn expand_struct(
     let controls_ident = format_ident!("{}Controls", ident);
     let controls_doc = format!(
         "One control per field of [`{ident}`], each chosen from the field: arrange them into a \
-         layout in `Resource::form`, adjusting any with its builder's modifiers."
+         layout in `ResourceDef::form`, adjusting any with its builder's modifiers."
     );
     let mut control_fields = Vec::new();
     let mut control_inits = Vec::new();

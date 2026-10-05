@@ -109,8 +109,8 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 /// arranging one per field in declaration order. `RecordForm::table` lists a
 /// sortable column per text field, searchable over a `String` or
 /// `Option<String>`, an options field by its option's label, and a toggle as
-/// yes or no. `Resource::form` and `Resource::table` default to them; an
-/// override arranges or extends them instead.
+/// yes or no. A resource's `ResourceDef` defaults its form and table to them;
+/// `ResourceDef::form` and `ResourceDef::table` arrange or extend them instead.
 ///
 /// # Attributes
 ///

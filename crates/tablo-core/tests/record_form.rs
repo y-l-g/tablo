@@ -4,8 +4,9 @@ use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
 use tablo_core::{
-    Ability, DeclarationErrorKind, Field, FieldErrorKind, FieldErrors, NoForm, Panel, Policy,
-    RecordForm, Repeater, Resource, Schema, Table, Tenancy, Tenant, TextColumn, lens, write_create,
+    Ability, DeclarationErrorKind, Field, FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm,
+    Repeater, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TextColumn, lens,
+    write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -59,8 +60,18 @@ impl Resource for ItemResource {
     type Model = Item;
     type Form = ItemForm;
 
-    fn form() -> Schema {
-        item_schema()
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("items")
+            .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                )
+            })
+            .table(item_table())
+            .form(item_schema())
+            .view(Schema::new(Field::text(Item::fields().title())))
     }
 
     fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors {
@@ -69,27 +80,6 @@ impl Resource for ItemResource {
             errors.add("priority", "Priority is at most 10");
         }
         errors
-    }
-
-    fn slug() -> String {
-        "items".to_string()
-    }
-
-    fn policy() -> impl Policy<Item> {
-        |_cx: &Cx, ability: Ability<'_, Item>| {
-            matches!(
-                ability,
-                Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
-            )
-        }
-    }
-
-    fn table() -> Table<Item> {
-        item_table()
-    }
-
-    fn view() -> Schema {
-        Schema::new(Field::text(Item::fields().title()))
     }
 }
 
@@ -332,41 +322,33 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
         type Model = Item;
         type Form = ItemForm;
 
-        /// Every control `ItemForm` binds.
-        fn form() -> Schema {
-            Schema::new((
-                Field::text(Item::fields().title()),
-                Repeater::new("Tags").schema((
-                    Field::text(Item::fields().notes()).optional(),
-                    Field::text(Item::fields().priority()).optional(),
-                    Field::choice(Item::fields().done())
-                        .options(vec!["true".to_string(), "false".to_string()])
-                        .optional(),
-                )),
-            ))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+                    matches!(
+                        ability,
+                        Ability::ViewAny | Ability::View(_) | Ability::Update(_)
+                    )
+                })
+                .table(item_table())
+                // Every control `ItemForm` binds.
+                .form(Schema::new((
+                    Field::text(Item::fields().title()),
+                    Repeater::new("Tags").schema((
+                        Field::text(Item::fields().notes()).optional(),
+                        Field::text(Item::fields().priority()).optional(),
+                        Field::choice(Item::fields().done())
+                            .options(vec!["true".to_string(), "false".to_string()])
+                            .optional(),
+                    )),
+                )))
         }
 
         fn validate_record(_cx: &Cx, _form: &ItemForm) -> FieldErrors {
             let mut errors = FieldErrors::new();
             errors.add("Tags", "At least one tag");
             errors
-        }
-
-        fn slug() -> String {
-            "items".to_string()
-        }
-
-        fn policy() -> impl Policy<Item> {
-            |_cx: &Cx, ability: Ability<'_, Item>| {
-                matches!(
-                    ability,
-                    Ability::ViewAny | Ability::View(_) | Ability::Update(_)
-                )
-            }
-        }
-
-        fn table() -> Table<Item> {
-            item_table()
         }
     }
 
@@ -417,25 +399,15 @@ impl Resource for OwnedResource {
     type Model = Owned;
     type Form = OwnedForm;
 
-    fn form() -> Schema {
-        Schema::new(Field::text(Owned::fields().title()))
-    }
-
-    fn slug() -> String {
-        "owned".to_string()
-    }
-
-    fn policy() -> impl Policy<Owned> {
-        |_cx: &Cx, ability: Ability<'_, Owned>| {
-            matches!(ability, Ability::ViewAny | Ability::Create)
-        }
-    }
-    fn tenancy() -> Tenancy<Owned> {
-        Tenancy::column(Owned::fields().tenant_id())
-    }
-
-    fn table() -> Table<Owned> {
-        Table::new(TextColumn::new(lens!(Owned.title)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("owned")
+            .policy(|_cx: &Cx, ability: Ability<'_, Owned>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            })
+            .tenancy(Tenancy::column(Owned::fields().tenant_id()))
+            .table(Table::new(TextColumn::new(lens!(Owned.title))))
+            .form(Schema::new(Field::text(Owned::fields().title())))
     }
 }
 
@@ -477,20 +449,14 @@ macro_rules! item_resource {
             type Model = Item;
             type Form = $form;
 
-            fn slug() -> String {
-                "items".to_string()
-            }
-
-            fn policy() -> impl Policy<Item> {
-                |_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::ViewAny)
-            }
-
-            fn table() -> Table<Item> {
-                item_table()
-            }
-
-            fn form() -> Schema {
-                $schema
+            fn declare() -> ResourceDef<Self> {
+                ResourceDef::new()
+                    .slug("items")
+                    .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+                        matches!(ability, Ability::ViewAny)
+                    })
+                    .table(item_table())
+                    .form($schema)
             }
         }
     };
@@ -616,16 +582,11 @@ async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
         type Model = Dated;
         type Form = DatedForm;
 
-        fn form() -> Schema {
-            Schema::new(Life::form(Dated::fields().life()))
-        }
-
-        fn slug() -> String {
-            "dated".to_string()
-        }
-
-        fn table() -> Table<Dated> {
-            Table::new(TextColumn::new(lens!(Dated.title)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dated")
+                .table(Table::new(TextColumn::new(lens!(Dated.title))))
+                .form(Schema::new(Life::form(Dated::fields().life())))
         }
     }
 
@@ -675,16 +636,13 @@ async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
         type Model = Clip;
         type Form = ClipForm;
 
-        fn form() -> Schema {
-            Schema::new(Repeater::new("Clips").schema(Body::form(Clip::fields().body())))
-        }
-
-        fn slug() -> String {
-            "clips".to_string()
-        }
-
-        fn table() -> Table<Clip> {
-            Table::new(TextColumn::new(lens!(Clip.title)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("clips")
+                .table(Table::new(TextColumn::new(lens!(Clip.title))))
+                .form(Schema::new(
+                    Repeater::new("Clips").schema(Body::form(Clip::fields().body())),
+                ))
         }
     }
 
@@ -717,19 +675,14 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
         type Model = Owned;
         type Form = ClaimingForm;
 
-        fn form() -> Schema {
-            Schema::new((
-                Field::text(Owned::fields().tenant_id()),
-                Field::text(Owned::fields().title()),
-            ))
-        }
-
-        fn tenancy() -> Tenancy<Owned> {
-            Tenancy::column(Owned::fields().tenant_id())
-        }
-
-        fn table() -> Table<Owned> {
-            OwnedResource::table()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .tenancy(Tenancy::column(Owned::fields().tenant_id()))
+                .table(Table::new(TextColumn::new(lens!(Owned.title))))
+                .form(Schema::new((
+                    Field::text(Owned::fields().tenant_id()),
+                    Field::text(Owned::fields().title()),
+                )))
         }
     }
 
@@ -752,23 +705,15 @@ macro_rules! list_only_resource {
             type Model = Item;
             type Form = NoForm<Self::Model>;
 
-            fn slug() -> String {
-                "items".to_string()
-            }
-
-            fn policy() -> impl Policy<Item> {
-                |_cx: &Cx, ability: Ability<'_, Item>| match ability {
-                    Ability::Create => $create,
-                    _ => false,
-                }
-            }
-
-            fn table() -> Table<Item> {
-                item_table()
-            }
-
-            fn form() -> Schema {
-                $schema
+            fn declare() -> ResourceDef<Self> {
+                ResourceDef::new()
+                    .slug("items")
+                    .policy(|_cx: &Cx, ability: Ability<'_, Item>| match ability {
+                        Ability::Create => $create,
+                        _ => false,
+                    })
+                    .table(item_table())
+                    .form($schema)
             }
         }
     };
@@ -842,20 +787,12 @@ async fn a_list_only_detail_page_reads_view_values() {
         type Model = Item;
         type Form = NoForm<Self::Model>;
 
-        fn slug() -> String {
-            "items".to_string()
-        }
-
-        fn policy() -> impl Policy<Item> {
-            |_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::View(_))
-        }
-
-        fn table() -> Table<Item> {
-            item_table()
-        }
-
-        fn view() -> Schema {
-            Schema::new(Field::text(Item::fields().title()))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy(|_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::View(_)))
+                .table(item_table())
+                .view(Schema::new(Field::text(Item::fields().title())))
         }
 
         fn view_values(_cx: &Cx, record: &Item) -> HashMap<String, String> {
@@ -909,22 +846,15 @@ macro_rules! title_only_resource {
             type Model = Item;
             type Form = TitleForm;
 
-            const CREATE_COLUMNS: &'static [&'static str] = $columns;
-
-            fn slug() -> String {
-                "items".to_string()
-            }
-
-            fn policy() -> impl Policy<Item> {
-                |_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::Create)
-            }
-
-            fn table() -> Table<Item> {
-                item_table()
-            }
-
-            fn form() -> Schema {
-                Schema::new(Field::text(Item::fields().title()))
+            fn declare() -> ResourceDef<Self> {
+                ResourceDef::new()
+                    .slug("items")
+                    .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+                        matches!(ability, Ability::Create)
+                    })
+                    .table(item_table())
+                    .form(Schema::new(Field::text(Item::fields().title())))
+                    .create_columns($columns)
             }
         }
     };
@@ -932,7 +862,7 @@ macro_rules! title_only_resource {
 
 #[tokio::test]
 async fn build_refuses_a_create_that_leaves_a_required_column_unset() {
-    title_only_resource!(Partial, &[]);
+    title_only_resource!(Partial, []);
     let errors = refused::<Partial>(item_db().await);
     assert!(
         errors.contains(&DeclarationErrorKind::UnwrittenColumn {
@@ -944,11 +874,11 @@ async fn build_refuses_a_create_that_leaves_a_required_column_unset() {
 
 #[tokio::test]
 async fn create_columns_names_what_an_override_sets() {
-    title_only_resource!(Covered, &["notes", "priority", "done"]);
+    title_only_resource!(Covered, ["notes", "priority", "done"]);
     mount(item_db().await, panel().resource::<Covered>())
         .expect("the override's own columns are declared");
 
-    title_only_resource!(Misnamed, &["notes", "priority", "done", "nope"]);
+    title_only_resource!(Misnamed, ["notes", "priority", "done", "nope"]);
     assert_eq!(
         refused::<Misnamed>(item_db().await),
         [DeclarationErrorKind::UnknownCreateColumn { column: "nope" }]
@@ -964,26 +894,20 @@ async fn a_value_the_form_type_refuses_renders_inline() {
         type Model = Item;
         type Form = PriorityForm;
 
-        fn form() -> Schema {
-            // A static-options select checks membership, not the column's type.
-            Schema::new(
-                Field::choice(Item::fields().priority())
-                    .options(vec!["1".to_string(), "lots".to_string()]),
-            )
-        }
-
-        fn slug() -> String {
-            "items".to_string()
-        }
-
-        fn policy() -> impl Policy<Item> {
-            |_cx: &Cx, ability: Ability<'_, Item>| {
-                matches!(ability, Ability::View(_) | Ability::Update(_))
-            }
-        }
-
-        fn table() -> Table<Item> {
-            item_table()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+                    matches!(ability, Ability::View(_) | Ability::Update(_))
+                })
+                .table(item_table())
+                .form(
+                    // A static-options select checks membership, not the column's type.
+                    Schema::new(
+                        Field::choice(Item::fields().priority())
+                            .options(vec!["1".to_string(), "lots".to_string()]),
+                    ),
+                )
         }
     }
 
@@ -1056,28 +980,20 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Form = Keyless;
 
-        fn form() -> Schema {
-            Schema::empty()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+                    matches!(ability, Ability::View(_) | Ability::Update(_))
+                })
+                .table(item_table())
+                .form(Schema::empty())
         }
 
         fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors {
             let mut errors = FieldErrors::new();
             errors.add("priority", "never");
             errors
-        }
-
-        fn slug() -> String {
-            "items".to_string()
-        }
-
-        fn policy() -> impl Policy<Item> {
-            |_cx: &Cx, ability: Ability<'_, Item>| {
-                matches!(ability, Ability::View(_) | Ability::Update(_))
-            }
-        }
-
-        fn table() -> Table<Item> {
-            item_table()
         }
     }
 
@@ -1143,22 +1059,14 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Form = Unkeyable;
 
-        fn form() -> Schema {
-            Schema::empty()
-        }
-
-        fn slug() -> String {
-            "items".to_string()
-        }
-
-        fn policy() -> impl Policy<Item> {
-            |_cx: &Cx, ability: Ability<'_, Item>| {
-                matches!(ability, Ability::View(_) | Ability::Update(_))
-            }
-        }
-
-        fn table() -> Table<Item> {
-            item_table()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+                    matches!(ability, Ability::View(_) | Ability::Update(_))
+                })
+                .table(item_table())
+                .form(Schema::empty())
         }
     }
 
@@ -1179,20 +1087,15 @@ async fn a_list_only_resource_never_links_to_create() {
         type Model = Item;
         type Form = tablo_core::NoForm<Self::Model>;
 
-        fn slug() -> String {
-            "items".to_string()
-        }
-
-        fn policy() -> impl Policy<Item> {
-            |cx: &Cx, ability: Ability<'_, Item>| match ability {
-                Ability::ViewAny => true,
-                Ability::Create => tablo_core::tenant_id(cx).is_some(),
-                _ => false,
-            }
-        }
-
-        fn table() -> Table<Item> {
-            item_table()
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy(|cx: &Cx, ability: Ability<'_, Item>| match ability {
+                    Ability::ViewAny => true,
+                    Ability::Create => tablo_core::tenant_id(cx).is_some(),
+                    _ => false,
+                })
+                .table(item_table())
         }
     }
 
@@ -1245,21 +1148,16 @@ async fn the_derived_default_form_renders_and_writes() {
         type Model = Widget;
         type Form = WidgetForm;
 
-        fn slug() -> String {
-            "widgets".to_string()
-        }
-
-        fn policy() -> impl Policy<Widget> {
-            |_cx: &Cx, ability: Ability<'_, Widget>| {
-                matches!(
-                    ability,
-                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
-                )
-            }
-        }
-
-        fn table() -> Table<Widget> {
-            Table::new(TextColumn::new(lens!(Widget.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("widgets")
+                .policy(|_cx: &Cx, ability: Ability<'_, Widget>| {
+                    matches!(
+                        ability,
+                        Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                    )
+                })
+                .table(Table::new(TextColumn::new(lens!(Widget.name))))
         }
     }
 
@@ -1356,8 +1254,8 @@ impl Resource for TicketResource {
     type Model = Ticket;
     type Form = TicketForm;
 
-    fn policy() -> impl Policy<Ticket> {
-        tablo_core::ReadOnly
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().policy(tablo_core::ReadOnly)
     }
 }
 
@@ -1368,12 +1266,10 @@ impl Resource for UnviewedTicketResource {
     type Model = Ticket;
     type Form = TicketForm;
 
-    fn policy() -> impl Policy<Ticket> {
-        tablo_core::ReadOnly
-    }
-
-    fn view() -> Schema {
-        Schema::empty()
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(tablo_core::ReadOnly)
+            .view(Schema::empty())
     }
 }
 

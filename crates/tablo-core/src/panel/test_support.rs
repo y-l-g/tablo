@@ -10,9 +10,10 @@ use topcoat::{
 };
 
 use crate::{
-    Ability, Panel, Policy, RouterBuilderPanelExt, lens,
-    resource::{Resource, Table, TextColumn},
+    Ability, Panel, RouterBuilderPanelExt, lens,
+    resource::{Resource, ResourceDef},
     schema::{Field, Schema},
+    table::{Table, TextColumn},
 };
 
 /// The two-column model a panel test's resource renders.
@@ -47,6 +48,8 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         shell_assets: None,
         search: std::collections::HashMap::new(),
         relations: std::collections::HashMap::new(),
+        children: std::collections::HashMap::new(),
+        mounts: std::sync::Arc::default(),
         root_redirect: None,
         auth,
         login_hint: None,
@@ -131,28 +134,22 @@ impl crate::resource::Resource for TaggedResource {
     type Model = Tagged;
     type Form = TaggedForm;
 
-    fn form() -> Schema {
-        Schema::new((
-            Field::text(Tagged::fields().name()),
-            Field::text(Tagged::fields().token()).unique(),
-        ))
-    }
-
-    fn slug() -> String {
-        "tagged".to_string()
-    }
-
-    fn policy() -> impl Policy<Tagged> {
-        |_cx: &Cx, ability: Ability<'_, Tagged>| {
-            matches!(
-                ability,
-                Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
-            )
-        }
-    }
-
-    fn table() -> crate::resource::Table<Tagged> {
-        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Tagged.name)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("tagged")
+            .policy(|_cx: &Cx, ability: Ability<'_, Tagged>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                )
+            })
+            .table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Tagged.name),
+            )))
+            .form(Schema::new((
+                Field::text(Tagged::fields().name()),
+                Field::text(Tagged::fields().token()).unique(),
+            )))
     }
 }
 

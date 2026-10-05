@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::{Ability, Panel, Policy, ReadOnly, lens, panel::test_support::mount};
+use crate::{Ability, Panel, ReadOnly, ResourceDef, lens, panel::test_support::mount};
 
 #[tokio::test]
 async fn options_endpoint_searches_and_gates() {
@@ -22,16 +22,14 @@ async fn options_endpoint_searches_and_gates() {
     impl Resource for OptAuthorResource {
         type Model = OptAuthor;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "opt-authors".to_string()
-        }
-        fn policy() -> impl Policy<OptAuthor> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<OptAuthor> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(OptAuthor.name)).searchable(),
-            )
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("opt-authors")
+                .policy(ReadOnly)
+                .table(crate::table::Table::new(
+                    crate::table::TextColumn::new(lens!(OptAuthor.name)).searchable(),
+                ))
         }
     }
 
@@ -47,22 +45,19 @@ async fn options_endpoint_searches_and_gates() {
     impl Resource for OptPostResource {
         type Model = OptPost;
         type Form = OptPostForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(
-                crate::schema::Field::choice(OptPost::fields().author_id())
-                    .relationship::<OptAuthorResource>(|a: &OptAuthor| a.name.clone())
-                    .searchable(),
-            )
-        }
 
-        fn slug() -> String {
-            "opt-posts".to_string()
-        }
-        fn policy() -> impl Policy<OptPost> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<OptPost> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(OptPost.title)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("opt-posts")
+                .policy(ReadOnly)
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(OptPost.title),
+                )))
+                .form(crate::schema::Schema::new(
+                    crate::schema::Field::choice(OptPost::fields().author_id())
+                        .relationship::<OptAuthorResource>(|a: &OptAuthor| a.name.clone())
+                        .searchable(),
+                ))
         }
     }
     #[derive(crate::RecordForm)]
@@ -180,24 +175,23 @@ async fn option_load_loads_no_relation() {
     impl Resource for ChildSource {
         type Model = Child;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "children".to_string()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("children")
+                .policy(|_cx: &Cx, ability: Ability<'_, Child>| match ability {
+                    Ability::ViewAny => true,
+                    Ability::View(record) => record.parent.is_unloaded(),
+                    _ => false,
+                })
+                .table(crate::table::Table::new(
+                    crate::table::ComputedColumn::new("Name", |c: &Child| c.name.clone())
+                        .include(Child::fields().parent()),
+                ))
         }
-        fn policy() -> impl Policy<Child> {
-            |_cx: &Cx, ability: Ability<'_, Child>| match ability {
-                Ability::ViewAny => true,
-                Ability::View(record) => record.parent.is_unloaded(),
-                _ => false,
-            }
-        }
+
         fn view_query(_cx: &Cx) -> Query<List<Child>> {
             with_parent()
-        }
-        fn table() -> crate::resource::Table<Child> {
-            crate::resource::Table::new(
-                crate::resource::ComputedColumn::new("Name", |c: &Child| c.name.clone())
-                    .include(Child::fields().parent()),
-            )
         }
     }
 
@@ -214,19 +208,18 @@ async fn option_load_loads_no_relation() {
     impl Resource for OwnerResource {
         type Model = Owner;
         type Form = OwnerForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(
-                crate::schema::Field::choice(Owner::fields().child_id())
-                    .relationship::<ChildSource>(|c: &Child| c.name.clone())
-                    .searchable(),
-            )
-        }
 
-        fn slug() -> String {
-            "owners".to_string()
-        }
-        fn table() -> crate::resource::Table<Owner> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Owner.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("owners")
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Owner.name),
+                )))
+                .form(crate::schema::Schema::new(
+                    crate::schema::Field::choice(Owner::fields().child_id())
+                        .relationship::<ChildSource>(|c: &Child| c.name.clone())
+                        .searchable(),
+                ))
         }
     }
     #[derive(crate::RecordForm)]
@@ -307,16 +300,14 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     impl Resource for BigAResource {
         type Model = BigA;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "big-as".to_string()
-        }
-        fn policy() -> impl Policy<BigA> {
-            ReadOnly
-        }
-        fn table() -> crate::resource::Table<BigA> {
-            crate::resource::Table::new(
-                crate::resource::TextColumn::new(lens!(BigA.name)).searchable(),
-            )
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("big-as")
+                .policy(ReadOnly)
+                .table(crate::table::Table::new(
+                    crate::table::TextColumn::new(lens!(BigA.name)).searchable(),
+                ))
         }
     }
 
@@ -334,19 +325,18 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     impl Resource for SearchableParent {
         type Model = BigP;
         type Form = SearchableParentForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(
-                crate::schema::Field::choice(BigP::fields().author_id())
-                    .relationship::<BigAResource>(|a: &BigA| a.name.clone())
-                    .searchable(),
-            )
-        }
 
-        fn slug() -> String {
-            "big-ps".to_string()
-        }
-        fn table() -> crate::resource::Table<BigP> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(BigP.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("big-ps")
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(BigP.name),
+                )))
+                .form(crate::schema::Schema::new(
+                    crate::schema::Field::choice(BigP::fields().author_id())
+                        .relationship::<BigAResource>(|a: &BigA| a.name.clone())
+                        .searchable(),
+                ))
         }
     }
     #[derive(crate::RecordForm)]
@@ -358,18 +348,17 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     impl Resource for PlainParent {
         type Model = BigP;
         type Form = PlainParentForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(
-                crate::schema::Field::choice(BigP::fields().author_id())
-                    .relationship::<BigAResource>(|a: &BigA| a.name.clone()),
-            )
-        }
 
-        fn slug() -> String {
-            "plain-ps".to_string()
-        }
-        fn table() -> crate::resource::Table<BigP> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(BigP.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("plain-ps")
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(BigP.name),
+                )))
+                .form(crate::schema::Schema::new(
+                    crate::schema::Field::choice(BigP::fields().author_id())
+                        .relationship::<BigAResource>(|a: &BigA| a.name.clone()),
+                ))
         }
     }
     #[derive(crate::RecordForm)]
@@ -396,6 +385,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         Panel::new("admin")
             .resource::<SearchableParent>()
             .resource::<PlainParent>()
+            .resource::<BigAResource>()
             .auth(crate::Auth::disabled()),
     )
     .expect("panel builds");

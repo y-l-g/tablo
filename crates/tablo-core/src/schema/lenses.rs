@@ -10,7 +10,7 @@ use toasty::stmt::Path;
 use toasty_core::stmt::PathRoot;
 use topcoat::context::Cx;
 
-use crate::DeclarationErrorKind;
+use crate::{DeclarationErrorKind, naming::capitalize};
 
 thread_local! {
     static SCHEMA: RefCell<Option<Arc<toasty_core::Schema>>> = const { RefCell::new(None) };
@@ -603,22 +603,6 @@ pub(crate) fn single_segment(
     match path.projection.as_slice() {
         [index] => Ok(*index),
         steps => Err(DeclarationErrorKind::TraversalLens { steps: steps.len() }),
-    }
-}
-
-/// A field's human label from its storage name.
-///
-/// Sentence case, with the underscores a Rust column name carries read as
-/// spaces: `word_count` is "Word count", not "Word_count". A label is the one
-/// place a column name becomes prose, so it should not leak the identifier
-/// (`Media_poster_url`, #192). An explicit
-/// [`.label(..)`](crate::schema::TextField::label) still wins.
-pub(crate) fn capitalize(s: &str) -> String {
-    let spaced = s.replace('_', " ");
-    let mut c = spaced.chars();
-    match c.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
     }
 }
 

@@ -3,7 +3,6 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
 use http_body_util::BodyExt;
-use toasty::stmt::IntoExpr;
 use topcoat::{
     Result,
     context::Cx,
@@ -12,31 +11,28 @@ use topcoat::{
         error::{content_too_large, forbidden},
     },
     runtime::shard,
-    view::{BoxView, View},
+    view::{BoxView, View, view},
 };
 
 use super::{
     build::route_path,
-    gate::{gate, panel_prefix},
+    gate::gate,
     list::{load_table_page, table_error_view, wire_table_actions},
     state::{CurrentPanel, current, panels},
 };
 use crate::{
-    form::FormScalar,
-    policy::{Ability, can},
-    resource::{Resource, TableSignals, TableState},
+    policy::Ability,
+    resource::Resource,
+    table::{TableSignals, TableState},
 };
 
-/// Monomorphizes a resource's live-search table loader keyed by list path.
-pub(crate) type SearchFn = Arc<
-    dyn for<'a> Fn(
-            &'a Cx,
-            String,
-            TableSignals,
-        ) -> Pin<Box<dyn Future<Output = Result<BoxView<'a>>> + Send + 'a>>
-        + Send
-        + Sync,
->;
+/// A resource's live-search table loader, keyed by list path.
+pub(crate) type SearchFn =
+    for<'a> fn(
+        &'a Cx,
+        String,
+        TableSignals,
+    ) -> Pin<Box<dyn Future<Output = Result<BoxView<'a>>> + Send + 'a>>;
 
 /// A relation table's live-search request: the owner's key in form spelling
 /// (`seed`), the record page the table renders on (`page`, the links' target
@@ -59,107 +55,46 @@ pub(crate) type RelationSearchFn = Arc<
         + Sync,
 >;
 
-/// Monomorphizes `R`'s table loader into a [`SearchFn`].
-pub(crate) fn search_handler_for<R: Resource>() -> SearchFn {
-    Arc::new(
-        |cx: &Cx,
-         path: String,
-         signals: TableSignals|
-         -> Pin<Box<dyn Future<Output = Result<BoxView<'_>>> + Send + '_>> {
-            Box::pin(async move {
-                gate::<R>(cx)?;
-                if !can::<R>(cx, Ability::ViewAny) {
-                    return Err(forbidden().into());
-                }
-                let table = wire_table_actions::<R>(cx, true);
-                let mut state = TableState::from_query(&signals.query.get());
-                state.delete = None;
-                state.open = None;
-                let state = table.normalize_state(&state);
-                let retry_signals = signals.clone();
-                let rendered = async {
-                    let page = load_table_page::<R>(cx, &table, &state).await?;
-                    table.render_live(cx, page, &state, &path, signals).await
-                };
-                match rendered.await {
-                    Ok(view) => Ok(view),
-                    Err(error) => Ok(table_error_view::<R>(
-                        cx,
-                        &state,
-                        &error,
-                        &path,
-                        Some(&retry_signals),
-                    )),
-                }
-            })
-        },
-    )
-}
-
-/// Monomorphizes `C`'s relation loader over the typed foreign key into a [`RelationSearchFn`].
-pub(crate) fn relation_search_handler_for<C: Resource, T>(
-    foreign_key: toasty::stmt::Path<C::Model, T>,
-) -> RelationSearchFn
-where
-    T: IntoExpr<T> + FormScalar + Send + Sync + 'static,
-{
-    Arc::new(
-        move |cx: &Cx,
-              ctx: RelationRequest,
-              signals: TableSignals|
-              -> Pin<Box<dyn Future<Output = Result<BoxView<'_>>> + Send + '_>> {
-            let foreign_key = foreign_key.clone();
-            Box::pin(async move {
-                gate::<C>(cx)?;
-                if !can::<C>(cx, Ability::ViewAny) {
-                    return Err(forbidden().into());
-                }
-                let prefix = panel_prefix(cx);
-                if ctx
-                    .page
-                    .strip_prefix(prefix.as_str())
-                    .is_none_or(|rest| !rest.is_empty() && !rest.starts_with(['/', '?']))
-                {
-                    return Err(topcoat::router::error::bad_request("unknown relation page").into());
-                }
-                let owner = T::parse_form(ctx.seed.trim())
-                    .map_err(|_| topcoat::router::error::bad_request("unknown relation owner"))?;
-                let scope = foreign_key.eq(owner);
-                let chrome = super::relations::relation_chrome::<C>(cx, ctx.read_only);
-                let table = super::list::wire_table::<C>(cx, true, chrome);
-                let mut state = TableState::from_query_prefixed(&signals.query.get(), &C::slug());
-                state.delete = None;
-                state.open = None;
-                let state = table.normalize_state(&state);
-                let table = table.returning_to(state.list_url(&ctx.page));
-                let retry_signals = signals.clone();
-                let rendered = async {
-                    let rows =
-                        super::list::load_scoped_page::<C>(cx, &table, &state, scope).await?;
-                    table
-                        .render_live(cx, rows, &state, &ctx.page, signals)
-                        .await
-                };
-                match rendered.await {
-                    Ok(view) => Ok(view),
-                    Err(error) => Ok(table_error_view::<C>(
-                        cx,
-                        &state,
-                        &error,
-                        &ctx.page,
-                        Some(&retry_signals),
-                    )),
-                }
-            })
-        },
-    )
+/// Serves `R`'s live list table: the [`SearchFn`] its list registers.
+pub(crate) fn list_search<R: Resource>(
+    cx: &Cx,
+    path: String,
+    signals: TableSignals,
+) -> Pin<Box<dyn Future<Output = Result<BoxView<'_>>> + Send + '_>> {
+    Box::pin(async move {
+        let resource = gate::<R>(cx)?;
+        if !resource.can(cx, Ability::ViewAny) {
+            return Err(forbidden().into());
+        }
+        let table = wire_table_actions(cx, &resource, true);
+        let mut state = TableState::from_query(&signals.query.get());
+        state.delete = None;
+        state.open = None;
+        let state = table.normalize_state(&state);
+        let retry_signals = signals.clone();
+        let rendered = async {
+            let page = load_table_page(cx, &resource, &table, &state).await?;
+            table.render_live(cx, page, &state, &path, signals).await
+        };
+        match rendered.await {
+            Ok(view) => Ok(view),
+            Err(error) => Ok(table_error_view(
+                cx,
+                &resource,
+                &state,
+                &error,
+                &path,
+                Some(&retry_signals),
+            )),
+        }
+    })
 }
 
 /// Resolves the live-search handler for `path`, answering the gate before the registry lookup.
 fn search_entry(cx: &Cx, path: &str) -> Result<SearchFn> {
     crate::auth::guard(cx)?;
     current(cx)
-        .and_then(|panel| panel.search.get(path).cloned())
+        .and_then(|panel| panel.search.get(path).copied())
         .ok_or_else(|| topcoat::router::error::not_found().into())
 }
 
@@ -173,6 +108,17 @@ pub(crate) async fn table_search(
 ) -> Result<impl View> {
     let entry = search_entry(cx, &path)?;
     entry(cx, path, TableSignals { query, bulk }).await
+}
+
+/// The `table_search` shard invocation that fills a live list's streamed region at `path`.
+pub(crate) fn list_search_invocation<'a>(
+    cx: &'a Cx,
+    path: &str,
+    signals: TableSignals,
+) -> impl View + use<'a> {
+    let path = path.to_string();
+    let TableSignals { query, bulk } = signals;
+    view! { cx => table_search(path: $(path.clone()), query: $(query), bulk: $(bulk)) }
 }
 
 /// Names the [`table_search`] endpoint (topcoat#441) under `/_topcoat/runtime` so the panel's auth
@@ -221,6 +167,36 @@ pub(crate) async fn table_relation_search(
         TableSignals { query, bulk },
     )
     .await
+}
+
+/// The `table_relation_search` shard invocation that fills a live relation table's streamed
+/// region: `child`'s table under the `parent` record `request` names.
+pub(crate) fn relation_search_invocation<'a>(
+    cx: &'a Cx,
+    parent: &str,
+    child: &str,
+    request: RelationRequest,
+    signals: TableSignals,
+) -> impl View + use<'a> {
+    let RelationRequest {
+        seed,
+        page,
+        read_only,
+    } = request;
+    // Slugs never carry `/`, so the pair and the seed travel as one wire arg, split off the front
+    // by the shard.
+    let scope = format!("{parent}/{child}/{seed}");
+    let TableSignals { query, bulk } = signals;
+    view! {
+        cx =>
+        table_relation_search(
+            scope: $(scope.clone()),
+            page: $(page.clone()),
+            read_only: $(read_only),
+            query: $(query),
+            bulk: $(bulk)
+        )
+    }
 }
 
 /// Names the [`table_relation_search`] endpoint with the same stability and gate coverage as

@@ -73,7 +73,7 @@ pub(crate) async fn run_after_commit<R: Resource>(cx: &Cx, committed: Committed<
     if let Err(error) = R::after_commit(cx, committed).await {
         tracing::error!(
             error = %error,
-            resource = R::slug(),
+            resource = std::any::type_name::<R>(),
             "after_commit failed; the write stays committed"
         );
     }

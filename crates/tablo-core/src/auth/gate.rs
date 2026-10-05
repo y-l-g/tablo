@@ -13,7 +13,6 @@ use topcoat::{
 };
 
 use super::{
-    RUNTIME_PREFIX,
     login::{login_url, logout_url},
     session::{resolve, session_row, session_user},
     unauthenticated_error,
@@ -98,7 +97,7 @@ pub(crate) struct RuntimeGate {
 impl RuntimeGate {
     pub(crate) fn new() -> Self {
         Self {
-            path: route_path(RUNTIME_PREFIX),
+            path: route_path(crate::topcoat_compat::RUNTIME_PREFIX),
         }
     }
 }
