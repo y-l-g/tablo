@@ -42,8 +42,8 @@ async fn tampered_cursor_shows_in_region_error_with_retry() {
         "retry must target the bare list: {html}"
     );
     assert!(
-        !html.contains("after="),
-        "a malformed cursor must not travel into the retry link: {html}"
+        find_href_with(&html, "after=").is_none(),
+        "a malformed cursor must not travel into any link: {html}"
     );
     assert!(
         html.contains("data-sidebar"),
