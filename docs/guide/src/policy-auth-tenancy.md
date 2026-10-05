@@ -14,13 +14,7 @@ use tablo::prelude::*;
 
 impl Resource for UserResource {
     // …
-    fn policy() -> impl Policy<User> {
-        |cx: &Cx, ability: Ability<'_, User>| match ability {
-            Ability::ViewAny | Ability::View(_) => true,
-            Ability::Create | Ability::DeleteAny | Ability::Delete(_) => is_admin(cx),
-            Ability::Update(user) => !user.sso_managed,
-        }
-    }
+{{#include ../../../examples/guide/src/resources.rs:user-policy}}
 }
 ```
 
@@ -54,20 +48,16 @@ request holds, which suits a rule about the user or the tenant that several reso
 rule reads the app's own user type, `Staff` here (see [Your own user table](#your-own-user-table)):
 
 ```rust
-fn editors_only(cx: &Cx) -> bool {
-    tablo::auth::user::<Staff>(cx).is_some_and(|staff| staff.editor)
-}
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-editors-only}}
 
 impl Resource for PostResource {
-    fn policy() -> impl Policy<Post> {
-        ReadOnly.or(when(editors_only))
-    }
+    // …
+{{#include ../../../examples/guide/src/resources.rs:post-policy-editors}}
 }
 
 impl Resource for AuthorResource {
-    fn policy() -> impl Policy<Author> {
-        when(editors_only)
-    }
+    // …
+{{#include ../../../examples/guide/src/resources.rs:author-policy-editors}}
 }
 ```
 
@@ -93,11 +83,11 @@ Authentication is on by default. The built-in login checks an email and password
 Toasty and create a user with a hashed password:
 
 ```rust
-toasty::models!(crate::Book, tablo_core::auth::AdminUser, tablo_core::auth::AuthSession)
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-models}}
 ```
 
 ```rust
-let password_hash = tablo_core::auth::hash_password("secret")?; // Argon2id
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-hash-password}}
 ```
 
 [Your first panel](./first-panel.md) shows the complete setup.
@@ -146,39 +136,11 @@ Implement `PanelUser` for the type the panel signs in, and `Authenticator` to lo
 ```rust
 use tablo::{Membership, PanelUser, auth::{Authenticator, verify_password}};
 
-pub struct SignedStaff {
-    pub staff: Staff,             // your model
-    pub workspaces: Vec<Membership>,
-}
-
-impl PanelUser for SignedStaff {
-    fn user_id(&self) -> String { self.staff.id.to_string() }
-    fn display_name(&self) -> &str { &self.staff.name }
-    fn can_access_panel(&self) -> bool { self.staff.active }
-    fn tenants(&self) -> &[Membership] { &self.workspaces }
-}
-
-pub struct StaffAuth;
-
-impl Authenticator for StaffAuth {
-    type User = SignedStaff;
-
-    async fn verify(&self, cx: &Cx, login: &str, password: &str) -> Result<Option<SignedStaff>> {
-        let staff = find_staff_by_email(cx, login).await?;
-        if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())) {
-            return Ok(None);
-        }
-        // … load the memberships and return Some(SignedStaff { .. })
-    }
-
-    async fn find_by_id(&self, cx: &Cx, id: &str) -> Result<Option<SignedStaff>> {
-        // … the same user and memberships, by `user_id`
-    }
-}
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-staff-auth}}
 ```
 
 ```rust
-Panel::new("admin").auth(Auth::custom(StaffAuth))
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-custom-auth-body}}
 ```
 
 - **The user type is yours.** It need not be a model: the showcase's `SignedStaff` is a row plus
@@ -196,7 +158,7 @@ Sessions stay in `AuthSession`, so register it; the provided `AdminUser` is need
 ### Turning it off
 
 ```rust
-Panel::new("admin").auth(Auth::disabled())
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
 Every panel route is then public and the login routes are not registered. Use it for public
@@ -228,9 +190,7 @@ impl Resource for PostResource {
     type Model = Post; // has `tenant_id: uuid::Uuid`
     // …
 
-    fn tenancy() -> Tenancy<Post> {
-        Tenancy::column(Post::fields().tenant_id())
-    }
+{{#include ../../../examples/guide/src/resources.rs:post-tenancy}}
 }
 ```
 
@@ -250,8 +210,9 @@ that does. `Tenancy::via` names the tenant through the relation, and the framewo
 filters exactly as it does for a column:
 
 ```rust
-fn tenancy() -> Tenancy<Comment> {
-    Tenancy::via(Comment::fields().post().tenant_id())
+impl Resource for CommentResource {
+    // …
+{{#include ../../../examples/guide/src/resources.rs:comment-tenancy-via}}
 }
 ```
 

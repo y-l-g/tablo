@@ -5,7 +5,7 @@
 //! A resource or page that panel does not register has no URL there, and the
 //! helper returns `None`.
 //!
-//! ```ignore
+//! ```text
 //! let posts = tablo::url::resource::<PostResource>(cx);  // Some("/admin/posts")
 //! let media = tablo::url::page::<MediaLibraryPage>(cx);  // Some("/admin/media")
 //! let home = tablo::url::panel(cx);                      // Some("/admin")

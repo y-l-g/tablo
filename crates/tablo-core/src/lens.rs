@@ -8,8 +8,11 @@ use toasty::stmt::Path;
 /// [`lens!`](crate::lens!) builds one from a single field name, so the two halves cannot name
 /// different fields:
 ///
-/// ```ignore
-/// TextColumn::new(lens!(User.name)).searchable()
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # use tablo_core::{TextColumn, lens};
+/// TextColumn::new(lens!(User.name)).searchable();
 /// ```
 ///
 /// The filters, the [`Field`](crate::Field) constructors and [`Tenancy`](crate::Tenancy) take a
@@ -64,7 +67,7 @@ impl<M, T> From<Lens<M, T>> for Path<M, T> {
 /// `lens!(User.name)` is the path `User::fields().name()` paired with `|user| &user.name`. A
 /// chain through a relation does not compile: a relation's records are not part of the row.
 ///
-/// ```ignore
+/// ```text
 /// lens!(User.name)          // Lens<User, String>
 /// lens!(Post.seo.title)     // an embedded struct's field
 /// lens!(crate::blog::Post.title)

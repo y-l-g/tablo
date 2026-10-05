@@ -8,17 +8,20 @@
 /// `snake_case` name and reads as its name in sentence case, and
 /// `#[option(value = "..", label = "..")]` overrides either.
 ///
-/// ```ignore
-/// #[derive(tablo::Options)]
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String }
+/// # use tablo_core::{Field, SelectFilter, TextColumn, lens, Options};
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
 /// enum Status {
 ///     Draft,
 ///     #[option(label = "Live")]
 ///     Published,
 /// }
 ///
-/// Field::choice(Post::fields().status()).options(Status::options())
-/// SelectFilter::new(Post::fields().status(), Status::options())
-/// TextColumn::new(lens!(Post.status)).format(|status| Status::label_of(status))
+/// Field::choice(Post::fields().status()).options(Status::options());
+/// SelectFilter::new(Post::fields().status(), Status::options());
+/// TextColumn::new(lens!(Post.status)).format(|status| Status::label_of(status));
 /// ```
 ///
 /// The derive also gives the enum `value()`, `label()` and `from_value()`, so

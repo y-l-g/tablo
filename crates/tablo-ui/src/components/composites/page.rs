@@ -18,7 +18,7 @@ const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 
 /// Standard container for an admin page, owning its max width, padding, and vertical rhythm.
 ///
-/// ```ignore
+/// ```text
 /// page(
 ///     page_header(
 ///         page_title("Users")

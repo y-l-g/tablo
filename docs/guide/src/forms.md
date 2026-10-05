@@ -9,22 +9,9 @@ that the two agree.
 ## The record form
 
 ```rust
-#[derive(tablo::Options)]
-enum Role {
-    Admin,
-    Member,
-}
+{{#include ../../../examples/guide/src/models.rs:role-options}}
 
-#[derive(tablo_core::RecordForm)]
-#[form(model = User)]
-pub struct UserForm {
-    pub name: String,
-    pub email: String,
-    #[form(options = Role, blank = Role::Member.value())]
-    pub role: String,
-    #[form(blank = 0)]
-    pub age: i64,
-}
+{{#include ../../../examples/guide/src/resources.rs:user-record-form}}
 ```
 
 Each field names a model field and has that field's type, so renaming or retyping a column breaks
@@ -48,24 +35,7 @@ impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    fn form() -> Schema {
-        let c = UserForm::controls();
-        Schema::new(Section::new("Profile").schema((
-            c.name.placeholder("Ada Lovelace"),
-            c.email.email(),
-            c.role.optional(),
-            c.age.optional(),
-        )))
-    }
-
-    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors {
-        let mut errors = FieldErrors::new();
-        if form.age < 0 {
-            errors.add("age", "Age must be zero or more");
-        }
-        errors
-    }
-
+{{#include ../../../examples/guide/src/resources.rs:user-form}}
     // table(), policy …
 }
 ```
@@ -83,17 +53,7 @@ a choice over `T`'s options, `#[form(choice)]` a bare choice, `#[form(file)]` a 
 hands each one over ready for its modifiers, so an override arranges rather than rebinds:
 
 ```rust
-let c = UserForm::controls();
-Schema::new((
-    Section::new("Account").schema((
-        c.email.email(),
-        c.role,
-    )),
-    Grid::new(2).schema((
-        c.name,
-        c.age,
-    )),
-))
+{{#include ../../../examples/guide/src/forms.rs:forms-controls-layout}}
 ```
 
 The `role` control already offers `Role`'s options: `#[form(options = Role)]` chose a choice over
@@ -101,8 +61,7 @@ that list. A closed set of values is a `#[derive(Options)]` enum, shared by the 
 and the column:
 
 ```rust
-Field::choice(User::fields().role()).options(Role::options())
-SelectFilter::new(User::fields().role(), Role::options())
+{{#include ../../../examples/guide/src/forms.rs:forms-role-options}}
 ```
 
 Each variant stores its `snake_case` name and reads as that name in sentence case;
@@ -143,16 +102,7 @@ the input — and the control renders only the input, from a `ControlInput` carr
 current value and the validation state:
 
 ```rust
-struct Color;
-
-impl Control for Color {
-    fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a> {
-        let attrs = input.attributes(cx); // id, name, value, required, aria-*
-        view! { cx => <input type="color" (attrs)> }.boxed()
-    }
-}
-
-Field::custom(Theme::fields().accent(), Color)
+{{#include ../../../examples/guide/src/forms.rs:forms-color-control}}
 ```
 
 `display` renders the stored value on the detail page, as text by default. The submission is read
@@ -193,11 +143,7 @@ an empty `String` is stored as `""`, and the index admits only one. An `Option` 
 A choice over a foreign key loads its options from the related resource:
 
 ```rust
-Field::choice(Post::fields().author_id())
-    // The source, whose scoped query loads the options, and each option's label.
-    .relationship::<AuthorResource>(|a: &Author| a.name.clone())
-    .searchable()
-    .label("Author")
+{{#include ../../../examples/guide/src/forms.rs:forms-relationship-field}}
 ```
 
 Each option's value is the related record's primary key.
@@ -244,21 +190,7 @@ Filenames are reduced to a safe basename before anything sees them.
 Where the bytes go is your app's decision. Install an `Uploader` on the panel:
 
 ```rust
-struct DirUploader { dir: PathBuf }
-
-impl Uploader for DirUploader {
-    async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
-        let name = format!("{}-{filename}", uuid::Uuid::new_v4());
-        tokio::fs::write(self.dir.join(&name), bytes)
-            .await
-            .map_err(|_| "the upload could not be written".to_string())?;
-        Ok(format!("/uploads/{name}")) // the value the record stores
-    }
-}
-
-Panel::new("admin")
-    .uploads(DirUploader { dir: dir.clone() })
-    .serve_dir("/uploads/{*file}", dir)
+{{#include ../../../examples/guide/src/forms.rs:forms-uploader}}
 ```
 
 - `store` returns the value to save. An `Err(reason)` is shown to the user inline as
@@ -286,24 +218,13 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 (`seo_title`, `seo_description`). Derive `EmbeddedForm` on it and the form binds the whole value:
 
 ```rust
-#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
-pub struct Seo {
-    pub title: String,
-    #[form(multiline = 3)]
-    pub description: String,
-}
+{{#include ../../../examples/guide/src/models.rs:seo-struct}}
 
 // In `form()`: one call renders a control per field.
-Section::new("SEO").schema(Seo::form(Post::fields().seo()))
+{{#include ../../../examples/guide/src/forms.rs:forms-embedded-schema}}
 
 // In the record form: the value is one field.
-#[derive(tablo_core::RecordForm)]
-#[form(model = Post)]
-pub struct PostForm {
-    pub title: String,
-    #[form(embed)]
-    pub seo: Seo,
-}
+{{#include ../../../examples/guide/src/forms.rs:forms-embedded-record-form}}
 ```
 
 - Every field of the value is a scalar, or a nested value marked `#[form(embed)]`.

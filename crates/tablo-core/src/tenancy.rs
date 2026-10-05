@@ -91,7 +91,7 @@ pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
 /// [`Resource::tenancy`](crate::resource::Resource::tenancy) returns one. A
 /// scoped tenancy names, by lens, the tenant UUID each row is filtered on:
 ///
-/// ```ignore
+/// ```text
 /// fn tenancy() -> Tenancy<Post> {
 ///     Tenancy::column(Post::fields().tenant_id())
 /// }

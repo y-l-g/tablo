@@ -21,8 +21,16 @@ thread_local! {
 /// each resource's declarations inside such a scope. Call this to build a declaration outside a
 /// panel, such as a [`Schema`](crate::Schema) a custom page renders:
 ///
-/// ```ignore
-/// let form = tablo::declare(&db, PostForm::schema);
+/// ```rust,no_run
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+/// # #[derive(Debug, Clone, tablo_core::RecordForm)]
+/// # #[form(model = Post)]
+/// # struct PostForm { title: String }
+/// # use tablo_core::RecordForm;
+/// # let db: toasty::Db = todo!();
+/// let form = tablo_core::declare(&db, PostForm::schema);
+/// # let _ = form;
 /// ```
 pub fn declare<T>(db: &toasty::Db, declarations: impl FnOnce() -> T) -> T {
     declare_with(Some(db.schema().clone()), declarations)

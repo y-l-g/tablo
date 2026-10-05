@@ -12,7 +12,7 @@ use crate::{form::FormScalar, schema::ResolvedLens, toasty_compat::pk};
 ///
 /// Declared by [`Resource::relations`]:
 ///
-/// ```ignore
+/// ```text
 /// fn relations() -> Vec<Relation<Post>> {
 ///     vec![Relation::has_many::<CommentResource>(Comment::fields().post_id())]
 /// }
@@ -81,7 +81,7 @@ where
     /// Declare a `has_many` child resource whose `foreign_key` holds the owner's primary key, a
     /// single column.
     ///
-    /// ```ignore
+    /// ```text
     /// Relation::has_many::<CommentResource>(Comment::fields().post_id())
     /// ```
     pub fn has_many<C>(foreign_key: Path<C::Model, impl ForeignKey<P::PrimaryKey>>) -> Self

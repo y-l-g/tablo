@@ -14,7 +14,7 @@ use crate::resource::{
 /// sidebar entry; the panel owns the route and entry while the page owns its
 /// markup.
 ///
-/// ```ignore
+/// ```text
 /// struct ReportsPage;
 ///
 /// impl Page for ReportsPage {

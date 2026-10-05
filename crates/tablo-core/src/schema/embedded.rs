@@ -7,7 +7,7 @@
 //!
 //! # What an app writes
 //!
-//! ```ignore
+//! ```text
 //! #[derive(Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 //! pub struct Seo { pub title: String, pub description: String }
 //!

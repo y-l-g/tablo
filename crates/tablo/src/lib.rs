@@ -20,10 +20,8 @@
 //! A minimal app is one model, one [`Resource`], and the [`Panel`] that serves
 //! it — the full version lives in `examples/quickstart`:
 //!
-//! ```ignore
-//! use tablo::prelude::*;
-//! use toasty::Db;
-//!
+//! ```rust
+//! # use tablo::prelude::*;
 //! #[derive(Debug, Clone, toasty::Model)]
 //! pub struct Book {
 //!     #[key]
@@ -48,7 +46,11 @@
 //!         Allow
 //!     }
 //! }
+//! ```
 //!
+//! Mounting serves it on the app's router:
+//!
+//! ```text
 //! let router = Router::builder()
 //!     .discover()
 //!     .app_context(db)

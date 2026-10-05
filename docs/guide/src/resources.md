@@ -7,20 +7,7 @@ unit struct and register it with `Panel::resource`.
 The smallest resource lists rows and nothing else:
 
 ```rust
-pub struct AuditResource;
-
-impl Resource for AuditResource {
-    type Model = Audit;
-    type Form = NoForm<Audit>; // list-only: no create or edit pages
-
-    fn policy() -> impl Policy<Audit> {
-        ReadOnly
-    }
-
-    fn table() -> Table<Audit> {
-        Table::new(TextColumn::new(lens!(Audit.action)))
-    }
-}
+{{#include ../../../examples/guide/src/resources.rs:audit-resource}}
 ```
 
 A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form`. The
@@ -75,9 +62,7 @@ handlers, relationship options and the detail page. Use it for the resource's ow
 such as hiding soft-deleted rows:
 
 ```rust
-fn query(_cx: &Cx) -> Query<List<Post>> {
-    Query::<List<Post>>::all().filter(Post::fields().deleted_at().is_none())
-}
+{{#include ../../../examples/guide/src/resources.rs:soft-deleted-query}}
 ```
 
 Two things do not belong in `query`:
@@ -108,15 +93,10 @@ and checks policy on it. It then calls the resource's record function with the o
 the transaction, override the function and delegate:
 
 ```rust
-async fn update_record(
-    cx: &Cx,
-    record: Comment,
-    posted: Posted<CommentForm>,
-    ex: &mut dyn toasty::Executor,
-) -> Result<Comment> {
-    // `Posted` derefs to the form.
-    ensure_post_in_tenant(cx, posted.post_id, ex).await?;
-    tablo_core::write_update::<Self>(cx, record, posted, ex).await
+impl Resource for CommentResource {
+    type Model = Comment;
+    // …
+{{#include ../../../examples/guide/src/resources.rs:comment-update-record}}
 }
 ```
 
@@ -135,12 +115,7 @@ side effects there — email, webhooks, audit rows, cache invalidation — so a 
 triggers them:
 
 ```rust
-async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
-    for post in committed.records() {
-        notify_subscribers(cx, post).await?;
-    }
-    Ok(())
-}
+{{#include ../../../examples/guide/src/resources.rs:notify-after-commit}}
 ```
 
 `Committed` names the mutation (`Mutation::Create`, `Update`, `Delete`, or `Action(NAME)` for a

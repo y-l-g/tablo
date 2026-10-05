@@ -9,17 +9,7 @@ routes.
 use tablo::prelude::*;
 use topcoat::{asset::RouterBuilderAssetExt, router::{Router, RouterBuilderDiscoverExt}};
 
-let router = Router::builder()
-    .discover()                                // the app's own pages and routes, and Tablo's
-    .app_context(db)                           // the toasty::Db every handler uses
-    .panel(
-        Panel::new("admin")                    // mounted at /admin
-            .brand(Brand::new("Acme"))
-            .home::<Dashboard>()               // GET /admin
-            .resource::<UserResource>()        // /admin/users and its sub-routes
-            .page::<ReportsPage>(),            // GET /admin/reports
-    )?
-    .build();
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-admin-router-body}}
 ```
 
 ## Routes
@@ -95,17 +85,7 @@ One router mounts any number of panels at distinct prefixes, each with its own r
 sidebar, brand and auth:
 
 ```rust
-let router = Router::builder()
-    .discover()
-    .app_context(db)
-    .panel(Panel::new("admin").resource::<UserResource>().resource::<OrderResource>())?
-    .panel(
-        Panel::new("portal")
-            .brand(Brand::new("Customer portal"))
-            .auth(Auth::custom(Customers))
-            .resource::<OrderResource>(),
-    )?
-    .build();
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-two-panels-body}}
 ```
 
 A resource registered by two panels is declared once: both serve the same table, form and policy,
@@ -121,9 +101,7 @@ session. See [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication).
 The `tablo::url` helpers answer for the request's panel, so app code never spells a prefix:
 
 ```rust
-tablo::url::resource::<PostResource>(cx) // Some("/admin/posts")
-tablo::url::page::<ReportsPage>(cx)      // Some("/admin/reports")
-tablo::url::panel(cx)                    // Some("/admin")
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-urls-body}}
 ```
 
 The request's panel is the one whose prefix the request is under; on a router with a single panel
@@ -141,12 +119,7 @@ the shipped one, so a layout that keeps the shell calls it around its own markup
 call it replaces the shell entirely:
 
 ```rust
-fn admin_layout<'a>(cx: &'a Cx, slot: Slot<'a>) -> BoxView<'a> {
-    let page = view! { cx => <div class="acme-admin">(slot)</div> }.boxed();
-    Panel::layout_shell(cx, page.into())
-}
-
-Panel::new("admin").layout(admin_layout)
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-custom-layout}}
 ```
 
 ## Sidebar
@@ -159,9 +132,9 @@ Override `navigation()` on the resource or page to change the order or add an ic
 default entry so the panel still resolves the URL:
 
 ```rust
-fn navigation() -> NavigationItem {
-    NavigationItem { order: -1, ..NavigationItem::for_resource::<Self>() }
-        .icon(tablo_ui::icons::USERS)
+impl Resource for UserResource {
+    // …
+{{#include ../../../examples/guide/src/resources.rs:user-navigation}}
 }
 ```
 
@@ -177,20 +150,7 @@ A page that is not a record list — a dashboard, a report, a settings screen �
 use tablo_core::{Page, Panel};
 use topcoat::{Result, context::Cx, view::{View, view}};
 
-struct ReportsPage;
-
-impl Page for ReportsPage {
-    async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx =>
-            tablo_ui::page(
-                tablo_ui::page_header(tablo_ui::page_title("Reports"))
-                tablo_ui::page_content(tablo_ui::card(tablo_ui::card_content("…")))
-            )
-        })
-    }
-}
-
-Panel::new("admin").page::<ReportsPage>() // GET /admin/reports
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-reports-page}}
 ```
 
 - **Slug and label** default to the type name without its `Page` suffix: `ReportsPage` mounts at
@@ -221,22 +181,7 @@ your own markup. Outside any prefix it takes the panel's shell settings when the
 panel; with several, it renders the document without the panel's stylesheet and font.
 
 ```rust
-// A layout wraps every route under its path: this one wraps /blog and /blog/{id}.
-// A layout at "/" would wrap /admin too.
-#[layout("/blog")]
-async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    Panel::document(
-        cx,
-        "Blog",
-        view! { <div class="mx-auto max-w-3xl px-6 py-10">(slot)</div> },
-    )
-    .await
-}
-
-#[page("/blog")]
-async fn blog() -> Result<impl View> {
-    Ok(view! { "Posts" })
-}
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-blog}}
 ```
 
 A public page loads its rows with a plain Toasty query, not through a resource. The resource's
@@ -246,10 +191,7 @@ tenant predicate. See [Data access](./data-access.md).
 ## Branding and theme
 
 ```rust
-Panel::new("admin")
-    .brand(Brand::new("Acme").logo("/logo.svg"))
-    .dark_mode(true)
-    .login_hint("Demo: admin@example.com / password")
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-brand-body}}
 ```
 
 - `brand` names the panel in the sidebar header, on the login card, and in the topbar on narrow
@@ -266,13 +208,9 @@ form still works. To style it, install the app's Topcoat asset bundle on the rou
 panel the Tailwind stylesheet and the font the shell links:
 
 ```rust
-const GEIST: Font = fontsource_font!(GEIST, host: Asset);
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-geist}}
 
-Router::builder()
-    .discover()
-    .app_context(db)
-    .assets(AssetBundle::load().expect("asset bundle"))
-    .panel(Panel::new("admin").shell_assets(tailwind::stylesheet!(), GEIST))?
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-assets-body}}
 ```
 
 `shell_assets` also makes the shell load `tablo-ui`'s scripts: live search, confirmation dialogs,

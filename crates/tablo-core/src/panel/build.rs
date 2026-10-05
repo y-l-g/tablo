@@ -35,7 +35,7 @@ use crate::{
 
 /// Mounts a [`Panel`] on a router the app owns.
 ///
-/// ```ignore
+/// ```text
 /// use tablo::prelude::*;
 ///
 /// let router = Router::builder()

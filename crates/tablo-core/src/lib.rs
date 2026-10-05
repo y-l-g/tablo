@@ -8,8 +8,19 @@
 //! [`RouterBuilderPanelExt::panel`], which binds every declaration to the database schema and
 //! checks it first; one router mounts any number of panels at distinct prefixes.
 //!
-//! ```ignore
-//! #[derive(RecordForm)]
+//! ```rust,no_run
+//! # use tablo_core::{Allow, Panel, Policy, Resource, RouterBuilderPanelExt};
+//! # use toasty::Db;
+//! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
+//! # fn main() -> topcoat::Result<()> {
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # pub struct Book {
+//! #     #[key]
+//! #     #[auto]
+//! #     pub id: uuid::Uuid,
+//! #     pub title: String,
+//! # }
+//! #[derive(tablo_core::RecordForm)]
 //! #[form(model = Book)]
 //! pub struct BookForm {
 //!     pub title: String,
@@ -26,11 +37,15 @@
 //!     }
 //! }
 //!
+//! # let db: Db = todo!();
 //! let router = Router::builder()
 //!     .discover()
 //!     .app_context(db)
 //!     .panel(Panel::new("admin").resource::<BookResource>())?
 //!     .build();
+//! # let _ = router;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! The [user guide](https://y-l.fr/tablo/nightly/guide/) walks through a complete panel and each

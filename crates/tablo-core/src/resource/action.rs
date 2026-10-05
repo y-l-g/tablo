@@ -14,7 +14,26 @@ use super::Resource;
 /// selection, from the bulk bar, or both ([`ROW`](Self::ROW),
 /// [`BULK`](Self::BULK)). [`Resource::actions`] declares it:
 ///
-/// ```ignore
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     title: String,
+/// #     status: String,
+/// # }
+/// # use tablo_core::{Action, NoForm, Resource, Table, TextColumn, lens};
+/// # use toasty::Executor;
+/// # use topcoat::{Result, context::Cx};
+/// # struct PostResource;
+/// #
+/// # impl Resource for PostResource {
+/// #     type Model = Post;
+/// #     type Form = NoForm<Post>;
+/// #
+/// #     fn table() -> Table<Post> {
+/// #         Table::new(TextColumn::new(lens!(Post.title)))
+/// #     }
+/// # }
 /// struct Publish;
 ///
 /// impl Action<PostResource> for Publish {

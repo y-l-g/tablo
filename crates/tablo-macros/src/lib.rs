@@ -13,7 +13,13 @@ use syn::DeriveInput;
 ///
 /// Builds the schema node and converts the value through that node's keys.
 ///
-/// ```ignore
+/// ```rust,no_run
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     publication: Publication,
+/// # }
+/// # use tablo_core::Section;
 /// #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 /// pub enum Publication {
 ///     #[column(variant = 1)]
@@ -24,11 +30,15 @@ use syn::DeriveInput;
 ///         scheduled_for: String,
 ///     },
 ///     #[column(variant = 2)]
-///     Published { #[shared(timestamp)] published_at: String, canonical_url: String },
+///     Published {
+///         #[shared(timestamp)]
+///         published_at: String,
+///         canonical_url: String,
+///     },
 /// }
 ///
 /// // form declaration — no field bindings written by hand
-/// Section::new("Publication").schema(Publication::form(cx, Post::fields().publication()))
+/// Section::new("Publication").schema(Publication::form(Post::fields().publication()));
 /// ```
 ///
 /// # How a field is classified
@@ -70,7 +80,14 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 /// one) binds the key its control posts; a `#[form(embed)]` field binds every
 /// key of an `EmbeddedForm` value and is written whole.
 ///
-/// ```ignore
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # pub struct User {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     name: String,
+/// #     role: String,
+/// #     age: i64,
+/// # }
 /// #[derive(tablo_core::RecordForm)]
 /// #[form(model = User)]
 /// pub struct UserForm {
@@ -119,8 +136,9 @@ pub fn record_form(input: TokenStream) -> TokenStream {
 /// Derive `Options` for a unit-variant enum: the `(value, label)` list a
 /// choice field, a select filter and a column share.
 ///
-/// ```ignore
-/// #[derive(tablo::Options)]
+/// ```rust
+/// # use tablo_core::Options;
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
 /// pub enum Status {
 ///     Draft,
 ///     #[option(label = "Live")]
