@@ -126,7 +126,7 @@ struct Complete;
 impl Action<TaskResource> for Complete {
     const NAME: &'static str = "complete";
 
-    fn label() -> String {
+    fn label(_cx: &Cx) -> String {
         "Complete".to_string()
     }
 
@@ -153,7 +153,7 @@ impl Action<TaskResource> for Explode {
     const NAME: &'static str = "explode";
     const ROW: bool = false;
 
-    fn label() -> String {
+    fn label(_cx: &Cx) -> String {
         "Explode".to_string()
     }
 
@@ -614,7 +614,7 @@ struct Twice;
 impl Action<TwiceResource> for Twice {
     const NAME: &'static str = "twice";
 
-    fn label() -> String {
+    fn label(_cx: &Cx) -> String {
         "Twice".to_string()
     }
 
