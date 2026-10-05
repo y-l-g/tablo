@@ -2,6 +2,9 @@
 //! tenant; helpers write form and multipart bodies and read values back out of
 //! rendered HTML.
 
+mod dom;
+
+pub use dom::{FilterOption, Row, RowActions, field_error, filter_options, row_actions, rows};
 use http::header::{CONTENT_TYPE, COOKIE};
 use http_body_util::BodyExt;
 use topcoat::router::{Body, Router};

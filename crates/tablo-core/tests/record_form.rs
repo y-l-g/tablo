@@ -13,7 +13,7 @@ use topcoat::context::{Cx, CxTestBuilder};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, get, memory_db, mount, panel, panel_router, post_fields, refusal,
+    body_string, field_error, get, memory_db, mount, panel, panel_router, post_fields, refusal,
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -307,8 +307,16 @@ async fn schema_and_record_errors_render_in_one_round() {
     .await;
     assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
     let html = body_string(response).await;
-    assert!(html.contains("Title is required"), "{html}");
-    assert!(html.contains("Priority is at most 10"), "{html}");
+    assert_eq!(
+        field_error(&html, "title").as_deref(),
+        Some("Title is required"),
+        "{html}"
+    );
+    assert_eq!(
+        field_error(&html, "priority").as_deref(),
+        Some("Priority is at most 10"),
+        "{html}"
+    );
     let stored = reload(&db, item.id).await;
     assert_eq!(stored.priority, 7, "a refused submission writes nothing");
 }

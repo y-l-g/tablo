@@ -6,9 +6,10 @@ pub mod routers;
 
 use showcase::models::{DEMO_ADMIN_EMAIL, seed, seed_content, seed_staff};
 use tablo_core::{Panel, RouterBuilderPanelExt};
+use tablo_test::rows;
 pub use tablo_test::{
-    SESSION_COOKIE, TestClient, body_string, form_body, input_value, multipart_body,
-    response_cookies, session_cookie_value, set_cookie_header,
+    SESSION_COOKIE, TestClient, body_string, filter_options, form_body, input_value,
+    multipart_body, response_cookies, session_cookie_value, set_cookie_header,
 };
 use toasty::Db;
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
@@ -289,62 +290,18 @@ fn unescape_href(href: &str) -> String {
 
 /// Reads the row titles in document order.
 pub fn row_titles(html: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    for chunk in html.split("id=\"row-").skip(1) {
-        let end = chunk.find("</tr>").unwrap_or(chunk.len());
-        let row = &chunk[..end];
-        let mut cells = row.split("<td");
-        cells.next();
-        for cell in cells {
-            let Some(gt) = cell.find('>') else { continue };
-            let after = &cell[gt + 1..];
-            let Some(stop) = after.find("</td>") else {
-                continue;
-            };
-            let text = after[..stop].split('<').next().unwrap_or("").trim();
-            if !text.is_empty() {
-                out.push(text.to_string());
-                break;
-            }
-        }
-    }
-    out
+    rows(html)
+        .into_iter()
+        .filter_map(|row| row.cells.into_iter().find(|cell| !cell.is_empty()))
+        .collect()
 }
 
 /// Reads the record key of every rendered row.
 pub fn row_keys(html: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut rest = html;
-    while let Some(at) = rest.find("<input") {
-        rest = &rest[at..];
-        let mut quoted = false;
-        let mut end = rest.len();
-        for (offset, byte) in rest.bytes().enumerate() {
-            match byte {
-                b'"' => quoted = !quoted,
-                b'>' if !quoted => {
-                    end = offset;
-                    break;
-                }
-                _ => {}
-            }
-        }
-        let tag = &rest[..end];
-        if tag.contains("data-row-select")
-            && let Some(value_at) = tag.find("value=\"")
-        {
-            let after = &tag[value_at + "value=\"".len()..];
-            if let Some(close) = after.find('"') {
-                out.push(after[..close].to_string());
-            }
-        }
-        rest = &rest[end..];
-        if rest.is_empty() {
-            break;
-        }
-        rest = &rest[1..];
-    }
-    out
+    rows(html)
+        .into_iter()
+        .filter_map(|row| row.select_value)
+        .collect()
 }
 
 /// Counts `Post` rows.

@@ -50,10 +50,13 @@ state, which makes that safe. A test needing isolation gets a dedicated target.
 `crates/tablo-test` holds the protocol helpers both integration suites share:
 `TestClient`, the body readers, the form and multipart writers, the cookie
 jar and `Set-Cookie` parsing, the session-cookie helpers the auth suites use,
-and the robust `input_value`. What names crate-local models stays per
+the robust `input_value`, and the semantic HTML queries `rows`,
+`row_actions`, `field_error`, and `filter_options`. Row, field-error, and
+filter-value asserts go through those queries rather than substrings of
+markup. What names crate-local models stays per
 crate: the seed and database fixtures, the showcase login and session-mint
 flow, the core panel builders and free POST/GET helpers, and the
-showcase-only scrapers.
+showcase-only link scrapers.
 
 The shared `multipart_body` emits no per-part `Content-Type`: neither server
 parser reads one. The framework parser tells file parts from text parts by
