@@ -33,11 +33,11 @@ impl Resource for OwnerResource {
     type Model = Owner;
     type Form = OwnerForm;
 
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new(Field::text(Owner::fields().name()))
     }
 
-    fn view(_dx: &tablo_core::DeclCx) -> Schema {
+    fn view() -> Schema {
         Schema::new(Field::text(Owner::fields().name()))
     }
 
@@ -73,7 +73,7 @@ impl Resource for ChildResource {
     type Model = Child;
     type Form = ChildForm;
 
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new((
             Field::text(Child::fields().body()),
             Field::choice(Child::fields().owner_id())

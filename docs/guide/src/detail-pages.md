@@ -1,19 +1,21 @@
 # Detail pages
 
-A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource gets one by
-declaring `view(dx)`: a `Schema` built from the same fields and layout blocks as a form. It takes
-a `DeclCx` carrying the app schema alone, like `form(dx)`, and the panel calls it once at build.
+A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource declares it in
+`view()`: a `Schema` built from the same fields and layout blocks as a form, which the panel calls
+once at build. `view()` defaults to `form()`, so a resource with a form has a detail page showing
+the form's fields read-only. A form with fields that must stay off the detail page overrides
+`view()` with a subset or `Schema::empty()`. Override it to show other fields or another layout:
 
 ```rust
-fn view(dx: &DeclCx) -> Schema {
-    let c = PostForm::controls(dx);
+fn view() -> Schema {
+    let c = PostForm::controls();
     Schema::new(Section::new("Post").schema((c.title, c.body.multiline(6), c.status)))
 }
 ```
 
-Declaring a view adds a View action to each row. A resource without one has no detail page: the
-route answers 404 and no row links to it. The view is its own declaration, so it may show fields
-the form does not, and a list-only resource can declare one too.
+A non-empty view adds a View action to each row. An empty one, `Schema::empty()`, turns the
+detail page off: the route answers 404 and no row links to it. A `NoForm` resource has an empty
+view unless it declares one.
 
 ## What the page shows
 

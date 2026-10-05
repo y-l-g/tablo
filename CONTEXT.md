@@ -87,8 +87,8 @@ uses the name; the rendered list is a Table everywhere, including comments and l
 
 A model field named once: `lens!(User.name)` pairs the field's query path with the reader of its
 value off a loaded record, so a Column sorts on the field it renders. A chain reaches an embedded
-leaf (`lens!(Post.seo.title)`), never a relation; a Column binds one field of the model. Builders
-that only query take a lens or a plain Toasty path.
+leaf (`lens!(Post.seo.title)`), never a relation; an embedded leaf binds its flattened column when
+the Panel mounts. Builders that only query take a lens or a plain Toasty path.
 
 _Avoid_: Accessor, Getter, statePath
 
@@ -140,8 +140,9 @@ _Avoid_: Nested form, Sub-form, Composite field, Inline model
 
 The typed struct a Resource's form submission parses into: `#[derive(RecordForm)]`, with one
 field per model column the form writes, named and typed like the model's field. The derive emits
-one control per field (`controls(dx)`), chosen from the field, and the default schema arranging
-them in order; the resource overrides `form(dx)` to arrange them into a layout instead. The Panel
+one control per field (`controls()`), chosen from the field, the default schema arranging them in
+order, and the default Table listing those a column can show; the resource overrides `form()` or `table()` to arrange
+or extend them instead. The Panel
 hydrates edit forms and detail pages from it and writes it through Toasty's builders.
 
 _Avoid_: Patch, Draft, Input, DTO, Form (alone: that is the Schema)

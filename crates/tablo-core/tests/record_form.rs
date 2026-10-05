@@ -57,7 +57,7 @@ impl Resource for ItemResource {
     type Model = Item;
     type Form = ItemForm;
 
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         item_schema()
     }
 
@@ -86,7 +86,7 @@ impl Resource for ItemResource {
         item_table()
     }
 
-    fn view(_dx: &tablo_core::DeclCx) -> Schema {
+    fn view() -> Schema {
         Schema::new(Field::text(Item::fields().title()))
     }
 }
@@ -331,7 +331,7 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
         type Form = ItemForm;
 
         /// Every control `ItemForm` binds.
-        fn form(_dx: &tablo_core::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new((
                 Field::text(Item::fields().title()),
                 Repeater::new("Tags").schema((
@@ -415,7 +415,7 @@ impl Resource for OwnedResource {
     type Model = Owned;
     type Form = OwnedForm;
 
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new(Field::text(Owned::fields().title()))
     }
 
@@ -487,7 +487,7 @@ macro_rules! item_resource {
                 item_table()
             }
 
-            fn form(_dx: &tablo_core::DeclCx) -> Schema {
+            fn form() -> Schema {
                 $schema
             }
         }
@@ -598,8 +598,8 @@ async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
         type Model = Dated;
         type Form = DatedForm;
 
-        fn form(dx: &tablo_core::DeclCx) -> Schema {
-            Schema::new(Life::form(dx, Dated::fields().life()))
+        fn form() -> Schema {
+            Schema::new(Life::form(Dated::fields().life()))
         }
 
         fn slug() -> String {
@@ -651,8 +651,8 @@ async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
         type Model = Clip;
         type Form = ClipForm;
 
-        fn form(dx: &tablo_core::DeclCx) -> Schema {
-            Schema::new(Repeater::new("Clips").schema(Body::form(dx, Clip::fields().body())))
+        fn form() -> Schema {
+            Schema::new(Repeater::new("Clips").schema(Body::form(Clip::fields().body())))
         }
 
         fn slug() -> String {
@@ -689,7 +689,7 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
         type Model = Owned;
         type Form = ClaimingForm;
 
-        fn form(_dx: &tablo_core::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new((
                 Field::text(Owned::fields().tenant_id()),
                 Field::text(Owned::fields().title()),
@@ -736,7 +736,7 @@ macro_rules! list_only_resource {
                 item_table()
             }
 
-            fn form(_dx: &tablo_core::DeclCx) -> Schema {
+            fn form() -> Schema {
                 $schema
             }
         }
@@ -820,7 +820,7 @@ async fn a_list_only_detail_page_reads_view_values() {
             item_table()
         }
 
-        fn view(_dx: &tablo_core::DeclCx) -> Schema {
+        fn view() -> Schema {
             Schema::new(Field::text(Item::fields().title()))
         }
 
@@ -889,7 +889,7 @@ macro_rules! title_only_resource {
                 item_table()
             }
 
-            fn form(_dx: &tablo_core::DeclCx) -> Schema {
+            fn form() -> Schema {
                 Schema::new(Field::text(Item::fields().title()))
             }
         }
@@ -926,7 +926,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
         type Model = Item;
         type Form = PriorityForm;
 
-        fn form(_dx: &tablo_core::DeclCx) -> Schema {
+        fn form() -> Schema {
             // A static-options select checks membership, not the column's type.
             Schema::new(
                 Field::choice(Item::fields().priority())
@@ -977,7 +977,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_dx: &tablo_core::DeclCx) -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields() -> Vec<tablo_core::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -1018,7 +1018,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Form = Keyless;
 
-        fn form(_dx: &tablo_core::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::empty()
         }
 
@@ -1061,7 +1061,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_dx: &tablo_core::DeclCx) -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields() -> Vec<tablo_core::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -1105,7 +1105,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Form = Unkeyable;
 
-        fn form(_dx: &tablo_core::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::empty()
         }
 
@@ -1281,4 +1281,129 @@ async fn the_derived_default_form_renders_and_writes() {
     assert!(stored.active);
     assert_eq!(stored.name, "New", "an unposted key keeps its value");
     assert_eq!(stored.role, "admin", "an unposted key keeps its value");
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Ticket {
+    #[key]
+    #[auto]
+    id: Uuid,
+    subject: String,
+    status: String,
+    urgent: bool,
+    estimate: i64,
+}
+
+#[derive(tablo_core::Options)]
+enum TicketStatus {
+    Open,
+    #[option(label = "Waiting on customer")]
+    Waiting,
+}
+
+#[derive(tablo_core::RecordForm)]
+#[form(model = Ticket)]
+struct TicketForm {
+    subject: String,
+    #[form(options = TicketStatus)]
+    status: String,
+    urgent: bool,
+    estimate: i64,
+}
+
+/// A resource naming only its model, its form and its policy.
+struct TicketResource;
+
+impl Resource for TicketResource {
+    type Model = Ticket;
+    type Form = TicketForm;
+
+    fn policy() -> impl Policy<Ticket> {
+        tablo_core::ReadOnly
+    }
+}
+
+/// The same resource with its detail page turned off.
+struct UnviewedTicketResource;
+
+impl Resource for UnviewedTicketResource {
+    type Model = Ticket;
+    type Form = TicketForm;
+
+    fn policy() -> impl Policy<Ticket> {
+        tablo_core::ReadOnly
+    }
+
+    fn view() -> Schema {
+        Schema::empty()
+    }
+}
+
+async fn ticket_db() -> (Db, Ticket) {
+    let mut db = memory_db(toasty::models!(Ticket)).await;
+    let ticket = toasty::create!(Ticket {
+        subject: "Printer jam".to_string(),
+        status: TicketStatus::Waiting.value().to_string(),
+        urgent: true,
+        estimate: 3,
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed ticket");
+    toasty::create!(Ticket {
+        subject: "New laptop".to_string(),
+        status: TicketStatus::Open.value().to_string(),
+        urgent: false,
+        estimate: 8,
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed ticket");
+    (db, ticket)
+}
+
+/// The record form derives the table: a sortable column per text field, searchable over a
+/// `String`, an options field by its label, and a toggle as yes or no.
+#[tokio::test]
+async fn the_record_form_derives_the_table() {
+    let (db, _) = ticket_db().await;
+    let router = panel_router::<TicketResource>(db);
+
+    let html = body_string(get(&router, "/admin/tickets?sort=estimate&dir=desc").await).await;
+    for header in ["Subject", "Status", "Urgent", "Estimate"] {
+        assert!(html.contains(header), "a {header} column: {html}");
+    }
+    assert!(
+        html.contains("Waiting on customer") && !html.contains(">waiting<"),
+        "an options field shows its label: {html}"
+    );
+    assert!(html.contains("Yes") && html.contains("No"), "{html}");
+    assert!(
+        html.find("New laptop").unwrap() < html.find("Printer jam").unwrap(),
+        "sorted by the estimate, descending: {html}"
+    );
+
+    let searched = body_string(get(&router, "/admin/tickets?q=printer").await).await;
+    assert!(
+        searched.contains("Printer jam") && !searched.contains("New laptop"),
+        "searched by the subject: {searched}"
+    );
+}
+
+/// The detail page defaults to the form, read-only; an empty view turns it off.
+#[tokio::test]
+async fn the_view_defaults_to_the_form() {
+    let (db, ticket) = ticket_db().await;
+    let viewed = panel_router::<TicketResource>(db.clone());
+    let detail = get(&viewed, &format!("/admin/tickets/{}", ticket.id)).await;
+    assert_eq!(detail.status(), StatusCode::OK);
+    let detail = body_string(detail).await;
+    assert!(
+        detail.contains("Printer jam") && !detail.contains("name=\"subject\""),
+        "the form's fields, read-only: {detail}"
+    );
+
+    let unviewed = panel_router::<UnviewedTicketResource>(db);
+    let detail = get(&unviewed, &format!("/admin/unviewed-tickets/{}", ticket.id)).await;
+    assert_eq!(detail.status(), StatusCode::NOT_FOUND);
 }

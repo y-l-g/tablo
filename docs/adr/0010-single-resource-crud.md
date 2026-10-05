@@ -14,7 +14,7 @@ A `Resource` on a `Panel` is writable on the framework seams.
   `update_record` beside `type Form`, registered with `Panel::resource`) inside a framework-owned
   transaction, re-checking policy on the tenant-scoped snapshot; bulk delete re-fetches every ID
   and is all-or-nothing (ADR-0004). The list wires `DeleteAny` to row Delete plus bulk bar, a
-  record form to the Edit link, and a non-empty `view(dx)` schema to the View link.
+  record form to the Edit link, and a non-empty `view()` schema to the View link.
 - **Schema** hydrates and dehydrates through typed lenses:
   `Field::text(User::fields().name()).required().email().unique()` rejects a bad field at compile
   time; the edit form hydrates from `RecordForm::hydrate`, and validation collects

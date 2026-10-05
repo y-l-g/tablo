@@ -131,7 +131,7 @@ async fn csrf_is_enforced_with_auth_disabled() {
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table()
         }
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
     }
@@ -234,7 +234,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
         // Not gated, so the tenant is not stamped: a create override would
         // set it.
         const CREATE_COLUMNS: &'static [&'static str] = &["tenant_id"];
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Author::fields().email()).unique())
         }
 
@@ -422,7 +422,7 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
 async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
     use crate::{
         resource::{Resource, Table, TextColumn},
-        schema::{DeclCx, Field, Schema},
+        schema::{Field, Schema},
     };
 
     fn parent_table() -> Table<Parent> {
@@ -488,8 +488,8 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
                         matches!(ability, Ability::ViewAny | Ability::Create)
                     }
                 }
-                fn form(dx: &DeclCx) -> Schema {
-                    $schema(dx)
+                fn form() -> Schema {
+                    $schema()
                 }
                 fn table() -> Table<Child> {
                     Table::new(TextColumn::new(lens!(Child.name)))
@@ -498,19 +498,19 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
         };
     }
 
-    via_child!(WithoutKey, NameForm, |_dx: &DeclCx| Schema::new(
-        Field::text(Child::fields().name())
-    ));
-    via_child!(OverOpenParent, KeyedForm, |dx: &DeclCx| {
-        let c = KeyedForm::controls(dx);
+    via_child!(WithoutKey, NameForm, || Schema::new(Field::text(
+        Child::fields().name()
+    )));
+    via_child!(OverOpenParent, KeyedForm, || {
+        let c = KeyedForm::controls();
         Schema::new((
             c.name,
             c.parent_id
                 .relationship::<OpenParents>(|p: &Parent| p.name.clone()),
         ))
     });
-    via_child!(OverScopedParent, KeyedForm, |dx: &DeclCx| {
-        let c = KeyedForm::controls(dx);
+    via_child!(OverScopedParent, KeyedForm, || {
+        let c = KeyedForm::controls();
         Schema::new((
             c.name,
             c.parent_id
@@ -547,7 +547,7 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
 async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
     use crate::{
         resource::{Resource, Table, TextColumn},
-        schema::{DeclCx, Schema},
+        schema::Schema,
     };
 
     #[derive(Debug, Clone, toasty::Model)]
@@ -584,8 +584,8 @@ async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
                 matches!(ability, Ability::ViewAny | Ability::Create)
             }
         }
-        fn form(dx: &DeclCx) -> Schema {
-            let c = SeatedForm::controls(dx);
+        fn form() -> Schema {
+            let c = SeatedForm::controls();
             Schema::new((
                 c.name,
                 c.parent_id
@@ -663,7 +663,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
     impl Resource for UnbackedResource {
         type Model = Subscriber;
         type Form = UnbackedForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Subscriber::fields().nickname()).unique())
         }
 
@@ -723,7 +723,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
     impl Resource for ChromeResource {
         type Model = Subscriber;
         type Form = ChromeForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Subscriber::fields().nickname()))
         }
 
@@ -766,7 +766,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         fn table() -> Table<Subscriber> {
             keyed_table()
         }
-        fn view(_dx: &crate::schema::DeclCx) -> Schema {
+        fn view() -> Schema {
             Schema::new(Field::text(Subscriber::fields().nickname()))
         }
     }
@@ -805,7 +805,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
     impl Resource for ReadOnlyResource {
         type Model = Subscriber;
         type Form = ReadOnlyForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Subscriber::fields().nickname()).unique())
         }
 
@@ -940,18 +940,12 @@ fn panel_build_rejects_route_pattern_characters_in_a_slug() {
 async fn panel_build_reports_recorded_table_misdeclarations() {
     use crate::resource::{Resource, Table, TextColumn};
 
-    #[derive(Debug, Clone, toasty::Embed)]
-    struct Meta {
-        note: String,
-    }
-
     #[derive(Debug, toasty::Model, Clone)]
     struct Doc {
         #[key]
         #[auto]
         id: uuid::Uuid,
         title: String,
-        meta: Meta,
     }
 
     /// Two columns over one field: a duplicate name.
@@ -967,20 +961,6 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
                 TextColumn::new(lens!(Doc.title)),
                 TextColumn::new(lens!(Doc.title)),
             ))
-        }
-    }
-
-    /// An embedded step is not a single-field lens: the column records the
-    /// refused traversal.
-    struct TraversalLensResource;
-    impl Resource for TraversalLensResource {
-        type Model = Doc;
-        type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "docs".to_string()
-        }
-        fn table() -> Table<Doc> {
-            Table::new(TextColumn::new(lens!(Doc.meta.note)))
         }
     }
 
@@ -1010,15 +990,6 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
     let error = format!("{error}");
     assert!(
         error.contains("is misdeclared") && error.contains("table: duplicate column name"),
-        "the recorded misdeclaration must reach the registration error, got {error}"
-    );
-
-    let Err(error) = mount(db.clone(), panel().resource::<TraversalLensResource>()) else {
-        panic!("a traversal lens must not build");
-    };
-    let error = format!("{error}");
-    assert!(
-        error.contains("is misdeclared") && error.contains("single-field lens"),
         "the recorded misdeclaration must reach the registration error, got {error}"
     );
 
@@ -1238,7 +1209,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
             dummy_table()
         }
 
-        fn view(_dx: &crate::schema::DeclCx) -> Schema {
+        fn view() -> Schema {
             Schema::new((
                 Field::text(Dummy::fields().name()),
                 Field::text(Dummy::fields().name()),
@@ -1305,12 +1276,12 @@ async fn declarations_are_built_once_across_requests() {
             dummy_table()
         }
 
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             FORM_CALLS.fetch_add(1, Ordering::SeqCst);
             Schema::new(Field::text(Dummy::fields().name()))
         }
 
-        fn view(_dx: &crate::schema::DeclCx) -> Schema {
+        fn view() -> Schema {
             VIEW_CALLS.fetch_add(1, Ordering::SeqCst);
             Schema::new(Field::text(Dummy::fields().name()))
         }

@@ -11,7 +11,7 @@
 //! #[derive(Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 //! pub struct Seo { pub title: String, pub description: String }
 //!
-//! Section::new("SEO").schema(Seo::form(dx, Post::fields().seo()));
+//! Section::new("SEO").schema(Seo::form(Post::fields().seo()));
 //! record.seo.write_form(cx, Post::fields().seo(), &mut values);
 //! let seo = Seo::read_form(cx, Post::fields().seo(), &values)?;
 //! ```
@@ -32,7 +32,7 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{
     Schema,
     fields::Field,
-    lenses::{DeclCx, FieldResolver},
+    lenses::{FieldResolver, declare_with, schema_of},
     tree::{LeafPlace, Mode, Node, Source},
 };
 use crate::form::{FieldError, FormScalar};
@@ -50,7 +50,8 @@ pub trait EmbeddedForm: Sized {
     ) where
         M: toasty::schema::Model,
     {
-        let schema = Self::build_schema(&DeclCx::from_cx(cx), parent.into());
+        let parent = parent.into();
+        let schema = declare_with(schema_of(cx), || Self::build_schema(parent));
         self.write_node(schema.embedded_root(), out);
     }
 
@@ -69,13 +70,14 @@ pub trait EmbeddedForm: Sized {
     where
         M: toasty::schema::Model,
     {
-        let schema = Self::build_schema(&DeclCx::from_cx(cx), parent.into());
+        let parent = parent.into();
+        let schema = declare_with(schema_of(cx), || Self::build_schema(parent));
         Self::read_node(schema.embedded_root(), values)
     }
 
-    /// The value's schema: one node holding its resolved fields.
+    /// The value's schema: one node holding its fields, resolved through the app schema in scope.
     #[doc(hidden)]
-    fn build_schema<M>(dx: &DeclCx, parent: Path<M, Self>) -> Schema
+    fn build_schema<M>(parent: Path<M, Self>) -> Schema
     where
         M: toasty::schema::Model;
 
@@ -438,16 +440,17 @@ impl EmbeddedBuilder {
         }
     }
 
-    /// Builds an enum value at `parent` from the app schema and panics when the schema is missing
-    /// or `parent` names no embedded enum.
-    pub fn enumeration<M, T>(dx: &DeclCx, parent: Path<M, T>) -> Self
+    /// Builds an enum value at `parent` from the app schema in scope and panics when none is in
+    /// scope or `parent` names no embedded enum.
+    pub fn enumeration<M, T>(parent: Path<M, T>) -> Self
     where
         M: toasty::schema::Model,
     {
-        let resolver = FieldResolver::new(dx);
+        let resolver = FieldResolver::current();
         assert!(
             resolver.has_schema(),
-            "an embedded enum needs the app schema: build the `DeclCx` from a `Db`"
+            "an embedded enum resolves through the app schema: declare it while a panel mounts, \
+             or inside `tablo::declare`"
         );
         let shape = resolver.resolve_enum(parent).unwrap_or_else(|| {
             panic!(
@@ -557,12 +560,12 @@ impl EmbeddedBuilder {
 
 /// Collects every form key the embedded value at `parent` occupies.
 #[doc(hidden)]
-pub fn embedded_keys<M, T>(dx: &DeclCx, parent: impl Into<Path<M, T>>) -> Vec<String>
+pub fn embedded_keys<M, T>(parent: impl Into<Path<M, T>>) -> Vec<String>
 where
     M: toasty::schema::Model,
     T: EmbeddedForm,
 {
-    T::build_schema(dx, parent.into()).embedded_root().keys()
+    T::build_schema(parent.into()).embedded_root().keys()
 }
 
 /// Reads one leaf out of a submission by its resolved key, answering a blank with the member's

@@ -47,7 +47,7 @@ async fn options_endpoint_searches_and_gates() {
     impl Resource for OptPostResource {
         type Model = OptPost;
         type Form = OptPostForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(OptPost::fields().author_id())
                     .relationship::<OptAuthorResource>(|a: &OptAuthor| a.name.clone())
@@ -214,7 +214,7 @@ async fn option_load_loads_no_relation() {
     impl Resource for OwnerResource {
         type Model = Owner;
         type Form = OwnerForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(Owner::fields().child_id())
                     .relationship::<ChildSource>(|c: &Child| c.name.clone())
@@ -334,7 +334,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     impl Resource for SearchableParent {
         type Model = BigP;
         type Form = SearchableParentForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(BigP::fields().author_id())
                     .relationship::<BigAResource>(|a: &BigA| a.name.clone())
@@ -358,7 +358,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     impl Resource for PlainParent {
         type Model = BigP;
         type Form = PlainParentForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(
                 crate::schema::Field::choice(BigP::fields().author_id())
                     .relationship::<BigAResource>(|a: &BigA| a.name.clone()),

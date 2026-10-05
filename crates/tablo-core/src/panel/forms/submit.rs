@@ -28,7 +28,7 @@ use crate::{
     form::{FieldErrorKind, FieldErrors, Posted, RecordForm},
     policy::{Ability, can},
     resource::{Committed, Resource, declared},
-    schema::{DeclCx, Schema},
+    schema::Schema,
 };
 
 const WRITE_CREATE: &str = "create the record";
@@ -187,9 +187,13 @@ fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> to
     .into()
 }
 
-fn named_fields<F: RecordForm>(cx: &Cx, named: &HashSet<String>) -> Vec<F::Field> {
-    F::fields(&DeclCx::from_cx(cx))
-        .into_iter()
+fn named_fields<R: Resource>(
+    cx: &Cx,
+    named: &HashSet<String>,
+) -> Vec<<R::Form as RecordForm>::Field> {
+    declared::<R>(cx)
+        .fields
+        .iter()
         .filter(|field| field.keys.iter().any(|key| named.contains(key)))
         .map(|field| field.field)
         .collect()
@@ -283,7 +287,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             )
             .await;
         };
-        let posted = Posted::new(form, named_fields::<R::Form>(cx, &named));
+        let posted = Posted::new(form, named_fields::<R>(cx, &named));
         let written = R::update_record(cx, record, posted, &mut tx).await;
         commit_write::<R, _>(cx, tx, written, Committed::updated, "Updated", WRITE_UPDATE).await
     })))

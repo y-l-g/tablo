@@ -87,7 +87,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
     impl Resource for DummyResource {
         type Model = Dummy;
         type Form = DummyForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::file(Dummy::fields().name()))
         }
 

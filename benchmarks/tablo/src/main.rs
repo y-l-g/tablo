@@ -83,7 +83,7 @@ pub struct PostResource;
 impl Resource for PostResource {
     type Model = Post;
     type Form = PostForm;
-    fn form(_dx: &tablo_core::DeclCx) -> Schema {
+    fn form() -> Schema {
         Schema::new(Field::text(Post::fields().title()).required())
     }
 

@@ -170,7 +170,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     impl Resource for ReadingResource {
         type Model = Reading;
         type Form = ReadingForm;
-        fn form(_dx: &tablo_core::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Reading::fields().word_count()))
         }
 

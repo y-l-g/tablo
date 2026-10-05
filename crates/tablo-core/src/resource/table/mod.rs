@@ -11,7 +11,7 @@ use super::{
     filter::{BoxFilter, IntoFilters},
     state::{TableState, with_return},
 };
-use crate::{Lens, form::FormScalar, schema::LensBinding};
+use crate::{Lens, form::FormScalar, schema::ResolvedLens};
 
 mod export;
 mod render;
@@ -321,7 +321,7 @@ impl<M> Table<M> {
         M: toasty::schema::Model + Send + Sync + 'static,
         T: FormScalar + Send + Sync + 'static,
     {
-        let binding = LensBinding::of(lens.path().clone());
+        let binding = ResolvedLens::of(lens.path().clone());
         self.misdeclared.extend(binding.misdeclared);
         self.group_by = Some(GroupDef {
             name: binding.name,
@@ -363,8 +363,7 @@ impl<M> Table<M> {
         let mut errors = self.misdeclared.clone();
         if self.columns.is_empty() {
             errors.push(
-                "a Table needs at least one column: declare columns with Table::new(columns)"
-                    .to_string(),
+                "a Table needs at least one column: declare columns with `Table::new(columns)` or in `Resource::table`".to_string(),
             );
         }
         let mut seen = std::collections::HashSet::with_capacity(self.columns.len());

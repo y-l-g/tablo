@@ -1,13 +1,20 @@
 //! Tablo: a server-rendered admin toolkit on [Topcoat](topcoat) and [Toasty](toasty).
 //!
-//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource declares its list page as a
-//! [`Table`], its create and edit forms as a [`Schema`] plus a
-//! [`RecordForm`](derive@RecordForm) struct the submission parses into, and its [`Policy`], which
-//! denies by default. The app mounts the panel on its own Topcoat router with
-//! [`RouterBuilderPanelExt::panel`], which checks every declaration first; one router mounts any
-//! number of panels at distinct prefixes.
+//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model, the
+//! [`RecordForm`](derive@RecordForm) struct its create and edit submissions parse into, and its
+//! [`Policy`], which denies by default. The record form derives the rest: the list page's
+//! [`Table`], the form's [`Schema`] and the detail page's, each of which the resource overrides
+//! to arrange or extend. The app mounts the panel on its own Topcoat router with
+//! [`RouterBuilderPanelExt::panel`], which binds every declaration to the database schema and
+//! checks it first; one router mounts any number of panels at distinct prefixes.
 //!
 //! ```ignore
+//! #[derive(RecordForm)]
+//! #[form(model = Book)]
+//! pub struct BookForm {
+//!     pub title: String,
+//! }
+//!
 //! pub struct BookResource;
 //!
 //! impl Resource for BookResource {
@@ -16,14 +23,6 @@
 //!
 //!     fn policy() -> impl Policy<Book> {
 //!         Allow
-//!     }
-//!
-//!     fn table() -> Table<Book> {
-//!         Table::new(TextColumn::new(lens!(Book.title)).searchable())
-//!     }
-//!
-//!     fn form(_dx: &crate::schema::DeclCx) -> Schema {
-//!         Schema::new(Field::text(Book::fields().title()))
 //!     }
 //! }
 //!
@@ -54,13 +53,16 @@ pub mod __macro {
     pub use topcoat::context::Cx;
 
     pub use crate::{
+        Lens,
         form::{FieldError, FormField, FormScalar, RecordForm, assert_form_scalar, parse_scalar},
+        resource::{BooleanColumn, Table, TextColumn},
         schema::{
-            ChoiceField, CustomField, DeclCx, EmbeddedForm, Field, FileField, IntoSchema, Options,
-            ResolvedLens, Schema, TextField,
+            ChoiceField, CustomField, EmbeddedForm, Field, FileField, IntoSchema, Options, Schema,
+            TextField,
             embedded::{
                 Embedded, EmbeddedBuilder, embedded_keys, parse_leaf, take_leaf, take_value,
             },
+            form_key,
         },
     };
 }
@@ -102,9 +104,9 @@ pub use resource::{
     TablePage, TableState, TernaryFilter, TextColumn, scoped_query, scoped_view_query,
 };
 pub use schema::{
-    ChoiceField, Control, ControlInput, CustomField, DeclCx, EmbeddedForm, Field, FileField, Grid,
-    Group, IntoOptions, IntoSchema, Options, Repeater, ResolvedLens, Schema, Section, Source,
-    TextField, Toggle,
+    ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FileField, Grid, Group,
+    IntoOptions, IntoSchema, Options, Repeater, Schema, Section, Source, TextField, Toggle,
+    declare,
 };
 pub use tablo_macros::{EmbeddedForm, Options, RecordForm};
 pub use tenancy::{Membership, Tenancy, Tenant, membership, require_tenant, tenant_id};

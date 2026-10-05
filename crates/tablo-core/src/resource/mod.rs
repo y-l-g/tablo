@@ -12,7 +12,6 @@ use crate::{
     error::TabloError,
     form::{FieldErrors, Posted, RecordForm, write_create, write_update},
     policy::{Deny, Policy},
-    schema::DeclCx,
     tenancy::Tenancy,
 };
 
@@ -63,11 +62,14 @@ pub(crate) use crate::query_term::clamp_query_term;
 ///
 /// # Contract
 ///
-/// Requires [`Model`](Self::Model), [`Form`](Self::Form), and [`table`](Self::table);
-/// every other item has a default. Declarations build once at mount and serve
-/// every request; record fns run inside the handler transaction and fail
-/// without partial writes. Row chrome follows the declarations; the default
-/// policy denies all.
+/// Requires [`Model`](Self::Model) and [`Form`](Self::Form); every other item has a default. The
+/// record form derives the [`table`](Self::table), the [`form`](Self::form) and the
+/// [`view`](Self::view), so a resource overrides one only to arrange or extend it.
+///
+/// Declarations take no arguments: the panel calls each once when it mounts, binding the paths
+/// they name to the database schema, and serves the result to every request. Record fns run
+/// inside the handler transaction and fail without partial writes. Row chrome follows the
+/// declarations; the default policy denies all.
 ///
 /// [`table`]: Self::table
 /// [`form`]: Self::form
@@ -107,9 +109,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
         Tenancy::none()
     }
 
-    /// Declares the read-only detail schema; empty disables the detail route.
-    fn view(_dx: &DeclCx) -> crate::schema::Schema {
-        crate::schema::Schema::empty()
+    /// Declares the read-only detail schema; defaults to the [`form`](Self::form), and empty
+    /// disables the detail route.
+    fn view() -> crate::schema::Schema {
+        Self::form()
     }
 
     /// Renders free-form content below [`view`](Self::view) and above
@@ -144,8 +147,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// the post's title, so its heading reads the title instead of
     /// `Blog Post <record key>`.
     ///
-    /// `cx` is the request's context — the same one [`view`](Self::view) and
-    /// [`view_values`](Self::view_values) receive — so a label
+    /// `cx` is the request's context — the same one
+    /// [`view_values`](Self::view_values) receives — so a label
     /// can read request state (a locale, a tenant). The default ignores both
     /// arguments and returns `None`.
     ///
@@ -250,33 +253,40 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// Description of the list view.
     ///
-    /// Every resource declares its table with [`Table::new`]: columns and the
-    /// row key the list renders (see [`Table::render`]). It takes no context:
-    /// the panel calls it once, at build, and serves that table to every
-    /// request. What depends on the request — which rows a user may act on —
-    /// is the policies' business, which the panel wires per request.
-    fn table() -> Table<Self::Model>;
+    /// Defaults to the record form's derived table ([`RecordForm::table`]): one column per
+    /// field a column can show. Override it to choose the columns, or to extend the derived
+    /// table with filters or grouping:
+    ///
+    /// ```ignore
+    /// fn table() -> Table<Post> {
+    ///     PostForm::table().filters(TernaryFilter::new(Post::fields().featured()))
+    /// }
+    /// ```
+    ///
+    /// What depends on the request — which rows a user may act on — is the policies' business,
+    /// which the panel wires per request.
+    fn table() -> Table<Self::Model> {
+        <Self::Form as RecordForm>::table()
+    }
 
     /// The schema the create and edit forms render.
     ///
     /// Defaults to the record form's derived schema
     /// ([`RecordForm::schema`]): one control per field, in declaration order.
     /// Override it to arrange the controls into a layout — the derive's
-    /// `controls(dx)` hands each one over, ready for its modifiers:
+    /// `controls()` hands each one over, ready for its modifiers:
     ///
     /// ```ignore
-    /// fn form(dx: &DeclCx) -> Schema {
-    ///     let c = PostForm::controls(dx);
+    /// fn form() -> Schema {
+    ///     let c = PostForm::controls();
     ///     Schema::new(Section::new("Content").schema((c.title, c.body.multiline(6))))
     /// }
     /// ```
     ///
-    /// `dx` carries the app schema and nothing from a request: the panel calls
-    /// this once, when it is mounted, and refuses a
-    /// record form field this schema does not declare, and a schema on a
+    /// The panel refuses a record form field this schema does not declare, and a schema on a
     /// resource whose [`Form`](Self::Form) is [`NoForm`](crate::NoForm).
-    fn form(dx: &DeclCx) -> crate::schema::Schema {
-        <Self::Form as RecordForm>::schema(dx)
+    fn form() -> crate::schema::Schema {
+        <Self::Form as RecordForm>::schema()
     }
 
     /// App-level rules on the parsed form. The errors render inline with a
@@ -438,7 +448,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// resource with no form ([`NoForm`](crate::NoForm)) supplies every key its
     /// view shows here.
     ///
-    /// `cx` carries the app schema, which an embedded value's keys need
+    /// `cx` carries the database, whose schema an embedded value's keys need
     /// ([`EmbeddedForm::write_form`](crate::schema::EmbeddedForm::write_form)).
     /// The default is empty.
     fn view_values(_cx: &Cx, _record: &Self::Model) -> HashMap<String, String> {

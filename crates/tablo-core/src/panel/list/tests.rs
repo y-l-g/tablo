@@ -632,7 +632,7 @@ async fn list_header_renders_create_entry_point_when_allowed() {
     impl Resource for CreatableResource {
         type Model = Dummy;
         type Form = CreatableForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
@@ -692,7 +692,7 @@ async fn non_editable_resource_hides_edit_links() {
     impl Resource for WritableResource {
         type Model = Dummy;
         type Form = WritableForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
@@ -767,7 +767,7 @@ async fn denied_rows_render_no_edit_chrome() {
     impl Resource for DeniedResource {
         type Model = Dummy;
         type Form = DeniedForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 
@@ -856,7 +856,7 @@ async fn per_record_policy_narrows_the_wired_chrome() {
     impl Resource for RowPolicyResource {
         type Model = Dummy;
         type Form = RowPolicyForm;
-        fn form(_dx: &crate::schema::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
 
@@ -876,7 +876,7 @@ async fn per_record_policy_narrows_the_wired_chrome() {
         fn table() -> crate::resource::Table<Dummy> {
             dummy_table().paginate(25)
         }
-        fn view(_dx: &crate::schema::DeclCx) -> Schema {
+        fn view() -> Schema {
             Schema::new(Field::text(Dummy::fields().name()))
         }
     }
@@ -1014,7 +1014,7 @@ async fn tenant_gated_resource_fails_closed_without_tenant() {
     impl Resource for GatedResource {
         type Model = Dummy;
         type Form = GatedForm;
-        fn form(_dx: &crate::schema::DeclCx) -> crate::schema::Schema {
+        fn form() -> crate::schema::Schema {
             crate::schema::Schema::new(crate::schema::Field::text(Dummy::fields().name()))
         }
 

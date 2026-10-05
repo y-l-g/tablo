@@ -162,7 +162,7 @@ fn build_member(
     let path = chained(krate, owner, ty, index, variant);
     if member.attrs.embed {
         return quote! {
-            builder.nested(<#ty as #krate::__macro::EmbeddedForm>::build_schema(dx, #path));
+            builder.nested(<#ty as #krate::__macro::EmbeddedForm>::build_schema(#path));
         };
     }
     let text = member
@@ -183,7 +183,7 @@ fn build_member(
     // a field of another type fails once, at the field.
     let assert = assert_scalar(krate, ty);
     let field = quote_spanned! {ty.span()=>
-        #krate::__macro::Field::embedded_leaf::<_, #ty>(dx, #path)
+        #krate::__macro::Field::embedded_leaf::<_, #ty>(#path)
     };
     quote! {
         #assert
@@ -309,7 +309,6 @@ fn wrap(
     quote! {
         impl #impl_generics #krate::__macro::EmbeddedForm for #ident #ty_generics #where_clause {
             fn build_schema<M>(
-                dx: &#krate::__macro::DeclCx,
                 parent: #krate::__macro::Path<M, Self>,
             ) -> #krate::__macro::Schema
             where
@@ -341,13 +340,12 @@ fn wrap(
         impl #impl_generics #ident #ty_generics #where_clause {
             /// Builds this value's form schema under `parent` for the app to compose into a layout.
             pub fn form<M>(
-                dx: &#krate::__macro::DeclCx,
                 parent: impl ::std::convert::Into<#krate::__macro::Path<M, Self>>,
             ) -> #krate::__macro::Schema
             where
                 M: #krate::__macro::Model,
             {
-                <Self as #krate::__macro::EmbeddedForm>::build_schema(dx, parent.into())
+                <Self as #krate::__macro::EmbeddedForm>::build_schema(parent.into())
             }
         }
     }
@@ -450,7 +448,7 @@ fn expand_enum(
         });
     }
     let build = quote! {
-        let mut builder = #krate::__macro::EmbeddedBuilder::enumeration(dx, parent.clone());
+        let mut builder = #krate::__macro::EmbeddedBuilder::enumeration(parent.clone());
         #(#adds)*
         builder.finish()
     };

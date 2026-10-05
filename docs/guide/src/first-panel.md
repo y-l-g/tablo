@@ -67,14 +67,6 @@ impl Resource for BookResource {
     fn policy() -> impl Policy<Book> {
         ReadOnly
     }
-
-    fn table() -> Table<Book> {
-        Table::new(TextColumn::new(lens!(Book.title)).searchable().sortable())
-    }
-
-    fn form(_dx: &DeclCx) -> Schema {
-        Schema::new(Field::text(Book::fields().title()))
-    }
 }
 
 #[tokio::main]
@@ -122,11 +114,11 @@ cargo run
 ## What each part does
 
 - **`#[derive(RecordForm)]`** declares what a form submission parses into. Each field is named
-  and typed like the model's field, so a renamed column fails to compile. See
-  [Forms](./forms.md).
-- **`impl Resource`** declares the admin for one model: its table, its form's controls, and its
-  policy. A resource must name `Model` and `Form` and declare `table()`; every other item has a
-  default. See [Resources](./resources.md).
+  and typed like the model's field, so a renamed column fails to compile. The derive also lays
+  out the list's table, the form and the detail page from those fields. See [Forms](./forms.md).
+- **`impl Resource`** declares the admin for one model. A resource must name `Model` and `Form`;
+  every other item has a default, and the default policy denies everything. See
+  [Resources](./resources.md).
 - **`Db::builder().models(..)`** lists every model Toasty maps, including the two tables the
   built-in login uses. With authentication on, mounting the panel returns an error naming the
   missing models.

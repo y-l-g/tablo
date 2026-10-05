@@ -56,7 +56,7 @@ impl Resource for BookResource {
             .live_search()
     }
 
-    fn view(_dx: &tablo_core::DeclCx) -> tablo_core::Schema {
+    fn view() -> tablo_core::Schema {
         tablo_core::Schema::new(tablo_core::Field::text(Book::fields().title()))
     }
 }

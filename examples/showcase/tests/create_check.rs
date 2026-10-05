@@ -204,7 +204,7 @@ async fn create_policy_deny() {
     impl Resource for DenyCreateResource {
         type Model = DummyUser;
         type Form = DenyCreateForm;
-        fn form(_dx: &tablo_core::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(DummyUser::fields().name()).required())
         }
 
@@ -388,7 +388,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     impl Resource for FailingResource {
         type Model = Widget;
         type Form = FailingForm;
-        fn form(_dx: &tablo_core::DeclCx) -> Schema {
+        fn form() -> Schema {
             Schema::new(Field::text(Widget::fields().name()))
         }
         async fn create_record(

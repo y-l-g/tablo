@@ -194,7 +194,7 @@ fn expand_struct(
         let name_str = name_str.trim_start_matches("r#");
         let path = quote! { <#model>::fields().#name() };
         let key = quote_spanned! {ty.span()=>
-            #krate::__macro::ResolvedLens::<#model, #ty>::from(#path).name().to_string()
+            #krate::__macro::form_key::<#model, #ty>(#path)
         };
         let setter = format_ident!("set_{}", name_str);
         let binding = format_ident!("__read_{}", name);
@@ -210,7 +210,7 @@ fn expand_struct(
                 #krate::__macro::FormField {
                     field: #field_enum::#variant,
                     name: #name_str,
-                    keys: #krate::__macro::embedded_keys::<#model, #ty>(dx, #path),
+                    keys: #krate::__macro::embedded_keys::<#model, #ty>(#path),
                     answers_blank: <#ty as #krate::__macro::EmbeddedForm>::answers_blank(),
                 }
             });
@@ -300,7 +300,6 @@ fn expand_struct(
                     quote! { #krate::__macro::Schema },
                     quote! {
                         <#ty as #krate::__macro::EmbeddedForm>::build_schema(
-                            dx,
                             ::std::convert::Into::into(#path),
                         )
                     },
@@ -317,6 +316,10 @@ fn expand_struct(
         });
         control_inits.push(quote! { #name: #init });
     }
+    let columns: Vec<TokenStream2> = fields
+        .iter()
+        .filter_map(|field| default_column(krate, model, field))
+        .collect();
     let names: Vec<&syn::Ident> = fields.iter().map(|f| &f.ident).collect();
     let bindings: Vec<syn::Ident> = names
         .iter()
@@ -341,7 +344,7 @@ fn expand_struct(
             /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
             /// `#[form(embed)]` the embedded value's schema, and any other
             /// field a text field.
-            #vis fn controls(dx: &#krate::__macro::DeclCx) -> #controls_ident {
+            #vis fn controls() -> #controls_ident {
                 #controls_ident {
                     #(#control_inits,)*
                 }
@@ -352,16 +355,18 @@ fn expand_struct(
             type Model = #model;
             type Field = #field_enum;
 
-            fn schema(dx: &#krate::__macro::DeclCx) -> #krate::__macro::Schema {
-                let controls = Self::controls(dx);
+            fn schema() -> #krate::__macro::Schema {
+                let controls = Self::controls();
                 #krate::__macro::Schema::empty()
                     #(.extend(#krate::__macro::IntoSchema::into_schema(controls.#names)))*
             }
 
-            fn fields(
-                dx: &#krate::__macro::DeclCx,
-            ) -> ::std::vec::Vec<#krate::__macro::FormField<#field_enum>> {
+            fn fields() -> ::std::vec::Vec<#krate::__macro::FormField<#field_enum>> {
                 ::std::vec![#(#claims),*]
+            }
+
+            fn table() -> #krate::__macro::Table<#model> {
+                #krate::__macro::Table::new(())#(.column(#columns))*
             }
 
             fn hydrate(
@@ -416,6 +421,56 @@ fn expand_struct(
                 update.exec(ex)
             }
         }
+    }
+}
+
+/// The column the default table lists a field in: a sortable text column, searchable over a
+/// `String` or `Option<String>`, a choice's option label, or a toggle's yes or no. A bare choice,
+/// which holds a key, a file path and an embedded value get none.
+fn default_column(
+    krate: &TokenStream2,
+    model: &syn::Path,
+    field: &FieldSpec,
+) -> Option<TokenStream2> {
+    let name = &field.ident;
+    let ty = &field.ty;
+    let lens = quote! {
+        #krate::__macro::Lens::<#model, #ty>::new(<#model>::fields().#name(), |record| &record.#name)
+    };
+    match &field.control {
+        DefaultControl::Text => {
+            let search = is_string(ty).then(|| quote! { .searchable() });
+            Some(quote! { #krate::__macro::TextColumn::new(#lens).sortable()#search })
+        }
+        DefaultControl::Choice(Some(options)) => Some(quote! {
+            #krate::__macro::TextColumn::new(#lens).sortable().format(|value| {
+                <#options as #krate::__macro::Options>::label_of(
+                    &#krate::__macro::FormScalar::to_form(value),
+                )
+            })
+        }),
+        DefaultControl::Toggle => {
+            Some(quote! { #krate::__macro::BooleanColumn::new(#lens).sortable() })
+        }
+        DefaultControl::Choice(None) | DefaultControl::File | DefaultControl::Embed => None,
+    }
+}
+
+/// Whether `ty` is spelled `String` or `Option<String>`.
+fn is_string(ty: &Type) -> bool {
+    let Type::Path(path) = ty else {
+        return false;
+    };
+    let Some(last) = path.path.segments.last() else {
+        return false;
+    };
+    match (last.ident.to_string().as_str(), &last.arguments) {
+        ("String", syn::PathArguments::None) => true,
+        ("Option", syn::PathArguments::AngleBracketed(args)) => matches!(
+            args.args.first(),
+            Some(syn::GenericArgument::Type(inner)) if is_string(inner)
+        ),
+        _ => false,
     }
 }
 

@@ -23,22 +23,23 @@ impl Resource for AuditResource {
 }
 ```
 
-A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form` and,
-to arrange its controls, overrides `form(dx)` from the derive's `controls(dx)`; omit `form` for
-one control per field in declaration order. See [Forms](./forms.md).
+A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form`. The
+derive lays out the rest from the struct's fields: a table column per field a column can show,
+one form control per field, and a detail page showing the form read-only. Override `table()`,
+`form()` or `view()` to arrange or extend one; see [Tables](./tables.md) and [Forms](./forms.md).
 
 ## Trait items
 
-Only `Model`, `Form` and `table()` are required. Every other item has a default.
+Only `Model` and `Form` are required. Every other item has a default.
 
 | Item | Default | Purpose |
 | --- | --- | --- |
 | `type Model` | required | the Toasty model; must be `Clone + Send + Sync` |
 | `type Form` | required | a record form, or `NoForm<Self::Model>` for a list-only resource |
-| `table()` | required | the list's columns, filters and options: [Tables](./tables.md) |
-| `form(dx)` | the record form's derived schema | the create and edit form's controls: [Forms](./forms.md) |
+| `table()` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
+| `form()` | the record form's derived schema | the create and edit form's controls: [Forms](./forms.md) |
 | `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
-| `view(dx)` | nothing | the detail page's fields; the page exists only when this declares some: [Detail pages](./detail-pages.md) |
+| `view()` | `form()` | the detail page's fields; an empty schema turns the page off: [Detail pages](./detail-pages.md) |
 | `view_values(cx, record)`, `view_content(cx, record)` | none | what the detail page shows beyond the form's fields |
 | `view_query(cx)` | `query(cx)` | the detail page's query, with the relations it reads |
 | `record_label(cx, record)` | `None` | the detail page's heading |
@@ -150,12 +151,14 @@ when nothing committed. An error it returns is logged; the write stays committed
 
 ## Startup checks
 
-Mounting the panel calls each resource's declarations once — `table()` with no context, `form(dx)`
-and `view(dx)` with a `DeclCx` carrying the app schema alone, and `relations()` — and refuses
-the resource when:
+Mounting the panel calls each resource's declarations once — `table()`, `form()`, `view()` and
+`relations()` — with the database schema in scope, so a path through an embedded value binds its
+flattened column wherever a declaration names one. It refuses the resource when:
 
 - `table()`, `form()` or `view()` is malformed: a duplicate column, filter or field name, a zero
-  page size, an empty column set, or a lens that binds no column. Rendering such a table through
+  page size, an empty column set (a resource whose derived table lists nothing declares its own
+  `table()`), or a lens that
+  binds no column. Rendering such a table through
   `Table::render` (or `render_with_state`) or such a schema through `Schema::render` fails with the
   same errors;
 - the record form and `form()` disagree: a control no form field binds, a form field with no

@@ -59,9 +59,10 @@ router-wide singleton. A live table's shard is served at one runtime path for ev
 a session through the auth of the panel that issued it.
 
 `Table` and `Schema` are declarations, not renderers. Mounting the panel calls each resource's
-`table()` (which takes no context), `form(dx)` / `view(dx)` (which take a `DeclCx` carrying
-the app schema alone) and `relations()` once, checks those exact values, and stores them; every
-handler serves the cached copy instead of rebuilding per request. Because the mount has no
+`table()`, `form()`, `view()` and `relations()` once, with the database schema in scope
+(`schema::declare_with`), so a path through an embedded value resolves to its flattened column;
+it checks those exact values and stores them, and every handler serves the cached copy instead of
+rebuilding per request. Because the mount has no
 request, a declaration must not need request-scoped context; one that cannot render fails the
 mount rather than a request.
 

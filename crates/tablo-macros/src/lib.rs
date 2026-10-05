@@ -88,9 +88,12 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
 /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
 /// `#[form(embed)]` the embedded value's schema, and any other field a text
-/// field — with `controls(dx)` handing them over and `RecordForm::schema`
-/// arranging one per field in declaration order. `Resource::form` defaults to
-/// that schema; an override arranges the controls into a layout instead.
+/// field — with `controls()` handing them over and `RecordForm::schema`
+/// arranging one per field in declaration order. `RecordForm::table` lists a
+/// sortable column per text field, searchable over a `String` or
+/// `Option<String>`, an options field by its option's label, and a toggle as
+/// yes or no. `Resource::form` and `Resource::table` default to them; an
+/// override arranges or extends them instead.
 ///
 /// # Attributes
 ///

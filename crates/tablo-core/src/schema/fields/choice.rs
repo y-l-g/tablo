@@ -35,9 +35,9 @@ pub(crate) struct Relationship {
     load: RelationshipLoader,
     search: RelationshipSearchLoader,
     check: RelationshipChecker,
-    /// The source model's name when its rows are tenant-owned, so a key the
-    /// write re-checks cannot name another tenant's row.
-    tenant_scoped_model: Option<String>,
+    /// The source model when its rows are tenant-owned, so a key the write
+    /// re-checks cannot name another tenant's row.
+    tenant_scoped_model: Option<toasty::schema::app::ModelId>,
     /// Whether the source's primary key is composite, which no option value can spell.
     composite: bool,
 }
@@ -87,21 +87,10 @@ impl Relationship {
             load,
             search,
             check,
-            tenant_scoped_model: R::requires_tenant()
-                .then(|| {
-                    <R::Model as toasty::schema::Model>::schema()
-                        .as_root()
-                        .map(model_name)
-                })
-                .flatten(),
+            tenant_scoped_model: R::requires_tenant().then(<R::Model as toasty::schema::Model>::id),
             composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
         }
     }
-}
-
-/// A root model's name, as the app schema spells it.
-pub(crate) fn model_name(root: &toasty::schema::app::ModelRoot) -> String {
-    root.name.upper_camel_case()
 }
 
 fn check_record<'a, R>(
@@ -131,11 +120,11 @@ impl ChoiceControl {
             .is_some_and(|relationship| relationship.composite)
     }
 
-    /// The name of the model the options come from, when its rows are tenant-owned.
-    pub(crate) fn tenant_scoped_model(&self) -> Option<&str> {
+    /// The model the options come from, when its rows are tenant-owned.
+    pub(crate) fn tenant_scoped_model(&self) -> Option<toasty::schema::app::ModelId> {
         self.relationship
             .as_ref()
-            .and_then(|relationship| relationship.tenant_scoped_model.as_deref())
+            .and_then(|relationship| relationship.tenant_scoped_model)
     }
 
     /// Searches options server-side, answering `Overflow` past the option cap.

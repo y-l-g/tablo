@@ -9,25 +9,30 @@ use std::{
 use topcoat::context::{Cx, try_app_context};
 
 use super::{Relation, Resource, Table};
-use crate::schema::{DeclCx, Schema};
+use crate::{
+    form::{FormField, RecordForm},
+    schema::{Schema, declare_with, schema_of},
+};
 
-/// One resource's table, form schema, view schema and relations.
+/// One resource's table, form schema, view schema, relations and record-form fields.
 pub(crate) struct Declared<R: Resource> {
     pub(crate) table: Table<R::Model>,
     pub(crate) form: Arc<Schema>,
     pub(crate) view: Schema,
     pub(crate) relations: Vec<Relation<R::Model>>,
+    pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
 }
 
 impl<R: Resource> Declared<R> {
-    /// Call the resource's declarations with `dx`.
-    pub(crate) fn build(dx: &DeclCx) -> Self {
-        Self {
+    /// Call the resource's declarations with `schema` in scope.
+    pub(crate) fn build(schema: Option<Arc<toasty_core::Schema>>) -> Self {
+        declare_with(schema, || Self {
             table: R::table(),
-            form: Arc::new(R::form(dx)),
-            view: R::view(dx),
+            form: Arc::new(R::form()),
+            view: R::view(),
             relations: R::relations(),
-        }
+            fields: <R::Form as RecordForm>::fields(),
+        })
     }
 
     /// Whether the resource declares a detail page.
@@ -58,5 +63,5 @@ pub(crate) fn declared<R: Resource>(cx: &Cx) -> Arc<Declared<R>> {
     try_app_context::<Declarations>(cx)
         .and_then(|declarations| declarations.0.get(&TypeId::of::<R>()))
         .and_then(|declared| Arc::clone(declared).downcast::<Declared<R>>().ok())
-        .unwrap_or_else(|| Arc::new(Declared::build(&DeclCx::from_cx(cx))))
+        .unwrap_or_else(|| Arc::new(Declared::build(schema_of(cx))))
 }
