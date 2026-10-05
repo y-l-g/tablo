@@ -13,7 +13,8 @@ use topcoat::context::{Cx, CxTestBuilder};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, field_error, get, memory_db, mount, panel, panel_router, post_fields, refusal,
+    body_string, field_error, get, input_value, memory_db, mount, panel, panel_router, post_fields,
+    refusal,
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -366,9 +367,10 @@ async fn a_repeater_label_keyed_rule_renders_in_the_group() {
     let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
     assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
     let html = body_string(response).await;
-    assert!(
-        html.contains("At least one tag"),
-        "the group's label-keyed error must render in its slot, got {html}"
+    assert_eq!(
+        field_error(&html, "tags").as_deref(),
+        Some("At least one tag"),
+        "{html}"
     );
     assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
 }
@@ -930,8 +932,9 @@ async fn a_value_the_form_type_refuses_renders_inline() {
     .await;
     assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
     let html = body_string(response).await;
-    assert!(
-        html.contains("`lots` is not a valid whole number"),
+    assert_eq!(
+        field_error(&html, "priority").as_deref(),
+        Some("`lots` is not a valid whole number"),
         "{html}"
     );
     assert_eq!(reload(&db, item.id).await.priority, 7);
@@ -1207,8 +1210,9 @@ async fn the_derived_default_form_renders_and_writes() {
     let edit = get(&router, &format!("/admin/widgets/{}/edit", rows[0].id)).await;
     assert_eq!(edit.status(), StatusCode::OK);
     let html = body_string(edit).await;
-    assert!(
-        html.contains("New"),
+    assert_eq!(
+        input_value(&html, "name").as_deref(),
+        Some("New"),
         "the edit form hydrates the stored value: {html}"
     );
     let response = post_fields(
@@ -1341,8 +1345,13 @@ async fn the_view_defaults_to_the_form() {
     assert_eq!(detail.status(), StatusCode::OK);
     let detail = body_string(detail).await;
     assert!(
-        detail.contains("Printer jam") && !detail.contains("name=\"subject\""),
+        detail.contains("Printer jam"),
         "the form's fields, read-only: {detail}"
+    );
+    assert_eq!(
+        input_value(&detail, "subject"),
+        None,
+        "the detail page renders no control for the field: {detail}"
     );
 
     let unviewed = panel_router::<UnviewedTicketResource>(db);

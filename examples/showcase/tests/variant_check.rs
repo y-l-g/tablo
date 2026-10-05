@@ -157,8 +157,9 @@ async fn the_named_variants_fields_still_validate() {
         .await;
     assert_eq!(response.status(), 200, "the refused blank re-renders");
     let html = body_string(response).await;
-    assert!(
-        html.contains("Seconds is required") && !html.contains("body_seconds is required"),
+    assert_eq!(
+        tablo_test::field_error(&html, "body_seconds").as_deref(),
+        Some("Seconds is required"),
         "the refusal must be worded with the control's label, got {html}"
     );
 }

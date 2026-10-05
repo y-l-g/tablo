@@ -83,9 +83,10 @@ async fn posts_create_invalid_repeater_shows_errors() {
         status.is_success(),
         "invalid should be 200, got {status} {html}"
     );
-    assert!(
-        html.contains("Title is required"),
-        "missing required error for the title field, got {html}"
+    assert_eq!(
+        tablo_test::field_error(&html, "title").as_deref(),
+        Some("Title is required"),
+        "the title slot names its refusal, got {html}"
     );
     assert_eq!(
         post_count(&db).await,

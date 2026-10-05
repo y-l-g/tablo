@@ -23,26 +23,22 @@ async fn delete_requires_confirmation_and_deletes() {
 
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
-    assert!(
-        html.contains(&format!("delete={id}")),
-        "list should link the delete dialog for the row, got {html}"
-    );
-    let row_delete = tag_with(&html, &format!("delete={id}"));
-    assert!(
-        row_delete.contains("aria-label=\"Delete\""),
-        "row Delete must name itself, got {row_delete}"
-    );
-    let href = attr_value(row_delete, "href");
+    let actions = tablo_test::row_actions(&html, &id).expect("the row carries its delete control");
+    let href = actions
+        .delete_href
+        .as_deref()
+        .expect("the control keeps its fallback href");
     assert!(
         href.starts_with("/admin/users?") && href.ends_with(&format!("delete={id}")),
         "the control must keep its fallback href, got {href}"
     );
-    let dialog_id = attr_value(row_delete, "data-row-delete-trigger");
     assert_eq!(
-        attr_value(row_delete, "data-row-delete-action"),
-        format!("/admin/users/{id}/delete"),
-        "the control must carry the row's POST target, got {row_delete}"
+        actions.delete_action.as_deref(),
+        Some(delete_url.as_str()),
+        "the control must carry the row's POST target"
     );
+    let row_delete = tag_with(&html, &format!("delete={id}"));
+    let dialog_id = attr_value(row_delete, "data-row-delete-trigger");
     assert_eq!(
         html.matches(&format!("id=\"{dialog_id}\"")).count(),
         1,

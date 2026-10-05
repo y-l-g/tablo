@@ -233,14 +233,18 @@ async fn a_resource_without_a_view_declaration_shows_its_form_read_only() {
         detail.contains(&author.name) && detail.contains(&author.email),
         "the detail page shows the form's fields: {detail}"
     );
-    assert!(
-        !detail.contains("name=\"email\""),
+    assert_eq!(
+        tablo_test::input_value(&detail, "email"),
+        None,
         "the detail page renders values, not controls: {detail}"
     );
 
     let authors = body_string(client.get("/admin/authors").await).await;
-    assert!(
-        authors.contains(&format!("href=\"/admin/authors/{}\"", author.id)),
+    assert_eq!(
+        tablo_test::row_actions(&authors, &author.id.to_string())
+            .as_ref()
+            .and_then(|actions| actions.view.clone()),
+        Some(format!("/admin/authors/{}", author.id)),
         "each row links its detail page: {authors}"
     );
 }

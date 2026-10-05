@@ -21,6 +21,8 @@ use topcoat::{
     view::ViewExt,
 };
 
+use crate::common::input_value;
+
 #[derive(Debug, Clone, toasty::Embed)]
 struct Seo {
     title: String,
@@ -96,13 +98,10 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
     let mut values = HashMap::new();
     values.insert("meta_seo_title".to_string(), "Nested title".to_string());
     let html = render(&Schema::new(input), &cx, values).await;
-    assert!(
-        html.contains("value=\"Nested title\""),
-        "the flattened value must hydrate into the control, got {html}"
-    );
-    assert!(
-        html.contains("name=\"meta_seo_title\""),
-        "the control must post the flattened column, got {html}"
+    assert_eq!(
+        input_value(&html, "meta_seo_title").as_deref(),
+        Some("Nested title"),
+        "the flattened value must hydrate into the control posting the flattened column, got {html}"
     );
 }
 

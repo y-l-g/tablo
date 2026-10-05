@@ -55,10 +55,10 @@ async fn posts_create_empty_author_shows_required_error() {
         status,
         html
     );
-    assert!(
-        html.contains("is required") || html.contains("required"),
-        "missing required error {}",
-        html
+    assert_eq!(
+        tablo_test::field_error(&html, "author_id").as_deref(),
+        Some("Author is required"),
+        "the author slot names its refusal, got {html}"
     );
     assert_eq!(
         post_count(&db).await,
@@ -88,10 +88,10 @@ async fn posts_create_invalid_author_shows_invalid_error() {
     let status = resp.status();
     let html = body_string(resp).await;
     assert!(status.is_success(), "invalid should be 200 {}", html);
-    assert!(
-        html.contains("is invalid") || html.contains("invalid"),
-        "missing invalid error {}",
-        html
+    assert_eq!(
+        tablo_test::field_error(&html, "author_id").as_deref(),
+        Some("Author is invalid"),
+        "the author slot names its refusal, got {html}"
     );
     assert_eq!(
         post_count(&db).await,
@@ -210,13 +210,29 @@ async fn posts_list_shows_comments_count_via_include() {
     };
     let hello = comments_of(&mut db_q, "Hello Toasty").await;
     let bare = comments_of(&mut db_q, "Second Post").await;
+    let found = tablo_test::rows(&html);
+    let hello_row = found
+        .iter()
+        .find(|row| row.cells.iter().any(|cell| cell == "Hello Toasty"))
+        .unwrap_or_else(|| panic!("the list shows Hello Toasty in {html}"));
     assert!(
-        html.contains(&format!(">{hello}<")),
+        hello_row
+            .cells
+            .iter()
+            .any(|cell| cell == &hello.to_string()),
         "the Comments column must show {hello} for Hello Toasty in {html}"
     );
+    // Second Post paginates off the first page, so its count rides a
+    // title-filtered request rather than the unfiltered list.
+    let filtered = body_string(client.get("/admin/posts?q=Second+Post").await).await;
+    let found = tablo_test::rows(&filtered);
+    let bare_row = found
+        .iter()
+        .find(|row| row.cells.iter().any(|cell| cell == "Second Post"))
+        .unwrap_or_else(|| panic!("the filtered list shows Second Post in {filtered}"));
     assert!(
-        html.contains(&format!(">{bare}<")),
-        "the Comments column must show {bare} for Second Post in {html}"
+        bare_row.cells.iter().any(|cell| cell == &bare.to_string()),
+        "the Comments column must show {bare} for Second Post in {filtered}"
     );
     // Loaded relations must never render the unloaded marker.
     assert!(
