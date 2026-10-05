@@ -3458,9 +3458,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.6",
- "tablo-core",
- "toasty",
- "uuid",
 ]
 
 [[package]]
