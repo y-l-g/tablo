@@ -32,12 +32,13 @@ async fn stat<R: Resource>(cx: &Cx) -> Option<Stat> {
         return None;
     }
     let item = panel::navigation::<R>(cx)?;
+    let url = panel::url::resource::<R>(cx)?;
     let count = match scoped_query::<R>(cx) {
         Ok(query) => query.count().exec(&mut db(cx)).await.ok(),
         Err(_) => None,
     };
     Some(Stat {
-        url: item.url()?.to_string(),
+        url,
         label: item.label,
         icon: item.icon,
         count,
