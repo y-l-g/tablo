@@ -177,6 +177,9 @@ pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
 /// Where the pinned CLI install the `topcoat fmt` check needs lives.
 const TOPCOAT_INSTALL: &str = "cargo install topcoat-cli --version 0.10.0 --locked --force";
 
+/// Where the pinned mdBook install the guide build needs lives.
+const MDBOOK_INSTALL: &str = "cargo install mdbook --version 0.5.2 --locked --force";
+
 /// The pinned-CLI `topcoat fmt` check plus diff guard (CONTRIBUTING gate 4).
 pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run("topcoat", &["fmt"], Some(root), &[])
@@ -188,9 +191,15 @@ pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run("git", &["diff", "--exit-code"], Some(root), &[])
         .map_err(|error| {
             anyhow::anyhow!(
-                "{error}\nA diff that only reflows `view!` markup means the CLI is the wrong version, not a hand-fix: {TOPCOAT_INSTALL}"
+                "{error}\n`topcoat fmt` rewrote the tree before this check: review it with `git diff --name-only` and revert what you did not mean to reformat with `git checkout -- <path>`. A diff that only reflows `view!` markup means the CLI is the wrong version, not a hand-fix: {TOPCOAT_INSTALL}"
             )
         })
+}
+
+/// The guide build (CONTRIBUTING docs job).
+pub fn guide_build(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
+    run.run("mdbook", &["build", "docs/guide"], Some(root), &[])
+        .map_err(|error| anyhow::anyhow!("{error}\nThe guide build needs mdBook: {MDBOOK_INSTALL}"))
 }
 
 /// The formatting subset: nightly fmt, detached-bench fmt, pinned topcoat fmt.
@@ -379,7 +388,7 @@ fn check_with(
         Some(&root),
         &[("RUSTDOCFLAGS", "-D warnings")],
     )?;
-    run.run("mdbook", &["build", "docs/guide"], Some(&root), &[])?;
+    guide_build(run, &root)?;
     external_check(run, &root, &stage()?)
 }
 
