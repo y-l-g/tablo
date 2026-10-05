@@ -22,9 +22,10 @@ shell by calling `Panel::layout_shell`. `shell_assets` supplies the call-site as
 scan needs; `Panel::render_shell` stays the low-level primitive. `tablo::url` helpers answer a
 resource or page URL in the request's panel.
 
-The panel resolves every sidebar entry from `Resource::navigation()` and `Page::navigation()`:
-the declaration owns label, order, and grouping; the panel owns the URL. The default entry is
+The panel resolves every sidebar entry from the resource's `ResourceDef` (its plural label,
+`icon`, `navigation_order`, or a whole `navigation` item) and from `Page::navigation()`: the
+declaration owns label, order, and icon; the panel owns the URL. The default entry is
 `NavTarget::Derived`, resolved to `{prefix}/{slug}` (or the prefix for home).
-`NavigationItem::at` builds an explicit `NavTarget::Url` kept verbatim. `for_resource` and
-`for_page` are the derived constructors. `is_current_path` matches exact or slash-boundary
+`NavigationItem::at` builds an explicit `NavTarget::Url` kept verbatim; `for_page` is a page's
+derived constructor. `is_current_path` matches exact or slash-boundary
 prefixes; the longest match in sidebar order renders active. A page always has a sidebar entry.

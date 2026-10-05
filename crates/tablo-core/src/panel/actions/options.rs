@@ -10,7 +10,8 @@ use topcoat::{
 use super::super::gate::gate;
 use crate::{
     error::TabloError,
-    resource::{Resource, clamp_query_term, declared},
+    query_term::clamp_query_term,
+    resource::Resource,
     schema::{OptionLoadError, option_view},
 };
 
@@ -18,11 +19,11 @@ use crate::{
 ///
 /// `GET {parent_list_url}/options?field=&q=` — server-side narrowing for
 /// tables above the option cap. `field` allow-lists to a declared searchable
-/// relationship choice in `Resource::form` (400 otherwise); a non-searchable
+/// relationship choice in the resource's form (400 otherwise); a non-searchable
 /// choice keeps the cap error and never calls here. `q` is trimmed and
 /// clamped to the shared query bound; empty `q` returns the bounded head.
 ///
-/// Gates: `auth::guard` + `enforce_tenant::<R>` (parent), then the related
+/// Gates: `auth::guard` + `enforce_tenant` (parent), then the related
 /// gates inside the search (`ViewAny` + tenant + `View` filtering
 /// before labels). Parent form policy (`Create` / `View`+`Update`)
 /// stays on the form pages themselves: requiring parent `ViewAny` here
@@ -33,16 +34,15 @@ use crate::{
 /// `MAX_RELATIONSHIP_OPTIONS`, values are typed PK strings, labels escaped.
 pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        gate::<R>(cx)?;
+        let resource = gate::<R>(cx)?;
         let (field, q) = options_query(cx);
         let field = field.trim();
         if field.is_empty() {
             return Err(topcoat::router::error::bad_request("missing field").into());
         }
         let q = clamp_query_term(&q);
-        let declared = declared::<R>(cx);
-        let form = &declared.form;
-        let Some(select) = form
+        let Some(select) = resource
+            .form
             .fields()
             .find(|declared| declared.name() == field)
             .and_then(|declared| declared.as_choice())

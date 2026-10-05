@@ -7,16 +7,12 @@ use topcoat::{
     view::{BoxView, ViewExt, view},
 };
 
-use super::{
-    actions::load_detail,
-    gate::{gate, list_url},
-    relations::render_relations,
-};
+use super::{actions::load_detail, gate::gate, relations::render_relations};
 use crate::{
     db::db,
     form::RecordForm,
-    policy::{Ability, can},
-    resource::{Resource, declared},
+    policy::Ability,
+    resource::{Mounted, Resource},
     topcoat_compat::async_page,
 };
 
@@ -24,34 +20,34 @@ use crate::{
 /// view-denied records.
 pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
-        let declared = declared::<R>(cx);
-        if !declared.viewed() {
+        let resource = gate::<R>(cx)?;
+        if !resource.viewed() {
             return Err(not_found().into());
         }
         let id = path_param_segment(cx, "id").to_string();
         let mut db = db(cx);
-        let record = load_detail::<R>(cx, &mut db).await?;
+        let record = load_detail(cx, &resource, &mut db).await?;
         // Projects the form over `view_values`; see `Resource::view_values`.
         let mut values = R::view_values(cx, &record);
         values.extend(<R::Form as RecordForm>::hydrate(cx, &record));
-        let body = declared
-            .view
+        let body = resource
+            .view()
             .render(cx, crate::schema::Source::view(&values))
             .await?;
         let content = R::view_content(cx, &record);
-        let relations = render_relations::<R>(cx, &record, true);
-        let title = detail_title::<R>(cx, &record, &id);
-        let back = list_url(cx, &R::slug());
+        let relations = render_relations(cx, &resource, &record, true);
+        let title = detail_title(cx, &resource, &record, &id);
+        let back = resource.url.clone();
         let public = R::public_url(cx, &record);
-        let edit = (<R::Form as RecordForm>::HAS_FORM && can::<R>(cx, Ability::Update(&record)))
-            .then(|| {
-                format!(
-                    "{}/{}",
-                    topcoat::router::request::uri(cx).path(),
-                    crate::resource::EDIT_ROUTE_SEGMENT
-                )
-            });
+        let edit = (<R::Form as RecordForm>::HAS_FORM
+            && resource.can(cx, Ability::Update(&record)))
+        .then(|| {
+            format!(
+                "{}/{}",
+                topcoat::router::request::uri(cx).path(),
+                crate::table::EDIT_ROUTE_SEGMENT
+            )
+        });
         let outline =
             tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
         Ok(view! {
@@ -61,7 +57,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
                     tablo_ui::page_title((title))
                     tablo_ui::page_actions(
                         <a
-                            (crate::resource::runtime_link(cx, &back))
+                            (crate::navigation::runtime_link(cx, &back))
                             class=(outline.clone())
                         >
                             icon(data: tablo_ui::icons::ARROW_LEFT)
@@ -75,7 +71,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
                         }
                         if let Some(url) = edit {
                             <a
-                                (crate::resource::runtime_link(cx, &url))
+                                (crate::navigation::runtime_link(cx, &url))
                                 class=(tablo_ui::button_variants(
                                     tablo_ui::ButtonVariant::Primary,
                                     tablo_ui::ButtonSize::Md,
@@ -105,8 +101,13 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
 }
 
 /// Builds the detail title from the record label, else the page name and record key.
-fn detail_title<R: Resource>(cx: &Cx, record: &R::Model, id: &str) -> String {
-    R::record_label(cx, record).unwrap_or_else(|| format!("{} {id}", R::label()))
+fn detail_title<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    record: &R::Model,
+    id: &str,
+) -> String {
+    R::record_label(cx, record).unwrap_or_else(|| format!("{} {id}", resource.label))
 }
 
 #[cfg(test)]

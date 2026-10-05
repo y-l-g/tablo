@@ -1,15 +1,21 @@
 # Detail pages
 
-A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource declares it in
-`view()`: a `Schema` built from the same fields and layout blocks as a form, which the panel calls
-once at build. `view()` defaults to `form()`, so a resource with a form has a detail page showing
-the form's fields read-only. A form with fields that must stay off the detail page overrides
-`view()` with a subset or `Schema::empty()`. Override it to show other fields or another layout:
+A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource declares it
+with `ResourceDef::view`: a `Schema` built from the same fields and layout blocks as a form, which
+the panel builds once when it mounts. The view defaults to the form, so a resource with a form has
+a detail page showing the form's fields read-only. A form with fields that must stay off the
+detail page sets a view with a subset or `Schema::empty()`. Set it to show other fields or another
+layout:
 
 ```rust
 impl Resource for PostResource {
     // …
+    fn declare() -> ResourceDef<Self> {
+        let c = PostForm::controls();
+        ResourceDef::new()
+            // …
 {{#include ../../../examples/guide/src/resources.rs:post-view}}
+    }
 }
 ```
 
@@ -82,21 +88,26 @@ The returned view may borrow `cx` but not the record: compute what you need from
 
 ## Related tables
 
-`relations()` lists the related resources whose rows belong to a record. Each renders on the
-record's detail and edit pages as that resource's own list table, narrowed to the record:
+`ResourceDef::relation` adds a related resource whose rows belong to a record. Each renders on
+the record's detail and edit pages as that resource's own list table, narrowed to the record:
 
 ```rust
 impl Resource for PostResource {
     // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
 {{#include ../../../examples/guide/src/resources.rs:post-relations}}
+    }
 }
 ```
 
 The foreign key's type is the owner's primary key type, or its `Option` for a nullable foreign
 key; any other type does not compile. The table is
 `CommentResource`'s — its columns, search, sort, filters and pager — over its tenant-scoped query
-plus `post_id = <this post>`. It is titled with the related resource's `navigation_label()`, or
-`.label(..)`.
+plus `post_id = <this post>`. It is titled with the related resource's plural label, or
+`.label(..)`. The panel must register the related resource too: mounting refuses a relation to
+one it does not.
 
 - **Policy.** The related resource's policies apply as on its own list: no section renders when
   its policy refuses `ViewAny`, or when it is tenant-scoped and the request has no tenant, and each row keeps

@@ -3,7 +3,7 @@ use topcoat::Result;
 
 use super::*;
 use crate::{
-    Ability, Policy, lens,
+    Ability, ResourceDef, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
@@ -19,19 +19,17 @@ async fn delete_and_bulk_delete_require_view() {
     impl Resource for ViewDeniedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
-                Ability::View(_record) => false,
-                Ability::DeleteAny => true,
-                Ability::Delete(_) => true,
-                _ => false,
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                    Ability::View(_record) => false,
+                    Ability::DeleteAny => true,
+                    Ability::Delete(_) => true,
+                    _ => false,
+                })
+                .table(dummy_table())
         }
     }
 
@@ -104,16 +102,14 @@ async fn delete_and_bulk_delete_require_delete_any() {
     impl Resource for RowOnlyResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
-        }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(ability, Ability::View(_) | Ability::Delete(_))
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            dummy_table()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(ability, Ability::View(_) | Ability::Delete(_))
+                })
+                .table(dummy_table())
         }
     }
 
@@ -176,20 +172,21 @@ async fn delete_resolves_the_primary_key_only() {
     impl Resource for KeyedResource {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
-        fn slug() -> String {
-            "dummies".to_string()
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                    matches!(
+                        ability,
+                        Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
+                    )
+                })
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Dummy.name),
+                )))
         }
-        fn policy() -> impl Policy<Dummy> {
-            |_cx: &Cx, ability: Ability<'_, Dummy>| {
-                matches!(
-                    ability,
-                    Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
-                )
-            }
-        }
-        fn table() -> crate::resource::Table<Dummy> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Dummy.name)))
-        }
+
         async fn delete_record(
             _cx: &Cx,
             _record: &Dummy,

@@ -35,9 +35,13 @@ pub(crate) struct Relationship {
     load: RelationshipLoader,
     search: RelationshipSearchLoader,
     check: RelationshipChecker,
+    /// The source's type, named in declaration errors.
+    source: &'static str,
+    /// Whether the request's panel can load from the source.
+    available: fn(&Cx) -> bool,
     /// The source model when its rows are tenant-owned, so a key the write
     /// re-checks cannot name another tenant's row.
-    tenant_scoped_model: Option<toasty::schema::app::ModelId>,
+    tenant_scoped_model: fn(&Cx) -> Option<toasty::schema::app::ModelId>,
     /// Whether the source's primary key is composite, which no option value can spell.
     composite: bool,
 }
@@ -87,7 +91,11 @@ impl Relationship {
             load,
             search,
             check,
-            tenant_scoped_model: R::requires_tenant().then(<R::Model as toasty::schema::Model>::id),
+            source: std::any::type_name::<R>(),
+            available: R::available,
+            tenant_scoped_model: |cx| {
+                R::requires_tenant(cx).then(<R::Model as toasty::schema::Model>::id)
+            },
             composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
         }
     }
@@ -121,10 +129,18 @@ impl ChoiceControl {
     }
 
     /// The model the options come from, when its rows are tenant-owned.
-    pub(crate) fn tenant_scoped_model(&self) -> Option<toasty::schema::app::ModelId> {
+    pub(crate) fn tenant_scoped_model(&self, cx: &Cx) -> Option<toasty::schema::app::ModelId> {
         self.relationship
             .as_ref()
-            .and_then(|relationship| relationship.tenant_scoped_model)
+            .and_then(|relationship| (relationship.tenant_scoped_model)(cx))
+    }
+
+    /// The option source's type when the request's panel cannot load from it.
+    pub(crate) fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
+        self.relationship
+            .as_ref()
+            .filter(|relationship| !(relationship.available)(cx))
+            .map(|relationship| relationship.source)
     }
 
     /// Searches options server-side, answering `Overflow` past the option cap.

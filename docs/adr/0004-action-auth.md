@@ -10,8 +10,8 @@ the loaded record inside the transaction, calls the record fn (`create_record` /
 / `delete_record` / `bulk_delete_records`) with `&mut dyn toasty::Executor`, and commits. The
 check reads the fetched row, never the passed ID alone, so an ID outside the tenant scope is not
 found before any policy check. Bulk delete re-fetches every record through the same query and
-checks each one. `Resource::policy()`, asked one `Ability` at a time, is the authorization
-vocabulary.
+checks each one. The resource's policy (`ResourceDef::policy`), asked one `Ability` at a time,
+is the authorization vocabulary.
 
 A create or update resolves each relationship key through the related resource's `scoped_query`
 and `View` inside the same transaction, after the pre-write validation runs the same check

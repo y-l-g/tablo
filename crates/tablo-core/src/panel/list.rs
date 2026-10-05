@@ -1,5 +1,7 @@
 //! Serves each resource's list page and its live-search host.
 
+use std::sync::Arc;
+
 use topcoat::{
     Result,
     context::Cx,
@@ -9,13 +11,14 @@ use topcoat::{
     view::{BoxView, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
-use super::gate::{gate, list_url};
+use super::{gate::gate, search::list_search_invocation};
 use crate::{
     form::RecordForm,
-    policy::{Ability, can},
-    resource::{
-        Resource, RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage,
-        TableSignals, TableState, create_page_url, declared, request_query,
+    policy::Ability,
+    resource::{Mounted, Resource},
+    table::{
+        RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage, TableSignals,
+        TableState, create_page_url, request_query,
     },
     topcoat_compat::async_page,
 };
@@ -35,90 +38,105 @@ pub(crate) fn retry_url_for_error(
 }
 
 /// Derives the action chrome a resource's declarations imply.
-pub(crate) fn declared_chrome<R: Resource>(cx: &Cx) -> TableChrome {
+pub(crate) fn declared_chrome<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> TableChrome {
     TableChrome {
-        delete: can::<R>(cx, Ability::DeleteAny),
+        delete: resource.can(cx, Ability::DeleteAny),
         edit: <R::Form as RecordForm>::HAS_FORM,
-        view: declared::<R>(cx).viewed(),
+        view: resource.viewed(),
         actions: true,
     }
 }
 
 /// Wires `R`'s delete, bulk, edit, view, and custom actions onto the table; `live` selects the
 /// shard variant.
-pub(crate) fn wire_table_actions<R: Resource>(cx: &Cx, live: bool) -> Table<R::Model> {
-    wire_table::<R>(cx, live, declared_chrome::<R>(cx))
+pub(crate) fn wire_table_actions<R: Resource>(
+    cx: &Cx,
+    resource: &Arc<Mounted<R>>,
+    live: bool,
+) -> Table<R::Model> {
+    wire_table(cx, resource, live, declared_chrome(cx, resource))
 }
 
 /// Wires `chrome`'s affordances onto `R`'s table.
-pub(crate) fn wire_table<R: Resource>(cx: &Cx, live: bool, chrome: TableChrome) -> Table<R::Model> {
-    let mut table = declared::<R>(cx).table.clone();
+pub(crate) fn wire_table<R: Resource>(
+    cx: &Cx,
+    resource: &Arc<Mounted<R>>,
+    live: bool,
+    chrome: TableChrome,
+) -> Table<R::Model> {
+    let mut table = resource.table.clone();
     if live {
         table = table.hide_search().hide_filter_bar().unframed();
     }
-    let policy_cx = cx.clone();
+    let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
     table = table.row_actions(move |record| {
         // Every route pairs its predicate with `View`.
-        let view = can::<R>(&policy_cx, Ability::View(record));
+        let view = policy.can(&policy_cx, Ability::View(record));
         RowActions {
             view,
-            edit: view && can::<R>(&policy_cx, Ability::Update(record)),
-            delete: view && can::<R>(&policy_cx, Ability::Delete(record)),
+            edit: view && policy.can(&policy_cx, Ability::Update(record)),
+            delete: view && policy.can(&policy_cx, Ability::Delete(record)),
         }
     });
     if chrome.delete {
         table = table
-            .with_delete(list_url(cx, &R::slug()))
+            .with_delete(resource.url.clone())
             .with_bulk_delete(true);
     }
     if chrome.edit {
-        table = table.with_edit(list_url(cx, &R::slug()));
+        table = table.with_edit(resource.url.clone());
     }
     if chrome.view {
-        table = table.with_view(list_url(cx, &R::slug()));
+        table = table.with_view(resource.url.clone());
     }
     if chrome.actions {
-        table = wire_custom_actions::<R>(cx, table);
+        table = wire_custom_actions(cx, resource, table);
     }
     table
 }
 
 /// Attaches `R`'s custom actions to `table`, each gated per record by `View` and the action's
 /// `can_run`.
-fn wire_custom_actions<R: Resource>(cx: &Cx, table: Table<R::Model>) -> Table<R::Model> {
-    let actions = R::actions();
-    if actions.entries().is_empty() {
+fn wire_custom_actions<R: Resource>(
+    cx: &Cx,
+    resource: &Arc<Mounted<R>>,
+    table: Table<R::Model>,
+) -> Table<R::Model> {
+    if resource.actions.entries().is_empty() {
         return table;
     }
-    let wired = actions
+    let wired = resource
+        .actions
         .entries()
         .iter()
         .map(|action| {
             let can_run = action.can_run;
-            let policy_cx = cx.clone();
+            let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
             TableAction {
                 name: action.name,
                 label: (action.label)(),
                 row: action.row,
                 bulk: action.bulk,
-                allowed: std::sync::Arc::new(move |record: &R::Model| {
-                    can::<R>(&policy_cx, Ability::View(record)) && can_run(&policy_cx, record)
+                allowed: Arc::new(move |record: &R::Model| {
+                    policy.can(&policy_cx, Ability::View(record)) && can_run(&policy_cx, record)
                 }),
             }
         })
         .collect();
-    table.with_custom_actions(list_url(cx, &R::slug()), wired)
+    table.with_custom_actions(resource.url.clone(), wired)
 }
 
 /// Renders the branded in-region table failure with a cursor-aware retry link.
 pub(crate) fn table_error_view<'a, R: Resource>(
     cx: &'a Cx,
+    resource: &Mounted<R>,
     state: &TableState,
     error: &topcoat::Error,
     path: &str,
     signals: Option<&TableSignals>,
 ) -> BoxView<'a> {
-    tracing::error!(resource = R::slug(), error = %error, "table load failed");
+    tracing::error!(resource = resource.slug, error = %error, "table load failed");
+    let title = format!("Couldn't load {}", resource.plural_label);
     let retry_url = retry_url_for_error(state, error, path);
     let action: BoxView<'a> = match signals {
         Some(signals) => {
@@ -127,7 +145,7 @@ pub(crate) fn table_error_view<'a, R: Resource>(
             let cursor_error = crate::error::TabloError::is_cursor(error);
             let attrs = if cursor_error {
                 let query = signals.query.clone();
-                let next = crate::resource::query_of(&retry_url).to_string();
+                let next = crate::table::query_of(&retry_url).to_string();
                 attributes! {
                     cx =>
                     href=(retry_url)
@@ -156,7 +174,7 @@ pub(crate) fn table_error_view<'a, R: Resource>(
     view! {
         cx =>
         tablo_ui::error_state(
-            title: format!("Couldn't load {}", R::navigation_label()),
+            title: title,
             detail: "Something went wrong while loading the records.",
             action: Some(action.into()),
             attrs: attributes! { role="alert" }
@@ -166,11 +184,11 @@ pub(crate) fn table_error_view<'a, R: Resource>(
 }
 
 /// Renders the list page header with the resource's title and its Create link.
-fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> BoxView<'a> {
-    let title = title.to_string();
-    let create_url = (<R::Form as RecordForm>::HAS_FORM && can::<R>(cx, Ability::Create))
-        .then(|| create_page_url(list_path));
-    let create_label = format!("Create {}", R::label());
+fn list_header<'a, R: Resource>(cx: &'a Cx, resource: &Mounted<R>) -> BoxView<'a> {
+    let title = resource.plural_label.clone();
+    let create_url = (<R::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
+        .then(|| create_page_url(&resource.url));
+    let create_label = format!("Create {}", resource.label);
     view! {
         cx =>
         tablo_ui::page_header(
@@ -178,7 +196,7 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
             if let Some(url) = create_url {
                 tablo_ui::page_actions(
                     <a
-                        (crate::resource::runtime_link(cx, &url))
+                        (crate::navigation::runtime_link(cx, &url))
                         class=(tablo_ui::button_variants(
                             tablo_ui::ButtonVariant::Primary,
                             tablo_ui::ButtonSize::Md,
@@ -197,31 +215,32 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, title: &str, list_path: &str) -> Box
 /// Serves the list page every declared [`Resource`] gets at `{prefix}/{slug}`.
 pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
-        if !can::<R>(cx, Ability::ViewAny) {
+        let resource = gate::<R>(cx)?;
+        if !resource.can(cx, Ability::ViewAny) {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
         let state = TableState::from_cx(cx);
-        let table = wire_table_actions::<R>(cx, false);
-        let title = R::navigation_label();
-        let list_path = list_url(cx, &R::slug());
+        let table = wire_table_actions(cx, &resource, false);
         if table.is_live_search() {
-            return Ok(resource_list_live::<R>(cx, table, state, title, list_path));
+            return Ok(resource_list_live(cx, resource, table, state));
         }
 
         // Normalizes once per request (GH #153).
         let state = table.normalize_state(&state);
         let skeleton = table.render_skeleton(cx, &state).await?;
-        let header = list_header::<R>(cx, &title, &list_path);
+        let header = list_header(cx, &resource);
         let lazy_rows = ThenView::new(async move {
+            let list_path = &resource.url;
             let rendered = async {
-                let page = load_table_page::<R>(cx, &table, &state).await?;
-                table.render_with_state(cx, page, &state, &list_path).await
+                let page = load_table_page(cx, &resource, &table, &state).await?;
+                table.render_with_state(cx, page, &state, list_path).await
             };
             match rendered.await {
                 Ok(view) => Ok(view),
-                Err(error) => Ok(table_error_view::<R>(cx, &state, &error, &list_path, None)),
+                Err(error) => Ok(table_error_view(
+                    cx, &resource, &state, &error, list_path, None,
+                )),
             }
         });
 
@@ -241,12 +260,12 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
 /// Serves the live list page for `Table::live_search` tables.
 pub(crate) fn resource_list_live<R: Resource>(
     cx: &Cx,
+    resource: Arc<Mounted<R>>,
     table: Table<R::Model>,
     state: TableState,
-    title: String,
-    list_path: String,
 ) -> BoxView<'_> {
     async_page(async move {
+        let list_path = resource.url.clone();
         // Keyed by the list so one list's search never filters the next.
         let signals = TableState::signals_for(&cx.keyed(list_path.as_str()), &request_query(cx));
         // Normalizes once per request.
@@ -272,20 +291,9 @@ pub(crate) fn resource_list_live<R: Resource>(
         let table = table.hide_search().hide_filter_bar().unframed();
         let skeleton = table.render_skeleton(cx, &state).await?;
         let delete_dialog = table.render_delete_dialog(cx, &state).await?;
-        let header = list_header::<R>(cx, &title, &list_path);
+        let header = list_header(cx, &resource);
         let lazy_rows = ThenView::new(async move {
-            let retry_signals = signals.clone();
-            let rendered = table.render_live_invocation(cx, &list_path, signals).await;
-            match rendered {
-                Ok(view) => Ok(view),
-                Err(error) => Ok(table_error_view::<R>(
-                    cx,
-                    &state,
-                    &error,
-                    &list_path,
-                    Some(&retry_signals),
-                )),
-            }
+            Ok::<_, topcoat::Error>(list_search_invocation(cx, &list_path, signals))
         });
 
         Ok(view! {
@@ -314,20 +322,22 @@ pub(crate) fn resource_list_live<R: Resource>(
 /// Loads `R`'s list page for `state` from the tenant-scoped query.
 pub(crate) async fn load_table_page<R: Resource>(
     cx: &Cx,
+    resource: &Mounted<R>,
     table: &Table<R::Model>,
     state: &TableState,
 ) -> Result<TablePage<R::Model>> {
-    TablePage::load(cx, table, crate::resource::scoped_query::<R>(cx)?, state).await
+    TablePage::load(cx, table, resource.scoped_query(cx)?, state).await
 }
 
 /// Loads [`load_table_page`] over the rows `scope` admits.
 pub(crate) async fn load_scoped_page<R: Resource>(
     cx: &Cx,
+    resource: &Mounted<R>,
     table: &Table<R::Model>,
     state: &TableState,
     scope: toasty::stmt::Expr<bool>,
 ) -> Result<TablePage<R::Model>> {
-    let query = crate::resource::scoped_query::<R>(cx)?.filter(scope);
+    let query = resource.scoped_query(cx)?.filter(scope);
     TablePage::load(cx, table, query, state).await
 }
 

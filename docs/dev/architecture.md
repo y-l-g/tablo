@@ -33,23 +33,41 @@ re-exports everything the generated code reaches. The Tailwind `links` plumbing 
 ## The layering
 
 ```
-Panel  ──declares──▶  Resource  ──declares──▶  Table   (the list view)
-   │                      │                  └▶  Schema  (forms, detail pages)
-   │                      └──record fns─────▶  create / update / delete
+Panel  ──mounts──▶  ResourceDef  ──declares──▶  Table   (the list view)
+   │        (Resource::declare)              └▶  Schema  (forms, detail pages)
+   │                      Resource  ──record fns──▶  create / update / delete
    └──owns──▶ routes, Shell, the auth gate (the app owns the Router and the Db)
 ```
 
 A `Panel` is an admin panel under one prefix. The app owns the router and the `Db` and mounts
 the panel with `RouterBuilderPanelExt::panel`; one router mounts several panels at distinct
-prefixes. Registering a `Resource` or a `Page` on a panel adds its routes and its sidebar entry.
+prefixes. Registering a `Resource` or a `Page` on a panel is declarative: mounting builds each
+resource's `ResourceDef` once, with the app schema in scope, then claims its slug and adds its
+routes and its sidebar entry.
 
-Each mounted panel's state is one `PanelState` in the router's `Panels`. The panel's gate layer
-puts it on every request under its prefix, so handlers read the request's panel, never a
-router-wide singleton.
+Each mounted panel's state is one `PanelState` in the router's `Panels`, holding the resources it
+mounted (`Mounted<R>`, by resource type). The panel's gate layer puts it on every request under
+its prefix, so handlers read the request's panel and its own copy of each resource, never a
+router-wide singleton. A resource the request's panel does not mount has no def there.
 
-`Table` and `Schema` are declarations, not renderers. Mounting the panel calls each resource's
-declarations once and serves the cached copy from every handler; a declaration that cannot render
-fails the mount rather than a request.
+`Table` and `Schema` are declarations, not renderers. A declaration that cannot render fails the
+mount rather than a request.
+
+### Inside `tablo-core`
+
+The crate's top-level modules form four layers, and a module names its own layer and the ones
+below it, never one above. `tests/layers.rs` reads the sources and fails on an upward path.
+
+| Layer | Modules |
+| --- | --- |
+| foundations | `csrf`, `db`, `declaration`, `error`, `lens`, `naming`, `query_term`, `toasty_compat`, `topcoat_compat` |
+| the declaration model | `form`, `navigation`, `policy`, `schema`, `table`, `tenancy` |
+| resources | `resource` |
+| serving | `auth`, `notification`, `page`, `panel`, `upload` |
+
+Where a lower layer needs request state only the serving layer resolves, the serving layer
+installs a function in the app context: `MountScope` finds the request panel's mounted resources
+and `TenantSource` the session's tenant.
 
 ## Requests
 
@@ -60,8 +78,9 @@ does not repeat them.
 
 ## Extension points
 
-The seams are the `Resource` traits (`query`, `view_query`, `relations`, `tenancy`, `policy`,
-`actions`, `form`, `view`), the `Column`, `Filter`, `Control`, and `Action` traits, the
+The seams are a resource's `ResourceDef` (`policy`, `tenancy`, `table`, `form`, `view`,
+`relation`, `action`) and its `Resource` methods (`query`, `view_query`, the display hooks, and
+the record fns), the `Column`, `Filter`, `Control`, and `Action` traits, the
 `EmbeddedForm` and `RecordForm` derives, the `Uploader`, and the `PanelUser` / `Authenticator`
 pair with the `auth` helpers for app pages. Rustdoc on each item is the contract; the guide
 shows idiomatic use.

@@ -9,8 +9,8 @@ use http::header::{
     CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, LOCATION, X_CONTENT_TYPE_OPTIONS,
 };
 use tablo_core::{
-    Ability, Auth, DeclarationErrorKind, Field, Panel, Policy, Resource, Schema, Table, TextColumn,
-    Uploader, lens,
+    Ability, Auth, DeclarationErrorKind, Field, Panel, Resource, ResourceDef, Schema, Table,
+    TextColumn, Uploader, lens,
 };
 use toasty::Db;
 use topcoat::{
@@ -76,28 +76,24 @@ struct DocResource;
 impl Resource for DocResource {
     type Model = Doc;
     type Form = DocForm;
-    fn form() -> Schema {
-        Schema::new((
-            Field::text(Doc::fields().title()),
-            Field::file(Doc::fields().cover()).label("Cover"),
-            Field::file(Doc::fields().attachment())
-                .label("Attachment")
-                .optional(),
-        ))
-    }
 
-    // Every policy hook defaults to deny.
-    fn policy() -> impl Policy<Doc> {
-        |_cx: &Cx, ability: Ability<'_, Doc>| {
-            matches!(
-                ability,
-                Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
-            )
-        }
-    }
-
-    fn table() -> Table<Doc> {
-        Table::new(TextColumn::new(lens!(Doc.title))).paginate(25)
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // Every policy hook defaults to deny.
+            .policy(|_cx: &Cx, ability: Ability<'_, Doc>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                )
+            })
+            .table(Table::new(TextColumn::new(lens!(Doc.title))).paginate(25))
+            .form(Schema::new((
+                Field::text(Doc::fields().title()),
+                Field::file(Doc::fields().cover()).label("Cover"),
+                Field::file(Doc::fields().attachment())
+                    .label("Attachment")
+                    .optional(),
+            )))
     }
 }
 #[derive(tablo_core::RecordForm)]

@@ -7,9 +7,9 @@
 //! reaches a framework internal.
 
 use tablo_core::{
-    Ability, Action, Actions, BooleanColumn, Column, Committed, Control, ControlInput,
-    DeclarationErrorKind, Field, Filter, FilterInput, Mutation, Policy, Resource, Schema, Site,
-    Table, TextColumn, lens,
+    Ability, Action, BooleanColumn, Column, Committed, Control, ControlInput, DeclarationErrorKind,
+    Field, Filter, FilterInput, Mutation, Resource, ResourceDef, Schema, Site, Table, TextColumn,
+    lens,
 };
 use toasty::{Db, stmt::Expr};
 use topcoat::{context::Cx, view::*};
@@ -179,41 +179,29 @@ impl Resource for TaskResource {
     type Model = Task;
     type Form = TaskForm;
 
-    fn slug() -> String {
-        "tasks".to_string()
-    }
-
-    fn policy() -> impl Policy<Task> {
-        |_cx: &Cx, ability: Ability<'_, Task>| {
-            matches!(
-                ability,
-                Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("tasks")
+            .policy(|_cx: &Cx, ability: Ability<'_, Task>| {
+                matches!(
+                    ability,
+                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
+                )
+            })
+            .table(
+                Table::new((
+                    TextColumn::new(lens!(Task.title)).sortable(),
+                    Highlighted,
+                    BooleanColumn::new(lens!(Task.done)),
+                ))
+                .filters((Initial,)),
             )
-        }
-    }
-
-    fn form() -> Schema {
-        Schema::new((
-            Field::custom(Task::fields().title(), Shouty),
-            Field::toggle(Task::fields().done()),
-        ))
-    }
-
-    fn view() -> Schema {
-        Self::form()
-    }
-
-    fn table() -> Table<Task> {
-        Table::new((
-            TextColumn::new(lens!(Task.title)).sortable(),
-            Highlighted,
-            BooleanColumn::new(lens!(Task.done)),
-        ))
-        .filters((Initial,))
-    }
-
-    fn actions() -> Actions<Self> {
-        Actions::new().add::<Complete>().add::<Explode>()
+            .form(Schema::new((
+                Field::custom(Task::fields().title(), Shouty),
+                Field::toggle(Task::fields().done()),
+            )))
+            .action::<Complete>()
+            .action::<Explode>()
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Task>) -> topcoat::Result<()> {
@@ -645,12 +633,11 @@ impl Resource for TwiceResource {
     type Model = Task;
     type Form = tablo_core::NoForm<Task>;
 
-    fn table() -> Table<Task> {
-        Table::new(TextColumn::new(lens!(Task.title)))
-    }
-
-    fn actions() -> Actions<Self> {
-        Actions::new().add::<Twice>().add::<Twice>()
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .table(Table::new(TextColumn::new(lens!(Task.title))))
+            .action::<Twice>()
+            .action::<Twice>()
     }
 }
 

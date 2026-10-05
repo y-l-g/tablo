@@ -20,12 +20,11 @@ pub(crate) use text::TextControl;
 use toasty::stmt::Path;
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{
-    lenses::{ResolvedLens, capitalize},
-    tree::Mode,
-    validation::Rules,
+use super::{lenses::ResolvedLens, tree::Mode, validation::Rules};
+use crate::{
+    form::{FieldError, FormScalar},
+    naming::capitalize,
 };
-use crate::form::{FieldError, FormScalar};
 
 /// One form field binding a lens to the control editing it, offering only that control's modifiers
 /// so a modifier on the wrong control does not compile.

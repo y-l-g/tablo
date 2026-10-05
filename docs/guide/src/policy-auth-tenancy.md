@@ -1,8 +1,8 @@
 # Policy, auth, tenancy
 
 Three layers decide what a request may do. **Authentication** decides who is signed in.
-**Tenancy** limits a signed-in user to the rows of the tenant they act for. **Policy** — the resource's
-`policy()` — decides what that user may do with each resource and record.
+**Tenancy** limits a signed-in user to the rows of the tenant they act for. **Policy** — the
+resource's `ResourceDef::policy` — decides what that user may do with each resource and record.
 
 ## Policy
 
@@ -14,7 +14,11 @@ use tablo::prelude::*;
 
 impl Resource for UserResource {
     // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
 {{#include ../../../examples/guide/src/resources.rs:user-policy}}
+    }
 }
 ```
 
@@ -52,12 +56,20 @@ rule reads the app's own user type, `Staff` here (see [Your own user table](#you
 
 impl Resource for PostResource {
     // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
 {{#include ../../../examples/guide/src/resources.rs:post-policy-editors}}
+    }
 }
 
 impl Resource for AuthorResource {
     // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
 {{#include ../../../examples/guide/src/resources.rs:author-policy-editors}}
+    }
 }
 ```
 
@@ -190,7 +202,11 @@ impl Resource for PostResource {
     type Model = Post; // has `tenant_id: uuid::Uuid`
     // …
 
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
 {{#include ../../../examples/guide/src/resources.rs:post-tenancy}}
+    }
 }
 ```
 
@@ -198,11 +214,11 @@ That one declaration does two things:
 
 - **The gate.** Every handler of the resource answers 403 when the request has no tenant.
 - **The scope.** Every loader — list, export, detail, edit, delete, bulk delete, relationship
-  options, related tables — adds `tenant_id = <request tenant>` to the resource's `query()`. A
+  options, related tables — adds `tenant_id = <request tenant>` to the resource's `query`. A
   create sets the tenant column itself, so the record form leaves it out.
 
 The column is a `Uuid` or `Option<Uuid>` field of the model, named by its lens, and it can have any
-name. Do not repeat the filter in `query()`. Mounting the panel refuses a `Tenancy::column` lens
+name. Do not repeat the filter in `query`. Mounting the panel refuses a `Tenancy::column` lens
 that is not one field of the model.
 
 **A row that inherits its tenant.** A comment has no tenant column of its own; it belongs to a post
@@ -212,7 +228,11 @@ filters exactly as it does for a column:
 ```rust
 impl Resource for CommentResource {
     // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
 {{#include ../../../examples/guide/src/resources.rs:comment-tenancy-via}}
+    }
 }
 ```
 

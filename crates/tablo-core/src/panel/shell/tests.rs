@@ -16,7 +16,7 @@ fn brand_trims_name_and_ignores_blank_logo() {
 async fn layout_shell_renders_a_complete_document() {
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::resource::{NavTarget, NavigationItem};
+    use crate::navigation::{NavTarget, NavigationItem};
 
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users")
@@ -145,7 +145,7 @@ fn head_of(html: &str) -> &str {
 async fn shell_escapes_brand_name_and_logo() {
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::resource::{NavTarget, NavigationItem};
+    use crate::navigation::{NavTarget, NavigationItem};
 
     // Attribute-injection safety rests on `view!` escaping:
     // lock it with a hostile brand on both render paths (header + sidebar).
@@ -340,7 +340,7 @@ fn opening_tag_at(html: &str, start: usize) -> &str {
 async fn shell_html_with_flash(enc: &str) -> String {
     use topcoat::{context::CxTestBuilder, cookie::CookieJarCell, view::view};
 
-    use crate::resource::{NavTarget, NavigationItem};
+    use crate::navigation::{NavTarget, NavigationItem};
 
     let mut parts = http::Request::builder()
         .uri("/admin/users")
@@ -381,7 +381,7 @@ async fn sidebar_orders_custom_items_by_sort_key() {
     // resources; ties keep declaration order.
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::resource::{NavTarget, NavigationItem};
+    use crate::navigation::{NavTarget, NavigationItem};
 
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users")
@@ -427,7 +427,7 @@ async fn panel_shell_renders_sidebar_with_active_and_tokens() {
     // restyle does not fail core without a behavior change.
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::resource::{NavTarget, NavigationItem};
+    use crate::navigation::{NavTarget, NavigationItem};
 
     let cx = CxTestBuilder::new().build();
     let cx_ref = &cx;
@@ -588,7 +588,7 @@ async fn toaster_renders_no_stray_span_when_empty() {
     // no live toast, neither slot may strand a `<span>` in the list.
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::resource::NavigationItem;
+    use crate::navigation::NavigationItem;
 
     let cx = CxTestBuilder::new().build();
     let cx_ref = &cx;
@@ -650,7 +650,7 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
     // it back).
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::resource::{NavTarget, NavigationItem};
+    use crate::navigation::{NavTarget, NavigationItem};
 
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users")
@@ -688,7 +688,7 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
 async fn sidebar_marks_only_the_longest_matching_entry_active() {
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::resource::NavigationItem;
+    use crate::navigation::NavigationItem;
 
     let nav_items = vec![
         NavigationItem::at("Dashboard", "/admin"),
@@ -738,7 +738,7 @@ async fn sidebar_marks_only_the_longest_matching_entry_active() {
 async fn nav_item_icon_renders_before_its_label() {
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::resource::NavigationItem;
+    use crate::navigation::NavigationItem;
 
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users")

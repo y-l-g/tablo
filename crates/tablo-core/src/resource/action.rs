@@ -1,5 +1,5 @@
 //! Custom actions: the [`Action`] trait, and the [`Actions`] list a
-//! [`Resource`] declares them in.
+//! [`ResourceDef`](super::ResourceDef) declares them in.
 
 use std::{future::Future, pin::Pin};
 
@@ -12,7 +12,7 @@ use super::Resource;
 ///
 /// An action runs on one record, from a button in its row, or on the
 /// selection, from the bulk bar, or both ([`ROW`](Self::ROW),
-/// [`BULK`](Self::BULK)). [`Resource::actions`] declares it:
+/// [`BULK`](Self::BULK)). [`ResourceDef::action`](super::ResourceDef::action) declares it:
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -21,7 +21,7 @@ use super::Resource;
 /// #     title: String,
 /// #     status: String,
 /// # }
-/// # use tablo_core::{Action, NoForm, Resource, Table, TextColumn, lens};
+/// # use tablo_core::{Action, NoForm, Resource};
 /// # use toasty::Executor;
 /// # use topcoat::{Result, context::Cx};
 /// # struct PostResource;
@@ -29,10 +29,6 @@ use super::Resource;
 /// # impl Resource for PostResource {
 /// #     type Model = Post;
 /// #     type Form = NoForm<Post>;
-/// #
-/// #     fn table() -> Table<Post> {
-/// #         Table::new(TextColumn::new(lens!(Post.title)))
-/// #     }
 /// # }
 /// struct Publish;
 ///
@@ -77,12 +73,14 @@ use super::Resource;
 pub trait Action<R: Resource>: 'static {
     /// The action's URL segment, distinct among the resource's actions.
     ///
-    /// [`Actions::add`] refuses to compile a name that is not a single path segment, and
-    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses one that
+    /// [`ResourceDef::action`](super::ResourceDef::action) refuses to compile a name that is not
+    /// a single path segment: empty, `.` or `..`, or holding whitespace, a control character, a
+    /// quote, a backslash or one of `/ ? # % & = { } ( )`.
+    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses a name that
     /// another action of the resource shares.
     ///
     /// ```rust,compile_fail
-    /// # use tablo_core::{Action, Actions, Allow, NoForm, Policy, Resource, Table, TextColumn, lens};
+    /// # use tablo_core::{Action, NoForm, Resource, ResourceDef};
     /// # use topcoat::{Result, context::Cx};
     /// # #[derive(Debug, Clone, toasty::Model)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
@@ -90,8 +88,6 @@ pub trait Action<R: Resource>: 'static {
     /// # impl Resource for PostResource {
     /// #     type Model = Post;
     /// #     type Form = NoForm<Post>;
-    /// #     fn table() -> Table<Post> { Table::new(TextColumn::new(lens!(Post.title))) }
-    /// #     fn policy() -> impl Policy<Post> { Allow }
     /// # }
     /// struct Archive;
     ///
@@ -102,7 +98,7 @@ pub trait Action<R: Resource>: 'static {
     /// #   async fn run(_: &Cx, _: &[Post], _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
     /// }
     ///
-    /// let actions = Actions::<PostResource>::new().add::<Archive>();
+    /// let def = ResourceDef::<PostResource>::new().action::<Archive>();
     /// ```
     const NAME: &'static str;
 
@@ -138,9 +134,8 @@ pub trait Action<R: Resource>: 'static {
 /// What an erased action's `run` returns.
 pub(crate) type ActionFuture<'a> = Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
 
-/// The actions a [`Resource`] declares, in button order:
-/// `Actions::new().add::<Publish>().add::<Archive>()`.
-pub struct Actions<R: Resource> {
+/// The actions a [`Resource`] declares, in button order.
+pub(crate) struct Actions<R: Resource> {
     entries: Vec<ActionEntry<R>>,
 }
 
@@ -161,17 +156,8 @@ impl<R: Resource> std::fmt::Debug for Actions<R> {
 }
 
 impl<R: Resource> Actions<R> {
-    /// No actions.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Append the action `A`.
-    ///
-    /// Fails to compile when `A::NAME` is not a single path segment: empty, `.` or `..`, or
-    /// holding whitespace, a control character, a quote, a backslash or one of
-    /// `/ ? # % & = { } ( )`.
-    pub fn add<A: Action<R>>(mut self) -> Self {
+    /// Appends the action `A`, failing to compile when `A::NAME` is not a single path segment.
+    pub(crate) fn add<A: Action<R>>(mut self) -> Self {
         const {
             assert!(
                 crate::declaration::segment_fault(A::NAME).is_none(),

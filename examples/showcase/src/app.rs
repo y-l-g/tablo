@@ -3,10 +3,10 @@
 use std::path::PathBuf;
 
 use tablo_core::{
-    Ability, Action, Actions, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
-    DateFilter, Field, FieldErrors, Grid, Group, NavigationItem, Options, Panel, Policy,
-    QueryFilter, RecordForm, Relation, Repeater, Resource, RouterBuilderPanelExt, Schema, Section,
-    SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
+    Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
+    DateFilter, Field, FieldErrors, Grid, Group, Options, Panel, QueryFilter, RecordForm, Relation,
+    Repeater, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
+    Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -54,19 +54,32 @@ impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
-    fn navigation() -> NavigationItem {
-        NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::USERS)
-    }
-
-    fn form() -> Schema {
+    fn declare() -> ResourceDef<Self> {
         let c = UserForm::controls();
-        Schema::new(Section::new("Profile").schema((
-            c.name.placeholder("Ada Lovelace"),
-            c.email.email().unique().placeholder("ada@example.com"),
-            c.role.optional(),
-            c.active,
-            c.age.optional(),
-        )))
+        ResourceDef::new()
+            .icon(tablo_ui::icons::USERS)
+            // Refuses writes to Ken's account.
+            .policy(|_cx: &Cx, ability: Ability<'_, User>| match ability {
+                Ability::Update(user) | Ability::Delete(user) => user.name != "Ken Thompson",
+                _ => true,
+            })
+            .table(
+                UserForm::table()
+                    .column(
+                        TextColumn::new(lens!(User.created_at))
+                            .format(|at| at.strftime("%Y-%m-%d").to_string())
+                            .sortable()
+                            .width(ColumnWidth::Rem(8)),
+                    )
+                    .live_search(),
+            )
+            .form(Schema::new(Section::new("Profile").schema((
+                c.name.placeholder("Ada Lovelace"),
+                c.email.email().unique().placeholder("ada@example.com"),
+                c.role.optional(),
+                c.active,
+                c.age.optional(),
+            ))))
     }
 
     /// Refuses a negative age.
@@ -76,25 +89,6 @@ impl Resource for UserResource {
             errors.add("age", "Age must be zero or more");
         }
         errors
-    }
-
-    /// Refuses writes to Ken's account.
-    fn policy() -> impl Policy<User> {
-        |_cx: &Cx, ability: Ability<'_, User>| match ability {
-            Ability::Update(user) | Ability::Delete(user) => user.name != "Ken Thompson",
-            _ => true,
-        }
-    }
-
-    fn table() -> Table<User> {
-        UserForm::table()
-            .column(
-                TextColumn::new(lens!(User.created_at))
-                    .format(|at| at.strftime("%Y-%m-%d").to_string())
-                    .sortable()
-                    .width(ColumnWidth::Rem(8)),
-            )
-            .live_search()
     }
 
     /// Wakes the live feed after a committed write.
@@ -123,29 +117,15 @@ impl Resource for AuthorResource {
     type Model = Author;
     type Form = AuthorForm;
 
-    fn navigation() -> NavigationItem {
-        NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::PEN_LINE)
-    }
-
-    fn form() -> Schema {
+    fn declare() -> ResourceDef<Self> {
         let c = AuthorForm::controls();
-        Schema::new((c.name, c.email.email()))
-    }
-
-    fn label() -> String {
-        "Writer".to_string()
-    }
-
-    fn policy() -> impl Policy<Author> {
-        when(blog_open)
-    }
-
-    fn tenancy() -> Tenancy<Author> {
-        Tenancy::column(Author::fields().tenant_id())
-    }
-
-    fn table() -> Table<Author> {
-        AuthorForm::table().live_search()
+        ResourceDef::new()
+            .label("Writer")
+            .icon(tablo_ui::icons::PEN_LINE)
+            .policy(when(blog_open))
+            .tenancy(Tenancy::column(Author::fields().tenant_id()))
+            .table(AuthorForm::table().live_search())
+            .form(Schema::new((c.name, c.email.email())))
     }
 }
 
@@ -167,44 +147,21 @@ impl Resource for PostResource {
     type Model = Post;
     type Form = PostForm;
 
-    fn navigation() -> NavigationItem {
-        NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::FILE_TEXT)
-    }
-
-    fn form() -> Schema {
-        let c = PostForm::controls();
-        Schema::new((
-            Section::new("Content").schema((
-                c.title.placeholder("A title editors click"),
-                c.body
-                    .multiline(6)
-                    .placeholder("The full story…")
-                    .optional(),
-            )),
-            Group::new().schema((
-                Section::new("Details").schema((
-                    Grid::new(2).schema((c.status.optional(), c.featured)),
-                    c.author_id
-                        .relationship::<AuthorResource>(|a: &Author| a.name.clone())
-                        .searchable()
-                        .label("Author"),
-                    c.cover_id
-                        .relationship::<MediaLibrary>(|m: &MediaAsset| m.filename.clone())
-                        .searchable()
-                        .label("Cover")
-                        .optional(),
-                )),
-                Repeater::new("Tags").schema(c.tags.label("Tag")),
-            )),
-            Group::new().schema((
-                Section::new("SEO").schema(c.seo),
-                Section::new("Publication").schema(c.publication),
-            )),
-        ))
-    }
-
-    fn label() -> String {
-        "Blog Post".to_string()
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .label("Blog Post")
+            .icon(tablo_ui::icons::FILE_TEXT)
+            .policy(when(blog_open))
+            .tenancy(Tenancy::column(Post::fields().tenant_id()))
+            .table(post_table())
+            .form(post_form())
+            .view(post_view())
+            // Lists the post's comments.
+            .relation(Relation::has_many::<CommentResource>(
+                Comment::fields().post_id(),
+            ))
+            // Publishes drafts from a row or for the selection.
+            .action::<PublishPosts>()
     }
 
     /// Names the detail heading with the post title.
@@ -219,21 +176,6 @@ impl Resource for PostResource {
         } else {
             None
         }
-    }
-
-    fn view() -> Schema {
-        let c = PostForm::controls();
-        Schema::new((
-            Section::new("Post").schema((c.title, c.body.multiline(6))),
-            Section::new("Details")
-                .schema(Group::new().schema((Grid::new(2).schema((c.status, c.featured)), c.tags))),
-            Section::new("SEO").schema(c.seo),
-            Section::new("Publication").schema(
-                Field::text(Post::fields().publication().published().published_at())
-                    .label("Published at")
-                    .optional(),
-            ),
-        ))
     }
 
     /// Shows the computed reading stats and the cover.
@@ -258,85 +200,115 @@ impl Resource for PostResource {
             .boxed(),
         )
     }
+}
 
-    /// Publishes drafts from a row or for the selection.
-    fn actions() -> Actions<Self> {
-        Actions::new().add::<PublishPosts>()
-    }
+/// The post form: content, details, SEO and publication.
+fn post_form() -> Schema {
+    let c = PostForm::controls();
+    Schema::new((
+        Section::new("Content").schema((
+            c.title.placeholder("A title editors click"),
+            c.body
+                .multiline(6)
+                .placeholder("The full story…")
+                .optional(),
+        )),
+        Group::new().schema((
+            Section::new("Details").schema((
+                Grid::new(2).schema((c.status.optional(), c.featured)),
+                c.author_id
+                    .relationship::<AuthorResource>(|a: &Author| a.name.clone())
+                    .searchable()
+                    .label("Author"),
+                c.cover_id
+                    .relationship::<MediaLibrary>(|m: &MediaAsset| m.filename.clone())
+                    .searchable()
+                    .label("Cover")
+                    .optional(),
+            )),
+            Repeater::new("Tags").schema(c.tags.label("Tag")),
+        )),
+        Group::new().schema((
+            Section::new("SEO").schema(c.seo),
+            Section::new("Publication").schema(c.publication),
+        )),
+    ))
+}
 
-    /// Lists the post's comments.
-    fn relations() -> Vec<Relation<Post>> {
-        vec![Relation::has_many::<CommentResource>(
-            Comment::fields().post_id(),
-        )]
-    }
+/// The post detail page.
+fn post_view() -> Schema {
+    let c = PostForm::controls();
+    Schema::new((
+        Section::new("Post").schema((c.title, c.body.multiline(6))),
+        Section::new("Details")
+            .schema(Group::new().schema((Grid::new(2).schema((c.status, c.featured)), c.tags))),
+        Section::new("SEO").schema(c.seo),
+        Section::new("Publication").schema(
+            Field::text(Post::fields().publication().published().published_at())
+                .label("Published at")
+                .optional(),
+        ),
+    ))
+}
 
-    fn policy() -> impl Policy<Post> {
-        when(blog_open)
-    }
-
-    fn tenancy() -> Tenancy<Post> {
-        Tenancy::column(Post::fields().tenant_id())
-    }
-
-    fn table() -> Table<Post> {
-        Table::new((
-            TextColumn::new(lens!(Post.title)).searchable().sortable(),
-            TextColumn::new(lens!(Post.status))
-                .format(|status| PostStatus::label_of(status))
-                .width(ColumnWidth::Narrow),
-            BooleanColumn::new(lens!(Post.featured)),
-            ComputedColumn::new("Author", |p: &Post| {
-                debug_assert!(
-                    !p.author.is_unloaded(),
-                    "the Author column declares `.include(Post::fields().author())`"
-                );
-                if p.author.is_unloaded() {
-                    "(unloaded)".to_string()
-                } else {
-                    p.author.get().name.clone()
-                }
-            })
-            .width(ColumnWidth::Wide)
-            .include(Post::fields().author()),
-            ComputedColumn::new("Comments", |p: &Post| {
-                debug_assert!(
-                    !p.comments.is_unloaded(),
-                    "the Comments column declares `.include(Post::fields().comments())`"
-                );
-                if p.comments.is_unloaded() {
-                    "(unloaded)".to_string()
-                } else {
-                    p.comments.get().len().to_string()
-                }
-            })
-            .include(Post::fields().comments()),
-        ))
-        .filters((
-            SelectFilter::new(Post::fields().status(), PostStatus::options()),
-            TernaryFilter::new(Post::fields().featured()),
-            DateFilter::new(Post::fields().created_at()),
-            QueryFilter::new("promoted", "Promoted")
-                .option(
-                    "Promoted",
-                    Post::fields().featured().eq(true).and(
-                        Post::fields()
-                            .status()
-                            .eq(PostStatus::Published.value().to_string()),
-                    ),
-                )
-                .option(
-                    "Backlog",
-                    Post::fields().featured().eq(false).and(
-                        Post::fields()
-                            .status()
-                            .eq(PostStatus::Draft.value().to_string()),
-                    ),
+/// The post list.
+fn post_table() -> Table<Post> {
+    Table::new((
+        TextColumn::new(lens!(Post.title)).searchable().sortable(),
+        TextColumn::new(lens!(Post.status))
+            .format(|status| PostStatus::label_of(status))
+            .width(ColumnWidth::Narrow),
+        BooleanColumn::new(lens!(Post.featured)),
+        ComputedColumn::new("Author", |p: &Post| {
+            debug_assert!(
+                !p.author.is_unloaded(),
+                "the Author column declares `.include(Post::fields().author())`"
+            );
+            if p.author.is_unloaded() {
+                "(unloaded)".to_string()
+            } else {
+                p.author.get().name.clone()
+            }
+        })
+        .width(ColumnWidth::Wide)
+        .include(Post::fields().author()),
+        ComputedColumn::new("Comments", |p: &Post| {
+            debug_assert!(
+                !p.comments.is_unloaded(),
+                "the Comments column declares `.include(Post::fields().comments())`"
+            );
+            if p.comments.is_unloaded() {
+                "(unloaded)".to_string()
+            } else {
+                p.comments.get().len().to_string()
+            }
+        })
+        .include(Post::fields().comments()),
+    ))
+    .filters((
+        SelectFilter::new(Post::fields().status(), PostStatus::options()),
+        TernaryFilter::new(Post::fields().featured()),
+        DateFilter::new(Post::fields().created_at()),
+        QueryFilter::new("promoted", "Promoted")
+            .option(
+                "Promoted",
+                Post::fields().featured().eq(true).and(
+                    Post::fields()
+                        .status()
+                        .eq(PostStatus::Published.value().to_string()),
                 ),
-        ))
-        .group_by(lens!(Post.status))
-        .live_search()
-    }
+            )
+            .option(
+                "Backlog",
+                Post::fields().featured().eq(false).and(
+                    Post::fields()
+                        .status()
+                        .eq(PostStatus::Draft.value().to_string()),
+                ),
+            ),
+    ))
+    .group_by(lens!(Post.status))
+    .live_search()
 }
 
 /// Publishes draft posts.
@@ -391,55 +363,43 @@ impl Resource for CommentResource {
     type Model = Comment;
     type Form = CommentForm;
 
-    fn navigation() -> NavigationItem {
-        NavigationItem::for_resource::<Self>().icon(tablo_ui::icons::MESSAGE_SQUARE)
-    }
-
-    fn form() -> Schema {
+    fn declare() -> ResourceDef<Self> {
         let c = CommentForm::controls();
-        Schema::new((
-            c.body.multiline(4).placeholder("Write a reply…"),
-            c.post_id
-                .relationship::<PostResource>(|p: &Post| p.title.clone())
-                .searchable()
-                .label("Post"),
-        ))
-    }
-
-    fn navigation_label() -> String {
-        "Comments".to_string()
-    }
-
-    /// Hides removed comments.
-    fn policy() -> impl Policy<Comment> {
-        |_cx: &Cx, ability: Ability<'_, Comment>| match ability {
-            Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
-            _ => true,
-        }
-    }
-
-    fn tenancy() -> Tenancy<Comment> {
-        Tenancy::via(Comment::fields().post().tenant_id())
-    }
-
-    fn table() -> Table<Comment> {
-        Table::new((
-            TextColumn::new(lens!(Comment.body)).searchable().sortable(),
-            ComputedColumn::new("Post", |c: &Comment| {
-                debug_assert!(
-                    !c.post.is_unloaded(),
-                    "the Post column declares `.include(Comment::fields().post())`"
-                );
-                if c.post.is_unloaded() {
-                    "(unloaded)".to_string()
-                } else {
-                    c.post.get().title.clone()
-                }
+        ResourceDef::new()
+            .plural_label("Comments")
+            .icon(tablo_ui::icons::MESSAGE_SQUARE)
+            // Hides removed comments.
+            .policy(|_cx: &Cx, ability: Ability<'_, Comment>| match ability {
+                Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
+                _ => true,
             })
-            .width(ColumnWidth::Wide)
-            .include(Comment::fields().post()),
-        ))
-        .live_search()
+            .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
+            .table(
+                Table::new((
+                    TextColumn::new(lens!(Comment.body)).searchable().sortable(),
+                    ComputedColumn::new("Post", |c: &Comment| {
+                        debug_assert!(
+                            !c.post.is_unloaded(),
+                            "the Post column declares `.include(Comment::fields().post())`"
+                        );
+                        if c.post.is_unloaded() {
+                            "(unloaded)".to_string()
+                        } else {
+                            c.post.get().title.clone()
+                        }
+                    })
+                    .width(ColumnWidth::Wide)
+                    .include(Comment::fields().post()),
+                ))
+                .live_search(),
+            )
+            .form(Schema::new((
+                c.body.multiline(4).placeholder("Write a reply…"),
+                c.post_id
+                    .relationship::<PostResource>(|p: &Post| p.title.clone())
+                    .searchable()
+                    .label("Post"),
+            )))
     }
 }
 

@@ -1,10 +1,10 @@
 # Forms
 
 A resource with create and edit pages declares two things: a **record form**, the typed struct a
-submission parses into, and a **schema** in `form()`, the controls the page renders. `form`
-defaults to the record form's derived schema, so a resource that wants one control per field in
-declaration order declares no `form` at all. Mounting the panel calls the declarations once and checks
-that the two agree.
+submission parses into, and a **schema**, set with `ResourceDef::form`, the controls the page
+renders. The schema defaults to the record form's derived schema, so a resource that wants one
+control per field in declaration order declares no form at all. Mounting the panel builds the
+declarations once and checks that the two agree.
 
 ## The record form
 
@@ -35,15 +35,21 @@ impl Resource for UserResource {
     type Model = User;
     type Form = UserForm;
 
+    fn declare() -> ResourceDef<Self> {
+        let c = UserForm::controls();
+        ResourceDef::new()
 {{#include ../../../examples/guide/src/resources.rs:user-form}}
-    // table(), policy …
+            // .table(..), .policy(..) …
+    }
+
+{{#include ../../../examples/guide/src/resources.rs:user-validate}}
 }
 ```
 
 Mounting the panel refuses the resource unless every control is bound by exactly one form field,
 every form field has a control, every optional control's field has a blank value, and — when
 the policy allows `Create` — every non-nullable column is filled by the form, by Toasty, by the tenant
-stamp, or by an overridden `create_record` that lists it in `Resource::CREATE_COLUMNS`.
+stamp, or by an overridden `create_record` whose def lists it in `create_columns`.
 
 ## Controls
 
@@ -220,7 +226,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 ```rust
 {{#include ../../../examples/guide/src/models.rs:seo-struct}}
 
-// In `form()`: one call renders a control per field.
+// In the def's form: one call renders a control per field.
 {{#include ../../../examples/guide/src/forms.rs:forms-embedded-schema}}
 
 // In the record form: the value is one field.

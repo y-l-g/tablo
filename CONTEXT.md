@@ -27,10 +27,17 @@ _Avoid_: CustomPage, Screen, View
 
 ### Resource
 
-A type implementing `Resource` for one Toasty model: its query, table, schema, policy, tenancy,
-and record functions. A resource whose `Form` is `NoForm` is list-only.
+A type implementing `Resource` for one Toasty model: its resource definition, its query, and its
+record functions. A resource whose `Form` is `NoForm` is list-only.
 
 _Avoid_: Model, Entity, Collection, AdminModel, CRUD
+
+### Resource definition
+
+What a resource declares, as one `ResourceDef` value: its slug, labels, navigation, policy,
+tenancy, table, schemas, relations, and actions. Each panel mounts its own copy.
+
+_Avoid_: Config, Settings, Options (as a domain term)
 
 ### Query
 

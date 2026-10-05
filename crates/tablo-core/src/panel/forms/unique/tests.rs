@@ -3,7 +3,7 @@ use topcoat::router::Body;
 
 use super::*;
 use crate::{
-    lens,
+    ResourceDef, lens,
     panel::test_support::{Tagged, TaggedResource, mount, panel_for, response_html},
 };
 
@@ -34,8 +34,10 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Subscriber> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Subscriber.email),
+            )))
         }
     }
 
@@ -56,10 +58,16 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
     let mut values = HashMap::new();
     values.insert("email".to_string(), "a@b.c".to_string());
 
-    let errors =
-        check_unique::<SubscriberResource>(&cx, &schema, &values, &HashMap::new(), &mut ex)
-            .await
-            .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &schema,
+        &values,
+        &HashMap::new(),
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert_eq!(
         messages(&errors, "email"),
         ["Email has already been taken"],
@@ -68,16 +76,30 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
 
     let mut fresh = HashMap::new();
     fresh.insert("email".to_string(), "other@b.c".to_string());
-    let errors = check_unique::<SubscriberResource>(&cx, &schema, &fresh, &HashMap::new(), &mut ex)
-        .await
-        .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &schema,
+        &fresh,
+        &HashMap::new(),
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert!(errors.is_empty(), "fresh value must pass, got {errors:?}");
 
     let mut current = HashMap::new();
     current.insert("email".to_string(), "a@b.c".to_string());
-    let errors = check_unique::<SubscriberResource>(&cx, &schema, &values, &current, &mut ex)
-        .await
-        .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &schema,
+        &values,
+        &current,
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert!(
         errors.is_empty(),
         "own unchanged value must be skipped, got {errors:?}"
@@ -85,10 +107,16 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
 
     let mut changed_current = HashMap::new();
     changed_current.insert("email".to_string(), "old@b.c".to_string());
-    let errors =
-        check_unique::<SubscriberResource>(&cx, &schema, &values, &changed_current, &mut ex)
-            .await
-            .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &schema,
+        &values,
+        &changed_current,
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert_eq!(
         messages(&errors, "email"),
         ["Email has already been taken"],
@@ -102,10 +130,16 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
             .optional()
             .unique(),
     );
-    let errors =
-        check_unique::<SubscriberResource>(&cx, &optional_schema, &empty, &HashMap::new(), &mut ex)
-            .await
-            .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &optional_schema,
+        &empty,
+        &HashMap::new(),
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert!(
         errors.is_empty(),
         "an empty unique submit must not be probed, got {errors:?}"
@@ -132,8 +166,10 @@ async fn unique_field_is_required_however_it_is_marked() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Subscriber> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Subscriber.email),
+            )))
         }
     }
 
@@ -159,9 +195,16 @@ async fn unique_field_is_required_however_it_is_marked() {
         "an empty unique field must fail validation as required"
     );
 
-    let errors = check_unique::<SubscriberResource>(&cx, &schema, &first, &HashMap::new(), &mut ex)
-        .await
-        .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &schema,
+        &first,
+        &HashMap::new(),
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert!(
         errors.is_empty(),
         "an empty unique submit must not be probed, got {errors:?}"
@@ -196,8 +239,10 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Subscriber> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Subscriber.email),
+            )))
         }
     }
 
@@ -225,9 +270,16 @@ async fn lens_derived_unique_is_required_without_a_unique_call() {
         ["Email is required"],
         "an empty submit must be refused inline, not probed"
     );
-    let errors = check_unique::<SubscriberResource>(&cx, &schema, &empty, &HashMap::new(), &mut ex)
-        .await
-        .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &schema,
+        &empty,
+        &HashMap::new(),
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert!(
         errors.is_empty(),
         "validation owns the empty case; the probe must add nothing, got {errors:?}"
@@ -253,8 +305,10 @@ async fn unique_check_propagates_probe_errors() {
         type Model = Probe;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Probe> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Probe.email)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Probe.email),
+            )))
         }
     }
 
@@ -270,8 +324,15 @@ async fn unique_check_propagates_probe_errors() {
     let schema = Schema::new(Field::text(Probe::fields().email()).unique());
     let mut values = HashMap::new();
     values.insert("email".to_string(), "a@b.c".to_string());
-    let result =
-        check_unique::<ProbeResource>(&cx, &schema, &values, &HashMap::new(), &mut ex).await;
+    let result = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<ProbeResource>(&cx).unwrap(),
+        &schema,
+        &values,
+        &HashMap::new(),
+        &mut ex,
+    )
+    .await;
     assert!(
         result.is_err(),
         "a failing probe must fail the submit, got {result:?}"
@@ -297,8 +358,10 @@ async fn unique_check_ignores_absent_repeater_groups() {
         type Model = Nicknamed;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Nicknamed> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Nicknamed.nickname)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Nicknamed.nickname),
+            )))
         }
     }
 
@@ -332,9 +395,16 @@ async fn unique_check_ignores_absent_repeater_groups() {
         schema.validate(&absent).is_empty(),
         "absent group must validate clean"
     );
-    let errors = check_unique::<TaggedResource>(&cx, &schema, &absent, &HashMap::new(), &mut ex)
-        .await
-        .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<TaggedResource>(&cx).unwrap(),
+        &schema,
+        &absent,
+        &HashMap::new(),
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert!(
         errors.is_empty(),
         "absent group must not be unique-checked, got {errors:?}"
@@ -348,9 +418,16 @@ async fn unique_check_ignores_absent_repeater_groups() {
     .exec(&mut ex)
     .await
     .unwrap();
-    let errors = check_unique::<TaggedResource>(&cx, &schema, &present, &HashMap::new(), &mut ex)
-        .await
-        .unwrap();
+    let errors = check_unique(
+        &cx,
+        &crate::resource::require_mounted::<TaggedResource>(&cx).unwrap(),
+        &schema,
+        &present,
+        &HashMap::new(),
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert_eq!(
         errors.first("nickname").map(|error| error.message.as_str()),
         Some("Nickname has already been taken"),

@@ -1,15 +1,15 @@
 //! Tablo: a server-rendered admin toolkit on [Topcoat](topcoat) and [Toasty](toasty).
 //!
-//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model, the
-//! [`RecordForm`](derive@RecordForm) struct its create and edit submissions parse into, and its
-//! [`Policy`], which denies by default. The record form derives the rest: the list page's
-//! [`Table`], the form's [`Schema`] and the detail page's, each of which the resource overrides
-//! to arrange or extend. The app mounts the panel on its own Topcoat router with
-//! [`RouterBuilderPanelExt::panel`], which binds every declaration to the database schema and
-//! checks it first; one router mounts any number of panels at distinct prefixes.
+//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model and the
+//! [`RecordForm`](derive@RecordForm) struct its create and edit submissions parse into, and
+//! declares the rest as one [`ResourceDef`] value: its [`Policy`], which denies by default, and
+//! any [`Table`] or [`Schema`] that arranges or extends what the record form derives. The app
+//! mounts the panel on its own Topcoat router with [`RouterBuilderPanelExt::panel`], which builds
+//! each def once, binds it to the database schema and checks it first; one router mounts any
+//! number of panels at distinct prefixes.
 //!
 //! ```rust,no_run
-//! # use tablo_core::{Allow, Panel, Policy, Resource, RouterBuilderPanelExt};
+//! # use tablo_core::{Allow, Panel, Resource, ResourceDef, RouterBuilderPanelExt};
 //! # use toasty::Db;
 //! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
 //! # fn main() -> topcoat::Result<()> {
@@ -32,8 +32,8 @@
 //!     type Model = Book;
 //!     type Form = BookForm;
 //!
-//!     fn policy() -> impl Policy<Book> {
-//!         Allow
+//!     fn declare() -> ResourceDef<Self> {
+//!         ResourceDef::new().policy(Allow)
 //!     }
 //! }
 //!
@@ -49,8 +49,8 @@
 //! ```
 //!
 //! The [user guide](https://y-l.fr/tablo/nightly/guide/) walks through a complete panel and each
-//! part of it. [`Resource`] lists every item a resource can declare, and [`Panel`] every builder
-//! call.
+//! part of it. [`ResourceDef`] lists everything a resource declares, [`Resource`] the hooks it
+//! overrides, and [`Panel`] every builder call.
 
 // The derives emit `tablo_core::` paths; this lets them expand inside this
 // crate's own tests too.
@@ -70,7 +70,6 @@ pub mod __macro {
     pub use crate::{
         Lens,
         form::{FieldError, FormField, FormScalar, RecordForm, assert_form_scalar, parse_scalar},
-        resource::{BooleanColumn, Table, TextColumn},
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FileField, IntoSchema, Options, Schema,
             TextField,
@@ -79,6 +78,7 @@ pub mod __macro {
             },
             form_key,
         },
+        table::{BooleanColumn, Table, TextColumn},
     };
 }
 // The toolkit surface: Panel, Resource, Table, Schema, Notification,
@@ -90,6 +90,8 @@ mod declaration;
 mod error;
 pub mod form;
 mod lens;
+mod naming;
+pub mod navigation;
 pub mod notification;
 mod page;
 pub mod panel;
@@ -97,6 +99,7 @@ pub mod policy;
 mod query_term;
 pub mod resource;
 pub mod schema;
+pub mod table;
 pub mod tenancy;
 #[cfg(test)]
 mod test_support;
@@ -104,28 +107,31 @@ mod toasty_compat;
 mod topcoat_compat;
 pub mod upload;
 
-pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth};
+pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth, membership};
 pub use declaration::{DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site};
 pub use form::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
-    write_create, write_update,
 };
 pub use lens::Lens;
+pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationStatus};
 pub use page::Page;
 pub use panel::{Brand, Panel, RouterBuilderPanelExt, can_list, url};
-pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, can, when};
+pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
-    Action, Actions, BooleanColumn, Column, ColumnWidth, Committed, ComputedColumn, Cursor,
-    DateFilter, Filter, FilterInput, ForeignKey, Includes, IntoColumns, IntoFilters, Mutation,
-    NavTarget, NavigationItem, QueryFilter, Relation, Resource, SelectFilter, Sort, Table,
-    TablePage, TableState, TernaryFilter, TextColumn, scoped_query, scoped_view_query,
+    Action, Committed, ForeignKey, Mutation, Relation, Resource, ResourceDef, can, scoped_query,
+    scoped_view_query, write_create, write_update,
 };
 pub use schema::{
     ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FileField, Grid, Group,
     IntoOptions, IntoSchema, Options, Repeater, Schema, Section, Source, TextField, Toggle,
     declare,
 };
+pub use table::{
+    BooleanColumn, Column, ColumnWidth, ComputedColumn, Cursor, DateFilter, Filter, FilterInput,
+    Includes, IntoColumns, IntoFilters, QueryFilter, SelectFilter, Sort, Table, TablePage,
+    TableState, TernaryFilter, TextColumn,
+};
 pub use tablo_macros::{EmbeddedForm, Options, RecordForm};
-pub use tenancy::{Membership, Tenancy, Tenant, membership, require_tenant, tenant_id};
+pub use tenancy::{Membership, Tenancy, Tenant, require_tenant, tenant_id};
 pub use upload::Uploader;

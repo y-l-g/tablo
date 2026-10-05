@@ -19,7 +19,7 @@ A resource with the slug `users`, on a panel mounted at `/admin`, serves:
 | Method | Path | Serves |
 | --- | --- | --- |
 | `GET` | `/admin/users` | the list |
-| `GET` | `/admin/users/{id}` | the [detail page](./detail-pages.md); 404 when the resource declares no `view()` |
+| `GET` | `/admin/users/{id}` | the [detail page](./detail-pages.md); 404 when the resource's view is empty |
 | `POST` | `/admin/users/{id}/delete` | delete one record |
 | `POST` | `/admin/users/bulk-delete` | delete the selected records |
 | `GET` | `/admin/users/export` | the list as CSV |
@@ -106,7 +106,8 @@ The `tablo::url` helpers answer for the request's panel, so app code never spell
 
 The request's panel is the one whose prefix the request is under; on a router with a single panel
 it is that panel for every request. A resource or page that panel does not register has no URL
-there, and the helper returns `None`.
+there, and the helper returns `None`. `tablo::panel::navigation::<R>(cx)` answers the same way
+with `R`'s whole sidebar entry, its label, URL and icon, which suits a dashboard linking to lists.
 
 ## The shell layout
 
@@ -124,22 +125,27 @@ call it replaces the shell entirely:
 
 ## Sidebar
 
-Every resource and page gets one sidebar entry, labelled with its `navigation_label()` and linked
-to its list or page URL. Entries sort by `order` (lower first, default `0`); entries with the same
-`order` keep registration order, and the home page leads its `order`.
+Every resource and page gets one sidebar entry, labelled with its plural label (a page's
+`navigation_label()`) and linked to its list or page URL. Entries sort by `order` (lower first,
+default `0`); entries with the same `order` keep registration order, and the home page leads its
+`order`.
 
-Override `navigation()` on the resource or page to change the order or add an icon. Start from the
-default entry so the panel still resolves the URL:
+A resource sets the order and an icon on its def, and the panel resolves the URL:
 
 ```rust
 impl Resource for UserResource {
     // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
 {{#include ../../../examples/guide/src/resources.rs:user-navigation}}
+    }
 }
 ```
 
-`NavigationItem::for_page::<Self>()` is the equivalent for a page. `NavigationItem::at(label, url)`
-links elsewhere; the panel keeps that URL as written. The entry whose URL is the longest match
+A page overrides `Page::navigation()`, starting from `NavigationItem::for_page::<Self>()`.
+`NavigationItem::at(label, url)` links elsewhere, from a resource's `ResourceDef::navigation` or a
+page's `navigation()`; the panel keeps that URL as written. The entry whose URL is the longest match
 for the current path is marked active.
 
 ## Pages

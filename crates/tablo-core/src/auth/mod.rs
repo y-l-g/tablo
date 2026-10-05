@@ -255,6 +255,32 @@ pub(crate) fn signed(cx: &Cx) -> Option<&SignedIn> {
     resolved(cx).filter(|signed| signed.user.can_access_panel())
 }
 
+/// The signed-in user's membership the request acts under: the tenant the
+/// session selected while it is still one of the user's
+/// [`tenants`](PanelUser::tenants), else the first. `None` without a
+/// signed-in user, for a user with no tenant, and when a `Tenant` override
+/// names a tenant the user is not a member of.
+pub fn membership(cx: &Cx) -> Option<&Membership> {
+    let tenant = crate::tenant_id(cx)?;
+    signed(cx)?
+        .user
+        .tenants()
+        .iter()
+        .find(|m| m.tenant == tenant)
+}
+
+/// The tenant of the session's selected membership, else of the user's first: the
+/// [`TenantSource`](crate::tenancy::TenantSource) the panel installs.
+pub(crate) fn session_tenant(cx: &Cx) -> Option<Uuid> {
+    let signed = signed(cx)?;
+    let tenants = signed.user.tenants();
+    signed
+        .tenant
+        .and_then(|tenant| tenants.iter().find(|m| m.tenant == tenant))
+        .or_else(|| tenants.first())
+        .map(|membership| membership.tenant)
+}
+
 /// The signed-in user, as the app's own user type.
 ///
 /// `None` when nobody is signed in to the request's panel, and when the
@@ -339,7 +365,7 @@ fn unauthenticated_error(cx: &Cx) -> topcoat::Error {
     // of redirecting into the login page.
     let rerun = !matches!(*original_method(cx), http::Method::GET | http::Method::HEAD)
         && original_headers(cx).get(&topcoat::runtime::RUNTIME_HEADER) == Some(&RERUN_MARKER);
-    if path.starts_with(RUNTIME_PREFIX) || !page_method || rerun {
+    if path.starts_with(crate::topcoat_compat::RUNTIME_PREFIX) || !page_method || rerun {
         unauthorized().into()
     } else {
         redirect(login::login_url_with_next(cx)).into()
@@ -376,10 +402,6 @@ fn infrastructure_failure(error: impl Into<topcoat::Error>) -> topcoat::Error {
 /// and like the generic one it never carries driver text: that goes to the
 /// log.
 const UNAVAILABLE_ERROR: &str = "Sign-in is unavailable right now. Try again shortly.";
-
-/// The runtime prefix whose unauthenticated requests answer 401 instead of a
-/// redirect.
-pub(crate) const RUNTIME_PREFIX: &str = "/_topcoat/runtime";
 
 /// The runtime-header value marking a page re-run POST (`true`, per Topcoat's
 /// page-rerun protocol).

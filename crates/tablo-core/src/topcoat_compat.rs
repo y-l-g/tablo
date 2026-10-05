@@ -4,10 +4,15 @@
 //!
 //! - [`async_page`]: a fallible async page body as a view (upstream #123).
 //! - [`href`]: runtime-path URL building through percent-encoding (upstream #399).
+//! - [`RUNTIME_PREFIX`]: the path Topcoat serves its runtime endpoints under, which it does not
+//!   export.
 
 use std::future::Future;
 
 use topcoat::view::{BoxView, HoistView, View, internal::ThenView};
+
+/// The path Topcoat serves its runtime endpoints under.
+pub(crate) const RUNTIME_PREFIX: &str = "/_topcoat/runtime";
 
 /// A fallible async page body as a hoisted view.
 pub(crate) fn async_page<'a, F, V>(future: F) -> BoxView<'a>

@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[test]
-fn list_url_prefers_panel_prefix_over_request_path() {
+fn panel_prefix_prefers_the_panel_over_the_request_path() {
     use topcoat::context::CxTestBuilder;
 
     // On a panel's request, the resource URL is derived from the panel — even on a path that is not
@@ -25,7 +25,7 @@ fn list_url_prefers_panel_prefix_over_request_path() {
             crate::Auth::disabled(),
         )))
         .build();
-    assert_eq!(list_url(&cx, "users"), "/admin/users");
+    assert_eq!(panel_prefix(&cx), "/admin");
 
     let (parts, ()) = http::Request::builder()
         .uri("/backoffice/users")
@@ -39,7 +39,7 @@ fn list_url_prefers_panel_prefix_over_request_path() {
             crate::Auth::disabled(),
         )))
         .build();
-    assert_eq!(list_url(&cx, "users"), "/backoffice/users");
+    assert_eq!(panel_prefix(&cx), "/backoffice");
 
     // Without a panel (bare test builder), fall back to the
     // request path's first segment.
@@ -49,7 +49,7 @@ fn list_url_prefers_panel_prefix_over_request_path() {
         .unwrap()
         .into_parts();
     let cx = CxTestBuilder::new().request_context(parts).build();
-    assert_eq!(list_url(&cx, "users"), "/admin/users");
+    assert_eq!(panel_prefix(&cx), "/admin");
 }
 
 /// The named runtime endpoints answer the gate: a request

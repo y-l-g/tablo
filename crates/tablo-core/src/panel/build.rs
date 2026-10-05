@@ -21,17 +21,19 @@ use super::{
     Panel, Root,
     forms::MAX_FORM_BYTES,
     headers,
+    register::Registry,
     search::{ShardPanel, TABLE_RELATION_SEARCH_PATH, TABLE_SEARCH_PATH},
     state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, MountError, Site,
-    auth::{PanelGate, RUNTIME_PREFIX, RuntimeGate, SESSION_LIFETIME},
+    auth::{PanelGate, RuntimeGate, SESSION_LIFETIME},
     declaration::segment_fault,
-    form::{FormField, RecordForm},
-    policy::{Ability, can},
-    resource::{Declarations, Declared, Resource},
-    schema::{Schema, schema_of},
+    form::RecordForm,
+    policy::Ability,
+    resource::{MountScope, Mounted, Mounts, Resource, require_mounted},
+    tenancy::TenantSource,
+    topcoat_compat::RUNTIME_PREFIX,
 };
 
 /// Mounts a [`Panel`] on a router the app owns.
@@ -60,50 +62,67 @@ impl RouterBuilderPanelExt for RouterBuilder {
 
 impl Panel {
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
-        let mut errors = self.mount_errors(&builder);
-        let mut declarations = Declarations::default();
-        match builder.get_app_context::<Db>() {
+        let db = builder.get_app_context::<Db>().cloned();
+        let mut registry = Registry::new(
+            self.prefix.clone(),
+            db.as_ref().map(|db| db.schema().clone()),
+        );
+        let Panel {
+            prefix,
+            shell_assets,
+            brand,
+            dark_mode,
+            layout,
+            registrations,
+            frame_ancestors,
+            configuration_errors,
+            uploads,
+            served_dirs,
+            login_hint,
+            auth,
+        } = self;
+        for registration in registrations {
+            registration.register(&mut registry);
+        }
+        registry.link_relations();
+        let mounts = Arc::new(std::mem::take(&mut registry.mounts));
+        let mut errors = configuration_errors;
+        errors.append(&mut registry.errors);
+        errors.extend(mount_errors(
+            &builder,
+            &prefix,
+            shell_assets.is_some(),
+            &served_dirs,
+        ));
+        match &db {
             Some(db) => {
-                let cx = validation_cx(db);
-                for check in &self.resource_checks {
-                    check(&cx, &mut declarations, &mut errors);
+                let cx = validation_cx(db, &mounts);
+                for registered in &registry.resources {
+                    (registered.check)(&cx, &mut errors);
                 }
-                if let Err(kind) = crate::auth::check_models_registered(db, &self.auth) {
+                if let Err(kind) = crate::auth::check_models_registered(db, &auth) {
                     errors.push(DeclarationError::panel(kind));
                 }
             }
             None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }
         if !errors.is_empty() {
-            return Err(MountError::new(&self.prefix, errors).into());
+            return Err(MountError::new(&prefix, errors).into());
         }
         if builder.get_app_context::<Panels>().is_none() {
             builder = install_shared(builder);
         }
-        match builder.get_app_context_mut::<Declarations>() {
-            Some(installed) => installed.extend(declarations),
-            None => builder = builder.app_context(declarations),
-        }
-        let Panel {
-            prefix,
-            shell_assets,
-            brand,
-            dark_mode,
+        let Registry {
+            urls,
             nav_items,
             pages,
             routes,
             root,
-            layout,
-            urls,
-            search_handlers,
-            relation_handlers,
-            frame_ancestors,
-            uploads,
-            served_dirs,
-            login_hint,
-            auth,
+            search,
+            relation_search,
+            children,
             ..
-        } = self;
+        } = registry;
         let root_redirect = match root {
             Some(Root::Redirect(target)) => Some(target),
             Some(Root::Home) | None => None,
@@ -115,8 +134,10 @@ impl Panel {
             brand,
             dark_mode: dark_mode.unwrap_or(false),
             shell_assets,
-            search: search_handlers,
-            relations: relation_handlers,
+            search,
+            relations: relation_search,
+            children,
+            mounts,
             root_redirect: root_redirect.clone(),
             auth,
             login_hint,
@@ -192,79 +213,56 @@ impl Panel {
             .push(state);
         Ok(builder)
     }
+}
 
-    /// What refuses this panel before its resources are checked.
-    fn mount_errors(&self, builder: &RouterBuilder) -> Vec<DeclarationError> {
-        let mut errors = self.registration_errors.clone();
-        errors.extend(self.relation_errors());
-        let mut refuse = |kind| errors.push(DeclarationError::panel(kind));
-        if self.shell_assets.is_some() && builder.get_app_context::<AssetConfig>().is_none() {
-            refuse(DeclarationErrorKind::ShellAssetsWithoutBundle);
-        }
-        if under_prefix(RUNTIME_PREFIX, &self.prefix) || under_prefix(&self.prefix, RUNTIME_PREFIX)
+/// What refuses a panel at `prefix` before its resources are checked.
+fn mount_errors(
+    builder: &RouterBuilder,
+    prefix: &str,
+    shell_assets: bool,
+    served_dirs: &[(String, std::path::PathBuf)],
+) -> Vec<DeclarationError> {
+    let mut errors = Vec::new();
+    let mut refuse = |kind| errors.push(DeclarationError::panel(kind));
+    if shell_assets && builder.get_app_context::<AssetConfig>().is_none() {
+        refuse(DeclarationErrorKind::ShellAssetsWithoutBundle);
+    }
+    if under_prefix(RUNTIME_PREFIX, prefix) || under_prefix(prefix, RUNTIME_PREFIX) {
+        refuse(DeclarationErrorKind::PrefixOverlapsRuntime {
+            prefix: prefix.to_string(),
+        });
+    }
+    for (index, (path, _)) in served_dirs.iter().enumerate() {
+        let root = served_root(path);
+        if served_dirs[..index]
+            .iter()
+            .any(|(seen, _)| served_root(seen) == root)
         {
-            refuse(DeclarationErrorKind::PrefixOverlapsRuntime {
-                prefix: self.prefix.clone(),
-            });
+            refuse(DeclarationErrorKind::ServeDirTwice { path: path.clone() });
         }
-        for (index, (path, _)) in self.served_dirs.iter().enumerate() {
-            let root = served_root(path);
-            if self.served_dirs[..index]
-                .iter()
-                .any(|(seen, _)| served_root(seen) == root)
-            {
-                refuse(DeclarationErrorKind::ServeDirTwice { path: path.clone() });
-            }
-        }
-        if let Some(panels) = builder.get_app_context::<Panels>() {
-            for other in &panels.0 {
-                for (path, _) in &self.served_dirs {
-                    if other
-                        .served_paths
-                        .iter()
-                        .any(|served| served_root(served) == served_root(path))
-                    {
-                        refuse(DeclarationErrorKind::ServeDirTaken {
-                            path: path.clone(),
-                            panel: other.prefix.clone(),
-                        });
-                    }
-                }
-                if under_prefix(&other.prefix, &self.prefix)
-                    || under_prefix(&self.prefix, &other.prefix)
+    }
+    if let Some(panels) = builder.get_app_context::<Panels>() {
+        for other in &panels.0 {
+            for (path, _) in served_dirs {
+                if other
+                    .served_paths
+                    .iter()
+                    .any(|served| served_root(served) == served_root(path))
                 {
-                    refuse(DeclarationErrorKind::PrefixOverlapsPanel {
-                        other: other.prefix.clone(),
+                    refuse(DeclarationErrorKind::ServeDirTaken {
+                        path: path.clone(),
+                        panel: other.prefix.clone(),
                     });
                 }
             }
-        }
-        errors
-    }
-
-    /// Every relation must name a resource this panel registers — its table's
-    /// row actions and create link go to that resource's routes — and name it
-    /// once per owner, since the key prefixes the table's URL parameters.
-    fn relation_errors(&self) -> Vec<DeclarationError> {
-        let mut errors = Vec::new();
-        for (owner, keys) in &self.relations {
-            for (index, key) in keys.iter().enumerate() {
-                let kind = if keys[..index].contains(key) {
-                    DeclarationErrorKind::DuplicateRelation
-                } else if !self.resource_slugs.contains(key) {
-                    DeclarationErrorKind::UnregisteredRelation
-                } else {
-                    continue;
-                };
-                errors.push(DeclarationError {
-                    resource: Some(owner),
-                    site: Site::Relation(key.clone()),
-                    kind,
+            if under_prefix(&other.prefix, prefix) || under_prefix(prefix, &other.prefix) {
+                refuse(DeclarationErrorKind::PrefixOverlapsPanel {
+                    other: other.prefix.clone(),
                 });
             }
         }
-        errors
     }
+    errors
 }
 
 /// Installs what every panel on a router shares.
@@ -277,7 +275,9 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .layer(RuntimeGate::new())
         .layer(ShardPanel::new(TABLE_SEARCH_PATH, 0))
         .layer(ShardPanel::new(TABLE_RELATION_SEARCH_PATH, 1))
-        .app_context(Panels::default());
+        .app_context(Panels::default())
+        .app_context(MountScope(|cx| current(cx).map(|panel| &*panel.mounts)))
+        .app_context(TenantSource(crate::auth::session_tenant));
     // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
     // to a `GET`.
     if builder.get_app_context::<RuntimeSetup>().is_none() {
@@ -326,19 +326,16 @@ pub(super) fn validate_route_segment(
     }
 }
 
-/// A resource's declaration check: monomorphized once per declared resource
-/// by [`Panel::resource`], run by [`RouterBuilderPanelExt::panel`] with the
-/// app's values and no request.
-pub(super) type ResourceCheck = fn(&Cx, &mut Declarations, &mut Vec<DeclarationError>);
+/// A resource's declaration check: monomorphized once per registered resource, run by
+/// [`RouterBuilderPanelExt::panel`] with the app's values, the panel's mounts and no request.
+pub(super) type ResourceCheck = fn(&Cx, &mut Vec<DeclarationError>);
 
-/// Checks what a declared resource promises before the panel serves it, building its declarations
-/// once for handlers to serve.
-pub(super) fn check_resource<R: Resource>(
-    cx: &Cx,
-    declarations: &mut Declarations,
-    errors: &mut Vec<DeclarationError>,
-) {
-    let tenancy = R::tenancy();
+/// Checks what a mounted resource promises before the panel serves it.
+pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationError>) {
+    let Ok(declared) = require_mounted::<R>(cx) else {
+        return;
+    };
+    let tenancy = &declared.tenancy;
     if let Some(Err(kind)) = tenancy.column_field() {
         errors.push(DeclarationError::of::<R>(Site::Tenancy, kind));
     }
@@ -348,13 +345,17 @@ pub(super) fn check_resource<R: Resource>(
             DeclarationErrorKind::TenancyViaOwnColumn,
         ));
     }
-    let declared = Declared::<R>::build(schema_of(cx));
     let form_errors = declared.form.declaration_errors();
     let form_is_sound = form_errors.is_empty();
+    let view_errors = if declared.has_own_view() {
+        declared.view().declaration_errors()
+    } else {
+        Vec::new()
+    };
     for (site, kinds) in [
         (Site::Table, declared.table.declaration_errors()),
         (Site::Form, form_errors),
-        (Site::View, declared.view.declaration_errors()),
+        (Site::View, view_errors),
     ] {
         errors.extend(
             kinds
@@ -362,17 +363,16 @@ pub(super) fn check_resource<R: Resource>(
                 .map(|kind| DeclarationError::of::<R>(site.clone(), kind)),
         );
     }
-    check_actions::<R>(errors);
-    check_form_declaration::<R>(cx, &declared, form_is_sound, errors);
-    declarations.insert(Arc::new(declared));
+    check_actions(&declared, errors);
+    check_form_declaration(cx, &declared, form_is_sound, errors);
 }
 
 /// Every custom action's name is distinct among the resource's actions: the routes dispatch by
-/// it. [`Actions::add`](crate::Actions::add) checks each name is a route segment as it compiles.
-fn check_actions<R: Resource>(errors: &mut Vec<DeclarationError>) {
-    let actions = R::actions();
+/// it. [`ResourceDef::action`](crate::ResourceDef::action) checks each name is a route segment as
+/// it compiles.
+fn check_actions<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
     let mut seen = std::collections::HashSet::new();
-    for action in actions.entries() {
+    for action in declared.actions.entries() {
         if !seen.insert(action.name) {
             errors.push(DeclarationError::of::<R>(
                 Site::Registration,
@@ -390,7 +390,7 @@ fn form_error<R: Resource>(kind: DeclarationErrorKind) -> DeclarationError {
 /// Checks a resource's form declaration against its record form.
 fn check_form_declaration<R: Resource>(
     cx: &Cx,
-    declared: &Declared<R>,
+    declared: &Mounted<R>,
     form_is_sound: bool,
     errors: &mut Vec<DeclarationError>,
 ) {
@@ -399,21 +399,21 @@ fn check_form_declaration<R: Resource>(
             errors.push(form_error::<R>(DeclarationErrorKind::EmptyFormOverride));
         } else if form_is_sound {
             // A misdeclared field's placeholder name would only echo as an unbound control.
-            check_form_inner::<R>(cx, &declared.fields, &declared.form, errors);
+            check_form_inner(cx, declared, errors);
         }
     } else if !declared.form.is_empty() {
         errors.push(form_error::<R>(DeclarationErrorKind::FormWithoutRecordForm));
-    } else if can::<R>(cx, Ability::Create) {
+    } else if declared.can(cx, Ability::Create) {
         errors.push(form_error::<R>(DeclarationErrorKind::CreateWithoutForm));
     }
 }
 
 fn check_form_inner<R: Resource>(
     cx: &Cx,
-    fields: &[FormField<<R::Form as RecordForm>::Field>],
-    form: &Schema,
+    declared: &Mounted<R>,
     errors: &mut Vec<DeclarationError>,
 ) {
+    let (fields, form) = (declared.fields.as_slice(), &*declared.form);
     let controls = form.controls();
     for control in &controls {
         let claims = fields
@@ -457,7 +457,7 @@ fn check_form_inner<R: Resource>(
         }
     }
     // The framework stamps the tenant column on create.
-    if let Some(column) = tenant_column::<R>()
+    if let Some(column) = tenant_column(declared)
         && let Some(field) = fields.iter().find(|field| field.keys.contains(&column))
     {
         errors.push(form_error::<R>(
@@ -476,11 +476,24 @@ fn check_form_inner<R: Resource>(
             field: field.name().to_string(),
         }));
     }
-    if R::tenancy().via_is_single() == Some(false) {
-        check_via_foreign_keys::<R>(form, errors);
+    for field in form.fields() {
+        if let Some(source) = field
+            .as_choice()
+            .and_then(|choice| choice.unavailable_source(cx))
+        {
+            errors.push(form_error::<R>(
+                DeclarationErrorKind::UnregisteredOptionSource {
+                    field: field.name().to_string(),
+                    source,
+                },
+            ));
+        }
     }
-    if can::<R>(cx, Ability::Create) {
-        check_create_columns::<R>(fields, errors);
+    if declared.tenancy.via_is_single() == Some(false) {
+        check_via_foreign_keys(cx, declared, errors);
+    }
+    if declared.can(cx, Ability::Create) {
+        check_create_columns(declared, errors);
     }
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
@@ -500,22 +513,21 @@ fn check_form_inner<R: Resource>(
 }
 
 /// Names `R`'s own tenant column.
-fn tenant_column<R: Resource>() -> Option<String> {
-    R::tenancy()
+fn tenant_column<R: Resource>(declared: &Mounted<R>) -> Option<String> {
+    declared
+        .tenancy
         .column_field()
         .and_then(Result::ok)
         .map(|field| field.name.clone())
 }
 
 /// Checks that every non-nullable column a create needs has a writer.
-fn check_create_columns<R: Resource>(
-    fields: &[FormField<<R::Form as RecordForm>::Field>],
-    errors: &mut Vec<DeclarationError>,
-) {
+fn check_create_columns<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
+    let (fields, create_columns) = (&declared.fields, &declared.create_columns);
     let prefilled = crate::form::prefilled_fields::<R::Model>();
-    let tenant = tenant_column::<R>();
+    let tenant = tenant_column(declared);
     if let Some(column) = &tenant
-        && R::CREATE_COLUMNS.contains(&column.as_str())
+        && create_columns.contains(&column.as_str())
     {
         errors.push(DeclarationError::of::<R>(
             Site::Registration,
@@ -526,11 +538,11 @@ fn check_create_columns<R: Resource>(
     }
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
-    for column in R::CREATE_COLUMNS {
+    for &column in create_columns {
         if !root
             .fields
             .iter()
-            .any(|field| field.name.app.as_deref() == Some(*column))
+            .any(|field| field.name.app.as_deref() == Some(column))
         {
             errors.push(DeclarationError::of::<R>(
                 Site::Registration,
@@ -547,7 +559,7 @@ fn check_create_columns<R: Resource>(
             || prefilled.get(index).copied().unwrap_or(false)
             || tenant.as_deref() == Some(name)
             || fields.iter().any(|claim| claim.name == name)
-            || R::CREATE_COLUMNS.contains(&name);
+            || create_columns.contains(&name);
         if !filled {
             errors.push(form_error::<R>(DeclarationErrorKind::UnwrittenColumn {
                 column: name.to_string(),
@@ -556,18 +568,28 @@ fn check_create_columns<R: Resource>(
     }
 }
 
-/// Builds the context for the build-time declaration checks from the app's values with no request.
-fn validation_cx(db: &Db) -> Cx {
+/// Builds the context for the mount-time declaration checks from the app's values and the panel's
+/// `mounts`, with no request.
+fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
     let mut app_context = topcoat::context::AppContext::new();
     app_context.insert(db.clone());
-    Cx::new(std::sync::Arc::new(app_context))
+    app_context.insert(Arc::clone(mounts));
+    app_context.insert(MountScope(|cx| {
+        topcoat::context::try_app_context::<Arc<Mounts>>(cx).map(|mounts| &**mounts)
+    }));
+    Cx::new(Arc::new(app_context))
 }
 
 /// A `Tenancy::via` resource inherits its tenant from the parent its foreign key names, so the
 /// form must write that key through a relationship field over the parent's tenant-scoped
 /// resource: the write re-checks only such a field's key against the request's tenant.
-fn check_via_foreign_keys<R: Resource>(form: &Schema, errors: &mut Vec<DeclarationError>) {
-    let Some((relation, parent, keys)) = via_relation::<R>() else {
+fn check_via_foreign_keys<R: Resource>(
+    cx: &Cx,
+    declared: &Mounted<R>,
+    errors: &mut Vec<DeclarationError>,
+) {
+    let form = &declared.form;
+    let Some((relation, parent, keys)) = via_relation(declared) else {
         errors.push(DeclarationError::of::<R>(
             Site::Tenancy,
             DeclarationErrorKind::TenancyViaWithoutBelongsTo,
@@ -581,7 +603,7 @@ fn check_via_foreign_keys<R: Resource>(form: &Schema, errors: &mut Vec<Declarati
                 field.name() == key
                     && field
                         .as_choice()
-                        .and_then(|choice| choice.tenant_scoped_model())
+                        .and_then(|choice| choice.tenant_scoped_model(cx))
                         == Some(parent)
             })
         })
@@ -596,8 +618,10 @@ fn check_via_foreign_keys<R: Resource>(form: &Schema, errors: &mut Vec<Declarati
 
 /// The name, parent model and foreign-key columns of the `belongs_to` relation a `Tenancy::via`
 /// lens steps through first; `None` when the first step is no `belongs_to`.
-fn via_relation<R: Resource>() -> Option<(String, toasty::schema::app::ModelId, Vec<String>)> {
-    let hop = R::tenancy().via_hop()?;
+fn via_relation<R: Resource>(
+    declared: &Mounted<R>,
+) -> Option<(String, toasty::schema::app::ModelId, Vec<String>)> {
+    let hop = declared.tenancy.via_hop()?;
     let model = R::Model::schema();
     let root = model.as_root()?;
     let field = root.fields.get(hop)?;

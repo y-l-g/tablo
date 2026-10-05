@@ -6,7 +6,7 @@ use topcoat::{context::Cx, router::error::see_other, view::BoxView};
 use super::gate::landing_url;
 use crate::{
     notification::{Notification, notify_write_failure, set_notification},
-    resource::{Committed, Resource},
+    resource::{Committed, Mounted, Resource},
 };
 
 /// Commit the transaction, run the after-commit hook on what the record fn
@@ -18,6 +18,7 @@ use crate::{
 /// the toast.
 pub(crate) async fn commit_write<'a, R: Resource, T>(
     cx: &'a Cx,
+    resource: &Mounted<R>,
     tx: toasty::Transaction<'_>,
     written: Result<T, topcoat::Error>,
     committed: impl FnOnce(T) -> Committed<R::Model>,
@@ -30,7 +31,7 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
                 // Post-commit, so the effect cannot survive a rollback, and
                 // the tx is gone, so the hook may open its own handle.
                 crate::resource::run_after_commit::<R>(cx, committed(value)).await;
-                Err(redirect_after_write::<R>(cx, note))
+                Err(redirect_after_write(cx, &resource.url, note))
             }
             Err(error) => {
                 notify_write_failure(cx, failure);
@@ -58,7 +59,7 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
 /// GET, and the flash cookie rides the error response (Topcoat flushes
 /// `Set-Cookie` on `Err` too, topcoat#408), so every mutation redirects the
 /// same way.
-fn redirect_after_write<R: Resource>(cx: &Cx, note: impl Into<String>) -> topcoat::Error {
+fn redirect_after_write(cx: &Cx, list_url: &str, note: impl Into<String>) -> topcoat::Error {
     set_notification(cx, Notification::success(note));
-    see_other(landing_url(cx, &R::slug())).into()
+    see_other(landing_url(cx, list_url)).into()
 }

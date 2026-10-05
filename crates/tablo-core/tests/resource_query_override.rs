@@ -1,4 +1,4 @@
-use tablo_core::{Resource, lens};
+use tablo_core::{Resource, ResourceDef, lens};
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
 
@@ -16,8 +16,10 @@ impl Resource for Everyone {
     type Model = User;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn table() -> tablo_core::Table<User> {
-        tablo_core::Table::new(tablo_core::TextColumn::new(lens!(User.name)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(tablo_core::Table::new(tablo_core::TextColumn::new(lens!(
+            User.name
+        ))))
     }
 }
 
@@ -27,8 +29,10 @@ impl Resource for JustAda {
     type Model = User;
     type Form = tablo_core::NoForm<Self::Model>;
 
-    fn table() -> tablo_core::Table<User> {
-        tablo_core::Table::new(tablo_core::TextColumn::new(lens!(User.name)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(tablo_core::Table::new(tablo_core::TextColumn::new(lens!(
+            User.name
+        ))))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<User>> {

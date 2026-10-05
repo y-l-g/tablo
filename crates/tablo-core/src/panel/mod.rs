@@ -8,6 +8,7 @@ pub(crate) mod gate;
 mod headers;
 mod list;
 mod pages;
+mod register;
 mod relations;
 mod search;
 mod shell;
@@ -17,54 +18,42 @@ pub(crate) mod test_support;
 pub mod url;
 mod write;
 
-use std::{any::TypeId, collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
-use topcoat::{
-    asset::Asset,
-    font::Font,
-    router::{LayoutRenderFn, PageFn, RouteFn},
-};
+use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
 #[cfg(test)]
 pub(crate) use self::search::TABLE_SEARCH_PATH;
+pub use self::{build::RouterBuilderPanelExt, gate::can_list, shell::Brand};
 use self::{
-    actions::{
-        resource_bulk_action, resource_bulk_delete, resource_delete, resource_export,
-        resource_options, resource_row_action,
-    },
-    build::{ResourceCheck, check_resource, is_directory_pattern, validate_route_segment},
-    detail::resource_view,
-    forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
-    list::resource_list,
-    pages::page_handler,
-    search::{SearchFn, search_handler_for},
+    build::is_directory_pattern,
+    register::{PageRegistration, Registration, ResourceRegistration},
     shell::ShellAssets,
 };
-pub use self::{build::RouterBuilderPanelExt, gate::can_list, shell::Brand};
-pub(crate) use self::{
-    build::route_path,
-    forms::parse_form_body,
-    gate::panel_prefix,
-    relations::relation_table,
-    search::{
-        RelationRequest, RelationSearchFn, relation_search_handler_for, table_relation_search,
-        table_search,
-    },
-};
+pub(crate) use self::{build::route_path, forms::parse_form_body, gate::panel_prefix};
 use crate::{
-    DeclarationError, DeclarationErrorKind, Page, Site,
-    form::RecordForm,
-    resource::{
-        ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
-        DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, NavigationItem, RECORD_ROUTE_PARAM, Resource,
-    },
+    DeclarationError, DeclarationErrorKind, Page,
+    resource::{Resource, ResourceDef},
 };
 
 /// Returns the panel's list table for `R` for a page that owns its table; pair it with
-/// [`TablePage::load`](crate::resource::TablePage::load) and
-/// [`Table::render_with_state`](crate::resource::Table::render_with_state).
-pub fn wired_table<R: Resource>(cx: &topcoat::context::Cx) -> crate::resource::Table<R::Model> {
-    self::list::wire_table_actions::<R>(cx, false)
+/// [`TablePage::load`](crate::table::TablePage::load) and
+/// [`Table::render_with_state`](crate::table::Table::render_with_state).
+///
+/// # Errors
+///
+/// A declaration error when the request's panel does not mount `R`.
+pub fn wired_table<R: Resource>(
+    cx: &topcoat::context::Cx,
+) -> topcoat::Result<crate::table::Table<R::Model>> {
+    let resource = crate::resource::require_mounted::<R>(cx)?;
+    Ok(self::list::wire_table_actions(cx, &resource, false))
+}
+
+/// `R`'s sidebar entry in the request's panel, with its label, URL and icon; `None` when the
+/// panel does not register `R`.
+pub fn navigation<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
+    crate::resource::mounted::<R>(cx).map(|resource| resource.navigation.clone())
 }
 
 /// An admin panel: resources and pages under one prefix, framed by one shell
@@ -80,34 +69,23 @@ pub fn wired_table<R: Resource>(cx: &topcoat::context::Cx) -> crate::resource::T
 ///     .panel(Panel::new("admin").resource::<UserResource>())?
 ///     .build();
 /// ```
+///
+/// Registering is declarative: mounting builds each resource's [`ResourceDef`] and checks every
+/// slug, route and declaration before the panel serves anything.
 pub struct Panel {
     prefix: String,
     shell_assets: Option<ShellAssets>,
     brand: Option<Brand>,
     dark_mode: Option<bool>,
-    nav_items: Vec<NavigationItem>,
-    pages: Vec<PageFn>,
-    routes: Vec<RouteFn>,
-    root: Option<Root>,
     /// Frames the panel's pages; `None` renders the shipped shell.
     layout: Option<LayoutRenderFn>,
-    /// The URL each resource and page serves at, by type.
-    urls: HashMap<TypeId, String>,
-    /// Every slug a resource or page mounts at: one namespace.
-    slugs: Vec<String>,
-    resource_slugs: Vec<String>,
-    /// Each registered resource's relation keys, by resource type name.
-    relations: Vec<(&'static str, Vec<String>)>,
-    search_handlers: HashMap<String, SearchFn>,
-    /// Each relation's live-search loader, by (parent slug, child slug).
-    relation_handlers: HashMap<(String, String), RelationSearchFn>,
+    /// The resources and pages, in registration order.
+    registrations: Vec<Box<dyn Registration>>,
     /// `Content-Security-Policy: frame-ancestors …` for every response under the prefix; `None`
     /// opts out, the default is `'self'`.
     frame_ancestors: Option<String>,
-    /// Per-resource declaration checks run at mount before anything is served.
-    resource_checks: Vec<ResourceCheck>,
-    /// Registration failures for mount to report.
-    registration_errors: Vec<DeclarationError>,
+    /// Mistakes in the panel's own configuration, for mount to report.
+    configuration_errors: Vec<DeclarationError>,
     /// Where file field bytes go; `None` stores the sanitized basename.
     uploads: Option<crate::upload::InstalledUploader>,
     /// App-owned filesystem directories served with hardening headers.
@@ -126,10 +104,10 @@ impl Panel {
         } else {
             format!("/{trimmed}")
         };
-        let registration_errors = prefix
+        let configuration_errors = prefix
             .trim_matches('/')
             .split('/')
-            .filter_map(|segment| validate_route_segment("panel prefix", segment).err())
+            .filter_map(|segment| build::validate_route_segment("panel prefix", segment).err())
             .map(DeclarationError::panel)
             .collect();
         Self {
@@ -137,20 +115,10 @@ impl Panel {
             shell_assets: None,
             brand: None,
             dark_mode: None,
-            nav_items: Vec::new(),
-            pages: Vec::new(),
-            routes: Vec::new(),
-            root: None,
             layout: None,
-            urls: HashMap::new(),
-            slugs: Vec::new(),
-            resource_slugs: Vec::new(),
-            relations: Vec::new(),
-            search_handlers: HashMap::new(),
-            relation_handlers: HashMap::new(),
+            registrations: Vec::new(),
             frame_ancestors: Some(headers::DEFAULT_FRAME_ANCESTORS.to_string()),
-            registration_errors,
-            resource_checks: Vec::new(),
+            configuration_errors,
             uploads: None,
             served_dirs: Vec::new(),
             login_hint: None,
@@ -175,7 +143,7 @@ impl Panel {
     pub fn serve_dir(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
         let path = path.into();
         if !is_directory_pattern(&path) {
-            self.registration_errors.push(DeclarationError::panel(
+            self.configuration_errors.push(DeclarationError::panel(
                 DeclarationErrorKind::ServeDirWithoutCatchAll { path: path.clone() },
             ));
         }
@@ -190,198 +158,45 @@ impl Panel {
         self
     }
 
-    /// Declares a `Resource` for this panel at `{prefix}/{slug}` with its routes, navigation entry,
-    /// and mount-time declaration checks.
-    pub fn resource<R: Resource>(mut self) -> Self {
-        let Some(url) = self.register_common::<R>() else {
-            return self;
-        };
-        if <R::Form as RecordForm>::HAS_FORM {
-            self.register_form_routes::<R>(&url);
-        }
-        self.finish_registration::<R>(url);
-        let declared = R::relations();
-        let keys = declared
-            .iter()
-            .map(|relation| relation.key().to_string())
-            .collect::<Vec<_>>();
-        for relation in &declared {
-            if let Some(error) = relation.misdeclared() {
-                self.registration_errors.push(DeclarationError::of::<R>(
-                    Site::Relation(relation.key().to_string()),
-                    error.clone(),
-                ));
-            }
-            self.relation_handlers.insert(
-                (R::slug(), relation.key().to_string()),
-                relation.search_handler(),
-            );
-        }
-        if !keys.is_empty() {
-            self.relations.push((std::any::type_name::<R>(), keys));
-        }
+    /// Registers the [`Resource`] `R` at `{prefix}/{slug}` with its routes and sidebar entry, as
+    /// [`Resource::declare`] declares it.
+    pub fn resource<R: Resource>(self) -> Self {
+        self.resource_with::<R>(|def| def)
+    }
+
+    /// Registers the [`Resource`] `R` as [`resource`](Self::resource) does, with `customize`
+    /// adjusting its def for this panel only:
+    ///
+    /// ```text
+    /// Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
+    /// ```
+    pub fn resource_with<R: Resource>(
+        mut self,
+        customize: impl FnOnce(ResourceDef<R>) -> ResourceDef<R> + Send + 'static,
+    ) -> Self {
+        self.registrations
+            .push(Box::new(ResourceRegistration::<R>(Box::new(customize))));
         self
-    }
-
-    /// Registers the create page, edit page, and relationship-options endpoint of a resource with a
-    /// record form.
-    fn register_form_routes<R: Resource>(&mut self, url: &str) {
-        let create_url = format!("{url}/{CREATE_ROUTE_SEGMENT}");
-        self.pages.push(PageFn::new(
-            http::Method::GET,
-            route_path(&create_url),
-            resource_create::<R>,
-        ));
-        self.pages.push(PageFn::new(
-            http::Method::POST,
-            route_path(&create_url),
-            resource_create_post::<R>,
-        ));
-        let edit_url = format!("{url}/{RECORD_ROUTE_PARAM}/{EDIT_ROUTE_SEGMENT}");
-        self.pages.push(PageFn::new(
-            http::Method::GET,
-            route_path(&edit_url),
-            resource_edit::<R>,
-        ));
-        self.pages.push(PageFn::new(
-            http::Method::POST,
-            route_path(&edit_url),
-            resource_edit_post::<R>,
-        ));
-        let options_url = format!("{url}/options");
-        self.routes.push(RouteFn::new(
-            http::Method::GET,
-            route_path(&options_url),
-            resource_options::<R>,
-        ));
-    }
-
-    /// Registers a resource's shared routes and returns its list URL, or `None` when the slug is
-    /// refused.
-    fn register_common<R: Resource>(&mut self) -> Option<String> {
-        let url = self.claim_slug::<R>("Resource::slug", R::slug())?;
-        self.resource_slugs.push(R::slug());
-        self.resource_checks.push(check_resource::<R>);
-        self.pages.push(PageFn::new(
-            http::Method::GET,
-            route_path(&url),
-            resource_list::<R>,
-        ));
-        // The handler 404s a resource that declares no view; `matchit` prefers the static
-        // `create` segment over the `{id}` parameter, so registration order does not matter.
-        let detail_url = format!("{url}/{RECORD_ROUTE_PARAM}");
-        self.pages.push(PageFn::new(
-            http::Method::GET,
-            route_path(&detail_url),
-            resource_view::<R>,
-        ));
-        let delete_url = format!("{url}/{RECORD_ROUTE_PARAM}/{DELETE_ROUTE_SEGMENT}");
-        self.pages.push(PageFn::new(
-            http::Method::POST,
-            route_path(&delete_url),
-            resource_delete::<R>,
-        ));
-        let bulk_delete_url = format!("{url}/{BULK_DELETE_ROUTE_SEGMENT}");
-        self.pages.push(PageFn::new(
-            http::Method::POST,
-            route_path(&bulk_delete_url),
-            resource_bulk_delete::<R>,
-        ));
-        // Registered only for a resource that declares some: the static `actions` segment
-        // would otherwise shadow the edit and delete routes of a record whose key is `actions`.
-        if !R::actions().entries().is_empty() {
-            let row_action_url =
-                format!("{url}/{RECORD_ROUTE_PARAM}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}");
-            self.pages.push(PageFn::new(
-                http::Method::POST,
-                route_path(&row_action_url),
-                resource_row_action::<R>,
-            ));
-            let bulk_action_url = format!("{url}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}");
-            self.pages.push(PageFn::new(
-                http::Method::POST,
-                route_path(&bulk_action_url),
-                resource_bulk_action::<R>,
-            ));
-        }
-        let export_url = format!("{url}/export");
-        self.routes.push(RouteFn::new(
-            http::Method::GET,
-            route_path(&export_url),
-            resource_export::<R>,
-        ));
-        Some(url)
-    }
-
-    /// Finishes a resource's registration.
-    fn finish_registration<R: Resource>(&mut self, url: String) {
-        self.search_handlers
-            .insert(url.clone(), search_handler_for::<R>());
-        if self.root.is_none() {
-            self.root = Some(Root::Redirect(url));
-        }
-        let nav_item = self.nav_item::<R>();
-        self.nav_items.push(nav_item);
-    }
-
-    /// Claims `{prefix}/{slug}` for `T`, recording a refusal and returning `None` when the slug is
-    /// unavailable.
-    fn claim_slug<T: 'static>(&mut self, item: &'static str, slug: String) -> Option<String> {
-        let refused = if let Err(error) = validate_route_segment(item, &slug) {
-            Some(error)
-        } else if RESERVED_SLUGS.contains(&slug.as_str()) {
-            Some(DeclarationErrorKind::ReservedSlug { slug: slug.clone() })
-        } else if self.slugs.contains(&slug) {
-            Some(DeclarationErrorKind::DuplicateSlug { slug: slug.clone() })
-        } else {
-            None
-        };
-        if let Some(error) = refused {
-            self.registration_errors
-                .push(DeclarationError::of::<T>(Site::Registration, error));
-            return None;
-        }
-        let url = format!("{}/{slug}", self.prefix);
-        self.slugs.push(slug);
-        self.urls.insert(TypeId::of::<T>(), url.clone());
-        Some(url)
     }
 
     /// Declares a [`Page`] at `{prefix}/{slug}` with its sidebar entry; pages share the resources'
     /// slug namespace.
     pub fn page<P: Page>(mut self) -> Self {
-        if let Some(url) = self.claim_slug::<P>("Page::slug", P::slug()) {
-            let item = self.mount_page::<P>(&url);
-            self.nav_items.push(item);
-        }
+        self.registrations.push(Box::new(PageRegistration::<P> {
+            home: false,
+            _page: std::marker::PhantomData,
+        }));
         self
     }
 
     /// Declares the panel's home page at the panel prefix, replacing the redirect to the first
     /// resource's list.
     pub fn home<P: Page>(mut self) -> Self {
-        if matches!(self.root, Some(Root::Home)) {
-            self.registration_errors.push(DeclarationError::of::<P>(
-                Site::Registration,
-                DeclarationErrorKind::SecondHome,
-            ));
-            return self;
-        }
-        self.root = Some(Root::Home);
-        self.urls.insert(TypeId::of::<P>(), self.prefix.clone());
-        let item = self.mount_page::<P>(&self.prefix.clone());
-        self.nav_items.insert(0, item);
+        self.registrations.push(Box::new(PageRegistration::<P> {
+            home: true,
+            _page: std::marker::PhantomData,
+        }));
         self
-    }
-
-    /// Routes `P`'s `GET` at `url` and returns its sidebar entry at the same URL.
-    fn mount_page<P: Page>(&mut self, url: &str) -> NavigationItem {
-        self.pages.push(PageFn::new(
-            http::Method::GET,
-            route_path(url),
-            page_handler::<P>,
-        ));
-        P::navigation().resolved(url)
     }
 
     /// Frames the panel's pages with `render` instead of the shipped shell; `render` usually wraps
@@ -430,24 +245,12 @@ impl Panel {
     }
 }
 
-/// The segments the panel routes under its prefix itself, which no resource or page may take as its
-/// slug.
-const RESERVED_SLUGS: &[&str] = &["login", "logout"];
-
 /// What the panel serves at its prefix.
 enum Root {
     /// A redirect to the first declared resource's list.
     Redirect(String),
     /// The [`Panel::home`] page.
     Home,
-}
-
-impl Panel {
-    /// Derives `R`'s [`NavigationItem`] at `{prefix}/{slug}`, taking an explicit [`NavTarget::Url`]
-    /// as written.
-    pub(crate) fn nav_item<R: Resource>(&self) -> NavigationItem {
-        R::navigation().resolved(&format!("{}/{}", self.prefix, R::slug()))
-    }
 }
 
 #[cfg(test)]

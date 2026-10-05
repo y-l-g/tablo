@@ -102,18 +102,19 @@ impl std::error::Error for DeclarationError {}
 pub enum Site {
     /// The panel's own configuration: its prefix, served directories, assets and auth.
     Panel,
-    /// The resource or page itself: its slug, its actions, its `CREATE_COLUMNS`, or a second
-    /// home page.
+    /// The resource or page itself: its registration, slug, actions or create columns, or a
+    /// second home page.
     Registration,
-    /// `Resource::tenancy`.
+    /// `ResourceDef::tenancy`.
     Tenancy,
-    /// `Resource::table`.
+    /// `ResourceDef::table`.
     Table,
-    /// `Resource::form`, checked against the record form.
+    /// `ResourceDef::form`, checked against the record form.
     Form,
-    /// `Resource::view`.
+    /// `ResourceDef::view`.
     View,
-    /// The `Resource::relations` entry with this key.
+    /// The `ResourceDef::relation` to the resource with this slug, or this type when the panel
+    /// does not register it.
     Relation(String),
 }
 
@@ -132,7 +133,7 @@ pub enum DeclarationErrorKind {
     ShellAssetsWithoutBundle,
     /// A path segment the panel routes cannot be a literal URL segment.
     InvalidSegment {
-        /// What names the segment: `panel prefix`, `Resource::slug` or `Page::slug`.
+        /// What names the segment: `panel prefix`, `ResourceDef::slug` or `Page::slug`.
         item: &'static str,
         /// The refused segment.
         segment: String,
@@ -168,6 +169,10 @@ pub enum DeclarationErrorKind {
     },
     /// A second `Panel::home` page.
     SecondHome,
+    /// The resource is registered on the panel twice.
+    DuplicateResource,
+    /// The resource is not mounted on the request's panel.
+    NotMounted,
     /// A slug naming a route the panel serves itself.
     ReservedSlug {
         /// The slug.
@@ -187,6 +192,13 @@ pub enum DeclarationErrorKind {
     DuplicateRelation,
     /// A relation to a resource the panel does not register.
     UnregisteredRelation,
+    /// A relationship field whose options come from a resource the panel does not register.
+    UnregisteredOptionSource {
+        /// The field.
+        field: String,
+        /// The option source's type.
+        source: &'static str,
+    },
     /// A lens with more than one step where a single field of the model is needed.
     TraversalLens {
         /// The lens's step count.
@@ -281,12 +293,12 @@ pub enum DeclarationErrorKind {
         /// The field.
         field: String,
     },
-    /// `CREATE_COLUMNS` names the tenant column.
+    /// `create_columns` names the tenant column.
     CreateColumnsNameTenant {
         /// The tenant column.
         column: String,
     },
-    /// `CREATE_COLUMNS` names a field the model does not have.
+    /// `create_columns` names a field the model does not have.
     UnknownCreateColumn {
         /// The name.
         column: &'static str,
@@ -324,7 +336,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::PrefixOverlapsRuntime { prefix } => write!(
                 f,
                 "prefix '{prefix}' overlaps Topcoat's runtime endpoints at '{}'",
-                crate::auth::RUNTIME_PREFIX
+                crate::topcoat_compat::RUNTIME_PREFIX
             ),
             Self::PrefixOverlapsPanel { other } => write!(
                 f,
@@ -343,6 +355,13 @@ impl fmt::Display for DeclarationErrorKind {
             Self::SecondHome => {
                 f.write_str("a home page is already registered: `Panel::home` takes one")
             }
+            Self::DuplicateResource => f.write_str(
+                "registered twice: a panel mounts each resource type once, so mount a variant \
+                 under its own type",
+            ),
+            Self::NotMounted => f.write_str(
+                "not mounted on the request's panel: register it with `Panel::resource`",
+            ),
             Self::ReservedSlug { slug } => {
                 write!(f, "slug '{slug}' names a route the panel serves itself")
             }
@@ -360,6 +379,11 @@ impl fmt::Display for DeclarationErrorKind {
             Self::UnregisteredRelation => f.write_str(
                 "the related resource is not registered on this panel: declare it with \
                  `Panel::resource`",
+            ),
+            Self::UnregisteredOptionSource { field, source } => write!(
+                f,
+                "field '{field}' takes its options from `{source}`, which this panel does not \
+                 register: declare it with `Panel::resource`"
             ),
             Self::TraversalLens { steps } => write!(
                 f,
@@ -391,7 +415,7 @@ impl fmt::Display for DeclarationErrorKind {
                 keys.join("`, `")
             ),
             Self::NoColumns => f.write_str(
-                "no column: declare columns with `Table::new(columns)` or in `Resource::table`",
+                "no column: declare columns with `Table::new(columns)` or in `ResourceDef::table`",
             ),
             Self::ZeroPageSize => f.write_str("`Table::paginate` needs a page size of at least 1"),
             Self::DuplicateColumn { name } => write!(
@@ -466,18 +490,18 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::CreateColumnsNameTenant { column } => write!(
                 f,
-                "`CREATE_COLUMNS` names the tenant column `{column}`, which the framework stamps \
+                "`create_columns` names the tenant column `{column}`, which the framework stamps \
                  on create: drop it there and delegate to `write_create`"
             ),
             Self::UnknownCreateColumn { column } => write!(
                 f,
-                "`CREATE_COLUMNS` names `{column}`, which is no field of the model"
+                "`create_columns` names `{column}`, which is no field of the model"
             ),
             Self::UnwrittenColumn { column } => write!(
                 f,
                 "the policy allows create, but nothing writes the non-nullable column `{column}`: \
                  the record form has no such field, toasty fills no `#[default(..)]` for it, and \
-                 `CREATE_COLUMNS` does not name it, so every create would fail at the driver"
+                 `create_columns` does not name it, so every create would fail at the driver"
             ),
         }
     }

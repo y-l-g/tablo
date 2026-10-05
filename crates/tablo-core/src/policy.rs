@@ -9,7 +9,7 @@
 //! # use tablo_core::{Ability, Policy, when};
 //! # use topcoat::context::Cx;
 //! # fn not_suspended(cx: &Cx) -> bool { true }
-//! fn policy() -> impl Policy<Post> {
+//! fn post_policy() -> impl Policy<Post> {
 //!     when(not_suspended).and(|_cx: &Cx, ability: Ability<'_, Post>| match ability {
 //!         Ability::Update(post) | Ability::Delete(post) => !post.locked,
 //!         _ => true,
@@ -17,12 +17,10 @@
 //! }
 //! ```
 //!
-//! [`can`] asks a resource's policy from app code, and [`can_list`](crate::can_list) answers
-//! whether the current request may open a resource's list at all.
+//! [`can`](crate::can) asks a resource's policy from app code, and [`can_list`](crate::can_list)
+//! answers whether the current request may open a resource's list at all.
 
 use topcoat::context::Cx;
-
-use crate::resource::Resource;
 
 /// One thing a policy is asked to allow; record abilities are asked once per
 /// loaded row, and a record that cannot be viewed cannot be written by guessing
@@ -149,7 +147,7 @@ impl<M> Policy<M> for ReadOnly {
 ///     auth::user::<Staff>(cx).is_some_and(|staff| staff.editor)
 /// }
 ///
-/// fn policy() -> impl Policy<Post> {
+/// fn post_policy() -> impl Policy<Post> {
 ///     ReadOnly.or(when(editor))
 /// }
 /// ```
@@ -191,12 +189,6 @@ impl<M, A: Policy<M>, B: Policy<M>> Policy<M> for Or<A, B> {
     fn allows(&self, cx: &Cx, ability: Ability<'_, M>) -> bool {
         self.0.allows(cx, ability) || self.1.allows(cx, ability)
     }
-}
-
-/// Whether `R`'s policy allows `ability`; does not check sign-in or tenant
-/// scope.
-pub fn can<R: Resource>(cx: &Cx, ability: Ability<'_, R::Model>) -> bool {
-    R::policy().allows(cx, ability)
 }
 
 #[cfg(test)]

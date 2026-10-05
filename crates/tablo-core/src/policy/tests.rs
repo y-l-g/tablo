@@ -1,7 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::{can_list, lens};
+use crate::{Resource, ResourceDef, can, can_list, lens};
 
 struct Post {
     locked: bool,
@@ -106,19 +106,17 @@ struct Note {
     title: String,
 }
 
-fn note_table() -> crate::resource::Table<Note> {
-    crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Note.title)))
+fn note_table() -> crate::table::Table<Note> {
+    crate::table::Table::new(crate::table::TextColumn::new(lens!(Note.title)))
 }
 
 struct OpenNotes;
 impl Resource for OpenNotes {
     type Model = Note;
     type Form = crate::NoForm<Note>;
-    fn policy() -> impl Policy<Note> {
-        ReadOnly
-    }
-    fn table() -> crate::resource::Table<Note> {
-        note_table()
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().policy(ReadOnly).table(note_table())
     }
 }
 
@@ -126,14 +124,12 @@ struct TenantNotes;
 impl Resource for TenantNotes {
     type Model = Note;
     type Form = crate::NoForm<Note>;
-    fn policy() -> impl Policy<Note> {
-        ReadOnly
-    }
-    fn tenancy() -> crate::Tenancy<Note> {
-        crate::Tenancy::column(Note::fields().tenant_id())
-    }
-    fn table() -> crate::resource::Table<Note> {
-        note_table()
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(ReadOnly)
+            .tenancy(crate::Tenancy::column(Note::fields().tenant_id()))
+            .table(note_table())
     }
 }
 
@@ -141,8 +137,9 @@ struct ClosedNotes;
 impl Resource for ClosedNotes {
     type Model = Note;
     type Form = crate::NoForm<Note>;
-    fn table() -> crate::resource::Table<Note> {
-        note_table()
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(note_table())
     }
 }
 

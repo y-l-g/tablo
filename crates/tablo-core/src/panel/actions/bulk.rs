@@ -21,7 +21,7 @@ use super::{
 use crate::{
     db::db,
     notification::{Notification, set_notification},
-    policy::{Ability, can},
+    policy::Ability,
     resource::{Committed, Resource},
     topcoat_compat::async_page,
 };
@@ -32,8 +32,8 @@ const WRITE_BULK_DELETE: &str = "delete the selected rows";
 /// Serves the bulk delete POST over the `ids` form field.
 pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
-        if !can::<R>(cx, Ability::DeleteAny) {
+        let resource = gate::<R>(cx)?;
+        if !resource.can(cx, Ability::DeleteAny) {
             return Err(forbidden().into());
         }
         let values = parse_form_body(cx, body).await?.values;
@@ -48,7 +48,7 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         let ids = parse_bulk_ids(&ids_raw, MAX_BULK_IDS);
         if ids.is_empty() {
             set_notification(cx, Notification::error("Select at least one row to delete"));
-            return Err(see_other(landing_url(cx, &R::slug())).into());
+            return Err(see_other(landing_url(cx, &resource.url)).into());
         }
         if ids.len() > MAX_BULK_IDS {
             return Err(topcoat::router::error::bad_request(format!(
@@ -59,14 +59,15 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // Fetches only the requested rows through the tenancy-scoped query.
         let keys: Vec<&str> = ids.iter().map(String::as_str).collect();
         let Some(pk_filter) = crate::toasty_compat::pk::pk_in_expr::<R::Model>(&keys) else {
-            if let Some(error) = composite_pk_error::<R>() {
+            if let Some(error) = composite_pk_error(&resource) {
                 return Err(error);
             }
             return Err(topcoat::router::error::not_found().into());
         };
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        let rows = crate::resource::scoped_query::<R>(cx)?
+        let rows = resource
+            .scoped_query(cx)?
             .filter(pk_filter)
             .exec(&mut tx)
             .await
@@ -75,12 +76,12 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             return Err(topcoat::router::error::not_found().into());
         }
         // Viewing precedes deleting on every row.
-        if rows.iter().any(|rec| !can::<R>(cx, Ability::View(rec))) {
+        if rows.iter().any(|rec| !resource.can(cx, Ability::View(rec))) {
             return Err(forbidden().into());
         }
         let refused = rows
             .iter()
-            .filter(|rec| !can::<R>(cx, Ability::Delete(rec)))
+            .filter(|rec| !resource.can(cx, Ability::Delete(rec)))
             .count();
         if refused > 0 {
             let noun = if refused == 1 { "record" } else { "records" };
@@ -90,13 +91,14 @@ pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                     "{refused} selected {noun} cannot be deleted; nothing was deleted"
                 )),
             );
-            return Err(see_other(landing_url(cx, &R::slug())).into());
+            return Err(see_other(landing_url(cx, &resource.url)).into());
         }
         let written = R::bulk_delete_records(cx, &rows, &mut tx)
             .await
             .map(|()| rows);
-        commit_write::<R, _>(
+        commit_write(
             cx,
+            &resource,
             tx,
             written,
             Committed::deleted,

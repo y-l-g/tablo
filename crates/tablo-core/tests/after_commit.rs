@@ -1,6 +1,7 @@
 use http::header::LOCATION;
 use tablo_core::{
-    Ability, Allow, Committed, Field, Mutation, Policy, Resource, Schema, Table, TextColumn, lens,
+    Ability, Allow, Committed, Field, Mutation, Resource, ResourceDef, Schema, Table, TextColumn,
+    lens,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Body};
@@ -57,20 +58,13 @@ struct AuditedResource;
 impl Resource for AuditedResource {
     type Model = Note;
     type Form = AuditedForm;
-    fn form() -> Schema {
-        Schema::new(Field::text(Note::fields().title()))
-    }
 
-    fn slug() -> String {
-        "notes".to_string()
-    }
-
-    fn policy() -> impl Policy<Note> {
-        Allow
-    }
-
-    fn table() -> Table<Note> {
-        Table::new(TextColumn::new(lens!(Note.title))).paginate(25)
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("notes")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Note.title))).paginate(25))
+            .form(Schema::new(Field::text(Note::fields().title())))
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
@@ -87,20 +81,15 @@ struct PlainResource;
 impl Resource for PlainResource {
     type Model = Note;
     type Form = PlainForm;
-    fn form() -> Schema {
-        Schema::new(Field::text(Note::fields().title()))
-    }
 
-    fn slug() -> String {
-        "plain-notes".to_string()
-    }
-
-    fn policy() -> impl Policy<Note> {
-        |_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny | Ability::Create)
-    }
-
-    fn table() -> Table<Note> {
-        Table::new(TextColumn::new(lens!(Note.title)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("plain-notes")
+            .policy(|_cx: &Cx, ability: Ability<'_, Note>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            })
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+            .form(Schema::new(Field::text(Note::fields().title())))
     }
 }
 #[derive(tablo_core::RecordForm)]
@@ -113,27 +102,23 @@ struct FailingWriteResource;
 impl Resource for FailingWriteResource {
     type Model = Note;
     type Form = FailingWriteForm;
-    fn form() -> Schema {
-        Schema::new(Field::text(Note::fields().title()))
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("failing-writes")
+            .policy(|_cx: &Cx, ability: Ability<'_, Note>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            })
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+            .form(Schema::new(Field::text(Note::fields().title())))
     }
+
     async fn create_record(
         _cx: &Cx,
         _form: FailingWriteForm,
         _ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<Note> {
         Err(std::io::Error::other("the write refused itself").into())
-    }
-
-    fn slug() -> String {
-        "failing-writes".to_string()
-    }
-
-    fn policy() -> impl Policy<Note> {
-        |_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny | Ability::Create)
-    }
-
-    fn table() -> Table<Note> {
-        Table::new(TextColumn::new(lens!(Note.title)))
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
@@ -150,20 +135,15 @@ struct FailingHookResource;
 impl Resource for FailingHookResource {
     type Model = Note;
     type Form = FailingHookForm;
-    fn form() -> Schema {
-        Schema::new(Field::text(Note::fields().title()))
-    }
 
-    fn slug() -> String {
-        "failing-hooks".to_string()
-    }
-
-    fn policy() -> impl Policy<Note> {
-        |_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny | Ability::Create)
-    }
-
-    fn table() -> Table<Note> {
-        Table::new(TextColumn::new(lens!(Note.title)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("failing-hooks")
+            .policy(|_cx: &Cx, ability: Ability<'_, Note>| {
+                matches!(ability, Ability::ViewAny | Ability::Create)
+            })
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+            .form(Schema::new(Field::text(Note::fields().title())))
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {

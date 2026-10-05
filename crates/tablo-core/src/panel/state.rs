@@ -12,10 +12,11 @@ use std::{any::TypeId, collections::HashMap, sync::Arc};
 use topcoat::context::{Cx, try_app_context, try_request_context};
 
 use super::{
+    relations::Child,
     search::{RelationSearchFn, SearchFn},
     shell::{Brand, ShellAssets},
 };
-use crate::{auth::Auth, resource::NavigationItem, upload::InstalledUploader};
+use crate::{auth::Auth, navigation::NavigationItem, resource::Mounts, upload::InstalledUploader};
 
 /// One mounted panel: its prefix, its shell, its auth, and the registries its
 /// generic handlers dispatch through.
@@ -31,6 +32,10 @@ pub(crate) struct PanelState {
     pub(crate) search: HashMap<String, SearchFn>,
     /// Relation live-search loaders by (parent slug, child slug).
     pub(crate) relations: HashMap<(String, String), RelationSearchFn>,
+    /// Each registered resource's relation table, by resource type.
+    pub(crate) children: HashMap<TypeId, Child>,
+    /// The registered resources as the panel mounted them.
+    pub(crate) mounts: Arc<Mounts>,
     /// Where the prefix redirects when the panel has no home page.
     pub(crate) root_redirect: Option<String>,
     pub(crate) auth: Auth,

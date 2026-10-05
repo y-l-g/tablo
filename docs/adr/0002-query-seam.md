@@ -8,7 +8,7 @@ Date: 2026-08-19 — Status: accepted
 form, record, and shard loader reads through it. Tenancy enters as `cx.with(Tenant(id))`, not as
 a global scope.
 
-`Resource::tenancy()` declares ownership: `Tenancy::none()` (default), `Tenancy::column(lens)`,
+`ResourceDef::tenancy` declares ownership: `Tenancy::none()` (default), `Tenancy::column(lens)`,
 or `Tenancy::via(lens)`. The lens names the column. `scoped_query` applies `<lens> = <request
 tenant>` after the `query` override, so no override drops the tenant predicate and no override
 removes it. `view_query` receives the same predicate. A scoped resource answers 403 with no

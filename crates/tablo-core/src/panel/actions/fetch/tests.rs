@@ -3,7 +3,7 @@ use topcoat::router::Body;
 
 use super::*;
 use crate::{
-    Ability, Policy, lens,
+    Ability, ResourceDef, lens,
     panel::test_support::{mount, panel_for},
 };
 
@@ -24,8 +24,10 @@ async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
         type Model = Subscriber;
         type Form = crate::NoForm<Self::Model>;
 
-        fn table() -> crate::resource::Table<Subscriber> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Subscriber.email)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Subscriber.email),
+            )))
         }
     }
 
@@ -47,25 +49,40 @@ async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
     let mut ex = crate::db::db(&cx);
 
     // Existing id → exactly that row (typed PK filter, not a full scan).
-    let got = find_by_key::<SubscriberResource>(&cx, &a.id.to_string(), &mut ex)
-        .await
-        .unwrap();
+    let got = find_by_key(
+        &cx,
+        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+        &a.id.to_string(),
+        &mut ex,
+    )
+    .await
+    .unwrap();
     assert_eq!(got.id, a.id);
 
     // Well-formed but unknown id → 404.
     let missing = uuid::Uuid::new_v4().to_string();
     assert!(
-        find_by_key::<SubscriberResource>(&cx, &missing, &mut ex)
-            .await
-            .is_err(),
+        find_by_key(
+            &cx,
+            &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+            &missing,
+            &mut ex
+        )
+        .await
+        .is_err(),
         "unknown id must not resolve"
     );
 
     // Malformed id (not a Uuid) → 404, not a query error.
     assert!(
-        find_by_key::<SubscriberResource>(&cx, "not-a-uuid", &mut ex)
-            .await
-            .is_err(),
+        find_by_key(
+            &cx,
+            &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
+            "not-a-uuid",
+            &mut ex
+        )
+        .await
+        .is_err(),
         "malformed id must not resolve"
     );
 }
@@ -89,23 +106,22 @@ async fn composite_pk_edit_fails_loudly_not_404() {
     impl Resource for PairResource {
         type Model = Pair;
         type Form = PairForm;
-        fn form() -> crate::schema::Schema {
-            crate::schema::Schema::new(crate::schema::Field::text(Pair::fields().name()))
-        }
 
-        fn slug() -> String {
-            "pairs".to_string()
-        }
-        fn policy() -> impl Policy<Pair> {
-            |_cx: &Cx, ability: Ability<'_, Pair>| {
-                matches!(
-                    ability,
-                    Ability::ViewAny | Ability::View(_) | Ability::Update(_)
-                )
-            }
-        }
-        fn table() -> crate::resource::Table<Pair> {
-            crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Pair.name)))
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("pairs")
+                .policy(|_cx: &Cx, ability: Ability<'_, Pair>| {
+                    matches!(
+                        ability,
+                        Ability::ViewAny | Ability::View(_) | Ability::Update(_)
+                    )
+                })
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Pair.name),
+                )))
+                .form(crate::schema::Schema::new(crate::schema::Field::text(
+                    Pair::fields().name(),
+                )))
         }
     }
     #[derive(crate::RecordForm)]
@@ -168,14 +184,17 @@ async fn record_loads_skip_the_detail_pages_includes() {
     impl Resource for ChildResource {
         type Model = Child;
         type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::ComputedColumn::new(
+                "Id",
+                |c: &Child| c.id.to_string(),
+            )))
+        }
+
         fn view_query(_cx: &Cx) -> Query<List<Child>> {
             let parent: Include<Child, Parent> = Child::fields().parent().into();
             Query::<List<Child>>::all().include(parent)
-        }
-        fn table() -> crate::resource::Table<Child> {
-            crate::resource::Table::new(crate::resource::ComputedColumn::new("Id", |c: &Child| {
-                c.id.to_string()
-            }))
         }
     }
 
@@ -201,18 +220,15 @@ async fn record_loads_skip_the_detail_pages_includes() {
     let mut ex = crate::db::db(&cx);
     let id = child.id.to_string();
 
-    let record = find_by_key::<ChildResource>(&cx, &id, &mut ex)
-        .await
-        .unwrap();
+    let resource = crate::resource::require_mounted::<ChildResource>(&cx).unwrap();
+    let record = find_by_key(&cx, &resource, &id, &mut ex).await.unwrap();
     assert!(
         record.parent.is_unloaded(),
         "the edit and write loads read only the record's own columns"
     );
-    let detail = find_by_key_in::<ChildResource>(&id, &mut ex, || {
-        crate::resource::scoped_view_query::<ChildResource>(&cx)
-    })
-    .await
-    .unwrap();
+    let detail = find_by_key_in(&resource, &id, &mut ex, || resource.scoped_view_query(&cx))
+        .await
+        .unwrap();
     assert!(
         !detail.parent.is_unloaded(),
         "the detail load carries view_query's includes"

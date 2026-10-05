@@ -16,8 +16,8 @@ use super::{
 use crate::{
     db::db,
     form::{FieldErrors, RecordForm},
-    policy::{Ability, can},
-    resource::Resource,
+    policy::Ability,
+    resource::{Mounted, Resource},
     topcoat_compat::async_page,
 };
 
@@ -131,6 +131,7 @@ pub(super) async fn restore_pending_uploads(
 /// never block on the held connection.
 pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     cx: &'a Cx,
+    resource: &Mounted<R>,
     tx: toasty::Transaction<'_>,
     chrome: FormChrome<'a>,
     values: &HashMap<String, String>,
@@ -138,23 +139,24 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     carried: &HashSet<String>,
 ) -> Result<BoxView<'a>> {
     drop(tx);
-    render_form_page::<R>(cx, chrome, values, errors, carried).await
+    render_form_page(cx, resource, chrome, values, errors, carried).await
 }
 
 /// Renders the edit form hydrated from the tenant-scoped record.
 pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
-        gate::<R>(cx)?;
+        let resource = gate::<R>(cx)?;
         let mut db = db(cx);
-        let record = load_viewable::<R>(cx, &mut db).await?;
-        if !can::<R>(cx, Ability::Update(&record)) {
+        let record = load_viewable(cx, &resource, &mut db).await?;
+        if !resource.can(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
         let values = <R::Form as RecordForm>::hydrate(cx, &record);
-        let html = render_form_page::<R>(
+        let html = render_form_page(
             cx,
-            FormChrome::edit::<R>(cx, &record),
+            &resource,
+            FormChrome::edit(cx, &resource, &record),
             &values,
             &FieldErrors::new(),
             &HashSet::new(),

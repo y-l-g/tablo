@@ -42,8 +42,8 @@
 //!     type Model = Book;
 //!     type Form = BookForm;
 //!
-//!     fn policy() -> impl Policy<Book> {
-//!         Allow
+//!     fn declare() -> ResourceDef<Self> {
+//!         ResourceDef::new().policy(Allow)
 //!     }
 //! }
 //! ```
@@ -68,12 +68,12 @@ pub use tablo_ui as ui;
 /// The items a resource module names most: `use tablo::prelude::*;`.
 pub mod prelude {
     pub use tablo_core::{
-        Ability, Action, Actions, Allow, Auth, BooleanColumn, Brand, ChoiceField, Column,
-        ColumnWidth, Committed, ComputedColumn, Control, ControlInput, CustomField, DateFilter,
-        Deny, EmbeddedForm, Field, FieldErrors, FileField, Filter, FilterInput, Grid, Group,
-        Includes, IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy, Posted,
-        QueryFilter, ReadOnly, RecordForm, Relation, Repeater, Resource, RouterBuilderPanelExt,
-        Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, TextField,
-        Toggle, can, can_list, declare, lens, scoped_query, tenant_id, when,
+        Ability, Action, Allow, Auth, BooleanColumn, Brand, ChoiceField, Column, ColumnWidth,
+        Committed, ComputedColumn, Control, ControlInput, CustomField, DateFilter, Deny,
+        EmbeddedForm, Field, FieldErrors, FileField, Filter, FilterInput, Grid, Group, Includes,
+        IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy, Posted,
+        QueryFilter, ReadOnly, RecordForm, Relation, Repeater, Resource, ResourceDef,
+        RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
+        TextColumn, TextField, Toggle, can, can_list, declare, lens, scoped_query, tenant_id, when,
     };
 }

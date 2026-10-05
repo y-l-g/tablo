@@ -10,8 +10,10 @@ impl Resource for UserResource {
     type Model = User;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table() -> crate::resource::Table<User> {
-        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(User.name)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+            lens!(User.name),
+        )))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<User>> {
@@ -26,8 +28,10 @@ impl Resource for BareResource {
     type Model = User;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table() -> crate::resource::Table<User> {
-        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(User.name)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+            lens!(User.name),
+        )))
     }
 }
 
@@ -78,16 +82,16 @@ impl Resource for OwnedResource {
     type Model = Owned;
     type Form = crate::NoForm<Self::Model>;
 
-    fn table() -> crate::resource::Table<Owned> {
-        crate::resource::Table::new(crate::resource::TextColumn::new(lens!(Owned.name)))
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .tenancy(Tenancy::column(Owned::fields().tenant_id()))
+            .table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Owned.name),
+            )))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<Owned>> {
         toasty::stmt::Query::<List<Owned>>::all().filter(Owned::fields().name().ne("Hidden"))
-    }
-
-    fn tenancy() -> Tenancy<Owned> {
-        Tenancy::column(Owned::fields().tenant_id())
     }
 }
 

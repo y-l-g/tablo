@@ -40,12 +40,10 @@ impl Resource for UserResource {
     type Model = User;
     type Form = NoForm<Self::Model>; // list-only: no create or edit pages
 
-    fn policy() -> impl Policy<User> {
-        ReadOnly // the default policy denies everything
-    }
-
-    fn table() -> Table<User> {
-        Table::new(TextColumn::new(lens!(User.name)).searchable().sortable()).paginate(20)
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(ReadOnly) // the default policy denies everything
+            .table(Table::new(TextColumn::new(lens!(User.name)).searchable().sortable()).paginate(20))
     }
 }
 ```
