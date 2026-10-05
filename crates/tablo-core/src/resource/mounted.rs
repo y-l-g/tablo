@@ -11,7 +11,6 @@ use topcoat::context::{Cx, try_app_context};
 use super::{Actions, Relation, Resource, ResourceDef};
 use crate::{
     DeclarationError, DeclarationErrorKind, Site,
-    error::TabloError,
     form::{FormField, RecordForm},
     naming::{kebab_case, pluralize, type_short_name, type_stem},
     navigation::NavigationItem,
@@ -143,10 +142,9 @@ pub(crate) fn mounted<R: Resource>(cx: &Cx) -> Option<Arc<Mounted<R>>> {
 /// A declaration error when the request's panel does not mount `R`.
 pub(crate) fn require_mounted<R: Resource>(cx: &Cx) -> topcoat::Result<Arc<Mounted<R>>> {
     mounted::<R>(cx).ok_or_else(|| {
-        TabloError::Declaration(
+        crate::error::declaration(
             DeclarationError::of::<R>(Site::Registration, DeclarationErrorKind::NotMounted)
                 .to_string(),
         )
-        .into()
     })
 }
