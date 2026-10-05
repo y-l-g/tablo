@@ -18,7 +18,7 @@ const ERROR_STATE_ACTION: StaticClass = class!("text-sm font-medium text-primary
 /// Keeps `detail` generic: never renders error internals (driver messages, SQL, paths) into the
 /// page.
 ///
-/// ```ignore
+/// ```text
 /// let action = view! { cx => <a href=(list_url)>"Retry"</a> }.boxed();
 /// Ok(view! { cx =>
 ///     error_state(

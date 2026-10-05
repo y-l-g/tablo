@@ -10,14 +10,24 @@ use crate::{Lens, form::FormScalar, schema::ResolvedLens};
 
 /// One table column declares its header, its cell, and its query predicates.
 ///
-/// ```ignore
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # use tablo_core::Column;
 /// struct Initials;
 ///
 /// impl Column<User> for Initials {
-///     fn name(&self) -> &str { "initials" }
-///     fn label(&self) -> &str { "Initials" }
+///     fn name(&self) -> &str {
+///         "initials"
+///     }
+///     fn label(&self) -> &str {
+///         "Initials"
+///     }
 ///     fn text(&self, row: &User) -> String {
-///         row.name.split_whitespace().filter_map(|w| w.chars().next()).collect()
+///         row.name
+///             .split_whitespace()
+///             .filter_map(|w| w.chars().next())
+///             .collect()
 ///     }
 /// }
 /// ```
@@ -169,10 +179,26 @@ impl ColumnWidth {
 
 /// A column of one field, rendered as text and bound through a [`Lens`] for sorting and search.
 ///
-/// ```ignore
-/// TextColumn::new(lens!(User.name)).searchable().sortable()
-/// TextColumn::new(lens!(User.age)).sortable()
-/// TextColumn::new(lens!(Post.status)).format(|status| PostStatus::label_of(status))
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     name: String,
+/// #     email: String,
+/// #     age: i64,
+/// # }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String }
+/// # struct PostStatus;
+/// # impl PostStatus {
+/// #     fn label_of(_: &String) -> String { String::new() }
+/// # }
+/// tablo_core::TextColumn::new(tablo_core::lens!(User.name))
+///     .searchable()
+///     .sortable();
+/// tablo_core::TextColumn::new(tablo_core::lens!(User.age)).sortable();
+/// tablo_core::TextColumn::new(tablo_core::lens!(Post.status))
+///     .format(|status| PostStatus::label_of(status));
 /// ```
 ///
 /// The cell is the value's form spelling ([`FormScalar::to_form`]) unless
@@ -353,9 +379,18 @@ impl<M, T> std::fmt::Debug for TextColumn<M, T> {
 
 /// A display-only column rendering any text from the row, with no query predicate.
 ///
-/// ```ignore
-/// ComputedColumn::new("Author", |p: &Post| p.author.get().name.clone())
-///     .include(Post::fields().author())
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     author_id: uuid::Uuid,
+/// #     #[belongs_to(key = author_id, references = id)]
+/// #     author: toasty::Deferred<Author>,
+/// # }
+/// tablo_core::ComputedColumn::new("Author", |p: &Post| p.author.get().name.clone())
+///     .include(Post::fields().author());
 /// ```
 ///
 /// It maps to no column, so it neither searches nor sorts:
@@ -458,8 +493,10 @@ impl<M> std::fmt::Debug for ComputedColumn<M> {
 
 /// A column of a `bool` field rendered as an icon.
 ///
-/// ```ignore
-/// BooleanColumn::new(lens!(Post.featured)).sortable()
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
+/// tablo_core::BooleanColumn::new(tablo_core::lens!(Post.featured)).sortable();
 /// ```
 pub struct BooleanColumn<M> {
     lens: Lens<M, bool>,

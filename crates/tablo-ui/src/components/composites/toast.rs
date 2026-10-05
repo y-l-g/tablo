@@ -46,7 +46,7 @@ const CLOSE: StaticClass = class!(
 
 /// Renders the toast stack.
 ///
-/// ```ignore
+/// ```text
 /// toaster(
 ///     toast(attrs: attributes! { data-type="success" },
 ///         toast_icon(icon(data: icons::CIRCLE_CHECK))

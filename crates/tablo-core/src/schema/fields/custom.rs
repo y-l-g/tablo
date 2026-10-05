@@ -6,7 +6,11 @@ use topcoat::{context::Cx, view::*};
 /// Renders a field's input from a [`ControlInput`] and its stored value for display, using a hidden
 /// field for a state that submits nothing.
 ///
-/// ```ignore
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Theme { #[key] #[auto] id: uuid::Uuid, accent: String }
+/// # use tablo_core::{Control, ControlInput, Field};
+/// # use topcoat::{context::Cx, view::*};
 /// struct Color;
 ///
 /// impl Control for Color {
@@ -16,7 +20,7 @@ use topcoat::{context::Cx, view::*};
 ///     }
 /// }
 ///
-/// Field::custom(Theme::fields().accent(), Color)
+/// Field::custom(Theme::fields().accent(), Color);
 /// ```
 pub trait Control: Send + Sync {
     fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a>;

@@ -15,31 +15,7 @@ tablo = { git = "https://github.com/y-l-g/tablo", features = ["sqlite", "testing
 ```rust
 use tablo::testing::{TestClient, form_body};
 
-#[tokio::test]
-async fn books_cannot_be_deleted() {
-    let db = seeded_db().await; // your fixture: an in-memory database with rows
-    let id = first_book_id(&db).await;
-    let router = Panel::new("admin")
-        .app_context(db.clone())
-        .resource::<BookResource>()
-        .auth(Auth::disabled())
-        .build()
-        .unwrap();
-    let client = TestClient::new(&router);
-
-    assert_eq!(client.get("/admin/books").await.status(), 200);
-
-    // A POST needs the CSRF cookie and a matching `csrf_token` field.
-    let token = uuid::Uuid::new_v4().to_string();
-    let response = client
-        .csrf(&token)
-        .post_form(
-            &format!("/admin/books/{id}/delete"),
-            form_body(&[("csrf_token", &token), ("confirm", "1")]),
-        )
-        .await;
-    assert_eq!(response.status(), 403); // the policy does not allow `DeleteAny`
-}
+{{#include ../../../examples/guide/tests/it.rs:testing-no-delete}}
 ```
 
 - **Cover every ability your policy decides** with a request it allows and one it refuses, and

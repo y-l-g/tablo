@@ -3,7 +3,12 @@
 //! Combines [`Allow`], [`Deny`], [`ReadOnly`], [`when`], and closures with
 //! `and`/`or`.
 //!
-//! ```ignore
+//! ```rust
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Post { #[key] #[auto] id: uuid::Uuid, locked: bool }
+//! # use tablo_core::{Ability, Policy, when};
+//! # use topcoat::context::Cx;
+//! # fn not_suspended(cx: &Cx) -> bool { true }
 //! fn policy() -> impl Policy<Post> {
 //!     when(not_suspended).and(|_cx: &Cx, ability: Ability<'_, Post>| match ability {
 //!         Ability::Update(post) | Ability::Delete(post) => !post.locked,
@@ -129,12 +134,24 @@ impl<M> Policy<M> for ReadOnly {
 
 /// Allows every ability while `predicate` holds for the request.
 ///
-/// ```ignore
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Staff { #[key] #[auto] id: uuid::Uuid, editor: bool }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid }
+/// # use tablo_core::{PanelUser, Policy, ReadOnly, auth, when};
+/// # use topcoat::context::Cx;
+/// # impl PanelUser for Staff {
+/// #     fn user_id(&self) -> String { String::new() }
+/// #     fn display_name(&self) -> &str { "" }
+/// # }
 /// fn editor(cx: &Cx) -> bool {
 ///     auth::user::<Staff>(cx).is_some_and(|staff| staff.editor)
 /// }
 ///
-/// fn policy() -> impl Policy<Post> { ReadOnly.or(when(editor)) }
+/// fn policy() -> impl Policy<Post> {
+///     ReadOnly.or(when(editor))
+/// }
 /// ```
 pub fn when<F>(predicate: F) -> When<F>
 where

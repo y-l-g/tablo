@@ -1,0 +1,30 @@
+[package]
+name = "guide"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "The user guide's compiled companion: every guide snippet as anchored code."
+
+# One integration-test binary, as elsewhere: Cargo would otherwise discover
+# every file under `tests/` as its own target.
+autotests = false
+
+[[test]]
+name = "it"
+path = "tests/it.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+tablo = { path = "../../crates/tablo", features = ["sqlite", "testing"] }
+tablo-core = { path = "../../crates/tablo-core" }
+tablo-ui = { path = "../../crates/tablo-ui" }
+tablo-build = { path = "../../crates/tablo-build" }
+jiff.workspace = true
+toasty = { workspace = true, features = ["sqlite"] }
+tokio = { workspace = true, features = ["fs"] }
+topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fontsource", "asset"] }
+uuid.workspace = true

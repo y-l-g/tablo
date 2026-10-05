@@ -30,7 +30,7 @@ else document.documentElement.classList.remove('dark')})();",
 /// `default_dark` is the server's build-time preference, used only when the visitor has no stored
 /// choice.
 ///
-/// ```ignore
+/// ```text
 /// <head>
 ///     theme_init_script(default_dark)
 ///     <link rel="stylesheet" href=(tailwind::stylesheet!())>

@@ -30,15 +30,47 @@ use crate::form::{FieldError, FormScalar};
 /// One form field binding a lens to the control editing it, offering only that control's modifiers
 /// so a modifier on the wrong control does not compile.
 ///
-/// ```ignore
-/// Field::text(User::fields().name()).placeholder("Ada Lovelace")   // TextField
-/// Field::text(User::fields().email()).email().unique()
-/// Field::text(User::fields().age())                  // typed: an `i64` column
-/// Field::text(Post::fields().body()).multiline(6)
-/// Field::choice(Post::fields().status()).options(Status::options()) // ChoiceField
-/// Field::choice(Post::fields().author_id()).relationship::<AuthorResource>(..)
-/// Field::file(Doc::fields().path())                                  // FileField
-/// Field::toggle(Post::fields().featured())                           // CustomField
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     name: String,
+/// #     email: String,
+/// #     age: i64,
+/// # }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     body: String,
+/// #     status: String,
+/// #     author_id: uuid::Uuid,
+/// #     featured: bool,
+/// # }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Doc { #[key] #[auto] id: uuid::Uuid, path: String }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+/// # enum Status { Draft, Published }
+/// # struct AuthorResource;
+/// # impl tablo_core::schema::OptionSource for AuthorResource {
+/// #     type Model = Author;
+/// #     fn scoped_query(_cx: &topcoat::context::Cx)
+/// #         -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Author>>>
+/// #     {
+/// #         Ok(toasty::stmt::Query::all())
+/// #     }
+/// # }
+/// # use tablo_core::{Field, Options};
+/// Field::text(User::fields().name()).placeholder("Ada Lovelace"); // TextField
+/// Field::text(User::fields().email()).email().unique();
+/// Field::text(User::fields().age()); // typed: an `i64` column
+/// Field::text(Post::fields().body()).multiline(6);
+/// Field::choice(Post::fields().status()).options(Status::options()); // ChoiceField
+/// Field::choice(Post::fields().author_id())
+///     .relationship::<AuthorResource>(|a: &Author| a.name.clone());
+/// Field::file(Doc::fields().path()); // FileField
+/// Field::toggle(Post::fields().featured()); // CustomField
 /// ```
 ///
 /// ```compile_fail

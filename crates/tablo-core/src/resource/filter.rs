@@ -10,12 +10,21 @@ use crate::schema::{IntoOptions, ResolvedLens};
 
 /// One table filter declares a control and its predicate.
 ///
-/// ```ignore
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
+/// # use tablo_core::{Filter, FilterInput};
+/// # use toasty::stmt::Expr;
+/// # use topcoat::{context::Cx, view::BoxView};
 /// struct Adults;
 ///
 /// impl Filter<User> for Adults {
-///     fn name(&self) -> &str { "adults" }
-///     fn label(&self) -> &str { "Adults" }
+///     fn name(&self) -> &str {
+///         "adults"
+///     }
+///     fn label(&self) -> &str {
+///         "Adults"
+///     }
 ///     fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
 ///         (value == "yes").then(|| User::fields().age().ge(18))
 ///     }
@@ -430,10 +439,15 @@ filter_impls! {
 /// A filter offering named predicates, such as an embedded-enum variant or any query the app
 /// names.
 ///
-/// ```ignore
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
+/// # use tablo_core::QueryFilter;
+/// # let _promoted: QueryFilter<Post> =
 /// QueryFilter::new("promoted", "Promoted")
 ///     .option("Promoted", Post::fields().featured().eq(true))
-///     .option("Backlog", Post::fields().featured().eq(false))
+///     .option("Backlog", Post::fields().featured().eq(false));
+/// # let _ = _promoted;
 /// ```
 pub struct QueryFilter<M> {
     name: String,

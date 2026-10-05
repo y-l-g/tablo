@@ -73,7 +73,7 @@ pub fn wired_table<R: Resource>(cx: &topcoat::context::Cx) -> crate::resource::T
 /// The app owns the router and mounts the panel into it with
 /// [`RouterBuilderPanelExt::panel`]:
 ///
-/// ```ignore
+/// ```text
 /// let router = Router::builder()
 ///     .discover()
 ///     .app_context(db)

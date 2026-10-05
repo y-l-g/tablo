@@ -16,15 +16,7 @@ fn table() -> Table<User> {
 ```
 
 ```rust
-fn table() -> Table<User> {
-    Table::new((
-        TextColumn::new(lens!(User.name)).searchable().sortable(),
-        TextColumn::new(lens!(User.email)).searchable(),
-        TextColumn::new(lens!(User.age)).sortable(),
-        BooleanColumn::new(lens!(User.active)),
-    ))
-    .paginate(20)
-}
+{{#include ../../../examples/guide/src/resources.rs:user-table}}
 ```
 
 Each row is keyed by its record's primary key: the table identifies rows for selection and
@@ -49,8 +41,7 @@ that only query, such as the filters and `Field` constructors, take either a len
 | `BooleanColumn::new(lens)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 
 ```rust
-TextColumn::new(lens!(Post.status)).format(|status| PostStatus::label_of(status))
-TextColumn::new(lens!(User.created_at)).format(|at| at.strftime("%Y-%m-%d").to_string())
+{{#include ../../../examples/guide/src/tables.rs:table-format}}
 ```
 
 - **Labels.** A field column is labelled from its field name (`created_at` → "Created at"); a
@@ -61,10 +52,7 @@ TextColumn::new(lens!(User.created_at)).format(|at| at.strftime("%Y-%m-%d").to_s
   `(unloaded)` instead of blank data:
 
   ```rust
-  ComputedColumn::new("Author", |p: &Post| {
-      if p.author.is_unloaded() { "(unloaded)".into() } else { p.author.get().name.clone() }
-  })
-  .include(Post::fields().author())
+  {{#include ../../../examples/guide/src/tables.rs:table-relation-column}}
   ```
 
 - **Widths.** The table uses a fixed layout: a column's width is what it declares, not the width of
@@ -85,22 +73,7 @@ A column is anything that implements `Column<M>`. The built-in columns implement
 more, so a column of your own reaches as far as theirs:
 
 ```rust
-struct Initials;
-
-impl Column<User> for Initials {
-    fn name(&self) -> &str { "initials" }
-    fn label(&self) -> &str { "Initials" }
-
-    // The export's cell, and the table's unless `cell` renders a view.
-    fn text(&self, u: &User) -> String {
-        u.name.split_whitespace().filter_map(|w| w.chars().next()).collect()
-    }
-
-    fn cell<'a>(&self, cx: &'a Cx, u: &User) -> BoxView<'a> {
-        let text = self.text(u);
-        view! { cx => <span class="font-mono">(text)</span> }.boxed()
-    }
-}
+{{#include ../../../examples/guide/src/tables.rs:table-custom-column}}
 ```
 
 Only `name`, `label` and `text` are required. The other methods default to a column that is
@@ -132,7 +105,7 @@ The URL holds the list's whole state, so every view of a list is a link you can 
 ### Live updates
 
 ```rust
-Table::new(columns).live_search()
+{{#include ../../../examples/guide/src/tables.rs:table-live-search}}
 ```
 
 With `live_search()`, typing in the search box, sorting, filtering and paging update the table
@@ -142,11 +115,7 @@ remain for visitors without JavaScript.
 ## Filters
 
 ```rust
-.filters((
-    SelectFilter::new(Post::fields().status(), PostStatus::options()),
-    TernaryFilter::new(Post::fields().featured()),
-    DateFilter::new(Post::fields().created_at()),
-))
+{{#include ../../../examples/guide/src/tables.rs:table-filters}}
 ```
 
 | Filter | Field | Values |
@@ -164,27 +133,14 @@ A filter is anything that implements `Filter<M>`: a name, a label, the predicate
 and the control the filter bar renders. The four filters above implement it and nothing more.
 
 ```rust
-QueryFilter::new("promoted", "Promoted")
-    .option("Promoted", Post::fields().featured().eq(true))
-    .option("Backlog", Post::fields().featured().eq(false))
+{{#include ../../../examples/guide/src/tables.rs:table-promoted-filter}}
 ```
 
 `FilterInput` carries the parameter the control submits and the current value, and
 `input.select(cx, options)` renders the built-in select:
 
 ```rust
-struct Adults;
-
-impl Filter<User> for Adults {
-    fn name(&self) -> &str { "adults" }
-    fn label(&self) -> &str { "Adults" }
-    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-        (value == "yes").then(|| User::fields().age().ge(18))
-    }
-    fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
-        input.select(cx, vec![("yes".into(), "Adults only".into())])
-    }
-}
+{{#include ../../../examples/guide/src/tables.rs:table-adults-filter}}
 ```
 
 A filter of your own goes in the `filters((..))` tuple; alone, it is a one-element tuple,
@@ -197,7 +153,7 @@ request with 400 rather than export more rows than asked.
 ## Grouping
 
 ```rust
-.group_by(lens!(Post.status))
+{{#include ../../../examples/guide/src/tables.rs:table-group-by}}
 ```
 
 `?group_by=status`, named after the field, groups the current page's rows under headers with a
@@ -245,35 +201,10 @@ An action is a mutation beyond create, update and delete, declared as a type imp
 `Action<R>` and listed by `Resource::actions`:
 
 ```rust
-struct Publish;
-
-impl Action<PostResource> for Publish {
-    const NAME: &'static str = "publish";
-
-    fn label() -> String {
-        "Publish".to_string()
-    }
-
-    fn can_run(_cx: &Cx, post: &Post) -> bool {
-        post.status != "published"
-    }
-
-    async fn run(_cx: &Cx, posts: &[Post], ex: &mut dyn toasty::Executor) -> Result<()> {
-        for post in posts {
-            Post::filter(Post::fields().id().eq(post.id))
-                .update()
-                .status("published".to_string())
-                .exec(&mut *ex)
-                .await?;
-        }
-        Ok(())
-    }
-}
+{{#include ../../../examples/guide/src/tables.rs:table-publish-action}}
 
 impl Resource for PostResource {
-    fn actions() -> Actions<Self> {
-        Actions::new().add::<Publish>()
-    }
+{{#include ../../../examples/guide/src/resources.rs:post-actions}}
     // …
 }
 ```

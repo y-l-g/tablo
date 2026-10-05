@@ -51,12 +51,27 @@ use crate::{
 /// [`Authenticator`]; the shipped [`AdminUser`] implements it too. App code
 /// reads the user back with its own type through [`user`].
 ///
-/// ```ignore
+/// ```rust
+/// # struct Staff {
+/// #     id: uuid::Uuid,
+/// #     name: String,
+/// #     active: bool,
+/// #     memberships: Vec<tablo_core::Membership>,
+/// # }
+/// # use tablo_core::{Membership, PanelUser};
 /// impl PanelUser for Staff {
-///     fn user_id(&self) -> String { self.id.to_string() }
-///     fn display_name(&self) -> &str { &self.name }
-///     fn can_access_panel(&self) -> bool { self.active }
-///     fn tenants(&self) -> &[Membership] { &self.memberships }
+///     fn user_id(&self) -> String {
+///         self.id.to_string()
+///     }
+///     fn display_name(&self) -> &str {
+///         &self.name
+///     }
+///     fn can_access_panel(&self) -> bool {
+///         self.active
+///     }
+///     fn tenants(&self) -> &[Membership] {
+///         &self.memberships
+///     }
 /// }
 /// ```
 pub trait PanelUser: Any + Send + Sync {
@@ -246,7 +261,14 @@ pub(crate) fn signed(cx: &Cx) -> Option<&SignedIn> {
 /// panel's [`Authenticator`] loads another type than `U` — a helper shared by
 /// two panels with different user types answers `None` on the other one.
 ///
-/// ```ignore
+/// ```rust
+/// # struct Staff { admin: bool }
+/// # use tablo_core::{PanelUser, auth};
+/// # use topcoat::context::Cx;
+/// # impl PanelUser for Staff {
+/// #     fn user_id(&self) -> String { String::new() }
+/// #     fn display_name(&self) -> &str { "" }
+/// # }
 /// fn admins_only(cx: &Cx) -> bool {
 ///     auth::user::<Staff>(cx).is_some_and(|staff| staff.admin)
 /// }

@@ -11,8 +11,7 @@ The panel loads rows on its own pages. This chapter covers querying Toasty from 
 `Db` is cheap, and statements take it by `&mut`:
 
 ```rust
-let mut db = tablo_core::db::db(cx);
-let users = User::all().exec(&mut db).await?;
+{{#include ../../../examples/guide/src/data_access.rs:data-access-db}}
 ```
 
 Inside a record function, run statements through the transaction you were handed (`ex`), never
@@ -22,8 +21,7 @@ the connection the transaction holds.
 ## Querying
 
 ```rust
-User::filter(User::fields().email().eq("ada@example.com"))
-User::filter(User::fields().name().starts_with(prefix)).order_by(User::fields().name().asc())
+{{#include ../../../examples/guide/src/data_access.rs:data-access-filters}}
 ```
 
 Toasty binds values as parameters. If you build a `LIKE` pattern from user input, escape `%`, `_`
@@ -34,10 +32,7 @@ and your escape character first and pass it with `like_with_escape`, as the tabl
 A public page has no resource behind it, so it states its own filters, tenant included:
 
 ```rust
-let posts = Post::filter(Post::fields().status().eq("published".to_string()))
-    .include(Post::fields().author())
-    .exec(&mut db)
-    .await?;
+{{#include ../../../examples/guide/src/data_access.rs:data-access-published}}
 ```
 
 ## Relations
@@ -46,10 +41,7 @@ Toasty loads a relation only when the query includes it. Include every relation 
 the same query:
 
 ```rust
-let posts = Post::all().include(Post::fields().author()).exec(&mut db).await?;
-for post in &posts {
-    let name = &post.author.get().name; // no extra query
-}
+{{#include ../../../examples/guide/src/data_access.rs:data-access-relations}}
 ```
 
 Reading a relation that was not included panics in `get()`; check `is_unloaded()` first where a
@@ -62,11 +54,7 @@ A page can render a resource's list table over its own query — here, only feat
 the same columns, filters and row actions as the resource's list:
 
 ```rust
-let table = tablo_core::panel::wired_table::<PostResource>(cx);
-let state = TableState::from_cx(cx);
-let query = scoped_query::<PostResource>(cx)?.filter(Post::fields().featured().eq(true));
-let page = TablePage::load(cx, &table, query, &state).await?;
-let body = table.render_with_state(cx, page, &state, "/admin/featured").await?;
+{{#include ../../../examples/guide/src/data_access.rs:data-access-wired-table}}
 ```
 
 `wired_table` adds the row actions the resource's policy allows. The last argument of

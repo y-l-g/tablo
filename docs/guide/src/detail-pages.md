@@ -7,9 +7,9 @@ the form's fields read-only. A form with fields that must stay off the detail pa
 `view()` with a subset or `Schema::empty()`. Override it to show other fields or another layout:
 
 ```rust
-fn view() -> Schema {
-    let c = PostForm::controls();
-    Schema::new(Section::new("Post").schema((c.title, c.body.multiline(6), c.status)))
+impl Resource for PostResource {
+    // …
+{{#include ../../../examples/guide/src/resources.rs:post-view}}
 }
 ```
 
@@ -39,12 +39,7 @@ from field name to display text; when both supply a key, the form's value wins. 
 resource supplies every key there:
 
 ```rust
-fn view_values(_cx: &Cx, audit: &Audit) -> HashMap<String, String> {
-    HashMap::from([
-        ("action".to_string(), audit.action.clone()),
-        ("created_at".to_string(), audit.created_at.to_string()),
-    ])
-}
+{{#include ../../../examples/guide/src/detail_pages.rs:detail-view-values}}
 ```
 
 To show something that is not a column's own value, such as the author's name behind
@@ -56,9 +51,9 @@ A field no source fills renders `(missing)`, and fails a `debug_assert!` in debu
 applied. Include there every relation `view_values` or `view_content` reads:
 
 ```rust
-fn view_query(cx: &Cx) -> Query<List<Post>> {
-    let author: Include<Post, Author> = Post::fields().author().into();
-    Self::query(cx).include(author)
+impl Resource for PostResource {
+    // …
+{{#include ../../../examples/guide/src/resources.rs:post-view-query}}
 }
 ```
 
@@ -69,9 +64,7 @@ An unknown id and an id outside the request's tenant are the same 404; a record 
 the record's key, such as "Post 3f2a…":
 
 ```rust
-fn record_label(_cx: &Cx, post: &Post) -> Option<String> {
-    Some(post.title.clone())
-}
+{{#include ../../../examples/guide/src/detail_pages.rs:detail-record-label}}
 ```
 
 `public_url(cx, record)` adds a "View public post" link to the header when it returns a URL.
@@ -82,13 +75,7 @@ fn record_label(_cx: &Cx, post: &Post) -> Option<String> {
 fields:
 
 ```rust
-fn view_content<'a>(cx: &'a Cx, post: &Post) -> Option<BoxView<'a>> {
-    let words = post.body.split_whitespace().count();
-    Some(
-        view! { cx => <p class="text-sm text-muted-foreground">(format!("{words} words"))</p> }
-            .boxed(),
-    )
-}
+{{#include ../../../examples/guide/src/detail_pages.rs:detail-view-content}}
 ```
 
 The returned view may borrow `cx` but not the record: compute what you need from the record first.
@@ -99,9 +86,9 @@ The returned view may borrow `cx` but not the record: compute what you need from
 record's detail and edit pages as that resource's own list table, narrowed to the record:
 
 ```rust
-fn relations() -> Vec<Relation<Post>> {
-    // The related model's foreign key, which holds the post's primary key.
-    vec![Relation::has_many::<CommentResource>(Comment::fields().post_id())]
+impl Resource for PostResource {
+    // …
+{{#include ../../../examples/guide/src/resources.rs:post-relations}}
 }
 ```
 

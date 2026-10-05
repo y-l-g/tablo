@@ -129,7 +129,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// The resource's custom [`Action`]s, in button order. Defaults to none.
     ///
-    /// ```ignore
+    /// ```text
     /// fn actions() -> Actions<Self> {
     ///     Actions::new().add::<Publish>()
     /// }
@@ -238,7 +238,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// [`view_content`](Self::view_content) — so include them here. A
     /// [`relation`](Self::relations) table runs its own query and needs none.
     ///
-    /// ```ignore
+    /// ```text
     /// fn view_query(cx: &Cx) -> Query<List<Post>> {
     ///     let author: Include<Post, Author> = Post::fields().author().into();
     ///     Self::query(cx).include(author)
@@ -257,7 +257,13 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// field a column can show. Override it to choose the columns, or to extend the derived
     /// table with filters or grouping:
     ///
-    /// ```ignore
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, featured: bool }
+    /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
+    /// # #[form(model = Post)]
+    /// # struct PostForm { title: String, featured: bool }
+    /// # use tablo_core::{Table, TernaryFilter};
     /// fn table() -> Table<Post> {
     ///     PostForm::table().filters(TernaryFilter::new(Post::fields().featured()))
     /// }
@@ -276,7 +282,17 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Override it to arrange the controls into a layout — the derive's
     /// `controls()` hands each one over, ready for its modifiers:
     ///
-    /// ```ignore
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     title: String,
+    /// #     body: String,
+    /// # }
+    /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
+    /// # #[form(model = Post)]
+    /// # struct PostForm { title: String, body: String }
+    /// # use tablo_core::{Schema, Section};
     /// fn form() -> Schema {
     ///     let c = PostForm::controls();
     ///     Schema::new(Section::new("Content").schema((c.title, c.body.multiline(6))))
@@ -422,7 +438,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// and retries are the app's to build; a panic surfaces as Topcoat's
     /// panic-isolated 500.
     ///
-    /// ```ignore
+    /// ```text
     /// async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
     ///     let mut db = db(cx); // a fresh handle is allowed here
     ///     for post in committed.records() { notify(post).await?; }

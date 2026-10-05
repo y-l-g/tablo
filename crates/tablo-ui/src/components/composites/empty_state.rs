@@ -16,7 +16,7 @@ const EMPTY_STATE_ACTION: StaticClass =
 
 /// Renders zero-data content inside the region that holds no data.
 ///
-/// ```ignore
+/// ```text
 /// empty_state(title: "No records yet", detail: "Create the first one.")
 /// ```
 #[component]

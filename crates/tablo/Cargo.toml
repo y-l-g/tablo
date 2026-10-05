@@ -24,11 +24,13 @@ tablo-core = { path = "../tablo-core" }
 tablo-test = { path = "../tablo-test", optional = true }
 tablo-ui = { path = "../tablo-ui" }
 toasty.workspace = true
+uuid.workspace = true
 
 # `toasty` is never named in code: it is here so the driver features above can
-# reach it.
+# reach it. `uuid` is named in rustdoc only, for the model key the quickstart
+# names too.
 [package.metadata.cargo-udeps.ignore]
-normal = ["toasty"]
+normal = ["toasty", "uuid"]
 
 [lints]
 workspace = true
