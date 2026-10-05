@@ -32,7 +32,6 @@ thread_local! {
 /// let form = tablo_core::declare(&db, PostForm::schema);
 /// # let _ = form;
 /// ```
-/// ```
 pub fn declare<T>(db: &toasty::Db, declarations: impl FnOnce() -> T) -> T {
     declare_with(Some(db.schema().clone()), declarations)
 }
