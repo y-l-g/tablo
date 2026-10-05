@@ -139,11 +139,17 @@ impl Resource for CommentResource {
     type Form = CommentForm;
 
     fn declare() -> ResourceDef<Self> {
+        let c = CommentForm::controls();
         ResourceDef::new()
             .table(Table::new(TextColumn::new(lens!(Comment.body))))
             // ANCHOR: comment-tenancy-via
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
-        // ANCHOR_END: comment-tenancy-via
+            // ANCHOR_END: comment-tenancy-via
+            .form(Schema::new((
+                c.body,
+                c.post_id
+                    .relationship::<PostResource>(|p: &Post| p.title.clone()),
+            )))
     }
 
     // ANCHOR: comment-update-record
@@ -153,8 +159,6 @@ impl Resource for CommentResource {
         posted: Posted<CommentForm>,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Comment> {
-        // `Posted` derefs to the form.
-        ensure_post_in_tenant(cx, posted.post_id, ex).await?;
         tablo_core::write_update::<Self>(cx, record, posted, ex).await
     }
     // ANCHOR_END: comment-update-record
@@ -163,16 +167,9 @@ impl Resource for CommentResource {
 #[derive(Debug, Clone, tablo_core::RecordForm)]
 #[form(model = Comment)]
 pub struct CommentForm {
+    #[form(choice)]
     pub post_id: uuid::Uuid,
     pub body: String,
-}
-
-async fn ensure_post_in_tenant(
-    _cx: &Cx,
-    _post_id: uuid::Uuid,
-    _ex: &mut dyn toasty::Executor,
-) -> Result<()> {
-    Ok(())
 }
 
 pub struct AuthorResource;
