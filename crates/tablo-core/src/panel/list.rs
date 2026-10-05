@@ -114,7 +114,7 @@ fn wire_custom_actions<R: Resource>(
             let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
             TableAction {
                 name: action.name,
-                label: (action.label)(),
+                label: (action.label)(cx),
                 row: action.row,
                 bulk: action.bulk,
                 allowed: Arc::new(move |record: &R::Model| {

@@ -114,7 +114,7 @@ pub(crate) struct Publish;
 impl Action<PostResource> for Publish {
     const NAME: &'static str = "publish";
 
-    fn label() -> String {
+    fn label(_cx: &Cx) -> String {
         "Publish".to_string()
     }
 

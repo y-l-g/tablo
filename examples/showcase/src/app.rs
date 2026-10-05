@@ -317,7 +317,7 @@ pub struct PublishPosts;
 impl Action<PostResource> for PublishPosts {
     const NAME: &'static str = "publish";
 
-    fn label() -> String {
+    fn label(_cx: &Cx) -> String {
         "Publish".to_string()
     }
 

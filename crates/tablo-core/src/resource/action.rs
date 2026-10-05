@@ -35,7 +35,7 @@ use super::Resource;
 /// impl Action<PostResource> for Publish {
 ///     const NAME: &'static str = "publish";
 ///
-///     fn label() -> String {
+///     fn label(_cx: &Cx) -> String {
 ///         "Publish".to_string()
 ///     }
 ///
@@ -93,7 +93,7 @@ pub trait Action<R: Resource>: 'static {
     ///
     /// impl Action<PostResource> for Archive {
     ///     const NAME: &'static str = "archive/all";
-    /// #   fn label() -> String { String::new() }
+    /// #   fn label(_cx: &Cx) -> String { String::new() }
     /// #   fn can_run(_: &Cx, _: &Post) -> bool { true }
     /// #   async fn run(_: &Cx, _: &[Post], _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
     /// }
@@ -110,7 +110,7 @@ pub trait Action<R: Resource>: 'static {
     const BULK: bool = true;
 
     /// The button text.
-    fn label() -> String;
+    fn label(cx: &Cx) -> String;
 
     /// Whether the action may run on `record`.
     fn can_run(_cx: &Cx, _record: &R::Model) -> bool {
@@ -127,9 +127,9 @@ pub trait Action<R: Resource>: 'static {
 
     /// The success notification after a commit. Defaults to the label and
     /// the record count: `"Publish: 3 records"`.
-    fn success(count: usize) -> String {
+    fn success(cx: &Cx, count: usize) -> String {
         let noun = if count == 1 { "record" } else { "records" };
-        format!("{}: {count} {noun}", Self::label())
+        format!("{}: {count} {noun}", Self::label(cx))
     }
 }
 
@@ -193,13 +193,13 @@ impl<R: Resource> Actions<R> {
 /// in one list.
 pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) name: &'static str,
-    pub(crate) label: fn() -> String,
+    pub(crate) label: fn(&Cx) -> String,
     pub(crate) row: bool,
     pub(crate) bulk: bool,
     pub(crate) can_run: fn(&Cx, &R::Model) -> bool,
     pub(crate) run:
         for<'a> fn(&'a Cx, &'a [R::Model], &'a mut dyn toasty::Executor) -> ActionFuture<'a>,
-    pub(crate) success: fn(usize) -> String,
+    pub(crate) success: fn(&Cx, usize) -> String,
 }
 
 /// [`Action::run`] behind a function pointer.

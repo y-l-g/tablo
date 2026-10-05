@@ -102,7 +102,7 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
             tx,
             written,
             |rows| Committed::acted(name, rows),
-            (action.success)(count),
+            (action.success)(cx, count),
             WRITE_ACTION,
         )
         .await
@@ -155,7 +155,7 @@ fn refuse<R: Resource>(
                 cx,
                 Notification::error(format!(
                     "{}: {refused} selected {noun} cannot take this action; nothing was changed",
-                    (action.label)()
+                    (action.label)(cx)
                 )),
             );
             see_other(landing_url(cx, &resource.url)).into()
