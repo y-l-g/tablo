@@ -142,6 +142,28 @@ fn check_stops_at_the_first_failure() {
     assert_eq!(run.commands().len(), 2, "fail-fast stops after the failure");
 }
 
+/// The version a pinned `cargo install --version X` command pins.
+fn installed_version(command: &str) -> &str {
+    let (_, version) = command
+        .split_once("--version ")
+        .expect("a pinned install names its version");
+    version
+        .split_whitespace()
+        .next()
+        .expect("the version ends the flag value")
+}
+
+/// Reads the `version = "…"` a manifest names for `dependency`.
+fn manifest_version(manifest: &str, dependency: &str) -> String {
+    manifest
+        .lines()
+        .find(|line| line.starts_with(&format!("{dependency} = ")))
+        .and_then(|line| line.split_once("version = \""))
+        .and_then(|(_, version)| version.split_once('"'))
+        .map(|(version, _)| version.to_string())
+        .unwrap_or_else(|| panic!("{dependency} names a version"))
+}
+
 /// The pins xtask shells out with must stay the ones CI and the docs name.
 #[test]
 fn pins_match_ci_and_docs() {
@@ -155,6 +177,19 @@ fn pins_match_ci_and_docs() {
         contributing.contains(NIGHTLY_FMT),
         "CONTRIBUTING.md names the nightly"
     );
+    let topcoat = installed_version(TOPCOAT_INSTALL);
+    assert!(
+        ci.contains(topcoat),
+        "ci.yml installs the pinned topcoat CLI {topcoat}"
+    );
+    assert!(
+        contributing.contains(topcoat),
+        "CONTRIBUTING.md names the pinned topcoat CLI {topcoat}"
+    );
+    assert!(
+        ci.contains(installed_version(MDBOOK_INSTALL)),
+        "ci.yml installs the pinned mdBook"
+    );
     for bench in DETACHED_BENCHES {
         assert!(ci.contains(bench), "ci.yml covers {bench}");
     }
@@ -165,6 +200,22 @@ fn pins_match_ci_and_docs() {
         manifest.contains(&format!("rust-version = \"{MSRV}\"")),
         "Cargo.toml carries the MSRV floor"
     );
+}
+
+/// The detached bench must measure the upstream releases the workspace names.
+#[test]
+fn bench_pins_match_the_workspace() {
+    let root = repo_root();
+    let workspace = std::fs::read_to_string(root.join("Cargo.toml")).expect("read Cargo.toml");
+    let bench = std::fs::read_to_string(root.join("benchmarks/tablo/Cargo.toml"))
+        .expect("read the bench manifest");
+    for dependency in ["topcoat", "toasty"] {
+        assert_eq!(
+            manifest_version(&bench, dependency),
+            manifest_version(&workspace, dependency),
+            "{dependency} tracks the workspace release"
+        );
+    }
 }
 
 /// Reads a workflow's `pull_request: paths` list: the `- entry` lines under `paths:`.
