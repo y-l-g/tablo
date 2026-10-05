@@ -263,7 +263,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
     /// # #[form(model = Post)]
     /// # struct PostForm { title: String, featured: bool }
-    /// # use tablo_core::{Table, TernaryFilter};
+    /// # use tablo_core::{RecordForm, Table, TernaryFilter};
     /// fn table() -> Table<Post> {
     ///     PostForm::table().filters(TernaryFilter::new(Post::fields().featured()))
     /// }

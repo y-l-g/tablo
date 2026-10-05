@@ -220,7 +220,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 ```rust
 {{#include ../../../examples/guide/src/models.rs:seo-struct}}
 
-// In `form(dx)`: one call renders a control per field.
+// In `form()`: one call renders a control per field.
 {{#include ../../../examples/guide/src/forms.rs:forms-embedded-schema}}
 
 // In the record form: the value is one field.

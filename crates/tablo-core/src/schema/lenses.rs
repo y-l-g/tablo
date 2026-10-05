@@ -27,6 +27,7 @@ thread_local! {
 /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
 /// # #[form(model = Post)]
 /// # struct PostForm { title: String }
+/// # use tablo_core::RecordForm;
 /// # let db: toasty::Db = todo!();
 /// let form = tablo_core::declare(&db, PostForm::schema);
 /// # let _ = form;

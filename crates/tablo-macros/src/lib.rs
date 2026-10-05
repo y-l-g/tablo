@@ -19,8 +19,7 @@ use syn::DeriveInput;
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     publication: Publication,
 /// # }
-/// # use tablo_core::{DeclCx, Section};
-/// # let cx = &DeclCx::empty();
+/// # use tablo_core::Section;
 /// #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 /// pub enum Publication {
 ///     #[column(variant = 1)]
@@ -39,7 +38,7 @@ use syn::DeriveInput;
 /// }
 ///
 /// // form declaration — no field bindings written by hand
-/// Section::new("Publication").schema(Publication::form(cx, Post::fields().publication()));
+/// Section::new("Publication").schema(Publication::form(Post::fields().publication()));
 /// ```
 ///
 /// # How a field is classified
