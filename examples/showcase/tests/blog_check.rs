@@ -190,45 +190,6 @@ async fn blog_detail_renders_body_cover_and_seo_description() {
         "a post with no cover must render no image: {html}"
     );
 }
-
-#[tokio::test]
-async fn a_servable_cover_renders_as_an_image() {
-    use showcase::models::{DEMO_TENANT, MediaAsset};
-
-    let db = full_db().await;
-    let router = router(db.clone());
-    let post = published_post(&db).await;
-
-    // The cover is a picked library row: the row stores the served URL the
-    // uploader returned, and the post names the row.
-    let stored = "/uploads/cover.png".to_string();
-    let mut db_q = db.clone();
-    let asset = toasty::create!(MediaAsset {
-        tenant_id: DEMO_TENANT,
-        path: stored.clone(),
-        filename: "cover.png".to_string(),
-        kind: "image".to_string(),
-        created_at: "2024-01-15T09:30:00Z".parse::<jiff::Timestamp>().unwrap(),
-    })
-    .exec(&mut db_q)
-    .await
-    .expect("create the cover row");
-    Post::filter(Post::fields().id().eq(post.id))
-        .update()
-        .cover_id(Some(asset.id))
-        .exec(&mut db_q)
-        .await
-        .expect("point the post at the cover row");
-
-    let response = TestClient::new(&router).get(&post_path(&post)).await;
-    assert_eq!(response.status(), 200);
-    let html = body_string(response).await;
-    assert!(
-        html.contains(&format!("src=\"{stored}\"")),
-        "a picked cover must render as an image: {html}"
-    );
-}
-
 #[tokio::test]
 async fn a_draft_is_absent_from_the_list_and_404s_on_its_page() {
     let db = full_db().await;

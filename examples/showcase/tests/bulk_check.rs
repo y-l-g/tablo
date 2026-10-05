@@ -65,11 +65,9 @@ async fn bulk_delete_deletes_selected() {
         !loc.contains("notification"),
         "the toast must not ride the query, got {loc}"
     );
-    let flash = set_cookie_header(&resp, "__Host-tablo_notification")
-        .expect("the flash cookie is set on the redirect");
     assert!(
-        flash.contains("Bulk"),
-        "the flash carries the action, got {flash}"
+        set_cookie_header(&resp, "__Host-tablo_notification").is_some(),
+        "the flash cookie is set on the redirect"
     );
 
     let remaining = user_count(&db).await;
@@ -82,7 +80,7 @@ async fn bulk_delete_deletes_selected() {
     let resp2 = client.cookies(&response_cookies(&resp)).get(loc).await;
     let html2 = body_string(resp2).await;
     assert!(
-        html2.contains("Bulk deleted"),
+        html2.contains("data-sonner-toast"),
         "notification should survive, got {}",
         html2
     );

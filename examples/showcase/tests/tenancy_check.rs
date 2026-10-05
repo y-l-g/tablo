@@ -360,7 +360,7 @@ async fn comments_search_is_scoped_through_parent_post() {
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(
-        html.contains("No matches"),
+        tablo_test::rows(&html).is_empty(),
         "t1 search for T2 comment must return zero rows: {html}"
     );
 

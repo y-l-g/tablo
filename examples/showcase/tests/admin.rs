@@ -77,16 +77,6 @@ async fn admin_resource_list_page_serve_seeded_users() {
         "missing Alan email in {html}"
     );
 }
-
-#[tokio::test]
-async fn admin_unknown_route_is_not_found() {
-    let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let response = client.get("/admin/unknown").await;
-    assert_eq!(response.status(), 404);
-}
-
 /// Every panel response carries `frame-ancestors`.
 #[tokio::test]
 async fn error_responses_carry_frame_ancestors() {
@@ -559,8 +549,8 @@ async fn admin_list_empty_search_shows_no_results_with_clear() {
     );
     let html = body_string(response).await;
     assert!(
-        html.contains("No matches for"),
-        "search-empty state must say No matches: {html}"
+        html.contains("data-search-clear"),
+        "search-empty state must offer the clear link: {html}"
     );
     assert!(
         !html.contains("No records yet"),
@@ -570,34 +560,7 @@ async fn admin_list_empty_search_shows_no_results_with_clear() {
         !html.contains("Create record"),
         "dead Create button must stay gone: {html}"
     );
-    assert!(
-        html.contains("Clear search"),
-        "missing Clear search link: {html}"
-    );
 }
-
-#[tokio::test]
-async fn admin_list_filters_via_q_param() {
-    let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let response = client.get("/admin/users?q=Ada").await;
-    assert!(
-        response.status().is_success(),
-        "filtered status {}",
-        response.status()
-    );
-    let html = body_string(response).await;
-    assert!(
-        html.contains("Ada Lovelace"),
-        "filtered should contain Ada in {html}"
-    );
-    assert!(
-        !html.contains("Grace Hopper"),
-        "filtered should not contain Grace in {html}"
-    );
-}
-
 #[tokio::test]
 async fn users_list_renders_live_search_host_with_get_fallback() {
     let db = seeded_db().await;

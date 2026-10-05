@@ -201,7 +201,10 @@ async fn comments_create_valid_redirects_and_creates() {
         .to_string();
     let followed = client.cookies(&response_cookies(&resp)).get(&loc).await;
     let html = body_string(followed).await;
-    assert!(html.contains("Created"), "missing created toast: {html}");
+    assert!(
+        html.contains("data-sonner-toast"),
+        "missing rendered toast: {html}"
+    );
     assert!(
         html.contains("A thoughtful follow-up"),
         "new comment must render on the list: {html}"

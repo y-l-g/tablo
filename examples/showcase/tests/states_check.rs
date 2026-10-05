@@ -34,12 +34,16 @@ async fn tampered_cursor_shows_in_region_error_with_retry() {
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(
-        html.contains("Couldn't load Users"),
-        "failed load must name the resource: {html}"
+        html.contains("role=\"alert\""),
+        "failed load must announce in place: {html}"
     );
     assert!(
-        html.contains("Retry"),
-        "failed load must offer retry: {html}"
+        html.contains("href=\"/admin/users\""),
+        "retry must target the bare list: {html}"
+    );
+    assert!(
+        find_href_with(&html, "after=").is_none(),
+        "a malformed cursor must not travel into any link: {html}"
     );
     assert!(
         html.contains("data-sidebar"),

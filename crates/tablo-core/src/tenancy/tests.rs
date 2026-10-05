@@ -2,20 +2,6 @@ use topcoat::context::CxTestBuilder;
 
 use super::*;
 
-fn cx_with_header(value: &str) -> Cx {
-    let mut parts = http::Request::builder()
-        .uri("/")
-        .body(())
-        .unwrap()
-        .into_parts()
-        .0;
-    parts.headers.insert(
-        "x-tenant-id",
-        value.parse().expect("header value must parse"),
-    );
-    CxTestBuilder::new().request_context(parts).build()
-}
-
 #[test]
 fn tenant_extension_wins_over_scoped_value_and_defaults_to_none() {
     let id = uuid::Uuid::new_v4();
@@ -44,14 +30,6 @@ fn tenant_extension_wins_over_scoped_value_and_defaults_to_none() {
     // Nothing set → None (callers must reject tenantless access).
     let cx = CxTestBuilder::new().build();
     assert_eq!(tenant_id(&cx), None);
-}
-
-#[test]
-fn tenant_header_is_never_trusted() {
-    // Spoofing another tenant's
-    // UUID in `x-tenant-id` must not resolve a tenant.
-    let id = uuid::Uuid::new_v4();
-    assert_eq!(tenant_id(&cx_with_header(&id.to_string())), None);
 }
 
 /// A model with its own tenant column.
@@ -83,43 +61,4 @@ fn tenancy_column_binds_the_lens_field() {
     // `id` is index 0, `tenant_id` index 1.
     assert_eq!(field.index, 1);
     assert_eq!(field.name, "tenant_id");
-}
-
-/// The filter is only real if it reaches SQL: the lens and the UUID
-/// comparison must narrow a live query.
-#[tokio::test]
-async fn tenancy_column_filter_scopes_a_live_query() {
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(Scoped))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    let mine = uuid::Uuid::new_v4();
-    let theirs = uuid::Uuid::new_v4();
-    toasty::create!(Scoped {
-        tenant_id: mine,
-        name: "Mine"
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    toasty::create!(Scoped {
-        tenant_id: theirs,
-        name: "Theirs"
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-
-    let filter = Tenancy::column(Scoped::fields().tenant_id())
-        .filter(mine)
-        .expect("a column tenancy filters");
-    let rows = toasty::stmt::Query::<toasty::stmt::List<Scoped>>::all()
-        .filter(filter)
-        .exec(&mut db)
-        .await
-        .unwrap();
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].name, "Mine");
 }

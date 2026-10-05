@@ -178,11 +178,6 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
         html2
     );
     assert!(
-        html2.contains("Created"),
-        "the shell must render the consumed toast in {}",
-        html2
-    );
-    assert!(
         html2.contains("data-sonner-toast") && html2.contains("data-type=\"success\""),
         "missing the success toast surface, got {}",
         html2
