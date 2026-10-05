@@ -7,140 +7,90 @@ Ordered findings, earliest first. Each item states the defect with a code
 reference and the spec of the fix.
 
 1. Upload bytes persist before the authoritative policy check.
-`prepare_submission` in `panel/forms/submit.rs` stores uploads before the
-advisory check runs and the transaction opens, with the authoritative
+`prepare_submission` in `panel/forms/submit.rs` stores uploads after the
+advisory check and before the transaction opens, with the authoritative
 re-check inside the transaction on the edit path. A stale-advisory submit
-writes bytes before the denial.
-Fix: keep `store_uploads` outside the transaction as documented (external IO
-must not run inside the held transaction, and rollback cannot undo it);
-treat a stale-advisory denial as the same orphan class as validation-fail
-orphans, owned by the app janitor. Optionally narrow the window by
-re-checking the create policy inside the create transaction. Document the
-upload step in the write flow in `docs/dev/architecture.md`, which never
-mentions uploads.
+writes bytes before the denial; validation failures strand bytes the same
+way.
+Fix: treat a stale-advisory denial as the same orphan class as
+validation-fail orphans, owned by the app janitor. Document the upload step
+in the write flow in `docs/dev/architecture.md`, which never mentions
+uploads.
 
-2. The guide's only complete example cannot produce a working panel.
-`docs/guide/src/first-panel.md` has no `#[layout]` calling
-`Panel::layout_shell`, which is missing from the guide.
-Fix: add the layout shell calling `Panel::layout_shell` to `first-panel.md`
-(adapted from the showcase app, adding the imports a minimal example
-needs), plus a copy-pasteable `[dependencies]` block carrying the real rev
-pins and feature list, plus the stylesheet note (Tablo provides no
-stylesheet, see `CONTEXT.md`).
-
-3. The public API has no boundary and is unpublishable as configured. A large
-`pub` surface, all crate-root-reachable, no sealed
-module. `Table::render` has only test callers; panel serves
-`render_with_state`. `panel::wired_table` is advertised as the third-party
-seam in `docs/dev/architecture.md` but has no showcase caller (only
-a bench and a test). Publishing fails on versionless path deps in
+2. The public API has no boundary and is unpublishable as configured. A large
+`pub` surface, all crate-root-reachable, no sealed module.
+`panel::wired_table` is advertised as the third-party seam in the guide and
+rustdoc; it has a bench, a test, and a guide example, but no showcase
+caller. Publishing fails on versionless intra-workspace path deps in
 `crates/tablo-core/Cargo.toml`, and missing `repository`/`homepage` metadata.
 Fix: decide publish vs. git-only; if git-only, `publish = false` on all
-crates. Either way: delete `Table::render` or route panel through it; land a
-showcase page using `wired_table`, or make it `pub(crate)` and drop it from
-the extension-point table. Then `#[non_exhaustive]` on `NavTarget`,
-`NotificationStatus`, `FieldErrorKind`, and opaque
-`TableState`/`TablePage` behind accessors so a new URL param is not breaking.
+crates. Either way: land a showcase page using `wired_table`, or make it
+`pub(crate)` and drop it from the extension-point table. Then
+`#[non_exhaustive]` on `NavTarget`, `NotificationStatus`, `FieldErrorKind`,
+and opaque `TableState`/`TablePage` behind accessors so a new URL param is
+not breaking.
 
-4. The one-way layering claim is false, and the blast radius doc is off.
-`resource/relation.rs` wires `crate::panel::relation_table`;
-`resource/table/render/toolbar.rs` uses `crate::panel::table_search`; the
-auth module imports panel while panel imports auth back. `schema/lenses.rs`
-claims the `toasty_core` bridge is confined to a couple of modules, but more
-production files name `toasty_core`.
-Fix: a gate that fails on `crate::panel::` inside `resource/`, `schema/`,
-and auth code (doc comments excluded); move `relation_table` into
-`resource/table/render/`; move `parse_form_body` to a top-level module so
-auth stops importing panel; rewrite the `lenses.rs` header to name the full
-set.
-
-5. `cargo xtask check` runs its gates serially, with traps. `xtask/src/gates.rs`
+3. `cargo xtask check` runs its gates serially, with traps. `xtask/src/gates.rs`
 runs the gates serially. It hard-requires mdbook with no install hint and no
 skip. `topcoat fmt` has no `--check`: it rewrites the tree, then fails on
 `git diff --exit-code`, and the hint never says to revert.
 Fix: tier it — `check` is test + clippy + fmt + `node --test`;
-`check --full` is the dependency-shaped gates (MSRV, udeps, detached
+`check --all` is the dependency-shaped gates (MSRV, udeps, detached
 benches, docs), triggered on manifest/lockfile/benchmark diffs. Classify
 mdbook as optional with a skip message. Snapshot `git diff --name-only`
 before `topcoat fmt` and print the revert command on failure. Single-source
-the locked-rev install pipeline (today in `gates.rs`, `AGENTS.md`, and
+the pinned-CLI install pipeline (today in `gates.rs`, `AGENTS.md`, and
 `ci.yml`) behind `cargo xtask fmt --install`.
 
-6. Two API taxes on the resource author. (a) `Table` has no composition;
-`Schema` does. `IntoColumns` accepts a value or tuples; shared columns are
-re-spelled at each `Table::new`.
-Fix: `impl<M> IntoColumns<M> for Vec<TextColumn<M>>` and for slices.
-(b) `Resource::form` has a derived default, and the detail page is opt-in on
-an explicitly declared view — but there is no read-only derivation helper
-for the resources where showing the form shape is appropriate.
-Fix: offer the helper for that subset, never as the default.
+4. `Table` has no composition; `Schema` does. `IntoColumns` accepts a value
+or tuples; shared columns are re-spelled at each `Table::new`.
+Fix: `impl<M> IntoColumns<M> for Vec<BoxColumn<M>>` and for slices.
 
-7. The write handlers are copies of one shape. Past the shared commit tail,
-the create/edit submit handlers still copy gate, CSRF, `prepare_submission`,
-uniqueness, parse, invalid re-render, policy snapshot, record load,
-completion, chrome, and record function per path; the single/bulk delete
-handlers share the confirm guard, then copy gate, policy, parse, CSRF, and
-the fetch-and-write sequence around single-key vs id-list divergence.
-Fix: keep separate thin create/edit and single/bulk handlers and extract the
-shared guards, leaving load, policy-check, and write ordering explicit per
-path.
-
-8. The benchmark apparatus is sized for a number nothing gates. The
+5. The benchmark apparatus is sized for a number nothing gates. The
 benchmarks readme says the axum-maud and leptos comparators are compile-only
-stubs; `verify_parity.sh` builds them but runs in no workflow.
-`check_lockstep` compares only the upstream SHAs, which are in sync — while
-registry drift between the two lockfiles is unguarded.
-Fix: either gate the benchmark (commit a baseline, fail past an agreed
-regression) or shrink it (delete the stubs, move tablo into the main
-workspace).
+stubs; `verify_parity.sh` builds them but runs in no workflow; the workspace
+and bench lockfiles can drift with no version-parity gate.
+Fix: gate version parity between the workspace and bench lockfiles.
 
-9. The JS/Rust guard misses the riskiest hook. `verify_asset_hooks` covers
+6. The JS/Rust guard misses the riskiest hook. `verify_asset_hooks` covers
 the Tablo-owned hooks, and the swap-envelope template selector in
 `mutation-submit.js` stays out of that registry as upstream-internal markup
 Tablo reads but never renders. Some assets have no suite (`sidebar.js`,
-`theme.js`, `variant.js`), and `docs/dev/TESTING.md` overclaims the
-coverage.
+`theme.js`, `variant.js`), and `docs/dev/TESTING.md` does not name which
+assets lack suites or what covers them.
 Fix: assert in the showcase live-table check that a live-table body contains
 the template; correct the `TESTING.md` coverage claim to name which assets
 lack suites and what covers them. No browser harness: the JS assets stay
 dependency-free with HTTP-level coverage.
 
-10. `docs/dev/design/` contradicts the code and has no index.
-`typed-record-form.md` specifies the generic `FieldErrors` signature; the
-tree has non-generic `FieldErrors`. It also specifies
-`FormResource`/`Panel::form_resource`, which the tree no longer contains
-(`single-resource-registration.md` records the deletion).
-Fix: delete `typed-record-form.md` (verify the other designs against the tree
-on the way past), replace with an index table (design, issue, PR, owning
-ADR). Keep `_template.md`.
-
-11. `_Avoid_` lines have no checker, and one contradicts the code.
+7. `_Avoid_` lines have no checker, and one contradicts the code.
 `CONTEXT.md` bans `Mutation` under the app-vocabulary heading, but
 `Mutation` is a public enum re-exported at the crate root and used in the
-guide. Several exported types (`RowKey`, `FieldLens`, `Sort`, `Cursor`,
-`OptionSource`) appear in no guide page.
+guide. Several exported types (`Sort`, `Cursor`, `OptionSource`) appear in
+no guide page.
 Fix: either delete the `_Avoid_` lines or table-drive them in a gate that
 fails on a public identifier match. Add one "Extension points" guide page
 covering the undocumented types — it closes the doc gaps at once.
 
-12. The live shard binds the bulk signal without depending on it.
-`resource/state.rs` says a checkbox click must not reload rows, while the
-toolbar renders the bulk signal in the live branch; the list tests pin the
-selection behavior.
-Fix: add a query-count test first proving selection writes cause no row
-reload; then align the shard comment with the bind-without-dependency
-semantics and leave the transport where it is.
+8. The live shard threads the bulk signal through without loading from it.
+`panel/search.rs` passes `bulk` through the search shard while `list_search`
+derives state from `query` only, and the live toolbar branch in
+`table/render/toolbar.rs` binds the bulk signal. No query-count test covers
+selection writes.
+Fix: add a query-count test proving selection writes cause no row reload;
+leave the transport where it is.
 
-13. `TabloError::Declaration` messages never reach a log. Both constructors
+9. `TabloError::Declaration` messages never reach a log. Both constructors
 propagate as `Err` to the router rather than being dropped; the true defect
 is narrower — the constructors never log, and the closed error type plus the
 response mapper decide what anyone sees.
 Fix: log in the constructors; test that the message reaches a tracing
 subscriber. Leave response mapping to the existing error conversion.
 
-14. Checked-in numbers contradict the tree. The cargo config, the test-binary
-ADR, and the core test comment disagree with each other, and `ci.yml` tells
-readers to run the `--precise` command `CONTRIBUTING.md` forbids. Re-measure
-the numbers on the way past rather than trusting any figure quoted here.
-Extend `pins_match_ci_and_docs` from substrings to parsed vectors and numbers
-so the gate checks revs, not just toolchains.
+10. The pins gate does not cover the pinned tool versions.
+`pins_match_ci_and_docs` checks substrings only and covers neither the
+pinned `topcoat-cli` version in `xtask/src/gates.rs` nor the pinned mdbook
+version in `ci.yml`. Re-measure the pins on the way past rather than trusting
+any figure quoted here.
+Fix: extend `pins_match_ci_and_docs` to parsed versions so the gate checks
+tool versions, not just toolchains.
