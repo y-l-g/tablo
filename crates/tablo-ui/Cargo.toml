@@ -3,6 +3,7 @@ name = "tablo-ui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Beautiful Topcoat UI primitives for Tablo — owned library over topcoat-ui-registry."
 # Metadata only, no native library: `build.rs` publishes the source directory an

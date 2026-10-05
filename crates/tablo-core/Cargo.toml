@@ -3,6 +3,7 @@ name = "tablo-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "The core toolkit types for Tablo, a server-rendered admin toolkit on Topcoat and Toasty."
 # Metadata only, no native library: `build.rs` publishes the source directory an
