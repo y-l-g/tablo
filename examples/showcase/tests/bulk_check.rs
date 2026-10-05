@@ -5,7 +5,7 @@ use toasty::Db;
 
 use crate::common::{
     TestClient, body_string, demo_client, mount, response_cookies,
-    routers::router_for_tests as router, seeded_db, set_cookie_header, user_count,
+    routers::router_for_tests as router, row_keys, seeded_db, set_cookie_header, user_count,
 };
 
 #[tokio::test]
@@ -164,51 +164,31 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
     let csrf = uuid::Uuid::new_v4().to_string();
     let mut db_q = db.clone();
     let users = User::all().exec(&mut db_q).await.unwrap();
-    let roster = users.len();
-    let ids: std::collections::HashSet<String> = users.iter().map(|u| u.id.to_string()).collect();
 
     let resp = client.get("/admin/users").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
-    // The SSO-guarded row renders no checkbox, so the first page carries
-    // one checkbox per other row.
+    // The SSO-guarded row renders no checkbox: the offered keys are exactly
+    // the roster minus Ken.
+    let keys = row_keys(&html);
+    let mut expected: Vec<String> = users
+        .iter()
+        .filter(|u| u.name != "Ken Thompson")
+        .map(|u| u.id.to_string())
+        .collect();
+    expected.sort();
+    let mut keys_sorted = keys.clone();
+    keys_sorted.sort();
     assert_eq!(
-        html.matches("data-row-select").count(),
-        roster - 1,
-        "first page should carry {} row checkboxes in {}",
-        roster - 1,
-        html
-    );
-    let mut found = 0;
-    for u in &users {
-        if u.name == "Ken Thompson" {
-            assert!(
-                !html.contains(&format!("value=\"{}\"", u.id)),
-                "the denied row must render no checkbox in {}",
-                html
-            );
-        } else if html.contains(&format!("value=\"{}\"", u.id)) {
-            found += 1;
-        }
-    }
-    assert_eq!(
-        found,
-        roster - 1,
-        "all rendered row keys should be checkbox values in {}",
-        html
+        keys_sorted, expected,
+        "the page must offer every allowed row key in {html}"
     );
     let ada = users.iter().find(|u| u.name == "Ada Lovelace").unwrap();
     let resp = client.get("/admin/users?q=Ada").await;
     let html = body_string(resp).await;
-    assert!(
-        html.contains(&format!("value=\"{}\"", ada.id)),
-        "filtered row checkbox missing in {}",
-        html
-    );
-    assert!(
-        !ids.iter()
-            .filter(|id| *id != &ada.id.to_string())
-            .any(|id| html.contains(&format!("value=\"{id}\""))),
+    assert_eq!(
+        row_keys(&html),
+        vec![ada.id.to_string()],
         "only the filtered row should be selectable in {}",
         html
     );
@@ -255,37 +235,65 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     );
 
     let html = body_string(client.get("/admin/users").await).await;
-    assert!(
-        !html.contains(&format!("/admin/users/{}/edit", ken.id)),
-        "the denied row must render no Edit link, got {html}"
+    let denied =
+        tablo_test::row_actions(&html, &ken.id.to_string()).expect("the denied row renders");
+    assert_eq!(
+        denied.view.as_deref(),
+        Some(format!("/admin/users/{}", ken.id).as_str()),
+        "the denied row keeps its View link: {html}"
+    );
+    assert_eq!(denied.edit, None, "the denied row renders no Edit: {html}");
+    assert_eq!(
+        denied.delete_href, None,
+        "the denied row renders no Delete: {html}"
+    );
+    assert_eq!(
+        denied.delete_action, None,
+        "the denied row renders no Delete action: {html}"
     );
     assert!(
-        !html.contains(&format!("delete={}", ken.id)),
-        "the denied row must render no Delete link, got {html}"
-    );
-    assert!(
-        !html.contains(&format!("value=\"{}\"", ken.id)),
+        !row_keys(&html).contains(&ken.id.to_string()),
         "the denied row must render no checkbox, got {html}"
     );
     let ada = users
         .iter()
         .find(|u| u.name == "Ada Lovelace")
         .expect("the seeded allowed row");
-    assert!(
-        html.contains(&format!("/admin/users/{}/edit", ada.id))
-            && html.contains(&format!("delete={}", ada.id)),
-        "an allowed row must keep its Edit and Delete links, got {html}"
+    let allowed =
+        tablo_test::row_actions(&html, &ada.id.to_string()).expect("an allowed row has actions");
+    assert_eq!(
+        allowed.view.as_deref(),
+        Some(format!("/admin/users/{}", ada.id).as_str()),
+        "an allowed row keeps its View link, got {html}"
+    );
+    assert_eq!(
+        allowed.edit.as_deref(),
+        Some(format!("/admin/users/{}/edit", ada.id).as_str()),
+        "an allowed row keeps its Edit link, got {html}"
+    );
+    assert_eq!(
+        allowed.delete_href.as_deref(),
+        Some(format!("/admin/users?delete={}", ada.id).as_str()),
+        "an allowed row keeps its Delete link, got {html}"
+    );
+    assert_eq!(
+        allowed.delete_action.as_deref(),
+        Some(format!("/admin/users/{}/delete", ada.id).as_str()),
+        "an allowed row keeps its Delete action, got {html}"
     );
 
-    let ids = selectable_row_ids(&html);
+    let ids = row_keys(&html);
+    let mut expected: Vec<String> = users
+        .iter()
+        .filter(|u| u.id != ken.id)
+        .map(|u| u.id.to_string())
+        .collect();
+    expected.sort();
+    let mut ids_sorted = ids.clone();
+    ids_sorted.sort();
     assert_eq!(
-        ids.len(),
-        before - 1,
+        ids_sorted, expected,
         "select-all must offer every row but Ken's, got {ids:?}"
-    );
-    assert!(
-        !ids.contains(&ken.id.to_string()),
-        "the denied key must not be selectable, got {ids:?}"
     );
 
     let resp = client
@@ -310,35 +318,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     let remaining = User::all().exec(&mut db_check).await.unwrap();
     assert_eq!(remaining.len(), 1, "only the denied row survives");
     assert_eq!(remaining[0].name, "Ken Thompson");
-}
-
-fn input_tag_at(html: &str) -> String {
-    let mut quoted = false;
-    for (offset, byte) in html.bytes().enumerate() {
-        match byte {
-            b'"' => quoted = !quoted,
-            b'>' if !quoted => return html[..offset].to_string(),
-            _ => {}
-        }
-    }
-    panic!("unterminated <input> tag in {html}");
-}
-
-fn selectable_row_ids(html: &str) -> Vec<String> {
-    let mut ids = Vec::new();
-    let mut rest = html;
-    while let Some(at) = rest.find("data-row-select") {
-        let start = rest[..at]
-            .rfind("<input")
-            .expect("the marker's opening tag");
-        let tag = input_tag_at(&rest[start..]);
-        let value_at = tag.find("value=\"").expect("a checkbox value");
-        let after = &tag[value_at + "value=\"".len()..];
-        let end = after.find('"').expect("a closed value");
-        ids.push(after[..end].to_string());
-        rest = &rest[at + 1..];
-    }
-    ids
 }
 
 /// The server-side safety net: a hand-crafted POST naming a row the resource refuses is

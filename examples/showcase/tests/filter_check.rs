@@ -1,8 +1,8 @@
 use showcase::models::{Author, Post};
 
 use crate::common::{
-    body_string, demo_client, find_href_with, full_db, routers::router_for_tests as router,
-    row_titles,
+    body_string, demo_client, filter_options, find_href_with, full_db, input_value,
+    routers::router_for_tests as router, row_titles,
 };
 
 #[tokio::test]
@@ -13,14 +13,40 @@ async fn posts_filter_widgets_render_typed_controls() {
     let resp = client.get("/admin/posts?f.status=published").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
-    for name in ["status", "featured", "created_at", "promoted"] {
+    for name in ["status", "featured", "promoted"] {
         assert!(
-            html.contains(&format!("data-filter-name=\"{name}\"")),
+            filter_options(&html, name).is_some(),
             "missing control for {name} in {html}",
             name = name,
             html = html
         );
     }
+    let status = filter_options(&html, "status").expect("status renders");
+    assert!(
+        status.iter().any(|option| option.value == "draft")
+            && status.iter().any(|option| option.value == "published"),
+        "status must offer its options in {html}",
+        html = html
+    );
+    assert_eq!(
+        status
+            .iter()
+            .find(|option| option.value == "published")
+            .map(|option| option.selected),
+        Some(true),
+        "the request value stays selected in {html}",
+        html = html
+    );
+    assert!(
+        filter_options(&html, "created_at").is_none(),
+        "a date filter is not a select in {html}",
+        html = html
+    );
+    assert!(
+        input_value(&html, "f.created_at").is_some(),
+        "missing date control in {html}",
+        html = html
+    );
     assert!(
         html.contains("data-filters-form"),
         "missing filters form in {}",
