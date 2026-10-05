@@ -224,7 +224,7 @@ renders it for the selection. `const ROW: bool = false` keeps it off the rows, a
 `const BULK: bool = false` off the bulk bar.
 
 The framework runs an action the way it runs a delete. The POST goes to
-`{list}/{key}/actions/{NAME}` for a row and `{list}/actions/{NAME}` for the selection, carries the
+`{list}/{key}/-/actions/{NAME}` for a row and `{list}/-/actions/{NAME}` for the selection, carries the
 CSRF token, and loads the records through the tenant-scoped query inside a transaction. Every
 record must pass the policy's `View` and the action's `can_run`, and `run` writes through the same transaction, so an
 error rolls everything back. After the commit, `after_commit` receives `Mutation::Action(NAME)`
