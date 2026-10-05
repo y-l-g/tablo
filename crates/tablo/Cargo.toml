@@ -3,6 +3,7 @@ name = "tablo"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Admin toolkit for Rust, server-rendered on Topcoat and persisted with Toasty."
 # Metadata only, no native library: `build.rs` forwards the Tablo source

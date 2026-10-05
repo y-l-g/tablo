@@ -3,6 +3,7 @@ name = "tablo-build"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Build-script helpers for Tablo apps: the Tailwind build that scans Tablo's own sources."
 
