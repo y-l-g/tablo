@@ -74,8 +74,8 @@ test("a bulk action button posts to its own formaction", () => {
   // The custom bulk actions share the bulk form, so its selection rides
   // along, and each names its route on the button.
   const form = withAttributes({ action: '/admin/posts/bulk-delete' });
-  const button = withAttributes({ formaction: '/admin/posts/actions/publish' });
-  assert.equal(submitTarget(form, button), '/admin/posts/actions/publish');
+  const button = withAttributes({ formaction: '/admin/posts/-/actions/publish' });
+  assert.equal(submitTarget(form, button), '/admin/posts/-/actions/publish');
 });
 
 // --- the keys a write removed -----------------------------------------------
@@ -98,7 +98,7 @@ test('a bulk form removes the batch it carried', () => {
 test('a bulk custom action removes nothing from the selection', () => {
   // It shares the bulk form, so it carries the same `ids`, but its rows stay.
   const form = formWith({ ids: { value: ',a,b,' } });
-  assert.deepEqual(removedKeys(form, '/admin/users/actions/publish'), []);
+  assert.deepEqual(removedKeys(form, '/admin/users/-/actions/publish'), []);
 });
 
 test('a row form removes the one record its action names', () => {
