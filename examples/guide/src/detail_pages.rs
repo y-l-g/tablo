@@ -30,7 +30,7 @@ pub fn view_content<'a>(cx: &'a Cx, post: &Post) -> Option<BoxView<'a>> {
             cx =>
             <p class="text-sm text-muted-foreground">(format!("{words} words"))</p>
         }
-            .boxed(),
+        .boxed(),
     )
 }
 // ANCHOR_END: detail-view-content
