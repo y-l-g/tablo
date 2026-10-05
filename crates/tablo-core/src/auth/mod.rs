@@ -388,7 +388,10 @@ static RERUN_MARKER: http::HeaderValue = http::HeaderValue::from_static("true");
 /// Fail loudly at mount when a required shipped model is missing from the
 /// app's `Db` (ADR-0013): the table is never pushed, and the first login
 /// would otherwise be a confusing runtime error.
-pub(crate) fn check_models_registered(db: &toasty::Db, auth: &Auth) -> Result<(), String> {
+pub(crate) fn check_models_registered(
+    db: &toasty::Db,
+    auth: &Auth,
+) -> Result<(), crate::DeclarationErrorKind> {
     let Some(authenticator) = auth.authenticator() else {
         return Ok(());
     };
@@ -399,22 +402,17 @@ pub(crate) fn check_models_registered(db: &toasty::Db, auth: &Auth) -> Result<()
             .any(|model| model.name().upper_camel_case() == name)
     };
     let shipped_user = authenticator.user_type() == TypeId::of::<AdminUser>();
-    let missing: Vec<&str> = [
+    let models: Vec<&'static str> = [
         (!registered("AuthSession")).then_some("AuthSession"),
         (shipped_user && !registered("AdminUser")).then_some("AdminUser"),
     ]
     .into_iter()
     .flatten()
     .collect();
-    if missing.is_empty() {
+    if models.is_empty() {
         Ok(())
     } else {
-        Err(format!(
-            "tablo auth is on by default but its shipped models are not registered on the Db \
-             (missing {}). Register them with `toasty::models!(…, tablo_core::auth::AdminUser, \
-             tablo_core::auth::AuthSession)`, or opt out with `.auth(Auth::disabled())`.",
-            missing.join(", "),
-        ))
+        Err(crate::DeclarationErrorKind::MissingAuthModels { models })
     }
 }
 

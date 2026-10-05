@@ -222,9 +222,9 @@ error rolls everything back. After the commit, `after_commit` receives `Mutation
 with the records and the list shows `Action::success`, by default the label and the record count.
 
 A row the action refuses answers 403. A selection that holds one writes nothing and returns to the
-list with an error notification. Mounting the panel refuses an action name that is not one URL
-segment, or that two actions of a resource share. Custom actions run without a confirmation
-dialog.
+list with an error notification. An action name that is not one URL segment does not compile,
+and mounting the panel refuses a name two actions of a resource share. Custom actions run without
+a confirmation dialog.
 
 If the table fails to load, the list shows an error state with a retry link in place of the rows;
 the rest of the page still renders.

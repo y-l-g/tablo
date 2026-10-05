@@ -11,6 +11,8 @@
 use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::context::{Cx, try_request_context};
 
+use crate::DeclarationErrorKind;
+
 /// One tenant a user may act for: its id, and the name the tenant switcher
 /// shows. A [`PanelUser`](crate::auth::PanelUser) lists its memberships in
 /// [`tenants`](crate::auth::PanelUser::tenants).
@@ -122,11 +124,11 @@ type TenantFilter = Box<dyn Fn(uuid::Uuid) -> Expr<bool> + Send + Sync>;
 
 enum Scope {
     None,
-    /// The model's own column, resolved when declared: its field, or why the
-    /// lens names none.
+    /// The model's own column, resolved when declared: its field, or `None`
+    /// when the lens names none.
     Column {
         filter: TenantFilter,
-        field: Result<TenantColumn, String>,
+        field: Option<TenantColumn>,
     },
     Via {
         filter: TenantFilter,
@@ -169,8 +171,9 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
         uuid::Uuid: IntoExpr<T>,
     {
         let lens = lens.into();
-        let field =
-            crate::schema::lens_field(lens.clone(), &M::schema()).map(|field| TenantColumn {
+        let field = crate::schema::lens_field(lens.clone(), &M::schema())
+            .ok()
+            .map(|field| TenantColumn {
                 index: field.id.index,
                 name: field.name.app_unwrap().to_string(),
             });
@@ -241,10 +244,14 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     }
 
     /// The model's own tenant column for a [`column`](Self::column) tenancy,
-    /// or why the lens names none.
-    pub(crate) fn column_field(&self) -> Option<Result<&TenantColumn, &str>> {
+    /// or the mistake of a lens that names none.
+    pub(crate) fn column_field(&self) -> Option<Result<&TenantColumn, DeclarationErrorKind>> {
         match &self.scope {
-            Scope::Column { field, .. } => Some(field.as_ref().map_err(String::as_str)),
+            Scope::Column { field, .. } => Some(
+                field
+                    .as_ref()
+                    .ok_or(DeclarationErrorKind::TenancyColumnNotAField),
+            ),
             Scope::None | Scope::Via { .. } => None,
         }
     }

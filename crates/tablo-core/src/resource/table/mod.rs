@@ -11,7 +11,7 @@ use super::{
     filter::{BoxFilter, IntoFilters},
     state::{TableState, with_return},
 };
-use crate::{Lens, form::FormScalar, schema::ResolvedLens};
+use crate::{DeclarationErrorKind, Lens, form::FormScalar, schema::ResolvedLens};
 
 mod export;
 mod render;
@@ -102,7 +102,7 @@ pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
 pub struct Table<M> {
     columns: Vec<BoxColumn<M>>,
     /// Misdeclarations a builder recorded ([`Self::declaration_errors`]).
-    misdeclared: Vec<String>,
+    misdeclared: Vec<DeclarationErrorKind>,
     filters: Vec<BoxFilter<M>>,
     group_by: Option<GroupDef<M>>,
     /// A row's key: its record's primary key, as its action URLs carry it.
@@ -351,29 +351,26 @@ impl<M> Table<M> {
     pub fn paginate(mut self, per_page: usize) -> Self {
         match NonZeroUsize::new(per_page) {
             Some(size) => self.page_size = size,
-            None => self
-                .misdeclared
-                .push("Table::paginate: a page size must be at least 1".to_string()),
+            None => self.misdeclared.push(DeclarationErrorKind::ZeroPageSize),
         }
         self
     }
 
     /// What is wrong with this declaration.
-    pub fn declaration_errors(&self) -> Vec<String> {
+    pub fn declaration_errors(&self) -> Vec<DeclarationErrorKind> {
         let mut errors = self.misdeclared.clone();
         if self.columns.is_empty() {
-            errors.push(
-                "a Table needs at least one column: declare columns with `Table::new(columns)` or in `Resource::table`".to_string(),
-            );
+            errors.push(DeclarationErrorKind::NoColumns);
         }
         let mut seen = std::collections::HashSet::with_capacity(self.columns.len());
         for column in &self.columns {
             match column.misdeclared() {
                 Some(error) => errors.push(error),
-                None if !seen.insert(column.name()) => errors.push(format!(
-                    "duplicate column name '{}': each Table column needs a distinct name",
-                    column.name()
-                )),
+                None if !seen.insert(column.name()) => {
+                    errors.push(DeclarationErrorKind::DuplicateColumn {
+                        name: column.name().to_string(),
+                    });
+                }
                 None => {}
             }
         }
@@ -381,10 +378,11 @@ impl<M> Table<M> {
         for filter in &self.filters {
             match filter.misdeclared() {
                 Some(error) => errors.push(error),
-                None if !seen.insert(filter.name()) => errors.push(format!(
-                    "duplicate filter name '{}': each Table filter needs a distinct name",
-                    filter.name()
-                )),
+                None if !seen.insert(filter.name()) => {
+                    errors.push(DeclarationErrorKind::DuplicateFilter {
+                        name: filter.name().to_string(),
+                    });
+                }
                 None => {}
             }
         }

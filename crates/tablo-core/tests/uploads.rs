@@ -9,7 +9,8 @@ use http::header::{
     CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, LOCATION, X_CONTENT_TYPE_OPTIONS,
 };
 use tablo_core::{
-    Ability, Auth, Field, Panel, Policy, Resource, Schema, Table, TextColumn, Uploader, lens,
+    Ability, Auth, DeclarationErrorKind, Field, Panel, Policy, Resource, Schema, Table, TextColumn,
+    Uploader, lens,
 };
 use toasty::Db;
 use topcoat::{
@@ -20,7 +21,7 @@ use uuid::Uuid;
 
 use crate::common::{
     body_bytes, body_string, csp, get, memory_db, mount, multipart_body, new_csrf, panel, post,
-    post_multipart,
+    post_multipart, refusal,
 };
 
 /// A document with one required and one optional upload.
@@ -917,16 +918,16 @@ async fn served_active_content_is_inert() {
 #[tokio::test]
 async fn a_serve_dir_path_without_a_catch_all_fails_the_build() {
     let db = seeded_db().await;
-    let Err(error) = mount(
+    let errors = refusal(mount(
         db,
         Panel::new("admin")
             .serve_dir("/uploads", temp_dir("bad-path"))
             .resource::<DocResource>(),
-    ) else {
-        panic!("a serve_dir pattern with no catch-all must fail the build");
-    };
-    assert!(
-        error.to_string().contains("catch-all"),
-        "the error must name the fix: {error}"
+    ));
+    assert_eq!(
+        errors[0].kind,
+        DeclarationErrorKind::ServeDirWithoutCatchAll {
+            path: "/uploads".to_string(),
+        }
     );
 }

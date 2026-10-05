@@ -52,7 +52,7 @@ pub(crate) use self::{
     },
 };
 use crate::{
-    Page,
+    DeclarationError, DeclarationErrorKind, Page, Site,
     form::RecordForm,
     resource::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
@@ -107,7 +107,7 @@ pub struct Panel {
     /// Per-resource declaration checks run at mount before anything is served.
     resource_checks: Vec<ResourceCheck>,
     /// Registration failures for mount to report.
-    registration_errors: Vec<String>,
+    registration_errors: Vec<DeclarationError>,
     /// Where file field bytes go; `None` stores the sanitized basename.
     uploads: Option<crate::upload::InstalledUploader>,
     /// App-owned filesystem directories served with hardening headers.
@@ -126,10 +126,11 @@ impl Panel {
         } else {
             format!("/{trimmed}")
         };
-        let registration_errors: Vec<String> = prefix
+        let registration_errors = prefix
             .trim_matches('/')
             .split('/')
             .filter_map(|segment| validate_route_segment("panel prefix", segment).err())
+            .map(DeclarationError::panel)
             .collect();
         Self {
             prefix,
@@ -174,8 +175,8 @@ impl Panel {
     pub fn serve_dir(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
         let path = path.into();
         if !is_directory_pattern(&path) {
-            self.registration_errors.push(format!(
-                "serve_dir path '{path}': must end in a catch-all like '/uploads/{{*file}}'"
+            self.registration_errors.push(DeclarationError::panel(
+                DeclarationErrorKind::ServeDirWithoutCatchAll { path: path.clone() },
             ));
         }
         self.served_dirs.push((path, dir.into()));
@@ -206,10 +207,9 @@ impl Panel {
             .collect::<Vec<_>>();
         for relation in &declared {
             if let Some(error) = relation.misdeclared() {
-                self.registration_errors.push(format!(
-                    "resource `{}`'s relation `{}`: {error}",
-                    std::any::type_name::<R>(),
-                    relation.key()
+                self.registration_errors.push(DeclarationError::of::<R>(
+                    Site::Relation(relation.key().to_string()),
+                    error.clone(),
                 ));
             }
             self.relation_handlers.insert(
@@ -326,25 +326,19 @@ impl Panel {
 
     /// Claims `{prefix}/{slug}` for `T`, recording a refusal and returning `None` when the slug is
     /// unavailable.
-    fn claim_slug<T: 'static>(&mut self, kind: &str, slug: String) -> Option<String> {
-        let owner = std::any::type_name::<T>();
-        let refused = if let Err(error) = validate_route_segment(kind, &slug) {
+    fn claim_slug<T: 'static>(&mut self, item: &'static str, slug: String) -> Option<String> {
+        let refused = if let Err(error) = validate_route_segment(item, &slug) {
             Some(error)
         } else if RESERVED_SLUGS.contains(&slug.as_str()) {
-            Some(format!(
-                "slug '{slug}' of `{owner}`: the panel routes `{}/{slug}` itself",
-                self.prefix
-            ))
+            Some(DeclarationErrorKind::ReservedSlug { slug: slug.clone() })
         } else if self.slugs.contains(&slug) {
-            Some(format!(
-                "duplicate slug '{slug}': `{owner}` mounts where another resource or page does \
-                 — each needs a distinct `slug()`"
-            ))
+            Some(DeclarationErrorKind::DuplicateSlug { slug: slug.clone() })
         } else {
             None
         };
         if let Some(error) = refused {
-            self.registration_errors.push(error);
+            self.registration_errors
+                .push(DeclarationError::of::<T>(Site::Registration, error));
             return None;
         }
         let url = format!("{}/{slug}", self.prefix);
@@ -367,9 +361,9 @@ impl Panel {
     /// resource's list.
     pub fn home<P: Page>(mut self) -> Self {
         if matches!(self.root, Some(Root::Home)) {
-            self.registration_errors.push(format!(
-                "Panel::home: a home page is already registered; `{}` would shadow it",
-                std::any::type_name::<P>()
+            self.registration_errors.push(DeclarationError::of::<P>(
+                Site::Registration,
+                DeclarationErrorKind::SecondHome,
             ));
             return self;
         }

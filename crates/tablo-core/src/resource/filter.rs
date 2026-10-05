@@ -53,7 +53,7 @@ pub trait Filter<M>: Send + Sync {
 
     /// What is wrong with this filter's declaration.
     #[doc(hidden)]
-    fn misdeclared(&self) -> Option<String> {
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         None
     }
 }
@@ -184,7 +184,7 @@ pub struct SelectFilter<M> {
     lens: Path<M, String>,
     /// `(value, label)` pairs.
     options: Vec<(String, String)>,
-    misdeclared: Option<String>,
+    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 impl<M> SelectFilter<M>
@@ -250,7 +250,7 @@ where
         input.select(cx, options)
     }
 
-    fn misdeclared(&self) -> Option<String> {
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         self.misdeclared.clone()
     }
 }
@@ -269,7 +269,7 @@ pub struct TernaryFilter<M> {
     name: String,
     label: String,
     lens: Path<M, bool>,
-    misdeclared: Option<String>,
+    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 impl<M> TernaryFilter<M>
@@ -293,7 +293,7 @@ impl<M> Filter<M> for TernaryFilter<M>
 where
     M: toasty::schema::Model + Send + Sync,
 {
-    fn misdeclared(&self) -> Option<String> {
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         self.misdeclared.clone()
     }
 
@@ -342,7 +342,7 @@ pub struct DateFilter<M> {
     name: String,
     label: String,
     lens: Path<M, jiff::Timestamp>,
-    misdeclared: Option<String>,
+    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 impl<M> DateFilter<M>
@@ -366,7 +366,7 @@ impl<M> Filter<M> for DateFilter<M>
 where
     M: toasty::schema::Model + Send + Sync,
 {
-    fn misdeclared(&self) -> Option<String> {
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         self.misdeclared.clone()
     }
 

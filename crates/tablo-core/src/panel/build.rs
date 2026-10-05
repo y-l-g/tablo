@@ -25,8 +25,9 @@ use super::{
     state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
+    DeclarationError, DeclarationErrorKind, MountError, Site,
     auth::{PanelGate, RUNTIME_PREFIX, RuntimeGate, SESSION_LIFETIME},
-    error::TabloError,
+    declaration::segment_fault,
     form::{FormField, RecordForm},
     policy::{Ability, can},
     resource::{Declarations, Declared, Resource},
@@ -59,31 +60,22 @@ impl RouterBuilderPanelExt for RouterBuilder {
 
 impl Panel {
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
-        let errors = self.mount_errors(&builder);
-        if !errors.is_empty() {
-            return Err(self.refused(&errors));
-        }
-        let db = builder.get_app_context::<Db>().cloned().ok_or_else(|| {
-            self.refused(&[
-                "the router holds no Db: install it with `.app_context(db)` before \
-                            mounting the panel"
-                    .to_string(),
-            ])
-        })?;
+        let mut errors = self.mount_errors(&builder);
         let mut declarations = Declarations::default();
-        if !self.resource_checks.is_empty() {
-            let cx = validation_cx(&db);
-            let failures: Vec<String> = self
-                .resource_checks
-                .iter()
-                .filter_map(|check| check(&cx, &mut declarations).err())
-                .collect();
-            if !failures.is_empty() {
-                return Err(self.refused(&failures));
+        match builder.get_app_context::<Db>() {
+            Some(db) => {
+                let cx = validation_cx(db);
+                for check in &self.resource_checks {
+                    check(&cx, &mut declarations, &mut errors);
+                }
+                if let Err(kind) = crate::auth::check_models_registered(db, &self.auth) {
+                    errors.push(DeclarationError::panel(kind));
+                }
             }
+            None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }
-        if let Err(error) = crate::auth::check_models_registered(&db, &self.auth) {
-            return Err(self.refused(&[error]));
+        if !errors.is_empty() {
+            return Err(MountError::new(&self.prefix, errors).into());
         }
         if builder.get_app_context::<Panels>().is_none() {
             builder = install_shared(builder);
@@ -201,23 +193,19 @@ impl Panel {
         Ok(builder)
     }
 
-    /// What refuses this panel before anything is mounted.
-    fn mount_errors(&self, builder: &RouterBuilder) -> Vec<String> {
+    /// What refuses this panel before its resources are checked.
+    fn mount_errors(&self, builder: &RouterBuilder) -> Vec<DeclarationError> {
         let mut errors = self.registration_errors.clone();
         errors.extend(self.relation_errors());
+        let mut refuse = |kind| errors.push(DeclarationError::panel(kind));
         if self.shell_assets.is_some() && builder.get_app_context::<AssetConfig>().is_none() {
-            errors.push(
-                "shell_assets need the router's asset bundle: install it with `.assets(..)` \
-                 before mounting the panel"
-                    .to_string(),
-            );
+            refuse(DeclarationErrorKind::ShellAssetsWithoutBundle);
         }
         if under_prefix(RUNTIME_PREFIX, &self.prefix) || under_prefix(&self.prefix, RUNTIME_PREFIX)
         {
-            errors.push(format!(
-                "prefix '{}' overlaps Topcoat's runtime endpoints at '{RUNTIME_PREFIX}'",
-                self.prefix
-            ));
+            refuse(DeclarationErrorKind::PrefixOverlapsRuntime {
+                prefix: self.prefix.clone(),
+            });
         }
         for (index, (path, _)) in self.served_dirs.iter().enumerate() {
             let root = served_root(path);
@@ -225,7 +213,7 @@ impl Panel {
                 .iter()
                 .any(|(seen, _)| served_root(seen) == root)
             {
-                errors.push(format!("serve_dir path '{path}' is declared twice"));
+                refuse(DeclarationErrorKind::ServeDirTwice { path: path.clone() });
             }
         }
         if let Some(panels) = builder.get_app_context::<Panels>() {
@@ -236,50 +224,43 @@ impl Panel {
                         .iter()
                         .any(|served| served_root(served) == served_root(path))
                     {
-                        errors.push(format!(
-                            "serve_dir path '{path}' is already served by the panel mounted at \
-                             '{}'",
-                            other.prefix
-                        ));
+                        refuse(DeclarationErrorKind::ServeDirTaken {
+                            path: path.clone(),
+                            panel: other.prefix.clone(),
+                        });
                     }
                 }
                 if under_prefix(&other.prefix, &self.prefix)
                     || under_prefix(&self.prefix, &other.prefix)
                 {
-                    errors.push(format!(
-                        "prefix '{}' overlaps the panel mounted at '{}': each panel needs a \
-                         prefix of its own",
-                        self.prefix, other.prefix
-                    ));
+                    refuse(DeclarationErrorKind::PrefixOverlapsPanel {
+                        other: other.prefix.clone(),
+                    });
                 }
             }
         }
         errors
     }
 
-    /// The mount error naming this panel.
-    fn refused(&self, errors: &[String]) -> topcoat::Error {
-        TabloError::Declaration(format!("panel '{}': {}", self.prefix, errors.join("; "))).into()
-    }
-
     /// Every relation must name a resource this panel registers — its table's
     /// row actions and create link go to that resource's routes — and name it
     /// once per owner, since the key prefixes the table's URL parameters.
-    fn relation_errors(&self) -> Vec<String> {
+    fn relation_errors(&self) -> Vec<DeclarationError> {
         let mut errors = Vec::new();
         for (owner, keys) in &self.relations {
             for (index, key) in keys.iter().enumerate() {
-                if keys[..index].contains(key) {
-                    errors.push(format!(
-                        "resource `{owner}` declares two relations to `{key}`: each related \
-                         resource is one relation"
-                    ));
+                let kind = if keys[..index].contains(key) {
+                    DeclarationErrorKind::DuplicateRelation
                 } else if !self.resource_slugs.contains(key) {
-                    errors.push(format!(
-                        "resource `{owner}` relates to `{key}`, which this panel does not \
-                         register: declare it with `Panel::resource`"
-                    ));
-                }
+                    DeclarationErrorKind::UnregisteredRelation
+                } else {
+                    continue;
+                };
+                errors.push(DeclarationError {
+                    resource: Some(owner),
+                    site: Site::Relation(key.clone()),
+                    kind,
+                });
             }
         }
         errors
@@ -331,165 +312,132 @@ pub(super) fn is_directory_pattern(path: &str) -> bool {
 
 /// Validates one path segment a panel derives routes from, refusing anything that cannot serve as a
 /// literal URL segment.
-pub(super) fn validate_route_segment(kind: &str, segment: &str) -> Result<(), String> {
-    if segment.is_empty() {
-        return Err(format!("{kind}: path segment must not be empty"));
+pub(super) fn validate_route_segment(
+    item: &'static str,
+    segment: &str,
+) -> Result<(), DeclarationErrorKind> {
+    match segment_fault(segment) {
+        Some(fault) => Err(DeclarationErrorKind::InvalidSegment {
+            item,
+            segment: segment.to_string(),
+            fault,
+        }),
+        None => Ok(()),
     }
-    if segment == "." || segment == ".." {
-        return Err(format!(
-            "{kind} '{segment}': a path segment may not be '.' or '..'"
-        ));
-    }
-    if let Some(bad) = segment.chars().find(|c| {
-        c.is_control()
-            || c.is_whitespace()
-            || matches!(
-                c,
-                '"' | '\\' | '/' | '?' | '#' | '%' | '&' | '=' | '{' | '}' | '(' | ')'
-            )
-    }) {
-        return Err(format!(
-            "{kind} '{segment}': a path segment may not contain {bad:?} (quotes, backslashes, control characters, whitespace, URL punctuation and the route pattern characters '{{', '}}', '(' and ')' are rejected)"
-        ));
-    }
-    Ok(())
 }
 
 /// A resource's declaration check: monomorphized once per declared resource
 /// by [`Panel::resource`], run by [`RouterBuilderPanelExt::panel`] with the
 /// app's values and no request.
-pub(super) type ResourceCheck = fn(&Cx, &mut Declarations) -> Result<(), String>;
+pub(super) type ResourceCheck = fn(&Cx, &mut Declarations, &mut Vec<DeclarationError>);
 
 /// Checks what a declared resource promises before the panel serves it, building its declarations
 /// once for handlers to serve.
 pub(super) fn check_resource<R: Resource>(
     cx: &Cx,
     declarations: &mut Declarations,
-) -> Result<(), String> {
-    if let Some(Err(error)) = R::tenancy().column_field() {
-        return Err(format!(
-            "resource `{}`'s `Tenancy::column` lens binds no column of `{}`: {error} — name a \
-             UUID field of the model, or use `Tenancy::via` for a tenant reached through a relation",
-            std::any::type_name::<R>(),
-            std::any::type_name::<R::Model>(),
-        ));
+    errors: &mut Vec<DeclarationError>,
+) {
+    let tenancy = R::tenancy();
+    if let Some(Err(kind)) = tenancy.column_field() {
+        errors.push(DeclarationError::of::<R>(Site::Tenancy, kind));
     }
-    if R::tenancy().via_is_single() == Some(true) {
-        return Err(format!(
-            "resource `{}`'s `Tenancy::via` lens names one field of `{}` — use `Tenancy::column` \
-             for the model's own tenant column, `Tenancy::via` for a tenant reached through a \
-             relation",
-            std::any::type_name::<R>(),
-            std::any::type_name::<R::Model>(),
+    if tenancy.via_is_single() == Some(true) {
+        errors.push(DeclarationError::of::<R>(
+            Site::Tenancy,
+            DeclarationErrorKind::TenancyViaOwnColumn,
         ));
     }
     let declared = Declared::<R>::build(schema_of(cx));
-    let misdeclared: Vec<String> = [
-        ("table", declared.table.declaration_errors()),
-        ("form", declared.form.declaration_errors()),
-        ("view", declared.view.declaration_errors()),
-    ]
-    .into_iter()
-    .flat_map(|(part, errors)| {
-        errors
-            .into_iter()
-            .map(move |error| format!("{part}: {error}"))
-    })
-    .collect();
-    if !misdeclared.is_empty() {
-        return Err(format!(
-            "resource `{}` is misdeclared: {}",
-            std::any::type_name::<R>(),
-            misdeclared.join("; ")
-        ));
+    let form_errors = declared.form.declaration_errors();
+    let form_is_sound = form_errors.is_empty();
+    for (site, kinds) in [
+        (Site::Table, declared.table.declaration_errors()),
+        (Site::Form, form_errors),
+        (Site::View, declared.view.declaration_errors()),
+    ] {
+        errors.extend(
+            kinds
+                .into_iter()
+                .map(|kind| DeclarationError::of::<R>(site.clone(), kind)),
+        );
     }
-    check_actions::<R>()?;
-    check_form_declaration::<R>(cx, &declared)?;
+    check_actions::<R>(errors);
+    check_form_declaration::<R>(cx, &declared, form_is_sound, errors);
     declarations.insert(Arc::new(declared));
-    Ok(())
 }
 
-/// Every custom action's name is a route segment, distinct among the
-/// resource's actions: the routes dispatch by it.
-fn check_actions<R: Resource>() -> Result<(), String> {
+/// Every custom action's name is distinct among the resource's actions: the routes dispatch by
+/// it. [`Actions::add`](crate::Actions::add) checks each name is a route segment as it compiles.
+fn check_actions<R: Resource>(errors: &mut Vec<DeclarationError>) {
     let actions = R::actions();
     let mut seen = std::collections::HashSet::new();
     for action in actions.entries() {
-        validate_route_segment("Action::NAME", action.name)
-            .map_err(|error| format!("resource `{}`: {error}", std::any::type_name::<R>()))?;
         if !seen.insert(action.name) {
-            return Err(format!(
-                "resource `{}` declares two actions named '{}': each needs a distinct `NAME`",
-                std::any::type_name::<R>(),
-                action.name
+            errors.push(DeclarationError::of::<R>(
+                Site::Registration,
+                DeclarationErrorKind::DuplicateAction { name: action.name },
             ));
         }
     }
-    Ok(())
+}
+
+/// A mistake in `R`'s form.
+fn form_error<R: Resource>(kind: DeclarationErrorKind) -> DeclarationError {
+    DeclarationError::of::<R>(Site::Form, kind)
 }
 
 /// Checks a resource's form declaration against its record form.
-fn check_form_declaration<R: Resource>(cx: &Cx, declared: &Declared<R>) -> Result<(), String> {
-    let resource = std::any::type_name::<R>();
-    let form = std::any::type_name::<R::Form>();
+fn check_form_declaration<R: Resource>(
+    cx: &Cx,
+    declared: &Declared<R>,
+    form_is_sound: bool,
+    errors: &mut Vec<DeclarationError>,
+) {
     if <R::Form as RecordForm>::HAS_FORM {
         if declared.form.is_empty() && !declared.fields.is_empty() {
-            return Err(format!(
-                "resource `{resource}` names record form `{form}`, but its `form()` declares no \
-                 controls — drop the override to render the derived schema"
-            ));
+            errors.push(form_error::<R>(DeclarationErrorKind::EmptyFormOverride));
+        } else if form_is_sound {
+            // A misdeclared field's placeholder name would only echo as an unbound control.
+            check_form_inner::<R>(cx, &declared.fields, &declared.form, errors);
         }
-        return check_form_inner::<R>(cx, &declared.fields, &declared.form);
+    } else if !declared.form.is_empty() {
+        errors.push(form_error::<R>(DeclarationErrorKind::FormWithoutRecordForm));
+    } else if can::<R>(cx, Ability::Create) {
+        errors.push(form_error::<R>(DeclarationErrorKind::CreateWithoutForm));
     }
-    if !declared.form.is_empty() {
-        return Err(format!(
-            "resource `{resource}` declares a form schema but its `Form`, `{form}`, serves no \
-             form — name the record form in `type Form`"
-        ));
-    }
-    if can::<R>(cx, Ability::Create) {
-        return Err(format!(
-            "resource `{resource}` allows create but has no form — name its record form in `type \
-             Form` and declare `form()`"
-        ));
-    }
-    Ok(())
 }
 
 fn check_form_inner<R: Resource>(
     cx: &Cx,
     fields: &[FormField<<R::Form as RecordForm>::Field>],
     form: &Schema,
-) -> Result<(), String> {
-    let resource = std::any::type_name::<R>();
+    errors: &mut Vec<DeclarationError>,
+) {
     let controls = form.controls();
     for control in &controls {
         let claims = fields
             .iter()
             .filter(|field| field.keys.contains(&control.name))
             .count();
-        if claims == 0 {
-            return Err(format!(
-                "resource `{resource}` renders form control `{}` but no field of its record form \
-                 binds it, so what the user types there is never written",
-                control.name
-            ));
-        }
-        if claims > 1 {
-            return Err(format!(
-                "resource `{resource}` binds form control `{}` from more than one record-form field",
-                control.name
-            ));
+        let control = control.name.clone();
+        match claims {
+            0 => errors.push(form_error::<R>(DeclarationErrorKind::UnboundControl {
+                control,
+            })),
+            1 => {}
+            _ => errors.push(form_error::<R>(DeclarationErrorKind::ControlBoundTwice {
+                control,
+            })),
         }
     }
     for field in fields {
         for key in &field.keys {
             if !controls.iter().any(|control| &control.name == key) {
-                return Err(format!(
-                    "resource `{resource}`'s record form field `{}` binds key `{key}`, but the form \
-                     declares no control for it",
-                    field.name
-                ));
+                errors.push(form_error::<R>(DeclarationErrorKind::MissingControl {
+                    field: field.name.to_string(),
+                    key: key.clone(),
+                }));
             }
         }
         // An empty submission resolves wherever the schema lets one through.
@@ -501,67 +449,54 @@ fn check_form_inner<R: Resource>(
                 && control.needs_answer()
                 && (!control.required || control.in_repeater)
         }) {
-            let place = if control.in_repeater {
-                "sits inside a `Repeater`, so it may be posted empty"
-            } else {
-                "is optional"
-            };
-            return Err(format!(
-                "resource `{resource}`'s form control `{}` {place}, but record form field `{}` has \
-                 no blank answer — declare `#[form(blank = ..)]`, make the field an \
-                 `Option`, or make the control required",
-                control.name, field.name
-            ));
+            errors.push(form_error::<R>(DeclarationErrorKind::NoBlankAnswer {
+                control: control.name.clone(),
+                field: field.name.to_string(),
+                in_repeater: control.in_repeater,
+            }));
         }
     }
     // The framework stamps the tenant column on create.
     if let Some(column) = tenant_column::<R>()
         && let Some(field) = fields.iter().find(|field| field.keys.contains(&column))
     {
-        return Err(format!(
-            "resource `{resource}` is tenant-scoped, but record form field `{}` claims its tenant \
-             column `{column}` — the framework stamps it on create; drop it from the form",
-            field.name
+        errors.push(form_error::<R>(
+            DeclarationErrorKind::FormClaimsTenantColumn {
+                field: field.name.to_string(),
+                column,
+            },
         ));
     }
-    if let Some(field) = form.fields().find(|field| {
+    for field in form.fields().filter(|field| {
         field
             .as_choice()
             .is_some_and(|choice| choice.has_composite_source())
     }) {
-        return Err(format!(
-            "resource `{resource}`'s relationship field `{}` loads a model with a composite \
-             primary key, which no option value can spell",
-            field.name()
-        ));
+        errors.push(form_error::<R>(DeclarationErrorKind::CompositeKeyChoice {
+            field: field.name().to_string(),
+        }));
     }
     if R::tenancy().via_is_single() == Some(false) {
-        check_via_foreign_keys::<R>(form)?;
+        check_via_foreign_keys::<R>(form, errors);
     }
     if can::<R>(cx, Ability::Create) {
-        check_create_columns::<R>(fields)?;
+        check_create_columns::<R>(fields, errors);
     }
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
     for field in form.fields().filter(|field| field.is_unique()) {
         let name = field.name();
-        // A bound lens always resolves, so a name with no field at all is a
-        // mis-declared schema — but it is not worth a second error string: it
-        // fails the same way, one message below.
         let backed = root
             .fields
             .iter()
             .filter(|field| field.name.app_unwrap() == name)
             .any(|field| crate::schema::lens_field_unique(field, root));
         if !backed {
-            return Err(format!(
-                "resource `{}` marks form field `{name}` unique, but `{}::{name}` carries no unique index — add `#[unique]` (or `#[unique(..)]`) to the column or drop `.unique()`, which would otherwise check a rule the database does not enforce",
-                std::any::type_name::<R>(),
-                std::any::type_name::<R::Model>()
-            ));
+            errors.push(form_error::<R>(DeclarationErrorKind::UniqueWithoutIndex {
+                field: name.to_string(),
+            }));
         }
     }
-    Ok(())
 }
 
 /// Names `R`'s own tenant column.
@@ -575,30 +510,31 @@ fn tenant_column<R: Resource>() -> Option<String> {
 /// Checks that every non-nullable column a create needs has a writer.
 fn check_create_columns<R: Resource>(
     fields: &[FormField<<R::Form as RecordForm>::Field>],
-) -> Result<(), String> {
-    let resource = std::any::type_name::<R>();
+    errors: &mut Vec<DeclarationError>,
+) {
     let prefilled = crate::form::prefilled_fields::<R::Model>();
     let tenant = tenant_column::<R>();
     if let Some(column) = &tenant
         && R::CREATE_COLUMNS.contains(&column.as_str())
     {
-        return Err(format!(
-            "resource `{resource}` lists its tenant column `{column}` in `CREATE_COLUMNS` — the \
-             framework stamps it on create; drop it there and delegate to `write_create`"
+        errors.push(DeclarationError::of::<R>(
+            Site::Registration,
+            DeclarationErrorKind::CreateColumnsNameTenant {
+                column: column.clone(),
+            },
         ));
     }
     let model = R::Model::schema();
     let root = model.as_root_unwrap();
-    for name in R::CREATE_COLUMNS {
+    for column in R::CREATE_COLUMNS {
         if !root
             .fields
             .iter()
-            .any(|field| field.name.app.as_deref() == Some(*name))
+            .any(|field| field.name.app.as_deref() == Some(*column))
         {
-            return Err(format!(
-                "resource `{resource}` names `{name}` in `CREATE_COLUMNS`, but `{}` has no such \
-                 field",
-                std::any::type_name::<R::Model>()
+            errors.push(DeclarationError::of::<R>(
+                Site::Registration,
+                DeclarationErrorKind::UnknownCreateColumn { column },
             ));
         }
     }
@@ -613,14 +549,11 @@ fn check_create_columns<R: Resource>(
             || fields.iter().any(|claim| claim.name == name)
             || R::CREATE_COLUMNS.contains(&name);
         if !filled {
-            return Err(format!(
-                "resource `{resource}` allows create, but nothing writes the non-nullable column \
-                 `{name}`: its record form has no such field, toasty fills no `#[default(..)]` for \
-                 it, and `CREATE_COLUMNS` does not name it — every create would fail at the driver"
-            ));
+            errors.push(form_error::<R>(DeclarationErrorKind::UnwrittenColumn {
+                column: name.to_string(),
+            }));
         }
     }
-    Ok(())
 }
 
 /// Builds the context for the build-time declaration checks from the app's values with no request.
@@ -630,24 +563,22 @@ fn validation_cx(db: &Db) -> Cx {
     Cx::new(std::sync::Arc::new(app_context))
 }
 
-/// Parses a panel route path, panicking on malformed input.
 /// A `Tenancy::via` resource inherits its tenant from the parent its foreign key names, so the
 /// form must write that key through a relationship field over the parent's tenant-scoped
 /// resource: the write re-checks only such a field's key against the request's tenant.
-fn check_via_foreign_keys<R: Resource>(form: &Schema) -> Result<(), String> {
-    let resource = std::any::type_name::<R>();
+fn check_via_foreign_keys<R: Resource>(form: &Schema, errors: &mut Vec<DeclarationError>) {
     let Some((relation, parent, keys)) = via_relation::<R>() else {
-        return Err(format!(
-            "resource `{resource}` uses `Tenancy::via`, but its lens does not start at a \
-             `belongs_to` relation: the tenant must be the parent's its foreign key names"
+        errors.push(DeclarationError::of::<R>(
+            Site::Tenancy,
+            DeclarationErrorKind::TenancyViaWithoutBelongsTo,
         ));
+        return;
     };
-    let unguarded: Vec<&str> = keys
-        .iter()
-        .map(String::as_str)
+    let unguarded: Vec<String> = keys
+        .into_iter()
         .filter(|key| {
             !form.fields().any(|field| {
-                field.name() == *key
+                field.name() == key
                     && field
                         .as_choice()
                         .and_then(|choice| choice.tenant_scoped_model())
@@ -655,16 +586,12 @@ fn check_via_foreign_keys<R: Resource>(form: &Schema) -> Result<(), String> {
             })
         })
         .collect();
-    if unguarded.is_empty() {
-        return Ok(());
+    if !unguarded.is_empty() {
+        errors.push(form_error::<R>(DeclarationErrorKind::UnguardedForeignKey {
+            relation,
+            keys: unguarded,
+        }));
     }
-    Err(format!(
-        "resource `{resource}` uses `Tenancy::via`, but its form does not write the foreign key \
-         `{}` through a relationship field over a tenant-scoped resource of `{relation}`'s model \
-         — the write re-checks only such a field's key, so any other could attach the row to \
-         another tenant's parent",
-        unguarded.join("`, `")
-    ))
 }
 
 /// The name, parent model and foreign-key columns of the `belongs_to` relation a `Tenancy::via`
@@ -693,6 +620,7 @@ fn served_root(path: &str) -> &str {
     path.rsplit_once("{*").map_or(path, |(root, _)| root)
 }
 
+/// Parses a panel route path, panicking on malformed input.
 pub(crate) fn route_path(path: &str) -> topcoat::router::PathBuf {
     Path::from_str(path)
         .expect("panel route paths are well-formed")

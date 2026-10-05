@@ -17,11 +17,13 @@ struct DummyUser {
 fn single_segment_lens_passes_traversal_is_refused() {
     use toasty::schema::Model;
     let single = toasty_core::stmt::Path::field(DummyUser::id(), 0);
-    assert_eq!(single_segment(&single, "lens"), Ok(0));
+    assert_eq!(single_segment(&single), Ok(0));
     let mut two = toasty_core::stmt::Path::field(DummyUser::id(), 0);
     two.chain(&toasty_core::stmt::Path::field(DummyUser::id(), 1));
-    let error = single_segment(&two, "lens").expect_err("a traversal lens must not misbind");
-    assert!(error.contains("single-field lens"), "{error}");
+    assert_eq!(
+        single_segment(&two),
+        Err(DeclarationErrorKind::TraversalLens { steps: 2 })
+    );
 }
 
 /// Reports the lens's field name, label, and nullability.
@@ -338,7 +340,7 @@ async fn a_root_model_the_schema_does_not_carry_refuses_a_leaf_lens() {
         .resolve(LensPost::fields().seo().title())
         .expect_err("a lens the schema cannot bind is refused");
     assert!(
-        error.contains("does not resolve to a single column"),
+        matches!(error, DeclarationErrorKind::UnresolvedLens { .. }),
         "{error}"
     );
 }

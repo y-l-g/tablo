@@ -68,3 +68,28 @@ async fn books_cannot_be_deleted() {
     assert_eq!(books.len(), 1); // nothing was deleted
 }
 // ANCHOR_END: testing-no-delete
+
+// ANCHOR: testing-mount-error
+#[tokio::test]
+async fn the_panel_refuses_a_db_without_the_auth_models() {
+    let db = Db::builder()
+        .models(toasty::models!(Book))
+        .connect("sqlite::memory:")
+        .await
+        .expect("connect");
+    let error = Router::builder()
+        .discover()
+        .app_context(db)
+        .panel(Panel::new("admin").resource::<BookResource>())
+        .err()
+        .expect("auth is on, and the Db does not register its models");
+
+    let refusal = error
+        .downcast_ref::<tablo::MountError>()
+        .expect("a declaration mistake");
+    assert!(matches!(
+        refusal.errors()[0].kind,
+        tablo::DeclarationErrorKind::MissingAuthModels { .. }
+    ));
+}
+// ANCHOR_END: testing-mount-error

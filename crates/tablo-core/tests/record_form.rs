@@ -4,14 +4,16 @@ use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
 use tablo_core::{
-    Ability, Field, FieldErrorKind, FieldErrors, NoForm, Panel, Policy, RecordForm, Repeater,
-    Resource, Schema, Table, Tenancy, Tenant, TextColumn, lens, write_create,
+    Ability, DeclarationErrorKind, Field, FieldErrorKind, FieldErrors, NoForm, Panel, Policy,
+    RecordForm, Repeater, Resource, Schema, Table, Tenancy, Tenant, TextColumn, lens, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel, panel_router, post_fields};
+use crate::common::{
+    body_string, get, memory_db, mount, panel, panel_router, post_fields, refusal,
+};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Item {
@@ -458,12 +460,12 @@ async fn the_derived_create_stamps_the_request_tenant() {
     assert_eq!(created.tenant_id, tenant, "the request tenant is stamped");
 }
 
-/// The build error for a panel over `R`.
-fn form_build_error<R: Resource>(db: Db) -> String {
-    match mount(db, panel().resource::<R>()) {
-        Ok(_) => panic!("{} must not build", std::any::type_name::<R>()),
-        Err(error) => error.to_string(),
-    }
+/// What a panel over `R` refuses to mount with.
+fn refused<R: Resource>(db: Db) -> Vec<DeclarationErrorKind> {
+    refusal(mount(db, panel().resource::<R>()))
+        .into_iter()
+        .map(|error| error.kind)
+        .collect()
 }
 
 /// A resource over [`Item`] whose form is `F` and whose schema is `schema`.
@@ -516,10 +518,12 @@ async fn build_refuses_a_control_no_field_binds() {
             Field::text(Item::fields().notes()),
         ))
     );
-    let error = form_build_error::<Unbound>(item_db().await);
+    let errors = refused::<Unbound>(item_db().await);
     assert!(
-        error.contains("form control `notes`") && error.contains("never written"),
-        "{error}"
+        errors.contains(&DeclarationErrorKind::UnboundControl {
+            control: "notes".to_string()
+        }),
+        "{errors:?}"
     );
 }
 
@@ -530,10 +534,13 @@ async fn build_refuses_a_field_no_control_declares() {
         ItemForm,
         Schema::new(Field::text(Item::fields().title()))
     );
-    let error = form_build_error::<Unclaimed>(item_db().await);
+    let errors = refused::<Unclaimed>(item_db().await);
     assert!(
-        error.contains("binds key `notes`") && error.contains("no control"),
-        "{error}"
+        errors.contains(&DeclarationErrorKind::MissingControl {
+            field: "notes".to_string(),
+            key: "notes".to_string(),
+        }),
+        "{errors:?}"
     );
 }
 
@@ -544,10 +551,14 @@ async fn build_refuses_an_optional_control_with_no_blank_answer() {
         PriorityForm,
         Schema::new(Field::text(Item::fields().priority()).optional())
     );
-    let error = form_build_error::<Unanswered>(item_db().await);
+    let errors = refused::<Unanswered>(item_db().await);
     assert!(
-        error.contains("`priority` is optional") && error.contains("no blank answer"),
-        "{error}"
+        errors.contains(&DeclarationErrorKind::NoBlankAnswer {
+            control: "priority".to_string(),
+            field: "priority".to_string(),
+            in_repeater: false,
+        }),
+        "{errors:?}"
     );
 }
 
@@ -558,8 +569,15 @@ async fn build_refuses_a_repeater_control_with_no_blank_answer() {
         PriorityForm,
         Schema::new(Repeater::new("Priorities").schema(Field::text(Item::fields().priority())))
     );
-    let error = form_build_error::<Repeated>(item_db().await);
-    assert!(error.contains("inside a `Repeater`"), "{error}");
+    let errors = refused::<Repeated>(item_db().await);
+    assert!(
+        errors.contains(&DeclarationErrorKind::NoBlankAnswer {
+            control: "priority".to_string(),
+            field: "priority".to_string(),
+            in_repeater: true,
+        }),
+        "{errors:?}"
+    );
 }
 
 #[tokio::test]
@@ -611,10 +629,16 @@ async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
         }
     }
 
-    let error = form_build_error::<DatedResource>(memory_db(toasty::models!(Dated)).await);
+    let errors = refused::<DatedResource>(memory_db(toasty::models!(Dated)).await);
     assert!(
-        error.contains("`life_stamp` is optional") && error.contains("no blank answer"),
-        "{error}"
+        errors.iter().any(
+            |error| matches!(error, DeclarationErrorKind::NoBlankAnswer {
+                control,
+                in_repeater: false,
+                ..
+            } if control == "life_stamp")
+        ),
+        "{errors:?}"
     );
 }
 
@@ -665,12 +689,16 @@ async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
     }
 
     // An all-empty `Repeater` group skips requiredness.
-    let error = form_build_error::<ClipResource>(memory_db(toasty::models!(Clip)).await);
+    let errors = refused::<ClipResource>(memory_db(toasty::models!(Clip)).await);
     assert!(
-        error.contains("record form field `body`")
-            && error.contains("inside a `Repeater`")
-            && error.contains("no blank answer"),
-        "{error}"
+        errors.iter().any(
+            |error| matches!(error, DeclarationErrorKind::NoBlankAnswer {
+                field,
+                in_repeater: true,
+                ..
+            } if field == "body")
+        ),
+        "{errors:?}"
     );
 }
 
@@ -705,10 +733,13 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
         }
     }
 
-    let error = form_build_error::<Claiming>(memory_db(toasty::models!(Owned)).await);
+    let errors = refused::<Claiming>(memory_db(toasty::models!(Owned)).await);
     assert!(
-        error.contains("claims its tenant column `tenant_id`"),
-        "{error}"
+        errors.contains(&DeclarationErrorKind::FormClaimsTenantColumn {
+            field: "tenant_id".to_string(),
+            column: "tenant_id".to_string(),
+        }),
+        "{errors:?}"
     );
 }
 
@@ -746,25 +777,28 @@ macro_rules! list_only_resource {
 #[tokio::test]
 async fn build_refuses_a_list_only_resource_that_allows_create() {
     list_only_resource!(Creating, true, Schema::empty());
-    let error = form_build_error::<Creating>(item_db().await);
-    assert!(error.contains("allows create but has no form"), "{error}");
+    assert_eq!(
+        refused::<Creating>(item_db().await),
+        [DeclarationErrorKind::CreateWithoutForm]
+    );
 }
 
 #[tokio::test]
 async fn build_refuses_a_list_only_resource_that_declares_a_schema() {
     list_only_resource!(Schematic, false, item_schema());
-    let error = form_build_error::<Schematic>(item_db().await);
-    assert!(
-        error.contains("declares a form schema") && error.contains("serves no form"),
-        "{error}"
+    assert_eq!(
+        refused::<Schematic>(item_db().await),
+        [DeclarationErrorKind::FormWithoutRecordForm]
     );
 }
 
 #[tokio::test]
 async fn build_refuses_an_empty_form_override() {
     item_resource!(Emptied, TitleForm, Schema::empty());
-    let error = form_build_error::<Emptied>(item_db().await);
-    assert!(error.contains("declares no controls"), "{error}");
+    assert_eq!(
+        refused::<Emptied>(item_db().await),
+        [DeclarationErrorKind::EmptyFormOverride]
+    );
 }
 
 #[tokio::test]
@@ -899,10 +933,12 @@ macro_rules! title_only_resource {
 #[tokio::test]
 async fn build_refuses_a_create_that_leaves_a_required_column_unset() {
     title_only_resource!(Partial, &[]);
-    let error = form_build_error::<Partial>(item_db().await);
+    let errors = refused::<Partial>(item_db().await);
     assert!(
-        error.contains("non-nullable column `notes`") && error.contains("CREATE_COLUMNS"),
-        "{error}"
+        errors.contains(&DeclarationErrorKind::UnwrittenColumn {
+            column: "notes".to_string()
+        }),
+        "{errors:?}"
     );
 }
 
@@ -913,8 +949,10 @@ async fn create_columns_names_what_an_override_sets() {
         .expect("the override's own columns are declared");
 
     title_only_resource!(Misnamed, &["notes", "priority", "done", "nope"]);
-    let error = form_build_error::<Misnamed>(item_db().await);
-    assert!(error.contains("`nope` in `CREATE_COLUMNS`"), "{error}");
+    assert_eq!(
+        refused::<Misnamed>(item_db().await),
+        [DeclarationErrorKind::UnknownCreateColumn { column: "nope" }]
+    );
 }
 
 /// A value the control lets through but the field's type refuses renders inline.

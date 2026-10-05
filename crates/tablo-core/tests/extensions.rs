@@ -7,15 +7,16 @@
 //! reaches a framework internal.
 
 use tablo_core::{
-    Ability, Action, Actions, BooleanColumn, Column, Committed, Control, ControlInput, Field,
-    Filter, FilterInput, Mutation, Policy, Resource, Schema, Table, TextColumn, lens,
+    Ability, Action, Actions, BooleanColumn, Column, Committed, Control, ControlInput,
+    DeclarationErrorKind, Field, Filter, FilterInput, Mutation, Policy, Resource, Schema, Site,
+    Table, TextColumn, lens,
 };
 use toasty::{Db, stmt::Expr};
 use topcoat::{context::Cx, view::*};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, get, memory_db, mount, panel, panel_router, post_fields, response_cookies,
+    body_string, get, memory_db, mount, panel, panel_router, post_fields, refusal, response_cookies,
 };
 
 /// The flash notification a response set, decoded: the text the list shows
@@ -655,13 +656,12 @@ impl Resource for TwiceResource {
 
 #[tokio::test]
 async fn two_actions_sharing_a_name_fail_the_build() {
-    let Err(error) = mount(db().await, panel().resource::<TwiceResource>()) else {
-        panic!("a duplicate action name is a declaration error");
-    };
-    let message = error.to_string();
-    assert!(
-        message.contains("two actions named 'twice'"),
-        "the error names the duplicate: {message}"
+    let errors = refusal(mount(db().await, panel().resource::<TwiceResource>()));
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(errors[0].site, Site::Registration);
+    assert_eq!(
+        errors[0].kind,
+        DeclarationErrorKind::DuplicateAction { name: "twice" }
     );
 }
 

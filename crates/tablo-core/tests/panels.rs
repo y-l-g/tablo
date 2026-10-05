@@ -1,7 +1,7 @@
 use http::header::LOCATION;
 use tablo_core::{
-    Ability, Auth, Brand, NavigationItem, Page, Panel, Policy, ReadOnly, Resource,
-    RouterBuilderPanelExt, Table, TextColumn,
+    Ability, Auth, Brand, DeclarationErrorKind, NavigationItem, Page, Panel, Policy, ReadOnly,
+    Resource, RouterBuilderPanelExt, Table, TextColumn,
     auth::{AdminUser, AuthSession, hash_password},
     lens,
 };
@@ -17,7 +17,8 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, get, get_with_cookies, memory_db, mount, new_csrf, post_form, response_cookies,
+    body_string, get, get_with_cookies, memory_db, mount, new_csrf, post_form, refusal,
+    response_cookies,
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -411,45 +412,43 @@ async fn the_apps_own_routes_stay_outside_the_panel() {
 async fn mounting_refuses_a_directory_another_panel_serves() {
     let db = books_db().await;
     let dir = std::env::temp_dir();
-    let error = Router::builder()
-        .discover()
-        .app_context(db.clone())
-        .panel(
-            Panel::new("admin")
-                .auth(Auth::disabled())
-                .serve_dir("/uploads/{*file}", &dir),
-        )
-        .expect("the first panel mounts")
-        .panel(
-            Panel::new("portal")
-                .auth(Auth::disabled())
-                .serve_dir("/uploads/{*path}", &dir),
-        )
-        .map(|_| ())
-        .expect_err("a directory another panel serves is refused");
-    assert!(
-        error.to_string().contains(
-            "serve_dir path '/uploads/{*path}' is already served by the panel mounted at '/admin'"
-        ),
-        "got {error}"
+    let errors = refusal(
+        Router::builder()
+            .discover()
+            .app_context(db.clone())
+            .panel(
+                Panel::new("admin")
+                    .auth(Auth::disabled())
+                    .serve_dir("/uploads/{*file}", &dir),
+            )
+            .expect("the first panel mounts")
+            .panel(
+                Panel::new("portal")
+                    .auth(Auth::disabled())
+                    .serve_dir("/uploads/{*path}", &dir),
+            ),
+    );
+    assert_eq!(
+        errors[0].kind,
+        DeclarationErrorKind::ServeDirTaken {
+            path: "/uploads/{*path}".to_string(),
+            panel: "/admin".to_string(),
+        }
     );
 
-    let error = Router::builder()
-        .discover()
-        .app_context(db)
-        .panel(
+    let errors = refusal(
+        Router::builder().discover().app_context(db).panel(
             Panel::new("admin")
                 .auth(Auth::disabled())
                 .serve_dir("/uploads/{*file}", &dir)
                 .serve_dir("/uploads/{*file}", &dir),
-        )
-        .map(|_| ())
-        .expect_err("a directory served twice is refused");
-    assert!(
-        error
-            .to_string()
-            .contains("serve_dir path '/uploads/{*file}' is declared twice"),
-        "got {error}"
+        ),
+    );
+    assert_eq!(
+        errors[0].kind,
+        DeclarationErrorKind::ServeDirTwice {
+            path: "/uploads/{*file}".to_string(),
+        }
     );
 }
 
@@ -466,12 +465,11 @@ async fn mounting_refuses_a_prefix_another_panel_covers() {
             .map(|_| ())
     };
     for second in ["admin", "admin/reports"] {
-        let error = mount_both(second).expect_err("an overlapping prefix is refused");
-        assert!(
-            error
-                .to_string()
-                .contains("overlaps the panel mounted at '/admin'"),
-            "got {error}"
+        assert_eq!(
+            refusal(mount_both(second))[0].kind,
+            DeclarationErrorKind::PrefixOverlapsPanel {
+                other: "/admin".to_string(),
+            }
         );
     }
     assert!(
@@ -479,25 +477,16 @@ async fn mounting_refuses_a_prefix_another_panel_covers() {
         "a sibling prefix is fine"
     );
 
-    let error = Router::builder()
-        .discover()
-        .app_context(db.clone())
-        .panel(Panel::new("_topcoat/runtime/x"))
-        .map(|_| ())
-        .expect_err("the runtime endpoints are Topcoat's");
-    assert!(
-        error.to_string().contains("runtime endpoints"),
-        "got {error}"
-    );
-
-    let error = Router::builder()
-        .discover()
-        .app_context(db)
-        .panel(Panel::new("_topcoat"))
-        .map(|_| ())
-        .expect_err("a panel above the runtime endpoints wraps them");
-    assert!(
-        error.to_string().contains("runtime endpoints"),
-        "got {error}"
-    );
+    for prefix in ["_topcoat/runtime/x", "_topcoat"] {
+        let mounted = Router::builder()
+            .discover()
+            .app_context(db.clone())
+            .panel(Panel::new(prefix));
+        assert_eq!(
+            refusal(mounted)[0].kind,
+            DeclarationErrorKind::PrefixOverlapsRuntime {
+                prefix: format!("/{prefix}"),
+            }
+        );
+    }
 }

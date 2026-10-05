@@ -142,12 +142,7 @@ fn paginate_records_a_zero_page_size() {
     let errors = Table::<User>::new(TextColumn::new(lens!(User.name)))
         .paginate(0)
         .declaration_errors();
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("a page size must be at least 1")),
-        "{errors:?}"
-    );
+    assert_eq!(errors, [DeclarationErrorKind::ZeroPageSize]);
 }
 
 #[test]
@@ -369,12 +364,7 @@ impl<M> IntoColumns<M> for NoColumns {
 #[test]
 fn empty_column_set_is_misdeclared() {
     let errors = Table::<User>::new(NoColumns).declaration_errors();
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("at least one column")),
-        "{errors:?}"
-    );
+    assert_eq!(errors, [DeclarationErrorKind::NoColumns]);
 }
 
 #[test]
@@ -387,7 +377,7 @@ fn duplicate_column_name_is_misdeclared_on_field_computed_collision() {
     assert!(
         errors
             .iter()
-            .any(|error| error.contains("duplicate column name")),
+            .any(|error| matches!(error, DeclarationErrorKind::DuplicateColumn { .. })),
         "{errors:?}"
     );
 }
@@ -402,7 +392,7 @@ fn duplicate_column_name_is_misdeclared_on_case_only_computed_collision() {
     assert!(
         errors
             .iter()
-            .any(|error| error.contains("duplicate column name")),
+            .any(|error| matches!(error, DeclarationErrorKind::DuplicateColumn { .. })),
         "{errors:?}"
     );
 }
@@ -417,7 +407,7 @@ fn duplicate_column_name_is_misdeclared_on_duplicate_field() {
     assert!(
         errors
             .iter()
-            .any(|error| error.contains("duplicate column name")),
+            .any(|error| matches!(error, DeclarationErrorKind::DuplicateColumn { .. })),
         "{errors:?}"
     );
 }
@@ -433,7 +423,7 @@ fn duplicate_filter_name_is_misdeclared_on_duplicate_field() {
     assert!(
         errors
             .iter()
-            .any(|error| error.contains("duplicate filter name")),
+            .any(|error| matches!(error, DeclarationErrorKind::DuplicateFilter { .. })),
         "{errors:?}"
     );
 }
@@ -449,10 +439,10 @@ async fn a_misdeclared_table_fails_to_render() {
     let Err(error) = table.render(&cx, page).await else {
         panic!("a misdeclared table must not render");
     };
-    assert!(
-        format!("{error}").contains("duplicate column name"),
-        "the render error carries the declaration errors, got {error}"
-    );
+    let duplicate = DeclarationErrorKind::DuplicateColumn {
+        name: "name".to_string(),
+    };
+    assert_eq!(error.to_string(), duplicate.to_string());
 }
 
 async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {

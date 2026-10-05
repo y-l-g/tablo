@@ -49,6 +49,16 @@ impl fmt::Display for TabloError {
 
 impl std::error::Error for TabloError {}
 
+/// Refuses to render a declaration with `errors`.
+pub(crate) fn misdeclared(errors: &[crate::DeclarationErrorKind]) -> topcoat::Error {
+    let message = errors
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("; ");
+    TabloError::Declaration(message).into()
+}
+
 pub(crate) const DATABASE_UNAVAILABLE: &str = "database unavailable";
 
 /// Maps a database failure to an opaque 500, logging the cause for operators.

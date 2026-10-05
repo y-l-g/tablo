@@ -7,8 +7,8 @@ use topcoat::{
 };
 
 use crate::{
-    Page, Panel,
-    panel::test_support::{Dummy, dummy_table, mount, mount_without_db, response_html},
+    DeclarationError, DeclarationErrorKind, Page, Panel, SegmentFault, Site,
+    panel::test_support::{Dummy, dummy_table, mount, mount_without_db, refusal, response_html},
     resource::{NavigationItem, Resource},
 };
 
@@ -116,27 +116,26 @@ fn a_page_slug_that_a_resource_holds_does_not_build() {
         }
     }
 
-    let Err(error) = mount_without_db(
+    let duplicate = || DeclarationErrorKind::DuplicateSlug {
+        slug: "dummies".to_string(),
+    };
+    let errors = refusal(mount_without_db(
         Panel::new("admin")
             .resource::<DummyResource>()
             .page::<DummiesPage>(),
-    ) else {
-        panic!("a page over a resource's slug must not build");
-    };
-    assert!(
-        error.to_string().contains("duplicate slug 'dummies'"),
-        "got {error}"
+    ));
+    assert_eq!(
+        errors[0],
+        DeclarationError::of::<DummiesPage>(Site::Registration, duplicate())
     );
-    let Err(error) = mount_without_db(
+    let errors = refusal(mount_without_db(
         Panel::new("admin")
             .page::<DummiesPage>()
             .resource::<DummyResource>(),
-    ) else {
-        panic!("a resource over a page's slug must not build");
-    };
-    assert!(
-        error.to_string().contains("duplicate slug 'dummies'"),
-        "got {error}"
+    ));
+    assert_eq!(
+        errors[0],
+        DeclarationError::of::<DummyResource>(Site::Registration, duplicate())
     );
 }
 
@@ -153,26 +152,27 @@ fn a_page_slug_that_is_not_one_segment_does_not_build() {
         }
     }
 
-    let Err(error) = mount_without_db(Panel::new("admin").page::<NestedPage>()) else {
-        panic!("a slug with a slash must not build");
-    };
-    assert!(error.to_string().contains("Page::slug"), "got {error}");
+    let errors = refusal(mount_without_db(Panel::new("admin").page::<NestedPage>()));
+    assert_eq!(
+        errors[0].kind,
+        DeclarationErrorKind::InvalidSegment {
+            item: "Page::slug",
+            segment: "reports/q3".to_string(),
+            fault: SegmentFault::Char('/'),
+        }
+    );
 }
 
 #[test]
 fn a_second_home_page_does_not_build() {
-    let Err(error) = mount_without_db(
+    let errors = refusal(mount_without_db(
         Panel::new("admin")
             .home::<Dashboard>()
             .home::<ReportsPage>(),
-    ) else {
-        panic!("two home pages must not build");
-    };
-    assert!(
-        error
-            .to_string()
-            .contains("a home page is already registered"),
-        "got {error}"
+    ));
+    assert_eq!(
+        errors[0],
+        DeclarationError::of::<ReportsPage>(Site::Registration, DeclarationErrorKind::SecondHome)
     );
 }
 
@@ -188,14 +188,15 @@ fn a_page_slug_the_panel_routes_itself_does_not_build() {
         }
     }
 
-    let Err(error) = mount_without_db(Panel::new("admin").page::<LoginPage>()) else {
-        panic!("a page at the login route must not build");
-    };
-    assert!(
-        error
-            .to_string()
-            .contains("the panel routes `/admin/login` itself"),
-        "got {error}"
+    let errors = refusal(mount_without_db(Panel::new("admin").page::<LoginPage>()));
+    assert_eq!(
+        errors[0],
+        DeclarationError::of::<LoginPage>(
+            Site::Registration,
+            DeclarationErrorKind::ReservedSlug {
+                slug: "login".to_string(),
+            },
+        )
     );
 }
 

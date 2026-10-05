@@ -512,10 +512,9 @@ fn apply_tenant_scope<R: Resource>(
         return Ok(query);
     }
     if let Some(Err(error)) = tenancy.column_field() {
-        return Err(TabloError::Declaration(format!(
-            "resource `{}`'s `Tenancy::column` lens binds no column: {error}",
-            std::any::type_name::<R>(),
-        ))
+        return Err(TabloError::Declaration(
+            crate::DeclarationError::of::<R>(crate::Site::Tenancy, error).to_string(),
+        )
         .into());
     }
     let tenant = crate::tenancy::require_tenant(cx)?;

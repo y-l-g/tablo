@@ -26,6 +26,13 @@ use tablo::testing::{TestClient, form_body};
   would.
 - **Signed-in requests.** With authentication on, sign in through `POST /admin/login` once and
   reuse the client's cookies, or insert an `AuthSession` row directly to skip the password hash.
+- **Declaration mistakes.** A panel that refuses to mount returns a `MountError` inside the
+  router builder's error. Downcast to it and match on each mistake's `DeclarationErrorKind`
+  rather than on its message:
+
+```rust
+{{#include ../../../examples/guide/tests/it.rs:testing-mount-error}}
+```
 
 `examples/showcase/tests/` is a complete suite covering lists, forms, deletes, filters, export,
 tenancy, uploads and authentication; its `common` module holds the fixtures above.
