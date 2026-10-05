@@ -23,6 +23,38 @@ pub const DETACHED_BENCHES: &[&str] = &[
 /// The detached app `external-check` builds from outside the repository.
 pub const QUICKSTART: &str = "examples/quickstart";
 
+/// Mirrors the `pull_request: paths` filter of `.github/workflows/bench.yml`.
+pub const BENCH_PATHS: &[&str] = &[
+    "benchmarks/**",
+    "Cargo.toml",
+    "Cargo.lock",
+    "**/Cargo.toml",
+    "**/Cargo.lock",
+    "rust-toolchain.toml",
+    "xtask/**",
+    ".github/workflows/bench.yml",
+];
+
+/// Mirrors the `pull_request: paths` filter of `.github/workflows/msrv-udeps.yml`.
+pub const MSRV_PATHS: &[&str] = &[
+    "Cargo.toml",
+    "Cargo.lock",
+    "**/Cargo.toml",
+    "**/Cargo.lock",
+    "rust-toolchain.toml",
+    ".github/workflows/msrv-udeps.yml",
+];
+
+/// Whether `check` skips the gates CI would not run for the change.
+#[derive(PartialEq, Eq)]
+pub enum Scope {
+    /// Skip the bench gate without `BENCH_PATHS` changes and the MSRV/udeps
+    /// gates without `MSRV_PATHS` changes.
+    Auto,
+    /// Run every gate.
+    All,
+}
+
 /// JS asset suites, named rather than globbed so a rename fails loudly.
 pub const ASSET_SUITES: &[&str] = &[
     "crates/tablo-ui/assets/selects.test.js",
@@ -82,6 +114,40 @@ impl Runner for RealRunner {
             anyhow::bail!("`{prog} {}` exited with {status}", args.join(" "))
         }
     }
+}
+
+/// Runs git in `root` and returns its stdout; `None` when git fails.
+fn git(root: &Path, args: &[&str]) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Whether the change under `root` touches any of `specs` (git pathspecs).
+/// Combines the committed branch diff against the merge base with
+/// `origin/master` (else `master`) and the uncommitted worktree state. Any git
+/// failure returns true: a gate that cannot prove irrelevance runs.
+pub fn changes_touch(root: &Path, specs: &[&str]) -> bool {
+    let Some(base) = ["origin/master", "master"]
+        .iter()
+        .find_map(|branch| git(root, &["merge-base", branch, "HEAD"]))
+    else {
+        return true;
+    };
+    let base = base.trim();
+    let mut committed: Vec<&str> = vec!["diff", "--name-only", &base, "HEAD", "--"];
+    committed.extend_from_slice(specs);
+    let mut uncommitted: Vec<&str> = vec!["status", "--porcelain", "--"];
+    uncommitted.extend_from_slice(specs);
+    git(root, &committed).is_none_or(|out| !out.trim().is_empty())
+        || git(root, &uncommitted).is_none_or(|out| !out.trim().is_empty())
 }
 
 /// The pinned-nightly workspace fmt check (CONTRIBUTING gate 3).
@@ -213,14 +279,32 @@ pub fn external_check(run: &dyn Runner, root: &Path, manifest: &Path) -> anyhow:
     )
 }
 
-/// The gate set as a local fail-fast convenience runner: the eight CONTRIBUTING
-/// gates in order, then docs, detached-bench fmt, and the external build.
-pub fn check(run: &dyn Runner) -> anyhow::Result<()> {
-    check_with(run, &|| stage_quickstart(&repo_root()))
+/// The gate set as a local fail-fast convenience runner: the CONTRIBUTING
+/// gates cheapest-first, then docs and the external build. The bench gate runs
+/// only with `BENCH_PATHS` changes and the MSRV/udeps gates only with
+/// `MSRV_PATHS` changes, matching the CI path filters.
+pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
+    let root = repo_root();
+    check_with(run, &|| stage_quickstart(&root), scope, &|specs| {
+        changes_touch(&root, specs)
+    })
 }
 
-fn check_with(run: &dyn Runner, stage: &dyn Fn() -> anyhow::Result<PathBuf>) -> anyhow::Result<()> {
+fn check_with(
+    run: &dyn Runner,
+    stage: &dyn Fn() -> anyhow::Result<PathBuf>,
+    scope: Scope,
+    touches: &dyn Fn(&[&str]) -> bool,
+) -> anyhow::Result<()> {
     let root = repo_root();
+    let all = scope == Scope::All;
+    // Seconds first: a formatting or asset breakage fails before the minute-long builds.
+    nightly_fmt(run, &root)?;
+    topcoat_fmt(run, &root)?;
+    let mut assets: Vec<&str> = vec!["--test"];
+    assets.extend_from_slice(ASSET_SUITES);
+    run.run("node", &assets, Some(&root), &[])?;
+    detached_fmt(run, &root)?;
     run.run(
         "cargo",
         &["test", "--workspace", "--locked"],
@@ -241,51 +325,54 @@ fn check_with(run: &dyn Runner, stage: &dyn Fn() -> anyhow::Result<PathBuf>) -> 
         Some(&root),
         &[],
     )?;
-    nightly_fmt(run, &root)?;
-    topcoat_fmt(run, &root)?;
-    run.run(
-        "cargo",
-        &[
-            "clippy",
-            "--locked",
-            "--manifest-path",
-            "benchmarks/tablo/Cargo.toml",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-        ],
-        Some(&root),
-        &[],
-    )?;
-    let msrv = format!("+{MSRV}");
-    run.run(
-        "cargo",
-        &[&msrv, "check", "--workspace", "--locked"],
-        Some(&root),
-        &[],
-    )?;
-    let mut assets: Vec<&str> = vec!["--test"];
-    assets.extend_from_slice(ASSET_SUITES);
-    run.run("node", &assets, Some(&root), &[])?;
-    run.run(
-        "cargo",
-        &["+nightly", "install", "cargo-udeps", "--locked"],
-        Some(&root),
-        &[],
-    )?;
-    run.run(
-        "cargo",
-        &[
-            "+nightly",
-            "udeps",
-            "--workspace",
-            "--all-targets",
-            "--locked",
-        ],
-        Some(&root),
-        &[],
-    )?;
+    if all || touches(BENCH_PATHS) {
+        run.run(
+            "cargo",
+            &[
+                "clippy",
+                "--locked",
+                "--manifest-path",
+                "benchmarks/tablo/Cargo.toml",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ],
+            Some(&root),
+            &[],
+        )?;
+    } else {
+        println!("skipped the detached-bench clippy: no bench paths changed");
+    }
+    if all || touches(MSRV_PATHS) {
+        let msrv = format!("+{MSRV}");
+        run.run(
+            "cargo",
+            &[&msrv, "check", "--workspace", "--locked"],
+            Some(&root),
+            &[],
+        )?;
+        run.run(
+            "cargo",
+            &["+nightly", "install", "cargo-udeps", "--locked"],
+            Some(&root),
+            &[],
+        )?;
+        run.run(
+            "cargo",
+            &[
+                "+nightly",
+                "udeps",
+                "--workspace",
+                "--all-targets",
+                "--locked",
+            ],
+            Some(&root),
+            &[],
+        )?;
+    } else {
+        println!("skipped the MSRV check and udeps: no manifest or lockfile changed");
+    }
     run.run(
         "cargo",
         &["doc", "--workspace", "--no-deps", "--locked"],
@@ -293,7 +380,6 @@ fn check_with(run: &dyn Runner, stage: &dyn Fn() -> anyhow::Result<PathBuf>) -> 
         &[("RUSTDOCFLAGS", "-D warnings")],
     )?;
     run.run("mdbook", &["build", "docs/guide"], Some(&root), &[])?;
-    detached_fmt(run, &root)?;
     external_check(run, &root, &stage()?)
 }
 

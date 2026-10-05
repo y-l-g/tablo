@@ -1,4 +1,4 @@
-use xtask::gates::RealRunner;
+use xtask::gates::{RealRunner, Scope};
 
 fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
@@ -25,7 +25,15 @@ fn main() -> anyhow::Result<()> {
             xtask::gates::external_check(&RealRunner, &root, &manifest)?;
         }
         "check" => {
-            xtask::gates::check(&RealRunner)?;
+            let mut all = false;
+            for arg in args {
+                if arg == "--all" {
+                    all = true;
+                } else {
+                    anyhow::bail!("unknown flag for check: {arg} (only --all)");
+                }
+            }
+            xtask::gates::check(&RealRunner, if all { Scope::All } else { Scope::Auto })?;
         }
         "--help" | "-h" | "help" => {
             print_help();
@@ -48,7 +56,7 @@ USAGE:
     cargo xtask verify-topcoat-ui
     cargo xtask fmt
     cargo xtask external-check
-    cargo xtask check
+    cargo xtask check [--all]
 
 COMMANDS:
     sync-topcoat-ui    Copy the components in `xtask::VENDORED_PRIMITIVES`
@@ -76,11 +84,15 @@ COMMANDS:
                        hold classes only Tablo's own sources write. Fails on
                        anything that resolves only inside this repository.
     check              The gate set as a local fail-fast convenience runner:
-                       the eight CONTRIBUTING gates in order, then docs,
-                       detached-bench fmt, and the external build. CI keeps
-                       one subcommand per parallel job instead.
+                       the CONTRIBUTING gates cheapest-first, then docs
+                       and the external build. The detached-bench clippy
+                       and the MSRV/udeps gates run only when the change
+                       touches their CI path filters; `--all` runs them
+                       unconditionally. CI keeps one subcommand per
+                       parallel job instead.
 
 OPTIONS:
+    --all              Run every `check` gate
     --dry-run          Print what would be copied without writing
     --prune            Also delete vendored files the vendored set no longer owns
     --help, -h         Show this help
