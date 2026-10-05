@@ -153,17 +153,6 @@ fn installed_version(command: &str) -> &str {
         .expect("the version ends the flag value")
 }
 
-/// Reads the `version = "…"` a manifest names for `dependency`.
-fn manifest_version(manifest: &str, dependency: &str) -> String {
-    manifest
-        .lines()
-        .find(|line| line.starts_with(&format!("{dependency} = ")))
-        .and_then(|line| line.split_once("version = \""))
-        .and_then(|(_, version)| version.split_once('"'))
-        .map(|(version, _)| version.to_string())
-        .unwrap_or_else(|| panic!("{dependency} names a version"))
-}
-
 /// The pins xtask shells out with must stay the ones CI and the docs name.
 #[test]
 fn pins_match_ci_and_docs() {
@@ -186,9 +175,10 @@ fn pins_match_ci_and_docs() {
         contributing.contains(topcoat),
         "CONTRIBUTING.md names the pinned topcoat CLI {topcoat}"
     );
+    let mdbook = installed_version(MDBOOK_INSTALL);
     assert!(
-        ci.contains(installed_version(MDBOOK_INSTALL)),
-        "ci.yml installs the pinned mdBook"
+        ci.contains(mdbook),
+        "ci.yml installs the pinned mdBook {mdbook}"
     );
     for bench in DETACHED_BENCHES {
         assert!(ci.contains(bench), "ci.yml covers {bench}");
@@ -200,6 +190,17 @@ fn pins_match_ci_and_docs() {
         manifest.contains(&format!("rust-version = \"{MSRV}\"")),
         "Cargo.toml carries the MSRV floor"
     );
+}
+
+/// Reads the `version = "…"` a manifest names for `dependency`.
+fn manifest_version(manifest: &str, dependency: &str) -> String {
+    manifest
+        .lines()
+        .find(|line| line.starts_with(&format!("{dependency} = ")))
+        .and_then(|line| line.split_once("version = \""))
+        .and_then(|(_, version)| version.split_once('"'))
+        .map(|(version, _)| version.to_string())
+        .unwrap_or_else(|| panic!("{dependency} names a version"))
 }
 
 /// The detached bench must measure the upstream releases the workspace names.
