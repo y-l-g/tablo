@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Pin the floor: a `main`-tracking dep can silently raise what it needs (GH #175).
+      # Pin the floor: an upstream release can silently raise what it needs (GH #175).
       - run: rustup toolchain install 1.98 --profile minimal
       - uses: Swatinem/rust-cache@v2
       - run: cargo +1.98 check --workspace --locked

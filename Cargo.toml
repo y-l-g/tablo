@@ -32,13 +32,13 @@ warnings = "deny"
 # The budget lives in the workspace-root `clippy.toml`; the lints table cannot express it.
 too_many_lines = "deny"
 
-# Exact revs; bump via `cargo xtask bump-upstream` (GH #103) with bench lock sync.
+# `topcoat`/`toasty` track crates.io releases; Renovate groups their bumps.
 [workspace.dependencies]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "3e7bb43948a61dadcdba5a79d99c0f3a75de1abc", default-features = false, features = ["view", "router", "discover"] }
-toasty = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790", default-features = false, features = ["jiff"] }
-toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790" }
-topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "3e7bb43948a61dadcdba5a79d99c0f3a75de1abc" }
-topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "3e7bb43948a61dadcdba5a79d99c0f3a75de1abc" }
+topcoat = { version = "0.10", default-features = false, features = ["view", "router", "discover"] }
+toasty = { version = "0.11", default-features = false, features = ["jiff"] }
+toasty-core = { version = "0.11" }
+topcoat-ui = { version = "0.10" }
+topcoat-ui-registry = { version = "0.10" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"
 jiff = "0.2"

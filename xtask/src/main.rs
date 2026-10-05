@@ -19,9 +19,6 @@ fn main() -> anyhow::Result<()> {
         "fmt" => {
             xtask::gates::fmt_check(&RealRunner)?;
         }
-        "verify-locks" => {
-            xtask::gates::verify_locks()?;
-        }
         "external-check" => {
             let root = xtask::gates::repo_root();
             let manifest = xtask::gates::stage_quickstart(&root)?;
@@ -29,14 +26,6 @@ fn main() -> anyhow::Result<()> {
         }
         "check" => {
             xtask::gates::check(&RealRunner)?;
-        }
-        "bump-upstream" => {
-            let rest: Vec<String> = args.collect();
-            if rest.len() != 2 {
-                eprintln!("usage: cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>");
-                std::process::exit(1);
-            }
-            xtask::gates::bump_upstream(&RealRunner, &rest[0], &rest[1])?;
         }
         "--help" | "-h" | "help" => {
             print_help();
@@ -58,10 +47,8 @@ USAGE:
     cargo xtask sync-topcoat-ui [--dry-run] [--prune]
     cargo xtask verify-topcoat-ui
     cargo xtask fmt
-    cargo xtask verify-locks
     cargo xtask external-check
     cargo xtask check
-    cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>
 
 COMMANDS:
     sync-topcoat-ui    Copy the components in `xtask::VENDORED_PRIMITIVES`
@@ -71,23 +58,17 @@ COMMANDS:
                        verbatim, under a SYNC header recording the registry
                        version and the source's sha256 content hash. Never
                        touches composites/. No sibling clone required — the
-                       registry comes from the same git source Cargo
+                       registry comes from the same registry source Cargo
                        compiles against.
     verify-topcoat-ui  Guard: fail when any vendored primitive (or mod.rs)
                        has drifted from the registry. The xtask test suite
                        runs this on every `cargo test`.
     fmt                The formatting subset: nightly `cargo fmt --check`,
                        detached-bench and quickstart `cargo fmt --check`, and
-                       the locked-rev `topcoat fmt` plus diff guard.
+                       the pinned-CLI `topcoat fmt` plus diff guard.
                        Check-half only: it never installs the topcoat CLI,
-                       and fails with the locked-rev install command when the
-                       CLI is missing or the wrong rev.
-    verify-locks       Guard: fail when `Cargo.lock` and
-                       `benchmarks/tablo/Cargo.lock` pin different `topcoat`
-                       or `toasty` revs, or when the `rev =` manifest pins of
-                       the workspace, the bench, and the quickstart
-                       disagree. The xtask test suite runs this on every
-                       `cargo test`.
+                       and fails with the pinned install command when the
+                       CLI is missing or the wrong version.
     external-check     Copy examples/quickstart out of the repository (the
                        system temp dir), point its `tablo` dependencies at
                        absolute paths, and run its tests: the app must build,
@@ -96,14 +77,8 @@ COMMANDS:
                        anything that resolves only inside this repository.
     check              The gate set as a local fail-fast convenience runner:
                        the eight CONTRIBUTING gates in order, then docs,
-                       detached-bench fmt, the external build, and the
-                       lockstep check. CI keeps one subcommand per parallel
-                       job instead.
-    bump-upstream      Rewrite the `rev =` pins for both upstream repos in
-                       every pinned manifest (workspace, bench,
-                       quickstart), re-resolve both lockfiles, prove the
-                       revs resolve from the local git cache
-                       (`cargo check --offline`), and assert lockstep.
+                       detached-bench fmt, and the external build. CI keeps
+                       one subcommand per parallel job instead.
 
 OPTIONS:
     --dry-run          Print what would be copied without writing

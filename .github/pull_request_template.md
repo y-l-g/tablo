@@ -10,7 +10,7 @@ Name anything not run and why. The full set is in `CONTRIBUTING.md`.
 ## Checklist
 
 - [ ] The gate set for the touched area passes.
-- [ ] If a lockfile changed, `benchmarks/tablo/Cargo.lock` is synced in this commit and the `topcoat`/`toasty` revs match.
-- [ ] If `view!` markup changed, `topcoat fmt` ran with the CLI built from the locked rev.
+- [ ] If a lockfile changed, `benchmarks/tablo/Cargo.lock` is synced in this commit.
+- [ ] If `view!` markup changed, `topcoat fmt` ran with the pinned `topcoat-cli 0.10.0`.
 - [ ] If a doc claim changed, it was verified against the code.
 - [ ] Every addition proves its value: no duplicated source, no history or narrative.

@@ -14,8 +14,8 @@ description = "The smallest complete Tablo app, built as a dependent outside the
 
 [dependencies]
 tablo = { path = "../../crates/tablo", features = ["sqlite"] }
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "3e7bb43948a61dadcdba5a79d99c0f3a75de1abc", default-features = false, features = ["view", "router", "discover", "serve", "tailwind", "font", "font-fontsource", "asset"] }
-toasty = { git = "https://github.com/tokio-rs/toasty", rev = "f9272526a36aeb9bdbe9df57e0613a84e8ab9790", default-features = false, features = ["jiff"] }
+topcoat = { version = "0.10", default-features = false, features = ["view", "router", "discover", "serve", "tailwind", "font", "font-fontsource", "asset"] }
+toasty = { version = "0.11", default-features = false, features = ["jiff"] }
 jiff = "0.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"

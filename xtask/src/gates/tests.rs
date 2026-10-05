@@ -1,4 +1,4 @@
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 
 use super::*;
 
@@ -50,179 +50,6 @@ impl Runner for FakeRunner {
     }
 }
 
-fn metadata_fixture() -> serde_json::Value {
-    serde_json::from_str(
-        r#"{"packages": [
-                {"name": "topcoat", "source": "git+https://github.com/tokio-rs/topcoat?rev=aaaa#aaaa"},
-                {"name": "toasty", "source": "git+https://github.com/tokio-rs/toasty?rev=bbbb#bbbb"},
-                {"name": "serde", "source": "registry+https://github.com/rust-lang/crates.io-index"},
-                {"name": "tablo-core"}
-            ]}"#,
-    )
-    .expect("fixture parses")
-}
-
-#[test]
-fn pins_parse_git_shas_from_metadata() {
-    let pins = pins_from_metadata(&metadata_fixture());
-    assert_eq!(
-        pins,
-        BTreeMap::from([
-            ("topcoat".to_string(), "aaaa".to_string()),
-            ("toasty".to_string(), "bbbb".to_string()),
-        ])
-    );
-}
-
-#[test]
-fn lockstep_passes_when_revs_match() {
-    let pins = pins_from_metadata(&metadata_fixture());
-    check_lockstep(&pins, &pins).expect("identical pins are in sync");
-}
-
-#[test]
-fn lockstep_names_the_drifted_crate() {
-    let workspace = pins_from_metadata(&metadata_fixture());
-    let mut bench = workspace.clone();
-    bench.insert("toasty".to_string(), "cccc".to_string());
-    let error = check_lockstep(&workspace, &bench).expect_err("drift must fail");
-    assert!(
-        error
-            .to_string()
-            .contains("toasty rev drift: workspace=bbbb bench=cccc"),
-        "unexpected message: {error}"
-    );
-}
-
-#[test]
-fn lockstep_reports_a_missing_pin() {
-    let workspace = pins_from_metadata(&metadata_fixture());
-    let bench = BTreeMap::from([("topcoat".to_string(), "aaaa".to_string())]);
-    let error = check_lockstep(&workspace, &bench).expect_err("a missing pin must fail");
-    assert!(
-        error.to_string().contains("toasty rev missing"),
-        "unexpected message: {error}"
-    );
-}
-
-fn workspace_manifest_fixture() -> &'static str {
-    r#"topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaa" }
-toasty = { git = "https://github.com/tokio-rs/toasty", rev = "bbbb" }
-toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "bbbb" }
-topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaa" }
-topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaa" }
-uuid = "1.23""#
-}
-
-fn bench_manifest_fixture() -> &'static str {
-    r#"topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaa", default-features = false }
-toasty = { git = "https://github.com/tokio-rs/toasty", rev = "bbbb", default-features = false }
-http = "1""#
-}
-
-#[test]
-fn manifest_pins_group_companion_crates_by_repo() {
-    let pins = manifest_revs(workspace_manifest_fixture());
-    assert_eq!(
-        pins,
-        BTreeMap::from([
-            ("topcoat".to_string(), BTreeSet::from(["aaaa".to_string()])),
-            ("toasty".to_string(), BTreeSet::from(["bbbb".to_string()])),
-        ])
-    );
-}
-
-#[test]
-fn manifest_lockstep_passes_when_revs_match() {
-    let workspace = manifest_revs(workspace_manifest_fixture());
-    let bench = manifest_revs(bench_manifest_fixture());
-    check_manifest_lockstep(&workspace, &bench).expect("identical pins are in sync");
-}
-
-#[test]
-fn manifest_lockstep_names_the_drifted_repo() {
-    let workspace = manifest_revs(workspace_manifest_fixture());
-    let mut bench = manifest_revs(bench_manifest_fixture());
-    bench.insert("toasty".to_string(), BTreeSet::from(["cccc".to_string()]));
-    let error = check_manifest_lockstep(&workspace, &bench).expect_err("drift must fail");
-    assert!(
-        error
-            .to_string()
-            .contains("toasty manifest rev drift: workspace=bbbb bench=cccc"),
-        "unexpected message: {error}"
-    );
-}
-
-#[test]
-fn manifest_lockstep_fails_when_a_manifest_disagrees_with_itself() {
-    let mut workspace = manifest_revs(workspace_manifest_fixture());
-    workspace
-        .get_mut("topcoat")
-        .expect("topcoat pins")
-        .insert("zzzz".to_string());
-    let bench = manifest_revs(bench_manifest_fixture());
-    let error = check_manifest_lockstep(&workspace, &bench).expect_err("self-drift must fail");
-    assert!(
-        error
-            .to_string()
-            .contains("topcoat manifest rev drift: workspace=aaaa, zzzz bench=aaaa"),
-        "unexpected message: {error}"
-    );
-}
-
-#[test]
-fn manifest_lockstep_reports_a_missing_pin() {
-    let workspace = manifest_revs(workspace_manifest_fixture());
-    let bench = BTreeMap::from([("topcoat".to_string(), BTreeSet::from(["aaaa".to_string()]))]);
-    let error = check_manifest_lockstep(&workspace, &bench).expect_err("a missing pin must fail");
-    assert!(
-        error.to_string().contains("toasty manifest rev missing"),
-        "unexpected message: {error}"
-    );
-}
-
-#[test]
-fn set_upstream_revs_rewrites_every_pin_of_both_repos() {
-    let manifest = r#"topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
-toasty = { git = "https://github.com/tokio-rs/toasty", rev = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
-toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
-topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
-uuid = "1.23""#;
-    let updated = set_upstream_revs(
-        manifest,
-        "cccccccccccccccccccccccccccccccccccccccc",
-        "dddddddddddddddddddddddddddddddddddddddd",
-    )
-    .expect("pins rewrite");
-    assert_eq!(
-        updated
-            .matches("cccccccccccccccccccccccccccccccccccccccc")
-            .count(),
-        2
-    );
-    assert_eq!(
-        updated
-            .matches("dddddddddddddddddddddddddddddddddddddddd")
-            .count(),
-        2
-    );
-    assert!(
-        updated.contains("uuid = \"1.23\""),
-        "unrelated lines survive"
-    );
-    assert!(!updated.contains('a'.to_string().repeat(40).as_str()));
-}
-
-#[test]
-fn set_upstream_revs_rejects_a_manifest_without_pins() {
-    let error = set_upstream_revs("uuid = \"1.23\"\n", "a", "b").expect_err("no pins must fail");
-    assert!(
-        error
-            .to_string()
-            .contains("expected topcoat and toasty git pins")
-    );
-}
-
 #[test]
 fn fmt_runs_nightly_detached_and_topcoat_checks() {
     let run = FakeRunner::ok();
@@ -259,15 +86,9 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
 }
 
 #[test]
-fn check_runs_gates_in_order_then_docs_fmt_and_lockstep() {
+fn check_runs_gates_in_order_then_docs_and_fmt() {
     let run = FakeRunner::ok();
-    let verified = Cell::new(false);
-    check_with(&run, &|| Ok(PathBuf::from("/staged/Cargo.toml")), &|| {
-        verified.set(true);
-        Ok(())
-    })
-    .expect("fake commands succeed");
-    assert!(verified.get(), "lockstep closes the run");
+    check_with(&run, &|| Ok(PathBuf::from("/staged/Cargo.toml"))).expect("fake commands succeed");
     let progs: Vec<String> = run
         .commands()
         .iter()
@@ -285,25 +106,9 @@ fn check_runs_gates_in_order_then_docs_fmt_and_lockstep() {
 #[test]
 fn check_stops_at_the_first_failure() {
     let run = FakeRunner::failing_on(1);
-    check_with(
-        &run,
-        &|| panic!("staging must not run after a gate fails"),
-        &|| panic!("lockstep must not run after a gate fails"),
-    )
-    .expect_err("a failing gate must fail the run");
+    check_with(&run, &|| panic!("staging must not run after a gate fails"))
+        .expect_err("a failing gate must fail the run");
     assert_eq!(run.commands().len(), 2, "fail-fast stops after the failure");
-}
-
-#[test]
-fn bump_rejects_a_non_sha_rev_before_touching_anything() {
-    let run = FakeRunner::ok();
-    let error =
-        bump_upstream(&run, "not-a-sha", "also-not-a-sha").expect_err("a non-sha rev must fail");
-    assert!(error.to_string().contains("must be a 40-char hex sha"));
-    assert!(
-        run.commands().is_empty(),
-        "no command runs before validation"
-    );
 }
 
 /// The pins xtask shells out with must stay the ones CI and the docs name.
@@ -352,22 +157,6 @@ fn absolute_crate_paths_refuses_a_manifest_without_crate_paths() {
         error.to_string().contains("names no"),
         "unexpected message: {error}"
     );
-}
-
-#[test]
-fn the_quickstart_manifest_pins_the_workspace_revs() {
-    let root = repo_root();
-    let read = |path: &str| {
-        std::fs::read_to_string(root.join(path)).unwrap_or_else(|error| panic!("{path}: {error}"))
-    };
-    check_manifest_pins(
-        &manifest_revs(&read("Cargo.toml")),
-        &manifest_revs(&read("examples/quickstart/Cargo.toml")),
-        "quickstart",
-    )
-    .expect("the quickstart pins the workspace's upstream revs");
-    absolute_crate_paths(&read("examples/quickstart/Cargo.toml"), &root)
-        .expect("the quickstart names the crates by relative path");
 }
 
 #[test]

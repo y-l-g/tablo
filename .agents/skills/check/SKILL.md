@@ -10,7 +10,7 @@ Run `cargo xtask check`: the gates in
 stop at the first failure. To run one gate by hand, that list is the canonical
 copy (it mirrors `.github/workflows/ci.yml` and
 `.github/workflows/msrv-udeps.yml`); the extra checks outside the eight
-(docs, detached-bench fmt, external, bench-check) are listed there too. `cargo xtask fmt`
+(docs, detached-bench fmt, external) are listed there too. `cargo xtask fmt`
 covers the formatting subset alone.
 
 The asset suites are named rather than globbed, exactly as the CI `assets` job
@@ -21,15 +21,12 @@ sets cannot move under the gate (GH #269).
 
 Rules that catch the recurring failures:
 
-- `topcoat fmt` only agrees with the CLI built from the rev `Cargo.lock` pins.
-  Another CLI's diff is not a fix: install the locked rev (see
+- `topcoat fmt` only agrees with the pinned CLI version (`topcoat-cli 0.10.0`).
+  Another CLI's diff is not a fix: install the pinned CLI (see
   [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-topcoat-fmt-trap)) and run that.
 - `cargo fmt` covers workspace members only; the detached `benchmarks/*`
   workspaces are formatted and linted by manifest path.
-- Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit,
-  with identical `topcoat`/`toasty` revs: bump with
-  `cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>`, prove with
-  `cargo xtask verify-locks`.
+- Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit.
 - Give each worktree its own target directory; a shared `CARGO_TARGET_DIR`
   cross-contaminates.
 - Never pipe when you need the exit code: `| tail` masks it. Read `PIPESTATUS`

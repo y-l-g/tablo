@@ -34,14 +34,14 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 ## The gate set
 
-CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml` and, for
+CI runs eight gates plus four extra checks (mirroring `.github/workflows/ci.yml` and, for
 gates 6 and 8, `.github/workflows/msrv-udeps.yml`).
 The fast path is the xtask runner: `check` runs each command below in order, stopping at the
 first failure.
 
 ```sh
 cargo xtask check   # the eight gates plus the extras
-cargo xtask fmt     # the formatting subset: nightly fmt, detached fmt, locked-rev topcoat fmt
+cargo xtask fmt     # the formatting subset: nightly fmt, detached fmt, pinned topcoat fmt
 ```
 
 The raw commands — the expansion of `cargo xtask check`:
@@ -59,8 +59,8 @@ Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys
 nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
 Gate 8 guards unused dependencies (GH #271).
 
-CI runs five more checks outside the eight, and a change touching what they cover
-has to pass them too (`cargo xtask check` runs all five after the eight):
+CI runs four more checks outside the eight, and a change touching what they cover
+has to pass them too (`cargo xtask check` runs all four after the eight):
 
 - the `docs` job builds rustdoc with
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`, then
@@ -70,20 +70,17 @@ has to pass them too (`cargo xtask check` runs all five after the eight):
   `examples/quickstart`);
 - the `external` job runs `cargo xtask external-check`: the detached
   `examples/quickstart` app must build, serve, and generate a stylesheet with
-  classes only Tablo's own sources write, so workspace-only resolutions fail it;
-- the `bench-check` job verifies that `Cargo.lock` and `benchmarks/tablo/Cargo.lock` pin
-  identical `topcoat` and `toasty` revs and that the workspace, bench, and quickstart
-  manifests' `rev =` pins agree (`cargo xtask verify-locks`).
+  classes only Tablo's own sources write, so workspace-only resolutions fail it.
 
 ### The `topcoat fmt` trap
 
-The `topcoat` CLI on `PATH` is usually not the revision this workspace locks,
-and `topcoat fmt` reflows `view!` markup differently across revisions. CI
-installs the CLI at the locked revision before formatting, so a locally
+The `topcoat` CLI on `PATH` is usually not the release this workspace uses,
+and `topcoat fmt` reflows `view!` markup differently across releases. CI
+installs `topcoat-cli 0.10.0` before formatting, so a locally
 installed CLI of another version proposes a diff CI rejects. Do not hand-fix
 that diff. `cargo xtask fmt` runs the check half only: it never installs the
-CLI, and a missing or wrong-rev CLI fails with the locked-rev install command.
-Install the CLI at the locked rev and run it — the exact command is
+CLI, and a missing or wrong-version CLI fails with the pinned install command.
+Install `topcoat-cli 0.10.0` and run it — the exact command is
 the `Install topcoat CLI` step of the `fmt` job in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
@@ -99,31 +96,19 @@ vendored file has drifted. Components Tablo owns live in
 
 ## Dependency pins
 
-`topcoat` and `toasty` are git dependencies pinned to exact `rev`s in three
-manifests: the workspace's, `benchmarks/tablo`'s, and `examples/quickstart`'s. Never run
-a blanket `cargo update`. Bump them deliberately with one
-command:
+`topcoat` and `toasty` are crates.io dependencies in three
+manifests: the workspace's, `benchmarks/tablo`'s, and `examples/quickstart`'s.
+Renovate groups their bumps. A bump touches all three manifests and both
+lockfiles (the quickstart commits none) in one commit:
 
 ```sh
-cargo xtask bump-upstream <TOPCOAT_REV> <TOASTY_REV>
-```
-
-It rewrites the `rev =` pins for both upstream repos in all three manifests
-(`toasty-core` and `topcoat-ui*` track their repo's rev), re-resolves both
-lockfiles (the quickstart commits none), proves the new revs resolve from the local git cache
-(`cargo check --offline`), and asserts lockstep. The expansion:
-
-```sh
-# new revs into Cargo.toml, benchmarks/tablo/Cargo.toml and
-# examples/quickstart/Cargo.toml, then:
 cargo update -p topcoat -p toasty
 cargo update --manifest-path benchmarks/tablo/Cargo.toml -p topcoat -p toasty
-cargo check --offline
-cargo check --offline --manifest-path benchmarks/tablo/Cargo.toml
-cargo xtask verify-locks
 ```
 
-Drift means the benchmark measures different upstream code than the workspace
+Never run a blanket `cargo update`.
+
+Version drift means the benchmark measures different upstream code than the workspace
 builds.
 
 ## Commits

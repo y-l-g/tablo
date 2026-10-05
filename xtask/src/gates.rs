@@ -1,23 +1,11 @@
-//! Gate orchestration: `fmt`, `bump-upstream`, `verify-locks`,
-//! `external-check`, `check`.
+//! Gate orchestration: `fmt`, `external-check`, `check`.
 //!
 //! `check` is a local fail-fast convenience runner only, never a CI job.
 
 use std::{
-    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     process::Command,
 };
-
-/// Crates pinned in lockstep across the workspace and bench lockfiles.
-pub const LOCKSTEP_CRATES: &[&str] = &["topcoat", "toasty"];
-
-/// Upstream repos pinned by `rev =` in every [`PINNED_MANIFESTS`] entry, in `set_upstream_revs`'
-/// rev-argument order.
-pub const UPSTREAM_REPOS: &[(&str, &str)] = &[
-    ("topcoat", "github.com/tokio-rs/topcoat"),
-    ("toasty", "github.com/tokio-rs/toasty"),
-];
 
 /// Dated nightly carrying the rustfmt the workspace check enforces.
 pub const NIGHTLY_FMT: &str = "nightly-2026-08-24";
@@ -34,14 +22,6 @@ pub const DETACHED_BENCHES: &[&str] = &[
 
 /// The detached app `external-check` builds from outside the repository.
 pub const QUICKSTART: &str = "examples/quickstart";
-
-/// Every manifest carrying `rev =` upstream pins, which `bump-upstream`
-/// rewrites together.
-pub const PINNED_MANIFESTS: &[&str] = &[
-    "Cargo.toml",
-    "benchmarks/tablo/Cargo.toml",
-    "examples/quickstart/Cargo.toml",
-];
 
 /// JS asset suites, named rather than globbed so a rename fails loudly.
 pub const ASSET_SUITES: &[&str] = &[
@@ -128,314 +108,31 @@ pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Where the locked-rev CLI install the `topcoat fmt` check needs lives.
-const TOPCOAT_INSTALL: &str = "REV=$(grep -A 2 '^name = \"topcoat\"$' Cargo.lock | grep -o '#[0-9a-f]\\{40\\}' | head -1 | cut -c2-) && cargo install --git https://github.com/tokio-rs/topcoat --rev \"$REV\" topcoat-cli --locked --force";
+/// Where the pinned CLI install the `topcoat fmt` check needs lives.
+const TOPCOAT_INSTALL: &str = "cargo install topcoat-cli --version 0.10.0 --locked --force";
 
-/// The locked-rev `topcoat fmt` check plus diff guard (CONTRIBUTING gate 4).
+/// The pinned-CLI `topcoat fmt` check plus diff guard (CONTRIBUTING gate 4).
 pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run("topcoat", &["fmt"], Some(root), &[])
         .map_err(|error| {
             anyhow::anyhow!(
-                "{error}\n`topcoat fmt` needs the CLI built from the locked rev: {TOPCOAT_INSTALL}"
+                "{error}\n`topcoat fmt` needs the CLI built from the pinned version: {TOPCOAT_INSTALL}"
             )
         })?;
     run.run("git", &["diff", "--exit-code"], Some(root), &[])
         .map_err(|error| {
             anyhow::anyhow!(
-                "{error}\nA diff that only reflows `view!` markup means the CLI is the wrong rev, not a hand-fix: {TOPCOAT_INSTALL}"
+                "{error}\nA diff that only reflows `view!` markup means the CLI is the wrong version, not a hand-fix: {TOPCOAT_INSTALL}"
             )
         })
 }
 
-/// The formatting subset: nightly fmt, detached-bench fmt, locked-rev topcoat fmt.
+/// The formatting subset: nightly fmt, detached-bench fmt, pinned topcoat fmt.
 pub fn fmt_check(run: &dyn Runner) -> anyhow::Result<()> {
     let root = repo_root();
     nightly_fmt(run, &root)?;
     detached_fmt(run, &root)?;
     topcoat_fmt(run, &root)
-}
-
-fn git_pin(source: &str) -> Option<&str> {
-    source
-        .rsplit_once('#')
-        .map(|(_, sha)| sha)
-        .filter(|sha| !sha.is_empty())
-}
-
-/// Parses the lockstep pins from one `cargo metadata` document.
-pub fn pins_from_metadata(metadata: &serde_json::Value) -> BTreeMap<String, String> {
-    let mut pins = BTreeMap::new();
-    for package in metadata["packages"].as_array().into_iter().flatten() {
-        let name = package["name"].as_str().unwrap_or("");
-        if !LOCKSTEP_CRATES.contains(&name) {
-            continue;
-        }
-        if let Some(sha) = package["source"].as_str().and_then(git_pin) {
-            pins.insert(name.to_string(), sha.to_string());
-        }
-    }
-    pins
-}
-
-/// Fails unless every lockstep crate pins the same rev in both lockfiles.
-pub fn check_lockstep(
-    workspace: &BTreeMap<String, String>,
-    bench: &BTreeMap<String, String>,
-) -> anyhow::Result<()> {
-    let mut drift = Vec::new();
-    for name in LOCKSTEP_CRATES {
-        match (workspace.get(*name), bench.get(*name)) {
-            (Some(workspace_rev), Some(bench_rev)) if workspace_rev == bench_rev => {
-                println!("{name}: {workspace_rev} (in sync)");
-            }
-            (Some(workspace_rev), Some(bench_rev)) => drift.push(format!(
-                "{name} rev drift: workspace={workspace_rev} bench={bench_rev}"
-            )),
-            _ => drift.push(format!(
-                "{name} rev missing: workspace={} bench={}",
-                workspace.get(*name).map_or("none", String::as_str),
-                bench.get(*name).map_or("none", String::as_str),
-            )),
-        }
-    }
-    if drift.is_empty() {
-        Ok(())
-    } else {
-        anyhow::bail!(
-            "lockstep pin drift — bump both manifests in one commit:\n{}",
-            drift.join("\n")
-        )
-    }
-}
-
-/// Fails unless both manifests pin the same single rev per upstream repo.
-pub fn check_manifest_lockstep(
-    workspace: &BTreeMap<String, BTreeSet<String>>,
-    bench: &BTreeMap<String, BTreeSet<String>>,
-) -> anyhow::Result<()> {
-    check_manifest_pins(workspace, bench, "bench")
-}
-
-/// [`check_manifest_lockstep`] against any manifest pinning the upstream repos, where `label` names
-/// the report.
-pub fn check_manifest_pins(
-    workspace: &BTreeMap<String, BTreeSet<String>>,
-    other: &BTreeMap<String, BTreeSet<String>>,
-    label: &str,
-) -> anyhow::Result<()> {
-    let show = |revs: Option<&BTreeSet<String>>| {
-        revs.map_or("none".to_string(), |set| {
-            set.iter()
-                .map(String::as_str)
-                .collect::<Vec<_>>()
-                .join(", ")
-        })
-    };
-    let mut drift = Vec::new();
-    for (name, _) in UPSTREAM_REPOS {
-        match (workspace.get(*name), other.get(*name)) {
-            (Some(workspace_revs), Some(other_revs))
-                if workspace_revs == other_revs && workspace_revs.len() == 1 =>
-            {
-                println!(
-                    "{name} manifest pins: {} (in sync)",
-                    show(Some(workspace_revs))
-                );
-            }
-            (Some(_), Some(_)) => drift.push(format!(
-                "{name} manifest rev drift: workspace={} {label}={}",
-                show(workspace.get(*name)),
-                show(other.get(*name)),
-            )),
-            _ => drift.push(format!(
-                "{name} manifest rev missing: workspace={} {label}={}",
-                show(workspace.get(*name)),
-                show(other.get(*name)),
-            )),
-        }
-    }
-    if drift.is_empty() {
-        Ok(())
-    } else {
-        anyhow::bail!(
-            "manifest pin drift — move every pin in one commit with `bump-upstream`:\n{}",
-            drift.join("\n")
-        )
-    }
-}
-
-/// Runs `cargo metadata --locked` for one manifest, so a stale tree fails instead of healing the
-/// lockfile.
-fn fetch_metadata(manifest: &Path) -> anyhow::Result<serde_json::Value> {
-    let output = Command::new("cargo")
-        .args([
-            "metadata",
-            "--format-version",
-            "1",
-            "--locked",
-            "--manifest-path",
-        ])
-        .arg(manifest)
-        .output()
-        .map_err(|error| anyhow::anyhow!("failed to run cargo metadata: {error}"))?;
-    if !output.status.success() {
-        anyhow::bail!(
-            "cargo metadata failed for {}: {}",
-            manifest.display(),
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-    }
-    serde_json::from_slice(&output.stdout)
-        .map_err(|error| anyhow::anyhow!("could not parse cargo metadata: {error}"))
-}
-
-/// Fails unless the workspace, bench, and quickstart manifests and both lockfiles pin the same
-/// upstream revs.
-pub fn verify_locks() -> anyhow::Result<()> {
-    let root = repo_root();
-    let workspace_manifest = std::fs::read_to_string(root.join("Cargo.toml"))
-        .map_err(|error| anyhow::anyhow!("cannot read Cargo.toml: {error}"))?;
-    let bench_manifest = std::fs::read_to_string(root.join("benchmarks/tablo/Cargo.toml"))
-        .map_err(|error| anyhow::anyhow!("cannot read benchmarks/tablo/Cargo.toml: {error}"))?;
-    check_manifest_lockstep(
-        &manifest_revs(&workspace_manifest),
-        &manifest_revs(&bench_manifest),
-    )?;
-    let quickstart_manifest = std::fs::read_to_string(root.join(QUICKSTART).join("Cargo.toml"))
-        .map_err(|error| anyhow::anyhow!("cannot read {QUICKSTART}/Cargo.toml: {error}"))?;
-    check_manifest_pins(
-        &manifest_revs(&workspace_manifest),
-        &manifest_revs(&quickstart_manifest),
-        "quickstart",
-    )?;
-    let workspace_meta = fetch_metadata(&root.join("Cargo.toml"))?;
-    let bench_meta = fetch_metadata(&root.join("benchmarks/tablo/Cargo.toml"))?;
-    check_lockstep(
-        &pins_from_metadata(&workspace_meta),
-        &pins_from_metadata(&bench_meta),
-    )
-}
-
-fn is_rev(rev: &str) -> bool {
-    rev.len() == 40 && rev.bytes().all(|byte| byte.is_ascii_hexdigit())
-}
-
-fn rev_span(line: &str) -> Option<(usize, usize)> {
-    let start = line.find("rev = \"")? + "rev = \"".len();
-    let end = line[start..].find('"')? + start;
-    Some((start, end))
-}
-
-fn read_rev(line: &str) -> Option<&str> {
-    let (start, end) = rev_span(line)?;
-    Some(&line[start..end])
-}
-
-fn replace_rev(line: &str, rev: &str) -> Option<String> {
-    let (start, end) = rev_span(line)?;
-    Some(format!("{}{rev}{}", &line[..start], &line[end..]))
-}
-
-/// Collects the `rev =` pins in one manifest, grouped by repo short name.
-pub fn manifest_revs(manifest: &str) -> BTreeMap<String, BTreeSet<String>> {
-    let mut pins: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for line in manifest.split('\n') {
-        let Some((name, _)) = UPSTREAM_REPOS.iter().find(|(_, url)| line.contains(url)) else {
-            continue;
-        };
-        if let Some(rev) = read_rev(line) {
-            pins.entry(name.to_string())
-                .or_default()
-                .insert(rev.to_string());
-        }
-    }
-    pins
-}
-
-/// Rewrites the `rev =` pins for both upstream repos in one manifest.
-pub fn set_upstream_revs(
-    manifest: &str,
-    topcoat_rev: &str,
-    toasty_rev: &str,
-) -> anyhow::Result<String> {
-    let revs = [topcoat_rev, toasty_rev];
-    let mut hits = [0, 0];
-    let mut out = Vec::new();
-    for line in manifest.split('\n') {
-        let mut rewritten = None;
-        for (index, (_, url)) in UPSTREAM_REPOS.iter().enumerate() {
-            if !line.contains(url) {
-                continue;
-            }
-            if let Some(new_line) = replace_rev(line, revs[index]) {
-                hits[index] += 1;
-                rewritten = Some(new_line);
-            }
-            break;
-        }
-        out.push(rewritten.unwrap_or_else(|| line.to_string()));
-    }
-    if hits[0] == 0 || hits[1] == 0 {
-        anyhow::bail!(
-            "expected topcoat and toasty git pins, found {} and {}",
-            hits[0],
-            hits[1]
-        );
-    }
-    Ok(out.join("\n"))
-}
-
-/// Bump both upstream revs in every pinned manifest, re-resolve both lockfiles,
-/// prove the revs resolve from the local git cache, and assert lockstep.
-pub fn bump_upstream(run: &dyn Runner, topcoat_rev: &str, toasty_rev: &str) -> anyhow::Result<()> {
-    for (name, rev) in [("topcoat", topcoat_rev), ("toasty", toasty_rev)] {
-        if !is_rev(rev) {
-            anyhow::bail!("{name} rev must be a 40-char hex sha, got `{rev}`");
-        }
-    }
-    let root = repo_root();
-    for manifest in PINNED_MANIFESTS {
-        let path = root.join(manifest);
-        let text = std::fs::read_to_string(&path)
-            .map_err(|error| anyhow::anyhow!("cannot read {}: {error}", path.display()))?;
-        let updated = set_upstream_revs(&text, topcoat_rev, toasty_rev)?;
-        std::fs::write(&path, updated)
-            .map_err(|error| anyhow::anyhow!("cannot write {}: {error}", path.display()))?;
-        println!("updated {manifest}");
-    }
-    run.run(
-        "cargo",
-        &["update", "-p", "topcoat", "-p", "toasty"],
-        Some(&root),
-        &[],
-    )?;
-    run.run(
-        "cargo",
-        &[
-            "update",
-            "--manifest-path",
-            "benchmarks/tablo/Cargo.toml",
-            "-p",
-            "topcoat",
-            "-p",
-            "toasty",
-        ],
-        Some(&root),
-        &[],
-    )?;
-    run.run("cargo", &["check", "--offline"], Some(&root), &[])?;
-    run.run(
-        "cargo",
-        &[
-            "check",
-            "--offline",
-            "--manifest-path",
-            "benchmarks/tablo/Cargo.toml",
-        ],
-        Some(&root),
-        &[],
-    )?;
-    verify_locks()
 }
 
 /// The directory `external-check` stages the quickstart in: outside the
@@ -517,17 +214,12 @@ pub fn external_check(run: &dyn Runner, root: &Path, manifest: &Path) -> anyhow:
 }
 
 /// The gate set as a local fail-fast convenience runner: the eight CONTRIBUTING
-/// gates in order, then docs, detached-bench fmt, the external build, and the
-/// lockstep check.
+/// gates in order, then docs, detached-bench fmt, and the external build.
 pub fn check(run: &dyn Runner) -> anyhow::Result<()> {
-    check_with(run, &|| stage_quickstart(&repo_root()), &verify_locks)
+    check_with(run, &|| stage_quickstart(&repo_root()))
 }
 
-fn check_with(
-    run: &dyn Runner,
-    stage: &dyn Fn() -> anyhow::Result<PathBuf>,
-    verify: &dyn Fn() -> anyhow::Result<()>,
-) -> anyhow::Result<()> {
+fn check_with(run: &dyn Runner, stage: &dyn Fn() -> anyhow::Result<PathBuf>) -> anyhow::Result<()> {
     let root = repo_root();
     run.run(
         "cargo",
@@ -602,8 +294,7 @@ fn check_with(
     )?;
     run.run("mdbook", &["build", "docs/guide"], Some(&root), &[])?;
     detached_fmt(run, &root)?;
-    external_check(run, &root, &stage()?)?;
-    verify()
+    external_check(run, &root, &stage()?)
 }
 
 #[cfg(test)]
