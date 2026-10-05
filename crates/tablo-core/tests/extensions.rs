@@ -434,25 +434,25 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
     let html = body_string(get(&router, "/admin/tasks").await).await;
     assert!(
         html.contains(&format!(
-            "action=\"/admin/tasks/{}/actions/complete\"",
+            "action=\"/admin/tasks/{}/-/actions/complete\"",
             open.id
         )),
         "an open task offers Complete: {html}"
     );
     assert!(
-        !html.contains(&format!("/admin/tasks/{}/actions/complete", done.id)),
+        !html.contains(&format!("/admin/tasks/{}/-/actions/complete", done.id)),
         "a done task does not: {html}"
     );
     assert!(
-        !html.contains(&format!("/admin/tasks/{}/actions/explode", open.id)),
+        !html.contains(&format!("/admin/tasks/{}/-/actions/explode", open.id)),
         "a bulk-only action renders no row button: {html}"
     );
     assert!(
-        html.contains("formaction=\"/admin/tasks/actions/complete\""),
+        html.contains("formaction=\"/admin/tasks/-/actions/complete\""),
         "the bulk bar offers Complete for the selection: {html}"
     );
     assert!(
-        html.contains("formaction=\"/admin/tasks/actions/explode\""),
+        html.contains("formaction=\"/admin/tasks/-/actions/explode\""),
         "and the bulk-only action: {html}"
     );
     // The resource allows no delete, so the bulk bar carries the actions
@@ -461,7 +461,7 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
     assert!(!html.contains("data-bulk-confirm-trigger"), "{html}");
     assert!(!html.contains("data-bulk-confirm-dialog"), "{html}");
     assert!(
-        html.contains("action=\"/admin/tasks/actions/complete\""),
+        html.contains("action=\"/admin/tasks/-/actions/complete\""),
         "the bulk form posts to the first action: {html}"
     );
     // Both rows take a bulk action (`explode` runs on any task), so both
@@ -490,7 +490,7 @@ async fn a_row_action_runs_in_the_transaction_and_reaches_after_commit() {
 
     let response = post_fields(
         &router,
-        &format!("/admin/tasks/{}/actions/complete", task.id),
+        &format!("/admin/tasks/{}/-/actions/complete", task.id),
         &[],
     )
     .await;
@@ -516,7 +516,7 @@ async fn a_row_the_action_refuses_is_a_403_and_writes_nothing() {
 
     let response = post_fields(
         &router,
-        &format!("/admin/tasks/{}/actions/complete", task.id),
+        &format!("/admin/tasks/{}/-/actions/complete", task.id),
         &[],
     )
     .await;
@@ -532,7 +532,7 @@ async fn an_unknown_or_misplaced_action_is_a_404() {
 
     let response = post_fields(
         &router,
-        &format!("/admin/tasks/{}/actions/nope", task.id),
+        &format!("/admin/tasks/{}/-/actions/nope", task.id),
         &[],
     )
     .await;
@@ -541,7 +541,7 @@ async fn an_unknown_or_misplaced_action_is_a_404() {
     // `explode` is bulk-only, so its row route does not exist.
     let response = post_fields(
         &router,
-        &format!("/admin/tasks/{}/actions/explode", task.id),
+        &format!("/admin/tasks/{}/-/actions/explode", task.id),
         &[],
     )
     .await;
@@ -556,7 +556,7 @@ async fn a_bulk_action_runs_once_for_the_whole_selection() {
     let router = panel_router::<TaskResource>(db.clone());
 
     let ids = format!(",{},{},", first.id, second.id);
-    let response = post_fields(&router, "/admin/tasks/actions/complete", &[("ids", &ids)]).await;
+    let response = post_fields(&router, "/admin/tasks/-/actions/complete", &[("ids", &ids)]).await;
     assert_eq!(response.status(), 303);
     assert!(self::task(&db, first.id).await.done);
     assert!(self::task(&db, second.id).await.done);
@@ -574,7 +574,7 @@ async fn a_selection_holding_a_refused_record_writes_nothing() {
     let router = panel_router::<TaskResource>(db.clone());
 
     let ids = format!("{},{}", open.id, done.id);
-    let response = post_fields(&router, "/admin/tasks/actions/complete", &[("ids", &ids)]).await;
+    let response = post_fields(&router, "/admin/tasks/-/actions/complete", &[("ids", &ids)]).await;
     assert_eq!(
         response.status(),
         303,
@@ -599,7 +599,7 @@ async fn a_failing_action_rolls_back_what_it_wrote() {
     let router = panel_router::<TaskResource>(db.clone());
 
     let ids = task.id.to_string();
-    let response = post_fields(&router, "/admin/tasks/actions/explode", &[("ids", &ids)]).await;
+    let response = post_fields(&router, "/admin/tasks/-/actions/explode", &[("ids", &ids)]).await;
     assert!(
         response.status().is_server_error(),
         "a failed action is an error, got {}",
@@ -619,7 +619,7 @@ async fn a_bulk_action_without_a_selection_writes_nothing() {
     seed(&db, "Alpha", false).await;
     let router = panel_router::<TaskResource>(db.clone());
 
-    let response = post_fields(&router, "/admin/tasks/actions/complete", &[("ids", "")]).await;
+    let response = post_fields(&router, "/admin/tasks/-/actions/complete", &[("ids", "")]).await;
     assert_eq!(response.status(), 303);
     assert!(
         flash(&response).contains("Select at least one row first"),

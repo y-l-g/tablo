@@ -32,8 +32,8 @@ pub(crate) use self::{
     render::TABLE_CARD_CLASS,
     state::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
-        DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM, RETURN_PARAM, TableSignals,
-        create_page_url, query_of, request_query, with_return,
+        DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
+        RETURN_PARAM, TableSignals, create_page_url, query_of, request_query, with_return,
     },
 };
 

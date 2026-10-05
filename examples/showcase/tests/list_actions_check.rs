@@ -91,17 +91,17 @@ async fn a_draft_post_is_published_from_its_row() {
         .find(|p| p.status == "published")
         .expect("the first page holds a published post");
 
-    let publish = format!("/admin/posts/{}/actions/publish", draft.id);
+    let publish = format!("/admin/posts/{}/-/actions/publish", draft.id);
     assert!(
         html.contains(&format!("action=\"{publish}\"")),
         "a draft's row offers Publish: {html}"
     );
     assert!(
-        !html.contains(&format!("/admin/posts/{}/actions/publish", published.id)),
+        !html.contains(&format!("/admin/posts/{}/-/actions/publish", published.id)),
         "a published post's row does not: {html}"
     );
     assert!(
-        html.contains("formaction=\"/admin/posts/actions/publish\""),
+        html.contains("formaction=\"/admin/posts/-/actions/publish\""),
         "the bulk bar offers Publish for the selection: {html}"
     );
 

@@ -33,18 +33,18 @@ const WRITE_ACTION: &str = "run the action";
 /// Which records a custom action POST names.
 #[derive(Clone, Copy)]
 enum Target {
-    /// The one record in the URL: `{list}/{key}/actions/{name}`.
+    /// The one record in the URL: `{list}/{key}/-/actions/{name}`.
     Row,
-    /// The `ids` the bulk form carried: `{list}/actions/{name}`.
+    /// The `ids` the bulk form carried: `{list}/-/actions/{name}`.
     Bulk,
 }
 
-/// A row's custom action POST: `{list}/{key}/actions/{name}`.
+/// A row's custom action POST: `{list}/{key}/-/actions/{name}`.
 pub(crate) fn resource_row_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     run_action::<R>(cx, body, Target::Row)
 }
 
-/// The bulk bar's custom action POST: `{list}/actions/{name}`, with the
+/// The bulk bar's custom action POST: `{list}/-/actions/{name}`, with the
 /// selection in the `ids` field.
 pub(crate) fn resource_bulk_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     run_action::<R>(cx, body, Target::Bulk)
