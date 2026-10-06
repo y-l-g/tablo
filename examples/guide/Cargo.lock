@@ -3389,9 +3389,9 @@ dependencies = [
 
 [[package]]
 name = "tablo"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b143d2239d008c5efa6497b01a0a48bcf2e917d4847b16f67635a0cadbf5c96"
+checksum = "0eb53c7e78248854442261065e8e2942837a7212368d5fc09416169e72ba580c"
 dependencies = [
  "tablo-core",
  "tablo-test",
@@ -3402,18 +3402,18 @@ dependencies = [
 
 [[package]]
 name = "tablo-build"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8705512e0ec0f765385e4a1af0b40dc8b47873f0041559dc0af0476a82256db"
+checksum = "c094828f19edeb48436dee3a00a1a922990708ca1a29d54451c1f12a5cbe36a5"
 dependencies = [
  "topcoat",
 ]
 
 [[package]]
 name = "tablo-core"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcd2606887697709846f1f8bacd1a531e6cdd6c2afbd735197236e101b84fb3a"
+checksum = "e96161260291f3d219d460f4fbe20a31caa0b8ccaaa20146472e167e2ce9c5d3"
 dependencies = [
  "argon2",
  "bytes",
@@ -3440,9 +3440,9 @@ dependencies = [
 
 [[package]]
 name = "tablo-macros"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df0c9fcc4726cd1044dc5edccb5b84fafff677d957eb64da50044f4e1ddf6a9"
+checksum = "13f4fb360c6c08b5544e7320c9a78cd3e1cb279d494afdd5e64249ab41c9df80"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -3452,9 +3452,9 @@ dependencies = [
 
 [[package]]
 name = "tablo-test"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98b4e4cafe786404652dca397d6ba5e1b2304de222685b3773b73f5d19eafe55"
+checksum = "e3a95b28c19dc5f9a3616229767d43858fbac8ae28fc06f7bb4163fff6e50b14"
 dependencies = [
  "form_urlencoded",
  "http",
@@ -3466,9 +3466,9 @@ dependencies = [
 
 [[package]]
 name = "tablo-ui"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14a1285310ea17a16dea295141549ee8269b54f9ff81e85bc6b2336c8b58c8bf"
+checksum = "0d1e5557f2b52776ec2ccfd98e6ef00a89e565773fb9dbe124a3d7b3f51a1a8c"
 dependencies = [
  "http",
  "topcoat",
