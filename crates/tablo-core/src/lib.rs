@@ -96,7 +96,6 @@ pub mod notification;
 mod page;
 pub mod panel;
 pub mod policy;
-pub mod protocol;
 mod query_term;
 pub mod resource;
 pub mod schema;

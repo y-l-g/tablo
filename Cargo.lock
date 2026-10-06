@@ -3091,9 +3091,12 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 name = "showcase"
 version = "0.3.0"
 dependencies = [
+ "form_urlencoded",
  "http",
  "http-body-util",
  "jiff",
+ "percent-encoding",
+ "serde_json",
  "tablo-build",
  "tablo-core",
  "tablo-test",
@@ -3461,7 +3464,9 @@ dependencies = [
 name = "tablo-test"
 version = "0.3.0"
 dependencies = [
+ "form_urlencoded",
  "http",
+ "http-body-util",
  "tablo-core",
  "topcoat",
  "uuid",

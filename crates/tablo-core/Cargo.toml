@@ -10,17 +10,6 @@ description = "The core toolkit types for Tablo, a server-rendered admin toolkit
 # app's Tailwind build scans (`DEP_TABLO_CORE_SRC`).
 links = "tablo-core"
 
-# GH #179, see `docs/dev/TESTING.md`: one integration-test binary per crate. Cargo
-# autodiscovers
-# every file under `tests/` as its own target, which is exactly the per-file
-# link cost this consolidation removes — so the module files are declared as one
-# target and autodiscovery stays off.
-autotests = false
-
-[[test]]
-name = "it"
-path = "tests/it.rs"
-
 [dependencies]
 tablo-macros = { path = "../tablo-macros", version = "0.3.0" }
 tablo-ui = { path = "../tablo-ui", version = "0.3.0" }

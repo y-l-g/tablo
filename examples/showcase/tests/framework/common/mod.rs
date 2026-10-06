@@ -1,9 +1,9 @@
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
-pub use tablo_core::protocol::{
+use tablo_core::{Auth, DeclarationError, MountError, Panel, Resource, RouterBuilderPanelExt};
+pub use tablo_test::{
     body_bytes, body_string, cookie_header, field_error, filter_options, input_value,
     multipart_body, response_cookies, rows,
 };
-use tablo_core::{Auth, DeclarationError, MountError, Panel, Resource, RouterBuilderPanelExt};
 use toasty::Db;
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt, response::Response};
 use uuid::Uuid;

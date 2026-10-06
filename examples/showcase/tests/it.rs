@@ -8,6 +8,7 @@
 //! whole target, and there is no per-file binary isolation.
 
 mod common;
+mod framework;
 
 mod admin;
 mod auth_check;

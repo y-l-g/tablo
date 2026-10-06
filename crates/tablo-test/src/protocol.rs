@@ -1,8 +1,5 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data,
 //! and the semantic HTML queries over tables, fields, and filters.
-//!
-//! Re-exported for compatibility by `tablo-test`, whose client drives the
-//! requests these helpers read.
 
 pub mod dom;
 
