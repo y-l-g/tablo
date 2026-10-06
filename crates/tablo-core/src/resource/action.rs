@@ -109,8 +109,11 @@ pub trait Action<R: Resource>: 'static {
     /// to `true`.
     const BULK: bool = true;
 
-    /// Whether the action POST requires the `confirm=1` marker. Defaults
-    /// to `false`.
+    /// Whether the action POST requires the `confirm=1` marker, answered
+    /// 400 without it. Defaults to `false`.
+    ///
+    /// The shipped table renders no confirmation dialog, so an opted-in
+    /// action needs a confirmation form of its own.
     const CONFIRM: bool = false;
 
     /// The button text.
