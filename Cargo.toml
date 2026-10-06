@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "benchmarks/tablo",
     "crates/tablo",
     "crates/tablo-build",
     "crates/tablo-core",
@@ -10,12 +11,7 @@ members = [
     "examples/showcase",
     "xtask",
 ]
-exclude = [
-    "benchmarks/tablo",
-    "benchmarks/axum-maud",
-    "benchmarks/leptos",
-    "examples/guide",
-]
+exclude = ["examples/guide"]
 
 [workspace.package]
 version = "0.3.0"

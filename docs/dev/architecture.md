@@ -20,6 +20,7 @@ and `tablo-ui`, `tablo-test` on `tablo-core` and `topcoat`, and the `tablo` faca
 | `tablo-build` | `topcoat` | `tailwind()`, the app's Tailwind build over Tablo's sources |
 | `examples/showcase` | `tablo-core`, `tablo-ui`, `toasty`, `tablo-build` (build), `tablo-test` (dev) | the runnable admin and the integration tests |
 | `examples/quickstart` | `tablo`, `tablo-build` | the smallest app, detached, built from outside the repo by `cargo xtask external-check` |
+| `benchmarks/tablo` | `tablo-core`, `toasty`, `topcoat` | the list-path benchmark, a workspace member that is never published |
 
 No library crate enables a database driver. Everything reaches the database through Toasty's `Db`
 and `Executor`, and the app picks the driver: a `tablo` feature (`sqlite`, `postgresql`, `mysql`)

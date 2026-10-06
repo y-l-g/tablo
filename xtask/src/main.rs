@@ -72,7 +72,7 @@ COMMANDS:
                        has drifted from the registry. The xtask test suite
                        runs this on every `cargo test`.
     fmt                The formatting subset: nightly `cargo fmt --check`,
-                       detached-bench and quickstart `cargo fmt --check`, and
+                       detached quickstart and guide `cargo fmt --check`, and
                        the pinned-CLI `topcoat fmt` plus diff guard.
                        Check-half only: it never installs the topcoat CLI,
                        and fails with the pinned install command when the
@@ -85,10 +85,9 @@ COMMANDS:
                        anything that resolves only inside this repository.
     check              The fast gates as a local fail-fast convenience runner:
                        the cheap CONTRIBUTING gates cheapest-first. The
-                       detached-bench clippy and the MSRV/udeps gates run only
-                       when the change touches their CI path filters; `--all`
-                       runs them plus docs, the guide suite, and the external
-                       build unconditionally. CI keeps one subcommand per
+                       MSRV/udeps gates run only when the change touches
+                       their CI path filter; `--all` runs them plus docs, the
+                       guide suite, and the external build unconditionally. CI keeps one subcommand per
                        parallel job instead.
 
 OPTIONS:

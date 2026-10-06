@@ -2,11 +2,11 @@
 
 ## Commands
 
-The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): eight commands
+The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): seven commands
 mirroring `.github/workflows/ci.yml` and `.github/workflows/msrv-udeps.yml`. Run it via `cargo xtask check` (fail-fast,
-cheapest-first, skipping the bench/MSRV/udeps gates CI skips for the change),
+cheapest-first, skipping the MSRV/udeps gates CI skips for the change),
 or the ones covering your change; `cargo xtask check --all` before merging. CI also runs the extra
-checks listed there (docs, detached-bench fmt, external).
+checks listed there (docs, detached fmt, guide, external).
 
 ```sh
 cargo xtask check                                # the gate set, fail-fast
@@ -29,10 +29,9 @@ cargo install topcoat-cli --version 0.10.0 --locked --force
 4. Give each worktree its own target directory; a shared `CARGO_TARGET_DIR` cross-contaminates.
 5. Never pipe when you need the exit code: `| tail` masks it. Read `PIPESTATUS` or redirect to
    a file.
-6. `cargo fmt` covers workspace members only; the detached `benchmarks/*` and
-   `examples/quickstart` packages are formatted and linted by manifest path.
-7. Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit. The release PR
-   pins `examples/guide`'s tablo versions and lockfile to the newest release tag.
+6. `cargo fmt` covers workspace members only; the detached `examples/quickstart` and
+   `examples/guide` packages are formatted and linted by manifest path.
+7. The release PR pins `examples/guide`'s tablo versions and lockfile to the newest release tag.
 8. Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with xtask. Owned
    components live in `components/composites/`.
 9. Hunting dead code: prefer `pub` API, always-same-value config, and test-only paths.
@@ -55,8 +54,7 @@ guide is `docs/guide/` (mdBook), decisions are in `docs/adr/`, contributor specs
 
 ## Renovate PRs
 
-Renovate groups `topcoat`/`toasty` bumps; sync `benchmarks/tablo/Cargo.lock`
-in the same commit. Coupled sets (e.g. `argon2` +
+Renovate groups `topcoat`/`toasty` bumps. Coupled sets (e.g. `argon2` +
 `password-hash`) merge as one combined manual bump.
 Two `syn` majors remain (GH #181, GH #193); do not force-unify.
 

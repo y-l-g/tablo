@@ -9,8 +9,8 @@ Run `cargo xtask check`: the gates in
 [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-gate-set), run in order with a
 stop at the first failure. To run one gate by hand, that list is the canonical
 copy (it mirrors `.github/workflows/ci.yml` and
-`.github/workflows/msrv-udeps.yml`); the extra checks outside the eight
-(docs, detached-bench fmt, external) are listed there too. `cargo xtask fmt`
+`.github/workflows/msrv-udeps.yml`); the extra checks outside the seven
+(docs, detached fmt, guide, external) are listed there too. `cargo xtask fmt`
 covers the formatting subset alone.
 
 The asset suites are named rather than globbed, exactly as the CI `assets` job
@@ -24,9 +24,8 @@ Rules that catch the recurring failures:
 - `topcoat fmt` only agrees with the pinned CLI version (`topcoat-cli 0.10.0`).
   Another CLI's diff is not a fix: install the pinned CLI (see
   [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-topcoat-fmt-trap)) and run that.
-- `cargo fmt` covers workspace members only; the detached `benchmarks/*`
-  workspaces are formatted and linted by manifest path.
-- Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit.
+- `cargo fmt` covers workspace members only; the detached `examples/quickstart`
+  and `examples/guide` packages are formatted and linted by manifest path.
 - Give each worktree its own target directory; a shared `CARGO_TARGET_DIR`
   cross-contaminates.
 - Never pipe when you need the exit code: `| tail` masks it. Read `PIPESTATUS`

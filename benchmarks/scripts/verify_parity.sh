@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# verify_parity.sh — Tablo 50-row self-check + baseline compile smoke.
-# Cross-framework HTML parity was dropped in GH #159: the axum-maud/leptos
-# apps render stubs, so diffing them against Tablo is non-comparable.
-# This script asserts Tablo renders Post 00..49 with Author includes,
-# and that both baselines still compile.
+# verify_parity.sh — Tablo 50-row self-check.
+# This script asserts Tablo renders Post 00..49 with Author includes.
 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,22 +48,6 @@ if ! wait_ready "http://localhost:$PORT_TABLO/admin/posts"; then
   exit 1
 fi
 
-# Baseline compile smoke (GH #159): stubs, not comparable — build only.
-echo "  smoke: axum-maud compiles"
-if cargo build --manifest-path "$BENCH/axum-maud/Cargo.toml" >/dev/null 2>&1; then
-  echo "  smoke axum-maud: PASS"
-else
-  echo "  smoke axum-maud: FAIL"
-  exit 1
-fi
-echo "  smoke: leptos compiles"
-if cargo build --manifest-path "$BENCH/leptos/Cargo.toml" --features ssr >/dev/null 2>&1; then
-  echo "  smoke leptos: PASS"
-else
-  echo "  smoke leptos: FAIL"
-  exit 1
-fi
-
 # Fetch and normalize
 fetch_normalized "http://localhost:$PORT_TABLO/admin/posts" "$TMPDIR/tablo.txt"
 echo "  fetched tablo ($(wc -l <"$TMPDIR/tablo.txt") lines)"
@@ -93,4 +74,4 @@ fi
 kill "$PID_TABLO" 2>/dev/null || true
 wait "$PID_TABLO" 2>/dev/null || true
 
-echo "verify_parity: done (tablo 50-row + 2 includes verified; baselines smoke-only, GH #159)"
+echo "verify_parity: done (tablo 50-row + 2 includes verified)"

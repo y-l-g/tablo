@@ -13,30 +13,11 @@ pub const NIGHTLY_FMT: &str = "nightly-2026-08-24";
 /// MSRV floor (`Cargo.toml` rust-version).
 pub const MSRV: &str = "1.98";
 
-/// Detached bench workspaces, each with its own lockfile and fmt gate.
-pub const DETACHED_BENCHES: &[&str] = &[
-    "benchmarks/tablo",
-    "benchmarks/axum-maud",
-    "benchmarks/leptos",
-];
-
 /// The detached app `external-check` builds from outside the repository.
 pub const QUICKSTART: &str = "examples/quickstart";
 
 /// The detached guide companion, building against the published crates.
 pub const GUIDE: &str = "examples/guide";
-
-/// Mirrors the `pull_request: paths` filter of `.github/workflows/bench.yml`.
-pub const BENCH_PATHS: &[&str] = &[
-    "benchmarks/**",
-    "Cargo.toml",
-    "Cargo.lock",
-    "**/Cargo.toml",
-    "**/Cargo.lock",
-    "rust-toolchain.toml",
-    "xtask/**",
-    ".github/workflows/bench.yml",
-];
 
 /// Mirrors the `pull_request: paths` filter of `.github/workflows/msrv-udeps.yml`.
 pub const MSRV_PATHS: &[&str] = &[
@@ -51,8 +32,8 @@ pub const MSRV_PATHS: &[&str] = &[
 /// Whether `check` skips the gates CI would not run for the change.
 #[derive(PartialEq, Eq)]
 pub enum Scope {
-    /// The fast gates only: the bench gate without `BENCH_PATHS` changes and
-    /// the MSRV/udeps gates without `MSRV_PATHS` changes stay skipped, and
+    /// The fast gates only: the MSRV/udeps gates without `MSRV_PATHS` changes
+    /// stay skipped, and
     /// docs, the guide suite, and the external build never run.
     Auto,
     /// Run every gate, including the slow docs, guide, and external builds.
@@ -165,13 +146,13 @@ pub fn nightly_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     )
 }
 
-/// Checks fmt for each detached bench, the quickstart, and the guide.
+/// Checks fmt for the detached quickstart and guide.
 pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
-    for bench in DETACHED_BENCHES.iter().chain([&QUICKSTART, &GUIDE]) {
+    for detached in [QUICKSTART, GUIDE] {
         run.run(
             "cargo",
             &["fmt", "--", "--check"],
-            Some(&root.join(bench)),
+            Some(&root.join(detached)),
             &[],
         )?;
     }
@@ -206,7 +187,7 @@ pub fn guide_build(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
         .map_err(|error| anyhow::anyhow!("{error}\nThe guide build needs mdBook: {MDBOOK_INSTALL}"))
 }
 
-/// The formatting subset: nightly fmt, detached-bench fmt, pinned topcoat fmt.
+/// The formatting subset: nightly fmt, detached fmt, pinned topcoat fmt.
 pub fn fmt_check(run: &dyn Runner) -> anyhow::Result<()> {
     let root = repo_root();
     nightly_fmt(run, &root)?;
@@ -305,9 +286,8 @@ fn udeps_installed(run: &dyn Runner, root: &Path) -> bool {
 
 /// The gate set as a local fail-fast convenience runner: the CONTRIBUTING
 /// gates cheapest-first. Docs, the guide suite, and the external build run
-/// only under `Scope::All`; CI covers them in parallel jobs. The bench gate runs
-/// only with `BENCH_PATHS` changes and the MSRV/udeps gates only with
-/// `MSRV_PATHS` changes, matching the CI path filters.
+/// only under `Scope::All`; CI covers them in parallel jobs. The MSRV/udeps gates
+/// run only with `MSRV_PATHS` changes, matching the CI path filter.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
     let root = repo_root();
     check_with(run, &|| stage_quickstart(&root), scope, &|specs| {
@@ -350,25 +330,6 @@ fn check_with(
         Some(&root),
         &[],
     )?;
-    if all || touches(BENCH_PATHS) {
-        run.run(
-            "cargo",
-            &[
-                "clippy",
-                "--locked",
-                "--manifest-path",
-                "benchmarks/tablo/Cargo.toml",
-                "--all-targets",
-                "--",
-                "-D",
-                "warnings",
-            ],
-            Some(&root),
-            &[],
-        )?;
-    } else {
-        println!("skipped the detached-bench clippy: no bench paths changed");
-    }
     if all || touches(MSRV_PATHS) {
         let msrv = format!("+{MSRV}");
         run.run(

@@ -34,8 +34,8 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 ## The gate set
 
-CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml` and, for
-gates 6 and 8, `.github/workflows/msrv-udeps.yml`).
+CI runs seven gates plus four extra checks (mirroring `.github/workflows/ci.yml` and, for
+gates 5 and 7, `.github/workflows/msrv-udeps.yml`).
 The fast path is the xtask runner: `check` runs the cheap gates below fail-fast, cheapest
 first, skipping the ones CI would not run for the change; `check --all` runs every gate,
 including the slow docs, guide, and external builds.
@@ -47,34 +47,31 @@ cargo xtask fmt           # the formatting subset: nightly fmt, detached fmt, pi
 ```
 
 `check` runs each command below in execution order, stopping at the first failure: gates 3,
-4, 7, then the detached fmt, then gates 1, 2, 5, 6, 8. Gates 5, 6, and 8
-run only when the change touches their CI path filters (`bench.yml` for gate 5,
-`msrv-udeps.yml` for gates 6 and 8); any git failure runs every gate.
+4, 6, then the detached fmt, then gates 1, 2, 5, 7. Gates 5 and 7 run only when the change
+touches the `msrv-udeps.yml` path filter; any git failure runs every gate.
 `check --all` runs every gate below plus the extras.
 
 1. `cargo test --workspace --locked`
 2. `cargo clippy --workspace --all-targets --locked -- -D warnings`
 3. `cargo +nightly-2026-08-24 fmt --all -- --check`
 4. `topcoat fmt`, then `git diff --exit-code`
-5. `cargo clippy --locked --manifest-path benchmarks/tablo/Cargo.toml --all-targets -- -D warnings`
-6. `cargo +1.98 check --workspace --locked`
-7. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js crates/tablo-ui/assets/live-search.test.js examples/showcase/assets/media.test.js`
-8. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --locked`
+5. `cargo +1.98 check --workspace --locked`
+6. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js crates/tablo-ui/assets/live-search.test.js examples/showcase/assets/media.test.js`
+7. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --locked`
 
 Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
-nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
-Gate 8 guards unused dependencies (GH #271).
+nightly-only (GH #269). Gate 5 is the MSRV floor in `Cargo.toml` (GH #175).
+Gate 7 guards unused dependencies (GH #271).
 
-CI runs four more checks outside the eight, and a change touching what they cover
+CI runs four more checks outside the seven, and a change touching what they cover
 has to pass them too (`cargo xtask check --all` runs the detached fmt with the cheap gates
-up front, then docs, the guide suite, and the external build after gate 8):
+up front, then docs, the guide suite, and the external build after gate 7):
 
 - the `docs` job builds rustdoc with
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`, then
   builds the guide with `mdbook build docs/guide`;
 - the `fmt` job runs `cargo fmt -- --check` inside each detached workspace
-  (`benchmarks/tablo`, `benchmarks/axum-maud`, `benchmarks/leptos`,
-  `examples/quickstart`, `examples/guide`);
+  (`examples/quickstart`, `examples/guide`);
 - the `guide` job runs the detached companion's tests and clippy by manifest
   path, against the published crates;
 - the `external` job runs `cargo xtask external-check`: the detached
@@ -105,20 +102,15 @@ vendored file has drifted. Components Tablo owns live in
 
 ## Dependency pins
 
-`topcoat` and `toasty` are crates.io dependencies in three
-manifests: the workspace's, `benchmarks/tablo`'s, and `examples/quickstart`'s.
-Renovate groups their bumps. A bump touches all three manifests and both
-lockfiles (the quickstart commits none) in one commit:
+`topcoat` and `toasty` are crates.io dependencies in two manifests: the workspace's and
+`examples/quickstart`'s. Renovate groups their bumps. A bump touches both manifests and the
+workspace lockfile (the quickstart commits none) in one commit:
 
 ```sh
 cargo update -p topcoat -p toasty
-cargo update --manifest-path benchmarks/tablo/Cargo.toml -p topcoat -p toasty
 ```
 
 Never run a blanket `cargo update`.
-
-Version drift means the benchmark measures different upstream code than the workspace
-builds.
 
 ## Commits
 

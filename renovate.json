@@ -1,9 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
-  "prBodyNotes": [
-    "Upstream policy: any change to the workspace Cargo.lock syncs benchmarks/tablo/Cargo.lock in the same commit."
-  ],
   "lockFileMaintenance": {
     "enabled": false
   },

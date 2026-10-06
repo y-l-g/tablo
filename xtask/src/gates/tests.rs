@@ -58,25 +58,22 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
     let commands = run.commands();
     assert_eq!(
         commands.len(),
-        8,
-        "1 nightly + 3 detached benches + quickstart + guide + topcoat + diff"
+        5,
+        "1 nightly + quickstart + guide + topcoat + diff"
     );
     assert_eq!(
         commands[0].1,
         vec!["+nightly-2026-08-24", "fmt", "--all", "--", "--check"]
     );
-    for (command, dir) in commands[1..6]
-        .iter()
-        .zip(DETACHED_BENCHES.iter().chain([&QUICKSTART, &GUIDE]))
-    {
+    for (command, dir) in commands[1..3].iter().zip([QUICKSTART, GUIDE]) {
         assert_eq!(command.0, "cargo");
         assert_eq!(command.1, vec!["fmt", "--", "--check"]);
         assert_eq!(command.2, Some(root.join(dir)));
     }
-    assert_eq!(commands[6].0, "topcoat");
-    assert_eq!(commands[6].1, vec!["fmt"]);
-    assert_eq!(commands[7].0, "git");
-    assert_eq!(commands[7].1, vec!["diff", "--exit-code"]);
+    assert_eq!(commands[3].0, "topcoat");
+    assert_eq!(commands[3].1, vec!["fmt"]);
+    assert_eq!(commands[4].0, "git");
+    assert_eq!(commands[4].1, vec!["diff", "--exit-code"]);
     assert!(commands.iter().all(|command| {
         command
             .2
@@ -107,7 +104,7 @@ fn check_runs_fast_gates_by_default_and_defers_docs_guide_and_external_to_all() 
         progs_of(&run_check(Scope::Auto, true)),
         vec![
             "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo", "cargo",
-            "cargo", "cargo", "cargo", "cargo", "cargo", "cargo",
+            "cargo", "cargo",
         ]
     );
 }
@@ -117,14 +114,13 @@ fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
     assert_eq!(
         progs_of(&run_check(Scope::Auto, false)),
         vec![
-            "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo", "cargo",
-            "cargo", "cargo",
+            "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo"
         ],
-        "bench, msrv, and udeps install+run are skipped"
+        "msrv and udeps install+run are skipped"
     );
     assert_eq!(
         run_check(Scope::All, false).len(),
-        20,
+        16,
         "`--all` forces every gate"
     );
 }
@@ -180,8 +176,8 @@ fn pins_match_ci_and_docs() {
         ci.contains(mdbook),
         "ci.yml installs the pinned mdBook {mdbook}"
     );
-    for bench in DETACHED_BENCHES {
-        assert!(ci.contains(bench), "ci.yml covers {bench}");
+    for detached in [QUICKSTART, GUIDE] {
+        assert!(ci.contains(detached), "ci.yml covers {detached}");
     }
     for suite in ASSET_SUITES {
         assert!(ci.contains(suite), "ci.yml names {suite}");
@@ -190,33 +186,6 @@ fn pins_match_ci_and_docs() {
         manifest.contains(&format!("rust-version = \"{MSRV}\"")),
         "Cargo.toml carries the MSRV floor"
     );
-}
-
-/// Reads the `version = "…"` a manifest names for `dependency`.
-fn manifest_version(manifest: &str, dependency: &str) -> String {
-    manifest
-        .lines()
-        .find(|line| line.starts_with(&format!("{dependency} = ")))
-        .and_then(|line| line.split_once("version = \""))
-        .and_then(|(_, version)| version.split_once('"'))
-        .map(|(version, _)| version.to_string())
-        .unwrap_or_else(|| panic!("{dependency} names a version"))
-}
-
-/// The detached bench must measure the upstream releases the workspace names.
-#[test]
-fn bench_pins_match_the_workspace() {
-    let root = repo_root();
-    let workspace = std::fs::read_to_string(root.join("Cargo.toml")).expect("read Cargo.toml");
-    let bench = std::fs::read_to_string(root.join("benchmarks/tablo/Cargo.toml"))
-        .expect("read the bench manifest");
-    for dependency in ["topcoat", "toasty"] {
-        assert_eq!(
-            manifest_version(&bench, dependency),
-            manifest_version(&workspace, dependency),
-            "{dependency} tracks the workspace release"
-        );
-    }
 }
 
 /// Reads a workflow's `pull_request: paths` list: the `- entry` lines under `paths:`.
@@ -234,22 +203,13 @@ fn workflow_paths(workflow: &str) -> Vec<String> {
     paths
 }
 
-/// The local skip filters must mirror the CI path filters exactly: a local
-/// skip matches a CI skip, so `check` cannot pass what CI runs.
+/// The local skip filter must mirror the CI path filter exactly: a local skip
+/// matches a CI skip, so `check` cannot pass what CI runs.
 #[test]
 fn skip_filters_match_ci_workflows() {
     let root = repo_root();
-    let bench =
-        std::fs::read_to_string(root.join(".github/workflows/bench.yml")).expect("read bench.yml");
     let msrv = std::fs::read_to_string(root.join(".github/workflows/msrv-udeps.yml"))
         .expect("read msrv-udeps.yml");
-    let mut bench_paths: Vec<String> = BENCH_PATHS.iter().map(ToString::to_string).collect();
-    bench_paths.sort();
-    assert_eq!(
-        workflow_paths(&bench),
-        bench_paths,
-        "BENCH_PATHS mirrors bench.yml"
-    );
     let mut msrv_paths: Vec<String> = MSRV_PATHS.iter().map(ToString::to_string).collect();
     msrv_paths.sort();
     assert_eq!(
@@ -313,19 +273,13 @@ fn changes_touch_reads_committed_and_uncommitted_state() {
         "a committed manifest on the branch runs the gate"
     );
     git_in(&dir, &["checkout", "-q", "master"]);
-    git_in(&dir, &["checkout", "-qb", "bench-only", "master"]);
-    std::fs::create_dir_all(dir.join("benchmarks/tablo")).expect("create the bench dir");
-    std::fs::write(dir.join("benchmarks/tablo/main.rs"), "fn main() {}\n")
-        .expect("add a bench file");
+    git_in(&dir, &["checkout", "-qb", "docs-only", "master"]);
+    std::fs::write(dir.join("guide.md"), "docs\n").expect("add a doc");
     git_in(&dir, &["add", "."]);
-    git_in(&dir, &["commit", "-qm", "bench"]);
-    assert!(
-        changes_touch(&dir, BENCH_PATHS),
-        "a committed bench change runs the bench gate"
-    );
+    git_in(&dir, &["commit", "-qm", "docs"]);
     assert!(
         !changes_touch(&dir, MSRV_PATHS),
-        "a bench-only change still skips MSRV/udeps"
+        "a committed change outside the filter still skips MSRV/udeps"
     );
     std::fs::remove_dir_all(&dir).expect("remove the scratch repo");
 }
