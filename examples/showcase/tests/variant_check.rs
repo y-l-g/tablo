@@ -147,7 +147,7 @@ async fn the_named_variants_fields_still_validate() {
     );
 
     // An emptied visible leaf carries the control's label, not the flattened
-    // column: no rule makes the leaf required, so the refusal words itself.
+    // column: an `i64` leaf has no blank answer, so the parse refuses it as required.
     let response = client
         .csrf(&csrf)
         .post_form(

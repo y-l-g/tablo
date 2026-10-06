@@ -94,7 +94,8 @@ most eight children; nest a `Group` for more.
 
 Every field takes `.label(..)`, which defaults to the column name in sentence case. Whether a
 control is required is not the control's to say: on a create or edit page the panel renders it
-required exactly when its record-form field has no blank answer. Each constructor returns its
+required when its record-form field has no blank answer (a file input only while nothing is
+stored). Outside a panel no record form applies, and every control renders optional. Each constructor returns its
 control's builder, which offers only that control's modifiers, so a modifier on the wrong control
 does not compile:
 
@@ -172,10 +173,9 @@ Each option's value is the related record's primary key.
 - **Validation runs in one round.** The record form's parse (required fields and typed values),
   email, relationships and uniqueness are checked together, and the form re-renders with every
   error inline, with status 200 and nothing written. `validate_record` needs the parsed form, so
-  it runs only when every field parses. It keys each error by the record form's field enum —
-  `errors.add(UserFormField::Age, "Age must be zero or more")` returns
-  `FieldErrors<UserFormField>` — so every error renders under its field's control, or an embedded
-  value's first control.
+  it runs only when every field parses. It returns `FieldErrors<UserFormField>`, keyed by the
+  record form's field enum (`errors.add(UserFormField::Age, "Age must be zero or more")`), so
+  every error renders under its field's control, or an embedded value's first control.
 - **Unknown keys are refused.** A POST carrying a key the form does not declare answers 400, so a
   client cannot write `role` or `tenant_id`. The CSRF token and the file fields' `clear_` and
   `keep_` keys are the exceptions.
@@ -239,7 +239,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 - Every field of the value is a scalar, or a nested value marked `#[form(embed)]`.
   `#[form(label = "…")]`, `#[form(multiline = N)]`, `#[form(blank = ..)]` and
   `#[form(optional)]` customize a field; an unknown attribute is a compile error.
-- An embedded field is required like a record-form field: unless it has a blank answer. An
+- An embedded field is required, like a record-form field, unless it has a blank answer. An
   emptied field stores its blank answer, and a field with none refuses an empty submission
   inline.
 - **Enums** render a choice of variant plus one group of fields per variant; the page shows only

@@ -31,9 +31,9 @@ struct Doc {
     #[auto]
     id: Uuid,
     title: String,
-    /// Required by the form's default (the lens is a non-nullable `String`).
+    /// Required: `DocForm` gives it no blank answer.
     cover: String,
-    /// Declared `.optional()`: the app allows a record to lose its file.
+    /// `#[form(optional)]` in `DocForm`: the app allows a record to lose its file.
     attachment: String,
 }
 

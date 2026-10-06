@@ -46,8 +46,8 @@ impl Resource for UserResource {
             .form(Schema::new(Section::new("Profile").schema((
                 c.name.placeholder("Ada Lovelace"),
                 c.email.email(),
-                c.role.optional(),
-                c.age.optional(),
+                c.role,
+                c.age,
             ))))
             // ANCHOR_END: user-form
             // ANCHOR: user-navigation
@@ -57,10 +57,10 @@ impl Resource for UserResource {
     }
 
     // ANCHOR: user-validate
-    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors {
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserFormField> {
         let mut errors = FieldErrors::new();
         if form.age < 0 {
-            errors.add("age", "Age must be zero or more");
+            errors.add(UserFormField::Age, "Age must be zero or more");
         }
         errors
     }

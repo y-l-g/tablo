@@ -6,7 +6,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
 
-use crate::fields::{Derive, assert_scalar, blank_option, form_attrs, last_segment};
+use crate::fields::{Derive, assert_scalar, blank_answer, blank_option, form_attrs, last_segment};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
@@ -138,7 +138,7 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
     } else {
         DefaultControl::Text
     };
-    let required = !attrs.embed && crate::fields::blank_answer(&field.ty, &attrs).is_none();
+    let required = !attrs.embed && blank_answer(&field.ty, &attrs).is_none();
     Ok(FieldSpec {
         ident,
         ty: field.ty.clone(),
@@ -281,7 +281,6 @@ fn expand_struct(
                 quote! {
                     #krate::__macro::Field::choice(#path)
                         .options(<#options as #krate::__macro::Options>::options())
-
                 },
             ),
             DefaultControl::File => (

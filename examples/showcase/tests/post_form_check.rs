@@ -5,7 +5,7 @@ use crate::common::{
 };
 
 #[tokio::test]
-async fn posts_create_shows_cover_picker_and_repeater() {
+async fn posts_create_shows_cover_picker_and_tags() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -56,7 +56,7 @@ async fn posts_create_shows_cover_picker_and_repeater() {
 }
 
 #[tokio::test]
-async fn posts_create_invalid_repeater_shows_errors() {
+async fn posts_create_invalid_shows_errors() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -65,8 +65,8 @@ async fn posts_create_invalid_repeater_shows_errors() {
     let mut db2 = db.clone();
     let authors = Author::all().exec(&mut db2).await.unwrap();
     let first = &authors[0];
-    // Missing title (required). The optional Tags group is empty, which is
-    // absent — not an error.
+    // Missing title (required). The optional Tags field is empty, which is
+    // its blank answer — not an error.
     let resp = client
         .csrf(&csrf)
         .post_form(
@@ -93,7 +93,7 @@ async fn posts_create_invalid_repeater_shows_errors() {
 }
 
 #[tokio::test]
-async fn posts_create_valid_repeater_creates() {
+async fn posts_create_valid_creates() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;

@@ -261,16 +261,15 @@ pub use tablo_macros::Options;
 /// - `#[form(model = User)]` on the struct: the model the form writes.
 /// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as.
 /// - `#[form(optional)]` on a `String`: an empty submission reads as `""`.
-///
-/// A scalar's **blank answer** is its `blank`, `""` for an `optional` `String`, `None` for an
-/// `Option`, or `false` for a `bool`. A field with none is required: the panel renders its
-/// control required and the parse refuses an empty submission. The record form is the only
-/// place a field's presence is declared.
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
 /// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` may
 ///   add.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
+///
+/// A scalar's **blank answer** is its `blank`, `""` for an `optional` `String`, `None` for an
+/// `Option`, or `false` for a `bool`. A field with none is required: the panel renders its
+/// control required and the parse refuses an empty submission. No control declares presence.
 ///
 /// A generic struct, a tuple struct, an empty struct, a `Deferred<_>` field,
 /// `blank` or `optional` on an `Option` or an embedded value, `optional` on a
