@@ -1,0 +1,63 @@
+[workspace]
+# The release job in ci.yml only runs for release PR merges and manual
+# dispatches, so release-plz itself does not need to check the commit.
+git_release_draft = true
+pr_draft = true
+pr_labels = ["release"]
+release_always = true
+
+# Default to NOT releasing. The release-order pass runs over every workspace
+# member, so the non-publishable crates stay out of it; each publishable crate
+# opts back in below. Keep the opt-in list in sync with the publishable
+# members under `crates/`.
+release = false
+
+# One git tag and GitHub release per Tablo version, not one per crate. Every
+# crate shares the workspace version through the `tablo` version group, so the
+# facade crate alone opts back in below and tags plain `v{{ version }}`.
+git_tag_enable = false
+git_release_enable = false
+
+[[package]]
+name = "tablo"
+release = true
+version_group = "tablo"
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+git_release_enable = true
+git_release_name = "v{{ version }}"
+# The facade's changelog (and thus the release body) covers the whole
+# workspace, not just commits touching `crates/tablo`. Keep in sync with the
+# other publishable members below.
+changelog_include = [
+    "tablo-build",
+    "tablo-core",
+    "tablo-macros",
+    "tablo-test",
+    "tablo-ui",
+]
+
+[[package]]
+name = "tablo-build"
+release = true
+version_group = "tablo"
+
+[[package]]
+name = "tablo-core"
+release = true
+version_group = "tablo"
+
+[[package]]
+name = "tablo-macros"
+release = true
+version_group = "tablo"
+
+[[package]]
+name = "tablo-test"
+release = true
+version_group = "tablo"
+
+[[package]]
+name = "tablo-ui"
+release = true
+version_group = "tablo"
