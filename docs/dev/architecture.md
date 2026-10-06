@@ -60,7 +60,7 @@ below it, never one above. `tests/layers.rs` reads the sources and fails on an u
 
 | Layer | Modules |
 | --- | --- |
-| foundations | `csrf`, `db`, `declaration`, `error`, `lens`, `naming`, `query_term`, `toasty_compat`, `topcoat_compat` |
+| foundations | `csrf`, `db`, `declaration`, `error`, `lens`, `naming`, `protocol`, `query_term`, `toasty_compat`, `topcoat_compat` |
 | the declaration model | `form`, `navigation`, `policy`, `schema`, `table`, `tenancy` |
 | resources | `resource` |
 | serving | `auth`, `notification`, `page`, `panel`, `upload` |
