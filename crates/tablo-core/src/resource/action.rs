@@ -126,7 +126,7 @@ pub trait Action<R: Resource>: 'static {
         true
     }
 
-    /// Perform the action on `records`, all of which passed
+    /// Perform the action on `records`, every record of the target that passed
     /// [`can_run`](Self::can_run), through the framework's transaction `ex`.
     fn run(
         cx: &Cx,
