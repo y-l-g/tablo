@@ -50,12 +50,10 @@ async fn bulk_checkboxes_render_with_keys_and_select_all() {
     );
     // The dialog renders closed and asks for an answer; the bulk delete opens it, disabled
     // while nothing is selected.
-    let form = &html[form_at..];
+    let dialog = &html[html[..form_at].rfind("<dialog").expect("the dialog")..form_at];
     assert!(
-        form.contains("<dialog")
-            && form.contains("role=\"alertdialog\"")
-            && !form.contains(" open=\"\""),
-        "the confirm dialog must render closed as an alert dialog, got {form}"
+        dialog.contains("role=\"alertdialog\"") && !dialog.contains(" open=\"\""),
+        "the confirm dialog must render closed as an alert dialog, got {dialog}"
     );
     assert!(
         html.contains("Delete the selected records?") && html.contains("Delete selected"),
