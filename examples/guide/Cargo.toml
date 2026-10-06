@@ -10,7 +10,7 @@ autotests = false
 
 # Detached from the Tablo workspace on purpose: the companion builds against
 # the published crates, the way a reader's app does, so it is a standalone
-# crate with its own lockfile (mirrors benchmarks/tablo).
+# crate with its own lockfile.
 [workspace]
 
 [workspace.lints.rust]

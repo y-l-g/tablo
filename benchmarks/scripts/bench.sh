@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # Tablo bench — oha + in-process honest bench for the Tablo list
 # (50 rows, 2 includes, real list path with tenancy + policy, GH #171).
-# Baselines (axum-maud, leptos) are compile-only smoke, not comparable
-# (GH #159): they render stubs, so no cross-framework oha matrix exists.
 # Mirrors tokio-rs/topcoat/benchmarks/scripts/bench.sh methodology
 # (loopback HTTP/1.1, oha) for the Tablo target only.
 #
@@ -12,9 +10,7 @@
 # and the in-process run covers it alongside SQLite; otherwise SQLite only.
 #
 # Usage:
-#   ./benchmarks/scripts/bench.sh [tablo|axum-maud|leptos]   (default: tablo)
-#   tablo runs the oha + in-process bench; axum-maud/leptos only verify
-#   the baseline still compiles (smoke).
+#   ./benchmarks/scripts/bench.sh [tablo]   (default: tablo)
 # Tunables:
 #   DURATION=5s WARMUP=2s CONNECTIONS=32 RATE=100 RUNS=1 PORT=3000
 #
@@ -127,18 +123,8 @@ for fw in "${FRAMEWORKS[@]}"; do
         cargo run --manifest-path "$BENCH/tablo/Cargo.toml" -- --bench --iterations 100 | tee "$RESULTS_DIR/tablo_bench.txt"
       fi
       ;;
-    axum-maud|axum_maud)
-      echo "==> building axum-maud (compile smoke only, GH #159 — stub, not comparable)"
-      cargo build --manifest-path "$BENCH/axum-maud/Cargo.toml" --release 2>&1 | tail -n 5
-      echo "==> axum-maud smoke passed (no oha leg; stub renders no 50-row workload)"
-      ;;
-    leptos)
-      echo "==> building leptos (compile smoke only, GH #159 — stub, not comparable)"
-      cargo build --manifest-path "$BENCH/leptos/Cargo.toml" --features ssr 2>&1 | tail -n 5 || true
-      echo "==> leptos smoke passed (no server to benchmark; template stub only)"
-      ;;
     *)
-      echo "unknown framework $fw (expected tablo|axum-maud|leptos)" >&2
+      echo "unknown framework $fw (expected tablo)" >&2
       exit 1
       ;;
   esac
@@ -169,7 +155,7 @@ done
     cat "$RESULTS_DIR"/tablo_bench.txt 2>/dev/null || echo "no bench.txt"
   fi
   echo ""
-  echo "Budget: Tablo list (50 rows, 2 includes) <40ms p50 — reference only, UNGATED per GH #171 (numbers first, gate follows). Baselines are smoke-only, not comparable (GH #159)."
+  echo "Budget: Tablo list (50 rows, 2 includes) <40ms p50 — reference only, UNGATED per GH #171 (numbers first, gate follows)."
 } | tee "$RESULTS_DIR/results.md"
 
 echo "bench.sh: done -> $RESULTS_DIR/results.md"

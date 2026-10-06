@@ -1,32 +1,22 @@
 [package]
 name = "storefront-tablo"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+rust-version.workspace = true
 publish = false
 
-# Detached from the Tablo workspace on purpose: the bench app links the
-# toolkit plus a full topcoat runtime, so it is a standalone crate with its
-# own dependency tree (mirrors topcoat/benchmarks).
-#
-# Upstream versions track the workspace's per CONTRIBUTING.md "Dependency pins":
-# bump all three manifests and both lockfiles in one commit.
-[workspace]
-
+# A workspace member so it builds against the workspace's lockfile, but never released:
+# release-plz only releases the crates `release-plz.toml` opts in.
 [dependencies]
 tablo-core = { path = "../../crates/tablo-core" }
-# `default-features = false` mirrors the workspace baseline (GH #175): without
-# it the bench builds upstream defaults (e.g. toasty's `rustls`) the shipped
-# toolkit never compiles against.
-# Feature-flag delta vs the workspace (GH #171, documented): `postgresql` is
-# enabled here only — the workspace's suites run on sqlite alone, while the
-# honest bench must also measure the Postgres list path. Versions track the workspace;
-# only features differ.
-topcoat = { version = "0.10", default-features = false, features = ["router", "serve", "runtime", "discover", "asset"] }
-toasty = { version = "0.11", default-features = false, features = ["sqlite", "postgresql", "jiff"] }
+# `postgresql` is enabled here only (GH #171): the workspace's suites run on sqlite alone, while
+# the bench also measures the Postgres list path.
+topcoat = { workspace = true, features = ["serve", "runtime", "asset"] }
+toasty = { workspace = true, features = ["sqlite", "postgresql"] }
 http = "1"
-jiff = "0.2"
-uuid = { version = "1.23", features = ["v4"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+jiff.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+tokio.workspace = true
 
-[lints.rust]
-unsafe_code = "deny"
+[lints]
+workspace = true

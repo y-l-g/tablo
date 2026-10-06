@@ -124,8 +124,7 @@ jobs:
       - uses: actions/checkout@v7
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
-      # `-D warnings` promotes every rustdoc lint to a failure. Workspace only: the detached
-      # benchmarks/* are separate workspaces.
+      # `-D warnings` promotes every rustdoc lint to a failure.
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
       - name: Install mdBook and mdbook-linkcheck2
         uses: taiki-e/install-action@v2
@@ -145,7 +144,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo xtask external-check
 
-# Gates 6 (msrv) and 8 (udeps) run in `msrv-udeps.yml`: each needs its own toolchain.
+# Gates 5 (msrv) and 7 (udeps) run in `msrv-udeps.yml`: each needs its own toolchain.
 
   fmt:
     name: fmt
@@ -167,8 +166,7 @@ jobs:
         run: cargo install topcoat-cli --version 0.10.0 --locked --force
       - name: topcoat fmt (pinned CLI, via xtask)
         # The toolchain and CLI installs stay in CI: xtask runs the check half only.
-        # Covers detached fmt (benchmarks/tablo, benchmarks/axum-maud, benchmarks/leptos,
-        # examples/quickstart, examples/guide).
+        # Covers detached fmt (examples/quickstart, examples/guide).
         run: cargo xtask fmt
 
   # Configure every released crate on crates.io to trust y-l-g/tablo,
@@ -241,10 +239,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
 
       # The guide pins released versions (`tablo = { version = "X" }`,
-      # `tablo-build = "X"`) in its user-facing blocks, its companion crate
-      # resolves them from crates.io, and the bench workspace resolves the
-      # family by path. Source of truth is `[workspace.package].version`, which
-      # release-plz bumps on the PR branch. The companion can only name a
+      # `tablo-build = "X"`) in its user-facing blocks, and its companion crate
+      # resolves them from crates.io. Source of truth is `[workspace.package].version`,
+      # which release-plz bumps on the PR branch. The companion can only name a
       # published version, so it takes the newest release tag. Re-applied on
       # every run because release-plz force-pushes its branch.
       - name: Sync release PR extras
@@ -290,15 +287,11 @@ jobs:
             examples/guide/Cargo.toml
           cargo metadata --format-version 1 --manifest-path examples/guide/Cargo.toml > /dev/null
 
-          # The bench workspace resolves the family by path: refresh its
-          # lockfile to the bumped versions, or its `--locked` check fails.
-          cargo metadata --format-version 1 --manifest-path benchmarks/tablo/Cargo.toml > /dev/null
-
-          git add docs examples/guide/Cargo.toml examples/guide/Cargo.lock benchmarks/tablo/Cargo.lock
+          git add docs examples/guide/Cargo.toml examples/guide/Cargo.lock
           if git diff --cached --quiet; then
             echo "Release PR already consistent; nothing to update."
             exit 0
           fi
 
-          git commit -m "chore: sync docs, guide companion, and bench lockfile for ${version}"
+          git commit -m "chore: sync docs and guide companion for ${version}"
           git push origin "$branch"
