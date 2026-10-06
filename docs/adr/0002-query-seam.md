@@ -5,7 +5,7 @@ Date: 2026-08-19 — Status: accepted
 ## Decision
 
 `Resource::query(cx)` scopes a resource's own rows: soft deletes and row visibility. Every list,
-form, record, and shard loader reads through it. Tenancy enters as `cx.with(Tenant(id))`, not as
+form, and record loader reads through it. Tenancy enters as `cx.with(Tenant(id))`, not as
 a global scope.
 
 `ResourceDef::tenancy` declares ownership: `Tenancy::none()` (default), `Tenancy::column(lens)`,

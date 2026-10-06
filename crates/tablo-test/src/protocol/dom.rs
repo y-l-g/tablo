@@ -2,7 +2,7 @@
 //!
 //! The table and form renderers own their markup; tests assert the behavior
 //! the markup carries. Each helper reads one stable hook:
-//! `tr[id^="row-"]` for rows, `a[aria-label]` for actions,
+//! `tr[id^="row-"]` for rows, `[aria-label]` links and buttons for actions,
 //! `#{name}-error` for field errors, `[data-filter-name]` for filters.
 //!
 //! The queries assume one table per document and flat renderer markup:
@@ -29,9 +29,8 @@ pub struct RowActions {
     pub view: Option<String>,
     /// The `Edit` link target, `None` when policy hides it.
     pub edit: Option<String>,
-    /// The `Delete` link target, `None` when policy hides it.
-    pub delete_href: Option<String>,
-    /// The `Delete` POST target carried by `data-row-delete-action`.
+    /// The `Delete` POST target, carried as its button's `formaction`; `None` when policy hides
+    /// it.
     pub delete_action: Option<String>,
 }
 
@@ -74,11 +73,6 @@ pub fn row_actions(html: &str, key: &str) -> Option<RowActions> {
             || row
                 .actions
                 .edit
-                .as_deref()
-                .is_some_and(|href| href_contains_key(href, key))
-            || row
-                .actions
-                .delete_href
                 .as_deref()
                 .is_some_and(|href| href_contains_key(href, key))
             || row
@@ -132,7 +126,7 @@ pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
 fn row(row_html: &str) -> Row {
     let mut select_value = None;
     for (tag, attrs, _) in tags(row_html) {
-        if tag == "input" && has_attr(&attrs, "data-row-select") {
+        if tag == "input" && attr_value(&attrs, "aria-label").as_deref() == Some("Select row") {
             select_value = attr_value(&attrs, "value");
             break;
         }
@@ -143,19 +137,12 @@ fn row(row_html: &str) -> Row {
     }
     let mut view_href = None;
     let mut edit_href = None;
-    let mut delete_href = None;
     let mut delete_action = None;
     for (tag, attrs, _) in tags(row_html) {
-        if tag != "a" {
-            continue;
-        }
-        match attr_value(&attrs, "aria-label").as_deref() {
-            Some("View") => view_href = attr_value(&attrs, "href"),
-            Some("Edit") => edit_href = attr_value(&attrs, "href"),
-            Some("Delete") => {
-                delete_href = attr_value(&attrs, "href");
-                delete_action = attr_value(&attrs, "data-row-delete-action");
-            }
+        match (tag.as_str(), attr_value(&attrs, "aria-label").as_deref()) {
+            ("a", Some("View")) => view_href = attr_value(&attrs, "href"),
+            ("a", Some("Edit")) => edit_href = attr_value(&attrs, "href"),
+            ("button", Some("Delete")) => delete_action = attr_value(&attrs, "formaction"),
             _ => {}
         }
     }
@@ -165,29 +152,18 @@ fn row(row_html: &str) -> Row {
         actions: RowActions {
             view: view_href,
             edit: edit_href,
-            delete_href,
             delete_action,
         },
     }
 }
 
 fn href_contains_key(href: &str, key: &str) -> bool {
-    let delete = format!("delete={key}");
-    href.split(['?', '#', '/', '&']).any(|segment| {
-        segment == key
-            || segment
-                .split('.')
-                .next_back()
-                .is_some_and(|param| param == delete)
-    })
+    href.split(['?', '#', '/', '&'])
+        .any(|segment| segment == key)
 }
 
 fn is_selected(attrs: &Attrs) -> bool {
     attrs.iter().any(|(name, _)| name == "selected")
-}
-
-fn has_attr(attrs: &Attrs, name: &str) -> bool {
-    attrs.iter().any(|(attr, _)| attr == name)
 }
 
 fn attr_value(attrs: &Attrs, name: &str) -> Option<String> {
@@ -384,12 +360,12 @@ mod tests {
     use super::*;
 
     const TABLE: &str = r#"<table><thead><tr><th>Name</th></tr></thead><tbody>
-<tr id="row-Ada-12345678"><td><input type="checkbox" value="Ada" aria-label="Select row" data-row-select=""></td><td>Ada</td><td><div class="flex"><a href="/admin/dummies/Ada" aria-label="View">V</a><a href="/admin/dummies/Ada/edit" aria-label="Edit">E</a><a href="/admin/dummies?delete=Ada" data-row-delete-action="/admin/dummies/Ada/delete" aria-label="Delete">D</a></div></td></tr>
+<tr id="row-Ada-12345678"><td><input type="checkbox" value="Ada" aria-label="Select row"></td><td>Ada</td><td><div class="flex"><a href="/admin/dummies/Ada" aria-label="View">V</a><a href="/admin/dummies/Ada/edit" aria-label="Edit">E</a><button type="button" formaction="/admin/dummies/Ada/delete" aria-label="Delete">D</button></div></td></tr>
 <tr id="group-Active-87654321"><td colspan="3">Active (1 on this page)</td></tr>
 <tr id="row-Ken-abcdef12"><td></td><td>Ken</td><td></td></tr>
 <tr><td colspan="3">No records yet</td></tr>
 <tr id="row-NoBox-99999999"><td></td><td>NoBox</td><td><div class="flex"><a href="/admin/dummies/NoBox" aria-label="View">V</a></div></td></tr>
-<tr id="row-Prefixed-aaaaaaaa"><td></td><td>Prefixed</td><td><div class="flex"><a href="/admin/rel?rel.delete=Prefixed" aria-label="Delete">D</a></div></td></tr>
+<tr id="row-Prefixed-aaaaaaaa"><td></td><td>Prefixed</td><td><div class="flex"><button type="button" formaction="/admin/rel/Prefixed/delete?return=%2Fadmin%2Fposts" aria-label="Delete">D</button></div></td></tr>
 </tbody></table>"#;
 
     #[test]
@@ -424,13 +400,11 @@ mod tests {
             Some("/admin/dummies/NoBox")
         );
         assert_eq!(without_checkbox.edit, None);
-        let prefixed =
-            row_actions(TABLE, "Prefixed").expect("a prefixed delete param matches by URL");
+        let prefixed = row_actions(TABLE, "Prefixed").expect("a delete action matches by URL");
         assert_eq!(
-            prefixed.delete_href.as_deref(),
-            Some("/admin/rel?rel.delete=Prefixed")
+            prefixed.delete_action.as_deref(),
+            Some("/admin/rel/Prefixed/delete?return=%2Fadmin%2Fposts")
         );
-        assert_eq!(prefixed.delete_action, None);
         assert_eq!(row_actions(TABLE, "Ad"), None);
         assert_eq!(row_actions(TABLE, "Nobody"), None);
     }

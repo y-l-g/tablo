@@ -89,7 +89,7 @@ The returned view may borrow `cx` but not the record: compute what you need from
 ## Related tables
 
 `ResourceDef::relation` adds a related resource whose rows belong to a record. Each renders on
-the record's detail and edit pages as that resource's own list table, narrowed to the record:
+the record's detail page as that resource's own list table, narrowed to the record:
 
 ```rust
 impl Resource for PostResource {
@@ -112,9 +112,10 @@ one it does not.
 - **Policy.** The related resource's policies apply as on its own list: no section renders when
   its policy refuses `ViewAny`, or when it is tenant-scoped and the request has no tenant, and each row keeps
   only the actions its record allows.
-- **Detail page versus edit page.** On the detail page the table is read-only: rows keep only
-  their View action. On the edit page rows also carry Edit and Delete, the table has bulk delete,
-  and a create button appears when the related resource has a form and its policy allows `Create`.
+- **Actions.** Rows carry the related resource's View, Edit, Delete and custom actions, the table
+  has its bulk bar, and a create button appears when the related resource has a form and its
+  policy allows `Create`. The edit page renders no related table: a change to one reruns the page,
+  which would reset the form fields not yet saved.
 - **Creating from the parent.** The create button opens the related resource's create page with
   the owner preselected, as in `/admin/comments/create?post_id=…`. The create page accepts such a
   parameter only for a relationship choice; the value is a default, and the submitted form is
@@ -123,9 +124,8 @@ one it does not.
   page they started on. The panel follows `return` only to a path under its own prefix.
 - **URL parameters.** Each related table's parameters are prefixed with the related resource's
   slug — `?comments.q=`, `?comments.sort=`, `?comments.after=` — so several tables share one page.
-- **Live search.** A related table whose resource declares `live_search()` stays live: sorting,
-  searching, filtering and paging re-render that table in place. Without JavaScript its links and
-  forms fall back to full page loads.
+- **Live updates.** Sorting, searching, filtering and paging update the table in place, like a
+  list's. Without JavaScript its links and its search form load the page.
 
 Mounting the panel refuses a relation to a resource the panel does not register, and two relations of
 one resource to the same related resource.

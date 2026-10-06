@@ -1,4 +1,4 @@
-//! The streamed placeholder the list shell swaps the table into.
+//! The placeholder the list page shows while its rows load.
 
 use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
@@ -7,7 +7,7 @@ use super::{super::WiredTable, core::table_frame};
 use crate::table::state::TableState;
 
 impl<M> WiredTable<M> {
-    /// Render the skeleton placeholder table shown while rows stream in.
+    /// Render the skeleton placeholder table shown while rows load.
     pub(crate) async fn render_skeleton<'a>(
         &self,
         cx: &'a Cx,
@@ -16,13 +16,10 @@ impl<M> WiredTable<M> {
     where
         M: toasty::schema::Model,
     {
-        let path = topcoat::context::try_request_context::<http::request::Parts>(cx)
-            .map(|parts| parts.uri.path().to_string())
-            .unwrap_or_default();
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
         let head = self
-            .render_thead(cx, state, &path, with_actions, with_bulk, None)
+            .render_thead(cx, state, "", with_actions, with_bulk, None)
             .await?;
         let table_min_width = self.column_widths().table_min_width;
         let column_count = self.columns.len();
@@ -86,13 +83,7 @@ impl<M> WiredTable<M> {
                 <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-40"></div>
             </div>
         };
-        Ok(table_frame(
-            cx,
-            true,
-            self.framed(),
-            self.delete_prefix(),
-            content.boxed(),
-        ))
+        Ok(table_frame(cx, true, content.boxed()))
     }
 }
 #[cfg(test)]

@@ -149,8 +149,8 @@ declaration names one. It refuses the resource when:
 
 - its table, form or view is malformed: a duplicate column, filter or field name, a zero page
   size, an empty column set (a resource whose derived table lists nothing declares its own
-  `table`), or a lens that binds no column. Rendering such a table through `Table::render` (or
-  `render_with_state`) or such a schema through `Schema::render` fails with the same errors;
+  `table`), or a lens that binds no column. Rendering such a table through `WiredTable::render`
+  or such a schema through `Schema::render` fails with the same errors;
 - the record form and the form schema disagree: a control no form field binds, a form field with
   no control, a `unique()` field with no unique index or whose non-nullable column an empty
   submission would fill, or a tenant-owned resource's form claiming its tenant column;

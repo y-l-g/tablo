@@ -13,8 +13,7 @@ must join a layer.
 
 A lower layer that needs request state the serving layer resolves asks through a function the
 serving layer installs in the app context (`MountScope`, `TenantSource`) rather than naming the
-serving layer. The serving layer renders what reaches serving routes, such as a live table's
-shard invocation.
+serving layer. The serving layer renders what reaches serving routes, such as a list page.
 
 ## Rejected
 

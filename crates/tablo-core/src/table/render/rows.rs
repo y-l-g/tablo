@@ -3,20 +3,23 @@
 use std::borrow::Cow;
 
 use tablo_ui::{ButtonSize, ButtonVariant, button, button_variants, table_cell, table_row};
-use topcoat::{context::Cx, icon::icon, view::*};
+use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
-use super::super::{GroupKey, RowActions, WiredTable};
+use super::{
+    super::{GroupKey, RowActions, WiredTable},
+    dialog::write_trigger,
+};
 use crate::table::{
     page::TablePage,
     state::{
-        TableState, delete_action_url, group_header_dom_id, row_action_url, row_dom_id,
-        row_edit_url, row_view_url,
+        TableSignals, bulk_token, delete_action_url, group_header_dom_id, row_action_url,
+        row_dom_id, row_edit_url, row_view_url,
     },
 };
 
 /// What every row of one render shares: the chrome columns, the declared
-/// widths (resolved once per render, the same for every row), and the one
-/// delete dialog every row control opens.
+/// widths (resolved once per render, the same for every row), and the
+/// table's signals and write form.
 pub(super) struct RowChrome {
     pub(super) with_bulk: bool,
     pub(super) with_actions: bool,
@@ -24,8 +27,9 @@ pub(super) struct RowChrome {
     pub(super) header_colspan: usize,
     pub(super) cell_widths: Vec<Option<Cow<'static, str>>>,
     pub(super) actions_min: Option<Cow<'static, str>>,
-    pub(super) delete_dialog_id: String,
-    pub(super) action_dialog_id: String,
+    pub(super) signals: TableSignals,
+    /// The DOM id of the table's write form.
+    pub(super) form: String,
 }
 
 /// One rendered row, keyed for the body's diff.
@@ -34,6 +38,14 @@ pub(super) struct RenderedRow<'a> {
     pub(super) key: String,
     /// The group header the row opens, if any, then the row itself.
     pub(super) view: BoxView<'a>,
+}
+
+/// The keys of the rows that take a bulk checkbox.
+pub(super) fn selectable_keys(rows: &[RowView<'_>]) -> Vec<String> {
+    rows.iter()
+        .filter(|row| row.selectable)
+        .map(|row| row.key.clone())
+        .collect()
 }
 
 /// Render the page's rows for the table body, carrying each group's header on its first row.
@@ -73,8 +85,10 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     let dom_id = row_dom_id(&row.key);
     let bulk_cell = chrome.with_bulk.then(|| {
         if row.selectable {
-            let value = row.key.clone();
             let described = dom_id.clone();
+            let bulk = chrome.signals.bulk.clone();
+            let token = bulk_token(&row.key);
+            let value = row.key.clone();
             view! {
                 cx =>
                 table_cell(
@@ -83,7 +97,26 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
                         value=(value)
                         aria-label="Select row"
                         aria-describedby=(described)
-                        data-row-select=""
+                        :checked=$({
+                            let wire = bulk.get();
+                            raw!(
+                                "cx.hydrate(String(${wire}).includes(String(${token})))",
+                                wire.contains(token.as_str()),
+                            )
+                        })
+                        @change=$(|e: Event| {
+                            let wire = bulk.get();
+                            if e.target.checked {
+                                bulk.push_str(token);
+                            } else {
+                                bulk.set(
+                                    raw!(
+                                        "cx.hydrate(String(${wire}).replaceAll(String(${token}), ',').replace(/^,+$/, ''))",
+                                        wire.to_owned(),
+                                    ),
+                                );
+                            }
+                        })
                     >
                 )
             }
@@ -123,80 +156,62 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     .boxed()
 }
 
-/// The row's actions cell: View, Edit and Delete, each only when the row's
-/// policy allows it.
+/// The row's actions cell: its custom actions, then View, Edit and Delete, each only when the
+/// row's policy allows it.
 fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
     let actions_min = chrome.actions_min.clone();
     let view_url = row.view_url.clone();
     let edit_url = row.edit_url.clone();
-    let delete = row
-        .delete_url
-        .clone()
-        .zip(row.delete_action.clone())
-        .map(|(url, action)| (url, action, chrome.delete_dialog_id.clone()));
     let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
     let edit_class = link_class.clone();
     let delete_class = link_class.clone();
-    let csrf = (!row.custom.is_empty()).then(|| crate::csrf::current_token(cx));
-    let dialog = chrome.action_dialog_id.clone();
     let described = row_dom_id(&row.key);
     let custom: Vec<BoxView<'a>> = row
         .custom
         .iter()
         .map(|(label, url, confirm)| {
+            let confirm = confirm.then_some(("Run this action?", "Confirm"));
+            let mut attrs = write_trigger(
+                cx,
+                &chrome.form,
+                &chrome.signals,
+                url.clone(),
+                confirm,
+                false,
+            );
+            attrs.extend(attributes! { cx => aria-describedby=(described.clone()) });
             let label = label.clone();
-            let url = url.clone();
-            if *confirm {
-                // A confirmatory action borrows the row-delete dialog
-                // mechanism: the trigger names the dialog and carries its
-                // POST target, so no new script is needed.
-                let trigger = dialog.clone();
-                let described_by = described.clone();
-                return view! {
-                    cx =>
-                    button(
-                        variant: ButtonVariant::Ghost,
-                        size: ButtonSize::Sm,
-                        attrs: attributes! {
-                            type="button"
-                            data-row-delete-trigger=(trigger)
-                            data-row-delete-action=(url)
-                            aria-describedby=(described_by)
-                        },
-                        (label)
-                    )
-                }
-                .boxed();
-            }
-            let token = csrf.clone().unwrap_or_default();
-            let described_by = described.clone();
             view! {
                 cx =>
-                <form
-                    method="post"
-                    action=(url)
-                    class="contents"
-                    data-mutation-submit=""
-                >
-                    (crate::csrf::field(cx, &token))
-                    button(
-                        variant: ButtonVariant::Ghost,
-                        size: ButtonSize::Sm,
-                        attrs: attributes! { type="submit" aria-describedby=(described_by) },
-                        (label)
-                    )
-                </form>
+                button(
+                    variant: ButtonVariant::Ghost,
+                    size: ButtonSize::Sm,
+                    attrs: attrs,
+                    (label)
+                )
             }
             .boxed()
         })
         .collect();
+    let delete = row.delete_action.clone().map(|action| {
+        let confirm = Some(("Delete this record?", "Delete"));
+        let mut attrs = write_trigger(cx, &chrome.form, &chrome.signals, action, confirm, false);
+        attrs.extend(attributes! {
+            cx =>
+            class=(delete_class)
+            aria-label="Delete"
+            aria-describedby=(described.clone())
+            title="Delete"
+        });
+        attrs
+    });
     view! {
         cx =>
         table_cell(
             attrs: attributes! { style=(actions_min.as_deref()) },
             <div class="flex items-center justify-end gap-1">
-                for form in custom {
-                    (form)
+                for control in custom {
+                    (control)
                 }
                 if let Some(url) = view_url {
                     <a
@@ -220,21 +235,13 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                         icon(data: tablo_ui::icons::PENCIL)
                     </a>
                 }
-                if let Some((url, action, dialog)) = delete {
-                    <a
-                        href=(url)
-                        data-row-delete-trigger=(dialog)
-                        data-row-delete-action=(action)
-                        class=(delete_class)
-                        aria-label="Delete"
-                        aria-describedby=(described.clone())
-                        title="Delete"
-                    >
+                if let Some(attrs) = delete {
+                    <button (attrs)>
                         icon(
                             data: tablo_ui::icons::TRASH,
                             attrs: attributes! { class="text-destructive" }
                         )
-                    </a>
+                    </button>
                 }
             </div>
         )
@@ -250,8 +257,7 @@ pub(super) struct RowView<'a> {
     cells: Vec<BoxView<'a>>,
     view_url: Option<String>,
     edit_url: Option<String>,
-    delete_url: Option<String>,
-    /// The row's delete POST target handed to the shared dialog.
+    /// The row's delete POST target, which the confirmation dialog posts.
     delete_action: Option<String>,
     /// The custom row actions this record allows: each button's label,
     /// its POST target, and whether it asks first through the dialog.
@@ -275,23 +281,28 @@ struct GroupHeader {
 }
 
 impl<M> WiredTable<M> {
+    /// Whether `row`, whose policy allows `actions`, takes a bulk checkbox: bulk delete
+    /// allows deleting it, or a bulk custom action allows it.
+    fn selectable(&self, row: &M, actions: RowActions) -> bool {
+        (self.bulk_delete_enabled() && actions.delete)
+            || self
+                .bulk_custom_actions()
+                .any(|action| (action.allowed)(row))
+    }
+
     /// Project the loaded page into the row presentation the template renders.
     pub(super) fn row_views<'a>(
         &self,
         cx: &'a Cx,
-        state: &TableState,
-        path: &str,
         page: &TablePage<M>,
         group_key: Option<&GroupKey<M>>,
     ) -> Vec<RowView<'a>>
     where
         M: toasty::schema::Model,
     {
-        let delete_url_base = self.delete_prefix().map(|_| state.row_url_base(path));
         let gated = self.delete_prefix().is_some()
             || self.edit_prefix().is_some()
             || self.view_prefix().is_some();
-        let bulk_delete = self.bulk_delete_enabled();
         let mut row_data: Vec<RowView<'a>> = page
             .rows
             .iter()
@@ -312,10 +323,6 @@ impl<M> WiredTable<M> {
                     .view_prefix()
                     .filter(|_| actions.view)
                     .map(|prefix| row_view_url(prefix, &key));
-                let delete_url = delete_url_base
-                    .as_ref()
-                    .filter(|_| actions.delete)
-                    .map(|base| base.delete_dialog(&key));
                 let delete_action = self
                     .delete_prefix()
                     .filter(|_| actions.delete)
@@ -332,16 +339,12 @@ impl<M> WiredTable<M> {
                             .collect()
                     })
                     .unwrap_or_default();
-                let selectable = (bulk_delete && actions.delete)
-                    || self
-                        .bulk_custom_actions()
-                        .any(|action| (action.allowed)(row));
+                let selectable = self.bulk_enabled() && self.selectable(row, actions);
                 RowView {
                     key,
                     cells,
                     view_url,
                     edit_url,
-                    delete_url,
                     delete_action,
                     custom,
                     selectable,

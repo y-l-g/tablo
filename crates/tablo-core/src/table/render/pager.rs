@@ -20,7 +20,7 @@ impl<M> WiredTable<M> {
         state: &TableState,
         path: &str,
         page: &TablePage<M>,
-        signals: Option<&TableSignals>,
+        signals: &TableSignals,
     ) -> Result<Vec<BoxView<'a>>> {
         let next_href = page
             .next_cursor

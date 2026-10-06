@@ -1,7 +1,7 @@
 use toasty::Db;
 use topcoat::router::Body;
 
-use super::{super::search::TABLE_SEARCH_PATH, *};
+use super::*;
 use crate::{
     Panel,
     panel::test_support::{current_panel, mount, panel_state},
@@ -70,7 +70,7 @@ async fn named_shard_endpoints_answer_401_without_a_session() {
     let router =
         mount(db, Panel::new("admin").auth(crate::Auth::password())).expect("panel builds");
 
-    for path in [TABLE_SEARCH_PATH, crate::notification::LIVE_TOASTER_PATH] {
+    for path in [crate::notification::LIVE_TOASTER_PATH] {
         let request = http::Request::builder()
             .method(http::Method::POST)
             .uri(path)

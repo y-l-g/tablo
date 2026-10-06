@@ -93,8 +93,7 @@ shows idiomatic use.
 
 ## Reactivity and assets
 
-The list streams inside a Topcoat `suspense` region and live tables re-render through the
-framework-owned shard; resources declare no shards and page state belongs to the page. The
-`tables.md` guide chapter and `Table::live_search` rustdoc describe the interaction. Browser
-scripts are document-owned with no build step; the hook contract is guarded by
-`cargo test -p xtask` (see `xtask/tests/it.rs`).
+The list streams inside a Topcoat `suspense` region. Every table keeps its state in signals the
+page reads, so a change reruns the page through its own route; ADR-0026 records the rule and the
+`tables.md` guide chapter the interaction. The few remaining browser scripts are shell glue with no
+build step; the hook contract is guarded by `cargo test -p xtask` (see `xtask/tests/it.rs`).

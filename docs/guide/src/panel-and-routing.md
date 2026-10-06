@@ -65,8 +65,8 @@ with `.app_context(db)` and the asset bundle with `.assets(..)`, then mount. The
 from the router, so they come first.
 
 The first panel mounted also installs what every panel shares: cookies, sessions unless the
-router already configures them, the gate over Topcoat's runtime endpoints with the shard
-dispatch, and Topcoat's runtime layer with link prefetching off unless the router already set
+router already configures them, the gate over Topcoat's runtime endpoints, and Topcoat's
+runtime layer with link prefetching off unless the router already set
 those up. The runtime layer has no
 path, so mount panels after your own pathless layers: a page re-run must reach those layers
 already rewritten to a `GET`.
@@ -209,8 +209,9 @@ tenant predicate. See [Data access](./data-access.md).
 
 ## Assets
 
-Without assets the panel renders unstyled HTML without the shell's scripts, and every page and
-form still works. To style it, install the app's Topcoat asset bundle on the router, then give the
+Without assets the panel renders unstyled HTML without Topcoat's runtime or the shell's scripts:
+every page and form still works, tables update by navigating, and the confirmation dialogs that
+deletes and confirmatory actions go through do not open. To style it, install the app's Topcoat asset bundle on the router, then give the
 panel the Tailwind stylesheet and the font the shell links:
 
 ```rust
@@ -219,7 +220,8 @@ panel the Tailwind stylesheet and the font the shell links:
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-assets-body}}
 ```
 
-`shell_assets` also makes the shell load `tablo-ui`'s scripts: live search, confirmation dialogs,
-searchable selects, toasts and the sidebar and theme toggles. Mounting refuses `shell_assets` on a
+`shell_assets` also makes the shell load Topcoat's runtime, which drives the live tables, the
+confirmation dialogs and the variant choice, and `tablo-ui`'s scripts: searchable selects and the
+sidebar and theme toggles. Mounting refuses `shell_assets` on a
 router with no asset bundle. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
 ([Your first panel](./first-panel.md#the-stylesheet)).

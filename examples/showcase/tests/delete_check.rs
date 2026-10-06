@@ -24,84 +24,30 @@ async fn delete_requires_confirmation_and_deletes() {
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
     let actions = tablo_test::row_actions(&html, &id).expect("the row carries its delete control");
-    let href = actions
-        .delete_href
-        .as_deref()
-        .expect("the control keeps its fallback href");
-    assert!(
-        href.starts_with("/admin/users?") && href.ends_with(&format!("delete={id}")),
-        "the control must keep its fallback href, got {href}"
-    );
     assert_eq!(
         actions.delete_action.as_deref(),
         Some(delete_url.as_str()),
         "the control must carry the row's POST target"
     );
-    let row_delete = tag_with(&html, &format!("delete={id}"));
-    let dialog_id = attr_value(row_delete, "data-row-delete-trigger");
+    // One write form per table: its dialog renders closed, asks before deleting, and posts the
+    // confirmation marker.
     assert_eq!(
-        html.matches(&format!("id=\"{dialog_id}\"")).count(),
+        html.matches("id=\"table-writes\"").count(),
         1,
-        "one row dialog per page, got {html}"
+        "one write form per table, got {html}"
     );
-    let dialog = tag_with(&html, &format!("id=\"{dialog_id}\""));
+    let form = &html[html.find("id=\"table-writes\"").unwrap()..];
     assert!(
-        !dialog.contains("open=\"\""),
-        "an ordinary list page must render the row dialog closed, got {dialog}"
+        form.contains("role=\"alertdialog\"") && !form.contains(" open=\"\""),
+        "an ordinary list page must render the dialog closed, got {form}"
     );
-    let form = tag_with(&html, "data-row-delete-form");
-    assert!(
-        !form.contains("action="),
-        "the closed dialog takes its action from the row control, got {form}"
-    );
-
-    let resp = client.get(&format!("/admin/users?delete={id}")).await;
-    assert!(resp.status().is_success());
-    let html = body_string(resp).await;
-    let dialog = tag_with(&html, &format!("id=\"{dialog_id}\""));
-    assert!(
-        dialog.contains("open=\"\""),
-        "?delete= must render the row dialog open, got {dialog}"
-    );
-    assert_eq!(
-        html.matches(&format!("id=\"{dialog_id}\"")).count(),
-        1,
-        "one row dialog on the page, got {html}"
-    );
-    let action = format!("action=\"/admin/users/{id}/delete\"");
     for needle in [
-        "role=\"alertdialog\"",
         "Delete this record?",
-        "data-dialog-close",
-        "data-dialog-open-param=\"open\"",
+        "name=\"confirm\" value=\"1\"",
         "bg-destructive",
-        action.as_str(),
-        "name=\"confirm\"",
     ] {
         assert!(html.contains(needle), "dialog missing {needle} in {html}");
     }
-    let from_title = &html[html
-        .find("Delete this record?")
-        .expect("the row dialog's title")..];
-    let cancel = tag_with(from_title, "data-dialog-close");
-    assert!(
-        cancel.starts_with("<button"),
-        "the row dialog's Cancel must be a button, got {cancel}"
-    );
-
-    let resp = client
-        .get(&format!("/admin/users?delete={id}&open=false"))
-        .await;
-    let html = body_string(resp).await;
-    let dialog = tag_with(&html, &format!("id=\"{dialog_id}\""));
-    assert!(
-        !dialog.contains("open=\"\""),
-        "?open=false must keep the row dialog closed, got {dialog}"
-    );
-    assert!(
-        !dialog.contains("data-dialog-open-param"),
-        "a closed dialog has no dismissal to mirror, got {dialog}"
-    );
 
     let resp = client
         .csrf(&csrf)
@@ -323,61 +269,4 @@ async fn delete_sso_managed_user_is_forbidden() {
         before,
         "forbidden delete must remove nothing"
     );
-}
-
-#[tokio::test]
-async fn delete_forms_opt_in_without_changing_the_post() {
-    let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-
-    let resp = client.get("/admin/users").await;
-    let html = body_string(resp).await;
-
-    let row_form = tag_with(&html, "data-row-delete-form");
-    assert!(
-        row_form.contains("method=\"post\"") && row_form.contains("data-mutation-submit"),
-        "the row confirm must stay a POST that opts into the client path, got {row_form}"
-    );
-    assert!(
-        !row_form.contains("action="),
-        "the closed row dialog takes its action from the row control, got {row_form}"
-    );
-
-    let bulk_form = tag_with(&html, "data-bulk-form");
-    assert!(
-        bulk_form.contains("method=\"post\"") && bulk_form.contains("data-mutation-submit"),
-        "the bulk confirm must stay a POST that opts into the client path, got {bulk_form}"
-    );
-    assert_eq!(
-        attr_value(bulk_form, "action"),
-        "/admin/users/bulk-delete",
-        "the bulk form posts to the batch route, got {bulk_form}"
-    );
-
-    // The confirmation the handlers require rides inside the form either way:
-    // the client path is an affordance, never the safeguard.
-    assert_eq!(
-        html.matches("name=\"confirm\" value=\"1\"").count(),
-        2,
-        "both confirms must carry the marker the handlers require, got {html}"
-    );
-}
-
-fn tag_with<'a>(html: &'a str, marker: &str) -> &'a str {
-    let at = html
-        .find(marker)
-        .unwrap_or_else(|| panic!("missing {marker} in {html}"));
-    let start = html[..at].rfind('<').expect("the marker's opening tag");
-    let end = html[start..].find('>').expect("the tag's end") + start;
-    &html[start..=end]
-}
-
-fn attr_value<'a>(tag: &'a str, name: &str) -> &'a str {
-    let at = tag
-        .find(&format!("{name}=\""))
-        .unwrap_or_else(|| panic!("missing {name} in {tag}"));
-    let start = at + name.len() + 2;
-    let end = tag[start..].find('"').expect("the value's end") + start;
-    &tag[start..end]
 }

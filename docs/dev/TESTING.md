@@ -2,7 +2,7 @@
 
 Rules for every test in this repo: Rust integration tests under
 `examples/showcase/tests/`, unit tests in `#[cfg(test)]` modules, the xtask
-contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
+contract tests, and the JavaScript suite under `crates/tablo-ui/assets/`.
 
 ## Rules
 
@@ -38,10 +38,10 @@ contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
   `foo.rs`, or in `tests.rs` beside a `mod.rs` or `lib.rs`. Every crate follows
   this; `crates/tablo-ui/src/components/primitives/` is vendored and carries no
   tests.
-- `crates/tablo-ui/assets/*.test.js` — the browser-asset suites, run with
-  `node --test`. Each suite's header names the behavior it protects; DOM halves
-  are covered by the integration suite instead. `sidebar.js`, `theme.js`, and
-  `variant.js` have no suite.
+- `crates/tablo-ui/assets/selects.test.js` — the searchable select's suite, run
+  with `node --test`. Its header names the behavior it protects; DOM halves are
+  covered by the integration suite instead. `sidebar.js` and `theme.js` have no
+  suite.
 - `xtask/tests/it.rs` — the contract guards (asset hooks, registry sync);
   edge cases live as unit tests in `xtask/src/tests.rs`.
 

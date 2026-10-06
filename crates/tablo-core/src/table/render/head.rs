@@ -1,14 +1,15 @@
 //! The column-header row and its sort links.
 
 use tablo_ui::{icons, table_head, table_header, table_row};
-use topcoat::{Result, context::Cx, icon::icon, view::*};
+use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{super::WiredTable, live_link};
-use crate::table::state::{TableSignals, TableState};
+use crate::table::state::{TableSignals, TableState, bulk_token};
 
 impl<M> WiredTable<M> {
-    /// Render the shared column-header row with sort links on sortable columns, writing the query
-    /// signal on live tables.
+    /// Render the column-header row: sort links that write the table's query, and the
+    /// select-all box over the page's selectable `keys`. Without `links` (the skeleton) the headers
+    /// are plain labels.
     pub(super) async fn render_thead<'a>(
         &self,
         cx: &'a Cx,
@@ -16,7 +17,7 @@ impl<M> WiredTable<M> {
         path: &str,
         with_actions: bool,
         with_bulk: bool,
-        signals: Option<&TableSignals>,
+        links: Option<(&TableSignals, Vec<String>)>,
     ) -> Result<BoxView<'a>>
     where
         M: toasty::schema::Model,
@@ -32,31 +33,32 @@ impl<M> WiredTable<M> {
             let width = widths.cells[index].clone();
             let label = col.label().to_string();
             let sortable = col.is_sortable();
-            let (head_class, aria_sort, header) = if sortable {
-                let (aria, sort_icon, next_desc) = match active {
-                    Some(s) if s.column == col.name() => (
-                        if s.descending {
-                            "descending"
-                        } else {
-                            "ascending"
-                        },
-                        if s.descending {
-                            icons::ARROW_DOWN
-                        } else {
-                            icons::ARROW_UP
-                        },
-                        !s.descending,
-                    ),
-                    _ => ("none", icons::ARROW_UP_DOWN, false),
-                };
-                let href = state.sorted_by(path, col.name(), next_desc);
-                let aria_label = format!(
-                    "Sort by {} {}",
-                    label,
-                    if next_desc { "descending" } else { "ascending" }
-                );
-                let link_attrs = live_link(cx, href, signals);
-                (
+            let (head_class, aria_sort, header) =
+                if let (true, Some((signals, _))) = (sortable, links.as_ref()) {
+                    let (aria, sort_icon, next_desc) = match active {
+                        Some(s) if s.column == col.name() => (
+                            if s.descending {
+                                "descending"
+                            } else {
+                                "ascending"
+                            },
+                            if s.descending {
+                                icons::ARROW_DOWN
+                            } else {
+                                icons::ARROW_UP
+                            },
+                            !s.descending,
+                        ),
+                        _ => ("none", icons::ARROW_UP_DOWN, false),
+                    };
+                    let href = state.sorted_by(path, col.name(), next_desc);
+                    let aria_label = format!(
+                        "Sort by {} {}",
+                        label,
+                        if next_desc { "descending" } else { "ascending" }
+                    );
+                    let link_attrs = live_link(cx, href, signals);
+                    (
                     "cursor-pointer hover:bg-foreground/5",
                     Some(aria),
                     view! {
@@ -75,9 +77,9 @@ impl<M> WiredTable<M> {
                     }
                     .boxed(),
                 )
-            } else {
-                ("", None, view! { cx => (label.clone()) }.boxed())
-            };
+                } else {
+                    ("", None, view! { cx => (label.clone()) }.boxed())
+                };
             heads.push(
                 view! {
                     cx =>
@@ -93,6 +95,10 @@ impl<M> WiredTable<M> {
                 .boxed(),
             );
         }
+        let select_all = with_bulk.then(|| match &links {
+            Some((signals, keys)) => select_all(cx, signals, keys),
+            None => attributes! { cx => type="checkbox" disabled="" },
+        });
         if with_actions {
             heads.push(
                 view! {
@@ -109,14 +115,10 @@ impl<M> WiredTable<M> {
             cx =>
             table_header(
                 table_row(
-                    if with_bulk {
+                    if let Some(attrs) = select_all {
                         table_head(
                             attrs: attributes! { style=(widths.bulk.as_deref()) },
-                            <input
-                                type="checkbox"
-                                aria-label="Select all rows"
-                                data-bulk-select-all=""
-                            >
+                            <input aria-label="Select all rows" (attrs)>
                         )
                     }
                     for h in heads {
@@ -126,5 +128,52 @@ impl<M> WiredTable<M> {
             )
         }
         .boxed())
+    }
+}
+
+/// The select-all box over a page's selectable `keys`: checked when the selection holds every one,
+/// indeterminate when it holds some, and toggling all of them at once. Keys on other pages stay
+/// selected.
+fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
+    let bulk = signals.bulk.clone();
+    let tokens: Vec<String> = keys.iter().map(|key| bulk_token(key)).collect();
+    let keys = keys.join(",");
+    attributes! {
+        cx =>
+        type="checkbox"
+        :checked=$({
+            let wire = bulk.get();
+            raw!(
+                "cx.hydrate((t => t.length > 0 && t.every(k => String(${wire}).includes(k)))(String(${keys}).split(',').filter(Boolean).map(k => ',' + k + ',')))",
+                !tokens.is_empty()
+                    && tokens.iter().all(|token| wire.contains(token.as_str())),
+            )
+        })
+        :indeterminate=$({
+            let wire = bulk.get();
+            raw!(
+                "cx.hydrate((t => t.some(k => String(${wire}).includes(k)) && !t.every(k => String(${wire}).includes(k)))(String(${keys}).split(',').filter(Boolean).map(k => ',' + k + ',')))",
+                tokens.iter().any(|token| wire.contains(token.as_str()))
+                    && !tokens.iter().all(|token| wire.contains(token.as_str())),
+            )
+        })
+        @change=$(|e: Event| {
+            let wire = bulk.get();
+            if e.target.checked {
+                bulk.set(
+                    raw!(
+                        "cx.hydrate((w => (String(${keys}).split(',').filter(Boolean).map(k => ',' + k + ',')).filter(k => !w.includes(k)).reduce((s, k) => s + k, w))(String(${wire}).replace(/^,+$/, '')))",
+                        wire.to_owned(),
+                    ),
+                );
+            } else {
+                bulk.set(
+                    raw!(
+                        "cx.hydrate((String(${keys}).split(',').filter(Boolean).map(k => ',' + k + ',')).reduce((s, k) => s.replaceAll(k, ','), String(${wire})).replace(/^,+$/, ''))",
+                        wire.to_owned(),
+                    ),
+                );
+            }
+        })
     }
 }

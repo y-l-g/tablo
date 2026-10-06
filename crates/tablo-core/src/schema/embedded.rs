@@ -27,7 +27,12 @@ use std::collections::HashMap;
 
 use tablo_ui::field_group as ui_field_group;
 use toasty::stmt::Path;
-use topcoat::{Result, context::Cx, view::*};
+use topcoat::{
+    Result,
+    context::Cx,
+    runtime::{Event, signal},
+    view::*,
+};
 
 use super::{
     Schema,
@@ -35,7 +40,10 @@ use super::{
     lenses::FieldResolver,
     tree::{Mode, Node, Source, Unbound},
 };
-use crate::form::{FieldError, FormField};
+use crate::{
+    form::{FieldError, FormField},
+    topcoat_compat::async_page,
+};
 
 /// Reads an embedded value from and writes it to the flat form map; derive it to generate the
 /// value's schema.
@@ -316,8 +324,8 @@ impl Embedded {
         }
     }
 
-    /// Renders the value, showing every variant group in a form and only the stored variant's group
-    /// in a view.
+    /// Renders the value: in a form, every variant group, showing the chosen variant's; in a view,
+    /// only the stored variant's group.
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
@@ -327,17 +335,15 @@ impl Embedded {
         match &self.shape {
             Shape::Struct(members) => render_members(cx, members, fields, source).await,
             Shape::Enum(e) => {
-                let mut views = Vec::with_capacity(e.shared.len() + e.variants.len() + 1);
-                views.push(
-                    Node::Field(e.discriminant)
-                        .render(cx, fields, source)
-                        .await?,
-                );
+                let discriminant = Node::Field(e.discriminant)
+                    .render(cx, fields, source)
+                    .await?;
                 let stored = source.value(&e.key).map(str::trim);
                 let stored_variant = e
                     .variants
                     .iter()
                     .find(|variant| stored == Some(variant.value.as_str()));
+                let mut shared = Vec::with_capacity(e.shared.len());
                 for index in &e.shared {
                     let key = fields[*index].name();
                     let declared = stored_variant.is_some_and(|variant| {
@@ -349,33 +355,57 @@ impl Embedded {
                     if source.mode() == Mode::View && !declared {
                         continue;
                     }
-                    views.push(Node::Field(*index).render(cx, fields, source).await?);
+                    shared.push(Node::Field(*index).render(cx, fields, source).await?);
                 }
+                let mut groups = Vec::with_capacity(e.variants.len());
                 for variant in &e.variants {
                     if source.mode() == Mode::View && stored != Some(variant.value.as_str()) {
                         continue;
                     }
                     let members = render_members(cx, &variant.members, fields, source).await?;
-                    let value = variant.value.clone();
-                    let owner = e.key.clone();
-                    views.push(
-                        view! {
-                            cx =>
-                            ui_field_group(
-                                attrs: attributes! { data-variant=(value) data-variant-of=(owner) },
-                                (members)
-                            )
+                    groups.push((variant.value.clone(), members));
+                }
+                let key = e.key.clone();
+                let stored = stored.unwrap_or_default().to_string();
+                // The variant the select names is a signal, so choosing another shows its group
+                // in place; every group still submits, and the server parses the chosen one.
+                Ok(async_page(async move {
+                    let variant =
+                        signal(&cx.keyed(("tablo-variant", key.as_str())), move || stored);
+                    let chosen = variant.clone();
+                    let groups: Vec<BoxView<'a>> = groups
+                        .into_iter()
+                        .map(|(value, members)| {
+                            let shown = variant.clone();
+                            view! {
+                                cx =>
+                                ui_field_group(
+                                    attrs: attributes! {
+                                        data-variant=(value.clone())
+                                        :hidden=$(shown.get() != value)
+                                    },
+                                    (members)
+                                )
+                            }
+                            .boxed()
+                        })
+                        .collect();
+                    Ok(view! {
+                        cx =>
+                        <div
+                            class="contents"
+                            @change=$(|e: Event| chosen.set(e.target.value))
+                        >
+                            (discriminant)
+                        </div>
+                        for v in shared {
+                            (v)
                         }
-                        .boxed(),
-                    );
-                }
-                Ok(view! {
-                    cx =>
-                    for v in views {
-                        (v)
-                    }
-                }
-                .boxed())
+                        for g in groups {
+                            (g)
+                        }
+                    })
+                }))
             }
         }
     }

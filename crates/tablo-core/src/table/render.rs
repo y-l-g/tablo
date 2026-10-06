@@ -6,8 +6,8 @@
 //! The entry points and the table chrome live in `core`, the header row in
 //! `head`, row projection and rendering in `rows`, the zero-rows cell in
 //! `empty`, column widths in `widths`, the search and bulk bars in `toolbar`,
-//! the filter bar in `filterbar`, pagination in `pager`, the delete dialog in
-//! `dialog`, and the streamed placeholder in `skeleton`.
+//! the filter bar in `filterbar`, pagination in `pager`, the confirmation
+//! dialogs in `dialog`, and the streamed placeholder in `skeleton`.
 
 mod core;
 mod dialog;
@@ -26,15 +26,11 @@ use topcoat::{
     view::{Attributes, StaticClass, attributes, class},
 };
 
-use super::state::{TableSignals, query_of};
+use super::state::{TableSignals, TableState, query_of};
 
-/// A toolbar row above the table: the search-and-bulk row, the filter bar,
-/// and the live search host.
+/// A toolbar row above the table: the search-and-bulk row and the filter bar.
 const BAR_CLASS: StaticClass =
     class!("flex flex-wrap items-center gap-2 border-b border-border p-3");
-
-/// The search form inside the toolbar row, beside the bulk form.
-const SEARCH_FORM_CLASS: StaticClass = class!("flex flex-wrap items-center gap-2");
 
 /// The search input's box: its width, and the anchor for the icon inside it.
 const SEARCH_FIELD_CLASS: StaticClass = class!("relative w-full sm:w-72");
@@ -50,9 +46,6 @@ pub(crate) const TABLE_CARD_CLASS: StaticClass = class!(
     "overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm"
 );
 
-/// A table inside a card the page draws.
-const TABLE_BARE_CLASS: StaticClass = class!("overflow-hidden");
-
 /// A secondary link inside a bar ("Clear filters", "Clear search").
 const QUIET_LINK_CLASS: StaticClass = class!("text-sm text-muted-foreground hover:text-foreground");
 
@@ -60,24 +53,35 @@ const QUIET_LINK_CLASS: StaticClass = class!("text-sm text-muted-foreground hove
 const EMPTY_LINK_CLASS: StaticClass =
     class!("text-sm font-medium text-foreground underline underline-offset-4");
 
-/// A table link's attributes: `href` always, and on a live table (`signals`) a
-/// click that writes the link's own query to the `query` signal instead of
-/// navigating, so the shard re-renders the table in place. `href` stays the
-/// no-JS fallback and spells the same state.
-pub(super) fn live_link(cx: &Cx, url: String, signals: Option<&TableSignals>) -> Attributes {
-    match signals {
-        Some(signals) => {
-            let query = signals.query.clone();
-            let next = query_of(&url).to_string();
-            attributes! {
-                cx =>
-                href=(url)
-                @click=$(|e: Event| {
-                    e.prevent_default();
-                    query.set(next.clone());
-                })
+/// The DOM id of one piece of a table's chrome, distinct per table on the page.
+pub(super) fn table_dom_id(state: &TableState, suffix: &str) -> String {
+    format!("{}-{suffix}", state.prefix.as_deref().unwrap_or("table"))
+}
+
+/// A table link's attributes: `href`, and a plain click that writes the link's query to the
+/// table's `query` signal instead of navigating, so the page reruns with the new state in place.
+/// A modified click opens `href` the browser's way.
+pub(super) fn live_link(cx: &Cx, url: String, signals: &TableSignals) -> Attributes {
+    let query = signals.query.clone();
+    let next = query_of(&url).to_string();
+    attributes! {
+        cx =>
+        href=(url)
+        @click=$(|e: Event| {
+            if e.ctrl_key {
+                return;
             }
-        }
-        None => attributes! { cx => href=(url) },
+            if e.meta_key {
+                return;
+            }
+            if e.shift_key {
+                return;
+            }
+            if e.alt_key {
+                return;
+            }
+            e.prevent_default();
+            query.set(next.clone());
+        })
     }
 }

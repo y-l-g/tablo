@@ -133,7 +133,7 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     cx: &'a Cx,
     resource: &Mounted<R>,
     tx: toasty::Transaction<'_>,
-    chrome: FormChrome<'a>,
+    chrome: FormChrome,
     values: &HashMap<String, String>,
     errors: &FieldErrors,
     carried: &HashSet<String>,

@@ -47,11 +47,7 @@ impl Resource for BookResource {
         ResourceDef::new()
             .slug("books")
             .policy(ReadOnly)
-            .table(
-                Table::new(TextColumn::new(lens!(Book.title)))
-                    .paginate(25)
-                    .live_search(),
-            )
+            .table(Table::new(TextColumn::new(lens!(Book.title))).paginate(25))
             .view(tablo_core::Schema::new(tablo_core::Field::text(
                 Book::fields().title(),
             )))
@@ -131,23 +127,18 @@ fn two_panels(db: Db, auth: fn() -> Auth) -> Router {
         .build()
 }
 
-fn shard(path: &str, cookies: Option<&str>) -> http::Request<Body> {
-    let args = format!(
-        r#"[{},{{"t":"Signal","id":"{:032x}","v":""}},{{"t":"Signal","id":"{:032x}","v":""}}]"#,
-        serde_json::to_string(path).unwrap(),
-        1,
-        2
-    );
+/// A page rerun of `path`: the request the runtime sends when a table's query changes.
+fn rerun(path: &str, cookies: Option<&str>) -> http::Request<Body> {
     let mut request = http::Request::builder()
         .method(http::Method::POST)
-        .uri("/_topcoat/runtime/shards/tablo-table-search")
-        .header(http::header::CONTENT_TYPE, "application/json")
-        .header(topcoat::router::request::IDENTITY_HEADER, "A".repeat(22));
+        .uri(path)
+        .header("X-Topcoat-Runtime", "true")
+        .header(http::header::CONTENT_TYPE, "application/json");
     if let Some(cookies) = cookies {
         request = request.header(http::header::COOKIE, cookies);
     }
     request
-        .body(Body::from(format!(r#"{{"args":{args},"signals":{{}}}}"#)))
+        .body(Body::from(r#"{"signals":{}}"#.to_owned()))
         .unwrap()
 }
 
@@ -222,36 +213,6 @@ async fn url_helpers_answer_for_the_requests_panel() {
 }
 
 #[tokio::test]
-async fn a_live_table_shard_re_renders_for_the_panel_its_path_names() {
-    let router = two_panels(books_db().await, Auth::disabled);
-
-    let response = router.handle(shard("/portal/books", None)).await;
-    assert_eq!(response.status(), 200);
-    let html = body_string(response).await;
-    assert!(
-        html.contains("Dune"),
-        "the shard renders the row, got {html}"
-    );
-    let found = rows(&html);
-    assert_eq!(found.len(), 1, "the shard renders the one row: {html}");
-    assert!(
-        found[0]
-            .actions
-            .view
-            .as_deref()
-            .is_some_and(|view| view.starts_with("/portal/books/")),
-        "the row links stay in the portal: {html}"
-    );
-    assert!(
-        !html.contains("/admin/"),
-        "nothing of the admin panel, got {html}"
-    );
-
-    let response = router.handle(shard("/elsewhere/books", None)).await;
-    assert_eq!(response.status(), 404, "a path no panel serves");
-}
-
-#[tokio::test]
 async fn a_session_belongs_to_the_panel_that_signed_it_in() {
     let mut db = books_db().await;
     toasty::create!(AdminUser {
@@ -313,16 +274,12 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
 
     let header = cookie_header(jar.iter().map(|(n, v)| (n.as_str(), v.as_str())));
     let own = router
-        .handle(shard("/admin/books", header.as_deref()))
+        .handle(rerun("/admin/books", header.as_deref()))
         .await;
-    assert_eq!(
-        own.status(),
-        200,
-        "the session re-renders its own panel's table"
-    );
+    assert_eq!(own.status(), 200, "the session reruns its own panel's list");
     let _ = body_string(own).await;
     let other = router
-        .handle(shard("/portal/books", header.as_deref()))
+        .handle(rerun("/portal/books", header.as_deref()))
         .await;
     assert_eq!(other.status(), 401, "and not another panel's");
 }

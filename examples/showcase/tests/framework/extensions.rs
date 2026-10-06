@@ -435,7 +435,7 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
     let html = body_string(get(&router, "/admin/tasks").await).await;
     assert!(
         html.contains(&format!(
-            "action=\"/admin/tasks/{}/-/actions/complete\"",
+            "formaction=\"/admin/tasks/{}/-/actions/complete\"",
             open.id
         )),
         "an open task offers Complete: {html}"
@@ -456,15 +456,8 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
         html.contains("formaction=\"/admin/tasks/-/actions/explode\""),
         "and the bulk-only action: {html}"
     );
-    // The resource allows no delete, so the bulk bar carries the actions
-    // alone: no delete trigger or dialog, and the form posts to the first
-    // action's route.
-    assert!(!html.contains("data-bulk-confirm-trigger"), "{html}");
-    assert!(!html.contains("data-bulk-confirm-dialog"), "{html}");
-    assert!(
-        html.contains("action=\"/admin/tasks/-/actions/complete\""),
-        "the bulk form posts to the first action: {html}"
-    );
+    // The resource allows no delete, so the bulk bar carries the actions alone.
+    assert!(!html.contains("Delete selected"), "{html}");
     // Both rows take a bulk action (`explode` runs on any task), so both
     // render a checkbox.
     let found = rows(&html);
@@ -794,32 +787,24 @@ async fn a_confirmatory_action_renders_triggers_and_dialogs() {
     let router = panel_router::<ConfirmResource>(db.clone());
 
     let html = body_string(get(&router, "/admin/confirmed").await).await;
-    assert!(
-        html.contains("data-row-delete-trigger")
-            && html.contains(&format!(
-                "data-row-delete-action=\"/admin/confirmed/{}/-/actions/archive\"",
-                task.id
-            )),
-        "the row button opens the shared dialog with its POST target: {html}"
+    let row = format!(
+        "formaction=\"/admin/confirmed/{}/-/actions/archive\"",
+        task.id
     );
     assert!(
-        html.contains("id=\"-admin-confirmed-action-confirm\""),
-        "the shared row dialog renders: {html}"
+        html.contains(&row) && html.contains("Run this action?"),
+        "the row button opens the confirmation on its POST target: {html}"
     );
     assert!(
-        html.contains("data-bulk-action-confirm-trigger")
-            && html
-                .contains("data-bulk-action-confirm-action=\"/admin/confirmed/-/actions/archive\"")
-            && html.contains("data-bulk-action-confirm-dialog"),
-        "the bulk bar carries its own confirmation: {html}"
+        html.contains("formaction=\"/admin/confirmed/-/actions/archive\""),
+        "the bulk bar asks first too: {html}"
     );
 
     let plain =
         body_string(get(&panel_router::<TaskResource>(db.clone()), "/admin/tasks").await).await;
     assert!(
-        plain.contains("/-/actions/complete\"")
-            && !plain.contains("data-row-delete-action=\"/admin/tasks/")
-            && !plain.contains("data-bulk-action-confirm-trigger"),
+        plain.contains("formaction=\"/admin/tasks/-/actions/complete\"")
+            && !plain.contains("Run this action?"),
         "an immediate action submits directly: {plain}"
     );
 }

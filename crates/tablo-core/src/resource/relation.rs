@@ -21,16 +21,12 @@ pub struct Relation<P> {
     pub(crate) label: Option<String>,
     pub(crate) foreign_key: String,
     bind: BindFn<P>,
-    pub(crate) scope_of: ScopeFn,
     /// Why `foreign_key` binds no column, when it does not.
     pub(crate) misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 /// An owner's rows filter on the child.
 type BindFn<P> = Arc<dyn Fn(&P) -> (Expr<bool>, String) + Send + Sync>;
-
-/// The child's rows that belong to the owner whose primary key a request names as text.
-pub(crate) type ScopeFn = Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
 
 /// A foreign-key column type referencing a primary key of type `K`: `K` itself, or `Option<K>`
 /// for an optional reference. Sealed: these are the only two.
@@ -84,7 +80,6 @@ where
             Ok(field) => (field.name.app_unwrap().to_string(), None),
             Err(error) => (String::new(), Some(error)),
         };
-        let scope_key = foreign_key.clone();
         Self {
             child: TypeId::of::<C>(),
             child_name: std::any::type_name::<C>(),
@@ -94,10 +89,6 @@ where
             bind: Arc::new(move |owner| {
                 let scope = foreign_key.clone().eq(pk::pk_expr::<P, T>(owner));
                 (scope, pk::pk_text(owner))
-            }),
-            scope_of: Arc::new(move |owner| {
-                let owner = T::parse_form(owner.trim()).ok()?;
-                Some(scope_key.clone().eq(owner))
             }),
         }
     }

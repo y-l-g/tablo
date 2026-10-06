@@ -26,9 +26,9 @@ order with a payload of its own submitted (a `#[shared(..)]` column never select
 the first variant.
 
 **4. The variant control is a `Select` over the discriminant.** It renders one option per declared
-variant; each payload sits in its group carrying `data-variant` markers, and `assets/variant.js`
-hides non-matching groups scoped to the form. With JavaScript off every group renders and the
-server parse is unchanged. A create form opens on the empty choice, deliberately not `required`,
+variant; each payload sits in its group, and a runtime signal holding the chosen variant hides
+the other groups. Every group still submits, and the server parses the chosen one; with
+JavaScript off the stored variant's group shows. A create form opens on the empty choice, deliberately not `required`,
 so an empty submit reaches the payload fallback. A `#[shared(..)]` column renders once outside
 every group; a unit variant gets its group too.
 

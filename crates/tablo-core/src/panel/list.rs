@@ -1,4 +1,4 @@
-//! Serves each resource's list page and its live-search host.
+//! Serves each resource's list page.
 
 use std::sync::Arc;
 
@@ -6,19 +6,18 @@ use topcoat::{
     Result,
     context::Cx,
     icon::icon,
-    router::{Body, error::forbidden},
-    runtime::Event,
-    view::{BoxView, ViewExt, attributes, internal::ThenView, suspense, view},
+    router::{Body, error::forbidden, request::original_method},
+    view::{BoxView, SuspenseMode, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
-use super::{gate::gate, search::list_search_invocation};
+use super::gate::gate;
 use crate::{
     form::RecordForm,
     policy::Ability,
     resource::{Mounted, Resource},
     table::{
-        RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage, TableSignals,
-        TableState, WiredTable, create_page_url, request_query,
+        RowActions, Table, TableAction, TableChrome, TablePage, TableSignals, TableState,
+        WiredTable, create_page_url,
     },
     topcoat_compat::async_page,
 };
@@ -47,27 +46,21 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> Ta
     }
 }
 
-/// Wires `R`'s delete, bulk, edit, view, and custom actions onto the table; `live` selects the
-/// shard variant.
+/// Wires `R`'s delete, bulk, edit, view, and custom actions onto the table.
 pub(crate) fn wire_table_actions<R: Resource>(
     cx: &Cx,
     resource: &Arc<Mounted<R>>,
-    live: bool,
 ) -> WiredTable<R::Model> {
-    wire_table(cx, resource, live, declared_chrome(cx, resource))
+    wire_table(cx, resource, declared_chrome(cx, resource))
 }
 
 /// Wires `chrome`'s affordances onto `R`'s table.
 pub(crate) fn wire_table<R: Resource>(
     cx: &Cx,
     resource: &Arc<Mounted<R>>,
-    live: bool,
     chrome: TableChrome,
 ) -> WiredTable<R::Model> {
     let mut table = WiredTable::new(Arc::clone(&resource.table));
-    if live {
-        table = table.hosting_bars();
-    }
     let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
     table = table.row_actions(move |record| {
         // Every route pairs its predicate with `View`.
@@ -134,50 +127,16 @@ pub(crate) fn table_error_view<'a, R: Resource>(
     state: &TableState,
     error: &topcoat::Error,
     path: &str,
-    signals: Option<&TableSignals>,
 ) -> BoxView<'a> {
     tracing::error!(resource = resource.slug, error = %error, "table load failed");
     let title = format!("Couldn't load {}", resource.plural_label);
     let retry_url = retry_url_for_error(state, error, path);
-    let action: BoxView<'a> = match signals {
-        Some(signals) => {
-            // Keyed by the list, like the table's own signals.
-            let attempt = topcoat::runtime::signal(&cx.keyed(path), || 0u64);
-            let cursor_error = crate::error::TabloError::is_cursor(error);
-            let attrs = if cursor_error {
-                let query = signals.query.clone();
-                let next = crate::table::query_of(&retry_url).to_string();
-                attributes! {
-                    cx =>
-                    href=(retry_url)
-                    data-retry-attempt=(attempt.get())
-                    @click=$(|e: Event| {
-                        e.prevent_default();
-                        query.set(next.clone());
-                        attempt.increment();
-                    })
-                }
-            } else {
-                attributes! {
-                    cx =>
-                    href=(retry_url)
-                    data-retry-attempt=(attempt.get())
-                    @click=$(|e: Event| {
-                        e.prevent_default();
-                        attempt.increment();
-                    })
-                }
-            };
-            view! { cx => <a (attrs)>"Retry"</a> }.boxed()
-        }
-        None => view! { cx => <a href=(retry_url)>"Retry"</a> }.boxed(),
-    };
     view! {
         cx =>
         tablo_ui::error_state(
             title: title,
             detail: "Something went wrong while loading the records.",
-            action: Some(action.into()),
+            action: Some(view! { cx => <a href=(retry_url)>"Retry"</a> }.boxed().into()),
             attrs: attributes! { role="alert" }
         )
     }
@@ -214,6 +173,9 @@ fn list_header<'a, R: Resource>(cx: &'a Cx, resource: &Mounted<R>) -> BoxView<'a
 }
 
 /// Serves the list page every declared [`Resource`] gets at `{prefix}/{slug}`.
+///
+/// The page reads the table's state from its signals, so a change in the browser reruns it in
+/// place; a rerun waits for the rows instead of flashing the skeleton.
 pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;
@@ -221,27 +183,31 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
-        let state = TableState::from_cx(cx);
-        let table = wire_table_actions(cx, &resource, false);
-        if table.is_live_search() {
-            return Ok(resource_list_live(cx, resource, table, state));
-        }
-
+        let signals = TableSignals::new(cx, None);
         // Normalizes once per request (GH #153).
-        let state = table.normalize_state(&state);
+        let table = wire_table_actions(cx, &resource);
+        let state = table.normalize_state(&signals.state(None));
+        // A write lands back on the list as the reader left it.
+        let back = state.without_cursor(&resource.url);
+        let table = if back == resource.url {
+            table
+        } else {
+            table.returning_to(back)
+        };
         let skeleton = table.render_skeleton(cx, &state).await?;
         let header = list_header(cx, &resource);
+        let mode = rerun_suspense_mode(cx);
         let lazy_rows = ThenView::new(async move {
             let list_path = &resource.url;
             let rendered = async {
                 let page = load_table_page(cx, &resource, &table, &state).await?;
-                table.render_with_state(cx, page, &state, list_path).await
+                table
+                    .render_page(cx, page, &state, list_path, &signals)
+                    .await
             };
             match rendered.await {
                 Ok(view) => Ok(view),
-                Err(error) => Ok(table_error_view(
-                    cx, &resource, &state, &error, list_path, None,
-                )),
+                Err(error) => Ok(table_error_view(cx, &resource, &state, &error, list_path)),
             }
         });
 
@@ -250,7 +216,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             tablo_ui::page(
                 (header)
                 tablo_ui::page_content(
-                    suspense(fallback: skeleton, (lazy_rows.boxed()))
+                    suspense(fallback: skeleton, mode: mode, (lazy_rows.boxed()))
                 )
             )
         }
@@ -258,70 +224,14 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     })
 }
 
-/// Serves the live list page for `Table::live_search` tables.
-pub(crate) fn resource_list_live<R: Resource>(
-    cx: &Cx,
-    resource: Arc<Mounted<R>>,
-    table: WiredTable<R::Model>,
-    state: TableState,
-) -> BoxView<'_> {
-    async_page(async move {
-        let list_path = resource.url.clone();
-        // Keyed by the list so one list's search never filters the next.
-        let signals = TableState::signals_for(&cx.keyed(list_path.as_str()), &request_query(cx));
-        // Normalizes once per request.
-        let state = table.normalize_state(&state);
-        let host = if table.search_enabled() {
-            Some(
-                table
-                    .render_live_search_bar(cx, &state, &list_path, &signals)
-                    .await?,
-            )
-        } else {
-            None
-        };
-        let filter_bar = if table.filter_bar_enabled() {
-            Some(
-                table
-                    .render_live_filter_bar(cx, &state, &list_path, &signals)
-                    .await?,
-            )
-        } else {
-            None
-        };
-        let table = table.hosting_bars();
-        let skeleton = table.render_skeleton(cx, &state).await?;
-        let delete_dialog = table.render_delete_dialog(cx, &state).await?;
-        let action_dialog = table.render_action_confirm_dialog(cx);
-        let header = list_header(cx, &resource);
-        let lazy_rows = ThenView::new(async move {
-            Ok::<_, topcoat::Error>(list_search_invocation(cx, &list_path, signals))
-        });
-
-        Ok(view! {
-            cx =>
-            tablo_ui::page(
-                (header)
-                tablo_ui::page_content(
-                    <div class=(TABLE_CARD_CLASS)>
-                        if let Some(host) = host {
-                            (host)
-                        }
-                        if let Some(bar) = filter_bar {
-                            (bar)
-                        }
-                        suspense(fallback: skeleton, (lazy_rows.boxed()))
-                    </div>
-                    if let Some(dialog) = delete_dialog {
-                        (dialog)
-                    }
-                    if let Some(dialog) = action_dialog {
-                        (dialog)
-                    }
-                )
-            )
-        })
-    })
+/// How a list's `suspense` loads: streamed behind its skeleton on the first render, and waited
+/// for on a rerun, which updates the page in place.
+fn rerun_suspense_mode(cx: &Cx) -> SuspenseMode {
+    if original_method(cx) == http::Method::POST {
+        SuspenseMode::Wait
+    } else {
+        SuspenseMode::Stream
+    }
 }
 
 /// Loads `R`'s list page for `state` from the tenant-scoped query.

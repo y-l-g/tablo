@@ -41,8 +41,8 @@ async fn filter_widgets_render_typed_controls() {
         .unwrap()
         .render(&cx);
     assert!(
-        html.contains("data-filters-form"),
-        "missing filters form in {html}"
+        html.contains("id=\"table-toolbar\"") && html.contains("method=\"get\""),
+        "the filters live in the toolbar's GET form in {html}"
     );
     for name in ["status", "featured", "created_at"] {
         assert!(
@@ -69,23 +69,14 @@ async fn filter_widgets_render_typed_controls() {
         html.contains("type=\"date\""),
         "missing date input in {html}"
     );
-    // Each control is its own `f.<name>` form field, so the GET form submits
-    // the filters itself; only a live table carries a query transport.
+    // Each control is its own `f.<name>` field of the form the table's query reads.
     assert!(
         html.contains("name=\"f.status\"") && html.contains("name=\"f.created_at\""),
         "each filter control must be an f.<name> field in {html}"
     );
     assert!(
-        html.contains("data-filters-clear"),
-        "the Clear link is the one filters.js clears in place on a live table, in {html}"
-    );
-    assert!(
-        !html.contains("data-filters-transport"),
-        "a static table carries no query transport in {html}"
-    );
-    assert!(
-        html.contains("<noscript>") && html.contains("Apply filters"),
-        "missing no-JS filter fallback in {html}"
+        html.contains("Clear filters</a>"),
+        "an active filter offers to clear the filters in {html}"
     );
 }
 

@@ -3,10 +3,7 @@
 
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
-use topcoat::{
-    context::Cx,
-    router::{PageFn, RouteFn},
-};
+use topcoat::router::{PageFn, RouteFn};
 
 use super::{
     Root,
@@ -19,19 +16,17 @@ use super::{
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
     list::resource_list,
     pages::page_handler,
-    relations::{Child, ChildSearchFn, relation_search, relation_table},
-    search::{RelationRequest, RelationSearchFn, SearchFn, list_search},
+    relations::{Child, relation_table},
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, Page, Site,
     form::RecordForm,
     navigation::NavigationItem,
-    resource::{Mounted, Mounts, Resource, ResourceDef, ScopeFn},
+    resource::{Mounted, Mounts, Resource, ResourceDef},
     schema::FieldResolver,
     table::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
         DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
-        TableSignals,
     },
 };
 
@@ -67,10 +62,6 @@ pub(super) struct Registry {
     pub(super) root: Option<Root>,
     pub(super) mounts: Mounts,
     pub(super) resources: Vec<Registered>,
-    /// Each list's live-search loader, by list URL.
-    pub(super) search: HashMap<String, SearchFn>,
-    /// Each relation's live-search loader, by (parent slug, child slug).
-    pub(super) relation_search: HashMap<(String, String), RelationSearchFn>,
     /// Each resource's relation table, by resource type.
     pub(super) children: HashMap<TypeId, Child>,
     pub(super) errors: Vec<DeclarationError>,
@@ -84,14 +75,12 @@ pub(super) struct Registered {
     /// The declaration checks mount runs with the app's values.
     pub(super) check: ResourceCheck,
     relations: Vec<Link>,
-    search: ChildSearchFn,
 }
 
 /// One relation of a registered resource, its child type erased.
 struct Link {
     child: TypeId,
     child_name: &'static str,
-    scope_of: ScopeFn,
     misdeclared: Option<DeclarationErrorKind>,
 }
 
@@ -108,8 +97,6 @@ impl Registry {
             root: None,
             mounts: Mounts::default(),
             resources: Vec::new(),
-            search: HashMap::new(),
-            relation_search: HashMap::new(),
             children: HashMap::new(),
             errors: Vec::new(),
         }
@@ -156,11 +143,6 @@ impl Registry {
     /// registers, its table's row actions and create link go to that resource's routes, and name
     /// it once per owner, since the child's slug prefixes the table's URL parameters.
     pub(super) fn link_relations(&mut self) {
-        let slugs: HashMap<TypeId, &str> = self
-            .resources
-            .iter()
-            .map(|registered| (registered.resource, registered.slug.as_str()))
-            .collect();
         for parent in &self.resources {
             let mut seen = Vec::new();
             for link in &parent.relations {
@@ -181,26 +163,15 @@ impl Registry {
                 if let Some(kind) = &link.misdeclared {
                     refuse(kind.clone());
                 }
-                let Some(child) = child else {
+                if child.is_none() {
                     refuse(DeclarationErrorKind::UnregisteredRelation);
                     continue;
-                };
+                }
                 if seen.contains(&link.child) {
                     refuse(DeclarationErrorKind::DuplicateRelation);
                     continue;
                 }
                 seen.push(link.child);
-                let (scope_of, search) = (Arc::clone(&link.scope_of), child.search);
-                let handler: RelationSearchFn = Arc::new(
-                    move |cx: &Cx, request: RelationRequest, signals: TableSignals| {
-                        let scope = scope_of(&request.seed);
-                        search(cx, request, signals, scope)
-                    },
-                );
-                self.relation_search.insert(
-                    (parent.slug.clone(), slugs[&link.child].to_string()),
-                    handler,
-                );
             }
         }
     }
@@ -230,7 +201,6 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             return;
         };
         register_routes::<R>(registry, &url, !mounted.actions.entries().is_empty());
-        registry.search.insert(url.clone(), list_search::<R>);
         if registry.root.is_none() {
             registry.root = Some(Root::Redirect(url));
         }
@@ -254,11 +224,9 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 .map(|relation| Link {
                     child: relation.child,
                     child_name: relation.child_name,
-                    scope_of: Arc::clone(&relation.scope_of),
                     misdeclared: relation.misdeclared.clone(),
                 })
                 .collect(),
-            search: relation_search::<R>,
         });
         registry.mounts.insert(Arc::new(mounted));
     }

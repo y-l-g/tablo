@@ -104,18 +104,15 @@ The URL holds the list's whole state, so every view of a list is a link you can 
   case-sensitive on PostgreSQL.
 - Pagination is cursor-based, 25 rows per page unless `.paginate(n)` sets another size. The
   primary key breaks ties, so a sort over duplicate values still pages deterministically.
-- All of it works without JavaScript. `.hide_search()` removes the search box, and
-  `.hide_filter_bar()` the filter controls.
+- `.hide_search()` removes the search box, and `.hide_filter_bar()` the filter controls.
 
 ### Live updates
 
-```rust
-{{#include ../../../examples/guide/src/tables.rs:table-live-search}}
-```
-
-With `live_search()`, typing in the search box, sorting, filtering and paging update the table
-in place, without a page load, keeping focus and scroll position. The plain links and forms
-remain for visitors without JavaScript.
+Every table updates in place. The page keeps the table's query in a Topcoat signal: typing in the
+search box, choosing a filter, sorting and paging write it, and the runtime reruns the page with
+the new state, keeping focus and scroll position. The address bar keeps the URL the page opened
+with. Without JavaScript the links still navigate to the state they spell, and the search box
+submits the search and filters as a GET form.
 
 ## Filters
 
@@ -194,11 +191,12 @@ checkbox, so select-all only selects rows something can be done to. A bulk delet
 400 records and deletes all of them or none: a selection holding a record that may not be deleted
 deletes nothing and returns to the list with an error notification.
 
-Both deletes require confirmation. The Delete action opens a confirmation dialog on the list page;
-confirming it deletes the row, shows a notification and refreshes the table without leaving the
-page. The bulk bar's button opens a dialog stating how many rows are selected. The delete
-handlers refuse a POST that was not confirmed through the dialog with 400, and without
-JavaScript the Delete link renders the list with its dialog already open.
+Both deletes require confirmation. The Delete action opens a confirmation dialog on the list page,
+and the bulk bar's button, disabled while nothing is selected, opens one stating how many rows are
+selected. Confirming posts the write, which returns to the list as it was left (its search, sort
+and filters, on the first page) with a notification. The delete handlers refuse a POST that was not
+confirmed through the dialog with 400. The dialogs need JavaScript: without it the Delete action
+does nothing.
 
 ### Custom actions
 
@@ -237,9 +235,8 @@ nothing and returns to the list with an error notification. A record that fails 
 and one the scoped query no longer returns, fail the whole POST instead: 403 and 404, and nothing
 is written. An action name that is not one URL segment does not compile,
 and mounting the panel refuses a name two actions of a resource share. A destructive action
-declares `const CONFIRM: bool = true` to ask first through a confirmation dialog carrying the
-delete dialog's mechanism and wording; an unconfirmed POST answers 400. Confirmatory buttons need
-JavaScript: without it they do nothing.
+declares `const CONFIRM: bool = true` to ask first through the delete's confirmation dialog; an
+unconfirmed POST answers 400. Confirmatory buttons need JavaScript: without it they do nothing.
 
 If the table fails to load, the list shows an error state with a retry link in place of the rows;
 the rest of the page still renders.

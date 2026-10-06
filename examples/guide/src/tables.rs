@@ -29,12 +29,6 @@ pub fn post_table() -> Table<Post> {
 }
 // ANCHOR_END: post-table-post
 
-// ANCHOR: table-live-search
-pub fn live(columns: impl tablo_core::IntoColumns<User>) -> Table<User> {
-    Table::new(columns).live_search()
-}
-// ANCHOR_END: table-live-search
-
 // ANCHOR: table-format
 pub fn formatted_columns() {
     TextColumn::new(lens!(Post.status)).format(|status| PostStatus::label_of(status));

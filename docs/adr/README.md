@@ -22,6 +22,7 @@ code must respect.
 | [0023](0023-resource-definitions.md) | A resource declares one `ResourceDef`; each panel owns the copy it mounts |
 | [0024](0024-core-layers.md) | `tablo-core`'s modules form four layers a test enforces |
 | [0025](0025-tenant-column-type.md) | The tenant column is typed `TenantId`; a lens must name one |
+| [0026](0026-topcoat-runtime-only.md) | Topcoat's runtime is the browser layer: live tables through page reruns, writes as form posts |
 
 ## Retired
 

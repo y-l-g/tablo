@@ -3,14 +3,14 @@ use std::time::Instant;
 use jiff::Timestamp;
 use tablo_core::{
     Ability, ComputedColumn, Field, Panel, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
-    Table, TablePage, TableState, Tenancy, Tenant, TenantId, TextColumn, lens,
+    Table, Tenancy, Tenant, TenantId, TextColumn, lens,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
     Result,
     context::{Cx, CxTestBuilder},
     router::{Body, Next, Router, RouterBuilderDiscoverExt, layer, response::Response},
-    view::ViewExt,
+    view::{HoistView, ViewExt, internal::ThenView},
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -202,7 +202,6 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
             "the bench request must be allowed to open the list"
         );
         let start = Instant::now();
-        let state = TableState::from_cx(&cx);
         let table =
             tablo_core::panel::wired_table::<PostResource>(&cx).expect("PostResource is mounted");
         assert_eq!(
@@ -210,22 +209,12 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
             50,
             "declared .paginate(50) must reach the loader"
         );
-        let page = TablePage::load(
-            &cx,
-            &table,
-            tablo_core::scoped_query::<PostResource>(&cx).expect("tenant scope"),
-            &state,
-        )
-        .await
-        .expect("table load");
-        assert_eq!(page.rows.len(), 50, "expected first page of 50 rows");
-        let html = table
-            .render_with_state(&cx, page, &state, "/admin/posts")
-            .await
-            .expect("table render")
+        let query = tablo_core::scoped_query::<PostResource>(&cx).expect("tenant scope");
+        // A page body declares the table's signals: the bench renders it as one.
+        let html = HoistView::new(ThenView::new(table.render(&cx, query)))
             .single()
             .await
-            .expect("resolve view")
+            .expect("table render")
             .render(&cx);
         assert!(
             html.contains("Post 00") && html.contains("Post 49"),
@@ -272,7 +261,7 @@ async fn run_leg(db: Db, label: &str, iterations: usize) {
     println!("--- {label} ---");
     println!("tenant: {tenant} (fresh per run; 5 authors + 50 posts + 50 comments)");
     println!(
-        "list path (from_cx -> load -> render_with_state -> HTML), {iterations} iters — p50: {p50:.2}ms p90: {p90:.2}ms p99: {p99:.2}ms min: {min:.2}ms max: {max:.2}ms"
+        "list path (wired_table -> render -> HTML), {iterations} iters — p50: {p50:.2}ms p90: {p90:.2}ms p99: {p99:.2}ms min: {min:.2}ms max: {max:.2}ms"
     );
     println!("query-only diagnostic (cold Cx, no load/render), 20 iters — p50: {q50:.2}ms");
 }
@@ -316,9 +305,7 @@ mod tests {
 async fn run_bench(iterations: usize) {
     println!("=== Tablo bench (GH #171, UNGATED): real list path ===");
     println!("workload: 50 rows, 2 includes (author + comments), tenancy set, policy enforced");
-    println!(
-        "path: TableState::from_cx -> TablePage::load (scoped_query + .paginate(50)) -> render_with_state -> HTML"
-    );
+    println!("path: wired_table -> WiredTable::render (scoped_query + .paginate(50)) -> HTML");
     println!(
         "budget: <40ms p50 (50 rows, 2 includes) — reference only; UNGATED while GH #171 collects numbers, gating follows in a follow-up"
     );

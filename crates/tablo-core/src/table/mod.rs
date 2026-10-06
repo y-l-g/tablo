@@ -1,7 +1,7 @@
 //! A resource's list view: the [`Table`] builder and its columns and filters, the URL state a list
 //! reads, query planning (`filter_expr`/`search_expr`/`order_bys_for`), and the page a table loads.
 //!
-//! What a request wires onto a table (row actions, policy, framing) lives in `wiring`, rendering
+//! What a request wires onto a table (row actions, policy) lives in `wiring`, rendering
 //! in `render`, CSV export in `export`.
 
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
@@ -37,11 +37,10 @@ pub use self::{
 };
 pub(crate) use self::{
     page::{Past, row_exists_past},
-    render::TABLE_CARD_CLASS,
     state::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
         DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
-        RETURN_PARAM, TableSignals, create_page_url, query_of, request_query, with_return,
+        RETURN_PARAM, TableSignals, create_page_url, with_return,
     },
 };
 
@@ -129,7 +128,6 @@ pub struct Table<M> {
     page_size: NonZeroUsize,
     hide_search: bool,
     hide_filter_bar: bool,
-    live_search: bool,
     _marker: PhantomData<M>,
 }
 
@@ -146,7 +144,6 @@ impl<M> Clone for Table<M> {
             page_size: self.page_size,
             hide_search: self.hide_search,
             hide_filter_bar: self.hide_filter_bar,
-            live_search: self.live_search,
             _marker: PhantomData,
         }
     }
@@ -164,7 +161,6 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("page_size", &self.page_size)
             .field("hide_search", &self.hide_search)
             .field("hide_filter_bar", &self.hide_filter_bar)
-            .field("live_search", &self.live_search)
             .finish()
     }
 }
@@ -187,7 +183,6 @@ impl<M> Table<M> {
             page_size: DEFAULT_PAGE_SIZE,
             hide_search: false,
             hide_filter_bar: false,
-            live_search: false,
             _marker: PhantomData,
         }
     }
@@ -398,12 +393,6 @@ impl<M> Table<M> {
         self
     }
 
-    /// Enable keystroke-live search via the `table_search` shard.
-    pub fn live_search(mut self) -> Self {
-        self.live_search = true;
-        self
-    }
-
     /// Global search predicate across searchable columns.
     pub(crate) fn search_expr(&self, term: &str) -> Option<Expr<bool>>
     where
@@ -497,11 +486,6 @@ impl<M> Table<M> {
         M: toasty::schema::Model,
     {
         !self.hide_search && self.columns.iter().any(|c| c.is_searchable())
-    }
-
-    /// Whether this table renders the keystroke-live search host.
-    pub(crate) fn is_live_search(&self) -> bool {
-        self.live_search
     }
 
     /// Whether the declaration renders a filter bar.

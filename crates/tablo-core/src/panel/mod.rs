@@ -10,7 +10,6 @@ mod list;
 mod pages;
 mod register;
 mod relations;
-mod search;
 mod shell;
 pub(crate) mod state;
 #[cfg(test)]
@@ -22,8 +21,6 @@ use std::path::PathBuf;
 
 use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
-#[cfg(test)]
-pub(crate) use self::search::TABLE_SEARCH_PATH;
 pub use self::{build::RouterBuilderPanelExt, gate::can_list, shell::Brand};
 use self::{
     build::is_directory_pattern,
@@ -37,8 +34,8 @@ use crate::{
 };
 
 /// Returns the panel's list table for `R`, with the request's row actions wired on, for a page
-/// that owns its table; pair it with [`TablePage::load`](crate::table::TablePage::load) and
-/// [`WiredTable::render_with_state`](crate::table::WiredTable::render_with_state).
+/// that owns its table; render it over the page's own query with
+/// [`WiredTable::render`](crate::table::WiredTable::render).
 ///
 /// # Errors
 ///
@@ -47,7 +44,7 @@ pub fn wired_table<R: Resource>(
     cx: &topcoat::context::Cx,
 ) -> topcoat::Result<crate::table::WiredTable<R::Model>> {
     let resource = crate::resource::require_mounted::<R>(cx)?;
-    Ok(self::list::wire_table_actions(cx, &resource, false))
+    Ok(self::list::wire_table_actions(cx, &resource))
 }
 
 /// `R`'s sidebar entry in the request's panel, with its label, URL and icon; `None` when the

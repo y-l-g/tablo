@@ -1,5 +1,5 @@
 //! List state: [`TableState`], [`Cursor`], [`Sort`], the URL codec, and the
-//! live table's signals.
+//! table's signals.
 //!
 //! The URL query spells list state; [`TableState::from_query`] parses it and one
 //! encoder projects every link.
@@ -13,20 +13,71 @@ use topcoat::{
 
 use crate::{query_term::clamp_query_term, topcoat_compat::href};
 
-/// The live table's browser state: the list's query string and the bulk
-/// selection.
+/// A table's browser state: the list's query string, the bulk selection, and
+/// the write its confirmation dialog asks about.
+///
+/// The page reads `query` on the server, so writing it in the browser reruns
+/// the page with the new list state.
 #[derive(Clone)]
 pub(crate) struct TableSignals {
     /// The list's URL query, without the leading `?`.
     pub(crate) query: Signal<String>,
-    /// The bulk selection as `,a,b,`-delimited keys; empty selects none.
+    /// The bulk selection as `,key,` tokens; empty selects none.
     pub(crate) bulk: Signal<String>,
+    pub(crate) confirm: ConfirmSignals,
 }
 
-/// Tests exact segment membership on the `,a,b,` bulk wire.
-#[cfg(test)]
-pub(crate) fn bulk_wire_contains(wire: &str, key: &str) -> bool {
-    wire.split(',').any(|segment| segment == key)
+/// The write the confirmation dialog asks about.
+#[derive(Clone)]
+pub(crate) struct ConfirmSignals {
+    /// The write's POST target; empty while the dialog is closed.
+    pub(crate) action: Signal<String>,
+    pub(crate) title: Signal<String>,
+    /// The confirming button's label.
+    pub(crate) label: Signal<String>,
+    /// Whether the write takes the bulk selection.
+    pub(crate) bulk: Signal<bool>,
+}
+
+impl TableSignals {
+    /// The signals of the table whose parameters carry `prefix`, `query`
+    /// seeded with the request's query as written.
+    ///
+    /// Keyed by the page's path too: runtime navigation keeps the values of
+    /// signals two pages share, so another page's table starts from its own
+    /// URL. Creates the signals, so it carries [`topcoat::runtime::signal`]'s
+    /// contract: call it while a page body runs.
+    pub(crate) fn new(cx: &Cx, prefix: Option<&str>) -> Self {
+        let path = topcoat::context::try_request_context::<http::request::Parts>(cx)
+            .map(|parts| parts.uri.path().to_string())
+            .unwrap_or_default();
+        let cx = cx.keyed(("tablo-table", path, prefix.unwrap_or_default()));
+        let query = request_query(&cx);
+        Self {
+            query: signal(&cx, move || query),
+            bulk: signal(&cx, String::new),
+            confirm: ConfirmSignals {
+                action: signal(&cx, String::new),
+                title: signal(&cx, String::new),
+                label: signal(&cx, String::new),
+                bulk: signal(&cx, || false),
+            },
+        }
+    }
+
+    /// The list state `query` spells, read so a change reruns the page.
+    pub(crate) fn state(&self, prefix: Option<&str>) -> TableState {
+        let query = self.query.get();
+        match prefix {
+            Some(prefix) => TableState::from_query_prefixed(&query, prefix),
+            None => TableState::from_query(&query),
+        }
+    }
+}
+
+/// The selection token for `key` on the bulk wire.
+pub(crate) fn bulk_token(key: &str) -> String {
+    format!(",{key},")
 }
 
 /// Which column the table is currently sorted by, parsed from
@@ -70,10 +121,6 @@ pub struct TableState {
     pub filters_dropped: bool,
     /// `?group_by=` — field name to group by (in-memory, `count` summarizer).
     pub group_by: Option<String>,
-    /// `?delete=` — the row key whose delete dialog opens; never a write.
-    pub delete: Option<String>,
-    /// `?open=false` — renders the delete dialog closed.
-    pub open: Option<bool>,
 }
 
 /// The URL parameters one table link projects.
@@ -89,8 +136,6 @@ struct UrlProjection<'a> {
     group_by: Option<&'a str>,
     /// `?after=` or `?before=`.
     cursor: Option<&'a Cursor>,
-    /// `?delete=` row key for the confirmation dialog.
-    delete: Option<&'a str>,
 }
 
 /// Caps applied filters per query.
@@ -147,7 +192,7 @@ impl TableState {
     }
 
     /// Parse the state from a URL query (without the leading `?`): the one
-    /// parser behind the GET page and the live shard.
+    /// parser behind the page and its exports.
     ///
     /// A blank or unknown query parses as neutral state rather than failing
     /// the request. A duplicate key keeps its first occurrence, so a repeated
@@ -158,8 +203,8 @@ impl TableState {
     /// `MAX_FILTERS` filters of at most `MAX_FILTER_LEN` bytes apply. A cursor
     /// token is checked later, when it decodes.
     ///
-    /// The live shard parses a client-owned query, so the parse is linear in
-    /// its length: only the known keys are remembered.
+    /// A rerun parses a client-owned query, so the parse is linear in its
+    /// length: only the known keys are remembered.
     pub fn from_query(query: &str) -> Self {
         Self::from_pairs(form_urlencoded::parse(query.as_bytes()))
     }
@@ -169,7 +214,7 @@ impl TableState {
     fn from_pairs<'q>(pairs: impl Iterator<Item = (Cow<'q, str>, Cow<'q, str>)>) -> Self {
         let mut state = Self::default();
         let (mut sort, mut dir, mut after, mut before) = (None, None, None, None);
-        let mut seen = [false; 8];
+        let mut seen = [false; 6];
         for (key, value) in pairs {
             if let Some(name) = key.strip_prefix(FILTER_PREFIX) {
                 let value = value.trim();
@@ -193,8 +238,6 @@ impl TableState {
                 "after" => 3,
                 "before" => 4,
                 "group_by" => 5,
-                "delete" => 6,
-                "open" => 7,
                 // The retired single-parameter filter spelling: a saved link
                 // must warn (and its export refuse), not list everything.
                 "filters" => {
@@ -213,18 +256,7 @@ impl TableState {
                 2 => dir = Some(value.trim() == "desc"),
                 3 => after = non_empty(),
                 4 => before = non_empty(),
-                5 => state.group_by = non_empty(),
-                // The delete dialog is opt-in through `?delete=`;
-                // `?open=false` is the dismissal mirror `dialog.js` writes.
-                // Any other `open` value stays neutral (open).
-                6 => state.delete = non_empty(),
-                _ => {
-                    state.open = match value.as_ref() {
-                        "false" => Some(false),
-                        "true" => Some(true),
-                        _ => None,
-                    }
-                }
+                _ => state.group_by = non_empty(),
             }
         }
         state.sort = sort.map(|column| Sort {
@@ -239,28 +271,6 @@ impl TableState {
         state
     }
 
-    /// The live page's signals: `query` seeded with the request's query as
-    /// written, the selection empty.
-    ///
-    /// The raw query, not a projection of the parsed state: the shard parses
-    /// it with [`Self::from_query`] and normalizes it exactly as the GET path
-    /// does, so an unknown `?group_by=` is dropped on the way back in and a
-    /// dropped filter still warns ([`Self::filters_dropped`]). Parameters the
-    /// list does not read ride along until a link replaces the query with its
-    /// own projection.
-    ///
-    /// Creates the signals, so it carries [`topcoat::runtime::signal`]'s
-    /// contract: call it while a view is collecting signal declarations — the
-    /// panel calls it from the live page's render, and the declarations ride
-    /// that page's hoisted parts.
-    pub(crate) fn signals_for(cx: &Cx, query: &str) -> TableSignals {
-        let query = query.to_string();
-        TableSignals {
-            query: signal(cx, move || query),
-            bulk: signal(cx, String::new),
-        }
-    }
-
     /// The state's full query: every parameter [`Self::list_url`] carries,
     /// without the path or the leading `?`.
     pub(crate) fn query(&self) -> String {
@@ -272,23 +282,20 @@ impl TableState {
     /// parameter cannot silently drop it from half the links.
     ///
     /// One private encoder ([`Self::project`]) holds the vocabulary in
-    /// canonical order `q, sort, dir, f.*, group_by, after|before` (`delete`
-    /// appended by its intent). The parser is first-wins with unique keys, so
-    /// order is semantically irrelevant.
+    /// canonical order `q, sort, dir, f.*, group_by, after|before`. The parser
+    /// is first-wins with unique keys, so order is semantically irrelevant.
     ///
     /// Expects `group_by` pre-normalized: render seams normalize through
     /// [`Table::normalize_state`](crate::table::Table::normalize_state), so
-    /// the projection echoes `state.group_by` as-is. `open` is never emitted by
-    /// any link; `delete` only by [`Self::row_url_base`]'s dialog intent.
+    /// the projection echoes `state.group_by` as-is.
     ///
-    /// Full state, including the cursor; never `delete`/`open`. The streamed
-    /// retry link for failures that keep their evidence.
+    /// Full state, including the cursor: the retry link for failures that
+    /// keep their evidence.
     pub(crate) fn list_url(&self, path: &str) -> String {
         href::with_query(path, &self.query())
     }
 
-    /// Drops `q` (and the cursor + dialog of its result set); keeps the
-    /// filters.
+    /// Drops `q` (and the cursor of its result set); keeps the filters.
     pub(crate) fn without_search(&self, path: &str) -> String {
         let projection = UrlProjection {
             search: None,
@@ -298,8 +305,8 @@ impl TableState {
         href::with_query(path, &self.project(projection))
     }
 
-    /// Drops the filters (and the cursor + dialog of their result set); keeps
-    /// the search term.
+    /// Drops the filters (and the cursor of their result set); keeps the
+    /// search term.
     pub(crate) fn without_filters(&self, path: &str) -> String {
         let projection = UrlProjection {
             filters: false,
@@ -319,8 +326,8 @@ impl TableState {
         href::with_query(path, &self.project(projection))
     }
 
-    /// Full state with `cursor` in place of the current one, and no dialog:
-    /// the pager's links.
+    /// Full state with `cursor` in place of the current one: the pager's
+    /// links.
     pub(crate) fn with_cursor(&self, path: &str, cursor: &Cursor) -> String {
         let projection = UrlProjection {
             cursor: Some(cursor),
@@ -329,8 +336,8 @@ impl TableState {
         href::with_query(path, &self.project(projection))
     }
 
-    /// Replaces `sort`/`dir`, drops the cursor and the dialog: a new ordering
-    /// is a new result set.
+    /// Replaces `sort`/`dir`, drops the cursor: a new ordering is a new
+    /// result set.
     pub(crate) fn sorted_by(&self, path: &str, column: &str, descending: bool) -> String {
         let projection = UrlProjection {
             sort: Some((column, if descending { "desc" } else { "asc" })),
@@ -338,21 +345,6 @@ impl TableState {
             ..self.full()
         };
         href::with_query(path, &self.project(projection))
-    }
-
-    /// The shared parameters of every row-action URL on one page, encoded
-    /// once.
-    ///
-    /// A row's action URL is this base plus the row's primary key, so a table
-    /// render pays for the projection once, however many rows the page holds.
-    /// Build it before the row loop and call [`RowUrlBase::delete_dialog`] per
-    /// row; that pair is the full-state-plus-`delete` projection, which keeps
-    /// the cursor and never emits `open`.
-    pub(crate) fn row_url_base(&self, path: &str) -> RowUrlBase {
-        RowUrlBase {
-            base: self.list_url(path),
-            delete_param: self.param("delete"),
-        }
     }
 
     /// `?sort=` column + `?dir=` value for the projection.
@@ -370,7 +362,6 @@ impl TableState {
             filters: true,
             group_by: self.group_by.as_deref(),
             cursor: self.cursor.as_ref(),
-            delete: None,
         }
     }
 
@@ -387,8 +378,6 @@ impl TableState {
             filters: _,
             filters_dropped: _,
             group_by: _,
-            delete: _,
-            open: _,
         } = self;
         let filters = projection
             .filters
@@ -414,41 +403,10 @@ impl TableState {
         .chain([
             (self.param("group_by"), projection.group_by),
             (self.param(cursor.0), cursor.1),
-            (self.param("delete"), projection.delete),
         ])
         .filter_map(|(key, value)| value.map(|value| (key, value)))
         .collect();
         href::encode_query(&pairs)
-    }
-}
-
-/// One page's shared row-action URL parameters, encoded once.
-///
-/// The base is [`TableState::list_url`] — every parameter a row's action URL
-/// shares — so those parameters are encoded once per render, not once per
-/// row. Row-specific intents ([`Self::delete_dialog`]) append to it in the
-/// projection's own order.
-pub(crate) struct RowUrlBase {
-    base: String,
-    /// The table's `delete` parameter, prefixed like the rest.
-    delete_param: String,
-}
-
-impl RowUrlBase {
-    /// The `?delete=<key>` confirmation-dialog opener for one row.
-    ///
-    /// `base` is [`TableState::list_url`]'s output, which never carries
-    /// `delete`, and `delete` is the projection's last parameter — so this is
-    /// byte-for-byte what the one-pass projection builds, without re-encoding
-    /// the parameters it shares with the rest of the page.
-    pub(crate) fn delete_dialog(&self, key: &str) -> String {
-        let separator = if self.base.contains('?') { '&' } else { '?' };
-        format!(
-            "{}{separator}{}={}",
-            self.base,
-            href::encode_query_value(&self.delete_param),
-            href::encode_query_value(key)
-        )
     }
 }
 

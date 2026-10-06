@@ -5,7 +5,7 @@ use std::{ops::Deref, sync::Arc};
 use super::{RowActions, RowPolicy, Table, TableAction, with_return};
 
 /// What a request wires onto a declared table: the action URLs its rows and bulk bar link to,
-/// which actions each row allows, and how the page frames it.
+/// and which actions each row allows.
 ///
 /// The panel builds it per request from the mounted resource and the request's policy, so the
 /// declaration itself carries none of it.
@@ -18,10 +18,6 @@ pub(crate) struct Wiring<M> {
     /// The custom actions and the list URL their routes hang off.
     custom_actions: Vec<TableAction<M>>,
     actions_prefix: Option<String>,
-    /// Whether the page renders the search and filter bars outside the table, as a live list does.
-    bars_hosted: bool,
-    /// Whether the table draws its own card.
-    framed: bool,
     /// Where a write this table's row and bulk actions start lands.
     return_to: Option<String>,
 }
@@ -36,15 +32,13 @@ impl<M> Default for Wiring<M> {
             bulk_delete: false,
             custom_actions: Vec::new(),
             actions_prefix: None,
-            bars_hosted: false,
-            framed: true,
             return_to: None,
         }
     }
 }
 
-/// A declared [`Table`] with one request's actions, policy, and framing wired on: what the list
-/// page renders.
+/// A declared [`Table`] with one request's actions and policy wired on: what the list page
+/// renders.
 ///
 /// [`wired_table`](crate::panel::wired_table) returns the panel's for a resource. It reads as
 /// its [`Table`] for loading a [`TablePage`](crate::TablePage).
@@ -79,15 +73,13 @@ impl<M> std::fmt::Debug for WiredTable<M> {
                     .map(|a| a.name)
                     .collect::<Vec<_>>(),
             )
-            .field("bars_hosted", &wiring.bars_hosted)
-            .field("framed", &wiring.framed)
             .field("return_to", &wiring.return_to)
             .finish()
     }
 }
 
 impl<M> WiredTable<M> {
-    /// `table` with nothing wired: no actions, framed, its bars inside.
+    /// `table` with nothing wired: no actions.
     pub(crate) fn new(table: Arc<Table<M>>) -> Self {
         Self {
             table,
@@ -101,14 +93,6 @@ impl<M> WiredTable<M> {
         policy: impl Fn(&M) -> RowActions + Send + Sync + 'static,
     ) -> Self {
         self.wiring.row_policy = Some(Arc::new(policy));
-        self
-    }
-
-    /// Render the search and filter bars outside the table, and the table without its own card:
-    /// the page hosts them.
-    pub(crate) fn hosting_bars(mut self) -> Self {
-        self.wiring.bars_hosted = true;
-        self.wiring.framed = false;
         self
     }
 
@@ -192,10 +176,6 @@ impl<M> WiredTable<M> {
         self.wiring.actions_prefix.as_deref()
     }
 
-    pub(super) fn framed(&self) -> bool {
-        self.wiring.framed
-    }
-
     pub(super) fn row_custom_actions(&self) -> impl Iterator<Item = &TableAction<M>> {
         self.wiring
             .custom_actions
@@ -216,19 +196,6 @@ impl<M> WiredTable<M> {
 
     pub(super) fn bulk_enabled(&self) -> bool {
         self.bulk_delete_enabled() || self.bulk_custom_actions().next().is_some()
-    }
-
-    /// Whether the search toolbar renders inside the table.
-    pub(crate) fn search_enabled(&self) -> bool
-    where
-        M: toasty::schema::Model,
-    {
-        !self.wiring.bars_hosted && self.table.search_enabled()
-    }
-
-    /// Whether the filter bar renders inside the table.
-    pub(crate) fn filter_bar_enabled(&self) -> bool {
-        !self.wiring.bars_hosted && self.table.filter_bar_enabled()
     }
 }
 

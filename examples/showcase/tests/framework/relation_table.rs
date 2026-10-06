@@ -182,54 +182,19 @@ async fn the_relation_reads_and_writes_only_its_prefixed_state() {
     assert!(!html.contains("?sort="), "no bare sort link: {html}");
 }
 
-/// The detail page shows the rows read-only; the edit page carries the
-/// writes, each returning to it.
+/// The detail page carries the relation's writes, each returning to it; the edit page renders no
+/// relation.
 #[tokio::test]
-async fn the_detail_page_is_read_only_and_the_edit_page_carries_the_writes() {
+async fn the_detail_page_carries_the_writes() {
     let (router, _db, ada, _bob) = fixture().await;
-    let detail = body_string(get(&router, &format!("/admin/owners/{}", ada.id)).await).await;
-    let relation = &detail[detail.find("data-relation=").expect("the relation renders")..];
-    for write in ["/create", "data-bulk-form"] {
-        assert!(
-            !relation.contains(write),
-            "no {write} on the detail page: {relation}"
-        );
-    }
-    let found = rows(&detail);
-    assert_eq!(found.len(), 2, "the relation lists its two rows: {detail}");
-    for body in ["ada-first", "ada-second"] {
-        assert!(
-            found
-                .iter()
-                .any(|row| row.cells.iter().any(|cell| cell == body)),
-            "the relation lists {body}: {detail}"
-        );
-    }
-    for row in &found {
-        assert_eq!(
-            row.actions.edit, None,
-            "no edit on the detail page: {detail}"
-        );
-        assert_eq!(
-            row.actions.delete_href, None,
-            "no delete on the detail page: {detail}"
-        );
-        assert_eq!(
-            row.actions.delete_action, None,
-            "no delete on the detail page: {detail}"
-        );
-        assert!(
-            row.cells
-                .iter()
-                .any(|cell| cell == "ada-first" || cell == "ada-second"),
-            "the denied row keeps its value: {detail}"
-        );
-    }
-
     let edit = format!("/admin/owners/{}/edit", ada.id);
     let html = body_string(get(&router, &edit).await).await;
+    assert!(!html.contains("data-relation="), "{html}");
+
+    let detail = format!("/admin/owners/{}", ada.id);
+    let html = body_string(get(&router, &detail).await).await;
     assert!(html.contains("data-relation=\"children\""), "{html}");
-    let return_to = format!("return=%2Fadmin%2Fowners%2F{}%2Fedit", ada.id);
+    let return_to = format!("return=%2Fadmin%2Fowners%2F{}", ada.id);
     let create = format!("/admin/children/create?owner_id={}&amp;{return_to}", ada.id);
     assert!(html.contains(&create), "create link {create}: {html}");
     let found = rows(&html);
@@ -262,10 +227,10 @@ async fn the_detail_page_is_read_only_and_the_edit_page_carries_the_writes() {
 #[tokio::test]
 async fn the_child_policies_gate_the_section_and_its_create_link() {
     let (router, _db, ada, _bob) = fixture().await;
-    let edit = format!("/admin/owners/{}/edit", ada.id);
-    let denied = get_with_header(&router, &edit, "x-deny-children").await;
+    let detail = format!("/admin/owners/{}", ada.id);
+    let denied = get_with_header(&router, &detail, "x-deny-children").await;
     assert!(!denied.contains("data-relation="), "{denied}");
-    let no_create = get_with_header(&router, &edit, "x-no-create").await;
+    let no_create = get_with_header(&router, &detail, "x-no-create").await;
     assert!(no_create.contains("ada-first"), "{no_create}");
     assert!(!no_create.contains("/admin/children/create"), "{no_create}");
 }

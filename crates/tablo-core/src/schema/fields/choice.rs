@@ -292,7 +292,6 @@ impl Field {
         // Fetches from the server only past the cap.
         let options_field = overflow_searchable.then(|| name.clone());
         let options_server = overflow_searchable.then_some("true");
-        let variant_of = choice.discriminant.then(|| name.clone());
         let overflow_hint = "Too many options — type to search".to_string();
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
@@ -335,7 +334,6 @@ impl Field {
                     aria-required=(required.then_some("true"))
                     aria-invalid=(aria_invalid)
                     aria-describedby=(described_by)
-                    data-variant-select=(variant_of)
                 },
                 for opt in option_views {
                     (opt)

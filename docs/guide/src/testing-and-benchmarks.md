@@ -39,11 +39,11 @@ tenancy, uploads and authentication; its `common` module holds the fixtures abov
 
 ## The browser scripts
 
-`tablo-ui`'s client scripts are plain browser scripts with no build step. Their unit tests run on
-Node's built-in runner:
+`tablo-ui`'s searchable-select script is a plain browser script with no build step. Its unit
+tests run on Node's built-in runner:
 
 ```sh
-node --test crates/tablo-ui/assets/*.test.js
+node --test crates/tablo-ui/assets/selects.test.js
 ```
 
 ## Benchmarks

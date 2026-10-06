@@ -35,7 +35,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             .render(cx, crate::schema::Source::view(&values))
             .await?;
         let content = R::view_content(cx, &record);
-        let relations = render_relations(cx, &resource, &record, true);
+        let relations = render_relations(cx, &resource, &record);
         let title = detail_title(cx, &resource, &record, &id);
         let back = resource.url.clone();
         let public = R::public_url(cx, &record);

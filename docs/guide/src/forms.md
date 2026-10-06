@@ -245,7 +245,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 - **Enums** render a choice of variant plus one group of fields per variant; the page shows only
   the chosen variant's group, and the variant can change on edit. The submission's variant decides
   which fields are read and validated, so a stale value in a hidden group never blocks a submit.
-  Without JavaScript every group renders, and the variant choice still decides.
+  Without JavaScript the stored variant's group shows, and the variant choice still decides.
 - Not supported inside a value: a `#[document]` field, a relation, an enum nested inside an enum
   variant, and tuple structs.
 
