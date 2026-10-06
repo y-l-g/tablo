@@ -116,16 +116,19 @@ async fn posts_export_streams_csv_with_content_disposition() {
     );
     let csv = body_string(resp).await;
     // Header row with column labels (Title, Author, etc.)
+    let header = csv.lines().next().expect("the export writes a header row");
     assert!(
-        csv.contains("Title") || csv.contains("title"),
-        "missing header {}",
-        csv
+        header.contains("Title"),
+        "missing Title header, got {header}"
     );
-    assert!(csv.contains("Author"), "missing Author header {}", csv);
+    assert!(
+        header.contains("Author"),
+        "missing Author header, got {header}"
+    );
     // Data rows should include Hello Toasty and author name via include
     assert!(csv.contains("Hello Toasty"), "missing post title {}", csv);
     assert!(
-        csv.contains("Ada Author") || csv.contains("Ada"),
+        csv.contains("Ada Author"),
         "missing author name via include {}",
         csv
     );

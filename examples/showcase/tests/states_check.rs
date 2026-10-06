@@ -111,7 +111,7 @@ async fn no_js_fallbacks_cover_search_filter_sort_pager() {
         "search needs a noscript GET form: {users}"
     );
     assert!(
-        users.contains("sort=name"),
+        find_href_with(&users, "sort=name").is_some(),
         "sort needs a plain navigation link: {users}"
     );
 
