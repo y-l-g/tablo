@@ -31,7 +31,8 @@ cargo install topcoat-cli --version 0.10.0 --locked --force
    a file.
 6. `cargo fmt` covers workspace members only; the detached `benchmarks/*` and
    `examples/quickstart` packages are formatted and linted by manifest path.
-7. Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit.
+7. Any lockfile change syncs `benchmarks/tablo/Cargo.lock` in the same commit. The release PR
+   pins `examples/guide`'s tablo versions and lockfile to the newest release tag.
 8. Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with xtask. Owned
    components live in `components/composites/`.
 9. Hunting dead code: prefer `pub` API, always-same-value config, and test-only paths.
