@@ -45,3 +45,21 @@ pub(crate) struct DummyUser {
     #[unique]
     pub(crate) email: String,
 }
+
+/// A context outside any request where `R` answers as a panel mounting only it would.
+pub(crate) fn panel_cx<R: crate::Resource>(db: &toasty::Db) -> Cx {
+    crate::Panel::new("admin")
+        .resource::<R>()
+        .context(db)
+        .expect("panel builds")
+}
+
+/// `R`'s declaration with its defaults filled in, as a panel at `/admin` mounts it, for a unit
+/// that takes the mounted def directly.
+pub(crate) fn mounted<R: crate::Resource>() -> std::sync::Arc<crate::resource::Mounted<R>> {
+    std::sync::Arc::new(crate::resource::Mounted::new(
+        R::declare(),
+        "/admin",
+        &crate::schema::FieldResolver::of(&cx()),
+    ))
+}

@@ -117,10 +117,8 @@ async fn tenancy_is_anded_onto_the_base_query() {
             .await
             .unwrap();
     }
-    let cx = CxTestBuilder::new()
-        .app_context(db)
-        .request_context(crate::Tenant(mine))
-        .build();
+    let tenantless = crate::test_support::panel_cx::<OwnedResource>(&db);
+    let cx = tenantless.with(crate::Tenant(mine));
     let mut db = crate::db::db(&cx);
     let rows = scoped_query::<OwnedResource>(&cx)
         .expect("the request has a tenant")
@@ -130,7 +128,6 @@ async fn tenancy_is_anded_onto_the_base_query() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Mine");
 
-    let tenantless = CxTestBuilder::new().build();
     assert!(scoped_query::<OwnedResource>(&tenantless).is_err());
 }
 
@@ -184,10 +181,7 @@ async fn a_nullable_tenant_column_is_stamped_and_scoped() {
             .await
             .unwrap();
     }
-    let cx = CxTestBuilder::new()
-        .app_context(db)
-        .request_context(crate::Tenant(mine))
-        .build();
+    let cx = crate::test_support::panel_cx::<AssignableResource>(&db).with(crate::Tenant(mine));
     let mut db = crate::db::db(&cx);
     let created = write_create::<AssignableResource>(
         &cx,

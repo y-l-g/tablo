@@ -92,10 +92,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
         .unwrap()
         .into_parts()
         .0;
-    let cx = CxTestBuilder::new()
-        .app_context(db)
-        .request_context(parts)
-        .build();
+    let cx = crate::test_support::panel_cx::<ChromeResource>(&db).with(parts);
     let declared = crate::resource::require_mounted::<ChromeResource>(&cx).unwrap();
     let wired = crate::panel::wired_table::<ChromeResource>(&cx).unwrap();
     assert!(

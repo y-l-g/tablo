@@ -139,19 +139,11 @@ impl Mounts {
 /// in the app context.
 pub(crate) struct MountScope(pub(crate) fn(&Cx) -> Option<&Mounts>);
 
-/// `R` as the request's panel mounted it, if it did.
-///
-/// A context with no panel at all, such as a test's or a background job's, answers from `R`'s own
-/// [`declare`](Resource::declare).
+/// `R` as the context's panel mounted it, if it did: the request's panel, or the one a
+/// [`Panel::context`](crate::Panel::context) holds.
 pub(crate) fn mounted<R: Resource>(cx: &Cx) -> Option<Arc<Mounted<R>>> {
-    match try_app_context::<MountScope>(cx) {
-        Some(MountScope(mounts)) => mounts(cx)?.get::<R>(),
-        None => Some(Arc::new(Mounted::new(
-            R::declare(),
-            "",
-            &FieldResolver::of(cx),
-        ))),
-    }
+    let MountScope(mounts) = try_app_context::<MountScope>(cx)?;
+    mounts(cx)?.get::<R>()
 }
 
 /// `R` as the request's panel mounted it.

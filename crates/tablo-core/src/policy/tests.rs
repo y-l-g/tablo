@@ -145,12 +145,20 @@ impl Resource for ClosedNotes {
 
 /// `can_list` answers what the list handler's gate and `ViewAny` answer: the
 /// policy, then a tenant for a tenant-scoped resource.
-#[test]
-fn can_list_checks_the_policy_and_the_tenant() {
-    let anonymous = CxTestBuilder::new().build();
-    let tenanted = CxTestBuilder::new()
-        .request_context(crate::Tenant(uuid::Uuid::new_v4()))
-        .build();
+#[tokio::test]
+async fn can_list_checks_the_policy_and_the_tenant() {
+    let db = toasty::Db::builder()
+        .models(toasty::models!(Note))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let anonymous = crate::Panel::new("admin")
+        .resource::<OpenNotes>()
+        .resource::<TenantNotes>()
+        .resource::<ClosedNotes>()
+        .context(&db)
+        .expect("panel builds");
+    let tenanted = anonymous.with(crate::Tenant(uuid::Uuid::new_v4()));
     assert!(can_list::<OpenNotes>(&anonymous));
     assert!(
         !can_list::<ClosedNotes>(&tenanted),

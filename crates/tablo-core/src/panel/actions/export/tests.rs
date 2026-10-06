@@ -624,9 +624,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
         .await
         .unwrap();
     }
-    let cx = topcoat::context::CxTestBuilder::new()
-        .app_context(db.clone())
-        .build();
+    let cx = crate::test_support::panel_cx::<ChunkerDummyResource>(&db);
     let table = crate::resource::require_mounted::<ChunkerDummyResource>(&cx)
         .unwrap()
         .table
@@ -667,9 +665,7 @@ async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
         .unwrap();
     db.push_schema().await.unwrap();
     seed_dummies(&mut db, EXPORT_CHUNK_ROWS, |i| format!("row-{i:05}")).await;
-    let cx = topcoat::context::CxTestBuilder::new()
-        .app_context(db.clone())
-        .build();
+    let cx = crate::test_support::panel_cx::<ChunkerDummyResource>(&db);
     let table = crate::resource::require_mounted::<ChunkerDummyResource>(&cx)
         .unwrap()
         .table
@@ -757,9 +753,7 @@ async fn export_and_list_agree_on_rows_and_order() {
         .await
         .unwrap();
     }
-    let cx = topcoat::context::CxTestBuilder::new()
-        .app_context(db.clone())
-        .build();
+    let cx = crate::test_support::panel_cx::<TaskResource>(&db);
 
     // All three declaration steps at once: a search term, a filter and a
     // sort. `?sort=` names the declared sortable column, so both loaders

@@ -60,6 +60,34 @@ impl RouterBuilderPanelExt for RouterBuilder {
 }
 
 impl Panel {
+    /// A context outside any request in which the panel's resources answer as it mounts them:
+    /// what a background job or a test passes to [`scoped_query`](crate::scoped_query),
+    /// [`can`](crate::can), [`write_create`](crate::write_create) and the other entry points that
+    /// take a `Cx`. It holds `db` and the panel's resources, and no request, session or tenant;
+    /// add a tenant with `cx.with(Tenant(id))`.
+    ///
+    /// Like a request's, the context is one unit of work: loads it memoizes stay cached for its
+    /// lifetime, so a job builds one per run.
+    ///
+    /// # Errors
+    ///
+    /// The declaration errors [`panel`](RouterBuilderPanelExt::panel) refuses the resources with.
+    pub fn context(self, db: &Db) -> Result<Cx> {
+        let Panel {
+            prefix,
+            registrations,
+            configuration_errors,
+            ..
+        } = self;
+        let mut registry = Registry::new(prefix.clone(), Some(db.schema().clone()));
+        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        let cx = registry.check_all(db, &mounts, &mut errors);
+        if !errors.is_empty() {
+            return Err(MountError::new(&prefix, errors).into());
+        }
+        Ok(cx)
+    }
+
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
         let db = builder.get_app_context::<Db>().cloned();
         let mut registry = Registry::new(
@@ -80,13 +108,7 @@ impl Panel {
             login_hint,
             auth,
         } = self;
-        for registration in registrations {
-            registration.register(&mut registry);
-        }
-        registry.link_relations();
-        let mounts = Arc::new(std::mem::take(&mut registry.mounts));
-        let mut errors = configuration_errors;
-        errors.append(&mut registry.errors);
+        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         errors.extend(mount_errors(
             &builder,
             &prefix,
@@ -95,10 +117,7 @@ impl Panel {
         ));
         match &db {
             Some(db) => {
-                let cx = validation_cx(db, &mounts);
-                for registered in &registry.resources {
-                    (registered.check)(&cx, &mut errors);
-                }
+                registry.check_all(db, &mounts, &mut errors);
                 if let Err(kind) = crate::auth::check_models_registered(db, &auth) {
                     errors.push(DeclarationError::panel(kind));
                 }
@@ -207,6 +226,33 @@ impl Panel {
             .0
             .push(state);
         Ok(builder)
+    }
+}
+
+impl Registry {
+    /// Registers `registrations` and links their relations, returning the mounts and every error,
+    /// `configuration_errors` first.
+    fn register_all(
+        &mut self,
+        registrations: Vec<Box<dyn super::register::Registration>>,
+        configuration_errors: Vec<DeclarationError>,
+    ) -> (Arc<Mounts>, Vec<DeclarationError>) {
+        for registration in registrations {
+            registration.register(self);
+        }
+        self.link_relations();
+        let mut errors = configuration_errors;
+        errors.append(&mut self.errors);
+        (Arc::new(std::mem::take(&mut self.mounts)), errors)
+    }
+
+    /// Checks every registered resource against `db`, returning the context the checks ran in.
+    fn check_all(&self, db: &Db, mounts: &Arc<Mounts>, errors: &mut Vec<DeclarationError>) -> Cx {
+        let cx = validation_cx(db, mounts);
+        for registered in &self.resources {
+            (registered.check)(&cx, errors);
+        }
+        cx
     }
 }
 
@@ -548,8 +594,8 @@ fn check_create_columns<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Dec
     }
 }
 
-/// Builds the context for the mount-time declaration checks from the app's values and the panel's
-/// `mounts`, with no request.
+/// Builds the context for the mount-time declaration checks and [`Panel::context`] from `db` and
+/// the panel's `mounts`, with no request.
 fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
     let mut app_context = topcoat::context::AppContext::new();
     app_context.insert(db.clone());

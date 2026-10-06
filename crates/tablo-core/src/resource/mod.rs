@@ -326,8 +326,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
 /// # Errors
 ///
 /// A tenant-scoped resource and no tenant in `cx`: 403, the same answer the
-/// handler gate gives. A declaration error when the request's panel does not mount `R`; a
-/// context with no panel at all answers from `R`'s own [`declare`](Resource::declare).
+/// handler gate gives. A declaration error when the context's panel does not mount `R`; a
+/// background job builds its context with [`Panel::context`](crate::Panel::context).
 ///
 /// App code that loads rows itself must call this: on a scoped resource
 /// [`Resource::query`] is the *tenant-unscoped* base by design.
@@ -375,9 +375,8 @@ impl<R: Resource> Mounted<R> {
     }
 }
 
-/// Whether `R`'s policy, as the request's panel mounted it, allows `ability`; `false` when the
-/// panel does not mount `R`, and `R`'s own [`declare`](Resource::declare) answers for a context
-/// with no panel at all. Does not check sign-in or tenant scope.
+/// Whether `R`'s policy, as the context's panel mounted it, allows `ability`; `false` when the
+/// panel does not mount `R`. Does not check sign-in or tenant scope.
 pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool {
     mounted::<R>(cx).is_some_and(|resource| resource.can(cx, ability))
 }

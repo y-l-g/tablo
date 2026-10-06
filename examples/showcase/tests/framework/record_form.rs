@@ -13,8 +13,8 @@ use topcoat::context::{Cx, CxTestBuilder};
 use uuid::Uuid;
 
 use crate::framework::common::{
-    body_string, field_error, get, input_value, memory_db, mount, panel, panel_router, post_fields,
-    refusal,
+    body_string, field_error, get, input_value, memory_db, mount, panel, panel_cx, panel_router,
+    post_fields, refusal,
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -386,10 +386,7 @@ impl Resource for OwnedResource {
 async fn the_derived_create_stamps_the_request_tenant() {
     let db = memory_db(toasty::models!(Owned)).await;
     let tenant = Uuid::new_v4();
-    let cx = CxTestBuilder::new()
-        .app_context(db.clone())
-        .request_context(Tenant(tenant))
-        .build();
+    let cx = panel_cx::<OwnedResource>(&db).with(Tenant(tenant));
     let mut handle = db.clone();
     let created = write_create::<OwnedResource>(
         &cx,

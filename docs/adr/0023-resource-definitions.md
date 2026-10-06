@@ -16,8 +16,9 @@ cross-reference (a relation, a relationship field's options, `can`, `scoped_quer
 request panel's copy. `Panel::resource_with` adjusts the def for one panel, so one resource type
 can mount read-only in one panel and writable in another. A resource the request's panel does not
 mount answers as not mounted, and a relation or a relationship field naming one fails the mount.
-A context with no panel at all, such as a test's or a background job's, answers from the type's
-own `declare`.
+A context outside any request, such as a background job's, comes from `Panel::context`, which
+mounts the panel's resources with the same checks; a context with no panel at all mounts nothing,
+so no declaration is ever rebuilt outside a mount.
 
 ## Rejected
 

@@ -56,3 +56,21 @@ pub async fn featured_table(cx: &Cx) -> topcoat::Result<()> {
     let _ = body;
     Ok(())
 }
+
+// ANCHOR: data-access-panel
+pub fn admin_panel() -> Panel {
+    Panel::new("admin").resource::<PostResource>()
+}
+// ANCHOR_END: data-access-panel
+
+pub async fn count_drafts(db: &Db, tenant: uuid::Uuid) -> topcoat::Result<usize> {
+    // ANCHOR: data-access-job
+    let cx = admin_panel().context(db)?.with(tablo_core::Tenant(tenant));
+    let mut ex = tablo_core::db::db(&cx);
+    let drafts = scoped_query::<PostResource>(&cx)?
+        .filter(Post::fields().status().eq("draft".to_string()))
+        .exec(&mut ex)
+        .await?;
+    // ANCHOR_END: data-access-job
+    Ok(drafts.len())
+}

@@ -50,6 +50,11 @@ pub fn panel_router<R: Resource>(db: Db) -> Router {
     mount(db, panel().resource::<R>()).expect("panel builds")
 }
 
+/// A context outside any request where `R` answers as a panel mounting only it would.
+pub fn panel_cx<R: Resource>(db: &Db) -> topcoat::context::Cx {
+    panel().resource::<R>().context(db).expect("panel builds")
+}
+
 pub async fn post(
     router: &Router,
     uri: &str,

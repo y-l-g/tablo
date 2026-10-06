@@ -1,5 +1,3 @@
-use topcoat::context::CxTestBuilder;
-
 use super::*;
 use crate::{ResourceDef, lens};
 
@@ -53,11 +51,11 @@ fn note() -> Note {
 
 #[test]
 fn a_resource_without_a_label_titles_the_page_with_the_record_key() {
-    let cx = CxTestBuilder::new().build();
+    let cx = crate::test_support::cx();
     assert_eq!(
         detail_title(
             &cx,
-            &crate::resource::require_mounted::<Unlabelled>(&cx).unwrap(),
+            &crate::test_support::mounted::<Unlabelled>(),
             &note(),
             "8f14e45f"
         ),
@@ -67,11 +65,11 @@ fn a_resource_without_a_label_titles_the_page_with_the_record_key() {
 
 #[test]
 fn a_declared_label_titles_the_page() {
-    let cx = CxTestBuilder::new().build();
+    let cx = crate::test_support::cx();
     assert_eq!(
         detail_title(
             &cx,
-            &crate::resource::require_mounted::<Labelled>(&cx).unwrap(),
+            &crate::test_support::mounted::<Labelled>(),
             &note(),
             "8f14e45f"
         ),

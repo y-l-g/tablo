@@ -563,10 +563,7 @@ async fn both_cursors_render_the_first_page() {
         .body(())
         .unwrap()
         .into_parts();
-    let cx = topcoat::context::CxTestBuilder::new()
-        .request_context(parts)
-        .app_context(db)
-        .build();
+    let cx = crate::test_support::panel_cx::<SubscriberResource>(&db).with(parts);
     let table = crate::resource::require_mounted::<SubscriberResource>(&cx)
         .unwrap()
         .table
