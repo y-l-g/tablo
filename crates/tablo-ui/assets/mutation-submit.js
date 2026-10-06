@@ -125,9 +125,9 @@ function swapTargets(doc, name) {
   };
 }
 
-// The control that opened a row-delete form's dialog: it carries this record's
-// POST target, which dialog.js copies onto the form, so the target is what
-// names the control back.
+// The control that opened a row confirm form's dialog, delete or
+// confirmatory action: it carries this record's POST target, which dialog.js
+// copies onto the form, so the target is what names the control back.
 function triggerFor(action) {
   if (!action) return null;
   return (
@@ -355,13 +355,16 @@ function focusAfter(region, index) {
   const control =
     (target &&
       // The row's own Delete first (the control this flow is driven from),
-      // then anything else a reader can land on. A disabled control — a row
-      // the policy refuses — cannot take focus, so it does not count.
+      // then its confirmatory trigger, then anything else a reader can land
+      // on. A disabled control — a row the policy refuses — cannot take focus,
+      // so it does not count.
       (target.querySelector('a[data-row-delete-action]') ||
+        target.querySelector('button[data-row-delete-action]') ||
         target.querySelector(
           'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled])',
         ))) ||
     region.querySelector('[data-bulk-confirm-trigger]') ||
+    region.querySelector('[data-bulk-action-confirm-trigger]') ||
     region.querySelector('[data-bulk-action]');
   if (control) control.focus();
 }

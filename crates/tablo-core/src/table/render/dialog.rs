@@ -182,8 +182,8 @@ pub(super) fn confirm_controls<'a>(cx: &'a Cx, submit: &'static str) -> BoxView<
     .boxed()
 }
 
-/// Submit Cancel, the `confirm=1` marker, and the submit a bulk
-/// confirmatory action's trigger retargets through `formaction`.
+/// Submit Cancel, the `confirm=1` marker, and the submit the bulk
+/// trigger retargets through `formaction`.
 pub(super) fn bulk_action_confirm_controls<'a>(cx: &'a Cx) -> BoxView<'a> {
     view! {
         cx =>

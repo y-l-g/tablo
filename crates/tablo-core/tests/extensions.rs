@@ -788,7 +788,8 @@ async fn a_confirmatory_action_renders_triggers_and_dialogs() {
     let plain =
         body_string(get(&panel_router::<TaskResource>(db.clone()), "/admin/tasks").await).await;
     assert!(
-        !plain.contains("data-row-delete-trigger")
+        plain.contains("/-/actions/complete\"")
+            && !plain.contains("data-row-delete-action=\"/admin/tasks/")
             && !plain.contains("data-bulk-action-confirm-trigger"),
         "an immediate action submits directly: {plain}"
     );

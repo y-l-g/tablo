@@ -110,7 +110,7 @@ pub trait Action<R: Resource>: 'static {
     const BULK: bool = true;
 
     /// Whether the action asks first through a confirmation dialog
-    /// reusing the delete dialog. Defaults to `false`.
+    /// sharing the delete dialog's mechanism. Defaults to `false`.
     ///
     /// An unconfirmed POST answers 400.
     const CONFIRM: bool = false;
