@@ -59,12 +59,12 @@ impl<M> Table<M> {
         chrome_dom_id(prefix, "delete-dialog")
     }
 
-    /// Render the shared confirmatory-action dialog for a table wiring one,
-    /// borrowing the row-delete dialog mechanism: the trigger names this
-    /// dialog and carries its POST target.
+    /// Render the shared confirmatory-action dialog for a table whose rows
+    /// wire one, borrowing the row-delete dialog mechanism: the trigger names
+    /// this dialog and carries its POST target.
     pub(crate) fn render_action_confirm_dialog<'a>(&self, cx: &'a Cx) -> Option<BoxView<'a>> {
         let prefix = self.actions_prefix.as_deref()?;
-        if !self.custom_actions.iter().any(|action| action.confirm) {
+        if !self.row_custom_actions().any(|action| action.confirm) {
             return None;
         }
         let csrf = crate::csrf::current_token(cx);
@@ -177,28 +177,6 @@ pub(super) fn confirm_controls<'a>(cx: &'a Cx, submit: &'static str) -> BoxView<
             size: ButtonSize::Md,
             attrs: attributes! { type="submit" },
             (submit)
-        )
-    }
-    .boxed()
-}
-
-/// Submit Cancel, the `confirm=1` marker, and the submit the bulk
-/// trigger retargets through `formaction`.
-pub(super) fn bulk_action_confirm_controls<'a>(cx: &'a Cx) -> BoxView<'a> {
-    view! {
-        cx =>
-        button(
-            variant: ButtonVariant::Outline,
-            size: ButtonSize::Md,
-            attrs: attributes! { type="button" data-dialog-close="" },
-            "Cancel"
-        )
-        <input type="hidden" name="confirm" value="1">
-        button(
-            variant: ButtonVariant::Destructive,
-            size: ButtonSize::Md,
-            attrs: attributes! { type="submit" data-bulk-action-confirm-submit="" },
-            "Confirm"
         )
     }
     .boxed()

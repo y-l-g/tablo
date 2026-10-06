@@ -232,9 +232,10 @@ with the records and the list shows `Action::success`, by default the label and 
 
 A row the action refuses answers 403. A selection that holds one writes nothing and returns to the
 list with an error notification. An action name that is not one URL segment does not compile,
-and mounting the panel refuses a name two actions of a resource share. `const CONFIRM: bool =
-true` asks first through a confirmation dialog sharing the delete dialog's mechanism, and an
-unconfirmed POST answers 400. Confirmatory buttons need JavaScript: without it they do nothing.
+and mounting the panel refuses a name two actions of a resource share. A destructive action
+declares `const CONFIRM: bool = true` to ask first through a confirmation dialog carrying the
+delete dialog's mechanism and wording; an unconfirmed POST answers 400. Confirmatory buttons need
+JavaScript: without it they do nothing.
 
 If the table fails to load, the list shows an error state with a retry link in place of the rows;
 the rest of the page still renders.

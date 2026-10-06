@@ -193,12 +193,14 @@ function install() {
 }
 
 async function send(form, action, submitter) {
-  // The confirm dialog the submit came from: the row-delete form lives inside
-  // its dialog, while the bulk form carries its dialog as a child. Closing it
-  // here is what returns focus to the page — a modal dialog left for the
-  // response's markup to close (by dropping `open`) strands the document
-  // inert, so nothing can be focused at all.
-  const dialog = form.closest('dialog') || form.querySelector('dialog');
+  // The confirm dialog the submit came from: the row form lives inside its
+  // dialog, while the bulk form carries its dialogs as children and holds one
+  // per confirmation — the delete's, then the confirmatory actions' — so the
+  // open one is the one being submitted. Closing it here is what returns focus
+  // to the page — a modal dialog left for the response's markup to close (by
+  // dropping `open`) strands the document inert, so nothing can be focused at
+  // all.
+  const dialog = form.closest('dialog') || form.querySelector('dialog[open]');
   // The table this form belongs to (bulk.js scopes itself per table the same
   // way), its region, and the row the delete came from.
   const root = tableRootFor(form, action);

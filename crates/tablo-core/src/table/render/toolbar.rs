@@ -6,10 +6,7 @@ use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 use super::{
     super::Table,
     BAR_CLASS, QUIET_LINK_CLASS, SEARCH_FIELD_CLASS, SEARCH_FORM_CLASS, SEARCH_ICON_CLASS,
-    dialog::{
-        ConfirmDialog, bulk_action_confirm_controls, chrome_dom_id, confirm_controls,
-        confirm_dialog,
-    },
+    dialog::{ConfirmDialog, chrome_dom_id, confirm_controls, confirm_dialog},
 };
 use crate::table::state::{TableSignals, TableState, bulk_action_url, bulk_delete_url};
 
@@ -101,8 +98,8 @@ impl<M> Table<M> {
                         open: false,
                         title: "Run this action?",
                         attrs: attributes! { cx => data-bulk-action-confirm-dialog="" },
-                        description_attrs: attributes! { cx => data-bulk-action-confirm-description="" },
-                        footer: bulk_action_confirm_controls(cx),
+                        description_attrs: attributes! { cx => data-bulk-confirm-description="" },
+                        footer: confirm_controls(cx, "Confirm"),
                     },
                 )
             });

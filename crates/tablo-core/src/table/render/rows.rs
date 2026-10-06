@@ -25,8 +25,6 @@ pub(super) struct RowChrome {
     pub(super) cell_widths: Vec<Option<Cow<'static, str>>>,
     pub(super) actions_min: Option<Cow<'static, str>>,
     pub(super) delete_dialog_id: String,
-    /// The shared confirmatory-action dialog's DOM id, empty when the table
-    /// wires no actions.
     pub(super) action_dialog_id: String,
 }
 

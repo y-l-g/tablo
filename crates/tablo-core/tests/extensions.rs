@@ -780,8 +780,9 @@ async fn a_confirmatory_action_renders_triggers_and_dialogs() {
     );
     assert!(
         html.contains("data-bulk-action-confirm-trigger")
-            && html.contains("data-bulk-action-confirm-dialog")
-            && html.contains("data-bulk-action-confirm-submit"),
+            && html
+                .contains("data-bulk-action-confirm-action=\"/admin/confirmed/-/actions/archive\"")
+            && html.contains("data-bulk-action-confirm-dialog"),
         "the bulk bar carries its own confirmation: {html}"
     );
 

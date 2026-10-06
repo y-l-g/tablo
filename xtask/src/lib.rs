@@ -557,16 +557,6 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
     },
     AssetHook {
         asset: "bulk.js",
-        js: "data-bulk-action-confirm-description",
-        rust: "data-bulk-action-confirm-description",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-action-confirm-submit",
-        rust: "data-bulk-action-confirm-submit",
-    },
-    AssetHook {
-        asset: "bulk.js",
         js: "data-row-select",
         rust: "data-row-select",
     },
