@@ -8,10 +8,10 @@ members = [
     "crates/tablo-macros",
     "crates/tablo-test",
     "crates/tablo-ui",
+    "examples/guide",
     "examples/showcase",
     "xtask",
 ]
-exclude = ["examples/guide"]
 
 [workspace.package]
 version = "0.3.0"

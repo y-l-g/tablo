@@ -19,6 +19,7 @@ and `tablo-ui`, `tablo-test` on `tablo-core` and `topcoat`, and the `tablo` faca
 | `tablo-test` | `tablo-core`, `topcoat` | the in-memory HTTP client and the response and HTML helpers, `tablo::testing` |
 | `tablo-build` | `topcoat` | `tailwind()`, the app's Tailwind build over Tablo's sources |
 | `examples/showcase` | `tablo-core`, `tablo-ui`, `toasty`, `tablo-build` (build), `tablo-test` (dev) | the runnable admin and the integration tests |
+| `examples/guide` | `tablo`, `tablo-core`, `tablo-ui`, `tablo-build`, `toasty`, `topcoat` | the user guide's compiled companion: the anchored code `docs/guide/` includes |
 | `examples/quickstart` | `tablo`, `tablo-build` | the smallest app, detached, built from outside the repo by `cargo xtask external-check` |
 | `benchmarks/tablo` | `tablo-core`, `toasty`, `topcoat` | the list-path benchmark, a workspace member that is never published |
 

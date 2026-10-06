@@ -199,7 +199,7 @@ Declare the resource's tenancy with the column its rows carry their tenant in:
 
 ```rust
 impl Resource for PostResource {
-    type Model = Post; // has `tenant_id: uuid::Uuid`
+    type Model = Post; // has `tenant_id: TenantId`
     // …
 
     fn declare() -> ResourceDef<Self> {
@@ -217,9 +217,9 @@ That one declaration does two things:
   options, related tables — adds `tenant_id = <request tenant>` to the resource's `query`. A
   create sets the tenant column itself, so the record form leaves it out.
 
-The column is a `Uuid` or `Option<Uuid>` field of the model, named by its lens, and it can have any
-name. Do not repeat the filter in `query`. Mounting the panel refuses a `Tenancy::column` lens
-that is not one field of the model.
+The column is a `TenantId` field of the model, or `Option<TenantId>` for a nullable one, named by
+its lens; the name itself is the app's choice. Do not repeat the filter in `query`. Mounting the
+panel refuses a `Tenancy::column` lens that is not one field of the model.
 
 **A row that inherits its tenant.** A comment has no tenant column of its own; it belongs to a post
 that does. `Tenancy::via` names the tenant through the relation, and the framework gates and

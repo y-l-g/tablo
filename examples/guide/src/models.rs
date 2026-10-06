@@ -51,7 +51,7 @@ pub struct Post {
     #[key]
     #[auto]
     pub id: uuid::Uuid,
-    pub tenant_id: uuid::Uuid,
+    pub tenant_id: tablo_core::TenantId,
     pub title: String,
     pub body: String,
     pub status: String,

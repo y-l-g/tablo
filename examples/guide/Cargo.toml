@@ -1,24 +1,12 @@
 [package]
 name = "guide"
-version = "0.1.0"
-edition = "2024"
-license = "MIT"
-rust-version = "1.98"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
 publish = false
 description = "The user guide's compiled companion: every guide snippet as anchored code."
 autotests = false
-
-# Detached from the Tablo workspace on purpose: the companion builds against
-# the published crates, the way a reader's app does, so it is a standalone
-# crate with its own lockfile.
-[workspace]
-
-[workspace.lints.rust]
-unsafe_code = "deny"
-warnings = "deny"
-
-[workspace.lints.clippy]
-too_many_lines = "deny"
 
 # One integration-test binary, as elsewhere: Cargo would otherwise discover
 # every file under `tests/` as its own target.
@@ -26,16 +14,19 @@ too_many_lines = "deny"
 name = "it"
 path = "tests/it.rs"
 
+[dependencies]
+tablo = { path = "../../crates/tablo", features = ["sqlite"] }
+tablo-core = { path = "../../crates/tablo-core" }
+tablo-ui = { path = "../../crates/tablo-ui" }
+tablo-build = { path = "../../crates/tablo-build" }
+jiff.workspace = true
+toasty = { workspace = true, features = ["sqlite"] }
+tokio = { workspace = true, features = ["fs"] }
+topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fontsource", "asset"] }
+uuid.workspace = true
+
+[dev-dependencies]
+tablo = { path = "../../crates/tablo", features = ["sqlite", "testing"] }
+
 [lints]
 workspace = true
-
-[dependencies]
-tablo = { version = "0.2.0", features = ["sqlite", "testing"] }
-tablo-core = { version = "0.2.0" }
-tablo-ui = { version = "0.2.0" }
-tablo-build = { version = "0.2.0" }
-jiff = "0.2"
-toasty = { version = "0.11", default-features = false, features = ["jiff", "sqlite"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs"] }
-topcoat = { version = "0.10", default-features = false, features = ["view", "router", "discover", "serve", "tailwind", "font", "font-fontsource", "asset"] }
-uuid = "1.23"
