@@ -12,10 +12,11 @@ surface is `EmbeddedForm::{write_form, read_form}` plus the generated `form`. Ea
 node once from the request app schema. A field is embedded only when marked `#[form(embed)]`;
 every other field is a scalar asserting `FormScalar`, so an app `TypedValue` is a leaf.
 
-**2. A field is a leaf or a value.** A scalar leaf answers blank through `#[form(blank = ..)]`,
-else `""` for `String` or `None` for `Option<T>`; a leaf with neither refuses its key inline.
-Per-field overrides are `#[form(label = "…")]`, `#[form(textarea, rows = N)]`, and
-`#[form(blank = ..)]`; an unknown key rejects at compile time.
+**2. A field is a leaf or a value.** A scalar leaf answers blank like a record-form field
+(ADR-0022): `#[form(blank = ..)]`, `""` for an `#[form(optional)]` `String`, `None` for an
+`Option<T>`, `false` for a `bool`; a leaf with none is required and refuses its key inline.
+Per-field overrides are `#[form(label = "…")]`, `#[form(multiline = N)]`, `#[form(blank = ..)]`,
+and `#[form(optional)]`; an unknown key rejects at compile time.
 
 **3. The variant is the discriminant column.** `write_form` writes the discriminant and the active
 variant's leaves; `read_form` returns `Result` and reads the variant from the submitted

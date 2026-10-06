@@ -485,12 +485,9 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Dummy.name),
                 )))
-                .form(
-                    // Optional so the csrf-only POST passes validation.
-                    crate::schema::Schema::new(
-                        crate::schema::Field::text(Dummy::fields().name()).optional(),
-                    ),
-                )
+                .form(crate::schema::Schema::new(crate::schema::Field::text(
+                    Dummy::fields().name(),
+                )))
         }
 
         async fn create_record(
@@ -509,6 +506,8 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     #[derive(crate::RecordForm)]
     #[form(model = Dummy)]
     struct NotifyingForm {
+        // Optional so the csrf-only POST parses.
+        #[form(optional)]
         name: String,
     }
     let db = Db::builder()
@@ -592,9 +591,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
                 })
                 .table(Table::new(TextColumn::new(lens!(Subscriber.email))))
                 .form(Schema::new(
-                    Field::text(Subscriber::fields().email())
-                        .unique()
-                        .optional(),
+                    Field::text(Subscriber::fields().email()).unique(),
                 ))
         }
     }

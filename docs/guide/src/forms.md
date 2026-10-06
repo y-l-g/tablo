@@ -22,10 +22,12 @@ marked `#[form(embed)]`.
 Leave out the columns the form does not write: the tenant column of a tenant-owned resource, which
 the framework sets on create, and columns with a Toasty `#[default(..)]` or `#[auto]`.
 
-**Blank values.** `#[form(blank = <expr>)]` is what a field stores when its control is submitted
-empty. `String` answers `""` and `Option<T>` answers `None` through the type's own blank, and a
-`bool` answers `false` through the derive's default, since an unchecked toggle posts `false`. Any
-other type needs `blank` when its control is optional.
+**Required and blank values.** The record form alone decides which fields are required. A field's
+**blank answer** is what it stores when its control is submitted empty: `#[form(blank = <expr>)]`,
+`None` for an `Option<T>`, `false` for a `bool` (an unchecked toggle posts `false`), and `""` for
+a `String` marked `#[form(optional)]`. A field with no blank answer is required: the panel renders
+its control required, and an empty submission is refused inline. `optional` applies to a `String`
+only; another type declares `blank` or becomes an `Option`.
 
 The resource names the struct as its `Form` and, to arrange the controls, declares them from the
 derive's `controls()`:
@@ -46,10 +48,10 @@ impl Resource for UserResource {
 }
 ```
 
-Mounting the panel refuses the resource unless every control is bound by exactly one form field,
-every form field has a control, every optional control's field has a blank value, and — when
-the policy allows `Create` — every non-nullable column is filled by the form, by Toasty, by the tenant
-stamp, or by an overridden `create_record` whose def lists it in `create_columns`.
+Mounting the panel refuses the resource unless every control posts a key of the record form, every
+form field has a control, and — when the policy allows `Create` — every non-nullable column is
+filled by the form, by Toasty, by the tenant stamp, or by an overridden `create_record` whose def
+lists it in `create_columns`.
 
 ## Controls
 
@@ -77,10 +79,8 @@ takes `Vec<(String, String)>` (an `Options` enum's list), `Vec<String>`, or `[&s
 "member"]`).
 
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled
-container, and `Grid::new(cols)` a grid of 1 to 12 columns. `Repeater::new(label)` is a titled group
-that may be left entirely empty: its fields' rules apply once one of them is filled, and
-`.required()` refuses an all-empty group. A schema or block takes a tuple of at most eight children;
-nest a `Group` for more.
+container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
+most eight children; nest a `Group` for more.
 
 **Fields** are built from a Toasty field lens:
 
@@ -92,10 +92,12 @@ nest a `Group` for more.
 | `Field::toggle(lens)` | `bool` | checkbox | `CustomField` |
 | `Field::custom(lens, control)` | `String`, a typed value, or an `Option` of one | your own `Control`: see [Custom controls](#custom-controls) | `CustomField` |
 
-Every field takes `.label(..)`, `.required()` and `.optional()`. The label defaults to the column
-name in sentence case, and `required` defaults to whether the column is non-nullable. Each
-constructor returns its control's builder, which offers only that control's modifiers, so a
-modifier on the wrong control does not compile:
+Every field takes `.label(..)`, which defaults to the column name in sentence case. Whether a
+control is required is not the control's to say: on a create or edit page the panel renders it
+required when its record-form field has no blank answer (a file input only while nothing is
+stored). Outside a panel no record form applies, and every control renders optional. Each constructor returns its
+control's builder, which offers only that control's modifiers, so a modifier on the wrong control
+does not compile:
 
 - text (`TextField`): `.email()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
 - choice (`ChoiceField`): `.options(..)`, `.relationship(..)`, `.searchable()`.
@@ -103,9 +105,9 @@ modifier on the wrong control does not compile:
 ### Custom controls
 
 A `Control` renders the input of a `Field::custom` field. The field keeps everything fields share —
-the key, the label, the required rule, the type's parse rule, the error slot and the chrome around
-the input — and the control renders only the input, from a `ControlInput` carrying the key, the
-current value and the validation state:
+the key, the label, the required marker, the error slot and the chrome around the input — and the
+control renders only the input, from a `ControlInput` carrying the key, the current value and the
+validation state:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-color-control}}
@@ -113,17 +115,16 @@ current value and the validation state:
 
 `display` renders the stored value on the detail page, as text by default. The submission is read
 like any other field's: the value posted under the field's key, the last one when it is posted
-twice. `Field::toggle` is built this way: `Toggle` renders a hidden `false` before the checkbox
-under the same name, so an unchecked box submits `false` rather than nothing. A toggle is
-optional, since it is never empty, and a `bool` record-form field reads an empty submission as
-`false` without a declared blank.
+twice, parsed by the record form. `Field::toggle` is built this way: `Toggle` renders a hidden
+`false` before the checkbox under the same name, so an unchecked box submits `false` rather than
+nothing, and a `bool` record-form field reads an empty submission as `false`.
 
 ### Typed values
 
 `Field::text` binds more than strings. Over an integer, float, `bool`, `Uuid` or
-`jiff::Timestamp` column it renders the stored value and parses the submission back through the
-type. A value the type refuses is an inline error naming it: `` `twelve` is not a valid whole
-number ``. A `jiff::Timestamp` renders a `datetime-local` input, which carries no time zone, so
+`jiff::Timestamp` column it renders the stored value, and the record form parses the submission
+back through the type. A value the type refuses is an inline error naming it: `` `twelve` is not a
+valid whole number ``. A `jiff::Timestamp` renders a `datetime-local` input, which carries no time zone, so
 values display and parse as UTC.
 
 Implement `TypedValue` to bind your own type: `NOUN` names it in errors, `INPUT_TYPE` sets the
@@ -140,9 +141,10 @@ taken value inline. `.unique()` states it explicitly; mounting the panel refuses
 column without a unique index, single-column or composite. The check is a query before the write,
 so two concurrent submissions can both pass it; the database index stays the final guard.
 
-On a non-nullable column, uniqueness also makes the field required, even with `.optional()`:
-an empty `String` is stored as `""`, and the index admits only one. An `Option` column stores
-`NULL` for an empty value, so a unique `Option` field may stay optional.
+A unique field over a non-nullable column must be required: mounting refuses one whose record-form
+field has a blank answer, since every empty submission would store the same value and the index
+admits only one. An `Option` column stores `NULL` for an empty value, so a unique `Option` field
+may stay optional.
 
 ### Relationships
 
@@ -168,12 +170,12 @@ Each option's value is the related record's primary key.
 
 ## Submitting
 
-- **Validation runs in one round.** Required fields, email, relationships, uniqueness and typed
-  parsing are checked together, and the form re-renders with every error inline, with status 200
-  and nothing written. `validate_record` needs the parsed form, so it runs only when every field
-  parses. Each error names the key it renders under: the control's key, an embedded value's
-  flattened key, or a repeater's label. An error keyed to something the form does not render
-  fails the request instead of being dropped.
+- **Validation runs in one round.** The record form's parse (required fields and typed values),
+  email, relationships and uniqueness are checked together, and the form re-renders with every
+  error inline, with status 200 and nothing written. `validate_record` needs the parsed form, so
+  it runs only when every field parses. It returns `FieldErrors<UserFormField>`, keyed by the
+  record form's field enum (`errors.add(UserFormField::Age, "Age must be zero or more")`), so
+  every error renders under its field's control, or an embedded value's first control.
 - **Unknown keys are refused.** A POST carrying a key the form does not declare answers 400, so a
   client cannot write `role` or `tenant_id`. The CSRF token and the file fields' `clear_` and
   `keep_` keys are the exceptions.
@@ -210,7 +212,8 @@ Where the bytes go is your app's decision. Install an `Uploader` on the panel:
 - **Editing.** The edit form shows the stored file as a link and an empty file input. Leaving it
   empty keeps the file; the "Remove the current file" checkbox (`clear_<field>`) empties the
   field. The input is required only while nothing is stored, and clearing a required field fails
-  validation, so declare `.optional()` when a record may lose its file.
+  validation, so declare the record-form field `#[form(optional)]` when a record may lose its
+  file.
 - **Links.** The stored value renders as a link, on the edit form and the detail page, only when
   it is a root-relative path (`/uploads/a.png`, not `//host`) or an `http(s)` URL; anything else
   renders as text.
@@ -234,10 +237,11 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 ```
 
 - Every field of the value is a scalar, or a nested value marked `#[form(embed)]`.
-  `#[form(label = "…")]`, `#[form(multiline = N)]` and `#[form(blank = ..)]` customize a field;
-  an unknown attribute is a compile error.
-- Embedded fields are optional by default. An emptied field stores its blank value, and a field
-  with no blank value refuses an empty submission inline.
+  `#[form(label = "…")]`, `#[form(multiline = N)]`, `#[form(blank = ..)]` and
+  `#[form(optional)]` customize a field; an unknown attribute is a compile error.
+- An embedded field is required, like a record-form field, unless it has a blank answer. An
+  emptied field stores its blank answer, and a field with none refuses an empty submission
+  inline.
 - **Enums** render a choice of variant plus one group of fields per variant; the page shows only
   the chosen variant's group, and the variant can change on edit. The submission's variant decides
   which fields are read and validated, so a stale value in a hidden group never blocks a submit.
@@ -247,6 +251,6 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 
 To bind a single embedded field on its own, pass its path: `Field::text(Post::fields().seo().title())`
 binds the flattened `seo_title` column, which the panel resolves through the database schema when
-it mounts. Such a field is optional unless you call `.required()`. A schema or table built outside
+it mounts. A schema or table built outside
 a panel, such as one a custom page renders, binds the same way with `.bind(&db)`; rendering one
 whose embedded paths are unbound fails rather than post the wrong key.

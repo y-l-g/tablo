@@ -79,3 +79,44 @@ fn the_keys_each_derive_reads_are_parsed() {
         assert!(read.blank.is_some());
     }
 }
+
+#[test]
+fn optional_reads_on_a_string_and_is_refused_elsewhere() {
+    for derive in [Derive::Embedded, Derive::Record] {
+        assert!(
+            attrs("struct F { #[form(optional)] a: String }", derive)
+                .unwrap()
+                .optional
+        );
+        let message = refusal("struct F { #[form(optional)] a: i64 }", derive);
+        assert!(message.contains("`blank = <value>`"), "{message}");
+        let message = refusal("struct F { #[form(optional)] a: Option<String> }", derive);
+        assert!(message.contains("optional already"), "{message}");
+        let message = refusal(
+            r#"struct F { #[form(optional, blank = "x")] a: String }"#,
+            derive,
+        );
+        assert!(message.contains("declare one"), "{message}");
+    }
+}
+
+/// A field is required exactly when nothing answers an empty submission: its declared `blank`,
+/// `optional` on a `String`, an `Option`, or a `bool`.
+#[test]
+fn a_field_without_a_blank_answer_is_required() {
+    let required = |source: &str| {
+        let input: syn::DeriveInput = syn::parse_str(source).expect("the derive input parses");
+        let syn::Data::Struct(data) = &input.data else {
+            panic!("the source declares a struct");
+        };
+        let field = data.fields.iter().next().expect("a field");
+        let attrs = form_attrs(field, Derive::Record).expect("the attributes read");
+        blank_answer(&field.ty, &attrs).is_none()
+    };
+    assert!(required("struct F { a: String }"));
+    assert!(required("struct F { a: i64 }"));
+    assert!(!required("struct F { #[form(optional)] a: String }"));
+    assert!(!required("struct F { #[form(blank = 0)] a: i64 }"));
+    assert!(!required("struct F { a: Option<i64> }"));
+    assert!(!required("struct F { a: bool }"));
+}

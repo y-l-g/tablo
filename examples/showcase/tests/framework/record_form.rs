@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use http::StatusCode;
 use tablo_core::{
     Ability, DeclarationErrorKind, Field, FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm,
-    Repeater, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId, TextColumn, lens,
+    Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId, TextColumn, lens,
     write_create,
 };
 use toasty::Db;
@@ -28,11 +28,12 @@ struct Item {
     done: bool,
 }
 
-/// Every column, with the blank answers the optional controls need.
+/// Every column; `title` alone has no blank answer.
 #[derive(tablo_core::RecordForm)]
 #[form(model = Item)]
 struct ItemForm {
     title: String,
+    #[form(optional)]
     notes: String,
     #[form(blank = 3)]
     priority: i64,
@@ -43,11 +44,9 @@ struct ItemForm {
 fn item_schema() -> Schema {
     Schema::new((
         Field::text(Item::fields().title()),
-        Field::text(Item::fields().notes()).optional(),
-        Field::text(Item::fields().priority()).optional(),
-        Field::choice(Item::fields().done())
-            .options(vec!["true".to_string(), "false".to_string()])
-            .optional(),
+        Field::text(Item::fields().notes()),
+        Field::text(Item::fields().priority()),
+        Field::choice(Item::fields().done()).options(vec!["true".to_string(), "false".to_string()]),
     ))
 }
 
@@ -75,10 +74,10 @@ impl Resource for ItemResource {
             .view(Schema::new(Field::text(Item::fields().title())))
     }
 
-    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors {
+    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemFormField> {
         let mut errors = FieldErrors::new();
         if form.priority > 10 {
-            errors.add("priority", "Priority is at most 10");
+            errors.add(ItemFormField::Priority, "Priority is at most 10");
         }
         errors
     }
@@ -172,12 +171,20 @@ async fn blank_keys_take_each_fields_blank_answer() {
     let cx = cx_for(&db);
     let form = ItemForm::parse(
         &cx,
-        &map(&[("title", " "), ("notes", ""), ("priority", "")]),
+        &map(&[("title", "Kept"), ("notes", " "), ("priority", "")]),
     )
-    .expect("every field answers blank");
-    assert_eq!(form.title, "", "a `String` answers the empty string");
+    .expect("every emptied field answers blank");
+    assert_eq!(
+        form.notes, "",
+        "an optional `String` answers the empty string"
+    );
     assert_eq!(form.priority, 3, "a declared blank answers itself");
-    assert!(!form.done, "an absent key reads as blank");
+    assert!(!form.done, "an absent `bool` reads as `false`");
+    let Err(errors) = ItemForm::parse(&cx, &map(&[("title", " ")])) else {
+        panic!("a `String` with no blank answer is required");
+    };
+    assert_eq!(errors[0].key, "title");
+    assert_eq!(errors[0].kind, FieldErrorKind::Required);
 }
 
 #[tokio::test]
@@ -202,8 +209,10 @@ async fn a_blank_with_no_answer_and_a_bad_value_are_refused_by_key() {
     assert_eq!(errors[0].key, "priority");
     assert_eq!(errors[0].kind, FieldErrorKind::Required);
     assert_eq!(errors[1].key, "done");
-    assert_eq!(errors[1].kind, FieldErrorKind::Invalid);
-    assert_eq!(errors[1].message, "`maybe` is not a valid yes/no value");
+    assert_eq!(
+        errors[1].kind,
+        FieldErrorKind::Invalid("`maybe` is not a valid yes/no value".to_string())
+    );
 }
 
 #[tokio::test]
@@ -294,18 +303,14 @@ async fn an_edit_naming_no_field_writes_nothing_and_redirects() {
     assert_eq!(stored.priority, 7);
 }
 
-/// Schema and record errors render in one round.
+/// Every refused key renders in one round, and `validate_record` runs once the form parses.
 #[tokio::test]
-async fn schema_and_record_errors_render_in_one_round() {
+async fn parse_and_record_errors_render_inline() {
     let db = item_db().await;
     let item = seed_item(&db).await;
     let router = panel_router::<ItemResource>(db.clone());
-    let response = post_fields(
-        &router,
-        &format!("/admin/items/{}/edit", item.id),
-        &[("title", ""), ("priority", "11")],
-    )
-    .await;
+    let edit = format!("/admin/items/{}/edit", item.id);
+    let response = post_fields(&router, &edit, &[("title", ""), ("priority", "lots")]).await;
     assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
     let html = body_string(response).await;
     assert_eq!(
@@ -315,64 +320,20 @@ async fn schema_and_record_errors_render_in_one_round() {
     );
     assert_eq!(
         field_error(&html, "priority").as_deref(),
+        Some("`lots` is not a valid whole number"),
+        "{html}"
+    );
+
+    let response = post_fields(&router, &edit, &[("priority", "11")]).await;
+    assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
+    let html = body_string(response).await;
+    assert_eq!(
+        field_error(&html, "priority").as_deref(),
         Some("Priority is at most 10"),
         "{html}"
     );
     let stored = reload(&db, item.id).await;
     assert_eq!(stored.priority, 7, "a refused submission writes nothing");
-}
-
-/// A repeater label-keyed rule renders in the group.
-#[tokio::test]
-async fn a_repeater_label_keyed_rule_renders_in_the_group() {
-    struct Tagged;
-
-    impl Resource for Tagged {
-        type Model = Item;
-        type Form = ItemForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("items")
-                .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
-                    matches!(
-                        ability,
-                        Ability::ViewAny | Ability::View(_) | Ability::Update(_)
-                    )
-                })
-                .table(item_table())
-                // Every control `ItemForm` binds.
-                .form(Schema::new((
-                    Field::text(Item::fields().title()),
-                    Repeater::new("Tags").schema((
-                        Field::text(Item::fields().notes()).optional(),
-                        Field::text(Item::fields().priority()).optional(),
-                        Field::choice(Item::fields().done())
-                            .options(vec!["true".to_string(), "false".to_string()])
-                            .optional(),
-                    )),
-                )))
-        }
-
-        fn validate_record(_cx: &Cx, _form: &ItemForm) -> FieldErrors {
-            let mut errors = FieldErrors::new();
-            errors.add("Tags", "At least one tag");
-            errors
-        }
-    }
-
-    let db = item_db().await;
-    let item = seed_item(&db).await;
-    let router = panel_router::<Tagged>(db.clone());
-    let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
-    assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
-    let html = body_string(response).await;
-    assert_eq!(
-        field_error(&html, "tags").as_deref(),
-        Some("At least one tag"),
-        "{html}"
-    );
-    assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
 }
 
 /// The detail page of a form resource reads the form's projection.
@@ -525,156 +486,6 @@ async fn build_refuses_a_field_no_control_declares() {
 }
 
 #[tokio::test]
-async fn build_refuses_an_optional_control_with_no_blank_answer() {
-    item_resource!(
-        Unanswered,
-        PriorityForm,
-        Schema::new(Field::text(Item::fields().priority()).optional())
-    );
-    let errors = refused::<Unanswered>(item_db().await);
-    assert!(
-        errors.contains(&DeclarationErrorKind::NoBlankAnswer {
-            control: "priority".to_string(),
-            field: "priority".to_string(),
-            in_repeater: false,
-        }),
-        "{errors:?}"
-    );
-}
-
-#[tokio::test]
-async fn build_refuses_a_repeater_control_with_no_blank_answer() {
-    item_resource!(
-        Repeated,
-        PriorityForm,
-        Schema::new(Repeater::new("Priorities").schema(Field::text(Item::fields().priority())))
-    );
-    let errors = refused::<Repeated>(item_db().await);
-    assert!(
-        errors.contains(&DeclarationErrorKind::NoBlankAnswer {
-            control: "priority".to_string(),
-            field: "priority".to_string(),
-            in_repeater: true,
-        }),
-        "{errors:?}"
-    );
-}
-
-#[tokio::test]
-async fn build_refuses_a_shared_leaf_with_no_blank_answer() {
-    /// A shared column.
-    #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
-    enum Life {
-        #[column(variant = 1)]
-        Draft { note: String },
-        #[column(variant = 2)]
-        Live {
-            #[shared(stamp)]
-            published_at: i64,
-        },
-    }
-
-    #[derive(Debug, Clone, toasty::Model)]
-    struct Dated {
-        #[key]
-        #[auto]
-        id: Uuid,
-        title: String,
-        life: Life,
-    }
-
-    #[derive(tablo_core::RecordForm)]
-    #[form(model = Dated)]
-    struct DatedForm {
-        #[form(embed)]
-        life: Life,
-    }
-
-    struct DatedResource;
-
-    impl Resource for DatedResource {
-        type Model = Dated;
-        type Form = DatedForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dated")
-                .table(Table::new(TextColumn::new(lens!(Dated.title))))
-                .form(Schema::new(Life::form(Dated::fields().life())))
-        }
-    }
-
-    let errors = refused::<DatedResource>(memory_db(toasty::models!(Dated)).await);
-    assert!(
-        errors.iter().any(
-            |error| matches!(error, DeclarationErrorKind::NoBlankAnswer {
-                control,
-                in_repeater: false,
-                ..
-            } if control == "life_stamp")
-        ),
-        "{errors:?}"
-    );
-}
-
-#[tokio::test]
-async fn build_refuses_a_repeater_held_variant_payload_without_an_answer() {
-    /// A variant payload leaf with no blank answer.
-    #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
-    enum Body {
-        #[column(variant = 1)]
-        Text { note: String },
-        #[column(variant = 2)]
-        Video { seconds: i64 },
-    }
-
-    #[derive(Debug, Clone, toasty::Model)]
-    struct Clip {
-        #[key]
-        #[auto]
-        id: Uuid,
-        title: String,
-        body: Body,
-    }
-
-    #[derive(tablo_core::RecordForm)]
-    #[form(model = Clip)]
-    struct ClipForm {
-        #[form(embed)]
-        body: Body,
-    }
-
-    struct ClipResource;
-
-    impl Resource for ClipResource {
-        type Model = Clip;
-        type Form = ClipForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("clips")
-                .table(Table::new(TextColumn::new(lens!(Clip.title))))
-                .form(Schema::new(
-                    Repeater::new("Clips").schema(Body::form(Clip::fields().body())),
-                ))
-        }
-    }
-
-    // An all-empty `Repeater` group skips requiredness.
-    let errors = refused::<ClipResource>(memory_db(toasty::models!(Clip)).await);
-    assert!(
-        errors.iter().any(
-            |error| matches!(error, DeclarationErrorKind::NoBlankAnswer {
-                field,
-                in_repeater: true,
-                ..
-            } if field == "body")
-        ),
-        "{errors:?}"
-    );
-}
-
-#[tokio::test]
 async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
     #[derive(tablo_core::RecordForm)]
     #[form(model = Owned)]
@@ -744,10 +555,16 @@ async fn build_refuses_a_list_only_resource_that_allows_create() {
 
 #[tokio::test]
 async fn build_refuses_a_list_only_resource_that_declares_a_schema() {
-    list_only_resource!(Schematic, false, item_schema());
+    list_only_resource!(
+        Schematic,
+        false,
+        Schema::new(Field::text(Item::fields().title()))
+    );
     assert_eq!(
         refused::<Schematic>(item_db().await),
-        [DeclarationErrorKind::FormWithoutRecordForm]
+        [DeclarationErrorKind::UnboundControl {
+            control: "title".to_string()
+        }]
     );
 }
 
@@ -756,7 +573,10 @@ async fn build_refuses_an_empty_form_override() {
     item_resource!(Emptied, TitleForm, Schema::empty());
     assert_eq!(
         refused::<Emptied>(item_db().await),
-        [DeclarationErrorKind::EmptyFormOverride]
+        [DeclarationErrorKind::MissingControl {
+            field: "title".to_string(),
+            key: "title".to_string(),
+        }]
     );
 }
 
@@ -1005,9 +825,9 @@ async fn an_unkeyable_record_rule_fails_closed() {
                 .form(Schema::empty())
         }
 
-        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors {
+        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<PriorityFormField> {
             let mut errors = FieldErrors::new();
-            errors.add("priority", "never");
+            errors.add(PriorityFormField::Priority, "never");
             errors
         }
     }
@@ -1361,4 +1181,67 @@ async fn the_view_defaults_to_the_form() {
     let unviewed = panel_router::<UnviewedTicketResource>(db);
     let detail = get(&unviewed, &format!("/admin/unviewed-tickets/{}", ticket.id)).await;
     assert_eq!(detail.status(), StatusCode::NOT_FOUND);
+}
+
+/// Whether the control posting `name` renders `required`.
+fn renders_required(html: &str, name: &str) -> bool {
+    let needle = format!("name=\"{name}\"");
+    html.split('<')
+        .filter_map(|tag| tag.split_once('>').map(|(attrs, _)| attrs))
+        .find(|attrs| attrs.contains(&needle))
+        .unwrap_or_else(|| panic!("no control posts {name}: {html}"))
+        .split_whitespace()
+        .any(|attr| attr == "required" || attr.starts_with("required="))
+}
+
+/// The record form decides which controls render required, however the layout built them:
+/// `item_schema` declares plain `Field::text` controls.
+#[tokio::test]
+async fn the_record_form_decides_which_controls_are_required() {
+    let router = panel_router::<ItemResource>(item_db().await);
+    let html = body_string(get(&router, "/admin/items/create").await).await;
+    assert!(renders_required(&html, "title"), "no blank answer: {html}");
+    assert!(!renders_required(&html, "notes"), "`optional`: {html}");
+    assert!(
+        !renders_required(&html, "priority"),
+        "a declared blank: {html}"
+    );
+}
+
+#[tokio::test]
+async fn build_refuses_a_unique_field_an_empty_submission_answers() {
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Handle {
+        #[key]
+        #[auto]
+        id: Uuid,
+        #[unique]
+        name: String,
+    }
+
+    #[derive(tablo_core::RecordForm)]
+    #[form(model = Handle)]
+    struct HandleForm {
+        #[form(optional)]
+        name: String,
+    }
+
+    struct HandleResource;
+
+    impl Resource for HandleResource {
+        type Model = Handle;
+        type Form = HandleForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(Table::new(TextColumn::new(lens!(Handle.name))))
+        }
+    }
+
+    let errors = refused::<HandleResource>(memory_db(toasty::models!(Handle)).await);
+    assert_eq!(
+        errors,
+        [DeclarationErrorKind::OptionalUnique {
+            field: "name".to_string()
+        }]
+    );
 }

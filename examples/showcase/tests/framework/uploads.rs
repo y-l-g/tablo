@@ -31,9 +31,9 @@ struct Doc {
     #[auto]
     id: Uuid,
     title: String,
-    /// Required by the form's default (the lens is a non-nullable `String`).
+    /// Required: `DocForm` gives it no blank answer.
     cover: String,
-    /// Declared `.optional()`: the app allows a record to lose its file.
+    /// `#[form(optional)]` in `DocForm`: the app allows a record to lose its file.
     attachment: String,
 }
 
@@ -90,9 +90,7 @@ impl Resource for DocResource {
             .form(Schema::new((
                 Field::text(Doc::fields().title()),
                 Field::file(Doc::fields().cover()).label("Cover"),
-                Field::file(Doc::fields().attachment())
-                    .label("Attachment")
-                    .optional(),
+                Field::file(Doc::fields().attachment()).label("Attachment"),
             )))
     }
 }
@@ -101,6 +99,7 @@ impl Resource for DocResource {
 struct DocForm {
     title: String,
     cover: String,
+    #[form(optional)]
     attachment: String,
 }
 async fn seeded_db() -> Db {

@@ -34,11 +34,11 @@ fn enumeration(values: &[&str]) -> EmbeddedBuilder {
 fn two_variants() -> Schema {
     let mut builder = enumeration(&["1", "2"]);
     builder.variant();
-    builder.shared(Field::text(DummyUser::fields().name()).optional());
-    builder.leaf(Field::text(DummyUser::fields().email()).email());
+    builder.shared(Field::text(DummyUser::fields().name()), false);
+    builder.leaf(Field::text(DummyUser::fields().email()).email(), true);
     builder.variant();
-    builder.shared(Field::text(DummyUser::fields().name()).optional());
-    builder.leaf(Field::text(DummyUser::fields().id()));
+    builder.shared(Field::text(DummyUser::fields().name()), false);
+    builder.leaf(Field::text(DummyUser::fields().id()), true);
     builder.finish()
 }
 
@@ -49,19 +49,19 @@ fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
-/// A variant group the submission's discriminant does not name is
-/// the one `variant.js` hides, so its fields cannot fail the submit. The
-/// named variant's fields still validate, and a submission that names no
-/// variant hides nothing — the payload fallback may still read any group.
-#[test]
-fn a_hidden_variant_group_is_not_validated() {
+/// A variant group the submission's discriminant does not name is the one `variant.js` hides, so
+/// its controls' rules cannot fail the submit. The named variant's controls still check, and a
+/// submission that names no variant hides nothing: the payload fallback may still read any group.
+#[tokio::test]
+async fn a_hidden_variant_group_is_not_checked() {
+    let cx = crate::test_support::cx();
     let schema = Schema::new(two_variants());
     let values = map(&[
         ("kind", "2"),
         ("email", "not-an-email"),
         ("id", "0f8fad5b-d9cb-469f-a165-70867728950e"),
     ]);
-    let errors = schema.validate(&values);
+    let errors = schema.checked(&cx, &values).await;
     assert!(
         !errors.contains_key("email"),
         "a hidden variant's field must not block the submit, got {errors:?}"
@@ -70,44 +70,33 @@ fn a_hidden_variant_group_is_not_validated() {
     let mut named = values.clone();
     named.insert("kind".to_string(), "1".to_string());
     assert!(
-        schema.validate(&named).contains_key("email"),
-        "the named variant's field must still validate"
+        schema.checked(&cx, &named).await.contains_key("email"),
+        "the named variant's field must still check"
     );
 
     let mut unnamed = values.clone();
     unnamed.insert("kind".to_string(), String::new());
     assert!(
-        schema.validate(&unnamed).contains_key("email"),
-        "an unnamed submission validates every variant's fields"
+        schema.checked(&cx, &unnamed).await.contains_key("email"),
+        "an unnamed submission checks every variant's fields"
     );
 }
 
-/// The key space a submission renders: the discriminant, a shared column, and
-/// the named variant's leaves. A hidden variant's leaf renders nowhere.
+/// A submission hides the leaves of every variant it does not name; the discriminant and a shared
+/// column render under every variant.
 #[test]
-fn a_hidden_variants_leaf_is_not_an_error_key() {
+fn a_submission_hides_the_variants_it_does_not_name() {
     let schema = Schema::new(two_variants());
-    let named = map(&[("kind", "1")]);
+    let hidden = |pairs: &[(&str, &str)]| {
+        let mut keys: Vec<String> = schema.hidden_fields(&map(pairs)).into_iter().collect();
+        keys.sort();
+        keys
+    };
+    assert_eq!(hidden(&[("kind", "1")]), ["id"]);
+    assert_eq!(hidden(&[("kind", "2")]), ["email"]);
     assert!(
-        schema.renders_error_key(&named, "kind") && schema.renders_error_key(&named, "name"),
-        "the discriminant and a shared column render under every variant"
-    );
-    assert!(
-        schema.renders_error_key(&named, "email"),
-        "the named variant's leaf renders"
-    );
-    assert!(
-        !schema.renders_error_key(&named, "id"),
-        "the other variant's leaf renders nowhere"
-    );
-    let unnamed = map(&[("kind", "")]);
-    assert!(
-        schema.renders_error_key(&unnamed, "email") && schema.renders_error_key(&unnamed, "id"),
+        hidden(&[("kind", "")]).is_empty(),
         "a submission naming no variant hides nothing"
-    );
-    assert!(
-        !schema.renders_error_key(&named, "bogus"),
-        "a key no field carries renders nowhere"
     );
 }
 
@@ -152,7 +141,7 @@ fn an_embedded_node_keeps_its_slots_when_appended() {
     let schema = Schema::new((Field::text(DummyUser::fields().email()), {
         let mut builder = enumeration(&["1"]);
         builder.variant();
-        builder.leaf(Field::text(DummyUser::fields().name()));
+        builder.leaf(Field::text(DummyUser::fields().name()), false);
         builder.finish()
     }));
     assert_eq!(
@@ -160,7 +149,10 @@ fn an_embedded_node_keeps_its_slots_when_appended() {
         ["email", "kind", "name"]
     );
     let mut slots = Vec::new();
-    schema.nodes[1].visit_fields(&mut |index, _| slots.push(schema.fields[index].name()));
+    let Node::Embedded(node) = &schema.nodes[1] else {
+        panic!("the second node is the embedded value");
+    };
+    node.visit_fields(&mut |index| slots.push(schema.fields[index].name()));
     assert_eq!(slots, ["kind", "name"], "the node reads its own fields");
 }
 
@@ -173,9 +165,15 @@ async fn a_view_renders_a_shared_column_only_for_a_variant_declaring_it() {
     let mut builder = enumeration(&["1", "2", "3"]);
     builder.variant();
     builder.variant();
-    builder.shared(Field::text(DummyUser::fields().name()).label("Stamp"));
+    builder.shared(
+        Field::text(DummyUser::fields().name()).label("Stamp"),
+        false,
+    );
     builder.variant();
-    builder.shared(Field::text(DummyUser::fields().name()).label("Stamp"));
+    builder.shared(
+        Field::text(DummyUser::fields().name()).label("Stamp"),
+        false,
+    );
     let schema = Schema::new(builder.finish());
     let render = |values: HashMap<String, String>| {
         let schema = &schema;

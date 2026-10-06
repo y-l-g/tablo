@@ -394,17 +394,41 @@ fn check_form_declaration<R: Resource>(
     form_is_sound: bool,
     errors: &mut Vec<DeclarationError>,
 ) {
+    // A misdeclared field's placeholder name would only echo as an unbound control.
+    if !form_is_sound {
+        return;
+    }
+    check_layout(declared, errors);
     if <R::Form as RecordForm>::HAS_FORM {
-        if declared.form.is_empty() && !declared.fields.is_empty() {
-            errors.push(form_error::<R>(DeclarationErrorKind::EmptyFormOverride));
-        } else if form_is_sound {
-            // A misdeclared field's placeholder name would only echo as an unbound control.
-            check_form_inner(cx, declared, errors);
-        }
-    } else if !declared.form.is_empty() {
-        errors.push(form_error::<R>(DeclarationErrorKind::FormWithoutRecordForm));
+        check_form_inner(cx, declared, errors);
     } else if declared.can(cx, Ability::Create) {
         errors.push(form_error::<R>(DeclarationErrorKind::CreateWithoutForm));
+    }
+}
+
+/// Every control is one of the record form's, and every record-form key has its control.
+fn check_layout<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
+    let (fields, form) = (declared.fields.as_slice(), &*declared.form);
+    // The schema refuses two controls sharing a key, so each key binds one control.
+    for control in form.fields() {
+        if !fields
+            .iter()
+            .any(|field| field.keys.iter().any(|key| key == control.name()))
+        {
+            errors.push(form_error::<R>(DeclarationErrorKind::UnboundControl {
+                control: control.name().to_string(),
+            }));
+        }
+    }
+    for field in fields {
+        for key in &field.keys {
+            if !form.fields().any(|control| control.name() == key) {
+                errors.push(form_error::<R>(DeclarationErrorKind::MissingControl {
+                    field: field.name.to_string(),
+                    key: key.clone(),
+                }));
+            }
+        }
     }
 }
 
@@ -414,48 +438,6 @@ fn check_form_inner<R: Resource>(
     errors: &mut Vec<DeclarationError>,
 ) {
     let (fields, form) = (declared.fields.as_slice(), &*declared.form);
-    let controls = form.controls();
-    for control in &controls {
-        let claims = fields
-            .iter()
-            .filter(|field| field.keys.contains(&control.name))
-            .count();
-        let control = control.name.clone();
-        match claims {
-            0 => errors.push(form_error::<R>(DeclarationErrorKind::UnboundControl {
-                control,
-            })),
-            1 => {}
-            _ => errors.push(form_error::<R>(DeclarationErrorKind::ControlBoundTwice {
-                control,
-            })),
-        }
-    }
-    for field in fields {
-        for key in &field.keys {
-            if !controls.iter().any(|control| &control.name == key) {
-                errors.push(form_error::<R>(DeclarationErrorKind::MissingControl {
-                    field: field.name.to_string(),
-                    key: key.clone(),
-                }));
-            }
-        }
-        // An empty submission resolves wherever the schema lets one through.
-        if field.answers_blank {
-            continue;
-        }
-        if let Some(control) = controls.iter().find(|control| {
-            field.keys.contains(&control.name)
-                && control.needs_answer()
-                && (!control.required || control.in_repeater)
-        }) {
-            errors.push(form_error::<R>(DeclarationErrorKind::NoBlankAnswer {
-                control: control.name.clone(),
-                field: field.name.to_string(),
-                in_repeater: control.in_repeater,
-            }));
-        }
-    }
     // The framework stamps the tenant column on create.
     if let Some(column) = tenant_column(declared)
         && let Some(field) = fields.iter().find(|field| field.keys.contains(&column))
@@ -506,6 +488,11 @@ fn check_form_inner<R: Resource>(
             .any(|field| crate::schema::lens_field_unique(field, root));
         if !backed {
             errors.push(form_error::<R>(DeclarationErrorKind::UniqueWithoutIndex {
+                field: name.to_string(),
+            }));
+        }
+        if !field.is_required() && !field.is_nullable() {
+            errors.push(form_error::<R>(DeclarationErrorKind::OptionalUnique {
                 field: name.to_string(),
             }));
         }

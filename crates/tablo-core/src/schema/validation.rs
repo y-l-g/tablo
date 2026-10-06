@@ -1,8 +1,6 @@
-//! Applies presence, email, and typed-parse rules to a submitted string.
+//! The typed values a text field parses, and the email rule.
 
 use email_address::{EmailAddress, Options};
-
-use crate::form::{FieldError, FormScalar};
 
 /// Parses a typed column's text submission and names the type in the error it produces.
 pub trait TypedValue: std::fmt::Display + std::str::FromStr {
@@ -113,97 +111,12 @@ pub(crate) fn format_timestamp_input(storage: &str) -> String {
     }
 }
 
-/// Reads a submitted string back as the stored spelling or the error message.
-type ValueParser = fn(&str) -> Result<String, String>;
-
-/// Binds the parser for scalar type `T`, rejecting what `T` refuses and storing what `T`'s own form
-/// spelling produces.
-fn scalar_parser<T: FormScalar>(value: &str) -> Result<String, String> {
-    T::parse_form(value).map(|parsed| parsed.to_form())
-}
-
-/// Holds the rules a field declares on top of presence and the wording of every message they
-/// produce.
-#[derive(Clone, Copy, Default)]
-pub(crate) struct Rules {
-    email: bool,
-    parser: Option<ValueParser>,
-}
-
-impl Rules {
-    /// Holds a field with no declared rule: presence alone.
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
-    /// Adds the parse rule of the scalar type `T`.
-    pub(crate) fn scalar<T: FormScalar>(mut self) -> Self {
-        self.parser = Some(scalar_parser::<T>);
-        self
-    }
-
-    /// Turns on the email rule.
-    pub(crate) fn set_email(&mut self) {
-        self.email = true;
-    }
-
-    /// Reports whether the email rule is on.
-    pub(crate) fn is_email(&self) -> bool {
-        self.email
-    }
-
-    /// Validates `value` in rule order and skips the email and typed-parse rules on an empty
-    /// submit.
-    pub(crate) fn validate(
-        &self,
-        key: &str,
-        label: &str,
-        required: bool,
-        value: &str,
-    ) -> Vec<FieldError> {
-        let v = value.trim();
-        let mut errs = Vec::new();
-        if required && v.is_empty() {
-            errs.push(FieldError::unanswered(key, required_error(label)));
-        }
-        if self.email && !v.is_empty() && !is_email(v) {
-            errs.push(FieldError::invalid(
-                key,
-                format!("{label} must be a valid email"),
-            ));
-        }
-        if !v.is_empty()
-            && errs.is_empty()
-            && let Some(parser) = &self.parser
-            && let Err(message) = parser(v)
-        {
-            errs.push(FieldError::invalid(key, message));
-        }
-        errs
-    }
-
-    /// Returns the stored spelling of an already-validated submission and reports a failure rather
-    /// than guessing.
-    pub(crate) fn normalize(&self, value: &str) -> Result<String, String> {
-        let v = value.trim();
-        match &self.parser {
-            Some(parser) => parser(v),
-            None => Ok(v.to_string()),
-        }
-    }
-}
-
-/// Returns the message for an empty submit.
-pub(crate) fn required_error(label: &str) -> String {
-    format!("{label} is required")
-}
-
 /// Caps the longest address the rule accepts.
 const EMAIL_MAX_LENGTH: usize = 254;
 
 /// Reports whether `value` is an address the email rule accepts, requiring a TLD and refusing
 /// display text.
-fn is_email(value: &str) -> bool {
+pub(crate) fn is_email(value: &str) -> bool {
     value.len() <= EMAIL_MAX_LENGTH
         && EmailAddress::parse_with_options(
             value,

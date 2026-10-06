@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use tablo_core::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
     DateFilter, Field, FieldErrors, Grid, Group, Options, Panel, QueryFilter, RecordForm, Relation,
-    Repeater, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
-    Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
+    Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
+    TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -76,17 +76,17 @@ impl Resource for UserResource {
             .form(Schema::new(Section::new("Profile").schema((
                 c.name.placeholder("Ada Lovelace"),
                 c.email.email().unique().placeholder("ada@example.com"),
-                c.role.optional(),
+                c.role,
                 c.active,
-                c.age.optional(),
+                c.age,
             ))))
     }
 
     /// Refuses a negative age.
-    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors {
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserFormField> {
         let mut errors = FieldErrors::new();
         if form.age < 0 {
-            errors.add("age", "Age must be zero or more");
+            errors.add(UserFormField::Age, "Age must be zero or more");
         }
         errors
     }
@@ -208,25 +208,19 @@ fn post_form() -> Schema {
     Schema::new((
         Section::new("Content").schema((
             c.title.placeholder("A title editors click"),
-            c.body
-                .multiline(6)
-                .placeholder("The full story…")
-                .optional(),
+            c.body.multiline(6).placeholder("The full story…"),
         )),
-        Group::new().schema((
-            Section::new("Details").schema((
-                Grid::new(2).schema((c.status.optional(), c.featured)),
-                c.author_id
-                    .relationship::<AuthorResource>(|a: &Author| a.name.clone())
-                    .searchable()
-                    .label("Author"),
-                c.cover_id
-                    .relationship::<MediaLibrary>(|m: &MediaAsset| m.filename.clone())
-                    .searchable()
-                    .label("Cover")
-                    .optional(),
-            )),
-            Repeater::new("Tags").schema(c.tags.label("Tag")),
+        Section::new("Details").schema((
+            Grid::new(2).schema((c.status, c.featured)),
+            c.author_id
+                .relationship::<AuthorResource>(|a: &Author| a.name.clone())
+                .searchable()
+                .label("Author"),
+            c.cover_id
+                .relationship::<MediaLibrary>(|m: &MediaAsset| m.filename.clone())
+                .searchable()
+                .label("Cover"),
+            c.tags,
         )),
         Group::new().schema((
             Section::new("SEO").schema(c.seo),
@@ -245,8 +239,7 @@ fn post_view() -> Schema {
         Section::new("SEO").schema(c.seo),
         Section::new("Publication").schema(
             Field::text(Post::fields().publication().published().published_at())
-                .label("Published at")
-                .optional(),
+                .label("Published at"),
         ),
     ))
 }
@@ -341,6 +334,7 @@ impl Action<PostResource> for PublishPosts {
 #[form(model = Post)]
 pub struct PostForm {
     pub title: String,
+    #[form(optional)]
     pub body: String,
     #[form(options = PostStatus, blank = PostStatus::Draft.value())]
     pub status: String,
@@ -349,6 +343,7 @@ pub struct PostForm {
     pub author_id: uuid::Uuid,
     #[form(choice)]
     pub cover_id: Option<uuid::Uuid>,
+    #[form(optional)]
     pub tags: String,
     #[form(embed)]
     pub seo: Seo,

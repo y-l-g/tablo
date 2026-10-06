@@ -99,6 +99,13 @@ form writes.
 
 _Avoid_: Patch, Draft, Input, DTO, Form (alone: that is the Schema)
 
+### Blank answer
+
+What a record-form field or embedded leaf stores when its control is submitted empty. A field
+with none is required; presence is declared on the form derives, never on a control.
+
+_Avoid_: Default, Optional control, Nullable (for presence)
+
 ### Policy
 
 A resource's authorization, answering one ability at a time.

@@ -7,7 +7,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{Data, DeriveInput, Fields, Type, ext::IdentExt, spanned::Spanned};
 
-use crate::fields::{Derive, FormAttrs, assert_scalar, form_attrs};
+use crate::fields::{Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs};
 
 pub fn expand(input: DeriveInput) -> TokenStream {
     expand_tokens(input).into()
@@ -182,12 +182,13 @@ fn build_member(
     // The assertion comes first and the leaf's only bound is `FormScalar`, so
     // a field of another type fails once, at the field.
     let assert = assert_scalar(krate, ty);
+    let required = blank_answer(ty, &member.attrs).is_none();
     let field = quote_spanned! {ty.span()=>
         #krate::__macro::Field::embedded_leaf::<_, #ty>(#path)
     };
     quote! {
         #assert
-        builder.#add(#field.label(#text)#rows);
+        builder.#add(#field.label(#text)#rows, #required);
     }
 }
 
@@ -234,45 +235,15 @@ fn read_member(
             )
         };
     }
-    let blank = declared_blank(member);
+    let blank = blank_option(ty, &member.attrs);
     let read = quote_spanned! {ty.span()=>
-        #krate::__macro::parse_leaf::<#ty>(node.key(#variant, #index), values, #blank)
+        #krate::__macro::parse_scalar::<#ty>(node.key(#variant, #index), values, #blank)
     };
     quote! {
         #krate::__macro::take_leaf(#read, &mut errors)
     }
 }
 
-fn declared_blank(member: &Member) -> TokenStream2 {
-    let ty = &member.ty;
-    match &member.attrs.blank {
-        Some(expr) => quote_spanned! {ty.span()=>
-            ::std::option::Option::Some(::std::convert::Into::<#ty>::into(#expr))
-        },
-        None => quote! { ::std::option::Option::None },
-    }
-}
-
-/// Whether member's blank submission has an answer: a declared one, the
-/// scalar's own, or — for a nested value — every leaf of that value's.
-fn answers_blank(krate: &TokenStream2, member: &Member) -> TokenStream2 {
-    let ty = &member.ty;
-    if member.attrs.embed {
-        return quote_spanned! {ty.span()=>
-            <#ty as #krate::__macro::EmbeddedForm>::answers_blank()
-        };
-    }
-    if member.attrs.blank.is_some() {
-        return quote! { true };
-    }
-    quote_spanned! {ty.span()=>
-        <#ty as #krate::__macro::FormScalar>::blank().is_some()
-    }
-}
-
-/// A read body building `ctor` only when no member failed: each value binds
-/// under a prefixed name, so a field called `values` or `errors` cannot shadow
-/// the reads after it.
 fn collected_read(
     krate: &TokenStream2,
     ctor: &TokenStream2,
@@ -302,7 +273,6 @@ fn wrap(
     build: TokenStream2,
     write: TokenStream2,
     read: TokenStream2,
-    answers_blank: TokenStream2,
 ) -> TokenStream2 {
     let ident = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -316,10 +286,6 @@ fn wrap(
                 M: #krate::__macro::Model,
             {
                 #build
-            }
-
-            fn answers_blank() -> bool {
-                #answers_blank
             }
 
             fn write_node(
@@ -377,16 +343,7 @@ fn expand_struct(krate: &TokenStream2, input: &DeriveInput, members: &[Member]) 
     };
     let write = quote! { #(#writes)* };
     let read = collected_read(krate, &quote! { Self }, members, &reads);
-    let blank = answers_blank_body(members.iter().map(|member| answers_blank(krate, member)));
-    wrap(krate, input, build, write, read, blank)
-}
-
-/// The conjunction of every leaf's blank answer: a value answers a blank
-/// submission when each of its leaves does. An empty conjunction is `true`, for
-/// a value with no leaves.
-fn answers_blank_body(members: impl Iterator<Item = TokenStream2>) -> TokenStream2 {
-    let checks: Vec<TokenStream2> = members.collect();
-    quote! { true #(&& #checks)* }
+    wrap(krate, input, build, write, read)
 }
 
 fn expand_enum(
@@ -470,14 +427,7 @@ fn expand_enum(
             ),
         }
     };
-    let blank = answers_blank_body(
-        variants
-            .iter()
-            .filter_map(|variant| variant.members.as_deref())
-            .flatten()
-            .map(|member| answers_blank(krate, member)),
-    );
-    wrap(krate, input, build, write, read, blank)
+    wrap(krate, input, build, write, read)
 }
 
 #[cfg(test)]

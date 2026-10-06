@@ -172,11 +172,12 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// 200 and nothing is written; a record fn error keeps its own mapping, so
     /// a range or cross-field rule belongs here.
     ///
-    /// Each error names the key it renders under: a control's own key, or a
-    /// [`Repeater`](crate::Repeater) group's label. A key the submitted form
-    /// renders nowhere fails the submit as a declaration error instead of
-    /// writing past the rule.
-    fn validate_record(_cx: &Cx, _form: &Self::Form) -> FieldErrors {
+    /// Each error names a field of the record form (`UserFormField::Age`) and renders under its
+    /// control, or under an embedded value's first control.
+    fn validate_record(
+        _cx: &Cx,
+        _form: &Self::Form,
+    ) -> FieldErrors<<Self::Form as RecordForm>::Field> {
         FieldErrors::new()
     }
 

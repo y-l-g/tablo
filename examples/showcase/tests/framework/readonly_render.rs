@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::schema::{Field, Grid, Group, Repeater, Schema, Section, Source};
+use tablo_core::schema::{Field, Grid, Group, Schema, Section, Source};
 use toasty::Db;
 use topcoat::{
     context::{Cx, CxTestBuilder},
@@ -114,32 +114,6 @@ async fn a_choice_without_a_matching_option_shows_the_stored_value() {
     assert!(
         html.contains("published"),
         "an uncovered value renders as itself: {html}"
-    );
-}
-
-/// A group is a layout, so a view renders its label over its children's
-/// values — and none of a form's affordances. A required group emits no `*`
-/// marker and no `aria-invalid` on the detail page, because the repeater
-/// renders through its own path rather than a field's.
-#[tokio::test]
-async fn a_repeater_renders_its_children_without_form_affordances() {
-    let schema = Schema::new(
-        Repeater::new("Tags")
-            .required()
-            .schema(Field::text(Doc::fields().status())),
-    );
-    let html = render(&schema, &values()).await;
-    assert!(html.contains("Tags"), "the group label renders: {html}");
-    assert!(
-        html.contains("published"),
-        "a child field renders its value inside the group: {html}"
-    );
-    // The required marker's colour is paint; these two state hooks
-    // (`aria-invalid`, the `ac-field--error` marker) are what a regression would
-    // actually break.
-    assert!(
-        !html.contains("aria-invalid") && !html.contains("ac-field--error"),
-        "a read-only group has no required marker and nothing to be invalid about: {html}"
     );
 }
 

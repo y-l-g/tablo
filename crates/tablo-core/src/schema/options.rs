@@ -87,12 +87,12 @@ mod tests {
         let mut valid = std::collections::HashMap::new();
         valid.insert("status".to_string(), "draft".to_string());
         let cx = topcoat::context::CxTestBuilder::new().build();
-        let errors = schema.validate_async(&cx, &valid).await;
+        let errors = schema.checked(&cx, &valid).await;
         assert!(errors.is_empty(), "a shared option validates: {errors:?}");
         let mut bogus = std::collections::HashMap::new();
         bogus.insert("status".to_string(), "gone".to_string());
         assert!(
-            !schema.validate_async(&cx, &bogus).await.is_empty(),
+            !schema.checked(&cx, &bogus).await.is_empty(),
             "an unlisted value fails"
         );
         let filter = crate::SelectFilter::new(StatusField::fields().status(), options.clone());

@@ -20,8 +20,8 @@ pub(super) async fn check_unique<R: Resource>(
     ex: &mut dyn toasty::Executor,
 ) -> Result<FieldErrors, topcoat::Error> {
     let mut errors = FieldErrors::new();
-    // Skips groups the submission leaves out.
-    let skip = schema.absent_fields(values);
+    // Skips the variant groups the submission hides.
+    let skip = schema.hidden_fields(values);
     for field in schema.fields() {
         let name = field.name();
         if !field.is_unique() || skip.contains(name) {
@@ -30,17 +30,14 @@ pub(super) async fn check_unique<R: Resource>(
         let Some(submitted) = values.get(name).map(|s| s.trim().to_string()) else {
             continue;
         };
-        // Never probes empty values; validation already refused them.
+        // Never probes empty values: the column is nullable or the field required.
         if submitted.is_empty() {
             continue;
         }
-        // Skips values normalising to the record's own stored value.
-        let unchanged = current.get(name).is_some_and(|kept| {
-            matches!(
-                (field.normalize(kept), field.normalize(&submitted)),
-                (Ok(kept), Ok(submitted)) if kept == submitted
-            )
-        });
+        // Skips values spelling the record's own stored value.
+        let unchanged = current
+            .get(name)
+            .is_some_and(|kept| field.same_value(kept, &submitted));
         if unchanged {
             continue;
         }

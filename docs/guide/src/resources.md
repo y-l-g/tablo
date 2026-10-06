@@ -152,12 +152,12 @@ declaration names one. It refuses the resource when:
   `table`), or a lens that binds no column. Rendering such a table through `Table::render` (or
   `render_with_state`) or such a schema through `Schema::render` fails with the same errors;
 - the record form and the form schema disagree: a control no form field binds, a form field with
-  no control, an optional control whose field has no blank value, a `unique()` field with no
-  unique index, or a tenant-owned resource's form claiming its tenant column;
+  no control, a `unique()` field with no unique index or whose non-nullable column an empty
+  submission would fill, or a tenant-owned resource's form claiming its tenant column;
 - a relationship field takes its options from a resource the panel does not register;
 - the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
   Toasty default, not the tenant stamp, and not listed in `create_columns`;
-- a `NoForm` resource declares a form or its policy allows `Create`;
+- a `NoForm` resource declares a control or its policy allows `Create`;
 - a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;

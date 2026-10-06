@@ -1,9 +1,6 @@
-//! Holds the `Section`, `Group`, `Grid`, and `Repeater` containers that compose form layout.
+//! Holds the `Section`, `Group`, and `Grid` containers that compose form layout.
 
-use tablo_ui::{
-    card_content, card_header, card_title, field_error as ui_field_error,
-    field_group as ui_field_group,
-};
+use tablo_ui::{card_content, card_header, card_title, field_group as ui_field_group};
 use topcoat::{
     Result,
     context::Cx,
@@ -13,10 +10,10 @@ use topcoat::{
 use super::{
     Schema,
     fields::Field,
-    tree::{IntoSchema, Mode, Source, render_nodes},
+    tree::{IntoSchema, Source, render_nodes},
 };
 
-/// Renders the one titled-group panel that `Section` and `Repeater` share.
+/// Renders a `Section`'s titled panel.
 const PANEL: StaticClass = class!(
     "flex flex-col gap-5 rounded-xl border border-border bg-card py-6 text-card-foreground shadow-sm"
 );
@@ -154,191 +151,6 @@ impl Grid {
         let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
         Ok(view! { cx => <div class=(class)>(child_view)</div> }.boxed())
     }
-}
-
-/// Holds a nested `Schema` rendered once as a titled group and reports a `required` empty group
-/// under its label.
-#[derive(Debug)]
-pub struct Repeater {
-    pub(crate) label: String,
-    pub(crate) children: Schema,
-    pub(crate) required: bool,
-}
-
-impl Repeater {
-    pub fn new(label: impl Into<String>) -> Self {
-        Self {
-            label: label.into(),
-            children: Schema::empty(),
-            required: false,
-        }
-    }
-
-    pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = children.into_schema();
-        self
-    }
-
-    pub fn required(mut self) -> Self {
-        self.required = true;
-        self
-    }
-
-    pub fn label(&self) -> &str {
-        &self.label
-    }
-
-    pub(crate) async fn render<'a>(
-        &self,
-        cx: &'a Cx,
-        fields: &[Field],
-        source: &Source<'_>,
-    ) -> Result<BoxView<'a>> {
-        let title = self.label.clone();
-        let title_id = repeater_title_id(&self.label);
-        let has_children = !self.children.nodes.is_empty();
-        if source.mode() == Mode::View {
-            let child_view = if has_children {
-                Some(render_nodes(cx, &self.children.nodes, fields, source).await?)
-            } else {
-                None
-            };
-            return Ok(view! {
-                cx =>
-                <div
-                    class=(class!(PANEL, "ac-field"))
-                    role="group"
-                    aria-labelledby=(title_id.clone())
-                >
-                    card_header(
-                        card_title(
-                            attrs: attributes! { id=(title_id.clone()) },
-                            (title)
-                        )
-                    )
-                    if let Some(child_view) = child_view {
-                        card_content(
-                            attrs: attributes! { class="flex flex-col gap-6" },
-                            <div class="grid gap-4">(child_view)</div>
-                        )
-                    }
-                </div>
-            }
-            .boxed());
-        }
-        let required = self.required;
-        let own_error = source.errors_for(&self.label);
-        let has_error = own_error.is_some();
-        let error_text = own_error.unwrap_or_default().to_string();
-        let error_id = repeater_error_id(&self.label);
-        let container_class = if has_error {
-            "ac-field ac-field--error"
-        } else {
-            "ac-field"
-        };
-        let title_class = if has_error { "text-destructive" } else { "" };
-        if has_children {
-            let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
-            Ok(view! {
-                cx =>
-                <div
-                    class=(class!(PANEL, container_class))
-                    role="group"
-                    aria-labelledby=(title_id.clone())
-                    data-invalid=(has_error.then_some("true"))
-                    aria-invalid=(if has_error { "true" } else { "false" })
-                    aria-describedby=(has_error.then_some(error_id.clone()))
-                >
-                    card_header(
-                        card_title(
-                            attrs: attributes! { id=(title_id.clone()) class=(title_class) },
-                            (title)
-                            if required {
-                                <span class="text-destructive" aria-hidden="true">
-                                    "*"
-                                </span>
-                            }
-                        )
-                    )
-                    card_content(
-                        attrs: attributes! { class="flex flex-col gap-6" },
-                        <div class="grid gap-4">(child_view)</div>
-                        if has_error {
-                            ui_field_error(
-                                attrs: attributes! {
-                                    id=(error_id.clone())
-                                    class="ac-error"
-                                    aria-live="polite"
-                                },
-                                (error_text)
-                            )
-                        }
-                    )
-                </div>
-            }
-            .boxed())
-        } else {
-            Ok(view! {
-                cx =>
-                <div
-                    class=(class!(PANEL, container_class))
-                    role="group"
-                    aria-labelledby=(title_id.clone())
-                    data-invalid=(has_error.then_some("true"))
-                    aria-invalid=(if has_error { "true" } else { "false" })
-                    aria-describedby=(has_error.then_some(error_id.clone()))
-                >
-                    card_header(
-                        card_title(
-                            attrs: attributes! { id=(title_id.clone()) class=(title_class) },
-                            (title)
-                            if required {
-                                <span class="text-destructive" aria-hidden="true">
-                                    "*"
-                                </span>
-                            }
-                        )
-                    )
-                    if has_error {
-                        card_content(
-                            attrs: attributes! { class="flex flex-col gap-6" },
-                            ui_field_error(
-                                attrs: attributes! {
-                                    id=(error_id.clone())
-                                    class="ac-error"
-                                    aria-live="polite"
-                                },
-                                (error_text)
-                            )
-                        )
-                    }
-                </div>
-            }
-            .boxed())
-        }
-    }
-}
-
-/// Returns the DOM id of a repeater's error node, slugging the label.
-fn repeater_error_id(label: &str) -> String {
-    format!("{}-error", repeater_slug(label))
-}
-
-/// Returns the DOM id of a repeater's title node.
-fn repeater_title_id(label: &str) -> String {
-    format!("{}-title", repeater_slug(label))
-}
-
-fn repeater_slug(label: &str) -> String {
-    let mut slug = String::with_capacity(label.len());
-    for character in label.chars() {
-        if character.is_ascii_alphanumeric() {
-            slug.push(character.to_ascii_lowercase());
-        } else if !slug.ends_with('-') {
-            slug.push('-');
-        }
-    }
-    slug.trim_matches('-').to_string()
 }
 
 #[cfg(test)]

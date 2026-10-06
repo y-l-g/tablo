@@ -27,26 +27,39 @@ from `RecordForm::hydrate` of the stored record, so `update_record` receives a w
 keys are the posted ones minus an untouched file input; the write assigns only named fields plus
 model `#[update(..)]` defaults and `#[version]`. An unposted key keeps its value.
 
-**4. A blank resolves to the field's blank answer.** A posted-empty control stores
-`#[form(blank = ..)]`, else `""` for `String` or `None` for `Option<T>`; with no answer the parse
-refuses the key inline. No `T::default()` answer exists for scalars. An emptied embedded leaf
-takes the same rule; a leaf of a hidden variant group is not read.
+**4. The record form owns presence.** A posted-empty control stores its field's blank answer:
+`#[form(blank = ..)]`, `None` for an `Option`, `false` for a `bool`, `""` for a
+`#[form(optional)]` `String`. A field with none is required: the parse refuses the key inline,
+and the panel renders its control required whatever the layout declared, so no control-side
+presence setting exists to disagree with the struct. An embedded leaf takes the same rule, set by
+its own derive; a leaf of a hidden variant group is not read. A layout has no optional group: a
+group of controls that may all be left empty is a set of fields with blank answers.
 
 **5. Record fns default to the derived write.** `write_create` stamps a gated resource's tenant
 column and executes the create builder; `write_update` executes `Posted::into_update`, returning
 `None` when no field is named. An override checking inside the transaction delegates to them.
 
-**6. Mounting checks struct against schema.** Every control binds exactly one field and every
-field owns a control; an optional or `Repeater` control binds a field answering blank; a gated
-form omits its tenant column; a form resource declares no empty form; `NoForm` declares no schema
-and allows no create or edit. A skippable control is exempt: an embedded enum discriminant and a
-hidden variant payload. A payload in a `Repeater` is asked like any control.
+**6. Mounting checks the layout against the struct.** Every control posts a key of the record
+form and every key has a control; a gated form omits its tenant column; `NoForm`, which has no
+fields, allows no create or edit. A unique field over a non-nullable column has no blank answer,
+since every empty submission would store the same value.
 
 **7. A create sets every non-nullable column.** Where policy allows `Create`, each non-nullable,
 non-relation column is a form field, a Toasty fill, the tenant stamp, or a `create_columns` entry
 for an override. The check reads defaults off `M::Create::default()`.
 
-**8. One round of errors.** Schema rules, unique probe, parse, and `validate_record` merge into one
-`FieldErrors` keyed list rendered inline with a 200. `validate_record` runs once every field
-parses and names each error's key; a key the submission renders nowhere fails the submit as a
-declaration error. A rejected upload replaces errors under its field key.
+**8. One parse, one round of errors.** The record form's parse is the only presence and type
+check; the controls add only their own rules (an email address, a choice among its options).
+Control rules, the unique probe, the parse, and `validate_record` merge into one keyed list
+rendered inline with a 200. `validate_record` runs once every field parses and keys each error by
+the record form's field enum, so every error renders under a control: an embedded value's under
+its first. A rejected upload replaces errors under its field key. A hand-written record form
+refusing a key its `fields` do not bind fails the submit as a declaration error.
+
+## Rejected
+
+- **Presence on the control** (`.required()`, `.optional()`): a second declaration of what the
+  struct's blank answers already say, which mounting had to reconcile and the submit had to
+  re-word.
+- **A schema-side parse**: the struct parses every key anyway; a second parser only produced
+  errors the parse then had to defer to.

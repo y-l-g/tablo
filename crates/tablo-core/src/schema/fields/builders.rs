@@ -6,22 +6,12 @@ use super::{
     ChoiceControl, ControlKind, Field, TextControl, choice,
 };
 
-/// `label`, `required` and `optional`, shared by every builder.
+/// `label` and `name`, shared by every builder.
 macro_rules! common_modifiers {
     ($builder:ident) => {
         impl $builder {
             pub fn label(mut self, label: impl Into<String>) -> Self {
                 self.0.label = Some(label.into());
-                self
-            }
-
-            pub fn required(mut self) -> Self {
-                self.0.required = true;
-                self
-            }
-
-            pub fn optional(mut self) -> Self {
-                self.0.required = false;
                 self
             }
 
@@ -43,6 +33,22 @@ macro_rules! common_modifiers {
         }
     };
 }
+
+/// Renders the control required, as a panel does for a record-form field with no blank answer.
+#[cfg(test)]
+macro_rules! required_for_tests {
+    ($($builder:ident),*) => {$(
+        impl $builder {
+            pub(crate) fn required(mut self) -> Self {
+                self.0.set_required(true);
+                self
+            }
+        }
+    )*};
+}
+
+#[cfg(test)]
+required_for_tests!(TextField, FileField);
 
 /// A text field: [`Field::text`].
 pub struct TextField(pub(super) Field);
@@ -72,11 +78,11 @@ impl TextField {
 
     /// Validate the value as an email address, and render `type="email"`.
     pub fn email(mut self) -> Self {
-        self.0.rules.set_email();
+        self.text().email = true;
         self
     }
 
-    /// Probes a unique index before the write, implying presence on a non-nullable column.
+    /// Probes a unique index before the write.
     pub fn unique(mut self) -> Self {
         self.text().unique = true;
         self

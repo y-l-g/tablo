@@ -25,11 +25,10 @@ pub(crate) fn schema_of(cx: &Cx) -> Option<Arc<toasty_core::Schema>> {
 /// ([`Self::bind`]); until then it names a placeholder spelling its steps, which reads as no other
 /// field's duplicate, and reports [`DeclarationErrorKind::Unbound`].
 ///
-/// A column defaults `required` from its nullability and `unique` from a single- or multi-field
-/// unique index it belongs to. An embedded leaf is never required or unique by default: only the
-/// matching enum variant writes a variant payload column, so every embedded leaf reports nullable.
-/// That is the binding default, not a storage fact — the flattened column of a required embedded
-/// struct is `NOT NULL` — so a field opts in with `.required()`.
+/// A column reports its nullability, and defaults `unique` from a single- or multi-field unique
+/// index it belongs to. An embedded leaf is never unique by default and reports nullable: only the
+/// matching enum variant writes a variant payload column. That is the binding default, not a
+/// storage fact — the flattened column of a required embedded struct is `NOT NULL`.
 #[derive(Debug, Clone)]
 pub(crate) struct Binding {
     /// The path, or `None` for a key no path names (an embedded enum's discriminant).
@@ -132,11 +131,10 @@ pub(crate) struct LeafField {
     pub(crate) name: String,
     pub(crate) label: String,
     /// Whether the leaf is nullable. Every leaf the walk resolves reports
-    /// `true`: an embedded leaf is never required by default, because only the
-    /// matching enum variant writes a variant payload's column. That is this
-    /// walk's policy rather than the compiled column's own nullability — the
-    /// flattened column of a required embedded struct is `NOT NULL` — so it is
-    /// the *binding* default, not a storage fact.
+    /// `true`, because only the matching enum variant writes a variant
+    /// payload's column. That is this walk's policy rather than the compiled
+    /// column's own nullability — the flattened column of a required embedded
+    /// struct is `NOT NULL` — so it is the *binding* default, not a storage fact.
     pub(crate) nullable: bool,
     /// Whether a unique index covers the column. Always `false` for an
     /// embedded leaf, which declares no index of its own.
@@ -452,10 +450,9 @@ fn column_of(schema: &toasty_core::Schema, field: &MappingField) -> Option<LeafF
     Some(LeafField {
         name: column.name.clone(),
         label: capitalize(&column.name.replace('_', " ")),
-        // Reported nullable by policy, not read off the column: an embedded
-        // leaf is never required by default, because only the matching enum
-        // variant writes a variant payload's column. The compiled column can be
-        // `NOT NULL` — an embedded struct's flattened column is.
+        // Reported nullable by policy, not read off the column: only the
+        // matching enum variant writes a variant payload's column. The compiled
+        // column can be `NOT NULL` — an embedded struct's flattened column is.
         nullable: true,
         unique: false,
     })

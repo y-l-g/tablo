@@ -33,9 +33,9 @@ use super::{
     Schema,
     fields::Field,
     lenses::FieldResolver,
-    tree::{LeafPlace, Mode, Node, Source, Unbound},
+    tree::{Mode, Node, Source, Unbound},
 };
-use crate::form::{FieldError, FormScalar};
+use crate::form::{FieldError, FormField};
 
 /// Reads an embedded value from and writes it to the flat form map; derive it to generate the
 /// value's schema.
@@ -78,10 +78,6 @@ pub trait EmbeddedForm: Sized {
     fn build_schema<M>(resolver: &FieldResolver, parent: Path<M, Self>) -> Schema
     where
         M: toasty::schema::Model;
-
-    /// Reports whether every leaf answers a blank submission.
-    #[doc(hidden)]
-    fn answers_blank() -> bool;
 
     #[doc(hidden)]
     fn write_node(&self, node: &Embedded, out: &mut HashMap<String, String>);
@@ -258,28 +254,28 @@ impl Embedded {
         }
     }
 
-    /// Visits every field slot with where the leaf sits in the form.
-    pub(crate) fn visit_fields(&self, place: LeafPlace, f: &mut impl FnMut(usize, LeafPlace)) {
-        fn members(members: &[Member], place: LeafPlace, f: &mut impl FnMut(usize, LeafPlace)) {
+    /// Visits every field slot the value renders.
+    fn visit_fields(&self, f: &mut impl FnMut(usize)) {
+        fn members(members: &[Member], f: &mut impl FnMut(usize)) {
             for member in members {
                 match member {
                     Member::Leaf {
                         field: Some(index), ..
-                    } => f(*index, place),
+                    } => f(*index),
                     Member::Leaf { field: None, .. } => {}
-                    Member::Nested(nested) => nested.visit_fields(place, f),
+                    Member::Nested(nested) => nested.visit_fields(f),
                 }
             }
         }
         match &self.shape {
-            Shape::Struct(list) => members(list, place, f),
+            Shape::Struct(list) => members(list, f),
             Shape::Enum(e) => {
-                f(e.discriminant, LeafPlace::Discriminant);
+                f(e.discriminant);
                 for index in &e.shared {
-                    f(*index, place);
+                    f(*index);
                 }
                 for variant in &e.variants {
-                    members(&variant.members, LeafPlace::Payload, f);
+                    members(&variant.members, f);
                 }
             }
         }
@@ -307,10 +303,9 @@ impl Embedded {
                                     field: Some(index), ..
                                 } => out.push(*index),
                                 Member::Leaf { field: None, .. } => {}
-                                Member::Nested(nested) => nested
-                                    .visit_fields(LeafPlace::Payload, &mut |index, _| {
-                                        out.push(index)
-                                    }),
+                                Member::Nested(nested) => {
+                                    nested.visit_fields(&mut |index| out.push(index))
+                                }
                             }
                         }
                     } else {
@@ -507,8 +502,10 @@ impl EmbeddedBuilder {
         &self.resolver
     }
 
-    pub fn leaf(&mut self, field: impl Into<Field>) {
-        let field = field.into();
+    /// Adds a leaf, required when it has no blank answer.
+    pub fn leaf(&mut self, field: impl Into<Field>, required: bool) {
+        let mut field = field.into();
+        field.set_required(required);
         field.bind(&self.resolver);
         let key = field.name().to_string();
         let index = self.fields.len();
@@ -520,8 +517,9 @@ impl EmbeddedBuilder {
     }
 
     /// Adds a `#[shared(..)]` leaf that renders once, outside the variant groups.
-    pub fn shared(&mut self, field: impl Into<Field>) {
-        let field = field.into();
+    pub fn shared(&mut self, field: impl Into<Field>, required: bool) {
+        let mut field = field.into();
+        field.set_required(required);
         field.bind(&self.resolver);
         let key = field.name().to_string();
         let Shape::Enum(e) = &mut self.shape else {
@@ -565,16 +563,30 @@ impl EmbeddedBuilder {
     }
 }
 
-/// Collects every form key the embedded value at `parent` occupies.
+/// The record-form field binding the embedded value at `parent`: every form key it occupies, and
+/// the ones its leaves require.
 #[doc(hidden)]
-pub fn embedded_keys<M, T>(resolver: &FieldResolver, parent: impl Into<Path<M, T>>) -> Vec<String>
+pub fn embedded_field<M, T, K>(
+    resolver: &FieldResolver,
+    parent: impl Into<Path<M, T>>,
+    field: K,
+    name: &'static str,
+) -> FormField<K>
 where
     M: toasty::schema::Model,
     T: EmbeddedForm,
 {
-    T::build_schema(resolver, parent.into())
-        .embedded_root()
-        .keys()
+    let schema = T::build_schema(resolver, parent.into());
+    FormField {
+        field,
+        name,
+        keys: schema.embedded_root().keys(),
+        required: schema
+            .fields()
+            .filter(|field| field.is_required())
+            .map(|field| field.name().to_string())
+            .collect(),
+    }
 }
 
 /// The embedded value at `parent` as a schema node its schema builds when it binds.
@@ -591,26 +603,6 @@ where
         })],
         fields: Vec::new(),
     }
-}
-
-/// Reads one leaf out of a submission by its resolved key, answering a blank with the member's
-/// declared blank or the type's own and refusing a blank with neither.
-#[doc(hidden)]
-pub fn parse_leaf<T>(
-    key: &str,
-    values: &HashMap<String, String>,
-    blank: Option<T>,
-) -> std::result::Result<T, FieldError>
-where
-    T: FormScalar,
-{
-    let trimmed = values.get(key).map(|raw| raw.trim()).unwrap_or("");
-    if trimmed.is_empty() {
-        return blank
-            .or_else(T::blank)
-            .ok_or_else(|| FieldError::required(key));
-    }
-    T::parse_form(trimmed).map_err(|message| FieldError::invalid(key, message))
 }
 
 /// Moves `result`'s value out, or its errors into `errors`.

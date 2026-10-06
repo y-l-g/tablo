@@ -74,8 +74,7 @@ pub mod __macro {
             ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, IntoSchema,
             Options, Schema, TextField,
             embedded::{
-                Embedded, EmbeddedBuilder, embedded_form, embedded_keys, parse_leaf, take_leaf,
-                take_value,
+                Embedded, EmbeddedBuilder, embedded_field, embedded_form, take_leaf, take_value,
             },
             form_key,
         },
@@ -125,8 +124,7 @@ pub use resource::{
 };
 pub use schema::{
     ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FieldResolver, FileField,
-    Grid, Group, IntoOptions, IntoSchema, Options, Repeater, Schema, Section, Source, TextField,
-    Toggle,
+    Grid, Group, IntoOptions, IntoSchema, Options, Schema, Section, Source, TextField, Toggle,
 };
 pub use table::{
     BooleanColumn, Column, ColumnWidth, ComputedColumn, Cursor, DateFilter, Filter, FilterInput,
@@ -171,8 +169,10 @@ pub use table::{
 /// its own `EmbeddedForm`. Every other field is a **scalar**: one column, read
 /// and written through `FormScalar` (`String`, a `TypedValue` type, or an
 /// `Option` of one). A scalar of another type fails to compile at the field,
-/// naming the trait. An empty scalar is its declared `#[form(blank = ..)]`,
-/// else its `FormScalar::blank()`; with neither, the parse refuses its key.
+/// naming the trait. An empty scalar is its blank answer — its declared
+/// `#[form(blank = ..)]`, `None` for an `Option`, `false` for a `bool`, `""`
+/// for an `#[form(optional)]` `String` — and a scalar with none is required:
+/// its control renders required and the parse refuses its key.
 ///
 /// # Which variant an enum reads
 ///
@@ -187,11 +187,12 @@ pub use table::{
 /// - `#[form(label = "Canonical URL")]` — the control's label (default: the field name,
 ///   humanized).
 /// - `#[form(multiline = 3)]` — a `<textarea>` of 3 rows.
-/// - `#[form(blank = ..)]` — what an empty submission reads as, overriding the leaf type's own
-///   answer.
+/// - `#[form(blank = ..)]` — what an empty submission reads as.
+/// - `#[form(optional)]` on a `String` — an empty submission reads as `""`.
 ///
-/// Anything else in `#[form(..)]` is a compile error, as are `label`, `multiline`, and `blank`
-/// on an embedded value.
+/// Anything else in `#[form(..)]` is a compile error, as are `label`, `multiline`, `blank` and
+/// `optional` on an embedded value, `blank` or `optional` on an `Option`, and `optional` on a
+/// type other than `String`.
 pub use tablo_macros::EmbeddedForm;
 /// Derive `Options` for a unit-variant enum: the `(value, label)` list a
 /// choice field, a select filter and a column share.
@@ -242,7 +243,8 @@ pub use tablo_macros::Options;
 /// ```
 ///
 /// The derive also emits `UserFormField`, one variant per field, which
-/// `Posted` keys on and `RecordForm::fields` answers with each variant's keys.
+/// `Posted` and `Resource::validate_record`'s `FieldErrors` key on and
+/// `RecordForm::fields` answers with each variant's keys.
 /// It emits `UserFormControls`, one control per field chosen from the field —
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
 /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
@@ -257,19 +259,22 @@ pub use tablo_macros::Options;
 /// # Attributes
 ///
 /// - `#[form(model = User)]` on the struct: the model the form writes.
-/// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as, overriding
-///   the default (`String` answers `""` and `Option<T>` answers `None` through the type's own
-///   blank, and `bool` answers `false` through the derive's default).
+/// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as.
+/// - `#[form(optional)]` on a `String`: an empty submission reads as `""`.
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
 /// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` may
 ///   add.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
 ///
+/// A scalar's **blank answer** is its `blank`, `""` for an `optional` `String`, `None` for an
+/// `Option`, or `false` for a `bool`. A field with none is required: the panel renders its
+/// control required and the parse refuses an empty submission. No control declares presence.
+///
 /// A generic struct, a tuple struct, an empty struct, a `Deferred<_>` field,
-/// `blank` on an `Option` or an embedded value, and an unknown key are compile
-/// errors. So are a field the model lacks, a type the model's field does not
-/// have, and a scalar that is not a `FormScalar`.
+/// `blank` or `optional` on an `Option` or an embedded value, `optional` on a
+/// type other than `String`, and an unknown key are compile errors. So are a field the model
+/// lacks, a type the model's field does not have, and a scalar that is not a `FormScalar`.
 pub use tablo_macros::RecordForm;
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
 pub use upload::Uploader;

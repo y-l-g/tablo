@@ -58,8 +58,9 @@ pub struct Author {
 /// SEO metadata for a post.
 #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 pub struct Seo {
+    #[form(optional)]
     pub title: String,
-    #[form(multiline = 3)]
+    #[form(multiline = 3, optional)]
     pub description: String,
 }
 
@@ -77,14 +78,14 @@ pub enum Publication {
     Published {
         #[shared(timestamp)]
         published_at: Option<Timestamp>,
-        #[form(label = "Canonical URL")]
+        #[form(label = "Canonical URL", optional)]
         canonical_url: String,
     },
     #[column(variant = 3)]
     Archived {
         #[shared(timestamp)]
         archived_at: Option<Timestamp>,
-        #[form(label = "Archive reason")]
+        #[form(label = "Archive reason", optional)]
         reason: String,
     },
 }

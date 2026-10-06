@@ -112,7 +112,7 @@ impl Resource for PostResource {
                 ))
                 .paginate(50),
             )
-            .form(Schema::new(Field::text(Post::fields().title()).required()))
+            .form(Schema::new(Field::text(Post::fields().title())))
     }
 }
 
