@@ -56,24 +56,18 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
     fmt_check(&run).expect("fake commands succeed");
     let root = repo_root();
     let commands = run.commands();
-    assert_eq!(
-        commands.len(),
-        5,
-        "1 nightly + quickstart + guide + topcoat + diff"
-    );
+    assert_eq!(commands.len(), 4, "1 nightly + quickstart + topcoat + diff");
     assert_eq!(
         commands[0].1,
         vec!["+nightly-2026-08-24", "fmt", "--all", "--", "--check"]
     );
-    for (command, dir) in commands[1..3].iter().zip([QUICKSTART, GUIDE]) {
-        assert_eq!(command.0, "cargo");
-        assert_eq!(command.1, vec!["fmt", "--", "--check"]);
-        assert_eq!(command.2, Some(root.join(dir)));
-    }
-    assert_eq!(commands[3].0, "topcoat");
-    assert_eq!(commands[3].1, vec!["fmt"]);
-    assert_eq!(commands[4].0, "git");
-    assert_eq!(commands[4].1, vec!["diff", "--exit-code"]);
+    assert_eq!(commands[1].0, "cargo");
+    assert_eq!(commands[1].1, vec!["fmt", "--", "--check"]);
+    assert_eq!(commands[1].2, Some(root.join(QUICKSTART)));
+    assert_eq!(commands[2].0, "topcoat");
+    assert_eq!(commands[2].1, vec!["fmt"]);
+    assert_eq!(commands[3].0, "git");
+    assert_eq!(commands[3].1, vec!["diff", "--exit-code"]);
     assert!(commands.iter().all(|command| {
         command
             .2
@@ -99,12 +93,12 @@ fn progs_of(commands: &[RecordedCommand]) -> Vec<String> {
 }
 
 #[test]
-fn check_runs_fast_gates_by_default_and_defers_docs_guide_and_external_to_all() {
+fn check_runs_fast_gates_by_default_and_defers_docs_and_external_to_all() {
     assert_eq!(
         progs_of(&run_check(Scope::Auto, true)),
         vec![
             "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo", "cargo",
-            "cargo", "cargo",
+            "cargo",
         ]
     );
 }
@@ -113,14 +107,12 @@ fn check_runs_fast_gates_by_default_and_defers_docs_guide_and_external_to_all() 
 fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
     assert_eq!(
         progs_of(&run_check(Scope::Auto, false)),
-        vec![
-            "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo"
-        ],
+        vec!["cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo"],
         "msrv and udeps install+run are skipped"
     );
     assert_eq!(
         run_check(Scope::All, false).len(),
-        16,
+        13,
         "`--all` forces every gate"
     );
 }
@@ -176,9 +168,7 @@ fn pins_match_ci_and_docs() {
         ci.contains(mdbook),
         "ci.yml installs the pinned mdBook {mdbook}"
     );
-    for detached in [QUICKSTART, GUIDE] {
-        assert!(ci.contains(detached), "ci.yml covers {detached}");
-    }
+    assert!(ci.contains(QUICKSTART), "ci.yml covers {QUICKSTART}");
     for suite in ASSET_SUITES {
         assert!(ci.contains(suite), "ci.yml names {suite}");
     }
