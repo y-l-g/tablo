@@ -582,7 +582,7 @@ async fn a_selection_runs_the_records_the_action_allows() {
         "the list answers with a notification"
     );
     assert!(
-        flash(&response).contains("Complete: 1 record (1 skipped)"),
+        flash(&response).contains("Complete: 1 record (1 of 2 skipped)"),
         "the notification reports the skipped record: {}",
         flash(&response)
     );

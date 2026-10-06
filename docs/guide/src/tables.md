@@ -231,11 +231,11 @@ rolls everything back. After the commit, `after_commit` receives `Mutation::Acti
 records and the list shows `Action::success`, by default the label and the record count.
 
 A record `can_run` refuses is not handed to `run`: a refused row answers 403, and a selection drops
-the refused records, runs the rest and appends the refused count to `Action::success`
-(`"Publish: 3 records (2 skipped)"`). A selection every record refuses writes nothing and returns
-to the list with an error notification. A record that fails the policy's `View`, and one the scoped
-query no longer returns, fail the whole POST instead: 403 and 404, and nothing is written. An
-action name that is not one URL segment does not compile,
+the refused records, runs the rest and appends the skipped count out of the selection to
+`Action::success` (`"Publish: 3 records (2 of 5 skipped)"`). A selection every record refuses writes
+nothing and returns to the list with an error notification. A record that fails the policy's `View`,
+and one the scoped query no longer returns, fail the whole POST instead: 403 and 404, and nothing
+is written. An action name that is not one URL segment does not compile,
 and mounting the panel refuses a name two actions of a resource share. A destructive action
 declares `const CONFIRM: bool = true` to ask first through a confirmation dialog carrying the
 delete dialog's mechanism and wording; an unconfirmed POST answers 400. Confirmatory buttons need

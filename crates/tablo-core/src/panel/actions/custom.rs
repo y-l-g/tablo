@@ -99,7 +99,9 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
         }
         let mut note = (action.success)(cx, rows.len());
         if !refused.is_empty() {
-            note.push_str(&format!(" ({} skipped)", refused.len()));
+            let skipped = refused.len();
+            let selected = rows.len() + skipped;
+            note.push_str(&format!(" ({skipped} of {selected} skipped)"));
         }
         let written = (action.run)(cx, &rows, &mut tx).await.map(|()| rows);
         commit_write(cx, &resource, tx, written, action.acted, note, WRITE_ACTION).await

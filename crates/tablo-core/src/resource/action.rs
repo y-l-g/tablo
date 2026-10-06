@@ -126,8 +126,8 @@ pub trait Action<R: Resource>: 'static {
         true
     }
 
-    /// Perform the action on `records`, every record of the target that passed
-    /// [`can_run`](Self::can_run), through the framework's transaction `ex`.
+    /// Perform the action on `records`, the records of the row or selection that
+    /// passed [`can_run`](Self::can_run), through the framework's transaction `ex`.
     fn run(
         cx: &Cx,
         records: &[R::Model],
@@ -136,7 +136,8 @@ pub trait Action<R: Resource>: 'static {
 
     /// The success notification after a commit. Defaults to the label and
     /// the record count: `"Publish: 3 records"`. A bulk run the action refused
-    /// on some records appends their count: `"Publish: 3 records (2 skipped)"`.
+    /// on some records appends their count out of the selection:
+    /// `"Publish: 3 records (2 of 5 skipped)"`.
     fn success(cx: &Cx, count: usize) -> String {
         let noun = if count == 1 { "record" } else { "records" };
         format!("{}: {count} {noun}", Self::label(cx))
