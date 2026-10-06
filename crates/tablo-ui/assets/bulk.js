@@ -174,6 +174,45 @@ function install() {
     else dialog.setAttribute('open', '');
   });
 
+  // A confirmatory bulk custom action asks first, like the destructive
+  // submit above: `type="button"`, so the dialog decides when the form is
+  // submitted. The trigger carries its POST target, which this copies onto
+  // the dialog's submit as `formaction`, since one dialog serves every
+  // confirmatory action of the table.
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('[data-bulk-action-confirm-trigger]');
+    if (!trigger) return;
+    const form = trigger.closest('form[data-bulk-form]');
+    const dialog = form && form.querySelector('[data-bulk-action-confirm-dialog]');
+    if (!dialog) return;
+    const action = trigger.getAttribute('data-bulk-action-confirm-action');
+    const submit = dialog.querySelector('[data-bulk-action-confirm-submit]');
+    if (!action || !submit) return;
+    submit.setAttribute('formaction', action);
+    // Sync the transport from the live checkboxes before the dialog reports the
+    // selection: the wire is authoritative, but a checkbox click that landed
+    // mid-swap could still be unflushed.
+    const root = form.closest('[data-table-root]');
+    if (root) update(root);
+    const description = dialog.querySelector('[data-bulk-action-confirm-description]');
+    const count = wireOf(transportFor(root || form)?.value).length;
+    if (description) {
+      // A selection is required to run anything, so an empty one says so
+      // rather than opening a dialog whose confirm would only bounce back with an
+      // error toast.
+      if (count === 0) {
+        description.textContent = 'Select at least one row first.';
+      } else if (count === 1) {
+        description.textContent = 'This action cannot be undone. 1 record is selected.';
+      } else {
+        description.textContent =
+          `This action cannot be undone. ${count} records are selected.`;
+      }
+    }
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+  });
+
   // A swap replaces the table (and its checkboxes) without a page load, so
   // re-apply the selection whenever the table's markup changes.
   const observers = new WeakMap();

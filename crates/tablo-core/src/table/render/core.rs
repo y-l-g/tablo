@@ -112,6 +112,11 @@ impl<M> Table<M> {
         } else {
             None
         };
+        let action_dialog = if signals.is_none() {
+            self.render_action_confirm_dialog(cx)
+        } else {
+            None
+        };
 
         let ColumnWidths {
             cells: cell_widths,
@@ -146,6 +151,11 @@ impl<M> Table<M> {
                 delete_dialog_id: delete_prefix
                     .as_deref()
                     .map(Self::delete_dialog_dom_id)
+                    .unwrap_or_default(),
+                action_dialog_id: self
+                    .actions_prefix
+                    .as_deref()
+                    .map(Self::action_confirm_dialog_dom_id)
                     .unwrap_or_default(),
             };
             let rows = render_rows(cx, row_data, &chrome);
@@ -204,6 +214,9 @@ impl<M> Table<M> {
                 (p)
             }
             if let Some(dialog) = delete_dialog {
+                (dialog)
+            }
+            if let Some(dialog) = action_dialog {
                 (dialog)
             }
         };

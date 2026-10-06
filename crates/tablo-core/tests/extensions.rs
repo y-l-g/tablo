@@ -759,6 +759,41 @@ async fn a_confirmatory_bulk_action_refuses_an_unmarked_post() {
     assert!(self::task(&db, second.id).await.done);
 }
 
+#[tokio::test]
+async fn a_confirmatory_action_renders_triggers_and_dialogs() {
+    let db = db().await;
+    let task = seed(&db, "Alpha", false).await;
+    let router = panel_router::<ConfirmResource>(db.clone());
+
+    let html = body_string(get(&router, "/admin/confirmed").await).await;
+    assert!(
+        html.contains("data-row-delete-trigger")
+            && html.contains(&format!(
+                "data-row-delete-action=\"/admin/confirmed/{}/-/actions/archive\"",
+                task.id
+            )),
+        "the row button opens the shared dialog with its POST target: {html}"
+    );
+    assert!(
+        html.contains("id=\"-admin-confirmed-action-confirm\""),
+        "the shared row dialog renders: {html}"
+    );
+    assert!(
+        html.contains("data-bulk-action-confirm-trigger")
+            && html.contains("data-bulk-action-confirm-dialog")
+            && html.contains("data-bulk-action-confirm-submit"),
+        "the bulk bar carries its own confirmation: {html}"
+    );
+
+    let plain =
+        body_string(get(&panel_router::<TaskResource>(db.clone()), "/admin/tasks").await).await;
+    assert!(
+        !plain.contains("data-row-delete-trigger")
+            && !plain.contains("data-bulk-action-confirm-trigger"),
+        "an immediate action submits directly: {plain}"
+    );
+}
+
 /// The opening tag right after `marker` in `html`, without its `>`.
 fn tag_after<'h>(html: &'h str, marker: &str) -> &'h str {
     let at = html

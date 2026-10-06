@@ -25,6 +25,9 @@ pub(super) struct RowChrome {
     pub(super) cell_widths: Vec<Option<Cow<'static, str>>>,
     pub(super) actions_min: Option<Cow<'static, str>>,
     pub(super) delete_dialog_id: String,
+    /// The shared confirmatory-action dialog's DOM id, empty when the table
+    /// wires no confirmatory custom action.
+    pub(super) action_dialog_id: String,
 }
 
 /// One rendered row, keyed for the body's diff.
@@ -137,13 +140,36 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     let edit_class = link_class.clone();
     let delete_class = link_class.clone();
     let csrf = (!row.custom.is_empty()).then(|| crate::csrf::current_token(cx));
+    let dialog = chrome.action_dialog_id.clone();
     let described = row_dom_id(&row.key);
     let custom: Vec<BoxView<'a>> = row
         .custom
         .iter()
-        .map(|(label, url)| {
+        .map(|(label, url, confirm)| {
             let label = label.clone();
             let url = url.clone();
+            if *confirm {
+                // A confirmatory action borrows the row-delete dialog
+                // mechanism: the trigger names the dialog and carries its
+                // POST target, so no new script is needed.
+                let trigger = dialog.clone();
+                let described_by = described.clone();
+                return view! {
+                    cx =>
+                    button(
+                        variant: ButtonVariant::Ghost,
+                        size: ButtonSize::Sm,
+                        attrs: attributes! {
+                            type="button"
+                            data-row-delete-trigger=(trigger)
+                            data-row-delete-action=(url)
+                            aria-describedby=(described_by)
+                        },
+                        (label)
+                    )
+                }
+                .boxed();
+            }
             let token = csrf.clone().unwrap_or_default();
             let described_by = described.clone();
             view! {
@@ -229,9 +255,9 @@ pub(super) struct RowView<'a> {
     delete_url: Option<String>,
     /// The row's delete POST target handed to the shared dialog.
     delete_action: Option<String>,
-    /// The custom row actions this record allows: each button's label and
-    /// its POST target.
-    custom: Vec<(String, String)>,
+    /// The custom row actions this record allows: each button's label,
+    /// its POST target, and whether it asks first through the dialog.
+    custom: Vec<(String, String, bool)>,
     /// Whether the row renders a bulk checkbox.
     selectable: bool,
     /// The row's group label, when `?group_by=` names the declared group.
@@ -310,7 +336,7 @@ impl<M> Table<M> {
                             .filter(|action| (action.allowed)(row))
                             .map(|action| {
                                 let url = row_action_url(prefix, &key, action.name);
-                                (action.label.clone(), self.action_url(url))
+                                (action.label.clone(), self.action_url(url), action.confirm)
                             })
                             .collect()
                     })

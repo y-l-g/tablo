@@ -232,8 +232,9 @@ with the records and the list shows `Action::success`, by default the label and 
 
 A row the action refuses answers 403. A selection that holds one writes nothing and returns to the
 list with an error notification. An action name that is not one URL segment does not compile,
-and mounting the panel refuses a name two actions of a resource share. Custom actions run without
-a confirmation dialog.
+and mounting the panel refuses a name two actions of a resource share. `const CONFIRM: bool =
+true` asks first through a confirmation dialog reusing the delete dialog, and an unconfirmed
+POST answers 400.
 
 If the table fails to load, the list shows an error state with a retry link in place of the rows;
 the rest of the page still renders.

@@ -6,7 +6,10 @@ use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 use super::{
     super::Table,
     BAR_CLASS, QUIET_LINK_CLASS, SEARCH_FIELD_CLASS, SEARCH_FORM_CLASS, SEARCH_ICON_CLASS,
-    dialog::{ConfirmDialog, chrome_dom_id, confirm_controls, confirm_dialog},
+    dialog::{
+        ConfirmDialog, bulk_action_confirm_controls, chrome_dom_id, confirm_controls,
+        confirm_dialog,
+    },
 };
 use crate::table::state::{TableSignals, TableState, bulk_action_url, bulk_delete_url};
 
@@ -54,12 +57,13 @@ impl<M> Table<M> {
             .clone()
             .or_else(|| self.actions_prefix.clone())
             .expect("bulk chrome rides the delete or the actions prefix (see bulk_enabled)");
-        let custom: Vec<(String, String)> = self
+        let custom: Vec<(String, String, bool)> = self
             .bulk_custom_actions()
             .map(|action| {
                 (
                     action.label.clone(),
                     self.action_url(bulk_action_url(&prefix, action.name)),
+                    action.confirm,
                 )
             })
             .collect();
@@ -67,7 +71,7 @@ impl<M> Table<M> {
             Some(prefix) => self.action_url(bulk_delete_url(prefix)),
             None => custom
                 .first()
-                .map(|(_, url)| url.clone())
+                .map(|(_, url, _)| url.clone())
                 .unwrap_or_default(),
         };
         let csrf = crate::csrf::current_token(cx);
@@ -81,14 +85,46 @@ impl<M> Table<M> {
                     title: "Delete the selected records?",
                     attrs: attributes! { cx => data-bulk-confirm-dialog="" },
                     description_attrs: attributes! { cx => data-bulk-confirm-description="" },
-                    footer: confirm_controls(cx),
+                    footer: confirm_controls(cx, "Delete"),
                 },
             )
         });
         let with_delete = confirm.is_some();
+        let action_confirm = self
+            .bulk_custom_actions()
+            .any(|action| action.confirm)
+            .then(|| {
+                confirm_dialog(
+                    cx,
+                    ConfirmDialog {
+                        id: chrome_dom_id(&prefix, "bulk-action-confirm"),
+                        open: false,
+                        title: "Run this action?",
+                        attrs: attributes! { cx => data-bulk-action-confirm-dialog="" },
+                        description_attrs: attributes! { cx => data-bulk-action-confirm-description="" },
+                        footer: bulk_action_confirm_controls(cx),
+                    },
+                )
+            });
         let custom_buttons: Vec<BoxView<'a>> = custom
             .into_iter()
-            .map(|(label, url)| {
+            .map(|(label, url, confirm)| {
+                if confirm {
+                    return view! {
+                        cx =>
+                        button(
+                            variant: ButtonVariant::Outline,
+                            size: ButtonSize::Md,
+                            attrs: attributes! {
+                                type="button"
+                                data-bulk-action-confirm-trigger=""
+                                data-bulk-action-confirm-action=(url)
+                            },
+                            (label)
+                        )
+                    }
+                    .boxed();
+                }
                 view! {
                     cx =>
                     button(
@@ -142,6 +178,9 @@ impl<M> Table<M> {
                     )
                 }
                 if let Some(confirm) = confirm {
+                    (confirm)
+                }
+                if let Some(confirm) = action_confirm {
                     (confirm)
                 }
             </form>
