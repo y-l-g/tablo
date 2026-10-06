@@ -2,7 +2,7 @@
 //! staff who sign in to them, and the authors, posts and comments.
 
 use jiff::Timestamp;
-use tablo_core::auth::hash_password;
+use tablo_core::{TenantId, auth::hash_password};
 use toasty::Db;
 
 use crate::{
@@ -247,28 +247,28 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
     if Author::all().exec(db).await?.is_empty() {
         let tenant = DEMO_TENANT;
         let ada_author = toasty::create!(Author {
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             name: "Ada Author",
             email: "ada.author@example.com",
         })
         .exec(db)
         .await?;
         let alan_author = toasty::create!(Author {
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             name: "Alan Author",
             email: "alan.author@example.com",
         })
         .exec(db)
         .await?;
         let june_writer = toasty::create!(Author {
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             name: "June Writer",
             email: "june.writer@example.com",
         })
         .exec(db)
         .await?;
         let rosa_editor = toasty::create!(Author {
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             name: "Rosa Editor",
             email: "rosa.editor@example.com",
         })
@@ -276,7 +276,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
         .await?;
         toasty::create!(Post {
             id: seeded_post_id(0),
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             title: "Hello Toasty",
             body: "How we render admin tables over Toasty queries without an N+1.",
             status: "published".to_string(),
@@ -298,7 +298,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
         .await?;
         toasty::create!(Post {
             id: seeded_post_id(1),
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             title: "Second Post",
             body: "Draft notes on cursor pagination edge cases.",
             status: "draft".to_string(),
@@ -354,7 +354,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             let (seo, publication) = filler_embedded();
             toasty::create!(Post {
                 id: seeded_post_id(index + 2),
-                tenant_id: tenant,
+                tenant_id: TenantId::from(tenant),
                 title: title,
                 body: body,
                 status: "draft".to_string(),
@@ -386,7 +386,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             let (seo, publication) = filler_embedded();
             toasty::create!(Post {
                 id: uuid::Uuid::from_u128(FILLER_ID_BASE + index as u128),
-                tenant_id: tenant,
+                tenant_id: TenantId::from(tenant),
                 title: *title,
                 body: "Backlog draft kept for pagination coverage.",
                 status: "draft".to_string(),

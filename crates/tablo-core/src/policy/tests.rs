@@ -1,7 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::{Resource, ResourceDef, can, can_list, lens};
+use crate::{Resource, ResourceDef, TenantId, can, can_list, lens};
 
 struct Post {
     locked: bool,
@@ -102,7 +102,7 @@ struct Note {
     #[key]
     #[auto]
     id: uuid::Uuid,
-    tenant_id: uuid::Uuid,
+    tenant_id: TenantId,
     title: String,
 }
 

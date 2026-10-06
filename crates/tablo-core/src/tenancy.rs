@@ -6,10 +6,14 @@
 //! deliberately. No request header supplies a tenant: learning another tenant's UUID does not make
 //! anyone that tenant.
 
-use toasty::stmt::{Expr, IntoExpr, Path};
+use toasty::stmt::{Expr, Path};
 use topcoat::context::{Cx, try_app_context, try_request_context};
 
 use crate::DeclarationErrorKind;
+
+mod tenant_id;
+
+pub use tenant_id::{TenantColumn, TenantId};
 
 /// One tenant a user may act for: its id, and the name the tenant switcher
 /// shows. A [`PanelUser`](crate::auth::PanelUser) lists its memberships in
@@ -73,7 +77,7 @@ pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
 /// How a resource's rows belong to a tenant.
 ///
 /// A resource declares one with [`ResourceDef::tenancy`](crate::ResourceDef::tenancy). A
-/// scoped tenancy names, by lens, the tenant UUID each row is filtered on:
+/// scoped tenancy names, by lens, the [`TenantId`] column each row is filtered on:
 ///
 /// ```text
 /// ResourceDef::new().tenancy(Tenancy::column(Post::fields().tenant_id()))
@@ -88,9 +92,9 @@ pub struct Tenancy<M> {
     _model: std::marker::PhantomData<fn() -> M>,
 }
 
-/// A resource's own tenant column: the field the create stamps.
+/// The model field a [`Tenancy::column`] stamps and filters on.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TenantColumn {
+pub(crate) struct TenantField {
     /// The field's index in its model.
     pub(crate) index: usize,
     /// The field's name, which is also its form key.
@@ -106,7 +110,7 @@ enum Scope {
     /// when the lens names none.
     Column {
         filter: TenantFilter,
-        field: Option<TenantColumn>,
+        field: Option<TenantField>,
     },
     Via {
         filter: TenantFilter,
@@ -135,8 +139,8 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
         Self::scoped(Scope::None)
     }
 
-    /// Rows carry their tenant in one UUID column of their own model, `Uuid`
-    /// or `Option<Uuid>`.
+    /// Rows carry their tenant in one [`TenantId`] column of their own model,
+    /// `TenantId` or `Option<TenantId>`.
     ///
     /// The framework filters every loader on it and stamps the request's
     /// tenant into it on create, so the record form must not claim it.
@@ -144,25 +148,24 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     /// model.
     pub fn column<T>(lens: impl Into<Path<M, T>>) -> Self
     where
-        T: Send + Sync + 'static,
+        T: TenantColumn,
         M: Send + Sync,
-        uuid::Uuid: IntoExpr<T>,
     {
         let lens = lens.into();
         let field = crate::schema::lens_field(lens.clone(), &M::schema())
             .ok()
-            .map(|field| TenantColumn {
+            .map(|field| TenantField {
                 index: field.id.index,
                 name: field.name.app_unwrap().to_string(),
             });
         Self::scoped(Scope::Column {
-            filter: Box::new(move |tenant| lens.clone().eq(tenant)),
+            filter: Box::new(move |tenant| lens.clone().eq(T::from_tenant(tenant))),
             field,
         })
     }
 
-    /// Rows inherit their tenant through a relation: `lens` reaches the parent's
-    /// tenant column, as `Comment::fields().post().tenant_id()` does.
+    /// Rows inherit their tenant through a relation: `lens` reaches the parent's [`TenantId`]
+    /// column, as `Comment::fields().post().tenant_id()` does.
     ///
     /// The framework filters every loader on it. It stamps nothing on create:
     /// a row's tenant is its parent's. The lens starts at a `belongs_to`
@@ -172,9 +175,8 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     /// tenant-scoped query inside the write.
     pub fn via<T>(lens: impl Into<Path<M, T>>) -> Self
     where
-        T: Send + Sync + 'static,
+        T: TenantColumn,
         M: Send + Sync,
-        uuid::Uuid: IntoExpr<T>,
     {
         let lens = lens.into();
         let hop = toasty_core::stmt::Path::from(lens.clone())
@@ -184,7 +186,7 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
             .copied();
         let single = crate::schema::lens_field(lens.clone(), &M::schema()).is_ok();
         Self::scoped(Scope::Via {
-            filter: Box::new(move |tenant| lens.clone().eq(tenant)),
+            filter: Box::new(move |tenant| lens.clone().eq(T::from_tenant(tenant))),
             single,
             hop,
         })
@@ -223,7 +225,7 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
 
     /// The model's own tenant column for a [`column`](Self::column) tenancy,
     /// or the mistake of a lens that names none.
-    pub(crate) fn column_field(&self) -> Option<Result<&TenantColumn, DeclarationErrorKind>> {
+    pub(crate) fn column_field(&self) -> Option<Result<&TenantField, DeclarationErrorKind>> {
         match &self.scope {
             Scope::Column { field, .. } => Some(
                 field

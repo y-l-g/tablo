@@ -38,7 +38,7 @@ struct Scoped {
     #[key]
     #[auto]
     id: uuid::Uuid,
-    tenant_id: uuid::Uuid,
+    tenant_id: TenantId,
     name: String,
 }
 

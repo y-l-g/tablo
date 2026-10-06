@@ -2,6 +2,7 @@ use http::header::LOCATION;
 use showcase::models::{
     Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, Publication, Seo,
 };
+use tablo_core::TenantId;
 use uuid::Uuid;
 
 use crate::common::{
@@ -272,7 +273,7 @@ async fn cross_tenant_edit_and_delete_404_and_touch_nothing() {
     let mut db_q = db.clone();
     let comments_before = comment_count(&db).await;
 
-    let t1_post = Post::filter(Post::fields().tenant_id().eq(t1))
+    let t1_post = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
         .first()
         .exec(&mut db_q)
         .await
@@ -426,7 +427,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
 
     let mut db_q = db.clone();
     let blocked_author = toasty::create!(Author {
-        tenant_id: BLOCKED_TENANT,
+        tenant_id: TenantId::from(BLOCKED_TENANT),
         name: "Blocked Author",
         email: "blocked@example.com",
     })
@@ -434,7 +435,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
     .await
     .expect("create an author under BLOCKED_TENANT");
     let blocked_post = toasty::create!(Post {
-        tenant_id: BLOCKED_TENANT,
+        tenant_id: TenantId::from(BLOCKED_TENANT),
         title: "Blocked Post",
         body: "body",
         status: "draft".to_string(),

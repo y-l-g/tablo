@@ -3,7 +3,7 @@ use std::time::Instant;
 use jiff::Timestamp;
 use tablo_core::{
     Ability, ComputedColumn, Field, Panel, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
-    Table, TablePage, TableState, Tenancy, Tenant, TextColumn, lens,
+    Table, TablePage, TableState, Tenancy, Tenant, TenantId, TextColumn, lens,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
@@ -19,7 +19,7 @@ pub struct Author {
     #[auto]
     pub id: uuid::Uuid,
     #[index]
-    pub tenant_id: uuid::Uuid,
+    pub tenant_id: TenantId,
     pub name: String,
     #[unique]
     pub email: String,
@@ -33,7 +33,7 @@ pub struct Post {
     #[auto]
     pub id: uuid::Uuid,
     #[index]
-    pub tenant_id: uuid::Uuid,
+    pub tenant_id: TenantId,
     #[index]
     pub title: String,
     pub body: String,
@@ -126,7 +126,7 @@ async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
     let mut author_ids = Vec::new();
     for i in 0..5 {
         let a = toasty::create!(Author {
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             name: format!("Author {i}"),
             email: format!("author{i}@example.com"),
         })
@@ -138,7 +138,7 @@ async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
     for i in 0..50 {
         let aid = author_ids[i % author_ids.len()];
         let post = toasty::create!(Post {
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             title: format!("Post {i:02}"),
             body: format!("Body {i}"),
             status: if i % 2 == 0 {

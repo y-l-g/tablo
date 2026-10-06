@@ -271,5 +271,5 @@ pub use tablo_macros::Options;
 /// errors. So are a field the model lacks, a type the model's field does not
 /// have, and a scalar that is not a `FormScalar`.
 pub use tablo_macros::RecordForm;
-pub use tenancy::{Membership, Tenancy, Tenant, require_tenant, tenant_id};
+pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
 pub use upload::Uploader;

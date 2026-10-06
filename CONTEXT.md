@@ -113,7 +113,7 @@ _Avoid_: Permission, Action (an Action is a custom mutation), Verb
 
 ### Tenancy
 
-How a resource's rows belong to a tenant.
+How a resource's rows belong to a tenant. The column is typed `TenantId`.
 
 _Avoid_: Tenant scope, Multi-tenancy mode
 
