@@ -36,19 +36,21 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml` and, for
 gates 6 and 8, `.github/workflows/msrv-udeps.yml`).
-The fast path is the xtask runner: `check` runs the gates below fail-fast, cheapest first,
-skipping the ones CI would not run for the change; `check --all` runs every gate.
+The fast path is the xtask runner: `check` runs the cheap gates below fail-fast, cheapest
+first, skipping the ones CI would not run for the change; `check --all` runs every gate,
+including the slow docs, guide, and external builds.
 
 ```sh
-cargo xtask check         # the gates below, skipping CI-skipped ones
-cargo xtask check --all   # every gate
+cargo xtask check         # the cheap gates below, skipping CI-skipped ones
+cargo xtask check --all   # every gate, plus docs, the guide suite, and the external build
 cargo xtask fmt           # the formatting subset: nightly fmt, detached fmt, pinned topcoat fmt
 ```
 
 `check` runs each command below in execution order, stopping at the first failure: gates 3,
-4, 7, then the detached fmt, then gates 1, 2, 5, 6, 8, then the extras. Gates 5, 6, and 8
+4, 7, then the detached fmt, then gates 1, 2, 5, 6, 8. Gates 5, 6, and 8
 run only when the change touches their CI path filters (`bench.yml` for gate 5,
 `msrv-udeps.yml` for gates 6 and 8); any git failure runs every gate.
+`check --all` runs every gate below plus the extras.
 
 1. `cargo test --workspace --locked`
 2. `cargo clippy --workspace --all-targets --locked -- -D warnings`
@@ -64,8 +66,8 @@ nightly-only (GH #269). Gate 6 is the MSRV floor in `Cargo.toml` (GH #175).
 Gate 8 guards unused dependencies (GH #271).
 
 CI runs four more checks outside the eight, and a change touching what they cover
-has to pass them too (`cargo xtask check` runs the detached fmt with the cheap gates up front,
-then docs and the external build after gate 8):
+has to pass them too (`cargo xtask check --all` runs the detached fmt with the cheap gates
+up front, then docs, the guide suite, and the external build after gate 8):
 
 - the `docs` job builds rustdoc with
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`, then

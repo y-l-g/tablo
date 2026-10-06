@@ -83,12 +83,12 @@ COMMANDS:
                        its panel must serve, and its generated stylesheet must
                        hold classes only Tablo's own sources write. Fails on
                        anything that resolves only inside this repository.
-    check              The gate set as a local fail-fast convenience runner:
-                       the CONTRIBUTING gates cheapest-first, then docs
-                       and the external build. The detached-bench clippy
-                       and the MSRV/udeps gates run only when the change
-                       touches their CI path filters; `--all` runs them
-                       unconditionally. CI keeps one subcommand per
+    check              The fast gates as a local fail-fast convenience runner:
+                       the cheap CONTRIBUTING gates cheapest-first. The
+                       detached-bench clippy and the MSRV/udeps gates run only
+                       when the change touches their CI path filters; `--all`
+                       runs them plus docs, the guide suite, and the external
+                       build unconditionally. CI keeps one subcommand per
                        parallel job instead.
 
 OPTIONS:

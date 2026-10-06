@@ -102,13 +102,12 @@ fn progs_of(commands: &[RecordedCommand]) -> Vec<String> {
 }
 
 #[test]
-fn check_runs_cheap_gates_first_then_builds_docs_and_external() {
+fn check_runs_fast_gates_by_default_and_defers_docs_guide_and_external_to_all() {
     assert_eq!(
         progs_of(&run_check(Scope::Auto, true)),
         vec![
             "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo", "cargo",
-            "cargo", "cargo", "cargo", "cargo", "cargo", "cargo", "cargo", "mdbook", "cargo",
-            "cargo", "cargo",
+            "cargo", "cargo", "cargo", "cargo", "cargo", "cargo",
         ]
     );
 }
@@ -119,7 +118,7 @@ fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
         progs_of(&run_check(Scope::Auto, false)),
         vec![
             "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo", "cargo",
-            "cargo", "cargo", "cargo", "mdbook", "cargo", "cargo", "cargo",
+            "cargo", "cargo",
         ],
         "bench, msrv, and udeps install+run are skipped"
     );
