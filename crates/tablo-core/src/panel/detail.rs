@@ -1,4 +1,4 @@
-//! The detail page: `GET {prefix}/{slug}/{id}`, read-only.
+//! The detail page: `GET {prefix}/{slug}/{id}`, the record's fields and its relation tables.
 
 use topcoat::{
     context::Cx,

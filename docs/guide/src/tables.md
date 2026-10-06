@@ -109,10 +109,10 @@ The URL holds the list's whole state, so every view of a list is a link you can 
 ### Live updates
 
 Every table updates in place. The page keeps the table's query in a Topcoat signal: typing in the
-search box, choosing a filter, sorting and paging write it, and the runtime reruns the page with
+search box (once the reader pauses), choosing a filter, sorting and paging write it, and the runtime reruns the page with
 the new state, keeping focus and scroll position. The address bar keeps the URL the page opened
-with. Without JavaScript the links still navigate to the state they spell, and the search box
-submits the search and filters as a GET form.
+with. Without JavaScript the links still navigate to the state they spell, and Enter submits the
+search and filters as a GET form.
 
 ## Filters
 

@@ -61,7 +61,8 @@ the same columns, filters and row actions as the resource's list:
 its policy allows; it returns an error when that panel does not mount the resource. `render`
 loads the page of rows the table's state selects and renders it live, as the resource's list is:
 the table keeps its state in signals the page reads, so a change reruns your page in place. Its
-links point at your page's own URL.
+links point at your page's own URL. A page that renders two tables gives each a prefix with
+`.prefixed("posts")`, which spells its parameters `posts.q`, `posts.sort`, and so on.
 
 ## Schema setup
 

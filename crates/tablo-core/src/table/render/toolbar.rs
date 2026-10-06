@@ -40,8 +40,8 @@ pub(super) fn hidden_state_inputs<'a>(
 
 /// Writes the toolbar form's fields to the table's `query` signal, which reruns the page. The
 /// form's fields spell the list state as its URL does, without the cursor: a new search or
-/// filter is a new result set. A submit stays on the page; `input` and `change` cannot be
-/// cancelled, so the same handler serves them.
+/// filter is a new result set. A submit stays on the page; `change` cannot be cancelled, so the
+/// same handler serves it.
 fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventHandlerFn + use<>> {
     let query = signals.query.clone();
     let form = form.to_string();
@@ -56,7 +56,8 @@ fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventHandlerFn + 
 
 impl<M> WiredTable<M> {
     /// Render the toolbar: a GET form holding the search field and the filter controls, which
-    /// rewrites the table's query as they change, and the bulk actions beside the search.
+    /// rewrites the table's query as they change, and the bulk actions beside the search. Typing
+    /// submits the form once the reader pauses; Enter submits it, with or without JavaScript.
     pub(super) async fn render_toolbar<'a>(
         &self,
         cx: &'a Cx,
@@ -90,6 +91,7 @@ impl<M> WiredTable<M> {
         let search = show_search.then(|| {
             let name = state.param("q");
             let value = state.search.clone().unwrap_or_default();
+            let form = form.clone();
             view! {
                 cx =>
                 <div class=(SEARCH_FIELD_CLASS)>
@@ -105,6 +107,10 @@ impl<M> WiredTable<M> {
                             placeholder="Search…"
                             aria-label="Search table"
                             class="pl-8"
+                            @input=$(|_e: Event| raw!(
+                                    "((f) => { clearTimeout(f.tabloSearch); f.tabloSearch = setTimeout(() => f.requestSubmit(), 200) })(document.getElementById(String(${form})))",
+                                    (),
+                                ))
                         }
                     )
                 </div>
@@ -117,11 +123,7 @@ impl<M> WiredTable<M> {
         } else {
             None
         };
-        let (on_input, on_change, on_submit) = (
-            rerun_with(signals, &form),
-            rerun_with(signals, &form),
-            rerun_with(signals, &form),
-        );
+        let (on_change, on_submit) = (rerun_with(signals, &form), rerun_with(signals, &form));
         let action = path.to_string();
         Ok(view! {
             cx =>
@@ -129,11 +131,11 @@ impl<M> WiredTable<M> {
                 id=(form)
                 method="get"
                 action=(action)
-                @input=(on_input)
                 @change=(on_change)
                 @submit=(on_submit)
             >
                 (hidden)
+                <button type="submit" class="sr-only" tabindex="-1">"Search"</button>
                 if search.is_some() || bulk.is_some() {
                     <div class=(BAR_CLASS)>
                         if let Some(search) = search {

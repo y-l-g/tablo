@@ -23,8 +23,8 @@ wait_ready() {
 }
 
 normalize() {
-  # Strip tags, collapse whitespace, ignore data-boundary ids
-  sed -E 's/<[^>]*>/ /g' | tr -s '[:space:]' ' ' | sed 's/data-boundary="[^"]*"//g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sort
+  # Strip tags, collapse whitespace
+  sed -E 's/<[^>]*>/ /g' | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sort
 }
 
 fetch_normalized() {

@@ -18,7 +18,7 @@ use crate::{
     navigation::runtime_link,
     policy::Ability,
     resource::{Mounted, Resource, mounted},
-    table::{RETURN_PARAM, TableSignals, create_page_url},
+    table::{RETURN_PARAM, create_page_url},
     topcoat_compat::async_page,
 };
 
@@ -97,9 +97,8 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             seed,
             page,
         } = relation;
-        let table = wire_table(cx, &resource, declared_chrome(cx, &resource));
-        let signals = TableSignals::new(cx, Some(&key));
-        let state = table.normalize_state(&signals.state(Some(&key)));
+        let table = wire_table(cx, &resource, declared_chrome(cx, &resource)).prefixed(&key);
+        let (signals, state) = table.browser_state(cx);
         let table = table.returning_to(state.list_url(&page));
         let create_url = (<C::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
             .then(|| {

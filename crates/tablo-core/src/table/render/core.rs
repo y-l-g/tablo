@@ -21,7 +21,12 @@ impl<M> WiredTable<M> {
     ///
     /// Call it while a page body runs: the table declares its signals here, and the page reads
     /// the list state from them, so a sort, search, filter or page change in the browser reruns
-    /// the page in place. Links keep their `href`, which spells the same state.
+    /// the page in place. Links keep their `href`, which spells the same state. A page rendering
+    /// several tables gives each its own [`prefix`](Self::prefixed).
+    ///
+    /// # Panics
+    ///
+    /// Without a request context in `cx`.
     ///
     /// # Errors
     ///
@@ -33,8 +38,7 @@ impl<M> WiredTable<M> {
         M: toasty::schema::Model + Send + Sync + 'static,
     {
         let path = topcoat::router::request::uri(cx).path().to_string();
-        let signals = TableSignals::new(cx, None);
-        let state = self.normalize_state(&signals.state(None));
+        let (signals, state) = self.browser_state(cx);
         let page = TablePage::load(cx, self, query, &state).await?;
         self.render_page(cx, page, &state, &path, &signals).await
     }

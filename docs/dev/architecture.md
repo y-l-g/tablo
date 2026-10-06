@@ -55,7 +55,7 @@ its prefix, so handlers read the request's panel and its own copy of each resour
 router-wide singleton. A resource the request's panel does not mount has no def there.
 
 `Table` and `Schema` are declarations, built once when the panel mounts. A request renders a table
-as a `WiredTable`: the mounted declaration plus the row actions, policy verdicts and framing the
+as a `WiredTable`: the mounted declaration plus the row actions, policy verdicts and return target the
 panel wires on for that request, so the declaration is shared, never copied or changed per
 request. A declaration that cannot render fails the mount rather than a request.
 
@@ -95,5 +95,5 @@ shows idiomatic use.
 
 The list streams inside a Topcoat `suspense` region. Every table keeps its state in signals the
 page reads, so a change reruns the page through its own route; ADR-0026 records the rule and the
-`tables.md` guide chapter the interaction. The few remaining browser scripts are shell glue with no
-build step; the hook contract is guarded by `cargo test -p xtask` (see `xtask/tests/it.rs`).
+`tables.md` guide chapter the interaction. The remaining browser scripts, theme, sidebar and the searchable
+select, have no build step; the hook contract is guarded by `cargo test -p xtask` (see `xtask/tests/it.rs`).

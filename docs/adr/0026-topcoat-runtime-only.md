@@ -4,9 +4,11 @@ Date: 2026-10-06 — Status: accepted
 
 ## Decision
 
-Tablo's interactive behaviour runs on Topcoat's runtime alone: signals, bind attributes, event
-handlers and page reruns. Tablo ships no script that patches the page, fetches markup, or hooks
-data attributes for a table, a dialog or a form.
+Tables and their dialogs run on Topcoat's runtime: signals, bind attributes, event handlers and
+page reruns. Tablo ships no table or dialog script. Where the runtime's expression vocabulary has
+no word, a handler escapes to one line of JavaScript (`raw!`): the bulk selection's string
+arithmetic, reading the toolbar form's fields, debouncing search, and opening the dialog as a
+modal.
 
 - **Tables.** Every table keeps its list query in a signal the page reads on the server, keyed by
   the page path and the table's parameter prefix. A sort or pager link, the toolbar's search and
@@ -16,16 +18,18 @@ data attributes for a table, a dialog or a form.
   static table mode and no table shard.
 - **Writes.** A delete, a bulk delete and a custom action are plain form posts through the
   table's one write form, which redirect back to the list as it was left. A destructive write
-  opens the dialog first; its submit carries the `confirm=1` the handlers require.
+  opens the dialog as a native modal first, which traps focus and closes on Escape or Cancel; its
+  submit carries the `confirm=1` the handlers require.
 - **No JavaScript.** What works without JavaScript works because it is free: links carry an
-  `href` spelling the state they write, and the toolbar is a GET form. The dialogs, and so the
-  writes they confirm, need the runtime.
+  `href` spelling the state they write, and the toolbar is a GET form that Enter submits. The
+  dialogs, and so the writes they confirm, need the runtime.
 - **Related tables** render on the record's detail page only. A rerun resets every unsaved form
   field but the focused one, so a related table on the edit page would discard the reader's
   edits; tracked upstream as Topcoat form state across reruns.
 
-What Tablo still loads is shell glue the runtime has no vocabulary for: the theme and sidebar
-persistence, and the searchable select.
+Tablo still loads three scripts the runtime has no vocabulary for: the theme and sidebar
+persistence, and the searchable select, which fetches its options from the server and replaces a
+select's markup.
 
 ## Rejected
 

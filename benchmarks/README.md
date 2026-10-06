@@ -52,8 +52,8 @@ starts the Topcoat server at `http://localhost:3000/` for manual inspection.
 ## What "fast" means
 
 * **Preloading** — `include` for `author` + `comments` (3 operations, not 101).
-* **Boundaries** — `Table` is a `Boundary` (`data-boundary="table"`); search/filter/page
-  swaps only the table, not the shell.
+* **Reruns** — a search, filter or page change reruns the page and morphs the changed markup in
+  place; the browser keeps the shell.
 * **Pagination** — cursor pagination (Toasty appends the PK tie-breaker internally).
 
 Results are written per run under `benchmarks/results/` (gitignored). CI builds and lints the

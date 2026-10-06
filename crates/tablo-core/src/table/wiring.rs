@@ -2,7 +2,13 @@
 
 use std::{ops::Deref, sync::Arc};
 
-use super::{RowActions, RowPolicy, Table, TableAction, with_return};
+use topcoat::context::Cx;
+
+use super::{
+    RowActions, RowPolicy, Table, TableAction,
+    state::{TableSignals, TableState},
+    with_return,
+};
 
 /// What a request wires onto a declared table: the action URLs its rows and bulk bar link to,
 /// and which actions each row allows.
@@ -20,6 +26,8 @@ pub(crate) struct Wiring<M> {
     actions_prefix: Option<String>,
     /// Where a write this table's row and bulk actions start lands.
     return_to: Option<String>,
+    /// The prefix the table's URL parameters carry.
+    prefix: Option<String>,
 }
 
 impl<M> Default for Wiring<M> {
@@ -33,6 +41,7 @@ impl<M> Default for Wiring<M> {
             custom_actions: Vec::new(),
             actions_prefix: None,
             return_to: None,
+            prefix: None,
         }
     }
 }
@@ -74,6 +83,7 @@ impl<M> std::fmt::Debug for WiredTable<M> {
                     .collect::<Vec<_>>(),
             )
             .field("return_to", &wiring.return_to)
+            .field("prefix", &wiring.prefix)
             .finish()
     }
 }
@@ -143,6 +153,23 @@ impl<M> WiredTable<M> {
     pub(crate) fn returning_to(mut self, url: String) -> Self {
         self.wiring.return_to = Some(url);
         self
+    }
+
+    /// Spell the table's URL parameters `{prefix}.{name}`, so a page renders several tables and
+    /// each keeps its own state and browser controls.
+    #[must_use]
+    pub fn prefixed(mut self, prefix: impl Into<String>) -> Self {
+        self.wiring.prefix = Some(prefix.into());
+        self
+    }
+
+    /// The table's signals and the list state they hold. Creates the signals, so it carries
+    /// [`topcoat::runtime::signal`]'s contract: call it while a page body runs.
+    pub(crate) fn browser_state(&self, cx: &Cx) -> (TableSignals, TableState) {
+        let prefix = self.wiring.prefix.as_deref();
+        let signals = TableSignals::new(cx, prefix);
+        let state = self.normalize_state(&signals.state(prefix));
+        (signals, state)
     }
 
     /// Which row actions `record` allows.

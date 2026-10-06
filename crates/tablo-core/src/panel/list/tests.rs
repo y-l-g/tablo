@@ -48,14 +48,14 @@ async fn list_html_via(names: &[&str], panel: fn() -> crate::Panel) -> String {
     String::from_utf8_lossy(&body).to_string()
 }
 
-/// Asserts two live lists declare distinct signal ids.
+/// Asserts two lists declare distinct signal ids.
 #[tokio::test]
-async fn live_lists_declare_distinct_signal_ids() {
+async fn two_lists_declare_distinct_signal_ids() {
     use http_body_util::BodyExt;
 
     use crate::resource::Resource;
 
-    macro_rules! live_resource {
+    macro_rules! list_resource {
         ($name:ident, $slug:literal) => {
             struct $name;
             impl Resource for $name {
@@ -73,8 +73,8 @@ async fn live_lists_declare_distinct_signal_ids() {
             }
         };
     }
-    live_resource!(FirstResource, "firsts");
-    live_resource!(SecondResource, "seconds");
+    list_resource!(FirstResource, "firsts");
+    list_resource!(SecondResource, "seconds");
 
     let db = Db::builder()
         .models(toasty::models!(Dummy))
@@ -257,7 +257,7 @@ async fn read_only_resource_hides_delete_chrome() {
         "the grid must render the seeded row, or the negative assertions below are vacuous, got {html}"
     );
     assert!(
-        !html.contains("data-bulk-form") && !html.contains("Delete selected"),
+        !html.contains("Delete selected"),
         "read-only list must not render bulk chrome, got {html}"
     );
     assert!(
@@ -477,7 +477,7 @@ async fn denied_rows_render_no_edit_chrome() {
     );
 }
 
-/// Asserts the GET `?q=` term is clamped like the shard's.
+/// Asserts the GET `?q=` term is clamped to `MAX_QUERY_TERM`.
 #[test]
 fn from_cx_clamps_the_search_term() {
     use topcoat::context::CxTestBuilder;
@@ -497,7 +497,7 @@ fn from_cx_clamps_the_search_term() {
     assert_eq!(
         state.search.as_deref().map(str::len),
         Some(crate::query_term::MAX_QUERY_TERM),
-        "the GET term is clamped to the same bound as the shard"
+        "the GET term is clamped to MAX_QUERY_TERM"
     );
     // Blank and absent stay None.
     let (parts, ()) = http::Request::builder()

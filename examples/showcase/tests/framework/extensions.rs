@@ -792,7 +792,9 @@ async fn a_confirmatory_action_renders_triggers_and_dialogs() {
         task.id
     );
     assert!(
-        html.contains(&row) && html.contains("Run this action?"),
+        html.contains(&row)
+            && html.contains("Run this action?")
+            && html.contains("role=\"alertdialog\""),
         "the row button opens the confirmation on its POST target: {html}"
     );
     assert!(

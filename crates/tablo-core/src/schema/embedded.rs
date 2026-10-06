@@ -369,9 +369,16 @@ impl Embedded {
                 let stored = stored.unwrap_or_default().to_string();
                 // The variant the select names is a signal, so choosing another shows its group
                 // in place; every group still submits, and the server parses the chosen one.
+                // Keyed by the page's path: navigation carries the values of signals two pages
+                // share, and another record's form starts from its own stored variant.
+                let page = topcoat::context::try_request_context::<http::request::Parts>(cx)
+                    .map(|parts| parts.uri.path().to_string())
+                    .unwrap_or_default();
                 Ok(async_page(async move {
-                    let variant =
-                        signal(&cx.keyed(("tablo-variant", key.as_str())), move || stored);
+                    let variant = signal(
+                        &cx.keyed(("tablo-variant", page, key.as_str())),
+                        move || stored,
+                    );
                     let chosen = variant.clone();
                     let groups: Vec<BoxView<'a>> = groups
                         .into_iter()

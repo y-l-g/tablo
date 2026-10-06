@@ -16,8 +16,8 @@ use crate::{
     policy::Ability,
     resource::{Mounted, Resource},
     table::{
-        RowActions, Table, TableAction, TableChrome, TablePage, TableSignals, TableState,
-        WiredTable, create_page_url,
+        RowActions, Table, TableAction, TableChrome, TablePage, TableState, WiredTable,
+        create_page_url,
     },
     topcoat_compat::async_page,
 };
@@ -183,10 +183,9 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
-        let signals = TableSignals::new(cx, None);
         // Normalizes once per request (GH #153).
         let table = wire_table_actions(cx, &resource);
-        let state = table.normalize_state(&signals.state(None));
+        let (signals, state) = table.browser_state(cx);
         // A write lands back on the list as the reader left it.
         let back = state.without_cursor(&resource.url);
         let table = if back == resource.url {

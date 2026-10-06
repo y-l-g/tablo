@@ -656,7 +656,7 @@ async fn composite_key_rows_render_no_action() {
         .render(&cx);
     assert!(html.contains("Aisle"), "the row renders in {html}");
     assert!(
-        !html.contains("/admin/seats/") && !html.contains("data-row-select"),
+        !html.contains("/admin/seats/") && !html.contains(r#"aria-label="Select row""#),
         "a key with no URL form must render no action in {html}"
     );
 }
@@ -757,35 +757,6 @@ async fn group_by_orders_each_row_under_its_own_header() {
     assert!(
         html.contains("group-draft-") && html.contains("group-published-"),
         "each group header needs a stable id naming its group, got {html}"
-    );
-}
-
-#[tokio::test]
-async fn a_static_table_renders_no_runtime_bindings_at_all() {
-    let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
-        .wired()
-        .with_delete("/admin/users".to_string())
-        .with_bulk_delete(true);
-    let rows = vec![User {
-        id: uuid::Uuid::nil(),
-        name: "Ada".to_string(),
-    }];
-    let html = tbl
-        .render_with_state(&cx, rows.into(), &TableState::default(), "/admin/users")
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(
-        !html.contains("data-table-revision"),
-        "a static table must carry no refresh control, got {html}"
-    );
-    assert!(
-        !html.contains("data-topcoat-"),
-        "a static table's region must be inert markup, got {html}"
     );
 }
 

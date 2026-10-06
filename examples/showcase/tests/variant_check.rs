@@ -1,7 +1,7 @@
 //! Hidden variant groups and validation.
 //!
 //! An embedded enum's form renders every variant's payload in a marked `Group`,
-//! and `variant.js` shows only the group the discriminant names. Validation has
+//! and the page shows only the group the discriminant names. Validation has
 //! to agree with that render: a value the user cannot see must not block the
 //! submit. The state is the showcase's own declaration shape — a derived
 //! embedded value over a real model and a real panel — with a typed leaf in the
@@ -81,7 +81,7 @@ async fn a_hidden_variant_groups_fields_do_not_block_the_submit() {
     let client = TestClient::new(&router);
 
     let csrf = Uuid::new_v4().to_string();
-    // `body=1` names `Text`, so `Video`'s group is the one `variant.js` hides —
+    // `body=1` names `Text`, so `Video`'s group is the one the page hides —
     // and its typed leaf holds a value the type cannot parse.
     let response = client
         .csrf(&csrf)

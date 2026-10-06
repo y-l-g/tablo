@@ -22,9 +22,9 @@ impl<M> WiredTable<M> {
     /// Render the table's one write form inside the dialog that confirms it.
     ///
     /// Every write control names this form: a direct write submits it to its own `formaction`,
-    /// and a destructive one opens the dialog on its POST target, whose submit carries the
-    /// `confirm=1` marker the handlers require. The form carries the bulk selection, which the
-    /// row routes ignore.
+    /// and a destructive one opens the dialog as a modal on its POST target, whose submit carries
+    /// the `confirm=1` marker the handlers require. Cancel and Escape close the dialog and clear
+    /// the target. The form carries the bulk selection, which the row routes ignore.
     pub(super) fn render_write_form<'a>(
         &self,
         cx: &'a Cx,
@@ -59,22 +59,23 @@ impl<M> WiredTable<M> {
         Some(
             view! {
                 cx =>
-                <form id=(form_id) method="post" :action=$(action.get())>
-                    (crate::csrf::field(cx, &csrf))
-                    <input type="hidden" name="confirm" value="1">
-                    <input type="hidden" name="ids" :value=$(selection.get())>
-                    alert_dialog(
-                        open: expr!(!action.get().is_empty()),
-                        attrs: attributes! {
-                            id=(id)
-                            aria-labelledby=(title_id.clone())
-                            aria-describedby=(description_id.clone())
-                            @keydown=$(|e: Event| {
-                                if e.key == "Escape" {
-                                    action.set("".to_owned());
-                                }
-                            })
-                        },
+                alert_dialog(
+                    open: false,
+                    attrs: attributes! {
+                        id=(id)
+                        aria-labelledby=(title_id.clone())
+                        aria-describedby=(description_id.clone())
+                        @close=$(|_e: Event| action.set("".to_owned()))
+                    },
+                    <form
+                        id=(form_id)
+                        class="contents"
+                        method="post"
+                        :action=$(action.get())
+                    >
+                        (crate::csrf::field(cx, &csrf))
+                        <input type="hidden" name="confirm" value="1">
+                        <input type="hidden" name="ids" :value=$(selection.get())>
                         dialog_content(
                             dialog_header(
                                 dialog_title(
@@ -94,10 +95,7 @@ impl<M> WiredTable<M> {
                                 button(
                                     variant: ButtonVariant::Outline,
                                     size: ButtonSize::Md,
-                                    attrs: attributes! {
-                                        type="button"
-                                        @click=$(|_e: Event| action.set("".to_owned()))
-                                    },
+                                    attrs: attributes! { type="submit" formmethod="dialog" },
                                     "Cancel"
                                 )
                                 button(
@@ -108,8 +106,8 @@ impl<M> WiredTable<M> {
                                 )
                             )
                         )
-                    )
-                </form>
+                    </form>
+                )
             }
             .boxed(),
         )
@@ -117,8 +115,8 @@ impl<M> WiredTable<M> {
 }
 
 /// A write control's attributes: a direct write submits the table's write `form` to `action`, and a
-/// destructive one opens the confirmation dialog on it, titled `title` and confirmed by `label`,
-/// and focuses its Cancel. Both carry `action` as `formaction`; on the dialog's trigger, which
+/// destructive one opens the confirmation dialog around the form on it, titled `title` and
+/// confirmed by `label`. Both carry `action` as `formaction`; on the dialog's trigger, which
 /// submits nothing itself, it only names the write.
 /// `bulk` says whether the write takes the selection, which the dialog then counts.
 pub(super) fn write_trigger(
@@ -144,7 +142,6 @@ pub(super) fn write_trigger(
         bulk: counts,
     } = signals.confirm.clone();
     let (title, label, form) = (title.to_owned(), label.to_owned(), form.to_owned());
-    // The dialog takes focus once it shows, so Escape reaches it and the page behind is left.
     attributes! {
         cx =>
         type="button"
@@ -155,7 +152,7 @@ pub(super) fn write_trigger(
             counts.set(bulk);
             target.set(action.clone());
             raw!(
-                "setTimeout(() => document.getElementById(String(${form}))?.querySelector('dialog button')?.focus())",
+                "document.getElementById(String(${form})).closest('dialog').showModal()",
                 (),
             );
         })

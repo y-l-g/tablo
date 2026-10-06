@@ -155,12 +155,6 @@ impl TableState {
         Self::from_query(&request_query(cx))
     }
 
-    /// [`Self::from_cx`] for the table whose parameters carry `prefix`, on a
-    /// page of several.
-    pub fn from_cx_prefixed(cx: &Cx, prefix: &str) -> Self {
-        Self::from_query_prefixed(&request_query(cx), prefix)
-    }
-
     /// [`Self::from_query`] for the table whose parameters carry `prefix`:
     /// only the parameters spelled `{prefix}.{name}` are read, as `name`, and
     /// the parsed state carries the prefix so its links spell the same names.
