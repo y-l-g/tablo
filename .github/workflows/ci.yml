@@ -272,7 +272,7 @@ jobs:
           # Only touch the `tablo` family pins, leaving the topcoat/toasty
           # pins (tracked by Renovate) alone.
           find docs/guide/src -type f -name '*.md' -exec sed -i -E \
-            "s/(tablo = \{ version = \")[^\"]+(\")/\1${version}\3/g; s/^(tablo-build = \")[^\"]+(\")/\1${version}\2/g" {} +
+            "s/(tablo = \{ version = \")[^\"]+(\")/\1${version}\2/g; s/^(tablo-build = \")[^\"]+(\")/\1${version}\2/g" {} +
 
           if git diff --quiet; then
             echo "Docs already on version ${version}; nothing to update."
