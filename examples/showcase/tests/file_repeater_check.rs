@@ -38,24 +38,21 @@ async fn posts_create_shows_cover_picker_and_repeater() {
         html.contains("name=\"status\"") && html.contains("name=\"featured\""),
         "missing lifecycle selects {html}"
     );
-    // The form's own labels: the flag select reads "Featured" and the cover
-    // picker reads "Cover".
+    // The flag select's label reads "Featured"; the cover picker renders its
+    // own input.
     assert!(
         html.contains("Featured</label>"),
         "missing Featured label for the flag select {html}"
     );
     assert!(
-        html.contains(">Cover<") || html.contains("name=\"cover_id\""),
+        html.contains("name=\"cover_id\""),
         "missing Cover picker {html}"
     );
     assert!(
         html.contains("field-group"),
         "missing Group container {html}"
     );
-    assert!(
-        html.contains("grid grid-cols-2") || html.contains("grid-cols-2"),
-        "missing Grid {html}"
-    );
+    assert!(html.contains("grid-cols-2"), "missing Grid {html}");
 }
 
 #[tokio::test]

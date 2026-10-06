@@ -97,15 +97,14 @@ async fn posts_filter_ternary_featured_false() {
     let resp = client.get("/admin/posts?f.featured=false&q=Second").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
+    let titles = row_titles(&html);
     assert!(
-        !html.contains("Hello Toasty"),
-        "featured false should not show Hello {}",
-        html
+        titles.contains(&"Second Post".to_string()),
+        "the featured filter must keep the non-featured match: {html}"
     );
     assert!(
-        html.contains("Second Post"),
-        "featured false should show Second {}",
-        html
+        !html.contains("Hello Toasty"),
+        "the featured filter must drop the featured post: {html}"
     );
 }
 
@@ -119,15 +118,10 @@ async fn posts_filter_date_created_at() {
         .await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
-    assert!(
-        html.contains("Hello Toasty"),
-        "date filter should show Hello {}",
-        html
-    );
-    assert!(
-        !html.contains("Second Post"),
-        "date filter should not show Second {}",
-        html
+    assert_eq!(
+        row_titles(&html),
+        vec!["Hello Toasty".to_string()],
+        "the date filter must keep only the matching post: {html}"
     );
 }
 
@@ -166,20 +160,15 @@ async fn posts_filter_composes_and() {
         .await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
-    assert!(
-        html.contains("Hello Toasty"),
-        "and filter should show Hello {}",
-        html
+    assert_eq!(
+        row_titles(&html),
+        vec!["Hello Toasty".to_string()],
+        "the AND filter must keep only the both-match row: {html}"
     );
     let resp = client
         .get("/admin/posts?f.status=draft&f.featured=true")
         .await;
     let html = body_string(resp).await;
-    assert!(
-        !html.contains("Hello Toasty") && !html.contains("Second Post"),
-        "and filter should show none {}",
-        html
-    );
     assert!(
         row_titles(&html).is_empty(),
         "the AND filter must match nothing: {html}"

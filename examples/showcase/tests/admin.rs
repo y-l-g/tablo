@@ -28,12 +28,12 @@ async fn admin_resource_list_page_serve_seeded_users() {
     );
     assert!(html.contains("Users"), "missing Users label in {html}");
     assert!(
-        html.contains("href=\"/admin/users\"") || html.contains("/admin/users"),
+        find_href_with(&html, "/admin/users").is_some(),
         "missing navigation url in {html}"
     );
     assert!(html.contains("Writers"), "missing Writers label in {html}");
     assert!(
-        html.contains("href=\"/admin/authors\"") || html.contains("/admin/authors"),
+        find_href_with(&html, "/admin/authors").is_some(),
         "missing Writers navigation url in {html}"
     );
     assert!(
@@ -41,7 +41,7 @@ async fn admin_resource_list_page_serve_seeded_users() {
         "missing Blog Posts label in {html}"
     );
     assert!(
-        html.contains("href=\"/admin/posts\"") || html.contains("/admin/posts"),
+        find_href_with(&html, "/admin/posts").is_some(),
         "missing Blog Posts navigation url in {html}"
     );
     assert!(
@@ -49,7 +49,7 @@ async fn admin_resource_list_page_serve_seeded_users() {
         "missing Comments label in {html}"
     );
     assert!(
-        html.contains("href=\"/admin/comments\"") || html.contains("/admin/comments"),
+        find_href_with(&html, "/admin/comments").is_some(),
         "missing Comments navigation url in {html}"
     );
     assert!(
@@ -62,20 +62,25 @@ async fn admin_resource_list_page_serve_seeded_users() {
     );
     assert!(html.contains("Users</h1>"), "missing heading in {html}");
     assert!(
-        html.contains("Create User<") && !html.contains("Create Users"),
+        find_href_with(&html, "/admin/users/create").is_some() && !html.contains("Create Users"),
         "missing singular create entry point in {html}"
     );
-    assert!(html.contains("Ada Lovelace"), "missing Ada in {html}");
-    assert!(html.contains("Alan Turing"), "missing Alan in {html}");
-    assert!(html.contains("Grace Hopper"), "missing Grace in {html}");
-    assert!(
-        html.contains("ada@example.com"),
-        "missing Ada email in {html}"
-    );
-    assert!(
-        html.contains("alan@example.com"),
-        "missing Alan email in {html}"
-    );
+    let cells: Vec<String> = tablo_test::rows(&html)
+        .into_iter()
+        .flat_map(|row| row.cells)
+        .collect();
+    for value in [
+        "Ada Lovelace",
+        "ada@example.com",
+        "Alan Turing",
+        "alan@example.com",
+        "Grace Hopper",
+    ] {
+        assert!(
+            cells.iter().any(|cell| cell == value),
+            "the seeded users must render {value} in a row: {html}"
+        );
+    }
 }
 /// Every panel response carries `frame-ancestors`.
 #[tokio::test]
@@ -305,12 +310,12 @@ async fn admin_list_pagination_walks_cursor_links() {
     let page1 = body_string(response).await;
     let page1_titles = row_titles(&page1);
 
-    assert!(page1.contains("Ada Lovelace"), "page1 missing Ada: {page1}");
-    assert!(page1.contains("Alan Turing"), "page1 missing Alan: {page1}");
-    assert!(
-        page1.contains("Grace Hopper"),
-        "page1 missing Grace: {page1}"
-    );
+    for name in ["Ada Lovelace", "Alan Turing", "Grace Hopper"] {
+        assert!(
+            page1_titles.iter().any(|title| title == name),
+            "page1 missing {name}: {page1}"
+        );
+    }
     assert!(
         !page1.contains(&last),
         "page1 must not show the last overflow row {last} (page size {page_size}): {page1}"
@@ -577,5 +582,4 @@ async fn users_list_renders_live_search_host_with_get_fallback() {
         html.contains("<noscript>"),
         "live list must keep the GET fallback, got {html}"
     );
-    assert!(html.contains("Ada Lovelace"), "missing Ada in {html}");
 }
