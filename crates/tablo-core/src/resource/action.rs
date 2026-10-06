@@ -109,6 +109,10 @@ pub trait Action<R: Resource>: 'static {
     /// to `true`.
     const BULK: bool = true;
 
+    /// Whether the action POST requires the `confirm=1` marker. Defaults
+    /// to `false`.
+    const CONFIRM: bool = false;
+
     /// The button text.
     fn label(cx: &Cx) -> String;
 
@@ -175,6 +179,7 @@ impl<R: Resource> Actions<R> {
             run: run_erased::<R, A>,
             success: A::success,
             acted: super::Committed::acted::<R, A>,
+            confirm: A::CONFIRM,
         });
         self
     }
@@ -202,6 +207,7 @@ pub(crate) struct ActionEntry<R: Resource> {
         for<'a> fn(&'a Cx, &'a [R::Model], &'a mut dyn toasty::Executor) -> ActionFuture<'a>,
     pub(crate) success: fn(&Cx, usize) -> String,
     pub(crate) acted: fn(Vec<R::Model>) -> super::Committed<R::Model>,
+    pub(crate) confirm: bool,
 }
 
 /// [`Action::run`] behind a function pointer.
