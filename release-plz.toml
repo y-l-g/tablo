@@ -5,6 +5,7 @@ git_release_draft = true
 pr_draft = true
 pr_labels = ["release"]
 release_always = true
+semver_check = false
 
 # Default to NOT releasing. The release-order pass runs over every workspace
 # member, so the non-publishable crates stay out of it; each publishable crate
