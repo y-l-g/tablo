@@ -6,7 +6,7 @@ use std::sync::Arc;
 use toasty::stmt::{Expr, Path};
 use topcoat::{context::Cx, view::*};
 
-use crate::schema::{IntoOptions, ResolvedLens};
+use crate::schema::{Binding, FieldResolver, IntoOptions};
 
 /// One table filter declares a control and its predicate.
 ///
@@ -56,6 +56,10 @@ pub trait Filter<M>: Send + Sync {
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         None
     }
+
+    /// Bind an embedded path through `resolver`'s app schema.
+    #[doc(hidden)]
+    fn bind(&self, _resolver: &FieldResolver) {}
 }
 
 /// A filter control's label, beside its control.
@@ -179,12 +183,10 @@ macro_rules! filter_impls {
 
 /// Select filter matching a `String` field exactly.
 pub struct SelectFilter<M> {
-    name: String,
-    label: String,
+    binding: Binding,
     lens: Path<M, String>,
     /// `(value, label)` pairs.
     options: Vec<(String, String)>,
-    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 impl<M> SelectFilter<M>
@@ -194,13 +196,11 @@ where
     /// Filter the `String` field `lens` binds to one of `options`.
     pub fn new(lens: impl Into<Path<M, String>>, options: impl IntoOptions) -> Self {
         let lens = lens.into();
-        let binding = ResolvedLens::of(lens.clone());
+        let binding = Binding::of(&lens.clone());
         Self {
-            name: binding.name,
-            label: binding.label,
+            binding,
             lens,
             options: options.into_options(),
-            misdeclared: binding.misdeclared,
         }
     }
 
@@ -215,11 +215,11 @@ where
     M: toasty::schema::Model + Send + Sync,
 {
     fn name(&self) -> &str {
-        &self.name
+        self.binding.name()
     }
 
     fn label(&self) -> &str {
-        &self.label
+        self.binding.label()
     }
 
     fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
@@ -251,25 +251,27 @@ where
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.misdeclared.clone()
+        self.binding.misdeclared()
+    }
+
+    fn bind(&self, resolver: &FieldResolver) {
+        self.binding.bind(resolver);
     }
 }
 
 filter_impls! {
     SelectFilter, this {
-        name: &this.name,
-        label: &this.label,
+        name: &this.binding.name(),
+        label: &this.binding.label(),
         options: &this.options,
     }
-    clone { name, label, lens, options, misdeclared }
+    clone { binding, lens, options }
 }
 
 /// Ternary filter matching a `bool` field.
 pub struct TernaryFilter<M> {
-    name: String,
-    label: String,
+    binding: Binding,
     lens: Path<M, bool>,
-    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 impl<M> TernaryFilter<M>
@@ -279,13 +281,8 @@ where
     /// Filter the `bool` field `lens` binds to true, false, or either.
     pub fn new(lens: impl Into<Path<M, bool>>) -> Self {
         let lens = lens.into();
-        let binding = ResolvedLens::of(lens.clone());
-        Self {
-            name: binding.name,
-            label: binding.label,
-            lens,
-            misdeclared: binding.misdeclared,
-        }
+        let binding = Binding::of(&lens.clone());
+        Self { binding, lens }
     }
 }
 
@@ -294,15 +291,19 @@ where
     M: toasty::schema::Model + Send + Sync,
 {
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.misdeclared.clone()
+        self.binding.misdeclared()
+    }
+
+    fn bind(&self, resolver: &FieldResolver) {
+        self.binding.bind(resolver);
     }
 
     fn name(&self) -> &str {
-        &self.name
+        self.binding.name()
     }
 
     fn label(&self) -> &str {
-        &self.label
+        self.binding.label()
     }
 
     fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
@@ -331,18 +332,16 @@ where
 
 filter_impls! {
     TernaryFilter, this {
-        name: &this.name,
-        label: &this.label,
+        name: &this.binding.name(),
+        label: &this.binding.label(),
     }
-    clone { name, label, lens, misdeclared }
+    clone { binding, lens }
 }
 
 /// Date filter matching a `Timestamp` field by calendar day.
 pub struct DateFilter<M> {
-    name: String,
-    label: String,
+    binding: Binding,
     lens: Path<M, jiff::Timestamp>,
-    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 impl<M> DateFilter<M>
@@ -352,13 +351,8 @@ where
     /// Filter the `Timestamp` field `lens` binds to one calendar day.
     pub fn new(lens: impl Into<Path<M, jiff::Timestamp>>) -> Self {
         let lens = lens.into();
-        let binding = ResolvedLens::of(lens.clone());
-        Self {
-            name: binding.name,
-            label: binding.label,
-            lens,
-            misdeclared: binding.misdeclared,
-        }
+        let binding = Binding::of(&lens.clone());
+        Self { binding, lens }
     }
 }
 
@@ -367,15 +361,19 @@ where
     M: toasty::schema::Model + Send + Sync,
 {
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.misdeclared.clone()
+        self.binding.misdeclared()
+    }
+
+    fn bind(&self, resolver: &FieldResolver) {
+        self.binding.bind(resolver);
     }
 
     fn name(&self) -> &str {
-        &self.name
+        self.binding.name()
     }
 
     fn label(&self) -> &str {
-        &self.label
+        self.binding.label()
     }
 
     /// Build the predicate for a submitted value.
@@ -430,10 +428,10 @@ where
 
 filter_impls! {
     DateFilter, this {
-        name: &this.name,
-        label: &this.label,
+        name: &this.binding.name(),
+        label: &this.binding.label(),
     }
-    clone { name, label, lens, misdeclared }
+    clone { binding, lens }
 }
 
 /// A filter offering named predicates, such as an embedded-enum variant or any query the app

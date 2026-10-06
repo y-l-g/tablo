@@ -11,7 +11,7 @@ macro_rules! common_modifiers {
     ($builder:ident) => {
         impl $builder {
             pub fn label(mut self, label: impl Into<String>) -> Self {
-                self.0.label = label.into();
+                self.0.label = Some(label.into());
                 self
             }
 
@@ -26,7 +26,7 @@ macro_rules! common_modifiers {
             }
 
             pub fn name(&self) -> &str {
-                &self.0.name
+                self.0.name()
             }
         }
 

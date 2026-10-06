@@ -143,9 +143,9 @@ when nothing committed. An error it returns is logged; the write stays committed
 
 ## Startup checks
 
-Mounting the panel builds each resource's def once, calling `declare()` with the database schema
-in scope, so a path through an embedded value binds its flattened column wherever a declaration
-names one. It refuses the resource when:
+Mounting the panel builds each resource's def once and binds its table, form and view to the
+database schema, so a path through an embedded value binds its flattened column wherever a
+declaration names one. It refuses the resource when:
 
 - its table, form or view is malformed: a duplicate column, filter or field name, a zero page
   size, an empty column set (a resource whose derived table lists nothing declares its own

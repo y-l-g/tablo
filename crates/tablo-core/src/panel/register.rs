@@ -1,5 +1,5 @@
-//! Registering a panel's resources and pages as it mounts: each resource's def is built once,
-//! with the app schema in scope, and every slug, route and sidebar entry follows from it.
+//! Registering a panel's resources and pages as it mounts: each resource's def is built once and
+//! bound to the app schema, and every slug, route and sidebar entry follows from it.
 
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
@@ -27,7 +27,7 @@ use crate::{
     form::RecordForm,
     navigation::NavigationItem,
     resource::{Mounted, Mounts, Resource, ResourceDef, ScopeFn},
-    schema::declare_with,
+    schema::FieldResolver,
     table::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
         DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
@@ -221,9 +221,11 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         }
         let Self(customize) = *self;
         let prefix = registry.prefix.clone();
-        let mounted = declare_with(registry.schema.clone(), || {
-            Mounted::new(customize(R::declare()), &prefix)
-        });
+        let mounted = Mounted::new(
+            customize(R::declare()),
+            &prefix,
+            &FieldResolver::new(registry.schema.clone()),
+        );
         let Some(url) = registry.claim_slug::<R>("ResourceDef::slug", &mounted.slug) else {
             return;
         };

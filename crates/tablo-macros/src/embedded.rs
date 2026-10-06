@@ -162,7 +162,7 @@ fn build_member(
     let path = chained(krate, owner, ty, index, variant);
     if member.attrs.embed {
         return quote! {
-            builder.nested(<#ty as #krate::__macro::EmbeddedForm>::build_schema(#path));
+            builder.nested(<#ty as #krate::__macro::EmbeddedForm>::build_schema(resolver, #path));
         };
     }
     let text = member
@@ -309,6 +309,7 @@ fn wrap(
     quote! {
         impl #impl_generics #krate::__macro::EmbeddedForm for #ident #ty_generics #where_clause {
             fn build_schema<M>(
+                resolver: &#krate::__macro::FieldResolver,
                 parent: #krate::__macro::Path<M, Self>,
             ) -> #krate::__macro::Schema
             where
@@ -338,14 +339,16 @@ fn wrap(
         }
 
         impl #impl_generics #ident #ty_generics #where_clause {
-            /// Builds this value's form schema under `parent` for the app to compose into a layout.
+            /// This value's form schema under `parent` for the app to compose into a layout; it
+            /// resolves its columns when the schema binds to the app schema.
             pub fn form<M>(
                 parent: impl ::std::convert::Into<#krate::__macro::Path<M, Self>>,
             ) -> #krate::__macro::Schema
             where
-                M: #krate::__macro::Model,
+                M: #krate::__macro::Model + ::std::marker::Send + ::std::marker::Sync + 'static,
+                Self: ::std::marker::Send + ::std::marker::Sync + 'static,
             {
-                <Self as #krate::__macro::EmbeddedForm>::build_schema(parent.into())
+                #krate::__macro::embedded_form::<M, Self>(parent.into())
             }
         }
     }
@@ -368,7 +371,7 @@ fn expand_struct(krate: &TokenStream2, input: &DeriveInput, members: &[Member]) 
         .map(|(index, member)| read_member(krate, member, index, &none))
         .collect();
     let build = quote! {
-        let mut builder = #krate::__macro::EmbeddedBuilder::structure();
+        let mut builder = #krate::__macro::EmbeddedBuilder::structure(resolver);
         #(#adds)*
         builder.finish()
     };
@@ -448,7 +451,7 @@ fn expand_enum(
         });
     }
     let build = quote! {
-        let mut builder = #krate::__macro::EmbeddedBuilder::enumeration(parent.clone());
+        let mut builder = #krate::__macro::EmbeddedBuilder::enumeration(resolver, parent.clone());
         #(#adds)*
         builder.finish()
     };

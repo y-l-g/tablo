@@ -211,6 +211,11 @@ pub enum DeclarationErrorKind {
         /// The lens's field indices, step by step.
         steps: Vec<usize>,
     },
+    /// An embedded path or value its declaration never bound to the app schema.
+    Unbound {
+        /// The path's model, or the embedded value's type.
+        item: &'static str,
+    },
     /// A `Tenancy::column` lens that names no field of the model.
     TenancyColumnNotAField,
     /// A `Tenancy::via` lens that names one field of the model.
@@ -394,6 +399,11 @@ impl fmt::Display for DeclarationErrorKind {
                 "lens path {steps:?} resolves to no single column of `{model}`: only embedded \
                  steps (embedded structs, enum variant fields and `#[document]` fields) bind, not \
                  relation hops"
+            ),
+            Self::Unbound { item } => write!(
+                f,
+                "an embedded path into `{item}` is not bound to the app schema: a panel binds the \
+                 declarations it mounts; bind one built outside a panel with `.bind(&db)`"
             ),
             Self::TenancyColumnNotAField => f.write_str(
                 "the `Tenancy::column` lens names no field of the model: name a field typed \

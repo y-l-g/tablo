@@ -245,14 +245,14 @@ impl Field {
             // A variant control reads as the variant's name.
             if choice.discriminant {
                 return match named {
-                    Some(name) => render_value(cx, &self.label, Some(&name), ValueKind::Prose),
+                    Some(name) => render_value(cx, self.label_str(), Some(&name), ValueKind::Prose),
                     None => Ok(().boxed()),
                 };
             }
             let shown = named.unwrap_or_else(|| stored.to_string());
-            return render_value(cx, &self.label, Some(&shown), ValueKind::Prose);
+            return render_value(cx, self.label_str(), Some(&shown), ValueKind::Prose);
         }
-        let name = self.name.clone();
+        let name = self.name().to_string();
         let required = self.required;
         let searchable = choice.searchable;
         let current = value.unwrap_or("").trim().to_string();
@@ -276,7 +276,7 @@ impl Field {
         let chrome = FieldChrome::new(
             &name,
             error,
-            denied.then(|| format!("{} is not available", self.label)),
+            denied.then(|| format!("{} is not available", self.label_str())),
         );
         let mut option_views: Vec<BoxView<'a>> = vec![option_view(
             cx,
@@ -288,7 +288,7 @@ impl Field {
             option_views.push(option_view(cx, val.clone(), lab.clone(), current == *val));
         }
         let list_id = format!("{name}-options-list");
-        let filter_label = format!("Filter {} options", self.label);
+        let filter_label = format!("Filter {} options", self.label_str());
         // Fetches from the server only past the cap.
         let options_field = overflow_searchable.then(|| name.clone());
         let options_server = overflow_searchable.then_some("true");
@@ -346,7 +346,7 @@ impl Field {
         render_field(
             cx,
             &chrome,
-            &self.label,
+            self.label_str(),
             required,
             attributes! {
                 cx =>

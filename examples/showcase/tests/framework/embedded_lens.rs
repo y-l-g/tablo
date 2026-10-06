@@ -1,10 +1,8 @@
 //! Embedded lens resolution through the request's app schema.
 //!
-//! Outside a declaration scope a path resolves against the owned `app::Model`,
-//! which cannot see embedded models, so a path through an embedded struct is
-//! rejected as a traversal lens. Inside one (`tablo_core::declare`, or a panel
-//! mount) it resolves through the app schema, so the leaf arrives as its
-//! flattened storage column.
+//! A path through an embedded value names a flattened storage column only the
+//! app schema knows, so it stays unbound until its schema binds (`Schema::bind`,
+//! or a panel mount), and the leaf then arrives as its flattened storage column.
 //!
 //! This is the render-path proof: the flattened name is what the form posts
 //! and what the unknown-key allow-list accepts, or a bound embedded field
@@ -15,7 +13,9 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{DeclarationErrorKind, Field, FieldErrors, ResourceDef, Schema, Source};
+use tablo_core::{
+    DeclarationErrorKind, Field, FieldErrors, IntoSchema, ResourceDef, Schema, Source,
+};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -67,10 +67,15 @@ async fn article_cx() -> Cx {
     CxTestBuilder::new().app_context(db).build()
 }
 
-/// Run `declarations` with the app schema of the `Db` `cx` carries in scope, as a panel mount does.
-fn declared<T>(cx: &Cx, declarations: impl FnOnce() -> T) -> T {
+/// `children` as a schema bound to the app schema of the `Db` `cx` carries, as a panel mount binds
+/// it.
+fn bound(cx: &Cx, children: impl IntoSchema) -> Schema {
     let db = topcoat::context::try_app_context::<toasty::Db>(cx).expect("the cx carries a Db");
-    tablo_core::declare(db, declarations)
+    Schema::new(children).bind(db)
+}
+
+fn names(schema: &Schema) -> Vec<&str> {
+    schema.fields().map(Field::name).collect()
 }
 
 async fn render(schema: &Schema, cx: &Cx, values: HashMap<String, String>) -> String {
@@ -88,16 +93,16 @@ async fn render(schema: &Schema, cx: &Cx, values: HashMap<String, String>) -> St
 async fn embedded_leaf_resolves_to_its_flattened_column() {
     let cx = article_cx().await;
     // Two levels deep: Article.meta.seo.title -> meta_seo_title.
-    let input = declared(&cx, || Field::text(Article::fields().meta().seo().title()));
+    let schema = bound(&cx, Field::text(Article::fields().meta().seo().title()));
     assert_eq!(
-        input.name(),
-        "meta_seo_title",
+        names(&schema),
+        ["meta_seo_title"],
         "an embedded leaf must resolve to its flattened storage column"
     );
 
     let mut values = HashMap::new();
     values.insert("meta_seo_title".to_string(), "Nested title".to_string());
-    let html = render(&Schema::new(input), &cx, values).await;
+    let html = render(&schema, &cx, values).await;
     assert_eq!(
         input_value(&html, "meta_seo_title").as_deref(),
         Some("Nested title"),
@@ -110,10 +115,13 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
 #[tokio::test]
 async fn the_flattened_name_participates_in_allow_list_and_validation() {
     let cx = article_cx().await;
-    let schema = Schema::new((
-        declared(&cx, || Field::text(Article::fields().title())),
-        declared(&cx, || Field::text(Article::fields().meta().seo().title())),
-    ));
+    let schema = bound(
+        &cx,
+        (
+            Field::text(Article::fields().title()),
+            Field::text(Article::fields().meta().seo().title()),
+        ),
+    );
 
     let mut values = HashMap::new();
     values.insert("title".to_string(), "Top".to_string());
@@ -137,11 +145,9 @@ async fn the_flattened_name_participates_in_allow_list_and_validation() {
     );
 
     // ...but a required one is still required when asked for explicitly.
-    let required = Schema::new(
-        declared(&cx, || {
-            Field::text(Article::fields().meta().seo().description())
-        })
-        .required(),
+    let required = bound(
+        &cx,
+        Field::text(Article::fields().meta().seo().description()).required(),
     );
     assert!(
         required
@@ -160,10 +166,7 @@ async fn the_flattened_name_participates_in_allow_list_and_validation() {
 #[tokio::test]
 async fn a_relation_traversal_is_refused_rather_than_misbound() {
     let cx = article_cx().await;
-    let errors = Schema::new(declared(&cx, || {
-        Field::text(Article::fields().author().name())
-    }))
-    .declaration_errors();
+    let errors = bound(&cx, Field::text(Article::fields().author().name())).declaration_errors();
     assert!(
         errors
             .iter()
@@ -172,32 +175,43 @@ async fn a_relation_traversal_is_refused_rather_than_misbound() {
     );
 }
 
-/// Without an app schema the single-segment rule still refuses a traversal
-/// lens rather than bind the wrong column. `lenses.rs` covers `resolve_enum`
-/// without a schema, which returns `None`; this pins the `resolve` entry a
-/// form binding uses.
+/// An embedded path never bound to the app schema refuses to render rather than bind the wrong
+/// column.
 #[tokio::test]
-async fn without_a_schema_a_traversal_lens_is_still_refused() {
-    let errors = Schema::new(Field::text(Article::fields().meta().note())).declaration_errors();
-    assert_eq!(errors, [DeclarationErrorKind::TraversalLens { steps: 2 }]);
+async fn an_unbound_embedded_path_is_refused() {
+    let cx = article_cx().await;
+    let schema = Schema::new(Field::text(Article::fields().meta().note()));
+    assert!(
+        matches!(
+            schema.declaration_errors().as_slice(),
+            [DeclarationErrorKind::Unbound { .. }]
+        ),
+        "{:?}",
+        schema.declaration_errors()
+    );
+    assert!(
+        schema
+            .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
+            .await
+            .is_err(),
+        "an unbound schema fails to render"
+    );
 }
 
-/// Every kind of field binds an embedded leaf in a declaration scope,
-/// and posts its flattened column.
+/// Every kind of field binds an embedded leaf and posts its flattened column.
 #[tokio::test]
 async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     let cx = article_cx().await;
-    let choice = declared(&cx, || {
-        Field::choice(Article::fields().meta().seo().title())
-    })
-    .options(vec!["draft".to_string()]);
-    let file = declared(&cx, || {
-        Field::file(Article::fields().meta().seo().description())
-    });
-    assert_eq!(choice.name(), "meta_seo_title");
-    assert_eq!(file.name(), "meta_seo_description");
+    let schema = bound(
+        &cx,
+        (
+            Field::choice(Article::fields().meta().seo().title())
+                .options(vec!["draft".to_string()]),
+            Field::file(Article::fields().meta().seo().description()),
+        ),
+    );
+    assert_eq!(names(&schema), ["meta_seo_title", "meta_seo_description"]);
 
-    let schema = Schema::new((choice, file));
     let html = render(&schema, &cx, HashMap::new()).await;
     assert!(
         html.contains("<select") && html.contains("name=\"meta_seo_title\""),

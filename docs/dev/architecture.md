@@ -43,8 +43,10 @@ Panel  ──mounts──▶  ResourceDef  ──declares──▶  Table   (the
 A `Panel` is an admin panel under one prefix. The app owns the router and the `Db` and mounts
 the panel with `RouterBuilderPanelExt::panel`; one router mounts several panels at distinct
 prefixes. Registering a `Resource` or a `Page` on a panel is declarative: mounting builds each
-resource's `ResourceDef` once, with the app schema in scope, then claims its slug and adds its
-routes and its sidebar entry.
+resource's `ResourceDef` once, binds its table, form and view to the app schema of the router's
+`Db`, then claims its slug and adds its routes and its sidebar entry. Declarations are plain values
+until then: a single-field path resolves against its own model when it is built, and an embedded
+path or value, which names a column only the app schema knows, resolves when its declaration binds.
 
 Each mounted panel's state is one `PanelState` in the router's `Panels`, holding the resources it
 mounted (`Mounted<R>`, by resource type). The panel's gate layer puts it on every request under

@@ -20,7 +20,11 @@ pub(crate) use text::TextControl;
 use toasty::stmt::Path;
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{lenses::ResolvedLens, tree::Mode, validation::Rules};
+use super::{
+    lenses::{Binding, FieldResolver},
+    tree::Mode,
+    validation::Rules,
+};
 use crate::{
     form::{FieldError, FormScalar},
     naming::capitalize,
@@ -80,8 +84,9 @@ use crate::{
 /// # }
 /// ```
 pub struct Field {
-    name: String,
-    label: String,
+    binding: Binding,
+    /// The declared label, over the binding's.
+    label: Option<String>,
     required: bool,
     /// Whether the column stores NULL for an empty submission, which a unique
     /// index admits any number of times.
@@ -89,8 +94,6 @@ pub struct Field {
     /// The email and scalar-parse rules, with their messages.
     rules: Rules,
     control: ControlKind,
-    /// The declaration error when the lens binds no column.
-    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 /// The control a [`Field`] renders, with what only that control declares.
@@ -114,8 +117,8 @@ impl std::fmt::Debug for Field {
             ControlKind::Custom(_) => "custom",
         };
         f.debug_struct("Field")
-            .field("name", &self.name)
-            .field("label", &self.label)
+            .field("name", &self.name())
+            .field("label", &self.label_str())
             .field("required", &self.required)
             .field("control", &control)
             .finish()
@@ -123,15 +126,14 @@ impl std::fmt::Debug for Field {
 }
 
 impl Field {
-    fn bound<M, T>(lens: ResolvedLens<M, T>, rules: Rules, control: ControlKind) -> Self {
+    fn bound(binding: Binding, rules: Rules, control: ControlKind) -> Self {
         Self {
-            name: lens.name,
-            label: lens.label,
-            required: !lens.nullable,
-            nullable: lens.nullable,
+            required: !binding.nullable(),
+            nullable: binding.nullable(),
+            binding,
+            label: None,
             rules,
             control,
-            misdeclared: lens.misdeclared,
         }
     }
 
@@ -142,10 +144,11 @@ impl Field {
         M: toasty::schema::Model,
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
     {
-        let lens = ResolvedLens::of(lens);
-        let control = TextControl::new::<M, T>(lens.path.clone(), lens.unique);
+        let path: Path<M, T> = lens.into();
+        let binding = Binding::of(&path);
+        let control = TextControl::new::<M, T>(path, binding.unique());
         TextField(Self::bound(
-            lens,
+            binding,
             Rules::new().scalar::<T>(),
             ControlKind::Text(control),
         ))
@@ -158,9 +161,8 @@ impl Field {
         M: toasty::schema::Model,
         T: FormScalar,
     {
-        let lens = ResolvedLens::of(path);
         TextField(Self::bound(
-            lens,
+            Binding::of(&path),
             Rules::new().scalar::<T>(),
             ControlKind::Text(TextControl::leaf::<T>()),
         ))
@@ -173,7 +175,7 @@ impl Field {
         M: toasty::schema::Model,
     {
         ChoiceField(Self::bound(
-            ResolvedLens::of(lens),
+            Binding::of::<M, T>(&lens.into()),
             Rules::new(),
             ControlKind::Choice(ChoiceControl::default()),
         ))
@@ -186,7 +188,7 @@ impl Field {
         M: toasty::schema::Model,
     {
         FileField(Self::bound(
-            ResolvedLens::of(lens),
+            Binding::of::<M, String>(&lens.into()),
             Rules::new(),
             ControlKind::File,
         ))
@@ -207,7 +209,7 @@ impl Field {
         T: FormScalar,
     {
         CustomField(Self::bound(
-            ResolvedLens::of(lens),
+            Binding::of::<M, T>(&lens.into()),
             Rules::new().scalar::<T>(),
             ControlKind::Custom(Arc::new(control)),
         ))
@@ -217,8 +219,8 @@ impl Field {
     /// the payload fallback.
     pub(crate) fn discriminant(name: String, variants: Vec<(String, String)>) -> Self {
         Self {
-            label: capitalize(&name),
-            name,
+            binding: Binding::named(name.clone(), capitalize(&name)),
+            label: None,
             required: false,
             nullable: true,
             rules: Rules::new(),
@@ -227,20 +229,25 @@ impl Field {
                 options: variants,
                 ..ChoiceControl::default()
             }),
-            misdeclared: None,
         }
     }
 
-    pub(crate) fn misdeclared(&self) -> Option<&crate::DeclarationErrorKind> {
-        self.misdeclared.as_ref()
+    /// Bind an embedded path through `resolver`'s app schema.
+    pub(crate) fn bind(&self, resolver: &FieldResolver) {
+        self.binding.bind(resolver);
     }
 
+    pub(crate) fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
+        self.binding.misdeclared()
+    }
+
+    /// The key the field posts: the storage column its path names.
     pub fn name(&self) -> &str {
-        &self.name
+        self.binding.name()
     }
 
     pub(crate) fn label_str(&self) -> &str {
-        &self.label
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     pub(crate) fn as_choice(&self) -> Option<&ChoiceControl> {
@@ -274,7 +281,7 @@ impl Field {
     /// Validates a submitted value, each failure keyed by the field's own name.
     pub(crate) fn validate(&self, value: &str) -> Vec<FieldError> {
         self.rules
-            .validate(&self.name, &self.label, self.is_required(), value)
+            .validate(self.name(), self.label_str(), self.is_required(), value)
     }
 
     /// The stored spelling of a validated submission.
@@ -285,7 +292,9 @@ impl Field {
     /// Whether a submitted choice matches its options.
     pub(crate) async fn validate_exists(&self, cx: &Cx, value: &str) -> Vec<String> {
         match &self.control {
-            ControlKind::Choice(choice) => choice.validate_exists(cx, &self.label, value).await,
+            ControlKind::Choice(choice) => {
+                choice.validate_exists(cx, self.label_str(), value).await
+            }
             _ => Vec::new(),
         }
     }
@@ -298,7 +307,7 @@ impl Field {
         ex: &mut dyn toasty::Executor,
     ) -> Vec<String> {
         match &self.control {
-            ControlKind::Choice(choice) => choice.recheck(cx, &self.label, value, ex).await,
+            ControlKind::Choice(choice) => choice.recheck(cx, self.label_str(), value, ex).await,
             _ => Vec::new(),
         }
     }
@@ -316,9 +325,9 @@ impl Field {
                 false,
                 "view field `{}` has no value: neither `view_values` nor the record form's \
                  `hydrate` supplies its key",
-                self.name
+                self.name()
             );
-            return render_value(cx, &self.label, Some("(missing)"), ValueKind::Prose);
+            return render_value(cx, self.label_str(), Some("(missing)"), ValueKind::Prose);
         }
         match &self.control {
             ControlKind::Text(text) => self.render_text(text, cx, value, error, mode),
@@ -343,19 +352,26 @@ impl Field {
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View {
             let shown = control.display(cx, value.unwrap_or_default());
-            return render_value_view(cx, &self.label, shown);
+            return render_value_view(cx, self.label_str(), shown);
         }
         let required = self.is_required();
-        let chrome = FieldChrome::new(&self.name, error, None);
+        let chrome = FieldChrome::new(self.name(), error, None);
         let input = ControlInput::new(
-            &self.name,
+            self.name(),
             value,
             required,
             chrome.aria_invalid() == "true",
             chrome.described_by(),
         );
         let rendered = control.render(cx, input);
-        render_field(cx, &chrome, &self.label, required, attributes! {}, rendered)
+        render_field(
+            cx,
+            &chrome,
+            self.label_str(),
+            required,
+            attributes! {},
+            rendered,
+        )
     }
 }
 

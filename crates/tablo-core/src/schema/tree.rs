@@ -9,6 +9,7 @@ use super::{
     embedded::Embedded,
     fields::Field,
     layouts::{Grid, Group, Repeater, Section},
+    lenses::FieldResolver,
     validation::required_error,
 };
 use crate::form::FieldErrors;
@@ -22,6 +23,22 @@ pub(crate) enum Node {
     Group(Box<Group>),
     Grid(Box<Grid>),
     Embedded(Box<Embedded>),
+    /// An embedded value its schema has not bound yet: [`Schema::bind`] builds it through the app
+    /// schema and splices it in place.
+    Unbound(Unbound),
+}
+
+/// Builds an embedded value's node through the app schema it binds to.
+pub(crate) struct Unbound {
+    pub(crate) build: Box<dyn Fn(&FieldResolver) -> Schema + Send + Sync>,
+    /// The value's type, which the declaration error names.
+    pub(crate) value: &'static str,
+}
+
+impl std::fmt::Debug for Unbound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Unbound").field(&self.value).finish()
+    }
 }
 
 /// Reports where a field's control sits in the form.
@@ -106,6 +123,8 @@ impl Node {
             Node::Group(g) => Box::pin(g.render(cx, fields, source)).await,
             Node::Grid(g) => Box::pin(g.render(cx, fields, source)).await,
             Node::Embedded(e) => Box::pin(e.render(cx, fields, source)).await,
+            // `Schema::render` refuses an unbound schema before any node renders.
+            Node::Unbound(_) => Ok(().boxed()),
         }
     }
 
@@ -117,17 +136,17 @@ impl Node {
             Node::Section(s) => Some(&s.children.nodes),
             Node::Group(g) => Some(&g.children.nodes),
             Node::Grid(g) => Some(&g.children.nodes),
-            Node::Field(_) | Node::Embedded(_) => None,
+            Node::Field(_) | Node::Embedded(_) | Node::Unbound(_) => None,
         }
     }
 
-    fn children_mut(&mut self) -> Option<&mut [Node]> {
+    fn children_mut(&mut self) -> Option<&mut Vec<Node>> {
         match self {
             Node::Repeater(r) => Some(&mut r.children.nodes),
             Node::Section(s) => Some(&mut s.children.nodes),
             Node::Group(g) => Some(&mut g.children.nodes),
             Node::Grid(g) => Some(&mut g.children.nodes),
-            Node::Field(_) | Node::Embedded(_) => None,
+            Node::Field(_) | Node::Embedded(_) | Node::Unbound(_) => None,
         }
     }
 
@@ -137,7 +156,7 @@ impl Node {
             Node::Field(index) => *index += by,
             Node::Embedded(e) => e.offset(by),
             _ => {
-                for child in self.children_mut().unwrap_or_default() {
+                for child in self.children_mut().into_iter().flatten() {
                     child.offset(by);
                 }
             }
@@ -154,6 +173,45 @@ impl Node {
                     child.visit_fields(f);
                 }
             }
+        }
+    }
+}
+
+/// Builds every unbound node under `nodes` through `resolver` in place, appending its fields to
+/// `fields`.
+pub(crate) fn bind_nodes(nodes: &mut Vec<Node>, fields: &mut Vec<Field>, resolver: &FieldResolver) {
+    let mut bound = Vec::with_capacity(nodes.len());
+    for node in std::mem::take(nodes) {
+        let mut node = match node {
+            Node::Unbound(unbound) => {
+                let Schema {
+                    nodes: mut built,
+                    fields: built_fields,
+                } = (unbound.build)(resolver);
+                let offset = fields.len();
+                for node in &mut built {
+                    node.offset(offset);
+                }
+                fields.extend(built_fields);
+                bound.extend(built);
+                continue;
+            }
+            node => node,
+        };
+        if let Some(children) = node.children_mut() {
+            bind_nodes(children, fields, resolver);
+        }
+        bound.push(node);
+    }
+    *nodes = bound;
+}
+
+/// Collects the value types of the unbound nodes under `nodes`.
+pub(crate) fn unbound_values(nodes: &[Node], out: &mut Vec<&'static str>) {
+    for node in nodes {
+        match node {
+            Node::Unbound(unbound) => out.push(unbound.value),
+            node => unbound_values(node.children().unwrap_or_default(), out),
         }
     }
 }

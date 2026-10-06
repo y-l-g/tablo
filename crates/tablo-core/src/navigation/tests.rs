@@ -26,7 +26,12 @@ impl Resource for UserResource {
 fn the_default_entry_is_the_plural_label_at_the_list() {
     // A def that sets no navigation: label from the pluralized model name, URL from the panel
     // that mounts it.
-    let item = crate::resource::Mounted::new(UserResource::declare(), "/backoffice").navigation;
+    let item = crate::resource::Mounted::new(
+        UserResource::declare(),
+        "/backoffice",
+        &crate::schema::FieldResolver::default(),
+    )
+    .navigation;
     assert_eq!(item.label, "Users");
     assert_eq!(item.url(), Some("/backoffice/users"));
     assert_eq!(item.order, 0);
@@ -83,7 +88,11 @@ fn derived_targets_resolve_against_the_owning_panel() {
 #[test]
 fn slugs_follow_the_filament_convention() {
     // UserResource → strip "Resource" → pluralize → kebab-case
-    let mounted = crate::resource::Mounted::new(UserResource::declare(), "/admin");
+    let mounted = crate::resource::Mounted::new(
+        UserResource::declare(),
+        "/admin",
+        &crate::schema::FieldResolver::default(),
+    );
     assert_eq!(mounted.slug, "users");
     assert_eq!(mounted.plural_label, "Users");
 }

@@ -954,7 +954,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields() -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields(_: &tablo_core::FieldResolver) -> Vec<tablo_core::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -1030,7 +1030,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields() -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields(_: &tablo_core::FieldResolver) -> Vec<tablo_core::FormField<PriorityFormField>> {
             Vec::new()
         }
 

@@ -11,6 +11,7 @@ fn enumeration(values: &[&str]) -> EmbeddedBuilder {
         .map(|value| (value.to_string(), format!("Variant {value}")))
         .collect();
     EmbeddedBuilder {
+        resolver: FieldResolver::default(),
         fields: vec![Field::discriminant("kind".to_string(), variants.clone())],
         shape: Shape::Enum(EnumNode {
             key: "kind".to_string(),

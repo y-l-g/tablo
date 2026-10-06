@@ -17,9 +17,9 @@ impl Field {
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View {
-            return stored_upload_value(cx, &self.label, value);
+            return stored_upload_value(cx, self.label_str(), value);
         }
-        let name = self.name.clone();
+        let name = self.name().to_string();
         // Required only while nothing is stored.
         let stored = stored_path(value);
         let is_edit = stored.is_some();
@@ -77,7 +77,7 @@ impl Field {
         render_field(
             cx,
             &chrome,
-            &self.label,
+            self.label_str(),
             control_required,
             attributes! {},
             control,
