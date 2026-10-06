@@ -568,7 +568,7 @@ async fn a_bulk_action_runs_once_for_the_whole_selection() {
 }
 
 #[tokio::test]
-async fn a_selection_holding_a_refused_record_writes_nothing() {
+async fn a_selection_runs_the_records_the_action_allows() {
     let db = db().await;
     let open = seed(&db, "Open", false).await;
     let done = seed(&db, "Done", true).await;
@@ -579,16 +579,44 @@ async fn a_selection_holding_a_refused_record_writes_nothing() {
     assert_eq!(
         response.status(),
         303,
-        "the list answers with an error notification"
+        "the list answers with a notification"
     );
     assert!(
-        flash(&response).contains("1 selected record cannot take this action"),
-        "the notification names the refusal: {}",
+        flash(&response).contains("Complete: 1 record (1 skipped)"),
+        "the notification reports the skipped record: {}",
         flash(&response)
     );
     assert!(
-        !self::task(&db, open.id).await.done,
-        "the allowed record is not written either"
+        self::task(&db, open.id).await.done,
+        "the allowed record is written"
+    );
+
+    let logs = logs(&db).await;
+    assert_eq!(logs.len(), 1, "one bulk write is one hook call");
+    assert_eq!(
+        logs[0].rows, 1,
+        "the hook sees only the record the action ran on"
+    );
+}
+
+#[tokio::test]
+async fn a_selection_the_action_refuses_entirely_writes_nothing() {
+    let db = db().await;
+    let first = seed(&db, "Alpha", true).await;
+    let second = seed(&db, "Bravo", true).await;
+    let router = panel_router::<TaskResource>(db.clone());
+
+    let ids = format!("{},{}", first.id, second.id);
+    let response = post_fields(&router, "/admin/tasks/-/actions/complete", &[("ids", &ids)]).await;
+    assert_eq!(
+        response.status(),
+        303,
+        "the list answers with an error notification"
+    );
+    assert!(
+        flash(&response).contains("2 selected records cannot take this action"),
+        "the notification names the refusal: {}",
+        flash(&response)
     );
     assert!(logs(&db).await.is_empty());
 }

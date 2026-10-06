@@ -63,8 +63,11 @@ use super::Resource;
 ///   selection, and its CSRF check;
 /// - the transaction: the records are loaded through [`scoped_query`](super::scoped_query) inside
 ///   it, `run` writes through the same executor, and an error rolls everything back;
-/// - the policy: every record must pass [`Ability::View`](crate::policy::Ability::View) and
-///   [`can_run`](Self::can_run), checked on the loaded rows before `run`;
+/// - the policy: every record must pass [`Ability::View`](crate::policy::Ability::View), checked on
+///   the loaded rows before `run`;
+/// - the refusal: a row [`can_run`](Self::can_run) refuses answers 403, and a bulk selection runs
+///   the records that pass it and reports the refused count as skipped. A selection that passes on
+///   none writes nothing and answers with an error notification;
 /// - [`Resource::after_commit`] with [`Mutation::Action`](super::Mutation::Action) once the
 ///   transaction commits, and the success notification.
 ///
@@ -132,7 +135,8 @@ pub trait Action<R: Resource>: 'static {
     ) -> impl Future<Output = Result<()>> + Send;
 
     /// The success notification after a commit. Defaults to the label and
-    /// the record count: `"Publish: 3 records"`.
+    /// the record count: `"Publish: 3 records"`. A bulk run the action refused
+    /// on some records appends their count: `"Publish: 3 records (2 skipped)"`.
     fn success(cx: &Cx, count: usize) -> String {
         let noun = if count == 1 { "record" } else { "records" };
         format!("{}: {count} {noun}", Self::label(cx))
