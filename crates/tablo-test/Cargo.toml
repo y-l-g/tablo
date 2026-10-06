@@ -9,9 +9,7 @@ description = "In-memory HTTP test client for Tablo panels, re-exported as `tabl
 
 [dependencies]
 tablo-core = { path = "../tablo-core", version = "0.2.0" }
-form_urlencoded = "1.2"
 http = "1"
-http-body-util = "0.1"
 topcoat = { workspace = true }
 uuid.workspace = true
 

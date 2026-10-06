@@ -3425,7 +3425,6 @@ dependencies = [
  "serde_json",
  "subtle",
  "tablo-macros",
- "tablo-test",
  "tablo-ui",
  "toasty",
  "toasty-core",
@@ -3449,9 +3448,7 @@ dependencies = [
 name = "tablo-test"
 version = "0.2.0"
 dependencies = [
- "form_urlencoded",
  "http",
- "http-body-util",
  "tablo-core",
  "topcoat",
  "uuid",

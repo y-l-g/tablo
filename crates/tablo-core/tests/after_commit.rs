@@ -7,7 +7,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
 
-use crate::common::{memory_db, panel_router, post_fields};
+use crate::common::{body_string, memory_db, panel_router, post_fields};
 
 #[derive(Debug, toasty::Model, Clone)]
 struct Note {
@@ -353,7 +353,7 @@ async fn a_resource_without_the_hook_writes_exactly_as_before() {
         response.headers().get(LOCATION).is_none(),
         "a plain GET is not a redirect"
     );
-    let html = tablo_test::body_string(response).await;
+    let html = body_string(response).await;
     assert!(
         html.contains("Alpha"),
         "the list shows the created row: {html}"
