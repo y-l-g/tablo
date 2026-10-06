@@ -241,11 +241,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
 
       # The guide pins released versions (`tablo = { version = "X" }`,
-      # `tablo-build = "X"`) in its user-facing blocks. Source of truth is
+      # `tablo-build = "X"`) in its user-facing blocks, and the bench
+      # workspace resolves the family by path. Source of truth is
       # `[workspace.package].version`, which release-plz bumps on the PR
       # branch. Re-applied on every run because release-plz force-pushes its
       # branch.
-      - name: Sync docs version with release PR
+      - name: Sync release PR extras
         if: ${{ steps.release-plz.outputs.prs != '' && steps.release-plz.outputs.prs != '[]' }}
         env:
           PRS: ${{ steps.release-plz.outputs.prs }}
@@ -253,7 +254,7 @@ jobs:
           set -euo pipefail
           branch=$(jq -r '.[0].head_branch' <<<"$PRS")
           if [ -z "$branch" ] || [ "$branch" = "null" ]; then
-            echo "No release branch detected; skipping docs update."
+            echo "No release branch detected; skipping consistency sync."
             exit 0
           fi
 
@@ -274,11 +275,15 @@ jobs:
           find docs/guide/src -type f -name '*.md' -exec sed -i -E \
             "s/(tablo = \{ version = \")[^\"]+(\")/\1${version}\2/g; s/^(tablo-build = \")[^\"]+(\")/\1${version}\2/g" {} +
 
-          if git diff --quiet; then
-            echo "Docs already on version ${version}; nothing to update."
+          # The bench workspace resolves the family by path: refresh its
+          # lockfile to the bumped versions, or its `--locked` check fails.
+          cargo metadata --format-version 1 --manifest-path benchmarks/tablo/Cargo.toml > /dev/null
+
+          git add docs benchmarks/tablo/Cargo.lock
+          if git diff --cached --quiet; then
+            echo "Release PR already consistent; nothing to update."
             exit 0
           fi
 
-          git add docs
-          git commit -m "chore: point docs install version at ${version}"
+          git commit -m "chore: sync docs and bench lockfile at ${version}"
           git push origin "$branch"
