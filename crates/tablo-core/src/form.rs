@@ -201,6 +201,7 @@ pub fn assert_form_scalar<T: FormScalar>() {}
 
 /// Why a key failed to parse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FieldErrorKind {
     /// Posted empty, and the field has no blank answer.
     Required,

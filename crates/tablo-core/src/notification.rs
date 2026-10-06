@@ -19,6 +19,7 @@ use topcoat::{
 /// The serde tokens are lowercase so the JSON cookie reads naturally.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum NotificationStatus {
     Success,
     Error,

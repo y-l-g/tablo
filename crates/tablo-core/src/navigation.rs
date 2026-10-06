@@ -9,6 +9,7 @@ pub(crate) fn runtime_link(cx: &Cx, href: &str) -> Attributes {
 
 /// Where a sidebar entry points.
 #[derive(Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum NavTarget {
     /// No URL yet; the owning Panel resolves it.
     #[default]
