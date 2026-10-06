@@ -51,10 +51,11 @@ pub const MSRV_PATHS: &[&str] = &[
 /// Whether `check` skips the gates CI would not run for the change.
 #[derive(PartialEq, Eq)]
 pub enum Scope {
-    /// Skip the bench gate without `BENCH_PATHS` changes and the MSRV/udeps
-    /// gates without `MSRV_PATHS` changes.
+    /// The fast gates only: the bench gate without `BENCH_PATHS` changes and
+    /// the MSRV/udeps gates without `MSRV_PATHS` changes stay skipped, and
+    /// docs, the guide suite, and the external build never run.
     Auto,
-    /// Run every gate.
+    /// Run every gate, including the slow docs, guide, and external builds.
     All,
 }
 
@@ -291,8 +292,20 @@ pub fn external_check(run: &dyn Runner, root: &Path, manifest: &Path) -> anyhow:
     )
 }
 
+/// Whether `cargo +nightly udeps` already runs, so `check` skips the reinstall.
+fn udeps_installed(run: &dyn Runner, root: &Path) -> bool {
+    run.run(
+        "cargo",
+        &["+nightly", "udeps", "--version"],
+        Some(root),
+        &[],
+    )
+    .is_ok()
+}
+
 /// The gate set as a local fail-fast convenience runner: the CONTRIBUTING
-/// gates cheapest-first, then docs, the guide suite, and the external build. The bench gate runs
+/// gates cheapest-first. Docs, the guide suite, and the external build run
+/// only under `Scope::All`; CI covers them in parallel jobs. The bench gate runs
 /// only with `BENCH_PATHS` changes and the MSRV/udeps gates only with
 /// `MSRV_PATHS` changes, matching the CI path filters.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
@@ -364,12 +377,14 @@ fn check_with(
             Some(&root),
             &[],
         )?;
-        run.run(
-            "cargo",
-            &["+nightly", "install", "cargo-udeps", "--locked"],
-            Some(&root),
-            &[],
-        )?;
+        if !udeps_installed(run, &root) {
+            run.run(
+                "cargo",
+                &["+nightly", "install", "cargo-udeps", "--locked"],
+                Some(&root),
+                &[],
+            )?;
+        }
         run.run(
             "cargo",
             &[
@@ -385,40 +400,45 @@ fn check_with(
     } else {
         println!("skipped the MSRV check and udeps: no manifest or lockfile changed");
     }
-    run.run(
-        "cargo",
-        &["doc", "--workspace", "--no-deps", "--locked"],
-        Some(&root),
-        &[("RUSTDOCFLAGS", "-D warnings")],
-    )?;
-    guide_build(run, &root)?;
-    run.run(
-        "cargo",
-        &[
-            "test",
-            "--locked",
-            "--manifest-path",
-            "examples/guide/Cargo.toml",
-        ],
-        Some(&root),
-        &[],
-    )?;
-    run.run(
-        "cargo",
-        &[
-            "clippy",
-            "--locked",
-            "--manifest-path",
-            "examples/guide/Cargo.toml",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-        ],
-        Some(&root),
-        &[],
-    )?;
-    external_check(run, &root, &stage()?)
+    if all {
+        run.run(
+            "cargo",
+            &["doc", "--workspace", "--no-deps", "--locked"],
+            Some(&root),
+            &[("RUSTDOCFLAGS", "-D warnings")],
+        )?;
+        guide_build(run, &root)?;
+        run.run(
+            "cargo",
+            &[
+                "test",
+                "--locked",
+                "--manifest-path",
+                "examples/guide/Cargo.toml",
+            ],
+            Some(&root),
+            &[],
+        )?;
+        run.run(
+            "cargo",
+            &[
+                "clippy",
+                "--locked",
+                "--manifest-path",
+                "examples/guide/Cargo.toml",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ],
+            Some(&root),
+            &[],
+        )?;
+        external_check(run, &root, &stage()?)?;
+    } else {
+        println!("skipped docs, the guide suite, and the external build: pass --all to run them");
+    }
+    Ok(())
 }
 
 #[cfg(test)]
