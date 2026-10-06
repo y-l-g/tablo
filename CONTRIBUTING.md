@@ -34,7 +34,7 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 ## The gate set
 
-CI runs eight gates plus four extra checks (mirroring `.github/workflows/ci.yml` and, for
+CI runs eight gates plus five extra checks (mirroring `.github/workflows/ci.yml` and, for
 gates 6 and 8, `.github/workflows/msrv-udeps.yml`).
 The fast path is the xtask runner: `check` runs the gates below fail-fast, cheapest first,
 skipping the ones CI would not run for the change; `check --all` runs every gate.
@@ -72,7 +72,9 @@ then docs and the external build after gate 8):
   builds the guide with `mdbook build docs/guide`;
 - the `fmt` job runs `cargo fmt -- --check` inside each detached workspace
   (`benchmarks/tablo`, `benchmarks/axum-maud`, `benchmarks/leptos`,
-  `examples/quickstart`);
+  `examples/quickstart`, `examples/guide`);
+- the `guide` job runs the detached companion's tests and clippy by manifest
+  path, against the published crates;
 - the `external` job runs `cargo xtask external-check`: the detached
   `examples/quickstart` app must build, serve, and generate a stylesheet with
   classes only Tablo's own sources write, so workspace-only resolutions fail it.

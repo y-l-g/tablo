@@ -23,6 +23,9 @@ pub const DETACHED_BENCHES: &[&str] = &[
 /// The detached app `external-check` builds from outside the repository.
 pub const QUICKSTART: &str = "examples/quickstart";
 
+/// The detached guide companion, building against the published crates.
+pub const GUIDE: &str = "examples/guide";
+
 /// Mirrors the `pull_request: paths` filter of `.github/workflows/bench.yml`.
 pub const BENCH_PATHS: &[&str] = &[
     "benchmarks/**",
@@ -161,9 +164,9 @@ pub fn nightly_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     )
 }
 
-/// Checks fmt for each detached bench and the quickstart.
+/// Checks fmt for each detached bench, the quickstart, and the guide.
 pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
-    for bench in DETACHED_BENCHES.iter().chain([&QUICKSTART]) {
+    for bench in DETACHED_BENCHES.iter().chain([&QUICKSTART, &GUIDE]) {
         run.run(
             "cargo",
             &["fmt", "--", "--check"],
@@ -289,7 +292,7 @@ pub fn external_check(run: &dyn Runner, root: &Path, manifest: &Path) -> anyhow:
 }
 
 /// The gate set as a local fail-fast convenience runner: the CONTRIBUTING
-/// gates cheapest-first, then docs and the external build. The bench gate runs
+/// gates cheapest-first, then docs, the guide suite, and the external build. The bench gate runs
 /// only with `BENCH_PATHS` changes and the MSRV/udeps gates only with
 /// `MSRV_PATHS` changes, matching the CI path filters.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
@@ -389,6 +392,32 @@ fn check_with(
         &[("RUSTDOCFLAGS", "-D warnings")],
     )?;
     guide_build(run, &root)?;
+    run.run(
+        "cargo",
+        &[
+            "test",
+            "--locked",
+            "--manifest-path",
+            "examples/guide/Cargo.toml",
+        ],
+        Some(&root),
+        &[],
+    )?;
+    run.run(
+        "cargo",
+        &[
+            "clippy",
+            "--locked",
+            "--manifest-path",
+            "examples/guide/Cargo.toml",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+        Some(&root),
+        &[],
+    )?;
     external_check(run, &root, &stage()?)
 }
 

@@ -58,25 +58,25 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
     let commands = run.commands();
     assert_eq!(
         commands.len(),
-        7,
-        "1 nightly + 3 detached benches + quickstart + topcoat + diff"
+        8,
+        "1 nightly + 3 detached benches + quickstart + guide + topcoat + diff"
     );
     assert_eq!(
         commands[0].1,
         vec!["+nightly-2026-08-24", "fmt", "--all", "--", "--check"]
     );
-    for (command, dir) in commands[1..5]
+    for (command, dir) in commands[1..6]
         .iter()
-        .zip(DETACHED_BENCHES.iter().chain([&QUICKSTART]))
+        .zip(DETACHED_BENCHES.iter().chain([&QUICKSTART, &GUIDE]))
     {
         assert_eq!(command.0, "cargo");
         assert_eq!(command.1, vec!["fmt", "--", "--check"]);
         assert_eq!(command.2, Some(root.join(dir)));
     }
-    assert_eq!(commands[5].0, "topcoat");
-    assert_eq!(commands[5].1, vec!["fmt"]);
-    assert_eq!(commands[6].0, "git");
-    assert_eq!(commands[6].1, vec!["diff", "--exit-code"]);
+    assert_eq!(commands[6].0, "topcoat");
+    assert_eq!(commands[6].1, vec!["fmt"]);
+    assert_eq!(commands[7].0, "git");
+    assert_eq!(commands[7].1, vec!["diff", "--exit-code"]);
     assert!(commands.iter().all(|command| {
         command
             .2
@@ -107,7 +107,8 @@ fn check_runs_cheap_gates_first_then_builds_docs_and_external() {
         progs_of(&run_check(Scope::Auto, true)),
         vec![
             "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo", "cargo",
-            "cargo", "cargo", "cargo", "cargo", "cargo", "cargo", "mdbook", "cargo",
+            "cargo", "cargo", "cargo", "cargo", "cargo", "cargo", "cargo", "mdbook", "cargo",
+            "cargo", "cargo",
         ]
     );
 }
@@ -118,13 +119,13 @@ fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
         progs_of(&run_check(Scope::Auto, false)),
         vec![
             "cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo", "cargo",
-            "cargo", "cargo", "mdbook", "cargo",
+            "cargo", "cargo", "cargo", "mdbook", "cargo", "cargo", "cargo",
         ],
         "bench, msrv, and udeps install+run are skipped"
     );
     assert_eq!(
         run_check(Scope::All, false).len(),
-        17,
+        20,
         "`--all` forces every gate"
     );
 }
