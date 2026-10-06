@@ -24,7 +24,7 @@ use crate::{
     policy::Ability,
     resource::{Mounted, Resource, mounted},
     table::{
-        RETURN_PARAM, TABLE_CARD_CLASS, Table, TableChrome, TableSignals, TableState,
+        RETURN_PARAM, TABLE_CARD_CLASS, TableChrome, TableSignals, TableState, WiredTable,
         create_page_url, request_query,
     },
     topcoat_compat::async_page,
@@ -177,7 +177,7 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
 async fn relation_table_live<C: Resource>(
     cx: &Cx,
     resource: Arc<Mounted<C>>,
-    table: Table<C::Model>,
+    table: WiredTable<C::Model>,
     state: TableState,
     relation: BoundRelation,
     create_url: Option<String>,
@@ -217,7 +217,7 @@ where
     } else {
         None
     };
-    let table = table.hide_search().hide_filter_bar().unframed();
+    let table = table.hosting_bars();
     let skeleton = table.render_skeleton(cx, &state).await?;
     let delete_dialog = table.render_delete_dialog(cx, &state).await?;
     let action_dialog = table.render_action_confirm_dialog(cx);

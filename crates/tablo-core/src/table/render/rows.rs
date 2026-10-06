@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use tablo_ui::{ButtonSize, ButtonVariant, button, button_variants, table_cell, table_row};
 use topcoat::{context::Cx, icon::icon, view::*};
 
-use super::super::{GroupKey, RowActions, Table};
+use super::super::{GroupKey, RowActions, WiredTable};
 use crate::table::{
     page::TablePage,
     state::{
@@ -274,7 +274,7 @@ struct GroupHeader {
     dom_id: String,
 }
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Project the loaded page into the row presentation the template renders.
     pub(super) fn row_views<'a>(
         &self,
@@ -287,13 +287,10 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        let delete_url_base = self
-            .delete_prefix
-            .as_ref()
-            .map(|_| state.row_url_base(path));
-        let gated = self.delete_prefix.is_some()
-            || self.edit_prefix.is_some()
-            || self.view_prefix.is_some();
+        let delete_url_base = self.delete_prefix().map(|_| state.row_url_base(path));
+        let gated = self.delete_prefix().is_some()
+            || self.edit_prefix().is_some()
+            || self.view_prefix().is_some();
         let bulk_delete = self.bulk_delete_enabled();
         let mut row_data: Vec<RowView<'a>> = page
             .rows
@@ -308,13 +305,11 @@ impl<M> Table<M> {
                 let cells: Vec<BoxView<'a>> =
                     self.columns.iter().map(|col| col.cell(cx, row)).collect();
                 let edit_url = self
-                    .edit_prefix
-                    .as_ref()
+                    .edit_prefix()
                     .filter(|_| actions.edit)
                     .map(|prefix| self.action_url(row_edit_url(prefix, &key)));
                 let view_url = self
-                    .view_prefix
-                    .as_ref()
+                    .view_prefix()
                     .filter(|_| actions.view)
                     .map(|prefix| row_view_url(prefix, &key));
                 let delete_url = delete_url_base
@@ -322,13 +317,11 @@ impl<M> Table<M> {
                     .filter(|_| actions.delete)
                     .map(|base| base.delete_dialog(&key));
                 let delete_action = self
-                    .delete_prefix
-                    .as_ref()
+                    .delete_prefix()
                     .filter(|_| actions.delete)
                     .map(|prefix| self.action_url(delete_action_url(prefix, &key)));
                 let custom = self
-                    .actions_prefix
-                    .as_ref()
+                    .actions_prefix()
                     .map(|prefix| {
                         self.row_custom_actions()
                             .filter(|action| (action.allowed)(row))

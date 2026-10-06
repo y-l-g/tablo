@@ -3,10 +3,10 @@
 use tablo_ui::{table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::Table, EMPTY_LINK_CLASS, live_link};
+use super::{super::WiredTable, EMPTY_LINK_CLASS, live_link};
 use crate::table::state::{TableSignals, TableState};
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Render the zero-rows cell spanning the table, with clear and back-to-first-page links when
     /// filtered.
     pub(super) async fn render_empty_cell<'a>(

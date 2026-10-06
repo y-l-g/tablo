@@ -263,6 +263,7 @@ async fn chrome_columns_declare_their_widths() {
     for (links, expected, floor) in cases {
         let cx = CxTestBuilder::new().build();
         let mut chrome_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+            .wired()
             .with_view("/admin/users".to_string());
         if links > 1 {
             chrome_table = chrome_table.with_edit("/admin/users".to_string());
@@ -316,6 +317,7 @@ async fn kind_defaults_stay_inside_their_budget() {
         ComputedColumn::new("Created", |t: &Task| t.created_at.to_string()),
         ComputedColumn::new("Id", |t: &Task| t.id.to_string()),
     ))
+    .wired()
     .with_delete("/admin/tasks".to_string())
     .with_edit("/admin/tasks".to_string())
     .with_view("/admin/tasks".to_string())
@@ -371,6 +373,7 @@ async fn kind_defaults_stay_inside_their_budget() {
 async fn edit_links_render_beside_delete_in_actions_column() {
     let cx = CxTestBuilder::new().build();
     let action_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
         .with_delete("/admin/users".to_string())
         .with_edit("/admin/users".to_string());
     let rows = vec![User {
@@ -431,6 +434,7 @@ async fn denied_rows_render_no_links_and_no_checkbox() {
     let ken_id = ken.id.to_string();
     let ada_id = ada.id.to_string();
     let policy_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
         .with_delete("/admin/users".to_string())
         .with_edit("/admin/users".to_string())
         .with_view("/admin/users".to_string())
@@ -503,6 +507,7 @@ async fn fully_locked_rows_keep_their_actions_cell_with_no_links() {
     };
     let ada_id = ada.id.to_string();
     let policy_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
         .with_delete("/admin/users".to_string())
         .with_edit("/admin/users".to_string())
         .with_bulk_delete(true)
@@ -550,8 +555,9 @@ async fn a_chromeless_table_never_consults_the_row_policy() {
     let cx = CxTestBuilder::new().build();
     let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let counted = calls.clone();
-    let policy_table =
-        Table::<User>::new(TextColumn::new(lens!(User.name))).row_actions(move |_: &User| {
+    let policy_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
+        .row_actions(move |_: &User| {
             counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             RowActions::ALL
         });
@@ -584,6 +590,7 @@ async fn rows_carry_the_primary_key_in_every_action() {
     use topcoat::view::ViewExt;
     let cx = CxTestBuilder::new().build();
     let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
         .with_delete("/admin/users".to_string())
         .with_edit("/admin/users".to_string())
         .with_bulk_delete(true);
@@ -629,6 +636,7 @@ async fn composite_key_rows_render_no_action() {
 
     let cx = CxTestBuilder::new().build();
     let tbl = Table::<Seat>::new(TextColumn::new(lens!(Seat.label)))
+        .wired()
         .with_delete("/admin/seats".to_string())
         .with_edit("/admin/seats".to_string())
         .with_bulk_delete(true);
@@ -758,6 +766,7 @@ async fn table_render_reuses_one_list_url_base_across_rows() {
     let cx = CxTestBuilder::new().build();
     let state = filters_state(&[("status", "published"), ("featured", "true")]);
     let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
         .with_delete("/admin/users".to_string());
     let rows = |n: usize| -> Vec<User> {
         (0..n)
@@ -808,6 +817,7 @@ async fn table_render_reuses_one_list_url_base_across_rows() {
 async fn a_static_table_renders_no_runtime_bindings_at_all() {
     let cx = CxTestBuilder::new().build();
     let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
         .with_delete("/admin/users".to_string())
         .with_bulk_delete(true);
     let rows = vec![User {

@@ -18,7 +18,7 @@ use crate::{
     resource::{Mounted, Resource},
     table::{
         RowActions, TABLE_CARD_CLASS, Table, TableAction, TableChrome, TablePage, TableSignals,
-        TableState, create_page_url, request_query,
+        TableState, WiredTable, create_page_url, request_query,
     },
     topcoat_compat::async_page,
 };
@@ -53,7 +53,7 @@ pub(crate) fn wire_table_actions<R: Resource>(
     cx: &Cx,
     resource: &Arc<Mounted<R>>,
     live: bool,
-) -> Table<R::Model> {
+) -> WiredTable<R::Model> {
     wire_table(cx, resource, live, declared_chrome(cx, resource))
 }
 
@@ -63,10 +63,10 @@ pub(crate) fn wire_table<R: Resource>(
     resource: &Arc<Mounted<R>>,
     live: bool,
     chrome: TableChrome,
-) -> Table<R::Model> {
-    let mut table = resource.table.clone();
+) -> WiredTable<R::Model> {
+    let mut table = WiredTable::new(Arc::clone(&resource.table));
     if live {
-        table = table.hide_search().hide_filter_bar().unframed();
+        table = table.hosting_bars();
     }
     let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
     table = table.row_actions(move |record| {
@@ -100,8 +100,8 @@ pub(crate) fn wire_table<R: Resource>(
 fn wire_custom_actions<R: Resource>(
     cx: &Cx,
     resource: &Arc<Mounted<R>>,
-    table: Table<R::Model>,
-) -> Table<R::Model> {
+    table: WiredTable<R::Model>,
+) -> WiredTable<R::Model> {
     if resource.actions.entries().is_empty() {
         return table;
     }
@@ -262,7 +262,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
 pub(crate) fn resource_list_live<R: Resource>(
     cx: &Cx,
     resource: Arc<Mounted<R>>,
-    table: Table<R::Model>,
+    table: WiredTable<R::Model>,
     state: TableState,
 ) -> BoxView<'_> {
     async_page(async move {
@@ -289,7 +289,7 @@ pub(crate) fn resource_list_live<R: Resource>(
         } else {
             None
         };
-        let table = table.hide_search().hide_filter_bar().unframed();
+        let table = table.hosting_bars();
         let skeleton = table.render_skeleton(cx, &state).await?;
         let delete_dialog = table.render_delete_dialog(cx, &state).await?;
         let action_dialog = table.render_action_confirm_dialog(cx);

@@ -51,8 +51,10 @@ mounted (`Mounted<R>`, by resource type). The panel's gate layer puts it on ever
 its prefix, so handlers read the request's panel and its own copy of each resource, never a
 router-wide singleton. A resource the request's panel does not mount has no def there.
 
-`Table` and `Schema` are declarations, not renderers. A declaration that cannot render fails the
-mount rather than a request.
+`Table` and `Schema` are declarations, built once when the panel mounts. A request renders a table
+as a `WiredTable`: the mounted declaration plus the row actions, policy verdicts and framing the
+panel wires on for that request, so the declaration is shared, never copied or changed per
+request. A declaration that cannot render fails the mount rather than a request.
 
 ### Inside `tablo-core`
 

@@ -3,10 +3,10 @@
 use tablo_ui::{icons, table_head, table_header, table_row};
 use topcoat::{Result, context::Cx, icon::icon, view::*};
 
-use super::{super::Table, live_link};
+use super::{super::WiredTable, live_link};
 use crate::table::state::{TableSignals, TableState};
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Render the shared column-header row with sort links on sortable columns, writing the query
     /// signal on live tables.
     pub(super) async fn render_thead<'a>(

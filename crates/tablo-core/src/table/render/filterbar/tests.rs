@@ -9,7 +9,7 @@ use super::{
     *,
 };
 use crate::{
-    TablePage, TableState, TextColumn, lens,
+    Table, TablePage, TableState, TextColumn, lens,
     table::{DateFilter, SelectFilter, Sort, TernaryFilter},
 };
 

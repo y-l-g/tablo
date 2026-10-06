@@ -5,13 +5,13 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::Table, live_link};
+use super::{super::WiredTable, live_link};
 use crate::table::{
     page::TablePage,
     state::{Cursor, TableSignals, TableState},
 };
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Render Previous/Next links from the executed page's real cursors, preserving search and sort
     /// state.
     pub(super) async fn render_pager<'a>(

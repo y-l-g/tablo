@@ -1,7 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
 use super::{super::core::tests::User, *};
-use crate::{TablePage, TextColumn, lens};
+use crate::{Table, TablePage, TextColumn, lens};
 
 #[test]
 fn live_search_debounce_sits_in_the_locked_band() {
@@ -17,6 +17,7 @@ fn live_search_debounce_sits_in_the_locked_band() {
 async fn bulk_checkboxes_render_with_keys_and_select_all() {
     let cx = CxTestBuilder::new().build();
     let bulk_table = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
         .with_delete("/admin/users".to_string())
         .with_bulk_delete(true);
     let rows = vec![

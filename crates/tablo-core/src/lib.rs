@@ -130,7 +130,7 @@ pub use schema::{
 pub use table::{
     BooleanColumn, Column, ColumnWidth, ComputedColumn, Cursor, DateFilter, Filter, FilterInput,
     Includes, IntoColumns, IntoFilters, QueryFilter, SelectFilter, Sort, Table, TablePage,
-    TableState, TernaryFilter, TextColumn, contains_expr,
+    TableState, TernaryFilter, TextColumn, WiredTable, contains_expr,
 };
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///

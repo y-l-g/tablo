@@ -1,7 +1,8 @@
 //! A resource's list view: the [`Table`] builder and its columns and filters, the URL state a list
 //! reads, query planning (`filter_expr`/`search_expr`/`order_bys_for`), and the page a table loads.
 //!
-//! Rendering lives in `render`, CSV export in `export`.
+//! What a request wires onto a table (row actions, policy, framing) lives in `wiring`, rendering
+//! in `render`, CSV export in `export`.
 
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
@@ -16,6 +17,7 @@ mod filter;
 mod page;
 mod render;
 mod state;
+mod wiring;
 
 pub use self::{
     column::{
@@ -27,6 +29,7 @@ pub use self::{
     },
     page::TablePage,
     state::{Cursor, Sort, TableState},
+    wiring::WiredTable,
 };
 pub(crate) use self::{
     page::{Past, row_exists_past},
@@ -104,19 +107,6 @@ pub(crate) struct TableAction<M> {
     pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
 }
 
-impl<M> Clone for TableAction<M> {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name,
-            label: self.label.clone(),
-            row: self.row,
-            bulk: self.bulk,
-            confirm: self.confirm,
-            allowed: Arc::clone(&self.allowed),
-        }
-    }
-}
-
 /// The page size of a table that declares none with [`Table::paginate`].
 pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
 
@@ -132,22 +122,10 @@ pub struct Table<M> {
     /// Whether a row's key resolves as a URL id; a composite key does not, so its rows carry no
     /// action.
     addressable: bool,
-    row_policy: Option<RowPolicy<M>>,
     page_size: NonZeroUsize,
     hide_search: bool,
     hide_filter_bar: bool,
-    delete_prefix: Option<String>,
-    edit_prefix: Option<String>,
-    view_prefix: Option<String>,
-    bulk_delete: bool,
-    /// The custom actions and the list URL their routes hang off.
-    custom_actions: Vec<TableAction<M>>,
-    actions_prefix: Option<String>,
     live_search: bool,
-    /// Whether the table draws its own card.
-    framed: bool,
-    /// Where a write this table's row and bulk actions start lands.
-    return_to: Option<String>,
     _marker: PhantomData<M>,
 }
 
@@ -161,19 +139,10 @@ impl<M> Clone for Table<M> {
             group_by: self.group_by.clone(),
             key: self.key,
             addressable: self.addressable,
-            row_policy: self.row_policy.clone(),
             page_size: self.page_size,
             hide_search: self.hide_search,
             hide_filter_bar: self.hide_filter_bar,
-            delete_prefix: self.delete_prefix.clone(),
-            edit_prefix: self.edit_prefix.clone(),
-            view_prefix: self.view_prefix.clone(),
-            bulk_delete: self.bulk_delete,
-            custom_actions: self.custom_actions.clone(),
-            actions_prefix: self.actions_prefix.clone(),
             live_search: self.live_search,
-            framed: self.framed,
-            return_to: self.return_to.clone(),
             _marker: PhantomData,
         }
     }
@@ -188,25 +157,10 @@ impl<M> std::fmt::Debug for Table<M> {
             )
             .field("filters", &self.filters.len())
             .field("group_by", &self.group_by.is_some())
-            .field("row_policy", &self.row_policy.is_some())
             .field("page_size", &self.page_size)
             .field("hide_search", &self.hide_search)
             .field("hide_filter_bar", &self.hide_filter_bar)
-            .field("delete_prefix", &self.delete_prefix)
-            .field("edit_prefix", &self.edit_prefix)
-            .field("view_prefix", &self.view_prefix)
-            .field("bulk_delete", &self.bulk_delete)
-            .field(
-                "custom_actions",
-                &self
-                    .custom_actions
-                    .iter()
-                    .map(|a| a.name)
-                    .collect::<Vec<_>>(),
-            )
             .field("live_search", &self.live_search)
-            .field("framed", &self.framed)
-            .field("return_to", &self.return_to)
             .finish()
     }
 }
@@ -226,19 +180,10 @@ impl<M> Table<M> {
             group_by: None,
             key: crate::toasty_compat::pk::pk_text::<M>,
             addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),
-            row_policy: None,
             page_size: DEFAULT_PAGE_SIZE,
             hide_search: false,
             hide_filter_bar: false,
-            delete_prefix: None,
-            edit_prefix: None,
-            view_prefix: None,
-            bulk_delete: false,
-            custom_actions: Vec::new(),
-            actions_prefix: None,
             live_search: false,
-            framed: true,
-            return_to: None,
             _marker: PhantomData,
         }
     }
@@ -246,15 +191,6 @@ impl<M> Table<M> {
     /// Append `column` after the declared ones.
     pub fn column(mut self, column: impl Column<M> + 'static) -> Self {
         self.columns.push(Arc::new(column));
-        self
-    }
-
-    /// Declare the per-record action policy.
-    pub(crate) fn row_actions(
-        mut self,
-        policy: impl Fn(&M) -> RowActions + Send + Sync + 'static,
-    ) -> Self {
-        self.row_policy = Some(Arc::new(policy));
         self
     }
 
@@ -421,13 +357,6 @@ impl<M> Table<M> {
         (self.key)(record)
     }
 
-    /// Which row actions `record` allows.
-    pub(crate) fn actions_for(&self, record: &M) -> RowActions {
-        self.row_policy
-            .as_ref()
-            .map_or(RowActions::ALL, |policy| policy(record))
-    }
-
     /// Render no search toolbar in the table.
     pub fn hide_search(mut self) -> Self {
         self.hide_search = true;
@@ -440,92 +369,10 @@ impl<M> Table<M> {
         self
     }
 
-    /// Render the table without its own card.
-    pub(crate) fn unframed(mut self) -> Self {
-        self.framed = false;
-        self
-    }
-
     /// Enable keystroke-live search via the `table_search` shard.
     pub fn live_search(mut self) -> Self {
         self.live_search = true;
         self
-    }
-
-    /// Enable row-level `Delete` action.
-    pub(crate) fn with_delete(mut self, prefix: String) -> Self {
-        if self.addressable {
-            self.delete_prefix = Some(prefix);
-        }
-        self
-    }
-
-    /// Enable row-level `Edit` action.
-    pub(crate) fn with_edit(mut self, prefix: String) -> Self {
-        if self.addressable {
-            self.edit_prefix = Some(prefix);
-        }
-        self
-    }
-
-    /// Enable the row-level `View` action.
-    pub(crate) fn with_view(mut self, prefix: String) -> Self {
-        if self.addressable {
-            self.view_prefix = Some(prefix);
-        }
-        self
-    }
-
-    /// Enable bulk selection with `BulkDelete` action.
-    pub(crate) fn with_bulk_delete(mut self, enabled: bool) -> Self {
-        self.bulk_delete = enabled;
-        self
-    }
-
-    /// Send the writes this table starts back to `url`.
-    pub(crate) fn returning_to(mut self, url: String) -> Self {
-        self.return_to = Some(url);
-        self
-    }
-
-    fn action_url(&self, url: String) -> String {
-        match &self.return_to {
-            Some(target) => with_return(&url, target),
-            None => url,
-        }
-    }
-
-    /// Wire the resource's custom actions.
-    pub(crate) fn with_custom_actions(
-        mut self,
-        prefix: String,
-        actions: Vec<TableAction<M>>,
-    ) -> Self {
-        if self.addressable {
-            self.actions_prefix = Some(prefix);
-            self.custom_actions = actions;
-        }
-        self
-    }
-
-    fn row_custom_actions(&self) -> impl Iterator<Item = &TableAction<M>> {
-        self.custom_actions
-            .iter()
-            .filter(|a| a.row && self.actions_prefix.is_some())
-    }
-
-    fn bulk_custom_actions(&self) -> impl Iterator<Item = &TableAction<M>> {
-        self.custom_actions
-            .iter()
-            .filter(|a| a.bulk && self.actions_prefix.is_some())
-    }
-
-    fn bulk_delete_enabled(&self) -> bool {
-        self.bulk_delete && self.delete_prefix.is_some()
-    }
-
-    fn bulk_enabled(&self) -> bool {
-        self.bulk_delete_enabled() || self.bulk_custom_actions().next().is_some()
     }
 
     /// Global search predicate across searchable columns.
@@ -615,7 +462,7 @@ impl<M> Table<M> {
         query
     }
 
-    /// Whether the search toolbar renders.
+    /// Whether the declaration renders a search toolbar.
     pub(crate) fn search_enabled(&self) -> bool
     where
         M: toasty::schema::Model,
@@ -628,7 +475,7 @@ impl<M> Table<M> {
         self.live_search
     }
 
-    /// Whether the filter bar renders inside the table.
+    /// Whether the declaration renders a filter bar.
     pub(crate) fn filter_bar_enabled(&self) -> bool {
         !self.hide_filter_bar && !self.filters.is_empty()
     }

@@ -1,4 +1,4 @@
-//! [`Table`](super::Table) HTML rendering: the entry points plus the chrome.
+//! [`WiredTable`](super::WiredTable) HTML rendering: the entry points plus the chrome.
 //!
 //! Grouping is page-local and interleaved and a page encodes its row-action
 //! URL base once.
