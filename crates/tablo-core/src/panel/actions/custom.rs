@@ -23,7 +23,7 @@ use crate::{
     db::db,
     notification::{Notification, set_notification},
     policy::Ability,
-    resource::{ActionEntry, Committed, Mounted, Resource},
+    resource::{ActionEntry, Mounted, Resource},
     topcoat_compat::async_page,
 };
 
@@ -95,13 +95,12 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
         }
         let count = rows.len();
         let written = (action.run)(cx, &rows, &mut tx).await.map(|()| rows);
-        let name = action.name;
         commit_write(
             cx,
             &resource,
             tx,
             written,
-            |rows| Committed::acted(name, rows),
+            action.acted,
             (action.success)(cx, count),
             WRITE_ACTION,
         )
