@@ -41,16 +41,20 @@ pub(super) fn hidden_state_inputs<'a>(
 /// Writes the toolbar form's fields to the table's `query` signal, which reruns the page. The
 /// form's fields spell the list state as its URL does, without the cursor: a new search or
 /// filter is a new result set. A submit stays on the page; `change` cannot be cancelled, so the
-/// same handler serves it.
+/// same handler serves it. An unchanged query, such as the search field's `change` as it loses
+/// focus, reruns nothing.
 fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventHandlerFn + use<>> {
     let query = signals.query.clone();
     let form = form.to_string();
     expr!(|e: Event| {
         e.prevent_default();
-        query.set(raw!(
+        let next = raw!(
             "cx.hydrate(new URLSearchParams(new FormData(document.getElementById(String(${form})))).toString())",
             form.clone()
-        ))
+        );
+        if next != query.get() {
+            query.set(next);
+        }
     })
 }
 
