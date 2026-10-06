@@ -36,10 +36,12 @@ async fn delete_requires_confirmation_and_deletes() {
         1,
         "one write form per table, got {html}"
     );
-    let form = &html[html.find("id=\"table-writes\"").unwrap()..];
+    let dialog = &html[..html.find("id=\"table-writes\"").unwrap()];
+    let dialog = &dialog[dialog.rfind("<dialog").unwrap()..];
+    let dialog = &dialog[..dialog.find('>').unwrap()];
     assert!(
-        form.contains("role=\"alertdialog\"") && !form.contains(" open=\"\""),
-        "an ordinary list page must render the dialog closed, got {form}"
+        dialog.contains("role=\"alertdialog\"") && !dialog.contains(" open=\"\""),
+        "an ordinary list page must render the dialog closed, got {dialog}"
     );
     for needle in [
         "Delete this record?",
