@@ -1,6 +1,7 @@
 //! App-defined field controls: the [`Control`] trait, what it renders from
 //! ([`ControlInput`]), and the built-in [`Toggle`] written against it.
 
+use tablo_ui::checkbox as ui_checkbox;
 use topcoat::{context::Cx, view::*};
 
 /// Renders a field's input from a [`ControlInput`] and its stored value for display, using a hidden
@@ -114,16 +115,16 @@ impl Control for Toggle {
         view! {
             cx =>
             <input type="hidden" name=(name.clone()) value="false">
-            <input
-                type="checkbox"
-                id=(name.clone())
-                name=(name)
-                value="true"
-                checked=(checked)
-                aria-invalid=(invalid)
-                aria-describedby=(described_by)
-                class="size-4 accent-primary"
-            >
+            ui_checkbox(
+                attrs: attributes! {
+                    id=(name.clone())
+                    name=(name)
+                    value="true"
+                    checked=(checked)
+                    aria-invalid=(invalid)
+                    aria-describedby=(described_by)
+                }
+            )
         }
         .boxed()
     }

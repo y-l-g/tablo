@@ -381,17 +381,18 @@ async fn a_toggle_submits_false_when_unchecked_and_true_when_checked() {
     let router = panel_router::<TaskResource>(db.clone());
 
     // The hidden `false` comes first, so a checked box's `true` posts after
-    // it and wins. The checkbox's attributes render in no guaranteed order
-    // (topcoat#122), so its tag is checked attribute by attribute.
+    // it and wins. The vendored checkbox wraps its input, so the assertions
+    // read the input tag, whose attributes render in no guaranteed order
+    // (topcoat#122). A checked box carries `checked=""`.
     let hidden = "<input type=\"hidden\" name=\"done\" value=\"false\">";
     let html = body_string(get(&router, &format!("/admin/tasks/{}/edit", task.id)).await).await;
-    let checkbox = tag_after(&html, hidden);
+    let checkbox = checkbox_after(&html, hidden);
     for attribute in [
         "type=\"checkbox\"",
         "id=\"done\"",
         "name=\"done\"",
         "value=\"true\"",
-        "checked",
+        "checked=\"\"",
     ] {
         assert!(
             checkbox.contains(attribute),
@@ -401,9 +402,9 @@ async fn a_toggle_submits_false_when_unchecked_and_true_when_checked() {
 
     let open = seed(&db, "Bravo", false).await;
     let html = body_string(get(&router, &format!("/admin/tasks/{}/edit", open.id)).await).await;
-    let checkbox = tag_after(&html, hidden);
+    let checkbox = checkbox_after(&html, hidden);
     assert!(
-        !checkbox.contains("checked"),
+        !checkbox.contains("checked=\"\""),
         "a false value renders unchecked: {checkbox}"
     );
 
@@ -680,4 +681,13 @@ fn tag_after<'h>(html: &'h str, marker: &str) -> &'h str {
         .unwrap_or_else(|| panic!("no {marker} in {html}"));
     let rest = &html[at + marker.len()..];
     &rest[..rest.find('>').expect("the tag closes")]
+}
+
+/// The checkbox input tag following the hidden `false` input: the vendored
+/// checkbox wraps its input, so the tag right after the hidden one is the wrapper.
+fn checkbox_after<'h>(html: &'h str, hidden: &str) -> &'h str {
+    let at = html
+        .find(hidden)
+        .unwrap_or_else(|| panic!("the hidden input renders: {html}"));
+    tag_after(&html[at + hidden.len()..], "<input")
 }
