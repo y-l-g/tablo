@@ -50,11 +50,12 @@ state, which makes that safe. A test needing isolation gets a dedicated target.
 
 ## Shared harness
 
-`crates/tablo-test` holds the protocol helpers both integration suites share:
-`TestClient`, the body readers, the form and multipart writers, the cookie
+`tablo_core::protocol` holds the protocol helpers both integration suites share:
+the body readers, the form and multipart writers, the cookie
 jar and `Set-Cookie` parsing, the session-cookie helpers the auth suites use,
 the robust `input_value`, and the semantic HTML queries `rows`,
-`row_actions`, `field_error`, and `filter_options`. Row, field-error, and
+`row_actions`, `field_error`, and `filter_options`. `TestClient` lives in
+`crates/tablo-test`, which re-exports the helpers. Row, field-error, and
 filter-value asserts go through those queries rather than substrings of
 markup. What names crate-local models stays per
 crate: the seed and database fixtures, the showcase login and session-mint

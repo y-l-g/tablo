@@ -17,8 +17,8 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, get, get_with_cookies, memory_db, mount, new_csrf, post_form, refusal,
-    response_cookies, rows,
+    body_string, cookie_header, get, get_with_cookies, memory_db, mount, new_csrf, post_form,
+    refusal, response_cookies, rows,
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -311,7 +311,7 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
         "the portal sends to its own login, got {location}"
     );
 
-    let header = tablo_test::cookie_header(jar.iter().map(|(n, v)| (n.as_str(), v.as_str())));
+    let header = cookie_header(jar.iter().map(|(n, v)| (n.as_str(), v.as_str())));
     let own = router
         .handle(shard("/admin/books", header.as_deref()))
         .await;
