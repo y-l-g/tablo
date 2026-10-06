@@ -97,3 +97,68 @@ fn guide_includes_resolve_in_tree() {
         panic!("{error}");
     }
 }
+
+/// The layers parser reads both the inline and the expanded tuple layout, and starts after the
+/// `=` so the tuple type's own parentheses do not read as a layer.
+#[test]
+fn declared_layers_reads_both_layouts_past_the_type() {
+    let src = r#"
+const LAYERS: &[(&str, &[&str])] = &[
+    (
+        "foundations",
+        &[
+            "csrf",
+            "protocol",
+        ],
+    ),
+    ("resources", &["resource"]),
+];
+"#;
+    assert_eq!(
+        declared_layers(src),
+        Some(vec![
+            (
+                "foundations".to_string(),
+                vec!["csrf".to_string(), "protocol".to_string()]
+            ),
+            ("resources".to_string(), vec!["resource".to_string()]),
+        ])
+    );
+    assert_eq!(declared_layers("const OTHER: () = ();"), None, "no LAYERS");
+}
+
+/// The table parser reads the layer rows only: the crate table above the heading and the rows of
+/// the section below it are not layer rows.
+#[test]
+fn documented_layers_reads_only_the_layer_table() {
+    let src = r#"
+## Crates
+
+| Crate | Depends on | Contents |
+| --- | --- | --- |
+| `tablo` | `tablo-core` | the facade |
+
+### Inside `tablo-core`
+
+| Layer | Modules |
+| --- | --- |
+| foundations | `csrf`, `protocol` |
+| resources | `resource` |
+
+## Requests
+
+| Layer | Modules |
+| --- | --- |
+| not-a-row | `wrong` |
+"#;
+    assert_eq!(
+        documented_layers(src),
+        Some(vec![
+            (
+                "foundations".to_string(),
+                vec!["csrf".to_string(), "protocol".to_string()]
+            ),
+            ("resources".to_string(), vec!["resource".to_string()]),
+        ])
+    );
+}
