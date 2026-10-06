@@ -38,7 +38,6 @@ async fn delete_requires_confirmation_and_deletes() {
     );
     let dialog = &html[..html.find("id=\"table-writes\"").unwrap()];
     let dialog = &dialog[dialog.rfind("<dialog").unwrap()..];
-    let dialog = &dialog[..dialog.find('>').unwrap()];
     assert!(
         dialog.contains("role=\"alertdialog\"") && !dialog.contains(" open=\"\""),
         "an ordinary list page must render the dialog closed, got {dialog}"
