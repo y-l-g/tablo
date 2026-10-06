@@ -2,7 +2,7 @@ use toasty::Db;
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::{Tenancy, lens, test_support::User};
+use crate::{Tenancy, TenantId, lens, test_support::User};
 
 struct UserResource;
 
@@ -71,7 +71,7 @@ struct Owned {
     #[key]
     #[auto]
     id: uuid::Uuid,
-    tenant_id: uuid::Uuid,
+    tenant_id: TenantId,
     name: String,
 }
 
@@ -107,7 +107,11 @@ async fn tenancy_is_anded_onto_the_base_query() {
     db.push_schema().await.unwrap();
     let mine = uuid::Uuid::new_v4();
     let theirs = uuid::Uuid::new_v4();
-    for (tenant_id, name) in [(mine, "Mine"), (mine, "Hidden"), (theirs, "Theirs")] {
+    for (tenant_id, name) in [
+        (TenantId::from(mine), "Mine"),
+        (TenantId::from(mine), "Hidden"),
+        (TenantId::from(theirs), "Theirs"),
+    ] {
         toasty::create!(Owned { tenant_id, name })
             .exec(&mut db)
             .await
@@ -128,4 +132,79 @@ async fn tenancy_is_anded_onto_the_base_query() {
 
     let tenantless = CxTestBuilder::new().build();
     assert!(scoped_query::<OwnedResource>(&tenantless).is_err());
+}
+
+/// A model whose tenant column accepts no tenant.
+#[derive(Debug, Clone, toasty::Model)]
+struct Assignable {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    tenant_id: Option<TenantId>,
+    name: String,
+}
+
+/// A resource scoped by its nullable tenant column.
+struct AssignableResource;
+
+impl Resource for AssignableResource {
+    type Model = Assignable;
+    type Form = OptionTenantForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .tenancy(Tenancy::column(Assignable::fields().tenant_id()))
+            .table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Assignable.name),
+            )))
+    }
+}
+
+#[derive(crate::RecordForm)]
+#[form(model = Assignable)]
+struct OptionTenantForm {
+    name: String,
+}
+
+/// A nullable tenant column is stamped `Some(request tenant)`, and scoped so
+/// that neither another tenant's row nor a tenantless one is served.
+#[tokio::test]
+async fn a_nullable_tenant_column_is_stamped_and_scoped() {
+    let mut db = Db::builder()
+        .models(toasty::models!(Assignable))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let mine = uuid::Uuid::new_v4();
+    let theirs = uuid::Uuid::new_v4();
+    for (tenant_id, name) in [(Some(TenantId::from(theirs)), "Theirs"), (None, "Nobody")] {
+        toasty::create!(Assignable { tenant_id, name })
+            .exec(&mut db)
+            .await
+            .unwrap();
+    }
+    let cx = CxTestBuilder::new()
+        .app_context(db)
+        .request_context(crate::Tenant(mine))
+        .build();
+    let mut db = crate::db::db(&cx);
+    let created = write_create::<AssignableResource>(
+        &cx,
+        OptionTenantForm {
+            name: "Mine".to_string(),
+        },
+        &mut db,
+    )
+    .await
+    .expect("the create runs");
+    assert_eq!(created.tenant_id, Some(TenantId::from(mine)));
+
+    let rows = scoped_query::<AssignableResource>(&cx)
+        .expect("the request has a tenant")
+        .exec(&mut db)
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1, "only the request tenant's row is served");
+    assert_eq!(rows[0].name, "Mine");
 }

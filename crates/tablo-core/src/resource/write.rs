@@ -19,8 +19,8 @@ use crate::{
 /// # Errors
 ///
 /// A tenantless request on a tenant-scoped resource (the handler answers 403 first),
-/// a misdeclared tenant column (the mount refuses it first), a resource the request's panel does
-/// not mount, or the driver's error.
+/// a `column` tenancy whose lens names no field of the model (the mount refuses it first), a
+/// resource the request's panel does not mount, or the driver's error.
 pub async fn write_create<R: Resource>(
     cx: &Cx,
     form: R::Form,

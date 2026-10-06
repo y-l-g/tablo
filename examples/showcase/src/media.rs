@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    Ability, NavigationItem, Notification, Page, Uploader, csrf, db::db,
+    Ability, NavigationItem, Notification, Page, TenantId, Uploader, csrf, db::db,
     notification::set_notification, require_tenant, schema::OptionSource,
 };
 use topcoat::{
@@ -47,7 +47,7 @@ impl OptionSource for MediaLibrary {
     fn scoped_query(cx: &Cx) -> Result<toasty::stmt::Query<toasty::stmt::List<MediaAsset>>> {
         let tenant = require_tenant(cx)?;
         Ok(toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all()
-            .filter(MediaAsset::fields().tenant_id().eq(tenant)))
+            .filter(MediaAsset::fields().tenant_id().eq(TenantId::from(tenant))))
     }
 
     fn allows(_cx: &Cx, ability: Ability<'_, MediaAsset>) -> bool {
@@ -123,7 +123,7 @@ impl Page for MediaLibraryPage {
         // Refuses tenantless requests.
         let tenant = require_tenant(cx)?;
         let mut db = db(cx);
-        let media = MediaAsset::filter(MediaAsset::fields().tenant_id().eq(tenant))
+        let media = MediaAsset::filter(MediaAsset::fields().tenant_id().eq(TenantId::from(tenant)))
             .order_by(MediaAsset::fields().created_at().desc())
             .exec(&mut db)
             .await?;
@@ -277,7 +277,7 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
         .await
         .map_err(bad_request)?;
     toasty::create!(MediaAsset {
-        tenant_id: tenant,
+        tenant_id: TenantId::from(tenant),
         path: path,
         filename: filename,
         kind: kind_of(&part.content_type).to_string(),

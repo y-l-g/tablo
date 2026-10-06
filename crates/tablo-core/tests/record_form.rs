@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use http::StatusCode;
 use tablo_core::{
     Ability, DeclarationErrorKind, Field, FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm,
-    Repeater, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TextColumn, lens,
+    Repeater, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId, TextColumn, lens,
     write_create,
 };
 use toasty::Db;
@@ -393,7 +393,7 @@ struct Owned {
     #[auto]
     id: Uuid,
     #[index]
-    tenant_id: Uuid,
+    tenant_id: TenantId,
     title: String,
 }
 
@@ -439,7 +439,11 @@ async fn the_derived_create_stamps_the_request_tenant() {
     )
     .await
     .expect("the create runs");
-    assert_eq!(created.tenant_id, tenant, "the request tenant is stamped");
+    assert_eq!(
+        created.tenant_id.get(),
+        tenant,
+        "the request tenant is stamped"
+    );
 }
 
 /// What a panel over `R` refuses to mount with.
@@ -675,7 +679,7 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
     #[derive(tablo_core::RecordForm)]
     #[form(model = Owned)]
     struct ClaimingForm {
-        tenant_id: Uuid,
+        tenant_id: TenantId,
         title: String,
     }
 

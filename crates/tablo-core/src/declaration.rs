@@ -396,8 +396,8 @@ impl fmt::Display for DeclarationErrorKind {
                  relation hops"
             ),
             Self::TenancyColumnNotAField => f.write_str(
-                "the `Tenancy::column` lens names no field of the model: name a UUID field, or \
-                 use `Tenancy::via` for a tenant reached through a relation",
+                "the `Tenancy::column` lens names no field of the model: name a field typed \
+                 `TenantId`, or use `Tenancy::via` for a tenant reached through a relation",
             ),
             Self::TenancyViaOwnColumn => f.write_str(
                 "the `Tenancy::via` lens names one field of the model: use `Tenancy::column` for \

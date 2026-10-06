@@ -12,6 +12,7 @@ use showcase::{
     media::{KIND_FILE, KIND_IMAGE, MEDIA_PATH},
     models::{DEMO_TENANT, MediaAsset},
 };
+use tablo_core::TenantId;
 use topcoat::router::{Body, Router};
 
 use crate::common::{
@@ -122,7 +123,7 @@ async fn an_upload_creates_a_row() {
     let rows = MediaAsset::all().exec(&mut db_q).await.unwrap();
     assert_eq!(rows.len(), 1, "one row for the upload");
     let row = &rows[0];
-    assert_eq!(row.tenant_id, DEMO_TENANT);
+    assert_eq!(row.tenant_id.get(), DEMO_TENANT);
     assert_eq!(row.filename, "cover.png");
     assert_eq!(row.kind, KIND_IMAGE);
     assert!(
@@ -386,7 +387,7 @@ async fn a_picked_cover_renders_on_the_blog_post_page() {
         .expect("a seeded author");
     let post = toasty::create!(Post {
         id: uuid::Uuid::new_v4(),
-        tenant_id: DEMO_TENANT,
+        tenant_id: TenantId::from(DEMO_TENANT),
         title: "Cover Post",
         body: "Body with a cover.",
         status: "published".to_string(),

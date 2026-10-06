@@ -3,7 +3,7 @@ use topcoat::router::Body;
 
 use super::{super::Panel, *};
 use crate::{
-    Ability, ReadOnly, ResourceDef, Tenancy, lens,
+    Ability, ReadOnly, ResourceDef, Tenancy, TenantId, lens,
     panel::test_support::{Dummy, current_panel, mount, panel_for, panel_state},
 };
 
@@ -614,7 +614,7 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
         #[auto]
         id: uuid::Uuid,
         #[index]
-        tenant_id: uuid::Uuid,
+        tenant_id: TenantId,
         name: String,
     }
 
@@ -677,7 +677,7 @@ async fn live_shard_enforces_tenant_and_policy_gates() {
     db.push_schema().await.unwrap();
     for (tenant, name) in [(tenant_a, "Alpha"), (tenant_b, "Bravo")] {
         toasty::create!(TenantDummy {
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             name: name.to_string(),
         })
         .exec(&mut db)

@@ -1,4 +1,5 @@
 use showcase::models::{Comment, Post};
+use tablo_core::TenantId;
 
 use crate::common::{
     body_string, demo_client, form_body, full_db, input_value, response_cookies,
@@ -222,7 +223,7 @@ async fn comments_refuse_another_tenants_post() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
-    let foreign = Post::filter(Post::fields().tenant_id().eq(t2))
+    let foreign = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t2)))
         .first()
         .exec(&mut db_q)
         .await

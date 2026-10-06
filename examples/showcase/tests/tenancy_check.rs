@@ -1,5 +1,6 @@
 use http::header::COOKIE;
 use showcase::models::{Author, Comment, DEMO_TENANT, Post, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL};
+use tablo_core::TenantId;
 use topcoat::router::Body;
 
 use crate::common::{
@@ -78,7 +79,7 @@ async fn edit_with_wrong_tenant_yields_404_via_resource_query() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db2 = db.clone();
-    let t1_post = Post::filter(Post::fields().tenant_id().eq(t1))
+    let t1_post = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
         .first()
         .exec(&mut db2)
         .await
@@ -182,7 +183,7 @@ async fn tenantless_requests_to_gated_resources_fail_closed() {
     let nil_rows = showcase::models::Post::filter(
         showcase::models::Post::fields()
             .tenant_id()
-            .eq(uuid::Uuid::nil()),
+            .eq(TenantId::from(uuid::Uuid::nil())),
     )
     .exec(&mut db_q)
     .await
@@ -249,7 +250,7 @@ async fn create_assigns_the_logged_in_tenant() {
     .await
     .unwrap()
     .expect("created post");
-    assert_eq!(created.tenant_id, tenant);
+    assert_eq!(created.tenant_id.get(), tenant);
 }
 
 #[tokio::test]
@@ -282,13 +283,13 @@ async fn bulk_delete_wrong_tenant_404s_and_deletes_nothing() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
-    let t1_post = Post::filter(Post::fields().tenant_id().eq(t1))
+    let t1_post = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
         .first()
         .exec(&mut db_q)
         .await
         .unwrap()
         .expect("t1 post");
-    let before = Post::filter(Post::fields().tenant_id().eq(t1))
+    let before = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
         .exec(&mut db_q)
         .await
         .unwrap()
@@ -309,7 +310,7 @@ async fn bulk_delete_wrong_tenant_404s_and_deletes_nothing() {
         resp.status()
     );
     assert_eq!(
-        Post::filter(Post::fields().tenant_id().eq(t1))
+        Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
             .exec(&mut db_q)
             .await
             .unwrap()
@@ -487,7 +488,7 @@ async fn two_tenants_may_share_an_author_email() {
     let taken = Author::all().exec(&mut db_q).await.unwrap();
     let existing = taken
         .iter()
-        .find(|a| a.tenant_id == t1)
+        .find(|a| a.tenant_id.get() == t1)
         .expect("t1 seeds an author");
     let email = existing.email.clone();
 
@@ -526,7 +527,7 @@ async fn duplicate_email_within_one_tenant_is_reported_inline() {
     let taken = Author::all().exec(&mut db_q).await.unwrap();
     let existing = taken
         .iter()
-        .find(|a| a.tenant_id == t1)
+        .find(|a| a.tenant_id.get() == t1)
         .expect("t1 seeds an author");
     let email = existing.email.clone();
     let before = Author::all().exec(&mut db_q).await.unwrap().len();

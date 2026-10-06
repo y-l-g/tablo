@@ -1,4 +1,5 @@
 use showcase::models::{Author, Post, User};
+use tablo_core::TenantId;
 
 use crate::common::{
     body_string, demo_client, full_db, routers::router_for_tests as router, tenanted_db,
@@ -187,7 +188,7 @@ async fn post_detail_is_scoped_like_every_other_route() {
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let post = Post::all()
-        .filter(Post::fields().tenant_id().eq(t1))
+        .filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
         .first()
         .exec(&mut db_q)
         .await

@@ -27,6 +27,11 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     }
 
     /// Declares whether the source's rows are tenant-owned and fails a tenantless request closed.
+    ///
+    /// A [`Resource`](crate::Resource) answers from its def's
+    /// [`tenancy`](crate::ResourceDef::tenancy). An implementor that is not one declares no def and
+    /// no tenant lens the framework could read, so it states the boolean and scopes
+    /// [`scoped_query`](Self::scoped_query) itself.
     fn requires_tenant(_cx: &Cx) -> bool {
         false
     }

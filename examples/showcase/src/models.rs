@@ -1,4 +1,5 @@
 use jiff::Timestamp;
+use tablo_core::TenantId;
 use toasty::Deferred;
 
 pub use crate::{
@@ -47,7 +48,7 @@ pub struct Author {
     #[auto]
     pub id: uuid::Uuid,
     #[index]
-    pub tenant_id: uuid::Uuid,
+    pub tenant_id: TenantId,
     pub name: String,
     pub email: String,
     #[has_many]
@@ -94,7 +95,7 @@ pub struct Post {
     #[auto]
     pub id: uuid::Uuid,
     #[index]
-    pub tenant_id: uuid::Uuid,
+    pub tenant_id: TenantId,
     #[index]
     pub title: String,
     pub body: String,
@@ -135,7 +136,7 @@ pub struct MediaAsset {
     #[auto]
     pub id: uuid::Uuid,
     #[index]
-    pub tenant_id: uuid::Uuid,
+    pub tenant_id: TenantId,
     pub path: String,
     pub filename: String,
     pub kind: String,

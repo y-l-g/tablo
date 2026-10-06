@@ -8,6 +8,7 @@
 //! blog being public rather than the gate being off.
 
 use showcase::models::{Author, DEMO_TENANT, Post, Publication, Seo};
+use tablo_core::TenantId;
 
 use crate::common::{
     TestClient, body_string, demo_client, empty_schema_db, full_db,
@@ -54,7 +55,7 @@ async fn create_published(
     let mut db = db.clone();
     toasty::create!(Post {
         id: uuid::Uuid::from_u128(0x9000 + index),
-        tenant_id: DEMO_TENANT,
+        tenant_id: TenantId::from(DEMO_TENANT),
         title: title.to_string(),
         body: format!("Body of {title}."),
         status: "published".to_string(),

@@ -2,7 +2,8 @@
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo_core::{
-    Ability, Auth, Membership, PanelUser, Resource, ResourceDef, Table, Tenancy, TextColumn,
+    Ability, Auth, Membership, PanelUser, Resource, ResourceDef, Table, Tenancy, TenantId,
+    TextColumn,
     auth::{self, Authenticator, verify_password},
     lens, when,
 };
@@ -146,7 +147,7 @@ struct Note {
     #[key]
     #[auto]
     id: Uuid,
-    tenant_id: Uuid,
+    tenant_id: TenantId,
     body: String,
 }
 
@@ -213,7 +214,7 @@ async fn seeded_db() -> Db {
         (INITECH, "initech note"),
     ] {
         toasty::create!(Note {
-            tenant_id: tenant,
+            tenant_id: TenantId::from(tenant),
             body: body.to_string(),
         })
         .exec(&mut db)

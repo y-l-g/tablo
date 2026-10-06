@@ -2,7 +2,7 @@ use toasty::Db;
 
 use super::*;
 use crate::{
-    Ability, ResourceDef, Tenancy, lens,
+    Ability, ResourceDef, Tenancy, TenantId, lens,
     panel::test_support::{
         Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state, refusal,
     },
@@ -230,7 +230,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
         #[key]
         #[auto]
         id: uuid::Uuid,
-        tenant_id: uuid::Uuid,
+        tenant_id: TenantId,
         email: String,
     }
     struct AuthorResource;
@@ -297,7 +297,7 @@ struct Parent {
     #[key]
     #[auto]
     id: uuid::Uuid,
-    tenant_id: uuid::Uuid,
+    tenant_id: TenantId,
     name: String,
     #[has_many]
     children: toasty::Deferred<Vec<Child>>,
@@ -384,14 +384,14 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
 
     struct ViaOwnColumn;
     impl Resource for ViaOwnColumn {
-        type Model = Child;
+        type Model = Parent;
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .slug("children")
-                .tenancy(Tenancy::via(Child::fields().parent_id()))
-                .table(Table::new(TextColumn::new(lens!(Child.name))))
+                .slug("parents")
+                .tenancy(Tenancy::via(Parent::fields().tenant_id()))
+                .table(Table::new(TextColumn::new(lens!(Parent.name))))
         }
     }
 

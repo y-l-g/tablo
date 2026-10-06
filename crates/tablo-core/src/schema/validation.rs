@@ -64,6 +64,10 @@ impl TypedValue for uuid::Uuid {
     const NOUN: &'static str = "identifier";
 }
 
+impl TypedValue for crate::TenantId {
+    const NOUN: &'static str = "identifier";
+}
+
 /// Binds a timestamp to a `datetime-local` control read back as UTC.
 impl TypedValue for jiff::Timestamp {
     const NOUN: &'static str = "timestamp";

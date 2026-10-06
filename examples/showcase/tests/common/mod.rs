@@ -5,7 +5,7 @@
 pub mod routers;
 
 use showcase::models::{DEMO_ADMIN_EMAIL, seed, seed_content, seed_staff};
-use tablo_core::{Panel, RouterBuilderPanelExt};
+use tablo_core::{Panel, RouterBuilderPanelExt, TenantId};
 use tablo_test::rows;
 pub use tablo_test::{
     SESSION_COOKIE, TestClient, body_string, filter_options, form_body, input_value,
@@ -73,7 +73,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     let mut db = empty_schema_db().await;
     seed_staff(&mut db).await.expect("seed staff");
     let a1 = toasty::create!(showcase::models::Author {
-        tenant_id: t1,
+        tenant_id: TenantId::from(t1),
         name: "Alice T1",
         email: "alice.t1@example.com",
     })
@@ -81,7 +81,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     .await
     .expect("create author t1");
     let a2 = toasty::create!(showcase::models::Author {
-        tenant_id: t2,
+        tenant_id: TenantId::from(t2),
         name: "Bob T2",
         email: "bob.t2@example.com",
     })
@@ -89,7 +89,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     .await
     .expect("create author t2");
     let p1 = toasty::create!(showcase::models::Post {
-        tenant_id: t1,
+        tenant_id: TenantId::from(t1),
         title: "T1 Post",
         body: "body",
         status: "published".to_string(),
@@ -111,7 +111,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     .await
     .expect("create post t1");
     let p2 = toasty::create!(showcase::models::Post {
-        tenant_id: t2,
+        tenant_id: TenantId::from(t2),
         title: "T2 Post",
         body: "body",
         status: "draft".to_string(),
