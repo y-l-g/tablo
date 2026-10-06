@@ -125,9 +125,9 @@ function swapTargets(doc, name) {
   };
 }
 
-// The control that opened a row-delete form's dialog: it carries this record's
-// POST target, which dialog.js copies onto the form, so the target is what
-// names the control back.
+// The control that opened a row confirm form's dialog, delete or
+// confirmatory action: it carries this record's POST target, which dialog.js
+// copies onto the form, so the target is what names the control back.
 function triggerFor(action) {
   if (!action) return null;
   return (
@@ -193,12 +193,14 @@ function install() {
 }
 
 async function send(form, action, submitter) {
-  // The confirm dialog the submit came from: the row-delete form lives inside
-  // its dialog, while the bulk form carries its dialog as a child. Closing it
-  // here is what returns focus to the page — a modal dialog left for the
-  // response's markup to close (by dropping `open`) strands the document
-  // inert, so nothing can be focused at all.
-  const dialog = form.closest('dialog') || form.querySelector('dialog');
+  // The confirm dialog the submit came from: the row form lives inside its
+  // dialog, while the bulk form carries its dialogs as children and holds one
+  // per confirmation — the delete's, then the confirmatory actions' — so the
+  // open one is the one being submitted. Closing it here is what returns focus
+  // to the page — a modal dialog left for the response's markup to close (by
+  // dropping `open`) strands the document inert, so nothing can be focused at
+  // all.
+  const dialog = form.closest('dialog') || form.querySelector('dialog[open]');
   // The table this form belongs to (bulk.js scopes itself per table the same
   // way), its region, and the row the delete came from.
   const root = tableRootFor(form, action);
@@ -342,7 +344,7 @@ function showResponse(html) {
   document.close();
 }
 
-// Focus where the deleted row stood: the row that took its place, else the
+// Focus where the mutated row stood: the row that took its place, else the
 // last row, else the bulk bar's first control — its delete trigger, or its first
 // custom action when the bar has no delete. The table is the reader's context, and the
 // control that opened the dialog is usually the element that just left. The
@@ -355,13 +357,16 @@ function focusAfter(region, index) {
   const control =
     (target &&
       // The row's own Delete first (the control this flow is driven from),
-      // then anything else a reader can land on. A disabled control — a row
-      // the policy refuses — cannot take focus, so it does not count.
+      // then its confirmatory trigger, then anything else a reader can land
+      // on. A disabled control — a row the policy refuses — cannot take focus,
+      // so it does not count.
       (target.querySelector('a[data-row-delete-action]') ||
+        target.querySelector('button[data-row-delete-action]') ||
         target.querySelector(
           'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled])',
         ))) ||
     region.querySelector('[data-bulk-confirm-trigger]') ||
+    region.querySelector('[data-bulk-action-confirm-trigger]') ||
     region.querySelector('[data-bulk-action]');
   if (control) control.focus();
 }

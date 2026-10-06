@@ -37,7 +37,7 @@ impl<M> Table<M> {
                 data-mutation-submit=""
             >
                 (crate::csrf::field(cx, &csrf))
-                (confirm_controls(cx))
+                (confirm_controls(cx, "Delete"))
             </form>
         }
         .boxed();
@@ -57,6 +57,46 @@ impl<M> Table<M> {
     /// Derive a table's row-delete dialog DOM id from its delete prefix.
     pub(super) fn delete_dialog_dom_id(prefix: &str) -> String {
         chrome_dom_id(prefix, "delete-dialog")
+    }
+
+    /// Render the shared confirmatory-action dialog for a table whose rows
+    /// wire one, borrowing the row-delete dialog mechanism: the trigger names
+    /// this dialog and carries its POST target.
+    pub(crate) fn render_action_confirm_dialog<'a>(&self, cx: &'a Cx) -> Option<BoxView<'a>> {
+        let prefix = self.actions_prefix.as_deref()?;
+        if !self.row_custom_actions().any(|action| action.confirm) {
+            return None;
+        }
+        let csrf = crate::csrf::current_token(cx);
+        let footer = view! {
+            cx =>
+            <form
+                method="post"
+                class="contents"
+                data-row-delete-form=""
+                data-mutation-submit=""
+            >
+                (crate::csrf::field(cx, &csrf))
+                (confirm_controls(cx, "Confirm"))
+            </form>
+        }
+        .boxed();
+        Some(confirm_dialog(
+            cx,
+            ConfirmDialog {
+                id: Self::action_confirm_dialog_dom_id(prefix),
+                open: false,
+                title: "Run this action?",
+                attrs: Attributes::default(),
+                description_attrs: Attributes::default(),
+                footer,
+            },
+        ))
+    }
+
+    /// Derive a table's confirmatory-action dialog DOM id from its actions prefix.
+    pub(super) fn action_confirm_dialog_dom_id(prefix: &str) -> String {
+        chrome_dom_id(prefix, "action-confirm")
     }
 }
 
@@ -121,8 +161,8 @@ pub(super) fn confirm_dialog<'a>(cx: &'a Cx, dialog: ConfirmDialog<'a>) -> BoxVi
     .boxed()
 }
 
-/// Submit Cancel, the `confirm=1` marker, and the destructive submit for every delete confirmation.
-pub(super) fn confirm_controls<'a>(cx: &'a Cx) -> BoxView<'a> {
+/// Submit Cancel, the `confirm=1` marker, and the labeled submit for a confirmation dialog.
+pub(super) fn confirm_controls<'a>(cx: &'a Cx, submit: &'static str) -> BoxView<'a> {
     view! {
         cx =>
         button(
@@ -136,7 +176,7 @@ pub(super) fn confirm_controls<'a>(cx: &'a Cx) -> BoxView<'a> {
             variant: ButtonVariant::Destructive,
             size: ButtonSize::Md,
             attrs: attributes! { type="submit" },
-            "Delete"
+            (submit)
         )
     }
     .boxed()

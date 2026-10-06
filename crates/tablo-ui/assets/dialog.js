@@ -2,7 +2,8 @@
 //
 // Opening: a table renders one row-delete dialog, closed, and every row Delete
 // control names it (`data-row-delete-trigger`) and carries the record's POST
-// target (`data-row-delete-action`). The control keeps its `?delete=<key>`
+// target (`data-row-delete-action`). Confirmatory custom actions borrow the
+// same mechanism for their own dialog. The control keeps its `?delete=<key>`
 // href, so this upgrades that navigation into an in-place open and a page
 // without the script keeps the server-open fallback.
 //

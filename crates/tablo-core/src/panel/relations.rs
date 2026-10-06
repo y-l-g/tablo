@@ -220,6 +220,7 @@ where
     let table = table.hide_search().hide_filter_bar().unframed();
     let skeleton = table.render_skeleton(cx, &state).await?;
     let delete_dialog = table.render_delete_dialog(cx, &state).await?;
+    let action_dialog = table.render_action_confirm_dialog(cx);
     let header = relation_header(cx, &resource, label, create_url);
     let invocation_key = key.clone();
     let lazy_rows = ThenView::new(async move {
@@ -250,6 +251,9 @@ where
                 suspense(fallback: skeleton, (lazy_rows.boxed()))
             </div>
             if let Some(dialog) = delete_dialog {
+                (dialog)
+            }
+            if let Some(dialog) = action_dialog {
                 (dialog)
             }
         </section>

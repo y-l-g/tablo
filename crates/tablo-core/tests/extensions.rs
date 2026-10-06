@@ -674,6 +674,128 @@ async fn two_actions_sharing_a_name_fail_the_build() {
     );
 }
 
+/// A destructive action behind the confirmation marker.
+struct Archive;
+
+impl Action<ConfirmResource> for Archive {
+    const NAME: &'static str = "archive";
+    const CONFIRM: bool = true;
+
+    fn label(_cx: &Cx) -> String {
+        "Archive".to_string()
+    }
+
+    async fn run(_cx: &Cx, tasks: &[Task], ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+        for task in tasks {
+            Task::filter(Task::fields().id().eq(task.id))
+                .update()
+                .done(true)
+                .exec(&mut *ex)
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+struct ConfirmResource;
+
+impl Resource for ConfirmResource {
+    type Model = Task;
+    type Form = tablo_core::NoForm<Task>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("confirmed")
+            .policy(|_cx: &Cx, ability: Ability<'_, Task>| {
+                matches!(ability, Ability::ViewAny | Ability::View(_))
+            })
+            .table(Table::new(TextColumn::new(lens!(Task.title))))
+            .action::<Archive>()
+    }
+}
+
+#[tokio::test]
+async fn a_confirmatory_row_action_refuses_an_unmarked_post() {
+    let db = db().await;
+    let task = seed(&db, "Alpha", false).await;
+    let router = panel_router::<ConfirmResource>(db.clone());
+    let url = format!("/admin/confirmed/{}/-/actions/archive", task.id);
+
+    let response = post_fields(&router, &url, &[]).await;
+    assert_eq!(response.status(), 400);
+    assert!(!self::task(&db, task.id).await.done);
+
+    let response = post_fields(&router, &url, &[("confirm", "1")]).await;
+    assert_eq!(response.status(), 303);
+    assert!(self::task(&db, task.id).await.done);
+}
+
+#[tokio::test]
+async fn a_confirmatory_bulk_action_refuses_an_unmarked_post() {
+    let db = db().await;
+    let first = seed(&db, "Alpha", false).await;
+    let second = seed(&db, "Bravo", false).await;
+    let router = panel_router::<ConfirmResource>(db.clone());
+    let ids = format!("{},{}", first.id, second.id);
+
+    let response = post_fields(
+        &router,
+        "/admin/confirmed/-/actions/archive",
+        &[("ids", &ids)],
+    )
+    .await;
+    assert_eq!(response.status(), 400);
+    assert!(!self::task(&db, first.id).await.done);
+    assert!(!self::task(&db, second.id).await.done);
+
+    let response = post_fields(
+        &router,
+        "/admin/confirmed/-/actions/archive",
+        &[("ids", &ids), ("confirm", "1")],
+    )
+    .await;
+    assert_eq!(response.status(), 303);
+    assert!(self::task(&db, first.id).await.done);
+    assert!(self::task(&db, second.id).await.done);
+}
+
+#[tokio::test]
+async fn a_confirmatory_action_renders_triggers_and_dialogs() {
+    let db = db().await;
+    let task = seed(&db, "Alpha", false).await;
+    let router = panel_router::<ConfirmResource>(db.clone());
+
+    let html = body_string(get(&router, "/admin/confirmed").await).await;
+    assert!(
+        html.contains("data-row-delete-trigger")
+            && html.contains(&format!(
+                "data-row-delete-action=\"/admin/confirmed/{}/-/actions/archive\"",
+                task.id
+            )),
+        "the row button opens the shared dialog with its POST target: {html}"
+    );
+    assert!(
+        html.contains("id=\"-admin-confirmed-action-confirm\""),
+        "the shared row dialog renders: {html}"
+    );
+    assert!(
+        html.contains("data-bulk-action-confirm-trigger")
+            && html
+                .contains("data-bulk-action-confirm-action=\"/admin/confirmed/-/actions/archive\"")
+            && html.contains("data-bulk-action-confirm-dialog"),
+        "the bulk bar carries its own confirmation: {html}"
+    );
+
+    let plain =
+        body_string(get(&panel_router::<TaskResource>(db.clone()), "/admin/tasks").await).await;
+    assert!(
+        plain.contains("/-/actions/complete\"")
+            && !plain.contains("data-row-delete-action=\"/admin/tasks/")
+            && !plain.contains("data-bulk-action-confirm-trigger"),
+        "an immediate action submits directly: {plain}"
+    );
+}
+
 /// The opening tag right after `marker` in `html`, without its `>`.
 fn tag_after<'h>(html: &'h str, marker: &str) -> &'h str {
     let at = html

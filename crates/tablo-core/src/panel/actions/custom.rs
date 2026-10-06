@@ -12,7 +12,7 @@ use topcoat::{
 
 use super::{
     super::{
-        forms::parse_form_body,
+        forms::{parse_form_body, truthy},
         gate::{gate, landing_url},
         write::commit_write,
     },
@@ -66,6 +66,9 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
         };
         let values = parse_form_body(cx, body).await?.values;
         crate::csrf::verify(cx, &values)?;
+        if action.confirm && !values.get("confirm").is_some_and(|v| truthy(v)) {
+            return Err(bad_request("action requires confirmation").into());
+        }
         let ids = match target {
             Target::Row => {
                 vec![topcoat::router::path_param_segment(cx, "id").to_string()]

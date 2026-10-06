@@ -100,6 +100,7 @@ pub(crate) struct TableAction<M> {
     pub(crate) label: String,
     pub(crate) row: bool,
     pub(crate) bulk: bool,
+    pub(crate) confirm: bool,
     pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
 }
 
@@ -110,6 +111,7 @@ impl<M> Clone for TableAction<M> {
             label: self.label.clone(),
             row: self.row,
             bulk: self.bulk,
+            confirm: self.confirm,
             allowed: Arc::clone(&self.allowed),
         }
     }

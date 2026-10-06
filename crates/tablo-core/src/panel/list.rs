@@ -117,6 +117,7 @@ fn wire_custom_actions<R: Resource>(
                 label: (action.label)(cx),
                 row: action.row,
                 bulk: action.bulk,
+                confirm: action.confirm,
                 allowed: Arc::new(move |record: &R::Model| {
                     policy.can(&policy_cx, Ability::View(record)) && can_run(&policy_cx, record)
                 }),
@@ -291,6 +292,7 @@ pub(crate) fn resource_list_live<R: Resource>(
         let table = table.hide_search().hide_filter_bar().unframed();
         let skeleton = table.render_skeleton(cx, &state).await?;
         let delete_dialog = table.render_delete_dialog(cx, &state).await?;
+        let action_dialog = table.render_action_confirm_dialog(cx);
         let header = list_header(cx, &resource);
         let lazy_rows = ThenView::new(async move {
             Ok::<_, topcoat::Error>(list_search_invocation(cx, &list_path, signals))
@@ -311,6 +313,9 @@ pub(crate) fn resource_list_live<R: Resource>(
                         suspense(fallback: skeleton, (lazy_rows.boxed()))
                     </div>
                     if let Some(dialog) = delete_dialog {
+                        (dialog)
+                    }
+                    if let Some(dialog) = action_dialog {
                         (dialog)
                     }
                 )

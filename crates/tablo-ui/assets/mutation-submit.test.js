@@ -482,3 +482,39 @@ test('the confirm dialog is held while the mutation is in flight', async () => {
     },
   );
 });
+
+test('a bulk submit holds the dialog it opened, not the delete one', async () => {
+  // The bulk form carries one dialog per confirmation, the delete's first, so
+  // the open child is the dialog the submitted control belongs to.
+  await withServerAnswer(
+    {
+      redirected: false,
+      ok: false,
+      status: 500,
+      text: async () => '<!doctype html><p>the write failed</p>',
+    },
+    async ({ document }) => {
+      // The bulk form's dialogs in markup order: the delete's, then the
+      // confirmatory action's, which is the open one.
+      const deleteDialog = { dataset: {} };
+      const actionDialog = { dataset: {}, open: true };
+      const dialogs = { 'dialog[open]': actionDialog, dialog: deleteDialog };
+      const form = recordableForm();
+      form.querySelector = (selector) => dialogs[selector] ?? null;
+      const event = submitEvent(form);
+      document.listeners('submit').forEach((handler) => handler(event));
+      assert.equal(
+        actionDialog.dataset.dialogBusy,
+        'true',
+        'the dialog the action was confirmed in belongs to the write',
+      );
+      assert.equal(
+        deleteDialog.dataset.dialogBusy,
+        undefined,
+        'the closed delete dialog is left alone',
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(actionDialog.dataset.dialogBusy, undefined, 'the response hands it back');
+    },
+  );
+});
