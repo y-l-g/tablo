@@ -21,9 +21,9 @@ mysql = ["toasty/mysql"]
 testing = ["dep:tablo-test"]
 
 [dependencies]
-tablo-core = { path = "../tablo-core", version = "0.1.0" }
-tablo-test = { path = "../tablo-test", version = "0.1.0", optional = true }
-tablo-ui = { path = "../tablo-ui", version = "0.1.0" }
+tablo-core = { path = "../tablo-core", version = "0.2.0" }
+tablo-test = { path = "../tablo-test", version = "0.2.0", optional = true }
+tablo-ui = { path = "../tablo-ui", version = "0.2.0" }
 toasty.workspace = true
 uuid.workspace = true
 
