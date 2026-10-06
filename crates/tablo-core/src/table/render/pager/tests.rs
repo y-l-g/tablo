@@ -2,7 +2,7 @@ use topcoat::context::CxTestBuilder;
 
 use super::{super::core::tests::User, *};
 use crate::{
-    TablePage, TableState, lens,
+    Table, TablePage, TableState, lens,
     table::{Sort, TextColumn},
 };
 

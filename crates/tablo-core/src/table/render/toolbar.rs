@@ -4,7 +4,7 @@ use tablo_ui::{ButtonSize, ButtonVariant, button, input as ui_input};
 use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
-    super::Table,
+    super::WiredTable,
     BAR_CLASS, QUIET_LINK_CLASS, SEARCH_FIELD_CLASS, SEARCH_FORM_CLASS, SEARCH_ICON_CLASS,
     dialog::{ConfirmDialog, chrome_dom_id, confirm_controls, confirm_dialog},
 };
@@ -36,7 +36,7 @@ pub(super) fn hidden_state_inputs<'a>(
     .boxed()
 }
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Render the bulk bar, or a placeholder keeping node order stable when bulk actions are off.
     pub(super) fn render_bulk_bar<'a>(
         &self,
@@ -47,12 +47,12 @@ impl<M> Table<M> {
             return view! { cx => <span></span> }.boxed();
         }
         let delete_prefix = self
-            .delete_prefix
-            .clone()
+            .delete_prefix()
+            .map(str::to_string)
             .filter(|_| self.bulk_delete_enabled());
         let prefix = delete_prefix
             .clone()
-            .or_else(|| self.actions_prefix.clone())
+            .or_else(|| self.actions_prefix().map(str::to_string))
             .expect("bulk chrome rides the delete or the actions prefix (see bulk_enabled)");
         let custom: Vec<(String, String, bool)> = self
             .bulk_custom_actions()

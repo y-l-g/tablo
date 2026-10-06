@@ -1,10 +1,12 @@
 //! Static and live entry points and the table chrome they share.
 
+use std::sync::Arc;
+
 use tablo_ui::{table, table_body};
 use topcoat::{Result, context::Cx, runtime::Event, view::*};
 
 use super::{
-    super::Table,
+    super::{Table, WiredTable},
     BAR_CLASS, TABLE_BARE_CLASS, TABLE_CARD_CLASS,
     rows::{RowChrome, render_rows},
     widths::ColumnWidths,
@@ -15,6 +17,41 @@ use crate::table::{
 };
 
 impl<M> Table<M> {
+    /// Render the table for the given loaded page, with no row action, bulk bar, or custom
+    /// action wired on: a page renders the panel's wiring through
+    /// [`wired_table`](crate::panel::wired_table).
+    ///
+    /// # Errors
+    ///
+    /// A misdeclared table ([`Table::declaration_errors`]) fails with its
+    /// errors rather than render.
+    pub async fn render<'a>(&self, cx: &'a Cx, page: TablePage<M>) -> Result<BoxView<'a>>
+    where
+        M: toasty::schema::Model + Send + Sync + 'static,
+    {
+        WiredTable::new(Arc::new(self.clone()))
+            .render(cx, page)
+            .await
+    }
+
+    /// Render with explicit list state and path, with nothing wired on, as [`Self::render`].
+    pub async fn render_with_state<'a>(
+        &self,
+        cx: &'a Cx,
+        page: TablePage<M>,
+        state: &TableState,
+        path: &str,
+    ) -> Result<BoxView<'a>>
+    where
+        M: toasty::schema::Model + Send + Sync + 'static,
+    {
+        WiredTable::new(Arc::new(self.clone()))
+            .render_with_state(cx, page, state, path)
+            .await
+    }
+}
+
+impl<M> WiredTable<M> {
     /// Render the table for the given loaded page.
     ///
     /// # Errors
@@ -79,7 +116,7 @@ impl<M> Table<M> {
         if !errors.is_empty() {
             return Err(crate::error::misdeclared(&errors));
         }
-        let delete_prefix = self.delete_prefix.clone();
+        let delete_prefix = self.delete_prefix().map(str::to_string);
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
         let head = self
@@ -153,8 +190,7 @@ impl<M> Table<M> {
                     .map(Self::delete_dialog_dom_id)
                     .unwrap_or_default(),
                 action_dialog_id: self
-                    .actions_prefix
-                    .as_deref()
+                    .actions_prefix()
                     .map(Self::action_confirm_dialog_dom_id)
                     .unwrap_or_default(),
             };
@@ -223,8 +259,8 @@ impl<M> Table<M> {
         Ok(table_frame(
             cx,
             false,
-            self.framed,
-            self.delete_prefix.as_deref(),
+            self.framed(),
+            self.delete_prefix(),
             content.boxed(),
         ))
     }

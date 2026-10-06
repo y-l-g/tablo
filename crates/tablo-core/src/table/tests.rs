@@ -97,7 +97,6 @@ async fn wired_table_carries_the_declared_action_chrome() {
         .request_context(parts)
         .build();
     let declared = crate::resource::require_mounted::<ChromeResource>(&cx).unwrap();
-    assert!(!declared.table.bulk_enabled());
     let wired = crate::panel::wired_table::<ChromeResource>(&cx).unwrap();
     assert!(
         wired.bulk_enabled(),

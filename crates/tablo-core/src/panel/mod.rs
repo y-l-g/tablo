@@ -36,16 +36,16 @@ use crate::{
     resource::{Resource, ResourceDef},
 };
 
-/// Returns the panel's list table for `R` for a page that owns its table; pair it with
-/// [`TablePage::load`](crate::table::TablePage::load) and
-/// [`Table::render_with_state`](crate::table::Table::render_with_state).
+/// Returns the panel's list table for `R`, with the request's row actions wired on, for a page
+/// that owns its table; pair it with [`TablePage::load`](crate::table::TablePage::load) and
+/// [`WiredTable::render_with_state`](crate::table::WiredTable::render_with_state).
 ///
 /// # Errors
 ///
 /// A declaration error when the request's panel does not mount `R`.
 pub fn wired_table<R: Resource>(
     cx: &topcoat::context::Cx,
-) -> topcoat::Result<crate::table::Table<R::Model>> {
+) -> topcoat::Result<crate::table::WiredTable<R::Model>> {
     let resource = crate::resource::require_mounted::<R>(cx)?;
     Ok(self::list::wire_table_actions(cx, &resource, false))
 }

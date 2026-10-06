@@ -3,13 +3,13 @@
 use tablo_ui::{ButtonSize, ButtonVariant, button};
 use topcoat::{Result, context::Cx, runtime::Event, view::*};
 
-use super::{super::Table, BAR_CLASS, QUIET_LINK_CLASS, toolbar::hidden_state_inputs};
+use super::{super::WiredTable, BAR_CLASS, QUIET_LINK_CLASS, toolbar::hidden_state_inputs};
 use crate::table::{
     filter::FilterInput,
     state::{TableSignals, TableState},
 };
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Render the fail-visible banner for requested filters that produce no predicate.
     pub(super) fn render_filter_warning<'a>(
         &self,

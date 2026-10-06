@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use super::super::Table;
+use super::super::WiredTable;
 use crate::table::column::{ColumnWidth, NARROW_DEFAULT_PERCENT};
 
 /// The share of the table the bulk-selection column claims.
@@ -17,21 +17,21 @@ pub(super) struct ColumnWidths {
     pub(super) table_min_width: Option<Cow<'static, str>>,
 }
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Whether the table renders a row-actions column.
     pub(super) fn with_actions(&self) -> bool {
-        self.delete_prefix.is_some()
-            || self.edit_prefix.is_some()
-            || self.view_prefix.is_some()
+        self.delete_prefix().is_some()
+            || self.edit_prefix().is_some()
+            || self.view_prefix().is_some()
             || self.row_custom_actions().next().is_some()
     }
 
     /// Count the row links side by side in the actions column, counting a labeled custom action as
     /// two.
     fn action_link_count(&self) -> usize {
-        usize::from(self.view_prefix.is_some())
-            + usize::from(self.edit_prefix.is_some())
-            + usize::from(self.delete_prefix.is_some())
+        usize::from(self.view_prefix().is_some())
+            + usize::from(self.edit_prefix().is_some())
+            + usize::from(self.delete_prefix().is_some())
             + 2 * self.row_custom_actions().count()
     }
 

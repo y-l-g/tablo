@@ -3,10 +3,10 @@
 use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::Table, core::table_frame};
+use super::{super::WiredTable, core::table_frame};
 use crate::table::state::TableState;
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Render the skeleton placeholder table shown while rows stream in.
     pub(crate) async fn render_skeleton<'a>(
         &self,
@@ -89,8 +89,8 @@ impl<M> Table<M> {
         Ok(table_frame(
             cx,
             true,
-            self.framed,
-            self.delete_prefix.as_deref(),
+            self.framed(),
+            self.delete_prefix(),
             content.boxed(),
         ))
     }

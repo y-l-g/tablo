@@ -6,17 +6,17 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::super::Table;
+use super::super::WiredTable;
 use crate::table::state::{TableState, delete_action_url};
 
-impl<M> Table<M> {
+impl<M> WiredTable<M> {
     /// Render the row-delete confirmation dialog for a table with the delete route wired.
     pub(crate) async fn render_delete_dialog<'a>(
         &self,
         cx: &'a Cx,
         state: &TableState,
     ) -> Result<Option<BoxView<'a>>> {
-        let Some(prefix) = self.delete_prefix.as_deref() else {
+        let Some(prefix) = self.delete_prefix() else {
             return Ok(None);
         };
         let key = state
@@ -63,7 +63,7 @@ impl<M> Table<M> {
     /// wire one, borrowing the row-delete dialog mechanism: the trigger names
     /// this dialog and carries its POST target.
     pub(crate) fn render_action_confirm_dialog<'a>(&self, cx: &'a Cx) -> Option<BoxView<'a>> {
-        let prefix = self.actions_prefix.as_deref()?;
+        let prefix = self.actions_prefix()?;
         if !self.row_custom_actions().any(|action| action.confirm) {
             return None;
         }

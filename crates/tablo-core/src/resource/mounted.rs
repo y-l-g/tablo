@@ -30,7 +30,7 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) navigation: NavigationItem,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
-    pub(crate) table: Table<R::Model>,
+    pub(crate) table: Arc<Table<R::Model>>,
     pub(crate) form: Arc<Schema>,
     /// The detail schema when it is not the form's.
     view: Option<Schema>,
@@ -68,7 +68,7 @@ impl<R: Resource> Mounted<R> {
             navigation,
             policy: def.policy,
             tenancy: def.tenancy,
-            table: def.table.unwrap_or_else(<R::Form as RecordForm>::table),
+            table: Arc::new(def.table.unwrap_or_else(<R::Form as RecordForm>::table)),
             form: Arc::new(def.form.unwrap_or_else(<R::Form as RecordForm>::schema)),
             view: def.view,
             relations: def.relations,
