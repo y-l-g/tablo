@@ -23,7 +23,6 @@ pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use def::ResourceDef;
 pub(crate) use mounted::{MountScope, Mounted, Mounts, mounted, require_mounted};
-pub(crate) use relation::ScopeFn;
 pub use relation::{ForeignKey, Relation};
 pub use write::{write_create, write_update};
 

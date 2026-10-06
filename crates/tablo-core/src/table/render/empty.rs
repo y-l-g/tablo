@@ -16,7 +16,7 @@ impl<M> WiredTable<M> {
         path: &str,
         with_actions: bool,
         with_bulk: bool,
-        signals: Option<&TableSignals>,
+        signals: &TableSignals,
     ) -> Result<BoxView<'a>>
     where
         M: toasty::schema::Model,
@@ -49,16 +49,7 @@ impl<M> WiredTable<M> {
         };
         let first_page_url = state.cursor.is_some().then(|| state.without_cursor(path));
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
-            let attrs = attributes! {
-                cx =>
-                href=(url)
-                if clears_search {
-                    data-search-clear=""
-                }
-                if !clears_search {
-                    data-filters-clear=""
-                }
-            };
+            let attrs = live_link(cx, url, signals);
             view! { cx => <a class=(EMPTY_LINK_CLASS) (attrs)>(clear_label)</a> }.boxed()
         });
         let first_page_link: Option<BoxView<'a>> = first_page_url.map(|url| {

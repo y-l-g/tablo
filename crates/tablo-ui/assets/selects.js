@@ -26,11 +26,10 @@
 //   value kept, relation cannot be changed past the cap).
 //
 // The server renders both controls so the field works without this script;
-// with it, the native `<select>` is hidden once the combobox over it is wired
+// with it, the native `<select>` is hidden once the combobox over it is wired.
 //
-//
-// Document-level delegation (like bulk.js) so streamed/shard swaps that
-// replace form markup need no re-installation.
+// Document-level delegation, so markup a rerun morphs in needs no
+// re-installation.
 
 const serverTimers = new WeakMap();
 const serverControllers = new WeakMap();
@@ -474,8 +473,8 @@ function install() {
 
 if (typeof document !== 'undefined') install();
 
-// Exposed for the Node unit test (`selects.test.js`); see `bulk.js` for the
-// guard.
+// Exposed for the Node unit test (`selects.test.js`); the guard keeps the
+// export out of the browser.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     MAX_LIST_ITEMS,

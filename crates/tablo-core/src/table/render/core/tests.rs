@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     ComputedColumn, lens,
-    table::{ColumnWidth, QueryFilter, RowActions, SelectFilter, Sort, TextColumn},
+    table::{ColumnWidth, QueryFilter, RowActions, SelectFilter, Sort, Table, TextColumn},
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -279,7 +279,7 @@ async fn chrome_columns_declare_their_widths() {
         }]
         .into();
         let html = chrome_table
-            .render(&cx, page)
+            .render_loaded(&cx, page)
             .await
             .unwrap()
             .single()
@@ -331,7 +331,7 @@ async fn kind_defaults_stay_inside_their_budget() {
     }]
     .into();
     let html = crowded
-        .render(&cx, page)
+        .render_loaded(&cx, page)
         .await
         .unwrap()
         .single()
@@ -383,7 +383,7 @@ async fn edit_links_render_beside_delete_in_actions_column() {
     let id = rows[0].id.to_string();
     let page: TablePage<User> = rows.into();
     let html = action_table
-        .render(&cx, page)
+        .render_loaded(&cx, page)
         .await
         .unwrap()
         .single()
@@ -446,7 +446,7 @@ async fn denied_rows_render_no_links_and_no_checkbox() {
         });
     let page: TablePage<User> = vec![ada, ken].into();
     let html = policy_table
-        .render(&cx, page)
+        .render_loaded(&cx, page)
         .await
         .unwrap()
         .single()
@@ -456,13 +456,13 @@ async fn denied_rows_render_no_links_and_no_checkbox() {
     assert!(
         html.contains(&format!("href=\"/admin/users/{ada_id}/edit\""))
             && html.contains(&format!("href=\"/admin/users/{ada_id}\""))
-            && html.contains(&format!("href=\"?delete={ada_id}\"")),
+            && html.contains(&format!("/admin/users/{ada_id}/delete")),
         "the allowed row must keep its View/Edit/Delete links, got {html}"
     );
     assert!(
         html.contains(&format!("href=\"/admin/users/{ken_id}\""))
             && !html.contains(&format!("/admin/users/{ken_id}/edit"))
-            && !html.contains(&format!("delete={ken_id}")),
+            && !html.contains(&format!("/admin/users/{ken_id}/delete")),
         "the denied row must render no Edit/Delete link, got {html}"
     );
     assert!(
@@ -474,7 +474,7 @@ async fn denied_rows_render_no_links_and_no_checkbox() {
         "the denied row must render no checkbox, got {html}"
     );
     assert_eq!(
-        html.matches("data-row-select").count(),
+        html.matches("aria-label=\"Select row\"").count(),
         1,
         "the allowed row owns the page's only checkbox, got {html}"
     );
@@ -521,7 +521,7 @@ async fn fully_locked_rows_keep_their_actions_cell_with_no_links() {
         });
     let page: TablePage<User> = vec![ada, ken].into();
     let html = policy_table
-        .render(&cx, page)
+        .render_loaded(&cx, page)
         .await
         .unwrap()
         .single()
@@ -567,7 +567,7 @@ async fn a_chromeless_table_never_consults_the_row_policy() {
     }]
     .into();
     let html = policy_table
-        .render(&cx, page)
+        .render_loaded(&cx, page)
         .await
         .unwrap()
         .single()
@@ -601,7 +601,7 @@ async fn rows_carry_the_primary_key_in_every_action() {
     let key = rows[0].id.to_string();
     let page: TablePage<User> = rows.into();
     let html = tbl
-        .render(&cx, page)
+        .render_loaded(&cx, page)
         .await
         .unwrap()
         .single()
@@ -617,8 +617,8 @@ async fn rows_carry_the_primary_key_in_every_action() {
         "bulk value must carry the record key in {html}"
     );
     assert!(
-        html.contains(&format!("?delete={key}")),
-        "delete dialog link must carry the record key in {html}"
+        html.contains(&format!("/admin/users/{key}/delete")),
+        "the delete action must carry the record key in {html}"
     );
 }
 
@@ -647,7 +647,7 @@ async fn composite_key_rows_render_no_action() {
     }]
     .into();
     let html = tbl
-        .render(&cx, page)
+        .render_loaded(&cx, page)
         .await
         .unwrap()
         .single()
@@ -656,7 +656,7 @@ async fn composite_key_rows_render_no_action() {
         .render(&cx);
     assert!(html.contains("Aisle"), "the row renders in {html}");
     assert!(
-        !html.contains("/admin/seats/") && !html.contains("data-row-select"),
+        !html.contains("/admin/seats/") && !html.contains(r#"aria-label="Select row""#),
         "a key with no URL form must render no action in {html}"
     );
 }
@@ -757,88 +757,6 @@ async fn group_by_orders_each_row_under_its_own_header() {
     assert!(
         html.contains("group-draft-") && html.contains("group-published-"),
         "each group header needs a stable id naming its group, got {html}"
-    );
-}
-
-/// Reuse one list URL base for row-action URLs across rows.
-#[tokio::test]
-async fn table_render_reuses_one_list_url_base_across_rows() {
-    let cx = CxTestBuilder::new().build();
-    let state = filters_state(&[("status", "published"), ("featured", "true")]);
-    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
-        .wired()
-        .with_delete("/admin/users".to_string());
-    let rows = |n: usize| -> Vec<User> {
-        (0..n)
-            .map(|i| User {
-                id: uuid::Uuid::from_u128(i as u128),
-                name: format!("user-{i}"),
-            })
-            .collect()
-    };
-    let render = async |page: TablePage<User>| {
-        tbl.render_with_state(&cx, page, &state, "/admin/users")
-            .await
-            .unwrap()
-            .single()
-            .await
-            .unwrap()
-            .render(&cx)
-    };
-    fn delete_bases(html: &str) -> Vec<&str> {
-        html.split("href=\"")
-            .skip(1)
-            .filter_map(|chunk| chunk.split('"').next())
-            .filter(|href| href.contains("delete="))
-            .map(|href| href.split("delete=").next().unwrap())
-            .collect()
-    }
-
-    let one_html = render(TablePage::from(rows(1))).await;
-    let eight_html = render(TablePage::from(rows(8))).await;
-    let one_row = delete_bases(&one_html);
-    let eight_rows = delete_bases(&eight_html);
-    assert_eq!(one_row.len(), 1, "one row, one dialog opener");
-    assert_eq!(eight_rows.len(), 8, "eight rows, eight dialog openers");
-    let transport = "f.featured=true&amp;f.status=published";
-    for base in one_row.iter().chain(eight_rows.iter()) {
-        assert!(
-            base.contains(transport),
-            "every opener must carry the page's filters, got {base}"
-        );
-        assert_eq!(
-            *base, one_row[0],
-            "rows must reuse the page's one encoded base, not rebuild it per row"
-        );
-    }
-}
-
-#[tokio::test]
-async fn a_static_table_renders_no_runtime_bindings_at_all() {
-    let cx = CxTestBuilder::new().build();
-    let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
-        .wired()
-        .with_delete("/admin/users".to_string())
-        .with_bulk_delete(true);
-    let rows = vec![User {
-        id: uuid::Uuid::nil(),
-        name: "Ada".to_string(),
-    }];
-    let html = tbl
-        .render_with_state(&cx, rows.into(), &TableState::default(), "/admin/users")
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(
-        !html.contains("data-table-revision"),
-        "a static table must carry no refresh control, got {html}"
-    );
-    assert!(
-        !html.contains("data-topcoat-"),
-        "a static table's region must be inert markup, got {html}"
     );
 }
 

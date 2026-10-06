@@ -13,8 +13,8 @@
 // So: without the script the whole form resets; with it, only the file and its
 // preview go.
 //
-// Document-level delegation (like bulk.js and variant.js), so markup swapped in
-// later needs no re-installation. The preview is the browser's own object URL,
+// Document-level delegation, so markup a rerun morphs in needs no
+// re-installation. The preview is the browser's own object URL,
 // so it is revoked when it is replaced or cleared rather than held for the
 // document's lifetime.
 

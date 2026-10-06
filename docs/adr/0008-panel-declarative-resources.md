@@ -10,8 +10,8 @@ registers each resource's routes and redirects the panel root to the first resou
 `Panel::page::<P>()` registers a non-resource page at `{prefix}/{slug}`, and `Panel::home::<P>()`
 one at the prefix, replacing that redirect.
 
-One router mounts several panels at distinct prefixes. Navigation, brand, auth, uploader, and
-live-search registries are per-panel state on every request under the prefix, never an
+One router mounts several panels at distinct prefixes. Navigation, brand, auth, and uploader
+registries are per-panel state on every request under the prefix, never an
 app-context singleton. Overlapping prefixes fail at mount. The first panel mounted installs the
 shared layers: cookies, sessions, the runtime gate, and Topcoat's runtime layer. `Db` and the
 asset bundle belong to the router, installed before mounting.

@@ -10,10 +10,7 @@ use topcoat::{
     view::{BoxView, ViewExt, attributes, view},
 };
 
-use super::super::{
-    gate::{gate, return_target},
-    relations::render_relations,
-};
+use super::super::gate::{gate, return_target};
 use crate::{
     form::FieldErrors,
     policy::Ability,
@@ -22,29 +19,26 @@ use crate::{
 };
 
 /// What a form page shows around its form: the create page and the edit page differ only here.
-pub(super) struct FormChrome<'a> {
+pub(super) struct FormChrome {
     title: String,
     submit_label: &'static str,
     public_url: Option<String>,
-    relations: Vec<BoxView<'a>>,
 }
 
-impl<'a> FormChrome<'a> {
+impl FormChrome {
     pub(super) fn create<R: Resource>(resource: &Mounted<R>) -> Self {
         Self {
             title: format!("Create {}", resource.label),
             submit_label: "Create",
             public_url: None,
-            relations: Vec::new(),
         }
     }
 
-    pub(super) fn edit<R: Resource>(cx: &'a Cx, resource: &Mounted<R>, record: &R::Model) -> Self {
+    pub(super) fn edit<R: Resource>(cx: &Cx, resource: &Mounted<R>, record: &R::Model) -> Self {
         Self {
             title: format!("Edit {}", resource.label),
             submit_label: "Save",
             public_url: R::public_url(cx, record),
-            relations: render_relations(cx, resource, record, false),
         }
     }
 }
@@ -54,7 +48,7 @@ impl<'a> FormChrome<'a> {
 pub(super) async fn render_form_page<'a, R: Resource>(
     cx: &'a Cx,
     resource: &Mounted<R>,
-    chrome: FormChrome<'a>,
+    chrome: FormChrome,
     values: &HashMap<String, String>,
     errors: &FieldErrors,
     carried: &HashSet<String>,
@@ -63,7 +57,6 @@ pub(super) async fn render_form_page<'a, R: Resource>(
         title,
         submit_label,
         public_url,
-        relations,
     } = chrome;
     let schema = &resource.form;
     let form_html = schema
@@ -144,9 +137,6 @@ pub(super) async fn render_form_page<'a, R: Resource>(
                         </a>
                     </div>
                 </form>
-                for relation in relations {
-                    (relation)
-                }
             )
         )
     }

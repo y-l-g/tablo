@@ -219,8 +219,6 @@ fn populated_state() -> TableState {
         filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
         filters_dropped: false,
         group_by: Some("status".to_string()),
-        delete: Some("row-1".to_string()),
-        open: Some(false),
     }
 }
 
@@ -229,30 +227,17 @@ fn reparse(url: &str) -> TableState {
     TableState::from_query(query_of(url))
 }
 
-/// The state a link keeps: every link drops the dialog.
-fn without_dialog(mut state: TableState) -> TableState {
-    state.delete = None;
-    state.open = None;
-    state
-}
-
 #[test]
 fn projection_list_url_round_trips_full_state() {
     let source = populated_state();
-    assert_eq!(
-        reparse(&source.list_url("/admin/users")),
-        without_dialog(source.clone())
-    );
-    assert_eq!(
-        TableState::from_query(&source.query()),
-        without_dialog(source)
-    );
+    assert_eq!(reparse(&source.list_url("/admin/users")), source.clone());
+    assert_eq!(TableState::from_query(&source.query()), source);
 }
 
 #[test]
 fn projection_without_search_drops_query() {
     let source = populated_state();
-    let mut expected = without_dialog(source.clone());
+    let mut expected = source.clone();
     expected.search = None;
     expected.cursor = None;
     assert_eq!(reparse(&source.without_search("/admin/users")), expected);
@@ -261,7 +246,7 @@ fn projection_without_search_drops_query() {
 #[test]
 fn projection_without_filters_drops_filters() {
     let source = populated_state();
-    let mut expected = without_dialog(source.clone());
+    let mut expected = source.clone();
     expected.filters = BTreeMap::new();
     expected.cursor = None;
     assert_eq!(reparse(&source.without_filters("/admin/users")), expected);
@@ -270,7 +255,7 @@ fn projection_without_filters_drops_filters() {
 #[test]
 fn projection_without_cursor_drops_pagination() {
     let source = populated_state();
-    let mut expected = without_dialog(source.clone());
+    let mut expected = source.clone();
     expected.cursor = None;
     assert_eq!(reparse(&source.without_cursor("/admin/users")), expected);
 }
@@ -282,7 +267,7 @@ fn projection_with_cursor_replaces_the_cursor() {
         Cursor::After("tok2".to_string()),
         Cursor::Before("tok2".to_string()),
     ] {
-        let mut expected = without_dialog(source.clone());
+        let mut expected = source.clone();
         expected.cursor = Some(cursor.clone());
         assert_eq!(
             reparse(&source.with_cursor("/admin/users", &cursor)),
@@ -294,7 +279,7 @@ fn projection_with_cursor_replaces_the_cursor() {
 #[test]
 fn projection_sorted_by_replaces_sort() {
     let source = populated_state();
-    let mut expected = without_dialog(source.clone());
+    let mut expected = source.clone();
     expected.sort = Some(Sort {
         column: "title".to_string(),
         descending: false,
@@ -304,37 +289,6 @@ fn projection_sorted_by_replaces_sort() {
         reparse(&source.sorted_by("/admin/users", "title", false)),
         expected
     );
-}
-
-#[test]
-fn projection_row_url_base_adds_the_delete_dialog_key() {
-    let source = populated_state();
-    let mut expected = source.clone();
-    expected.delete = Some("row-9".to_string());
-    expected.open = None;
-    assert_eq!(
-        reparse(&source.row_url_base("/admin/users").delete_dialog("row-9")),
-        expected
-    );
-    // A state with nothing else to project still opens the dialog.
-    assert_eq!(
-        TableState::default()
-            .row_url_base("/admin/users")
-            .delete_dialog("row-9"),
-        "/admin/users?delete=row-9"
-    );
-}
-
-/// Membership is exact: delimiters bound both ends.
-#[test]
-fn bulk_wire_membership_is_exact() {
-    let wire = ",row-1,row-2,";
-    assert!(bulk_wire_contains(wire, "row-1"));
-    assert!(bulk_wire_contains(wire, "row-2"));
-    assert!(!bulk_wire_contains(wire, "row"));
-    assert!(!bulk_wire_contains(wire, "row-1a"));
-    assert!(!bulk_wire_contains(",row-12,", "row-1"));
-    assert!(!bulk_wire_contains("", "row-1"));
 }
 
 #[test]
@@ -378,11 +332,5 @@ fn prefixed_states_share_one_query_without_colliding() {
         TableState::from_query_prefixed(query_of(&url), "comments"),
         comments,
         "a prefixed link round-trips"
-    );
-    assert!(
-        comments
-            .row_url_base("/admin/posts/1")
-            .delete_dialog("c1")
-            .ends_with("&comments.delete=c1")
     );
 }

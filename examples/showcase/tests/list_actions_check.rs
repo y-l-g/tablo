@@ -1,8 +1,6 @@
 use crate::common::{body_string, demo_client, full_db, routers::router_for_tests as router};
 
-// Every list exposes its create/edit entry points as real links — the live
-// (`live_search`) lists included, where the table swaps in place below an
-// eager header.
+// Every list exposes its create/edit entry points as real links.
 #[tokio::test]
 async fn lists_link_to_create_and_edit() {
     let db = full_db().await;

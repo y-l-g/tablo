@@ -446,15 +446,7 @@ pub fn assets_dir() -> PathBuf {
 pub const ASSET_FILES: &[(&str, &str)] = &[
     ("sidebar.js", "SIDEBAR_JS"),
     ("theme.js", "THEME_JS"),
-    ("dialog.js", "DIALOG_JS"),
-    ("wire.js", "WIRE_JS"),
-    ("bulk.js", "BULK_JS"),
-    ("filters.js", "FILTERS_JS"),
-    ("live-search.js", "LIVE_SEARCH_JS"),
     ("selects.js", "SELECTS_JS"),
-    ("variant.js", "VARIANT_JS"),
-    ("notifications.js", "NOTIFICATION_JS"),
-    ("mutation-submit.js", "MUTATION_SUBMIT_JS"),
 ];
 
 /// One hook-contract entry: `js` appears in the asset's source and `rust` appears in the Rust
@@ -491,128 +483,6 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         rust: "data-theme-toggle",
     },
     AssetHook {
-        asset: "dialog.js",
-        js: "data-dialog-close",
-        rust: "data-dialog-close",
-    },
-    AssetHook {
-        asset: "dialog.js",
-        js: "dialogOpenParam",
-        rust: "data-dialog-open-param",
-    },
-    AssetHook {
-        asset: "dialog.js",
-        js: "data-row-delete-trigger",
-        rust: "data-row-delete-trigger",
-    },
-    AssetHook {
-        asset: "dialog.js",
-        js: "data-row-delete-action",
-        rust: "data-row-delete-action",
-    },
-    AssetHook {
-        asset: "dialog.js",
-        js: "data-row-delete-form",
-        rust: "data-row-delete-form",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-form",
-        rust: "data-bulk-form",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-table-root",
-        rust: "data-table-root",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-confirm-trigger",
-        rust: "data-bulk-confirm-trigger",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-confirm-dialog",
-        rust: "data-bulk-confirm-dialog",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-confirm-description",
-        rust: "data-bulk-confirm-description",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-action-confirm-trigger",
-        rust: "data-bulk-action-confirm-trigger",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-action-confirm-action",
-        rust: "data-bulk-action-confirm-action",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-action-confirm-dialog",
-        rust: "data-bulk-action-confirm-dialog",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-row-select",
-        rust: "data-row-select",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "data-bulk-select-all",
-        rust: "data-bulk-select-all",
-    },
-    AssetHook {
-        asset: "bulk.js",
-        js: "name=\"ids\"",
-        rust: "name=\"ids\"",
-    },
-    AssetHook {
-        asset: "filters.js",
-        js: "data-filter-name",
-        rust: "data-filter-name",
-    },
-    AssetHook {
-        asset: "filters.js",
-        js: "data-filters-form",
-        rust: "data-filters-form",
-    },
-    AssetHook {
-        asset: "filters.js",
-        js: "data-filters-transport",
-        rust: "data-filters-transport",
-    },
-    AssetHook {
-        asset: "filters.js",
-        js: "data-filters-live",
-        rust: "data-filters-live",
-    },
-    // `data-live-search` matches only as the host attribute itself, not as a prefix of
-    // `data-live-search-input`.
-    AssetHook {
-        asset: "live-search.js",
-        js: "data-live-search",
-        rust: "data-live-search",
-    },
-    AssetHook {
-        asset: "live-search.js",
-        js: "data-live-search-input",
-        rust: "data-live-search-input",
-    },
-    AssetHook {
-        asset: "live-search.js",
-        js: "data-live-search-transport",
-        rust: "data-live-search-transport",
-    },
-    AssetHook {
-        asset: "live-search.js",
-        js: "data-debounce-ms",
-        rust: "data-debounce-ms",
-    },
-    AssetHook {
         asset: "selects.js",
         js: "data-select-filterable",
         rust: "data-select-filterable",
@@ -641,58 +511,6 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         asset: "selects.js",
         js: "data-options-list",
         rust: "data-options-list",
-    },
-    // `data-variant` matches only as the group's own attribute, not as a prefix of
-    // `data-variant-of` or `data-variant-select`.
-    AssetHook {
-        asset: "variant.js",
-        js: "data-variant-select",
-        rust: "data-variant-select",
-    },
-    AssetHook {
-        asset: "variant.js",
-        js: "data-variant-of",
-        rust: "data-variant-of",
-    },
-    AssetHook {
-        asset: "variant.js",
-        js: "data-variant",
-        rust: "data-variant",
-    },
-    AssetHook {
-        asset: "notifications.js",
-        js: "data-sonner-toast",
-        rust: "data-sonner-toast",
-    },
-    AssetHook {
-        asset: "notifications.js",
-        js: "data-close-button",
-        rust: "data-close-button",
-    },
-    AssetHook {
-        asset: "notifications.js",
-        js: "dataset.mounted",
-        rust: "data-mounted",
-    },
-    AssetHook {
-        asset: "mutation-submit.js",
-        js: "data-mutation-submit",
-        rust: "data-mutation-submit",
-    },
-    AssetHook {
-        asset: "mutation-submit.js",
-        js: "data-table-revision",
-        rust: "data-table-revision",
-    },
-    AssetHook {
-        asset: "mutation-submit.js",
-        js: "data-boundary",
-        rust: "data-boundary",
-    },
-    AssetHook {
-        asset: "mutation-submit.js",
-        js: "data-sonner-toaster",
-        rust: "data-sonner-toaster",
     },
 ];
 

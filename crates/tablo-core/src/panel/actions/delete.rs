@@ -28,10 +28,9 @@ const WRITE_DELETE: &str = "delete the record";
 /// Delete action POST — confirmation-marked, policy-checked, and run in the
 /// framework transaction: the checked record flows into the write.
 ///
-/// The confirmation is the row's alert dialog on the list page: the
-/// Delete link opens `?delete=<key>` and the dialog's form POSTs here with
-/// `confirm=1`. Authentication comes before any DB work: the CSRF
-/// check and the confirmation marker run first, so a forged POST answers 403
+/// The confirmation is the table's alert dialog: the row's Delete opens it
+/// on this route, and its form POSTs here with `confirm=1`. Authentication comes before any DB
+/// work: the CSRF check and the confirmation marker run first, so a forged POST answers 403
 /// without opening a transaction, holding a pooled connection across the body
 /// read, or probing record existence (create/bulk-delete ordering).
 /// The dialog itself is deliberately fetch-free and policy-blind: it carries
@@ -50,9 +49,8 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
         crate::csrf::verify(cx, &values)?;
         let confirmed = values.get("confirm").is_some_and(|v| truthy(v));
         if !confirmed {
-            // The confirmation UI is the list-page alert dialog:
-            // the row link opens `?delete=<key>` and the dialog's form carries
-            // `confirm=1`. This route only accepts that confirmed POST, so a
+            // The confirmation UI is the table's alert dialog, whose form
+            // carries `confirm=1`. This route only accepts that confirmed POST, so a
             // missing marker is a malformed client, not a user path.
             return Err(topcoat::router::error::bad_request("delete requires confirmation").into());
         }

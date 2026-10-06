@@ -13,7 +13,6 @@ use topcoat::context::{Cx, try_app_context, try_request_context};
 
 use super::{
     relations::Child,
-    search::{RelationSearchFn, SearchFn},
     shell::{Brand, ShellAssets},
 };
 use crate::{auth::Auth, navigation::NavigationItem, resource::Mounts, upload::InstalledUploader};
@@ -28,10 +27,6 @@ pub(crate) struct PanelState {
     pub(crate) brand: Option<Brand>,
     pub(crate) dark_mode: bool,
     pub(crate) shell_assets: Option<ShellAssets>,
-    /// Live-search loaders by list path.
-    pub(crate) search: HashMap<String, SearchFn>,
-    /// Relation live-search loaders by (parent slug, child slug).
-    pub(crate) relations: HashMap<(String, String), RelationSearchFn>,
     /// Each registered resource's relation table, by resource type.
     pub(crate) children: HashMap<TypeId, Child>,
     /// The registered resources as the panel mounted them.
@@ -52,11 +47,6 @@ impl PanelState {
     pub(crate) fn gates(&self) -> bool {
         !self.auth.is_disabled()
     }
-
-    /// Whether `path` is the prefix itself or a path below it.
-    pub(crate) fn serves(&self, path: &str) -> bool {
-        under_prefix(&self.prefix, path)
-    }
 }
 
 /// Whether `path` is `prefix` or sits below it, segment by segment: `/admin`
@@ -67,7 +57,7 @@ pub(crate) fn under_prefix(prefix: &str, path: &str) -> bool {
 }
 
 /// Every panel mounted on the router, in mount order: the app-context value
-/// the auth gates and the shard dispatch read.
+/// the auth gates read.
 #[derive(Default)]
 pub(crate) struct Panels(pub(crate) Vec<Arc<PanelState>>);
 
@@ -75,11 +65,6 @@ impl Panels {
     /// The panel mounted at exactly `prefix`.
     pub(crate) fn by_prefix(&self, prefix: &str) -> Option<&Arc<PanelState>> {
         self.0.iter().find(|panel| panel.prefix == prefix)
-    }
-
-    /// The panel serving `path`. Prefixes never overlap, so at most one does.
-    pub(crate) fn by_path(&self, path: &str) -> Option<&Arc<PanelState>> {
-        self.0.iter().find(|panel| panel.serves(path))
     }
 
     /// Whether every mounted panel requires a signed-in user.
@@ -97,9 +82,9 @@ impl Panels {
 #[derive(Clone)]
 pub(crate) struct CurrentPanel(pub(crate) Arc<PanelState>);
 
-/// The request's panel: the one whose prefix the request is under, the one a
-/// live table's shard re-renders for, or the panel whose session signed in a
-/// runtime request. A router with a single panel answers it for any request.
+/// The request's panel: the one whose prefix the request is under, or the
+/// panel whose session signed in a runtime request. A router with a single
+/// panel answers it for any request.
 pub(crate) fn current(cx: &Cx) -> Option<&Arc<PanelState>> {
     if let Some(CurrentPanel(panel)) = try_request_context::<CurrentPanel>(cx) {
         return Some(panel);

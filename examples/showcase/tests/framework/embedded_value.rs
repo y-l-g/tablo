@@ -623,9 +623,10 @@ async fn the_derived_form_renders_the_variant_select_and_every_payload() {
         html.contains("<select") && html.contains("name=\"publication\""),
         "the discriminant must ride the form as a visible control, got {html}"
     );
-    assert!(
-        html.contains("data-variant-select=\"publication\""),
-        "the control must name the groups it drives, got {html}"
+    assert_eq!(
+        html.matches("data-topcoat-bind:hidden").count(),
+        3,
+        "each variant group follows the chosen variant, got {html}"
     );
     assert!(
         html.contains("value=\"3\" selected"),
@@ -692,9 +693,6 @@ async fn render_view(cx: &Cx, schema: &Schema, values: &HashMap<String, String>)
 }
 
 /// Every `data-variant="…"` value in `html`, in document order.
-///
-/// The marker's own attribute — the `="` is what tells it from
-/// `data-variant-of` and `data-variant-select`, whose prefixes it shares.
 fn variant_markers(html: &str) -> Vec<String> {
     html.match_indices("data-variant=\"")
         .map(|(at, needle)| {
@@ -704,9 +702,9 @@ fn variant_markers(html: &str) -> Vec<String> {
         .collect()
 }
 
-/// The variant control's own markup: from its hook to the first `</select>`.
+/// The variant control's own markup: the form's first `<select>`.
 fn variant_select(html: &str) -> &str {
-    html.split_once("data-variant-select=")
+    html.split_once("<select")
         .and_then(|(_, rest)| rest.split_once("</select>").map(|(select, _)| select))
         .expect("a variant select")
 }
@@ -757,11 +755,6 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
         expected,
         "one group per variant, in declaration order, got {html}"
     );
-    assert_eq!(
-        html.matches("data-variant-of=\"publication\"").count(),
-        expected.len(),
-        "every group must name the enum it belongs to, got {html}"
-    );
     let mut offered = variant_options(&html);
     assert_eq!(
         offered.first().map(String::as_str),
@@ -801,11 +794,6 @@ async fn a_unit_variant_still_gets_its_group() {
     )
     .await;
     assert_eq!(variant_markers(&html), vec!["1", "2"], "got {html}");
-    assert_eq!(
-        html.matches("data-variant-of=\"visibility\"").count(),
-        2,
-        "got {html}"
-    );
     assert_eq!(
         variant_option_labels(&html),
         vec!["-- Select --", "Public", "Private"],

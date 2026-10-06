@@ -233,34 +233,6 @@ async fn table_page_round_trips_real_cursors() {
     assert_eq!(tp2.rows[0].name, "Bob", "cursor must resume after Ada");
 }
 
-#[tokio::test]
-async fn table_renders_inside_the_boundary_region() {
-    use topcoat::view::ViewExt;
-
-    let cx = CxTestBuilder::new().build();
-    let table = Table::<User>::new(TextColumn::new(lens!(User.name)));
-
-    let page = crate::table::TablePage::<User>::from(vec![]);
-    let html = table
-        .render(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    let boundary_at = html
-        .find("data-boundary=\"table\"")
-        .unwrap_or_else(|| panic!("the table must render inside the morph boundary, got {html}"));
-    let root_at = html
-        .find("data-table-root=\"\"")
-        .unwrap_or_else(|| panic!("the swapped table must carry its table root, got {html}"));
-    assert!(
-        boundary_at < root_at && !html[boundary_at..root_at].contains("</div>"),
-        "the boundary must wrap the table root, got {html}"
-    );
-}
-
 #[test]
 fn unapplied_filters_flags_unknown_keys_and_rejected_values() {
     let tbl = status_table();

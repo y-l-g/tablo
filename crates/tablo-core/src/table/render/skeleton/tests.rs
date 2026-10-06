@@ -7,7 +7,7 @@ use super::{
 use crate::{Table, TableState, TextColumn, lens};
 
 #[tokio::test]
-async fn skeleton_shares_the_table_root_with_the_swapped_body() {
+async fn skeleton_declares_the_loaded_table_layout() {
     let cx = CxTestBuilder::new().build();
     let tbl = Table::<User>::new(TextColumn::new(lens!(User.name))).wired();
     let html = tbl
@@ -19,17 +19,13 @@ async fn skeleton_shares_the_table_root_with_the_swapped_body() {
         .unwrap()
         .render(&cx);
     assert!(
-        html.contains("data-table-root"),
-        "skeleton must share table root, got {html}"
-    );
-    assert!(
         html.contains("aria-busy"),
         "skeleton must announce loading, got {html}"
     );
     assert_eq!(
         html.matches("aria-busy=\"true\"").count(),
-        2,
-        "busy must ride on the morph boundary and the table root, got {html}"
+        1,
+        "busy must ride on the table's card, got {html}"
     );
     assert!(
         html.contains("aria-hidden"),
@@ -39,7 +35,7 @@ async fn skeleton_shares_the_table_root_with_the_swapped_body() {
     // the swap re-measures the columns: comparing the two
     // opening tags states that without pinning a class literal.
     let skeleton_table = table_tag(&html).to_string();
-    // The swap payload is the table itself, under the same boundary region.
+    // The rows replace the skeleton in the same card.
     let rows = vec![User {
         id: uuid::Uuid::nil(),
         name: "Ada".to_string(),
@@ -52,10 +48,6 @@ async fn skeleton_shares_the_table_root_with_the_swapped_body() {
         .await
         .unwrap()
         .render(&cx);
-    assert!(
-        html.contains("data-table-root") && html.contains("data-boundary=\"table\""),
-        "the swapped table must land in the skeleton's region, got {html}"
-    );
     assert!(
         html.contains("Ada"),
         "swap payload must be rows, got {html}"
@@ -98,7 +90,7 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
         name: "Ada".to_string(),
     }];
     let rendered = tbl
-        .render_with_state(&cx, rows.into(), &TableState::default(), "/admin/users")
+        .render_loaded_with(&cx, rows.into(), &TableState::default(), "/admin/users")
         .await
         .unwrap()
         .single()
@@ -150,35 +142,5 @@ async fn skeleton_pulses_only_the_bars_the_table_renders() {
         html.matches("border-b border-border p-3").count(),
         1,
         "one pulse for the search bar the table renders, got {html}"
-    );
-}
-
-/// The bulk control sits in the toolbar row above the table beside the
-/// search, so it gets a pulse there; and the live page renders its placeholder from the shard's
-/// table, whose search and filter bars are hoisted out of the swapped region.
-#[tokio::test]
-async fn skeleton_pulses_the_bulk_bar_and_not_the_hoisted_bars() {
-    let cx = CxTestBuilder::new().build();
-    let live_shape = Table::<User>::new(TextColumn::new(lens!(User.name)).searchable())
-        .wired()
-        .with_delete("/admin/users".to_string())
-        .with_bulk_delete(true)
-        .hosting_bars();
-    let html = live_shape
-        .render_skeleton(&cx, &TableState::default())
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert_eq!(
-        html.matches("border-b border-border p-3").count(),
-        1,
-        "one pulse, for the bulk bar the shard's table renders, got {html}"
-    );
-    assert!(
-        html.contains("h-9 w-36"),
-        "the pulse is the bulk bar's, got {html}"
     );
 }

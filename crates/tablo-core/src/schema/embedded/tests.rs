@@ -49,7 +49,7 @@ fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
-/// A variant group the submission's discriminant does not name is the one `variant.js` hides, so
+/// A variant group the submission's discriminant does not name is the one the page hides, so
 /// its controls' rules cannot fail the submit. The named variant's controls still check, and a
 /// submission that names no variant hides nothing: the payload fallback may still read any group.
 #[tokio::test]

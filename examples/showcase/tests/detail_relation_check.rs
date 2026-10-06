@@ -112,9 +112,8 @@ async fn searching_the_relation_stays_on_the_post_page() {
     );
 }
 
-/// The relation table sorts and searches in place: the section carries the
-/// live-search host and the relation shard invocation, so interactions write
-/// the query signal instead of navigating.
+/// The relation table sorts and searches in place: its toolbar and sort links spell the relation's
+/// prefixed parameters, and the links write the table's query instead of navigating.
 #[tokio::test]
 async fn the_relation_table_sorts_and_searches_in_place() {
     let db = full_db().await;
@@ -129,32 +128,12 @@ async fn the_relation_table_sorts_and_searches_in_place() {
         .find("data-relation=\"comments\"")
         .expect("the relation renders")..];
     assert!(
-        relation.contains("data-live-search"),
-        "the relation hoists the live search host: {relation}"
+        relation.contains("name=\"comments.q\""),
+        "the search spells the relation prefix: {relation}"
     );
     assert!(
-        relation.contains("data-live-search-transport"),
-        "the host binds the query signal: {relation}"
-    );
-    assert!(
-        relation.contains("data-query-prefix=\"comments.\""),
-        "the host names the relation prefix: {relation}"
-    );
-    assert!(
-        relation.contains("<noscript>"),
-        "the GET form stays as the no-JS fallback: {relation}"
-    );
-    assert!(
-        relation.contains("tablo-table-relation-search"),
-        "the streamed region invokes the relation shard: {relation}"
-    );
-    assert!(
-        relation.contains("comments.sort="),
-        "the sort links keep the relation prefix: {relation}"
-    );
-    assert!(
-        relation.contains("data-topcoat-on:click"),
-        "the sort links write the signals instead of navigating: {relation}"
+        relation.contains("comments.sort=") && relation.contains("data-topcoat-on:click"),
+        "the sort links keep the relation prefix and write the query: {relation}"
     );
 
     // The prefixed sort still narrows server-side through the page URL.
@@ -191,10 +170,10 @@ async fn the_relation_table_sorts_and_searches_in_place() {
         "descending sort orders the relation rows: {sorted}"
     );
 }
-/// The post's detail page shows its comments read-only: no row write, no
-/// bulk delete, no create link.
+/// The post's detail page carries its comments' writes: the create link, the row delete and the
+/// bulk delete.
 #[tokio::test]
-async fn the_post_detail_page_shows_its_comments_read_only() {
+async fn the_post_detail_page_carries_its_comments_writes() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -204,26 +183,26 @@ async fn the_post_detail_page_shows_its_comments_read_only() {
     let relation = &html[html.find("data-relation=").expect("the relation renders")..];
     for write in [
         "/comments/create",
-        "data-row-delete-action",
-        "data-bulk-form",
+        "/delete?return=",
+        "/comments/bulk-delete",
     ] {
         assert!(
-            !relation.contains(write),
-            "no {write} on the detail page: {relation}"
+            relation.contains(write),
+            "{write} on the detail page: {relation}"
         );
     }
 }
 
-/// "New Comment" on the post's edit page opens the comment form with the post
-/// chosen, and the created comment lands back on the edit page.
+/// "New Comment" on the post's detail page opens the comment form with the post
+/// chosen, and the created comment lands back on the detail page.
 #[tokio::test]
-async fn a_comment_created_from_the_post_edit_page_returns_to_it() {
+async fn a_comment_created_from_the_post_page_returns_to_it() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let (_, bare) = fixture_posts(&mut db_q).await;
-    let page = format!("/admin/posts/{}/edit", bare.id);
+    let page = format!("/admin/posts/{}", bare.id);
 
     let html = body_string(client.get(&page).await).await;
     let return_to = page.replace('/', "%2F");
@@ -262,15 +241,15 @@ async fn a_comment_created_from_the_post_edit_page_returns_to_it() {
     assert!(html.contains("Written from the post"), "{html}");
 }
 
-/// A row delete confirmed from the post's edit page returns to it.
+/// A row delete confirmed from the post's detail page returns to it.
 #[tokio::test]
-async fn a_comment_deleted_from_the_post_edit_page_returns_to_it() {
+async fn a_comment_deleted_from_the_post_page_returns_to_it() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let (commented, _) = fixture_posts(&mut db_q).await;
-    let page = format!("/admin/posts/{}/edit", commented.id);
+    let page = format!("/admin/posts/{}", commented.id);
 
     let html = body_string(client.get(&page).await).await;
     let csrf = input_value(&html, "csrf_token").expect("the page carries csrf");
@@ -295,37 +274,20 @@ async fn a_comment_deleted_from_the_post_edit_page_returns_to_it() {
     );
 }
 
-/// The edit page shows the relation below the form, outside it.
+/// The edit page renders no relation: a change to one reruns the page, which resets the fields
+/// the reader has not saved.
 #[tokio::test]
-async fn the_post_edit_page_shows_its_comments() {
+async fn the_post_edit_page_renders_no_relation() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let (commented, _) = fixture_posts(&mut db_q).await;
-    let related = Comment::all()
-        .filter(Comment::fields().post_id().eq(commented.id))
-        .exec(&mut db_q)
-        .await
-        .unwrap();
     let html = body_string(
         client
             .get(&format!("/admin/posts/{}/edit", commented.id))
             .await,
     )
     .await;
-    let relation = html
-        .find("data-relation=\"comments\"")
-        .expect("the relation renders");
-    assert!(
-        html[relation..].contains(&related[0].body),
-        "the comments render in the relation: {html}"
-    );
-    let opened = html[..relation]
-        .rfind("<form method=\"post\"")
-        .expect("the edit form renders before the relation");
-    assert!(
-        html[opened..relation].contains("</form>"),
-        "the relation sits after the edit form closes: {html}"
-    );
+    assert!(!html.contains("data-relation="), "{html}");
 }

@@ -578,15 +578,7 @@ impl Panel {
                 <link rel="stylesheet" href=(stylesheet)>
                 <script src=(tablo_ui::SIDEBAR_JS) defer=""></script>
                 <script src=(tablo_ui::THEME_JS) defer=""></script>
-                <script src=(tablo_ui::DIALOG_JS) defer=""></script>
-                <script src=(tablo_ui::WIRE_JS) defer=""></script>
-                <script src=(tablo_ui::BULK_JS) defer=""></script>
-                <script src=(tablo_ui::FILTERS_JS) defer=""></script>
-                <script src=(tablo_ui::LIVE_SEARCH_JS) defer=""></script>
                 <script src=(tablo_ui::SELECTS_JS) defer=""></script>
-                <script src=(tablo_ui::VARIANT_JS) defer=""></script>
-                <script src=(tablo_ui::NOTIFICATION_JS) defer=""></script>
-                <script src=(tablo_ui::MUTATION_SUBMIT_JS) defer=""></script>
             }
             .boxed(),
             None => view! {

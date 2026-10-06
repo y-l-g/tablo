@@ -27,19 +27,9 @@ async fn bulk_delete_deletes_selected() {
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
     assert!(
-        html.contains("data-bulk-form"),
-        "list should carry the bulk form, got {}",
-        html
-    );
-    assert!(
-        html.contains("data-bulk-confirm-trigger"),
-        "list should carry the bulk confirm trigger, got {}",
-        html
-    );
-    assert!(
-        html.contains("data-boundary=\"table\""),
-        "Table should be a Boundary, got {}",
-        html
+        html.contains("id=\"table-writes\"")
+            && html.contains("formaction=\"/admin/users/bulk-delete\""),
+        "list should carry the write form and the bulk delete, got {html}"
     );
 
     let resp = client
@@ -242,10 +232,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     );
     assert_eq!(denied.edit, None, "the denied row renders no Edit: {html}");
     assert_eq!(
-        denied.delete_href, None,
-        "the denied row renders no Delete: {html}"
-    );
-    assert_eq!(
         denied.delete_action, None,
         "the denied row renders no Delete action: {html}"
     );
@@ -268,11 +254,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
         allowed.edit.as_deref(),
         Some(format!("/admin/users/{}/edit", ada.id).as_str()),
         "an allowed row keeps its Edit link, got {html}"
-    );
-    assert_eq!(
-        allowed.delete_href.as_deref(),
-        Some(format!("/admin/users?delete={}", ada.id).as_str()),
-        "an allowed row keeps its Delete link, got {html}"
     );
     assert_eq!(
         allowed.delete_action.as_deref(),

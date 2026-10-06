@@ -99,16 +99,16 @@ async fn stale_cursor_after_concurrent_delete_offers_first_page() {
 
 #[tokio::test]
 async fn no_js_fallbacks_cover_search_filter_sort_pager() {
-    // Every live control degrades to navigation: noscript search + filter
-    // forms plus plain-href sort and pager links.
+    // Without JavaScript the toolbar is a GET form and the sort and pager
+    // links navigate.
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
 
     let users = body_string(client.get("/admin/users").await).await;
     assert!(
-        users.contains("<noscript>") && users.contains("name=\"q\""),
-        "search needs a noscript GET form: {users}"
+        users.contains("method=\"get\" action=\"/admin/users\"") && users.contains("name=\"q\""),
+        "search needs a GET form: {users}"
     );
     assert!(
         find_href_with(&users, "sort=name").is_some(),
@@ -116,9 +116,12 @@ async fn no_js_fallbacks_cover_search_filter_sort_pager() {
     );
 
     let posts = body_string(client.get("/admin/posts").await).await;
+    let toolbar = &posts[posts
+        .find("id=\"table-toolbar\"")
+        .expect("the toolbar form")..];
     assert!(
-        posts.contains("<noscript>") && posts.contains("Apply filters"),
-        "filters need a noscript Apply path: {posts}"
+        toolbar.contains("name=\"f.status\""),
+        "the filters submit with the search's GET form: {posts}"
     );
 
     // Pager preserves state over plain navigation (25 overflow rows force

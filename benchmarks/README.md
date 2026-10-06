@@ -5,9 +5,9 @@ Server-rendering performance harness for Tablo, following the methodology of
 generator).
 
 Workload: **list with 50 rows, 2 includes (`author` + `comments`), tenancy set,
-`ViewAny` enforced**, measured on the real list path (`TableState::from_cx` →
-`TablePage::load` over the tenant-scoped `scoped_query` with the declared `.paginate(50)` →
-`render_with_state` → HTML). The raw query-only figure is kept as a labeled diagnostic
+`ViewAny` enforced**, measured on the real list path (`wired_table` →
+`WiredTable::render` over the tenant-scoped `scoped_query` with the declared `.paginate(50)` →
+HTML). The raw query-only figure is kept as a labeled diagnostic
 alongside it. Budget: **< 40 ms p50** on local SQLite, with an opt-in Postgres leg
 (see below). The numbers are UNGATED
 (GH #171): the harness prints the budget for reference and never PASS/FAILs on it.
@@ -52,8 +52,8 @@ starts the Topcoat server at `http://localhost:3000/` for manual inspection.
 ## What "fast" means
 
 * **Preloading** — `include` for `author` + `comments` (3 operations, not 101).
-* **Boundaries** — `Table` is a `Boundary` (`data-boundary="table"`); search/filter/page
-  swaps only the table, not the shell.
+* **Reruns** — a search, filter or page change reruns the page and morphs the changed markup in
+  place; the browser keeps the shell.
 * **Pagination** — cursor pagination (Toasty appends the PK tie-breaker internally).
 
 Results are written per run under `benchmarks/results/` (gitignored). CI builds and lints the

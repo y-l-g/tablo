@@ -15,14 +15,19 @@ const TOASTER: StaticClass = class!(
 );
 
 /// Styles the toast surface.
+///
+/// The toast slides in, then fades out 4s later; hovering or focusing it holds it, and the
+/// countdown restarts once it is left. Its close control hides it at once.
 const TOAST: StaticClass = class!(
-    "pointer-events-auto relative flex w-full translate-y-0 items-center gap-1.5 rounded-lg \
+    "pointer-events-auto relative flex w-full items-center gap-1.5 rounded-lg \
      border border-border bg-background p-4 text-[13px] text-foreground shadow-lg \
      [overflow-wrap:anywhere] \
-     transition-[translate,opacity] duration-[400ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] \
-     focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none \
-     data-[mounted=false]:translate-y-full data-[mounted=false]:opacity-0 \
-     data-[removed=true]:translate-y-full data-[removed=true]:opacity-0",
+     invisible opacity-0 starting:visible starting:translate-y-full starting:opacity-100 \
+     [transition:translate_400ms_cubic-bezier(0.25,0.1,0.25,1),opacity_400ms_ease_4s,visibility_0s_linear_4.4s] \
+     hover:visible hover:opacity-100 hover:[transition-delay:0s] \
+     focus-within:visible focus-within:opacity-100 focus-within:[transition-delay:0s] \
+     has-[[data-dismiss]:checked]:hidden \
+     focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
 );
 
 /// Styles the icon slot.
@@ -71,11 +76,6 @@ pub async fn toaster(
             aria-relevant="additions text"
             aria-atomic="false"
         >
-            <noscript>
-                <style>
-                    "[data-sonner-toast]{opacity:1 !important;transform:none !important}"
-                </style>
-            </noscript>
             <ol
                 class=(class!(TOASTER, attrs.remove("class")))
                 data-sonner-toaster=""
@@ -101,7 +101,6 @@ pub async fn toast(
             class=(class!(TOAST, attrs.remove("class")))
             data-sonner-toast=""
             data-styled="true"
-            data-mounted="false"
             data-visible="true"
             data-y-position="bottom"
             data-x-position="right"
@@ -174,18 +173,26 @@ pub async fn toast_description(
     })
 }
 
-/// Renders the close button.
+/// Renders the close control: a checkbox whose checked state hides its toast.
 #[component]
 pub async fn toast_close(#[default] mut attrs: Attributes) -> Result<impl View> {
     Ok(view! {
-        <button
-            type="button"
-            aria-label="Close toast"
-            class=(class!(CLOSE, attrs.remove("class")))
+        <label
+            class=(class!(
+                CLOSE,
+                "has-focus-visible:ring-2 has-focus-visible:ring-ring/50",
+                attrs.remove("class"),
+            ))
             data-close-button=""
             (attrs)
         >
+            <input
+                type="checkbox"
+                class="sr-only"
+                aria-label="Close toast"
+                data-dismiss=""
+            >
             icon(data: icons::X, attrs: attributes! { class="size-3" })
-        </button>
+        </label>
     })
 }

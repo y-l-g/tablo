@@ -506,7 +506,7 @@ async fn post_edit_switches_the_publication_variant_explicitly() {
 
     let html = body_string(client.get(&format!("/admin/posts/{}/edit", post.id)).await).await;
     let publication_select = html
-        .split_once("data-variant-select=\"publication\"")
+        .split_once("name=\"publication\"")
         .unwrap_or_else(|| {
             panic!("the edit form must carry the publication variant control, got {html}")
         })

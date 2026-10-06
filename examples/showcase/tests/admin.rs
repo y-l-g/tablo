@@ -554,7 +554,7 @@ async fn admin_list_empty_search_shows_no_results_with_clear() {
     );
     let html = body_string(response).await;
     assert!(
-        html.contains("data-search-clear"),
+        html.contains("Clear search</a>"),
         "search-empty state must offer the clear link: {html}"
     );
     assert!(
@@ -567,19 +567,18 @@ async fn admin_list_empty_search_shows_no_results_with_clear() {
     );
 }
 #[tokio::test]
-async fn users_list_renders_live_search_host_with_get_fallback() {
+async fn users_list_renders_its_search_as_a_get_form() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let resp = client.get("/admin/users").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
+    // The toolbar is a GET form spelling the list's parameters: the page writes it to the table's
+    // query in place, and without JavaScript the browser submits it.
     assert!(
-        html.contains("data-live-search"),
-        "users list must render the live host, got {html}"
-    );
-    assert!(
-        html.contains("<noscript>"),
-        "live list must keep the GET fallback, got {html}"
+        html.contains("id=\"table-toolbar\" method=\"get\" action=\"/admin/users\"")
+            && html.contains("name=\"q\""),
+        "users list must render its search as a GET form, got {html}"
     );
 }

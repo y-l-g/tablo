@@ -56,7 +56,7 @@ touches the `msrv-udeps.yml` path filter; any git failure runs every gate.
 3. `cargo +nightly-2026-08-24 fmt --all -- --check`
 4. `topcoat fmt`, then `git diff --exit-code`
 5. `cargo +1.98 check --workspace --locked`
-6. `node --test crates/tablo-ui/assets/selects.test.js crates/tablo-ui/assets/bulk.test.js crates/tablo-ui/assets/wire.test.js crates/tablo-ui/assets/dialog.test.js crates/tablo-ui/assets/mutation-submit.test.js crates/tablo-ui/assets/notifications.test.js crates/tablo-ui/assets/filters.test.js crates/tablo-ui/assets/live-search.test.js examples/showcase/assets/media.test.js`
+6. `node --test crates/tablo-ui/assets/selects.test.js examples/showcase/assets/media.test.js`
 7. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --locked`
 
 Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are

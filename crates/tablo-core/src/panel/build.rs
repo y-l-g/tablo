@@ -22,7 +22,6 @@ use super::{
     forms::MAX_FORM_BYTES,
     headers,
     register::Registry,
-    search::{ShardPanel, TABLE_RELATION_SEARCH_PATH, TABLE_SEARCH_PATH},
     state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
@@ -118,8 +117,6 @@ impl Panel {
             pages,
             routes,
             root,
-            search,
-            relation_search,
             children,
             ..
         } = registry;
@@ -134,8 +131,6 @@ impl Panel {
             brand,
             dark_mode: dark_mode.unwrap_or(false),
             shell_assets,
-            search,
-            relations: relation_search,
             children,
             mounts,
             root_redirect: root_redirect.clone(),
@@ -273,8 +268,6 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     }
     builder = builder
         .layer(RuntimeGate::new())
-        .layer(ShardPanel::new(TABLE_SEARCH_PATH, 0))
-        .layer(ShardPanel::new(TABLE_RELATION_SEARCH_PATH, 1))
         .app_context(Panels::default())
         .app_context(MountScope(|cx| current(cx).map(|panel| &*panel.mounts)))
         .app_context(TenantSource(crate::auth::session_tenant));

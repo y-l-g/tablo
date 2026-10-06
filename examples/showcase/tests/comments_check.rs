@@ -45,23 +45,13 @@ async fn comments_list_offers_row_and_bulk_delete() {
     let resp = client.get("/admin/comments").await;
     let html = body_string(resp).await;
     assert!(
-        html.contains("data-bulk-form"),
+        html.contains("formaction=\"/admin/comments/bulk-delete\""),
         "the moderation queue must offer bulk delete: {html}"
     );
     let rendered = tablo_test::rows(&html);
     assert!(
         !rendered.is_empty(),
         "the fixture must seed comments: {html}"
-    );
-    // The row control is a `?delete=<key>` link that opens the confirmation
-    // dialog; the confirmed POST is what removes the row.
-    assert!(
-        rendered.iter().any(|row| row
-            .actions
-            .delete_href
-            .as_deref()
-            .is_some_and(|href| href.contains("delete="))),
-        "the moderation queue must offer row delete: {html}"
     );
     assert!(
         rendered

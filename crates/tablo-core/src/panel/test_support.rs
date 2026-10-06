@@ -56,8 +56,6 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         brand: None,
         dark_mode: false,
         shell_assets: None,
-        search: std::collections::HashMap::new(),
-        relations: std::collections::HashMap::new(),
         children: std::collections::HashMap::new(),
         mounts: std::sync::Arc::default(),
         root_redirect: None,

@@ -284,8 +284,8 @@ async fn theme_cookie_overrides_the_dark_mode_default() {
 
 #[tokio::test]
 async fn shell_notification_carries_dismiss_hooks() {
-    // The shell toast is the shadcn/Sonner surface, carrying
-    // the auto-dismiss hooks notifications.js arms (mount + 4s + close).
+    // The shell toast is the shadcn/Sonner surface; its close button wraps the
+    // `data-dismiss` checkbox the toast's CSS hides it on.
     use crate::notification::Notification;
 
     let enc = serde_json::to_string(&Notification::success("Created")).unwrap();
@@ -295,8 +295,8 @@ async fn shell_notification_carries_dismiss_hooks() {
         "shell toast must be the Sonner surface, got {html}"
     );
     assert!(
-        html.contains("data-close-button"),
-        "shell toast must carry the Sonner close button, got {html}"
+        html.contains("data-close-button") && html.contains("data-dismiss"),
+        "shell toast must carry the Sonner close button and its dismiss checkbox, got {html}"
     );
     assert!(
         html.contains("data-title") && html.contains("Created"),

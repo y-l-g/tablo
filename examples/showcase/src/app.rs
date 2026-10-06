@@ -64,14 +64,12 @@ impl Resource for UserResource {
                 _ => true,
             })
             .table(
-                UserForm::table()
-                    .column(
-                        TextColumn::new(lens!(User.created_at))
-                            .format(|at| at.strftime("%Y-%m-%d").to_string())
-                            .sortable()
-                            .width(ColumnWidth::Rem(8)),
-                    )
-                    .live_search(),
+                UserForm::table().column(
+                    TextColumn::new(lens!(User.created_at))
+                        .format(|at| at.strftime("%Y-%m-%d").to_string())
+                        .sortable()
+                        .width(ColumnWidth::Rem(8)),
+                ),
             )
             .form(Schema::new(Section::new("Profile").schema((
                 c.name.placeholder("Ada Lovelace"),
@@ -124,7 +122,7 @@ impl Resource for AuthorResource {
             .icon(tablo_ui::icons::PEN_LINE)
             .policy(when(blog_open))
             .tenancy(Tenancy::column(Author::fields().tenant_id()))
-            .table(AuthorForm::table().live_search())
+            .table(AuthorForm::table())
             .form(Schema::new((c.name, c.email.email())))
     }
 }
@@ -301,7 +299,6 @@ fn post_table() -> Table<Post> {
             ),
     ))
     .group_by(lens!(Post.status))
-    .live_search()
 }
 
 /// Publishes draft posts.
@@ -369,25 +366,22 @@ impl Resource for CommentResource {
                 _ => true,
             })
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
-            .table(
-                Table::new((
-                    TextColumn::new(lens!(Comment.body)).searchable().sortable(),
-                    ComputedColumn::new("Post", |c: &Comment| {
-                        debug_assert!(
-                            !c.post.is_unloaded(),
-                            "the Post column declares `.include(Comment::fields().post())`"
-                        );
-                        if c.post.is_unloaded() {
-                            "(unloaded)".to_string()
-                        } else {
-                            c.post.get().title.clone()
-                        }
-                    })
-                    .width(ColumnWidth::Wide)
-                    .include(Comment::fields().post()),
-                ))
-                .live_search(),
-            )
+            .table(Table::new((
+                TextColumn::new(lens!(Comment.body)).searchable().sortable(),
+                ComputedColumn::new("Post", |c: &Comment| {
+                    debug_assert!(
+                        !c.post.is_unloaded(),
+                        "the Post column declares `.include(Comment::fields().post())`"
+                    );
+                    if c.post.is_unloaded() {
+                        "(unloaded)".to_string()
+                    } else {
+                        c.post.get().title.clone()
+                    }
+                })
+                .width(ColumnWidth::Wide)
+                .include(Comment::fields().post()),
+            )))
             .form(Schema::new((
                 c.body.multiline(4).placeholder("Write a reply…"),
                 c.post_id

@@ -60,15 +60,4 @@ pub use components::{
 
 pub const SIDEBAR_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/sidebar.js");
 pub const THEME_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/theme.js");
-pub const DIALOG_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/dialog.js");
-pub const WIRE_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/wire.js");
-pub const BULK_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/bulk.js");
-pub const FILTERS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/filters.js");
-pub const LIVE_SEARCH_JS: topcoat::asset::Asset =
-    topcoat::asset::asset!("../assets/live-search.js");
 pub const SELECTS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/selects.js");
-pub const VARIANT_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/variant.js");
-pub const NOTIFICATION_JS: topcoat::asset::Asset =
-    topcoat::asset::asset!("../assets/notifications.js");
-pub const MUTATION_SUBMIT_JS: topcoat::asset::Asset =
-    topcoat::asset::asset!("../assets/mutation-submit.js");

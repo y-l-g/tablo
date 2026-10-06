@@ -47,15 +47,10 @@ async fn posts_filter_widgets_render_typed_controls() {
         "missing date control in {html}",
         html = html
     );
+    let toolbar = &html[html.find("id=\"table-toolbar\"").expect("the toolbar form")..];
     assert!(
-        html.contains("data-filters-form"),
-        "missing filters form in {}",
-        html
-    );
-    assert!(
-        html.contains("name=\"f.status\"") && html.contains("data-filters-transport"),
-        "missing the f.<name> controls or the live query transport in {}",
-        html
+        toolbar.contains("name=\"f.status\""),
+        "the f.<name> controls belong to the toolbar form in {html}"
     );
 }
 
@@ -225,7 +220,7 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
 }
 
 #[tokio::test]
-async fn posts_list_renders_live_search_host() {
+async fn posts_list_streams_its_rows_behind_the_toolbar() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -233,12 +228,8 @@ async fn posts_list_renders_live_search_host() {
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(
-        html.contains("data-live-search"),
-        "posts list must render the live host, got {html}"
-    );
-    assert!(
-        html.contains("data-topcoat-swap"),
-        "posts list must render the swap envelope, got {html}"
+        html.contains("data-topcoat-swap") && html.contains("id=\"table-toolbar\""),
+        "posts list must stream its rows into the table, got {html}"
     );
 }
 
