@@ -34,15 +34,15 @@ showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.
 
 ## The gate set
 
-CI runs seven gates plus four extra checks (mirroring `.github/workflows/ci.yml` and, for
+CI runs seven gates plus three extra checks (mirroring `.github/workflows/ci.yml` and, for
 gates 5 and 7, `.github/workflows/msrv-udeps.yml`).
 The fast path is the xtask runner: `check` runs the cheap gates below fail-fast, cheapest
 first, skipping the ones CI would not run for the change; `check --all` runs every gate,
-including the slow docs, guide, and external builds.
+including the slow docs and external builds.
 
 ```sh
 cargo xtask check         # the cheap gates below, skipping CI-skipped ones
-cargo xtask check --all   # every gate, plus docs, the guide suite, and the external build
+cargo xtask check --all   # every gate, plus docs and the external build
 cargo xtask fmt           # the formatting subset: nightly fmt, detached fmt, pinned topcoat fmt
 ```
 
@@ -63,17 +63,15 @@ Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys
 nightly-only (GH #269). Gate 5 is the MSRV floor in `Cargo.toml` (GH #175).
 Gate 7 guards unused dependencies (GH #271).
 
-CI runs four more checks outside the seven, and a change touching what they cover
+CI runs three more checks outside the seven, and a change touching what they cover
 has to pass them too (`cargo xtask check --all` runs the detached fmt with the cheap gates
-up front, then docs, the guide suite, and the external build after gate 7):
+up front, then docs and the external build after gate 7):
 
 - the `docs` job builds rustdoc with
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`, then
   builds the guide with `mdbook build docs/guide`;
-- the `fmt` job runs `cargo fmt -- --check` inside each detached workspace
-  (`examples/quickstart`, `examples/guide`);
-- the `guide` job runs the detached companion's tests and clippy by manifest
-  path, against the published crates;
+- the `fmt` job runs `cargo fmt -- --check` inside the detached
+  `examples/quickstart` workspace;
 - the `external` job runs `cargo xtask external-check`: the detached
   `examples/quickstart` app must build, serve, and generate a stylesheet with
   classes only Tablo's own sources write, so workspace-only resolutions fail it.

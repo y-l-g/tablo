@@ -16,9 +16,6 @@ pub const MSRV: &str = "1.98";
 /// The detached app `external-check` builds from outside the repository.
 pub const QUICKSTART: &str = "examples/quickstart";
 
-/// The detached guide companion, building against the published crates.
-pub const GUIDE: &str = "examples/guide";
-
 /// Mirrors the `pull_request: paths` filter of `.github/workflows/msrv-udeps.yml`.
 pub const MSRV_PATHS: &[&str] = &[
     "Cargo.toml",
@@ -32,11 +29,10 @@ pub const MSRV_PATHS: &[&str] = &[
 /// Whether `check` skips the gates CI would not run for the change.
 #[derive(PartialEq, Eq)]
 pub enum Scope {
-    /// The fast gates only: the MSRV/udeps gates without `MSRV_PATHS` changes
-    /// stay skipped, and
-    /// docs, the guide suite, and the external build never run.
+    /// The fast gates only: the MSRV/udeps gates without `MSRV_PATHS` changes stay skipped, and
+    /// docs and the external build never run.
     Auto,
-    /// Run every gate, including the slow docs, guide, and external builds.
+    /// Run every gate, including the slow docs and external builds.
     All,
 }
 
@@ -146,17 +142,14 @@ pub fn nightly_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     )
 }
 
-/// Checks fmt for the detached quickstart and guide.
+/// Checks fmt for the detached quickstart.
 pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
-    for detached in [QUICKSTART, GUIDE] {
-        run.run(
-            "cargo",
-            &["fmt", "--", "--check"],
-            Some(&root.join(detached)),
-            &[],
-        )?;
-    }
-    Ok(())
+    run.run(
+        "cargo",
+        &["fmt", "--", "--check"],
+        Some(&root.join(QUICKSTART)),
+        &[],
+    )
 }
 
 /// Where the pinned CLI install the `topcoat fmt` check needs lives.
@@ -285,9 +278,9 @@ fn udeps_installed(run: &dyn Runner, root: &Path) -> bool {
 }
 
 /// The gate set as a local fail-fast convenience runner: the CONTRIBUTING
-/// gates cheapest-first. Docs, the guide suite, and the external build run
-/// only under `Scope::All`; CI covers them in parallel jobs. The MSRV/udeps gates
-/// run only with `MSRV_PATHS` changes, matching the CI path filter.
+/// gates cheapest-first. Docs and the external build run only under
+/// `Scope::All`; CI covers them in parallel jobs. The MSRV/udeps gates run only
+/// with `MSRV_PATHS` changes, matching the CI path filter.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
     let root = repo_root();
     check_with(run, &|| stage_quickstart(&root), scope, &|specs| {
@@ -369,35 +362,9 @@ fn check_with(
             &[("RUSTDOCFLAGS", "-D warnings")],
         )?;
         guide_build(run, &root)?;
-        run.run(
-            "cargo",
-            &[
-                "test",
-                "--locked",
-                "--manifest-path",
-                "examples/guide/Cargo.toml",
-            ],
-            Some(&root),
-            &[],
-        )?;
-        run.run(
-            "cargo",
-            &[
-                "clippy",
-                "--locked",
-                "--manifest-path",
-                "examples/guide/Cargo.toml",
-                "--all-targets",
-                "--",
-                "-D",
-                "warnings",
-            ],
-            Some(&root),
-            &[],
-        )?;
         external_check(run, &root, &stage()?)?;
     } else {
-        println!("skipped docs, the guide suite, and the external build: pass --all to run them");
+        println!("skipped docs and the external build: pass --all to run them");
     }
     Ok(())
 }

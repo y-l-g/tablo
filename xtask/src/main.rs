@@ -86,8 +86,8 @@ COMMANDS:
     check              The fast gates as a local fail-fast convenience runner:
                        the cheap CONTRIBUTING gates cheapest-first. The
                        MSRV/udeps gates run only when the change touches
-                       their CI path filter; `--all` runs them plus docs, the
-                       guide suite, and the external build unconditionally. CI keeps one subcommand per
+                       their CI path filter; `--all` runs them plus docs and
+                       the external build unconditionally. CI keeps one subcommand per
                        parallel job instead.
 
 OPTIONS:
