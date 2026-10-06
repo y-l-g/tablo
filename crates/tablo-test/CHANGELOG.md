@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/y-l-g/tablo/compare/tablo-test-v0.2.0...tablo-test-v0.3.0) - 2026-10-06
+
+### Fixed
+
+- *(repo)* home the protocol helpers in tablo-core ([#493](https://github.com/y-l-g/tablo/pull/493))
+
+### Other
+
+- *(repo)* add a README to every published crate ([#503](https://github.com/y-l-g/tablo/pull/503))
+
 ## [0.2.0](https://github.com/y-l-g/tablo/compare/tablo-test-v0.1.0...tablo-test-v0.2.0) - 2026-10-06
 
 ### Fixed
