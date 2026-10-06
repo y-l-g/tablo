@@ -2,7 +2,7 @@
 
 use topcoat::context::Cx;
 
-use super::Resource;
+use super::{Action, Resource};
 
 /// The kind of mutation a record fn performed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,10 +47,10 @@ impl<M> Committed<M> {
         }
     }
 
-    /// The rows a custom [`Action`](super::Action) named `name` ran on.
-    pub fn acted(name: &'static str, records: Vec<M>) -> Self {
+    /// The rows a custom [`Action`](super::Action) `A` ran on.
+    pub fn acted<R: Resource<Model = M>, A: Action<R>>(records: Vec<M>) -> Self {
         Self {
-            mutation: Mutation::Action(name),
+            mutation: Mutation::Action(A::NAME),
             records,
         }
     }

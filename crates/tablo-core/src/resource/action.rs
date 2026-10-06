@@ -174,6 +174,7 @@ impl<R: Resource> Actions<R> {
             can_run: A::can_run,
             run: run_erased::<R, A>,
             success: A::success,
+            acted: super::Committed::acted::<R, A>,
         });
         self
     }
@@ -200,6 +201,7 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) run:
         for<'a> fn(&'a Cx, &'a [R::Model], &'a mut dyn toasty::Executor) -> ActionFuture<'a>,
     pub(crate) success: fn(&Cx, usize) -> String,
+    pub(crate) acted: fn(Vec<R::Model>) -> super::Committed<R::Model>,
 }
 
 /// [`Action::run`] behind a function pointer.
