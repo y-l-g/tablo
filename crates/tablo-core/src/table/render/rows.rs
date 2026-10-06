@@ -26,7 +26,7 @@ pub(super) struct RowChrome {
     pub(super) actions_min: Option<Cow<'static, str>>,
     pub(super) delete_dialog_id: String,
     /// The shared confirmatory-action dialog's DOM id, empty when the table
-    /// wires no custom actions.
+    /// wires no actions.
     pub(super) action_dialog_id: String,
 }
 

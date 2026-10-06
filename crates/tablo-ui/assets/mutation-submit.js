@@ -342,7 +342,7 @@ function showResponse(html) {
   document.close();
 }
 
-// Focus where the deleted row stood: the row that took its place, else the
+// Focus where the mutated row stood: the row that took its place, else the
 // last row, else the bulk bar's first control — its delete trigger, or its first
 // custom action when the bar has no delete. The table is the reader's context, and the
 // control that opened the dialog is usually the element that just left. The
