@@ -12,7 +12,7 @@ use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
 use uuid::Uuid;
 
-use crate::common::{
+use crate::framework::common::{
     body_string, field_error, get, input_value, memory_db, mount, panel, panel_router, post_fields,
     refusal,
 };

@@ -28,7 +28,10 @@ contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
 
 - `examples/showcase/tests/` — the integration suite: HTTP requests against the
   runnable admin, asserting status codes, redirects, rendered structure, and
-  database state.
+  database state. `tests/framework/` holds the cases the showcase's resources do
+  not reach, each against a panel built from test-local models and resources.
+- `crates/tablo-core/tests/layers.rs` — the layering check, which reads
+  `tablo-core`'s sources (see `docs/dev/architecture.md`).
 - `tests.rs` beside a source file — unit tests for pure decisions (escaping,
   state decoding, hook contracts). The source file ends with
   `#[cfg(test)] mod tests;`, and the module's body lives in `foo/tests.rs` for
@@ -42,25 +45,24 @@ contract tests, and the JavaScript suites under `crates/tablo-ui/assets/`.
 - `xtask/tests/it.rs` — the contract guards (asset hooks, registry sync);
   edge cases live as unit tests in `xtask/src/tests.rs`.
 
-Both `examples/showcase` and `crates/tablo-core` set `autotests = false` and declare a single
-`[[test]] name = "it"` target. `tests/it.rs` declares each test file as a module of one binary,
-so shared fixtures compile once per crate. A file's tests are its module's:
+`examples/showcase` sets `autotests = false` and declares a single `[[test]] name = "it"`
+target. `tests/it.rs` declares each test file as a module of one binary, so shared fixtures
+compile once. A file's tests are its module's:
 `cargo test --test it admin::`. Modules share one process; nothing here mutates process-wide
 state, which makes that safe. A test needing isolation gets a dedicated target.
 
 ## Shared harness
 
-`tablo_core::protocol` holds the protocol helpers both integration suites share:
+`crates/tablo-test` holds `TestClient` and the protocol helpers the suite shares:
 the body readers, the form and multipart writers, the cookie
 jar and `Set-Cookie` parsing, the session-cookie helpers the auth suites use,
 the robust `input_value`, and the semantic HTML queries `rows`,
-`row_actions`, `field_error`, and `filter_options`. `TestClient` lives in
-`crates/tablo-test`, which re-exports the helpers. Row, field-error, and
+`row_actions`, `field_error`, and `filter_options`. Row, field-error, and
 filter-value asserts go through those queries rather than substrings of
-markup. What names crate-local models stays per
-crate: the seed and database fixtures, the showcase login and session-mint
-flow, the core panel builders and free POST/GET helpers, and the
-showcase-only link scrapers.
+markup. Fixtures naming models stay with the models: `tests/common` holds the
+showcase seed, login, and session-mint flow and the link scrapers;
+`tests/framework/common` holds the test-local models' database fixtures, panel
+builders, and free POST/GET helpers.
 
 The shared `multipart_body` emits no per-part `Content-Type`: neither server
 parser reads one. The framework parser tells file parts from text parts by

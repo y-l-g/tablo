@@ -3,7 +3,7 @@
 use tablo_core::{ReadOnly, Resource, ResourceDef, Table, TextColumn, lens};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel};
+use crate::framework::common::{body_string, get, memory_db, mount, panel};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct PoolDummy {

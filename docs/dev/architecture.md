@@ -16,7 +16,7 @@ and `tablo-ui`, `tablo-test` on `tablo-core` and `topcoat`, and the `tablo` faca
 | `tablo-macros` | — | the `EmbeddedForm` and `RecordForm` derives |
 | `tablo-ui` | `topcoat` | synced primitives, owned composites, `icons.rs` |
 | `tablo-core` | `tablo-macros`, `tablo-ui`, `toasty` | Panel, Resource, Table, Schema, policy, auth, tenancy, upload |
-| `tablo-test` | `tablo-core`, `topcoat` | the in-memory HTTP client, `tablo::testing` |
+| `tablo-test` | `tablo-core`, `topcoat` | the in-memory HTTP client and the response and HTML helpers, `tablo::testing` |
 | `tablo-build` | `topcoat` | `tailwind()`, the app's Tailwind build over Tablo's sources |
 | `examples/showcase` | `tablo-core`, `tablo-ui`, `toasty`, `tablo-build` (build), `tablo-test` (dev) | the runnable admin and the integration tests |
 | `examples/quickstart` | `tablo`, `tablo-build` | the smallest app, detached, built from outside the repo by `cargo xtask external-check` |
@@ -61,7 +61,7 @@ below it, never one above. `tests/layers.rs` reads the sources and fails on an u
 
 | Layer | Modules |
 | --- | --- |
-| foundations | `csrf`, `db`, `declaration`, `error`, `lens`, `naming`, `protocol`, `query_term`, `toasty_compat`, `topcoat_compat` |
+| foundations | `csrf`, `db`, `declaration`, `error`, `lens`, `naming`, `query_term`, `toasty_compat`, `topcoat_compat` |
 | the declaration model | `form`, `navigation`, `policy`, `schema`, `table`, `tenancy` |
 | resources | `resource` |
 | serving | `auth`, `notification`, `page`, `panel`, `upload` |

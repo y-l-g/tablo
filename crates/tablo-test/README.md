@@ -1,8 +1,8 @@
 # tablo-test
 
 Drives a built Topcoat `Router` without a socket, carrying the session cookie, the CSRF token and
-the tenant. The body and HTML helpers it uses live in `tablo_core::protocol` and are re-exported
-here.
+the tenant, and reads values back out of its responses: bodies, cookies, form fields, and the
+semantic HTML queries over table rows, field errors and filter options.
 
 The `tablo` facade re-exports the crate as `tablo::testing` behind the `testing` feature, which is
 how a suite uses it:

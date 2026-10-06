@@ -19,7 +19,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{
+use crate::framework::common::{
     body_bytes, body_string, csp, field_error, get, memory_db, mount, multipart_body, new_csrf,
     panel, post, post_multipart, refusal,
 };
