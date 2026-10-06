@@ -92,22 +92,19 @@ fn run_action<R: Resource>(cx: &Cx, body: Body, target: Target) -> BoxView<'_> {
         if rows.iter().any(|row| !resource.can(cx, Ability::View(row))) {
             return Err(forbidden().into());
         }
-        let refused = rows.iter().filter(|row| !(action.can_run)(cx, row)).count();
-        if refused > 0 {
-            return Err(refuse(cx, &resource, action, target, refused));
+        let (rows, refused): (Vec<R::Model>, Vec<R::Model>) =
+            rows.into_iter().partition(|row| (action.can_run)(cx, row));
+        if rows.is_empty() {
+            return Err(refuse(cx, &resource, action, target, refused.len()));
         }
-        let count = rows.len();
+        let mut note = (action.success)(cx, rows.len());
+        if !refused.is_empty() {
+            let skipped = refused.len();
+            let selected = rows.len() + skipped;
+            note.push_str(&format!(" ({skipped} of {selected} skipped)"));
+        }
         let written = (action.run)(cx, &rows, &mut tx).await.map(|()| rows);
-        commit_write(
-            cx,
-            &resource,
-            tx,
-            written,
-            action.acted,
-            (action.success)(cx, count),
-            WRITE_ACTION,
-        )
-        .await
+        commit_write(cx, &resource, tx, written, action.acted, note, WRITE_ACTION).await
     })
 }
 
@@ -141,7 +138,8 @@ async fn load_targets<R: Resource>(
     Ok(rows)
 }
 
-/// Answers a target holding `refused` records the action may not run on.
+/// Answers a target the action refuses on every record: a row with 403, a selection with an
+/// error notification naming `refused` records.
 fn refuse<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,

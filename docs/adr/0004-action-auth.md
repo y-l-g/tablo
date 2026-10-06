@@ -19,9 +19,10 @@ outside it. A related record deleted, moved, or hidden between the two refuses t
 field error and writes nothing.
 
 A custom `Action` runs the same way. Its handler loads the row or selection through
-`scoped_query`, checks `View` and `can_run` on every record, and calls `Action::run` with the
-same executor. A refused record is a 403; a refused selection commits nothing and answers with an
-error notification on the list.
+`scoped_query`, checks `View` on every record and `can_run` on every record, and calls `Action::run`
+with the same executor on the records that pass. A row `can_run` refuses is a 403. A selection drops
+the records `can_run` refuses, runs the rest and reports the refused count as skipped, and commits
+nothing with an error notification on the list when `can_run` refuses every record.
 
 `create_record` and `update_record` return the written row; delete and bulk delete hand over the
 removed rows. `Resource::after_commit(cx, Committed<Self::Model>)` receives one value per
