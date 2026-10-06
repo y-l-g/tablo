@@ -24,14 +24,15 @@ pub use fields::{
     Toggle,
 };
 pub use layouts::{Grid, Group, Repeater, Section};
-pub(crate) use lenses::{ResolvedLens, declare_with, lens_field, lens_field_unique, schema_of};
-pub use lenses::{declare, form_key};
+pub(crate) use lenses::{Binding, lens_field, lens_field_unique};
+pub use lenses::{FieldResolver, form_key};
 pub use options::Options;
 pub(crate) use relationship::OptionLoadError;
 pub use relationship::{MAX_RELATIONSHIP_OPTIONS, OptionSource};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{LeafPlace, Node, render_nodes, walk_absent_groups};
+use tree::{bind_nodes, unbound_values};
 pub use validation::TypedValue;
 pub(crate) use validation::required_error;
 
@@ -89,6 +90,24 @@ impl Schema {
     /// Every field, in declaration order.
     pub fn fields(&self) -> impl Iterator<Item = &Field> {
         self.fields.iter()
+    }
+
+    /// Binds the schema's embedded values and embedded paths to `db`'s app schema.
+    ///
+    /// A panel binds the schemas it mounts; bind one a custom page renders before rendering it.
+    /// A schema with no embedded value or path is bound from the start.
+    pub fn bind(mut self, db: &toasty::Db) -> Self {
+        self.bind_with(&FieldResolver::of_db(db));
+        self
+    }
+
+    /// Binds the schema through `resolver`: builds each unbound embedded value in place, then
+    /// binds every field's path.
+    pub(crate) fn bind_with(&mut self, resolver: &FieldResolver) {
+        bind_nodes(&mut self.nodes, &mut self.fields, resolver);
+        for field in &self.fields {
+            field.bind(resolver);
+        }
     }
 
     /// Renders the schema from `source` and fails with declaration errors instead of rendering.
@@ -203,14 +222,19 @@ impl Schema {
         out
     }
 
-    /// Reports what is wrong with this declaration: a field whose lens binds no single column, and
-    /// two fields sharing a name.
+    /// Reports what is wrong with this declaration: an embedded value or path never bound, a field
+    /// whose lens binds no single column, and two fields sharing a name.
     pub fn declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
-        let mut errors = Vec::new();
+        let mut unbound = Vec::new();
+        unbound_values(&self.nodes, &mut unbound);
+        let mut errors: Vec<_> = unbound
+            .into_iter()
+            .map(|item| crate::DeclarationErrorKind::Unbound { item })
+            .collect();
         let mut seen = HashSet::new();
         for field in &self.fields {
             match field.misdeclared() {
-                Some(error) => errors.push(error.clone()),
+                Some(error) => errors.push(error),
                 None if !seen.insert(field.name()) => {
                     errors.push(crate::DeclarationErrorKind::DuplicateField {
                         name: field.name().to_string(),

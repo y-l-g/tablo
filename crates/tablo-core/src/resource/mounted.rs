@@ -15,7 +15,7 @@ use crate::{
     naming::{kebab_case, pluralize, type_short_name, type_stem},
     navigation::NavigationItem,
     policy::{Ability, Policy},
-    schema::{Schema, declare_with, schema_of},
+    schema::{FieldResolver, Schema},
     table::Table,
     tenancy::Tenancy,
 };
@@ -41,8 +41,9 @@ pub(crate) struct Mounted<R: Resource> {
 }
 
 impl<R: Resource> Mounted<R> {
-    /// Fills in `def`'s defaults for a panel at `prefix`; call it with the app schema in scope.
-    pub(crate) fn new(def: ResourceDef<R>, prefix: &str) -> Self {
+    /// Fills in `def`'s defaults for a panel at `prefix` and binds its declarations through
+    /// `resolver`'s app schema.
+    pub(crate) fn new(def: ResourceDef<R>, prefix: &str, resolver: &FieldResolver) -> Self {
         let slug = def
             .slug
             .unwrap_or_else(|| kebab_case(&pluralize(type_stem::<R>("Resource"))));
@@ -60,6 +61,14 @@ impl<R: Resource> Mounted<R> {
                 ..NavigationItem::default()
             })
             .resolved(&url);
+        let table = def.table.unwrap_or_else(<R::Form as RecordForm>::table);
+        table.bind_with(resolver);
+        let mut form = def.form.unwrap_or_else(<R::Form as RecordForm>::schema);
+        form.bind_with(resolver);
+        let view = def.view.map(|mut view| {
+            view.bind_with(resolver);
+            view
+        });
         Self {
             slug,
             url,
@@ -68,12 +77,12 @@ impl<R: Resource> Mounted<R> {
             navigation,
             policy: def.policy,
             tenancy: def.tenancy,
-            table: Arc::new(def.table.unwrap_or_else(<R::Form as RecordForm>::table)),
-            form: Arc::new(def.form.unwrap_or_else(<R::Form as RecordForm>::schema)),
-            view: def.view,
+            table: Arc::new(table),
+            form: Arc::new(form),
+            view,
             relations: def.relations,
             actions: def.actions,
-            fields: <R::Form as RecordForm>::fields(),
+            fields: <R::Form as RecordForm>::fields(resolver),
             create_columns: def.create_columns,
         }
     }
@@ -129,9 +138,11 @@ pub(crate) struct MountScope(pub(crate) fn(&Cx) -> Option<&Mounts>);
 pub(crate) fn mounted<R: Resource>(cx: &Cx) -> Option<Arc<Mounted<R>>> {
     match try_app_context::<MountScope>(cx) {
         Some(MountScope(mounts)) => mounts(cx)?.get::<R>(),
-        None => Some(Arc::new(declare_with(schema_of(cx), || {
-            Mounted::new(R::declare(), "")
-        }))),
+        None => Some(Arc::new(Mounted::new(
+            R::declare(),
+            "",
+            &FieldResolver::of(cx),
+        ))),
     }
 }
 

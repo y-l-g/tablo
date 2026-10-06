@@ -1,10 +1,12 @@
 //! Resolves typed Toasty paths to form keys and field metadata.
 //!
-//! A path resolves through the app schema in scope: the one the panel installs while it calls a
-//! resource's declarations at mount, or the one [`declare`] installs. Outside a scope a path
-//! resolves against its model alone, which binds a single field and refuses an embedded leaf.
+//! A single-field path resolves against its own model when its declaration is built. An embedded
+//! path names a flattened storage column only the app schema knows, so it stays unbound until its
+//! declaration binds to a [`FieldResolver`]: the panel binds every declaration it mounts, and
+//! [`Schema::bind`](crate::Schema::bind) and [`Table::bind`](crate::Table::bind) bind one built
+//! outside a panel.
 
-use std::{cell::RefCell, sync::Arc};
+use std::sync::{Arc, OnceLock};
 
 use toasty::stmt::Path;
 use toasty_core::stmt::PathRoot;
@@ -12,101 +14,102 @@ use topcoat::context::Cx;
 
 use crate::{DeclarationErrorKind, naming::capitalize};
 
-thread_local! {
-    static SCHEMA: RefCell<Option<Arc<toasty_core::Schema>>> = const { RefCell::new(None) };
-}
-
-/// Run `declarations` with `db`'s app schema in scope, so every path they bind resolves an
-/// embedded leaf to its flattened storage column.
-///
-/// Mounting a panel ([`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel)) calls
-/// each resource's declarations inside such a scope. Call this to build a declaration outside a
-/// panel, such as a [`Schema`](crate::Schema) a custom page renders:
-///
-/// ```rust,no_run
-/// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
-/// # #[derive(Debug, Clone, tablo_core::RecordForm)]
-/// # #[form(model = Post)]
-/// # struct PostForm { title: String }
-/// # use tablo_core::RecordForm;
-/// # let db: toasty::Db = todo!();
-/// let form = tablo_core::declare(&db, PostForm::schema);
-/// # let _ = form;
-/// ```
-pub fn declare<T>(db: &toasty::Db, declarations: impl FnOnce() -> T) -> T {
-    declare_with(Some(db.schema().clone()), declarations)
-}
-
-/// Run `declarations` with `schema` in scope, restoring the enclosing scope after, a panic
-/// included.
-pub(crate) fn declare_with<T>(
-    schema: Option<Arc<toasty_core::Schema>>,
-    declarations: impl FnOnce() -> T,
-) -> T {
-    struct Restore(Option<Arc<toasty_core::Schema>>);
-    impl Drop for Restore {
-        fn drop(&mut self) {
-            SCHEMA.with(|scope| *scope.borrow_mut() = self.0.take());
-        }
-    }
-    let _restore = Restore(SCHEMA.with(|scope| scope.replace(schema)));
-    declarations()
-}
-
-/// The app schema of the `Db` a request carries, if any.
+/// The app schema of the request's `Db`, if it carries one.
 pub(crate) fn schema_of(cx: &Cx) -> Option<Arc<toasty_core::Schema>> {
     topcoat::context::try_app_context::<toasty::Db>(cx).map(|db| db.schema().clone())
 }
 
-/// A path resolved to the form key it binds and the metadata a field defaults from.
+/// A path bound to the column it names, with the metadata a declaration defaults from.
+///
+/// A single-field path binds when it is built. An embedded path binds when its declaration binds
+/// ([`Self::bind`]); until then it names a placeholder spelling its steps, which reads as no other
+/// field's duplicate, and reports [`DeclarationErrorKind::Unbound`].
 ///
 /// A column defaults `required` from its nullability and `unique` from a single- or multi-field
 /// unique index it belongs to. An embedded leaf is never required or unique by default: only the
-/// matching enum variant writes a variant payload column, so the resolver reports every embedded
-/// leaf nullable. That is the binding default, not a storage fact — the flattened column of a
-/// required embedded struct is `NOT NULL` — so a field opts in with `.required()`.
-pub(crate) struct ResolvedLens<M, T> {
-    pub(crate) path: Path<M, T>,
-    pub(crate) name: String,
-    pub(crate) label: String,
-    pub(crate) nullable: bool,
-    pub(crate) unique: bool,
-    /// Why the path binds no column, when it does not: the builder records this, and
-    /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) reports it.
-    pub(crate) misdeclared: Option<DeclarationErrorKind>,
+/// matching enum variant writes a variant payload column, so every embedded leaf reports nullable.
+/// That is the binding default, not a storage fact — the flattened column of a required embedded
+/// struct is `NOT NULL` — so a field opts in with `.required()`.
+#[derive(Debug, Clone)]
+pub(crate) struct Binding {
+    /// The path, or `None` for a key no path names (an embedded enum's discriminant).
+    path: Option<toasty_core::stmt::Path>,
+    model: &'static str,
+    placeholder: String,
+    leaf: OnceLock<Result<LeafField, DeclarationErrorKind>>,
 }
 
-impl<M, T> ResolvedLens<M, T>
-where
-    M: toasty::schema::Model,
-{
-    /// Resolve `path` through the app schema in scope.
-    ///
-    /// A refused path keeps a placeholder name spelling its steps, so it reads as no other
-    /// field's duplicate.
-    pub(crate) fn of(path: impl Into<Path<M, T>>) -> Self {
-        let path = path.into();
-        match FieldResolver::current().resolve(path.clone()) {
-            Ok(leaf) => Self {
-                path,
-                name: leaf.name,
-                label: leaf.label,
-                nullable: leaf.nullable,
-                unique: leaf.unique,
-                misdeclared: None,
-            },
-            Err(error) => {
-                let core_path: toasty_core::stmt::Path = path.clone().into();
-                Self {
-                    path,
-                    name: format!("{:?}", core_path.projection.as_slice()),
-                    label: String::new(),
-                    nullable: true,
-                    unique: false,
-                    misdeclared: Some(error),
-                }
-            }
+impl Binding {
+    /// Bind `path`, now when it names one field of its model and at [`Self::bind`] when it is
+    /// embedded.
+    pub(crate) fn of<M, T>(path: &Path<M, T>) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        let core: toasty_core::stmt::Path = path.clone().into();
+        let leaf = OnceLock::new();
+        if !is_embedded(&core) {
+            let _ = leaf.set(single_field::<M>(&core));
+        }
+        Self {
+            placeholder: format!("{:?}", core.projection.as_slice()),
+            path: Some(core),
+            model: std::any::type_name::<M>(),
+            leaf,
+        }
+    }
+
+    /// A key no path names, bound as given.
+    pub(crate) fn named(name: String, label: String) -> Self {
+        Self {
+            path: None,
+            model: "",
+            placeholder: String::new(),
+            leaf: OnceLock::from(Ok(LeafField {
+                name,
+                label,
+                nullable: true,
+                unique: false,
+            })),
+        }
+    }
+
+    /// Bind an embedded path through `resolver`'s app schema; a bound path stays as it is.
+    pub(crate) fn bind(&self, resolver: &FieldResolver) {
+        if let Some(path) = &self.path {
+            self.leaf
+                .get_or_init(|| resolver.resolve_embedded(path, self.model));
+        }
+    }
+
+    fn leaf(&self) -> Option<&LeafField> {
+        self.leaf.get().and_then(|leaf| leaf.as_ref().ok())
+    }
+
+    /// The form key: the storage column the path names.
+    pub(crate) fn name(&self) -> &str {
+        self.leaf().map_or(&self.placeholder, |leaf| &leaf.name)
+    }
+
+    /// The label a declaration defaults to.
+    pub(crate) fn label(&self) -> &str {
+        self.leaf().map_or("", |leaf| &leaf.label)
+    }
+
+    pub(crate) fn nullable(&self) -> bool {
+        self.leaf().is_none_or(|leaf| leaf.nullable)
+    }
+
+    pub(crate) fn unique(&self) -> bool {
+        self.leaf().is_some_and(|leaf| leaf.unique)
+    }
+
+    /// Why the path binds no column, when it does not.
+    pub(crate) fn misdeclared(&self) -> Option<DeclarationErrorKind> {
+        match self.leaf.get() {
+            Some(Ok(_)) => None,
+            Some(Err(error)) => Some(error.clone()),
+            None => Some(DeclarationErrorKind::Unbound { item: self.model }),
         }
     }
 }
@@ -117,7 +120,7 @@ pub fn form_key<M, T>(path: Path<M, T>) -> String
 where
     M: toasty::schema::Model,
 {
-    ResolvedLens::of(path).name
+    Binding::of(&path).name().to_string()
 }
 
 /// The storage column a lens resolves to, plus the metadata field
@@ -140,8 +143,50 @@ pub(crate) struct LeafField {
     pub(crate) unique: bool,
 }
 
-/// Walks a lens path against the app schema, resolving embedded steps.
-pub(crate) struct FieldResolver {
+/// Whether `path` steps into an embedded value: more than one step, or an enum variant's root.
+///
+/// A variant root is an embedded-enum payload accessor *whatever* its projection length: the
+/// generated accessor rebases onto the variant, so the steps are variant-local and a single-step
+/// projection is the payload field. Only a model root with one step is a plain field.
+fn is_embedded(path: &toasty_core::stmt::Path) -> bool {
+    path.projection.as_slice().len() > 1 || matches!(path.root, PathRoot::Variant { .. })
+}
+
+/// Resolve a single-field path against its own model, which needs no app schema; a traversal
+/// path is refused.
+fn single_field<M>(path: &toasty_core::stmt::Path) -> Result<LeafField, DeclarationErrorKind>
+where
+    M: toasty::schema::Model,
+{
+    let model = M::schema();
+    let idx = single_segment(path)?;
+    let field = model
+        .as_root_unwrap()
+        .fields
+        .get(idx)
+        .cloned()
+        .unwrap_or_else(|| {
+            panic!(
+                "field index {idx} out of bounds for {}",
+                std::any::type_name::<M>()
+            )
+        });
+    Ok(LeafField {
+        name: field.name.app_unwrap().to_string(),
+        label: lens_label(&field),
+        nullable: field.nullable(),
+        unique: lens_field_unique(&field, model.as_root_unwrap()),
+    })
+}
+
+/// The app schema embedded paths resolve through: the compiled schema of the app's `Db`.
+///
+/// A panel binds the declarations it mounts through its `Db`'s, and hands one to
+/// [`RecordForm::fields`](crate::RecordForm::fields) and
+/// [`EmbeddedForm`](crate::EmbeddedForm)'s schema builder. A hand-written impl passes it on to
+/// the embedded values it builds.
+#[derive(Clone, Default)]
+pub struct FieldResolver {
     /// The **compiled** schema: its `.app` half resolves the path, its
     /// `.mapping` half names the column, its `.db` half holds the name.
     ///
@@ -157,71 +202,57 @@ impl FieldResolver {
         Self { schema }
     }
 
-    /// The resolver over the app schema in scope ([`declare`]).
-    pub(crate) fn current() -> Self {
-        Self::new(SCHEMA.with(|scope| scope.borrow().clone()))
+    /// The resolver over `db`'s app schema.
+    pub(crate) fn of_db(db: &toasty::Db) -> Self {
+        Self::new(Some(db.schema().clone()))
     }
 
-    /// Whether an app schema is in scope at all.
+    /// The resolver over the app schema of the `Db` the request carries, if any.
+    pub(crate) fn of(cx: &Cx) -> Self {
+        Self::new(schema_of(cx))
+    }
+
+    /// Whether an app schema backs this resolver at all.
     ///
-    /// A leaf resolution falls back to the single-segment rule without one; an
-    /// embedded enum has no fallback — its discriminant column and variants
-    /// come from the schema — so its entry point says so rather than reporting
-    /// a traversal-lens error.
+    /// An embedded enum has no fallback without one — its discriminant column and variants come
+    /// from the schema — so its entry point says so rather than reporting a traversal-lens error.
     pub(crate) fn has_schema(&self) -> bool {
         self.schema.is_some()
     }
 
-    /// Resolve a lens to its leaf field.
-    ///
-    /// With a schema this walks the whole projection, so an embedded step lands
-    /// on the flattened column. Without one it falls back to the single-segment
-    /// rule and refuses a traversal lens, because silently binding the first
-    /// segment misbinds in release.
+    /// Resolve a lens to its leaf field as a declaration binding it would: a single field against
+    /// its model, an embedded path through the app schema.
     ///
     /// # Errors
     ///
     /// A lens that resolves to no single column.
+    #[cfg(test)]
     pub(crate) fn resolve<M, T>(&self, path: Path<M, T>) -> Result<LeafField, DeclarationErrorKind>
     where
         M: toasty::schema::Model,
     {
-        let model = M::schema();
-        let core_path: toasty_core::stmt::Path = path.into();
-        let segments = core_path.projection.as_slice().len();
-        // A variant root is an embedded-enum payload accessor *whatever* its
-        // projection length: the generated accessor rebases onto the variant, so
-        // the steps are variant-local and a single-step projection is the
-        // payload field. Only a model root with one step is a plain field.
-        let is_embedded_path = segments > 1 || matches!(core_path.root, PathRoot::Variant { .. });
-        if is_embedded_path && let Some(schema) = self.schema.as_deref() {
-            return Self::walk_embedded(schema, &core_path).ok_or_else(|| {
-                DeclarationErrorKind::UnresolvedLens {
-                    model: std::any::type_name::<M>(),
-                    steps: core_path.projection.as_slice().to_vec(),
-                }
-            });
+        let core: toasty_core::stmt::Path = path.into();
+        if is_embedded(&core) {
+            self.resolve_embedded(&core, std::any::type_name::<M>())
+        } else {
+            single_field::<M>(&core)
         }
-        // No schema: the single-segment rule is all an owned `app::Model` can
-        // answer, so resolve the first step against `ModelRoot.fields` and let
-        // `single_segment` refuse a traversal lens.
-        let idx = single_segment(&core_path)?;
-        let field = model
-            .as_root_unwrap()
-            .fields
-            .get(idx)
-            .cloned()
-            .unwrap_or_else(|| {
-                panic!(
-                    "field index {idx} out of bounds for {}",
-                    std::any::type_name::<M>()
-                )
-            });
-        Ok(LeafField {
-            name: field.name.app_unwrap().to_string(),
-            label: lens_label(&field),
-            nullable: field.nullable(),
-            unique: lens_field_unique(&field, model.as_root_unwrap()),
+    }
+
+    /// Resolve an embedded path through the app schema; without one, the path is a traversal the
+    /// single-field rule refuses, since binding its first segment misbinds in release.
+    fn resolve_embedded(
+        &self,
+        path: &toasty_core::stmt::Path,
+        model: &'static str,
+    ) -> Result<LeafField, DeclarationErrorKind> {
+        let steps = path.projection.as_slice();
+        let Some(schema) = self.schema.as_deref() else {
+            return Err(DeclarationErrorKind::TraversalLens { steps: steps.len() });
+        };
+        Self::walk_embedded(schema, path).ok_or_else(|| DeclarationErrorKind::UnresolvedLens {
+            model,
+            steps: steps.to_vec(),
         })
     }
 

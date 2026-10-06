@@ -5,7 +5,7 @@ use std::{any::TypeId, sync::Arc};
 use toasty::stmt::{Expr, IntoExpr, Path};
 
 use super::Resource;
-use crate::{form::FormScalar, schema::ResolvedLens, toasty_compat::pk};
+use crate::{form::FormScalar, schema::lens_field, toasty_compat::pk};
 
 /// One relation of a parent resource's records.
 ///
@@ -76,14 +76,21 @@ where
         C: Resource,
         T: ForeignKey<P::PrimaryKey>,
     {
-        let binding = ResolvedLens::of(foreign_key.clone());
+        // A foreign key is one column of the child: it binds against the child's model alone.
+        let (column, misdeclared) = match lens_field(
+            foreign_key.clone(),
+            &<C::Model as toasty::schema::Model>::schema(),
+        ) {
+            Ok(field) => (field.name.app_unwrap().to_string(), None),
+            Err(error) => (String::new(), Some(error)),
+        };
         let scope_key = foreign_key.clone();
         Self {
             child: TypeId::of::<C>(),
             child_name: std::any::type_name::<C>(),
             label: None,
-            foreign_key: binding.name,
-            misdeclared: binding.misdeclared,
+            foreign_key: column,
+            misdeclared,
             bind: Arc::new(move |owner| {
                 let scope = foreign_key.clone().eq(pk::pk_expr::<P, T>(owner));
                 (scope, pk::pk_text(owner))

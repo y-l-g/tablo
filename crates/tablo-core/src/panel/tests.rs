@@ -3,7 +3,12 @@ use crate::{lens, navigation::NavigationItem, panel::test_support::Dummy, resour
 
 /// `R`'s sidebar entry on `panel`.
 fn nav_item<R: Resource>(panel: &Panel) -> NavigationItem {
-    Mounted::new(R::declare(), panel.prefix()).navigation
+    Mounted::new(
+        R::declare(),
+        panel.prefix(),
+        &crate::schema::FieldResolver::default(),
+    )
+    .navigation
 }
 
 /// The def's navigation reaches the sidebar, and its order is

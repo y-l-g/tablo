@@ -32,8 +32,8 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{
     Schema,
     fields::Field,
-    lenses::{FieldResolver, declare_with, schema_of},
-    tree::{LeafPlace, Mode, Node, Source},
+    lenses::FieldResolver,
+    tree::{LeafPlace, Mode, Node, Source, Unbound},
 };
 use crate::form::{FieldError, FormScalar};
 
@@ -50,8 +50,7 @@ pub trait EmbeddedForm: Sized {
     ) where
         M: toasty::schema::Model,
     {
-        let parent = parent.into();
-        let schema = declare_with(schema_of(cx), || Self::build_schema(parent));
+        let schema = Self::build_schema(&FieldResolver::of(cx), parent.into());
         self.write_node(schema.embedded_root(), out);
     }
 
@@ -70,14 +69,13 @@ pub trait EmbeddedForm: Sized {
     where
         M: toasty::schema::Model,
     {
-        let parent = parent.into();
-        let schema = declare_with(schema_of(cx), || Self::build_schema(parent));
+        let schema = Self::build_schema(&FieldResolver::of(cx), parent.into());
         Self::read_node(schema.embedded_root(), values)
     }
 
-    /// The value's schema: one node holding its fields, resolved through the app schema in scope.
+    /// The value's schema: one node holding its fields, resolved through `resolver`'s app schema.
     #[doc(hidden)]
-    fn build_schema<M>(parent: Path<M, Self>) -> Schema
+    fn build_schema<M>(resolver: &FieldResolver, parent: Path<M, Self>) -> Schema
     where
         M: toasty::schema::Model;
 
@@ -426,31 +424,32 @@ fn is_present(values: &HashMap<String, String>, key: &str) -> bool {
 /// them.
 #[doc(hidden)]
 pub struct EmbeddedBuilder {
+    resolver: FieldResolver,
     fields: Vec<Field>,
     shape: Shape,
     variant: Option<usize>,
 }
 
 impl EmbeddedBuilder {
-    pub fn structure() -> Self {
+    pub fn structure(resolver: &FieldResolver) -> Self {
         Self {
+            resolver: resolver.clone(),
             fields: Vec::new(),
             shape: Shape::Struct(Vec::new()),
             variant: None,
         }
     }
 
-    /// Builds an enum value at `parent` from the app schema in scope and panics when none is in
-    /// scope or `parent` names no embedded enum.
-    pub fn enumeration<M, T>(parent: Path<M, T>) -> Self
+    /// Builds an enum value at `parent` from `resolver`'s app schema and panics when it has none
+    /// or `parent` names no embedded enum.
+    pub fn enumeration<M, T>(resolver: &FieldResolver, parent: Path<M, T>) -> Self
     where
         M: toasty::schema::Model,
     {
-        let resolver = FieldResolver::current();
         assert!(
             resolver.has_schema(),
-            "an embedded enum resolves through the app schema: declare it while a panel mounts, \
-             or inside `tablo::declare`"
+            "an embedded enum resolves through the app schema, which a value reaches through the \
+             request's `Db` or the schema it binds to"
         );
         let shape = resolver.resolve_enum(parent).unwrap_or_else(|| {
             panic!(
@@ -467,6 +466,7 @@ impl EmbeddedBuilder {
             })
             .collect();
         Self {
+            resolver: resolver.clone(),
             fields: vec![Field::discriminant(
                 shape.discriminant.clone(),
                 shape.variants,
@@ -502,8 +502,14 @@ impl EmbeddedBuilder {
         }
     }
 
+    /// The app schema this value's members resolve through.
+    pub fn resolver(&self) -> &FieldResolver {
+        &self.resolver
+    }
+
     pub fn leaf(&mut self, field: impl Into<Field>) {
         let field = field.into();
+        field.bind(&self.resolver);
         let key = field.name().to_string();
         let index = self.fields.len();
         self.fields.push(field);
@@ -516,6 +522,7 @@ impl EmbeddedBuilder {
     /// Adds a `#[shared(..)]` leaf that renders once, outside the variant groups.
     pub fn shared(&mut self, field: impl Into<Field>) {
         let field = field.into();
+        field.bind(&self.resolver);
         let key = field.name().to_string();
         let Shape::Enum(e) = &mut self.shape else {
             panic!("a struct value has no shared column");
@@ -560,12 +567,30 @@ impl EmbeddedBuilder {
 
 /// Collects every form key the embedded value at `parent` occupies.
 #[doc(hidden)]
-pub fn embedded_keys<M, T>(parent: impl Into<Path<M, T>>) -> Vec<String>
+pub fn embedded_keys<M, T>(resolver: &FieldResolver, parent: impl Into<Path<M, T>>) -> Vec<String>
 where
     M: toasty::schema::Model,
     T: EmbeddedForm,
 {
-    T::build_schema(parent.into()).embedded_root().keys()
+    T::build_schema(resolver, parent.into())
+        .embedded_root()
+        .keys()
+}
+
+/// The embedded value at `parent` as a schema node its schema builds when it binds.
+#[doc(hidden)]
+pub fn embedded_form<M, T>(parent: Path<M, T>) -> Schema
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: EmbeddedForm + Send + Sync + 'static,
+{
+    Schema {
+        nodes: vec![Node::Unbound(Unbound {
+            build: Box::new(move |resolver| T::build_schema(resolver, parent.clone())),
+            value: std::any::type_name::<T>(),
+        })],
+        fields: Vec::new(),
+    }
 }
 
 /// Reads one leaf out of a submission by its resolved key, answering a blank with the member's

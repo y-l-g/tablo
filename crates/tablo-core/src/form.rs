@@ -100,7 +100,7 @@ use toasty::{Executor, schema::Model, stmt::IntoInsert};
 use topcoat::context::Cx;
 
 use crate::{
-    schema::{Schema, TypedValue},
+    schema::{FieldResolver, Schema, TypedValue},
     table::Table,
 };
 
@@ -304,8 +304,8 @@ pub trait RecordForm: Sized + Send + 'static {
     /// are [`Self::fields`]'.
     type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
 
-    /// Every field, in declaration order, with the keys it binds.
-    fn fields() -> Vec<FormField<Self::Field>>;
+    /// Every field, in declaration order, with the keys it binds through `resolver`'s app schema.
+    fn fields(resolver: &FieldResolver) -> Vec<FormField<Self::Field>>;
 
     /// The form's default schema: one control per field, in declaration
     /// order. A [`ResourceDef`](crate::ResourceDef) without a [`form`](crate::ResourceDef::form)
@@ -396,7 +396,7 @@ impl<M: Model + toasty::stmt::IntoExpr<M> + Send + Sync + 'static> RecordForm fo
 
     const HAS_FORM: bool = false;
 
-    fn fields() -> Vec<FormField<Self::Field>> {
+    fn fields(_resolver: &FieldResolver) -> Vec<FormField<Self::Field>> {
         Vec::new()
     }
 

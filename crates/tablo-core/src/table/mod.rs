@@ -9,7 +9,11 @@ use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 use toasty::stmt::{Expr, List, OrderByExpr};
 
 use self::{column::BoxColumn, filter::BoxFilter};
-use crate::{DeclarationErrorKind, Lens, form::FormScalar, schema::ResolvedLens};
+use crate::{
+    DeclarationErrorKind, Lens,
+    form::FormScalar,
+    schema::{Binding, FieldResolver},
+};
 
 mod column;
 mod export;
@@ -71,14 +75,14 @@ impl RowActions {
 
 /// A named grouping a `Table` renders.
 pub(crate) struct GroupDef<M> {
-    name: String,
+    binding: Binding,
     key: GroupKey<M>,
 }
 
 impl<M> Clone for GroupDef<M> {
     fn clone(&self) -> Self {
         Self {
-            name: self.name.clone(),
+            binding: self.binding.clone(),
             key: Arc::clone(&self.key),
         }
     }
@@ -279,10 +283,8 @@ impl<M> Table<M> {
         M: toasty::schema::Model + Send + Sync + 'static,
         T: FormScalar + Send + Sync + 'static,
     {
-        let binding = ResolvedLens::of(lens.path().clone());
-        self.misdeclared.extend(binding.misdeclared);
         self.group_by = Some(GroupDef {
-            name: binding.name,
+            binding: Binding::of(lens.path()),
             key: Arc::new(move |record| lens.read(record).to_form()),
         });
         self
@@ -291,7 +293,7 @@ impl<M> Table<M> {
     /// The declared grouping iff `state.group_by` names it.
     fn effective_group_key(&self, state: &TableState) -> Option<GroupKey<M>> {
         match (&self.group_by, &state.group_by) {
-            (Some(def), Some(want)) if def.name == *want => Some(def.key.clone()),
+            (Some(def), Some(want)) if def.binding.name() == want => Some(def.key.clone()),
             _ => None,
         }
     }
@@ -299,7 +301,7 @@ impl<M> Table<M> {
     /// Normalize `state.group_by` against the declared grouping.
     pub(crate) fn normalize_state(&self, state: &TableState) -> TableState {
         let mut out = state.clone();
-        if self.group_by.as_ref().map(|def| def.name.as_str()) != out.group_by.as_deref() {
+        if self.group_by.as_ref().map(|def| def.binding.name()) != out.group_by.as_deref() {
             out.group_by = None;
         }
         out
@@ -317,6 +319,11 @@ impl<M> Table<M> {
     /// What is wrong with this declaration.
     pub fn declaration_errors(&self) -> Vec<DeclarationErrorKind> {
         let mut errors = self.misdeclared.clone();
+        errors.extend(
+            self.group_by
+                .as_ref()
+                .and_then(|def| def.binding.misdeclared()),
+        );
         if self.columns.is_empty() {
             errors.push(DeclarationErrorKind::NoColumns);
         }
@@ -345,6 +352,28 @@ impl<M> Table<M> {
             }
         }
         errors
+    }
+
+    /// Binds the table's embedded paths to `db`'s app schema.
+    ///
+    /// A panel binds the tables it mounts; bind one a custom page renders before rendering it. A
+    /// table with no embedded path is bound from the start.
+    pub fn bind(self, db: &toasty::Db) -> Self {
+        self.bind_with(&FieldResolver::of_db(db));
+        self
+    }
+
+    /// Binds every column, filter, and the grouping through `resolver`.
+    pub(crate) fn bind_with(&self, resolver: &FieldResolver) {
+        for column in &self.columns {
+            column.bind(resolver);
+        }
+        for filter in &self.filters {
+            filter.bind(resolver);
+        }
+        if let Some(def) = &self.group_by {
+            def.binding.bind(resolver);
+        }
     }
 
     /// The page size.

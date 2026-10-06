@@ -71,10 +71,11 @@ pub mod __macro {
         Lens,
         form::{FieldError, FormField, FormScalar, RecordForm, assert_form_scalar, parse_scalar},
         schema::{
-            ChoiceField, CustomField, EmbeddedForm, Field, FileField, IntoSchema, Options, Schema,
-            TextField,
+            ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, IntoSchema,
+            Options, Schema, TextField,
             embedded::{
-                Embedded, EmbeddedBuilder, embedded_keys, parse_leaf, take_leaf, take_value,
+                Embedded, EmbeddedBuilder, embedded_form, embedded_keys, parse_leaf, take_leaf,
+                take_value,
             },
             form_key,
         },
@@ -123,9 +124,9 @@ pub use resource::{
     scoped_view_query, write_create, write_update,
 };
 pub use schema::{
-    ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FileField, Grid, Group,
-    IntoOptions, IntoSchema, Options, Repeater, Schema, Section, Source, TextField, Toggle,
-    declare,
+    ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FieldResolver, FileField,
+    Grid, Group, IntoOptions, IntoSchema, Options, Repeater, Schema, Section, Source, TextField,
+    Toggle,
 };
 pub use table::{
     BooleanColumn, Column, ColumnWidth, ComputedColumn, Cursor, DateFilter, Filter, FilterInput,

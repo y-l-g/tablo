@@ -6,7 +6,11 @@ use std::{borrow::Cow, sync::Arc};
 use toasty::stmt::{Expr, OrderByExpr};
 use topcoat::{context::Cx, icon::icon, view::*};
 
-use crate::{Lens, form::FormScalar, schema::ResolvedLens};
+use crate::{
+    Lens,
+    form::FormScalar,
+    schema::{Binding, FieldResolver},
+};
 
 /// One table column declares its header, its cell, and its query predicates.
 ///
@@ -85,6 +89,10 @@ pub trait Column<M>: Send + Sync {
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         None
     }
+
+    /// Bind an embedded path through `resolver`'s app schema.
+    #[doc(hidden)]
+    fn bind(&self, _resolver: &FieldResolver) {}
 }
 
 /// The relations a [`Column`] reads off its row.
@@ -214,16 +222,13 @@ impl ColumnWidth {
 /// ```
 pub struct TextColumn<M, T> {
     lens: Lens<M, T>,
-    name: String,
-    label: String,
+    binding: Binding,
     format: Arc<dyn Fn(&T) -> String + Send + Sync>,
     /// The `LIKE` predicate for a search pattern, when [`searchable`](Self::searchable).
     search: Option<SearchFn>,
     sortable: bool,
     /// The width this column claims in the table's fixed layout.
     width: ColumnWidth,
-    /// What is wrong with the declaration ([`Column::misdeclared`]).
-    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 /// A searchable column's predicate for an escaped `LIKE` pattern.
@@ -269,16 +274,14 @@ where
     where
         T: FormScalar + Send + Sync + 'static,
     {
-        let binding = ResolvedLens::of(lens.path().clone());
+        let binding = Binding::of(&lens.path().clone());
         Self {
             lens,
-            name: binding.name,
-            label: binding.label,
+            binding,
             format: Arc::new(T::to_form),
             search: None,
             sortable: false,
             width: ColumnWidth::Wide,
-            misdeclared: binding.misdeclared,
         }
     }
 
@@ -322,11 +325,11 @@ where
     T: Send + Sync + 'static,
 {
     fn name(&self) -> &str {
-        &self.name
+        self.binding.name()
     }
 
     fn label(&self) -> &str {
-        &self.label
+        self.binding.label()
     }
 
     fn text(&self, row: &M) -> String {
@@ -360,7 +363,11 @@ where
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.misdeclared.clone()
+        self.binding.misdeclared()
+    }
+
+    fn bind(&self, resolver: &FieldResolver) {
+        self.binding.bind(resolver);
     }
 }
 
@@ -368,13 +375,11 @@ impl<M, T> Clone for TextColumn<M, T> {
     fn clone(&self) -> Self {
         Self {
             lens: self.lens.clone(),
-            name: self.name.clone(),
-            label: self.label.clone(),
+            binding: self.binding.clone(),
             format: Arc::clone(&self.format),
             search: self.search.clone(),
             sortable: self.sortable,
             width: self.width,
-            misdeclared: self.misdeclared.clone(),
         }
     }
 }
@@ -382,8 +387,8 @@ impl<M, T> Clone for TextColumn<M, T> {
 impl<M, T> std::fmt::Debug for TextColumn<M, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TextColumn")
-            .field("name", &self.name)
-            .field("label", &self.label)
+            .field("name", &self.binding.name())
+            .field("label", &self.binding.label())
             .field("searchable", &self.search.is_some())
             .field("sortable", &self.sortable)
             .field("width", &self.width)
@@ -514,12 +519,10 @@ impl<M> std::fmt::Debug for ComputedColumn<M> {
 /// ```
 pub struct BooleanColumn<M> {
     lens: Lens<M, bool>,
-    name: String,
-    label: String,
+    binding: Binding,
     sortable: bool,
     labels: (String, String),
     width: ColumnWidth,
-    misdeclared: Option<crate::DeclarationErrorKind>,
 }
 
 impl<M> BooleanColumn<M>
@@ -528,15 +531,13 @@ where
 {
     /// Bind the column to the `bool` field `lens` reads.
     pub fn new(lens: Lens<M, bool>) -> Self {
-        let binding = ResolvedLens::of(lens.path().clone());
+        let binding = Binding::of(&lens.path().clone());
         Self {
             lens,
-            name: binding.name,
-            label: binding.label,
+            binding,
             sortable: false,
             labels: ("Yes".to_string(), "No".to_string()),
             width: ColumnWidth::Narrow,
-            misdeclared: binding.misdeclared,
         }
     }
 
@@ -564,11 +565,11 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
     fn name(&self) -> &str {
-        &self.name
+        self.binding.name()
     }
 
     fn label(&self) -> &str {
-        &self.label
+        self.binding.label()
     }
 
     fn text(&self, row: &M) -> String {
@@ -616,7 +617,11 @@ where
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.misdeclared.clone()
+        self.binding.misdeclared()
+    }
+
+    fn bind(&self, resolver: &FieldResolver) {
+        self.binding.bind(resolver);
     }
 }
 
@@ -624,12 +629,10 @@ impl<M> Clone for BooleanColumn<M> {
     fn clone(&self) -> Self {
         Self {
             lens: self.lens.clone(),
-            name: self.name.clone(),
-            label: self.label.clone(),
+            binding: self.binding.clone(),
             sortable: self.sortable,
             labels: self.labels.clone(),
             width: self.width,
-            misdeclared: self.misdeclared.clone(),
         }
     }
 }
@@ -637,8 +640,8 @@ impl<M> Clone for BooleanColumn<M> {
 impl<M> std::fmt::Debug for BooleanColumn<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BooleanColumn")
-            .field("name", &self.name)
-            .field("label", &self.label)
+            .field("name", &self.binding.name())
+            .field("label", &self.binding.label())
             .field("sortable", &self.sortable)
             .field("width", &self.width)
             .finish_non_exhaustive()

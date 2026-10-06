@@ -73,12 +73,12 @@ impl Field {
         mode: Mode,
     ) -> Result<BoxView<'a>> {
         if mode == Mode::View {
-            return render_value(cx, &self.label, value, ValueKind::Prose);
+            return render_value(cx, self.label_str(), value, ValueKind::Prose);
         }
-        let name = self.name.clone();
+        let name = self.name().to_string();
         let required = self.is_required();
         let placeholder = text.placeholder.clone();
-        let chrome = FieldChrome::new(&self.name, error, None);
+        let chrome = FieldChrome::new(self.name(), error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let control = if let Some(rows) = text.rows {
@@ -132,7 +132,14 @@ impl Field {
             }
             .boxed()
         };
-        render_field(cx, &chrome, &self.label, required, attributes! {}, control)
+        render_field(
+            cx,
+            &chrome,
+            self.label_str(),
+            required,
+            attributes! {},
+            control,
+        )
     }
 }
 

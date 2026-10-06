@@ -10,7 +10,7 @@ one builder value with a default for each. The `Resource` trait keeps the associ
 methods that take a request: `query`, `view_query`, the display hooks, `validate_record`, and the
 record fns.
 
-A panel registers resources lazily. Mounting builds each def once with the app schema in scope,
+A panel registers resources lazily. Mounting builds each def once, binds its declarations to the app schema,
 fills its defaults into a `Mounted<R>`, and keeps it in the panel's state; every handler and every
 cross-reference (a relation, a relationship field's options, `can`, `scoped_query`) reads the
 request panel's copy. `Panel::resource_with` adjusts the def for one panel, so one resource type

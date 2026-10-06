@@ -210,7 +210,7 @@ fn expand_struct(
                 #krate::__macro::FormField {
                     field: #field_enum::#variant,
                     name: #name_str,
-                    keys: #krate::__macro::embedded_keys::<#model, #ty>(#path),
+                    keys: #krate::__macro::embedded_keys::<#model, #ty>(resolver, #path),
                     answers_blank: <#ty as #krate::__macro::EmbeddedForm>::answers_blank(),
                 }
             });
@@ -299,7 +299,7 @@ fn expand_struct(
                 (
                     quote! { #krate::__macro::Schema },
                     quote! {
-                        <#ty as #krate::__macro::EmbeddedForm>::build_schema(
+                        #krate::__macro::embedded_form::<#model, #ty>(
                             ::std::convert::Into::into(#path),
                         )
                     },
@@ -361,7 +361,11 @@ fn expand_struct(
                     #(.extend(#krate::__macro::IntoSchema::into_schema(controls.#names)))*
             }
 
-            fn fields() -> ::std::vec::Vec<#krate::__macro::FormField<#field_enum>> {
+            fn fields(
+                resolver: &#krate::__macro::FieldResolver,
+            ) -> ::std::vec::Vec<#krate::__macro::FormField<#field_enum>> {
+                // Only an embedded field resolves its keys through the app schema.
+                let _ = resolver;
                 ::std::vec![#(#claims),*]
             }
 

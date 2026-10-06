@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{EmbeddedForm, Field, FieldErrorKind, FieldErrors, Schema, Source};
+use tablo_core::{EmbeddedForm, Field, FieldErrorKind, FieldErrors, IntoSchema, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -136,10 +136,15 @@ async fn post_cx() -> Cx {
     CxTestBuilder::new().app_context(db).build()
 }
 
-/// Run `declarations` with the app schema of the `Db` `cx` carries in scope, as a panel mount does.
-fn declared<T>(cx: &Cx, declarations: impl FnOnce() -> T) -> T {
+/// `children` as a schema bound to the app schema of the `Db` `cx` carries, as a panel mount binds
+/// it.
+fn bound(cx: &Cx, children: impl IntoSchema) -> Schema {
     let db = topcoat::context::try_app_context::<toasty::Db>(cx).expect("the cx carries a Db");
-    tablo_core::declare(db, declarations)
+    Schema::new(children).bind(db)
+}
+
+fn first_name(schema: &Schema) -> &str {
+    schema.fields().next().expect("one field").name()
 }
 
 fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
@@ -155,22 +160,22 @@ async fn keys_come_from_the_compiled_mapping() {
     let cx = post_cx().await;
 
     assert_eq!(
-        declared(&cx, || Field::text(Post::fields().seo().title())).name(),
+        first_name(&bound(&cx, Field::text(Post::fields().seo().title()))),
         "seo_title",
         "an embedded struct's leaf is its flattened column"
     );
     assert_eq!(
-        declared(&cx, || Field::text(
-            Post::fields().post_stats().word_count()
-        ))
-        .name(),
+        first_name(&bound(
+            &cx,
+            Field::text(Post::fields().post_stats().word_count())
+        )),
         "post_stats_word_count"
     );
 
     // The enum's variant control comes first, on the discriminant column
     // named after the field; then the shared column, once, and each
     // variant's own payload.
-    let publication = declared(&cx, || Publication::form(Post::fields().publication()));
+    let publication = bound(&cx, Publication::form(Post::fields().publication()));
     assert_eq!(
         publication.fields().map(Field::name).collect::<Vec<_>>(),
         [
@@ -184,15 +189,15 @@ async fn keys_come_from_the_compiled_mapping() {
 
     // A value knows which keys are its own.
     assert!(mentions(
-        &declared(&cx, || Publication::form(Post::fields().publication())),
+        &bound(&cx, Publication::form(Post::fields().publication())),
         &map(&[("publication", "1")])
     ));
     assert!(mentions(
-        &declared(&cx, || Publication::form(Post::fields().publication())),
+        &bound(&cx, Publication::form(Post::fields().publication())),
         &map(&[("publication_timestamp", "t")])
     ));
     assert!(mentions(
-        &declared(&cx, || Publication::form(Post::fields().publication())),
+        &bound(&cx, Publication::form(Post::fields().publication())),
         &map(&[("publication_canonical_url", "/x")])
     ));
 }
@@ -480,16 +485,16 @@ async fn an_unparseable_typed_leaf_is_refused() {
 async fn value_keys_name_every_key_of_a_value() {
     let cx = post_cx().await;
     assert!(mentions(
-        &declared(&cx, || Seo::form(Post::fields().seo())),
+        &bound(&cx, Seo::form(Post::fields().seo())),
         &map(&[("seo_title", "x")])
     ));
     assert!(!mentions(
-        &declared(&cx, || Seo::form(Post::fields().seo())),
+        &bound(&cx, Seo::form(Post::fields().seo())),
         &map(&[("title", "x")])
     ));
     // The discriminant counts: a form that only posts the variant mentioned it.
     assert!(mentions(
-        &declared(&cx, || Publication::form(Post::fields().publication())),
+        &bound(&cx, Publication::form(Post::fields().publication())),
         &map(&[("publication", "1")])
     ));
 }
@@ -503,14 +508,14 @@ async fn a_nested_enum_contributes_its_discriminant() {
     // mentions the wrapper.
     assert!(
         mentions(
-            &declared(&cx, || Wrapper::form(Post::fields().wrapper())),
+            &bound(&cx, Wrapper::form(Post::fields().wrapper())),
             &map(&[("wrapper_inner", "1")])
         ),
         "naming only the nested variant mentions the value"
     );
     assert!(
         !mentions(
-            &declared(&cx, || Wrapper::form(Post::fields().wrapper())),
+            &bound(&cx, Wrapper::form(Post::fields().wrapper())),
             &map(&[("title", "x")])
         ),
         "a key outside the value does not mention it"
@@ -558,7 +563,7 @@ async fn variant_casing_needs_no_normalisation() {
     }
 
     // And the derived form renders (a name mismatch would panic here).
-    let html = Schema::new(declared(&cx, || Casing::form(Post::fields().casing())))
+    let html = Schema::new(bound(&cx, Casing::form(Post::fields().casing())))
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
         .unwrap()
@@ -603,7 +608,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
     // A bad `bool` is refused before a record fn runs.
     let bad = map(&[("flags_featured", "yes")]);
     assert!(
-        Schema::new(declared(&cx, || Flags::form(Post::fields().flags())))
+        Schema::new(bound(&cx, Flags::form(Post::fields().flags())))
             .validate(&bad)
             .contains_key("flags_featured"),
         "the derived control validates its own type"
@@ -614,9 +619,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
 #[tokio::test]
 async fn the_derived_form_renders_the_variant_select_and_every_payload() {
     let cx = post_cx().await;
-    let schema = Schema::new(declared(&cx, || {
-        Publication::form(Post::fields().publication())
-    }));
+    let schema = Schema::new(bound(&cx, Publication::form(Post::fields().publication())));
     let mut values = HashMap::new();
     Publication::Archived {
         archived_at: "2026-09-22T00:00:00Z".to_string(),
@@ -752,9 +755,7 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
     let cx = post_cx().await;
     let html = render_form(
         &cx,
-        &Schema::new(declared(&cx, || {
-            Publication::form(Post::fields().publication())
-        })),
+        &Schema::new(bound(&cx, Publication::form(Post::fields().publication()))),
         &HashMap::new(),
     )
     .await;
@@ -805,9 +806,7 @@ async fn a_unit_variant_still_gets_its_group() {
     let cx = post_cx().await;
     let html = render_form(
         &cx,
-        &Schema::new(declared(&cx, || {
-            Visibility::form(Post::fields().visibility())
-        })),
+        &Schema::new(bound(&cx, Visibility::form(Post::fields().visibility()))),
         &HashMap::new(),
     )
     .await;
@@ -830,9 +829,7 @@ async fn each_variants_payload_sits_in_its_own_group() {
     let cx = post_cx().await;
     let html = render_form(
         &cx,
-        &Schema::new(declared(&cx, || {
-            Publication::form(Post::fields().publication())
-        })),
+        &Schema::new(bound(&cx, Publication::form(Post::fields().publication()))),
         &HashMap::new(),
     )
     .await;
