@@ -22,8 +22,8 @@ name = "it"
 path = "tests/it.rs"
 
 [dependencies]
-tablo-macros = { path = "../tablo-macros", version = "0.1.0" }
-tablo-ui = { path = "../tablo-ui", version = "0.1.0" }
+tablo-macros = { path = "../tablo-macros", version = "0.2.0" }
+tablo-ui = { path = "../tablo-ui", version = "0.2.0" }
 argon2 = "0.6"
 bytes = "1"
 # The email rule (GH #243). `default-features = false` matches how `lettre`
@@ -52,7 +52,7 @@ uuid.workspace = true
 serde_json = "1"
 
 [dev-dependencies]
-tablo-test = { path = "../tablo-test", version = "0.1.0" }
+tablo-test = { path = "../tablo-test", version = "0.2.0" }
 tokio.workspace = true
 # The suites run on in-memory SQLite. The library enables no driver: the app
 # picks one on its own `toasty` dependency.
