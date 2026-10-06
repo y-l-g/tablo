@@ -69,9 +69,11 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
         }
         .boxed()
     });
+    let dom_id = row_dom_id(&row.key);
     let bulk_cell = chrome.with_bulk.then(|| {
         if row.selectable {
             let value = row.key.clone();
+            let described = dom_id.clone();
             view! {
                 cx =>
                 table_cell(
@@ -79,6 +81,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
                         type="checkbox"
                         value=(value)
                         aria-label="Select row"
+                        aria-describedby=(described)
                         data-row-select=""
                     >
                 )
@@ -95,7 +98,6 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     let actions = chrome
         .with_actions
         .then(|| render_actions(cx, &row, chrome));
-    let dom_id = row_dom_id(&row.key);
     view! {
         cx =>
         if let Some(header) = header {
