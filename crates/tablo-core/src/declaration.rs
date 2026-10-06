@@ -249,19 +249,10 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: String,
     },
-    /// A `form()` override that declares no control over a record form with fields.
-    EmptyFormOverride,
-    /// A form schema on a resource whose `Form` serves no form.
-    FormWithoutRecordForm,
     /// A resource whose policy allows create but that has no form.
     CreateWithoutForm,
     /// A form control no record-form field binds, so its input is never written.
     UnboundControl {
-        /// The control's key.
-        control: String,
-    },
-    /// A form control more than one record-form field binds.
-    ControlBoundTwice {
         /// The control's key.
         control: String,
     },
@@ -271,15 +262,6 @@ pub enum DeclarationErrorKind {
         field: String,
         /// The key it binds.
         key: String,
-    },
-    /// A control that may be posted empty over a record-form field with no blank answer.
-    NoBlankAnswer {
-        /// The control's key.
-        control: String,
-        /// The record-form field.
-        field: String,
-        /// Whether the control sits inside a `Repeater`; otherwise it is optional.
-        in_repeater: bool,
     },
     /// A tenant-scoped resource's record form claims the tenant column.
     FormClaimsTenantColumn {
@@ -295,6 +277,11 @@ pub enum DeclarationErrorKind {
     },
     /// A field marked unique over a column no unique index covers.
     UniqueWithoutIndex {
+        /// The field.
+        field: String,
+    },
+    /// A unique field whose non-nullable column stores one value for every empty submission.
+    OptionalUnique {
         /// The field.
         field: String,
     },
@@ -440,14 +427,6 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two fields are named '{name}': each input needs a distinct field"
             ),
-            Self::EmptyFormOverride => f.write_str(
-                "`form()` declares no control over a record form with fields: drop the override \
-                 to render the derived schema",
-            ),
-            Self::FormWithoutRecordForm => f.write_str(
-                "a form schema is declared, but `type Form` serves no form: name the record form \
-                 there",
-            ),
             Self::CreateWithoutForm => f.write_str(
                 "the policy allows create, but there is no form: name the record form in `type \
                  Form`",
@@ -455,33 +434,13 @@ impl fmt::Display for DeclarationErrorKind {
             Self::UnboundControl { control } => write!(
                 f,
                 "control `{control}` is bound by no record-form field, so what the user types \
-                 there is never written"
-            ),
-            Self::ControlBoundTwice { control } => write!(
-                f,
-                "control `{control}` is bound by more than one record-form field"
+                 there is never written: a form places its record form's own `controls()`"
             ),
             Self::MissingControl { field, key } => write!(
                 f,
-                "record-form field `{field}` binds key `{key}`, but no control declares it"
+                "record-form field `{field}` binds key `{key}`, but no control declares it: place \
+                 its control in the form"
             ),
-            Self::NoBlankAnswer {
-                control,
-                field,
-                in_repeater,
-            } => {
-                let place = if *in_repeater {
-                    "sits inside a `Repeater`, so it may be posted empty"
-                } else {
-                    "is optional"
-                };
-                write!(
-                    f,
-                    "control `{control}` {place}, but record-form field `{field}` has no blank \
-                     answer: declare `#[form(blank = ..)]`, make the field an `Option`, or make \
-                     the control required"
-                )
-            }
             Self::FormClaimsTenantColumn { field, column } => write!(
                 f,
                 "record-form field `{field}` claims the tenant column `{column}`, which the \
@@ -497,6 +456,12 @@ impl fmt::Display for DeclarationErrorKind {
                 "field `{field}` is marked unique, but no unique index covers its column: add \
                  `#[unique]` (or `#[unique(..)]`) to the model or drop `.unique()`, which would \
                  otherwise check a rule the database does not enforce"
+            ),
+            Self::OptionalUnique { field } => write!(
+                f,
+                "field `{field}` is marked unique, but its record-form field answers an empty \
+                 submission and its column is not nullable, so every empty submission stores \
+                 the same value: make the field required, or an `Option`"
             ),
             Self::CreateColumnsNameTenant { column } => write!(
                 f,

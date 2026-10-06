@@ -272,7 +272,7 @@ async fn forged_delete_runs_no_record_query() {
     // no existence oracle). The transaction-open half is pinned
     // by the handler ordering (parse/verify/confirm textually precede
     // `db.transaction()`); a regression that reopened a tx before the fetch
-    // would deadlock the edit path's `validate_async` pool discipline loudly
+    // would deadlock the edit path's option-check pool discipline loudly
     // rather than silently pass.
     QUERIES.store(0, Ordering::SeqCst);
     for body in [

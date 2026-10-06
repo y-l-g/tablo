@@ -12,13 +12,23 @@ use crate::form::FormScalar;
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
 
-/// The text control's input type, placeholder, rows, and unique probe.
+/// The text control's input type, placeholder, rows, email rule, and unique probe.
 pub(crate) struct TextControl {
     input_type: &'static str,
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
+    pub(super) email: bool,
     pub(super) unique: bool,
     probe: Option<EqProbe>,
+    /// The stored spelling of a submission, or `None` when the type refuses it.
+    spell: fn(&str) -> Option<String>,
+}
+
+/// The stored spelling of a `T` submission.
+fn spell<T: FormScalar>(value: &str) -> Option<String> {
+    T::parse_form(value.trim())
+        .ok()
+        .map(|parsed| parsed.to_form())
 }
 
 impl TextControl {
@@ -40,8 +50,10 @@ impl TextControl {
             input_type: T::INPUT_TYPE,
             rows: None,
             placeholder: None,
+            email: false,
             unique,
             probe: Some(probe),
+            spell: spell::<T>,
         }
     }
 
@@ -51,9 +63,16 @@ impl TextControl {
             input_type: T::INPUT_TYPE,
             rows: None,
             placeholder: None,
+            email: false,
             unique: false,
             probe: None,
+            spell: spell::<T>,
         }
+    }
+
+    /// Whether two submissions spell the same stored value: `01` and `1` do for an integer.
+    pub(crate) fn same_value(&self, a: &str, b: &str) -> bool {
+        matches!(((self.spell)(a), (self.spell)(b)), (Some(a), Some(b)) if a == b)
     }
 
     /// The equality expression the app-side unique check probes with.
@@ -102,11 +121,7 @@ impl Field {
             }
             .boxed()
         } else {
-            let input_type = if self.rules.is_email() {
-                "email"
-            } else {
-                text.input_type
-            };
+            let input_type = if text.email { "email" } else { text.input_type };
             let value_owned = value.map(|s| {
                 if text.input_type == "datetime-local" {
                     format_timestamp_input(s)

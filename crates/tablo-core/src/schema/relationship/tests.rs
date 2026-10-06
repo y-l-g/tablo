@@ -10,12 +10,8 @@ use crate::{
     schema::{Field, tree::Mode},
 };
 
-/// Reports what a submit says for one choice: its rules, then its option existence when they pass.
+/// Reports what a submit's option check says for one choice.
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
-    let errors = field.validate(value);
-    if !errors.is_empty() {
-        return errors.into_iter().map(|error| error.message).collect();
-    }
     field.validate_exists(cx, value).await
 }
 /// Provides the related-source fixtures the option-policy tests share.
@@ -907,7 +903,7 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
     let values =
         |id: uuid::Uuid| std::collections::HashMap::from([("id".to_string(), id.to_string())]);
     let messages = |errors: crate::form::FieldErrors| -> Vec<String> {
-        errors.iter().map(|error| error.message.clone()).collect()
+        errors.iter().map(|error| error.message("Id")).collect()
     };
 
     let mut handle = crate::db::db(&cx);

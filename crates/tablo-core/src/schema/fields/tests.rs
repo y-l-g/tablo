@@ -1,52 +1,15 @@
-use super::{
-    test_support::{DummyUser, NullableRef},
-    *,
-};
+use super::{test_support::DummyUser, *};
 
-/// Every control defaults `required` from the lens's nullability:
-/// non-nullable columns default required, `.optional()` opts out, and
-/// `.required()` forces it back.
+/// A control renders optional until a panel stamps its record form's presence on it.
 #[test]
-fn every_control_defaults_required_from_nullability() {
-    macro_rules! check {
-        ($field:expr) => {{
-            let field = $field;
-            assert!(
-                field
-                    .validate("")
-                    .iter()
-                    .any(|e| e.message.contains("is required")),
-                "a non-nullable {:?} refuses an empty submit",
-                *field
-            );
-            let field = field.optional();
-            assert!(field.validate("").is_empty(), "{:?} opted out", *field);
-            let field = field.required();
-            assert!(
-                field
-                    .validate("")
-                    .iter()
-                    .any(|e| e.message.contains("is required")),
-                "{:?} opted back in",
-                *field
-            );
-        }};
-    }
-    check!(Field::text(DummyUser::fields().name()));
-    check!(Field::choice(DummyUser::fields().name()));
-    check!(Field::file(DummyUser::fields().name()));
-
-    // A nullable lens defaults optional, whatever the control.
-    let choice = Field::choice(NullableRef::fields().parent_id());
+fn a_control_renders_optional_until_its_record_form_requires_it() {
+    assert!(!Field::text(DummyUser::fields().name()).is_required());
+    assert!(!Field::choice(DummyUser::fields().name()).is_required());
+    assert!(!Field::file(DummyUser::fields().name()).is_required());
     assert!(
-        choice.validate("").is_empty(),
-        "nullable FK choice defaults optional, got {:?}",
-        choice.validate("")
-    );
-    let text = Field::text(NullableRef::fields().parent_id());
-    assert!(
-        text.validate("").is_empty(),
-        "an `Option` column is optional"
+        Field::text(DummyUser::fields().name())
+            .required()
+            .is_required()
     );
 }
 
@@ -70,24 +33,23 @@ fn a_typed_unique_column_defaults_to_unique() {
     assert!(!Field::text(DummyUser::fields().name()).is_unique());
 }
 
-/// Uniqueness implies presence only where an empty submit stores a value: a
-/// nullable column stores NULL, which a unique index admits many times.
+/// A nullable column stores NULL for an empty submission, which a unique index admits many times;
+/// a non-nullable one stores one value for all of them.
 #[test]
-fn a_nullable_unique_column_may_be_left_empty() {
-    let nullable = Field::text(Coded::fields().nickname());
-    assert!(
-        nullable.validate("").is_empty(),
-        "an `Option` column stays optional: {:?}",
-        nullable.validate("")
-    );
-    assert!(!nullable.is_required(), "and renders no required marker");
+fn a_field_reads_its_columns_nullability() {
+    assert!(Field::text(Coded::fields().nickname()).is_nullable());
+    assert!(!Field::text(Coded::fields().code()).is_nullable());
+}
 
-    let non_nullable = Field::text(DummyUser::fields().email()).optional();
-    assert!(
-        non_nullable
-            .validate("")
-            .iter()
-            .any(|e| e.message.contains("is required")),
-        "a non-nullable unique column stays required even when optional"
+/// The email rule refuses a non-empty value that is not an address, and leaves presence to the
+/// record form.
+#[test]
+fn the_email_rule_checks_only_a_submitted_value() {
+    let field: Field = Field::text(DummyUser::fields().email()).email().into();
+    assert_eq!(field.check(""), None, "an empty value is the record form's");
+    assert_eq!(field.check("ada@example.com"), None);
+    assert_eq!(
+        field.check("nope").map(|error| error.message("Email")),
+        Some("Email must be a valid email".to_string())
     );
 }

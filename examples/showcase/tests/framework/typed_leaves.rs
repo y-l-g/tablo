@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use tablo_core::{
-    Ability, FieldErrors,
+    Ability, FieldError, FieldErrorKind, FieldErrors, FormScalar,
+    form::parse_scalar,
     schema::{Field, Schema, Source},
 };
 use toasty::Db;
@@ -22,12 +23,9 @@ struct Measurement {
     recorded_at: jiff::Timestamp,
 }
 
-fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
-    errors
-        .iter()
-        .filter(|error| error.key == key)
-        .map(|error| error.message.as_str())
-        .collect()
+/// `value` posted under `key`, as a completed submission holds it.
+fn posted(key: &str, value: &str) -> HashMap<String, String> {
+    HashMap::from([(key.to_string(), value.to_string())])
 }
 
 async fn cx() -> Cx {
@@ -78,84 +76,71 @@ async fn a_typed_field_renders_the_values_display() {
     assert!(html.contains("Word count"), "label from the lens: {html}");
 }
 
-#[tokio::test]
-async fn a_bad_submission_is_an_inline_field_error() {
-    let schema = Schema::new((
-        Field::text(Measurement::fields().word_count()),
-        Field::text(Measurement::fields().recorded_at()),
-    ));
-    let values = HashMap::from([
-        ("word_count".to_string(), "lots".to_string()),
-        ("recorded_at".to_string(), "2024-13-01".to_string()),
-    ]);
-    let errors = schema.validate(&values);
+#[test]
+fn a_bad_submission_is_refused_naming_the_input() {
     assert_eq!(
-        messages(&errors, "word_count"),
-        ["`lots` is not a valid whole number"],
-        "an unparseable integer names the offending input, got {errors:?}"
+        parse_scalar::<i64>("word_count", &posted("word_count", "lots"), None),
+        Err(FieldError::invalid(
+            "word_count",
+            "`lots` is not a valid whole number"
+        )),
+        "an unparseable integer names the offending input"
     );
     assert_eq!(
-        messages(&errors, "recorded_at"),
-        ["`2024-13-01` is not a valid timestamp"],
-        "an unparseable date names the offending input, got {errors:?}"
+        parse_scalar::<jiff::Timestamp>("recorded_at", &posted("recorded_at", "2024-13-01"), None),
+        Err(FieldError::invalid(
+            "recorded_at",
+            "`2024-13-01` is not a valid timestamp"
+        )),
+        "an unparseable date names the offending input"
     );
 }
 
-#[tokio::test]
-async fn a_valid_submission_is_stored_in_the_types_spelling() {
-    let schema = Schema::new(Field::text(Measurement::fields().recorded_at()));
-    let mut values = HashMap::from([(
-        "recorded_at".to_string(),
-        "2024-01-02T03:04:05+00:00[UTC]".to_string(),
-    )]);
-    assert!(
-        schema.validate(&values).is_empty(),
-        "the parser accepts what the type accepts"
-    );
-    schema.normalize_values(&mut values);
-    let stored = values.get("recorded_at").expect("still present");
-    let parsed: jiff::Timestamp = stored.parse().expect("the stored spelling parses");
+#[test]
+fn a_valid_submission_is_stored_in_the_types_spelling() {
+    let parsed = parse_scalar::<jiff::Timestamp>(
+        "recorded_at",
+        &posted("recorded_at", "2024-01-02T03:04:05+00:00[UTC]"),
+        None,
+    )
+    .expect("the parser accepts what the type accepts");
+    let stored = parsed.to_form();
+    let reread: jiff::Timestamp = stored.parse().expect("the stored spelling parses");
     assert_eq!(
-        parsed.to_string(),
-        *stored,
+        reread.to_string(),
+        stored,
         "what is written is the type's own Display, so a re-read is a fixpoint"
     );
 }
 
-#[tokio::test]
-async fn an_empty_submission_stays_the_presence_rules_business() {
-    let schema = Schema::new(Field::text(Measurement::fields().word_count()).optional());
-    assert!(
-        schema.validate(&HashMap::new()).is_empty(),
-        "an optional typed field accepts empty, as a text field does"
-    );
-    let required = Schema::new(Field::text(Measurement::fields().word_count()));
+/// An empty submission is the field's blank answer, or refused as required when it has none,
+/// never a parse failure.
+#[test]
+fn an_empty_submission_is_the_blank_answer_or_required() {
     assert_eq!(
-        messages(&required.validate(&HashMap::new()), "word_count"),
-        ["Word count is required"],
-        "a non-nullable typed field reports presence, not a parse failure"
+        parse_scalar::<i64>("word_count", &posted("word_count", ""), Some(0)),
+        Ok(0)
     );
+    let refused =
+        parse_scalar::<i64>("word_count", &HashMap::new(), None).expect_err("no blank answer");
+    assert_eq!(refused.kind, FieldErrorKind::Required);
+    assert_eq!(refused.message("Word count"), "Word count is required");
 }
 
-#[tokio::test]
-async fn a_text_field_is_untouched_by_the_typed_path() {
-    let schema = Schema::new(Field::text(Measurement::fields().label()));
-    let mut values = HashMap::from([("label".to_string(), "  spaced  ".to_string())]);
-    assert!(schema.validate(&values).is_empty());
-    schema.normalize_values(&mut values);
+#[test]
+fn a_text_field_stores_what_was_typed_trimmed() {
     assert_eq!(
-        values.get("label").map(String::as_str),
-        Some("spaced"),
-        "a text field still stores exactly what was typed, trimmed"
+        parse_scalar::<String>("label", &posted("label", "  spaced  "), None),
+        Ok("spaced".to_string())
     );
 }
 
 /// The whole point of the typed seam: a bad value typed into a typed
 /// column is a **field error on the page**, not a 500 and not a silent default.
 ///
-/// Pinned through the real panel rather than `Schema::validate`, because the
-/// requirement is about what a user sees: the earlier tests prove the rule, this
-/// proves the wiring — that the create handler reaches it and re-renders inline.
+/// Pinned through the real panel, because the requirement is about what a user sees: the earlier
+/// tests prove the parse, this proves the wiring — that the create handler reaches it and
+/// re-renders inline.
 #[tokio::test]
 async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     use tablo_core::{Auth, Panel, Resource, ResourceDef};
@@ -253,45 +238,28 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     );
 }
 
-#[tokio::test]
-async fn an_empty_submission_is_left_for_the_record_fn_to_default() {
-    let schema = Schema::new(Field::text(Measurement::fields().word_count()).optional());
-    let mut values = HashMap::from([("word_count".to_string(), String::new())]);
-    assert!(
-        schema.validate(&values).is_empty(),
-        "an optional typed field accepts an empty submit"
-    );
-    schema.normalize_values(&mut values);
-    assert_eq!(
-        values.get("word_count").map(String::as_str),
-        Some(""),
-        "empty stays empty: a typed column has no 'no value' spelling"
-    );
-}
-
-#[tokio::test]
-async fn a_timestamp_round_trips_offset_and_subsecond_precision() {
-    let schema = Schema::new(Field::text(Measurement::fields().recorded_at()));
+#[test]
+fn a_timestamp_round_trips_offset_and_subsecond_precision() {
     for input in [
         "2024-01-02T03:04:05.123456789Z",
         "2024-01-02T03:04:05+05:30",
         "2024-06-30T23:59:59Z",
     ] {
-        let mut values = HashMap::from([("recorded_at".to_string(), input.to_string())]);
-        assert!(schema.validate(&values).is_empty(), "{input} must validate");
-        schema.normalize_values(&mut values);
-        let stored = values.get("recorded_at").cloned().unwrap_or_default();
-        let parsed: jiff::Timestamp = stored
+        let parsed =
+            parse_scalar::<jiff::Timestamp>("recorded_at", &posted("recorded_at", input), None)
+                .unwrap_or_else(|error| panic!("{input} must parse: {error:?}"));
+        let stored = parsed.to_form();
+        let reread: jiff::Timestamp = stored
             .parse()
             .unwrap_or_else(|e| panic!("{stored:?} must parse back: {e}"));
         assert_eq!(
-            parsed.to_string(),
+            reread.to_string(),
             stored,
             "the stored spelling is the type's fixpoint for {input}"
         );
         let original: jiff::Timestamp = input.parse().expect("input parses");
         assert_eq!(
-            original, parsed,
+            original, reread,
             "no instant is lost between {input} and {stored}"
         );
     }

@@ -17,7 +17,7 @@ fn the_field_list_holds_nested_fields_in_declaration_order() {
     }
     let schema = Schema::new((
         Field::text(Doc::fields().title()),
-        Section::new("S").schema(Grid::new(2).schema(Repeater::new("R").schema((
+        Section::new("S").schema(Grid::new(2).schema(Group::new().schema((
             Field::text(DummyUser::fields().name()),
             Field::file(Doc::fields().path()),
         )))),
@@ -26,7 +26,7 @@ fn the_field_list_holds_nested_fields_in_declaration_order() {
     assert_eq!(names, ["title", "name", "path"]);
     assert!(
         schema.fields().any(|field| field.is_file()),
-        "a file field nested in a repeater is in the list"
+        "a file field nested in a group is in the list"
     );
 }
 
@@ -81,10 +81,8 @@ fn unknown_keys_flags_undeclared_post_keys() {
     assert!(schema.unknown_keys(&values).is_empty());
 }
 
-/// A choice's presence and option checks read `value.trim()`,
-/// so the trimmed spelling is the one validation authorises. Normalisation
-/// writes exactly that value, and a padded value no option matches is still
-/// refused rather than trimmed into one.
+/// A choice's option check reads `value.trim()`, the spelling the record form's parse stores, and
+/// a padded value no option matches is still refused rather than trimmed into one.
 #[tokio::test]
 async fn a_choice_stores_the_value_its_check_authorised() {
     let cx = topcoat::context::CxTestBuilder::new().build();
@@ -96,20 +94,19 @@ async fn a_choice_stores_the_value_its_check_authorised() {
     let mut values = HashMap::new();
     values.insert("name".to_string(), "  red ".to_string());
     assert!(
-        schema.validate_async(&cx, &values).await.is_empty(),
+        schema.checked(&cx, &values).await.is_empty(),
         "the option check reads the trimmed value"
     );
-    schema.normalize_values(&mut values);
     assert_eq!(
-        values.get("name").map(String::as_str),
-        Some("red"),
+        crate::form::parse_scalar::<String>("name", &values, None),
+        Ok("red".to_string()),
         "the stored value is the one the check authorised"
     );
 
     let mut invalid = HashMap::new();
     invalid.insert("name".to_string(), "  re d ".to_string());
     assert!(
-        !schema.validate_async(&cx, &invalid).await.is_empty(),
+        !schema.checked(&cx, &invalid).await.is_empty(),
         "trimming does not turn a non-option into one"
     );
 }

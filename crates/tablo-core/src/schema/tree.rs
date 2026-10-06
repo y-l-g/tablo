@@ -1,6 +1,6 @@
 //! Composes field slots, layout containers, and embedded values into one tree.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use topcoat::{Result, context::Cx, view::*};
 
@@ -8,9 +8,8 @@ use super::{
     Schema,
     embedded::Embedded,
     fields::Field,
-    layouts::{Grid, Group, Repeater, Section},
+    layouts::{Grid, Group, Section},
     lenses::FieldResolver,
-    validation::required_error,
 };
 use crate::form::FieldErrors;
 
@@ -18,7 +17,6 @@ use crate::form::FieldErrors;
 pub(crate) enum Node {
     /// A field, by its index in the root schema's field list.
     Field(usize),
-    Repeater(Box<Repeater>),
     Section(Box<Section>),
     Group(Box<Group>),
     Grid(Box<Grid>),
@@ -39,14 +37,6 @@ impl std::fmt::Debug for Unbound {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Unbound").field(&self.value).finish()
     }
-}
-
-/// Reports where a field's control sits in the form.
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum LeafPlace {
-    Rendered,
-    Payload,
-    Discriminant,
 }
 
 /// Holds where a schema render reads field values and errors from for a form or a read-only view.
@@ -84,11 +74,11 @@ impl<'a> Source<'a> {
         self.values.get(name).map(String::as_str)
     }
 
-    /// Returns the error `name` renders.
-    pub(crate) fn errors_for(&self, name: &str) -> Option<&str> {
+    /// Returns the message the field `field` renders under its control.
+    pub(crate) fn error_for(&self, field: &Field) -> Option<String> {
         self.errors
-            .and_then(|errors| errors.first(name))
-            .map(|error| error.message.as_str())
+            .and_then(|errors| errors.first(field.name()))
+            .map(|error| error.message(field.label_str()))
     }
 }
 
@@ -110,15 +100,15 @@ impl Node {
         match self {
             Node::Field(index) => {
                 let field = &fields[*index];
+                let error = source.error_for(field);
                 Box::pin(field.render(
                     cx,
                     source.value(field.name()),
-                    source.errors_for(field.name()),
+                    error.as_deref(),
                     source.mode(),
                 ))
                 .await
             }
-            Node::Repeater(r) => Box::pin(r.render(cx, fields, source)).await,
             Node::Section(s) => Box::pin(s.render(cx, fields, source)).await,
             Node::Group(g) => Box::pin(g.render(cx, fields, source)).await,
             Node::Grid(g) => Box::pin(g.render(cx, fields, source)).await,
@@ -132,7 +122,6 @@ impl Node {
     /// value.
     pub(crate) fn children(&self) -> Option<&[Node]> {
         match self {
-            Node::Repeater(r) => Some(&r.children.nodes),
             Node::Section(s) => Some(&s.children.nodes),
             Node::Group(g) => Some(&g.children.nodes),
             Node::Grid(g) => Some(&g.children.nodes),
@@ -142,7 +131,6 @@ impl Node {
 
     fn children_mut(&mut self) -> Option<&mut Vec<Node>> {
         match self {
-            Node::Repeater(r) => Some(&mut r.children.nodes),
             Node::Section(s) => Some(&mut s.children.nodes),
             Node::Group(g) => Some(&mut g.children.nodes),
             Node::Grid(g) => Some(&mut g.children.nodes),
@@ -158,19 +146,6 @@ impl Node {
             _ => {
                 for child in self.children_mut().into_iter().flatten() {
                     child.offset(by);
-                }
-            }
-        }
-    }
-
-    /// Visits every field slot under this node with where its control sits in the form.
-    pub(crate) fn visit_fields(&self, f: &mut impl FnMut(usize, LeafPlace)) {
-        match self {
-            Node::Field(index) => f(*index, LeafPlace::Rendered),
-            Node::Embedded(e) => e.visit_fields(LeafPlace::Rendered, f),
-            _ => {
-                for child in self.children().unwrap_or_default() {
-                    child.visit_fields(f);
                 }
             }
         }
@@ -236,55 +211,6 @@ pub(crate) async fn render_nodes<'a>(
     .boxed())
 }
 
-/// Classifies the tree's groups against `values`, skipping fields in all-empty repeater groups and
-/// hidden variant groups and reporting a required absent repeater under its label.
-pub(crate) fn walk_absent_groups(
-    nodes: &[Node],
-    fields: &[Field],
-    values: &HashMap<String, String>,
-    skip: &mut HashSet<String>,
-    errors: &mut FieldErrors,
-    inside_absent: bool,
-) {
-    let name = |index: usize| fields[index].name().to_string();
-    for node in nodes {
-        match node {
-            Node::Embedded(e) => {
-                let mut hidden = Vec::new();
-                e.hidden_fields(values, &mut hidden);
-                skip.extend(hidden.into_iter().map(name));
-            }
-            Node::Repeater(r) => {
-                let mut inner = Vec::new();
-                node.visit_fields(&mut |index, _| inner.push(name(index)));
-                // `all` on an empty list is true: an inputless group is absent.
-                let all_empty = inner
-                    .iter()
-                    .all(|n| values.get(n).map(|v| v.trim().is_empty()).unwrap_or(true));
-                if all_empty {
-                    skip.extend(inner);
-                    if r.required && !inside_absent && !errors.contains_key(&r.label) {
-                        errors.add_required(&r.label, required_error(&r.label));
-                    }
-                }
-                walk_absent_groups(
-                    &r.children.nodes,
-                    fields,
-                    values,
-                    skip,
-                    errors,
-                    inside_absent || all_empty,
-                );
-            }
-            _ => {
-                if let Some(children) = node.children() {
-                    walk_absent_groups(children, fields, values, skip, errors, inside_absent);
-                }
-            }
-        }
-    }
-}
-
 /// Converts a field, a layout block, a tuple of either, or a schema into a [`Schema`].
 pub trait IntoSchema {
     fn into_schema(self) -> Schema;
@@ -322,7 +248,7 @@ macro_rules! container_nodes {
     };
 }
 
-container_nodes!(Section, Group, Grid, Repeater);
+container_nodes!(Section, Group, Grid);
 
 /// Generates the tuple impls of [`IntoSchema`] from one list per arity.
 macro_rules! into_schema_tuples {

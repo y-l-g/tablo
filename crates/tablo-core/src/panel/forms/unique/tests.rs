@@ -7,11 +7,11 @@ use crate::{
     panel::test_support::{Subscriber, Tagged, TaggedResource, mount, panel_for, response_html},
 };
 
-fn messages<'a>(errors: &'a FieldErrors, key: &str) -> Vec<&'a str> {
+fn messages(errors: &FieldErrors, key: &str) -> Vec<String> {
     errors
         .iter()
         .filter(|error| error.key == key)
-        .map(|error| error.message.as_str())
+        .map(|error| error.message(key))
         .collect()
 }
 
@@ -117,11 +117,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
 
     let mut empty = HashMap::new();
     empty.insert("email".to_string(), "   ".to_string());
-    let optional_schema = Schema::new(
-        Field::text(Subscriber::fields().email())
-            .optional()
-            .unique(),
-    );
+    let optional_schema = Schema::new(Field::text(Subscriber::fields().email()).unique());
     let errors = check_unique(
         &cx,
         &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
@@ -135,130 +131,6 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
     assert!(
         errors.is_empty(),
         "an empty unique submit must not be probed, got {errors:?}"
-    );
-}
-
-/// An explicitly `unique()` field stays required even when marked `.optional()`.
-#[tokio::test]
-async fn unique_field_is_required_however_it_is_marked() {
-    use topcoat::context::CxTestBuilder;
-
-    use crate::schema::{Field, Schema};
-
-    struct SubscriberResource;
-    impl Resource for SubscriberResource {
-        type Model = Subscriber;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Subscriber.email),
-            )))
-        }
-    }
-
-    let db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    let cx = CxTestBuilder::new().app_context(db.clone()).build();
-    let mut ex = crate::db::db(&cx);
-
-    let schema = Schema::new(
-        Field::text(Subscriber::fields().email())
-            .unique()
-            .optional(),
-    );
-    let mut first = HashMap::new();
-    first.insert("email".to_string(), "   ".to_string());
-    assert_eq!(
-        messages(&schema.validate(&first), "email"),
-        ["Email is required"],
-        "an empty unique field must fail validation as required"
-    );
-
-    let errors = check_unique(
-        &cx,
-        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
-        &schema,
-        &first,
-        &HashMap::new(),
-        &mut ex,
-    )
-    .await
-    .unwrap();
-    assert!(
-        errors.is_empty(),
-        "an empty unique submit must not be probed, got {errors:?}"
-    );
-
-    let mut db_check = db;
-    let stored = Subscriber::all().exec(&mut db_check).await.unwrap();
-    assert!(
-        stored.is_empty(),
-        "an empty unique submit must not write, got {} rows",
-        stored.len()
-    );
-}
-
-/// Lens-derived `#[unique]` fields are required without a `.unique()` call.
-#[tokio::test]
-async fn lens_derived_unique_is_required_without_a_unique_call() {
-    use topcoat::context::CxTestBuilder;
-
-    use crate::schema::{Field, Schema};
-
-    struct SubscriberResource;
-    impl Resource for SubscriberResource {
-        type Model = Subscriber;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Subscriber.email),
-            )))
-        }
-    }
-
-    let db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
-    let mut ex = crate::db::db(&cx);
-
-    let input = Field::text(Subscriber::fields().email());
-    assert!(
-        input.is_unique(),
-        "the index must be recognized without a `.unique()` call"
-    );
-    assert!(input.is_required(), "derived uniqueness implies presence");
-
-    let schema = Schema::new(input);
-    let mut empty = HashMap::new();
-    empty.insert("email".to_string(), "".to_string());
-    assert_eq!(
-        messages(&schema.validate(&empty), "email"),
-        ["Email is required"],
-        "an empty submit must be refused inline, not probed"
-    );
-    let errors = check_unique(
-        &cx,
-        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
-        &schema,
-        &empty,
-        &HashMap::new(),
-        &mut ex,
-    )
-    .await
-    .unwrap();
-    assert!(
-        errors.is_empty(),
-        "validation owns the empty case; the probe must add nothing, got {errors:?}"
     );
 }
 
@@ -312,102 +184,6 @@ async fn unique_check_propagates_probe_errors() {
     assert!(
         result.is_err(),
         "a failing probe must fail the submit, got {result:?}"
-    );
-}
-
-#[tokio::test]
-async fn unique_check_ignores_absent_repeater_groups() {
-    use topcoat::context::CxTestBuilder;
-
-    use crate::schema::{Field, Repeater, Schema};
-
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Nicknamed {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        #[unique]
-        nickname: String,
-    }
-    struct TaggedResource;
-    impl Resource for TaggedResource {
-        type Model = Nicknamed;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Nicknamed.nickname),
-            )))
-        }
-    }
-
-    let mut db = Db::builder()
-        .models(toasty::models!(Nicknamed))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    toasty::create!(Nicknamed {
-        nickname: "".to_string()
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
-    let mut ex = crate::db::db(&cx);
-
-    let schema = Schema::new(
-        Repeater::new("Tags").schema(
-            Field::text(Nicknamed::fields().nickname())
-                .unique()
-                .optional(),
-        ),
-    );
-
-    // An absent group validates clean, so the unique check agrees.
-    let mut absent = HashMap::new();
-    absent.insert("nickname".to_string(), "".to_string());
-    assert!(
-        schema.validate(&absent).is_empty(),
-        "absent group must validate clean"
-    );
-    let errors = check_unique(
-        &cx,
-        &crate::resource::require_mounted::<TaggedResource>(&cx).unwrap(),
-        &schema,
-        &absent,
-        &HashMap::new(),
-        &mut ex,
-    )
-    .await
-    .unwrap();
-    assert!(
-        errors.is_empty(),
-        "absent group must not be unique-checked, got {errors:?}"
-    );
-
-    let mut present = HashMap::new();
-    present.insert("nickname".to_string(), "taken".to_string());
-    toasty::create!(Nicknamed {
-        nickname: "taken".to_string()
-    })
-    .exec(&mut ex)
-    .await
-    .unwrap();
-    let errors = check_unique(
-        &cx,
-        &crate::resource::require_mounted::<TaggedResource>(&cx).unwrap(),
-        &schema,
-        &present,
-        &HashMap::new(),
-        &mut ex,
-    )
-    .await
-    .unwrap();
-    assert_eq!(
-        errors.first("nickname").map(|error| error.message.as_str()),
-        Some("Nickname has already been taken"),
-        "present group must still be unique-checked, got {errors:?}"
     );
 }
 

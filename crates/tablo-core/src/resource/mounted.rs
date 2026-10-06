@@ -63,8 +63,16 @@ impl<R: Resource> Mounted<R> {
             .resolved(&url);
         let table = def.table.unwrap_or_else(<R::Form as RecordForm>::table);
         table.bind_with(resolver);
+        let fields = <R::Form as RecordForm>::fields(resolver);
         let mut form = def.form.unwrap_or_else(<R::Form as RecordForm>::schema);
         form.bind_with(resolver);
+        // The record form decides which controls an empty submission fails.
+        form.require(
+            &fields
+                .iter()
+                .flat_map(|field| field.required.iter().map(String::as_str))
+                .collect(),
+        );
         let view = def.view.map(|mut view| {
             view.bind_with(resolver);
             view
@@ -82,7 +90,7 @@ impl<R: Resource> Mounted<R> {
             view,
             relations: def.relations,
             actions: def.actions,
-            fields: <R::Form as RecordForm>::fields(resolver),
+            fields,
             create_columns: def.create_columns,
         }
     }

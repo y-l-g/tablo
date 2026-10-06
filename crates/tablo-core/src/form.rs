@@ -2,8 +2,10 @@
 //! that stores it.
 //!
 //! Declares one `RecordForm` struct with one field per written model column.
-//! Completes unposted keys from the stored record and writes only named fields
-//! plus model defaults.
+//! The struct is the form's one source of truth: it parses every key, and a
+//! field's blank answer decides whether its control is required. Completes
+//! unposted keys from the stored record and writes only named fields plus model
+//! defaults.
 //!
 //! ```no_run
 //! #[derive(Debug, Clone, toasty::Model)]
@@ -77,6 +79,19 @@
 //! }
 //! ```
 //!
+//! `optional` on a type with no empty value:
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
+//! #[derive(tablo_core::RecordForm)]
+//! #[form(model = User)]
+//! struct UserForm {
+//!     #[form(optional)]
+//!     age: i64,
+//! }
+//! ```
+//!
 //! `embed` on a type that is not an [`EmbeddedForm`](crate::EmbeddedForm):
 //!
 //! ```compile_fail
@@ -108,8 +123,7 @@ use crate::{
 /// and an `Option` of either.
 ///
 /// The value the parse sees is trimmed and non-empty; an empty submission is the
-/// field's **blank answer** instead (the `blank` a record form declares, else
-/// `""` for `String` or `None` for an `Option`).
+/// record-form field's **blank answer** instead, and a field with none is required.
 ///
 /// A text field binds a path of any `FormScalar` type
 /// ([`Field::text`](crate::Field::text)), and the form derives read and write
@@ -124,9 +138,6 @@ pub trait FormScalar: Sized {
     /// The `type` attribute of the text control that edits it.
     const INPUT_TYPE: &'static str = "text";
 
-    /// The value an empty submission reads as, when the type has one.
-    fn blank() -> Option<Self>;
-
     /// Parse a trimmed, non-empty submission, or return the error message.
     fn parse_form(value: &str) -> std::result::Result<Self, String>;
 
@@ -135,10 +146,6 @@ pub trait FormScalar: Sized {
 }
 
 impl FormScalar for String {
-    fn blank() -> Option<Self> {
-        Some(String::new())
-    }
-
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
         Ok(value.to_string())
     }
@@ -150,10 +157,6 @@ impl FormScalar for String {
 
 impl<T: TypedValue> FormScalar for T {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
-
-    fn blank() -> Option<Self> {
-        None
-    }
 
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
         T::parse_input(value).ok_or_else(|| format!("`{value}` is not a valid {}", T::NOUN))
@@ -167,10 +170,6 @@ impl<T: TypedValue> FormScalar for T {
 impl<T: TypedValue> FormScalar for Option<T> {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
 
-    fn blank() -> Option<Self> {
-        Some(None)
-    }
-
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
         T::parse_form(value).map(Some)
     }
@@ -181,10 +180,6 @@ impl<T: TypedValue> FormScalar for Option<T> {
 }
 
 impl FormScalar for Option<String> {
-    fn blank() -> Option<Self> {
-        Some(None)
-    }
-
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
         Ok(Some(value.to_string()))
     }
@@ -199,67 +194,57 @@ impl FormScalar for Option<String> {
 #[doc(hidden)]
 pub fn assert_form_scalar<T: FormScalar>() {}
 
-/// Why a key failed to parse.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Why a key was refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum FieldErrorKind {
-    /// Posted empty, and the field has no blank answer.
+    /// Posted empty, and the field has no blank answer. The form renders
+    /// "{label} is required" under the control.
     Required,
-    /// Posted a value the field's type does not accept.
-    Invalid,
+    /// Posted a value the field refuses, with the sentence the form renders.
+    Invalid(String),
 }
 
-/// One key a submission was refused under, with the sentence the form renders
-/// beneath it.
-///
-/// The entry type of [`FieldErrors`]. [`Self::required`] is what
-/// [`RecordForm::parse`] answers for an unanswered key, whose control supplies
-/// the rendered wording.
+/// One key a submission was refused under: a form key, or a record form's
+/// field enum in [`Resource::validate_record`](crate::Resource::validate_record).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FieldError {
-    /// The form key the error renders under.
-    pub key: String,
-    /// Why the key failed.
+pub struct FieldError<K = String> {
+    /// What the error renders under.
+    pub key: K,
+    /// Why the key was refused.
     pub kind: FieldErrorKind,
-    /// The sentence the form shows.
-    pub message: String,
 }
 
-impl FieldError {
-    /// The submission left `key` unanswered — an empty field with no blank
-    /// answer, or a required group whose inputs were all empty; `message` is
-    /// the wording its control renders in the slot.
-    pub fn unanswered(key: impl Into<String>, message: impl Into<String>) -> Self {
+impl<K> FieldError<K> {
+    /// `key` was posted empty and has no blank answer.
+    pub fn required(key: impl Into<K>) -> Self {
         Self {
             key: key.into(),
             kind: FieldErrorKind::Required,
-            message: message.into(),
         }
     }
 
-    /// `key` was posted empty and has no blank answer, worded as its own key
-    /// names it.
-    pub fn required(key: impl Into<String>) -> Self {
-        let key = key.into();
-        let message = format!("{key} is required");
-        Self::unanswered(key, message)
-    }
-
-    /// `key` carried a value its type refuses; `message` says why.
-    pub fn invalid(key: impl Into<String>, message: impl Into<String>) -> Self {
+    /// `key` carried a value it refuses; `message` says why.
+    pub fn invalid(key: impl Into<K>, message: impl Into<String>) -> Self {
         Self {
             key: key.into(),
-            kind: FieldErrorKind::Invalid,
-            message: message.into(),
+            kind: FieldErrorKind::Invalid(message.into()),
+        }
+    }
+
+    /// The sentence the form renders under the control labelled `label`.
+    pub fn message(&self, label: &str) -> String {
+        match &self.kind {
+            FieldErrorKind::Required => format!("{label} is required"),
+            FieldErrorKind::Invalid(message) => message.clone(),
         }
     }
 }
 
 /// Read one scalar from a completed submission.
 ///
-/// Trims the value; an empty one takes `blank` when the record form declares
-/// one, else the type's own [`FormScalar::blank`], else refuses as
-/// [`FieldErrorKind::Required`].
+/// Trims the value; an empty one is `blank`, the field's blank answer, or
+/// refuses as [`FieldErrorKind::Required`] when it has none.
 pub fn parse_scalar<T: FormScalar>(
     key: &str,
     values: &HashMap<String, String>,
@@ -267,9 +252,7 @@ pub fn parse_scalar<T: FormScalar>(
 ) -> std::result::Result<T, FieldError> {
     let raw = values.get(key).map(|value| value.trim()).unwrap_or("");
     if raw.is_empty() {
-        return blank
-            .or_else(T::blank)
-            .ok_or_else(|| FieldError::required(key));
+        return blank.ok_or_else(|| FieldError::required(key));
     }
     T::parse_form(raw).map_err(|message| FieldError::invalid(key, message))
 }
@@ -282,14 +265,12 @@ pub struct FormField<K> {
     /// The Rust field name, for build-time refusals.
     pub name: &'static str,
     /// The keys the field binds: one for a scalar, every key of an embedded
-    /// value (an enum's discriminant first).
+    /// value (an enum's discriminant first). An error on the field renders
+    /// under the first.
     pub keys: Vec<String>,
-    /// Whether an empty submission has an answer. The build check refuses the
-    /// field only where one of its keys can be posted empty with nothing to
-    /// resolve it; a scalar's answer is its declared `#[form(blank = ..)]` or
-    /// its type's own, and an embedded value answers when every leaf does
-    /// (`EmbeddedForm::answers_blank`).
-    pub answers_blank: bool,
+    /// The keys with no blank answer, which an empty submission refuses: the
+    /// panel renders their controls required.
+    pub required: Vec<String>,
 }
 
 /// The typed value a resource's form submission parses into.
@@ -333,11 +314,11 @@ pub trait RecordForm: Sized + Send + 'static {
     /// The stored record as the form spells it.
     fn hydrate(cx: &Cx, record: &Self::Model) -> HashMap<String, String>;
 
-    /// Parse a completed, normalized submission.
+    /// Parse a completed submission: the form's only presence and type check.
     ///
     /// # Errors
     ///
-    /// Every key that failed, each once.
+    /// Every key that failed, each once, under one of [`Self::fields`]' keys.
     fn parse(
         cx: &Cx,
         values: &HashMap<String, String>,
@@ -472,54 +453,40 @@ impl<F: RecordForm> std::ops::Deref for Posted<F> {
     }
 }
 
-/// A refused submission, keyed by the form key each error renders under.
+/// A refused submission.
 ///
-/// One type for every source: the schema's own rules
-/// ([`Schema::validate`](crate::schema::Schema::validate)), a rejected upload, a
-/// failed uniqueness probe, and an app's
-/// [`validate_record`](crate::Resource::validate_record). The submit handler
-/// merges them without translating, and the form render reads each field's own
-/// key from the result.
+/// [`Resource::validate_record`](crate::Resource::validate_record) keys it by the record form's
+/// field enum (`FieldErrors<UserFormField>`), so an error always names a field the form renders;
+/// one on an embedded value renders under its first control. The panel keys every error by the
+/// form key it renders under (`FieldErrors`, keyed by `String`), and [`Source::form`] reads them
+/// back when a schema renders.
 ///
-/// A key the rendered form owns: a control's own key, or a
-/// [`Repeater`](crate::Repeater) group's label. A key no slot owns has nowhere
-/// to render, and the submit handler refuses it as a declaration error rather
-/// than writing past it.
-#[derive(Debug, Default)]
-pub struct FieldErrors {
-    errors: Vec<FieldError>,
+/// [`Source::form`]: crate::Source::form
+#[derive(Debug)]
+pub struct FieldErrors<K = String> {
+    errors: Vec<FieldError<K>>,
 }
 
-impl FieldErrors {
+impl<K> Default for FieldErrors<K> {
+    fn default() -> Self {
+        Self { errors: Vec::new() }
+    }
+}
+
+impl<K> FieldErrors<K> {
     /// No errors.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Refuse `key` with `message`.
-    pub fn add(&mut self, key: impl Into<String>, message: impl Into<String>) {
+    pub fn add(&mut self, key: impl Into<K>, message: impl Into<String>) {
         self.errors.push(FieldError::invalid(key, message));
     }
 
-    /// Refuse `key` as unanswered, with the message its control renders.
-    pub fn add_required(&mut self, key: impl Into<String>, message: impl Into<String>) {
-        self.errors.push(FieldError::unanswered(key, message));
-    }
-
-    /// Refuse `error`'s key with `error`, keeping the error's own kind.
-    pub fn push(&mut self, error: FieldError) {
+    /// Refuse `error`'s key with `error`.
+    pub fn push(&mut self, error: FieldError<K>) {
         self.errors.push(error);
-    }
-
-    /// Whether any error renders under `key`.
-    pub fn contains_key(&self, key: &str) -> bool {
-        self.errors.iter().any(|error| error.key == key)
-    }
-
-    /// The error `key` renders: the first one added, like the render's own
-    /// first-message slot.
-    pub fn first(&self, key: &str) -> Option<&FieldError> {
-        self.errors.iter().find(|error| error.key == key)
     }
 
     /// Whether nothing was refused.
@@ -528,7 +495,7 @@ impl FieldErrors {
     }
 
     /// Every error, in the order it was added.
-    pub fn iter(&self) -> impl Iterator<Item = &FieldError> {
+    pub fn iter(&self) -> impl Iterator<Item = &FieldError<K>> {
         self.errors.iter()
     }
 
@@ -536,13 +503,34 @@ impl FieldErrors {
     pub fn extend(&mut self, other: Self) {
         self.errors.extend(other.errors);
     }
+}
+
+impl<K> IntoIterator for FieldErrors<K> {
+    type Item = FieldError<K>;
+    type IntoIter = std::vec::IntoIter<FieldError<K>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.errors.into_iter()
+    }
+}
+
+impl FieldErrors {
+    /// Whether any error renders under `key`.
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.errors.iter().any(|error| error.key == key)
+    }
+
+    /// The error `key` renders: the first one added.
+    pub fn first(&self, key: &str) -> Option<&FieldError> {
+        self.errors.iter().find(|error| error.key == key)
+    }
 
     /// Take `other`'s errors, dropping this collection's own errors under every
     /// key `other` names.
     ///
     /// A source that owns a key answers for it: a rejected upload replaces the
-    /// "required" the emptied control would otherwise report.
-    pub fn replace(&mut self, other: Self) {
+    /// error the emptied control would otherwise report.
+    pub(crate) fn replace(&mut self, other: Self) {
         let owned: HashSet<&str> = other
             .errors
             .iter()

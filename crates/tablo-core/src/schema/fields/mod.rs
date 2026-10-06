@@ -23,7 +23,7 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{
     lenses::{Binding, FieldResolver},
     tree::Mode,
-    validation::Rules,
+    validation::is_email,
 };
 use crate::{
     form::{FieldError, FormScalar},
@@ -87,12 +87,9 @@ pub struct Field {
     binding: Binding,
     /// The declared label, over the binding's.
     label: Option<String>,
+    /// Whether the control renders as required: the panel sets it from the record form, and an
+    /// embedded value's derive from its own fields.
     required: bool,
-    /// Whether the column stores NULL for an empty submission, which a unique
-    /// index admits any number of times.
-    nullable: bool,
-    /// The email and scalar-parse rules, with their messages.
-    rules: Rules,
     control: ControlKind,
 }
 
@@ -126,13 +123,11 @@ impl std::fmt::Debug for Field {
 }
 
 impl Field {
-    fn bound(binding: Binding, rules: Rules, control: ControlKind) -> Self {
+    fn bound(binding: Binding, control: ControlKind) -> Self {
         Self {
-            required: !binding.nullable(),
-            nullable: binding.nullable(),
             binding,
             label: None,
-            rules,
+            required: false,
             control,
         }
     }
@@ -147,11 +142,7 @@ impl Field {
         let path: Path<M, T> = lens.into();
         let binding = Binding::of(&path);
         let control = TextControl::new::<M, T>(path, binding.unique());
-        TextField(Self::bound(
-            binding,
-            Rules::new().scalar::<T>(),
-            ControlKind::Text(control),
-        ))
+        TextField(Self::bound(binding, ControlKind::Text(control)))
     }
 
     /// The text field `#[derive(EmbeddedForm)]` renders for a leaf.
@@ -163,7 +154,6 @@ impl Field {
     {
         TextField(Self::bound(
             Binding::of(&path),
-            Rules::new().scalar::<T>(),
             ControlKind::Text(TextControl::leaf::<T>()),
         ))
     }
@@ -176,7 +166,6 @@ impl Field {
     {
         ChoiceField(Self::bound(
             Binding::of::<M, T>(&lens.into()),
-            Rules::new(),
             ControlKind::Choice(ChoiceControl::default()),
         ))
     }
@@ -189,7 +178,6 @@ impl Field {
     {
         FileField(Self::bound(
             Binding::of::<M, String>(&lens.into()),
-            Rules::new(),
             ControlKind::File,
         ))
     }
@@ -199,7 +187,7 @@ impl Field {
     where
         M: toasty::schema::Model,
     {
-        Self::custom(lens, Toggle).optional()
+        Self::custom(lens, Toggle)
     }
 
     /// A field over any [`FormScalar`] column, rendered by an app's [`Control`].
@@ -210,20 +198,17 @@ impl Field {
     {
         CustomField(Self::bound(
             Binding::of::<M, T>(&lens.into()),
-            Rules::new().scalar::<T>(),
             ControlKind::Custom(Arc::new(control)),
         ))
     }
 
-    /// The variant control of an embedded enum, never required since an empty submit answers with
-    /// the payload fallback.
+    /// The variant control of an embedded enum, never required since an empty submit reads the
+    /// variant from the payload.
     pub(crate) fn discriminant(name: String, variants: Vec<(String, String)>) -> Self {
         Self {
             binding: Binding::named(name.clone(), capitalize(&name)),
             label: None,
             required: false,
-            nullable: true,
-            rules: Rules::new(),
             control: ControlKind::Choice(ChoiceControl {
                 discriminant: true,
                 options: variants,
@@ -273,20 +258,41 @@ impl Field {
         matches!(&self.control, ControlKind::Text(text) if text.unique)
     }
 
-    /// Whether an empty submit fails and the control renders as required.
+    /// Whether the control renders as required.
     pub(crate) fn is_required(&self) -> bool {
-        self.required || (self.is_unique() && !self.nullable)
+        self.required
     }
 
-    /// Validates a submitted value, each failure keyed by the field's own name.
-    pub(crate) fn validate(&self, value: &str) -> Vec<FieldError> {
-        self.rules
-            .validate(self.name(), self.label_str(), self.is_required(), value)
+    /// Renders the control required when its record-form field has no blank answer.
+    pub(crate) fn set_required(&mut self, required: bool) {
+        self.required = required;
     }
 
-    /// The stored spelling of a validated submission.
-    pub(crate) fn normalize(&self, value: &str) -> Result<String, String> {
-        self.rules.normalize(value)
+    /// Whether the bound column stores NULL, which a unique index admits any number of times.
+    pub(crate) fn is_nullable(&self) -> bool {
+        self.binding.nullable()
+    }
+
+    /// Refuses a non-empty submission the control's own rule refuses: an email field's address.
+    pub(crate) fn check(&self, value: &str) -> Option<FieldError> {
+        let value = value.trim();
+        match &self.control {
+            ControlKind::Text(text) if text.email && !value.is_empty() && !is_email(value) => {
+                Some(FieldError::invalid(
+                    self.name(),
+                    format!("{} must be a valid email", self.label_str()),
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    /// Whether two submissions spell the same stored value, as the unique check compares them.
+    pub(crate) fn same_value(&self, a: &str, b: &str) -> bool {
+        match &self.control {
+            ControlKind::Text(text) => text.same_value(a, b),
+            _ => a.trim() == b.trim(),
+        }
     }
 
     /// Whether a submitted choice matches its options.
@@ -544,24 +550,6 @@ mod test_support {
         attrs.remove(0); // the tag name
         attrs.sort();
         attrs
-    }
-
-    /// A nullable FK, for the optional-by-default choice case.
-    #[derive(Debug, toasty::Model)]
-    pub(super) struct NullableRef {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        parent_id: Option<uuid::Uuid>,
-    }
-
-    /// A non-nullable foreign key, for the required-by-default FK choice.
-    #[derive(Debug, toasty::Model)]
-    pub(super) struct FkRef {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        author_id: uuid::Uuid,
     }
 }
 

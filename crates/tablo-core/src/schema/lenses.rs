@@ -25,11 +25,10 @@ pub(crate) fn schema_of(cx: &Cx) -> Option<Arc<toasty_core::Schema>> {
 /// ([`Self::bind`]); until then it names a placeholder spelling its steps, which reads as no other
 /// field's duplicate, and reports [`DeclarationErrorKind::Unbound`].
 ///
-/// A column defaults `required` from its nullability and `unique` from a single- or multi-field
-/// unique index it belongs to. An embedded leaf is never required or unique by default: only the
-/// matching enum variant writes a variant payload column, so every embedded leaf reports nullable.
-/// That is the binding default, not a storage fact — the flattened column of a required embedded
-/// struct is `NOT NULL` — so a field opts in with `.required()`.
+/// A column reports its nullability, and defaults `unique` from a single- or multi-field unique
+/// index it belongs to. An embedded leaf is never unique by default and reports nullable: only the
+/// matching enum variant writes a variant payload column. That is the binding default, not a
+/// storage fact — the flattened column of a required embedded struct is `NOT NULL`.
 #[derive(Debug, Clone)]
 pub(crate) struct Binding {
     /// The path, or `None` for a key no path names (an embedded enum's discriminant).

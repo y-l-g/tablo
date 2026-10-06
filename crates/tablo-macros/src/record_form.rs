@@ -6,7 +6,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
 
-use crate::fields::{Derive, assert_scalar, form_attrs, last_segment};
+use crate::fields::{Derive, assert_scalar, blank_option, form_attrs, last_segment};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
@@ -21,8 +21,10 @@ struct FieldSpec {
     variant: syn::Ident,
     /// `#[form(embed)]`: an `EmbeddedForm` value, bound whole.
     embed: bool,
-    /// `#[form(blank = <expr>)]`, or `false` for a `bool` that declares none.
-    blank: Option<syn::Expr>,
+    /// The parse's blank answer, `Option::None` for a required field.
+    blank: TokenStream2,
+    /// Whether the field has no blank answer, so its control renders required.
+    required: bool,
     /// The control the default schema renders for the field.
     control: DefaultControl,
 }
@@ -125,7 +127,7 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
         matches!(&field.ty, Type::Path(path) if path.qself.is_none() && path.path.is_ident("bool"));
     let control = if attrs.embed {
         DefaultControl::Embed
-    } else if let Some(options) = attrs.options {
+    } else if let Some(options) = attrs.options.clone() {
         DefaultControl::Choice(Some(options))
     } else if attrs.choice {
         DefaultControl::Choice(None)
@@ -136,17 +138,14 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
     } else {
         DefaultControl::Text
     };
-    // An unchecked toggle posts `false`, so a `bool` reads an empty
-    // submission as `false` unless it declares otherwise.
-    let blank = attrs
-        .blank
-        .or_else(|| is_bool.then(|| syn::parse_quote!(false)));
+    let required = !attrs.embed && crate::fields::blank_answer(&field.ty, &attrs).is_none();
     Ok(FieldSpec {
         ident,
         ty: field.ty.clone(),
         variant,
         embed: attrs.embed,
-        blank,
+        blank: blank_option(&field.ty, &attrs),
+        required,
         control,
     })
 }
@@ -207,12 +206,12 @@ fn expand_struct(
         });
         if field.embed {
             claims.push(quote! {
-                #krate::__macro::FormField {
-                    field: #field_enum::#variant,
-                    name: #name_str,
-                    keys: #krate::__macro::embedded_keys::<#model, #ty>(resolver, #path),
-                    answers_blank: <#ty as #krate::__macro::EmbeddedForm>::answers_blank(),
-                }
+                #krate::__macro::embedded_field::<#model, #ty, _>(
+                    resolver,
+                    #path,
+                    #field_enum::#variant,
+                    #name_str,
+                )
             });
             hydrates.push(quote! {
                 #krate::__macro::EmbeddedForm::write_form(&record.#name, cx, #path, &mut out);
@@ -224,28 +223,22 @@ fn expand_struct(
                 );
             });
         } else {
-            let declared = match &field.blank {
-                Some(expr) => quote! {
-                    ::std::option::Option::Some(::std::convert::Into::<#ty>::into(#expr))
-                },
-                None => quote! { ::std::option::Option::None },
-            };
-            let answers_blank = if field.blank.is_some() {
-                quote! { true }
-            } else {
-                quote_spanned! {ty.span()=>
-                    <#ty as #krate::__macro::FormScalar>::blank().is_some()
-                }
-            };
+            let blank = &field.blank;
+            let required = field.required;
             let assert = assert_scalar(krate, ty);
             claims.push(quote! {
                 {
                     #assert
+                    let key = #key;
                     #krate::__macro::FormField {
                         field: #field_enum::#variant,
                         name: #name_str,
-                        keys: ::std::vec![#key],
-                        answers_blank: #answers_blank,
+                        required: if #required {
+                            ::std::vec![::std::clone::Clone::clone(&key)]
+                        } else {
+                            ::std::vec::Vec::new()
+                        },
+                        keys: ::std::vec![key],
                     }
                 }
             });
@@ -254,7 +247,7 @@ fn expand_struct(
             });
             reads.push(quote_spanned! {ty.span()=>
                 let #binding = #krate::__macro::take_leaf(
-                    #krate::__macro::parse_scalar::<#ty>(&#key, values, #declared),
+                    #krate::__macro::parse_scalar::<#ty>(&#key, values, #blank),
                     &mut errors,
                 );
             });
@@ -288,6 +281,7 @@ fn expand_struct(
                 quote! {
                     #krate::__macro::Field::choice(#path)
                         .options(<#options as #krate::__macro::Options>::options())
+
                 },
             ),
             DefaultControl::File => (

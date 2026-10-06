@@ -23,7 +23,7 @@ pub use fields::{
     ChoiceField, Control, ControlInput, CustomField, Field, FileField, IntoOptions, TextField,
     Toggle,
 };
-pub use layouts::{Grid, Group, Repeater, Section};
+pub use layouts::{Grid, Group, Section};
 pub(crate) use lenses::{Binding, lens_field, lens_field_unique};
 pub use lenses::{FieldResolver, form_key};
 pub use options::Options;
@@ -31,38 +31,11 @@ pub(crate) use relationship::OptionLoadError;
 pub use relationship::{MAX_RELATIONSHIP_OPTIONS, OptionSource};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
-pub(crate) use tree::{LeafPlace, Node, render_nodes, walk_absent_groups};
+pub(crate) use tree::{Node, render_nodes};
 use tree::{bind_nodes, unbound_values};
 pub use validation::TypedValue;
-pub(crate) use validation::required_error;
 
 use crate::form::FieldErrors;
-
-/// One control and the rule an empty submission meets.
-#[derive(Debug, Clone)]
-pub(crate) struct ControlCheck {
-    /// The key the control posts.
-    pub(crate) name: String,
-    /// Whether an empty submission fails the control's rules.
-    pub(crate) required: bool,
-    /// The message an empty submission produces, when it fails.
-    pub(crate) required_error: Option<String>,
-    /// Whether the control sits inside a `Repeater`.
-    pub(crate) in_repeater: bool,
-    /// Where the control sits in the form.
-    pub(crate) place: LeafPlace,
-}
-
-impl ControlCheck {
-    /// Reports whether an empty submission reaches this control's rule.
-    pub(crate) fn needs_answer(&self) -> bool {
-        match self.place {
-            LeafPlace::Rendered => true,
-            LeafPlace::Payload => self.in_repeater,
-            LeafPlace::Discriminant => false,
-        }
-    }
-}
 
 /// Composes fields and layout blocks and resolves every field once into one list.
 #[derive(Debug, Default)]
@@ -110,6 +83,14 @@ impl Schema {
         }
     }
 
+    /// Renders each control required exactly when `required` names its key.
+    pub(crate) fn require(&mut self, required: &HashSet<&str>) {
+        for field in &mut self.fields {
+            let key = required.contains(field.name());
+            field.set_required(key);
+        }
+    }
+
     /// Renders the schema from `source` and fails with declaration errors instead of rendering.
     ///
     /// # Errors
@@ -142,76 +123,15 @@ impl Schema {
         }
     }
 
-    /// Rewrites submitted values into their fields' stored spelling and leaves empty submissions
-    /// empty for the presence rule to refuse.
-    pub fn normalize_values(&self, values: &mut HashMap<String, String>) {
-        for field in &self.fields {
-            let Some(submitted) = values.get_mut(field.name()) else {
-                continue;
-            };
-            if submitted.trim().is_empty() {
-                continue;
-            }
-            if let Ok(normalized) = field.normalize(submitted) {
-                *submitted = normalized;
-            }
-        }
-    }
-
     /// Appends another schema's nodes after this one's.
     pub fn extend(mut self, other: Schema) -> Schema {
         self.append(other);
         self
     }
 
-    /// Collects every field with the rule an empty submission meets and where its control sits.
-    pub(crate) fn controls(&self) -> Vec<ControlCheck> {
-        fn mark(nodes: &[Node], inside: bool, in_repeater: &mut [bool], place: &mut [LeafPlace]) {
-            for node in nodes {
-                match node {
-                    Node::Repeater(r) => mark(&r.children.nodes, true, in_repeater, place),
-                    Node::Field(_) | Node::Embedded(_) => {
-                        node.visit_fields(&mut |index, leaf_place| {
-                            in_repeater[index] = inside;
-                            place[index] = leaf_place;
-                        });
-                    }
-                    _ => mark(
-                        node.children().unwrap_or_default(),
-                        inside,
-                        in_repeater,
-                        place,
-                    ),
-                }
-            }
-        }
-        let mut in_repeater = vec![false; self.fields.len()];
-        let mut place = vec![LeafPlace::Rendered; self.fields.len()];
-        mark(&self.nodes, false, &mut in_repeater, &mut place);
-        self.fields
-            .iter()
-            .zip(in_repeater)
-            .zip(place)
-            .map(|((field, in_repeater), place)| {
-                let errors = field.validate("");
-                ControlCheck {
-                    name: field.name().to_string(),
-                    required: !errors.is_empty(),
-                    required_error: errors
-                        .into_iter()
-                        .next()
-                        .map(|error| error.message)
-                        .or_else(|| Some(required_error(field.label_str()))),
-                    in_repeater,
-                    place,
-                }
-            })
-            .collect()
-    }
-
     /// Lists keys in `values` that no declared input owns, sorted, so handlers reject
     /// client-controlled writes.
-    pub fn unknown_keys(&self, values: &HashMap<String, String>) -> Vec<String> {
+    pub(crate) fn unknown_keys(&self, values: &HashMap<String, String>) -> Vec<String> {
         let known: HashSet<&str> = self.fields.iter().map(Field::name).collect();
         let mut out: Vec<String> = values
             .keys()
@@ -246,69 +166,9 @@ impl Schema {
         errors
     }
 
-    /// Validates submitted values against declared inputs, treating absent keys as empty and
-    /// skipping fields in absent repeater groups and hidden variant groups.
-    pub fn validate(&self, values: &HashMap<String, String>) -> FieldErrors {
-        let mut errors = FieldErrors::new();
-        let mut skip: HashSet<String> = HashSet::new();
-        walk_absent_groups(
-            &self.nodes,
-            &self.fields,
-            values,
-            &mut skip,
-            &mut errors,
-            false,
-        );
-        for field in &self.fields {
-            if skip.contains(field.name()) {
-                continue;
-            }
-            let value = values.get(field.name()).map(String::as_str).unwrap_or("");
-            for error in field.validate(value) {
-                errors.push(error);
-            }
-        }
-        errors
-    }
-
-    /// Collects field names a submission leaves out of validation.
-    pub(crate) fn absent_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
-        let mut skip = HashSet::new();
-        let mut discarded = FieldErrors::new();
-        walk_absent_groups(
-            &self.nodes,
-            &self.fields,
-            values,
-            &mut skip,
-            &mut discarded,
-            false,
-        );
-        skip
-    }
-
-    /// Reports whether this submission renders an error under `key`, either a visible field or a
-    /// repeater label.
-    pub(crate) fn renders_error_key(&self, values: &HashMap<String, String>, key: &str) -> bool {
-        fn labels(nodes: &[Node], key: &str) -> bool {
-            nodes.iter().any(|node| match node {
-                Node::Repeater(repeater) => {
-                    repeater.label == key || labels(&repeater.children.nodes, key)
-                }
-                node => node
-                    .children()
-                    .is_some_and(|children| labels(children, key)),
-            })
-        }
-        let hidden = self.hidden_fields(values);
-        let renders_field = self
-            .fields
-            .iter()
-            .any(|field| field.name() == key && !hidden.contains(key));
-        renders_field || labels(&self.nodes, key)
-    }
-
-    /// Collects field names this submission hides.
-    fn hidden_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
+    /// Collects the keys of the fields this submission hides: the payload of every embedded
+    /// variant it does not choose.
+    pub(crate) fn hidden_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
         fn walk(nodes: &[Node], values: &HashMap<String, String>, out: &mut Vec<usize>) {
             for node in nodes {
                 match node {
@@ -329,22 +189,39 @@ impl Schema {
             .collect()
     }
 
-    /// Validates submissions and then probes each visible choice's option existence.
-    pub async fn validate_async(&self, cx: &Cx, values: &HashMap<String, String>) -> FieldErrors {
-        let mut errors = self.validate(values);
-        let absent = self.absent_fields(values);
+    /// Adds to `errors` what the controls' own rules refuse in a submission: an email field's
+    /// address, and a choice that is not one of its options. Skips hidden fields and keys
+    /// `errors` already refuses.
+    pub(crate) async fn check_controls(
+        &self,
+        cx: &Cx,
+        values: &HashMap<String, String>,
+        errors: &mut FieldErrors,
+    ) {
+        let hidden = self.hidden_fields(values);
         for field in &self.fields {
             let name = field.name();
-            if errors.contains_key(name) || absent.contains(name) {
+            if errors.contains_key(name) || hidden.contains(name) {
                 continue;
             }
             let Some(value) = values.get(name) else {
                 continue;
             };
+            if let Some(error) = field.check(value) {
+                errors.push(error);
+                continue;
+            }
             for message in field.validate_exists(cx, value).await {
                 errors.add(name, message);
             }
         }
+    }
+
+    /// What the controls' own rules refuse in `values`, alone.
+    #[cfg(test)]
+    pub(crate) async fn checked(&self, cx: &Cx, values: &HashMap<String, String>) -> FieldErrors {
+        let mut errors = FieldErrors::new();
+        self.check_controls(cx, values, &mut errors).await;
         errors
     }
 
@@ -356,10 +233,10 @@ impl Schema {
         ex: &mut dyn toasty::Executor,
     ) -> FieldErrors {
         let mut errors = FieldErrors::new();
-        let absent = self.absent_fields(values);
+        let hidden = self.hidden_fields(values);
         for field in &self.fields {
             let name = field.name();
-            if absent.contains(name) {
+            if hidden.contains(name) {
                 continue;
             }
             let Some(value) = values.get(name) else {

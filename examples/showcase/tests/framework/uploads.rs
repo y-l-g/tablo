@@ -90,9 +90,7 @@ impl Resource for DocResource {
             .form(Schema::new((
                 Field::text(Doc::fields().title()),
                 Field::file(Doc::fields().cover()).label("Cover"),
-                Field::file(Doc::fields().attachment())
-                    .label("Attachment")
-                    .optional(),
+                Field::file(Doc::fields().attachment()).label("Attachment"),
             )))
     }
 }
@@ -101,6 +99,7 @@ impl Resource for DocResource {
 struct DocForm {
     title: String,
     cover: String,
+    #[form(optional)]
     attachment: String,
 }
 async fn seeded_db() -> Db {

@@ -110,53 +110,6 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
     );
 }
 
-/// The allow-list and validation read the same name the control posts, so a
-/// bound embedded field is neither rejected as unknown nor silently unvalidated.
-#[tokio::test]
-async fn the_flattened_name_participates_in_allow_list_and_validation() {
-    let cx = article_cx().await;
-    let schema = bound(
-        &cx,
-        (
-            Field::text(Article::fields().title()),
-            Field::text(Article::fields().meta().seo().title()),
-        ),
-    );
-
-    let mut values = HashMap::new();
-    values.insert("title".to_string(), "Top".to_string());
-    values.insert("meta_seo_title".to_string(), "Nested".to_string());
-    assert!(
-        schema.unknown_keys(&values).is_empty(),
-        "declared embedded fields must be allow-listed, got {:?}",
-        schema.unknown_keys(&values)
-    );
-
-    // An embedded leaf is never required by default (binding policy: the
-    // resolver reports `nullable=true` even though a required embedded
-    // struct's flattened column is `NOT NULL`): an absent value must not fail
-    // the submit.
-    let mut only_title = HashMap::new();
-    only_title.insert("title".to_string(), "Top".to_string());
-    assert!(
-        schema.validate(&only_title).is_empty(),
-        "an embedded leaf must not be required by default, got {:?}",
-        schema.validate(&only_title)
-    );
-
-    // ...but a required one is still required when asked for explicitly.
-    let required = bound(
-        &cx,
-        Field::text(Article::fields().meta().seo().description()).required(),
-    );
-    assert!(
-        required
-            .validate(&HashMap::new())
-            .contains_key("meta_seo_description"),
-        "an explicitly required embedded leaf must validate presence"
-    );
-}
-
 /// A traversal lens over a relation is not an embedded step, and this walk is
 /// for embedded binding only. It is refused rather than bound to anything —
 /// `author_id` and `name` are different columns, so a silent misbind here would
@@ -220,10 +173,6 @@ async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     assert!(
         html.contains("type=\"file\"") && html.contains("name=\"meta_seo_description\""),
         "the file field posts the flattened column, got {html}"
-    );
-    assert!(
-        schema.validate(&HashMap::new()).is_empty(),
-        "an embedded leaf is optional by default, for every kind"
     );
 }
 

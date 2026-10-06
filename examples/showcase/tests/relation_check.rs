@@ -230,7 +230,7 @@ async fn posts_update_rechecks_author_existence() {
         "valid update should redirect, got {}",
         resp.status()
     );
-    // Bogus author is rejected, not silently written (validate_async invalid).
+    // Bogus author is rejected, not silently written (the option check refuses it).
     let fake = uuid::Uuid::new_v4();
     let resp = client
         .csrf(&csrf)

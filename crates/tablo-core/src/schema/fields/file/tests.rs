@@ -59,7 +59,10 @@ fn cx_and_doc_schema() -> (Cx, Schema) {
         id: uuid::Uuid,
         path: String,
     }
-    (cx(), Schema::new(Field::file(Upload::fields().path())))
+    (
+        cx(),
+        Schema::new(Field::file(Upload::fields().path()).required()),
+    )
 }
 
 async fn render_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String {

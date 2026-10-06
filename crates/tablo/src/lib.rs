@@ -72,9 +72,8 @@ pub mod prelude {
         Committed, ComputedColumn, Control, ControlInput, CustomField, DateFilter, Deny,
         EmbeddedForm, Field, FieldErrors, FileField, Filter, FilterInput, Grid, Group, Includes,
         IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy, Posted,
-        QueryFilter, ReadOnly, RecordForm, Relation, Repeater, Resource, ResourceDef,
-        RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TenantId,
-        TernaryFilter, TextColumn, TextField, Toggle, can, can_list, lens, scoped_query, tenant_id,
-        when,
+        QueryFilter, ReadOnly, RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt,
+        Schema, Section, SelectFilter, Table, Tenancy, TenantId, TernaryFilter, TextColumn,
+        TextField, Toggle, can, can_list, lens, scoped_query, tenant_id, when,
     };
 }

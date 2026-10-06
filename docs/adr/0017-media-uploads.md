@@ -25,7 +25,7 @@ progress belong to an app media library, not the generic field.
 **The clear control is a transport key.** A file field renders `clear_<field>` with a stored
 value; strip-before-record-fn applies, so clearing never reaches the record fn as a write.
 Clearing never waives `required`: the value is empty and the record keeps its file unless the
-field is `.optional()`.
+record-form field has a blank answer (`#[form(optional)]`).
 
 **`Panel::serve_dir(path, dir)` mounts an app-owned directory** on the app router with hardening
 headers keeping files inert on the panel origin. The path is not panel-relative. A served

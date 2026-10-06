@@ -212,9 +212,7 @@ async fn create_policy_deny() {
                     },
                 )
                 .table(Table::new(TextColumn::new(lens!(DummyUser.name))))
-                .form(Schema::new(
-                    Field::text(DummyUser::fields().name()).required(),
-                ))
+                .form(Schema::new(Field::text(DummyUser::fields().name())))
         }
     }
     #[derive(tablo_core::RecordForm)]

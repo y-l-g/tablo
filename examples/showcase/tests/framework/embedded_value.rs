@@ -40,6 +40,7 @@ enum Publication {
     Scheduled {
         #[shared(timestamp)]
         scheduled_at: String,
+        #[form(optional)]
         scheduled_for: String,
     },
     #[column(variant = 2)]
@@ -332,7 +333,7 @@ async fn an_unknown_discriminant_is_refused() {
         .expect_err("an undeclared variant is refused");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].key, "publication");
-    assert_eq!(errors[0].kind, FieldErrorKind::Invalid);
+    assert!(matches!(errors[0].kind, FieldErrorKind::Invalid(_)));
 }
 
 /// Nested values delegate to their own codec.
@@ -454,20 +455,6 @@ async fn a_blank_leaf_takes_its_answer_or_is_refused() {
     assert_eq!(errors[0].kind, FieldErrorKind::Required);
 }
 
-/// A value answers a blank when every leaf does.
-#[tokio::test]
-async fn a_value_answers_a_blank_when_every_leaf_does() {
-    assert!(Seo::answers_blank());
-    assert!(
-        Media::answers_blank(),
-        "a nested value's leaves answer with their own"
-    );
-    assert!(
-        !PostStats::answers_blank(),
-        "a bare `i64` leaf answers none"
-    );
-}
-
 /// An unparseable typed leaf is refused.
 #[tokio::test]
 async fn an_unparseable_typed_leaf_is_refused() {
@@ -477,7 +464,10 @@ async fn an_unparseable_typed_leaf_is_refused() {
         .expect_err("an unparseable leaf is refused");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].key, "post_stats_word_count");
-    assert_eq!(errors[0].message, "`many` is not a valid whole number");
+    assert_eq!(
+        errors[0].kind,
+        FieldErrorKind::Invalid("`many` is not a valid whole number".to_string())
+    );
 }
 
 /// Value keys name every key of a value.
@@ -607,11 +597,11 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
 
     // A bad `bool` is refused before a record fn runs.
     let bad = map(&[("flags_featured", "yes")]);
+    let errors = <Flags as EmbeddedForm>::read_form(&cx, Post::fields().flags(), &bad)
+        .expect_err("the leaf's type refuses `yes`");
     assert!(
-        Schema::new(bound(&cx, Flags::form(Post::fields().flags())))
-            .validate(&bad)
-            .contains_key("flags_featured"),
-        "the derived control validates its own type"
+        errors.iter().any(|error| error.key == "flags_featured"),
+        "the derived leaf parses its own type: {errors:?}"
     );
 }
 

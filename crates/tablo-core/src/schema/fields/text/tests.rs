@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{
     super::{
         Field,
-        test_support::{DummyUser, NullableRef, cx},
+        test_support::{DummyUser, cx},
     },
     *,
 };
@@ -11,11 +11,6 @@ use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
 };
-
-/// The messages `errors` carries, in the order the rules reported them.
-fn messages(errors: &[crate::form::FieldError]) -> Vec<&str> {
-    errors.iter().map(|error| error.message.as_str()).collect()
-}
 
 #[tokio::test]
 async fn text_input_renders_with_label_and_ac_field() {
@@ -105,59 +100,6 @@ async fn text_input_error_marks_the_field_invalid() {
     );
 }
 
-#[test]
-fn text_input_required_validates_empty() {
-    let input = Field::text(DummyUser::fields().name()).required();
-    assert!(
-        !input.validate("").is_empty(),
-        "required should reject empty"
-    );
-    assert!(
-        input.validate("hello").is_empty(),
-        "required should accept non-empty"
-    );
-    assert!(
-        !input.validate("   ").is_empty(),
-        "required should reject whitespace"
-    );
-    assert!(
-        !Field::text(DummyUser::fields().name())
-            .validate("")
-            .is_empty(),
-        "non-nullable columns default to required"
-    );
-    assert!(
-        Field::text(DummyUser::fields().name())
-            .optional()
-            .validate("")
-            .is_empty(),
-        "optional should accept empty"
-    );
-}
-
-#[test]
-fn required_default_follows_lens_nullability() {
-    #[derive(Debug, toasty::Model)]
-    struct NullableDoc {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        nick: Option<String>,
-    }
-    assert!(
-        Field::choice(NullableDoc::fields().nick())
-            .validate("")
-            .is_empty(),
-        "nullable columns default to optional"
-    );
-    assert!(
-        !Field::text(DummyUser::fields().name())
-            .validate("")
-            .is_empty(),
-        "String columns are non-nullable, empty must fail inline"
-    );
-}
-
 #[tokio::test]
 async fn text_input_required_renders_star_and_email_type() {
     let cx = cx();
@@ -217,94 +159,23 @@ async fn text_input_required_renders_star_and_email_type() {
 
 #[test]
 fn text_input_email_validates() {
-    let input = Field::text(DummyUser::fields().email()).required().email();
+    let input: Field = Field::text(DummyUser::fields().email()).email().into();
     assert!(
-        !input.validate("not-an-email").is_empty(),
+        input.check("not-an-email").is_some(),
         "email should reject invalid"
     );
+    assert!(input.check("a@").is_some(), "email should reject partial");
     assert!(
-        !input.validate("a@").is_empty(),
-        "email should reject partial"
-    );
-    assert!(
-        input.validate("a@b.com").is_empty(),
+        input.check("a@b.com").is_none(),
         "email should accept valid"
     );
-    // `DummyUser.email` is unique, so `.optional` cannot lift presence there.
-    assert!(
-        Field::choice(NullableRef::fields().parent_id())
-            .optional()
-            .validate("")
-            .is_empty(),
-        "an optional, non-unique field must still accept empty"
-    );
-    assert!(
-        Field::text(DummyUser::fields().email())
-            .email()
-            .validate(" a@b.com ")
-            .is_empty(),
-        "email should trim"
-    );
-}
-
-/// The unique marker is presence, so `.optional()` cannot lift it
-/// — in the builder or from the lens.
-#[test]
-fn unique_implies_required_in_either_declaration_order() {
-    let mut declarations = vec![
-        Field::text(DummyUser::fields().email()).optional().unique(),
-        Field::text(DummyUser::fields().email()).unique().optional(),
-    ];
-    declarations.push(Field::text(DummyUser::fields().email()).optional());
-
-    for (nth, input) in declarations.iter().enumerate() {
-        assert!(
-            input.is_unique() && input.is_required(),
-            "declaration {nth} must be unique and required"
-        );
-        assert_eq!(
-            messages(&input.validate("")),
-            ["Email is required"],
-            "declaration {nth}: an empty unique field is required, not absent"
-        );
-        assert_eq!(
-            messages(&input.validate("   ")),
-            ["Email is required"],
-            "declaration {nth}: whitespace-only counts as empty, as everywhere else"
-        );
-        assert!(
-            input.validate("a@b.com").is_empty(),
-            "declaration {nth}: a present value still validates normally"
-        );
-    }
-}
-
-/// A unique field renders the required marker.
-#[tokio::test]
-async fn unique_field_renders_the_required_marker() {
-    let cx = cx();
-    let html = Schema::new(Field::text(DummyUser::fields().email()).unique().optional())
-        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(
-        html.contains("required") && html.contains("aria-required"),
-        "a unique field is required in the markup too"
-    );
-    assert!(
-        html.contains(">*</span>"),
-        "the required asterisk must render"
-    );
+    assert!(input.check(" a@b.com ").is_none(), "email should trim");
 }
 
 /// The email rule is `email_address`.
 #[test]
 fn text_input_email_edges() {
-    let input = Field::text(DummyUser::fields().email()).email();
+    let input: Field = Field::text(DummyUser::fields().email()).email().into();
     for ok in [
         "a@b.com",
         "user+tag@sub.example.co",
@@ -315,7 +186,7 @@ fn text_input_email_edges() {
         "user@my_host.com",
         "a@b.c",
     ] {
-        assert!(input.validate(ok).is_empty(), "{ok} should pass");
+        assert!(input.check(ok).is_none(), "{ok} should pass");
     }
     for bad in [
         "a@b".to_string(),
@@ -343,25 +214,8 @@ fn text_input_email_edges() {
             "d".repeat(62)
         ),
     ] {
-        assert!(!input.validate(&bad).is_empty(), "{bad} should fail");
+        assert!(input.check(&bad).is_some(), "{bad} should fail");
     }
-}
-
-/// An empty submit is the presence rule's business: the email rule skips
-/// it, and presence reports first.
-#[test]
-fn email_rule_leaves_an_empty_value_to_presence() {
-    let input = Field::text(DummyUser::fields().email()).required().email();
-    let empty = input.validate("");
-    assert!(
-        messages(&empty).len() == 1 && messages(&empty)[0].contains("Email"),
-        "an empty value is presence's business, got {empty:?}"
-    );
-    let blank = input.validate("   ");
-    assert!(
-        messages(&blank).len() == 1 && messages(&blank)[0].contains("Email"),
-        "whitespace-only counts as empty, got {blank:?}"
-    );
 }
 
 #[tokio::test]

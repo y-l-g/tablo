@@ -24,7 +24,7 @@ use super::{
 };
 use crate::{
     db::db,
-    form::{FieldErrorKind, FieldErrors, Posted, RecordForm},
+    form::{FieldError, FieldErrors, Posted, RecordForm},
     policy::Ability,
     resource::{Committed, Mounted, Resource},
     schema::Schema,
@@ -82,7 +82,8 @@ async fn prepare_submission<R: Resource>(
     strip_transport_keys(&schema, &mut values);
     let named: HashSet<String> = values.keys().cloned().collect();
     complete(&schema, &mut values, &named, &stored);
-    let mut errors = schema.validate_async(cx, &values).await;
+    let mut errors = FieldErrors::new();
+    schema.check_controls(cx, &values, &mut errors).await;
     // A rejected upload owns its field's error slot.
     errors.replace(upload_errors);
     Ok(Submission {
@@ -113,52 +114,56 @@ fn complete(
     }
 }
 
-/// Parses completed values and runs `validate_record`, refusing keys this submission renders
-/// nowhere.
+/// Parses completed values and runs `validate_record` on the parsed form, adding every refusal
+/// to `errors` under the form key it renders under.
+///
+/// # Errors
+///
+/// A declaration error when a hand-written record form refuses a key its `fields` do not bind:
+/// no control would carry the message, and writing anyway would drop it.
 fn parse_form<R: Resource>(
     cx: &Cx,
-    schema: &Schema,
+    resource: &Mounted<R>,
     values: &HashMap<String, String>,
     errors: &mut FieldErrors,
 ) -> Result<Option<R::Form>, topcoat::Error> {
-    let mut normalized = values.clone();
-    schema.normalize_values(&mut normalized);
-    match <R::Form as RecordForm>::parse(cx, &normalized) {
+    let unbound = |source: &str, key: &dyn std::fmt::Debug| {
+        crate::error::declaration(format!(
+            "{source} refused {key:?}, which `{}` binds to no form key",
+            std::any::type_name::<R::Form>()
+        ))
+    };
+    match <R::Form as RecordForm>::parse(cx, values) {
         Ok(form) => {
-            for error in R::validate_record(cx, &form).iter() {
-                if !schema.renders_error_key(values, &error.key) {
-                    return Err(unrenderable_error::<R>(
-                        "validate_record",
-                        &error.key,
-                        &error.message,
-                    ));
-                }
-                errors.push(error.clone());
+            for FieldError { key, kind } in R::validate_record(cx, &form) {
+                let Some(first) = resource
+                    .fields
+                    .iter()
+                    .find(|field| field.field == key)
+                    .and_then(|field| field.keys.first())
+                else {
+                    return Err(unbound("validate_record", &key));
+                };
+                errors.push(FieldError {
+                    key: first.clone(),
+                    kind,
+                });
             }
             Ok(Some(form))
         }
         Err(failures) => {
-            let controls = schema.controls();
-            for mut failure in failures {
-                if !schema.renders_error_key(values, &failure.key) {
-                    return Err(unrenderable_error::<R>(
-                        "the parse",
-                        &failure.key,
-                        &failure.message,
-                    ));
-                }
-                if errors.contains_key(&failure.key) {
-                    continue;
-                }
-                if failure.kind == FieldErrorKind::Required
-                    && let Some(wording) = controls
-                        .iter()
-                        .find(|control| control.name == failure.key)
-                        .and_then(|control| control.required_error.clone())
+            for failure in failures {
+                if !resource
+                    .fields
+                    .iter()
+                    .any(|field| field.keys.contains(&failure.key))
                 {
-                    failure.message = wording;
+                    return Err(unbound("the parse", &failure.key));
                 }
-                errors.push(failure);
+                // The controls' own rules answered first for the key.
+                if !errors.contains_key(&failure.key) {
+                    errors.push(failure);
+                }
             }
             Ok(None)
         }
@@ -176,15 +181,6 @@ async fn recheck_relationships(
     if errors.is_empty() {
         errors.extend(schema.recheck_relationships(cx, values, ex).await);
     }
-}
-
-/// Refuse an error whose key this submission renders nowhere: no slot would
-/// carry the message, and writing anyway would drop it.
-fn unrenderable_error<R: Resource>(source: &str, key: &str, message: &str) -> topcoat::Error {
-    crate::error::declaration(format!(
-        "{source} refused {key:?}, which `{}` renders nowhere for this submission: {message}",
-        std::any::type_name::<R::Form>()
-    ))
 }
 
 fn named_fields<R: Resource>(
@@ -220,7 +216,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // App-side unique check; toasty exposes no unique-violation predicate yet (#117).
         errors
             .extend(check_unique(cx, &resource, &schema, &values, &HashMap::new(), &mut tx).await?);
-        let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
+        let form = parse_form(cx, &resource, &values, &mut errors)?;
         recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form(
@@ -285,7 +281,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let stored = <R::Form as RecordForm>::hydrate(cx, &record);
         complete(&schema, &mut values, &named, &stored);
         errors.extend(check_unique(cx, &resource, &schema, &values, &stored, &mut tx).await?);
-        let form = parse_form::<R>(cx, &schema, &values, &mut errors)?;
+        let form = parse_form(cx, &resource, &values, &mut errors)?;
         recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form(

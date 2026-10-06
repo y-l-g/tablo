@@ -3,31 +3,13 @@ use std::collections::HashMap;
 use topcoat::context::CxTestBuilder;
 
 use super::{
-    super::test_support::{DummyUser, FkRef, attributes_of, opening_tag_at},
+    super::test_support::{DummyUser, attributes_of, opening_tag_at},
     *,
 };
 use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
 };
-
-/// A bare choice over a non-nullable FK rejects an empty submit inline
-/// an empty submit fails here with `is required`, so it never
-/// reaches the driver's `parse::<Uuid>("")`.
-#[test]
-fn bare_non_nullable_fk_select_rejects_empty_inline() {
-    let select = Field::choice(FkRef::fields().author_id());
-    let errs = select.validate("");
-    assert!(
-        errs.iter().any(|e| e.message.contains("is required")),
-        "bare non-nullable FK must reject empty inline, got {errs:?}"
-    );
-    // `.optional()` opts back out.
-    let errs = Field::choice(FkRef::fields().author_id())
-        .optional()
-        .validate("");
-    assert!(errs.is_empty(), "opt-out must clear required, got {errs:?}");
-}
 
 #[tokio::test]
 async fn searchable_select_renders_filter_input() {

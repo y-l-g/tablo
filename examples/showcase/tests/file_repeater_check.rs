@@ -25,8 +25,8 @@ async fn posts_create_shows_cover_picker_and_repeater() {
         html.contains("data-slot=\"field\""),
         "missing field wrapper {html}"
     );
-    // Repeater should render nested schema with Tags label and inner Tag input
-    assert!(html.contains("Tags"), "missing Repeater label {html}");
+    // The optional tags field renders in the Details section.
+    assert!(html.contains("Tags"), "missing Tags label {html}");
     assert!(
         html.contains("for=\"tags\"") || html.contains("name=\"tags\""),
         "missing tags input {html}"
@@ -131,15 +131,10 @@ async fn posts_create_valid_repeater_creates() {
     assert_eq!(post.cover_id, None);
 }
 
-/// An optional Repeater with a `required` inner input must not fail an empty
-/// submit: group-empty means "absent". The shipped `/admin/posts`
-/// form is exactly that shape (optional `Tags` over a required inner input),
-/// so an empty Tags group submits cleanly. A partially filled group still
-/// enforces inner `required` — pinned at the schema level, where the shape is
-/// expressible (a single-entry repeater submits one entry, so the values
-/// cannot distinguish "group absent" from "group present" in this form).
+/// `PostForm` declares `tags` `#[form(optional)]`, so an empty Tags field submits cleanly and
+/// stores the empty string.
 #[tokio::test]
-async fn posts_create_with_empty_optional_tags_group_submits() {
+async fn posts_create_with_empty_optional_tags_submits() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -159,7 +154,7 @@ async fn posts_create_with_empty_optional_tags_group_submits() {
     let status = resp.status();
     assert!(
         status.is_redirection(),
-        "an empty optional Tags group must not fail the submit, got {status} {}",
+        "an empty optional Tags field must not fail the submit, got {status} {}",
         body_string(resp).await
     );
     let mut db2 = db.clone();
@@ -174,7 +169,7 @@ async fn posts_create_with_empty_optional_tags_group_submits() {
         .await
         .unwrap()
         .expect("created post");
-    assert_eq!(created.tags, "", "the empty group stores empty");
+    assert_eq!(created.tags, "", "the emptied field stores empty");
 }
 
 #[tokio::test]
