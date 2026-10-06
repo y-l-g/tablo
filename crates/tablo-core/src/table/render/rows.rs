@@ -69,9 +69,11 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
         }
         .boxed()
     });
+    let dom_id = row_dom_id(&row.key);
     let bulk_cell = chrome.with_bulk.then(|| {
         if row.selectable {
             let value = row.key.clone();
+            let described = dom_id.clone();
             view! {
                 cx =>
                 table_cell(
@@ -79,6 +81,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
                         type="checkbox"
                         value=(value)
                         aria-label="Select row"
+                        aria-describedby=(described)
                         data-row-select=""
                     >
                 )
@@ -95,7 +98,6 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     let actions = chrome
         .with_actions
         .then(|| render_actions(cx, &row, chrome));
-    let dom_id = row_dom_id(&row.key);
     view! {
         cx =>
         if let Some(header) = header {
@@ -135,6 +137,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     let edit_class = link_class.clone();
     let delete_class = link_class.clone();
     let csrf = (!row.custom.is_empty()).then(|| crate::csrf::current_token(cx));
+    let described = row_dom_id(&row.key);
     let custom: Vec<BoxView<'a>> = row
         .custom
         .iter()
@@ -142,6 +145,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
             let label = label.clone();
             let url = url.clone();
             let token = csrf.clone().unwrap_or_default();
+            let described_by = described.clone();
             view! {
                 cx =>
                 <form
@@ -154,7 +158,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                     button(
                         variant: ButtonVariant::Ghost,
                         size: ButtonSize::Sm,
-                        attrs: attributes! { type="submit" },
+                        attrs: attributes! { type="submit" aria-describedby=(described_by) },
                         (label)
                     )
                 </form>
@@ -175,6 +179,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                         (crate::navigation::runtime_link(cx, &url))
                         class=(link_class)
                         aria-label="View"
+                        aria-describedby=(described.clone())
                         title="View"
                     >
                         icon(data: tablo_ui::icons::EYE)
@@ -185,6 +190,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                         (crate::navigation::runtime_link(cx, &url))
                         class=(edit_class)
                         aria-label="Edit"
+                        aria-describedby=(described.clone())
                         title="Edit"
                     >
                         icon(data: tablo_ui::icons::PENCIL)
@@ -197,6 +203,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                         data-row-delete-action=(action)
                         class=(delete_class)
                         aria-label="Delete"
+                        aria-describedby=(described.clone())
                         title="Delete"
                     >
                         icon(
