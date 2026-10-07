@@ -51,9 +51,9 @@ the [related tables](#related-tables).
 
 Each column renders its label over its cell, never a control. The built-in columns render as in a
 table: `TextColumn` the value, or what its `format` returns, `BooleanColumn` an icon labelled yes
-or no, `FileColumn` a link, `RelationColumn` the related record's text, `CountColumn` the related records'
-count, and `ComputedColumn` the text its closure returns. Layout blocks keep
-their structure.
+or no, `FileColumn` a link, `RelationColumn` the related record's text, `CountColumn` the related
+records' count, and `ComputedColumn` the text its closure returns. Layout blocks keep their
+structure.
 
 A `ComputedColumn` shows anything the record determines, such as a reading time:
 

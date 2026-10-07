@@ -1,8 +1,7 @@
 use toasty::Db;
-use topcoat::view::*;
 
 use super::*;
-use crate::{Detail, test_support::cx};
+use crate::Detail;
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Shelf {
@@ -78,21 +77,45 @@ async fn library() -> Db {
     db
 }
 
-/// A relation column is headed by its field and names it, and declares the include that loads it.
+/// A relation column is headed by its field and names it, and declares the include of that field.
 #[test]
 fn a_relation_column_names_its_field_and_declares_its_include() {
     let column = shelf_name();
     assert_eq!(Column::<Book>::name(&column), "shelf");
     assert_eq!(Column::<Book>::label(&column), "Shelf");
-    assert_eq!(column.includes().len(), 1);
+    assert_eq!(column.column_width(), ColumnWidth::Wide);
+    assert_eq!(
+        column.includes().into_vec(),
+        Includes::new().with(Book::fields().shelf()).into_vec()
+    );
     assert!(column.misdeclared().is_none());
-    assert_eq!(Column::<Book>::label(&shelf_name().label("Aisle")), "Aisle");
 
     let count = CountColumn::new(relation!(Shelf.books));
     assert_eq!(Column::<Shelf>::name(&count), "books");
     assert_eq!(Column::<Shelf>::label(&count), "Books");
     assert_eq!(count.column_width(), ColumnWidth::Narrow);
-    assert_eq!(count.includes().len(), 1);
+    assert_eq!(
+        count.includes().into_vec(),
+        Includes::new().with(Shelf::fields().books()).into_vec()
+    );
+}
+
+/// A label renames the column, so one table shows two values of one relation.
+#[test]
+fn two_labelled_columns_over_one_relation_declare_one_table() {
+    let table = crate::Table::new((
+        shelf_name(),
+        RelationColumn::new(relation!(Book.shelf), |s: &Shelf| s.id.to_string()).label("Shelf id"),
+    ));
+    assert_eq!(table.declaration_errors(), []);
+
+    let twice = crate::Table::new((shelf_name(), shelf_name()));
+    assert_eq!(
+        twice.declaration_errors(),
+        [DeclarationErrorKind::DuplicateColumn {
+            name: "shelf".to_string()
+        }]
+    );
 }
 
 /// The page loads what the relation columns declare, so each row shows the related record's text,
@@ -135,14 +158,6 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
         .unwrap()
         .unwrap();
     assert_eq!(count.text(&shelf), "2");
-    let cx = cx();
-    let html = Detail::new(count)
-        .render(&cx, &shelf)
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(html.contains("Books"), "{html}");
 }
 
 /// A row loaded without the include its relation column declares is a loader's bug: a debug

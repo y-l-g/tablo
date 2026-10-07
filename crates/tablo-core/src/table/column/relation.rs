@@ -161,8 +161,8 @@ impl<T: toasty::schema::Model> ToOneRelation<shape::Nullable> for Deferred<Optio
     }
 }
 
-/// A column showing a `belongs_to` or `has_one` relation's record as text, which declares the
-/// relation's include so every page that renders it loads the relation.
+/// A column showing the record of a `Deferred` `belongs_to` or `has_one` field as text, which
+/// declares the field's include so every page that renders it loads the record.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -179,10 +179,14 @@ impl<T: toasty::schema::Model> ToOneRelation<shape::Nullable> for Deferred<Optio
 /// RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone());
 /// ```
 ///
-/// The header is the field's name, capitalized. A nullable relation holding no record renders
-/// empty. The column neither searches nor sorts.
+/// The header and the column's name are the field's name, capitalized, until
+/// [`label`](Self::label) replaces both. A nullable field holding no record renders empty. The
+/// column neither searches nor sorts.
+///
+/// The include loads the related row through Toasty alone: the related resource's `query` and
+/// policy do not apply, so a soft-deleted or hidden record shows.
 pub struct RelationColumn<M> {
-    relation: Relation<M>,
+    relation: Declared<M>,
     project: Loaded<M, String>,
 }
 
@@ -199,20 +203,21 @@ where
         R: ToOneRelation<Shape> + 'static,
         M: 'static,
     {
-        let read = relation.clone();
+        let read = relation.read;
         Self {
-            relation: Relation::of(&relation, ColumnWidth::Wide),
+            relation: Declared::of(&relation, ColumnWidth::Wide),
             project: Arc::new(move |row| {
-                read.read(row)
+                read(row)
                     .loaded()
                     .map(|target| target.map(&project).unwrap_or_default())
             }),
         }
     }
 
-    /// Replace the label the field's name gives it.
+    /// Replace the label the field's name gives it, and name the column after the label, as a
+    /// [`ComputedColumn`](super::ComputedColumn) is: two columns over one relation need two labels.
     pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.relation.label = Some(label.into());
+        self.relation.relabel(label.into());
         self
     }
 
@@ -230,8 +235,8 @@ impl<M> RelationColumn<M> {
     }
 }
 
-/// A column counting a `has_many` relation's records, which declares the relation's include so
-/// every page that renders it loads the relation.
+/// A column counting the records of a `Deferred` `has_many` field, which declares the field's
+/// include so every page that renders it loads the records.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -253,10 +258,14 @@ impl<M> RelationColumn<M> {
 /// CountColumn::new(relation!(Post.comments));
 /// ```
 ///
-/// The header is the field's name, capitalized. The count is the length of the loaded list, so a
-/// page loads every related record of every row it counts.
+/// The header and the column's name are the field's name, capitalized, until
+/// [`label`](Self::label) replaces both.
+///
+/// The count is the length of the loaded list: a page loads every related record of every row it
+/// counts, and the related resource's `query` and policy do not apply, so the count includes
+/// records its own list hides.
 pub struct CountColumn<M> {
-    relation: Relation<M>,
+    relation: Declared<M>,
     count: Loaded<M, usize>,
 }
 
@@ -270,19 +279,20 @@ where
         T: toasty::schema::Model + 'static,
         M: 'static,
     {
-        let read = relation.clone();
+        let read = relation.read;
         Self {
-            relation: Relation::of(&relation, ColumnWidth::Narrow),
+            relation: Declared::of(&relation, ColumnWidth::Narrow),
             count: Arc::new(move |row| {
-                let records = read.read(row);
+                let records = read(row);
                 (!records.is_unloaded()).then(|| records.get().len())
             }),
         }
     }
 
-    /// Replace the label the field's name gives it.
+    /// Replace the label the field's name gives it, and name the column after the label, as a
+    /// [`ComputedColumn`](super::ComputedColumn) is: two columns over one relation need two labels.
     pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.relation.label = Some(label.into());
+        self.relation.relabel(label.into());
         self
     }
 
@@ -300,8 +310,8 @@ impl<M> CountColumn<M> {
     }
 }
 
-/// What both relation columns declare: the field's name and label, its include and the width.
-struct Relation<M> {
+/// What both relation-field columns declare: the name and label, the include and the width.
+struct Declared<M> {
     name: String,
     /// The declared label, over the field's.
     label: Option<String>,
@@ -311,7 +321,7 @@ struct Relation<M> {
     width: ColumnWidth,
 }
 
-impl<M> Relation<M> {
+impl<M> Declared<M> {
     fn of<R>(relation: &RelationLens<M, R>, width: ColumnWidth) -> Self {
         let (name, field_label, misdeclared) = match relation.field() {
             Ok((name, label)) => (name.to_string(), label.to_string(), None),
@@ -331,6 +341,11 @@ impl<M> Relation<M> {
         self.label.as_deref().unwrap_or(&self.field_label)
     }
 
+    fn relabel(&mut self, label: String) {
+        self.name = label.to_lowercase();
+        self.label = Some(label);
+    }
+
     /// The text of a row's loaded relation, or the unloaded marker when a loader skipped the
     /// include this column declares.
     fn text(&self, loaded: Option<String>) -> String {
@@ -343,7 +358,7 @@ impl<M> Relation<M> {
     }
 }
 
-impl<M> Clone for Relation<M> {
+impl<M> Clone for Declared<M> {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),

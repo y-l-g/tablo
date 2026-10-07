@@ -238,7 +238,7 @@ fn post_table() -> Table<Post> {
         TextColumn::new(lens!(Post.title)).searchable().sortable(),
         TextColumn::new(lens!(Post.status)).width(ColumnWidth::Narrow),
         BooleanColumn::new(lens!(Post.featured)),
-        post_author_column().width(ColumnWidth::Wide),
+        post_author_column(),
         CountColumn::new(relation!(Post.comments)),
     ))
     .filters((
@@ -331,7 +331,7 @@ impl Resource for CommentResource {
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             .table(Table::new((
                 TextColumn::new(lens!(Comment.body)).searchable().sortable(),
-                comment_post_column().width(ColumnWidth::Wide),
+                comment_post_column(),
             )))
             .view(Detail::new(Section::new("Comment").columns((
                 TextColumn::new(lens!(Comment.body)),
