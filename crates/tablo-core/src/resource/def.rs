@@ -199,7 +199,9 @@ impl<R: Resource> ResourceDef<R> {
 
     /// Adds the custom [`Action`] `A` after the ones already declared.
     ///
-    /// An `A::NAME` that is not a single URL path segment does not compile.
+    /// The policy decides who may run it, through
+    /// [`Ability::RunAny`](crate::Ability::RunAny) and [`Ability::Run`](crate::Ability::Run). An
+    /// `A::NAME` that is not a single URL path segment does not compile.
     #[must_use]
     pub fn action<A: Action<R>>(mut self) -> Self {
         self.actions = self.actions.add::<A>();

@@ -4,6 +4,7 @@
 
 mod common;
 
+mod action_policy;
 mod after_commit;
 mod auth_override;
 mod extensions;

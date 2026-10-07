@@ -185,11 +185,13 @@ Each row shows the actions its record allows:
 
 A row that allows none keeps an empty actions cell.
 
-When the policy allows `DeleteAny`, or the resource declares a bulk custom action, the list adds
-a checkbox column and a bulk bar. A row that neither delete nor any bulk action allows gets no
-checkbox, so select-all only selects rows something can be done to. A bulk delete accepts at most
-400 records and deletes all of them or none: a selection holding a record that may not be deleted
-deletes nothing and returns to the list with an error notification.
+When the policy allows `DeleteAny`, or `RunAny` for a bulk custom action the resource declares,
+the list adds a checkbox column and a bulk bar. A row that neither delete nor any bulk action
+allows gets no checkbox, so select-all only selects rows something can be done to. A bulk delete
+accepts at most 400 records and runs in one transaction. It skips the selected records the policy
+refuses `Delete` and reports them in its notification (`"Bulk deleted (1 of 2 skipped)"`); a
+selection of refused records only deletes nothing and returns to the list with an error
+notification.
 
 Both deletes require confirmation. The Delete action opens a confirmation dialog on the list page,
 and the bulk bar's button, disabled while nothing is selected, opens one stating how many rows are
@@ -216,24 +218,27 @@ impl Resource for PostResource {
 }
 ```
 
-A row renders the action's button when the policy's `View` and the action's `can_run` allow its
-record, and the bulk bar
-renders it for the selection. `const ROW: bool = false` keeps it off the rows, and
-`const BULK: bool = false` off the bulk bar.
+The list offers the action only when the policy allows `RunAny { action: NAME }`. A row then
+renders its button when the policy's `View` and `Run` and the action's `can_run` allow the record,
+and the bulk bar renders it for the selection. `const ROW: bool = false` keeps it off the rows, and
+`const BULK: bool = false` off the bulk bar. `can_run` reads the record's state; the policy decides
+who runs the action, so a panel that mounts the resource with `ReadOnly` offers none of its
+actions and refuses their POSTs ([Policy](./policy-auth-tenancy.md#policy)).
 
 The framework runs an action the way it runs a delete. The POST goes to
-`{list}/{key}/-/actions/{NAME}` for a row and `{list}/-/actions/{NAME}` for the selection, carries the
-CSRF token, and loads the records through the tenant-scoped query inside a transaction. Every
-record must pass the policy's `View`, and `run` writes through the same transaction, so an error
-rolls everything back. After the commit, `after_commit` receives `Mutation::Action(NAME)` with the
+`{list}/{key}/-/actions/{NAME}` for a row and `{list}/-/actions/{NAME}` for the selection and
+carries the CSRF token. The handler answers 403 before reading the body when the policy refuses
+`RunAny`, then loads the records through the tenant-scoped query inside a transaction. Every record
+must pass the policy's `View`, and `run` writes through the same transaction, so an error rolls
+everything back. After the commit, `after_commit` receives `Mutation::Action(NAME)` with the
 records and the list shows `Action::success`, by default the label and the record count.
 
-A record `can_run` refuses is not handed to `run`: a refused row answers 403, and a selection drops
-the refused records, runs the rest and appends the skipped count out of the selection to
-`Action::success` (`"Publish: 3 records (2 of 5 skipped)"`). A selection every record refuses writes
-nothing and returns to the list with an error notification. A record that fails the policy's `View`,
-and one the scoped query no longer returns, fail the whole POST instead: 403 and 404, and nothing
-is written. An action name that is not one URL segment does not compile,
+A record the policy's `Run` or `can_run` refuses is not handed to `run`: a refused row answers 403,
+and a selection drops the refused records, runs the rest and appends the skipped count out of the
+selection to `Action::success` (`"Publish: 3 records (2 of 5 skipped)"`). A selection every record
+refuses writes nothing and returns to the list with an error notification. A record that fails the
+policy's `View`, and one the scoped query no longer returns, fail the whole POST instead: 403 and
+404, and nothing is written. An action name that is not one URL segment does not compile,
 and mounting the panel refuses a name two actions of a resource share. A destructive action
 declares `const CONFIRM: bool = true` to ask first through the delete's confirmation dialog; an
 unconfirmed POST answers 400. Confirmatory buttons need JavaScript: without it they do nothing.

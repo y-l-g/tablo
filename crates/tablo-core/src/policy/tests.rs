@@ -7,7 +7,7 @@ struct Post {
     locked: bool,
 }
 
-const ABILITIES: usize = 6;
+const ABILITIES: usize = 8;
 
 /// Every ability over `post`, in declaration order.
 fn abilities(post: &Post) -> [Ability<'_, Post>; ABILITIES] {
@@ -18,6 +18,11 @@ fn abilities(post: &Post) -> [Ability<'_, Post>; ABILITIES] {
         Ability::Update(post),
         Ability::DeleteAny,
         Ability::Delete(post),
+        Ability::RunAny { action: "lock" },
+        Ability::Run {
+            action: "lock",
+            record: post,
+        },
     ]
 }
 
@@ -33,7 +38,7 @@ fn the_building_blocks_answer_per_ability() {
     assert_eq!(answers(&Deny, &cx, &post), [false; ABILITIES]);
     assert_eq!(
         answers(&ReadOnly, &cx, &post),
-        [true, true, false, false, false, false]
+        [true, true, false, false, false, false, false, false]
     );
 }
 
@@ -41,12 +46,14 @@ fn the_building_blocks_answer_per_ability() {
 fn a_closure_matches_on_the_ability_and_reads_the_record() {
     let cx = CxTestBuilder::new().build();
     let unlocked = |_cx: &Cx, ability: Ability<'_, Post>| match ability {
-        Ability::Update(post) | Ability::Delete(post) => !post.locked,
+        Ability::Update(post) | Ability::Delete(post) | Ability::Run { record: post, .. } => {
+            !post.locked
+        }
         _ => true,
     };
     assert_eq!(
         answers(&unlocked, &cx, &Post { locked: true }),
-        [true, true, true, false, true, false]
+        [true, true, true, false, true, false, true, false]
     );
     assert_eq!(
         answers(&unlocked, &cx, &Post { locked: false }),
@@ -67,7 +74,7 @@ fn combinators_compose_policies() {
     let create_only = |_cx: &Cx, ability: Ability<'_, Post>| matches!(ability, Ability::Create);
     assert_eq!(
         answers(&ReadOnly.or(create_only), &cx, &post),
-        [true, true, true, false, false, false]
+        [true, true, true, false, false, false, false, false]
     );
 }
 
@@ -92,9 +99,12 @@ fn ability_names_its_record() {
         .into_iter()
         .map(|ability| ability.record().is_some_and(|record| record.locked))
         .collect();
-    assert_eq!(named, [false, true, false, true, false, true]);
+    assert_eq!(named, [false, true, false, true, false, true, false, true]);
     let reads: Vec<bool> = abilities(&post).into_iter().map(Ability::is_read).collect();
-    assert_eq!(reads, [true, true, false, false, false, false]);
+    assert_eq!(
+        reads,
+        [true, true, false, false, false, false, false, false]
+    );
 }
 
 #[derive(Debug, Clone, toasty::Model)]

@@ -16,23 +16,9 @@ use topcoat::{context::Cx, view::*};
 use uuid::Uuid;
 
 use crate::framework::common::{
-    body_string, filter_options, get, input_value, memory_db, mount, panel, panel_router,
-    post_fields, refusal, response_cookies, rows,
+    body_string, filter_options, flash, get, input_value, memory_db, mount, panel, panel_router,
+    post_fields, refusal, rows,
 };
-
-/// The flash notification a response set, decoded: the text the list shows
-/// after the redirect.
-fn flash(response: &http::Response<topcoat::router::Body>) -> String {
-    response_cookies(response)
-        .into_iter()
-        .find(|(name, _)| name.ends_with("tablo_notification"))
-        .map(|(_, value)| {
-            percent_encoding::percent_decode_str(&value)
-                .decode_utf8_lossy()
-                .into_owned()
-        })
-        .unwrap_or_default()
-}
 
 #[derive(Debug, toasty::Model, Clone)]
 struct Task {
@@ -184,10 +170,7 @@ impl Resource for TaskResource {
         ResourceDef::new()
             .slug("tasks")
             .policy(|_cx: &Cx, ability: Ability<'_, Task>| {
-                matches!(
-                    ability,
-                    Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
-                )
+                !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
             })
             .table(
                 Table::new((
@@ -728,7 +711,13 @@ impl Resource for ConfirmResource {
         ResourceDef::new()
             .slug("confirmed")
             .policy(|_cx: &Cx, ability: Ability<'_, Task>| {
-                matches!(ability, Ability::ViewAny | Ability::View(_))
+                matches!(
+                    ability,
+                    Ability::ViewAny
+                        | Ability::View(_)
+                        | Ability::RunAny { .. }
+                        | Ability::Run { .. }
+                )
             })
             .table(Table::new(TextColumn::new(lens!(Task.title))))
             .action::<Archive>()

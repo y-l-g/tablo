@@ -38,8 +38,12 @@ impl Resource for UserResource {
             // ANCHOR: user-policy
             .policy(|cx: &Cx, ability: Ability<'_, User>| match ability {
                 Ability::ViewAny | Ability::View(_) => true,
-                Ability::Create | Ability::DeleteAny | Ability::Delete(_) => is_admin(cx),
                 Ability::Update(user) => !user.sso_managed,
+                Ability::Create
+                | Ability::DeleteAny
+                | Ability::Delete(_)
+                | Ability::RunAny { .. }
+                | Ability::Run { .. } => is_admin(cx),
             })
             // ANCHOR_END: user-policy
             // ANCHOR: user-form

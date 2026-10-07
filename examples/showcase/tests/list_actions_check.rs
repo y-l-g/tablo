@@ -1,4 +1,6 @@
-use crate::common::{body_string, demo_client, full_db, routers::router_for_tests as router};
+use crate::common::{
+    body_string, demo_client, full_db, mount, routers::router_for_tests as router,
+};
 
 // Every list exposes its create/edit entry points as real links.
 #[tokio::test]
@@ -117,4 +119,69 @@ async fn a_draft_post_is_published_from_its_row() {
         .await
         .expect("the post still exists");
     assert_eq!(after.status, "published");
+}
+
+/// The guide's read-only portal over the showcase's `PostResource`: the list shows the tenant's
+/// drafts but offers no Publish, and a forged POST to either route publishes nothing.
+#[tokio::test]
+async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
+    use showcase::{
+        app::{AuthorResource, CommentResource, PostResource},
+        models::{DEMO_TENANT, Post},
+    };
+    use tablo::{Auth, Panel, ReadOnly, TenantId, testing::TestClient};
+
+    let db = full_db().await;
+    let router = mount(
+        db.clone(),
+        Panel::new("portal")
+            .auth(Auth::disabled())
+            .resource_with::<PostResource>(|def| def.policy(ReadOnly))
+            .resource_with::<AuthorResource>(|def| def.policy(ReadOnly))
+            .resource_with::<CommentResource>(|def| def.policy(ReadOnly)),
+    )
+    .expect("the portal mounts");
+    let client = TestClient::new(&router).tenant(DEMO_TENANT);
+
+    let list = client.get("/portal/posts").await;
+    assert_eq!(list.status(), 200, "the portal opens the list");
+    let html = body_string(list).await;
+    let mut db_q = db.clone();
+    let draft = Post::all()
+        .exec(&mut db_q)
+        .await
+        .expect("query posts")
+        .into_iter()
+        .find(|post| {
+            post.tenant_id == TenantId::from(DEMO_TENANT)
+                && post.status == "draft"
+                && tablo::testing::row_actions(&html, &post.id.to_string()).is_some()
+        })
+        .unwrap_or_else(|| panic!("the portal lists a draft of the demo tenant: {html}"));
+    assert!(
+        !html.contains("/-/actions/publish"),
+        "neither a row nor the bulk bar offers Publish: {html}"
+    );
+
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let row = client
+        .csrf(&csrf)
+        .post_form(
+            &format!("/portal/posts/{}/-/actions/publish", draft.id),
+            format!("csrf_token={csrf}"),
+        )
+        .await;
+    assert_eq!(row.status(), 403, "the row route refuses");
+    let bulk = client
+        .csrf(&csrf)
+        .post_form(
+            "/portal/posts/-/actions/publish",
+            format!("ids={}&csrf_token={csrf}", draft.id),
+        )
+        .await;
+    assert_eq!(bulk.status(), 403, "the bulk route refuses");
+    let after = Post::get_by_id(&mut db_q, &draft.id)
+        .await
+        .expect("the post still exists");
+    assert_eq!(after.status, "draft", "nothing was published");
 }

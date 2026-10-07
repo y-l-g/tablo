@@ -20,7 +20,7 @@ impl Action<Hidden> for Rename {
     }
 }
 
-/// A resource whose policy refuses `ViewAny`.
+/// A resource whose policy allows `View` alone: it refuses `ViewAny` and `RunAny`.
 struct Hidden;
 
 impl Resource for Hidden {
@@ -58,7 +58,7 @@ async fn an_unknown_action_answers_a_refused_caller_like_a_known_one() {
         assert_eq!(
             response.status(),
             http::StatusCode::FORBIDDEN,
-            "`{name}` answers 403 without `ViewAny`, naming no action"
+            "`{name}` answers 403 without `ViewAny` or `RunAny`, naming no action"
         );
     }
 }
