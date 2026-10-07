@@ -52,7 +52,11 @@ fn stat_card(cx: &Cx, stat: Stat) -> BoxView<'_> {
     view! {
         cx =>
         <a
-            href=(stat.url)
+            (topcoat::runtime::link_attrs(
+                cx,
+                stat.url,
+                topcoat::runtime::prefetch_mode(cx),
+            ))
             class="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
             tablo_ui::card(
