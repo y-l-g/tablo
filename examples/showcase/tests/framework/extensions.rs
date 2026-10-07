@@ -7,9 +7,10 @@
 //! reaches a framework internal.
 
 use tablo::{
-    Ability, Action, BooleanColumn, Column, Committed, Control, ControlInput, DeclarationErrorKind,
-    Detail, Field, Filter, FilterInput, Mutation, Resource, ResourceDef, Schema, Site, Table,
-    TextColumn, lens,
+    Ability, Action, BooleanColumn, Committed, DeclarationErrorKind, Detail, Field, Mutation,
+    Resource, ResourceDef, Schema, Site, Table, TextColumn,
+    extend::{Column, Control, ControlInput, Filter, FilterInput},
+    lens,
 };
 use toasty::{Db, stmt::Expr};
 use topcoat::{context::Cx, view::*};

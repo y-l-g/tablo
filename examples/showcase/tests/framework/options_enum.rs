@@ -1,7 +1,7 @@
 //! An `Options` enum field filtered against the database: the posted option value, not Toasty's
 //! stored discriminant, selects the rows.
 
-use tablo::{Filter as _, SelectFilter};
+use tablo::{SelectFilter, extend::Filter as _};
 use toasty::Db;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]

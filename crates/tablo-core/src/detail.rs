@@ -193,7 +193,7 @@ impl<M> std::fmt::Debug for Detail<M> {
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # struct Initials;
-/// # impl tablo_core::Column<User> for Initials {
+/// # impl tablo_core::extend::Column<User> for Initials {
 /// #     fn name(&self) -> &str { "initials" }
 /// #     fn label(&self) -> &str { "Initials" }
 /// #     fn text(&self, row: &User) -> String { row.name.clone() }

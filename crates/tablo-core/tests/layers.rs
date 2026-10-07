@@ -31,6 +31,7 @@ const LAYERS: &[(&str, &[&str])] = &[
         "the declaration model",
         &[
             "detail",
+            "extend",
             "form",
             "navigation",
             "policy",

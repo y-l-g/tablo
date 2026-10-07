@@ -3,7 +3,7 @@
 
 mod builders;
 mod choice;
-mod custom;
+pub(crate) mod custom;
 mod file;
 mod text;
 
@@ -11,7 +11,8 @@ use std::sync::Arc;
 
 pub use builders::{ChoiceField, CustomField, FileField, IntoOptions, TextField};
 pub(crate) use choice::{ChoiceControl, option_view};
-pub use custom::{Control, ControlInput, Toggle};
+pub use custom::Toggle;
+pub(crate) use custom::{Control, ControlInput};
 pub(crate) use file::stored_upload;
 use tablo_ui::{
     field as ui_field, field_content as ui_field_content, field_error as ui_field_error,
@@ -56,7 +57,7 @@ use crate::{
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
 /// # enum Status { Draft, Published }
 /// # struct AuthorResource;
-/// # impl tablo_core::schema::OptionSource for AuthorResource {
+/// # impl tablo_core::extend::OptionSource for AuthorResource {
 /// #     type Model = Author;
 /// #     fn scoped_query(_cx: &topcoat::context::Cx)
 /// #         -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Author>>>

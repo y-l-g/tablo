@@ -86,8 +86,8 @@ the panel refuses the resource, and rendering the table fails with the same erro
 
 ### Your own columns
 
-A column is anything that implements `Column<M>`. The built-in columns implement it and nothing
-more, so a column of your own reaches as far as theirs:
+A column is anything that implements `Column<M>`, from `tablo::extend`. The built-in columns
+implement it and nothing more, so a column of your own reaches as far as theirs:
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-custom-column}}
@@ -144,8 +144,8 @@ Each active filter is one parameter, `?f.<name>=<value>`, named after the field 
 `QueryFilter` after its name), and active
 filters combine with AND.
 
-A filter is anything that implements `Filter<M>`: a name, a label, the predicate a value selects,
-and the control the filter bar renders. The four filters above implement it and nothing more.
+A filter is anything that implements `Filter<M>`, from `tablo::extend`: a name, a label, the
+predicate a value selects, and the control the filter bar renders. The four filters above implement it and nothing more.
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-promoted-filter}}

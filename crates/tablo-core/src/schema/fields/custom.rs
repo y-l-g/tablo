@@ -5,12 +5,15 @@ use tablo_ui::checkbox as ui_checkbox;
 use topcoat::{context::Cx, view::*};
 
 /// Renders a field's input from a [`ControlInput`], using a hidden field for a state that submits
-/// nothing. A detail page shows the value through a [`Column`](crate::Column) instead.
+/// nothing. A detail page shows the value through a [`Column`](crate::extend::Column) instead.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Theme { #[key] #[auto] id: uuid::Uuid, accent: String }
-/// # use tablo_core::{Control, ControlInput, Field};
+/// # use tablo_core::{
+/// #     Field,
+/// #     extend::{Control, ControlInput},
+/// # };
 /// # use topcoat::{context::Cx, view::*};
 /// struct Color;
 ///

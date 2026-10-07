@@ -66,7 +66,10 @@ impl<T: Options> Options for Option<T> {
 #[cfg(test)]
 mod tests {
     use super::Options;
-    use crate::{Column as _, Filter as _, FormScalar};
+    use crate::{
+        FormScalar,
+        extend::{Column as _, Filter as _},
+    };
 
     /// One list shared by the form, the filter and the column.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, crate::Options)]

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use tablo::{
     Ability, NavigationItem, Notification, Page, TenantId, Uploader, csrf, db::db,
-    notification::set_notification, require_tenant, schema::OptionSource,
+    extend::OptionSource, notification::set_notification, require_tenant,
 };
 use topcoat::{
     Result,

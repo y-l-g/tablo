@@ -5,10 +5,16 @@ of their own: [`Authenticator`](./policy-auth-tenancy.md),
 [`Uploader`](./forms.md), [`Panel::layout_shell`](./panel-and-routing.md), and
 [`wired_table`](./data-access.md). The remaining three are documented here.
 
+The traits that add a new kind of building block live in `tablo::extend`: a
+[`Column`](./tables.md#your-own-columns), a [`Filter`](./tables.md#filters), a
+[`Control`](./forms.md#custom-controls), an `OptionSource` and a
+[`TypedValue`](./forms.md#typed-values). The built-in columns and filters and
+the `Toggle` control implement the same traits.
+
 ## Relationship option sources
 
 A relationship choice field loads its options through
-`tablo::schema::OptionSource`. Every resource is one, answering from its def
+`tablo::extend::OptionSource`. Every resource is one, answering from its def
 as the request's panel mounted it: `scoped_query` states the tenant-scoped
 seed query, `allows` gates rows per ability (default deny), and
 `requires_tenant`, `search_expr`, and `order_by` shape scoping, search, and

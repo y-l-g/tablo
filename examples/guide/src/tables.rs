@@ -1,6 +1,9 @@
 //! The Tables chapter's snippets.
 
-use tablo::prelude::*;
+use tablo::{
+    extend::{Column, Filter, FilterInput},
+    prelude::*,
+};
 use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx, view::*};
 
