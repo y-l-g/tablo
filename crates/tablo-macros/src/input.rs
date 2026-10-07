@@ -95,6 +95,9 @@ fn expand_struct(krate: &TokenStream2, ident: &syn::Ident, fields: &[FieldSpec])
             let rows = proc_macro2::Literal::u32_unsuffixed(rows);
             control = quote! { #control.multiline(#rows) };
         }
+        if let Some(placeholder) = &attrs.placeholder {
+            control = quote! { #control.placeholder(#placeholder) };
+        }
         if let Some(label) = &attrs.label {
             control = quote! { #control.label(#label) };
         }

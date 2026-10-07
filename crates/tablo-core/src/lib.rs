@@ -195,11 +195,13 @@ pub use table::{
 ///
 /// - `#[form(label = "Reason")]` — the control's label (default: the field name, humanized).
 /// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
+/// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
 /// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
 /// - `#[form(options)]`, `#[form(options = T)]` — a choice.
 ///
 /// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key,
-/// `multiline` with `options`, and a field that is not a `FormScalar` are compile errors.
+/// `multiline` or `placeholder` with `options`, and a field that is not a `FormScalar` are
+/// compile errors.
 /// [`RouterBuilderPanelExt::panel`] refuses a field named `csrf_token`, `confirm` or `ids`,
 /// the keys an action's POST carries besides its input.
 pub use tablo_macros::ActionInput;

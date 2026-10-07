@@ -278,8 +278,8 @@ Each field posts its own name and renders the control its type picks: a `bool` i
 `#[form(options)]` a choice over the field type's `Options` and `#[form(options = T)]` one over
 `T`'s, and any other `FormScalar` a text input. A field with no blank answer is required, as on a
 record form: `#[form(blank = ..)]`, `#[form(optional)]` on a `String`, an `Option` or a `bool`
-gives it one. `#[form(label = "..")]` labels the control and `#[form(multiline = N)]` makes it a
-`<textarea>`. Mounting the panel refuses an input field named `csrf_token`, `confirm` or `ids`,
+gives it one. `#[form(label = "..")]` labels the control, `#[form(placeholder = "..")]` sets a text
+input's placeholder, and `#[form(multiline = N)]` makes it a `<textarea>`. Mounting the panel refuses an input field named `csrf_token`, `confirm` or `ids`,
 which the action's POST carries itself.
 
 If the table fails to load, the list shows an error state with a retry link in place of the rows;

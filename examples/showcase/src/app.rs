@@ -173,6 +173,8 @@ impl Resource for PostResource {
             ))
             // Publishes drafts from a row or for the selection.
             .action::<PublishPosts>()
+            // Adds or replaces tags, asking which first.
+            .action::<TagPosts>()
     }
 }
 
@@ -289,6 +291,59 @@ impl Action<PostResource> for PublishPosts {
         }
         Ok(())
     }
+}
+
+/// What tagging asks for: the tags, and whether they replace the post's own.
+#[derive(tablo::ActionInput)]
+pub struct Tagging {
+    #[form(label = "Tags", placeholder = "rust, async")]
+    pub tags: String,
+    #[form(label = "Replace existing tags")]
+    pub replace: bool,
+}
+
+/// Adds tags to posts, or replaces theirs, from a row or for the selection.
+pub struct TagPosts;
+
+impl Action<PostResource> for TagPosts {
+    type Input = Tagging;
+    const NAME: &'static str = "tag";
+
+    fn label(_cx: &Cx) -> String {
+        "Tag".to_string()
+    }
+
+    async fn run(
+        _cx: &Cx,
+        posts: &[Post],
+        tagging: Tagging,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<()> {
+        for post in posts {
+            let kept = if tagging.replace {
+                ""
+            } else {
+                post.tags.as_str()
+            };
+            Post::filter(Post::fields().id().eq(post.id))
+                .update()
+                .tags(merge_tags(kept, &tagging.tags))
+                .exec(&mut *ex)
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+/// `added`'s comma-separated tags after `kept`'s, trimmed, each once, in first-seen order.
+fn merge_tags(kept: &str, added: &str) -> String {
+    let mut tags: Vec<&str> = Vec::new();
+    for tag in kept.split(',').chain(added.split(',')).map(str::trim) {
+        if !tag.is_empty() && !tags.contains(&tag) {
+            tags.push(tag);
+        }
+    }
+    tags.join(",")
 }
 
 #[derive(tablo::RecordForm)]

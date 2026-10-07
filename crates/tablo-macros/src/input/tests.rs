@@ -48,9 +48,11 @@ fn a_record_form_key_is_refused() {
 }
 
 #[test]
-fn multiline_and_options_are_refused_together() {
-    let message = refusal("struct F { #[form(multiline = 3, options)] a: Status }");
-    assert!(message.contains("declare one"), "{message}");
+fn a_text_key_with_options_is_refused() {
+    for key in ["multiline = 3", "placeholder = \"x\""] {
+        let message = refusal(&format!("struct F {{ #[form({key}, options)] a: Status }}"));
+        assert!(message.contains("declare one"), "{key}: {message}");
+    }
 }
 
 #[test]
@@ -61,7 +63,7 @@ fn each_field_picks_its_control_and_its_requirement() {
             notify: bool,
             #[form(options)] status: Status,
             #[form(options = Status)] code: Option<String>,
-            note: Option<String>,
+            #[form(placeholder = "Optional")] note: Option<String>,
         }"#,
     );
     assert!(
@@ -85,7 +87,7 @@ fn each_field_picks_its_control_and_its_requirement() {
         "{out}"
     );
     assert!(
-        out.contains(r#"Field :: from (:: tablo_core :: __macro :: Field :: text_input :: < Option < String > > ("note"))"#),
+        out.contains(r#"Field :: from (:: tablo_core :: __macro :: Field :: text_input :: < Option < String > > ("note") . placeholder ("Optional"))"#),
         "{out}"
     );
 }
