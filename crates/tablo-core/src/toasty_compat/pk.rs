@@ -2,13 +2,13 @@
 //! predicate.
 //!
 //! The key is read through the model's `IntoExpr::by_ref`, which Toasty's derive builds from the
-//! primary-key fields (upstream #119). The text form is Tablo's (upstream #398).
+//! primary-key fields.
 
-use toasty::stmt::IntoExpr;
-use toasty_core::{
-    schema::app::FieldId,
-    stmt::{Expr, Type, Value},
+use toasty::{
+    schema::app::{FieldId, FieldTy},
+    stmt::{IntoExpr, Type, Value},
 };
+use toasty_core::stmt::Expr;
 
 use super::value_text;
 
@@ -105,7 +105,7 @@ where
     }
     let fid = root.primary_key.fields.first().copied()?;
     let model_field = app_model.fields().get(fid.index)?;
-    let toasty_core::schema::app::FieldTy::Primitive(prim) = &model_field.ty else {
+    let FieldTy::Primitive(prim) = &model_field.ty else {
         return None;
     };
     let value = match prim.ty {

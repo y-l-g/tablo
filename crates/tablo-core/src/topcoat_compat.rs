@@ -5,7 +5,7 @@
 //! - [`async_page`]: a fallible async page body as a view (upstream #123).
 //! - [`href`]: runtime-path URL building through percent-encoding (upstream #399).
 //! - [`RUNTIME_PREFIX`]: the path Topcoat serves its runtime endpoints under, which it does not
-//!   export.
+//!   export (upstream #533).
 
 use std::future::Future;
 
