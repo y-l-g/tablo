@@ -7,7 +7,6 @@ use topcoat::context::Cx;
 use super::{
     RowActions, RowPolicy, Table, TableAction,
     state::{TableSignals, TableState},
-    with_return,
 };
 
 /// What a request wires onto a declared table: the action URLs its rows and bulk bar link to,
@@ -180,11 +179,8 @@ impl<M> WiredTable<M> {
             .map_or(RowActions::ALL, |policy| policy(record))
     }
 
-    pub(super) fn action_url(&self, url: String) -> String {
-        match &self.wiring.return_to {
-            Some(target) => with_return(&url, target),
-            None => url,
-        }
+    pub(super) fn return_to(&self) -> Option<&str> {
+        self.wiring.return_to.as_deref()
     }
 
     pub(super) fn delete_prefix(&self) -> Option<&str> {
@@ -219,10 +215,6 @@ impl<M> WiredTable<M> {
 
     pub(super) fn bulk_delete_enabled(&self) -> bool {
         self.wiring.bulk_delete && self.wiring.delete_prefix.is_some()
-    }
-
-    pub(super) fn bulk_enabled(&self) -> bool {
-        self.bulk_delete_enabled() || self.bulk_custom_actions().next().is_some()
     }
 }
 

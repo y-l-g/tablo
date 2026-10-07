@@ -10,8 +10,7 @@ use topcoat::{
 };
 
 use super::{
-    super::WiredTable, BAR_CLASS, SEARCH_FIELD_CLASS, SEARCH_ICON_CLASS, dialog::write_trigger,
-    table_dom_id,
+    BAR_CLASS, Frame, SEARCH_FIELD_CLASS, SEARCH_ICON_CLASS, dialog::write_trigger, table_dom_id,
 };
 use crate::table::state::{TableSignals, TableState, bulk_action_url, bulk_delete_url};
 
@@ -58,8 +57,8 @@ fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventHandlerFn + 
     })
 }
 
-impl<M> WiredTable<M> {
-    /// Render the toolbar: a GET form holding the search field and the filter controls, which
+impl Frame<'_> {
+    /// Render the toolbar: a GET form holding the search field and the filter `controls`, which
     /// rewrites the table's query as they change, and the bulk actions beside the search. Typing
     /// submits the form once the reader pauses; Enter submits it, with or without JavaScript.
     pub(super) async fn render_toolbar<'a>(
@@ -68,12 +67,10 @@ impl<M> WiredTable<M> {
         state: &TableState,
         path: &str,
         signals: &TableSignals,
-    ) -> Result<BoxView<'a>>
-    where
-        M: toasty::schema::Model,
-    {
-        let show_search = self.search_enabled();
-        let show_filters = self.filter_bar_enabled();
+        controls: Vec<BoxView<'a>>,
+    ) -> Result<BoxView<'a>> {
+        let show_search = self.search;
+        let show_filters = self.filter_bar;
         let with_bulk = self.bulk_enabled();
         if !show_search && !show_filters && !with_bulk {
             return Ok(().boxed());
@@ -123,7 +120,7 @@ impl<M> WiredTable<M> {
         });
         let bulk = with_bulk.then(|| self.render_bulk_bar(cx, state, signals));
         let filters = if show_filters {
-            Some(self.render_filter_controls(cx, state, path, signals))
+            Some(self.render_filter_controls(cx, state, path, signals, controls))
         } else {
             None
         };
@@ -167,20 +164,21 @@ impl<M> WiredTable<M> {
         signals: &TableSignals,
     ) -> BoxView<'a> {
         let list = self
-            .delete_prefix()
-            .or_else(|| self.actions_prefix())
+            .delete_prefix
+            .or(self.actions_prefix)
             .expect("bulk chrome rides the delete or the actions prefix (see bulk_enabled)")
             .to_string();
         let form = table_dom_id(state, "writes");
         let mut buttons: Vec<BoxView<'a>> = self
-            .bulk_custom_actions()
+            .bulk_actions
+            .iter()
             .map(|action| {
                 let url = self.action_url(bulk_action_url(&list, action.name));
                 let confirm = action.confirm.then_some(("Run this action?", "Confirm"));
                 let mut attrs = write_trigger(cx, &form, signals, url, confirm, true);
                 let bulk = signals.bulk.clone();
                 attrs.extend(attributes! { cx => :disabled=$(bulk.get().is_empty()) });
-                let label = action.label.clone();
+                let label = action.label.to_string();
                 view! {
                     cx =>
                     button(
@@ -193,7 +191,7 @@ impl<M> WiredTable<M> {
                 .boxed()
             })
             .collect();
-        if self.bulk_delete_enabled() {
+        if self.bulk_delete {
             let url = self.action_url(bulk_delete_url(&list));
             let confirm = Some(("Delete the selected records?", "Delete"));
             let mut attrs = write_trigger(cx, &form, signals, url, confirm, true);

@@ -3,7 +3,7 @@
 use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::WiredTable, core::table_frame};
+use super::{super::WiredTable, Frame, core::table_frame};
 use crate::table::state::TableState;
 
 impl<M> WiredTable<M> {
@@ -16,6 +16,12 @@ impl<M> WiredTable<M> {
     where
         M: toasty::schema::Model,
     {
+        self.frame().render_skeleton(cx, state).await
+    }
+}
+
+impl Frame<'_> {
+    async fn render_skeleton<'a>(&self, cx: &'a Cx, state: &TableState) -> Result<BoxView<'a>> {
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
         let head = self
@@ -23,8 +29,8 @@ impl<M> WiredTable<M> {
             .await?;
         let table_min_width = self.column_widths().table_min_width;
         let column_count = self.columns.len();
-        let search_pulse = self.search_enabled();
-        let filter_pulse = self.filter_bar_enabled();
+        let search_pulse = self.search;
+        let filter_pulse = self.filter_bar;
         let content = view! {
             cx =>
             if search_pulse || with_bulk {

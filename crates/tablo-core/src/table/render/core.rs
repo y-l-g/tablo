@@ -6,8 +6,9 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     super::WiredTable,
-    TABLE_CARD_CLASS,
-    rows::{RowChrome, render_rows, selectable_keys},
+    Frame, TABLE_CARD_CLASS,
+    filterbar::FilterViews,
+    rows::{RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
     widths::ColumnWidths,
 };
@@ -59,10 +60,45 @@ impl<M> WiredTable<M> {
         if !errors.is_empty() {
             return Err(crate::error::misdeclared(&errors));
         }
+        let frame = self.frame();
+        let group_key = self.effective_group_key(state);
+        let rows = self.row_views(cx, &frame, &page, group_key.as_ref());
+        let loaded = Loaded {
+            rows,
+            next_cursor: page.next_cursor,
+            prev_cursor: page.prev_cursor,
+            filters: self.filter_views(cx, state),
+        };
+        frame.render_page(cx, loaded, state, path, signals).await
+    }
+}
+
+/// One loaded page, projected for rendering.
+struct Loaded<'a> {
+    rows: Vec<RowView<'a>>,
+    next_cursor: Option<String>,
+    prev_cursor: Option<String>,
+    filters: FilterViews<'a>,
+}
+
+impl Frame<'_> {
+    /// Render `loaded` for `state`, its links pointing at `path` and writing `signals`.
+    async fn render_page<'a>(
+        &self,
+        cx: &'a Cx,
+        loaded: Loaded<'a>,
+        state: &TableState,
+        path: &str,
+        signals: &TableSignals,
+    ) -> Result<BoxView<'a>> {
+        let Loaded {
+            rows: row_data,
+            next_cursor,
+            prev_cursor,
+            mut filters,
+        } = loaded;
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
-        let group_key = self.effective_group_key(state);
-        let row_data = self.row_views(cx, &page, group_key.as_ref());
         let head = self
             .render_thead(
                 cx,
@@ -73,9 +109,21 @@ impl<M> WiredTable<M> {
                 Some((signals, selectable_keys(&row_data))),
             )
             .await?;
-        let toolbar = self.render_toolbar(cx, state, path, signals).await?;
-        let pager = self.render_pager(cx, state, path, &page, signals).await?;
-        let filter_warning = self.render_filter_warning(cx, state, path, signals);
+        let filter_warning = self.render_filter_warning(cx, state, path, signals, &filters);
+        let controls = std::mem::take(&mut filters.controls);
+        let toolbar = self
+            .render_toolbar(cx, state, path, signals, controls)
+            .await?;
+        let pager = self
+            .render_pager(
+                cx,
+                state,
+                path,
+                next_cursor.as_deref(),
+                prev_cursor.as_deref(),
+                signals,
+            )
+            .await?;
         let write_form = self.render_write_form(cx, state, signals);
 
         let ColumnWidths {
@@ -85,7 +133,7 @@ impl<M> WiredTable<M> {
             ..
         } = self.column_widths();
         let mut pager_views: Vec<BoxView<'_>> = Vec::new();
-        let body: BoxView<'_> = if page.rows.is_empty() {
+        let body: BoxView<'_> = if row_data.is_empty() {
             let empty_cell = self
                 .render_empty_cell(cx, state, path, with_actions, with_bulk, signals)
                 .await?;

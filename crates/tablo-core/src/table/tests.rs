@@ -96,7 +96,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
     let declared = crate::resource::require_mounted::<ChromeResource>(&cx).unwrap();
     let wired = crate::panel::wired_table::<ChromeResource>(&cx).unwrap();
     assert!(
-        wired.bulk_enabled(),
+        wired.bulk_delete_enabled(),
         "wired_table must attach the delete/bulk chrome the resource declares"
     );
     assert_eq!(

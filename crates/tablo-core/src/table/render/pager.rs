@@ -5,31 +5,25 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::WiredTable, live_link};
-use crate::table::{
-    page::TablePage,
-    state::{Cursor, TableSignals, TableState},
-};
+use super::{Frame, live_link};
+use crate::table::state::{Cursor, TableSignals, TableState};
 
-impl<M> WiredTable<M> {
-    /// Render Previous/Next links from the executed page's real cursors, preserving search and sort
-    /// state.
+impl Frame<'_> {
+    /// Render Previous/Next links from the executed page's real cursors, `next_cursor` and
+    /// `prev_cursor`, preserving search and sort state.
     pub(super) async fn render_pager<'a>(
         &self,
         cx: &'a Cx,
         state: &TableState,
         path: &str,
-        page: &TablePage<M>,
+        next_cursor: Option<&str>,
+        prev_cursor: Option<&str>,
         signals: &TableSignals,
     ) -> Result<Vec<BoxView<'a>>> {
-        let next_href = page
-            .next_cursor
-            .as_ref()
-            .map(|cursor| state.with_cursor(path, &Cursor::After(cursor.clone())));
-        let prev_href = page
-            .prev_cursor
-            .as_ref()
-            .map(|cursor| state.with_cursor(path, &Cursor::Before(cursor.clone())));
+        let next_href =
+            next_cursor.map(|cursor| state.with_cursor(path, &Cursor::After(cursor.to_string())));
+        let prev_href =
+            prev_cursor.map(|cursor| state.with_cursor(path, &Cursor::Before(cursor.to_string())));
         if prev_href.is_none() && next_href.is_none() {
             return Ok(Vec::new());
         }
