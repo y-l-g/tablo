@@ -384,10 +384,16 @@ pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     }
     let form_errors = declared.form.declaration_errors();
     let form_is_sound = form_errors.is_empty();
+    // A derived view mirrors the record form, whose mistakes the form already reports.
+    let view_errors = if declared.declares_view {
+        declared.view.declaration_errors()
+    } else {
+        Vec::new()
+    };
     for (site, kinds) in [
         (Site::Table, declared.table.declaration_errors()),
         (Site::Form, form_errors),
-        (Site::View, declared.view.declaration_errors()),
+        (Site::View, view_errors),
     ] {
         errors.extend(
             kinds

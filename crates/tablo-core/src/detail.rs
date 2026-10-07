@@ -99,8 +99,9 @@ impl<M> Detail<M> {
         out
     }
 
-    /// Include every relation the columns declare, once each.
-    pub(crate) fn include_relations(&self, query: Query<List<M>>) -> Query<List<M>>
+    /// Include in `query` every relation the columns declare, once each: what a page rendering
+    /// this declaration loads, as in `detail.include_relations(scoped_query::<R>(cx)?)`.
+    pub fn include_relations(&self, query: Query<List<M>>) -> Query<List<M>>
     where
         M: toasty::schema::Model,
     {
@@ -132,8 +133,13 @@ impl<M> Detail<M> {
         }
     }
 
-    /// Renders `record`'s entries in their blocks.
-    pub(crate) fn render<'a>(&self, cx: &'a Cx, record: &M) -> BoxView<'a> {
+    /// Renders `record`'s entries in their blocks: each column's [`entry`](Column::entry),
+    /// read-only.
+    ///
+    /// The panel's detail page renders its view this way. A page of the app's own renders one for
+    /// a record it loaded through [`include_relations`](Self::include_relations), after
+    /// [`bind`](Self::bind) when it shows an embedded value.
+    pub fn render<'a>(&self, cx: &'a Cx, record: &M) -> BoxView<'a> {
         let views: Vec<BoxView<'a>> = self
             .nodes
             .iter()
@@ -183,7 +189,28 @@ impl<M> std::fmt::Debug for Detail<M> {
 /// [`Detail`].
 ///
 /// Every built-in column converts, as does a boxed `Arc<dyn Column<M>>`;
-/// [`Detail::column`] appends any other [`Column`].
+/// [`Detail::column`] appends any other [`Column`]. An app's column type joins a block as the
+/// built-in ones do by implementing this trait:
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # struct Initials;
+/// # impl tablo_core::Column<User> for Initials {
+/// #     fn name(&self) -> &str { "initials" }
+/// #     fn label(&self) -> &str { "Initials" }
+/// #     fn text(&self, row: &User) -> String { row.name.clone() }
+/// # }
+/// use tablo_core::{Detail, IntoDetail, Section};
+///
+/// impl IntoDetail<User> for Initials {
+///     fn into_detail(self) -> Detail<User> {
+///         Detail::empty().column(self)
+///     }
+/// }
+///
+/// Detail::new(Section::new("User").columns(Initials));
+/// ```
 pub trait IntoDetail<M> {
     fn into_detail(self) -> Detail<M>;
 }

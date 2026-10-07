@@ -253,6 +253,8 @@ impl ColumnWidth {
 pub struct TextColumn<M, T> {
     lens: Lens<M, T>,
     binding: Binding,
+    /// The declared label, over the binding's.
+    label: Option<String>,
     format: Arc<dyn Fn(&T) -> String + Send + Sync>,
     /// The `LIKE` predicate for a search pattern, when [`searchable`](Self::searchable).
     search: Option<SearchFn>,
@@ -308,6 +310,7 @@ where
         Self {
             lens,
             binding,
+            label: None,
             format: Arc::new(T::to_form),
             search: None,
             sortable: false,
@@ -324,6 +327,12 @@ where
     /// Make the header a sort link.
     pub fn sortable(mut self) -> Self {
         self.sortable = true;
+        self
+    }
+
+    /// Replace the label the field's name gives it.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -359,7 +368,7 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     fn text(&self, row: &M) -> String {
@@ -406,6 +415,7 @@ impl<M, T> Clone for TextColumn<M, T> {
         Self {
             lens: self.lens.clone(),
             binding: self.binding.clone(),
+            label: self.label.clone(),
             format: Arc::clone(&self.format),
             search: self.search.clone(),
             sortable: self.sortable,
@@ -418,7 +428,10 @@ impl<M, T> std::fmt::Debug for TextColumn<M, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TextColumn")
             .field("name", &self.binding.name())
-            .field("label", &self.binding.label())
+            .field(
+                "label",
+                &self.label.as_deref().unwrap_or(self.binding.label()),
+            )
             .field("searchable", &self.search.is_some())
             .field("sortable", &self.sortable)
             .field("width", &self.width)
@@ -550,6 +563,8 @@ impl<M> std::fmt::Debug for ComputedColumn<M> {
 pub struct BooleanColumn<M> {
     lens: Lens<M, bool>,
     binding: Binding,
+    /// The declared label, over the binding's.
+    label: Option<String>,
     sortable: bool,
     labels: (String, String),
     width: ColumnWidth,
@@ -565,6 +580,7 @@ where
         Self {
             lens,
             binding,
+            label: None,
             sortable: false,
             labels: ("Yes".to_string(), "No".to_string()),
             width: ColumnWidth::Narrow,
@@ -574,6 +590,12 @@ where
     /// Make the header a sort link.
     pub fn sortable(mut self) -> Self {
         self.sortable = true;
+        self
+    }
+
+    /// Replace the label the field's name gives it.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -599,7 +621,7 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     fn text(&self, row: &M) -> String {
@@ -660,6 +682,7 @@ impl<M> Clone for BooleanColumn<M> {
         Self {
             lens: self.lens.clone(),
             binding: self.binding.clone(),
+            label: self.label.clone(),
             sortable: self.sortable,
             labels: self.labels.clone(),
             width: self.width,
@@ -671,7 +694,10 @@ impl<M> std::fmt::Debug for BooleanColumn<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BooleanColumn")
             .field("name", &self.binding.name())
-            .field("label", &self.binding.label())
+            .field(
+                "label",
+                &self.label.as_deref().unwrap_or(self.binding.label()),
+            )
             .field("sortable", &self.sortable)
             .field("width", &self.width)
             .finish_non_exhaustive()
@@ -691,6 +717,8 @@ impl<M> std::fmt::Debug for BooleanColumn<M> {
 pub struct FileColumn<M> {
     lens: Lens<M, String>,
     binding: Binding,
+    /// The declared label, over the binding's.
+    label: Option<String>,
     width: ColumnWidth,
 }
 
@@ -704,8 +732,15 @@ where
         Self {
             lens,
             binding,
+            label: None,
             width: ColumnWidth::Wide,
         }
+    }
+
+    /// Replace the label the field's name gives it.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     /// Declare this column's width.
@@ -724,7 +759,7 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     fn text(&self, row: &M) -> String {
@@ -753,6 +788,7 @@ impl<M> Clone for FileColumn<M> {
         Self {
             lens: self.lens.clone(),
             binding: self.binding.clone(),
+            label: self.label.clone(),
             width: self.width,
         }
     }
@@ -762,7 +798,10 @@ impl<M> std::fmt::Debug for FileColumn<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FileColumn")
             .field("name", &self.binding.name())
-            .field("label", &self.binding.label())
+            .field(
+                "label",
+                &self.label.as_deref().unwrap_or(self.binding.label()),
+            )
             .field("width", &self.width)
             .finish_non_exhaustive()
     }

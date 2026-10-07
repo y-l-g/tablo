@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use toasty::stmt::Path;
-use topcoat::icon::IconData;
+use topcoat::{context::Cx, icon::IconData};
 
 use super::{Action, Actions, PublicLink, Relation, Resource};
 use crate::{
@@ -198,15 +198,17 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// Titles the detail page with the record's label; defaults to the [`label`](Self::label)
-    /// and the record's key, as in `Blog Post 3f2a…`.
+    /// Titles the detail page with the record's label, for each record `label` returns one for;
+    /// any other record, and every record by default, is titled with the [`label`](Self::label)
+    /// and its key, as in `Blog Post 3f2a…`.
     ///
     /// A label is display text, not a key: two records can share one, so it never replaces the
-    /// primary key that keys the table's rows and the action routes.
+    /// primary key that keys the table's rows and the action routes. It reads the record as the
+    /// detail page loads it, with the relations the [`view`](Self::view)'s columns declare.
     #[must_use]
     pub fn record_label(
         mut self,
-        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
+        label: impl Fn(&Cx, &R::Model) -> Option<String> + Send + Sync + 'static,
     ) -> Self {
         self.record_label = Some(Arc::new(label));
         self
@@ -214,10 +216,13 @@ impl<R: Resource> ResourceDef<R> {
 
     /// Links a record's public page from its detail and edit pages, for each record `link`
     /// returns one for; defaults to no link.
+    ///
+    /// The edit page loads the record without relations, so a link that reads one renders on the
+    /// detail page only when its relation is loaded there.
     #[must_use]
     pub fn public_link(
         mut self,
-        link: impl Fn(&R::Model) -> Option<PublicLink> + Send + Sync + 'static,
+        link: impl Fn(&Cx, &R::Model) -> Option<PublicLink> + Send + Sync + 'static,
     ) -> Self {
         self.public_link = Some(Arc::new(link));
         self
@@ -255,10 +260,10 @@ impl<R: Resource> ResourceDef<R> {
 }
 
 /// A record's label, as [`ResourceDef::record_label`] declares it.
-pub(crate) type RecordLabel<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
+pub(crate) type RecordLabel<M> = Arc<dyn Fn(&Cx, &M) -> Option<String> + Send + Sync>;
 
 /// A record's public page, as [`ResourceDef::public_link`] declares it.
-pub(crate) type PublicLinkFn<M> = Arc<dyn Fn(&M) -> Option<PublicLink> + Send + Sync>;
+pub(crate) type PublicLinkFn<M> = Arc<dyn Fn(&Cx, &M) -> Option<PublicLink> + Send + Sync>;
 
 impl<R: Resource> std::fmt::Debug for ResourceDef<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

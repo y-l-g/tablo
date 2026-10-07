@@ -237,7 +237,9 @@ impl Resource for Labelled {
             .table(crate::table::Table::new(crate::table::TextColumn::new(
                 lens!(Note.title),
             )))
-            .record_label(|note: &Note| note.title.clone())
+            .record_label(|_cx: &Cx, note: &Note| {
+                (!note.title.is_empty()).then(|| note.title.clone())
+            })
     }
 }
 
@@ -251,15 +253,27 @@ fn note() -> Note {
 #[test]
 fn a_resource_without_a_record_label_titles_the_record_with_its_key() {
     assert_eq!(
-        crate::test_support::mounted::<Unlabelled>().record_title(&note(), "8f14e45f"),
+        crate::test_support::mounted::<Unlabelled>().record_title(
+            &crate::test_support::cx(),
+            &note(),
+            "8f14e45f"
+        ),
         "Note 8f14e45f"
     );
 }
 
 #[test]
-fn a_declared_record_label_titles_the_record() {
+fn a_declared_record_label_titles_the_record_it_labels() {
+    let cx = crate::test_support::cx();
+    let mounted = crate::test_support::mounted::<Labelled>();
+    assert_eq!(mounted.record_title(&cx, &note(), "8f14e45f"), "A Title");
+    let untitled = Note {
+        title: String::new(),
+        ..note()
+    };
     assert_eq!(
-        crate::test_support::mounted::<Labelled>().record_title(&note(), "8f14e45f"),
-        "A Title"
+        mounted.record_title(&cx, &untitled, "8f14e45f"),
+        "Note 8f14e45f",
+        "a record the label declines falls back to the key"
     );
 }

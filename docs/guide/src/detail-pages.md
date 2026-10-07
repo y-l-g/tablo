@@ -22,9 +22,12 @@ page off: the route answers 404 and no row links to it.
 ## The default view
 
 Without `view`, the record form derives the detail page, as it derives the table: one column per
-field, in declaration order.
+field, in declaration order, labelled from the field's name. The def's `form(..)` does not shape
+it: its sections, labels, options and relationships stay on the form, so a resource that arranges
+its form declares a `view` to show the same arrangement.
 
-- a text field shows its value, typed values included, as the edit form spells them;
+- a text field shows its value, typed values included, in the type's own spelling (a timestamp
+  as `2026-09-22T00:00:00Z`);
 - an options field shows its option's label;
 - a `bool` shows as yes or no;
 - a `#[form(file)]` field shows the stored path as a link, under the rules in
@@ -32,9 +35,9 @@ field, in declaration order.
 - an `#[form(embed)]` value shows each leaf under its own label, and an embedded enum shows its
   variant's name and that variant's leaves only.
 
-A bare `#[form(choice)]` holds a key, such as `author_id`, so it shows nothing: the related
-record shows through a column that includes the relation, as `Author` does above. A `NoForm`
-resource derives no column, so it has no detail page unless it declares one:
+A bare `#[form(choice)]` shows the key it holds, such as an `author_id`; the related record's name
+shows through a column that includes the relation, as `Author` does above. A `NoForm` resource
+derives no column, so it has no detail page unless it declares one:
 
 ```rust
 {{#include ../../../examples/guide/src/detail_pages.rs:detail-no-form}}
@@ -57,26 +60,31 @@ A `ComputedColumn` shows anything the record determines, such as a reading time:
 {{#include ../../../examples/guide/src/detail_pages.rs:detail-computed}}
 ```
 
-An app's own [`Column`](./tables.md) renders its `cell` on the detail page too. A column that
-shows more than one value under one label overrides `entry`, which renders the label over the cell
-by default; `EmbeddedColumn` overrides it to give each leaf its own label.
+An app's own [`Column`](./tables.md) renders its `cell` on the detail page too; `Detail::column`
+appends one, and an `IntoDetail` impl for its type places it in a block. A column that shows more
+than one value under one label overrides `entry`, which renders the label over the cell by
+default; `EmbeddedColumn` overrides it to give each leaf its own label.
 
 **Loading.** The record loads through the resource's tenant-scoped `query`, plus every relation the
 view's columns declare with `include`, each once, wherever its block sits. No other relation
-loads: a `ComputedColumn` reading one it does not declare finds it unloaded.
+loads: a `ComputedColumn` reading one it does not declare finds it unloaded. A page of the app's
+own renders a `Detail` the same way: `detail.render(cx, &record)` on a record loaded through
+`detail.include_relations(scoped_query::<R>(cx)?)`.
 
 An unknown id and an id outside the request's tenant are the same 404; a record the policy may not
 `View` is a 403.
 
-**Title.** `record_label` sets the page title; without it the title is the resource's `label()` and
-the record's key, such as "Post 3f2a…":
+**Title.** `record_label` sets the page title for each record it returns a label for; any other
+record is titled with the resource's `label()` and its key, such as "Post 3f2a…". It reads the
+record as the detail page loaded it, with the view's relations:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:post-record-label}}
 ```
 
 **Public link.** `public_link` adds a link to the record's public page to the header of its detail
-and edit pages, for each record it returns one for: the URL to link and the text to show.
+and edit pages, for each record it returns one for: the URL to link and the text to show. The edit
+page loads no relation, so a link reads only the record's own columns.
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:post-public-link}}

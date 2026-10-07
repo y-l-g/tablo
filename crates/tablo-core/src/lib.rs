@@ -256,8 +256,8 @@ pub use tablo_macros::Options;
 /// arranging one per field in declaration order. `RecordForm::table` lists a
 /// sortable column per text field, searchable over a `String` or
 /// `Option<String>`, an options field by its option's label, and a toggle as
-/// yes or no. `RecordForm::detail` shows the same columns, plus a file field as
-/// a link and an embedded value leaf by leaf. A resource's `ResourceDef`
+/// yes or no. `RecordForm::detail` shows the same columns, plus a bare choice's
+/// key, a file field as a link and an embedded value leaf by leaf. A resource's `ResourceDef`
 /// defaults its form, table and detail page to them; `ResourceDef::form`,
 /// `ResourceDef::table` and `ResourceDef::view` arrange or extend them instead.
 ///

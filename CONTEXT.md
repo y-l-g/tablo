@@ -13,7 +13,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Query | A resource's own row scoping, such as soft deletes. | Scope, Builder |
 | Table | The declaration of a list view: columns, filters, search, sort, grouping, page size. | Grid, Listing, DataTable |
 | Schema | The layout of a form: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
-| Detail | The declaration of a detail page: columns in layout blocks. | Infolist, View, Show page |
+| Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::view`. | Infolist, Show page |
 | Column | One value read off a record: a cell of a table row, or an entry on a detail page. | Field (in a table), Cell, Attribute |
 | Filter | A predicate a table adds to its query from a UI control. | Scope, Constraint, Where |
 | Field | One input in a schema, bound to a model column. | Input, Control, Widget |

@@ -32,6 +32,8 @@ use crate::{
 pub struct EmbeddedColumn<M, T> {
     lens: Lens<M, T>,
     binding: Binding,
+    /// The declared label, over the binding's.
+    label: Option<String>,
     /// The value's schema, built when the column binds.
     schema: Arc<OnceLock<Schema>>,
     width: ColumnWidth,
@@ -48,9 +50,16 @@ where
         Self {
             lens,
             binding,
+            label: None,
             schema: Arc::default(),
             width: ColumnWidth::Wide,
         }
+    }
+
+    /// Replace the label the field's name gives it.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     /// Declare this column's width.
@@ -80,7 +89,7 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     fn text(&self, row: &M) -> String {
@@ -136,6 +145,7 @@ impl<M, T> Clone for EmbeddedColumn<M, T> {
         Self {
             lens: self.lens.clone(),
             binding: self.binding.clone(),
+            label: self.label.clone(),
             schema: Arc::clone(&self.schema),
             width: self.width,
         }
@@ -146,7 +156,10 @@ impl<M, T> std::fmt::Debug for EmbeddedColumn<M, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EmbeddedColumn")
             .field("name", &self.binding.name())
-            .field("label", &self.binding.label())
+            .field(
+                "label",
+                &self.label.as_deref().unwrap_or(self.binding.label()),
+            )
             .field("value", &std::any::type_name::<T>())
             .field("bound", &self.schema.get().is_some())
             .finish_non_exhaustive()

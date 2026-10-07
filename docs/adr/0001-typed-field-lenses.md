@@ -7,7 +7,8 @@ fields. A row's key is its record's primary key; no table, relation or select de
 closure.
 
 Form transport stays string-keyed; a record form (ADR-0022) parses it into a typed struct. A
-detail page reads the typed record, never a map of display strings.
+detail page reads the typed record, never a map of display strings; only an embedded value's
+leaves are spelled through its form schema, as its form spells them.
 
 ## Rejected
 

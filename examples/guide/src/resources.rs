@@ -107,10 +107,10 @@ impl Resource for PostResource {
             ))
             // ANCHOR_END: post-view
             // ANCHOR: post-record-label
-            .record_label(|post: &Post| post.title.clone())
+            .record_label(|_cx: &Cx, post: &Post| Some(post.title.clone()))
             // ANCHOR_END: post-record-label
             // ANCHOR: post-public-link
-            .public_link(|post: &Post| {
+            .public_link(|_cx: &Cx, post: &Post| {
                 (post.status == "published").then(|| PublicLink {
                     url: format!("/blog/{}", post.id),
                     label: "View on the blog",

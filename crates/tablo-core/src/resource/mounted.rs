@@ -37,6 +37,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) table: Arc<Table<R::Model>>,
     pub(crate) form: Arc<Schema>,
     pub(crate) view: Detail<R::Model>,
+    /// Whether the def declares the view, rather than the record form deriving it.
+    pub(crate) declares_view: bool,
     record_label: Option<RecordLabel<R::Model>>,
     public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
@@ -78,6 +80,7 @@ impl<R: Resource> Mounted<R> {
                 .flat_map(|field| field.required.iter().map(String::as_str))
                 .collect(),
         );
+        let declares_view = def.view.is_some();
         let view = def.view.unwrap_or_else(<R::Form as RecordForm>::detail);
         view.bind_with(resolver);
         Self {
@@ -91,6 +94,7 @@ impl<R: Resource> Mounted<R> {
             table: Arc::new(table),
             form: Arc::new(form),
             view,
+            declares_view,
             record_label: def.record_label,
             public_link: def.public_link,
             relations: def.relations,
@@ -106,16 +110,16 @@ impl<R: Resource> Mounted<R> {
     }
 
     /// The detail page's title for `record`: its label, else the resource's label and `key`.
-    pub(crate) fn record_title(&self, record: &R::Model, key: &str) -> String {
-        match &self.record_label {
-            Some(label) => label(record),
-            None => format!("{} {key}", self.label),
-        }
+    pub(crate) fn record_title(&self, cx: &Cx, record: &R::Model, key: &str) -> String {
+        self.record_label
+            .as_ref()
+            .and_then(|label| label(cx, record))
+            .unwrap_or_else(|| format!("{} {key}", self.label))
     }
 
     /// The record's public page, if the resource links one.
-    pub(crate) fn public_link(&self, record: &R::Model) -> Option<PublicLink> {
-        self.public_link.as_ref().and_then(|link| link(record))
+    pub(crate) fn public_link(&self, cx: &Cx, record: &R::Model) -> Option<PublicLink> {
+        self.public_link.as_ref().and_then(|link| link(cx, record))
     }
 
     /// Whether the policy allows `ability`.

@@ -29,9 +29,9 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let record = load_detail(cx, &resource, &mut db).await?;
         let body = resource.view.render(cx, &record);
         let relations = render_relations(cx, &resource, &record);
-        let title = resource.record_title(&record, &id);
+        let title = resource.record_title(cx, &record, &id);
         let back = resource.url.clone();
-        let public_link = resource.public_link(&record);
+        let public_link = resource.public_link(cx, &record);
         let edit = (<R::Form as RecordForm>::HAS_FORM
             && resource.can(cx, Ability::Update(&record)))
         .then(|| {

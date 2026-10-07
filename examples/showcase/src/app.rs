@@ -127,7 +127,7 @@ impl Resource for AuthorResource {
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
             // Names the detail heading with the author's name.
-            .record_label(|author: &Author| author.name.clone())
+            .record_label(|_cx: &Cx, author: &Author| Some(author.name.clone()))
     }
 }
 
@@ -159,9 +159,9 @@ impl Resource for PostResource {
             .form(post_form())
             .view(post_view())
             // Names the detail heading with the post title.
-            .record_label(|post: &Post| post.title.clone())
+            .record_label(|_cx: &Cx, post: &Post| Some(post.title.clone()))
             // Links a published post's public page.
-            .public_link(|post: &Post| {
+            .public_link(|_cx: &Cx, post: &Post| {
                 (post.status == crate::blog::PUBLISHED).then(|| PublicLink {
                     url: format!("/blog/{}", post.id),
                     label: "View public post",
@@ -360,20 +360,12 @@ impl Resource for CommentResource {
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             .table(Table::new((
                 TextColumn::new(lens!(Comment.body)).searchable().sortable(),
-                ComputedColumn::new("Post", |c: &Comment| {
-                    debug_assert!(
-                        !c.post.is_unloaded(),
-                        "the Post column declares `.include(Comment::fields().post())`"
-                    );
-                    if c.post.is_unloaded() {
-                        "(unloaded)".to_string()
-                    } else {
-                        c.post.get().title.clone()
-                    }
-                })
-                .width(ColumnWidth::Wide)
-                .include(Comment::fields().post()),
+                comment_post_column().width(ColumnWidth::Wide),
             )))
+            .view(Detail::new(Section::new("Comment").columns((
+                TextColumn::new(lens!(Comment.body)),
+                comment_post_column(),
+            ))))
             .form(Schema::new(
                 Section::new("Comment").schema((
                     c.body.multiline(4).placeholder("Write a reply…"),
@@ -384,6 +376,22 @@ impl Resource for CommentResource {
                 )),
             ))
     }
+}
+
+/// The comment's post, by title: the list and the detail page load the relation it declares.
+fn comment_post_column() -> ComputedColumn<Comment> {
+    ComputedColumn::new("Post", |c: &Comment| {
+        debug_assert!(
+            !c.post.is_unloaded(),
+            "the Post column declares `.include(Comment::fields().post())`"
+        );
+        if c.post.is_unloaded() {
+            "(unloaded)".to_string()
+        } else {
+            c.post.get().title.clone()
+        }
+    })
+    .include(Comment::fields().post())
 }
 
 #[derive(tablo::RecordForm)]
