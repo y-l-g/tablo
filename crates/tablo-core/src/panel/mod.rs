@@ -39,7 +39,7 @@ use crate::{
 ///
 /// # Errors
 ///
-/// A declaration error when the request's panel does not mount `R`.
+/// A declaration error when the context's panel does not mount `R`.
 pub fn wired_table<R: Resource>(
     cx: &topcoat::context::Cx,
 ) -> topcoat::Result<crate::table::WiredTable<R::Model>> {
@@ -47,7 +47,7 @@ pub fn wired_table<R: Resource>(
     Ok(self::list::wire_table_actions(cx, &resource))
 }
 
-/// `R`'s sidebar entry in the request's panel, with its label, URL and icon; `None` when the
+/// `R`'s sidebar entry in the context's panel, with its label, URL and icon; `None` when the
 /// panel does not register `R`.
 pub fn navigation<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
     crate::resource::mounted::<R>(cx).map(|resource| resource.navigation.clone())

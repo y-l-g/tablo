@@ -66,10 +66,10 @@ links point at your page's own URL. A page that renders two tables gives each a 
 
 ## Outside a request
 
-`scoped_query`, `can`, `write_create` and the other entry points that take a `Cx` answer from the
-resources a panel mounts, so code that runs outside a request, such as a background job, builds
-its context from the panel the app mounts. Build the panel in one function the router and the job
-share:
+`scoped_query`, `can`, `write_create` and the other entry points that answer from a mounted def
+read the resources a panel mounts, so code that runs outside a request, such as a background job,
+builds its context from the panel the app mounts. Build the panel in one function the router and
+the job share:
 
 ```rust
 {{#include ../../../examples/guide/src/data_access.rs:data-access-panel}}
@@ -84,8 +84,10 @@ request, session or tenant. Add a tenant with `.with(Tenant(id))`:
 ```
 
 A context is one unit of work, as a request is: the loads it memoizes stay cached while it lives,
-so build one per job run. A context with no panel at all knows no resource, and every entry point
-answers as for a resource the panel does not mount.
+so build one per job run. It carries no signed-in user, so a policy that reads one answers for a
+signed-out request. A context with no panel at all knows no resource: every entry point that reads
+a mounted def answers as for a resource the panel does not mount, and `write_update` writes without
+consulting the context.
 
 ## Schema setup
 

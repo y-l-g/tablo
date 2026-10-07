@@ -1337,3 +1337,35 @@ async fn an_unmounted_resource_is_refused_not_rebuilt() {
         assert!(refused.to_string().contains("not mounted"), "{refused}");
     }
 }
+
+/// [`Panel::context`] refuses a misdeclared resource with the errors a router mount reports.
+#[tokio::test]
+async fn context_refuses_a_misdeclared_resource() {
+    use crate::{
+        resource::Resource,
+        schema::{Field, Schema},
+    };
+
+    struct DuplicateField;
+    impl Resource for DuplicateField {
+        type Model = Dummy;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(dummy_table()).view(Schema::new((
+                Field::text(Dummy::fields().name()),
+                Field::text(Dummy::fields().name()),
+            )))
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Dummy))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    assert_eq!(
+        refusal(panel_for::<DuplicateField>().context(&db)),
+        refusal(mount(db, panel_for::<DuplicateField>()))
+    );
+}

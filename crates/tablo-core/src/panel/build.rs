@@ -63,8 +63,8 @@ impl Panel {
     /// A context outside any request in which the panel's resources answer as it mounts them:
     /// what a background job or a test passes to [`scoped_query`](crate::scoped_query),
     /// [`can`](crate::can), [`write_create`](crate::write_create) and the other entry points that
-    /// take a `Cx`. It holds `db` and the panel's resources, and no request, session or tenant;
-    /// add a tenant with `cx.with(Tenant(id))`.
+    /// answer from a mounted def. It holds `db` and the panel's resources, and no request,
+    /// session or tenant; add a tenant with `cx.with(Tenant(id))`.
     ///
     /// Like a request's, the context is one unit of work: loads it memoizes stay cached for its
     /// lifetime, so a job builds one per run.

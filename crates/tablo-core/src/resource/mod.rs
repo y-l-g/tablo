@@ -382,7 +382,7 @@ pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool 
 }
 
 /// Every `Resource` is an [`OptionSource`](crate::schema::OptionSource), answering from its def
-/// as the request's panel mounted it.
+/// as the context's panel mounted it.
 ///
 /// [`scoped_query`](crate::schema::OptionSource::scoped_query) forwards to
 /// [`scoped_query`], so an option load inherits the tenant gate and filter

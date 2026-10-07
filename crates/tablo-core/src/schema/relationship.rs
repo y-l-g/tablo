@@ -10,7 +10,7 @@ use crate::policy::Ability;
 
 /// Describes the source a relationship option loader reads.
 ///
-/// Every [`Resource`](crate::Resource) is one, answering from its def as the request's panel
+/// Every [`Resource`](crate::Resource) is one, answering from its def as the context's panel
 /// mounted it.
 pub trait OptionSource: Sized + Send + Sync + 'static {
     /// The model whose rows become options.
@@ -47,7 +47,7 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
         None
     }
 
-    /// Whether the request's panel can load from the source: a resource only when the panel
+    /// Whether the context's panel can load from the source: a resource only when the panel
     /// mounts it.
     #[doc(hidden)]
     fn available(_cx: &Cx) -> bool {
