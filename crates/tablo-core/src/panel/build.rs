@@ -406,7 +406,8 @@ pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
 }
 
 /// Every custom action's name is distinct among the resource's actions: the routes dispatch by
-/// it. [`ResourceDef::action`](crate::ResourceDef::action) checks each name is a route segment as
+/// it. Its input declares no misdeclared field and none the action's POST carries itself.
+/// [`ResourceDef::action`](crate::ResourceDef::action) checks each name is a route segment as
 /// it compiles.
 fn check_actions<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
     let mut seen = std::collections::HashSet::new();
@@ -417,6 +418,23 @@ fn check_actions<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declaratio
                 DeclarationErrorKind::DuplicateAction { name: action.name },
             ));
         }
+        let input = (action.input)();
+        let mut kinds = input.declaration_errors();
+        kinds.extend(
+            input
+                .fields()
+                .map(|field| field.name())
+                .filter(|name| crate::resource::RESERVED_KEYS.contains(name))
+                .map(|name| DeclarationErrorKind::ReservedActionInput {
+                    action: action.name,
+                    field: name.to_string(),
+                }),
+        );
+        errors.extend(
+            kinds
+                .into_iter()
+                .map(|kind| DeclarationError::of::<R>(Site::Registration, kind)),
+        );
     }
 }
 

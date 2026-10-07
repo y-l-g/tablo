@@ -20,37 +20,64 @@ use crate::{
 };
 
 /// What a form page shows around its form: the create page and the edit page differ only here.
-pub(super) struct FormChrome {
+pub(crate) struct FormChrome {
     title: String,
-    submit_label: &'static str,
+    submit_label: String,
+    /// Whether the submit button renders destructive: an action that confirms.
+    destructive: bool,
     public_link: Option<PublicLink>,
     /// Where Cancel leads without a `?return=` target: the resource's list.
     list_url: String,
+    /// Hidden `(name, value)` controls the submit carries besides the schema's.
+    hidden: Vec<(String, String)>,
 }
 
 impl FormChrome {
     pub(super) fn create<R: Resource>(resource: &Mounted<R>) -> Self {
         Self {
             title: format!("Create {}", resource.label),
-            submit_label: "Create",
+            submit_label: "Create".to_string(),
+            destructive: false,
             public_link: None,
             list_url: resource.url.clone(),
+            hidden: Vec::new(),
         }
     }
 
     pub(super) fn edit<R: Resource>(cx: &Cx, resource: &Mounted<R>, record: &R::Model) -> Self {
         Self {
             title: format!("Edit {}", resource.label),
-            submit_label: "Save",
+            submit_label: "Save".to_string(),
+            destructive: false,
             public_link: resource.public_link(cx, record),
             list_url: resource.url.clone(),
+            hidden: Vec::new(),
+        }
+    }
+
+    /// An action's input page: titled and submitted by the action's `label`, carrying `hidden`
+    /// back to the action's POST.
+    pub(crate) fn action<R: Resource>(
+        resource: &Mounted<R>,
+        title: String,
+        label: String,
+        destructive: bool,
+        hidden: Vec<(String, String)>,
+    ) -> Self {
+        Self {
+            title,
+            submit_label: label,
+            destructive,
+            public_link: None,
+            list_url: resource.url.clone(),
+            hidden,
         }
     }
 }
 
-/// Renders the shared create/edit shell with `FormChrome`, carrying uploader-answered uploads as
-/// hidden `keep_<field>` controls.
-pub(super) async fn render_form_page<'a>(
+/// Renders the shared form shell with `FormChrome`, carrying uploader-answered uploads as hidden
+/// `keep_<field>` controls.
+pub(crate) async fn render_form_page<'a>(
     cx: &'a Cx,
     schema: &Schema,
     chrome: FormChrome,
@@ -61,8 +88,10 @@ pub(super) async fn render_form_page<'a>(
     let FormChrome {
         title,
         submit_label,
+        destructive,
         public_link,
         list_url,
+        hidden,
     } = chrome;
     let form_html = schema
         .render(cx, crate::schema::Source::form(values, errors))
@@ -93,6 +122,15 @@ pub(super) async fn render_form_page<'a>(
         carried_fields
             .push(view! { cx => <input type="hidden" name=(control) value=(path)> }.boxed());
     }
+    for (name, value) in hidden {
+        carried_fields
+            .push(view! { cx => <input type="hidden" name=(name) value=(value)> }.boxed());
+    }
+    let submit_variant = if destructive {
+        tablo_ui::ButtonVariant::Destructive
+    } else {
+        tablo_ui::ButtonVariant::Primary
+    };
     Ok(view! {
         cx =>
         tablo_ui::page(
@@ -127,7 +165,7 @@ pub(super) async fn render_form_page<'a>(
                     (form_html)
                     <div class="flex items-center gap-2">
                         tablo_ui::button(
-                            variant: tablo_ui::ButtonVariant::Primary,
+                            variant: submit_variant,
                             attrs: attributes! { type="submit" },
                             (submit_label)
                         )

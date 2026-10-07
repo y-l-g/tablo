@@ -9,6 +9,6 @@ mod unique;
 pub(crate) use self::{
     common::{MAX_FORM_BYTES, resource_edit, truthy},
     decode::parse_form_body,
-    render::resource_create,
+    render::{FormChrome, render_form_page, resource_create},
     submit::{resource_create_post, resource_edit_post},
 };

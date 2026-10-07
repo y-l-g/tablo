@@ -9,13 +9,14 @@ use crate::{
 struct Rename;
 
 impl Action<Hidden> for Rename {
+    type Input = ();
     const NAME: &'static str = "rename";
 
     fn label(_cx: &Cx) -> String {
         "Rename".to_string()
     }
 
-    async fn run(_: &Cx, _: &[Dummy], _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(_: &Cx, _: &[Dummy], _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
         Ok(())
     }
 }

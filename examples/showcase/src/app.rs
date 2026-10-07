@@ -268,6 +268,7 @@ fn post_table() -> Table<Post> {
 pub struct PublishPosts;
 
 impl Action<PostResource> for PublishPosts {
+    type Input = ();
     const NAME: &'static str = "publish";
 
     fn label(_cx: &Cx) -> String {
@@ -278,7 +279,7 @@ impl Action<PostResource> for PublishPosts {
         post.status != PostStatus::Published
     }
 
-    async fn run(_cx: &Cx, posts: &[Post], ex: &mut dyn toasty::Executor) -> Result<()> {
+    async fn run(_cx: &Cx, posts: &[Post], _: (), ex: &mut dyn toasty::Executor) -> Result<()> {
         for post in posts {
             Post::filter(Post::fields().id().eq(post.id))
                 .update()

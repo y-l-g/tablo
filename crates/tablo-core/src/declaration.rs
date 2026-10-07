@@ -188,6 +188,14 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: &'static str,
     },
+    /// An action's input declares a field named like a key the action's POST carries itself:
+    /// `csrf_token`, `confirm` or `ids`.
+    ReservedActionInput {
+        /// The action's `NAME`.
+        action: &'static str,
+        /// The field's name.
+        field: String,
+    },
     /// Two relations to the same resource.
     DuplicateRelation,
     /// A relation to a resource the panel does not register.
@@ -367,6 +375,11 @@ impl fmt::Display for DeclarationErrorKind {
             Self::DuplicateAction { name } => write!(
                 f,
                 "two actions are named '{name}': each needs a distinct `NAME`"
+            ),
+            Self::ReservedActionInput { action, field } => write!(
+                f,
+                "action '{action}' declares an input field named '{field}', which its POST \
+                 carries itself: rename the field"
             ),
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")

@@ -1,8 +1,9 @@
-//! The `RecordForm`, `EmbeddedForm` and `Options` derives, re-exported by
+//! The `RecordForm`, `EmbeddedForm`, `ActionInput` and `Options` derives, re-exported by
 //! `tablo-core`.
 
 mod embedded;
 mod fields;
+mod input;
 mod options;
 mod record_form;
 
@@ -22,6 +23,14 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 pub fn record_form(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
     record_form::expand_tokens(input).into()
+}
+
+/// Derive `ActionInput` for the typed value an action asks for; documented on the `tablo-core`
+/// re-export.
+#[proc_macro_derive(ActionInput, attributes(form))]
+pub fn action_input(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as DeriveInput);
+    input::expand_tokens(input).into()
 }
 
 /// Derive `Options` for a unit-variant enum; documented on the `tablo-core` re-export.

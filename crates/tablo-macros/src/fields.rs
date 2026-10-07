@@ -20,6 +20,9 @@ pub(crate) enum Derive {
     /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`, `optional`, and the
     /// control keys `options`, `options = <Type>`, `choice`, `file`.
     Record,
+    /// `#[derive(ActionInput)]`: `label = ".."`, `multiline = N`, `blank = <expr>`, `optional`,
+    /// `options`, `options = <Type>`.
+    Input,
 }
 
 /// What `#[form(..)]` says about one field.
@@ -53,19 +56,19 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             continue;
         }
         attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("embed") {
+            if meta.path.is_ident("embed") && derive != Derive::Input {
                 out.embed = true;
-            } else if meta.path.is_ident("label") && derive == Derive::Embedded {
+            } else if meta.path.is_ident("label") && derive != Derive::Record {
                 let text: syn::LitStr = meta.value()?.parse()?;
                 out.label = Some(text.value());
-            } else if meta.path.is_ident("multiline") && derive == Derive::Embedded {
+            } else if meta.path.is_ident("multiline") && derive != Derive::Record {
                 let rows: syn::LitInt = meta.value()?.parse()?;
                 out.multiline = Some(rows.base10_parse()?);
             } else if meta.path.is_ident("blank") {
                 out.blank = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("optional") {
                 out.optional = true;
-            } else if meta.path.is_ident("options") && derive == Derive::Record {
+            } else if meta.path.is_ident("options") && derive != Derive::Embedded {
                 out.options = Some(if meta.input.peek(syn::Token![=]) {
                     Some(meta.value()?.parse()?)
                 } else {
@@ -85,11 +88,21 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                         "`embed`, `blank = <expr>`, `optional`, `options`, `options = <Type>`, \
                          `choice`, or `file`"
                     }
+                    Derive::Input => {
+                        "`label = \"…\"`, `multiline = N`, `blank = <expr>`, `optional`, \
+                         `options`, or `options = <Type>`"
+                    }
                 };
                 return Err(meta.error(format!("unknown `#[form(..)]` key: expected {expected}")));
             }
             Ok(())
         })?;
+    }
+    if out.multiline.is_some() && out.options.is_some() {
+        return Err(syn::Error::new_spanned(
+            field,
+            "`multiline` renders a `<textarea>` and `options` a choice: declare one",
+        ));
     }
     let controls = [
         (out.options.is_some(), "`options`"),

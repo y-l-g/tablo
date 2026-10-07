@@ -6,6 +6,12 @@
 //! then one transaction that loads the targets through the tenant-scoped query, checks `View` on
 //! every one, runs the entry's per-record check (`Delete`, or `Run` and `can_run`), writes the
 //! records that pass, and commits.
+//!
+//! An action that asks for input stops before the write until its input parses: the POST without
+//! the input page's marker renders that page, and one whose input is refused renders it again with
+//! the errors. Either rolls the transaction back unwritten.
+
+use std::collections::HashMap;
 
 use topcoat::{
     context::Cx,
@@ -18,7 +24,7 @@ use topcoat::{
 
 use super::{
     super::{
-        forms::{parse_form_body, truthy},
+        forms::{FormChrome, parse_form_body, render_form_page, truthy},
         gate::{gate, landing_url},
         write::commit_write,
     },
@@ -26,9 +32,10 @@ use super::{
 };
 use crate::{
     db::db,
+    form::FieldErrors,
     notification::{Notification, set_notification},
     policy::Ability,
-    resource::{ActionEntry, Mounted, Resource},
+    resource::{ActionEntry, ErasedInput, Mounted, RESERVED_KEYS, Resource, SUBMITTED_KEY},
     topcoat_compat::async_page,
 };
 
@@ -142,14 +149,25 @@ fn run_mutation<'a, R: Resource>(
         if rows.is_empty() {
             return Err(refuse(cx, &resource, &action, target, refused.len()));
         }
-        let mut note = (action.success)(cx, rows.len());
-        if !refused.is_empty() {
+        let skipped = (!refused.is_empty()).then(|| {
             let skipped = refused.len();
             let selected = rows.len() + skipped;
-            note.push_str(&format!(" ({skipped} of {selected} skipped)"));
-        }
+            format!(" ({skipped} of {selected} skipped)")
+        });
+        let input = match read_input(cx, &action, &values).await? {
+            Ok(input) => input,
+            Err(page) => {
+                // The page's choices may query: release the connection first.
+                drop(tx);
+                return page
+                    .render(cx, &resource, &action, target, &values, rows.len(), skipped)
+                    .await;
+            }
+        };
+        let mut note = (action.success)(cx, rows.len());
+        note.push_str(skipped.as_deref().unwrap_or_default());
         // A delete's hook names what was removed: the pre-delete snapshot.
-        let written = (action.run)(cx, &rows, &mut tx).await.map(|()| rows);
+        let written = (action.run)(cx, &rows, input, &mut tx).await.map(|()| rows);
         commit_write(
             cx,
             &resource,
@@ -161,6 +179,103 @@ fn run_mutation<'a, R: Resource>(
         )
         .await
     })
+}
+
+/// The input page an action renders before it runs: blank, or holding a refused submission.
+struct InputPage {
+    values: HashMap<String, String>,
+    errors: FieldErrors,
+}
+
+/// Reads the action's input from the POST: `Ok` with the parsed value to run with, or `Err` with
+/// the input page to render instead. An action that asks for nothing parses `()` from nothing.
+///
+/// # Errors
+///
+/// A submission holding a key the input does not declare answers 400.
+async fn read_input<R: Resource>(
+    cx: &Cx,
+    action: &ActionEntry<R>,
+    values: &HashMap<String, String>,
+) -> Result<Result<ErasedInput, InputPage>, topcoat::Error> {
+    if !action.takes_input() {
+        let parsed = (action.parse_input)(cx, &HashMap::new());
+        return Ok(Ok(parsed.expect("an action without input parses nothing")));
+    }
+    if !values.contains_key(SUBMITTED_KEY) {
+        return Ok(Err(InputPage {
+            values: HashMap::new(),
+            errors: FieldErrors::new(),
+        }));
+    }
+    let mut input = values.clone();
+    input.retain(|key, _| !RESERVED_KEYS.contains(&key.as_str()));
+    let schema = (action.input)();
+    let unknown = schema.unknown_keys(&input);
+    if !unknown.is_empty() {
+        return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
+    }
+    let mut errors = FieldErrors::new();
+    match (action.parse_input)(cx, &input) {
+        Ok(parsed) => {
+            schema.check_controls(cx, &input, &mut errors).await;
+            if errors.is_empty() {
+                return Ok(Ok(parsed));
+            }
+        }
+        Err(refused) => {
+            for error in refused {
+                errors.push(error);
+            }
+            schema.check_controls(cx, &input, &mut errors).await;
+        }
+    }
+    Ok(Err(InputPage {
+        values: input,
+        errors,
+    }))
+}
+
+impl InputPage {
+    /// Renders the page, titled by the action and the `count` records it runs on, whose submit
+    /// POSTs back to this route with the input's marker, the confirmation and the selection.
+    #[allow(clippy::too_many_arguments)]
+    async fn render<'a, R: Resource>(
+        self,
+        cx: &'a Cx,
+        resource: &Mounted<R>,
+        action: &ActionEntry<R>,
+        target: Target,
+        posted: &HashMap<String, String>,
+        count: usize,
+        skipped: Option<String>,
+    ) -> topcoat::Result<BoxView<'a>> {
+        let label = (action.label)(cx);
+        let title = match target {
+            Target::Row => label.clone(),
+            Target::Bulk => {
+                let noun = if count == 1 { "record" } else { "records" };
+                format!("{label}: {count} {noun}{}", skipped.unwrap_or_default())
+            }
+        };
+        let mut hidden = vec![(SUBMITTED_KEY.to_string(), "1".to_string())];
+        if action.confirm {
+            hidden.push(("confirm".to_string(), "1".to_string()));
+        }
+        if let (Target::Bulk, Some(ids)) = (target, posted.get("ids")) {
+            hidden.push(("ids".to_string(), ids.clone()));
+        }
+        let chrome = FormChrome::action(resource, title, label, action.confirm, hidden);
+        render_form_page(
+            cx,
+            &(action.input)(),
+            chrome,
+            &self.values,
+            &self.errors,
+            &Default::default(),
+        )
+        .await
+    }
 }
 
 /// Loads the records `ids` names through the tenant-scoped query inside the transaction, 404ing

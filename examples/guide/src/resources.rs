@@ -8,7 +8,7 @@ use topcoat::{Result, context::Cx};
 use crate::{
     models::{Audit, Author, Comment, Order, Post, PostStatus, Role, User},
     policy_tenancy::editors_only,
-    tables::Publish,
+    tables::{ChangeStatus, Publish},
 };
 
 fn is_admin(_cx: &Cx) -> bool {
@@ -126,6 +126,7 @@ impl Resource for PostResource {
             // ANCHOR_END: post-relations
             // ANCHOR: post-actions
             .action::<Publish>()
+            .action::<ChangeStatus>()
         // ANCHOR_END: post-actions
     }
 }
