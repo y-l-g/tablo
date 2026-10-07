@@ -670,7 +670,7 @@ async fn a_form_resource_serves_create_and_edit() {
 
 /// A resource over [`Item`] that allows create through `F`.
 macro_rules! title_only_resource {
-    ($name:ident, $columns:expr) => {
+    ($name:ident, [$($column:ident),*]) => {
         struct $name;
 
         impl Resource for $name {
@@ -685,7 +685,7 @@ macro_rules! title_only_resource {
                     })
                     .table(item_table())
                     .form(Schema::new(Field::text(Item::fields().title())))
-                    .create_columns($columns)
+                    $(.create_column(Item::fields().$column()))*
             }
         }
     };
@@ -705,15 +705,9 @@ async fn build_refuses_a_create_that_leaves_a_required_column_unset() {
 
 #[tokio::test]
 async fn create_columns_names_what_an_override_sets() {
-    title_only_resource!(Covered, ["notes", "priority", "done"]);
+    title_only_resource!(Covered, [notes, priority, done]);
     mount(item_db().await, panel().resource::<Covered>())
         .expect("the override's own columns are declared");
-
-    title_only_resource!(Misnamed, ["notes", "priority", "done", "nope"]);
-    assert_eq!(
-        refused::<Misnamed>(item_db().await),
-        [DeclarationErrorKind::UnknownCreateColumn { column: "nope" }]
-    );
 }
 
 /// A value the control lets through but the field's type refuses renders inline.

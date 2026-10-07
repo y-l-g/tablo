@@ -285,15 +285,10 @@ pub enum DeclarationErrorKind {
         /// The field.
         field: String,
     },
-    /// `create_columns` names the tenant column.
+    /// [`create_column`](crate::ResourceDef::create_column) names the tenant column.
     CreateColumnsNameTenant {
         /// The tenant column.
         column: String,
-    },
-    /// `create_columns` names a field the model does not have.
-    UnknownCreateColumn {
-        /// The name.
-        column: &'static str,
     },
     /// A non-nullable column nothing writes on create.
     UnwrittenColumn {
@@ -465,18 +460,14 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::CreateColumnsNameTenant { column } => write!(
                 f,
-                "`create_columns` names the tenant column `{column}`, which the framework stamps \
+                "`create_column` names the tenant column `{column}`, which the framework stamps \
                  on create: drop it there and delegate to `write_create`"
-            ),
-            Self::UnknownCreateColumn { column } => write!(
-                f,
-                "`create_columns` names `{column}`, which is no field of the model"
             ),
             Self::UnwrittenColumn { column } => write!(
                 f,
                 "the policy allows create, but nothing writes the non-nullable column `{column}`: \
                  the record form has no such field, toasty fills no `#[default(..)]` for it, and \
-                 `create_columns` does not name it, so every create would fail at the driver"
+                 no `create_column` names it, so every create would fail at the driver"
             ),
         }
     }

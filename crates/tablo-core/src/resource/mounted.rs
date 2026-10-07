@@ -37,7 +37,7 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
     pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
-    pub(crate) create_columns: Vec<&'static str>,
+    pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
 }
 
 impl<R: Resource> Mounted<R> {

@@ -248,7 +248,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
                 .form(Schema::new(Field::text(Author::fields().email()).unique()))
                 // Not gated, so the tenant is not stamped: a create override would
                 // set it.
-                .create_columns(["tenant_id"])
+                .create_column(Author::fields().tenant_id())
         }
     }
     #[derive(crate::RecordForm)]
@@ -1368,4 +1368,73 @@ async fn context_refuses_a_misdeclared_resource() {
         refusal(panel_for::<DuplicateField>().context(&db)),
         refusal(mount(db, panel_for::<DuplicateField>()))
     );
+}
+
+/// `create_column` refuses the tenant column, which the framework stamps, and an embedded path,
+/// which names no one field of the model.
+#[tokio::test]
+async fn panel_mount_refuses_a_create_column_it_cannot_honor() {
+    use crate::{
+        resource::Resource,
+        schema::{Field, Schema},
+        table::{Table, TextColumn},
+    };
+
+    #[derive(Debug, Clone, toasty::Embed)]
+    struct Place {
+        city: String,
+    }
+
+    #[derive(Debug, toasty::Model, Clone)]
+    struct Ticket {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        tenant_id: TenantId,
+        title: String,
+        place: Place,
+    }
+
+    #[derive(crate::RecordForm)]
+    #[form(model = Ticket)]
+    struct TicketForm {
+        title: String,
+    }
+
+    struct Tickets;
+    impl Resource for Tickets {
+        type Model = Ticket;
+        type Form = TicketForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("tickets")
+                .tenancy(Tenancy::column(Ticket::fields().tenant_id()))
+                .policy(|_cx: &Cx, ability: Ability<'_, Ticket>| {
+                    matches!(ability, Ability::ViewAny | Ability::Create)
+                })
+                .table(Table::new(TextColumn::new(lens!(Ticket.title))))
+                .form(Schema::new(Field::text(Ticket::fields().title())))
+                .create_column(Ticket::fields().tenant_id())
+                .create_column(Ticket::fields().place().city())
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Ticket))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let kinds: Vec<_> = refusal(mount(db, panel_for::<Tickets>()))
+        .into_iter()
+        .map(|error| error.kind)
+        .collect();
+    for kind in [
+        DeclarationErrorKind::CreateColumnsNameTenant {
+            column: "tenant_id".to_string(),
+        },
+        DeclarationErrorKind::TraversalLens { steps: 2 },
+    ] {
+        assert!(kinds.contains(&kind), "{kind:?} missing from {kinds:?}");
+    }
 }

@@ -544,7 +544,14 @@ fn tenant_column<R: Resource>(declared: &Mounted<R>) -> Option<String> {
 
 /// Checks that every non-nullable column a create needs has a writer.
 fn check_create_columns<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
-    let (fields, create_columns) = (&declared.fields, &declared.create_columns);
+    let fields = &declared.fields;
+    let mut create_columns = Vec::new();
+    for column in &declared.create_columns {
+        match column {
+            Ok(name) => create_columns.push(name.as_str()),
+            Err(kind) => errors.push(DeclarationError::of::<R>(Site::Registration, kind.clone())),
+        }
+    }
     let prefilled = model::prefilled_fields::<R::Model>();
     let tenant = tenant_column(declared);
     if let Some(column) = &tenant
@@ -557,16 +564,7 @@ fn check_create_columns<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Dec
             },
         ));
     }
-    let columns = model::fields::<R::Model>();
-    for &column in create_columns {
-        if !columns.iter().any(|field| field.name == column) {
-            errors.push(DeclarationError::of::<R>(
-                Site::Registration,
-                DeclarationErrorKind::UnknownCreateColumn { column },
-            ));
-        }
-    }
-    for field in &columns {
+    for field in &model::fields::<R::Model>() {
         let name = field.name.as_str();
         let filled = field.nullable
             || field.relation

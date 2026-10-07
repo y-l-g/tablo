@@ -2,15 +2,18 @@
 
 use std::sync::Arc;
 
+use toasty::stmt::Path;
 use topcoat::icon::IconData;
 
 use super::{Action, Actions, Relation, Resource};
 use crate::{
+    DeclarationErrorKind,
     navigation::NavigationItem,
     policy::{Deny, Policy},
     schema::Schema,
     table::Table,
     tenancy::Tenancy,
+    toasty_compat::model::{self, ModelPath},
 };
 
 /// What a [`Resource`] declares: its names, navigation, policy, tenancy, table, form, view,
@@ -57,7 +60,8 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) view: Option<Schema>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
-    pub(crate) create_columns: Vec<&'static str>,
+    /// The columns [`Self::create_column`] names, or why a path names no column.
+    pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
 }
 
 impl<R: Resource> Default for ResourceDef<R> {
@@ -202,11 +206,16 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The columns an overriding [`Resource::create_record`] sets itself, beyond the form's
-    /// fields.
+    /// Declares a column an overriding [`Resource::create_record`] sets itself, beyond the form's
+    /// fields: `.create_column(Post::fields().slug())`. Call it once per column.
+    ///
+    /// Mounting the panel refuses a path that names no one field of the model, and the tenant
+    /// column, which the framework stamps.
     #[must_use]
-    pub fn create_columns(mut self, columns: impl IntoIterator<Item = &'static str>) -> Self {
-        self.create_columns.extend(columns);
+    pub fn create_column<T>(mut self, path: impl Into<Path<R::Model, T>>) -> Self {
+        let path = ModelPath::of(&path.into());
+        self.create_columns
+            .push(model::field::<R::Model>(&path).map(|field| field.name));
         self
     }
 }

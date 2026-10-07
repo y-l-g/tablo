@@ -29,7 +29,7 @@ one form control per field, and a detail page showing the form read-only. Set th
 | `action::<A>()` | none | a custom action: [Tables](./tables.md#custom-actions) |
 | `policy(..)` | `Deny` | what the user may do: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
 | `tenancy(..)` | `Tenancy::none()` | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
-| `create_columns(..)` | none | columns an overridden `create_record` sets itself |
+| `create_column(..)` | none | a column an overridden `create_record` sets itself, once per column |
 | `slug(..)`, `label(..)`, `plural_label(..)` | from the type names | URLs and titles: [Naming](#naming) |
 | `icon(..)`, `navigation_order(..)`, `navigation(..)` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
 
@@ -157,7 +157,7 @@ declaration names one. It refuses the resource when:
   submission would fill, or a tenant-owned resource's form claiming its tenant column;
 - a relationship field takes its options from a resource the panel does not register;
 - the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
-  Toasty default, not the tenant stamp, and not listed in `create_columns`;
+  Toasty default, not the tenant stamp, and not named by `create_column`;
 - a `NoForm` resource declares a control or its policy allows `Create`;
 - a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
