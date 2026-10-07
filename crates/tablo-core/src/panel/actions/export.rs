@@ -183,7 +183,7 @@ fn export_base_query<R: Resource>(
 /// Walks an export base query in cursor chunks.
 struct ExportChunker<M> {
     query: toasty::stmt::Query<toasty::stmt::List<M>>,
-    after: Option<toasty_core::stmt::Value>,
+    after: Option<toasty::stmt::Value>,
     raw_scanned: usize,
     exhausted: bool,
     beyond_window: bool,

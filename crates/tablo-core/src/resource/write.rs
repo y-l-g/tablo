@@ -30,10 +30,7 @@ pub async fn write_create<R: Resource>(
     let mut insert = form.into_create().into_insert();
     match resource.tenancy.column_field() {
         Some(Ok(column)) => {
-            insert.set(
-                column.index,
-                toasty_core::stmt::Value::from(require_tenant(cx)?),
-            );
+            insert.set(column.index, toasty::stmt::Value::from(require_tenant(cx)?));
         }
         Some(Err(error)) => {
             return Err(crate::error::declaration(

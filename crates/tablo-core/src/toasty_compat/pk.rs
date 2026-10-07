@@ -133,6 +133,22 @@ where
     Some((fid, value))
 }
 
+/// Ascending order-bys over `M`'s primary key: the deterministic order a page falls back to.
+pub(crate) fn pk_order_bys<M>() -> Vec<toasty::stmt::OrderByExpr>
+where
+    M: toasty::schema::Model,
+{
+    debug_assert!(
+        M::schema().as_root().is_some(),
+        "pk_order_bys: {} is not a root model; deterministic pagination needs its primary key",
+        std::any::type_name::<M>()
+    );
+    pk_fields::<M>()
+        .iter()
+        .map(|fid| M::path_field::<toasty::stmt::Value>(fid.index).asc())
+        .collect()
+}
+
 /// Reports whether `M`'s primary key is composite, which has no URL representation.
 pub(crate) fn pk_is_composite<M>() -> bool
 where

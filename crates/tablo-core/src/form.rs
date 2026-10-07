@@ -111,7 +111,7 @@ use std::{
     hash::Hash,
 };
 
-use toasty::{Executor, schema::Model, stmt::IntoInsert};
+use toasty::{Executor, schema::Model};
 use topcoat::context::Cx;
 
 use crate::{
@@ -540,30 +540,4 @@ impl FieldErrors {
             .retain(|kept| !owned.contains(kept.key.as_str()));
         self.errors.extend(other.errors);
     }
-}
-
-/// Which of `M`'s root fields the create builder fills before any setter runs:
-/// `#[auto]` fields, which the database fills, and `#[default(..)]` ones.
-///
-/// Read off `M::Create::default()`, because toasty keeps a `#[default]` in its
-/// generated code only, never in the app schema.
-pub(crate) fn prefilled_fields<M: Model>() -> Vec<bool> {
-    let insert = <M::Create as Default>::default().into_insert();
-    let toasty_core::stmt::Expr::Stmt(statement) = toasty_core::stmt::Expr::from(insert) else {
-        return Vec::new();
-    };
-    statement
-        .stmt
-        .as_insert()
-        .and_then(|insert| insert.source.body.as_values())
-        .and_then(|values| values.rows.last())
-        .and_then(|row| row.as_record())
-        .map(|record| {
-            record
-                .fields
-                .iter()
-                .map(|expr| !expr.is_value_null())
-                .collect()
-        })
-        .unwrap_or_default()
 }

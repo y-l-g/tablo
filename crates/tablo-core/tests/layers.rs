@@ -1,6 +1,7 @@
-//! The crate's layers: a module names its own layer and the ones below it, never one above.
+//! The crate's layers: a module names its own layer and the ones below it, never one above; and
+//! only `toasty_compat` reaches Toasty's internals.
 //!
-//! The check reads the sources: every `crate::` path, every `super::` path that leaves its
+//! The checks read the sources: every `crate::` path, every `super::` path that leaves its
 //! top-level module, and every root re-export they go through. Tests and their fixtures are
 //! exempt, since a test may drive any layer.
 
@@ -73,6 +74,78 @@ fn every_module_reaches_only_its_own_layer_and_the_ones_below() {
         "a module reaches a layer above its own:\n{}",
         reached_up.join("\n")
     );
+}
+
+/// What names Toasty's internals: its internal crate, and the reads of a model's `app`, `mapping`
+/// or `db` schema (`Model::schema()` and `Db::schema()` walked through `as_root` and
+/// `app_unwrap`). `toasty::schema::{app, mapping, db}` re-export the same structures, so they
+/// count too.
+const TOASTY_INTERNALS: &[&str] = &[
+    "toasty_core",
+    "codegen_support::core",
+    ".as_root",
+    ".app_unwrap()",
+    ".schema()",
+];
+
+/// The halves of a model's schema `toasty::schema` re-exports from Toasty's internal crate.
+const SCHEMA_HALVES: &[&str] = &["app", "mapping", "db"];
+
+#[test]
+fn only_toasty_compat_reaches_toasty_internals() {
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = sources(&src);
+    files.push(src.join("lib.rs"));
+    let mut reached = Vec::new();
+    for file in files {
+        let relative = file.strip_prefix(&src).expect("under src");
+        if module_path(relative)[0] == "toasty_compat" {
+            continue;
+        }
+        let text = strip(&fs::read_to_string(&file).expect("read a source"));
+        for internal in TOASTY_INTERNALS {
+            let named = text.match_indices(internal).any(|(at, _)| {
+                !text[..at]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| c.is_alphanumeric() || c == '_')
+            });
+            if named {
+                reached.push(format!("{} names `{internal}`", relative.display()));
+            }
+        }
+        for half in schema_halves(&text) {
+            reached.push(format!(
+                "{} names `toasty::schema::{half}`",
+                relative.display()
+            ));
+        }
+    }
+    reached.sort();
+    reached.dedup();
+    assert!(
+        reached.is_empty(),
+        "only `toasty_compat` reaches Toasty's internals; add what these need there:\n{}",
+        reached.join("\n")
+    );
+}
+
+/// The schema halves `text` names through `toasty::schema::`, or a `toasty::{schema::..}` group.
+fn schema_halves(text: &str) -> Vec<String> {
+    let mut named = Vec::new();
+    for (at, _) in text.match_indices("toasty::schema::") {
+        named.extend(first_segments(&text[at + "toasty::schema::".len()..]));
+    }
+    for (at, _) in text.match_indices("toasty::{") {
+        let group = &text[at + "toasty::{".len()..];
+        for item in top_level_items(&group[..group_end(group)]) {
+            if let Some(rest) = item.strip_prefix("schema::") {
+                named.extend(first_segments(rest));
+            }
+        }
+    }
+    named.retain(|segment| SCHEMA_HALVES.contains(&segment.as_str()));
+    named
 }
 
 fn layer(module: &str) -> Option<usize> {

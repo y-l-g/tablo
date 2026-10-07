@@ -1,64 +1,6 @@
-use toasty::schema::Model;
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::test_support::DummyUser;
-
-#[test]
-fn single_segment_lens_passes_traversal_is_refused() {
-    use toasty::schema::Model;
-    let single = toasty_core::stmt::Path::field(DummyUser::id(), 0);
-    assert_eq!(single_segment(&single), Ok(0));
-    let mut two = toasty_core::stmt::Path::field(DummyUser::id(), 0);
-    two.chain(&toasty_core::stmt::Path::field(DummyUser::id(), 1));
-    assert_eq!(
-        single_segment(&two),
-        Err(DeclarationErrorKind::TraversalLens { steps: 2 })
-    );
-}
-
-/// Reports the lens's field name, label, and nullability.
-#[test]
-fn lens_field_resolves_name_label_and_nullability() {
-    use toasty::schema::Model;
-    let model = DummyUser::schema();
-
-    let email = lens_field(DummyUser::fields().email(), &model).unwrap();
-    assert_eq!(email.name.app_unwrap(), "email");
-    assert_eq!(lens_label(&email), "Email");
-    assert!(!email.nullable());
-    assert_eq!(email.name.storage_name(), Some("email"));
-
-    let name = lens_field(DummyUser::fields().name(), &model).unwrap();
-    assert_eq!(name.name.app_unwrap(), "name");
-    assert_eq!(lens_label(&name), "Name");
-}
-
-/// Reports uniqueness from the model's index list, where `#[unique]` lives.
-#[test]
-fn lens_field_unique_reads_the_model_index_list() {
-    use toasty::schema::Model;
-    let model = DummyUser::schema();
-    let root = model.as_root_unwrap();
-
-    let email = lens_field(DummyUser::fields().email(), &model).unwrap();
-    assert!(
-        lens_field_unique(&email, root),
-        "#[unique] on email must surface as a single-field unique index"
-    );
-
-    let name = lens_field(DummyUser::fields().name(), &model).unwrap();
-    assert!(
-        !lens_field_unique(&name, root),
-        "a field with no unique index must not report unique"
-    );
-
-    let id = lens_field(DummyUser::fields().id(), &model).unwrap();
-    assert!(
-        !lens_field_unique(&id, root),
-        "the primary key is unique by construction, not by declared constraint"
-    );
-}
 
 // `FieldResolver` reads the compiled schema the request carries, so these tests build a `Db` over
 // one model carrying every shape the resolver reads.
@@ -170,7 +112,7 @@ async fn lens_cx() -> Cx {
 #[tokio::test]
 async fn a_plain_leaf_resolves_through_the_app_field() {
     let cx = lens_cx().await;
-    let leaf = FieldResolver::new(schema_of(&cx))
+    let leaf = FieldResolver::of(&cx)
         .resolve(LensPost::fields().title())
         .unwrap();
     assert_eq!(leaf.name, "title");
@@ -185,7 +127,7 @@ async fn a_plain_leaf_resolves_through_the_app_field() {
 #[tokio::test]
 async fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
     let cx = lens_cx().await;
-    let leaf = FieldResolver::new(schema_of(&cx))
+    let leaf = FieldResolver::of(&cx)
         .resolve(LensPost::fields().seo().title())
         .unwrap();
     assert_eq!(leaf.name, "seo_title");
@@ -203,7 +145,7 @@ async fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
 #[tokio::test]
 async fn a_leaf_in_a_struct_nested_in_an_enum_variant_resolves_to_one_column() {
     let cx = lens_cx().await;
-    let resolver = FieldResolver::new(schema_of(&cx));
+    let resolver = FieldResolver::of(&cx);
 
     // media.image().url() — the other variant, one level down.
     assert_eq!(
@@ -241,7 +183,7 @@ async fn a_leaf_in_a_struct_nested_in_an_enum_variant_resolves_to_one_column() {
 #[tokio::test]
 async fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
     let cx = lens_cx().await;
-    let resolver = FieldResolver::new(schema_of(&cx));
+    let resolver = FieldResolver::of(&cx);
     assert_eq!(
         resolver
             .resolve(LensPost::fields().wrapper().inner().image().url())
@@ -262,7 +204,7 @@ async fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
 #[tokio::test]
 async fn a_shared_column_resolves_for_every_variant_that_declares_it() {
     let cx = lens_cx().await;
-    let resolver = FieldResolver::new(schema_of(&cx));
+    let resolver = FieldResolver::of(&cx);
     assert_eq!(
         resolver
             .resolve(LensPost::fields().publication().scheduled().scheduled_at())
@@ -290,7 +232,7 @@ async fn a_shared_column_resolves_for_every_variant_that_declares_it() {
 #[tokio::test]
 async fn a_document_leaf_resolves_to_the_document_column() {
     let cx = lens_cx().await;
-    let leaf = FieldResolver::new(schema_of(&cx))
+    let leaf = FieldResolver::of(&cx)
         .resolve(LensPost::fields().stats().word_count())
         .unwrap();
     assert_eq!(leaf.name, "stats");
@@ -305,15 +247,13 @@ async fn a_document_leaf_resolves_to_the_document_column() {
 #[tokio::test]
 async fn a_root_model_the_schema_does_not_carry_resolves_to_nothing() {
     let cx = cx_with(toasty::models!(Impostor)).await;
-    let resolver = FieldResolver::new(schema_of(&cx));
+    let resolver = FieldResolver::of(&cx);
     assert!(resolver.has_schema(), "the Db carries the app schema");
     assert!(
-        schema_of(&cx)
+        !AppSchema::of(&cx)
             .expect("the Db carries the app schema")
-            .app
-            .get_model(<LensPost as Model>::id())
-            .is_none(),
-        "this schema carries no model under the lens's id"
+            .registers("LensPost"),
+        "this schema carries no model under the lens's name"
     );
     assert!(
         resolver
@@ -327,7 +267,7 @@ async fn a_root_model_the_schema_does_not_carry_resolves_to_nothing() {
 #[tokio::test]
 async fn a_root_model_the_schema_does_not_carry_refuses_a_leaf_lens() {
     let cx = cx_with(toasty::models!(Impostor)).await;
-    let error = FieldResolver::new(schema_of(&cx))
+    let error = FieldResolver::of(&cx)
         .resolve(LensPost::fields().seo().title())
         .expect_err("a lens the schema cannot bind is refused");
     assert!(
@@ -340,7 +280,7 @@ async fn a_root_model_the_schema_does_not_carry_refuses_a_leaf_lens() {
 #[tokio::test]
 async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
     let cx = lens_cx().await;
-    let shape = FieldResolver::new(schema_of(&cx))
+    let shape = FieldResolver::of(&cx)
         .resolve_enum(LensPost::fields().publication().into())
         .expect("an embedded enum resolves");
     assert_eq!(shape.discriminant, "publication");
@@ -357,7 +297,7 @@ async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
 #[tokio::test]
 async fn an_enum_inside_a_struct_resolves_through_its_path() {
     let cx = lens_cx().await;
-    let shape = FieldResolver::new(schema_of(&cx))
+    let shape = FieldResolver::of(&cx)
         .resolve_enum(LensPost::fields().wrapper().inner().into())
         .expect("the nested enum resolves");
     assert_eq!(shape.discriminant, "wrapper_inner");
@@ -367,7 +307,7 @@ async fn an_enum_inside_a_struct_resolves_through_its_path() {
 #[tokio::test]
 async fn anything_but_an_enum_resolves_to_nothing() {
     let cx = lens_cx().await;
-    let resolver = FieldResolver::new(schema_of(&cx));
+    let resolver = FieldResolver::of(&cx);
     assert!(
         resolver
             .resolve_enum(LensPost::fields().seo().into())
@@ -396,7 +336,7 @@ async fn anything_but_an_enum_resolves_to_nothing() {
 #[test]
 fn without_a_schema_there_is_no_walk() {
     let cx = CxTestBuilder::new().build();
-    let resolver = FieldResolver::new(schema_of(&cx));
+    let resolver = FieldResolver::of(&cx);
     assert!(!resolver.has_schema(), "a bare Cx carries no Db");
     assert!(
         resolver

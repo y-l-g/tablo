@@ -4,8 +4,7 @@
 //! ([`Table::apply_declaration`](super::Table)); this module runs it against
 //! the database.
 
-use toasty::stmt::{List, Query};
-use toasty_core::stmt::Value;
+use toasty::stmt::{List, Query, Value};
 use topcoat::{Result, context::Cx};
 
 use super::{Cursor, Table, TableState};

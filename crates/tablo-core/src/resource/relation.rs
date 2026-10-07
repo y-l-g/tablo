@@ -5,7 +5,13 @@ use std::{any::TypeId, sync::Arc};
 use toasty::stmt::{Expr, IntoExpr, Path};
 
 use super::Resource;
-use crate::{form::FormScalar, schema::lens_field, toasty_compat::pk};
+use crate::{
+    form::FormScalar,
+    toasty_compat::{
+        model::{self, ModelPath},
+        pk,
+    },
+};
 
 /// One relation of a parent resource's records.
 ///
@@ -73,11 +79,8 @@ where
         T: ForeignKey<P::PrimaryKey>,
     {
         // A foreign key is one column of the child: it binds against the child's model alone.
-        let (column, misdeclared) = match lens_field(
-            foreign_key.clone(),
-            &<C::Model as toasty::schema::Model>::schema(),
-        ) {
-            Ok(field) => (field.name.app_unwrap().to_string(), None),
+        let (column, misdeclared) = match model::field::<C::Model>(&ModelPath::of(&foreign_key)) {
+            Ok(field) => (field.name, None),
             Err(error) => (String::new(), Some(error)),
         };
         Self {

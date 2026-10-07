@@ -38,13 +38,10 @@ impl TextControl {
     where
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
     {
-        let path: toasty_core::stmt::Path = path.into();
+        let path = crate::toasty_compat::model::ModelPath::of(&path);
         let probe: EqProbe = std::sync::Arc::new(move |value: &str| {
             let parsed = T::parse_form(value.trim()).ok()?;
-            let rhs: toasty_core::stmt::Expr = toasty::stmt::IntoExpr::into_expr(parsed).into();
-            Some(toasty::stmt::Expr::from_untyped(
-                toasty_core::stmt::Expr::eq(path.clone().into_stmt(), rhs),
-            ))
+            Some(path.eq(parsed))
         });
         Self {
             input_type: T::INPUT_TYPE,

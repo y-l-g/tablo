@@ -417,12 +417,8 @@ pub(crate) fn check_models_registered(
     let Some(authenticator) = auth.authenticator() else {
         return Ok(());
     };
-    let registered = |name: &str| {
-        db.schema()
-            .app
-            .models()
-            .any(|model| model.name().upper_camel_case() == name)
-    };
+    let schema = crate::toasty_compat::model::AppSchema::of_db(db);
+    let registered = |name: &str| schema.registers(name);
     let shipped_user = authenticator.user_type() == TypeId::of::<AdminUser>();
     let models: Vec<&'static str> = [
         (!registered("AuthSession")).then_some("AuthSession"),
