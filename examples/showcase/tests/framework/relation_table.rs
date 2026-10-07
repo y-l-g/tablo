@@ -3,7 +3,7 @@
 //! the relation, and the writes it starts return to the owner's page.
 
 use http::header::LOCATION;
-use tablo_core::{
+use tablo::{
     Ability, DeclarationErrorKind, Field, Relation, Resource, ResourceDef, Schema, Site, Table,
     TextColumn, lens,
 };
@@ -55,7 +55,7 @@ impl Resource for OwnerResource {
     }
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Owner)]
 struct OwnerForm {
     name: String,
@@ -89,7 +89,7 @@ impl Resource for ChildResource {
     }
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Child)]
 struct ChildForm {
     body: String,
@@ -326,7 +326,7 @@ async fn two_relations_to_one_child_do_not_build() {
     struct TwiceResource;
     impl Resource for TwiceResource {
         type Model = Owner;
-        type Form = tablo_core::NoForm<Owner>;
+        type Form = tablo::NoForm<Owner>;
 
         fn declare() -> ResourceDef<Self> {
             let relation = || Relation::has_many::<ChildResource>(Child::fields().owner_id());

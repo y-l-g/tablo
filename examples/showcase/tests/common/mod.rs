@@ -5,12 +5,11 @@
 pub mod routers;
 
 use showcase::models::{DEMO_ADMIN_EMAIL, seed, seed_content, seed_staff};
-use tablo_core::{Panel, RouterBuilderPanelExt, TenantId};
-use tablo_test::rows;
-pub use tablo_test::{
+pub use tablo::testing::{
     SESSION_COOKIE, TestClient, body_string, filter_options, form_body, input_value,
     multipart_body, response_cookies, session_cookie_value, set_cookie_header,
 };
+use tablo::{Panel, RouterBuilderPanelExt, TenantId, testing::rows};
 use toasty::Db;
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
 
@@ -34,7 +33,7 @@ pub async fn empty_schema_db() -> Db {
             showcase::models::Staff,
             showcase::models::Workspace,
             showcase::models::Seat,
-            tablo_core::auth::AuthSession
+            tablo::auth::AuthSession
         ))
         .connect("sqlite::memory:")
         .await
@@ -159,7 +158,7 @@ pub async fn mint_session(db: &Db, email: &str) -> String {
     use std::{fmt::Write as _, time::SystemTime};
 
     use showcase::models::Staff;
-    use tablo_core::auth::{AuthSession, SESSION_LIFETIME};
+    use tablo::auth::{AuthSession, SESSION_LIFETIME};
     use topcoat::session::Token;
 
     let mut db = db.clone();

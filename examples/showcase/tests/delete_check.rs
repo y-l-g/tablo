@@ -1,6 +1,6 @@
 use http::header::LOCATION;
 use showcase::models::User;
-use tablo_core::{Ability, lens};
+use tablo::{Ability, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -23,7 +23,8 @@ async fn delete_requires_confirmation_and_deletes() {
 
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
-    let actions = tablo_test::row_actions(&html, &id).expect("the row carries its delete control");
+    let actions =
+        tablo::testing::row_actions(&html, &id).expect("the row carries its delete control");
     assert_eq!(
         actions.delete_action.as_deref(),
         Some(delete_url.as_str()),
@@ -140,7 +141,7 @@ async fn delete_404_for_an_unknown_id() {
 async fn forged_delete_runs_no_record_query() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use tablo_core::{Resource, ResourceDef, Table, TextColumn};
+    use tablo::{Resource, ResourceDef, Table, TextColumn};
 
     static QUERIES: AtomicUsize = AtomicUsize::new(0);
     fn counted_query(_cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Dummy>> {
@@ -159,7 +160,7 @@ async fn forged_delete_runs_no_record_query() {
     struct CountingResource;
     impl Resource for CountingResource {
         type Model = Dummy;
-        type Form = tablo_core::NoForm<Self::Model>;
+        type Form = tablo::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
@@ -194,8 +195,8 @@ async fn forged_delete_runs_no_record_query() {
     .unwrap();
     let router = mount(
         db.clone(),
-        tablo_core::Panel::new("admin")
-            .auth(tablo_core::Auth::disabled())
+        tablo::Panel::new("admin")
+            .auth(tablo::Auth::disabled())
             .resource::<CountingResource>(),
     )
     .expect("panel builds");

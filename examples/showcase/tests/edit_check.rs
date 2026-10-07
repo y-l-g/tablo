@@ -48,12 +48,12 @@ async fn edit_page_hydrates_and_updates() {
     );
     let html = body_string(resp).await;
     assert_eq!(
-        tablo_test::field_error(&html, "name").as_deref(),
+        tablo::testing::field_error(&html, "name").as_deref(),
         Some("Name is required"),
         "the name slot names its refusal, got {html}"
     );
     assert_eq!(
-        tablo_test::field_error(&html, "email").as_deref(),
+        tablo::testing::field_error(&html, "email").as_deref(),
         Some("Email must be a valid email"),
         "the email slot names its refusal, got {html}"
     );
@@ -389,7 +389,7 @@ async fn post_edit_binds_and_saves_embedded_fields() {
     assert_eq!(resp.status(), 200);
     let html = body_string(resp).await;
     assert_eq!(
-        tablo_test::input_value(&html, "seo_title").as_deref(),
+        tablo::testing::input_value(&html, "seo_title").as_deref(),
         Some(post.seo.title.as_str()),
         "the embedded leaf hydrates its flattened column, got {html}"
     );
@@ -689,7 +689,7 @@ async fn user_age_round_trips_and_refuses_a_negative() {
 
     let html = body_string(client.get(&format!("/admin/users/{}/edit", user.id)).await).await;
     assert_eq!(
-        tablo_test::input_value(&html, "age"),
+        tablo::testing::input_value(&html, "age"),
         Some(user.age.to_string()),
         "the typed integer must hydrate its control, got {html}"
     );
@@ -725,7 +725,7 @@ async fn user_age_round_trips_and_refuses_a_negative() {
     );
     let html = body_string(resp).await;
     assert_eq!(
-        tablo_test::field_error(&html, "age").as_deref(),
+        tablo::testing::field_error(&html, "age").as_deref(),
         Some("Age must be zero or more"),
         "the age slot names the range refusal, got {html}"
     );

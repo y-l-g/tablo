@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use tablo_core::{
+use tablo::{
     Ability, FieldError, FieldErrorKind, FieldErrors, FormScalar,
     form::parse_scalar,
     schema::{Field, Schema, Source},
@@ -143,7 +143,7 @@ fn a_text_field_stores_what_was_typed_trimmed() {
 /// re-renders inline.
 #[tokio::test]
 async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
-    use tablo_core::{Auth, Panel, Resource, ResourceDef};
+    use tablo::{Auth, Panel, Resource, ResourceDef};
     use topcoat::router::{Body, Router};
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -164,14 +164,14 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
                 .policy(|_cx: &Cx, ability: Ability<'_, Reading>| {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
-                .table(tablo_core::Table::new(tablo_core::ComputedColumn::new(
+                .table(tablo::Table::new(tablo::ComputedColumn::new(
                     "Words",
                     |r: &Reading| r.word_count.to_string(),
                 )))
                 .form(Schema::new(Field::text(Reading::fields().word_count())))
         }
     }
-    #[derive(tablo_core::RecordForm)]
+    #[derive(tablo::RecordForm)]
     #[form(model = Reading)]
     struct ReadingForm {
         word_count: i64,
@@ -202,7 +202,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
                 )
                 .header(
                     http::header::COOKIE,
-                    format!("{}={csrf}", tablo_core::csrf::COOKIE_NAME),
+                    format!("{}={csrf}", tablo::csrf::COOKIE_NAME),
                 )
                 .body(Body::from(format!("word_count=lots&csrf_token={csrf}")))
                 .unwrap(),

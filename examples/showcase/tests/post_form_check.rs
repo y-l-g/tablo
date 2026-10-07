@@ -81,7 +81,7 @@ async fn posts_create_invalid_shows_errors() {
         "invalid should be 200, got {status} {html}"
     );
     assert_eq!(
-        tablo_test::field_error(&html, "title").as_deref(),
+        tablo::testing::field_error(&html, "title").as_deref(),
         Some("Title is required"),
         "the title slot names its refusal, got {html}"
     );

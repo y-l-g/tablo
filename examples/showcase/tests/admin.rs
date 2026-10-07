@@ -65,7 +65,7 @@ async fn admin_resource_list_page_serve_seeded_users() {
         find_href_with(&html, "/admin/users/create").is_some() && !html.contains("Create Users"),
         "missing singular create entry point in {html}"
     );
-    let cells: Vec<String> = tablo_test::rows(&html)
+    let cells: Vec<String> = tablo::testing::rows(&html)
         .into_iter()
         .flat_map(|row| row.cells)
         .collect();
@@ -285,7 +285,7 @@ async fn admin_list_pagination_walks_cursor_links() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
-    let page_size = tablo_core::table::DEFAULT_PAGE_SIZE.get();
+    let page_size = tablo::table::DEFAULT_PAGE_SIZE.get();
     let extra = page_size - seeded + 1;
     let last = format!("User {:02}", extra - 1);
     {
@@ -378,7 +378,7 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
-    let page_size = tablo_core::table::DEFAULT_PAGE_SIZE.get();
+    let page_size = tablo::table::DEFAULT_PAGE_SIZE.get();
     let extra = page_size - seeded + 1;
     {
         let mut db_q = db.clone();
@@ -441,7 +441,7 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
-    let page_size = tablo_core::table::DEFAULT_PAGE_SIZE.get();
+    let page_size = tablo::table::DEFAULT_PAGE_SIZE.get();
     let tied = 30usize;
     {
         let mut db_q = db.clone();
@@ -521,7 +521,7 @@ async fn admin_list_search_matches_substrings_and_escapes_wildcards() {
             .parse::<jiff::Timestamp>()
             .expect("timestamp"),
     })
-    .exec(&mut tablo_core::db::db(
+    .exec(&mut tablo::db::db(
         &topcoat::context::CxTestBuilder::new()
             .app_context(db.clone())
             .build(),

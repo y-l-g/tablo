@@ -1,7 +1,7 @@
 //! The override seam, proven end to end (spec #127, ticket #132).
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
-use tablo_core::{
+use tablo::{
     Ability, Auth, Membership, PanelUser, Resource, ResourceDef, Table, Tenancy, TenantId,
     TextColumn,
     auth::{self, Authenticator, verify_password},
@@ -78,7 +78,7 @@ struct MemberAuth;
 
 impl MemberAuth {
     async fn signed(cx: &Cx, member: Member) -> topcoat::Result<SignedMember> {
-        let mut db = tablo_core::db::db(cx);
+        let mut db = tablo::db::db(cx);
         let tenants = Seat::filter(Seat::fields().member_id().eq(member.id))
             .exec(&mut db)
             .await?
@@ -98,7 +98,7 @@ impl Authenticator for MemberAuth {
         login: &str,
         password: &str,
     ) -> topcoat::Result<Option<SignedMember>> {
-        let mut db = tablo_core::db::db(cx);
+        let mut db = tablo::db::db(cx);
         let member = Member::filter(Member::fields().handle().eq(login.to_string()))
             .first()
             .exec(&mut db)
@@ -116,7 +116,7 @@ impl Authenticator for MemberAuth {
         let Ok(id) = Uuid::parse_str(id) else {
             return Ok(None);
         };
-        let mut db = tablo_core::db::db(cx);
+        let mut db = tablo::db::db(cx);
         let member = Member::filter(Member::fields().id().eq(id))
             .first()
             .exec(&mut db)
@@ -132,7 +132,7 @@ struct MemberResource;
 
 impl Resource for MemberResource {
     type Model = Member;
-    type Form = tablo_core::NoForm<Self::Model>;
+    type Form = tablo::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
@@ -160,11 +160,11 @@ struct NoteResource;
 
 impl Resource for NoteResource {
     type Model = Note;
-    type Form = tablo_core::NoForm<Self::Model>;
+    type Form = tablo::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(when(is_ada).and(tablo_core::ReadOnly))
+            .policy(when(is_ada).and(tablo::ReadOnly))
             .tenancy(Tenancy::column(Note::fields().tenant_id()))
             .table(Table::new(TextColumn::new(lens!(Note.body))).paginate(25))
     }
@@ -176,10 +176,10 @@ async fn seeded_db() -> Db {
         Member,
         Seat,
         Note,
-        tablo_core::auth::AuthSession
+        tablo::auth::AuthSession
     ))
     .await;
-    let hash = tablo_core::auth::hash_password("opensesame").expect("hash");
+    let hash = tablo::auth::hash_password("opensesame").expect("hash");
     let ada = toasty::create!(Member {
         handle: "ada".to_string(),
         password_hash: hash.clone(),
@@ -228,7 +228,7 @@ async fn seeded_db() -> Db {
 fn notes_router(db: Db) -> Router {
     mount(
         db,
-        tablo_core::Panel::new("admin")
+        tablo::Panel::new("admin")
             .auth(Auth::custom(MemberAuth))
             .resource::<MemberResource>()
             .resource::<NoteResource>(),
@@ -246,7 +246,7 @@ fn cookie_value(response: &Response<Body>, name: &str) -> Option<String> {
 /// Scrape the login page's CSRF pair.
 async fn csrf_pair(router: &Router) -> (String, String) {
     let page = get_with_cookies(router, "/admin/login", &[]).await;
-    let csrf_cookie = cookie_value(&page, tablo_core::csrf::COOKIE_NAME).expect("CSRF cookie");
+    let csrf_cookie = cookie_value(&page, tablo::csrf::COOKIE_NAME).expect("CSRF cookie");
     let html = body_string(page).await;
     let csrf = input_value(&html, "csrf_token").expect("CSRF field");
     (csrf_cookie, csrf)
@@ -263,7 +263,7 @@ async fn login_as(router: &Router, handle: &str) -> String {
     let login = post_form(
         router,
         "/admin/login",
-        &[(tablo_core::csrf::COOKIE_NAME, csrf_cookie)],
+        &[(tablo::csrf::COOKIE_NAME, csrf_cookie)],
         format!("email={handle}&password=opensesame&csrf_token={csrf}"),
     )
     .await;
@@ -307,7 +307,7 @@ async fn revoked_panel_access_can_still_log_out() {
         "/admin/logout",
         &[
             ("__Host-session", session.clone()),
-            (tablo_core::csrf::COOKIE_NAME, logout_csrf.clone()),
+            (tablo::csrf::COOKIE_NAME, logout_csrf.clone()),
         ],
         format!("csrf_token={logout_csrf}"),
     )
@@ -336,7 +336,7 @@ async fn revoked_panel_access_can_still_log_out() {
     );
     let mut db2 = db.clone();
     assert!(
-        tablo_core::auth::AuthSession::all()
+        tablo::auth::AuthSession::all()
             .exec(&mut db2)
             .await
             .unwrap()
@@ -361,7 +361,7 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
     // Log in through the shipped login page.
     let (csrf_cookie, csrf) = csrf_pair(&router).await;
 
-    let csrf_cookies = [(tablo_core::csrf::COOKIE_NAME, csrf_cookie)];
+    let csrf_cookies = [(tablo::csrf::COOKIE_NAME, csrf_cookie)];
     let wrong = post_form(
         &router,
         "/admin/login",
@@ -412,7 +412,7 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
                     COOKIE,
                     format!(
                         "__Host-session={session}; {}={logout_csrf}",
-                        tablo_core::csrf::COOKIE_NAME
+                        tablo::csrf::COOKIE_NAME
                     ),
                 )
                 .body(Body::from(format!("csrf_token={logout_csrf}")))
@@ -433,7 +433,7 @@ async fn switch_tenant(router: &Router, session: &str, tenant: Uuid) -> Response
         "/admin/tenant",
         &[
             ("__Host-session", session.to_string()),
-            (tablo_core::csrf::COOKIE_NAME, csrf.clone()),
+            (tablo::csrf::COOKIE_NAME, csrf.clone()),
         ],
         format!("tenant={tenant}&csrf_token={csrf}"),
     )

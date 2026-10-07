@@ -1,6 +1,6 @@
 use http::header::{LOCATION, SET_COOKIE};
 use showcase::models::User;
-use tablo_core::{Ability, lens};
+use tablo::{Ability, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -55,12 +55,12 @@ async fn create_invalid_submission_rerenders_with_inline_errors() {
         "invalid POST should re-render 200, not redirect, got {status}"
     );
     assert_eq!(
-        tablo_test::field_error(&html, "name").as_deref(),
+        tablo::testing::field_error(&html, "name").as_deref(),
         Some("Name is required"),
         "the name slot names its refusal, got {html}"
     );
     assert_eq!(
-        tablo_test::field_error(&html, "email").as_deref(),
+        tablo::testing::field_error(&html, "email").as_deref(),
         Some("Email must be a valid email"),
         "the email slot names its refusal, got {html}"
     );
@@ -186,7 +186,7 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
 
 #[tokio::test]
 async fn create_policy_deny() {
-    use tablo_core::{Field, Resource, ResourceDef, Schema, Table, TextColumn};
+    use tablo::{Field, Resource, ResourceDef, Schema, Table, TextColumn};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct DummyUser {
@@ -215,7 +215,7 @@ async fn create_policy_deny() {
                 .form(Schema::new(Field::text(DummyUser::fields().name())))
         }
     }
-    #[derive(tablo_core::RecordForm)]
+    #[derive(tablo::RecordForm)]
     #[form(model = DummyUser)]
     struct DenyCreateForm {
         name: String,
@@ -228,8 +228,8 @@ async fn create_policy_deny() {
     db.push_schema().await.unwrap();
     let router = mount(
         db.clone(),
-        tablo_core::Panel::new("admin")
-            .auth(tablo_core::Auth::disabled())
+        tablo::Panel::new("admin")
+            .auth(tablo::Auth::disabled())
             .resource::<DenyCreateResource>(),
     )
     .expect("panel builds");
@@ -370,7 +370,7 @@ async fn users_create_static_selects_set_role_and_active() {
 /// `notify_write_failure`'s doc comment describes this delivery.
 #[tokio::test]
 async fn a_failed_write_toasts_on_the_next_panel_page() {
-    use tablo_core::{Field, Resource, ResourceDef, Schema, Table, TextColumn};
+    use tablo::{Field, Resource, ResourceDef, Schema, Table, TextColumn};
     use topcoat::context::Cx;
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -404,7 +404,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
             Err(std::io::Error::other("the write did not land").into())
         }
     }
-    #[derive(tablo_core::RecordForm)]
+    #[derive(tablo::RecordForm)]
     #[form(model = Widget)]
     struct FailingForm {
         name: String,
@@ -417,8 +417,8 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     db.push_schema().await.unwrap();
     let router = mount(
         db,
-        tablo_core::Panel::new("admin")
-            .auth(tablo_core::Auth::disabled())
+        tablo::Panel::new("admin")
+            .auth(tablo::Auth::disabled())
             .resource::<FailingResource>(),
     )
     .expect("panel builds");

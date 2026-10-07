@@ -16,7 +16,7 @@ async fn main() {
             showcase::models::Staff,
             showcase::models::Workspace,
             showcase::models::Seat,
-            tablo_core::auth::AuthSession
+            tablo::auth::AuthSession
         ))
         .connect("sqlite::memory:")
         .await

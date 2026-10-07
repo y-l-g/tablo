@@ -2,7 +2,7 @@
 //! staff who sign in to them, and the authors, posts and comments.
 
 use jiff::Timestamp;
-use tablo_core::{TenantId, auth::hash_password};
+use tablo::{TenantId, auth::hash_password};
 use toasty::Db;
 
 use crate::{
