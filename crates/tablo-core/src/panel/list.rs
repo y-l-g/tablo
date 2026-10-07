@@ -120,16 +120,18 @@ fn wire_custom_actions<R: Resource>(
     table.with_custom_actions(resource.url.clone(), wired)
 }
 
-/// Renders the branded in-region table failure with a cursor-aware retry link.
-pub(crate) fn table_error_view<'a, R: Resource>(
+/// Renders the branded in-region table failure of the resource at `slug` with a cursor-aware
+/// retry link.
+pub(crate) fn table_error_view<'a>(
     cx: &'a Cx,
-    resource: &Mounted<R>,
+    slug: &str,
+    plural_label: &str,
     state: &TableState,
     error: &topcoat::Error,
     path: &str,
 ) -> BoxView<'a> {
-    tracing::error!(resource = resource.slug, error = %error, "table load failed");
-    let title = format!("Couldn't load {}", resource.plural_label);
+    tracing::error!(resource = slug, error = %error, "table load failed");
+    let title = format!("Couldn't load {plural_label}");
     let retry_url = retry_url_for_error(state, error, path);
     view! {
         cx =>
@@ -143,12 +145,15 @@ pub(crate) fn table_error_view<'a, R: Resource>(
     .boxed()
 }
 
-/// Renders the list page header with the resource's title and its Create link.
-fn list_header<'a, R: Resource>(cx: &'a Cx, resource: &Mounted<R>) -> BoxView<'a> {
-    let title = resource.plural_label.clone();
-    let create_url = (<R::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
-        .then(|| create_page_url(&resource.url));
-    let create_label = format!("Create {}", resource.label);
+/// Renders the list page header titled `plural_label`, with a Create link to `create_url`.
+fn list_header<'a>(
+    cx: &'a Cx,
+    plural_label: &str,
+    label: &str,
+    create_url: Option<String>,
+) -> BoxView<'a> {
+    let title = plural_label.to_string();
+    let create_label = format!("Create {label}");
     view! {
         cx =>
         tablo_ui::page_header(
@@ -194,7 +199,9 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             table.returning_to(back)
         };
         let skeleton = table.render_skeleton(cx, &state).await?;
-        let header = list_header(cx, &resource);
+        let create_url = (<R::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
+            .then(|| create_page_url(&resource.url));
+        let header = list_header(cx, &resource.plural_label, &resource.label, create_url);
         let mode = rerun_suspense_mode(cx);
         let lazy_rows = ThenView::new(async move {
             let list_path = &resource.url;
@@ -206,21 +213,36 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             };
             match rendered.await {
                 Ok(view) => Ok(view),
-                Err(error) => Ok(table_error_view(cx, &resource, &state, &error, list_path)),
+                Err(error) => Ok(table_error_view(
+                    cx,
+                    &resource.slug,
+                    &resource.plural_label,
+                    &state,
+                    &error,
+                    list_path,
+                )),
             }
         });
-
-        Ok(view! {
-            cx =>
-            tablo_ui::page(
-                (header)
-                tablo_ui::page_content(
-                    suspense(fallback: skeleton, mode: mode, (lazy_rows.boxed()))
-                )
-            )
-        }
-        .boxed())
+        Ok(list_page(cx, header, skeleton, mode, lazy_rows.boxed()))
     })
+}
+
+/// Renders the list page: `header` over the `rows`, behind `skeleton` while they load.
+fn list_page<'a>(
+    cx: &'a Cx,
+    header: BoxView<'a>,
+    skeleton: BoxView<'a>,
+    mode: SuspenseMode,
+    rows: BoxView<'a>,
+) -> BoxView<'a> {
+    view! {
+        cx =>
+        tablo_ui::page(
+            (header)
+            tablo_ui::page_content(suspense(fallback: skeleton, mode: mode, (rows)))
+        )
+    }
+    .boxed()
 }
 
 /// How a list's `suspense` loads: streamed behind its skeleton on the first render, and waited

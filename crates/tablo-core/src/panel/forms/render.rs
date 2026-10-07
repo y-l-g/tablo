@@ -15,6 +15,7 @@ use crate::{
     form::FieldErrors,
     policy::Ability,
     resource::{Mounted, Resource},
+    schema::Schema,
     topcoat_compat::async_page,
 };
 
@@ -23,6 +24,8 @@ pub(super) struct FormChrome {
     title: String,
     submit_label: &'static str,
     public_url: Option<String>,
+    /// Where Cancel leads without a `?return=` target: the resource's list.
+    list_url: String,
 }
 
 impl FormChrome {
@@ -31,6 +34,7 @@ impl FormChrome {
             title: format!("Create {}", resource.label),
             submit_label: "Create",
             public_url: None,
+            list_url: resource.url.clone(),
         }
     }
 
@@ -39,15 +43,16 @@ impl FormChrome {
             title: format!("Edit {}", resource.label),
             submit_label: "Save",
             public_url: R::public_url(cx, record),
+            list_url: resource.url.clone(),
         }
     }
 }
 
 /// Renders the shared create/edit shell with `FormChrome`, carrying uploader-answered uploads as
 /// hidden `keep_<field>` controls.
-pub(super) async fn render_form_page<'a, R: Resource>(
+pub(super) async fn render_form_page<'a>(
     cx: &'a Cx,
-    resource: &Mounted<R>,
+    schema: &Schema,
     chrome: FormChrome,
     values: &HashMap<String, String>,
     errors: &FieldErrors,
@@ -57,8 +62,8 @@ pub(super) async fn render_form_page<'a, R: Resource>(
         title,
         submit_label,
         public_url,
+        list_url,
     } = chrome;
-    let schema = &resource.form;
     let form_html = schema
         .render(cx, crate::schema::Source::form(values, errors))
         .await?;
@@ -69,7 +74,7 @@ pub(super) async fn render_form_page<'a, R: Resource>(
         Some(target) => crate::table::with_return(path, target),
         None => path.to_string(),
     };
-    let cancel = return_to.unwrap_or_else(|| resource.url.clone());
+    let cancel = return_to.unwrap_or(list_url);
     let enctype: Option<String> = schema
         .fields()
         .any(|field| field.is_file())
@@ -153,7 +158,7 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
         crate::csrf::ensure_token(cx);
         let html = render_form_page(
             cx,
-            &resource,
+            &resource.form,
             FormChrome::create(&resource),
             &seeded_values(cx, &resource),
             &FieldErrors::new(),

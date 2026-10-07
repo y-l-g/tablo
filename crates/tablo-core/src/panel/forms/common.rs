@@ -139,7 +139,7 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     carried: &HashSet<String>,
 ) -> Result<BoxView<'a>> {
     drop(tx);
-    render_form_page(cx, resource, chrome, values, errors, carried).await
+    render_form_page(cx, &resource.form, chrome, values, errors, carried).await
 }
 
 /// Renders the edit form hydrated from the tenant-scoped record.
@@ -155,7 +155,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let values = <R::Form as RecordForm>::hydrate(cx, &record);
         let html = render_form_page(
             cx,
-            &resource,
+            &resource.form,
             FormChrome::edit(cx, &resource, &record),
             &values,
             &FieldErrors::new(),

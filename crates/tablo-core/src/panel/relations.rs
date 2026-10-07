@@ -110,47 +110,59 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             });
         let body = match load_scoped_page(cx, &resource, &table, &state, scope).await {
             Ok(rows) => table.render_page(cx, rows, &state, &page, &signals).await?,
-            Err(error) => table_error_view(cx, &resource, &state, &error, &page),
+            Err(error) => table_error_view(
+                cx,
+                &resource.slug,
+                &resource.plural_label,
+                &state,
+                &error,
+                &page,
+            ),
         };
-        let header = relation_header(cx, &resource, label, create_url);
-        Ok(view! {
-            cx =>
-            <section class="flex flex-col gap-3" data-relation=(key)>
-                (header)
-                (body)
-            </section>
-        }
-        .boxed())
+        Ok(relation_section(
+            cx,
+            key,
+            label,
+            &resource.label,
+            create_url,
+            body,
+        ))
     })
 }
 
-/// Renders a relation section's heading row with its create-child link.
-fn relation_header<'a, C: Resource>(
+/// Renders a relation section titled `label` around its table `body`, with a link to create a
+/// child, labeled after `child_label`, at `create_url`.
+fn relation_section<'a>(
     cx: &'a Cx,
-    resource: &Mounted<C>,
+    key: String,
     label: String,
+    child_label: &str,
     create_url: Option<String>,
+    body: BoxView<'a>,
 ) -> BoxView<'a> {
-    let create_label = format!("New {}", resource.label);
+    let create_label = format!("New {child_label}");
     view! {
         cx =>
-        <div class="flex items-center justify-between gap-4">
-            <h2 class="text-lg font-semibold tracking-tight text-foreground">
-                (label)
-            </h2>
-            if let Some(url) = create_url {
-                <a
-                    (runtime_link(cx, &url))
-                    class=(tablo_ui::button_variants(
-                        tablo_ui::ButtonVariant::Outline,
-                        tablo_ui::ButtonSize::Sm,
-                    ))
-                >
-                    icon(data: tablo_ui::icons::PLUS)
-                    (create_label)
-                </a>
-            }
-        </div>
+        <section class="flex flex-col gap-3" data-relation=(key)>
+            <div class="flex items-center justify-between gap-4">
+                <h2 class="text-lg font-semibold tracking-tight text-foreground">
+                    (label)
+                </h2>
+                if let Some(url) = create_url {
+                    <a
+                        (runtime_link(cx, &url))
+                        class=(tablo_ui::button_variants(
+                            tablo_ui::ButtonVariant::Outline,
+                            tablo_ui::ButtonSize::Sm,
+                        ))
+                    >
+                        icon(data: tablo_ui::icons::PLUS)
+                        (create_label)
+                    </a>
+                }
+            </div>
+            (body)
+        </section>
     }
     .boxed()
 }

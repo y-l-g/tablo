@@ -48,56 +48,92 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
                 crate::table::EDIT_ROUTE_SEGMENT
             )
         });
-        let outline =
-            tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
-        Ok(view! {
-            cx =>
-            tablo_ui::page(
-                tablo_ui::page_header(
-                    tablo_ui::page_title((title))
-                    tablo_ui::page_actions(
-                        <a
-                            (crate::navigation::runtime_link(cx, &back))
-                            class=(outline.clone())
-                        >
-                            icon(data: tablo_ui::icons::ARROW_LEFT)
-                            "Back to list"
+        Ok(detail_page(
+            cx,
+            DetailPage {
+                title,
+                back,
+                public,
+                edit,
+                body,
+                content,
+                relations,
+            },
+        ))
+    })
+}
+
+/// What the detail page shows, resolved from the record.
+struct DetailPage<'a> {
+    title: String,
+    back: String,
+    public: Option<String>,
+    edit: Option<String>,
+    body: BoxView<'a>,
+    content: Option<BoxView<'a>>,
+    relations: Vec<BoxView<'a>>,
+}
+
+/// Renders the detail page around its resolved parts.
+fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
+    let DetailPage {
+        title,
+        back,
+        public,
+        edit,
+        body,
+        content,
+        relations,
+    } = page;
+    let outline =
+        tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
+    view! {
+        cx =>
+        tablo_ui::page(
+            tablo_ui::page_header(
+                tablo_ui::page_title((title))
+                tablo_ui::page_actions(
+                    <a
+                        (crate::navigation::runtime_link(cx, &back))
+                        class=(outline.clone())
+                    >
+                        icon(data: tablo_ui::icons::ARROW_LEFT)
+                        "Back to list"
+                    </a>
+                    if let Some(public) = public {
+                        <a href=(public) class=(outline.clone())>
+                            icon(data: tablo_ui::icons::EXTERNAL_LINK)
+                            "View public post"
                         </a>
-                        if let Some(public) = public {
-                            <a href=(public) class=(outline.clone())>
-                                icon(data: tablo_ui::icons::EXTERNAL_LINK)
-                                "View public post"
-                            </a>
-                        }
-                        if let Some(url) = edit {
-                            <a
-                                (crate::navigation::runtime_link(cx, &url))
-                                class=(tablo_ui::button_variants(
-                                    tablo_ui::ButtonVariant::Primary,
-                                    tablo_ui::ButtonSize::Md,
-                                ))
-                            >
-                                icon(data: tablo_ui::icons::PENCIL)
-                                "Edit"
-                            </a>
-                        }
-                    )
-                )
-                tablo_ui::page_content(
-                    <div class="flex flex-col gap-4">
-                        (body)
-                        if let Some(content) = content {
-                            (content)
-                        }
-                        for relation in relations {
-                            (relation)
-                        }
-                    </div>
+                    }
+                    if let Some(url) = edit {
+                        <a
+                            (crate::navigation::runtime_link(cx, &url))
+                            class=(tablo_ui::button_variants(
+                                tablo_ui::ButtonVariant::Primary,
+                                tablo_ui::ButtonSize::Md,
+                            ))
+                        >
+                            icon(data: tablo_ui::icons::PENCIL)
+                            "Edit"
+                        </a>
+                    }
                 )
             )
-        }
-        .boxed())
-    })
+            tablo_ui::page_content(
+                <div class="flex flex-col gap-4">
+                    (body)
+                    if let Some(content) = content {
+                        (content)
+                    }
+                    for relation in relations {
+                        (relation)
+                    }
+                </div>
+            )
+        )
+    }
+    .boxed()
 }
 
 /// Builds the detail title from the record label, else the page name and record key.
