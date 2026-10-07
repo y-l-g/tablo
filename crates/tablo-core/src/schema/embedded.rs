@@ -534,11 +534,6 @@ impl EmbeddedBuilder {
         }
     }
 
-    /// The app schema this value's members resolve through.
-    pub fn resolver(&self) -> &FieldResolver {
-        &self.resolver
-    }
-
     /// Adds a leaf, required when it has no blank answer.
     pub fn leaf(&mut self, field: impl Into<Field>, required: bool) {
         let mut field = field.into();

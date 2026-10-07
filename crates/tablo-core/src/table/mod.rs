@@ -351,8 +351,9 @@ impl<M> Table<M> {
 
     /// Binds the table's embedded paths to `db`'s app schema.
     ///
-    /// A panel binds the tables it mounts; bind one a custom page renders before rendering it. A
-    /// table with no embedded path is bound from the start.
+    /// A panel binds the tables it mounts; bind one built outside a panel so its
+    /// [`declaration_errors`](Self::declaration_errors) reports no unbound path. A table with no
+    /// embedded path is bound from the start.
     pub fn bind(self, db: &toasty::Db) -> Self {
         self.bind_with(&FieldResolver::of_db(db));
         self
@@ -480,7 +481,7 @@ impl<M> Table<M> {
         query
     }
 
-    /// Whether the declaration renders a search toolbar.
+    /// Whether the declaration enables a search toolbar.
     pub(crate) fn search_enabled(&self) -> bool
     where
         M: toasty::schema::Model,
@@ -488,7 +489,7 @@ impl<M> Table<M> {
         !self.hide_search && self.columns.iter().any(|c| c.is_searchable())
     }
 
-    /// Whether the declaration renders a filter bar.
+    /// Whether the declaration enables a filter bar.
     pub(crate) fn filter_bar_enabled(&self) -> bool {
         !self.hide_filter_bar && !self.filters.is_empty()
     }

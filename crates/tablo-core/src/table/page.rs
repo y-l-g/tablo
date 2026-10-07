@@ -10,7 +10,7 @@ use topcoat::{Result, context::Cx};
 
 use super::{Cursor, Table, TableState};
 
-/// One executed page of rows for `Table::render`.
+/// One executed page of rows for `WiredTable::render`.
 ///
 /// Build it from toasty's `Page` via [`Self::from_toasty_page`], which
 /// URL-encodes the engine cursors; a `Vec<M>` converts directly into a page

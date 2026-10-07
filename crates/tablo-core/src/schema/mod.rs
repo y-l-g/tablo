@@ -60,7 +60,8 @@ impl Schema {
         Self::default()
     }
 
-    /// Every field, in declaration order.
+    /// Every field, in the order it joins the schema: a layout's fields as it composes, in
+    /// declaration order, and an embedded value's fields when it binds.
     pub fn fields(&self) -> impl Iterator<Item = &Field> {
         self.fields.iter()
     }
