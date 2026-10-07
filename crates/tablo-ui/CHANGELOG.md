@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/y-l-g/tablo/compare/tablo-ui-v0.3.0...tablo-ui-v0.4.0) - 2026-10-07
+
+### Other
+
+- *(repo)* keep the rules in two short files and the ADRs to their decisions ([#525](https://github.com/y-l-g/tablo/pull/525))
+- *(core)* [**breaking**] keep Topcoat's runtime as the only browser layer ([#516](https://github.com/y-l-g/tablo/pull/516))
+
 ## [0.3.0](https://github.com/y-l-g/tablo/compare/tablo-ui-v0.2.0...tablo-ui-v0.3.0) - 2026-10-06
 
 ### Added

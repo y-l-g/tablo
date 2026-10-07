@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/y-l-g/tablo/compare/tablo-macros-v0.3.0...tablo-macros-v0.4.0) - 2026-10-07
+
+### Other
+
+- *(core)* [**breaking**] make the record form the one source of truth ([#513](https://github.com/y-l-g/tablo/pull/513))
+- *(schema)* [**breaking**] bind embedded paths at mount, not in a thread-local scope ([#512](https://github.com/y-l-g/tablo/pull/512))
+
 ## [0.3.0](https://github.com/y-l-g/tablo/compare/tablo-macros-v0.2.0...tablo-macros-v0.3.0) - 2026-10-06
 
 ### Other

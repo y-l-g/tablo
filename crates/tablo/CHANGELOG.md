@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/y-l-g/tablo/compare/v0.3.0...v0.4.0) - 2026-10-07
+
+### Fixed
+
+- *(core)* [**breaking**] let a resource name its public link ([#523](https://github.com/y-l-g/tablo/pull/523))
+- *(guide)* mount the related resource in the background-job example ([#518](https://github.com/y-l-g/tablo/pull/518))
+
+### Other
+
+- *(core)* [**breaking**] make the record form the one source of truth ([#513](https://github.com/y-l-g/tablo/pull/513))
+- *(schema)* [**breaking**] bind embedded paths at mount, not in a thread-local scope ([#512](https://github.com/y-l-g/tablo/pull/512))
+- *(core)* build panel pages outside the resource-generic handlers ([#521](https://github.com/y-l-g/tablo/pull/521))
+- *(core)* correct binding claims and drop a dead accessor ([#520](https://github.com/y-l-g/tablo/pull/520))
+- *(core)* render tables from a model-free frame ([#519](https://github.com/y-l-g/tablo/pull/519))
+- *(core)* [**breaking**] build a context outside requests with Panel::context ([#517](https://github.com/y-l-g/tablo/pull/517))
+- *(core)* [**breaking**] keep Topcoat's runtime as the only browser layer ([#516](https://github.com/y-l-g/tablo/pull/516))
+- *(table)* [**breaking**] wire request affordances onto a WiredTable ([#511](https://github.com/y-l-g/tablo/pull/511))
+- *(repo)* [**breaking**] home the test protocol helpers in tablo-test ([#509](https://github.com/y-l-g/tablo/pull/509))
+- *(repo)* keep the rules in two short files and the ADRs to their decisions ([#525](https://github.com/y-l-g/tablo/pull/525))
+
 ## [0.3.0](https://github.com/y-l-g/tablo/compare/v0.2.0...v0.3.0) - 2026-10-06
 
 ### Added
