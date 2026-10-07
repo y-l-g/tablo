@@ -17,8 +17,8 @@ request panel's copy. `Panel::resource_with` adjusts the def for one panel, so o
 can mount read-only in one panel and writable in another. A resource the request's panel does not
 mount answers as not mounted, and a relation or a relationship field naming one fails the mount.
 A context outside any request, such as a background job's, comes from `Panel::context`, which
-mounts the panel's resources with the same checks; a context with no panel at all mounts nothing,
-so no declaration is ever rebuilt outside a mount.
+mounts the panel's resources with the same resource declaration checks; a context with no panel at
+all mounts nothing, so no declaration is ever rebuilt outside a mount.
 
 ## Rejected
 

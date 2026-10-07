@@ -87,10 +87,10 @@ pub(crate) fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
         .build())
 }
 
-/// The mistakes a panel refused to mount with.
-pub(crate) fn refusal(mounted: topcoat::Result<Router>) -> Vec<crate::DeclarationError> {
+/// The mistakes a panel was refused with.
+pub(crate) fn refusal<T>(mounted: topcoat::Result<T>) -> Vec<crate::DeclarationError> {
     let Err(error) = mounted else {
-        panic!("the panel must not mount");
+        panic!("the panel must not build");
     };
     error
         .downcast_ref::<crate::MountError>()

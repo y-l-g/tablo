@@ -171,7 +171,7 @@ pub enum DeclarationErrorKind {
     SecondHome,
     /// The resource is registered on the panel twice.
     DuplicateResource,
-    /// The resource is not mounted on the request's panel.
+    /// The resource is not mounted on the context's panel.
     NotMounted,
     /// A slug naming a route the panel serves itself.
     ReservedSlug {
@@ -352,7 +352,7 @@ impl fmt::Display for DeclarationErrorKind {
                  under its own type",
             ),
             Self::NotMounted => f.write_str(
-                "not mounted on the request's panel: register it with `Panel::resource`",
+                "not mounted on the context's panel: register it with `Panel::resource`",
             ),
             Self::ReservedSlug { slug } => {
                 write!(f, "slug '{slug}' names a route the panel serves itself")

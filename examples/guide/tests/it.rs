@@ -1,6 +1,10 @@
-//! The Testing chapter's suite: the guide's example as a real test.
+//! The guide's executed snippets: the Testing chapter's suite and the data-access background job.
 
-use guide::first_panel::{Book, BookResource};
+use guide::{
+    data_access::count_drafts,
+    first_panel::{Book, BookResource},
+    models::{Author, Comment, Post, Seo},
+};
 use tablo::{
     prelude::*,
     testing::{TestClient, form_body},
@@ -93,3 +97,53 @@ async fn the_panel_refuses_a_db_without_the_auth_models() {
     ));
 }
 // ANCHOR_END: testing-mount-error
+
+/// A blog with two drafts and one published post for `tenant`, and one draft for another.
+async fn seeded_blog() -> (Db, uuid::Uuid) {
+    let tenant = uuid::Uuid::new_v4();
+    let other = uuid::Uuid::new_v4();
+    let mut db = Db::builder()
+        .models(toasty::models!(Author, Post, Comment))
+        .connect("sqlite::memory:")
+        .await
+        .expect("connect");
+    db.push_schema().await.expect("push the schema");
+    let author = toasty::create!(Author {
+        name: "Ada".to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed an author");
+    for (tenant_id, status) in [
+        (tenant, "draft"),
+        (tenant, "draft"),
+        (tenant, "published"),
+        (other, "draft"),
+    ] {
+        toasty::create!(Post {
+            tenant_id: TenantId::from(tenant_id),
+            title: "A post".to_string(),
+            body: "body".to_string(),
+            status: status.to_string(),
+            featured: false,
+            created_at: "2024-01-15T09:30:00Z".parse::<jiff::Timestamp>().unwrap(),
+            author_id: author.id,
+            seo: Seo {
+                title: "A post".to_string(),
+                description: String::new(),
+            },
+        })
+        .exec(&mut db)
+        .await
+        .expect("seed a post");
+    }
+    (db, tenant)
+}
+
+/// The data-access chapter's job runs against the panel the app mounts, scoped to its tenant.
+#[tokio::test]
+async fn a_background_job_counts_the_drafts_of_its_tenant() {
+    let (db, tenant) = seeded_blog().await;
+    let drafts = count_drafts(&db, tenant).await.expect("the job runs");
+    assert_eq!(drafts, 2, "two of the four posts are this tenant's drafts");
+}
