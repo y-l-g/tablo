@@ -14,6 +14,7 @@ use topcoat::{Result, context::Cx};
 use super::{Mounted, Resource};
 use crate::{
     form::{FieldError, FieldErrors},
+    naming::sentence_case,
     policy::Ability,
     schema::Schema,
 };
@@ -46,10 +47,6 @@ use crate::{
 /// impl Action<PostResource> for Publish {
 ///     type Input = ();
 ///     const NAME: &'static str = "publish";
-///
-///     fn label(_cx: &Cx) -> String {
-///         "Publish".to_string()
-///     }
 ///
 ///     fn can_run(_cx: &Cx, post: &Post) -> bool {
 ///         post.status != "published"
@@ -121,7 +118,6 @@ pub trait Action<R: Resource>: 'static {
     /// impl Action<PostResource> for Archive {
     ///     type Input = ();
     ///     const NAME: &'static str = "archive/all";
-    /// #   fn label(_cx: &Cx) -> String { String::new() }
     /// #   fn can_run(_: &Cx, _: &Post) -> bool { true }
     /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
     /// }
@@ -145,8 +141,11 @@ pub trait Action<R: Resource>: 'static {
     /// 400.
     const CONFIRM: bool = false;
 
-    /// The button text.
-    fn label(cx: &Cx) -> String;
+    /// The button text. Defaults to [`NAME`](Self::NAME) in sentence case: `"publish"` reads
+    /// "Publish", and `"send-invite"` reads "Send invite".
+    fn label(_cx: &Cx) -> String {
+        sentence_case(Self::NAME)
+    }
 
     /// Whether `record`'s state lets the action run on it: a published post refuses "publish".
     /// Defaults to `true`.
@@ -408,3 +407,6 @@ fn bulk_delete_erased<'a, R: Resource>(
 ) -> ActionFuture<'a> {
     Box::pin(R::bulk_delete_records(cx, records, ex))
 }
+
+#[cfg(test)]
+mod tests;

@@ -167,10 +167,6 @@ pub use table::{
 ///     type Input = Rejection;
 ///     const NAME: &'static str = "reject";
 ///
-///     fn label(_cx: &Cx) -> String {
-///         "Reject".to_string()
-///     }
-///
 ///     async fn run(
 ///         _cx: &Cx,
 ///         posts: &[Post],

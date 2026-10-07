@@ -104,10 +104,6 @@ impl Action<PostResource> for Publish {
     type Input = ();
     const NAME: &'static str = "publish";
 
-    fn label(_cx: &Cx) -> String {
-        "Publish".to_string()
-    }
-
     fn can_run(_cx: &Cx, post: &Post) -> bool {
         post.status != PostStatus::Published
     }
