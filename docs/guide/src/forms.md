@@ -252,6 +252,6 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 
 To bind a single embedded field on its own, pass its path: `Field::text(Post::fields().seo().title())`
 binds the flattened `seo_title` column, which the panel resolves through the database schema when
-it mounts. A schema or table built outside
-a panel, such as one a custom page renders, binds the same way with `.bind(&db)`; rendering one
-whose embedded paths are unbound fails rather than post the wrong key.
+it mounts. A schema built outside a panel, such as one a custom page renders, binds the same way
+with `.bind(&db)`; rendering one whose embedded paths are unbound fails rather than post the wrong
+key.
