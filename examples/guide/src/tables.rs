@@ -5,7 +5,7 @@ use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx, view::*};
 
 use crate::{
-    models::{Post, PostStatus, User},
+    models::{Author, Post, PostStatus, User},
     resources::PostResource,
 };
 
@@ -35,15 +35,12 @@ pub fn formatted_columns() {
 // ANCHOR_END: table-format
 
 // ANCHOR: table-relation-column
-pub fn author_column() -> ComputedColumn<Post> {
-    ComputedColumn::new("Author", |p: &Post| {
-        if p.author.is_unloaded() {
-            "(unloaded)".into()
-        } else {
-            p.author.get().name.clone()
-        }
-    })
-    .include(Post::fields().author())
+pub fn author_column() -> RelationColumn<Post> {
+    RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone())
+}
+
+pub fn comment_count_column() -> CountColumn<Post> {
+    CountColumn::new(relation!(Post.comments))
 }
 // ANCHOR_END: table-relation-column
 

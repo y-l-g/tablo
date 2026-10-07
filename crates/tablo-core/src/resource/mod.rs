@@ -90,8 +90,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// soft deletes and row-level visibility. Every loader starts from it.
     ///
     /// **Relations are not this method's job.** The list, the export and the detail page load
-    /// the relations their columns declare
-    /// ([`ComputedColumn::include`](crate::ComputedColumn::include)). Include a relation here only
+    /// the relations their columns declare ([`Column::includes`](crate::Column::includes)): a
+    /// [`RelationColumn`](crate::RelationColumn) declares its own. Include a relation here only
     /// when a closure no column covers reads it on every loader's rows: one the
     /// [`policy`](ResourceDef::policy) reads, or one a table's `group_by` or row key reads without
     /// a column including it.

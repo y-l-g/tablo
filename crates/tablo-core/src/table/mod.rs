@@ -26,8 +26,9 @@ mod wiring;
 
 pub use self::{
     column::{
-        BooleanColumn, Column, ColumnWidth, ComputedColumn, EmbeddedColumn, FileColumn, Includes,
-        IntoColumns, TextColumn, contains_expr,
+        BooleanColumn, Column, ColumnWidth, ComputedColumn, CountColumn, EmbeddedColumn,
+        FileColumn, Includes, IntoColumns, RelationColumn, RelationLens, TextColumn, ToOneRelation,
+        contains_expr, shape,
     },
     filter::{
         DateFilter, Filter, FilterInput, IntoFilters, QueryFilter, SelectFilter, TernaryFilter,

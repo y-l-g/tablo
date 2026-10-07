@@ -1,6 +1,6 @@
 //! Table and detail columns: the [`Column`] trait, the built-in [`TextColumn`],
-//! [`ComputedColumn`], [`BooleanColumn`], [`FileColumn`] and [`EmbeddedColumn`], and the
-//! [`IntoColumns`] seam.
+//! [`ComputedColumn`], [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`] and
+//! [`EmbeddedColumn`], and the [`IntoColumns`] seam.
 
 use std::{borrow::Cow, sync::Arc};
 
@@ -14,8 +14,10 @@ use crate::{
 };
 
 mod embedded;
+mod relation;
 
 pub use embedded::EmbeddedColumn;
+pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation, shape};
 
 /// One column of a table or a [`Detail`](crate::Detail) declares its label, its value read off
 /// the record, and its query predicates.
@@ -437,17 +439,15 @@ impl<M, T> std::fmt::Debug for TextColumn<M, T> {
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct Post {
-/// #     #[key] #[auto] id: uuid::Uuid,
-/// #     author_id: uuid::Uuid,
-/// #     #[belongs_to(key = author_id, references = id)]
-/// #     author: toasty::Deferred<Author>,
-/// # }
-/// tablo_core::ComputedColumn::new("Author", |p: &Post| p.author.get().name.clone())
-///     .include(Post::fields().author());
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, body: String }
+/// tablo_core::ComputedColumn::new("Words", |p: &Post| {
+///     p.body.split_whitespace().count().to_string()
+/// });
 /// ```
+///
+/// A closure that reads a relation declares it with [`include`](Self::include), so the page
+/// loads it; one relation's record or count is a [`RelationColumn`] or a [`CountColumn`], which
+/// declare their own.
 ///
 /// It maps to no column, so it neither searches nor sorts:
 ///
@@ -824,6 +824,24 @@ where
 }
 
 impl<M> IntoColumns<M> for ComputedColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![Arc::new(self)]
+    }
+}
+
+impl<M> IntoColumns<M> for RelationColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![Arc::new(self)]
+    }
+}
+
+impl<M> IntoColumns<M> for CountColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {

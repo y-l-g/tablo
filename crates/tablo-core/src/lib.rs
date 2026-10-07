@@ -133,9 +133,10 @@ pub use schema::{
     Grid, Group, IntoOptions, IntoSchema, Options, Schema, Section, Source, TextField, Toggle,
 };
 pub use table::{
-    BooleanColumn, Column, ColumnWidth, ComputedColumn, Cursor, DateFilter, EmbeddedColumn,
-    FileColumn, Filter, FilterInput, Includes, IntoColumns, IntoFilters, QueryFilter, SelectFilter,
-    Sort, Table, TablePage, TableState, TernaryFilter, TextColumn, WiredTable, contains_expr,
+    BooleanColumn, Column, ColumnWidth, ComputedColumn, CountColumn, Cursor, DateFilter,
+    EmbeddedColumn, FileColumn, Filter, FilterInput, Includes, IntoColumns, IntoFilters,
+    QueryFilter, RelationColumn, RelationLens, SelectFilter, Sort, Table, TablePage, TableState,
+    TernaryFilter, TextColumn, ToOneRelation, WiredTable, contains_expr,
 };
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///
