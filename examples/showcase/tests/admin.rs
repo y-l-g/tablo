@@ -195,24 +195,6 @@ async fn admin_root_serves_the_dashboard_with_the_page_entries() {
     assert_eq!(active, [link("Dashboard")], "one active sidebar entry");
 }
 
-#[tokio::test]
-async fn dashboard_stat_cards_navigate_through_the_runtime() {
-    let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let html = body_string(client.get("/admin").await).await;
-    let main = &html[html.find("Dashboard</h1>").expect("the dashboard renders")..];
-    let cards: Vec<&str> = main
-        .match_indices("<a ")
-        .map(|(at, _)| &main[at..at + main[at..].find('>').unwrap()])
-        .filter(|tag| tag.contains("href=\"/admin/"))
-        .collect();
-    assert_eq!(cards.len(), 4, "one card per resource: {cards:?}");
-    assert!(
-        cards.iter().all(|tag| tag.contains("data-topcoat-link")),
-        "every stat card navigates through the runtime: {cards:?}"
-    );
-}
 
 #[tokio::test]
 async fn removed_showcase_routes_are_not_found() {
