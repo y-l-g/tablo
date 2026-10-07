@@ -2,7 +2,7 @@ use http::header::LOCATION;
 use showcase::models::{
     Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, Publication, Seo,
 };
-use tablo_core::TenantId;
+use tablo::TenantId;
 use uuid::Uuid;
 
 use crate::common::{

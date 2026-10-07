@@ -8,7 +8,7 @@ use std::{
 use http::header::{
     CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, LOCATION, X_CONTENT_TYPE_OPTIONS,
 };
-use tablo_core::{
+use tablo::{
     Ability, Auth, DeclarationErrorKind, Field, Panel, Resource, ResourceDef, Schema, Table,
     TextColumn, Uploader, lens,
 };
@@ -94,7 +94,7 @@ impl Resource for DocResource {
             )))
     }
 }
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Doc)]
 struct DocForm {
     title: String,
@@ -110,8 +110,8 @@ async fn seeded_db() -> Db {
 async fn auth_seeded_db() -> Db {
     memory_db(toasty::models!(
         Doc,
-        tablo_core::auth::AdminUser,
-        tablo_core::auth::AuthSession
+        tablo::auth::AdminUser,
+        tablo::auth::AuthSession
     ))
     .await
 }

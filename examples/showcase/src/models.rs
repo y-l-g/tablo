@@ -1,5 +1,5 @@
 use jiff::Timestamp;
-use tablo_core::TenantId;
+use tablo::TenantId;
 use toasty::Deferred;
 
 pub use crate::{
@@ -11,14 +11,14 @@ pub use crate::{
 };
 
 /// A user's role.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo::Options)]
 pub enum Role {
     Admin,
     Member,
 }
 
 /// A post's lifecycle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo::Options)]
 pub enum PostStatus {
     Draft,
     Published,
@@ -56,7 +56,7 @@ pub struct Author {
 }
 
 /// SEO metadata for a post.
-#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
+#[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
 pub struct Seo {
     #[form(optional)]
     pub title: String,
@@ -65,7 +65,7 @@ pub struct Seo {
 }
 
 /// A post's lifecycle.
-#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
+#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::EmbeddedForm)]
 pub enum Publication {
     #[column(variant = 1)]
     Scheduled {

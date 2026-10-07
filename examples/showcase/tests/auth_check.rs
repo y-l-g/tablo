@@ -5,7 +5,7 @@
 
 use http::header::{COOKIE, LOCATION};
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff};
-use tablo_core::auth::AuthSession;
+use tablo::auth::AuthSession;
 use topcoat::{context::CxTestBuilder, router::Body};
 
 use crate::common::{
@@ -286,7 +286,7 @@ async fn revoke_sessions_for_user_ends_access() {
         .unwrap()
         .expect("seeded admin");
     let cx = CxTestBuilder::new().app_context(db.clone()).build();
-    tablo_core::auth::revoke_sessions_for_user(&cx, &admin.id.to_string())
+    tablo::auth::revoke_sessions_for_user(&cx, &admin.id.to_string())
         .await
         .unwrap();
 
@@ -444,8 +444,8 @@ async fn auth_disabled_serves_the_panel_without_login() {
     let db = full_db().await;
     let router = mount(
         db,
-        tablo_core::Panel::new("admin")
-            .auth(tablo_core::Auth::disabled())
+        tablo::Panel::new("admin")
+            .auth(tablo::Auth::disabled())
             .resource::<showcase::app::UserResource>(),
     )
     .expect("panel builds");

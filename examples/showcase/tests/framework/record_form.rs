@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
-use tablo_core::{
+use tablo::{
     Ability, DeclarationErrorKind, Field, FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm,
     Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId, TextColumn, lens,
     write_create,
@@ -29,7 +29,7 @@ struct Item {
 }
 
 /// Every column; `title` alone has no blank answer.
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Item)]
 struct ItemForm {
     title: String,
@@ -189,7 +189,7 @@ async fn blank_keys_take_each_fields_blank_answer() {
 
 #[tokio::test]
 async fn a_blank_with_no_answer_and_a_bad_value_are_refused_by_key() {
-    #[derive(tablo_core::RecordForm)]
+    #[derive(tablo::RecordForm)]
     #[form(model = Item)]
     struct StrictForm {
         priority: i64,
@@ -358,7 +358,7 @@ struct Owned {
     title: String,
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Owned)]
 struct OwnedForm {
     title: String,
@@ -434,13 +434,13 @@ macro_rules! item_resource {
     };
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Item)]
 struct TitleForm {
     title: String,
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Item)]
 struct PriorityForm {
     priority: i64,
@@ -484,7 +484,7 @@ async fn build_refuses_a_field_no_control_declares() {
 
 #[tokio::test]
 async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
-    #[derive(tablo_core::RecordForm)]
+    #[derive(tablo::RecordForm)]
     #[form(model = Owned)]
     struct ClaimingForm {
         tenant_id: TenantId,
@@ -647,7 +647,7 @@ async fn a_form_resource_serves_create_and_edit() {
     let router: topcoat::router::Router = mount(
         db,
         Panel::new("admin")
-            .auth(tablo_core::Auth::disabled())
+            .auth(tablo::Auth::disabled())
             .resource::<ItemResource>(),
     )
     .expect("panel builds");
@@ -765,7 +765,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_: &tablo_core::FieldResolver) -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields(_: &tablo::FieldResolver) -> Vec<tablo::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -776,7 +776,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         fn parse(
             _cx: &Cx,
             _values: &HashMap<String, String>,
-        ) -> Result<Self, Vec<tablo_core::FieldError>> {
+        ) -> Result<Self, Vec<tablo::FieldError>> {
             Ok(Keyless(PriorityForm { priority: 1 }))
         }
 
@@ -841,7 +841,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_: &tablo_core::FieldResolver) -> Vec<tablo_core::FormField<PriorityFormField>> {
+        fn fields(_: &tablo::FieldResolver) -> Vec<tablo::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -852,11 +852,8 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         fn parse(
             _cx: &Cx,
             _values: &HashMap<String, String>,
-        ) -> Result<Self, Vec<tablo_core::FieldError>> {
-            Err(vec![tablo_core::FieldError::invalid(
-                "never",
-                "never renders",
-            )])
+        ) -> Result<Self, Vec<tablo::FieldError>> {
+            Err(vec![tablo::FieldError::invalid("never", "never renders")])
         }
 
         fn into_create(self) -> <Item as toasty::schema::Model>::Create {
@@ -911,14 +908,14 @@ async fn a_list_only_resource_never_links_to_create() {
 
     impl Resource for TenantCreates {
         type Model = Item;
-        type Form = tablo_core::NoForm<Self::Model>;
+        type Form = tablo::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("items")
                 .policy(|cx: &Cx, ability: Ability<'_, Item>| match ability {
                     Ability::ViewAny => true,
-                    Ability::Create => tablo_core::tenant_id(cx).is_some(),
+                    Ability::Create => tablo::tenant_id(cx).is_some(),
                     _ => false,
                 })
                 .table(item_table())
@@ -941,7 +938,7 @@ async fn a_list_only_resource_never_links_to_create() {
 /// The derived default form renders and writes.
 #[tokio::test]
 async fn the_derived_default_form_renders_and_writes() {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo::Options)]
     enum WidgetRole {
         Admin,
         Member,
@@ -959,7 +956,7 @@ async fn the_derived_default_form_renders_and_writes() {
         active: bool,
     }
 
-    #[derive(tablo_core::RecordForm)]
+    #[derive(tablo::RecordForm)]
     #[form(model = Widget)]
     struct WidgetForm {
         name: String,
@@ -1057,14 +1054,14 @@ struct Ticket {
     estimate: i64,
 }
 
-#[derive(tablo_core::Options)]
+#[derive(tablo::Options)]
 enum TicketStatus {
     Open,
     #[option(label = "Waiting on customer")]
     Waiting,
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Ticket)]
 struct TicketForm {
     subject: String,
@@ -1082,7 +1079,7 @@ impl Resource for TicketResource {
     type Form = TicketForm;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().policy(tablo_core::ReadOnly)
+        ResourceDef::new().policy(tablo::ReadOnly)
     }
 }
 
@@ -1095,7 +1092,7 @@ impl Resource for UnviewedTicketResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(tablo_core::ReadOnly)
+            .policy(tablo::ReadOnly)
             .view(Schema::empty())
     }
 }
@@ -1210,7 +1207,7 @@ async fn build_refuses_a_unique_field_an_empty_submission_answers() {
         name: String,
     }
 
-    #[derive(tablo_core::RecordForm)]
+    #[derive(tablo::RecordForm)]
     #[form(model = Handle)]
     struct HandleForm {
         #[form(optional)]

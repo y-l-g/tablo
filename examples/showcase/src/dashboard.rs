@@ -1,6 +1,6 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
-use tablo_core::{NavigationItem, Page, Resource, can_list, db::db, panel, scoped_query};
+use tablo::{NavigationItem, Page, Resource, can_list, db::db, panel, scoped_query};
 use topcoat::{
     Result,
     context::Cx,
@@ -59,9 +59,9 @@ fn stat_card(cx: &Cx, stat: Stat) -> BoxView<'_> {
             ))
             class="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-            tablo_ui::card(
+            tablo::ui::card(
                 attrs: topcoat::view::attributes! { class="transition-colors group-hover:bg-muted/40" },
-                tablo_ui::card_content(
+                tablo::ui::card_content(
                     <div class="flex items-center justify-between gap-2">
                         <p class="text-sm font-medium text-muted-foreground">
                             (stat.label)
@@ -89,7 +89,7 @@ fn stat_card(cx: &Cx, stat: Stat) -> BoxView<'_> {
 
 impl Page for Dashboard {
     fn navigation() -> NavigationItem {
-        NavigationItem::for_page::<Self>().icon(tablo_ui::icons::LAYOUT_DASHBOARD)
+        NavigationItem::for_page::<Self>().icon(tablo::ui::icons::LAYOUT_DASHBOARD)
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
@@ -106,14 +106,14 @@ impl Page for Dashboard {
             .collect();
         Ok(view! {
             cx =>
-            tablo_ui::page(
-                tablo_ui::page_header(
-                    tablo_ui::page_title("Dashboard")
-                    tablo_ui::page_description(
+            tablo::ui::page(
+                tablo::ui::page_header(
+                    tablo::ui::page_title("Dashboard")
+                    tablo::ui::page_description(
                         "The blog's admin: its users, authors, posts, comments and media."
                     )
                 )
-                tablo_ui::page_content(
+                tablo::ui::page_content(
                     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         for card in cards {
                             (card)

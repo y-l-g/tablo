@@ -1,6 +1,6 @@
 use http::header::LOCATION;
 use showcase::models::User;
-use tablo_core::{Ability, lens};
+use tablo::{Ability, lens};
 use toasty::Db;
 
 use crate::common::{
@@ -224,7 +224,7 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
 
     let html = body_string(client.get("/admin/users").await).await;
     let denied =
-        tablo_test::row_actions(&html, &ken.id.to_string()).expect("the denied row renders");
+        tablo::testing::row_actions(&html, &ken.id.to_string()).expect("the denied row renders");
     assert_eq!(
         denied.view.as_deref(),
         Some(format!("/admin/users/{}", ken.id).as_str()),
@@ -243,8 +243,8 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
         .iter()
         .find(|u| u.name == "Ada Lovelace")
         .expect("the seeded allowed row");
-    let allowed =
-        tablo_test::row_actions(&html, &ada.id.to_string()).expect("an allowed row has actions");
+    let allowed = tablo::testing::row_actions(&html, &ada.id.to_string())
+        .expect("an allowed row has actions");
     assert_eq!(
         allowed.view.as_deref(),
         Some(format!("/admin/users/{}", ada.id).as_str()),
@@ -308,7 +308,7 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
 /// handler's own `Delete` check would leave this test green.
 #[tokio::test]
 async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
-    use tablo_core::{Resource, ResourceDef, Table, TextColumn};
+    use tablo::{Resource, ResourceDef, Table, TextColumn};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct DummyUser {
@@ -321,7 +321,7 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
     struct PartialDenyResource;
     impl Resource for PartialDenyResource {
         type Model = DummyUser;
-        type Form = tablo_core::NoForm<Self::Model>;
+        type Form = tablo::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
@@ -358,8 +358,8 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
     .unwrap();
     let router = mount(
         db.clone(),
-        tablo_core::Panel::new("admin")
-            .auth(tablo_core::Auth::disabled())
+        tablo::Panel::new("admin")
+            .auth(tablo::Auth::disabled())
             .resource::<PartialDenyResource>(),
     )
     .expect("panel builds");

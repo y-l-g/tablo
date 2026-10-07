@@ -7,16 +7,14 @@
 //! embedded value over a real model and a real panel — with a typed leaf in the
 //! inactive variant so a validated group would refuse the submission.
 
-use tablo_core::{
-    Ability, Auth, Field, Panel, Resource, ResourceDef, Schema, Table, TextColumn, lens,
-};
+use tablo::{Ability, Auth, Field, Panel, Resource, ResourceDef, Schema, Table, TextColumn, lens};
 use toasty::Db;
 use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, mount};
 
 /// The embedded value under test: one variant whose payload is a typed leaf.
-#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo_core::EmbeddedForm)]
+#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::EmbeddedForm)]
 enum Body {
     #[column(variant = 1)]
     Text { note: String },
@@ -56,7 +54,7 @@ impl Resource for ClipResource {
             )
     }
 }
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Clip)]
 struct ClipForm {
     title: String,
@@ -158,7 +156,7 @@ async fn the_named_variants_fields_still_validate() {
     assert_eq!(response.status(), 200, "the refused blank re-renders");
     let html = body_string(response).await;
     assert_eq!(
-        tablo_test::field_error(&html, "body_seconds").as_deref(),
+        tablo::testing::field_error(&html, "body_seconds").as_deref(),
         Some("Seconds is required"),
         "the refusal must be worded with the control's label, got {html}"
     );

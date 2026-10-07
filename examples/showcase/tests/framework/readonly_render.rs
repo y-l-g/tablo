@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::schema::{Field, Grid, Group, Schema, Section, Source};
+use tablo::schema::{Field, Grid, Group, Schema, Section, Source};
 use toasty::Db;
 use topcoat::{
     context::{Cx, CxTestBuilder},

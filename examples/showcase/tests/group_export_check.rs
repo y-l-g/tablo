@@ -1,4 +1,4 @@
-use tablo_core::{ReadOnly, lens};
+use tablo::{ReadOnly, lens};
 
 use crate::common::{
     body_string, demo_client, full_db, mount, routers::router_for_tests as router,
@@ -160,7 +160,7 @@ async fn posts_export_streams_csv_with_content_disposition() {
 async fn export_over_cap_413s_at_route_level() {
     // The 413 mapping is unit-tested (`export_cap_maps_one_row…`);
     // this pins the route wiring — a table past the cap answers 413.
-    use tablo_core::{Resource, ResourceDef, Table, TextColumn};
+    use tablo::{Resource, ResourceDef, Table, TextColumn};
     use toasty::Db;
 
     use crate::common::TestClient;
@@ -176,7 +176,7 @@ async fn export_over_cap_413s_at_route_level() {
     struct BigResource;
     impl Resource for BigResource {
         type Model = Dummy;
-        type Form = tablo_core::NoForm<Self::Model>;
+        type Form = tablo::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
@@ -202,8 +202,8 @@ async fn export_over_cap_413s_at_route_level() {
     create.exec(&mut db).await.unwrap();
     let router = mount(
         db,
-        tablo_core::Panel::new("admin")
-            .auth(tablo_core::Auth::disabled())
+        tablo::Panel::new("admin")
+            .auth(tablo::Auth::disabled())
             .resource::<BigResource>(),
     )
     .expect("panel builds");

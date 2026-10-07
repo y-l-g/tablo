@@ -6,7 +6,7 @@
 //! it, so what this suite pins is that the traits are enough: nothing here
 //! reaches a framework internal.
 
-use tablo_core::{
+use tablo::{
     Ability, Action, BooleanColumn, Column, Committed, Control, ControlInput, DeclarationErrorKind,
     Field, Filter, FilterInput, Mutation, Resource, ResourceDef, Schema, Site, Table, TextColumn,
     lens,
@@ -210,7 +210,7 @@ impl Resource for TaskResource {
             Mutation::Action(name) => format!("action:{name}"),
             other => format!("{other:?}"),
         };
-        let mut db = tablo_core::db::db(cx);
+        let mut db = tablo::db::db(cx);
         toasty::create!(Log {
             mutation,
             rows: committed.records().len() as i64,
@@ -222,7 +222,7 @@ impl Resource for TaskResource {
     }
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Task)]
 struct TaskForm {
     title: String,
@@ -674,7 +674,7 @@ struct TwiceResource;
 
 impl Resource for TwiceResource {
     type Model = Task;
-    type Form = tablo_core::NoForm<Task>;
+    type Form = tablo::NoForm<Task>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
@@ -722,7 +722,7 @@ struct ConfirmResource;
 
 impl Resource for ConfirmResource {
     type Model = Task;
-    type Form = tablo_core::NoForm<Task>;
+    type Form = tablo::NoForm<Task>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()

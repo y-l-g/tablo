@@ -1,6 +1,6 @@
 use http::header::COOKIE;
 use showcase::models::{Author, Comment, DEMO_TENANT, Post, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL};
-use tablo_core::TenantId;
+use tablo::TenantId;
 use topcoat::router::Body;
 
 use crate::common::{
@@ -114,10 +114,10 @@ async fn per_tenant_policy_deny_yields_403() {
 #[tokio::test]
 async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
     use showcase::app::{PostResource, admin_panel};
-    use tablo_core::{Tenant, scoped_query};
+    use tablo::{Tenant, scoped_query};
     let (db, t1, _) = tenanted_db().await;
     let cx_t1 = admin_panel().context(&db).unwrap().with(Tenant(t1));
-    let mut db_cx = tablo_core::db::db(&cx_t1);
+    let mut db_cx = tablo::db::db(&cx_t1);
     let rows = scoped_query::<PostResource>(&cx_t1)
         .unwrap()
         .exec(&mut db_cx)
@@ -127,7 +127,7 @@ async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
     assert_eq!(rows[0].title, "T1 Post");
 
     let cx_t2 = cx_t1.with(Tenant(uuid::Uuid::from_u128(2)));
-    let mut db_cx2 = tablo_core::db::db(&cx_t2);
+    let mut db_cx2 = tablo::db::db(&cx_t2);
     let rows2 = scoped_query::<PostResource>(&cx_t2)
         .unwrap()
         .exec(&mut db_cx2)
@@ -357,7 +357,7 @@ async fn comments_search_is_scoped_through_parent_post() {
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(
-        tablo_test::rows(&html).is_empty(),
+        tablo::testing::rows(&html).is_empty(),
         "t1 search for T2 comment must return zero rows: {html}"
     );
 
@@ -423,10 +423,10 @@ async fn comments_edit_with_wrong_tenant_yields_404_via_resource_query() {
 #[tokio::test]
 async fn comments_query_scopes_directly_through_parent_post() {
     use showcase::app::{CommentResource, admin_panel};
-    use tablo_core::{Tenant, scoped_query};
+    use tablo::{Tenant, scoped_query};
     let (db, t1, t2) = tenanted_db().await;
     let cx_t1 = admin_panel().context(&db).unwrap().with(Tenant(t1));
-    let mut db_cx = tablo_core::db::db(&cx_t1);
+    let mut db_cx = tablo::db::db(&cx_t1);
     let rows = scoped_query::<CommentResource>(&cx_t1)
         .unwrap()
         .exec(&mut db_cx)
@@ -436,7 +436,7 @@ async fn comments_query_scopes_directly_through_parent_post() {
     assert_eq!(rows[0].body, "T1 comment");
 
     let cx_t2 = cx_t1.with(Tenant(t2));
-    let mut db_cx2 = tablo_core::db::db(&cx_t2);
+    let mut db_cx2 = tablo::db::db(&cx_t2);
     let rows2 = scoped_query::<CommentResource>(&cx_t2)
         .unwrap()
         .exec(&mut db_cx2)

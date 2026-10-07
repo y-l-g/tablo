@@ -55,7 +55,7 @@ async fn posts_create_empty_author_shows_required_error() {
         html
     );
     assert_eq!(
-        tablo_test::field_error(&html, "author_id").as_deref(),
+        tablo::testing::field_error(&html, "author_id").as_deref(),
         Some("Author is required"),
         "the author slot names its refusal, got {html}"
     );
@@ -88,7 +88,7 @@ async fn posts_create_invalid_author_shows_invalid_error() {
     let html = body_string(resp).await;
     assert!(status.is_success(), "invalid should be 200 {}", html);
     assert_eq!(
-        tablo_test::field_error(&html, "author_id").as_deref(),
+        tablo::testing::field_error(&html, "author_id").as_deref(),
         Some("Author is invalid"),
         "the author slot names its refusal, got {html}"
     );
@@ -170,7 +170,7 @@ async fn posts_list_shows_comments_count_via_include() {
     };
     let hello = comments_of(&mut db_q, "Hello Toasty").await;
     let bare = comments_of(&mut db_q, "Second Post").await;
-    let found = tablo_test::rows(&html);
+    let found = tablo::testing::rows(&html);
     let hello_row = found
         .iter()
         .find(|row| row.cells.iter().any(|cell| cell == "Hello Toasty"))
@@ -185,7 +185,7 @@ async fn posts_list_shows_comments_count_via_include() {
     // Second Post paginates off the first page, so its count rides a
     // title-filtered request rather than the unfiltered list.
     let filtered = body_string(client.get("/admin/posts?q=Second+Post").await).await;
-    let found = tablo_test::rows(&filtered);
+    let found = tablo::testing::rows(&filtered);
     let bare_row = found
         .iter()
         .find(|row| row.cells.iter().any(|cell| cell == "Second Post"))

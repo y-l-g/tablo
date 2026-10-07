@@ -1,4 +1,4 @@
-use tablo_core::{Resource, ResourceDef, lens};
+use tablo::{Resource, ResourceDef, lens};
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
 
@@ -14,12 +14,10 @@ struct Everyone;
 
 impl Resource for Everyone {
     type Model = User;
-    type Form = tablo_core::NoForm<Self::Model>;
+    type Form = tablo::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().table(tablo_core::Table::new(tablo_core::TextColumn::new(lens!(
-            User.name
-        ))))
+        ResourceDef::new().table(tablo::Table::new(tablo::TextColumn::new(lens!(User.name))))
     }
 }
 
@@ -27,12 +25,10 @@ struct JustAda;
 
 impl Resource for JustAda {
     type Model = User;
-    type Form = tablo_core::NoForm<Self::Model>;
+    type Form = tablo::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().table(tablo_core::Table::new(tablo_core::TextColumn::new(lens!(
-            User.name
-        ))))
+        ResourceDef::new().table(tablo::Table::new(tablo::TextColumn::new(lens!(User.name))))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<toasty::stmt::List<User>> {
@@ -63,7 +59,7 @@ async fn query_override_scopes_rows() {
     .unwrap();
 
     let cx = CxTestBuilder::new().app_context(db).build();
-    let mut db = tablo_core::db::db(&cx);
+    let mut db = tablo::db::db(&cx);
 
     let all = Everyone::query(&cx).exec(&mut db).await.unwrap();
     assert_eq!(all.len(), 2);

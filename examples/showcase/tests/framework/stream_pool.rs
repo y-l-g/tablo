@@ -1,6 +1,6 @@
 //! Dropping an undrained streamed list body frees its pooled connection.
 
-use tablo_core::{ReadOnly, Resource, ResourceDef, Table, TextColumn, lens};
+use tablo::{ReadOnly, Resource, ResourceDef, Table, TextColumn, lens};
 use uuid::Uuid;
 
 use crate::framework::common::{body_string, get, memory_db, mount, panel};
@@ -17,7 +17,7 @@ struct PoolResource;
 
 impl Resource for PoolResource {
     type Model = PoolDummy;
-    type Form = tablo_core::NoForm<Self::Model>;
+    type Form = tablo::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()

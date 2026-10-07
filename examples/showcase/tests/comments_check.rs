@@ -1,5 +1,5 @@
 use showcase::models::{Comment, Post};
-use tablo_core::TenantId;
+use tablo::TenantId;
 
 use crate::common::{
     body_string, demo_client, form_body, full_db, input_value, response_cookies,
@@ -48,7 +48,7 @@ async fn comments_list_offers_row_and_bulk_delete() {
         html.contains("formaction=\"/admin/comments/bulk-delete\""),
         "the moderation queue must offer bulk delete: {html}"
     );
-    let rendered = tablo_test::rows(&html);
+    let rendered = tablo::testing::rows(&html);
     assert!(
         !rendered.is_empty(),
         "the fixture must seed comments: {html}"
@@ -77,7 +77,7 @@ async fn comments_row_delete_removes_the_comment() {
     let resp = client.get("/admin/comments").await;
     let html = body_string(resp).await;
     let csrf = input_value(&html, "csrf_token").expect("the list carries csrf");
-    let target = tablo_test::rows(&html)
+    let target = tablo::testing::rows(&html)
         .into_iter()
         .find_map(|row| row.actions.delete_action)
         .expect("a row delete control");
@@ -127,7 +127,7 @@ async fn comments_create_form_shows_post_select() {
 #[tokio::test]
 async fn post_options_do_not_load_every_posts_comments() {
     use showcase::app::PostResource;
-    use tablo_core::{Resource, Tenant, db::db as db_handle};
+    use tablo::{Resource, Tenant, db::db as db_handle};
     use topcoat::context::CxTestBuilder;
 
     let (db, t1, _t2) = tenanted_db().await;
@@ -247,7 +247,7 @@ async fn comments_refuse_another_tenants_post() {
     );
     let html = body_string(created).await;
     assert_eq!(
-        tablo_test::field_error(&html, "post_id").as_deref(),
+        tablo::testing::field_error(&html, "post_id").as_deref(),
         Some("Post is invalid"),
         "the post field names the refusal: {html}"
     );
@@ -265,7 +265,7 @@ async fn comments_refuse_another_tenants_post() {
     assert_eq!(edited.status(), 200, "a refused edit re-renders the form");
     let html = body_string(edited).await;
     assert_eq!(
-        tablo_test::field_error(&html, "post_id").as_deref(),
+        tablo::testing::field_error(&html, "post_id").as_deref(),
         Some("Post is invalid"),
         "the post field names the refusal: {html}"
     );

@@ -13,9 +13,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{
-    DeclarationErrorKind, Field, FieldErrors, IntoSchema, ResourceDef, Schema, Source,
-};
+use tablo::{DeclarationErrorKind, Field, FieldErrors, IntoSchema, ResourceDef, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -187,16 +185,16 @@ struct Page {
 
 struct PageResource;
 
-impl tablo_core::Resource for PageResource {
+impl tablo::Resource for PageResource {
     type Model = Page;
-    type Form = tablo_core::NoForm<Page>;
+    type Form = tablo::NoForm<Page>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(tablo_core::ReadOnly)
-            .table(tablo_core::Table::new((
-                tablo_core::TextColumn::new(tablo_core::lens!(Page.title)),
-                tablo_core::TextColumn::new(tablo_core::lens!(Page.seo.title))
+            .policy(tablo::ReadOnly)
+            .table(tablo::Table::new((
+                tablo::TextColumn::new(tablo::lens!(Page.title)),
+                tablo::TextColumn::new(tablo::lens!(Page.seo.title))
                     .sortable()
                     .searchable(),
             )))
