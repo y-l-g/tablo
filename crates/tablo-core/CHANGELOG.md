@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1](https://github.com/y-l-g/tablo/compare/tablo-core-v0.5.0...tablo-core-v0.5.1) - 2026-10-07
+
+### Other
+
+- *(core)* point the compat modules at the current upstream gaps ([#534](https://github.com/y-l-g/tablo/pull/534))
+
 ## [0.5.0](https://github.com/y-l-g/tablo/compare/tablo-core-v0.4.0...tablo-core-v0.5.0) - 2026-10-07
 
 ### Other
