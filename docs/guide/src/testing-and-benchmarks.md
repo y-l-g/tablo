@@ -9,7 +9,7 @@ for tests only:
 
 ```toml
 [dev-dependencies]
-tablo = { version = "0.4.0", features = ["sqlite", "testing"] }
+tablo = { version = "0.5.0", features = ["sqlite", "testing"] }
 ```
 
 ```rust
