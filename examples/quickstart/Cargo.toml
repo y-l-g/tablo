@@ -16,7 +16,6 @@ description = "The smallest complete Tablo app, built as a dependent outside the
 tablo = { path = "../../crates/tablo", features = ["sqlite"] }
 topcoat = { version = "0.10", default-features = false, features = ["view", "router", "discover", "serve", "tailwind", "font", "font-fontsource", "asset"] }
 toasty = { version = "0.11", default-features = false, features = ["jiff"] }
-jiff = "0.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"
 

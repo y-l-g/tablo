@@ -7,5 +7,9 @@ doc_comment_code_block_width = 100
 imports_granularity = "Crate"
 group_imports = "StdExternalCrate"
 
-# `primitives/` mirrors the registry verbatim; reformatting breaks `verify-topcoat-ui`.
-ignore = ["crates/tablo-ui/src/components/primitives"]
+# `primitives/` mirrors the registry verbatim and `primitives.rs` is generated beside it;
+# reformatting either breaks `verify-topcoat-ui`.
+ignore = [
+    "crates/tablo-ui/src/components/primitives",
+    "crates/tablo-ui/src/components/primitives.rs",
+]

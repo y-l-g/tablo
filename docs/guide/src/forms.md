@@ -93,7 +93,7 @@ trait, `label_of()`. A `String` field takes the same list with `#[form(options =
 
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
-most eight children; nest a `Group` for more.
+most twelve children; nest a `Group` for more.
 
 **Fields** are built from a Toasty field lens:
 

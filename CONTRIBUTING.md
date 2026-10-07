@@ -50,7 +50,7 @@ cargo xtask fmt           # the formatting checks alone
 
 ## Code
 
-- A struct is followed by its inherent `impl`, then its trait impls. A new module is `foo.rs`
+- A struct is followed by its inherent `impl`, then its trait impls. A module is `foo.rs`
   beside `foo/`, never `foo/mod.rs`.
 - Shared dependency versions live in the root `[workspace.dependencies]`.
 - `topcoat` and `toasty` are crates.io dependencies of the workspace and of

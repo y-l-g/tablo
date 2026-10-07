@@ -1,5 +1,5 @@
 use tablo::{
-    auth::{AdminUser, AuthSession, hash_password},
+    auth::{AdminUser, AuthSession, create_admin},
     prelude::*,
 };
 use toasty::Db;
@@ -61,15 +61,7 @@ async fn connect() -> Result<Db> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut db = connect().await?;
-    toasty::create!(AdminUser {
-        email: "admin@example.com".to_string(),
-        password_hash: hash_password("secret")?,
-        display_name: "Admin".to_string(),
-        active: true,
-        created_at: jiff::Timestamp::now(),
-    })
-    .exec(&mut db)
-    .await?;
+    create_admin(&mut db, "admin@example.com", "secret", "Admin").await?;
 
     let router = match AssetBundle::load() {
         Ok(bundle) => router(db)

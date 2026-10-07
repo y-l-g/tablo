@@ -921,6 +921,18 @@ into_columns_tuples!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
 into_columns_tuples!(
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h
 );
+into_columns_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i
+);
+into_columns_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j
+);
+into_columns_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k
+);
+into_columns_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l
+);
 
 #[cfg(test)]
 mod tests;

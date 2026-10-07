@@ -27,5 +27,5 @@ and render the first page.
 An `Action` result flashes a `tablo::Notification`, rendered in the panel
 shell and stored as a one-time hardened cookie. Build one with
 `Notification::success` / `error` / `info` / `warning` plus `.description()`,
-and store it with `tablo::set_notification`; see
+and store it with `tablo::notification::set_notification`; see
 [Security](./security.md).

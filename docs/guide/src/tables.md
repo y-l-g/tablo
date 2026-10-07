@@ -97,7 +97,7 @@ Only `name`, `label` and `text` are required. The other methods default to a col
 narrow, not searchable, not sortable and reads no relation: override `column_width`,
 `is_searchable` and `search_expr`, `is_sortable` and `order_by`, or `includes` to change that. Put
 the column in the tuple next to the built-in ones, or append it with `Table::column(..)`, which
-also takes columns past the tuple's eight.
+also takes columns past the tuple's twelve.
 
 ## Search, sort and pagination
 

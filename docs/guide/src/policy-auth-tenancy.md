@@ -100,7 +100,7 @@ shards at its runtime path, where no page guard runs. A form route verifies its 
 
 Authentication is on by default. The built-in login checks an email and password against the
 `AdminUser` table and keeps sessions in the `AuthSession` table; register both models with
-Toasty and create a user with a hashed password:
+Toasty and create a user with `auth::create_admin`, which stores the password's hash:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-models}}

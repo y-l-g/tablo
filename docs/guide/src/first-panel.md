@@ -15,7 +15,6 @@ versions Tablo uses:
 tablo = { version = "0.5.1", features = ["sqlite"] }
 topcoat = { version = "0.10", default-features = false, features = ["tailwind", "font", "font-fontsource", "asset"] }
 toasty = { version = "0.11", default-features = false, features = ["jiff"] }
-jiff = "0.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1"
 
