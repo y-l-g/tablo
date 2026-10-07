@@ -2,9 +2,6 @@
 //!
 //! `Schema` holds layout blocks, embedded values, and [`Field`] slots and resolves every field once
 //! into one list for rendering and validation.
-//!
-//! `lens_field` reaches into `toasty_core` (upstream issue #114); retire the walk when Toasty
-//! exposes it (upstream #183).
 
 pub(crate) mod embedded;
 mod fields;
@@ -24,7 +21,7 @@ pub use fields::{
     Toggle,
 };
 pub use layouts::{Grid, Group, Section};
-pub(crate) use lenses::{Binding, lens_field, lens_field_unique};
+pub(crate) use lenses::Binding;
 pub use lenses::{FieldResolver, form_key};
 pub use options::Options;
 pub(crate) use relationship::OptionLoadError;

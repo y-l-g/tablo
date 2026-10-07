@@ -211,7 +211,7 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        let mut seen: Vec<toasty_core::stmt::Include> = Vec::new();
+        let mut seen: Vec<crate::toasty_compat::UntypedInclude> = Vec::new();
         for include in self.columns.iter().flat_map(|c| c.includes().into_vec()) {
             if !seen.contains(&include) {
                 query = query.include(include.clone());
@@ -416,27 +416,6 @@ impl<M> Table<M> {
         self.columns.iter().find_map(|c| c.order_by(descending))
     }
 
-    /// Order-bys over the model's primary key.
-    fn pk_order_bys() -> Vec<OrderByExpr>
-    where
-        M: toasty::schema::Model,
-    {
-        let app_model = M::schema();
-        let Some(root) = app_model.as_root() else {
-            debug_assert!(
-                false,
-                "pk_order_bys: {} is not a root model; deterministic pagination needs its primary key",
-                std::any::type_name::<M>()
-            );
-            return Vec::new();
-        };
-        root.primary_key
-            .fields
-            .iter()
-            .map(|fid| M::path_field::<toasty::stmt::Value>(fid.index).asc())
-            .collect()
-    }
-
     /// Resolve the full query ordering for a request.
     pub(crate) fn order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
     where
@@ -453,7 +432,7 @@ impl<M> Table<M> {
         }
         let out: Vec<OrderByExpr> = self.order_by(false).into_iter().collect();
         if out.is_empty() {
-            return Self::pk_order_bys();
+            return crate::toasty_compat::pk::pk_order_bys::<M>();
         }
         out
     }

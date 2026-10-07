@@ -51,7 +51,7 @@ pub(super) struct PageRegistration<P> {
 /// Everything a panel's registrations add up to.
 pub(super) struct Registry {
     pub(super) prefix: String,
-    schema: Option<Arc<toasty_core::Schema>>,
+    schema: Option<crate::toasty_compat::model::AppSchema>,
     /// Every slug a resource or page mounts at: one namespace.
     slugs: Vec<String>,
     /// The URL each resource and page serves at, by type.
@@ -85,7 +85,10 @@ struct Link {
 }
 
 impl Registry {
-    pub(super) fn new(prefix: String, schema: Option<Arc<toasty_core::Schema>>) -> Self {
+    pub(super) fn new(
+        prefix: String,
+        schema: Option<crate::toasty_compat::model::AppSchema>,
+    ) -> Self {
         Self {
             prefix,
             schema,

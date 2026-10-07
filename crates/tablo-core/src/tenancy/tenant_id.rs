@@ -1,14 +1,13 @@
 //! The tenant column type.
 
 use toasty::{
+    Error,
     codegen_support::index::IndexableField,
     schema::{Field, Load},
-    stmt::{Assign, Assignment, Expr, IntoExpr, List, Path},
+    stmt::{self, Assign, Assignment, Expr, IntoExpr, List, Path, Projection, Value},
 };
-use toasty_core::{
-    Error,
-    stmt::{self, Assignments, Projection, Value},
-};
+
+use crate::toasty_compat::Assignments;
 
 /// One tenant's id, and the field type of a resource's tenant column.
 ///
@@ -126,7 +125,7 @@ impl Assign<TenantId> for TenantId {
 }
 
 fn tenant_expr(id: uuid::Uuid) -> Expr<TenantId> {
-    Expr::from_untyped(stmt::Expr::Value(Value::Uuid(id)))
+    Expr::from_untyped(Value::Uuid(id))
 }
 
 /// A field type a tenancy names: [`TenantId`], or `Option<TenantId>` for a

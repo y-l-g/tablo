@@ -9,7 +9,10 @@
 use toasty::stmt::{Expr, Path};
 use topcoat::context::{Cx, try_app_context, try_request_context};
 
-use crate::DeclarationErrorKind;
+use crate::{
+    DeclarationErrorKind,
+    toasty_compat::model::{self, ModelPath},
+};
 
 mod tenant_id;
 
@@ -152,11 +155,11 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
         M: Send + Sync,
     {
         let lens = lens.into();
-        let field = crate::schema::lens_field(lens.clone(), &M::schema())
+        let field = model::field::<M>(&ModelPath::of(&lens))
             .ok()
             .map(|field| TenantField {
-                index: field.id.index,
-                name: field.name.app_unwrap().to_string(),
+                index: field.index,
+                name: field.name,
             });
         Self::scoped(Scope::Column {
             filter: Box::new(move |tenant| lens.clone().eq(T::from_tenant(tenant))),
@@ -179,12 +182,9 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
         M: Send + Sync,
     {
         let lens = lens.into();
-        let hop = toasty_core::stmt::Path::from(lens.clone())
-            .projection
-            .as_slice()
-            .first()
-            .copied();
-        let single = crate::schema::lens_field(lens.clone(), &M::schema()).is_ok();
+        let path = ModelPath::of(&lens);
+        let hop = path.steps().first().copied();
+        let single = model::field::<M>(&path).is_ok();
         Self::scoped(Scope::Via {
             filter: Box::new(move |tenant| lens.clone().eq(T::from_tenant(tenant))),
             single,

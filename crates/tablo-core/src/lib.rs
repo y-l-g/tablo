@@ -64,7 +64,6 @@ pub mod __macro {
         stmt,
         stmt::Path,
     };
-    pub use toasty_core::schema::app::VariantId;
     pub use topcoat::context::Cx;
 
     pub use crate::{
@@ -79,6 +78,7 @@ pub mod __macro {
             form_key,
         },
         table::{BooleanColumn, Table, TextColumn},
+        toasty_compat::VariantId,
     };
 }
 // The toolkit surface: Panel, Resource, Table, Schema, Notification,

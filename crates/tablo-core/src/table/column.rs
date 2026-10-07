@@ -97,7 +97,7 @@ pub trait Column<M>: Send + Sync {
 
 /// The relations a [`Column`] reads off its row.
 pub struct Includes<M>(
-    Vec<toasty_core::stmt::Include>,
+    Vec<crate::toasty_compat::UntypedInclude>,
     std::marker::PhantomData<fn() -> M>,
 );
 
@@ -127,7 +127,7 @@ impl<M> Includes<M> {
 
     /// Add `relation`.
     pub fn with<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
-        let include: toasty_core::stmt::Include = relation.into().into();
+        let include: crate::toasty_compat::UntypedInclude = relation.into().into();
         if !self.0.contains(&include) {
             self.0.push(include);
         }
@@ -135,7 +135,7 @@ impl<M> Includes<M> {
     }
 
     /// The relations, in the order they were added.
-    pub(crate) fn into_vec(self) -> Vec<toasty_core::stmt::Include> {
+    pub(crate) fn into_vec(self) -> Vec<crate::toasty_compat::UntypedInclude> {
         self.0
     }
 

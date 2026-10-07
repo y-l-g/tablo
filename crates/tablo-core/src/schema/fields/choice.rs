@@ -41,7 +41,7 @@ pub(crate) struct Relationship {
     available: fn(&Cx) -> bool,
     /// The source model when its rows are tenant-owned, so a key the write
     /// re-checks cannot name another tenant's row.
-    tenant_scoped_model: fn(&Cx) -> Option<toasty::schema::app::ModelId>,
+    tenant_scoped_model: fn(&Cx) -> Option<crate::toasty_compat::model::ModelId>,
     /// Whether the source's primary key is composite, which no option value can spell.
     composite: bool,
 }
@@ -129,7 +129,10 @@ impl ChoiceControl {
     }
 
     /// The model the options come from, when its rows are tenant-owned.
-    pub(crate) fn tenant_scoped_model(&self, cx: &Cx) -> Option<toasty::schema::app::ModelId> {
+    pub(crate) fn tenant_scoped_model(
+        &self,
+        cx: &Cx,
+    ) -> Option<crate::toasty_compat::model::ModelId> {
         self.relationship
             .as_ref()
             .and_then(|relationship| (relationship.tenant_scoped_model)(cx))

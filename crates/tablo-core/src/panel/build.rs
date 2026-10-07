@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use toasty::{Db, schema::Model};
+use toasty::Db;
 use topcoat::{
     Result,
     asset::AssetConfig,
@@ -32,6 +32,7 @@ use crate::{
     policy::Ability,
     resource::{MountScope, Mounted, Mounts, Resource, require_mounted},
     tenancy::TenantSource,
+    toasty_compat::model::{self, AppSchema},
     topcoat_compat::RUNTIME_PREFIX,
 };
 
@@ -79,7 +80,7 @@ impl Panel {
             configuration_errors,
             ..
         } = self;
-        let mut registry = Registry::new(prefix.clone(), Some(db.schema().clone()));
+        let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         let cx = registry.check_all(db, &mounts, &mut errors);
         if !errors.is_empty() {
@@ -90,10 +91,7 @@ impl Panel {
 
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
         let db = builder.get_app_context::<Db>().cloned();
-        let mut registry = Registry::new(
-            self.prefix.clone(),
-            db.as_ref().map(|db| db.schema().clone()),
-        );
+        let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
         let Panel {
             prefix,
             shell_assets,
@@ -516,15 +514,12 @@ fn check_form_inner<R: Resource>(
     if declared.can(cx, Ability::Create) {
         check_create_columns(declared, errors);
     }
-    let model = R::Model::schema();
-    let root = model.as_root_unwrap();
+    let columns = model::fields::<R::Model>();
     for field in form.fields().filter(|field| field.is_unique()) {
         let name = field.name();
-        let backed = root
-            .fields
+        let backed = columns
             .iter()
-            .filter(|field| field.name.app_unwrap() == name)
-            .any(|field| crate::schema::lens_field_unique(field, root));
+            .any(|column| column.name == name && column.unique);
         if !backed {
             errors.push(form_error::<R>(DeclarationErrorKind::UniqueWithoutIndex {
                 field: name.to_string(),
@@ -550,7 +545,7 @@ fn tenant_column<R: Resource>(declared: &Mounted<R>) -> Option<String> {
 /// Checks that every non-nullable column a create needs has a writer.
 fn check_create_columns<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
     let (fields, create_columns) = (&declared.fields, &declared.create_columns);
-    let prefilled = crate::form::prefilled_fields::<R::Model>();
+    let prefilled = model::prefilled_fields::<R::Model>();
     let tenant = tenant_column(declared);
     if let Some(column) = &tenant
         && create_columns.contains(&column.as_str())
@@ -562,27 +557,20 @@ fn check_create_columns<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Dec
             },
         ));
     }
-    let model = R::Model::schema();
-    let root = model.as_root_unwrap();
+    let columns = model::fields::<R::Model>();
     for &column in create_columns {
-        if !root
-            .fields
-            .iter()
-            .any(|field| field.name.app.as_deref() == Some(column))
-        {
+        if !columns.iter().any(|field| field.name == column) {
             errors.push(DeclarationError::of::<R>(
                 Site::Registration,
                 DeclarationErrorKind::UnknownCreateColumn { column },
             ));
         }
     }
-    for (index, field) in root.fields.iter().enumerate() {
-        let Some(name) = field.name.app.as_deref() else {
-            continue;
-        };
-        let filled = field.nullable()
-            || field.is_relation()
-            || prefilled.get(index).copied().unwrap_or(false)
+    for field in &columns {
+        let name = field.name.as_str();
+        let filled = field.nullable
+            || field.relation
+            || prefilled.get(field.index).copied().unwrap_or(false)
             || tenant.as_deref() == Some(name)
             || fields.iter().any(|claim| claim.name == name)
             || create_columns.contains(&name);
@@ -615,7 +603,16 @@ fn check_via_foreign_keys<R: Resource>(
     errors: &mut Vec<DeclarationError>,
 ) {
     let form = &declared.form;
-    let Some((relation, parent, keys)) = via_relation(declared) else {
+    // The `belongs_to` relation the `via` lens steps through first.
+    let Some(model::BelongsTo {
+        name: relation,
+        target: parent,
+        foreign_keys: keys,
+    }) = declared
+        .tenancy
+        .via_hop()
+        .and_then(model::belongs_to::<R::Model>)
+    else {
         errors.push(DeclarationError::of::<R>(
             Site::Tenancy,
             DeclarationErrorKind::TenancyViaWithoutBelongsTo,
@@ -640,28 +637,6 @@ fn check_via_foreign_keys<R: Resource>(
             keys: unguarded,
         }));
     }
-}
-
-/// The name, parent model and foreign-key columns of the `belongs_to` relation a `Tenancy::via`
-/// lens steps through first; `None` when the first step is no `belongs_to`.
-fn via_relation<R: Resource>(
-    declared: &Mounted<R>,
-) -> Option<(String, toasty::schema::app::ModelId, Vec<String>)> {
-    let hop = declared.tenancy.via_hop()?;
-    let model = R::Model::schema();
-    let root = model.as_root()?;
-    let field = root.fields.get(hop)?;
-    let toasty::schema::app::FieldTy::BelongsTo(relation) = &field.ty else {
-        return None;
-    };
-    let keys = relation
-        .foreign_key
-        .fields
-        .iter()
-        .filter_map(|key| root.fields.get(key.source.index))
-        .map(|field| field.name.app_unwrap().to_string())
-        .collect::<Vec<_>>();
-    (!keys.is_empty()).then(|| (field.name.app_unwrap().to_string(), relation.target, keys))
 }
 
 /// A served directory's pattern without its catch-all's name: the router treats
