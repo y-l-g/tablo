@@ -51,7 +51,7 @@ impl Resource for UserResource {
 Mounting the panel refuses the resource unless every control posts a key of the record form, every
 form field has a control, and — when the policy allows `Create` — every non-nullable column is
 filled by the form, by Toasty, by the tenant stamp, or by an overridden `create_record` whose def
-lists it in `create_columns`.
+names it with `create_column`.
 
 ## Controls
 
