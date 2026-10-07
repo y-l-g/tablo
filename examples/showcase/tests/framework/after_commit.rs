@@ -1,5 +1,5 @@
 use http::header::LOCATION;
-use tablo_core::{
+use tablo::{
     Ability, Allow, Committed, Field, Mutation, Resource, ResourceDef, Schema, Table, TextColumn,
     lens,
 };
@@ -40,7 +40,7 @@ fn mutation_name(mutation: Mutation) -> &'static str {
 
 async fn audit(cx: &Cx, committed: &Committed<Note>) -> topcoat::Result<()> {
     let first = committed.records().first();
-    let mut db = tablo_core::db::db(cx);
+    let mut db = tablo::db::db(cx);
     toasty::create!(Audit {
         mutation: mutation_name(committed.mutation()).to_string(),
         row_key: first.map(|note| note.id.to_string()).unwrap_or_default(),
@@ -71,7 +71,7 @@ impl Resource for AuditedResource {
         audit(cx, &committed).await
     }
 }
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Note)]
 struct AuditedForm {
     title: String,
@@ -92,7 +92,7 @@ impl Resource for PlainResource {
             .form(Schema::new(Field::text(Note::fields().title())))
     }
 }
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Note)]
 struct PlainForm {
     title: String,
@@ -125,7 +125,7 @@ impl Resource for FailingWriteResource {
         audit(cx, &committed).await
     }
 }
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Note)]
 struct FailingWriteForm {
     title: String,
@@ -151,7 +151,7 @@ impl Resource for FailingHookResource {
         Err(std::io::Error::other("the webhook is down").into())
     }
 }
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Note)]
 struct FailingHookForm {
     title: String,

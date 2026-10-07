@@ -1,9 +1,9 @@
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
-use tablo_core::{Auth, DeclarationError, MountError, Panel, Resource, RouterBuilderPanelExt};
-pub use tablo_test::{
+pub use tablo::testing::{
     body_bytes, body_string, cookie_header, field_error, filter_options, input_value,
     multipart_body, response_cookies, rows,
 };
+use tablo::{Auth, DeclarationError, MountError, Panel, Resource, RouterBuilderPanelExt};
 use toasty::Db;
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt, response::Response};
 use uuid::Uuid;
@@ -66,7 +66,7 @@ pub async fn post(
         .method(http::Method::POST)
         .uri(uri)
         .header(CONTENT_TYPE, content_type)
-        .header(COOKIE, format!("{}={csrf}", tablo_core::csrf::COOKIE_NAME))
+        .header(COOKIE, format!("{}={csrf}", tablo::csrf::COOKIE_NAME))
         .body(Body::from(body))
         .expect("request builds");
     router.handle(request).await

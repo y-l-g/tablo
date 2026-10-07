@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use tablo_core::Committed;
+use tablo::Committed;
 
 use super::*;
 

@@ -3,7 +3,7 @@
 
 use std::sync::LazyLock;
 
-use tablo_core::{NavigationItem, Page, Resource, db::db};
+use tablo::{NavigationItem, Page, Resource, db::db};
 use topcoat::{
     Result,
     context::Cx,
@@ -59,7 +59,7 @@ pub struct LiveActivityPage;
 
 impl Page for LiveActivityPage {
     fn navigation() -> NavigationItem {
-        NavigationItem::for_page::<Self>().icon(tablo_ui::icons::ACTIVITY)
+        NavigationItem::for_page::<Self>().icon(tablo::ui::icons::ACTIVITY)
     }
 
     fn slug() -> String {
@@ -69,17 +69,17 @@ impl Page for LiveActivityPage {
     async fn render(cx: &Cx) -> Result<impl View> {
         Ok(view! {
             cx =>
-            tablo_ui::page(
-                tablo_ui::page_header(
-                    tablo_ui::page_title("Live activity")
-                    tablo_ui::page_description(
+            tablo::ui::page(
+                tablo::ui::page_header(
+                    tablo::ui::page_title("Live activity")
+                    tablo::ui::page_description(
                         "The newest users, re-read after every committed write and pushed over a WebSocket."
                     )
                 )
-                tablo_ui::page_content(
-                    tablo_ui::card(
-                        tablo_ui::card_header(tablo_ui::card_title("Newest users"))
-                        tablo_ui::card_content(live_feed())
+                tablo::ui::page_content(
+                    tablo::ui::card(
+                        tablo::ui::card_header(tablo::ui::card_title("Newest users"))
+                        tablo::ui::card_content(live_feed())
                     )
                 )
             )
@@ -91,7 +91,7 @@ impl Page for LiveActivityPage {
 #[shard]
 async fn live_feed(cx: &Cx) -> Result<impl View> {
     // The shard runs the panel's guard itself.
-    tablo_core::auth::guard(cx)?;
+    tablo::auth::guard(cx)?;
     Ok(live! {
         let mut changed = subscribe();
         loop {

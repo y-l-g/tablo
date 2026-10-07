@@ -1,6 +1,6 @@
 //! The public blog: `/blog` and `/blog/{id}`, served with no session.
 
-use tablo_core::{Panel, db::db};
+use tablo::{Panel, db::db};
 use toasty::stmt::Include;
 use topcoat::{
     Result,
@@ -45,7 +45,7 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                         >
                             "Tablo Blog"
                         </a>
-                        if let Some(admin) = tablo_core::url::panel(cx) {
+                        if let Some(admin) = tablo::url::panel(cx) {
                             <a
                                 href=(admin)
                                 class="ml-auto text-sm text-muted-foreground hover:text-foreground"

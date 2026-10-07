@@ -19,7 +19,7 @@ async fn lists_link_to_create_and_edit() {
             html.contains(&format!("href=\"{prefix}/create\"")),
             "{prefix} must link its create page, got {html}"
         );
-        let edit_targets = tablo_test::rows(&html);
+        let edit_targets = tablo::testing::rows(&html);
         assert!(
             !edit_targets.is_empty(),
             "{prefix} must render rows, got {html}"
@@ -72,7 +72,7 @@ async fn a_draft_post_is_published_from_its_row() {
     let mut on_page = Vec::new();
     for post in Post::all().exec(&mut db_q).await.expect("query posts") {
         let expected = format!("/admin/posts/{}/edit", post.id);
-        if tablo_test::row_actions(&html, &post.id.to_string())
+        if tablo::testing::row_actions(&html, &post.id.to_string())
             .and_then(|actions| actions.edit)
             .as_deref()
             == Some(expected.as_str())

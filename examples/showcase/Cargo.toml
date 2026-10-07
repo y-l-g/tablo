@@ -15,8 +15,8 @@ name = "it"
 path = "tests/it.rs"
 
 [dependencies]
-tablo-core = { path = "../../crates/tablo-core" }
-tablo-ui = { path = "../../crates/tablo-ui" }
+# The facade, as an app names it: the toolkit at its root, the components as `tablo::ui`.
+tablo = { path = "../../crates/tablo" }
 jiff.workspace = true
 toasty = { workspace = true, features = ["sqlite"] }
 # `fs` is for the demo uploader's `tokio::fs` write (GH #188); `multipart` is
@@ -35,7 +35,7 @@ http = "1"
 http-body-util = "0.1"
 percent-encoding.workspace = true
 serde_json = "1"
-tablo-test = { path = "../../crates/tablo-test" }
+tablo = { path = "../../crates/tablo", features = ["testing"] }
 
 [lints]
 workspace = true

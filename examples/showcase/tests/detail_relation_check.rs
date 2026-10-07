@@ -73,7 +73,7 @@ async fn the_post_page_lists_its_own_comments_through_the_comments_table() {
         );
     }
     assert!(
-        tablo_test::rows(&other).is_empty(),
+        tablo::testing::rows(&other).is_empty(),
         "an empty relation renders no rows: {other}"
     );
 }
@@ -253,7 +253,7 @@ async fn a_comment_deleted_from_the_post_page_returns_to_it() {
 
     let html = body_string(client.get(&page).await).await;
     let csrf = input_value(&html, "csrf_token").expect("the page carries csrf");
-    let action = tablo_test::rows(&html)
+    let action = tablo::testing::rows(&html)
         .into_iter()
         .find_map(|row| row.actions.delete_action)
         .expect("a row carries its delete action");

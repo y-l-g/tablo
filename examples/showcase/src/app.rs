@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use tablo_core::{
+use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
     DateFilter, Field, FieldErrors, Grid, Group, Options, Panel, PublicLink, QueryFilter,
     RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
@@ -57,7 +57,7 @@ impl Resource for UserResource {
     fn declare() -> ResourceDef<Self> {
         let c = UserForm::controls();
         ResourceDef::new()
-            .icon(tablo_ui::icons::USERS)
+            .icon(tablo::ui::icons::USERS)
             // Refuses writes to Ken's account.
             .policy(|_cx: &Cx, ability: Ability<'_, User>| match ability {
                 Ability::Update(user) | Ability::Delete(user) => user.name != "Ken Thompson",
@@ -96,7 +96,7 @@ impl Resource for UserResource {
     }
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = User)]
 pub struct UserForm {
     pub name: String,
@@ -119,7 +119,7 @@ impl Resource for AuthorResource {
         let c = AuthorForm::controls();
         ResourceDef::new()
             .label("Writer")
-            .icon(tablo_ui::icons::PEN_LINE)
+            .icon(tablo::ui::icons::PEN_LINE)
             .policy(when(blog_open))
             .tenancy(Tenancy::column(Author::fields().tenant_id()))
             .table(AuthorForm::table())
@@ -127,7 +127,7 @@ impl Resource for AuthorResource {
     }
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Author)]
 pub struct AuthorForm {
     pub name: String,
@@ -148,7 +148,7 @@ impl Resource for PostResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .label("Blog Post")
-            .icon(tablo_ui::icons::FILE_TEXT)
+            .icon(tablo::ui::icons::FILE_TEXT)
             .policy(when(blog_open))
             .tenancy(Tenancy::column(Post::fields().tenant_id()))
             .table(post_table())
@@ -330,7 +330,7 @@ impl Action<PostResource> for PublishPosts {
     }
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Post)]
 pub struct PostForm {
     pub title: String,
@@ -362,7 +362,7 @@ impl Resource for CommentResource {
         let c = CommentForm::controls();
         ResourceDef::new()
             .plural_label("Comments")
-            .icon(tablo_ui::icons::MESSAGE_SQUARE)
+            .icon(tablo::ui::icons::MESSAGE_SQUARE)
             // Hides removed comments.
             .policy(|_cx: &Cx, ability: Ability<'_, Comment>| match ability {
                 Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
@@ -395,7 +395,7 @@ impl Resource for CommentResource {
     }
 }
 
-#[derive(tablo_core::RecordForm)]
+#[derive(tablo::RecordForm)]
 #[form(model = Comment)]
 pub struct CommentForm {
     pub body: String,

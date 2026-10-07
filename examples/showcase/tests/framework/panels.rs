@@ -1,5 +1,5 @@
 use http::header::LOCATION;
-use tablo_core::{
+use tablo::{
     Ability, Auth, Brand, DeclarationErrorKind, NavigationItem, Page, Panel, ReadOnly, Resource,
     ResourceDef, RouterBuilderPanelExt, Table, TextColumn,
     auth::{AdminUser, AuthSession, hash_password},
@@ -41,14 +41,14 @@ struct BookResource;
 
 impl Resource for BookResource {
     type Model = Book;
-    type Form = tablo_core::NoForm<Self::Model>;
+    type Form = tablo::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("books")
             .policy(ReadOnly)
             .table(Table::new(TextColumn::new(lens!(Book.title))).paginate(25))
-            .view(tablo_core::Schema::new(tablo_core::Field::text(
+            .view(tablo::Schema::new(tablo::Field::text(
                 Book::fields().title(),
             )))
     }
@@ -58,7 +58,7 @@ struct NoteResource;
 
 impl Resource for NoteResource {
     type Model = Note;
-    type Form = tablo_core::NoForm<Self::Model>;
+    type Form = tablo::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
@@ -83,10 +83,10 @@ impl Page for UrlsPage {
         let show = |url: Option<String>| url.unwrap_or_else(|| "none".to_string());
         let line = format!(
             "panel={} books={} notes={} urls={}",
-            show(tablo_core::url::panel(cx)),
-            show(tablo_core::url::resource::<BookResource>(cx)),
-            show(tablo_core::url::resource::<NoteResource>(cx)),
-            show(tablo_core::url::page::<UrlsPage>(cx)),
+            show(tablo::url::panel(cx)),
+            show(tablo::url::resource::<BookResource>(cx)),
+            show(tablo::url::resource::<NoteResource>(cx)),
+            show(tablo::url::page::<UrlsPage>(cx)),
         );
         Ok(view! { cx => <p data-urls="">(line)</p> })
     }
@@ -231,7 +231,7 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
     let login = post_form(
         &router,
         "/admin/login",
-        &[(tablo_core::csrf::COOKIE_NAME, csrf.clone())],
+        &[(tablo::csrf::COOKIE_NAME, csrf.clone())],
         format!("email=ada%40example.com&password=opensesame&csrf_token={csrf}"),
     )
     .await;

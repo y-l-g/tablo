@@ -1,5 +1,5 @@
 use showcase::models::{Author, Post, User};
-use tablo_core::TenantId;
+use tablo::TenantId;
 
 use crate::common::{
     body_string, demo_client, full_db, routers::router_for_tests as router, tenanted_db,
@@ -235,14 +235,14 @@ async fn a_resource_without_a_view_declaration_shows_its_form_read_only() {
         "the detail page shows the form's fields: {detail}"
     );
     assert_eq!(
-        tablo_test::input_value(&detail, "email"),
+        tablo::testing::input_value(&detail, "email"),
         None,
         "the detail page renders values, not controls: {detail}"
     );
 
     let authors = body_string(client.get("/admin/authors").await).await;
     assert_eq!(
-        tablo_test::row_actions(&authors, &author.id.to_string())
+        tablo::testing::row_actions(&authors, &author.id.to_string())
             .as_ref()
             .and_then(|actions| actions.view.clone()),
         Some(format!("/admin/authors/{}", author.id)),

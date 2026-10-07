@@ -8,7 +8,7 @@
 //! blog being public rather than the gate being off.
 
 use showcase::models::{Author, DEMO_TENANT, Post, Publication, Seo};
-use tablo_core::TenantId;
+use tablo::TenantId;
 
 use crate::common::{
     TestClient, body_string, demo_client, empty_schema_db, full_db,

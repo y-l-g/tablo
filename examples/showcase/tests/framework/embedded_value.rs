@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{EmbeddedForm, Field, FieldErrorKind, FieldErrors, IntoSchema, Schema, Source};
+use tablo::{EmbeddedForm, Field, FieldErrorKind, FieldErrors, IntoSchema, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,

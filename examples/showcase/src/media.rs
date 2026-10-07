@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use tablo_core::{
+use tablo::{
     Ability, NavigationItem, Notification, Page, TenantId, Uploader, csrf, db::db,
     notification::set_notification, require_tenant, schema::OptionSource,
 };
@@ -112,7 +112,7 @@ pub struct MediaLibraryPage;
 
 impl Page for MediaLibraryPage {
     fn navigation() -> NavigationItem {
-        NavigationItem::for_page::<Self>().icon(tablo_ui::icons::IMAGE)
+        NavigationItem::for_page::<Self>().icon(tablo::ui::icons::IMAGE)
     }
 
     fn slug() -> String {
@@ -134,31 +134,31 @@ impl Page for MediaLibraryPage {
 
         Ok(view! {
             cx =>
-            tablo_ui::page(
-                tablo_ui::page_header(
-                    tablo_ui::page_title("Media library")
-                    tablo_ui::page_description(
+            tablo::ui::page(
+                tablo::ui::page_header(
+                    tablo::ui::page_title("Media library")
+                    tablo::ui::page_description(
                         "Files stored through the app's uploader, picked as post covers."
                     )
                 )
-                tablo_ui::page_content(
-                    tablo_ui::card(
-                        tablo_ui::card_header(tablo_ui::card_title("Upload"))
-                        tablo_ui::card_content(
+                tablo::ui::page_content(
+                    tablo::ui::card(
+                        tablo::ui::card_header(tablo::ui::card_title("Upload"))
+                        tablo::ui::card_content(
                             <form
                                 method="post"
-                                action=(tablo_core::url::page::<MediaLibraryPage>(cx))
+                                action=(tablo::url::page::<MediaLibraryPage>(cx))
                                 enctype="multipart/form-data"
                                 class="flex flex-col gap-4"
                             >
                                 (csrf::field(cx, &csrf_token))
-                                tablo_ui::field(
-                                    tablo_ui::field_label(
+                                tablo::ui::field(
+                                    tablo::ui::field_label(
                                         attrs: attributes! { for="media-file" },
                                         "File"
                                     )
                                     <div class="flex items-center gap-2">
-                                        tablo_ui::input(
+                                        tablo::ui::input(
                                             attrs: attributes! {
                                                 id="media-file"
                                                 type="file"
@@ -167,16 +167,16 @@ impl Page for MediaLibraryPage {
                                                 data-media-file=""
                                             }
                                         )
-                                        tablo_ui::button(
-                                            variant: tablo_ui::ButtonVariant::Outline,
-                                            size: tablo_ui::ButtonSize::Icon,
+                                        tablo::ui::button(
+                                            variant: tablo::ui::ButtonVariant::Outline,
+                                            size: tablo::ui::ButtonSize::Icon,
                                             attrs: attributes! {
                                                 type="reset"
                                                 data-media-clear=""
                                                 aria-label="Clear the selected file"
                                                 title="Clear the selected file"
                                             },
-                                            icon(data: tablo_ui::icons::X)
+                                            icon(data: tablo::ui::icons::X)
                                         )
                                     </div>
                                     <div
@@ -186,8 +186,8 @@ impl Page for MediaLibraryPage {
                                     ></div>
                                 )
                                 <div>
-                                    tablo_ui::button(
-                                        variant: tablo_ui::ButtonVariant::Primary,
+                                    tablo::ui::button(
+                                        variant: tablo::ui::ButtonVariant::Primary,
                                         attrs: attributes! { type="submit" },
                                         "Upload"
                                     )
@@ -195,12 +195,12 @@ impl Page for MediaLibraryPage {
                             </form>
                         )
                     )
-                    tablo_ui::card(
-                        tablo_ui::card_header(tablo_ui::card_title("Stored media"))
-                        tablo_ui::card_content(
+                    tablo::ui::card(
+                        tablo::ui::card_header(tablo::ui::card_title("Stored media"))
+                        tablo::ui::card_content(
                             <div class="flex flex-col gap-3">
                                 if media.is_empty() {
-                                    tablo_ui::empty_state(
+                                    tablo::ui::empty_state(
                                         title: "No media has been uploaded yet.",
                                         detail: "Uploaded files are listed here.",
                                         attrs: attributes! { data-media-empty="" }
@@ -286,8 +286,8 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     .exec(&mut db)
     .await?;
     set_notification(cx, Notification::success("Media uploaded"));
-    let library = tablo_core::url::page::<MediaLibraryPage>(cx)
-        .expect("media page is registered on this panel");
+    let library =
+        tablo::url::page::<MediaLibraryPage>(cx).expect("media page is registered on this panel");
     Ok(see_other(library))
 }
 
