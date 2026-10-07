@@ -1,6 +1,7 @@
 use http::header::LOCATION;
 use showcase::models::{
-    Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, Publication, Seo,
+    Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, PostStatus,
+    Publication, Seo,
 };
 use tablo::TenantId;
 use uuid::Uuid;
@@ -438,7 +439,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
         tenant_id: TenantId::from(BLOCKED_TENANT),
         title: "Blocked Post",
         body: "body",
-        status: "draft".to_string(),
+        status: PostStatus::Draft,
         featured: false,
         created_at: "2024-01-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
         cover_id: None,

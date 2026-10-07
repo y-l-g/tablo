@@ -1,9 +1,10 @@
 //! `#[derive(Options)]` — a unit-variant enum as a choice's options.
 //!
-//! Each variant stores its `snake_case` name and reads as that name in
+//! Each variant's value is its `snake_case` name and its label that name in
 //! sentence case; `#[option(value = "..", label = "..")]` overrides either.
-//! The derive implements `Options` and gives the enum `value()`, `label()`
-//! and `from_value()`.
+//! The derive implements `Options` and `FormScalar`, spelling a variant as
+//! its value and reading it as its label, and gives the enum `value()`,
+//! `label()` and `from_value()`.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -101,8 +102,26 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
             }
         }
 
+        impl #krate::__macro::FormScalar for #ident {
+            fn parse_form(
+                value: &str,
+            ) -> ::std::result::Result<Self, ::std::string::String> {
+                Self::from_value(value).ok_or_else(|| {
+                    ::std::format!("`{value}` is not a valid option")
+                })
+            }
+
+            fn to_form(&self) -> ::std::string::String {
+                ::std::string::String::from(self.value())
+            }
+
+            fn to_label(&self) -> ::std::string::String {
+                ::std::string::String::from(self.label())
+            }
+        }
+
         impl #ident {
-            /// The value this option stores.
+            /// The value this option posts, and a `String` column stores.
             pub const fn value(&self) -> &'static str {
                 match self {
                     #(Self::#idents => #values,)*

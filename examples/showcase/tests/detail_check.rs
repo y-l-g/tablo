@@ -1,4 +1,4 @@
-use showcase::models::{Author, Post, User};
+use showcase::models::{Author, Post, PostStatus, User};
 use tablo::TenantId;
 
 use crate::common::{
@@ -18,7 +18,7 @@ async fn a_post_id(db: &mut toasty::Db) -> String {
 }
 
 async fn a_published_post_id(db: &mut toasty::Db) -> String {
-    Post::filter(Post::fields().status().eq("published".to_string()))
+    Post::filter(Post::fields().status().eq(PostStatus::Published))
         .order_by(Post::fields().title().asc())
         .exec(db)
         .await
@@ -29,7 +29,7 @@ async fn a_published_post_id(db: &mut toasty::Db) -> String {
 }
 
 async fn an_unpublished_post_id(db: &mut toasty::Db) -> String {
-    Post::filter(Post::fields().status().eq("draft".to_string()))
+    Post::filter(Post::fields().status().eq(PostStatus::Draft))
         .order_by(Post::fields().title().asc())
         .exec(db)
         .await
@@ -107,7 +107,7 @@ async fn post_detail_renders_the_record_read_only() {
         "detail page must show the title: {html}"
     );
     assert!(
-        html.contains(&post.status),
+        html.contains(post.status.label()),
         "detail page must show the status: {html}"
     );
     assert!(

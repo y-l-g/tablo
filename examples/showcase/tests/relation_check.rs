@@ -1,4 +1,4 @@
-use showcase::models::{Author, Comment, Post};
+use showcase::models::{Author, Comment, Post, PostStatus};
 
 use crate::common::{
     body_string, demo_client, full_db, post_count, routers::router_for_tests as router,
@@ -280,7 +280,7 @@ async fn posts_create_lifecycle_fields_persist() {
         .unwrap()
         .expect("lifecycle post");
     assert_eq!(created.body, "Full story");
-    assert_eq!(created.status, "published");
+    assert_eq!(created.status, PostStatus::Published);
     assert!(created.featured);
 }
 
@@ -316,7 +316,7 @@ async fn posts_create_omitted_lifecycle_fields_default_to_draft() {
         .unwrap()
         .expect("stub post");
     assert_eq!(created.body, "");
-    assert_eq!(created.status, "draft");
+    assert_eq!(created.status, PostStatus::Draft);
     assert!(!created.featured);
 }
 

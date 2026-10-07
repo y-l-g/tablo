@@ -36,7 +36,7 @@ enum DefaultControl {
     /// A checkbox: a `bool`.
     Toggle,
     /// A choice, over an `Options` type's list when one is named.
-    Choice(Option<syn::Path>),
+    Choice(Option<Type>),
     /// A file field.
     File,
     /// An embedded value's own schema.
@@ -338,6 +338,7 @@ fn expand_struct(
         impl #ident {
             /// Builds every field's control from the field: a `bool` is a
             /// toggle, `#[form(options = T)]` a choice over `T`'s options,
+            /// `#[form(options)]` a choice over the field type's options,
             /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
             /// `#[form(embed)]` the embedded value's schema, and any other
             /// field a text field.

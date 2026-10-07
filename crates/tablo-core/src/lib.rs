@@ -170,9 +170,9 @@ pub use table::{
 ///
 /// A field marked `#[form(embed)]` is another **embedded value**, delegated to
 /// its own `EmbeddedForm`. Every other field is a **scalar**: one column, read
-/// and written through `FormScalar` (`String`, a `TypedValue` type, or an
-/// `Option` of one). A scalar of another type fails to compile at the field,
-/// naming the trait. An empty scalar is its blank answer — its declared
+/// and written through `FormScalar` (`String`, a `TypedValue` type, an
+/// `Option` of one, or an `Options` enum). A scalar of another type fails to compile at the
+/// field, naming the trait. An empty scalar is its blank answer — its declared
 /// `#[form(blank = ..)]`, `None` for an `Option`, `false` for a `bool`, `""`
 /// for an `#[form(optional)]` `String` — and a scalar with none is required:
 /// its control renders required and the parse refuses its key.
@@ -198,11 +198,12 @@ pub use table::{
 /// type other than `String`.
 pub use tablo_macros::EmbeddedForm;
 /// Derive `Options` for a unit-variant enum: the `(value, label)` list a
-/// choice field, a select filter and a column share.
+/// choice field, a select filter and a column share, and the `FormScalar`
+/// that posts a variant as its value and reads it as its label.
 ///
 /// ```rust
 /// # use tablo_core::Options;
-/// #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
 /// pub enum Status {
 ///     Draft,
 ///     #[option(label = "Live")]
@@ -214,17 +215,17 @@ pub use tablo_macros::EmbeddedForm;
 /// assert_eq!(Status::from_value("draft"), Some(Status::Draft));
 /// ```
 ///
-/// Each variant stores its `snake_case` name and reads as that name in
+/// Each variant's value is its `snake_case` name and its label that name in
 /// sentence case. `#[option(value = "..")]` and `#[option(label = "..")]`
 /// override either. A generic enum, a variant with fields, two variants
-/// storing one value, and an unknown key are compile errors.
+/// sharing one value, and an unknown key are compile errors.
 pub use tablo_macros::Options;
 /// Derive `RecordForm` for the typed value a resource's form writes.
 ///
 /// One field per model column the form writes, named and typed like the
-/// model's field. A scalar (`String`, a `TypedValue` type, or an `Option` of
-/// one) binds the key its control posts; a `#[form(embed)]` field binds every
-/// key of an `EmbeddedForm` value and is written whole.
+/// model's field. A scalar (`String`, a `TypedValue` type, an `Option` of
+/// one, or an `Options` enum) binds the key its control posts; a `#[form(embed)]` field binds
+/// every key of an `EmbeddedForm` value and is written whole.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -250,6 +251,7 @@ pub use tablo_macros::Options;
 /// `RecordForm::fields` answers with each variant's keys.
 /// It emits `UserFormControls`, one control per field chosen from the field —
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
+/// `#[form(options)]` a choice over the field type's options,
 /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
 /// `#[form(embed)]` the embedded value's schema, and any other field a text
 /// field — with `controls()` handing them over and `RecordForm::schema`
@@ -266,6 +268,7 @@ pub use tablo_macros::Options;
 /// - `#[form(model = User)]` on the struct: the model the form writes.
 /// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as.
 /// - `#[form(optional)]` on a `String`: an empty submission reads as `""`.
+/// - `#[form(options)]` on an `Options` enum: a choice over its own options.
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
 /// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` may
 ///   add.

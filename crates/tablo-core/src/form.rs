@@ -121,7 +121,7 @@ use crate::{
 };
 
 /// A type one form key reads and writes: `String`, every [`TypedValue`] type,
-/// and an `Option` of either.
+/// an `Option` of either, and an enum deriving [`Options`](crate::Options).
 ///
 /// The value the parse sees is trimmed and non-empty; an empty submission is the
 /// record-form field's **blank answer** instead, and a field with none is required.
@@ -132,8 +132,9 @@ use crate::{
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a form scalar",
     label = "a form field of this type has no text spelling",
-    note = "a form scalar is `String`, a `TypedValue` type, or an `Option` of one; implement \
-            `TypedValue` for an app type, or mark an `EmbeddedForm` value `#[form(embed)]`"
+    note = "a form scalar is `String`, a `TypedValue` type, an `Option` of one, or an `Options` \
+            enum; implement `TypedValue` for an app type, derive `Options` for a unit enum, or \
+            mark an `EmbeddedForm` value `#[form(embed)]`"
 )]
 pub trait FormScalar: Sized {
     /// The `type` attribute of the text control that edits it.
@@ -144,6 +145,12 @@ pub trait FormScalar: Sized {
 
     /// The form spelling of a stored value.
     fn to_form(&self) -> String;
+
+    /// What a column cell and a group header read: the form spelling, or an
+    /// `Options` enum's label.
+    fn to_label(&self) -> String {
+        self.to_form()
+    }
 }
 
 impl FormScalar for String {

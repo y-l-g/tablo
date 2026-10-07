@@ -113,11 +113,11 @@ impl Binding {
 
 /// The form key a record-form field binds: the column `path` resolves to.
 #[doc(hidden)]
-pub fn form_key<M, T>(path: Path<M, T>) -> String
+pub fn form_key<M, T>(path: impl Into<Path<M, T>>) -> String
 where
     M: toasty::schema::Model,
 {
-    Binding::of(&path).name().to_string()
+    Binding::of(&path.into()).name().to_string()
 }
 
 /// The app schema embedded paths resolve through: the compiled schema of the app's `Db`.

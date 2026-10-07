@@ -1,4 +1,4 @@
-use showcase::models::User;
+use showcase::models::{PostStatus, Role, User};
 
 use crate::common::{
     body_string, demo_client, empty_users_db, find_href_with, full_db,
@@ -68,7 +68,7 @@ async fn stale_cursor_after_concurrent_delete_offers_first_page() {
             toasty::create!(User {
                 name: format!("User {:02}", i),
                 email: format!("void{:02}@example.com", i),
-                role: "member",
+                role: Role::Member,
                 active: true,
                 age: 30,
                 created_at: "2024-03-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
@@ -136,7 +136,7 @@ async fn no_js_fallbacks_cover_search_filter_sort_pager() {
             tenant_id: authors[0].tenant_id,
             title: format!("Nojs Published {:02}", i),
             body: "extra",
-            status: "published".to_string(),
+            status: PostStatus::Published,
             featured: false,
             created_at: "2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
             cover_id: None,

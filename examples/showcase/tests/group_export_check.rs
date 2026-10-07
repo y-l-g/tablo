@@ -35,7 +35,7 @@ async fn posts_group_by_status_shows_counts() {
     let published = showcase::models::Post::filter(
         showcase::models::Post::fields()
             .status()
-            .eq("published".to_string()),
+            .eq(showcase::models::PostStatus::Published),
     )
     .exec(&mut db_q)
     .await
@@ -50,15 +50,16 @@ async fn posts_group_by_status_shows_counts() {
         resp.status()
     );
     let html = body_string(resp).await;
-    // The header label *and* its page-local count. The bare label is not
-    // asserted separately: the status SelectFilter renders "published" and
-    // "draft" as options on every list page, so a label-only check
-    // passes with grouping off. `on this page` is emitted only by a group
-    // header (`render.rs`), and core pins the ordering and exact
+    // The header reads the option's label, with its page-local count. The
+    // bare label is not asserted separately: the status SelectFilter renders
+    // "Published" and "Draft" as options on every list page, so a label-only
+    // check passes with grouping off. `on this page` is emitted only by a
+    // group header (`render.rs`), and core pins the ordering and exact
     // "draft (2 on this page)" labels in
     // `group_by_orders_each_row_under_its_own_header`.
+    let label = showcase::models::PostStatus::Published.label();
     assert!(
-        html.contains(&format!("published ({published} on this page)")),
+        html.contains(&format!("{label} ({published} on this page)")),
         "missing the published group header in {html}"
     );
 }

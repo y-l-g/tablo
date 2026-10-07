@@ -5,7 +5,7 @@ use toasty::Db;
 use topcoat::context::Cx;
 
 use crate::{
-    models::{Post, User},
+    models::{Post, PostStatus, User},
     resources::{CommentResource, PostResource},
 };
 
@@ -26,7 +26,7 @@ pub fn user_filters(prefix: &str) {
 
 pub async fn load_published(mut db: Db) -> topcoat::Result<Vec<Post>> {
     // ANCHOR: data-access-published
-    let posts = Post::filter(Post::fields().status().eq("published".to_string()))
+    let posts = Post::filter(Post::fields().status().eq(PostStatus::Published))
         .include(Post::fields().author())
         .exec(&mut db)
         .await?;
@@ -70,7 +70,7 @@ pub async fn count_drafts(db: &Db, tenant: uuid::Uuid) -> topcoat::Result<usize>
     let cx = admin_panel().context(db)?.with(tablo_core::Tenant(tenant));
     let mut ex = tablo_core::db::db(&cx);
     let drafts = scoped_query::<PostResource>(&cx)?
-        .filter(Post::fields().status().eq("draft".to_string()))
+        .filter(Post::fields().status().eq(PostStatus::Draft))
         .exec(&mut ex)
         .await?;
     // ANCHOR_END: data-access-job

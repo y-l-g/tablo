@@ -15,9 +15,6 @@ use topcoat::{
 
 use crate::models::{Author, MediaAsset, Post, PostStatus};
 
-// The status marking a post visible to the public.
-pub(crate) const PUBLISHED: &str = PostStatus::Published.value();
-
 path_param!(pub id: uuid::Uuid);
 
 /// The public shell.
@@ -77,7 +74,7 @@ async fn page(cx: &Cx) -> Result<impl View> {
     let mut db = db(cx);
     // N+1 touch: the author is included.
     let include_author: Include<Post, Author> = Post::fields().author().into();
-    let posts = Post::filter(Post::fields().status().eq(PUBLISHED.to_string()))
+    let posts = Post::filter(Post::fields().status().eq(PostStatus::Published))
         .order_by(Post::fields().created_at().desc())
         .include(include_author)
         .exec(&mut db)
@@ -133,7 +130,7 @@ async fn post_page(cx: &Cx) -> Result<impl View> {
         Post::fields()
             .id()
             .eq(id)
-            .and(Post::fields().status().eq(PUBLISHED.to_string())),
+            .and(Post::fields().status().eq(PostStatus::Published)),
     )
     .include(include_author)
     .first()
