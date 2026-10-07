@@ -145,11 +145,13 @@ impl Resource for CommentResource {
             // ANCHOR: comment-tenancy-via
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             // ANCHOR_END: comment-tenancy-via
-            .form(Schema::new((
-                c.body,
-                c.post_id
-                    .relationship::<PostResource>(|p: &Post| p.title.clone()),
-            )))
+            .form(Schema::new(
+                Section::new("Comment").schema((
+                    c.body,
+                    c.post_id
+                        .relationship::<PostResource>(|p: &Post| p.title.clone()),
+                )),
+            ))
     }
 
     // ANCHOR: comment-update-record

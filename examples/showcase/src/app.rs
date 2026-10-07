@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
-    DateFilter, Field, FieldErrors, Grid, Group, Options, Panel, PublicLink, QueryFilter,
-    RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
-    SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
+    DateFilter, FieldErrors, Grid, Group, Options, Panel, PublicLink, QueryFilter, RecordForm,
+    Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
+    Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -123,7 +123,14 @@ impl Resource for AuthorResource {
             .policy(when(blog_open))
             .tenancy(Tenancy::column(Author::fields().tenant_id()))
             .table(AuthorForm::table())
-            .form(Schema::new((c.name, c.email.email())))
+            .form(Schema::new(
+                Section::new("Profile").schema((c.name, c.email.email())),
+            ))
+    }
+
+    /// Names the detail heading with the author's name.
+    fn record_label(_cx: &Cx, record: &Author) -> Option<String> {
+        Some(record.name.clone())
     }
 }
 
@@ -179,24 +186,20 @@ impl Resource for PostResource {
         }
     }
 
-    /// Shows the computed reading stats and the cover.
+    /// Shows the computed reading stats in a card like the view's sections.
     fn view_content<'a>(cx: &'a Cx, record: &Post) -> Option<topcoat::view::BoxView<'a>> {
         let words = word_count(&record.body);
         let minutes = read_minutes(words);
-        let cover_id = record.cover_id;
         Some(
             view! {
                 cx =>
-                <div class="flex flex-col gap-1">
-                    <p class="text-sm text-muted-foreground">
-                        (format!("{words} words · {minutes} min read"))
-                    </p>
-                    if let Some(cover_id) = cover_id {
-                        <p class="text-xs text-muted-foreground">
-                            (format!("Cover: {cover_id}"))
+                tablo::ui::card(
+                    tablo::ui::card_content(
+                        <p class="text-sm text-muted-foreground">
+                            (format!("{words} words · {minutes} min read"))
                         </p>
-                    }
-                </div>
+                    )
+                )
             }
             .boxed(),
         )
@@ -238,10 +241,7 @@ fn post_view() -> Schema {
         Section::new("Details")
             .schema(Group::new().schema((Grid::new(2).schema((c.status, c.featured)), c.tags))),
         Section::new("SEO").schema(c.seo),
-        Section::new("Publication").schema(
-            Field::text(Post::fields().publication().published().published_at())
-                .label("Published at"),
-        ),
+        Section::new("Publication").schema(c.publication),
     ))
 }
 
@@ -385,13 +385,15 @@ impl Resource for CommentResource {
                 .width(ColumnWidth::Wide)
                 .include(Comment::fields().post()),
             )))
-            .form(Schema::new((
-                c.body.multiline(4).placeholder("Write a reply…"),
-                c.post_id
-                    .relationship::<PostResource>(|p: &Post| p.title.clone())
-                    .searchable()
-                    .label("Post"),
-            )))
+            .form(Schema::new(
+                Section::new("Comment").schema((
+                    c.body.multiline(4).placeholder("Write a reply…"),
+                    c.post_id
+                        .relationship::<PostResource>(|p: &Post| p.title.clone())
+                        .searchable()
+                        .label("Post"),
+                )),
+            ))
     }
 }
 
