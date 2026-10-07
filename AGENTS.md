@@ -1,66 +1,24 @@
 # Tablo — Agent Instructions
 
-## Commands
-
-The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): seven commands
-mirroring `.github/workflows/ci.yml` and `.github/workflows/msrv-udeps.yml`. Run it via `cargo xtask check` (fail-fast,
-cheapest-first, skipping the MSRV/udeps gates CI skips for the change),
-or the ones covering your change; `cargo xtask check --all` before merging. CI also runs the extra
-checks listed there (docs, detached fmt, external).
+[`CONTRIBUTING.md`](CONTRIBUTING.md) holds the rules for code, tests, prose, commits and issues.
+Read it before the first change. This file adds what applies to agents only.
 
 ```sh
-cargo xtask check                                # the gate set, fail-fast
-cargo xtask fmt                                  # nightly fmt + detached fmt + pinned topcoat fmt
-cargo xtask external-check                       # build and test examples/quickstart outside the repo
-cargo run -p showcase                            # http://localhost:3000/admin/users
-cargo xtask sync-topcoat-ui                      # re-vendor primitives, verbatim
-cargo xtask verify-topcoat-ui                    # fail on vendored drift
-
-# `topcoat fmt` only agrees with the pinned CLI version.
-cargo install topcoat-cli --version 0.10.0 --locked --force
+cargo xtask check          # before every commit
+cargo xtask check --all    # before merging
+cargo run -p showcase      # http://localhost:3000/admin/users
 ```
 
-## Rules
-
-1. Verify every factual claim in a doc, comment, or commit message against the code.
-2. Document current behavior only; no "used to", "previously". See `CONTRIBUTING.md#prose`.
-3. Run the gate set for the area you touched, plus `cargo test --workspace --locked` on the
-   merged result: branches can merge cleanly and not compile.
-4. Give each worktree its own target directory; a shared `CARGO_TARGET_DIR` cross-contaminates.
-5. Never pipe when you need the exit code: `| tail` masks it. Read `PIPESTATUS` or redirect to
-   a file.
-6. `cargo fmt` covers workspace members only; the detached `examples/quickstart` package is
-   formatted and linted by manifest path.
-7. Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with xtask. Owned
-   components live in `components/composites/`.
-8. Hunting dead code: prefer `pub` API, always-same-value config, and test-only paths.
-   `unsafe_code` and `warnings` are denied; `too_many_lines` is denied with the
-   budget in the workspace-root `clippy.toml` (`too-many-lines-threshold = 300`).
-9. Run `topcoat fmt` with the pinned CLI after changing `view!` markup; another CLI's
-   diff is not a fix. See `CONTRIBUTING.md`.
-
-## Git
-
-Squash-merge every branch into `master` — one commit per branch, no empty merge commits; a
-branch's commits are working notes. The squashed commit is a Conventional Commit, carrying the
-issue in the subject when the change closes one (`docs/dev/COMMITS.md`).
-
-## Layout
-
-Crate roles live in [`docs/dev/architecture.md`](docs/dev/architecture.md#crates). The user
-guide is `docs/guide/` (mdBook), decisions are in `docs/adr/`, contributor specs in
-`docs/dev/`, domain vocabulary in `CONTEXT.md`, and agent tracker notes in `docs/agents/`.
-
-## Renovate PRs
-
-Renovate groups `topcoat`/`toasty` bumps. Coupled sets (e.g. `argon2` +
-`password-hash`) merge as one combined manual bump.
-Two `syn` majors remain (GH #181, GH #193); do not force-unify.
-
-## Further reading
-
-- Build and verify: [`CONTRIBUTING.md`](CONTRIBUTING.md), `docs/dev/architecture.md`,
-  `docs/dev/TESTING.md`
-- Write: [`CONTRIBUTING.md`](CONTRIBUTING.md#prose), `docs/dev/COMMITS.md`, `docs/dev/LABELS.md`,
-  `docs/guide/`, `CONTEXT.md`
-- Decide: `docs/adr/`, `docs/dev/design/`, `docs/dev/upstream-notes.md`, `docs/agents/`.
+1. Verify every claim in a doc, comment, commit or PR against the code, and every upstream API
+   against the source of the version `Cargo.lock` pins.
+2. Run `cargo test --workspace --locked` on the merged result: branches can merge cleanly and not
+   compile.
+3. Give each worktree its own target directory; a shared `CARGO_TARGET_DIR` cross-contaminates.
+4. Never pipe a command whose exit code you need: `| tail` masks it. Redirect to a file instead.
+5. A `topcoat fmt` diff from an unpinned CLI is not a fix; install the version `cargo xtask fmt`
+   names.
+6. Use `gh` for issues and PRs. A bare `#123` is an issue or a PR: try `gh pr view 123`, then
+   `gh issue view 123`.
+7. When your change contradicts an ADR, say so in the PR instead of silently diverging.
+8. Renovate groups coupled bumps (`renovate.json`). The lockfile carries `syn` 2 and 3 through
+   upstream crates; do not force-unify them.

@@ -10,8 +10,8 @@ use std::{
 /// Dated nightly carrying the rustfmt the workspace check enforces.
 pub const NIGHTLY_FMT: &str = "nightly-2026-08-24";
 
-/// MSRV floor (`Cargo.toml` rust-version).
-pub const MSRV: &str = "1.98";
+/// MSRV floor: the workspace `rust-version`, which xtask inherits.
+pub const MSRV: &str = env!("CARGO_PKG_RUST_VERSION");
 
 /// The detached app `external-check` builds from outside the repository.
 pub const QUICKSTART: &str = "examples/quickstart";
@@ -124,7 +124,7 @@ pub fn changes_touch(root: &Path, specs: &[&str]) -> bool {
         || git(root, &uncommitted).is_none_or(|out| !out.trim().is_empty())
 }
 
-/// The pinned-nightly workspace fmt check (CONTRIBUTING gate 3).
+/// The pinned-nightly workspace fmt check.
 pub fn nightly_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     let toolchain = format!("+{NIGHTLY_FMT}");
     run.run(
@@ -151,7 +151,7 @@ const TOPCOAT_INSTALL: &str = "cargo install topcoat-cli --version 0.10.0 --lock
 /// Where the pinned mdBook install the guide build needs lives.
 const MDBOOK_INSTALL: &str = "cargo install mdbook --version 0.5.2 --locked --force";
 
-/// The pinned-CLI `topcoat fmt` check plus diff guard (CONTRIBUTING gate 4).
+/// The pinned-CLI `topcoat fmt` check plus diff guard.
 pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run("topcoat", &["fmt"], Some(root), &[])
         .map_err(|error| {
@@ -167,7 +167,7 @@ pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
         })
 }
 
-/// The guide build (CONTRIBUTING docs job).
+/// The guide build (the CI `docs` job).
 pub fn guide_build(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     run.run("mdbook", &["build", "docs/guide"], Some(root), &[])
         .map_err(|error| anyhow::anyhow!("{error}\nThe guide build needs mdBook: {MDBOOK_INSTALL}"))
@@ -270,9 +270,8 @@ fn udeps_installed(run: &dyn Runner, root: &Path) -> bool {
     .is_ok()
 }
 
-/// The gate set as a local fail-fast convenience runner: the CONTRIBUTING
-/// gates cheapest-first. Docs and the external build run only under
-/// `Scope::All`; CI covers them in parallel jobs. The MSRV/udeps gates run only
+/// The CI checks as a local fail-fast runner, cheapest first. Docs and the external build run only
+/// under `Scope::All`; CI covers them in parallel jobs. The MSRV/udeps gates run only
 /// with `MSRV_PATHS` changes, matching the CI path filter.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
     let root = repo_root();

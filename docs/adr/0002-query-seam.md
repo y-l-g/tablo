@@ -1,26 +1,18 @@
-# Resource::query is the resource's own row-scoping seam
+# 0002 `Resource::query` scopes rows; the framework owns tenancy
 
-Date: 2026-08-19 — Status: accepted
+`Resource::query(cx)` is a resource's own row scoping (soft deletes, row visibility), and every
+list, form and record loader reads through it. Tenancy is declared on the `ResourceDef`
+(`Tenancy::column` or `Tenancy::via`), and `scoped_query` ANDs the tenant predicate after
+`query`, so no override can drop it. App code loading rows outside the framework's loaders calls
+`scoped_query`, not `query`. A resource serving several tenants declares no tenancy and scopes in
+`query`, giving up the 403 gate.
 
-## Decision
+The tenant column is typed `TenantId` (or `Option<TenantId>`), and a tenancy lens must name a
+field implementing `TenantColumn`. The type is the only thing that tells a tenant column apart
+from any other UUID column, so a lens to an unmarked column does not compile.
 
-`Resource::query(cx)` scopes a resource's own rows: soft deletes and row visibility. Every list,
-form, and record loader reads through it. Tenancy enters as `cx.with(Tenant(id))`, not as
-a global scope.
+## Rejected
 
-`ResourceDef::tenancy` declares ownership: `Tenancy::none()` (default), `Tenancy::column(lens)`,
-or `Tenancy::via(lens)`. The lens names the column. `scoped_query` applies `<lens> = <request
-tenant>` after the `query` override, so no override drops the tenant predicate and no override
-removes it. `view_query` receives the same predicate. A scoped resource answers 403 with no
-tenant; mounting refuses a `Tenancy::column` lens outside the model with an error naming the
-resource and `Tenancy::via`. A column tenancy stamps the tenant on create, so the form omits
-that field. A `via` tenancy stamps nothing, so mounting requires the form to write the foreign key
-of the `belongs_to` its lens starts at through a relationship field over a tenant-scoped resource,
-whose key the write re-checks.
-
-A resource serving more than one tenant declares no tenancy and scopes in `query`, giving up the
-403 gate with the filter. App code loading rows outside framework loaders calls `scoped_query`:
-`query` on a scoped resource is tenant-unscoped.
-
-`schema::OptionSource::scoped_query` is required; `Resource` provides the blanket impl. A direct
-`OptionSource` implementor upholds the tenant predicate by convention.
+- A `#[tenant]` field attribute: `toasty::Model` derives only its own attributes.
+- Refusing a lens by shape (the key, a relation endpoint, a name): it guesses at intent.
+- Declaring the tenant column on the resource: a second declaration can disagree with the model.

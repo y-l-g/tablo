@@ -1,20 +1,12 @@
-# Typed field lenses, not string state paths
+# 0001 Typed field lenses, not string state paths
 
-Date: 2026-08-19 — Status: accepted
+Every Schema field and Table column binds through a typed Toasty field lens, never a string path,
+so a renamed or retyped field fails to compile. `lens!(User.name)` writes the query path and the
+value reader from one field name, so the two cannot name different fields. A row's key is its
+record's primary key; no table, relation or select declares a key closure.
 
-## Decision
+Form transport stays string-keyed; a record form (ADR-0022) parses it into a typed struct.
 
-Every Schema field and Table column binds through a typed Toasty field lens
-(`User::fields().email()`), never a string path. The lens carries nullability, uniqueness,
-renames, and type. Presence is the record form's (ADR-0022); a single-segment `String` lens
-carries uniqueness from the index list, including composite indexes. Form transport stays
-string-keyed (`HashMap<String, String>`); a record form (ADR-0022) parses it into a struct
-bound by ident to the model fields. An embedded leaf key resolves at run time. Upstream #115,
-#119.
+## Rejected
 
-A column renders the value it sorts on, so it needs the field's value off a loaded record as well
-as its path, and Toasty reads no value through a path. `lens!(User.name)` writes both halves from
-one field name — `User::fields().name()` and `|user| &user.name` — as a `Lens`, so they cannot
-name different fields; a chain through a relation does not compile. A row's key is the record's
-primary key, read through the model's derived `IntoExpr` (`toasty_compat::pk`), so a table, a
-relation and a relationship select declare no key closure.
+- String state paths: a typo or a rename fails at run time, and the path carries no type.

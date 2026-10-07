@@ -48,6 +48,9 @@ pub fn form_body(pairs: &[(&str, &str)]) -> String {
 
 /// Builds a multipart body, one part per entry: `None` is a text part,
 /// `Some("")` the browser's "no file chosen" part, `Some(name)` a chosen file.
+///
+/// No part carries a `Content-Type`: the panel tells file parts from text parts by the
+/// `filename` parameter alone. A test asserting on an upload's content type builds its own body.
 pub fn multipart_body(boundary: &str, parts: &[(&str, Option<&str>, &str)]) -> String {
     let mut body = String::new();
     for (name, filename, content) in parts {

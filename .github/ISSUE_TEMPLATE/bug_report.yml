@@ -51,7 +51,7 @@ body:
     id: area
     attributes:
       label: Affected area
-      description: Crate or subsystem — `tablo-core`, `tablo-macros`, `tablo-ui`, `showcase`, `xtask`, benchmarks, or docs.
+      description: The crate, example or doc.
       placeholder: tablo-core (table)
     validations:
       required: true

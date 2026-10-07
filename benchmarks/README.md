@@ -1,65 +1,24 @@
 # Benchmarks
 
-Server-rendering performance harness for Tablo, following the methodology of
-`tokio-rs/topcoat/benchmarks/` (loopback HTTP/1.1 document requests, `oha` load
-generator).
-
-Workload: **list with 50 rows, 2 includes (`author` + `comments`), tenancy set,
-`ViewAny` enforced**, measured on the real list path (`wired_table` →
-`WiredTable::render` over the tenant-scoped `scoped_query` with the declared `.paginate(50)` →
-HTML). The raw query-only figure is kept as a labeled diagnostic
-alongside it. Budget: **< 40 ms p50** on local SQLite, with an opt-in Postgres leg
-(see below). The numbers are UNGATED
-(GH #171): the harness prints the budget for reference and never PASS/FAILs on it.
-
-Layout:
-
-```
-benchmarks/
-  tablo/     Tablo/Topcoat app under test (50-row workload, --bench flag)
-  scripts/   bench.sh (oha + in-process bench), verify_parity.sh
-  results/   benchmark output (gitignored)
-```
-
-`benchmarks/tablo` is an unpublished workspace member: it builds against the workspace
-lockfile, and the workspace's test, clippy, MSRV, and udeps gates cover it.
-
-## Running
+Measures the list path: 50 posts with their `author` and `comments` includes, tenancy set, the
+`ViewAny` check enforced, rendered to HTML. `benchmarks/tablo` declares the models and resources
+and seeds in-memory SQLite. The budget is under 40 ms p50 on SQLite; it is printed for reference
+and never gated (GH #171). CI builds and lints the harness but does not run it.
 
 ```sh
-# Bench the Tablo list (50 rows, 2 includes) without starting a server:
-cargo run --manifest-path benchmarks/tablo/Cargo.toml -- --bench --iterations 100
-# The process exits nonzero only on harness errors (connect/load/render failure).
+# In-process bench, no server:
+cargo run -p storefront-tablo -- --bench --iterations 100
 
-# Postgres leg (opt-in — no local Postgres assumed):
-# TABLO_BENCH_POSTGRES_URL=postgresql://toasty:toasty@localhost:5432/toasty \
-#   cargo run --manifest-path benchmarks/tablo/Cargo.toml -- --bench
-# The URL must name a disposable bench database (the leg resets it, pushes
-# schema, and seeds under a fresh tenant each run). Without it, only the
-# SQLite leg runs.
+# Add the Postgres leg; the URL must name a disposable database, which each run resets:
+TABLO_BENCH_POSTGRES_URL=postgresql://toasty:toasty@localhost:5432/toasty \
+  cargo run -p storefront-tablo -- --bench
 
-# Full bench incl. HTTP leg (requires `oha` for the HTTP leg; timings informational, ungated):
+# Full run with the HTTP leg (needs `oha`), written to benchmarks/results/<timestamp>/:
 ./benchmarks/scripts/bench.sh
-# -> benchmarks/results/<timestamp>/results.md + oha JSON
 
-# Self-check (tablo renders 50 rows with their includes):
+# Check that the list renders the 50 rows with their includes:
 ./benchmarks/scripts/verify_parity.sh
+
+# Serve the panel at http://localhost:3000/ for manual inspection:
+cargo run -p storefront-tablo
 ```
-
-`cargo run --manifest-path benchmarks/tablo/Cargo.toml` (no flag) still
-starts the Topcoat server at `http://localhost:3000/` for manual inspection.
-
-## What "fast" means
-
-* **Preloading** — `include` for `author` + `comments` (3 operations, not 101).
-* **Reruns** — a search, filter or page change reruns the page and morphs the changed markup in
-  place; the browser keeps the shell.
-* **Pagination** — cursor pagination (Toasty appends the PK tie-breaker internally).
-
-Results are written per run under `benchmarks/results/` (gitignored). CI builds and lints the
-harness with the workspace; it does not run the benchmark.
-
-## Self-check
-
-`verify_parity.sh` asserts the Tablo list renders the 50 rows (`Post 00..Post 49` with `Author`
-includes). See `benchmarks/scripts/verify_parity.sh`.

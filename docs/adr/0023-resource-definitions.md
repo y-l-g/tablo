@@ -1,30 +1,15 @@
-# A resource declares one value, and each panel owns what it mounts
+# 0023 A resource declares one value; each panel owns what it mounts
 
-Date: 2026-10-05 — Status: accepted
-
-## Decision
-
-`Resource::declare` returns a `ResourceDef<Self>`: every setting that takes no request — slug,
-labels, navigation, policy, tenancy, table, form, view, relations, actions, create columns — as
-one builder value with a default for each. The `Resource` trait keeps the associated types and the
-methods that take a request: `query`, `view_query`, the display hooks, `validate_record`, and the
-record fns.
-
-A panel registers resources lazily. Mounting builds each def once, binds its declarations to the app schema,
-fills its defaults into a `Mounted<R>`, and keeps it in the panel's state; every handler and every
-cross-reference (a relation, a relationship field's options, `can`, `scoped_query`) reads the
-request panel's copy. `Panel::resource_with` adjusts the def for one panel, so one resource type
-can mount read-only in one panel and writable in another. A resource the request's panel does not
-mount answers as not mounted, and a relation or a relationship field naming one fails the mount.
-A context outside any request, such as a background job's, comes from `Panel::context`, which
-mounts the panel's resources with the same resource declaration checks; a context with no panel at
-all mounts nothing, so no declaration is ever rebuilt outside a mount.
+`Resource::declare` returns a `ResourceDef<Self>` holding every setting that takes no request.
+The `Resource` trait keeps the associated types and the methods that take one: `query`,
+`view_query`, display hooks, `validate_record`, the record fns. Mounting builds each def once and
+keeps it in the panel's state; every handler and cross-reference reads the request panel's copy,
+so one resource can mount read-only in one panel and writable in another. A background job gets a
+context from `Panel::context`, which mounts with the same checks.
 
 ## Rejected
 
-- Methods taking `&self` on a resource value: the 26 items stay, data and behaviour stay mixed.
-- A trait-free value of closures: it loses the typed references (`relationship::<AuthorResource>`,
-  `url::resource::<R>`), and async record fns borrowing `cx` and the executor are painful as
-  closures.
-- A registry keyed by resource type across panels: it rebuilt a def silently for an unmounted
-  resource and could hold one configuration per type.
+- Methods on a resource value: data and behavior stay mixed across 26 items.
+- A value of closures: it loses typed references, and async record fns are painful as closures.
+- A registry keyed by resource type across panels: one configuration per type, rebuilt silently
+  for an unmounted resource.

@@ -1,15 +1,7 @@
 ## Summary
 
-What changed and why. Link the issue (`Closes #123`) when there is one.
+What changed and why. `Closes #123` when it closes an issue.
 
 ## Verification
 
-The gates that ran and their result, e.g. `cargo test --workspace --locked`.
-Name anything not run and why. The full set is in `CONTRIBUTING.md`.
-
-## Checklist
-
-- [ ] The gate set for the touched area passes.
-- [ ] If `view!` markup changed, `topcoat fmt` ran with the pinned `topcoat-cli 0.10.0`.
-- [ ] If a doc claim changed, it was verified against the code.
-- [ ] Every addition proves its value: no duplicated source, no history or narrative.
+The checks that ran, e.g. `cargo xtask check --all`, and anything not run with the reason.

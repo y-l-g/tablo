@@ -1,175 +1,113 @@
 # Contributing to Tablo
 
-Small fixes, documentation corrections, and tests can go straight to a pull request. For a new
-feature or a public-API change, open an issue first and describe the problem: discuss the
-design first. A change that reshapes `Panel`, `Resource`, `Table`, `Schema`, or the
-policy/tenancy seams needs a design document under [`docs/dev/design/`](docs/dev/design/)
-first: open the design, merge it without implementation, then implement once it is accepted and
-delete the design document in the implementation PR, moving the durable reasoning to an ADR and
-the usage to the guide and rustdoc.
-Read [`AGENTS.md`](AGENTS.md) before your first change; it holds the rules this document
-expands.
+Small fixes, documentation corrections and tests can go straight to a pull request. A new feature
+or a public-API change starts with a feature-proposal issue; one that reshapes `Panel`,
+`Resource`, `Table`, `Schema` or the policy and tenancy seams waits for the issue's API sketch to
+be accepted before the implementation PR.
 
-## Fork and branch
+## Layout
 
-Fork the repository and branch off `master`. Keep the branch mergeable by rebasing onto `master`
-rather than merging `master` into it. Branches squash-merge, so no history tidying is needed
-before pushing. Keep pull requests focused: if a fix grows into a feature or a redesign, discuss
-the scope before continuing.
+| Path | Contents |
+| --- | --- |
+| `crates/tablo` | the facade an app depends on: `tablo-core` at its root, `ui`, `testing`, `prelude`, the driver features |
+| `crates/tablo-core` | Panel, Resource, Table, Schema, policy, auth, tenancy, uploads |
+| `crates/tablo-macros` | the `RecordForm`, `EmbeddedForm` and `Options` derives |
+| `crates/tablo-ui` | `primitives/` synced from `topcoat-ui-registry`, `composites/` owned here |
+| `crates/tablo-test` | the in-memory HTTP client, re-exported as `tablo::testing` |
+| `crates/tablo-build` | `tailwind()`, the app's Tailwind build over Tablo's sources |
+| `examples/showcase` | the runnable admin and the integration suite |
+| `examples/guide` | the guide's compiled snippets, included by `docs/guide/` |
+| `examples/quickstart` | the smallest app, outside the workspace, built from outside the repo by `external-check` |
+| `benchmarks/` | the list-path benchmark |
+| `xtask` | the check runner, the primitives sync, and the repo guards |
 
-## Using AI assistants
-
-AI-assisted contributions are welcome, with no disclosure required.
-
-## Build and run
-
-```sh
-cargo run -p showcase
-# open http://localhost:3000/admin/users
-```
-
-`crates/tablo-core` is the framework. `examples/showcase` is the runnable admin, the reference
-for panel and resource declarations, and the home of the integration tests (`cargo test -p
-showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.test.js`.
-
-## The gate set
-
-CI runs seven gates plus three extra checks (mirroring `.github/workflows/ci.yml` and, for
-gates 5 and 7, `.github/workflows/msrv-udeps.yml`).
-The fast path is the xtask runner: `check` runs the cheap gates below fail-fast, cheapest
-first, skipping the ones CI would not run for the change; `check --all` runs every gate,
-including the slow docs and external builds.
+No library crate enables a database driver; the app picks one through a `tablo` feature.
 
 ```sh
-cargo xtask check         # the cheap gates below, skipping CI-skipped ones
-cargo xtask check --all   # every gate, plus docs and the external build
-cargo xtask fmt           # the formatting subset: nightly fmt, detached fmt, pinned topcoat fmt
+cargo run -p showcase   # http://localhost:3000/admin/users
 ```
 
-`check` runs each command below in execution order, stopping at the first failure: gates 3,
-4, 6, then the detached fmt, then gates 1, 2, 5, 7. Gates 5 and 7 run only when the change
-touches the `msrv-udeps.yml` path filter; any git failure runs every gate.
-`check --all` runs every gate below plus the extras.
-
-1. `cargo test --workspace --locked`
-2. `cargo clippy --workspace --all-targets --locked -- -D warnings`
-3. `cargo +nightly-2026-08-24 fmt --all -- --check`
-4. `topcoat fmt`, then `git diff --exit-code`
-5. `cargo +1.98 check --workspace --locked`
-6. `node --test crates/tablo-ui/assets/selects.test.js examples/showcase/assets/media.test.js`
-7. `cargo +nightly install cargo-udeps --locked`, then `cargo +nightly udeps --workspace --all-targets --locked`
-
-Gate 3 runs on the dated nightly in `rust-toolchain.toml`: `rustfmt.toml`'s keys are
-nightly-only (GH #269). Gate 5 is the MSRV floor in `Cargo.toml` (GH #175).
-Gate 7 guards unused dependencies (GH #271).
-
-CI runs three more checks outside the seven, and a change touching what they cover
-has to pass them too (`cargo xtask check --all` runs the detached fmt with the cheap gates
-up front, then docs and the external build after gate 7):
-
-- the `docs` job builds rustdoc with
-  `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`, then
-  builds the guide with `mdbook build docs/guide`;
-- the `fmt` job runs `cargo fmt -- --check` inside the detached
-  `examples/quickstart` workspace;
-- the `external` job runs `cargo xtask external-check`: the detached
-  `examples/quickstart` app must build, serve, and generate a stylesheet with
-  classes only Tablo's own sources write, so workspace-only resolutions fail it.
-
-### The `topcoat fmt` trap
-
-The `topcoat` CLI on `PATH` is usually not the release this workspace uses,
-and `topcoat fmt` reflows `view!` markup differently across releases. CI
-installs `topcoat-cli 0.10.0` before formatting, so a locally
-installed CLI of another version proposes a diff CI rejects. Do not hand-fix
-that diff. `cargo xtask fmt` runs the check half only: it never installs the
-CLI, and a missing or wrong-version CLI fails with the pinned install command.
-Install `topcoat-cli 0.10.0` and run it — the exact command is
-the `Install topcoat CLI` step of the `fmt` job in
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-
-## Vendored primitives
-
-`crates/tablo-ui/src/components/primitives/` mirrors the `topcoat-ui-registry`
-crate verbatim, under a `SYNC` header recording the registry version and the
-source hash. Never hand-edit those files: update them with
-`cargo xtask sync-topcoat-ui`. `cargo xtask verify-topcoat-ui` fails when a
-vendored file has drifted. Components Tablo owns live in
-`crates/tablo-ui/src/components/composites/` and are edited normally
-(ADR-0007).
-
-## Dependency pins
-
-`topcoat` and `toasty` are crates.io dependencies in two manifests: the workspace's and
-`examples/quickstart`'s. Renovate groups their bumps. A bump touches both manifests and the
-workspace lockfile (the quickstart commits none) in one commit:
+## Checks
 
 ```sh
-cargo update -p topcoat -p toasty
+cargo xtask check         # fmt, JS suites, test, clippy; MSRV and udeps if manifests changed
+cargo xtask check --all   # also MSRV, udeps, rustdoc, the guide and the external build
+cargo xtask fmt           # the formatting checks alone
 ```
 
-Never run a blanket `cargo update`.
+`check` stops at the first failure, cheapest first. "Manifests changed" means any `Cargo.toml`,
+`Cargo.lock`, `rust-toolchain.toml` or `msrv-udeps.yml` differs from `master`. CI runs the same commands in
+`.github/workflows/ci.yml` and `msrv-udeps.yml`, which hold the pinned toolchains. Run
+`check --all` before merging.
 
-## Commits
+- `topcoat fmt` reflows `view!` markup differently across CLI releases, so only the pinned
+  `topcoat-cli` agrees with CI. When it is missing or another version, `cargo xtask fmt` fails
+  with the install command. Never hand-fix its diff.
+- `examples/quickstart` is outside the workspace: `cargo fmt` at the root skips it, and
+  `cargo xtask fmt` checks it.
+- `crates/tablo-ui/src/components/primitives/` is a verbatim copy of the registry. Never edit it:
+  `cargo xtask sync-topcoat-ui` updates it and `cargo test -p xtask` fails on drift.
 
-Every branch is squash-merged into `master`: one commit per branch, so no empty
-merge commits. The squashed commit is a Conventional Commit, with the issue
-reference in the subject when the change closes an issue.
-[`docs/dev/COMMITS.md`](docs/dev/COMMITS.md) is the authoritative format. Pull request titles
-follow the same format, since the title becomes the merged commit; reviewers check it.
+## Code
 
-## Triage
+- A struct is followed by its inherent `impl`, then its trait impls. A new module is `foo.rs`
+  beside `foo/`, never `foo/mod.rs`.
+- Shared dependency versions live in the root `[workspace.dependencies]`.
+- `topcoat` and `toasty` are crates.io dependencies of the workspace and of
+  `examples/quickstart`. Bump them in both manifests and the lockfile together with
+  `cargo update -p topcoat -p toasty`; never run a blanket `cargo update`. To edit against a
+  local checkout, add an uncommitted `[patch]` pointing at `../topcoat` or `../toasty`.
+- Read an upstream API from the version `Cargo.lock` pins, in the cargo registry cache, not from
+  memory or the upstream branch tip.
+- Use the words `CONTEXT.md` defines, in code, issues and commits.
 
-Maintainers close issues and pull requests without detailed review when a change
-does not align with the project's direction, duplicates existing work, or is not
-worth the time to review. If context changes the picture, follow up in the thread.
+## Tests
 
-## Decisions and vocabulary
+- A test pins a behavior that a plausible bug breaks. Derive the expected value from the intended
+  behavior, never by re-running the implementation.
+- Assert structure and state (row counts, redirects, link targets, database rows), not wording,
+  through the `tablo-test` queries (`rows`, `row_actions`, `field_error`, `filter_options`).
+- A behavior is pinned once, by a unit test or an integration test. Delete a test that proves
+  nothing.
+- Unit tests live in `tests.rs` beside their source file (`foo/tests.rs` for `foo.rs`).
+- `examples/showcase/tests/it.rs` is one test binary whose modules are the suite files:
+  `cargo test -p showcase --test it admin::` runs one file. `tests/framework/` covers what the
+  showcase's resources do not reach, with test-local models.
 
-Record durable design decisions in [`docs/adr/`](docs/adr/): one record per decision, keeping
-only the decision, the rejected alternatives, and the constraint future code must respect.
-Behaviour lives in the guide and in rustdoc. Domain terms and the synonyms to avoid live in
-[`CONTEXT.md`](CONTEXT.md); use its words in code, issues, and commits. Test discipline lives in
-[`docs/dev/TESTING.md`](docs/dev/TESTING.md).
+## Writing
 
-This file is the single home for where each kind of writing lives:
+Behavior is documented in rustdoc and the guide (`docs/guide/`), vocabulary in `CONTEXT.md`,
+and decisions in `docs/adr/`. `README.md` is the entry point.
 
-- Vocabulary and domain terms: `CONTEXT.md`
-- Decisions: `docs/adr/`
-- User guide: `docs/guide/` (mdBook); `README.md` is the short entry point
-- Contributor specs — commits, labels, testing: `docs/dev/`; prose rules: below (`#prose`)
-- Transient API proposals: `docs/dev/design/`; upstream API freshness: `docs/dev/upstream-notes.md`
-- Issue bodies: the templates in `.github/ISSUE_TEMPLATE/`
-- Agent tracker notes: `docs/agents/`
+- Verify every claim against the code before writing it.
+- Document current behavior only: no history, no plans. History belongs in a commit message.
+- Active voice, present tense. Show the call or the output rather than describing it.
+- No filler, hype, weasel words or metaphors: say "by default", not "out of the box"; say what the
+  code does, not "under the hood" or "magic".
+- A comment explains why: an invariant, an upstream workaround, a safety argument. It never
+  restates the next line.
+- An ADR records one decision and the alternatives it rejected, and is amended in place. A retired
+  number is never reused.
 
-## Prose
+## Pull requests and commits
 
-Rules for every human-readable text in this repo: documentation, the README, ADRs, code comments,
-PR descriptions, issue bodies, and commit bodies.
+Every branch is squash-merged into `master`, so the PR title becomes the commit: a Conventional
+Commit under 100 characters, ending with the issue it closes, if any.
 
-- State what things are and what they do.
-- Use active voice and present tense: "the engine executes the query", not "the query is
-  executed".
-- Document current behavior only. Omit historical decisions, deprecated approaches, removed APIs,
-  and planned work. A sentence explaining what the code used to do belongs in a commit message
-  or an ADR, not in the source.
-- Prefer concrete examples to description: show the call, the output, or the error.
-- Cut fluff. Every sentence carries information.
-- No buzzwords or business jargon ("leverage", "synergy", "paradigm", "stakeholders",
-  "deliverables", "action items").
-- No weasel words: "very", "really", "quite", "somewhat".
-- No dramatic terms ("critical", "crucial", "vital") unless something actually breaks.
-- No figurative metaphors — pick the literal word. Recurring offenders to avoid by name: "under
-  the hood" (say what the code does), "out of the box" (say "by default"), "first-class" (say
-  what is supported), "magic" (say what happens), "lights up" (say "enables"), "footgun" (name
-  the failure), and "lands" or "ships" as verbs for code existing (say "is added", "exists", or
-  "releases").
-- Start with what the thing is, then why it exists, then what it does, then how to use it. Lead
-  with a code sample where a sample answers the question.
-- A comment earns its place by explaining WHY: a non-obvious invariant, a workaround for a named
-  upstream bug, or a safety argument. A comment that restates what the next line plainly does is
-  noise. Prefer one precise sentence to a paragraph, and do not narrate the refactor or the
-  debugging session that produced the code.
+```
+fix(table): bound the filters signal (#205)
+```
 
-By contributing, you agree that your contributions are licensed under the
-[MIT license](LICENSE).
+- Types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `ci`, `build`, `chore`, `revert`.
+- Scopes: `core`, `table`, `schema`, `panel`, `auth`, `ui`, `macros`, `test`, `build`, `guide`,
+  `showcase`, `bench`, `xtask`, `deps`, `release`, `repo`.
+- A breaking change adds `!` after the scope and a `BREAKING CHANGE:` footer.
+- The body says what changed and why. The PR description adds which checks ran.
+
+## Issues
+
+File through a form in `.github/ISSUE_TEMPLATE/`; it sets the label, and maintainers set the rest
+from `.github/labels.yml`. An upstream gap is one missing Toasty or Topcoat API per issue, and its
+body is its status: edit the body, do not comment.
+
+By contributing, you agree that your contributions are licensed under the [MIT license](LICENSE).
