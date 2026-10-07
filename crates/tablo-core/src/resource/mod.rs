@@ -16,8 +16,10 @@ mod mounted;
 mod relation;
 mod write;
 
-pub use action::Action;
-pub(crate) use action::{ActionEntry, Actions};
+#[doc(hidden)]
+pub use action::required_input;
+pub use action::{Action, ActionInput};
+pub(crate) use action::{ActionEntry, Actions, ErasedInput, RESERVED_KEYS, SUBMITTED_KEY};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use def::ResourceDef;

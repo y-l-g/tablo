@@ -16,7 +16,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::view`. | Infolist, Show page |
 | Column | One value read off a record: a cell of a table row, or an entry on a detail page. | Field (in a table), Cell, Attribute |
 | Filter | A predicate a table adds to its query from a UI control. | Scope, Constraint, Where |
-| Field | One input in a schema, bound to a model column. | Input, Control, Widget |
+| Field | One input in a schema, bound to a model column, or to a name in an action input. | Input, Control, Widget |
 | Lens | A model field named once, pairing its query path with its value reader. | Accessor, Getter, statePath |
 | Relation lens | A relation field named once with `relation!`, pairing its include with its loaded-value reader; a relation column reads one. | Relation (alone), Association |
 | Embedded value | A `toasty::Embed` value stored as flattened columns, bound by a form as one value. | Nested form, Sub-form, Inline model |
@@ -27,6 +27,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Tenancy | How a resource's rows belong to a tenant, through a `TenantId` column. | Tenant scope, Multi-tenancy mode |
 | Relation | A related resource's rows that belong to a record, rendered as that resource's table. | Relation manager, Sub-table |
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
+| Action input | The typed value an action asks for before it runs, rendered on its input page. Its fields bind no column. | Action form, Parameters, Payload |
 | Authenticator | The trait that loads a panel user from credentials or a session id. | Provider, LoginManager |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |

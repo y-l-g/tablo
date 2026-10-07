@@ -257,5 +257,33 @@ and mounting the panel refuses a name two actions of a resource share. A destruc
 declares `const CONFIRM: bool = true` to ask first through the delete's confirmation dialog; an
 unconfirmed POST answers 400. Confirmatory buttons need JavaScript: without it they do nothing.
 
+#### Asking for input
+
+An action names what it asks for before it runs as `type Input`: `()` for nothing, or a struct
+deriving `ActionInput`, which `run` receives parsed:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-input-action}}
+```
+
+Its button opens an input page instead of running: the POST that would run the action renders
+the input's form, after the same policy, `can_run` and tenancy checks, titled with the label and
+the record's title, or the record count for a selection. Its submit POSTs to the same route with
+the input, and the action runs on the records that pass the checks again, in one transaction. A
+value the input refuses renders the page again with the error under its control and writes
+nothing; a key the input does not declare answers 400. `Action::validate_input` adds refusals of
+its own, each under an input field's key, such as a reason too short to act on. An action with
+input and `CONFIRM` confirms on the input page, which says the action cannot be undone and whose
+submit renders destructive, instead of in the dialog. The input page works without JavaScript.
+
+Each field posts its own name and renders the control its type picks: a `bool` is a checkbox,
+`#[form(options)]` a choice over the field type's `Options` and `#[form(options = T)]` one over
+`T`'s, and any other `FormScalar` a text input. A field with no blank answer is required, as on a
+record form: `#[form(blank = ..)]`, `#[form(optional)]` on a `String`, an `Option` or a `bool`
+gives it one. `#[form(label = "..")]` labels the control, `#[form(placeholder = "..")]` sets a text
+input's placeholder, and `#[form(multiline = N)]` makes it a `<textarea>`. An `Option` choice names its options type, `#[form(options = PostStatus)]`.
+Mounting the panel refuses an input field named `csrf_token`, `confirm` or `ids`, which the
+action's POST carries itself, and a file field, whose upload an action's POST does not read.
+
 If the table fails to load, the list shows an error state with a retry link in place of the rows;
 the rest of the page still renders.

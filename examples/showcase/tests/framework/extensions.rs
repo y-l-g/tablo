@@ -106,6 +106,7 @@ impl Control for Shouty {
 struct Complete;
 
 impl Action<TaskResource> for Complete {
+    type Input = ();
     const NAME: &'static str = "complete";
 
     fn label(_cx: &Cx) -> String {
@@ -116,7 +117,12 @@ impl Action<TaskResource> for Complete {
         !task.done
     }
 
-    async fn run(_cx: &Cx, tasks: &[Task], ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(
+        _cx: &Cx,
+        tasks: &[Task],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()
@@ -132,6 +138,7 @@ impl Action<TaskResource> for Complete {
 struct Explode;
 
 impl Action<TaskResource> for Explode {
+    type Input = ();
     const NAME: &'static str = "explode";
     const ROW: bool = false;
 
@@ -143,7 +150,12 @@ impl Action<TaskResource> for Explode {
         true
     }
 
-    async fn run(_cx: &Cx, tasks: &[Task], ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(
+        _cx: &Cx,
+        tasks: &[Task],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()
@@ -637,6 +649,7 @@ async fn a_bulk_action_without_a_selection_writes_nothing() {
 struct Twice;
 
 impl Action<TwiceResource> for Twice {
+    type Input = ();
     const NAME: &'static str = "twice";
 
     fn label(_cx: &Cx) -> String {
@@ -647,7 +660,7 @@ impl Action<TwiceResource> for Twice {
         true
     }
 
-    async fn run(_cx: &Cx, _: &[Task], _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(_cx: &Cx, _: &[Task], _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
         Ok(())
     }
 }
@@ -681,6 +694,7 @@ async fn two_actions_sharing_a_name_fail_the_build() {
 struct Archive;
 
 impl Action<ConfirmResource> for Archive {
+    type Input = ();
     const NAME: &'static str = "archive";
     const CONFIRM: bool = true;
 
@@ -688,7 +702,12 @@ impl Action<ConfirmResource> for Archive {
         "Archive".to_string()
     }
 
-    async fn run(_cx: &Cx, tasks: &[Task], ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(
+        _cx: &Cx,
+        tasks: &[Task],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()

@@ -118,6 +118,20 @@ pub enum Site {
     Relation(String),
 }
 
+/// Why an action's input cannot be served:
+/// [`DeclarationErrorKind::ActionInput`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ActionInputFault {
+    /// A field named like a key the action's POST carries itself: `csrf_token`, `confirm`, `ids`
+    /// or `-input`.
+    ReservedField(String),
+    /// A file field, whose upload an action's POST does not read.
+    FileField(String),
+    /// No field, but a parse that refuses an empty submission, so the action could never run.
+    RefusesEmpty,
+}
+
 /// What is wrong with a declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -187,6 +201,13 @@ pub enum DeclarationErrorKind {
     DuplicateAction {
         /// The shared name.
         name: &'static str,
+    },
+    /// An action's input cannot be served.
+    ActionInput {
+        /// The action's `NAME`.
+        action: &'static str,
+        /// What is wrong with it.
+        fault: ActionInputFault,
     },
     /// Two relations to the same resource.
     DuplicateRelation,
@@ -368,6 +389,23 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two actions are named '{name}': each needs a distinct `NAME`"
             ),
+            Self::ActionInput { action, fault } => match fault {
+                ActionInputFault::ReservedField(field) => write!(
+                    f,
+                    "action '{action}' declares an input field named '{field}', which its POST \
+                     carries itself: rename the field"
+                ),
+                ActionInputFault::FileField(field) => write!(
+                    f,
+                    "action '{action}' declares a file field '{field}' in its input, which an \
+                     action's POST does not upload: take the file in a record form"
+                ),
+                ActionInputFault::RefusesEmpty => write!(
+                    f,
+                    "action '{action}' declares no input field, but its input refuses an empty \
+                     submission: declare the fields it parses, or name `()`"
+                ),
+            },
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")
             }

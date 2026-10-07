@@ -28,6 +28,7 @@ struct Ticket {
 struct Close;
 
 impl Action<TicketResource> for Close {
+    type Input = ();
     const NAME: &'static str = "close";
 
     fn label(_cx: &Cx) -> String {
@@ -37,6 +38,7 @@ impl Action<TicketResource> for Close {
     async fn run(
         _cx: &Cx,
         tickets: &[Ticket],
+        _: (),
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
         for ticket in tickets {

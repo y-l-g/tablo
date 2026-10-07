@@ -121,6 +121,70 @@ async fn a_draft_post_is_published_from_its_row() {
     assert_eq!(after.status, PostStatus::Published);
 }
 
+/// The Tag action asks for tags first: its POST renders the input page, a submit without tags is
+/// refused on the page, and a submit adds the tags to the post's own, each once.
+#[tokio::test]
+async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
+    use showcase::models::Post;
+
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let post = Post::all()
+        .exec(&mut db_q)
+        .await
+        .expect("query posts")
+        .into_iter()
+        .find(|post| post.tags == "rust,async")
+        .expect("the seed tags a post rust,async");
+    let tag = format!("/admin/posts/{}/-/actions/tag", post.id);
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let client = client.csrf(&csrf);
+
+    let page = body_string(client.post_form(&tag, format!("csrf_token={csrf}")).await).await;
+    assert!(
+        page.contains("name=\"tags\"")
+            && page.contains("placeholder=\"rust, async\"")
+            && page.contains("Replace existing tags"),
+        "the button opens the input page: {page}"
+    );
+
+    let refused = body_string(
+        client
+            .post_form(&tag, format!("csrf_token={csrf}&-input=1&tags=+"))
+            .await,
+    )
+    .await;
+    assert!(
+        tablo::testing::field_error(&refused, "tags").is_some(),
+        "{refused}"
+    );
+
+    let resp = client
+        .post_form(
+            &tag,
+            format!("csrf_token={csrf}&-input=1&tags=async%2C+tokio&replace=false"),
+        )
+        .await;
+    assert!(resp.status().is_redirection(), "got {}", resp.status());
+    let after = Post::get_by_id(&mut db_q, &post.id)
+        .await
+        .expect("the post still exists");
+    assert_eq!(after.tags, "rust,async,tokio");
+
+    client
+        .post_form(
+            &tag,
+            format!("csrf_token={csrf}&-input=1&tags=news&replace=true"),
+        )
+        .await;
+    let after = Post::get_by_id(&mut db_q, &post.id)
+        .await
+        .expect("the post still exists");
+    assert_eq!(after.tags, "news", "replacing drops the post's own tags");
+}
+
 /// The guide's read-only portal over the showcase's `PostResource`: the list shows the tenant's
 /// drafts but offers no Publish, and a forged POST to either route publishes nothing.
 #[tokio::test]

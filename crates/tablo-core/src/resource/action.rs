@@ -1,12 +1,22 @@
 //! Custom actions: the [`Action`] trait, and the [`Actions`] list a
 //! [`ResourceDef`](super::ResourceDef) declares them in.
 
-use std::{future::Future, pin::Pin};
+mod input;
 
+use std::{any::Any, collections::HashMap, future::Future, pin::Pin};
+
+pub use input::ActionInput;
+#[doc(hidden)]
+pub use input::required_input;
+pub(crate) use input::{RESERVED_KEYS, SUBMITTED_KEY};
 use topcoat::{Result, context::Cx};
 
 use super::{Mounted, Resource};
-use crate::policy::Ability;
+use crate::{
+    form::{FieldError, FieldErrors},
+    policy::Ability,
+    schema::Schema,
+};
 
 /// A mutation beyond create, update and delete: "publish", "archive",
 /// "resend the invite".
@@ -34,6 +44,7 @@ use crate::policy::Ability;
 /// struct Publish;
 ///
 /// impl Action<PostResource> for Publish {
+///     type Input = ();
 ///     const NAME: &'static str = "publish";
 ///
 ///     fn label(_cx: &Cx) -> String {
@@ -44,7 +55,7 @@ use crate::policy::Ability;
 ///         post.status != "published"
 ///     }
 ///
-///     async fn run(_cx: &Cx, posts: &[Post], ex: &mut dyn Executor) -> Result<()> {
+///     async fn run(_cx: &Cx, posts: &[Post], _: (), ex: &mut dyn Executor) -> Result<()> {
 ///         for post in posts {
 ///             Post::filter(Post::fields().id().eq(post.id))
 ///                 .update()
@@ -73,10 +84,20 @@ use crate::policy::Ability;
 /// - [`Resource::after_commit`] with [`Mutation::Action`](super::Mutation::Action) once the
 ///   transaction commits, and the success notification.
 ///
+/// An action that asks for an [`Input`](Self::Input) renders it as a form page first, after the
+/// same checks: its button opens the page, and the page's submit runs the action with the
+/// parsed value. The submit parses the input, asks [`validate_input`](Self::validate_input) and
+/// checks its choices before the transaction opens, then re-checks a relationship choice inside
+/// it. A refused value renders the page again with its errors and writes nothing.
+///
 /// A table renders no button and no bulk entry for an action the policy refuses `RunAny`, and no
 /// button on a row whose record fails `View`, `Run` or `can_run`. A row that no bulk action and no
 /// delete allows renders no checkbox.
 pub trait Action<R: Resource>: 'static {
+    /// What the action asks for before it runs: `()` for nothing, or an
+    /// [`ActionInput`](derive@crate::ActionInput) struct, such as a rejection's reason.
+    type Input: ActionInput;
+
     /// The action's URL segment, distinct among the resource's actions.
     ///
     /// [`ResourceDef::action`](super::ResourceDef::action) refuses to compile a name that is not
@@ -98,10 +119,11 @@ pub trait Action<R: Resource>: 'static {
     /// struct Archive;
     ///
     /// impl Action<PostResource> for Archive {
+    ///     type Input = ();
     ///     const NAME: &'static str = "archive/all";
     /// #   fn label(_cx: &Cx) -> String { String::new() }
     /// #   fn can_run(_: &Cx, _: &Post) -> bool { true }
-    /// #   async fn run(_: &Cx, _: &[Post], _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
+    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
     /// }
     ///
     /// let def = ResourceDef::<PostResource>::new().action::<Archive>();
@@ -118,7 +140,9 @@ pub trait Action<R: Resource>: 'static {
     /// Whether the action asks first through a confirmation dialog sharing the
     /// delete dialog's mechanism and destructive wording. Defaults to `false`.
     ///
-    /// An unconfirmed POST answers 400.
+    /// An action with input confirms on its input page instead, which says the action cannot be
+    /// undone and whose submit renders destructive. An unconfirmed POST that would write answers
+    /// 400.
     const CONFIRM: bool = false;
 
     /// The button text.
@@ -134,12 +158,22 @@ pub trait Action<R: Resource>: 'static {
         true
     }
 
+    /// Refuse an input [`run`](Self::run) should not receive, such as a reason too short to
+    /// act on: each error names an input field's key and renders under its control. Defaults to
+    /// none.
+    ///
+    /// It runs after the input parses and before the transaction opens, so it sees no record.
+    fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors {
+        FieldErrors::new()
+    }
+
     /// Perform the action on `records`, the records of the row or selection that
-    /// passed [`Ability::Run`] and [`can_run`](Self::can_run), through the framework's
-    /// transaction `ex`.
+    /// passed [`Ability::Run`] and [`can_run`](Self::can_run), with the parsed `input`, through
+    /// the framework's transaction `ex`.
     fn run(
         cx: &Cx,
         records: &[R::Model],
+        input: Self::Input,
         ex: &mut dyn toasty::Executor,
     ) -> impl Future<Output = Result<()>> + Send;
 
@@ -155,6 +189,12 @@ pub trait Action<R: Resource>: 'static {
 
 /// What an erased action's `run` returns.
 pub(crate) type ActionFuture<'a> = Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
+
+/// A parsed [`Action::Input`] with its type erased; `run` downcasts it back.
+pub(crate) type ErasedInput = Box<dyn Any + Send>;
+
+/// What an erased input parse returns.
+pub(crate) type InputResult = std::result::Result<ErasedInput, Vec<FieldError>>;
 
 /// The actions a [`Resource`] declares, in button order.
 pub(crate) struct Actions<R: Resource> {
@@ -193,6 +233,9 @@ impl<R: Resource> Actions<R> {
             bulk: A::BULK,
             resource_wide: Ability::RunAny { action: A::NAME },
             can_run: can_run_erased::<R, A>,
+            input: A::Input::schema,
+            takes_input: !A::Input::schema().is_empty(),
+            parse_input: parse_input_erased::<R, A>,
             run: run_erased::<R, A>,
             success: A::success,
             acted: super::Committed::acted::<R, A>,
@@ -224,8 +267,18 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) resource_wide: Ability<'static, R::Model>,
     /// Whether the mutation may write `record`, which already passed `View`.
     pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
-    pub(crate) run:
-        for<'a> fn(&'a Cx, &'a [R::Model], &'a mut dyn toasty::Executor) -> ActionFuture<'a>,
+    /// The input form's schema: empty for a delete and an action asking for nothing.
+    pub(crate) input: fn() -> Schema,
+    /// Whether [`input`](Self::input) declares a field, so the mutation asks for it on a page.
+    pub(crate) takes_input: bool,
+    /// Parses and validates the input from a submission, as the value `run` takes.
+    pub(crate) parse_input: fn(&Cx, &HashMap<String, String>) -> InputResult,
+    pub(crate) run: for<'a> fn(
+        &'a Cx,
+        &'a [R::Model],
+        ErasedInput,
+        &'a mut dyn toasty::Executor,
+    ) -> ActionFuture<'a>,
     pub(crate) success: fn(&Cx, usize) -> String,
     pub(crate) acted: fn(Vec<R::Model>) -> super::Committed<R::Model>,
     /// The failure toast's wording: "Couldn't {failure}".
@@ -261,6 +314,9 @@ impl<R: Resource> ActionEntry<R> {
             bulk,
             resource_wide: Ability::DeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
+            input: Schema::empty,
+            takes_input: false,
+            parse_input: parse_nothing,
             run: if bulk {
                 bulk_delete_erased::<R>
             } else {
@@ -297,19 +353,42 @@ fn can_run_erased<R: Resource, A: Action<R>>(
     ) && A::can_run(cx, record)
 }
 
+/// [`ActionInput::parse`], then [`Action::validate_input`], behind a function pointer.
+fn parse_input_erased<R: Resource, A: Action<R>>(
+    cx: &Cx,
+    values: &HashMap<String, String>,
+) -> InputResult {
+    let input = A::Input::parse(cx, values)?;
+    let refused: Vec<FieldError> = A::validate_input(cx, &input).into_iter().collect();
+    if !refused.is_empty() {
+        return Err(refused);
+    }
+    Ok(Box::new(input))
+}
+
+/// A delete's input: nothing.
+fn parse_nothing(_cx: &Cx, _values: &HashMap<String, String>) -> InputResult {
+    Ok(Box::new(()))
+}
+
 /// [`Action::run`] behind a function pointer.
 fn run_erased<'a, R: Resource, A: Action<R>>(
     cx: &'a Cx,
     records: &'a [R::Model],
+    input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
 ) -> ActionFuture<'a> {
-    Box::pin(A::run(cx, records, ex))
+    let input = *input
+        .downcast::<A::Input>()
+        .expect("the pipeline parses the input `run` takes");
+    Box::pin(A::run(cx, records, input, ex))
 }
 
 /// [`Resource::delete_record`] on each of `records`, behind a function pointer.
 fn delete_erased<'a, R: Resource>(
     cx: &'a Cx,
     records: &'a [R::Model],
+    _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
 ) -> ActionFuture<'a> {
     Box::pin(async move {
@@ -324,6 +403,7 @@ fn delete_erased<'a, R: Resource>(
 fn bulk_delete_erased<'a, R: Resource>(
     cx: &'a Cx,
     records: &'a [R::Model],
+    _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
 ) -> ActionFuture<'a> {
     Box::pin(R::bulk_delete_records(cx, records, ex))

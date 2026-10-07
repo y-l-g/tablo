@@ -73,6 +73,7 @@ pub mod __macro {
             FieldError, FormField, FormScalar, NullableScalar, RecordForm, assert_form_scalar,
             parse_scalar,
         },
+        resource::{ActionInput, required_input},
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, IntoSchema,
             Options, Schema, TextField,
@@ -113,7 +114,9 @@ mod topcoat_compat;
 pub mod upload;
 
 pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth, membership};
-pub use declaration::{DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site};
+pub use declaration::{
+    ActionInputFault, DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site,
+};
 pub use detail::{Detail, IntoDetail};
 pub use form::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
@@ -125,8 +128,8 @@ pub use page::Page;
 pub use panel::{Brand, Panel, RouterBuilderPanelExt, can_list, url};
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
-    Action, Committed, ForeignKey, Mutation, PublicLink, Relation, Resource, ResourceDef, can,
-    scoped_query, write_create, write_update,
+    Action, ActionInput, Committed, ForeignKey, Mutation, PublicLink, Relation, Resource,
+    ResourceDef, can, scoped_query, write_create, write_update,
 };
 pub use schema::{
     ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FieldResolver, FileField,
@@ -138,6 +141,77 @@ pub use table::{
     QueryFilter, RelationColumn, RelationLens, SelectFilter, Sort, Table, TablePage, TableState,
     TernaryFilter, TextColumn, ToOneRelation, WiredTable, contains_expr,
 };
+/// Derives [`ActionInput`](trait@ActionInput) for the typed value an [`Action`] asks for
+/// before it runs.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String }
+/// # use tablo_core::{Action, ActionInput, NoForm, Resource};
+/// # use topcoat::{Result, context::Cx};
+/// # struct PostResource;
+/// # impl Resource for PostResource {
+/// #     type Model = Post;
+/// #     type Form = NoForm<Post>;
+/// # }
+/// #[derive(tablo_core::ActionInput)]
+/// pub struct Rejection {
+///     #[form(multiline = 4)]
+///     pub reason: String,
+///     pub notify_author: bool,
+/// }
+///
+/// struct Reject;
+///
+/// impl Action<PostResource> for Reject {
+///     type Input = Rejection;
+///     const NAME: &'static str = "reject";
+///
+///     fn label(_cx: &Cx) -> String {
+///         "Reject".to_string()
+///     }
+///
+///     async fn run(
+///         _cx: &Cx,
+///         posts: &[Post],
+///         rejection: Rejection,
+///         ex: &mut dyn toasty::Executor,
+///     ) -> Result<()> {
+///         // Store `rejection.reason`, notify when `rejection.notify_author` holds…
+///         # let _ = (posts, rejection.reason, rejection.notify_author, ex);
+///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// Each field posts its own name, which no column binds, and renders the control its type
+/// picks: a `bool` a checkbox, `#[form(options)]` a choice over the field type's
+/// [`Options`](derive@Options), `#[form(options = T)]` one over `T`'s, and any other
+/// [`FormScalar`] a text input of the type's input type.
+///
+/// A field's **blank answer** is its `#[form(blank = ..)]`, `""` for an `#[form(optional)]`
+/// `String`, `None` for an `Option`, or `false` for a `bool`. A field with none is required:
+/// its control renders required and the parse refuses an empty submission.
+///
+/// # Per-field attributes
+///
+/// - `#[form(label = "Reason")]` — the control's label (default: the field name, humanized).
+/// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
+/// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
+/// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
+/// - `#[form(options)]`, `#[form(options = T)]` — a choice. An `Option<T>` field names its
+///   options type: `#[form(options = T)]`.
+///
+/// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key,
+/// `multiline` or `placeholder` with `options` or on a `bool`, and a field that is not a
+/// `FormScalar` are compile errors.
+/// [`RouterBuilderPanelExt::panel`] refuses a field named `csrf_token`, `confirm` or `ids`,
+/// the keys an action's POST carries besides its input.
+///
+/// A hand-written impl builds its fields with [`Field::text_input`], [`Field::choice_input`]
+/// and [`Field::toggle_input`]; its controls render without the `required` mark, though its
+/// `parse` still refuses what it requires.
+pub use tablo_macros::ActionInput;
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///
 /// Builds the schema node and converts the value through that node's keys.

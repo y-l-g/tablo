@@ -11,6 +11,14 @@ a state predicate on the record, asked after `Run`. A record refused `View` fail
 a record refused `Run` or `can_run` is skipped from a selection, as a record refused `Delete` is
 skipped from a bulk delete.
 
+An action that asks for input (`Action::Input`) renders it as a form page from the same POST
+route, after the same checks and before any write, and rolls the transaction back. The page's
+submit POSTs again with the input, which repeats every check inside a new transaction before `run`
+receives the parsed value; a refused value re-renders the page and writes nothing. As for a record
+form, the input is parsed, validated and checked before the transaction opens, so a choice's
+option query never waits on the connection the transaction holds, and a relationship choice is
+re-checked inside it.
+
 `Resource::after_commit` runs once per committed write, after the commit and before the
 response: the place for side effects that must not survive a rollback. A failing hook logs and
 does not roll back.
@@ -23,3 +31,7 @@ does not roll back.
 - `ViewAny` as an action's resource-wide ability: reading the list is not permission to write.
 - Failing a whole selection on a record refused `Run`: the bulk bar offers a row a checkbox when
   any bulk write allows it, so a selection can mix records offered different actions.
+- An action input as a `RecordForm`: a record form binds the model's columns and writes them,
+  while an action's input is values the action reads, such as a rejection's reason.
+- The input in the confirmation dialog: re-rendering a refused value needs a round trip the
+  dialog does not make, and the dialog needs JavaScript.

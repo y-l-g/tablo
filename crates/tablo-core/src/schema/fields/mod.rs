@@ -202,6 +202,38 @@ impl Field {
         ))
     }
 
+    /// A text field posting `name`, a key no column binds: an [`ActionInput`](crate::ActionInput)
+    /// field. `T` picks the input type, as a column's type does for [`Field::text`].
+    pub fn text_input<T: FormScalar>(name: impl Into<String>) -> TextField {
+        TextField(Self::bound(
+            Self::named(name.into()),
+            ControlKind::Text(TextControl::leaf::<T>()),
+        ))
+    }
+
+    /// A choice field posting `name`, a key no column binds, with options from
+    /// [`options`](ChoiceField::options).
+    pub fn choice_input(name: impl Into<String>) -> ChoiceField {
+        ChoiceField(Self::bound(
+            Self::named(name.into()),
+            ControlKind::Choice(ChoiceControl::default()),
+        ))
+    }
+
+    /// A checkbox posting `name`, a key no column binds, that submits `false` when unchecked.
+    pub fn toggle_input(name: impl Into<String>) -> CustomField {
+        CustomField(Self::bound(
+            Self::named(name.into()),
+            ControlKind::Custom(Arc::new(Toggle)),
+        ))
+    }
+
+    /// A binding for `name`, labelled as a column of that name would be.
+    fn named(name: String) -> Binding {
+        let label = capitalize(&name);
+        Binding::named(name, label)
+    }
+
     /// The variant control of an embedded enum, never required since an empty submit reads the
     /// variant from the payload.
     pub(crate) fn discriminant(name: String, variants: Vec<(String, String)>) -> Self {

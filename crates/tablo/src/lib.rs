@@ -68,13 +68,13 @@ pub use tablo_ui as ui;
 /// The items a resource module names most: `use tablo::prelude::*;`.
 pub mod prelude {
     pub use tablo_core::{
-        Ability, Action, Allow, Auth, BooleanColumn, Brand, ChoiceField, Column, ColumnWidth,
-        Committed, ComputedColumn, Control, ControlInput, CountColumn, CustomField, DateFilter,
-        Deny, Detail, EmbeddedColumn, EmbeddedForm, Field, FieldErrors, FileColumn, FileField,
-        Filter, FilterInput, Grid, Group, Includes, IntoOptions, Lens, NavigationItem, NoForm,
-        Options, Page, Panel, Policy, Posted, PublicLink, QueryFilter, ReadOnly, RecordForm,
-        Relation, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
-        SelectFilter, Table, Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, can,
-        can_list, lens, relation, scoped_query, tenant_id, when,
+        Ability, Action, ActionInput, Allow, Auth, BooleanColumn, Brand, ChoiceField, Column,
+        ColumnWidth, Committed, ComputedColumn, Control, ControlInput, CountColumn, CustomField,
+        DateFilter, Deny, Detail, EmbeddedColumn, EmbeddedForm, Field, FieldErrors, FileColumn,
+        FileField, Filter, FilterInput, Grid, Group, Includes, IntoOptions, Lens, NavigationItem,
+        NoForm, Options, Page, Panel, Policy, Posted, PublicLink, QueryFilter, ReadOnly,
+        RecordForm, Relation, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
+        Section, SelectFilter, Table, Tenancy, TenantId, TernaryFilter, TextColumn, TextField,
+        Toggle, can, can_list, lens, relation, scoped_query, tenant_id, when,
     };
 }

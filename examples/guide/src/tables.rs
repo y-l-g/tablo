@@ -101,6 +101,7 @@ impl Filter<User> for Adults {
 pub(crate) struct Publish;
 
 impl Action<PostResource> for Publish {
+    type Input = ();
     const NAME: &'static str = "publish";
 
     fn label(_cx: &Cx) -> String {
@@ -111,7 +112,7 @@ impl Action<PostResource> for Publish {
         post.status != PostStatus::Published
     }
 
-    async fn run(_cx: &Cx, posts: &[Post], ex: &mut dyn toasty::Executor) -> Result<()> {
+    async fn run(_cx: &Cx, posts: &[Post], _: (), ex: &mut dyn toasty::Executor) -> Result<()> {
         for post in posts {
             Post::filter(Post::fields().id().eq(post.id))
                 .update()
@@ -123,3 +124,42 @@ impl Action<PostResource> for Publish {
     }
 }
 // ANCHOR_END: table-publish-action
+
+// ANCHOR: table-input-action
+/// What changing a post's status asks for.
+#[derive(ActionInput)]
+pub(crate) struct StatusChange {
+    #[form(options)]
+    pub status: PostStatus,
+    #[form(label = "Feature on the home page")]
+    pub featured: bool,
+}
+
+pub(crate) struct ChangeStatus;
+
+impl Action<PostResource> for ChangeStatus {
+    type Input = StatusChange;
+    const NAME: &'static str = "change-status";
+
+    fn label(_cx: &Cx) -> String {
+        "Change status".to_string()
+    }
+
+    async fn run(
+        _cx: &Cx,
+        posts: &[Post],
+        change: StatusChange,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<()> {
+        for post in posts {
+            Post::filter(Post::fields().id().eq(post.id))
+                .update()
+                .status(change.status)
+                .featured(change.featured)
+                .exec(&mut *ex)
+                .await?;
+        }
+        Ok(())
+    }
+}
+// ANCHOR_END: table-input-action
