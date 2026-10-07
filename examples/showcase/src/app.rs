@@ -193,8 +193,8 @@ impl Resource for PostResource {
         Some(
             view! {
                 cx =>
-                tablo_ui::card(
-                    tablo_ui::card_content(
+                tablo::ui::card(
+                    tablo::ui::card_content(
                         <p class="text-sm text-muted-foreground">
                             (format!("{words} words · {minutes} min read"))
                         </p>

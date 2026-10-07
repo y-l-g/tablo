@@ -195,7 +195,6 @@ async fn admin_root_serves_the_dashboard_with_the_page_entries() {
     assert_eq!(active, [link("Dashboard")], "one active sidebar entry");
 }
 
-
 #[tokio::test]
 async fn removed_showcase_routes_are_not_found() {
     let db = seeded_db().await;
