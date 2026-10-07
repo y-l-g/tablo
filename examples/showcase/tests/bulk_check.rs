@@ -299,16 +299,15 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     assert_eq!(remaining[0].name, "Ken Thompson");
 }
 
-/// The server-side safety net: a hand-crafted POST naming a row the resource refuses is
-/// still 403. The check is all-or-nothing (`View` then
-/// `Delete` on every row, before any write), so the batch aborts with zero
-/// deletions — which is why the rendered checkbox must never offer that row.
+/// The server-side safety net: a hand-crafted POST naming a row the resource refuses to delete
+/// skips that row, as a bulk action skips the rows `can_run` refuses, and a selection of refused
+/// rows only deletes nothing.
 ///
 /// `View` allows every row here, so only the partial `Delete` deny can
-/// produce the 403: with the default-deny `View` in place, dropping the
+/// spare `b`: with the default-deny `View` in place, dropping the
 /// handler's own `Delete` check would leave this test green.
 #[tokio::test]
-async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
+async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
     use tablo_core::{Resource, ResourceDef, Table, TextColumn};
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -366,29 +365,56 @@ async fn bulk_delete_hand_crafted_partial_deny_is_refused() {
     .expect("panel builds");
     let client = TestClient::new(&router);
     let slug = "partial-denies";
-    let ids = format!("{},{}", a.id, b.id);
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(
-            &format!("/admin/{}/bulk-delete", slug),
-            format!("ids={ids}&confirm=1&csrf_token={csrf}"),
-        )
-        .await;
-    assert_eq!(
-        resp.status(),
-        303,
-        "partial deny returns to the list with an error, got {}",
-        resp.status()
-    );
+    let bulk_delete = |ids: String| {
+        let csrf = uuid::Uuid::new_v4().to_string();
+        let client = &client;
+        async move {
+            client
+                .csrf(&csrf)
+                .post_form(
+                    &format!("/admin/{slug}/bulk-delete"),
+                    format!("ids={ids}&confirm=1&csrf_token={csrf}"),
+                )
+                .await
+        }
+    };
+    let flash = |resp: &http::Response<topcoat::router::Body>| {
+        response_cookies(resp)
+            .into_iter()
+            .find(|(name, _)| name.ends_with("tablo_notification"))
+            .map(|(_, value)| {
+                percent_encoding::percent_decode_str(&value)
+                    .decode_utf8_lossy()
+                    .into_owned()
+            })
+            .unwrap_or_default()
+    };
     let mut db_check = db.clone();
-    let remaining = DummyUser::all().exec(&mut db_check).await.unwrap();
+
+    let refused = bulk_delete(b.id.to_string()).await;
     assert_eq!(
-        remaining.len(),
-        2,
-        "should have 2, no deletions, got {}",
-        remaining.len()
+        refused.status(),
+        303,
+        "a refused selection returns to the list"
     );
+    assert!(
+        flash(&refused).contains("nothing was changed"),
+        "the notification says nothing was deleted: {}",
+        flash(&refused)
+    );
+    let remaining = DummyUser::all().exec(&mut db_check).await.unwrap();
+    assert_eq!(remaining.len(), 2, "a refused selection deletes nothing");
+
+    let partial = bulk_delete(format!("{},{}", a.id, b.id)).await;
+    assert_eq!(partial.status(), 303, "a partial deny returns to the list");
+    assert!(
+        flash(&partial).contains("Bulk deleted (1 of 2 skipped)"),
+        "the notification reports the skipped row: {}",
+        flash(&partial)
+    );
+    let remaining = DummyUser::all().exec(&mut db_check).await.unwrap();
+    assert_eq!(remaining.len(), 1, "only the refused row survives");
+    assert_eq!(remaining[0].name, "b");
 }
 #[tokio::test]
 async fn bulk_delete_without_confirmation_is_refused() {

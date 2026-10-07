@@ -244,10 +244,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// Bulk-delete the already-authorized `records`: the handler
     /// fetches through the tenancy-scoped `IN` query inside the framework
-    /// transaction and checks the policy on every row before calling this.
-    /// The default deletes each record through [`Self::delete_record`] in
-    /// order, through the same `ex` — any error rolls the whole batch back,
-    /// so mid-loop failures delete zero rows. An override of `delete_record`,
+    /// transaction, checks `View` on every row, and passes the rows
+    /// [`Ability::Delete`](crate::Ability::Delete) allows, skipping the rest
+    /// as a bulk custom action does. The default deletes each record through
+    /// [`Self::delete_record`] in order, through the same `ex` — any error rolls the whole
+    /// batch back, so mid-loop failures delete zero rows. An override of `delete_record`,
     /// such as a soft delete, therefore covers bulk delete too. Override this
     /// for a single-statement batch.
     fn bulk_delete_records(
