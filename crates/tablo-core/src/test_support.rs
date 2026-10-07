@@ -54,8 +54,8 @@ pub(crate) fn panel_cx<R: crate::Resource>(db: &toasty::Db) -> Cx {
         .expect("panel builds")
 }
 
-/// `R`'s declaration with its defaults filled in, as a panel at `/admin` mounts it, for a unit
-/// that takes the mounted def directly.
+/// `R`'s declaration with its defaults filled in at a `/admin` prefix, for a unit that takes the
+/// mounted def directly; a panel mounting `R` may adjust the def with `resource_with`.
 pub(crate) fn mounted<R: crate::Resource>() -> std::sync::Arc<crate::resource::Mounted<R>> {
     std::sync::Arc::new(crate::resource::Mounted::new(
         R::declare(),

@@ -75,7 +75,7 @@ share:
 {{#include ../../../examples/guide/src/data_access.rs:data-access-panel}}
 ```
 
-`Panel::context(&db)` mounts the panel's resources as `.panel(..)` does, refusing the same
+`Panel::context(&db)` mounts the panel's resources as `.panel(..)` does, refusing the same resource
 declaration errors, and returns a context holding the database and those resources, with no
 request, session or tenant. Add a tenant with `.with(Tenant(id))`:
 
