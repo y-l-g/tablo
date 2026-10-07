@@ -119,8 +119,8 @@ pub use page::Page;
 pub use panel::{Brand, Panel, RouterBuilderPanelExt, can_list, url};
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
-    Action, Committed, ForeignKey, Mutation, Relation, Resource, ResourceDef, can, scoped_query,
-    scoped_view_query, write_create, write_update,
+    Action, Committed, ForeignKey, Mutation, PublicLink, Relation, Resource, ResourceDef, can,
+    scoped_query, scoped_view_query, write_create, write_update,
 };
 pub use schema::{
     ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FieldResolver, FileField,

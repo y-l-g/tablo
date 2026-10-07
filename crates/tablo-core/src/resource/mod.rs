@@ -13,6 +13,7 @@ use crate::form::{FieldErrors, Posted, RecordForm};
 mod action;
 mod commit;
 mod def;
+mod link;
 mod mounted;
 mod relation;
 mod write;
@@ -22,6 +23,7 @@ pub(crate) use action::{ActionEntry, Actions};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use def::ResourceDef;
+pub use link::PublicLink;
 pub(crate) use mounted::{MountScope, Mounted, Mounts, mounted, require_mounted};
 pub use relation::{ForeignKey, Relation};
 pub use write::{write_create, write_update};
@@ -107,13 +109,12 @@ pub trait Resource: Sized + Send + Sync + 'static {
         None
     }
 
-    /// A public URL for one record, rendered as a "View public post"-style
-    /// link on the detail and edit pages when `Some`.
+    /// The record's public page, linked from the detail and edit pages.
     ///
     /// The default declares none, so no link renders. A resource whose records
-    /// have a public page overrides this with its URL — the showcase's posts
-    /// return their `/blog/{id}` page.
-    fn public_url(_cx: &Cx, _record: &Self::Model) -> Option<String> {
+    /// have a public page overrides this with its URL and link text — the
+    /// showcase's posts return their `/blog/{id}` page.
+    fn public_link(_cx: &Cx, _record: &Self::Model) -> Option<PublicLink> {
         None
     }
 

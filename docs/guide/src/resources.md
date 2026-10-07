@@ -52,7 +52,7 @@ Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
 | `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
 | `view_values(cx, record)`, `view_content(cx, record)` | none | what the detail page shows beyond the form's fields |
 | `record_label(cx, record)` | `None` | the detail page's heading |
-| `public_url(cx, record)` | `None` | a link to the record's public page on its detail and edit pages |
+| `public_link(cx, record)` | `None` | the record's public page, linked from its detail and edit pages |
 | `create_record`, `update_record` | the derived write | the create and update writes: [Writes](#writes) |
 | `delete_record`, `bulk_delete_records` | delete by primary key | the delete writes |
 | `after_commit(cx, committed)` | nothing | side effects after a write commits |

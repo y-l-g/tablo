@@ -14,7 +14,7 @@ use super::super::gate::{gate, return_target};
 use crate::{
     form::FieldErrors,
     policy::Ability,
-    resource::{Mounted, Resource},
+    resource::{Mounted, PublicLink, Resource},
     schema::Schema,
     topcoat_compat::async_page,
 };
@@ -23,7 +23,7 @@ use crate::{
 pub(super) struct FormChrome {
     title: String,
     submit_label: &'static str,
-    public_url: Option<String>,
+    public_link: Option<PublicLink>,
     /// Where Cancel leads without a `?return=` target: the resource's list.
     list_url: String,
 }
@@ -33,7 +33,7 @@ impl FormChrome {
         Self {
             title: format!("Create {}", resource.label),
             submit_label: "Create",
-            public_url: None,
+            public_link: None,
             list_url: resource.url.clone(),
         }
     }
@@ -42,7 +42,7 @@ impl FormChrome {
         Self {
             title: format!("Edit {}", resource.label),
             submit_label: "Save",
-            public_url: R::public_url(cx, record),
+            public_link: R::public_link(cx, record),
             list_url: resource.url.clone(),
         }
     }
@@ -61,7 +61,7 @@ pub(super) async fn render_form_page<'a>(
     let FormChrome {
         title,
         submit_label,
-        public_url,
+        public_link,
         list_url,
     } = chrome;
     let form_html = schema
@@ -98,17 +98,17 @@ pub(super) async fn render_form_page<'a>(
         tablo_ui::page(
             tablo_ui::page_header(
                 tablo_ui::page_title((title.clone()))
-                if let Some(public) = public_url {
+                if let Some(link) = public_link {
                     tablo_ui::page_actions(
                         <a
-                            href=(public)
+                            href=(link.url)
                             class=(tablo_ui::button_variants(
                                 tablo_ui::ButtonVariant::Outline,
                                 tablo_ui::ButtonSize::Md,
                             ))
                         >
                             icon(data: tablo_ui::icons::EXTERNAL_LINK)
-                            "View public post"
+                            (link.label)
                         </a>
                     )
                 }
