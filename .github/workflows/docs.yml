@@ -5,18 +5,24 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# Deploys through a Pages artifact, so no branch accumulates a copy of the site per push.
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: docs-deploy
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     if: github.repository == 'y-l-g/tablo'
     name: Build and deploy docs
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}nightly/guide/
     steps:
       - uses: actions/checkout@v7
 
@@ -38,50 +44,20 @@ jobs:
 
       - name: Assemble site directory
         run: |
-          mkdir -p site/guide site/api
-          cp -r docs/guide/book/html/. site/guide/
-          cp -r target/doc/. site/api/
-
-      - name: Publish to gh-pages
-        env:
-          DEST: nightly
-          LABEL: nightly
-        run: |
-          set -euo pipefail
-
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-
-          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            git fetch origin gh-pages:gh-pages --depth=1
-            git worktree add gh-pages-tree gh-pages
-          else
-            git worktree add --detach gh-pages-tree
-            (cd gh-pages-tree && git checkout --orphan gh-pages && git rm -rf . 2>/dev/null || true)
-          fi
-
-          rm -rf "gh-pages-tree/${DEST}"
-          mkdir -p "gh-pages-tree/${DEST}"
-          cp -r site/. "gh-pages-tree/${DEST}/"
-
-          if [ ! -f gh-pages-tree/index.html ]; then
-            cat > gh-pages-tree/index.html <<'HTML'
+          mkdir -p site/nightly/guide site/nightly/api
+          cp -r docs/guide/book/html/. site/nightly/guide/
+          cp -r target/doc/. site/nightly/api/
+          cat > site/index.html <<'HTML'
           <!DOCTYPE html>
           <html>
             <head><meta http-equiv="refresh" content="0; url=nightly/guide/"></head>
             <body><a href="nightly/guide/">Redirect to the Tablo Guide</a></body>
           </html>
           HTML
-          fi
 
-          # `.nojekyll` keeps Pages from skipping underscore dirs (mdbook's _FontAwesome).
-          touch gh-pages-tree/.nojekyll
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
 
-          cd gh-pages-tree
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to deploy."
-            exit 0
-          fi
-          git commit -m "Deploy ${LABEL} from ${GITHUB_SHA}"
-          git push origin gh-pages
+      - id: deployment
+        uses: actions/deploy-pages@v5
