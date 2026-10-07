@@ -26,8 +26,11 @@ impl<M, T> Lens<M, T> {
     /// Pair `path` with the function reading the same field; [`lens!`](crate::lens!) writes both
     /// from one field name.
     #[doc(hidden)]
-    pub fn new(path: Path<M, T>, read: fn(&M) -> &T) -> Self {
-        Self { path, read }
+    pub fn new(path: impl Into<Path<M, T>>, read: fn(&M) -> &T) -> Self {
+        Self {
+            path: path.into(),
+            read,
+        }
     }
 
     /// The field's query path.
@@ -69,6 +72,7 @@ impl<M, T> From<Lens<M, T>> for Path<M, T> {
 ///
 /// ```text
 /// lens!(User.name)          // Lens<User, String>
+/// lens!(Post.seo)           // an embedded value, whole
 /// lens!(Post.seo.title)     // an embedded struct's field
 /// lens!(crate::blog::Post.title)
 /// ```

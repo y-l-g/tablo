@@ -48,7 +48,7 @@ impl Resource for OwnerResource {
             })
             .table(Table::new(TextColumn::new(lens!(Owner.name))))
             .form(Schema::new(Field::text(Owner::fields().name())))
-            .view(Schema::new(Field::text(Owner::fields().name())))
+            .view(tablo::Detail::new(TextColumn::new(lens!(Owner.name))))
             .relation(Relation::has_many::<ChildResource>(
                 Child::fields().owner_id(),
             ))

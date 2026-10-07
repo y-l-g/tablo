@@ -17,7 +17,7 @@ async fn searchable_select_renders_filter_input() {
     let cx = CxTestBuilder::new().build();
     let plain = Field::choice(DummyUser::fields().name()).options(vec!["a".to_string()]);
     let html = plain
-        .render(&cx, None, None, Mode::Form)
+        .render(&cx, None, None)
         .await
         .unwrap()
         .single()
@@ -32,7 +32,7 @@ async fn searchable_select_renders_filter_input() {
         .options(vec!["a".to_string()])
         .searchable();
     let html = searchable
-        .render(&cx, None, None, Mode::Form)
+        .render(&cx, None, None)
         .await
         .unwrap()
         .single()

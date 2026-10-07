@@ -13,8 +13,9 @@ The smallest resource lists rows and nothing else:
 
 A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form`. The
 derive lays out the rest from the struct's fields: a table column per field a column can show,
-one form control per field, and a detail page showing the form read-only. Set the def's `table`,
-`form` or `view` to arrange or extend one; see [Tables](./tables.md) and [Forms](./forms.md).
+one form control per field, and a detail page column per field. Set the def's `table`, `form` or
+`view` to arrange or extend one; see [Tables](./tables.md), [Forms](./forms.md) and
+[Detail pages](./detail-pages.md).
 
 ## The definition
 
@@ -24,7 +25,9 @@ one form control per field, and a detail page showing the form read-only. Set th
 | --- | --- | --- |
 | `table(..)` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
 | `form(..)` | the record form's derived schema | the create and edit form's controls: [Forms](./forms.md) |
-| `view(..)` | the form | the detail page's fields; an empty schema turns the page off: [Detail pages](./detail-pages.md) |
+| `view(..)` | the record form's derived detail page | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
+| `record_label(..)` | the label and the record's key | the detail page's heading |
+| `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
 | `relation(..)` | none | a related resource shown as a table on the detail and edit pages |
 | `action::<A>()` | none | a custom action: [Tables](./tables.md#custom-actions) |
 | `policy(..)` | `Deny` | what the user may do: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
@@ -48,11 +51,7 @@ Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
 | Method | Default | Purpose |
 | --- | --- | --- |
 | `query(cx)` | every row | the base query every loader starts from: [Scoping](#scoping-the-query) |
-| `view_query(cx)` | `query(cx)` | the detail page's query, with the relations it reads |
 | `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
-| `view_values(cx, record)`, `view_content(cx, record)` | none | what the detail page shows beyond the form's fields |
-| `record_label(cx, record)` | `None` | the detail page's heading |
-| `public_link(cx, record)` | `None` | the record's public page, linked from its detail and edit pages |
 | `create_record`, `update_record` | the derived write | the create and update writes: [Writes](#writes) |
 | `delete_record`, `bulk_delete_records` | delete by primary key | the delete writes |
 | `after_commit(cx, committed)` | nothing | side effects after a write commits |
@@ -84,9 +83,9 @@ Two things do not belong in `query`:
 
 - **The tenant filter.** For a tenant-owned resource the framework adds it to `query` at every
   loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
-- **Relations.** The list and the export load the relations their columns declare with
-  `ComputedColumn::include`, and the detail page loads `view_query`. Include a relation in `query`
-  only when every loader reads it, for example because the policy does.
+- **Relations.** The list, the export and the detail page load the relations their columns
+  declare with `ComputedColumn::include`. Include a relation in `query` only when every loader
+  reads it, for example because the policy does.
 
 In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
 `scoped_query` is `query` with the tenant filter of the def the request's panel mounted, and

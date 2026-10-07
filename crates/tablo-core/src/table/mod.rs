@@ -8,7 +8,8 @@ use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use toasty::stmt::{Expr, List, OrderByExpr};
 
-use self::{column::BoxColumn, filter::BoxFilter};
+pub(crate) use self::column::{BoxColumn, include_relations};
+use self::filter::BoxFilter;
 use crate::{
     DeclarationErrorKind, Lens,
     form::FormScalar,
@@ -25,8 +26,8 @@ mod wiring;
 
 pub use self::{
     column::{
-        BooleanColumn, Column, ColumnWidth, ComputedColumn, Includes, IntoColumns, TextColumn,
-        contains_expr,
+        BooleanColumn, Column, ColumnWidth, ComputedColumn, EmbeddedColumn, FileColumn, Includes,
+        IntoColumns, TextColumn, contains_expr,
     },
     filter::{
         DateFilter, Filter, FilterInput, IntoFilters, QueryFilter, SelectFilter, TernaryFilter,
@@ -206,19 +207,12 @@ impl<M> Table<M> {
     /// Include every relation this table's columns declare, once each.
     pub(crate) fn include_relations(
         &self,
-        mut query: toasty::stmt::Query<List<M>>,
+        query: toasty::stmt::Query<List<M>>,
     ) -> toasty::stmt::Query<List<M>>
     where
         M: toasty::schema::Model,
     {
-        let mut seen: Vec<crate::toasty_compat::UntypedInclude> = Vec::new();
-        for include in self.columns.iter().flat_map(|c| c.includes().into_vec()) {
-            if !seen.contains(&include) {
-                query = query.include(include.clone());
-                seen.push(include);
-            }
-        }
-        query
+        column::include_relations(query, &self.columns)
     }
 
     /// Filter predicate for the current `TableState`.

@@ -313,6 +313,10 @@ fn expand_struct(
         .iter()
         .filter_map(|field| default_column(krate, model, field))
         .collect();
+    let entries: Vec<TokenStream2> = fields
+        .iter()
+        .filter_map(|field| default_entry(krate, model, field))
+        .collect();
     let names: Vec<&syn::Ident> = fields.iter().map(|f| &f.ident).collect();
     let bindings: Vec<syn::Ident> = names
         .iter()
@@ -364,6 +368,10 @@ fn expand_struct(
 
             fn table() -> #krate::__macro::Table<#model> {
                 #krate::__macro::Table::new(())#(.column(#columns))*
+            }
+
+            fn detail() -> #krate::__macro::Detail<#model> {
+                #krate::__macro::Detail::empty()#(.column(#entries))*
             }
 
             fn hydrate(
@@ -450,6 +458,35 @@ fn default_column(
             Some(quote! { #krate::__macro::BooleanColumn::new(#lens).sortable() })
         }
         DefaultControl::Choice(None) | DefaultControl::File | DefaultControl::Embed => None,
+    }
+}
+
+/// The column the default detail page shows a field in: a text column, a choice's option label, a
+/// toggle's yes or no, a file path's link, or an embedded value's leaves. A bare choice, which
+/// holds a key, gets none.
+fn default_entry(
+    krate: &TokenStream2,
+    model: &syn::Path,
+    field: &FieldSpec,
+) -> Option<TokenStream2> {
+    let name = &field.ident;
+    let ty = &field.ty;
+    let lens = quote! {
+        #krate::__macro::Lens::<#model, #ty>::new(<#model>::fields().#name(), |record| &record.#name)
+    };
+    match &field.control {
+        DefaultControl::Text => Some(quote! { #krate::__macro::TextColumn::new(#lens) }),
+        DefaultControl::Choice(Some(options)) => Some(quote! {
+            #krate::__macro::TextColumn::new(#lens).format(|value| {
+                <#options as #krate::__macro::Options>::label_of(
+                    &#krate::__macro::FormScalar::to_form(value),
+                )
+            })
+        }),
+        DefaultControl::Toggle => Some(quote! { #krate::__macro::BooleanColumn::new(#lens) }),
+        DefaultControl::File => Some(quote! { #krate::__macro::FileColumn::new(#lens) }),
+        DefaultControl::Embed => Some(quote! { #krate::__macro::EmbeddedColumn::new(#lens) }),
+        DefaultControl::Choice(None) => None,
     }
 }
 

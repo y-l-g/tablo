@@ -3,10 +3,7 @@
 use tablo_ui::{input as ui_input, textarea as ui_textarea};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{
-    super::{tree::Mode, validation::format_timestamp_input},
-    Field, FieldChrome, ValueKind, render_field, render_value,
-};
+use super::{super::validation::format_timestamp_input, Field, FieldChrome, render_field};
 use crate::form::FormScalar;
 
 /// The equality expression a text field's unique probe binds.
@@ -79,18 +76,14 @@ impl TextControl {
 }
 
 impl Field {
-    /// Renders a text field's control and its read-only value.
+    /// Renders a text field's control.
     pub(super) fn render_text<'a>(
         &self,
         text: &TextControl,
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
-        mode: Mode,
     ) -> Result<BoxView<'a>> {
-        if mode == Mode::View {
-            return render_value(cx, self.label_str(), value, ValueKind::Prose);
-        }
         let name = self.name().to_string();
         let required = self.is_required();
         let placeholder = text.placeholder.clone();

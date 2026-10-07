@@ -1,17 +1,14 @@
 # Detail pages
 
 A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource declares it
-with `ResourceDef::view`: a `Schema` built from the same fields and layout blocks as a form, which
-the panel builds once when it mounts. The view defaults to the form, so a resource with a form has
-a detail page showing the form's fields read-only. A form with fields that must stay off the
-detail page sets a view with a subset or `Schema::empty()`. Set it to show other fields or another
-layout:
+with `ResourceDef::view`: a `Detail` of the same columns a [table](./tables.md) lists, arranged in
+`Section`, `Group` and `Grid` blocks, which the panel builds once when it mounts. Each column reads
+its value off the typed record, and declares the relations it reads:
 
 ```rust
 impl Resource for PostResource {
     // …
     fn declare() -> ResourceDef<Self> {
-        let c = PostForm::controls();
         ResourceDef::new()
             // …
 {{#include ../../../examples/guide/src/resources.rs:post-view}}
@@ -19,49 +16,54 @@ impl Resource for PostResource {
 }
 ```
 
-A non-empty view adds a View action to each row. An empty one, `Schema::empty()`, turns the
-detail page off: the route answers 404 and no row links to it. A `NoForm` resource has an empty
-view unless it declares one.
+A non-empty view adds a View action to each row. An empty one, `Detail::empty()`, turns the detail
+page off: the route answers 404 and no row links to it.
+
+## The default view
+
+Without `view`, the record form derives the detail page, as it derives the table: one column per
+field, in declaration order.
+
+- a text field shows its value, typed values included, as the edit form spells them;
+- an options field shows its option's label;
+- a `bool` shows as yes or no;
+- a `#[form(file)]` field shows the stored path as a link, under the rules in
+  [File uploads](./forms.md#file-uploads);
+- an `#[form(embed)]` value shows each leaf under its own label, and an embedded enum shows its
+  variant's name and that variant's leaves only.
+
+A bare `#[form(choice)]` holds a key, such as `author_id`, so it shows nothing: the related
+record shows through a column that includes the relation, as `Author` does above. A `NoForm`
+resource derives no column, so it has no detail page unless it declares one:
+
+```rust
+{{#include ../../../examples/guide/src/detail_pages.rs:detail-no-form}}
+```
 
 ## What the page shows
 
 The header carries the record's title, a link back to the list, and an Edit link when the resource
-has a form and the policy allows `Update` of this record. Below it come the view's fields, then any
-[free-form content](#free-form-content), then the [related tables](#related-tables).
+has a form and the policy allows `Update` of this record. Below it come the view's columns, then
+the [related tables](#related-tables).
 
-Each field renders its label and its stored value, never a control:
+Each column renders its label over its cell, never a control. The built-in columns render as in a
+table: `TextColumn` the value, or what its `format` returns, `BooleanColumn` an icon labelled yes
+or no, `FileColumn` a link, and `ComputedColumn` the text its closure returns. Layout blocks keep
+their structure.
 
-- a text field shows the value as text, typed values included;
-- a choice shows the label of the matching option, or the stored value when none matches, so a
-  relationship choice shows the stored key, not the related record's name;
-- a file field shows the stored path as a link, under the rules in
-  [File uploads](./forms.md#file-uploads);
-- an embedded enum shows its variant's name and that variant's fields;
-- layout blocks keep their structure.
-
-**Where values come from.** A field the record form binds shows the form's value for it, the
-same value the edit form starts with. `view_values(cx, record)` supplies every other key, as a map
-from field name to display text; when both supply a key, the form's value wins. A `NoForm`
-resource supplies every key there:
+A `ComputedColumn` shows anything the record determines, such as a reading time:
 
 ```rust
-{{#include ../../../examples/guide/src/detail_pages.rs:detail-view-values}}
+{{#include ../../../examples/guide/src/detail_pages.rs:detail-computed}}
 ```
 
-To show something that is not a column's own value, such as the author's name behind
-`author_id`, render it as [free-form content](#free-form-content).
+An app's own [`Column`](./tables.md) renders its `cell` on the detail page too. A column that
+shows more than one value under one label overrides `entry`, which renders the label over the cell
+by default; `EmbeddedColumn` overrides it to give each leaf its own label.
 
-A field no source fills renders `(missing)`, and fails a `debug_assert!` in debug builds.
-
-**Loading.** The record loads through `view_query` — `query` by default — with the tenant scope
-applied. Include there every relation `view_values` or `view_content` reads:
-
-```rust
-impl Resource for PostResource {
-    // …
-{{#include ../../../examples/guide/src/resources.rs:post-view-query}}
-}
-```
+**Loading.** The record loads through the resource's tenant-scoped `query`, plus every relation the
+view's columns declare with `include`, each once, wherever its block sits. No other relation
+loads: a `ComputedColumn` reading one it does not declare finds it unloaded.
 
 An unknown id and an id outside the request's tenant are the same 404; a record the policy may not
 `View` is a 403.
@@ -70,22 +72,15 @@ An unknown id and an id outside the request's tenant are the same 404; a record 
 the record's key, such as "Post 3f2a…":
 
 ```rust
-{{#include ../../../examples/guide/src/detail_pages.rs:detail-record-label}}
+{{#include ../../../examples/guide/src/resources.rs:post-record-label}}
 ```
 
-`public_link(cx, record)` adds a link to the record's public page to the header when it returns
-one: the URL to link and the text to show.
-
-## Free-form content
-
-`view_content(cx, record)` renders anything that is not a field, such as a word count, below the
-fields:
+**Public link.** `public_link` adds a link to the record's public page to the header of its detail
+and edit pages, for each record it returns one for: the URL to link and the text to show.
 
 ```rust
-{{#include ../../../examples/guide/src/detail_pages.rs:detail-view-content}}
+{{#include ../../../examples/guide/src/resources.rs:post-public-link}}
 ```
-
-The returned view may borrow `cx` but not the record: compute what you need from the record first.
 
 ## Related tables
 

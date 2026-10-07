@@ -2,7 +2,7 @@
 //! required items the guide elides sit outside the anchors.
 
 use tablo::prelude::*;
-use toasty::stmt::{Include, List, Query};
+use toasty::stmt::{List, Query};
 use topcoat::{Result, context::Cx};
 
 use crate::{
@@ -87,7 +87,6 @@ impl Resource for PostResource {
     type Form = PostForm;
 
     fn declare() -> ResourceDef<Self> {
-        let c = PostForm::controls();
         ResourceDef::new()
             .table(Table::new(TextColumn::new(lens!(Post.title))))
             // ANCHOR: post-policy-editors
@@ -97,12 +96,27 @@ impl Resource for PostResource {
             .tenancy(Tenancy::column(Post::fields().tenant_id()))
             // ANCHOR_END: post-tenancy
             // ANCHOR: post-view
-            .view(Schema::new(Section::new("Post").schema((
-                c.title,
-                c.body.multiline(6),
-                c.status,
-            ))))
+            .view(Detail::new(
+                Section::new("Post").columns((
+                    TextColumn::new(lens!(Post.title)),
+                    TextColumn::new(lens!(Post.body)),
+                    TextColumn::new(lens!(Post.status)),
+                    ComputedColumn::new("Author", |post: &Post| post.author.get().name.clone())
+                        .include(Post::fields().author()),
+                )),
+            ))
             // ANCHOR_END: post-view
+            // ANCHOR: post-record-label
+            .record_label(|post: &Post| post.title.clone())
+            // ANCHOR_END: post-record-label
+            // ANCHOR: post-public-link
+            .public_link(|post: &Post| {
+                (post.status == "published").then(|| PublicLink {
+                    url: format!("/blog/{}", post.id),
+                    label: "View on the blog",
+                })
+            })
+            // ANCHOR_END: post-public-link
             // ANCHOR: post-relations
             // The related model's foreign key, which holds the post's primary key.
             .relation(Relation::has_many::<CommentResource>(
@@ -113,13 +127,6 @@ impl Resource for PostResource {
             .action::<Publish>()
         // ANCHOR_END: post-actions
     }
-
-    // ANCHOR: post-view-query
-    fn view_query(cx: &Cx) -> Query<List<Post>> {
-        let author: Include<Post, Author> = Post::fields().author().into();
-        Self::query(cx).include(author)
-    }
-    // ANCHOR_END: post-view-query
 }
 
 // ANCHOR: post-record-form

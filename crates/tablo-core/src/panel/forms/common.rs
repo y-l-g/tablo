@@ -156,7 +156,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let html = render_form_page(
             cx,
             &resource.form,
-            FormChrome::edit(cx, &resource, &record),
+            FormChrome::edit(&resource, &record),
             &values,
             &FieldErrors::new(),
             &HashSet::new(),

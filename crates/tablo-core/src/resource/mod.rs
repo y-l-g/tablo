@@ -1,7 +1,5 @@
 //! `Resource` — maps one Toasty [`Model`](toasty::schema::Model) to its admin UI.
 
-use std::collections::HashMap;
-
 use toasty::{
     Executor,
     stmt::{List, Query},
@@ -34,7 +32,7 @@ pub use write::{write_create, write_update};
 ///
 /// Requires [`Model`](Self::Model) and [`Form`](Self::Form); every other item has a default.
 /// [`declare`](Self::declare) returns what the resource declares, as one [`ResourceDef`] value;
-/// the methods load, display and write records for a request.
+/// the methods scope, validate and write records for a request.
 ///
 /// The panel builds the def once when it mounts, binding the paths it names to the database
 /// schema, and serves the result to every request. Record fns run inside the handler transaction
@@ -57,7 +55,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// it ([`RecordForm::HAS_FORM`]).
     type Form: RecordForm<Model = Self::Model>;
 
-    /// What the resource declares: names, navigation, policy, tenancy, table, form, view,
+    /// What the resource declares: names, navigation, policy, tenancy, table, form, detail page,
     /// relations and actions. Defaults to [`ResourceDef::new`], whose policy denies all.
     ///
     /// ```rust
@@ -88,45 +86,15 @@ pub trait Resource: Sized + Send + Sync + 'static {
         ResourceDef::new()
     }
 
-    /// Renders free-form content below the detail page's view and above its relations.
-    fn view_content<'a>(_cx: &'a Cx, _record: &Self::Model) -> Option<topcoat::view::BoxView<'a>> {
-        None
-    }
-
-    /// The record's label in the detail page's title, or `None` when
-    /// the record has no label to show.
-    ///
-    /// The detail page titles itself with this label when a resource returns
-    /// `Some`, and with the def's [`label`](ResourceDef::label) plus the URL's record key when
-    /// it returns `None`, the default. The showcase's `PostResource` returns
-    /// the post's title, so its heading reads the title instead of
-    /// `Blog Post <record key>`.
-    ///
-    /// A label is display text, not a key. Two records can share one (two
-    /// users named Ada), so it cannot replace the primary key that keys the
-    /// table's rows and the action routes.
-    fn record_label(_cx: &Cx, _record: &Self::Model) -> Option<String> {
-        None
-    }
-
-    /// The record's public page, linked from the detail and edit pages.
-    ///
-    /// The default declares none, so no link renders. A resource whose records
-    /// have a public page overrides this with its URL and link text — the
-    /// showcase's posts return their `/blog/{id}` page.
-    fn public_link(_cx: &Cx, _record: &Self::Model) -> Option<PublicLink> {
-        None
-    }
-
     /// Base query — the seam for a resource's **own** row scoping (ADR-0002):
     /// soft deletes and row-level visibility. Every loader starts from it.
     ///
-    /// **Relations are not this method's job.** The list and the export load
-    /// the relations the table's columns declare
-    /// ([`ComputedColumn::include`](crate::ComputedColumn::include)), and the detail page loads
-    /// [`Self::view_query`]. Include a relation here only when a closure no column covers reads
-    /// it on every loader's rows: one the [`policy`](ResourceDef::policy) reads, or one a
-    /// table's `group_by` or row key reads without a column including it.
+    /// **Relations are not this method's job.** The list, the export and the detail page load
+    /// the relations their columns declare
+    /// ([`ComputedColumn::include`](crate::ComputedColumn::include)). Include a relation here only
+    /// when a closure no column covers reads it on every loader's rows: one the
+    /// [`policy`](ResourceDef::policy) reads, or one a table's `group_by` or row key reads without
+    /// a column including it.
     ///
     /// **Tenancy is not this method's job either.** For a resource whose
     /// [`tenancy`](ResourceDef::tenancy) is scoped the framework ANDs the tenant filter
@@ -148,24 +116,6 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// a query's filters are not introspectable; upstream #117 is the fix.
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<Self::Model>> {
         toasty::stmt::Query::<List<Self::Model>>::all()
-    }
-
-    /// The detail page's query: [`Self::query`] plus the relations the page
-    /// reads off the loaded row — in [`view_values`](Self::view_values) or
-    /// [`view_content`](Self::view_content) — so include them here. A
-    /// [`relation`](ResourceDef::relation) table runs its own query and needs none.
-    ///
-    /// ```text
-    /// fn view_query(cx: &Cx) -> Query<List<Post>> {
-    ///     let author: Include<Post, Author> = Post::fields().author().into();
-    ///     Self::query(cx).include(author)
-    /// }
-    /// ```
-    ///
-    /// The default is [`Self::query`] unchanged. The framework ANDs the tenant
-    /// scope onto it, as it does onto [`Self::query`].
-    fn view_query(cx: &Cx) -> toasty::stmt::Query<List<Self::Model>> {
-        Self::query(cx)
     }
 
     /// App-level rules on the parsed form. The errors render inline with a
@@ -300,22 +250,6 @@ pub trait Resource: Sized + Send + Sync + 'static {
     {
         async move { Ok(()) }
     }
-
-    /// The record's values for the detail page, keyed by the name each
-    /// [`view`](ResourceDef::view) field binds.
-    ///
-    /// The detail page reads the form's keys from
-    /// [`RecordForm::hydrate`], and this adds any
-    /// key only the view shows; the form's keys win on a collision. A
-    /// resource with no form ([`NoForm`](crate::NoForm)) supplies every key its
-    /// view shows here.
-    ///
-    /// `cx` carries the database, whose schema an embedded value's keys need
-    /// ([`EmbeddedForm::write_form`](crate::schema::EmbeddedForm::write_form)).
-    /// The default is empty.
-    fn view_values(_cx: &Cx, _record: &Self::Model) -> HashMap<String, String> {
-        HashMap::new()
-    }
 }
 
 /// The tenant-scoped base query.
@@ -337,26 +271,10 @@ pub fn scoped_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
     require_mounted::<R>(cx)?.scoped_query(cx)
 }
 
-/// [`Resource::view_query`] under the same tenant gate and filter as
-/// [`scoped_query`]: the detail page's loader, and the entry point for a page
-/// that owns its own detail view.
-///
-/// # Errors
-///
-/// The same as [`scoped_query`].
-pub fn scoped_view_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
-    require_mounted::<R>(cx)?.scoped_view_query(cx)
-}
-
 impl<R: Resource> Mounted<R> {
     /// [`scoped_query`] for this mount.
     pub(crate) fn scoped_query(&self, cx: &Cx) -> Result<Query<List<R::Model>>> {
         self.tenant_scope(cx, R::query(cx))
-    }
-
-    /// [`scoped_view_query`] for this mount.
-    pub(crate) fn scoped_view_query(&self, cx: &Cx) -> Result<Query<List<R::Model>>> {
-        self.tenant_scope(cx, R::view_query(cx))
     }
 
     /// AND the resource's tenant filter onto `query`.

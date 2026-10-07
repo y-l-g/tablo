@@ -69,11 +69,12 @@ pub use tablo_ui as ui;
 pub mod prelude {
     pub use tablo_core::{
         Ability, Action, Allow, Auth, BooleanColumn, Brand, ChoiceField, Column, ColumnWidth,
-        Committed, ComputedColumn, Control, ControlInput, CustomField, DateFilter, Deny,
-        EmbeddedForm, Field, FieldErrors, FileField, Filter, FilterInput, Grid, Group, Includes,
-        IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy, Posted,
-        QueryFilter, ReadOnly, RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt,
-        Schema, Section, SelectFilter, Table, Tenancy, TenantId, TernaryFilter, TextColumn,
-        TextField, Toggle, can, can_list, lens, scoped_query, tenant_id, when,
+        Committed, ComputedColumn, Control, ControlInput, CustomField, DateFilter, Deny, Detail,
+        EmbeddedColumn, EmbeddedForm, Field, FieldErrors, FileColumn, FileField, Filter,
+        FilterInput, Grid, Group, Includes, IntoOptions, Lens, NavigationItem, NoForm, Options,
+        Page, Panel, Policy, Posted, PublicLink, QueryFilter, ReadOnly, RecordForm, Relation,
+        Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
+        Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, can, can_list, lens,
+        scoped_query, tenant_id, when,
     };
 }

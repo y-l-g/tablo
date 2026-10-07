@@ -4,9 +4,9 @@ use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
 use tablo::{
-    Ability, DeclarationErrorKind, Field, FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm,
-    Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId, TextColumn, lens,
-    write_create,
+    Ability, ComputedColumn, DeclarationErrorKind, Detail, Field, FieldErrorKind, FieldErrors,
+    NoForm, Panel, RecordForm, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId,
+    TextColumn, lens, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -71,7 +71,7 @@ impl Resource for ItemResource {
             })
             .table(item_table())
             .form(item_schema())
-            .view(Schema::new(Field::text(Item::fields().title())))
+            .view(Detail::new(TextColumn::new(lens!(Item.title))))
     }
 
     fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemFormField> {
@@ -609,9 +609,9 @@ async fn a_list_only_resource_serves_no_form_route() {
     assert_eq!(reload(&db, item.id).await.title, "Stored");
 }
 
-/// A `NoForm` resource renders its detail page from `view_values` alone.
+/// A `NoForm` resource declares its detail page, whose columns read the record.
 #[tokio::test]
-async fn a_list_only_detail_page_reads_view_values() {
+async fn a_list_only_resource_declares_its_detail_page() {
     struct Viewed;
 
     impl Resource for Viewed {
@@ -623,11 +623,9 @@ async fn a_list_only_detail_page_reads_view_values() {
                 .slug("items")
                 .policy(|_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::View(_)))
                 .table(item_table())
-                .view(Schema::new(Field::text(Item::fields().title())))
-        }
-
-        fn view_values(_cx: &Cx, record: &Item) -> HashMap<String, String> {
-            HashMap::from([("title".to_string(), format!("{} (view)", record.title))])
+                .view(Detail::new(ComputedColumn::new("Title", |item: &Item| {
+                    format!("{} (view)", item.title)
+                })))
         }
     }
 
@@ -1093,7 +1091,7 @@ impl Resource for UnviewedTicketResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(tablo::ReadOnly)
-            .view(Schema::empty())
+            .view(Detail::empty())
     }
 }
 
@@ -1148,18 +1146,29 @@ async fn the_record_form_derives_the_table() {
     );
 }
 
-/// The detail page defaults to the form, read-only; an empty view turns it off.
+/// The record form derives the detail page: each field the table lists, read-only; an empty
+/// view turns it off.
 #[tokio::test]
-async fn the_view_defaults_to_the_form() {
+async fn the_record_form_derives_the_detail_page() {
     let (db, ticket) = ticket_db().await;
     let viewed = panel_router::<TicketResource>(db.clone());
     let detail = get(&viewed, &format!("/admin/tickets/{}", ticket.id)).await;
     assert_eq!(detail.status(), StatusCode::OK);
     let detail = body_string(detail).await;
-    assert!(
-        detail.contains("Printer jam"),
-        "the form's fields, read-only: {detail}"
-    );
+    for (label, value) in [
+        ("Subject", "Printer jam"),
+        ("Status", "Waiting on customer"),
+        ("Urgent", "Yes"),
+        ("Estimate", ">3<"),
+    ] {
+        let at = detail
+            .find(&format!(">{label}<"))
+            .unwrap_or_else(|| panic!("no {label} entry: {detail}"));
+        assert!(
+            detail[at..].contains(value),
+            "{label} shows {value}: {detail}"
+        );
+    }
     assert_eq!(
         input_value(&detail, "subject"),
         None,

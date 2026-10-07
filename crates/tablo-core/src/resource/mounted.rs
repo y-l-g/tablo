@@ -8,9 +8,13 @@ use std::{
 
 use topcoat::context::{Cx, try_app_context};
 
-use super::{Actions, Relation, Resource, ResourceDef};
+use super::{
+    Actions, PublicLink, Relation, Resource, ResourceDef,
+    def::{PublicLinkFn, RecordLabel},
+};
 use crate::{
     DeclarationError, DeclarationErrorKind, Site,
+    detail::Detail,
     form::{FormField, RecordForm},
     naming::{kebab_case, pluralize, type_short_name, type_stem},
     navigation::NavigationItem,
@@ -32,8 +36,9 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Arc<Table<R::Model>>,
     pub(crate) form: Arc<Schema>,
-    /// The detail schema when it is not the form's.
-    view: Option<Schema>,
+    pub(crate) view: Detail<R::Model>,
+    record_label: Option<RecordLabel<R::Model>>,
+    public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
     pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
@@ -73,10 +78,8 @@ impl<R: Resource> Mounted<R> {
                 .flat_map(|field| field.required.iter().map(String::as_str))
                 .collect(),
         );
-        let view = def.view.map(|mut view| {
-            view.bind_with(resolver);
-            view
-        });
+        let view = def.view.unwrap_or_else(<R::Form as RecordForm>::detail);
+        view.bind_with(resolver);
         Self {
             slug,
             url,
@@ -88,6 +91,8 @@ impl<R: Resource> Mounted<R> {
             table: Arc::new(table),
             form: Arc::new(form),
             view,
+            record_label: def.record_label,
+            public_link: def.public_link,
             relations: def.relations,
             actions: def.actions,
             fields,
@@ -95,19 +100,22 @@ impl<R: Resource> Mounted<R> {
         }
     }
 
-    /// The detail page's schema: the def's view, else its form.
-    pub(crate) fn view(&self) -> &Schema {
-        self.view.as_ref().unwrap_or(&self.form)
-    }
-
-    /// Whether the resource declares a separate detail schema.
-    pub(crate) fn has_own_view(&self) -> bool {
-        self.view.is_some()
-    }
-
     /// Whether the resource declares a detail page.
     pub(crate) fn viewed(&self) -> bool {
-        !self.view().is_empty()
+        !self.view.is_empty()
+    }
+
+    /// The detail page's title for `record`: its label, else the resource's label and `key`.
+    pub(crate) fn record_title(&self, record: &R::Model, key: &str) -> String {
+        match &self.record_label {
+            Some(label) => label(record),
+            None => format!("{} {key}", self.label),
+        }
+    }
+
+    /// The record's public page, if the resource links one.
+    pub(crate) fn public_link(&self, record: &R::Model) -> Option<PublicLink> {
+        self.public_link.as_ref().and_then(|link| link(record))
     }
 
     /// Whether the policy allows `ability`.

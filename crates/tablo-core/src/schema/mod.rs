@@ -15,11 +15,11 @@ mod validation;
 use std::collections::{HashMap, HashSet};
 
 pub use embedded::EmbeddedForm;
-pub(crate) use fields::option_view;
 pub use fields::{
     ChoiceField, Control, ControlInput, CustomField, Field, FileField, IntoOptions, TextField,
     Toggle,
 };
+pub(crate) use fields::{option_view, read_only, stored_upload};
 pub use layouts::{Grid, Group, Section};
 pub(crate) use lenses::Binding;
 pub use lenses::{FieldResolver, form_key};

@@ -5,9 +5,10 @@ use std::sync::Arc;
 use toasty::stmt::Path;
 use topcoat::icon::IconData;
 
-use super::{Action, Actions, Relation, Resource};
+use super::{Action, Actions, PublicLink, Relation, Resource};
 use crate::{
     DeclarationErrorKind,
+    detail::Detail,
     navigation::NavigationItem,
     policy::{Deny, Policy},
     schema::Schema,
@@ -16,7 +17,7 @@ use crate::{
     toasty_compat::model::{self, ModelPath},
 };
 
-/// What a [`Resource`] declares: its names, navigation, policy, tenancy, table, form, view,
+/// What a [`Resource`] declares: its names, navigation, policy, tenancy, table, form, detail page,
 /// relations and actions.
 ///
 /// [`Resource::declare`] returns one, and [`Panel::resource_with`](crate::Panel::resource_with)
@@ -57,7 +58,9 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Option<Table<R::Model>>,
     pub(crate) form: Option<Schema>,
-    pub(crate) view: Option<Schema>,
+    pub(crate) view: Option<Detail<R::Model>>,
+    pub(crate) record_label: Option<RecordLabel<R::Model>>,
+    pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
     /// The columns [`Self::create_column`] names, or why a path names no column.
@@ -78,6 +81,8 @@ impl<R: Resource> Default for ResourceDef<R> {
             table: None,
             form: None,
             view: None,
+            record_label: None,
+            public_link: None,
             relations: Vec::new(),
             actions: Actions::default(),
             create_columns: Vec::new(),
@@ -87,7 +92,7 @@ impl<R: Resource> Default for ResourceDef<R> {
 
 impl<R: Resource> ResourceDef<R> {
     /// A def with every default: the policy denies all, rows belong to no tenant, and the record
-    /// form derives the table, the form and the view.
+    /// form derives the table, the form and the detail page.
     pub fn new() -> Self {
         Self::default()
     }
@@ -181,11 +186,40 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The read-only detail schema; defaults to the [`form`](Self::form), and an empty schema
-    /// disables the detail page.
+    /// The detail page: columns in layout blocks; defaults to the record form's derived detail
+    /// page ([`RecordForm::detail`]), and [`Detail::empty`] turns the page off.
+    ///
+    /// The page loads the relations its columns declare.
+    ///
+    /// [`RecordForm::detail`]: crate::RecordForm::detail
     #[must_use]
-    pub fn view(mut self, view: Schema) -> Self {
+    pub fn view(mut self, view: Detail<R::Model>) -> Self {
         self.view = Some(view);
+        self
+    }
+
+    /// Titles the detail page with the record's label; defaults to the [`label`](Self::label)
+    /// and the record's key, as in `Blog Post 3f2a…`.
+    ///
+    /// A label is display text, not a key: two records can share one, so it never replaces the
+    /// primary key that keys the table's rows and the action routes.
+    #[must_use]
+    pub fn record_label(
+        mut self,
+        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
+    ) -> Self {
+        self.record_label = Some(Arc::new(label));
+        self
+    }
+
+    /// Links a record's public page from its detail and edit pages, for each record `link`
+    /// returns one for; defaults to no link.
+    #[must_use]
+    pub fn public_link(
+        mut self,
+        link: impl Fn(&R::Model) -> Option<PublicLink> + Send + Sync + 'static,
+    ) -> Self {
+        self.public_link = Some(Arc::new(link));
         self
     }
 
@@ -219,6 +253,12 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 }
+
+/// A record's label, as [`ResourceDef::record_label`] declares it.
+pub(crate) type RecordLabel<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
+
+/// A record's public page, as [`ResourceDef::public_link`] declares it.
+pub(crate) type PublicLinkFn<M> = Arc<dyn Fn(&M) -> Option<PublicLink> + Send + Sync>;
 
 impl<R: Resource> std::fmt::Debug for ResourceDef<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -8,8 +8,8 @@
 
 use tablo::{
     Ability, Action, BooleanColumn, Column, Committed, Control, ControlInput, DeclarationErrorKind,
-    Field, Filter, FilterInput, Mutation, Resource, ResourceDef, Schema, Site, Table, TextColumn,
-    lens,
+    Detail, Field, Filter, FilterInput, Mutation, Resource, ResourceDef, Schema, Site, Table,
+    TextColumn, lens,
 };
 use toasty::{Db, stmt::Expr};
 use topcoat::{context::Cx, view::*};
@@ -113,11 +113,6 @@ impl Control for Shouty {
         let attrs = input.attributes(cx);
         view! { cx => <input type="text" data-shouty="" (attrs)> }.boxed()
     }
-
-    fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
-        let loud = value.to_uppercase();
-        view! { cx => <strong>(loud)</strong> }.boxed()
-    }
 }
 
 /// Mark tasks done: on a row, or on the selection. A task already done
@@ -201,6 +196,7 @@ impl Resource for TaskResource {
                 Field::custom(Task::fields().title(), Shouty),
                 Field::toggle(Task::fields().done()),
             )))
+            .view(Detail::new(TextColumn::new(lens!(Task.title))).column(Highlighted))
             .action::<Complete>()
             .action::<Explode>()
     }
@@ -260,7 +256,7 @@ async fn logs(db: &Db) -> Vec<Log> {
 #[tokio::test]
 async fn an_app_column_renders_its_view_and_exports_its_text() {
     let db = db().await;
-    seed(&db, "Alpha", false).await;
+    let task = seed(&db, "Alpha", false).await;
     let router = panel_router::<TaskResource>(db.clone());
 
     let html = body_string(get(&router, "/admin/tasks").await).await;
@@ -281,6 +277,15 @@ async fn an_app_column_renders_its_view_and_exports_its_text() {
     assert!(
         csv.contains("Alpha,5 chars,No\n"),
         "the export writes each column's text: {csv}"
+    );
+
+    let html = body_string(get(&router, &format!("/admin/tasks/{}", task.id)).await).await;
+    let entry = html
+        .find(">Highlighted<")
+        .unwrap_or_else(|| panic!("the detail page labels the column: {html}"));
+    assert!(
+        html[entry..].contains("<mark data-highlight=\"\">Alpha</mark>"),
+        "the detail page shows the column's own cell under its label: {html}"
     );
 }
 
@@ -365,12 +370,6 @@ async fn an_app_control_renders_inside_the_field_chrome() {
     assert!(
         html.contains("for=\"title\""),
         "the field's label points at the control: {html}"
-    );
-
-    let html = body_string(get(&router, &format!("/admin/tasks/{}", task.id)).await).await;
-    assert!(
-        html.contains("<strong>ALPHA</strong>"),
-        "the detail page shows the control's display: {html}"
     );
 }
 

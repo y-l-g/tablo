@@ -12,6 +12,7 @@ use std::sync::Arc;
 pub use builders::{ChoiceField, CustomField, FileField, IntoOptions, TextField};
 pub(crate) use choice::{ChoiceControl, option_view};
 pub use custom::{Control, ControlInput, Toggle};
+pub(crate) use file::stored_upload;
 use tablo_ui::{
     field as ui_field, field_content as ui_field_content, field_error as ui_field_error,
     field_label as ui_field_label, field_title as ui_field_title,
@@ -22,7 +23,6 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     lenses::{Binding, FieldResolver},
-    tree::Mode,
     validation::is_email,
 };
 use crate::{
@@ -318,32 +318,45 @@ impl Field {
         }
     }
 
-    /// Renders the field's control or its stored value.
+    /// Renders the field's control.
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
-        mode: Mode,
     ) -> Result<BoxView<'a>> {
-        if mode == Mode::View && value.is_none() {
-            debug_assert!(
-                false,
-                "view field `{}` has no value: neither `view_values` nor the record form's \
-                 `hydrate` supplies its key",
-                self.name()
-            );
-            return render_value(cx, self.label_str(), Some("(missing)"), ValueKind::Prose);
-        }
         match &self.control {
-            ControlKind::Text(text) => self.render_text(text, cx, value, error, mode),
+            ControlKind::Text(text) => self.render_text(text, cx, value, error),
             ControlKind::Choice(choice) => {
-                Box::pin(self.render_choice(choice, cx, value, error, mode)).await
+                Box::pin(self.render_choice(choice, cx, value, error)).await
             }
-            ControlKind::File => self.render_file(cx, value, error, mode),
-            ControlKind::Custom(control) => {
-                self.render_custom(control.as_ref(), cx, value, error, mode)
+            ControlKind::File => self.render_file(cx, value, error),
+            ControlKind::Custom(control) => self.render_custom(control.as_ref(), cx, value, error),
+        }
+    }
+
+    /// The stored `value` as a reader sees it: a choice's option label, else the value itself.
+    /// `None` for a variant control whose value names no variant.
+    pub(crate) fn read(&self, value: &str) -> Option<String> {
+        match &self.control {
+            ControlKind::Choice(choice) => {
+                let stored = value.trim();
+                match choice.label_of(stored) {
+                    Some(label) => Some(label.to_string()),
+                    None if choice.discriminant => None,
+                    None => Some(stored.to_string()),
+                }
             }
+            _ => Some(value.to_string()),
+        }
+    }
+
+    /// Renders the label over the stored `value`, [read](Self::read) rather than edited: an
+    /// embedded value's leaf or variant on a detail page.
+    pub(crate) fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
+        match self.read(value) {
+            Some(text) => read_only(cx, self.label_str(), view! { cx => (text) }.boxed()),
+            None => ().boxed(),
         }
     }
 
@@ -354,12 +367,7 @@ impl Field {
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
-        mode: Mode,
     ) -> Result<BoxView<'a>> {
-        if mode == Mode::View {
-            let shown = control.display(cx, value.unwrap_or_default());
-            return render_value_view(cx, self.label_str(), shown);
-        }
         let required = self.is_required();
         let chrome = FieldChrome::new(self.name(), error, None);
         let input = ControlInput::new(
@@ -381,45 +389,23 @@ impl Field {
     }
 }
 
-/// How a read-only value is presented.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ValueKind {
-    /// Wrapping text: a title, a body, an address.
-    Prose,
-    /// A stored path — no spaces to break at.
-    Machine,
-}
-
-/// The read-only half of a field: the label with the record's stored value under it.
-fn render_value<'a>(
-    cx: &'a Cx,
-    label: &str,
-    value: Option<&str>,
-    kind: ValueKind,
-) -> Result<BoxView<'a>> {
-    let text = value.unwrap_or_default().to_string();
-    let value_class = match kind {
-        ValueKind::Prose => "text-sm text-foreground wrap-anywhere whitespace-pre-wrap",
-        ValueKind::Machine => "text-sm text-foreground font-mono break-all whitespace-pre-wrap",
-    };
-    let value = view! { cx => <div class=(value_class)>(text)</div> }.boxed();
-    render_value_view(cx, label, value)
-}
-
-/// The field chrome around a read-only value that is not a plain string.
-fn render_value_view<'a>(cx: &'a Cx, label: &str, value: BoxView<'a>) -> Result<BoxView<'a>> {
+/// A read-only value: `label` over `value`, which wraps as text. A detail page's entry, and an
+/// embedded leaf on one.
+pub(crate) fn read_only<'a>(cx: &'a Cx, label: &str, value: BoxView<'a>) -> BoxView<'a> {
     let label = label.to_string();
-    Ok(view! {
+    view! {
         cx =>
         ui_field(
             attrs: attributes! { class="ac-field" },
             ui_field_content(
                 ui_field_title((label))
-                (value)
+                <div class="text-sm text-foreground wrap-anywhere whitespace-pre-wrap">
+                    (value)
+                </div>
             )
         )
     }
-    .boxed())
+    .boxed()
 }
 
 /// The validation state a form control renders.

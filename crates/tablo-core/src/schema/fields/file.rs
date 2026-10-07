@@ -3,9 +3,7 @@
 use tablo_ui::{checkbox as ui_checkbox, input as ui_input, label as ui_label};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{
-    super::tree::Mode, Field, FieldChrome, ValueKind, render_field, render_value, render_value_view,
-};
+use super::{Field, FieldChrome, render_field};
 
 impl Field {
     /// Renders a file field's input and its stored path.
@@ -14,11 +12,7 @@ impl Field {
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
-        mode: Mode,
     ) -> Result<BoxView<'a>> {
-        if mode == Mode::View {
-            return stored_upload_value(cx, self.label_str(), value);
-        }
         let name = self.name().to_string();
         // Required only while nothing is stored.
         let stored = stored_path(value);
@@ -124,17 +118,24 @@ fn stored_upload_row<'a>(cx: &'a Cx, path: String) -> BoxView<'a> {
     .boxed()
 }
 
-/// A file field read rather than edited: the label over the stored path, as a link when it is one.
-fn stored_upload_value<'a>(cx: &'a Cx, label: &str, value: Option<&str>) -> Result<BoxView<'a>> {
-    let Some(path) = stored_path(value) else {
-        return render_value(cx, label, value, ValueKind::Machine);
-    };
+/// A stored upload path, as a link when it is a rooted path or an `http(s)` URL and as text
+/// otherwise.
+pub(crate) fn stored_upload<'a>(cx: &'a Cx, value: &str) -> BoxView<'a> {
+    let path = value.trim().to_string();
     // A value that is not a safe URL is not a link.
     if !is_linkable(&path) {
-        return render_value(cx, label, Some(&path), ValueKind::Machine);
+        return view! {
+            cx =>
+            <div
+                class="text-sm text-foreground font-mono break-all whitespace-pre-wrap"
+            >
+                (path)
+            </div>
+        }
+        .boxed();
     }
     let href = path.clone();
-    let link = view! {
+    view! {
         cx =>
         <a
             class="text-sm font-mono break-all whitespace-pre-wrap underline"
@@ -143,8 +144,7 @@ fn stored_upload_value<'a>(cx: &'a Cx, label: &str, value: Option<&str>) -> Resu
             (path)
         </a>
     }
-    .boxed();
-    render_value_view(cx, label, link)
+    .boxed()
 }
 
 #[cfg(test)]

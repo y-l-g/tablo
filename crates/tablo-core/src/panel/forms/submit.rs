@@ -281,7 +281,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
                 cx,
                 &resource,
                 tx,
-                FormChrome::edit(cx, &resource, &record),
+                FormChrome::edit(&resource, &record),
                 &values,
                 &errors,
                 &carried,

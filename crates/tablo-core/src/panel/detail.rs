@@ -1,4 +1,4 @@
-//! The detail page: `GET {prefix}/{slug}/{id}`, the record's fields and its relation tables.
+//! The detail page: `GET {prefix}/{slug}/{id}`, the record's columns and its relation tables.
 
 use topcoat::{
     context::Cx,
@@ -12,11 +12,11 @@ use crate::{
     db::db,
     form::RecordForm,
     policy::Ability,
-    resource::{Mounted, PublicLink, Resource},
+    resource::{PublicLink, Resource},
     topcoat_compat::async_page,
 };
 
-/// Renders the detail page, 404ing without a declared view or for unknown ids and 403ing
+/// Renders the detail page, 404ing without a declared detail page or for unknown ids and 403ing
 /// view-denied records.
 pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
@@ -27,18 +27,11 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let id = path_param_segment(cx, "id").to_string();
         let mut db = db(cx);
         let record = load_detail(cx, &resource, &mut db).await?;
-        // Projects the form over `view_values`; see `Resource::view_values`.
-        let mut values = R::view_values(cx, &record);
-        values.extend(<R::Form as RecordForm>::hydrate(cx, &record));
-        let body = resource
-            .view()
-            .render(cx, crate::schema::Source::view(&values))
-            .await?;
-        let content = R::view_content(cx, &record);
+        let body = resource.view.render(cx, &record);
         let relations = render_relations(cx, &resource, &record);
-        let title = detail_title(cx, &resource, &record, &id);
+        let title = resource.record_title(&record, &id);
         let back = resource.url.clone();
-        let public_link = R::public_link(cx, &record);
+        let public_link = resource.public_link(&record);
         let edit = (<R::Form as RecordForm>::HAS_FORM
             && resource.can(cx, Ability::Update(&record)))
         .then(|| {
@@ -56,7 +49,6 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
                 public_link,
                 edit,
                 body,
-                content,
                 relations,
             },
         ))
@@ -70,7 +62,6 @@ struct DetailPage<'a> {
     public_link: Option<PublicLink>,
     edit: Option<String>,
     body: BoxView<'a>,
-    content: Option<BoxView<'a>>,
     relations: Vec<BoxView<'a>>,
 }
 
@@ -82,7 +73,6 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
         public_link,
         edit,
         body,
-        content,
         relations,
     } = page;
     let outline =
@@ -123,9 +113,6 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
             tablo_ui::page_content(
                 <div class="flex flex-col gap-4">
                     (body)
-                    if let Some(content) = content {
-                        (content)
-                    }
                     for relation in relations {
                         (relation)
                     }
@@ -135,16 +122,3 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
     }
     .boxed()
 }
-
-/// Builds the detail title from the record label, else the page name and record key.
-fn detail_title<R: Resource>(
-    cx: &Cx,
-    resource: &Mounted<R>,
-    record: &R::Model,
-    id: &str,
-) -> String {
-    R::record_label(cx, record).unwrap_or_else(|| format!("{} {id}", resource.label))
-}
-
-#[cfg(test)]
-mod tests;

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::{schema::Source, test_support::DummyUser};
+use crate::test_support::DummyUser;
 
 /// An enum node over the discriminant column `kind`, one variant per value,
 /// built as `EmbeddedBuilder::enumeration` builds it from the app schema.
@@ -156,11 +156,11 @@ fn an_embedded_node_keeps_its_slots_when_appended() {
     assert_eq!(slots, ["kind", "name"], "the node reads its own fields");
 }
 
-/// A view renders a shared column only when the stored variant declares it:
-/// a unit variant stores nothing in the column, so its key is absent from the
-/// record's values and must not read as a missing field.
+/// A read-only display renders a shared column only when the stored variant declares it: a unit
+/// variant stores nothing in the column, so its key is absent from the record's values and must
+/// not render as an empty field.
 #[tokio::test]
-async fn a_view_renders_a_shared_column_only_for_a_variant_declaring_it() {
+async fn a_display_renders_a_shared_column_only_for_a_variant_declaring_it() {
     let cx = crate::test_support::cx();
     let mut builder = enumeration(&["1", "2", "3"]);
     builder.variant();
@@ -180,9 +180,8 @@ async fn a_view_renders_a_shared_column_only_for_a_variant_declaring_it() {
         let cx = &cx;
         async move {
             schema
-                .render(cx, Source::view(&values))
-                .await
-                .unwrap()
+                .embedded_root()
+                .display(cx, &schema.fields, &values)
                 .single()
                 .await
                 .unwrap()
@@ -196,7 +195,7 @@ async fn a_view_renders_a_shared_column_only_for_a_variant_declaring_it() {
         "the stored variant is named: {unit}"
     );
     assert!(
-        !unit.contains("Stamp") && !unit.contains("(missing)"),
+        !unit.contains("Stamp"),
         "a unit variant declares no shared column: {unit}"
     );
 

@@ -4,8 +4,8 @@
 use tablo_ui::checkbox as ui_checkbox;
 use topcoat::{context::Cx, view::*};
 
-/// Renders a field's input from a [`ControlInput`] and its stored value for display, using a hidden
-/// field for a state that submits nothing.
+/// Renders a field's input from a [`ControlInput`], using a hidden field for a state that submits
+/// nothing. A detail page shows the value through a [`Column`](crate::Column) instead.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -25,18 +25,6 @@ use topcoat::{context::Cx, view::*};
 /// ```
 pub trait Control: Send + Sync {
     fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a>;
-
-    /// Shows the stored value, as text by default.
-    fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
-        let text = value.to_string();
-        view! {
-            cx =>
-            <div class="text-sm text-foreground wrap-anywhere whitespace-pre-wrap">
-                (text)
-            </div>
-        }
-        .boxed()
-    }
 }
 
 /// What a [`Control`] renders for one form: the field's key, its current
@@ -102,7 +90,7 @@ impl ControlInput {
     }
 }
 
-/// Renders a `bool` field as a checkbox preceded by a hidden `false`, displaying as `"Yes"`/`"No"`.
+/// Renders a `bool` field as a checkbox preceded by a hidden `false`.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Toggle;
 
@@ -127,10 +115,5 @@ impl Control for Toggle {
             )
         }
         .boxed()
-    }
-
-    fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
-        let text = if value.trim() == "true" { "Yes" } else { "No" };
-        view! { cx => <div class="text-sm text-foreground">(text)</div> }.boxed()
     }
 }

@@ -4,9 +4,10 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
-    DateFilter, FieldErrors, Grid, Group, Options, Panel, PublicLink, QueryFilter, RecordForm,
-    Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
-    Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
+    DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, Options, Panel, PublicLink,
+    QueryFilter, RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
+    Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id,
+    when,
 };
 use toasty::Db;
 use topcoat::{
@@ -16,7 +17,6 @@ use topcoat::{
     font::{Font, fontsource::fontsource_font},
     router::{Router, RouterBuilderDiscoverExt},
     tailwind,
-    view::{ViewExt, view},
 };
 
 use crate::{
@@ -126,11 +126,8 @@ impl Resource for AuthorResource {
             .form(Schema::new(
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
-    }
-
-    /// Names the detail heading with the author's name.
-    fn record_label(_cx: &Cx, record: &Author) -> Option<String> {
-        Some(record.name.clone())
+            // Names the detail heading with the author's name.
+            .record_label(|author: &Author| author.name.clone())
     }
 }
 
@@ -161,48 +158,21 @@ impl Resource for PostResource {
             .table(post_table())
             .form(post_form())
             .view(post_view())
+            // Names the detail heading with the post title.
+            .record_label(|post: &Post| post.title.clone())
+            // Links a published post's public page.
+            .public_link(|post: &Post| {
+                (post.status == crate::blog::PUBLISHED).then(|| PublicLink {
+                    url: format!("/blog/{}", post.id),
+                    label: "View public post",
+                })
+            })
             // Lists the post's comments.
             .relation(Relation::has_many::<CommentResource>(
                 Comment::fields().post_id(),
             ))
             // Publishes drafts from a row or for the selection.
             .action::<PublishPosts>()
-    }
-
-    /// Names the detail heading with the post title.
-    fn record_label(_cx: &Cx, record: &Post) -> Option<String> {
-        Some(record.title.clone())
-    }
-
-    /// Links the post's public page.
-    fn public_link(_cx: &Cx, record: &Post) -> Option<PublicLink> {
-        if record.status == crate::blog::PUBLISHED {
-            Some(PublicLink {
-                url: format!("/blog/{}", record.id),
-                label: "View public post",
-            })
-        } else {
-            None
-        }
-    }
-
-    /// Shows the computed reading stats in a card like the view's sections.
-    fn view_content<'a>(cx: &'a Cx, record: &Post) -> Option<topcoat::view::BoxView<'a>> {
-        let words = word_count(&record.body);
-        let minutes = read_minutes(words);
-        Some(
-            view! {
-                cx =>
-                tablo::ui::card(
-                    tablo::ui::card_content(
-                        <p class="text-sm text-muted-foreground">
-                            (format!("{words} words · {minutes} min read"))
-                        </p>
-                    )
-                )
-            }
-            .boxed(),
-        )
     }
 }
 
@@ -234,38 +204,57 @@ fn post_form() -> Schema {
 }
 
 /// The post detail page.
-fn post_view() -> Schema {
-    let c = PostForm::controls();
-    Schema::new((
-        Section::new("Post").schema((c.title, c.body.multiline(6))),
-        Section::new("Details")
-            .schema(Group::new().schema((Grid::new(2).schema((c.status, c.featured)), c.tags))),
-        Section::new("SEO").schema(c.seo),
-        Section::new("Publication").schema(c.publication),
+fn post_view() -> Detail<Post> {
+    Detail::new((
+        Section::new("Post").columns((
+            TextColumn::new(lens!(Post.title)),
+            TextColumn::new(lens!(Post.body)),
+            ComputedColumn::new("Reading", |p: &Post| {
+                let words = word_count(&p.body);
+                format!("{words} words · {} min read", read_minutes(words))
+            }),
+        )),
+        Section::new("Details").columns(Group::new().columns((
+            Grid::new(2).columns((
+                post_status_column(),
+                BooleanColumn::new(lens!(Post.featured)),
+            )),
+            post_author_column(),
+            TextColumn::new(lens!(Post.tags)),
+        ))),
+        Section::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
+        Section::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
     ))
+}
+
+/// The post's status, by its option's label.
+fn post_status_column() -> TextColumn<Post, String> {
+    TextColumn::new(lens!(Post.status)).format(|status| PostStatus::label_of(status))
+}
+
+/// The post's author, by name: the list and the detail page load the relation it declares.
+fn post_author_column() -> ComputedColumn<Post> {
+    ComputedColumn::new("Author", |p: &Post| {
+        debug_assert!(
+            !p.author.is_unloaded(),
+            "the Author column declares `.include(Post::fields().author())`"
+        );
+        if p.author.is_unloaded() {
+            "(unloaded)".to_string()
+        } else {
+            p.author.get().name.clone()
+        }
+    })
+    .include(Post::fields().author())
 }
 
 /// The post list.
 fn post_table() -> Table<Post> {
     Table::new((
         TextColumn::new(lens!(Post.title)).searchable().sortable(),
-        TextColumn::new(lens!(Post.status))
-            .format(|status| PostStatus::label_of(status))
-            .width(ColumnWidth::Narrow),
+        post_status_column().width(ColumnWidth::Narrow),
         BooleanColumn::new(lens!(Post.featured)),
-        ComputedColumn::new("Author", |p: &Post| {
-            debug_assert!(
-                !p.author.is_unloaded(),
-                "the Author column declares `.include(Post::fields().author())`"
-            );
-            if p.author.is_unloaded() {
-                "(unloaded)".to_string()
-            } else {
-                p.author.get().name.clone()
-            }
-        })
-        .width(ColumnWidth::Wide)
-        .include(Post::fields().author()),
+        post_author_column().width(ColumnWidth::Wide),
         ComputedColumn::new("Comments", |p: &Post| {
             debug_assert!(
                 !p.comments.is_unloaded(),

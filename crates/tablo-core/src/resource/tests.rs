@@ -202,3 +202,64 @@ async fn a_nullable_tenant_column_is_stamped_and_scoped() {
     assert_eq!(rows.len(), 1, "only the request tenant's row is served");
     assert_eq!(rows[0].name, "Mine");
 }
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Note {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    title: String,
+}
+
+/// A resource with no record label: the title keeps the resource's label and the record key.
+struct Unlabelled;
+
+impl Resource for Unlabelled {
+    type Model = Note;
+    type Form = crate::NoForm<Self::Model>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+            lens!(Note.title),
+        )))
+    }
+}
+
+/// A resource that labels its records with the note's title.
+struct Labelled;
+
+impl Resource for Labelled {
+    type Model = Note;
+    type Form = crate::NoForm<Self::Model>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Note.title),
+            )))
+            .record_label(|note: &Note| note.title.clone())
+    }
+}
+
+fn note() -> Note {
+    Note {
+        id: uuid::Uuid::nil(),
+        title: "A Title".to_string(),
+    }
+}
+
+#[test]
+fn a_resource_without_a_record_label_titles_the_record_with_its_key() {
+    assert_eq!(
+        crate::test_support::mounted::<Unlabelled>().record_title(&note(), "8f14e45f"),
+        "Note 8f14e45f"
+    );
+}
+
+#[test]
+fn a_declared_record_label_titles_the_record() {
+    assert_eq!(
+        crate::test_support::mounted::<Labelled>().record_title(&note(), "8f14e45f"),
+        "A Title"
+    );
+}

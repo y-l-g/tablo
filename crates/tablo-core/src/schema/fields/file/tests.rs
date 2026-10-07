@@ -80,16 +80,9 @@ async fn render_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String 
         .render(cx)
 }
 
-/// The same field on a detail page (`Mode::View`).
-async fn render_readonly_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String {
-    let mut values = HashMap::new();
-    if let Some(value) = value {
-        values.insert("path".to_string(), value.to_string());
-    }
-    schema
-        .render(cx, Source::view(&values))
-        .await
-        .unwrap()
+/// The same stored path as a detail page's [`FileColumn`](crate::FileColumn) shows it.
+async fn render_readonly_upload(_schema: &Schema, cx: &Cx, value: Option<&str>) -> String {
+    stored_upload(cx, value.unwrap_or_default())
         .single()
         .await
         .unwrap()
