@@ -205,6 +205,8 @@ pub struct SelectFilter<M> {
     matches: MatchFn,
     /// `(value, label)` pairs.
     options: Vec<(String, String)>,
+    /// The first listed value the field's type does not parse.
+    unparsed: Option<String>,
     model: PhantomData<fn() -> M>,
 }
 
@@ -225,10 +227,18 @@ where
                 .ok()
                 .map(|value| path.clone().eq(value))
         });
+        let options = options.into_options();
+        // An empty value is the control's "All", which selects no predicate.
+        let unparsed = options
+            .iter()
+            .map(|(value, _)| value.trim())
+            .find(|value| !value.is_empty() && T::parse_form(value).is_err())
+            .map(str::to_string);
         Self {
             binding,
             matches,
-            options: options.into_options(),
+            options,
+            unparsed,
             model: PhantomData,
         }
     }
@@ -288,7 +298,14 @@ where
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.binding.misdeclared()
+        self.binding.misdeclared().or_else(|| {
+            self.unparsed
+                .clone()
+                .map(|value| crate::DeclarationErrorKind::UnparsedFilterOption {
+                    filter: self.binding.name().to_string(),
+                    value,
+                })
+        })
     }
 
     fn bind(&self, resolver: &FieldResolver) {
@@ -302,7 +319,7 @@ filter_impls! {
         label: &this.binding.label(),
         options: &this.options,
     }
-    clone { binding, matches, options, model }
+    clone { binding, matches, options, unparsed, model }
 }
 
 /// Ternary filter matching a `bool` field.

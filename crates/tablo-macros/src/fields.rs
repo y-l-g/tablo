@@ -2,7 +2,7 @@
 //!
 //! A field is an **embedded value** when it is marked `#[form(embed)]` and a
 //! **scalar** otherwise. A scalar's type must be a `FormScalar` (`String`, a
-//! `TypedValue` type, an `Option` of one, or an `Options` enum); the derive
+//! `TypedValue` type, an `Options` enum, or an `Option` of one); the derive
 //! asserts it with a bound spanned on the field's type, so a `Vec<String>`
 //! field fails there, naming the trait and the fix, rather than inside
 //! generated code.
@@ -35,9 +35,9 @@ pub(crate) struct FormAttrs {
     pub(crate) blank: Option<syn::Expr>,
     /// `#[form(optional)]` on a `String`: an empty submission reads as `""`.
     pub(crate) optional: bool,
-    /// `#[form(options = <Type>)]`: a choice over an `Options` type's list; a bare
-    /// `#[form(options)]` names the field's own type.
-    pub(crate) options: Option<Type>,
+    /// `#[form(options = <Type>)]`: a choice over an `Options` type's list, `Some(None)` for a
+    /// bare `#[form(options)]` over the field's own type.
+    pub(crate) options: Option<Option<Type>>,
     /// `#[form(choice)]`: a bare choice, its options declared in `form()`.
     pub(crate) choice: bool,
     /// `#[form(file)]`: a file field.
@@ -67,9 +67,9 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                 out.optional = true;
             } else if meta.path.is_ident("options") && derive == Derive::Record {
                 out.options = Some(if meta.input.peek(syn::Token![=]) {
-                    meta.value()?.parse()?
+                    Some(meta.value()?.parse()?)
                 } else {
-                    field.ty.clone()
+                    None
                 });
             } else if meta.path.is_ident("choice") && derive == Derive::Record {
                 out.choice = true;

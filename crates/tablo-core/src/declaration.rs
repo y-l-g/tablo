@@ -244,6 +244,14 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: String,
     },
+    /// A select filter option whose value the field's type does not parse, so choosing it
+    /// filters nothing.
+    UnparsedFilterOption {
+        /// The filter's name.
+        filter: String,
+        /// The option's value.
+        value: String,
+    },
     /// Two schema fields share a name.
     DuplicateField {
         /// The shared name.
@@ -417,6 +425,12 @@ impl fmt::Display for DeclarationErrorKind {
             Self::DuplicateFilter { name } => write!(
                 f,
                 "two filters are named '{name}': each filter needs a distinct name"
+            ),
+            Self::UnparsedFilterOption { filter, value } => write!(
+                f,
+                "filter '{filter}' offers '{value}', which its field's type does not parse: spell \
+                 each option as the field's form value, or take the type's own with \
+                 `SelectFilter::of`"
             ),
             Self::DuplicateField { name } => write!(
                 f,

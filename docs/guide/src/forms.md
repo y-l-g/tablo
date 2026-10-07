@@ -15,8 +15,8 @@ declarations once and checks that the two agree.
 ```
 
 Each field names a model field and has that field's type, so renaming or retyping a column breaks
-the build. A field is either a **scalar** — `String`, a [typed value](#typed-values), an `Option`
-of one, or an [`Options` enum](#controls) — bound to the one key its control posts, or an
+the build. A field is either a **scalar** — `String`, a [typed value](#typed-values), an
+[`Options` enum](#controls), or an `Option` of one — bound to the one key its control posts, or an
 [embedded value](#embedded-values) marked `#[form(embed)]`.
 
 Leave out the columns the form does not write: the tenant column of a tenant-owned resource, which
@@ -75,11 +75,20 @@ one list of options:
 ```
 
 Each variant posts its `snake_case` name and reads as that name in sentence case;
-`#[option(value = "..", label = "..")]` overrides either. A column, the detail page and a group
-header read a variant's label, and a query compares the variant itself:
-`User::fields().role().eq(Role::Admin)`. The derive also gives the enum `value()`, `label()`,
-`from_value()` and, through the `Options` trait, `label_of()`. A `String` field takes the same list
-with `#[form(options = T)]`. `.options` takes `Vec<(String, String)>` (an `Options` enum's list),
+`#[option(value = "..", label = "..")]` overrides either, and two variants sharing a value or a
+label fail to compile. A column, the detail page and a group header read a variant's label, and a
+query compares the variant itself: `User::fields().role().eq(Role::Admin)`. An `Option<Role>`
+field works the same way, reading an empty submission as `None`. An enum field without
+`#[form(options)]` gets a text field, which accepts only an option's value. An enum leaf of an
+[embedded value](#embedded-values) is such a text field, and its column shows the value.
+
+Toasty stores the variant itself, under its `snake_case` name unless `#[column(variant = "..")]`
+renames it; the option's value only spells it in forms and URLs. Moving a `String` column to an
+enum is therefore a schema change: rows whose text is not Toasty's name for a variant no longer
+load.
+
+The derive also gives the enum `value()`, `label()`, `from_value()` and, through the `Options`
+trait, `label_of()`. A `String` field takes the same list with `#[form(options = T)]`. `.options` takes `Vec<(String, String)>` (an `Options` enum's list),
 `Vec<String>`, or `[&str; N]` (`["admin", "member"]`).
 
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled

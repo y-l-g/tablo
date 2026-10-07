@@ -79,6 +79,16 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 ),
             ));
         }
+        if let Some(earlier) = choices.iter().find(|c: &&Choice| c.label == label) {
+            return Err(syn::Error::new_spanned(
+                variant,
+                format!(
+                    "`{}` and `{}` both read as \"{label}\": a select, a column and a group \
+                     header could not tell them apart",
+                    earlier.ident, variant.ident
+                ),
+            ));
+        }
         choices.push(Choice {
             ident: variant.ident.clone(),
             value,
@@ -119,6 +129,8 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 ::std::string::String::from(self.label())
             }
         }
+
+        impl #krate::__macro::NullableScalar for #ident {}
 
         impl #ident {
             /// The value this option posts, and a `String` column stores.
@@ -174,7 +186,23 @@ fn sentence_case(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{sentence_case, snake_case};
+    use super::{expand_checked, sentence_case, snake_case};
+
+    fn refusal(source: &str) -> String {
+        let input: syn::DeriveInput = syn::parse_str(source).expect("the derive input parses");
+        match expand_checked(&input) {
+            Ok(_) => String::from("<accepted>"),
+            Err(error) => error.to_string(),
+        }
+    }
+
+    #[test]
+    fn two_variants_sharing_a_value_or_a_label_are_refused() {
+        let message = refusal(r#"enum S { A, #[option(value = "a")] B }"#);
+        assert!(message.contains("both store"), "{message}");
+        let message = refusal(r#"enum S { A, #[option(label = "A")] B }"#);
+        assert!(message.contains("both read as"), "{message}");
+    }
 
     #[test]
     fn a_variant_stores_its_snake_case_name_and_reads_in_sentence_case() {

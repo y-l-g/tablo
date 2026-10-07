@@ -69,7 +69,10 @@ pub mod __macro {
     pub use crate::{
         Lens,
         detail::Detail,
-        form::{FieldError, FormField, FormScalar, RecordForm, assert_form_scalar, parse_scalar},
+        form::{
+            FieldError, FormField, FormScalar, NullableScalar, RecordForm, assert_form_scalar,
+            parse_scalar,
+        },
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, IntoSchema,
             Options, Schema, TextField,
@@ -171,7 +174,7 @@ pub use table::{
 /// A field marked `#[form(embed)]` is another **embedded value**, delegated to
 /// its own `EmbeddedForm`. Every other field is a **scalar**: one column, read
 /// and written through `FormScalar` (`String`, a `TypedValue` type, an
-/// `Option` of one, or an `Options` enum). A scalar of another type fails to compile at the
+/// `Options` enum, or an `Option` of one). A scalar of another type fails to compile at the
 /// field, naming the trait. An empty scalar is its blank answer — its declared
 /// `#[form(blank = ..)]`, `None` for an `Option`, `false` for a `bool`, `""`
 /// for an `#[form(optional)]` `String` — and a scalar with none is required:
@@ -218,13 +221,16 @@ pub use tablo_macros::EmbeddedForm;
 /// Each variant's value is its `snake_case` name and its label that name in
 /// sentence case. `#[option(value = "..")]` and `#[option(label = "..")]`
 /// override either. A generic enum, a variant with fields, two variants
-/// sharing one value, and an unknown key are compile errors.
+/// sharing one value or one label, and an unknown key are compile errors.
+///
+/// The enum, and an `Option` of it, is a form scalar through this derive, so
+/// it cannot also implement `TypedValue` or `FormScalar` itself.
 pub use tablo_macros::Options;
 /// Derive `RecordForm` for the typed value a resource's form writes.
 ///
 /// One field per model column the form writes, named and typed like the
-/// model's field. A scalar (`String`, a `TypedValue` type, an `Option` of
-/// one, or an `Options` enum) binds the key its control posts; a `#[form(embed)]` field binds
+/// model's field. A scalar (`String`, a `TypedValue` type, an `Options` enum,
+/// or an `Option` of one) binds the key its control posts; a `#[form(embed)]` field binds
 /// every key of an `EmbeddedForm` value and is written whole.
 ///
 /// ```rust
@@ -268,7 +274,8 @@ pub use tablo_macros::Options;
 /// - `#[form(model = User)]` on the struct: the model the form writes.
 /// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as.
 /// - `#[form(optional)]` on a `String`: an empty submission reads as `""`.
-/// - `#[form(options)]` on an `Options` enum: a choice over its own options.
+/// - `#[form(options)]` on an `Options` enum or an `Option` of one: a choice over its options.
+///   Without it, the field is a text field.
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
 /// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` may
 ///   add.

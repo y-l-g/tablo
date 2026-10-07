@@ -71,9 +71,9 @@ that only query, such as the filters and `Field` constructors, take either a len
   narrow screen the table keeps a minimum width and scrolls horizontally instead of narrowing its
   columns.
 
-Two columns with the same name, two filters with the same name, a table with no columns, and a
-zero page size are misdeclarations: mounting the panel refuses the resource, and rendering the table
-fails with the same errors.
+Two columns with the same name, two filters with the same name, a select filter option its field's
+type does not parse, a table with no columns, and a zero page size are misdeclarations: mounting
+the panel refuses the resource, and rendering the table fails with the same errors.
 
 ### Your own columns
 
@@ -125,7 +125,7 @@ search and filters as a GET form.
 
 | Filter | Field | Values |
 | --- | --- | --- |
-| `SelectFilter::of(lens)` | an [`Options`](./forms.md#controls) enum | one of the type's options |
+| `SelectFilter::of(lens)` | an [`Options`](./forms.md#controls) enum, or an `Option` of one | one of the type's options |
 | `SelectFilter::new(lens, options)` | `String`, or any form scalar | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
 | `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
 | `DateFilter::new(lens)` | `jiff::Timestamp` | a date `2024-01-15` matches that UTC day; an RFC 3339 timestamp matches that instant |

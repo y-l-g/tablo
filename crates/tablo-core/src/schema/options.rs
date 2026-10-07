@@ -56,6 +56,13 @@ pub trait Options {
     }
 }
 
+/// An optional field offers its type's options; an empty submission reads as `None`.
+impl<T: Options> Options for Option<T> {
+    fn options() -> Vec<(String, String)> {
+        T::options()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Options;
@@ -132,8 +139,42 @@ mod tests {
         let row = StatusField {
             id: uuid::Uuid::nil(),
             status: Status::Published,
+            previous: None,
         };
         assert_eq!(column.text(&row), "Live");
+    }
+
+    #[test]
+    fn an_optional_options_enum_reads_empty_as_none() {
+        assert_eq!(
+            Option::<Status>::parse_form("arch"),
+            Ok(Some(Status::Archived))
+        );
+        assert_eq!(Some(Status::Archived).to_label(), "Archive");
+        assert_eq!(None::<Status>.to_form(), "");
+        let filter = crate::SelectFilter::of(StatusField::fields().previous());
+        assert_eq!(filter.options(), Status::options().as_slice());
+        assert!(filter.to_expr("arch").is_some());
+        assert!(filter.misdeclared().is_none());
+    }
+
+    #[test]
+    fn a_select_option_the_field_type_does_not_parse_is_misdeclared() {
+        let filter = crate::SelectFilter::new(
+            StatusField::fields().status(),
+            vec![
+                (String::new(), "All".to_string()),
+                ("draft".to_string(), "Draft".to_string()),
+                ("Archive".to_string(), "Archive".to_string()),
+            ],
+        );
+        assert_eq!(
+            filter.misdeclared(),
+            Some(crate::DeclarationErrorKind::UnparsedFilterOption {
+                filter: "status".to_string(),
+                value: "Archive".to_string(),
+            })
+        );
     }
 
     #[derive(Debug, Clone, toasty::Model)]
@@ -142,5 +183,6 @@ mod tests {
         #[auto]
         id: uuid::Uuid,
         status: Status,
+        previous: Option<Status>,
     }
 }

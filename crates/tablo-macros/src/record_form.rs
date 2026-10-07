@@ -37,6 +37,8 @@ enum DefaultControl {
     Toggle,
     /// A choice, over an `Options` type's list when one is named.
     Choice(Option<Box<Type>>),
+    /// A choice over the field type's own options, which its column reads as labels.
+    OwnOptions,
     /// A file field.
     File,
     /// An embedded value's own schema.
@@ -128,7 +130,10 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
     let control = if attrs.embed {
         DefaultControl::Embed
     } else if let Some(options) = attrs.options.clone() {
-        DefaultControl::Choice(Some(Box::new(options)))
+        match options {
+            Some(named) => DefaultControl::Choice(Some(Box::new(named))),
+            None => DefaultControl::OwnOptions,
+        }
     } else if attrs.choice {
         DefaultControl::Choice(None)
     } else if attrs.file {
@@ -283,6 +288,16 @@ fn expand_struct(
                         .options(<#options as #krate::__macro::Options>::options())
                 },
             ),
+            DefaultControl::OwnOptions => {
+                let ty = &field.ty;
+                (
+                    quote! { #krate::__macro::ChoiceField },
+                    quote! {
+                        #krate::__macro::Field::choice(#path)
+                            .options(<#ty as #krate::__macro::Options>::options())
+                    },
+                )
+            }
             DefaultControl::File => (
                 quote! { #krate::__macro::FileField },
                 quote! { #krate::__macro::Field::file(#path) },
@@ -444,6 +459,9 @@ fn default_column(
         #krate::__macro::Lens::<#model, #ty>::new(<#model>::fields().#name(), |record| &record.#name)
     };
     match &field.control {
+        DefaultControl::OwnOptions => {
+            Some(quote! { #krate::__macro::TextColumn::new(#lens).sortable() })
+        }
         DefaultControl::Text => {
             let search = is_string(ty).then(|| quote! { .searchable() });
             Some(quote! { #krate::__macro::TextColumn::new(#lens).sortable()#search })
@@ -472,7 +490,7 @@ fn default_entry(krate: &TokenStream2, model: &syn::Path, field: &FieldSpec) -> 
         #krate::__macro::Lens::<#model, #ty>::new(<#model>::fields().#name(), |record| &record.#name)
     };
     match &field.control {
-        DefaultControl::Text | DefaultControl::Choice(None) => {
+        DefaultControl::Text | DefaultControl::Choice(None) | DefaultControl::OwnOptions => {
             quote! { #krate::__macro::TextColumn::new(#lens) }
         }
         DefaultControl::Choice(Some(options)) => quote! {
