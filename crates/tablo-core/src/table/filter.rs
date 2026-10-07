@@ -184,6 +184,9 @@ macro_rules! filter_impls {
     };
 }
 
+/// A select filter's predicate for a value, typed through its field.
+type MatchFn = Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
+
 /// Select filter matching a field exactly: a `String`, or any [`FormScalar`]
 /// such as an [`Options`] enum.
 ///
@@ -199,7 +202,7 @@ macro_rules! filter_impls {
 pub struct SelectFilter<M> {
     binding: Binding,
     /// The predicate for a trimmed, listed value, or `None` when the field's type refuses it.
-    matches: Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>,
+    matches: MatchFn,
     /// `(value, label)` pairs.
     options: Vec<(String, String)>,
     model: PhantomData<fn() -> M>,

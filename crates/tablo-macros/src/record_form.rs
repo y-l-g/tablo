@@ -36,7 +36,7 @@ enum DefaultControl {
     /// A checkbox: a `bool`.
     Toggle,
     /// A choice, over an `Options` type's list when one is named.
-    Choice(Option<Type>),
+    Choice(Option<Box<Type>>),
     /// A file field.
     File,
     /// An embedded value's own schema.
@@ -128,7 +128,7 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
     let control = if attrs.embed {
         DefaultControl::Embed
     } else if let Some(options) = attrs.options.clone() {
-        DefaultControl::Choice(Some(options))
+        DefaultControl::Choice(Some(Box::new(options)))
     } else if attrs.choice {
         DefaultControl::Choice(None)
     } else if attrs.file {
