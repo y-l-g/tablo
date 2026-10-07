@@ -121,7 +121,7 @@ use crate::{
 };
 
 /// A type one form key reads and writes: `String`, every [`TypedValue`] type,
-/// and an `Option` of either.
+/// every enum deriving [`Options`](crate::Options), and an `Option` of any of them.
 ///
 /// The value the parse sees is trimmed and non-empty; an empty submission is the
 /// record-form field's **blank answer** instead, and a field with none is required.
@@ -132,8 +132,9 @@ use crate::{
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a form scalar",
     label = "a form field of this type has no text spelling",
-    note = "a form scalar is `String`, a `TypedValue` type, or an `Option` of one; implement \
-            `TypedValue` for an app type, or mark an `EmbeddedForm` value `#[form(embed)]`"
+    note = "a form scalar is `String`, a `TypedValue` type, an `Options` enum, or an `Option` of \
+            one; implement `TypedValue` for an app type, derive `Options` for a unit enum, or \
+            mark an `EmbeddedForm` value `#[form(embed)]`"
 )]
 pub trait FormScalar: Sized {
     /// The `type` attribute of the text control that edits it.
@@ -144,6 +145,12 @@ pub trait FormScalar: Sized {
 
     /// The form spelling of a stored value.
     fn to_form(&self) -> String;
+
+    /// What a column cell and a group header read: the form spelling, or an
+    /// `Options` enum's label.
+    fn to_label(&self) -> String {
+        self.to_form()
+    }
 }
 
 impl FormScalar for String {
@@ -168,7 +175,14 @@ impl<T: TypedValue> FormScalar for T {
     }
 }
 
-impl<T: TypedValue> FormScalar for Option<T> {
+/// A form scalar whose `Option` is one too: every [`TypedValue`] type, and every enum deriving
+/// [`Options`](crate::Options), which implements it.
+#[doc(hidden)]
+pub trait NullableScalar: FormScalar {}
+
+impl<T: TypedValue> NullableScalar for T {}
+
+impl<T: NullableScalar> FormScalar for Option<T> {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
 
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
@@ -177,6 +191,10 @@ impl<T: TypedValue> FormScalar for Option<T> {
 
     fn to_form(&self) -> String {
         self.as_ref().map(T::to_form).unwrap_or_default()
+    }
+
+    fn to_label(&self) -> String {
+        self.as_ref().map(T::to_label).unwrap_or_default()
     }
 }
 

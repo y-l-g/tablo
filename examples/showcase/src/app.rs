@@ -4,10 +4,9 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
-    DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, Options, Panel, PublicLink,
-    QueryFilter, RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
-    Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id,
-    when,
+    DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, Panel, PublicLink, QueryFilter,
+    RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
+    SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -101,8 +100,8 @@ impl Resource for UserResource {
 pub struct UserForm {
     pub name: String,
     pub email: String,
-    #[form(options = Role, blank = Role::Member.value())]
-    pub role: String,
+    #[form(options, blank = Role::Member)]
+    pub role: Role,
     #[form(blank = true)]
     pub active: bool,
     #[form(blank = 0)]
@@ -162,7 +161,7 @@ impl Resource for PostResource {
             .record_label(|_cx: &Cx, post: &Post| Some(post.title.clone()))
             // Links a published post's public page.
             .public_link(|_cx: &Cx, post: &Post| {
-                (post.status == crate::blog::PUBLISHED).then(|| PublicLink {
+                (post.status == PostStatus::Published).then(|| PublicLink {
                     url: format!("/blog/{}", post.id),
                     label: "View public post",
                 })
@@ -216,7 +215,7 @@ fn post_view() -> Detail<Post> {
         )),
         Section::new("Details").columns(Group::new().columns((
             Grid::new(2).columns((
-                post_status_column(),
+                TextColumn::new(lens!(Post.status)),
                 BooleanColumn::new(lens!(Post.featured)),
             )),
             post_author_column(),
@@ -225,11 +224,6 @@ fn post_view() -> Detail<Post> {
         Section::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
         Section::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
     ))
-}
-
-/// The post's status, by its option's label.
-fn post_status_column() -> TextColumn<Post, String> {
-    TextColumn::new(lens!(Post.status)).format(|status| PostStatus::label_of(status))
 }
 
 /// The post's author, by name: the list and the detail page load the relation it declares.
@@ -252,7 +246,7 @@ fn post_author_column() -> ComputedColumn<Post> {
 fn post_table() -> Table<Post> {
     Table::new((
         TextColumn::new(lens!(Post.title)).searchable().sortable(),
-        post_status_column().width(ColumnWidth::Narrow),
+        TextColumn::new(lens!(Post.status)).width(ColumnWidth::Narrow),
         BooleanColumn::new(lens!(Post.featured)),
         post_author_column().width(ColumnWidth::Wide),
         ComputedColumn::new("Comments", |p: &Post| {
@@ -269,25 +263,23 @@ fn post_table() -> Table<Post> {
         .include(Post::fields().comments()),
     ))
     .filters((
-        SelectFilter::new(Post::fields().status(), PostStatus::options()),
+        SelectFilter::of(Post::fields().status()),
         TernaryFilter::new(Post::fields().featured()),
         DateFilter::new(Post::fields().created_at()),
         QueryFilter::new("promoted", "Promoted")
             .option(
                 "Promoted",
-                Post::fields().featured().eq(true).and(
-                    Post::fields()
-                        .status()
-                        .eq(PostStatus::Published.value().to_string()),
-                ),
+                Post::fields()
+                    .featured()
+                    .eq(true)
+                    .and(Post::fields().status().eq(PostStatus::Published)),
             )
             .option(
                 "Backlog",
-                Post::fields().featured().eq(false).and(
-                    Post::fields()
-                        .status()
-                        .eq(PostStatus::Draft.value().to_string()),
-                ),
+                Post::fields()
+                    .featured()
+                    .eq(false)
+                    .and(Post::fields().status().eq(PostStatus::Draft)),
             ),
     ))
     .group_by(lens!(Post.status))
@@ -304,14 +296,14 @@ impl Action<PostResource> for PublishPosts {
     }
 
     fn can_run(_cx: &Cx, post: &Post) -> bool {
-        post.status != crate::blog::PUBLISHED
+        post.status != PostStatus::Published
     }
 
     async fn run(_cx: &Cx, posts: &[Post], ex: &mut dyn toasty::Executor) -> Result<()> {
         for post in posts {
             Post::filter(Post::fields().id().eq(post.id))
                 .update()
-                .status(crate::blog::PUBLISHED.to_string())
+                .status(PostStatus::Published)
                 .exec(&mut *ex)
                 .await?;
         }
@@ -325,8 +317,8 @@ pub struct PostForm {
     pub title: String,
     #[form(optional)]
     pub body: String,
-    #[form(options = PostStatus, blank = PostStatus::Draft.value())]
-    pub status: String,
+    #[form(options, blank = PostStatus::Draft)]
+    pub status: PostStatus,
     pub featured: bool,
     #[form(choice)]
     pub author_id: uuid::Uuid,

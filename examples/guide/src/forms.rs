@@ -49,7 +49,7 @@ pub fn author_field() -> ChoiceField {
 // ANCHOR: forms-role-options
 pub fn role_fields() {
     Field::choice(User::fields().role()).options(Role::options());
-    SelectFilter::new(User::fields().role(), Role::options());
+    SelectFilter::of(User::fields().role());
 }
 // ANCHOR_END: forms-role-options
 

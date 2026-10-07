@@ -2,9 +2,10 @@
 //!
 //! A field is an **embedded value** when it is marked `#[form(embed)]` and a
 //! **scalar** otherwise. A scalar's type must be a `FormScalar` (`String`, a
-//! `TypedValue` type, or an `Option` of one); the derive asserts it with a
-//! bound spanned on the field's type, so a `Vec<String>` field fails there,
-//! naming the trait and the fix, rather than inside generated code.
+//! `TypedValue` type, an `Options` enum, or an `Option` of one); the derive
+//! asserts it with a bound spanned on the field's type, so a `Vec<String>`
+//! field fails there, naming the trait and the fix, rather than inside
+//! generated code.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote_spanned;
@@ -17,7 +18,7 @@ pub(crate) enum Derive {
     /// `blank = <expr>`, `optional`.
     Embedded,
     /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`, `optional`, and the
-    /// control keys `options = <Type>`, `choice`, `file`.
+    /// control keys `options`, `options = <Type>`, `choice`, `file`.
     Record,
 }
 
@@ -34,8 +35,9 @@ pub(crate) struct FormAttrs {
     pub(crate) blank: Option<syn::Expr>,
     /// `#[form(optional)]` on a `String`: an empty submission reads as `""`.
     pub(crate) optional: bool,
-    /// `#[form(options = <Type>)]`: a choice over an `Options` type's list.
-    pub(crate) options: Option<syn::Path>,
+    /// `#[form(options = <Type>)]`: a choice over an `Options` type's list, `Some(None)` for a
+    /// bare `#[form(options)]` over the field's own type.
+    pub(crate) options: Option<Option<Type>>,
     /// `#[form(choice)]`: a bare choice, its options declared in `form()`.
     pub(crate) choice: bool,
     /// `#[form(file)]`: a file field.
@@ -64,7 +66,11 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             } else if meta.path.is_ident("optional") {
                 out.optional = true;
             } else if meta.path.is_ident("options") && derive == Derive::Record {
-                out.options = Some(meta.value()?.parse()?);
+                out.options = Some(if meta.input.peek(syn::Token![=]) {
+                    Some(meta.value()?.parse()?)
+                } else {
+                    None
+                });
             } else if meta.path.is_ident("choice") && derive == Derive::Record {
                 out.choice = true;
             } else if meta.path.is_ident("file") && derive == Derive::Record {
@@ -76,8 +82,8 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                          `optional`"
                     }
                     Derive::Record => {
-                        "`embed`, `blank = <expr>`, `optional`, `options = <Type>`, `choice`, \
-                         or `file`"
+                        "`embed`, `blank = <expr>`, `optional`, `options`, `options = <Type>`, \
+                         `choice`, or `file`"
                     }
                 };
                 return Err(meta.error(format!("unknown `#[form(..)]` key: expected {expected}")));

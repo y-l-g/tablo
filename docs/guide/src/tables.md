@@ -6,8 +6,8 @@ panel builds it once when it mounts and serves that table to every request. The 
 drives the CSV export.
 
 The table defaults to the record form's derived table, `UserForm::table()`: a sortable column per
-text field, searchable over a `String` or `Option<String>`, an `#[form(options = ..)]` field by
-its option's label, and a `bool` as yes or no. A bare choice, a file and an embedded value get no
+text field, searchable over a `String` or `Option<String>`, an `#[form(options)]` field by its
+option's label, and a `bool` as yes or no. A bare choice, a file and an embedded value get no
 column. Extend the derived table, or declare the columns yourself:
 
 ```rust
@@ -41,7 +41,7 @@ that only query, such as the filters and `Field` constructors, take either a len
 
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
-| `TextColumn::new(lens)` | the field's value as text, or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
+| `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
 | `BooleanColumn::new(lens)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
@@ -71,9 +71,9 @@ that only query, such as the filters and `Field` constructors, take either a len
   narrow screen the table keeps a minimum width and scrolls horizontally instead of narrowing its
   columns.
 
-Two columns with the same name, two filters with the same name, a table with no columns, and a
-zero page size are misdeclarations: mounting the panel refuses the resource, and rendering the table
-fails with the same errors.
+Two columns with the same name, two filters with the same name, a select filter option its field's
+type does not parse, a table with no columns, and a zero page size are misdeclarations: mounting
+the panel refuses the resource, and rendering the table fails with the same errors.
 
 ### Your own columns
 
@@ -125,7 +125,8 @@ search and filters as a GET form.
 
 | Filter | Field | Values |
 | --- | --- | --- |
-| `SelectFilter::new(lens, options)` | `String` | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an [`Options`](./forms.md#controls) list), `Vec<String>`, or `[&str; N]` |
+| `SelectFilter::of(lens)` | an [`Options`](./forms.md#controls) enum, or an `Option` of one | one of the type's options |
+| `SelectFilter::new(lens, options)` | `String`, or any form scalar | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
 | `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
 | `DateFilter::new(lens)` | `jiff::Timestamp` | a date `2024-01-15` matches that UTC day; an RFC 3339 timestamp matches that instant |
 | `QueryFilter::new(name, label).option(label, predicate)` | any | named options, each a Toasty predicate you build |
@@ -162,8 +163,9 @@ request with 400 rather than export more rows than asked.
 ```
 
 `?group_by=status`, named after the field, groups the current page's rows under headers with a
-row count. Grouping runs on the loaded page, so the counts cover that page, not the whole table. A
-`?group_by=` value the table does not declare is ignored.
+row count; a header reads an `Options` enum by its label. Grouping runs on the loaded page, so the
+counts cover that page, not the whole table. A `?group_by=` value the table does not declare is
+ignored.
 
 ## Export
 

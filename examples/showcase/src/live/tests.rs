@@ -23,7 +23,7 @@ async fn a_committed_write_wakes_the_feed() {
         id: uuid::Uuid::new_v4(),
         name: "Ada".to_string(),
         email: "ada@example.com".to_string(),
-        role: "admin".to_string(),
+        role: crate::models::Role::Admin,
         active: true,
         age: 36,
         created_at: jiff::Timestamp::now(),

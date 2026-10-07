@@ -1,5 +1,5 @@
 use http::header::LOCATION;
-use showcase::models::User;
+use showcase::models::{PostStatus, Role, User};
 
 use crate::common::{
     body_string, demo_client, response_cookies, routers::router_for_tests as router, seeded_db,
@@ -190,7 +190,7 @@ async fn an_emptied_select_stores_its_blank_answer() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
-    let admin = User::filter(User::fields().role().eq("admin".to_string()))
+    let admin = User::filter(User::fields().role().eq(Role::Admin))
         .first()
         .exec(&mut db_q)
         .await
@@ -216,7 +216,8 @@ async fn an_emptied_select_stores_its_blank_answer() {
     let mut db_check = db.clone();
     let fresh = User::get_by_id(&mut db_check, &admin.id).await.unwrap();
     assert_eq!(
-        fresh.role, "member",
+        fresh.role,
+        Role::Member,
         "an emptied role stores the create default"
     );
     assert!(fresh.active, "an emptied active stores the create default");
@@ -266,7 +267,8 @@ async fn an_emptied_post_select_stores_its_blank_answer() {
         .unwrap()
         .expect("the post");
     assert_eq!(
-        saved.status, "draft",
+        saved.status,
+        PostStatus::Draft,
         "an emptied status stores the create default"
     );
     assert!(

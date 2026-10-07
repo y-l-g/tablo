@@ -3,7 +3,7 @@
 use guide::{
     data_access::count_drafts,
     first_panel::{Book, BookResource},
-    models::{Author, Comment, Post, Seo},
+    models::{Author, Comment, Post, PostStatus, Seo},
 };
 use tablo::{
     prelude::*,
@@ -115,16 +115,16 @@ async fn seeded_blog() -> (Db, uuid::Uuid) {
     .await
     .expect("seed an author");
     for (tenant_id, status) in [
-        (tenant, "draft"),
-        (tenant, "draft"),
-        (tenant, "published"),
-        (other, "draft"),
+        (tenant, PostStatus::Draft),
+        (tenant, PostStatus::Draft),
+        (tenant, PostStatus::Published),
+        (other, PostStatus::Draft),
     ] {
         toasty::create!(Post {
             tenant_id: TenantId::from(tenant_id),
             title: "A post".to_string(),
             body: "body".to_string(),
-            status: status.to_string(),
+            status,
             featured: false,
             created_at: "2024-01-15T09:30:00Z".parse::<jiff::Timestamp>().unwrap(),
             author_id: author.id,

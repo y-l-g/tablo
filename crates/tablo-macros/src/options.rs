@@ -1,9 +1,10 @@
 //! `#[derive(Options)]` — a unit-variant enum as a choice's options.
 //!
-//! Each variant stores its `snake_case` name and reads as that name in
+//! Each variant's value is its `snake_case` name and its label that name in
 //! sentence case; `#[option(value = "..", label = "..")]` overrides either.
-//! The derive implements `Options` and gives the enum `value()`, `label()`
-//! and `from_value()`.
+//! The derive implements `Options` and `FormScalar`, spelling a variant as
+//! its value and reading it as its label, and gives the enum `value()`,
+//! `label()` and `from_value()`.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -78,6 +79,16 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 ),
             ));
         }
+        if let Some(earlier) = choices.iter().find(|c: &&Choice| c.label == label) {
+            return Err(syn::Error::new_spanned(
+                variant,
+                format!(
+                    "`{}` and `{}` both read as \"{label}\": a select, a column and a group \
+                     header could not tell them apart",
+                    earlier.ident, variant.ident
+                ),
+            ));
+        }
         choices.push(Choice {
             ident: variant.ident.clone(),
             value,
@@ -101,8 +112,28 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
             }
         }
 
+        impl #krate::__macro::FormScalar for #ident {
+            fn parse_form(
+                value: &str,
+            ) -> ::std::result::Result<Self, ::std::string::String> {
+                Self::from_value(value).ok_or_else(|| {
+                    ::std::format!("`{value}` is not a valid option")
+                })
+            }
+
+            fn to_form(&self) -> ::std::string::String {
+                ::std::string::String::from(self.value())
+            }
+
+            fn to_label(&self) -> ::std::string::String {
+                ::std::string::String::from(self.label())
+            }
+        }
+
+        impl #krate::__macro::NullableScalar for #ident {}
+
         impl #ident {
-            /// The value this option stores.
+            /// The value this option posts, and a `String` column stores.
             pub const fn value(&self) -> &'static str {
                 match self {
                     #(Self::#idents => #values,)*
@@ -155,7 +186,23 @@ fn sentence_case(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{sentence_case, snake_case};
+    use super::{expand_checked, sentence_case, snake_case};
+
+    fn refusal(source: &str) -> String {
+        let input: syn::DeriveInput = syn::parse_str(source).expect("the derive input parses");
+        match expand_checked(&input) {
+            Ok(_) => String::from("<accepted>"),
+            Err(error) => error.to_string(),
+        }
+    }
+
+    #[test]
+    fn two_variants_sharing_a_value_or_a_label_are_refused() {
+        let message = refusal(r#"enum S { A, #[option(value = "a")] B }"#);
+        assert!(message.contains("both store"), "{message}");
+        let message = refusal(r#"enum S { A, #[option(label = "A")] B }"#);
+        assert!(message.contains("both read as"), "{message}");
+    }
 
     #[test]
     fn a_variant_stores_its_snake_case_name_and_reads_in_sentence_case() {

@@ -1,5 +1,5 @@
 use http::header::{LOCATION, SET_COOKIE};
-use showcase::models::User;
+use showcase::models::{Role, User};
 use tablo::{Ability, lens};
 use toasty::Db;
 
@@ -360,7 +360,7 @@ async fn users_create_static_selects_set_role_and_active() {
     .await
     .unwrap()
     .expect("created user");
-    assert_eq!(created.role, "admin");
+    assert_eq!(created.role, Role::Admin);
     assert!(!created.active);
 }
 

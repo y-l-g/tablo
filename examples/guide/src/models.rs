@@ -8,7 +8,7 @@ pub struct User {
     pub id: uuid::Uuid,
     pub name: String,
     pub email: String,
-    pub role: String,
+    pub role: Role,
     pub age: i64,
     pub active: bool,
     pub created_at: jiff::Timestamp,
@@ -16,14 +16,14 @@ pub struct User {
 }
 
 // ANCHOR: role-options
-#[derive(tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 pub enum Role {
     Admin,
     Member,
 }
 // ANCHOR_END: role-options
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
 pub enum PostStatus {
     Draft,
     Published,
@@ -54,7 +54,7 @@ pub struct Post {
     pub tenant_id: tablo_core::TenantId,
     pub title: String,
     pub body: String,
-    pub status: String,
+    pub status: PostStatus,
     pub featured: bool,
     pub created_at: jiff::Timestamp,
     pub author_id: uuid::Uuid,

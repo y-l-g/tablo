@@ -15,9 +15,9 @@ declarations once and checks that the two agree.
 ```
 
 Each field names a model field and has that field's type, so renaming or retyping a column breaks
-the build. A field is either a **scalar** — `String`, a [typed value](#typed-values), or an
-`Option` of one — bound to the one key its control posts, or an [embedded value](#embedded-values)
-marked `#[form(embed)]`.
+the build. A field is either a **scalar** — `String`, a [typed value](#typed-values), an
+[`Options` enum](#controls), or an `Option` of one — bound to the one key its control posts, or an
+[embedded value](#embedded-values) marked `#[form(embed)]`.
 
 Leave out the columns the form does not write: the tenant column of a tenant-owned resource, which
 the framework sets on create, and columns with a Toasty `#[default(..)]` or `#[auto]`.
@@ -55,28 +55,41 @@ names it with `create_column`.
 
 ## Controls
 
-The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options = T)]`
-a choice over `T`'s options, `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
-`#[form(embed)]` the embedded value's schema, and any other field a text field. `controls()`
+The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options)]` a
+choice over the field type's options, `#[form(options = T)]` a choice over `T`'s options,
+`#[form(choice)]` a bare choice, `#[form(file)]` a file field, `#[form(embed)]` the embedded
+value's schema, and any other field a text field. `controls()`
 hands each one over ready for its modifiers, so an override arranges rather than rebinds:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-controls-layout}}
 ```
 
-The `role` control already offers `Role`'s options: `#[form(options = Role)]` chose a choice over
-that list. A closed set of values is a `#[derive(Options)]` enum, shared by the form, the filter
-and the column:
+The `role` control already offers `Role`'s options: `#[form(options)]` chose a choice over the
+list of the field's type. A closed set of values is a unit enum deriving `toasty::Embed`, which
+Toasty stores in one column, and `tablo::Options`, which gives the form, the filter and the column
+one list of options:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-role-options}}
 ```
 
-Each variant stores its `snake_case` name and reads as that name in sentence case;
-`#[option(value = "..", label = "..")]` overrides either. The derive also gives the enum
-`value()`, `label()`, `from_value()` and, through the `Options` trait, `label_of()`. `.options`
-takes `Vec<(String, String)>` (an `Options` enum's list), `Vec<String>`, or `[&str; N]` (`["admin",
-"member"]`).
+Each variant posts its `snake_case` name and reads as that name in sentence case;
+`#[option(value = "..", label = "..")]` overrides either, and two variants sharing a value or a
+label fail to compile. A column, the detail page and a group header read a variant's label, and a
+query compares the variant itself: `User::fields().role().eq(Role::Admin)`. An `Option<Role>`
+field works the same way, reading an empty submission as `None`. An enum field without
+`#[form(options)]` gets a text field, which accepts only an option's value. An enum leaf of an
+[embedded value](#embedded-values) is such a text field, and its column shows the value.
+
+Toasty stores the variant itself, under its `snake_case` name unless `#[column(variant = "..")]`
+renames it; the option's value only spells it in forms and URLs. Moving a `String` column to an
+enum is therefore a schema change: rows whose text is not Toasty's name for a variant no longer
+load.
+
+The derive also gives the enum `value()`, `label()`, `from_value()` and, through the `Options`
+trait, `label_of()`. A `String` field takes the same list with `#[form(options = T)]`. `.options` takes `Vec<(String, String)>` (an `Options` enum's list),
+`Vec<String>`, or `[&str; N]` (`["admin", "member"]`).
 
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at

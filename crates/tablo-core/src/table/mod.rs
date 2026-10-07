@@ -274,7 +274,7 @@ impl<M> Table<M> {
     {
         self.group_by = Some(GroupDef {
             binding: Binding::of(lens.path()),
-            key: Arc::new(move |record| lens.read(record).to_form()),
+            key: Arc::new(move |record| lens.read(record).to_label()),
         });
         self
     }

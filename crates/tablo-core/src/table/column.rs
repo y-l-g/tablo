@@ -225,23 +225,17 @@ impl ColumnWidth {
 /// #     email: String,
 /// #     age: i64,
 /// # }
-/// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String }
-/// # struct PostStatus;
-/// # impl PostStatus {
-/// #     fn label_of(_: &String) -> String { String::new() }
-/// # }
 /// tablo_core::TextColumn::new(tablo_core::lens!(User.name))
 ///     .searchable()
 ///     .sortable();
-/// tablo_core::TextColumn::new(tablo_core::lens!(User.age)).sortable();
-/// tablo_core::TextColumn::new(tablo_core::lens!(Post.status))
-///     .format(|status| PostStatus::label_of(status));
+/// tablo_core::TextColumn::new(tablo_core::lens!(User.age))
+///     .sortable()
+///     .format(|age| format!("{age} years"));
 /// ```
 ///
-/// The cell is the value's form spelling ([`FormScalar::to_form`]) unless
-/// [`format`](Self::format) says otherwise. Only a string field is
-/// [`searchable`](Self::searchable):
+/// The cell is the value's [`FormScalar::to_label`], an [`Options`](crate::Options) enum's label
+/// or any other type's form spelling, unless [`format`](Self::format) says otherwise. Only a
+/// string field is [`searchable`](Self::searchable):
 ///
 /// ```compile_fail
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -311,7 +305,7 @@ where
             lens,
             binding,
             label: None,
-            format: Arc::new(T::to_form),
+            format: Arc::new(T::to_label),
             search: None,
             sortable: false,
             width: ColumnWidth::Wide,

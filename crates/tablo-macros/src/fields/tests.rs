@@ -81,6 +81,19 @@ fn the_keys_each_derive_reads_are_parsed() {
 }
 
 #[test]
+fn bare_options_names_the_field_type_and_a_value_names_another() {
+    let read = |source: &str| attrs(source, Derive::Record).unwrap().options;
+    assert!(matches!(
+        read("struct F { #[form(options)] status: Status }"),
+        Some(None)
+    ));
+    let named = read("struct F { #[form(options = Status)] status: String }")
+        .flatten()
+        .expect("the field names its options type");
+    assert_eq!(quote::quote!(#named).to_string(), "Status");
+}
+
+#[test]
 fn optional_reads_on_a_string_and_is_refused_elsewhere() {
     for derive in [Derive::Embedded, Derive::Record] {
         assert!(

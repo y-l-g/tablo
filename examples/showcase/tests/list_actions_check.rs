@@ -62,7 +62,7 @@ async fn lists_link_to_create_and_edit() {
 /// not, and the POST publishes the draft inside the framework transaction.
 #[tokio::test]
 async fn a_draft_post_is_published_from_its_row() {
-    use showcase::models::Post;
+    use showcase::models::{Post, PostStatus};
 
     let db = full_db().await;
     let router = router(db.clone());
@@ -84,11 +84,11 @@ async fn a_draft_post_is_published_from_its_row() {
     }
     let draft = on_page
         .iter()
-        .find(|p| p.status == "draft")
+        .find(|p| p.status == PostStatus::Draft)
         .expect("the first page holds a draft");
     let published = on_page
         .iter()
-        .find(|p| p.status == "published")
+        .find(|p| p.status == PostStatus::Published)
         .expect("the first page holds a published post");
 
     let publish = format!("/admin/posts/{}/-/actions/publish", draft.id);
@@ -118,7 +118,7 @@ async fn a_draft_post_is_published_from_its_row() {
     let after = Post::get_by_id(&mut db_q, &draft.id)
         .await
         .expect("the post still exists");
-    assert_eq!(after.status, "published");
+    assert_eq!(after.status, PostStatus::Published);
 }
 
 /// The guide's read-only portal over the showcase's `PostResource`: the list shows the tenant's
@@ -127,7 +127,7 @@ async fn a_draft_post_is_published_from_its_row() {
 async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
     use showcase::{
         app::{AuthorResource, CommentResource, PostResource},
-        models::{DEMO_TENANT, Post},
+        models::{DEMO_TENANT, Post, PostStatus},
     };
     use tablo::{Auth, Panel, ReadOnly, TenantId, testing::TestClient};
 
@@ -154,7 +154,7 @@ async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
         .into_iter()
         .find(|post| {
             post.tenant_id == TenantId::from(DEMO_TENANT)
-                && post.status == "draft"
+                && post.status == PostStatus::Draft
                 && tablo::testing::row_actions(&html, &post.id.to_string()).is_some()
         })
         .unwrap_or_else(|| panic!("the portal lists a draft of the demo tenant: {html}"));
@@ -183,5 +183,5 @@ async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
     let after = Post::get_by_id(&mut db_q, &draft.id)
         .await
         .expect("the post still exists");
-    assert_eq!(after.status, "draft", "nothing was published");
+    assert_eq!(after.status, PostStatus::Draft, "nothing was published");
 }

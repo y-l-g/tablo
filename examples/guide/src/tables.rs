@@ -1,7 +1,6 @@
 //! The Tables chapter's snippets.
 
 use tablo::prelude::*;
-use tablo_core::Options;
 use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx, view::*};
 
@@ -18,7 +17,7 @@ pub fn post_table() -> Table<Post> {
     ))
     // ANCHOR: table-filters
     .filters((
-        SelectFilter::new(Post::fields().status(), PostStatus::options()),
+        SelectFilter::of(Post::fields().status()),
         TernaryFilter::new(Post::fields().featured()),
         DateFilter::new(Post::fields().created_at()),
     ))
@@ -31,7 +30,6 @@ pub fn post_table() -> Table<Post> {
 
 // ANCHOR: table-format
 pub fn formatted_columns() {
-    TextColumn::new(lens!(Post.status)).format(|status| PostStatus::label_of(status));
     TextColumn::new(lens!(User.created_at)).format(|at| at.strftime("%Y-%m-%d").to_string());
 }
 // ANCHOR_END: table-format
@@ -113,14 +111,14 @@ impl Action<PostResource> for Publish {
     }
 
     fn can_run(_cx: &Cx, post: &Post) -> bool {
-        post.status != "published"
+        post.status != PostStatus::Published
     }
 
     async fn run(_cx: &Cx, posts: &[Post], ex: &mut dyn toasty::Executor) -> Result<()> {
         for post in posts {
             Post::filter(Post::fields().id().eq(post.id))
                 .update()
-                .status("published".to_string())
+                .status(PostStatus::Published)
                 .exec(&mut *ex)
                 .await?;
         }

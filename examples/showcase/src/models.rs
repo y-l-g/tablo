@@ -11,14 +11,14 @@ pub use crate::{
 };
 
 /// A user's role.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 pub enum Role {
     Admin,
     Member,
 }
 
 /// A post's lifecycle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 pub enum PostStatus {
     Draft,
     Published,
@@ -33,7 +33,7 @@ pub struct User {
     pub name: String,
     #[unique]
     pub email: String,
-    pub role: String,
+    pub role: Role,
     pub active: bool,
     pub age: i64,
     #[default(jiff::Timestamp::now())]
@@ -101,7 +101,7 @@ pub struct Post {
     pub title: String,
     pub body: String,
     #[index]
-    pub status: String,
+    pub status: PostStatus,
     pub featured: bool,
     #[default(jiff::Timestamp::now())]
     pub created_at: Timestamp,

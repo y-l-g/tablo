@@ -7,7 +7,7 @@
 //! the control: the same router still gates `/admin`, so a 200 on `/blog` is the
 //! blog being public rather than the gate being off.
 
-use showcase::models::{Author, DEMO_TENANT, Post, Publication, Seo};
+use showcase::models::{Author, DEMO_TENANT, Post, PostStatus, Publication, Seo};
 use tablo::TenantId;
 
 use crate::common::{
@@ -18,7 +18,7 @@ use crate::common::{
 /// The one published seed post.
 async fn published_post(db: &toasty::Db) -> Post {
     let mut db = db.clone();
-    Post::filter(Post::fields().status().eq("published".to_string()))
+    Post::filter(Post::fields().status().eq(PostStatus::Published))
         .first()
         .exec(&mut db)
         .await
@@ -58,7 +58,7 @@ async fn create_published(
         tenant_id: TenantId::from(DEMO_TENANT),
         title: title.to_string(),
         body: format!("Body of {title}."),
-        status: "published".to_string(),
+        status: PostStatus::Published,
         featured: false,
         created_at: created_at.parse::<jiff::Timestamp>().expect("a timestamp"),
         cover_id: None,
@@ -196,7 +196,11 @@ async fn a_draft_is_absent_from_the_list_and_404s_on_its_page() {
     let db = full_db().await;
     let router = router(db.clone());
     let draft = draft_post(&db).await;
-    assert_eq!(draft.status, "draft", "the fixture must be a draft");
+    assert_eq!(
+        draft.status,
+        PostStatus::Draft,
+        "the fixture must be a draft"
+    );
 
     let client = TestClient::new(&router);
 

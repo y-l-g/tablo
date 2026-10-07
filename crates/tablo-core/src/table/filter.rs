@@ -1,12 +1,15 @@
 //! Table filters: the [`Filter`] trait, the four built-in filters, and the
 //! [`IntoFilters`] seam.
 
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
-use toasty::stmt::{Expr, Path};
+use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::{context::Cx, view::*};
 
-use crate::schema::{Binding, FieldResolver, IntoOptions};
+use crate::{
+    form::FormScalar,
+    schema::{Binding, FieldResolver, IntoOptions, Options},
+};
 
 /// One table filter declares a control and its predicate.
 ///
@@ -181,27 +184,71 @@ macro_rules! filter_impls {
     };
 }
 
-/// Select filter matching a `String` field exactly.
+/// A select filter's predicate for a value, typed through its field.
+type MatchFn = Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
+
+/// Select filter matching a field exactly: a `String`, or any [`FormScalar`]
+/// such as an [`Options`] enum.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+/// # enum Status { Draft, Published }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, kind: String, status: Status }
+/// # use tablo_core::SelectFilter;
+/// SelectFilter::new(Post::fields().kind(), ["news", "review"]);
+/// SelectFilter::of(Post::fields().status());
+/// ```
 pub struct SelectFilter<M> {
     binding: Binding,
-    lens: Path<M, String>,
+    /// The predicate for a trimmed, listed value, or `None` when the field's type refuses it.
+    matches: MatchFn,
     /// `(value, label)` pairs.
     options: Vec<(String, String)>,
+    /// The first listed value the field's type does not parse.
+    unparsed: Option<String>,
+    model: PhantomData<fn() -> M>,
 }
 
 impl<M> SelectFilter<M>
 where
-    M: toasty::schema::Model,
+    M: toasty::schema::Model + Send + Sync + 'static,
 {
-    /// Filter the `String` field `lens` binds to one of `options`.
-    pub fn new(lens: impl Into<Path<M, String>>, options: impl IntoOptions) -> Self {
-        let lens = lens.into();
-        let binding = Binding::of(&lens.clone());
+    /// Filter the field `lens` binds to one of `options`, each value in the field type's form
+    /// spelling.
+    pub fn new<T>(lens: impl Into<Path<M, T>>, options: impl IntoOptions) -> Self
+    where
+        T: FormScalar + IntoExpr<T> + Send + Sync + 'static,
+    {
+        let path: Path<M, T> = lens.into();
+        let binding = Binding::of(&path);
+        let matches = Arc::new(move |value: &str| {
+            T::parse_form(value)
+                .ok()
+                .map(|value| path.clone().eq(value))
+        });
+        let options = options.into_options();
+        // An empty value is the control's "All", which selects no predicate.
+        let unparsed = options
+            .iter()
+            .map(|(value, _)| value.trim())
+            .find(|value| !value.is_empty() && T::parse_form(value).is_err())
+            .map(str::to_string);
         Self {
             binding,
-            lens,
-            options: options.into_options(),
+            matches,
+            options,
+            unparsed,
+            model: PhantomData,
         }
+    }
+
+    /// Filter the field `lens` binds to one of its [`Options`] type's options.
+    pub fn of<T>(lens: impl Into<Path<M, T>>) -> Self
+    where
+        T: Options + FormScalar + IntoExpr<T> + Send + Sync + 'static,
+    {
+        Self::new(lens, T::options())
     }
 
     /// The `(value, label)` options in declaration order.
@@ -230,7 +277,7 @@ where
         if !self.options.is_empty() && !self.options.iter().any(|(value, _)| value == v) {
             return None;
         }
-        Some(self.lens.clone().eq(v.to_string()))
+        (self.matches)(v)
     }
 
     /// A select over the options.
@@ -251,7 +298,14 @@ where
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.binding.misdeclared()
+        self.binding.misdeclared().or_else(|| {
+            self.unparsed
+                .clone()
+                .map(|value| crate::DeclarationErrorKind::UnparsedFilterOption {
+                    filter: self.binding.name().to_string(),
+                    value,
+                })
+        })
     }
 
     fn bind(&self, resolver: &FieldResolver) {
@@ -265,7 +319,7 @@ filter_impls! {
         label: &this.binding.label(),
         options: &this.options,
     }
-    clone { binding, lens, options }
+    clone { binding, matches, options, unparsed, model }
 }
 
 /// Ternary filter matching a `bool` field.

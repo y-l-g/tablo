@@ -279,7 +279,7 @@ async fn admin_list_renders_search_box_and_sort_links() {
 
 #[tokio::test]
 async fn admin_list_pagination_walks_cursor_links() {
-    use showcase::models::User;
+    use showcase::models::{Role, User};
 
     let db = seeded_db().await;
     let router = router(db.clone());
@@ -296,7 +296,7 @@ async fn admin_list_pagination_walks_cursor_links() {
             toasty::create!(User {
                 name: name,
                 email: email,
-                role: "member",
+                role: Role::Member,
                 active: true,
                 age: 30,
                 created_at: "2024-03-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
@@ -372,7 +372,7 @@ async fn admin_list_pagination_walks_cursor_links() {
 
 #[tokio::test]
 async fn admin_list_pagination_walks_descending_cursor_links() {
-    use showcase::models::User;
+    use showcase::models::{Role, User};
 
     let db = seeded_db().await;
     let router = router(db.clone());
@@ -386,7 +386,7 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
             toasty::create!(User {
                 name: format!("User {:02}", i),
                 email: format!("desc{:02}@example.com", i),
-                role: "member",
+                role: Role::Member,
                 active: true,
                 age: 30,
                 created_at: "2024-03-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
@@ -435,7 +435,7 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
 
 #[tokio::test]
 async fn admin_list_pagination_keeps_tied_sort_values() {
-    use showcase::models::User;
+    use showcase::models::{Role, User};
 
     let db = seeded_db().await;
     let router = router(db.clone());
@@ -449,7 +449,7 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
             toasty::create!(User {
                 name: "Tied".to_string(),
                 email: format!("tied{:02}@example.com", i),
-                role: "member",
+                role: Role::Member,
                 active: true,
                 age: 30,
                 created_at: "2024-03-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
@@ -514,7 +514,7 @@ async fn admin_list_search_matches_substrings_and_escapes_wildcards() {
     toasty::create!(showcase::models::User {
         name: "100% Ada".to_string(),
         email: "percent@example.com".to_string(),
-        role: "admin".to_string(),
+        role: showcase::models::Role::Admin,
         active: true,
         age: 30,
         created_at: "2024-02-01T09:30:00Z"

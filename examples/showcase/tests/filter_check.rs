@@ -1,4 +1,4 @@
-use showcase::models::{Author, Post};
+use showcase::models::{Author, Post, PostStatus};
 
 use crate::common::{
     body_string, demo_client, filter_options, find_href_with, full_db, input_value,
@@ -248,7 +248,7 @@ async fn posts_filter_with_cursor_paginates_filtered_rows() {
             tenant_id: tenant,
             title: title,
             body: "extra",
-            status: "published".to_string(),
+            status: PostStatus::Published,
             featured: false,
             created_at: "2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
             cover_id: None,
@@ -312,14 +312,14 @@ async fn create_fixture_post(
     db: &mut toasty::Db,
     author: &Author,
     title: &str,
-    status: &str,
+    status: PostStatus,
     featured: bool,
 ) {
     toasty::create!(Post {
         tenant_id: author.tenant_id,
         title: title.to_string(),
         body: "Fixture for the promoted facet.".to_string(),
-        status: status.to_string(),
+        status,
         featured,
         created_at: "2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
         cover_id: None,
@@ -346,12 +346,19 @@ async fn posts_filter_variant_promoted_pairs_the_flag_with_status() {
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let authors = Author::all().exec(&mut db_q).await.unwrap();
-    create_fixture_post(&mut db_q, &authors[0], "Featured Draft", "draft", true).await;
+    create_fixture_post(
+        &mut db_q,
+        &authors[0],
+        "Featured Draft",
+        PostStatus::Draft,
+        true,
+    )
+    .await;
     create_fixture_post(
         &mut db_q,
         &authors[0],
         "Evergreen Roundup",
-        "published",
+        PostStatus::Published,
         false,
     )
     .await;

@@ -371,7 +371,7 @@ async fn a_filename_that_would_break_the_url_still_fetches_back() {
 
 #[tokio::test]
 async fn a_picked_cover_renders_on_the_blog_post_page() {
-    use showcase::models::{Author, DEMO_TENANT, Post, Publication, Seo};
+    use showcase::models::{Author, DEMO_TENANT, Post, PostStatus, Publication, Seo};
 
     let db = full_db().await;
     let router = router_with_app_uploads(db.clone());
@@ -390,7 +390,7 @@ async fn a_picked_cover_renders_on_the_blog_post_page() {
         tenant_id: TenantId::from(DEMO_TENANT),
         title: "Cover Post",
         body: "Body with a cover.",
-        status: "published".to_string(),
+        status: PostStatus::Published,
         featured: false,
         created_at: "2024-03-01T09:00:00Z".parse::<jiff::Timestamp>().unwrap(),
         cover_id: Some(row.id),

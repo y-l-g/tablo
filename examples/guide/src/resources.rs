@@ -6,7 +6,7 @@ use toasty::stmt::{List, Query};
 use topcoat::{Result, context::Cx};
 
 use crate::{
-    models::{Audit, Author, Comment, Order, Post, Role, User},
+    models::{Audit, Author, Comment, Order, Post, PostStatus, Role, User},
     policy_tenancy::editors_only,
     tables::Publish,
 };
@@ -77,8 +77,8 @@ impl Resource for UserResource {
 pub struct UserForm {
     pub name: String,
     pub email: String,
-    #[form(options = Role, blank = Role::Member.value())]
-    pub role: String,
+    #[form(options, blank = Role::Member)]
+    pub role: Role,
     #[form(blank = 0)]
     pub age: i64,
 }
@@ -115,7 +115,7 @@ impl Resource for PostResource {
             // ANCHOR_END: post-record-label
             // ANCHOR: post-public-link
             .public_link(|_cx: &Cx, post: &Post| {
-                (post.status == "published").then(|| PublicLink {
+                (post.status == PostStatus::Published).then(|| PublicLink {
                     url: format!("/blog/{}", post.id),
                     label: "View on the blog",
                 })
@@ -139,7 +139,8 @@ impl Resource for PostResource {
 pub struct PostForm {
     pub title: String,
     pub body: String,
-    pub status: String,
+    #[form(options)]
+    pub status: PostStatus,
 }
 // ANCHOR_END: post-record-form
 

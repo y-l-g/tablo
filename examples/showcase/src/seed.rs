@@ -6,7 +6,7 @@ use tablo::{TenantId, auth::hash_password};
 use toasty::Db;
 
 use crate::{
-    models::{Author, Comment, Post, Publication, Seo, User},
+    models::{Author, Comment, Post, PostStatus, Publication, Role, Seo, User},
     staff::{create_staff, ensure_workspace},
 };
 
@@ -16,7 +16,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
         {
             name: "Ada Lovelace",
             email: "ada@example.com",
-            role: "admin",
+            role: Role::Admin,
             active: true,
             age: 36,
             created_at: "2024-01-15T09:30:00Z"
@@ -26,7 +26,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
         {
             name: "Alan Turing",
             email: "alan@example.com",
-            role: "member",
+            role: Role::Member,
             active: false,
             age: 41,
             created_at: "2024-06-01T12:00:00Z"
@@ -36,7 +36,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
         {
             name: "Grace Hopper",
             email: "grace@example.com",
-            role: "member",
+            role: Role::Member,
             active: true,
             age: 78,
             created_at: "2023-11-20T18:45:00Z"
@@ -46,7 +46,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
         {
             name: "Claude Shannon",
             email: "claude@example.com",
-            role: "member",
+            role: Role::Member,
             active: true,
             age: 57,
             created_at: "2024-02-10T10:00:00Z"
@@ -56,7 +56,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
         {
             name: "Dorothy Vaughan",
             email: "dorothy@example.com",
-            role: "member",
+            role: Role::Member,
             active: true,
             age: 62,
             created_at: "2024-02-18T14:00:00Z"
@@ -66,7 +66,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
         {
             name: "Edsger Dijkstra",
             email: "edsger@example.com",
-            role: "member",
+            role: Role::Member,
             active: false,
             age: 51,
             created_at: "2024-03-05T09:00:00Z"
@@ -76,7 +76,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
         {
             name: "Frances Allen",
             email: "frances@example.com",
-            role: "admin",
+            role: Role::Admin,
             active: true,
             age: 59,
             created_at: "2024-03-12T16:30:00Z"
@@ -86,7 +86,7 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
         {
             name: "Ken Thompson",
             email: "ken@example.com",
-            role: "member",
+            role: Role::Member,
             active: true,
             age: 82,
             created_at: "2024-04-02T11:15:00Z"
@@ -279,7 +279,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             tenant_id: TenantId::from(tenant),
             title: "Hello Toasty",
             body: "How we render admin tables over Toasty queries without an N+1.",
-            status: "published".to_string(),
+            status: PostStatus::Published,
             featured: true,
             created_at: "2024-01-15T09:30:00Z".parse::<Timestamp>().unwrap(),
             cover_id: None,
@@ -301,7 +301,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             tenant_id: TenantId::from(tenant),
             title: "Second Post",
             body: "Draft notes on cursor pagination edge cases.",
-            status: "draft".to_string(),
+            status: PostStatus::Draft,
             featured: false,
             created_at: "2024-06-01T12:00:00Z".parse::<Timestamp>().unwrap(),
             cover_id: None,
@@ -357,7 +357,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
                 tenant_id: TenantId::from(tenant),
                 title: title,
                 body: body,
-                status: "draft".to_string(),
+                status: PostStatus::Draft,
                 featured: false,
                 created_at: created_at.parse::<Timestamp>().unwrap(),
                 cover_id: None,
@@ -389,7 +389,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
                 tenant_id: TenantId::from(tenant),
                 title: *title,
                 body: "Backlog draft kept for pagination coverage.",
-                status: "draft".to_string(),
+                status: PostStatus::Draft,
                 featured: false,
                 created_at: created_at,
                 cover_id: None,
