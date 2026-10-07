@@ -1,5 +1,5 @@
-//! The write tail every mutation shares: create, update, delete, and bulk
-//! delete end in [`commit_write`].
+//! The write tail every mutation shares: create, update, the deletes and the
+//! custom actions end in [`commit_write`].
 
 use topcoat::{context::Cx, router::error::see_other, view::BoxView};
 

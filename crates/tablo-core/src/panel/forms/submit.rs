@@ -13,7 +13,7 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::find_by_key, gate::gate, write::commit_write},
+    super::{actions::load_viewable, gate::gate, write::commit_write},
     common::{
         FormParts, drop_client_typed_uploads, reject_unknown_form_keys, rerender_invalid_form,
         restore_pending_uploads, strip_transport_keys, truthy,
@@ -250,13 +250,9 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let resource = gate::<R>(cx)?;
         let parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, &parts.values)?;
-        let id = topcoat::router::path_param_segment(cx, "id").to_string();
         // Advisory load feeds validation; the authoritative load runs inside the transaction.
         let mut db0 = db(cx);
-        let advisory = find_by_key(cx, &resource, &id, &mut db0).await?;
-        if !resource.can(cx, Ability::View(&advisory)) {
-            return Err(forbidden().into());
-        }
+        let advisory = load_viewable(cx, &resource, &mut db0).await?;
         if !resource.can(cx, Ability::Update(&advisory)) {
             return Err(forbidden().into());
         }
@@ -270,10 +266,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // Authoritative load inside the transaction observes the write snapshot (#86).
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        let record = find_by_key(cx, &resource, &id, &mut tx).await?;
-        if !resource.can(cx, Ability::View(&record)) {
-            return Err(forbidden().into());
-        }
+        let record = load_viewable(cx, &resource, &mut tx).await?;
         if !resource.can(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }

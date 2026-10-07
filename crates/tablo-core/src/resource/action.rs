@@ -5,7 +5,8 @@ use std::{future::Future, pin::Pin};
 
 use topcoat::{Result, context::Cx};
 
-use super::Resource;
+use super::{Mounted, Resource};
+use crate::policy::Ability;
 
 /// A mutation beyond create, update and delete: "publish", "archive",
 /// "resend the invite".
@@ -182,10 +183,12 @@ impl<R: Resource> Actions<R> {
             label: A::label,
             row: A::ROW,
             bulk: A::BULK,
-            can_run: A::can_run,
+            resource_wide: Ability::ViewAny,
+            can_run: can_run_erased::<R, A>,
             run: run_erased::<R, A>,
             success: A::success,
             acted: super::Committed::acted::<R, A>,
+            failure: "run the action",
             confirm: A::CONFIRM,
         });
         self
@@ -202,19 +205,78 @@ impl<R: Resource> Actions<R> {
     }
 }
 
-/// One declared action with its type erased, so a resource's actions sit
-/// in one list.
+/// One mutation of a record or a selection with its type erased: a declared action, or the
+/// built-in delete. The panel runs every one through the same pipeline.
 pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) name: &'static str,
     pub(crate) label: fn(&Cx) -> String,
     pub(crate) row: bool,
     pub(crate) bulk: bool,
-    pub(crate) can_run: fn(&Cx, &R::Model) -> bool,
+    /// The resource-wide ability checked before the body is read.
+    pub(crate) resource_wide: Ability<'static, R::Model>,
+    /// Whether the mutation may write `record`, which already passed `View`.
+    pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
     pub(crate) run:
         for<'a> fn(&'a Cx, &'a [R::Model], &'a mut dyn toasty::Executor) -> ActionFuture<'a>,
     pub(crate) success: fn(&Cx, usize) -> String,
     pub(crate) acted: fn(Vec<R::Model>) -> super::Committed<R::Model>,
+    /// The failure toast's wording: "Couldn't {failure}".
+    pub(crate) failure: &'static str,
     pub(crate) confirm: bool,
+}
+
+impl<R: Resource> Clone for ActionEntry<R> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<R: Resource> Copy for ActionEntry<R> {}
+
+impl<R: Resource> ActionEntry<R> {
+    /// The row's Delete: [`Resource::delete_record`], on a record [`Ability::Delete`] allows.
+    pub(crate) fn delete() -> Self {
+        Self::deleting(false)
+    }
+
+    /// The bulk bar's Delete: [`Resource::bulk_delete_records`], on the selected records
+    /// [`Ability::Delete`] allows.
+    pub(crate) fn bulk_delete() -> Self {
+        Self::deleting(true)
+    }
+
+    fn deleting(bulk: bool) -> Self {
+        Self {
+            name: "delete",
+            label: |_| "Delete".to_string(),
+            row: !bulk,
+            bulk,
+            resource_wide: Ability::DeleteAny,
+            can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
+            run: if bulk {
+                bulk_delete_erased::<R>
+            } else {
+                delete_erased::<R>
+            },
+            success: if bulk {
+                |_, _| "Bulk deleted".to_string()
+            } else {
+                |_, _| "Deleted".to_string()
+            },
+            acted: super::Committed::deleted,
+            failure: if bulk {
+                "delete the selected rows"
+            } else {
+                "delete the record"
+            },
+            confirm: true,
+        }
+    }
+}
+
+/// [`Action::can_run`] behind a function pointer.
+fn can_run_erased<R: Resource, A: Action<R>>(_: &Mounted<R>, cx: &Cx, record: &R::Model) -> bool {
+    A::can_run(cx, record)
 }
 
 /// [`Action::run`] behind a function pointer.
@@ -224,4 +286,27 @@ fn run_erased<'a, R: Resource, A: Action<R>>(
     ex: &'a mut dyn toasty::Executor,
 ) -> ActionFuture<'a> {
     Box::pin(A::run(cx, records, ex))
+}
+
+/// [`Resource::delete_record`] on each of `records`, behind a function pointer.
+fn delete_erased<'a, R: Resource>(
+    cx: &'a Cx,
+    records: &'a [R::Model],
+    ex: &'a mut dyn toasty::Executor,
+) -> ActionFuture<'a> {
+    Box::pin(async move {
+        for record in records {
+            R::delete_record(cx, record, &mut *ex).await?;
+        }
+        Ok(())
+    })
+}
+
+/// [`Resource::bulk_delete_records`] behind a function pointer.
+fn bulk_delete_erased<'a, R: Resource>(
+    cx: &'a Cx,
+    records: &'a [R::Model],
+    ex: &'a mut dyn toasty::Executor,
+) -> ActionFuture<'a> {
+    Box::pin(R::bulk_delete_records(cx, records, ex))
 }

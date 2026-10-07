@@ -112,7 +112,8 @@ fn wire_custom_actions<R: Resource>(
                 bulk: action.bulk,
                 confirm: action.confirm,
                 allowed: Arc::new(move |record: &R::Model| {
-                    policy.can(&policy_cx, Ability::View(record)) && can_run(&policy_cx, record)
+                    policy.can(&policy_cx, Ability::View(record))
+                        && can_run(&policy, &policy_cx, record)
                 }),
             }
         })

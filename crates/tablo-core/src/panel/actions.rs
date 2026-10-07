@@ -1,26 +1,21 @@
-//! Delete / bulk-delete / custom action / CSV export handlers plus their caps
-//! and parsers.
+//! The delete and custom action handlers, the CSV export, and the
+//! relationship option search.
 //!
 //! Fetch, policy checks, and writes share one framework transaction:
 //! a mid-loop failure deletes zero rows.
 //!
-//! The record fetchers live in `fetch`, the row delete in `delete`, the bulk
-//! delete and its `ids` parser in `bulk`, the custom actions in `custom`, the
-//! CSV export and its chunk walker in `export`, and the relationship option
-//! search in `options`.
+//! The record fetchers live in `fetch`, the one pipeline the deletes and the
+//! custom actions share in `mutation`, the CSV export and its chunk walker in
+//! `export`, and the relationship option search in `options`.
 
-mod bulk;
-mod custom;
-mod delete;
 mod export;
 mod fetch;
+mod mutation;
 mod options;
 
 pub(crate) use self::{
-    bulk::resource_bulk_delete,
-    custom::{resource_bulk_action, resource_row_action},
-    delete::resource_delete,
     export::resource_export,
-    fetch::{find_by_key, load_detail, load_viewable},
+    fetch::{load_detail, load_viewable},
+    mutation::{resource_bulk_action, resource_bulk_delete, resource_delete, resource_row_action},
     options::resource_options,
 };

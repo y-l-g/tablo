@@ -123,7 +123,8 @@ rolls the transaction back and nothing is written.
 
 `delete_record` deletes the row by its primary key, and `bulk_delete_records` calls
 `delete_record` once per record in one transaction, so overriding `delete_record` — for a soft
-delete, say — covers both. A bulk delete is all-or-nothing.
+delete, say — covers both. A bulk delete runs like a bulk action: it deletes the selected records
+the policy's `Delete` allows and reports the rest as skipped (`"Bulk deleted (2 of 5 skipped)"`).
 
 ### After the commit
 
