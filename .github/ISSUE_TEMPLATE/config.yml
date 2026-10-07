@@ -2,4 +2,4 @@ blank_issues_enabled: true
 contact_links:
   - name: Contribution guide
     url: https://github.com/y-l-g/tablo/blob/master/CONTRIBUTING.md
-    about: How to propose changes and land PRs.
+    about: The layout, the checks and the rules.

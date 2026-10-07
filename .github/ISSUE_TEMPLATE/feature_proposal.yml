@@ -6,8 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Propose the problem and the shape of the solution. A feature that changes
-        the public API needs this issue before an implementation PR.
+        A public-API change needs this issue, with its API sketch accepted, before an
+        implementation PR.
 
   - type: textarea
     id: problem

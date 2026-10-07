@@ -152,7 +152,7 @@ async fn an_empty_value_renders_as_empty() {
 /// `view_values` nor the record form supplies it — so the page does not
 /// render it as an empty value: a debug build fails its `debug_assert!`, and
 /// a release build shows `(missing)`, as a list column shows `(unloaded)` for a
-/// relation its query did not load (ADR-0011).
+/// relation its query did not load (ADR-0018).
 #[tokio::test]
 #[cfg_attr(
     debug_assertions,

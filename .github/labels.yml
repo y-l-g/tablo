@@ -1,5 +1,4 @@
-# Source of truth synced by `.github/workflows/labels.yml`; update this file, not the GitHub
-# UI. Keep descriptions identical to `docs/dev/LABELS.md`.
+# Source of truth synced by `.github/workflows/labels.yml`; update this file, not the GitHub UI.
 
 # Applied by an issue template.
 - name: bug

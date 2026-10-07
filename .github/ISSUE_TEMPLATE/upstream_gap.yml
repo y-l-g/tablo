@@ -6,24 +6,16 @@ body:
   - type: markdown
     attributes:
       value: |
-        An upstream gap is a missing or unstable API in Toasty or Topcoat that
-        forces Tablo to carry a workaround. File one gap per issue, titled
-        `<project>: <capability>`.
-
-        Rules for the body:
-
-        - Keep it under ~30 lines.
-        - Exactly two code fences: the workaround and the upstream API that deletes it.
-        - No "why fragile" essay, no Alternatives section, no tables.
-        - The body is the status. Edit it when the upstream state changes; never discuss status in comments.
+        One gap per issue, titled `<project>: <capability>`. The body is the status: edit it
+        when the upstream state changes instead of commenting.
 
   - type: textarea
     id: upstream
     attributes:
       label: Upstream
-      description: The project (Toasty or Topcoat), the rev pinned in `Cargo.lock`, and the upstream issue or PR number with its live state — open / closed unmerged / merged / none filed.
+      description: The project, the version `Cargo.lock` pins, and the upstream issue or PR with its state.
       placeholder: |
-        Toasty — rev 5e6b21e6 (Cargo.lock) — toasty#1188, open.
+        Toasty 0.11.0 — toasty#1188, open.
     validations:
       required: true
 
@@ -42,7 +34,7 @@ body:
     id: today
     attributes:
       label: Today in Tablo
-      description: Fenced code block of the real workaround, copied from the source, with the `file:line` on the first line of the fence.
+      description: The workaround, copied from the source, with its `file:line`.
       placeholder: |
         ```rust
         // crates/tablo-core/src/panel/forms.rs:523
@@ -61,7 +53,7 @@ body:
     id: proposed
     attributes:
       label: Proposed upstream API
-      description: Fenced code block of the smallest upstream API that deletes the code above. Not a design document — the smallest signature that removes the workaround.
+      description: The smallest upstream signature that deletes the workaround.
       placeholder: |
         ```rust
         impl toasty::Error {
@@ -75,7 +67,7 @@ body:
     id: retire
     attributes:
       label: Retire when
-      description: One line naming the exact Tablo code that gets deleted.
+      description: The Tablo code that gets deleted.
       placeholder: "`panel/forms.rs:523 check_unique` and its call sites at `panel/forms.rs:642` and `:790` are deleted."
     validations:
       required: true

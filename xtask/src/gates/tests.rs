@@ -141,41 +141,38 @@ fn installed_version(command: &str) -> &str {
         .expect("the version ends the flag value")
 }
 
-/// The pins xtask shells out with must stay the ones CI and the docs name.
+/// The pins xtask shells out with must stay the ones CI installs. The docs name no version.
 #[test]
-fn pins_match_ci_and_docs() {
+fn pins_match_ci() {
     let root = repo_root();
-    let ci = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).expect("read ci.yml");
-    let contributing =
-        std::fs::read_to_string(root.join("CONTRIBUTING.md")).expect("read CONTRIBUTING.md");
-    let manifest = std::fs::read_to_string(root.join("Cargo.toml")).expect("read Cargo.toml");
+    let read = |path: &str| {
+        std::fs::read_to_string(root.join(path))
+            .unwrap_or_else(|error| panic!("read {path}: {error}"))
+    };
+    let ci = read(".github/workflows/ci.yml");
+    let docs = read(".github/workflows/docs.yml");
+    let msrv = read(".github/workflows/msrv-udeps.yml");
     assert!(ci.contains(NIGHTLY_FMT), "ci.yml names the nightly");
-    assert!(
-        contributing.contains(NIGHTLY_FMT),
-        "CONTRIBUTING.md names the nightly"
-    );
     let topcoat = installed_version(TOPCOAT_INSTALL);
     assert!(
         ci.contains(topcoat),
         "ci.yml installs the pinned topcoat CLI {topcoat}"
     );
-    assert!(
-        contributing.contains(topcoat),
-        "CONTRIBUTING.md names the pinned topcoat CLI {topcoat}"
-    );
     let mdbook = installed_version(MDBOOK_INSTALL);
+    for (name, workflow) in [("ci.yml", &ci), ("docs.yml", &docs)] {
+        assert!(
+            workflow.contains(&format!("mdbook@{mdbook}")),
+            "{name} installs the pinned mdBook {mdbook}"
+        );
+    }
     assert!(
-        ci.contains(mdbook),
-        "ci.yml installs the pinned mdBook {mdbook}"
+        msrv.contains(&format!("+{MSRV} check")),
+        "msrv-udeps.yml checks the MSRV floor {MSRV}"
     );
     assert!(ci.contains(QUICKSTART), "ci.yml covers {QUICKSTART}");
     for suite in ASSET_SUITES {
         assert!(ci.contains(suite), "ci.yml names {suite}");
     }
-    assert!(
-        manifest.contains(&format!("rust-version = \"{MSRV}\"")),
-        "Cargo.toml carries the MSRV floor"
-    );
 }
 
 /// Reads a workflow's `pull_request: paths` list: the `- entry` lines under `paths:`.

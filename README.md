@@ -19,12 +19,9 @@ Depend on the `tablo` facade, pick a database driver, and build the stylesheet w
 (the [first-panel chapter](docs/guide/src/first-panel.md) has the full manifest, including the
 `topcoat` and `toasty` pins):
 
-```toml
-[dependencies]
-tablo = { git = "https://github.com/y-l-g/tablo", features = ["sqlite"] }
-
-[build-dependencies]
-tablo-build = { git = "https://github.com/y-l-g/tablo" }
+```sh
+cargo add tablo --features sqlite
+cargo add --build tablo-build
 ```
 
 `examples/quickstart` is the smallest complete app; CI builds it from outside this repository.
@@ -79,19 +76,14 @@ login. To add create and edit pages, give the resource a `#[derive(RecordForm)]`
 - [`examples/showcase/`](examples/showcase/): the runnable reference.
 - [`CONTEXT.md`](CONTEXT.md): the project's vocabulary.
 - [`docs/adr/`](docs/adr/): the design decisions, one record each.
-- [`docs/dev/architecture.md`](docs/dev/architecture.md): how the crates and a request fit
-  together.
-- [`benchmarks/README.md`](benchmarks/README.md): the performance harness.
-- Upstream: the [Toasty guide](https://tokio-rs.github.io/toasty/0.10.0/guide/) (queries,
+- Upstream: the [Toasty guide](https://tokio-rs.github.io/toasty/0.11.0/guide/) (queries,
   relations, migrations) and the [Topcoat docs](https://docs.rs/topcoat) (`view!`,
   `#[component]`, routing, cookies and sessions).
 
 ## Contributing
 
 Small fixes can go straight to a pull request; open an issue first for larger changes.
-[`CONTRIBUTING.md`](CONTRIBUTING.md) covers the build, the [CI gate
-set](CONTRIBUTING.md#the-gate-set) and the commit rules; [`AGENTS.md`](AGENTS.md) is the short
-version for agents.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) covers the layout, the checks and the rules.
 
 ## License
 
