@@ -30,18 +30,26 @@ impl Resource for UserResource {
 | `Update(record)` | the edit page and POST, the row's Edit action |
 | `DeleteAny` | the delete and bulk-delete POSTs, the Delete action and the bulk column |
 | `Delete(record)` | each record a delete removes, the row's Delete action and checkbox |
+| `RunAny { action }` | the [custom action](./tables.md#custom-actions)'s row and bulk POSTs, its row button and bulk-bar entry, and the bulk column for a bulk action |
+| `Run { action, record }` | each record the action runs on, the row's button for it and, for a bulk action, its checkbox |
 
-Handlers ask the same abilities that decide which buttons render, so a hidden action is also a
-refused request. A denied request answers 403.
+`action` is the action's `NAME`, so one policy tells a resource's actions apart. Handlers ask the
+same abilities that decide which buttons render, so a hidden action is also a refused request. A
+denied request answers 403.
 
 - **The list asks `ViewAny` only.** A policy is Rust code that cannot run in the database, and
   filtering rows after pagination would leave pages short. Rows a user must not see on the list
   belong out of `query()`; see [Resources](./resources.md#scoping-the-query).
-- **A record is viewed before it is written.** The edit and delete handlers ask `View` together
-  with `Update` or `Delete`, and a delete asks `DeleteAny` before any record loads.
-- **Writes are checked against the stored row.** The update and delete handlers load the record
-  inside the write's transaction and ask the policy about that row, not the submitted id. A bulk
-  delete fails as a whole if any selected record is refused.
+- **A record is viewed before it is written.** The edit, delete and action handlers ask `View`
+  together with `Update`, `Delete` or `Run`. A delete asks `DeleteAny`, and an action `RunAny`,
+  before any record loads.
+- **Writes are checked against the stored row.** The update, delete and action handlers load the
+  record inside the write's transaction and ask the policy about that row, not the submitted id. A
+  bulk delete or bulk action fails as a whole if any selected record is refused `View`, and skips
+  the records refused `Delete` or `Run`.
+- **An action's `can_run` is not authorization.** It reads the record's state and sees no policy;
+  the policy's `RunAny` and `Run` decide who runs the action. A panel that mounts the resource
+  with `ReadOnly` through `Panel::resource_with` therefore offers and runs none of its actions.
 - **Relationship options** require `ViewAny` and `View` from the related resource's policy.
 
 ### Building a policy

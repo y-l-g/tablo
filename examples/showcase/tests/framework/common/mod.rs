@@ -141,6 +141,19 @@ pub async fn post_fields(router: &Router, uri: &str, fields: &[(&str, &str)]) ->
     .await
 }
 
+/// The flash notification a response set, decoded: the text the list shows after the redirect.
+pub fn flash(response: &Response<Body>) -> String {
+    response_cookies(response)
+        .into_iter()
+        .find(|(name, _)| name.ends_with("tablo_notification"))
+        .map(|(_, value)| {
+            percent_encoding::percent_decode_str(&value)
+                .decode_utf8_lossy()
+                .into_owned()
+        })
+        .unwrap_or_default()
+}
+
 pub fn new_csrf() -> String {
     Uuid::new_v4().to_string()
 }

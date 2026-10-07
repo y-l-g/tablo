@@ -20,8 +20,9 @@ What Tablo does by default, and what your deployment must provide for those defa
   It prevents accidental deletes; it is not a security boundary.
 - A form POST with a key the form does not declare answers 400, so a client cannot write a
   field the form does not show, such as `role` or `tenant_id`.
-- Update and delete handlers load the target through the resource's scoped query inside the
-  write's transaction and check policy on that row. See [Policy](./policy-auth-tenancy.md#policy).
+- Update, delete and custom action handlers load the target through the resource's scoped query
+  inside the write's transaction and check policy on that row. See
+  [Policy](./policy-auth-tenancy.md#policy).
 - Table search escapes `%` and `_` and binds the term as a parameter; no user input is
   interpolated into SQL.
 

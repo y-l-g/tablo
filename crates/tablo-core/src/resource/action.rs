@@ -64,16 +64,18 @@ use crate::policy::Ability;
 ///   selection, and its CSRF check;
 /// - the transaction: the records are loaded through [`scoped_query`](super::scoped_query) inside
 ///   it, `run` writes through the same executor, and an error rolls everything back;
-/// - the policy: every record must pass [`Ability::View`](crate::policy::Ability::View), checked on
-///   the loaded rows before `run`;
-/// - the refusal: a row [`can_run`](Self::can_run) refuses answers 403, and a bulk selection runs
-///   the records that pass it and reports the refused count as skipped. A selection that passes on
-///   none writes nothing and answers with an error notification;
+/// - the policy: [`Ability::RunAny`] with the action's `NAME`, asked before the body is read, then
+///   [`Ability::View`] and [`Ability::Run`] on every loaded record before `run`. A record `View`
+///   refuses fails the whole POST with 403;
+/// - the refusal: a row that `Run` or [`can_run`](Self::can_run) refuses answers 403, and a bulk
+///   selection runs the records that pass both and reports the refused count as skipped. A
+///   selection that passes on none writes nothing and answers with an error notification;
 /// - [`Resource::after_commit`] with [`Mutation::Action`](super::Mutation::Action) once the
 ///   transaction commits, and the success notification.
 ///
-/// A row whose record fails `can_run` renders no button for the action, and
-/// a row that no bulk action and no delete allows renders no checkbox.
+/// A table renders no button and no bulk entry for an action the policy refuses `RunAny`, and no
+/// button on a row whose record fails `View`, `Run` or `can_run`. A row that no bulk action and no
+/// delete allows renders no checkbox.
 pub trait Action<R: Resource>: 'static {
     /// The action's URL segment, distinct among the resource's actions.
     ///
@@ -122,13 +124,19 @@ pub trait Action<R: Resource>: 'static {
     /// The button text.
     fn label(cx: &Cx) -> String;
 
-    /// Whether the action may run on `record`.
+    /// Whether `record`'s state lets the action run on it: a published post refuses "publish".
+    /// Defaults to `true`.
+    ///
+    /// It sees no policy, so it decides no authorization: the resource's policy answers
+    /// [`Ability::Run`] for that, and a panel that mounts the resource with another policy
+    /// changes who may run the action.
     fn can_run(_cx: &Cx, _record: &R::Model) -> bool {
         true
     }
 
     /// Perform the action on `records`, the records of the row or selection that
-    /// passed [`can_run`](Self::can_run), through the framework's transaction `ex`.
+    /// passed [`Ability::Run`] and [`can_run`](Self::can_run), through the framework's
+    /// transaction `ex`.
     fn run(
         cx: &Cx,
         records: &[R::Model],
@@ -183,7 +191,7 @@ impl<R: Resource> Actions<R> {
             label: A::label,
             row: A::ROW,
             bulk: A::BULK,
-            resource_wide: Ability::ViewAny,
+            resource_wide: Ability::RunAny { action: A::NAME },
             can_run: can_run_erased::<R, A>,
             run: run_erased::<R, A>,
             success: A::success,
@@ -274,9 +282,19 @@ impl<R: Resource> ActionEntry<R> {
     }
 }
 
-/// [`Action::can_run`] behind a function pointer.
-fn can_run_erased<R: Resource, A: Action<R>>(_: &Mounted<R>, cx: &Cx, record: &R::Model) -> bool {
-    A::can_run(cx, record)
+/// The mounted policy's [`Ability::Run`] and [`Action::can_run`] behind a function pointer.
+fn can_run_erased<R: Resource, A: Action<R>>(
+    resource: &Mounted<R>,
+    cx: &Cx,
+    record: &R::Model,
+) -> bool {
+    resource.can(
+        cx,
+        Ability::Run {
+            action: A::NAME,
+            record,
+        },
+    ) && A::can_run(cx, record)
 }
 
 /// [`Action::run`] behind a function pointer.

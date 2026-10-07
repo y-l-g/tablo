@@ -11,7 +11,9 @@
 //! # fn not_suspended(cx: &Cx) -> bool { true }
 //! fn post_policy() -> impl Policy<Post> {
 //!     when(not_suspended).and(|_cx: &Cx, ability: Ability<'_, Post>| match ability {
-//!         Ability::Update(post) | Ability::Delete(post) => !post.locked,
+//!         Ability::Update(post) | Ability::Delete(post) | Ability::Run { record: post, .. } => {
+//!             !post.locked
+//!         }
 //!         _ => true,
 //!     })
 //! }
@@ -39,6 +41,20 @@ pub enum Ability<'a, M> {
     DeleteAny,
     /// Delete one record.
     Delete(&'a M),
+    /// Run the custom [`Action`](crate::Action) whose [`NAME`](crate::Action::NAME) is `action`
+    /// at all.
+    RunAny {
+        /// The action's [`NAME`](crate::Action::NAME).
+        action: &'static str,
+    },
+    /// Run the custom [`Action`](crate::Action) whose [`NAME`](crate::Action::NAME) is `action`
+    /// on one record.
+    Run {
+        /// The action's [`NAME`](crate::Action::NAME).
+        action: &'static str,
+        /// The record it runs on.
+        record: &'a M,
+    },
 }
 
 impl<M> Clone for Ability<'_, M> {
@@ -53,8 +69,11 @@ impl<'a, M> Ability<'a, M> {
     /// The record the ability names, if any.
     pub fn record(self) -> Option<&'a M> {
         match self {
-            Self::View(record) | Self::Update(record) | Self::Delete(record) => Some(record),
-            Self::ViewAny | Self::Create | Self::DeleteAny => None,
+            Self::View(record)
+            | Self::Update(record)
+            | Self::Delete(record)
+            | Self::Run { record, .. } => Some(record),
+            Self::ViewAny | Self::Create | Self::DeleteAny | Self::RunAny { .. } => None,
         }
     }
 
@@ -120,7 +139,7 @@ impl<M> Policy<M> for Deny {
     }
 }
 
-/// Allows listing and viewing, and no write.
+/// Allows listing and viewing, and no write: no create, update, delete or custom action.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ReadOnly;
 

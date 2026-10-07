@@ -88,20 +88,18 @@ pub(crate) fn wire_table<R: Resource>(
     table
 }
 
-/// Attaches `R`'s custom actions to `table`, each gated per record by `View` and the action's
-/// `can_run`.
+/// Attaches the custom actions of `R` its policy allows `RunAny`, each gated per record by `View`
+/// and the entry's per-record check: `Run` and the action's `can_run`.
 fn wire_custom_actions<R: Resource>(
     cx: &Cx,
     resource: &Arc<Mounted<R>>,
     table: WiredTable<R::Model>,
 ) -> WiredTable<R::Model> {
-    if resource.actions.entries().is_empty() {
-        return table;
-    }
-    let wired = resource
+    let wired: Vec<_> = resource
         .actions
         .entries()
         .iter()
+        .filter(|action| resource.can(cx, action.resource_wide))
         .map(|action| {
             let can_run = action.can_run;
             let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
@@ -118,6 +116,10 @@ fn wire_custom_actions<R: Resource>(
             }
         })
         .collect();
+    // A table wired with no action would still render the write form and its dialog.
+    if wired.is_empty() {
+        return table;
+    }
     table.with_custom_actions(resource.url.clone(), wired)
 }
 

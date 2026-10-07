@@ -3,9 +3,23 @@
 Every mutation runs in a framework-owned transaction. The handler loads the target through
 `scoped_query` (ADR-0002) and checks the policy on the loaded record inside the transaction,
 never on the passed id alone; a bulk write checks every record. Relationship keys are re-checked
-against the related resource inside the same transaction. A custom `Action` runs the same way,
-with `can_run` per record.
+against the related resource inside the same transaction.
+
+A custom `Action` runs the same way, authorized by the policy the panel mounted: `RunAny` with the
+action's `NAME` before the body is read, then `View` and `Run` on each loaded record. `can_run` is
+a state predicate on the record, asked after `Run`. A record refused `View` fails the whole POST;
+a record refused `Run` or `can_run` is skipped from a selection, as a record refused `Delete` is
+skipped from a bulk delete.
 
 `Resource::after_commit` runs once per committed write, after the commit and before the
 response: the place for side effects that must not survive a rollback. A failing hook logs and
 does not roll back.
+
+## Rejected
+
+- Authorizing an action through `View` and `can_run`: `can_run` is a static fn on the action
+  type and never sees the mounted def's policy, so a panel that mounts the resource `ReadOnly`
+  could not revoke its actions.
+- `ViewAny` as an action's resource-wide ability: reading the list is not permission to write.
+- Failing a whole selection on a record refused `Run`: the bulk bar offers a row a checkbox when
+  any bulk write allows it, so a selection can mix records offered different actions.

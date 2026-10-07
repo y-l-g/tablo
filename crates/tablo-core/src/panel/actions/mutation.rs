@@ -1,10 +1,11 @@
 //! The one pipeline every record mutation outside the forms runs through: the row's and the bulk
 //! bar's Delete, and the custom actions of either.
 //!
-//! [`run_mutation`] owns ADR-0004's invariant: the resource-wide ability, the CSRF check and the
-//! confirmation marker before any DB work, then one transaction that loads the targets through
-//! the tenant-scoped query, checks `View` on every one, runs the entry's per-record check, writes
-//! the records that pass, and commits.
+//! [`run_mutation`] owns ADR-0004's invariant: the resource-wide ability (`DeleteAny`, or
+//! `RunAny` for a custom action), the CSRF check and the confirmation marker before any DB work,
+//! then one transaction that loads the targets through the tenant-scoped query, checks `View` on
+//! every one, runs the entry's per-record check (`Delete`, or `Run` and `can_run`), writes the
+//! records that pass, and commits.
 
 use topcoat::{
     context::Cx,
@@ -94,8 +95,8 @@ fn run_mutation<'a, R: Resource>(
     async_page(async move {
         let resource = gate::<R>(cx)?;
         let action = select(&resource);
-        // An unknown action answers like a known one to a caller the resource refuses, so the
-        // 404 names no action to them.
+        // An unknown action asks `ViewAny`, so a caller who may not open the list gets the 403 a
+        // refused action gets, and the 404 names no action to them.
         let resource_wide = action.map_or(Ability::ViewAny, |action| action.resource_wide);
         if !resource.can(cx, resource_wide) {
             return Err(forbidden().into());

@@ -76,6 +76,7 @@ impl Resource for ChildResource {
                 Ability::Update(_record) => true,
                 Ability::DeleteAny => true,
                 Ability::Delete(_) => true,
+                Ability::RunAny { .. } | Ability::Run { .. } => true,
             })
             .table(Table::new(
                 TextColumn::new(lens!(Child.body)).searchable().sortable(),
