@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use tablo_core::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
-    DateFilter, Field, FieldErrors, Grid, Group, Options, Panel, QueryFilter, RecordForm, Relation,
-    Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-    TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
+    DateFilter, Field, FieldErrors, Grid, Group, Options, Panel, PublicLink, QueryFilter,
+    RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
+    SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -168,9 +168,12 @@ impl Resource for PostResource {
     }
 
     /// Links the post's public page.
-    fn public_url(_cx: &Cx, record: &Post) -> Option<String> {
+    fn public_link(_cx: &Cx, record: &Post) -> Option<PublicLink> {
         if record.status == crate::blog::PUBLISHED {
-            Some(format!("/blog/{}", record.id))
+            Some(PublicLink {
+                url: format!("/blog/{}", record.id),
+                label: "View public post",
+            })
         } else {
             None
         }

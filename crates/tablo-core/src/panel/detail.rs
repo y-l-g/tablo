@@ -12,7 +12,7 @@ use crate::{
     db::db,
     form::RecordForm,
     policy::Ability,
-    resource::{Mounted, Resource},
+    resource::{Mounted, PublicLink, Resource},
     topcoat_compat::async_page,
 };
 
@@ -38,7 +38,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let relations = render_relations(cx, &resource, &record);
         let title = detail_title(cx, &resource, &record, &id);
         let back = resource.url.clone();
-        let public = R::public_url(cx, &record);
+        let public_link = R::public_link(cx, &record);
         let edit = (<R::Form as RecordForm>::HAS_FORM
             && resource.can(cx, Ability::Update(&record)))
         .then(|| {
@@ -53,7 +53,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             DetailPage {
                 title,
                 back,
-                public,
+                public_link,
                 edit,
                 body,
                 content,
@@ -67,7 +67,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
 struct DetailPage<'a> {
     title: String,
     back: String,
-    public: Option<String>,
+    public_link: Option<PublicLink>,
     edit: Option<String>,
     body: BoxView<'a>,
     content: Option<BoxView<'a>>,
@@ -79,7 +79,7 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
     let DetailPage {
         title,
         back,
-        public,
+        public_link,
         edit,
         body,
         content,
@@ -100,10 +100,10 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                         icon(data: tablo_ui::icons::ARROW_LEFT)
                         "Back to list"
                     </a>
-                    if let Some(public) = public {
-                        <a href=(public) class=(outline.clone())>
+                    if let Some(link) = public_link {
+                        <a href=(link.url) class=(outline.clone())>
                             icon(data: tablo_ui::icons::EXTERNAL_LINK)
-                            "View public post"
+                            (link.label)
                         </a>
                     }
                     if let Some(url) = edit {

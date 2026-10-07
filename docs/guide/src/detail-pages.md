@@ -73,7 +73,8 @@ the record's key, such as "Post 3f2a…":
 {{#include ../../../examples/guide/src/detail_pages.rs:detail-record-label}}
 ```
 
-`public_url(cx, record)` adds a "View public post" link to the header when it returns a URL.
+`public_link(cx, record)` adds a link to the record's public page to the header when it returns
+one: the URL to link and the text to show.
 
 ## Free-form content
 
