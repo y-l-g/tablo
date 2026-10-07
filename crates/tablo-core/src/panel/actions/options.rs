@@ -12,7 +12,7 @@ use crate::{
     error::TabloError,
     query_term::clamp_query_term,
     resource::Resource,
-    schema::{OptionLoadError, option_view},
+    schema::{OptionLoadError, Schema, option_view},
 };
 
 /// Relationship option search endpoint (D2/D5).
@@ -35,73 +35,77 @@ use crate::{
 pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let resource = gate::<R>(cx)?;
-        let (field, q) = options_query(cx);
-        let field = field.trim();
-        if field.is_empty() {
-            return Err(topcoat::router::error::bad_request("missing field").into());
-        }
-        let q = clamp_query_term(&q);
-        let Some(select) = resource
-            .form
-            .fields()
-            .find(|declared| declared.name() == field)
-            .and_then(|declared| declared.as_choice())
-        else {
-            return Err(topcoat::router::error::bad_request("unknown field").into());
-        };
-        if !select.is_relationship() {
-            return Err(topcoat::router::error::bad_request("not a relationship select").into());
-        }
-        if !select.is_searchable() {
-            return Err(topcoat::router::error::bad_request("not searchable").into());
-        }
-        match select.search_options(cx, &q).await {
-            Ok(opts) => {
-                let options: Vec<_> = opts
-                    .into_iter()
-                    .map(|(value, label)| option_view(cx, value, label, false))
-                    .collect();
-                let html = view! {
-                    cx =>
-                    for option in options {
-                        (option)
-                    }
-                }
-                .single()
-                .await?
-                .render(cx);
-                let res = http::Response::builder()
-                    .status(200)
-                    .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
-                    .header("x-content-type-options", "nosniff")
-                    .body(Body::from(html))?;
-                Ok(res)
-            }
-            Err(OptionLoadError::Denied) => Err(forbidden().into()),
-            Err(OptionLoadError::LoadFailed) => {
-                Err(TabloError::Infrastructure("option search failed").into())
-            }
-            // Permanent: the related resource cannot be scoped at
-            // all, so the search cannot succeed until the declaration is
-            // fixed — a 500 that says so, not a retry.
-            Err(OptionLoadError::Misdeclared) => Err(TabloError::Declaration(
-                "option search unavailable: the related resource requires a tenant the framework \
-                 cannot scope"
-                    .to_string(),
-            )
-            .into()),
-            Err(OptionLoadError::Overflow) => {
-                let html = "<option value=\"\" disabled>Too many results — keep typing</option>"
-                    .to_string();
-                let res = http::Response::builder()
-                    .status(200)
-                    .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
-                    .header("x-content-type-options", "nosniff")
-                    .body(Body::from(html))?;
-                Ok(res)
-            }
-        }
+        options_response(cx, &resource.form).await
     })
+}
+
+/// Answers the option search for the relationship field of `form` the query names.
+async fn options_response(cx: &Cx, form: &Schema) -> topcoat::Result<http::Response<Body>> {
+    let (field, q) = options_query(cx);
+    let field = field.trim();
+    if field.is_empty() {
+        return Err(topcoat::router::error::bad_request("missing field").into());
+    }
+    let q = clamp_query_term(&q);
+    let Some(select) = form
+        .fields()
+        .find(|declared| declared.name() == field)
+        .and_then(|declared| declared.as_choice())
+    else {
+        return Err(topcoat::router::error::bad_request("unknown field").into());
+    };
+    if !select.is_relationship() {
+        return Err(topcoat::router::error::bad_request("not a relationship select").into());
+    }
+    if !select.is_searchable() {
+        return Err(topcoat::router::error::bad_request("not searchable").into());
+    }
+    match select.search_options(cx, &q).await {
+        Ok(opts) => {
+            let options: Vec<_> = opts
+                .into_iter()
+                .map(|(value, label)| option_view(cx, value, label, false))
+                .collect();
+            let html = view! {
+                cx =>
+                for option in options {
+                    (option)
+                }
+            }
+            .single()
+            .await?
+            .render(cx);
+            let res = http::Response::builder()
+                .status(200)
+                .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
+                .header("x-content-type-options", "nosniff")
+                .body(Body::from(html))?;
+            Ok(res)
+        }
+        Err(OptionLoadError::Denied) => Err(forbidden().into()),
+        Err(OptionLoadError::LoadFailed) => {
+            Err(TabloError::Infrastructure("option search failed").into())
+        }
+        // Permanent: the related resource cannot be scoped at
+        // all, so the search cannot succeed until the declaration is
+        // fixed — a 500 that says so, not a retry.
+        Err(OptionLoadError::Misdeclared) => Err(TabloError::Declaration(
+            "option search unavailable: the related resource requires a tenant the framework \
+             cannot scope"
+                .to_string(),
+        )
+        .into()),
+        Err(OptionLoadError::Overflow) => {
+            let html =
+                "<option value=\"\" disabled>Too many results — keep typing</option>".to_string();
+            let res = http::Response::builder()
+                .status(200)
+                .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
+                .header("x-content-type-options", "nosniff")
+                .body(Body::from(html))?;
+            Ok(res)
+        }
+    }
 }
 
 /// Parse `?field=` + `?q=` for the options endpoint (first-wins, like the
