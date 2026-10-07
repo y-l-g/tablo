@@ -1306,11 +1306,11 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
     );
 }
 
-/// A resource the request's panel does not mount has no def there: its policy allows nothing and
-/// its scoped query is refused, where a context with no panel answers from its own declaration.
-#[test]
-fn an_unmounted_resource_is_refused_not_rebuilt() {
-    use crate::resource::{MountScope, Mounts, Resource};
+/// A resource no panel in the context mounts has no def: its policy allows nothing and its
+/// scoped query is refused, whether the context holds another panel or none at all.
+#[tokio::test]
+async fn an_unmounted_resource_is_refused_not_rebuilt() {
+    use crate::resource::Resource;
 
     struct UnmountedResource;
     impl Resource for UnmountedResource {
@@ -1322,15 +1322,18 @@ fn an_unmounted_resource_is_refused_not_rebuilt() {
         }
     }
 
-    let bare = topcoat::context::CxTestBuilder::new().build();
-    assert!(crate::can::<UnmountedResource>(&bare, Ability::ViewAny));
-    assert!(crate::scoped_query::<UnmountedResource>(&bare).is_ok());
-
-    let panel = topcoat::context::CxTestBuilder::new()
-        .app_context(MountScope(|_| Some(&EMPTY)))
+    let db = Db::builder()
+        .models(toasty::models!(Dummy))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let bare = topcoat::context::CxTestBuilder::new()
+        .app_context(db.clone())
         .build();
-    static EMPTY: std::sync::LazyLock<Mounts> = std::sync::LazyLock::new(Mounts::default);
-    assert!(!crate::can::<UnmountedResource>(&panel, Ability::ViewAny));
-    let refused = crate::scoped_query::<UnmountedResource>(&panel).expect_err("not mounted");
-    assert!(refused.to_string().contains("not mounted"), "{refused}");
+    let panel = Panel::new("admin").context(&db).expect("panel builds");
+    for cx in [bare, panel] {
+        assert!(!crate::can::<UnmountedResource>(&cx, Ability::ViewAny));
+        let refused = crate::scoped_query::<UnmountedResource>(&cx).expect_err("not mounted");
+        assert!(refused.to_string().contains("not mounted"), "{refused}");
+    }
 }

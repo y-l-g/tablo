@@ -113,14 +113,10 @@ async fn per_tenant_policy_deny_yields_403() {
 
 #[tokio::test]
 async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
-    use showcase::app::PostResource;
+    use showcase::app::{PostResource, admin_panel};
     use tablo_core::{Tenant, scoped_query};
-    use topcoat::context::CxTestBuilder;
     let (db, t1, _) = tenanted_db().await;
-    let cx_t1 = CxTestBuilder::new()
-        .app_context(db.clone())
-        .request_context(Tenant(t1))
-        .build();
+    let cx_t1 = admin_panel().context(&db).unwrap().with(Tenant(t1));
     let mut db_cx = tablo_core::db::db(&cx_t1);
     let rows = scoped_query::<PostResource>(&cx_t1)
         .unwrap()
@@ -426,14 +422,10 @@ async fn comments_edit_with_wrong_tenant_yields_404_via_resource_query() {
 
 #[tokio::test]
 async fn comments_query_scopes_directly_through_parent_post() {
-    use showcase::app::CommentResource;
+    use showcase::app::{CommentResource, admin_panel};
     use tablo_core::{Tenant, scoped_query};
-    use topcoat::context::CxTestBuilder;
     let (db, t1, t2) = tenanted_db().await;
-    let cx_t1 = CxTestBuilder::new()
-        .app_context(db.clone())
-        .request_context(Tenant(t1))
-        .build();
+    let cx_t1 = admin_panel().context(&db).unwrap().with(Tenant(t1));
     let mut db_cx = tablo_core::db::db(&cx_t1);
     let rows = scoped_query::<CommentResource>(&cx_t1)
         .unwrap()

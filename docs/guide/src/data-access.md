@@ -64,6 +64,29 @@ the table keeps its state in signals the page reads, so a change reruns your pag
 links point at your page's own URL. A page that renders two tables gives each a prefix with
 `.prefixed("posts")`, which spells its parameters `posts.q`, `posts.sort`, and so on.
 
+## Outside a request
+
+`scoped_query`, `can`, `write_create` and the other entry points that take a `Cx` answer from the
+resources a panel mounts, so code that runs outside a request, such as a background job, builds
+its context from the panel the app mounts. Build the panel in one function the router and the job
+share:
+
+```rust
+{{#include ../../../examples/guide/src/data_access.rs:data-access-panel}}
+```
+
+`Panel::context(&db)` mounts the panel's resources as `.panel(..)` does, refusing the same resource
+declaration errors, and returns a context holding the database and those resources, with no
+request, session or tenant. Add a tenant with `.with(Tenant(id))`:
+
+```rust
+{{#include ../../../examples/guide/src/data_access.rs:data-access-job}}
+```
+
+A context is one unit of work, as a request is: the loads it memoizes stay cached while it lives,
+so build one per job run. A context with no panel at all knows no resource, and every entry point
+answers as for a resource the panel does not mount.
+
 ## Schema setup
 
 `db.push_schema().await?` creates every registered table, which suits a prototype or a test. A

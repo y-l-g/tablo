@@ -222,7 +222,7 @@ async fn transport_keys_never_reach_the_write() {
 /// A failing driver write surfaces the opaque mapping, never driver text.
 #[tokio::test]
 async fn a_driver_create_failure_does_not_echo_driver_text() {
-    use topcoat::{context::CxTestBuilder, cookie::CookieJarCell};
+    use topcoat::cookie::CookieJarCell;
 
     use crate::{
         resource::Resource,
@@ -288,11 +288,8 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
         .unwrap()
         .into_parts()
         .0;
-    let cx = CxTestBuilder::new()
-        .app_context(db)
-        .request_context(parts)
-        .request_context(CookieJarCell::new())
-        .build();
+    let cx = crate::test_support::panel_cx::<WritingResource>(&db)
+        .with_many((parts, CookieJarCell::new()));
 
     let error = resource_create_post::<WritingResource>(
         &cx,
@@ -316,12 +313,12 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
 /// A failing driver write on update surfaces the opaque mapping, never driver text.
 #[tokio::test]
 async fn a_driver_update_failure_does_not_echo_driver_text() {
-    use topcoat::{
-        cookie::RouterBuilderCookieExt,
-        router::{RouteFn, RouteFuture, Router, response::IntoResponse},
+    use topcoat::router::{
+        RouteFn, RouteFuture, Router, RouterBuilderDiscoverExt, response::IntoResponse,
     };
 
     use crate::{
+        RouterBuilderPanelExt,
         resource::Resource,
         schema::{Field, Schema},
     };
@@ -419,12 +416,19 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         "the control must be a driver failure, got {driver:?}"
     );
 
+    // The route sits outside the panel's prefix, where the router's one panel still answers.
     let router = Router::builder()
-        .cookies()
+        .discover()
         .app_context(db)
+        .panel(
+            Panel::new("admin")
+                .auth(crate::Auth::disabled())
+                .resource::<EditingResource>(),
+        )
+        .expect("panel builds")
         .route(RouteFn::new(
             http::Method::POST,
-            "/admin/capture/{id}",
+            "/capture/{id}",
             edit_error,
         ))
         .build();
@@ -433,7 +437,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         .handle(
             http::Request::builder()
                 .method(http::Method::POST)
-                .uri(format!("/admin/capture/{}", row.id))
+                .uri(format!("/capture/{}", row.id))
                 .header(
                     http::header::CONTENT_TYPE,
                     "application/x-www-form-urlencoded",

@@ -17,8 +17,6 @@ fn messages(errors: &FieldErrors, key: &str) -> Vec<String> {
 
 #[tokio::test]
 async fn unique_check_flags_duplicates_for_marked_fields() {
-    use topcoat::context::CxTestBuilder;
-
     use crate::schema::{Field, Schema};
 
     struct SubscriberResource;
@@ -43,7 +41,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         .exec(&mut db)
         .await
         .unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = crate::test_support::panel_cx::<SubscriberResource>(&db);
     let mut ex = crate::db::db(&cx);
 
     let schema = Schema::new(Field::text(Subscriber::fields().email()).unique());
@@ -136,8 +134,6 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
 
 #[tokio::test]
 async fn unique_check_propagates_probe_errors() {
-    use topcoat::context::CxTestBuilder;
-
     use crate::schema::{Field, Schema};
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -166,7 +162,7 @@ async fn unique_check_propagates_probe_errors() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = crate::test_support::panel_cx::<ProbeResource>(&db);
     let mut ex = crate::db::db(&cx);
 
     let schema = Schema::new(Field::text(Probe::fields().email()).unique());

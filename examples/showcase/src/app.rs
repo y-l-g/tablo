@@ -496,8 +496,10 @@ fn url_segment(name: &str) -> String {
     out
 }
 
-pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
-    let mut panel = Panel::new("admin")
+/// The admin panel's resources and pages: what the router mounts, and what a background job builds
+/// its context from with [`Panel::context`].
+pub fn admin_panel() -> Panel {
+    Panel::new("admin")
         .auth(Auth::custom(StaffAuth))
         .brand(
             Brand::new("Tablo Blog").logo(
@@ -510,7 +512,11 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
         .resource::<PostResource>()
         .resource::<CommentResource>()
         .page::<MediaLibraryPage>()
-        .page::<LiveActivityPage>();
+        .page::<LiveActivityPage>()
+}
+
+pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
+    let mut panel = admin_panel();
     if let Ok(hint) = std::env::var("SHOWCASE_LOGIN_HINT")
         && !hint.trim().is_empty()
     {

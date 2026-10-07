@@ -50,8 +50,6 @@ pub fn wired_table<R: Resource>(
 /// `R`'s sidebar entry in the request's panel, with its label, URL and icon; `None` when the
 /// panel does not register `R`.
 pub fn navigation<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
-    // No panel at all means no sidebar entry; `mounted()` falls back to `R::declare()` for loaders.
-    topcoat::context::try_app_context::<crate::resource::MountScope>(cx)?;
     crate::resource::mounted::<R>(cx).map(|resource| resource.navigation.clone())
 }
 
