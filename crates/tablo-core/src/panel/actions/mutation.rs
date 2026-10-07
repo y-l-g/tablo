@@ -9,7 +9,9 @@
 //!
 //! An action that asks for input stops before the write until its input parses: the POST without
 //! the input page's marker renders that page, and one whose input is refused renders it again with
-//! the errors. Either rolls the transaction back unwritten.
+//! the errors. The input is parsed, validated and checked before the transaction opens, as a record
+//! form's submission is, and its relationship choices are re-checked inside it. A page renders
+//! only after the records pass every check, and rolls the transaction back unwritten.
 
 use std::collections::HashMap;
 
@@ -114,9 +116,11 @@ fn run_mutation<'a, R: Resource>(
         // A mutation carries no file parts: only the values half is read.
         let values = parse_form_body(cx, body).await?.values;
         crate::csrf::verify(cx, &values)?;
-        // The confirmation UI is the table's alert dialog, whose form carries `confirm=1`, so a
-        // missing marker is a malformed client, not a user path.
-        if action.confirm && !values.get("confirm").is_some_and(|v| truthy(v)) {
+        // The confirmation UI is the table's alert dialog, or the input page of an action with
+        // input, whose forms carry `confirm=1`, so a missing marker is a malformed client, not a
+        // user path. The POST that opens an input page writes nothing and needs none.
+        let writes = !action.takes_input || values.contains_key(SUBMITTED_KEY);
+        if action.confirm && writes && !values.get("confirm").is_some_and(|v| truthy(v)) {
             return Err(bad_request(format!("{} requires confirmation", action.name)).into());
         }
         let ids = match target {
@@ -134,6 +138,8 @@ fn run_mutation<'a, R: Resource>(
                 ids
             }
         };
+        // The input's checks may query, so they run before the transaction holds a connection.
+        let pending = read_input(cx, &action, &values).await?;
         // The fetched snapshot is the checked snapshot: the load, the checks and the write share
         // the transaction, and any error rolls it back.
         let mut db = db(cx);
@@ -154,13 +160,47 @@ fn run_mutation<'a, R: Resource>(
             let selected = rows.len() + skipped;
             format!(" ({skipped} of {selected} skipped)")
         });
-        let input = match read_input(cx, &action, &values).await? {
-            Ok(input) => input,
-            Err(page) => {
-                // The page's choices may query: release the connection first.
+        let title = || {
+            let label = (action.label)(cx);
+            match target {
+                Target::Row => format!("{label}: {}", resource.record_title(cx, &rows[0], &ids[0])),
+                Target::Bulk => {
+                    let count = rows.len();
+                    let noun = if count == 1 { "record" } else { "records" };
+                    format!(
+                        "{label}: {count} {noun}{}",
+                        skipped.as_deref().unwrap_or_default()
+                    )
+                }
+            }
+        };
+        let input = match pending {
+            Pending::Ready(input) => input,
+            Pending::Submitted {
+                input,
+                values: posted,
+            } => {
+                let schema = (action.input)();
+                let errors = schema.recheck_relationships(cx, &posted, &mut tx).await;
+                if !errors.is_empty() {
+                    let page = InputPage {
+                        values: posted,
+                        errors,
+                    };
+                    let title = title();
+                    // The page's choices may query: release the connection first.
+                    drop(tx);
+                    return page
+                        .render(cx, &resource, &action, target, &values, title)
+                        .await;
+                }
+                input
+            }
+            Pending::Page(page) => {
+                let title = title();
                 drop(tx);
                 return page
-                    .render(cx, &resource, &action, target, &values, rows.len(), skipped)
+                    .render(cx, &resource, &action, target, &values, title)
                     .await;
             }
         };
@@ -187,8 +227,21 @@ struct InputPage {
     errors: FieldErrors,
 }
 
-/// Reads the action's input from the POST: `Ok` with the parsed value to run with, or `Err` with
-/// the input page to render instead. An action that asks for nothing parses `()` from nothing.
+/// What the POST says about the action's input.
+enum Pending {
+    /// An action that asks for nothing, with the `()` it parsed from nothing.
+    Ready(ErasedInput),
+    /// A submission that parsed, validated and passed its checks, with its values for the
+    /// relationship re-check inside the transaction.
+    Submitted {
+        input: ErasedInput,
+        values: HashMap<String, String>,
+    },
+    /// The input page to render instead of running: blank, or holding a refused submission.
+    Page(InputPage),
+}
+
+/// Reads the action's input from the POST before the transaction opens.
 ///
 /// # Errors
 ///
@@ -197,13 +250,19 @@ async fn read_input<R: Resource>(
     cx: &Cx,
     action: &ActionEntry<R>,
     values: &HashMap<String, String>,
-) -> Result<Result<ErasedInput, InputPage>, topcoat::Error> {
-    if !action.takes_input() {
-        let parsed = (action.parse_input)(cx, &HashMap::new());
-        return Ok(Ok(parsed.expect("an action without input parses nothing")));
+) -> Result<Pending, topcoat::Error> {
+    if !action.takes_input {
+        // Mounting refuses an input with no field whose parse refuses an empty submission.
+        let input = (action.parse_input)(cx, &HashMap::new()).map_err(|_| {
+            crate::error::declaration(format!(
+                "action '{}' declares no input field but refuses an empty input",
+                action.name
+            ))
+        })?;
+        return Ok(Pending::Ready(input));
     }
     if !values.contains_key(SUBMITTED_KEY) {
-        return Ok(Err(InputPage {
+        return Ok(Pending::Page(InputPage {
             values: HashMap::new(),
             errors: FieldErrors::new(),
         }));
@@ -216,30 +275,31 @@ async fn read_input<R: Resource>(
         return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
     }
     let mut errors = FieldErrors::new();
-    match (action.parse_input)(cx, &input) {
-        Ok(parsed) => {
-            schema.check_controls(cx, &input, &mut errors).await;
-            if errors.is_empty() {
-                return Ok(Ok(parsed));
-            }
-        }
+    let parsed = match (action.parse_input)(cx, &input) {
+        Ok(parsed) => Some(parsed),
         Err(refused) => {
             for error in refused {
                 errors.push(error);
             }
-            schema.check_controls(cx, &input, &mut errors).await;
+            None
         }
+    };
+    schema.check_controls(cx, &input, &mut errors).await;
+    match parsed {
+        Some(parsed) if errors.is_empty() => Ok(Pending::Submitted {
+            input: parsed,
+            values: input,
+        }),
+        _ => Ok(Pending::Page(InputPage {
+            values: input,
+            errors,
+        })),
     }
-    Ok(Err(InputPage {
-        values: input,
-        errors,
-    }))
 }
 
 impl InputPage {
-    /// Renders the page, titled by the action and the `count` records it runs on, whose submit
-    /// POSTs back to this route with the input's marker, the confirmation and the selection.
-    #[allow(clippy::too_many_arguments)]
+    /// Renders the page titled `title`, whose submit POSTs back to this route with the input's
+    /// marker, the confirmation and the selection.
     async fn render<'a, R: Resource>(
         self,
         cx: &'a Cx,
@@ -247,17 +307,8 @@ impl InputPage {
         action: &ActionEntry<R>,
         target: Target,
         posted: &HashMap<String, String>,
-        count: usize,
-        skipped: Option<String>,
+        title: String,
     ) -> topcoat::Result<BoxView<'a>> {
-        let label = (action.label)(cx);
-        let title = match target {
-            Target::Row => label.clone(),
-            Target::Bulk => {
-                let noun = if count == 1 { "record" } else { "records" };
-                format!("{label}: {count} {noun}{}", skipped.unwrap_or_default())
-            }
-        };
         let mut hidden = vec![(SUBMITTED_KEY.to_string(), "1".to_string())];
         if action.confirm {
             hidden.push(("confirm".to_string(), "1".to_string()));
@@ -265,7 +316,8 @@ impl InputPage {
         if let (Target::Bulk, Some(ids)) = (target, posted.get("ids")) {
             hidden.push(("ids".to_string(), ids.clone()));
         }
-        let chrome = FormChrome::action(resource, title, label, action.confirm, hidden);
+        let chrome =
+            FormChrome::action(resource, title, (action.label)(cx), action.confirm, hidden);
         render_form_page(
             cx,
             &(action.input)(),

@@ -6,7 +6,9 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
 
-use crate::fields::{Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs};
+use crate::fields::{
+    Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs, last_segment,
+};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
@@ -59,12 +61,30 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             Ok(FieldSpec {
                 ident: field.ident.clone().expect("named field"),
                 ty: field.ty.clone(),
-                attrs: form_attrs(field, Derive::Input)?,
+                attrs: input_attrs(field)?,
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
     let krate = crate::tablo_core_path(&input.ident, "ActionInput")?;
     Ok(expand_struct(&krate, &input.ident, &fields))
+}
+
+/// The field's `#[form(..)]` keys, refusing a text input's on a `bool`, which renders a checkbox.
+fn input_attrs(field: &syn::Field) -> syn::Result<FormAttrs> {
+    let attrs = form_attrs(field, Derive::Input)?;
+    if last_segment(&field.ty).as_deref() == Some("bool") && attrs.options.is_none() {
+        let text_only = [
+            (attrs.multiline.is_some(), "`multiline`"),
+            (attrs.placeholder.is_some(), "`placeholder`"),
+        ];
+        if let Some((_, key)) = text_only.iter().find(|(set, _)| *set) {
+            return Err(syn::Error::new_spanned(
+                &field.ty,
+                format!("{key} applies to a text input, and a `bool` renders a checkbox"),
+            ));
+        }
+    }
+    Ok(attrs)
 }
 
 fn expand_struct(krate: &TokenStream2, ident: &syn::Ident, fields: &[FieldSpec]) -> TokenStream2 {
@@ -76,8 +96,7 @@ fn expand_struct(krate: &TokenStream2, ident: &syn::Ident, fields: &[FieldSpec])
         let key = field.ident.to_string();
         let key = key.trim_start_matches("r#");
         let binding = format_ident!("__read_{}", field.ident);
-        let is_bool =
-            matches!(ty, Type::Path(path) if path.qself.is_none() && path.path.is_ident("bool"));
+        let is_bool = last_segment(ty).as_deref() == Some("bool");
         let mut control = match &attrs.options {
             Some(options) => {
                 let options = options.as_ref().unwrap_or(ty);

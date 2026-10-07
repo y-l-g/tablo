@@ -11,7 +11,7 @@ be accepted before the implementation PR.
 | --- | --- |
 | `crates/tablo` | the facade an app depends on: `tablo-core` at its root, `ui`, `testing`, `prelude`, the driver features |
 | `crates/tablo-core` | Panel, Resource, Table, Schema, policy, auth, tenancy, uploads |
-| `crates/tablo-macros` | the `RecordForm`, `EmbeddedForm` and `Options` derives |
+| `crates/tablo-macros` | the `RecordForm`, `EmbeddedForm`, `ActionInput` and `Options` derives |
 | `crates/tablo-ui` | `primitives/` synced from `topcoat-ui-registry`, `composites/` owned here |
 | `crates/tablo-test` | the in-memory HTTP client, re-exported as `tablo::testing` |
 | `crates/tablo-build` | `tailwind()`, the app's Tailwind build over Tablo's sources |

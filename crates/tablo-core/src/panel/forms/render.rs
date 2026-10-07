@@ -23,7 +23,8 @@ use crate::{
 pub(crate) struct FormChrome {
     title: String,
     submit_label: String,
-    /// Whether the submit button renders destructive: an action that confirms.
+    /// Whether the submit button renders destructive: an action that confirms, whose page says
+    /// it cannot be undone.
     destructive: bool,
     public_link: Option<PublicLink>,
     /// Where Cancel leads without a `?return=` target: the resource's list.
@@ -136,6 +137,9 @@ pub(crate) async fn render_form_page<'a>(
         tablo_ui::page(
             tablo_ui::page_header(
                 tablo_ui::page_title((title.clone()))
+                if destructive {
+                    tablo_ui::page_description("This action cannot be undone.")
+                }
                 if let Some(link) = public_link {
                     tablo_ui::page_actions(
                         <a

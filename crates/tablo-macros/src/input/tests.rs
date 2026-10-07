@@ -20,7 +20,7 @@ fn expansion(source: &str) -> String {
         .map(|field| FieldSpec {
             ident: field.ident.clone().unwrap(),
             ty: field.ty.clone(),
-            attrs: form_attrs(field, Derive::Input).unwrap(),
+            attrs: input_attrs(field).unwrap(),
         })
         .collect();
     expand_struct(&quote! { ::tablo_core }, &input.ident, &fields).to_string()
@@ -53,6 +53,19 @@ fn a_text_key_with_options_is_refused() {
         let message = refusal(&format!("struct F {{ #[form({key}, options)] a: Status }}"));
         assert!(message.contains("declare one"), "{key}: {message}");
     }
+}
+
+#[test]
+fn a_text_key_on_a_bool_is_refused() {
+    for key in ["multiline = 3", "placeholder = \"x\""] {
+        let message = refusal(&format!("struct F {{ #[form({key})] a: bool }}"));
+        assert!(message.contains("checkbox"), "{key}: {message}");
+    }
+    let out = expansion("struct F { a: ::core::primitive::bool }");
+    assert!(
+        out.contains("toggle_input"),
+        "a spelled-out bool is a checkbox: {out}"
+    );
 }
 
 #[test]

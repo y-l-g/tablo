@@ -156,7 +156,10 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
             .await,
     )
     .await;
-    assert!(refused.contains("Tags is required"), "{refused}");
+    assert!(
+        tablo::testing::field_error(&refused, "tags").is_some(),
+        "{refused}"
+    );
 
     let resp = client
         .post_form(

@@ -12,7 +12,11 @@ pub(crate) use input::{RESERVED_KEYS, SUBMITTED_KEY};
 use topcoat::{Result, context::Cx};
 
 use super::{Mounted, Resource};
-use crate::{form::FieldError, policy::Ability, schema::Schema};
+use crate::{
+    form::{FieldError, FieldErrors},
+    policy::Ability,
+    schema::Schema,
+};
 
 /// A mutation beyond create, update and delete: "publish", "archive",
 /// "resend the invite".
@@ -82,7 +86,9 @@ use crate::{form::FieldError, policy::Ability, schema::Schema};
 ///
 /// An action that asks for an [`Input`](Self::Input) renders it as a form page first, after the
 /// same checks: its button opens the page, and the page's submit runs the action with the
-/// parsed value. A refused value renders the page again with its errors and writes nothing.
+/// parsed value. The submit parses the input, asks [`validate_input`](Self::validate_input) and
+/// checks its choices before the transaction opens, then re-checks a relationship choice inside
+/// it. A refused value renders the page again with its errors and writes nothing.
 ///
 /// A table renders no button and no bulk entry for an action the policy refuses `RunAny`, and no
 /// button on a row whose record fails `View`, `Run` or `can_run`. A row that no bulk action and no
@@ -134,8 +140,9 @@ pub trait Action<R: Resource>: 'static {
     /// Whether the action asks first through a confirmation dialog sharing the
     /// delete dialog's mechanism and destructive wording. Defaults to `false`.
     ///
-    /// An action with input confirms on its input page instead, whose submit renders
-    /// destructive. An unconfirmed POST answers 400.
+    /// An action with input confirms on its input page instead, which says the action cannot be
+    /// undone and whose submit renders destructive. An unconfirmed POST that would write answers
+    /// 400.
     const CONFIRM: bool = false;
 
     /// The button text.
@@ -149,6 +156,15 @@ pub trait Action<R: Resource>: 'static {
     /// changes who may run the action.
     fn can_run(_cx: &Cx, _record: &R::Model) -> bool {
         true
+    }
+
+    /// Refuse an input [`run`](Self::run) should not receive, such as a reason too short to
+    /// act on: each error names an input field's key and renders under its control. Defaults to
+    /// none.
+    ///
+    /// It runs after the input parses and before the transaction opens, so it sees no record.
+    fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors {
+        FieldErrors::new()
     }
 
     /// Perform the action on `records`, the records of the row or selection that
@@ -218,7 +234,8 @@ impl<R: Resource> Actions<R> {
             resource_wide: Ability::RunAny { action: A::NAME },
             can_run: can_run_erased::<R, A>,
             input: A::Input::schema,
-            parse_input: parse_input_erased::<A::Input>,
+            takes_input: !A::Input::schema().is_empty(),
+            parse_input: parse_input_erased::<R, A>,
             run: run_erased::<R, A>,
             success: A::success,
             acted: super::Committed::acted::<R, A>,
@@ -252,7 +269,9 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
     /// The input form's schema: empty for a delete and an action asking for nothing.
     pub(crate) input: fn() -> Schema,
-    /// Parses the input from a submission, as the value `run` takes.
+    /// Whether [`input`](Self::input) declares a field, so the mutation asks for it on a page.
+    pub(crate) takes_input: bool,
+    /// Parses and validates the input from a submission, as the value `run` takes.
     pub(crate) parse_input: fn(&Cx, &HashMap<String, String>) -> InputResult,
     pub(crate) run: for<'a> fn(
         &'a Cx,
@@ -296,7 +315,8 @@ impl<R: Resource> ActionEntry<R> {
             resource_wide: Ability::DeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
             input: Schema::empty,
-            parse_input: parse_input_erased::<()>,
+            takes_input: false,
+            parse_input: parse_nothing,
             run: if bulk {
                 bulk_delete_erased::<R>
             } else {
@@ -333,16 +353,22 @@ fn can_run_erased<R: Resource, A: Action<R>>(
     ) && A::can_run(cx, record)
 }
 
-impl<R: Resource> ActionEntry<R> {
-    /// Whether the mutation asks for input on a form page before it runs.
-    pub(crate) fn takes_input(&self) -> bool {
-        !(self.input)().is_empty()
+/// [`ActionInput::parse`], then [`Action::validate_input`], behind a function pointer.
+fn parse_input_erased<R: Resource, A: Action<R>>(
+    cx: &Cx,
+    values: &HashMap<String, String>,
+) -> InputResult {
+    let input = A::Input::parse(cx, values)?;
+    let refused: Vec<FieldError> = A::validate_input(cx, &input).into_iter().collect();
+    if !refused.is_empty() {
+        return Err(refused);
     }
+    Ok(Box::new(input))
 }
 
-/// [`ActionInput::parse`] behind a function pointer.
-fn parse_input_erased<I: ActionInput>(cx: &Cx, values: &HashMap<String, String>) -> InputResult {
-    I::parse(cx, values).map(|input| Box::new(input) as ErasedInput)
+/// A delete's input: nothing.
+fn parse_nothing(_cx: &Cx, _values: &HashMap<String, String>) -> InputResult {
+    Ok(Box::new(()))
 }
 
 /// [`Action::run`] behind a function pointer.

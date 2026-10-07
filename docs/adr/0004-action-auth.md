@@ -14,7 +14,10 @@ skipped from a bulk delete.
 An action that asks for input (`Action::Input`) renders it as a form page from the same POST
 route, after the same checks and before any write, and rolls the transaction back. The page's
 submit POSTs again with the input, which repeats every check inside a new transaction before `run`
-receives the parsed value; a refused value re-renders the page and writes nothing.
+receives the parsed value; a refused value re-renders the page and writes nothing. As for a record
+form, the input is parsed, validated and checked before the transaction opens, so a choice's
+option query never waits on the connection the transaction holds, and a relationship choice is
+re-checked inside it.
 
 `Resource::after_commit` runs once per committed write, after the commit and before the
 response: the place for side effects that must not survive a rollback. A failing hook logs and

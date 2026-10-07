@@ -114,7 +114,9 @@ mod topcoat_compat;
 pub mod upload;
 
 pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth, membership};
-pub use declaration::{DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site};
+pub use declaration::{
+    ActionInputFault, DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site,
+};
 pub use detail::{Detail, IntoDetail};
 pub use form::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
@@ -197,13 +199,18 @@ pub use table::{
 /// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
 /// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
 /// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
-/// - `#[form(options)]`, `#[form(options = T)]` — a choice.
+/// - `#[form(options)]`, `#[form(options = T)]` — a choice. An `Option<T>` field names its
+///   options type: `#[form(options = T)]`.
 ///
 /// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key,
-/// `multiline` or `placeholder` with `options`, and a field that is not a `FormScalar` are
-/// compile errors.
+/// `multiline` or `placeholder` with `options` or on a `bool`, and a field that is not a
+/// `FormScalar` are compile errors.
 /// [`RouterBuilderPanelExt::panel`] refuses a field named `csrf_token`, `confirm` or `ids`,
 /// the keys an action's POST carries besides its input.
+///
+/// A hand-written impl builds its fields with [`Field::text_input`], [`Field::choice_input`]
+/// and [`Field::toggle_input`]; its controls render without the `required` mark, though its
+/// `parse` still refuses what it requires.
 pub use tablo_macros::ActionInput;
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///

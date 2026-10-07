@@ -1,7 +1,7 @@
 //! Mounting a panel: [`RouterBuilderPanelExt::panel`], the declaration
 //! checks it runs, and the route-path helpers.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use toasty::Db;
 use topcoat::{
@@ -25,7 +25,7 @@ use super::{
     state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
-    DeclarationError, DeclarationErrorKind, MountError, Site,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, MountError, Site,
     auth::{PanelGate, RuntimeGate, SESSION_LIFETIME},
     declaration::segment_fault,
     form::RecordForm,
@@ -401,15 +401,16 @@ pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
                 .map(|kind| DeclarationError::of::<R>(site.clone(), kind)),
         );
     }
-    check_actions(&declared, errors);
+    check_actions(cx, &declared, errors);
     check_form_declaration(cx, &declared, form_is_sound, errors);
 }
 
 /// Every custom action's name is distinct among the resource's actions: the routes dispatch by
-/// it. Its input declares no misdeclared field and none the action's POST carries itself.
+/// it. Its input declares no misdeclared field, none the action's POST carries itself and no file
+/// field, and an input with no field parses an empty submission.
 /// [`ResourceDef::action`](crate::ResourceDef::action) checks each name is a route segment as
 /// it compiles.
-fn check_actions<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
+fn check_actions<R: Resource>(cx: &Cx, declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
     let mut seen = std::collections::HashSet::new();
     for action in declared.actions.entries() {
         if !seen.insert(action.name) {
@@ -420,14 +421,28 @@ fn check_actions<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declaratio
         }
         let input = (action.input)();
         let mut kinds = input.declaration_errors();
+        let mut faults: Vec<ActionInputFault> = input
+            .fields()
+            .filter_map(|field| {
+                let name = field.name().to_string();
+                if crate::resource::RESERVED_KEYS.contains(&name.as_str()) {
+                    Some(ActionInputFault::ReservedField(name))
+                } else if field.is_file() {
+                    Some(ActionInputFault::FileField(name))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if !action.takes_input && (action.parse_input)(cx, &HashMap::new()).is_err() {
+            faults.push(ActionInputFault::RefusesEmpty);
+        }
         kinds.extend(
-            input
-                .fields()
-                .map(|field| field.name())
-                .filter(|name| crate::resource::RESERVED_KEYS.contains(name))
-                .map(|name| DeclarationErrorKind::ReservedActionInput {
+            faults
+                .into_iter()
+                .map(|fault| DeclarationErrorKind::ActionInput {
                     action: action.name,
-                    field: name.to_string(),
+                    fault,
                 }),
         );
         errors.extend(
