@@ -4,9 +4,10 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
-    DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, Panel, PublicLink, QueryFilter,
-    RecordForm, Relation, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
-    SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, tenant_id, when,
+    CountColumn, DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, Panel, PublicLink,
+    QueryFilter, RecordForm, Relation, RelationColumn, Resource, ResourceDef,
+    RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
+    TextColumn, Uploader, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -226,20 +227,9 @@ fn post_view() -> Detail<Post> {
     ))
 }
 
-/// The post's author, by name: the list and the detail page load the relation it declares.
-fn post_author_column() -> ComputedColumn<Post> {
-    ComputedColumn::new("Author", |p: &Post| {
-        debug_assert!(
-            !p.author.is_unloaded(),
-            "the Author column declares `.include(Post::fields().author())`"
-        );
-        if p.author.is_unloaded() {
-            "(unloaded)".to_string()
-        } else {
-            p.author.get().name.clone()
-        }
-    })
-    .include(Post::fields().author())
+/// The post's author, by name.
+fn post_author_column() -> RelationColumn<Post> {
+    RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone())
 }
 
 /// The post list.
@@ -248,19 +238,8 @@ fn post_table() -> Table<Post> {
         TextColumn::new(lens!(Post.title)).searchable().sortable(),
         TextColumn::new(lens!(Post.status)).width(ColumnWidth::Narrow),
         BooleanColumn::new(lens!(Post.featured)),
-        post_author_column().width(ColumnWidth::Wide),
-        ComputedColumn::new("Comments", |p: &Post| {
-            debug_assert!(
-                !p.comments.is_unloaded(),
-                "the Comments column declares `.include(Post::fields().comments())`"
-            );
-            if p.comments.is_unloaded() {
-                "(unloaded)".to_string()
-            } else {
-                p.comments.get().len().to_string()
-            }
-        })
-        .include(Post::fields().comments()),
+        post_author_column(),
+        CountColumn::new(relation!(Post.comments)),
     ))
     .filters((
         SelectFilter::of(Post::fields().status()),
@@ -352,7 +331,7 @@ impl Resource for CommentResource {
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             .table(Table::new((
                 TextColumn::new(lens!(Comment.body)).searchable().sortable(),
-                comment_post_column().width(ColumnWidth::Wide),
+                comment_post_column(),
             )))
             .view(Detail::new(Section::new("Comment").columns((
                 TextColumn::new(lens!(Comment.body)),
@@ -370,20 +349,9 @@ impl Resource for CommentResource {
     }
 }
 
-/// The comment's post, by title: the list and the detail page load the relation it declares.
-fn comment_post_column() -> ComputedColumn<Comment> {
-    ComputedColumn::new("Post", |c: &Comment| {
-        debug_assert!(
-            !c.post.is_unloaded(),
-            "the Post column declares `.include(Comment::fields().post())`"
-        );
-        if c.post.is_unloaded() {
-            "(unloaded)".to_string()
-        } else {
-            c.post.get().title.clone()
-        }
-    })
-    .include(Comment::fields().post())
+/// The comment's post, by title.
+fn comment_post_column() -> RelationColumn<Comment> {
+    RelationColumn::new(relation!(Comment.post), |p: &Post| p.title.clone())
 }
 
 #[derive(tablo::RecordForm)]

@@ -18,6 +18,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Filter | A predicate a table adds to its query from a UI control. | Scope, Constraint, Where |
 | Field | One input in a schema, bound to a model column. | Input, Control, Widget |
 | Lens | A model field named once, pairing its query path with its value reader. | Accessor, Getter, statePath |
+| Relation lens | A relation field named once with `relation!`, pairing its include with its loaded-value reader; a relation column reads one. | Relation (alone), Association |
 | Embedded value | A `toasty::Embed` value stored as flattened columns, bound by a form as one value. | Nested form, Sub-form, Inline model |
 | Record form | The typed value a form submission parses into, one field per written column. | Patch, Draft, DTO, Form (alone) |
 | Blank answer | What a record-form field stores when submitted empty. A field with none is required. | Default, Nullable (for presence) |

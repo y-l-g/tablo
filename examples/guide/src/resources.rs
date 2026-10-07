@@ -100,15 +100,12 @@ impl Resource for PostResource {
             .tenancy(Tenancy::column(Post::fields().tenant_id()))
             // ANCHOR_END: post-tenancy
             // ANCHOR: post-view
-            .view(Detail::new(
-                Section::new("Post").columns((
-                    TextColumn::new(lens!(Post.title)),
-                    TextColumn::new(lens!(Post.body)),
-                    TextColumn::new(lens!(Post.status)),
-                    ComputedColumn::new("Author", |post: &Post| post.author.get().name.clone())
-                        .include(Post::fields().author()),
-                )),
-            ))
+            .view(Detail::new(Section::new("Post").columns((
+                TextColumn::new(lens!(Post.title)),
+                TextColumn::new(lens!(Post.body)),
+                TextColumn::new(lens!(Post.status)),
+                RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone()),
+            ))))
             // ANCHOR_END: post-view
             // ANCHOR: post-record-label
             .record_label(|_cx: &Cx, post: &Post| Some(post.title.clone()))

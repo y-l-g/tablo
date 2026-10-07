@@ -34,8 +34,10 @@ has no URL form, so its rows render without row actions or bulk selection.
 sorts and searches on (`User::fields().name()`) and the reader that renders the loaded value
 (`&user.name`). The two cannot disagree. A lens names a field of the model or, through an embedded
 value, its leaf (`lens!(Post.seo.title)`), which binds the flattened `seo_title` column; a lens
-through a relation does not compile, since a relation's records are not part of the row. Builders
-that only query, such as the filters and `Field` constructors, take either a lens or a plain path.
+through a relation does not compile, since a relation's records are not part of the row.
+`relation!(Post.author)` is a relation's lens: the include that loads it and the reader of the
+loaded records, which the relation columns take. Builders that only query, such as the filters and
+`Field` constructors, take either a lens or a plain path.
 
 ## Columns
 
@@ -43,6 +45,8 @@ that only query, such as the filters and `Field` constructors, take either a len
 | --- | --- | --- |
 | `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
+| `RelationColumn::new(relation!(..), project)` | `project` of a `Deferred` `belongs_to` or `has_one` field's record; empty for a nullable field holding none | neither |
+| `CountColumn::new(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
 | `BooleanColumn::new(lens)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
 | `EmbeddedColumn::new(lens)` | an embedded value's fields as `Label: value, …`; an enum's variant first, then that variant's fields | neither |
@@ -51,25 +55,30 @@ that only query, such as the filters and `Field` constructors, take either a len
 {{#include ../../../examples/guide/src/tables.rs:table-format}}
 ```
 
-- **Labels.** A field column is labelled from its field name (`created_at` → "Created at"), or
-  `.label(..)`; a computed column uses the label you pass.
+- **Labels.** A field or relation column is labelled from its field name (`created_at` →
+  "Created at"), or `.label(..)`; a computed column uses the label you pass. A relation column's
+  `.label(..)` also renames it, so two columns over one relation need two labels.
 - **Detail pages.** The same columns build a resource's [detail page](./detail-pages.md).
-- **Relations.** A computed column whose closure reads a relation declares it with
-  `.include(..)`, and the list and the export load it with the page's rows in one query. A
-  relation no column includes is not loaded. Guard the read so a missing include renders
-  `(unloaded)` instead of blank data:
+- **Relations.** A relation column declares the include its `relation!` names, so the list, the
+  export and the detail page load the related records with the page's rows. A relation no column
+  includes is not loaded; a `ComputedColumn` whose closure reads one, say to combine two, declares
+  each with `.include(..)`.
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-relation-column}}
 ```
 
+An include loads related rows through Toasty alone: the related resource's `query` and policy do
+not apply, so a relation column shows a record that resource hides, and a `CountColumn` counts it.
+A `CountColumn` counts the loaded list, so it loads every related record of the page's rows.
+
 - **Widths.** The table uses a fixed layout: a column's width is what it declares, not the width of
-  its widest cell, so paging and filtering never shift the columns. A field column takes an equal
-  share of the space left over; a computed column defaults to a narrow share of the table (10%,
-  scaled down when many columns claim one). Override with `.width(ColumnWidth::Percent(30))`,
-  `Rem(8)`, `Narrow` or `Wide`. A cell wider than its column is truncated with an ellipsis. On a
-  narrow screen the table keeps a minimum width and scrolls horizontally instead of narrowing its
-  columns.
+  its widest cell, so paging and filtering never shift the columns. A field or `RelationColumn`
+  takes an equal share of the space left over; a computed or count column defaults to a narrow
+  share of the table (10%, scaled down when many columns claim one). Override with
+  `.width(ColumnWidth::Percent(30))`, `Rem(8)`, `Narrow` or `Wide`. A cell wider than its column
+  is truncated with an ellipsis. On a narrow screen the table keeps a minimum width and scrolls
+  horizontally instead of narrowing its columns.
 
 Two columns with the same name, two filters with the same name, a select filter option its field's
 type does not parse, a table with no columns, and a zero page size are misdeclarations: mounting

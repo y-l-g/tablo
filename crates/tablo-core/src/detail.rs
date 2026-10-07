@@ -9,8 +9,8 @@ use crate::{
     DeclarationErrorKind, EmbeddedForm,
     schema::{FieldResolver, Grid, Group, Section},
     table::{
-        BooleanColumn, BoxColumn, Column, ComputedColumn, EmbeddedColumn, FileColumn, TextColumn,
-        include_relations,
+        BooleanColumn, BoxColumn, Column, ComputedColumn, CountColumn, EmbeddedColumn, FileColumn,
+        RelationColumn, TextColumn, include_relations,
     },
 };
 
@@ -29,16 +29,13 @@ use crate::{
 /// #     #[belongs_to(key = author_id, references = id)]
 /// #     author: toasty::Deferred<Author>,
 /// # }
-/// use tablo_core::{BooleanColumn, ComputedColumn, Detail, Section, TextColumn, lens};
+/// use tablo_core::{BooleanColumn, Detail, RelationColumn, Section, TextColumn, lens, relation};
 ///
-/// Detail::new(
-///     Section::new("Post").columns((
-///         TextColumn::new(lens!(Post.title)),
-///         BooleanColumn::new(lens!(Post.featured)),
-///         ComputedColumn::new("Author", |p: &Post| p.author.get().name.clone())
-///             .include(Post::fields().author()),
-///     )),
-/// );
+/// Detail::new(Section::new("Post").columns((
+///     TextColumn::new(lens!(Post.title)),
+///     BooleanColumn::new(lens!(Post.featured)),
+///     RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone()),
+/// )));
 /// ```
 ///
 /// The detail page loads the relations its columns declare ([`Column::includes`]) and renders each
@@ -271,7 +268,13 @@ macro_rules! column_details {
     };
 }
 
-column_details!(BooleanColumn, ComputedColumn, FileColumn);
+column_details!(
+    BooleanColumn,
+    ComputedColumn,
+    CountColumn,
+    FileColumn,
+    RelationColumn
+);
 
 /// The single-node [`IntoDetail`] impls of every layout block, holding columns or nothing.
 macro_rules! block_details {

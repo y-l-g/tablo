@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use jiff::Timestamp;
 use tablo_core::{
-    Ability, ComputedColumn, Field, Panel, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
-    Table, Tenancy, Tenant, TenantId, TextColumn, lens,
+    Ability, CountColumn, Field, Panel, RelationColumn, Resource, ResourceDef,
+    RouterBuilderPanelExt, Schema, Table, Tenancy, Tenant, TenantId, TextColumn, lens, relation,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
@@ -93,22 +93,8 @@ impl Resource for PostResource {
             .table(
                 Table::new((
                     TextColumn::new(lens!(Post.title)).searchable().sortable(),
-                    ComputedColumn::new("Author", |p: &Post| {
-                        if p.author.is_unloaded() {
-                            "-".to_string()
-                        } else {
-                            p.author.get().name.clone()
-                        }
-                    })
-                    .include(Post::fields().author()),
-                    ComputedColumn::new("Comments", |p: &Post| {
-                        if p.comments.is_unloaded() {
-                            "0".to_string()
-                        } else {
-                            p.comments.get().len().to_string()
-                        }
-                    })
-                    .include(Post::fields().comments()),
+                    RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone()),
+                    CountColumn::new(relation!(Post.comments)),
                 ))
                 .paginate(50),
             )

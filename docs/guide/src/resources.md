@@ -84,7 +84,8 @@ Two things do not belong in `query`:
 - **The tenant filter.** For a tenant-owned resource the framework adds it to `query` at every
   loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
 - **Relations.** The list, the export and the detail page load the relations their columns
-  declare with `ComputedColumn::include`. Include a relation in `query` only when every loader
+  declare: a `RelationColumn` or `CountColumn` declares its own, and a `ComputedColumn` declares
+  one with `include`. Include a relation in `query` only when every loader
   reads it, for example because the policy does.
 
 In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:

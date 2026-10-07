@@ -60,6 +60,8 @@ pub struct Post {
     pub author_id: uuid::Uuid,
     #[belongs_to(key = author_id, references = id)]
     pub author: toasty::Deferred<Author>,
+    #[has_many]
+    pub comments: toasty::Deferred<Vec<Comment>>,
     pub seo: Seo,
     pub deleted_at: Option<jiff::Timestamp>,
 }
@@ -69,6 +71,7 @@ pub struct Comment {
     #[key]
     #[auto]
     pub id: uuid::Uuid,
+    #[index]
     pub post_id: uuid::Uuid,
     #[belongs_to(key = post_id, references = id)]
     pub post: toasty::Deferred<Post>,
