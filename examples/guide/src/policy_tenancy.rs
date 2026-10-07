@@ -26,9 +26,15 @@ pub fn auth_models() {
 // ANCHOR_END: policy-models
 
 // ANCHOR: policy-hash-password
-pub fn admin_hash() -> Result<String> {
-    let password_hash = tablo_core::auth::hash_password("secret")?; // Argon2id
-    Ok(password_hash)
+pub async fn seed_admin(mut db: toasty::Db) -> Result<()> {
+    // Stores the password's Argon2id hash, never the plaintext.
+    tablo_core::auth::create_admin(&mut db, "admin@example.com", "secret", "Admin").await?;
+    Ok(())
+}
+
+/// Your own user table hashes with the same function.
+pub fn staff_hash() -> Result<String> {
+    tablo_core::auth::hash_password("secret")
 }
 // ANCHOR_END: policy-hash-password
 

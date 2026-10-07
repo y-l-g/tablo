@@ -2,15 +2,16 @@
 //! with Toasty.
 //!
 //! This crate is the one Tablo dependency an app names, beside `topcoat` and
-//! `toasty` at the revisions Tablo pins:
-//!
-//! ```toml
-//! [dependencies]
-//! tablo = { git = "https://github.com/y-l-g/tablo", features = ["sqlite"] }
-//!
-//! [build-dependencies]
-//! tablo-build = { git = "https://github.com/y-l-g/tablo" }
-//! ```
+//! `toasty` at the versions Tablo uses:
+#![doc = concat!(
+    "```toml\n",
+    "[dependencies]\n",
+    "tablo = { version = \"", env!("CARGO_PKG_VERSION"), "\", features = [\"sqlite\"] }\n",
+    "\n",
+    "[build-dependencies]\n",
+    "tablo-build = \"", env!("CARGO_PKG_VERSION"), "\"\n",
+    "```\n",
+)]
 //!
 //! It re-exports [`tablo_core`] at its root, the UI components as [`ui`], and
 //! the in-memory HTTP client as `testing` with the `testing` feature; the driver

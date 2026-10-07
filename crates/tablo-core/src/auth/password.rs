@@ -84,6 +84,38 @@ impl Authenticator for PasswordAuth {
     }
 }
 
+/// Creates an active [`AdminUser`] that signs in with `email` and `password`, storing only the
+/// password's Argon2id hash: the account a new app seeds to reach its panel.
+///
+/// ```rust,no_run
+/// # async fn seed(mut db: toasty::Db) -> topcoat::Result<()> {
+/// tablo_core::auth::create_admin(&mut db, "admin@example.com", "secret", "Admin").await?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Errors
+///
+/// Hashing fails, or the insert does: an email another account holds is refused by its unique
+/// index.
+pub async fn create_admin(
+    ex: &mut dyn toasty::Executor,
+    email: &str,
+    password: &str,
+    display_name: &str,
+) -> topcoat::Result<AdminUser> {
+    let admin = toasty::create!(AdminUser {
+        email: email.to_string(),
+        password_hash: hash_password(password)?,
+        display_name: display_name.to_string(),
+        active: true,
+        created_at: Timestamp::now(),
+    })
+    .exec(ex)
+    .await?;
+    Ok(admin)
+}
+
 /// Hashes a password with Argon2id into a PHC string for storage; never stores
 /// the plaintext.
 pub fn hash_password(password: &str) -> topcoat::Result<String> {

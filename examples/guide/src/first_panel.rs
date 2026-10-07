@@ -2,7 +2,7 @@
 
 /// The login page needs these two tables registered alongside the model.
 // ANCHOR: book-app
-use tablo::auth::{AdminUser, AuthSession, hash_password};
+use tablo::auth::{AdminUser, AuthSession, create_admin};
 use tablo::prelude::*;
 use toasty::Db;
 use topcoat::{
@@ -53,15 +53,7 @@ pub async fn main() -> Result<()> {
     db.push_schema().await?;
 
     // One account to sign in with.
-    toasty::create!(AdminUser {
-        email: "admin@example.com".to_string(),
-        password_hash: hash_password("secret")?,
-        display_name: "Admin".to_string(),
-        active: true,
-        created_at: jiff::Timestamp::now(),
-    })
-    .exec(&mut db)
-    .await?;
+    create_admin(&mut db, "admin@example.com", "secret", "Admin").await?;
 
     let router = Router::builder()
         .discover()

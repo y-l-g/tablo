@@ -326,6 +326,18 @@ into_detail_tuples!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
 into_detail_tuples!(
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h
 );
+into_detail_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i
+);
+into_detail_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j
+);
+into_detail_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k
+);
+into_detail_tuples!(
+    A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l
+);
 
 #[cfg(test)]
 mod tests;

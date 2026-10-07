@@ -59,12 +59,10 @@ fn vendored_components(registry: &Registry) -> anyhow::Result<Vec<Component<'_>>
 }
 
 fn vendored_files(components: &[Component<'_>]) -> HashSet<String> {
-    let mut files: HashSet<String> = components
+    components
         .iter()
         .map(|component| component.file_name().to_string())
-        .collect();
-    files.insert("mod.rs".to_string());
-    files
+        .collect()
 }
 
 /// Prepends to every synced file, where `hash` is the registry source's `sha256:` content hash.
@@ -78,6 +76,11 @@ fn mod_header(version: &str) -> String {
     format!(
         "// SYNC: topcoat-ui-registry@{version} — generated from the registry manifest. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).\n"
     )
+}
+
+/// The `primitives` module file beside [`primitives_dir`], which declares each vendored component.
+fn primitives_mod(dst_dir: &Path) -> PathBuf {
+    dst_dir.with_extension("rs")
 }
 
 pub fn primitives_dir() -> PathBuf {
@@ -230,7 +233,7 @@ fn locate_registry() -> anyhow::Result<(Registry, String)> {
 const HINT: &str = "run `cargo xtask sync-topcoat-ui` to restore the verbatim copy";
 
 /// Copies every component in [`VENDORED_PRIMITIVES`] into `primitives/` verbatim under a SYNC
-/// header, then regenerates `mod.rs`.
+/// header, then regenerates `primitives.rs`.
 ///
 /// `prune` also deletes vendored files absent from the vendored set; without it, orphans are only
 /// reported.
@@ -270,8 +273,7 @@ pub fn sync_topcoat_ui(dry_run: bool, prune: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Deletes vendored files absent from [`VENDORED_PRIMITIVES`], never pruning the regenerated
-/// `mod.rs`; dry runs only report.
+/// Deletes vendored files absent from [`VENDORED_PRIMITIVES`]; dry runs only report.
 fn prune_orphans(
     dst_dir: &Path,
     components: &[Component<'_>],
@@ -308,7 +310,7 @@ fn ensure_primitives_mod(
     components: &[Component<'_>],
     dry_run: bool,
 ) -> anyhow::Result<()> {
-    let mod_path = dst_dir.join("mod.rs");
+    let mod_path = primitives_mod(dst_dir);
     let mut content = mod_header(version);
     for component in components {
         content.push_str(&format!("pub mod {};\n", component.name()));
@@ -370,7 +372,7 @@ pub fn verify_sync() -> anyhow::Result<()> {
         }
     }
 
-    let mod_path = dst_dir.join("mod.rs");
+    let mod_path = primitives_mod(&dst_dir);
     let mut expected = mod_header(&version);
     for component in &components {
         expected.push_str(&format!("pub mod {};\n", component.name()));
