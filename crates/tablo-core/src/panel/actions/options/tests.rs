@@ -137,12 +137,11 @@ async fn options_endpoint_searches_and_gates() {
 #[tokio::test]
 async fn option_load_loads_no_relation() {
     // An option load projects a value and a label off the related record's
-    // own columns, so it loads no relation. The source's detail query and its
-    // list column both include `parent`, and `View` keeps a row only while
-    // that relation is unloaded, so a rendered option proves the loader ran
-    // the bare `scoped_query`, not either of those.
+    // own columns, so it loads no relation. The source's detail page and its
+    // list both declare a column including `parent`, and `View` keeps a row
+    // only while that relation is unloaded, so a rendered option proves the
+    // loader ran the bare `scoped_query`, not either of those.
     use http_body_util::BodyExt;
-    use toasty::stmt::{Include, List, Query};
 
     use crate::resource::Resource;
 
@@ -166,9 +165,9 @@ async fn option_load_loads_no_relation() {
         parent: toasty::Deferred<Parent>,
     }
 
-    fn with_parent() -> Query<List<Child>> {
-        let inc: Include<Child, Parent> = Child::fields().parent().into();
-        Query::<List<Child>>::all().include(inc)
+    fn name_with_parent() -> crate::table::ComputedColumn<Child> {
+        crate::table::ComputedColumn::new("Name", |c: &Child| c.name.clone())
+            .include(Child::fields().parent())
     }
 
     struct ChildSource;
@@ -184,14 +183,8 @@ async fn option_load_loads_no_relation() {
                     Ability::View(record) => record.parent.is_unloaded(),
                     _ => false,
                 })
-                .table(crate::table::Table::new(
-                    crate::table::ComputedColumn::new("Name", |c: &Child| c.name.clone())
-                        .include(Child::fields().parent()),
-                ))
-        }
-
-        fn view_query(_cx: &Cx) -> Query<List<Child>> {
-            with_parent()
+                .table(crate::table::Table::new(name_with_parent()))
+                .view(crate::Detail::new(name_with_parent()))
         }
     }
 

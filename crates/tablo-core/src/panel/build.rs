@@ -384,8 +384,9 @@ pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     }
     let form_errors = declared.form.declaration_errors();
     let form_is_sound = form_errors.is_empty();
-    let view_errors = if declared.has_own_view() {
-        declared.view().declaration_errors()
+    // A derived view mirrors the record form, whose mistakes the form already reports.
+    let view_errors = if declared.declares_view {
+        declared.view.declaration_errors()
     } else {
         Vec::new()
     };

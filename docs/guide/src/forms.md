@@ -113,11 +113,12 @@ validation state:
 {{#include ../../../examples/guide/src/forms.rs:forms-color-control}}
 ```
 
-`display` renders the stored value on the detail page, as text by default. The submission is read
-like any other field's: the value posted under the field's key, the last one when it is posted
-twice, parsed by the record form. `Field::toggle` is built this way: `Toggle` renders a hidden
-`false` before the checkbox under the same name, so an unchecked box submits `false` rather than
-nothing, and a `bool` record-form field reads an empty submission as `false`.
+A control renders only the form; the detail page shows the value through a
+[column](./detail-pages.md#what-the-page-shows). The submission is read like any other field's:
+the value posted under the field's key, the last one when it is posted twice, parsed by the record
+form. `Field::toggle` is built this way: `Toggle` renders a hidden `false` before the checkbox
+under the same name, so an unchecked box submits `false` rather than nothing, and a `bool`
+record-form field reads an empty submission as `false`.
 
 ### Typed values
 
@@ -214,9 +215,9 @@ Where the bytes go is your app's decision. Install an `Uploader` on the panel:
   field. The input is required only while nothing is stored, and clearing a required field fails
   validation, so declare the record-form field `#[form(optional)]` when a record may lose its
   file.
-- **Links.** The stored value renders as a link, on the edit form and the detail page, only when
-  it is a root-relative path (`/uploads/a.png`, not `//host`) or an `http(s)` URL; anything else
-  renders as text.
+- **Links.** The stored value renders as a link, on the edit form and in a `FileColumn` on the
+  detail page, only when it is a root-relative path (`/uploads/a.png`, not `//host`) or an
+  `http(s)` URL; anything else renders as text.
 - **Serving.** `Panel::serve_dir(path, dir)` serves a directory, and the served files are
   **public**: the auth gate does not cover them. An app that needs protected files serves them
   from its own route. See [Security](./security.md) for the headers served files carry.
@@ -247,6 +248,8 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
   which fields are read and validated, so a stale value in a hidden group never blocks a submit.
   Without JavaScript only the stored variant's group shows, so a create page offers no variant's
   fields, and the variant choice still decides.
+- On the detail page, `EmbeddedColumn::new(lens!(Post.seo))` shows each field of the value under
+  its own label; an enum shows its variant's name and that variant's fields only.
 - Not supported inside a value: a `#[document]` field, a relation, an enum nested inside an enum
   variant, and tuple structs.
 

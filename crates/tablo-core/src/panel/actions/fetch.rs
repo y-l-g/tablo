@@ -54,7 +54,7 @@ pub(super) fn composite_pk_error<R: Resource>(resource: &Mounted<R>) -> Option<t
     )
 }
 
-/// The shared body of [`find_by_key`] and [`load_detail`]: parse the URL id
+/// The shared body of [`find_by_key`] and [`find_detail`]: parse the URL id
 /// against the model's primary key, then fetch the one row through `seed`.
 ///
 /// `seed` is a closure so the composite-PK misdeclaration is reported before
@@ -100,18 +100,32 @@ pub(crate) async fn load_viewable<R: Resource>(
     check_viewable(cx, resource, find_by_key(cx, resource, &id, ex).await?)
 }
 
-/// [`load_viewable`] for the detail page: the same key, scope and policy, over
-/// [`Resource::view_query`] so the relations the page reads off the record
-/// arrive loaded. The caller
-/// 404s a resource that declares no detail page.
+/// [`load_viewable`] for the detail page: the same key, scope and policy, plus
+/// the relations the page's columns declare. The caller 404s a resource that
+/// declares no detail page.
 pub(crate) async fn load_detail<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
     ex: &mut dyn toasty::Executor,
 ) -> Result<R::Model> {
     let id = topcoat::router::path_param_segment(cx, "id").to_string();
-    let record = find_by_key_in(resource, &id, ex, || resource.scoped_view_query(cx)).await?;
-    check_viewable(cx, resource, record)
+    check_viewable(cx, resource, find_detail(cx, resource, &id, ex).await?)
+}
+
+/// [`find_by_key`] with the relations the detail page's columns declare, so
+/// they arrive loaded.
+async fn find_detail<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    id: &str,
+    ex: &mut dyn toasty::Executor,
+) -> Result<R::Model> {
+    find_by_key_in(resource, id, ex, || {
+        resource
+            .scoped_query(cx)
+            .map(|query| resource.view.include_relations(query))
+    })
+    .await
 }
 
 /// 403 unless `View` accepts the loaded snapshot.

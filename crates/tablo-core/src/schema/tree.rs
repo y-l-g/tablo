@@ -39,35 +39,16 @@ impl std::fmt::Debug for Unbound {
     }
 }
 
-/// Holds where a schema render reads field values and errors from for a form or a read-only view.
+/// Holds the values and errors a schema's controls render with.
 pub struct Source<'a> {
     values: &'a HashMap<String, String>,
-    errors: Option<&'a FieldErrors>,
+    errors: &'a FieldErrors,
 }
 
 impl<'a> Source<'a> {
     /// Renders controls hydrated with `values` and inline `errors`.
     pub fn form(values: &'a HashMap<String, String>, errors: &'a FieldErrors) -> Self {
-        Self {
-            values,
-            errors: Some(errors),
-        }
-    }
-
-    /// Renders a record's `values` read-only and renders a missing key as `(missing)`.
-    pub fn view(values: &'a HashMap<String, String>) -> Self {
-        Self {
-            values,
-            errors: None,
-        }
-    }
-
-    pub(crate) fn mode(&self) -> Mode {
-        if self.errors.is_some() {
-            Mode::Form
-        } else {
-            Mode::View
-        }
+        Self { values, errors }
     }
 
     pub(crate) fn value(&self, name: &str) -> Option<&str> {
@@ -77,16 +58,9 @@ impl<'a> Source<'a> {
     /// Returns the message the field `field` renders under its control.
     pub(crate) fn error_for(&self, field: &Field) -> Option<String> {
         self.errors
-            .and_then(|errors| errors.first(field.name()))
+            .first(field.name())
             .map(|error| error.message(field.label_str()))
     }
-}
-
-/// Distinguishes a form render from a read-only view.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Mode {
-    Form,
-    View,
 }
 
 impl Node {
@@ -101,13 +75,7 @@ impl Node {
             Node::Field(index) => {
                 let field = &fields[*index];
                 let error = source.error_for(field);
-                Box::pin(field.render(
-                    cx,
-                    source.value(field.name()),
-                    error.as_deref(),
-                    source.mode(),
-                ))
-                .await
+                Box::pin(field.render(cx, source.value(field.name()), error.as_deref())).await
             }
             Node::Section(s) => Box::pin(s.render(cx, fields, source)).await,
             Node::Group(g) => Box::pin(g.render(cx, fields, source)).await,
@@ -231,17 +199,24 @@ impl IntoSchema for Field {
     }
 }
 
-/// Generates the single-node [`IntoSchema`] impl for every layout container.
+/// Generates the single-node [`IntoSchema`] impls for every layout container, holding a schema or
+/// nothing.
 macro_rules! container_nodes {
     ($($ty:ident),+ $(,)?) => {
         $(
-            impl IntoSchema for $ty {
+            impl IntoSchema for $ty<Schema> {
                 fn into_schema(mut self) -> Schema {
                     let fields = std::mem::take(&mut self.children.fields);
                     Schema {
                         nodes: vec![Node::$ty(Box::new(self))],
                         fields,
                     }
+                }
+            }
+
+            impl IntoSchema for $ty<()> {
+                fn into_schema(self) -> Schema {
+                    self.holding(Schema::empty()).into_schema()
                 }
             }
         )+

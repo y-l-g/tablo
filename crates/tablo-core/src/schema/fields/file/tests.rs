@@ -80,16 +80,9 @@ async fn render_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String 
         .render(cx)
 }
 
-/// The same field on a detail page (`Mode::View`).
-async fn render_readonly_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String {
-    let mut values = HashMap::new();
-    if let Some(value) = value {
-        values.insert("path".to_string(), value.to_string());
-    }
-    schema
-        .render(cx, Source::view(&values))
-        .await
-        .unwrap()
+/// The same stored path as a detail page's [`FileColumn`](crate::FileColumn) shows it.
+async fn render_readonly_upload(cx: &Cx, value: Option<&str>) -> String {
+    stored_upload(cx, value.unwrap_or_default())
         .single()
         .await
         .unwrap()
@@ -195,8 +188,8 @@ async fn file_upload_links_the_stored_file() {
 /// the link is how they answer it.
 #[tokio::test]
 async fn file_upload_view_mode_links_the_stored_file() {
-    let (cx, schema) = cx_and_doc_schema();
-    let html = render_readonly_upload(&schema, &cx, Some("/uploads/cover.png")).await;
+    let cx = cx();
+    let html = render_readonly_upload(&cx, Some("/uploads/cover.png")).await;
     assert!(
         tag_with(&html, "href=\"/uploads/cover.png\"").starts_with("<a"),
         "a detail page must link the stored file, got {html}"
@@ -211,7 +204,7 @@ async fn file_upload_view_mode_links_the_stored_file() {
     );
 
     // Nothing stored is not a link to nowhere.
-    let empty = render_readonly_upload(&schema, &cx, Some("")).await;
+    let empty = render_readonly_upload(&cx, Some("")).await;
     assert!(
         !empty.contains("href="),
         "an empty stored value must not render a link, got {empty}"
@@ -243,7 +236,7 @@ async fn file_upload_links_only_a_rooted_or_http_url() {
             edit.contains(&format!("data-file-current=\"{refused}\"")),
             "{refused} must stay visible on the form, got {edit}"
         );
-        let view = render_readonly_upload(&schema, &cx, Some(refused)).await;
+        let view = render_readonly_upload(&cx, Some(refused)).await;
         assert!(
             !view.contains("href="),
             "{refused} must not become a link on the detail page, got {view}"
@@ -260,7 +253,7 @@ async fn file_upload_links_only_a_rooted_or_http_url() {
             tag_with(&edit, &format!("href=\"{linkable}\"")).starts_with("<a"),
             "{linkable} must stay a link on the form, got {edit}"
         );
-        let view = render_readonly_upload(&schema, &cx, Some(linkable)).await;
+        let view = render_readonly_upload(&cx, Some(linkable)).await;
         assert!(
             tag_with(&view, &format!("href=\"{linkable}\"")).starts_with("<a"),
             "{linkable} must stay a link on the detail page, got {view}"
@@ -283,8 +276,8 @@ async fn file_upload_renders_any_extension_identically() {
         );
     }
 
-    let png = render_readonly_upload(&schema, &cx, Some("/uploads/cover.png")).await;
-    let txt = render_readonly_upload(&schema, &cx, Some("/uploads/cover.txt")).await;
+    let png = render_readonly_upload(&cx, Some("/uploads/cover.png")).await;
+    let txt = render_readonly_upload(&cx, Some("/uploads/cover.txt")).await;
     assert_eq!(
         stored_attributes(&png, "href=", "/uploads/cover.png"),
         stored_attributes(&txt, "href=", "/uploads/cover.txt"),

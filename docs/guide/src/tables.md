@@ -44,13 +44,16 @@ that only query, such as the filters and `Field` constructors, take either a len
 | `TextColumn::new(lens)` | the field's value as text, or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
 | `BooleanColumn::new(lens)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
+| `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
+| `EmbeddedColumn::new(lens)` | an embedded value's fields as `Label: value, …`; an enum's variant first, then that variant's fields | neither |
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-format}}
 ```
 
-- **Labels.** A field column is labelled from its field name (`created_at` → "Created at"); a
-  computed column uses the label you pass.
+- **Labels.** A field column is labelled from its field name (`created_at` → "Created at"), or
+  `.label(..)`; a computed column uses the label you pass.
+- **Detail pages.** The same columns build a resource's [detail page](./detail-pages.md).
 - **Relations.** A computed column whose closure reads a relation declares it with
   `.include(..)`, and the list and the export load it with the page's rows in one query. A
   relation no column includes is not loaded. Guard the read so a missing include renders

@@ -1,9 +1,10 @@
-//! Table columns: the [`Column`] trait, the built-in [`TextColumn`], [`ComputedColumn`] and
-//! [`BooleanColumn`], and the [`IntoColumns`] seam.
+//! Table and detail columns: the [`Column`] trait, the built-in [`TextColumn`],
+//! [`ComputedColumn`], [`BooleanColumn`], [`FileColumn`] and [`EmbeddedColumn`], and the
+//! [`IntoColumns`] seam.
 
 use std::{borrow::Cow, sync::Arc};
 
-use toasty::stmt::{Expr, OrderByExpr};
+use toasty::stmt::{Expr, List, OrderByExpr, Query};
 use topcoat::{context::Cx, icon::icon, view::*};
 
 use crate::{
@@ -12,7 +13,12 @@ use crate::{
     schema::{Binding, FieldResolver},
 };
 
-/// One table column declares its header, its cell, and its query predicates.
+mod embedded;
+
+pub use embedded::EmbeddedColumn;
+
+/// One column of a table or a [`Detail`](crate::Detail) declares its label, its value read off
+/// the record, and its query predicates.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -54,6 +60,12 @@ pub trait Column<M>: Send + Sync {
         view! { cx => (text) }.boxed()
     }
 
+    /// The record's entry on a detail page: the [`label`](Self::label) over the
+    /// [`cell`](Self::cell).
+    fn entry<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        crate::schema::read_only(cx, self.label(), self.cell(cx, row))
+    }
+
     /// The width the column claims.
     fn column_width(&self) -> ColumnWidth {
         ColumnWidth::Narrow
@@ -79,7 +91,7 @@ pub trait Column<M>: Send + Sync {
         None
     }
 
-    /// The relations [`text`](Self::text) and [`cell`](Self::cell) read.
+    /// The relations [`text`](Self::text), [`cell`](Self::cell) and [`entry`](Self::entry) read.
     fn includes(&self) -> Includes<M> {
         Includes::new()
     }
@@ -146,6 +158,24 @@ impl<M> Includes<M> {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+}
+
+/// Include in `query` every relation `columns` declare, once each.
+pub(crate) fn include_relations<'c, M>(
+    mut query: Query<List<M>>,
+    columns: impl IntoIterator<Item = &'c BoxColumn<M>>,
+) -> Query<List<M>>
+where
+    M: toasty::schema::Model + 'c,
+{
+    let mut seen: Vec<crate::toasty_compat::UntypedInclude> = Vec::new();
+    for include in columns.into_iter().flat_map(|c| c.includes().into_vec()) {
+        if !seen.contains(&include) {
+            query = query.include(include.clone());
+            seen.push(include);
+        }
+    }
+    query
 }
 
 /// The share of the table a [`ColumnWidth::Narrow`] column claims, in whole
@@ -223,6 +253,8 @@ impl ColumnWidth {
 pub struct TextColumn<M, T> {
     lens: Lens<M, T>,
     binding: Binding,
+    /// The declared label, over the binding's.
+    label: Option<String>,
     format: Arc<dyn Fn(&T) -> String + Send + Sync>,
     /// The `LIKE` predicate for a search pattern, when [`searchable`](Self::searchable).
     search: Option<SearchFn>,
@@ -278,6 +310,7 @@ where
         Self {
             lens,
             binding,
+            label: None,
             format: Arc::new(T::to_form),
             search: None,
             sortable: false,
@@ -294,6 +327,12 @@ where
     /// Make the header a sort link.
     pub fn sortable(mut self) -> Self {
         self.sortable = true;
+        self
+    }
+
+    /// Replace the label the field's name gives it.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -329,7 +368,7 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     fn text(&self, row: &M) -> String {
@@ -376,6 +415,7 @@ impl<M, T> Clone for TextColumn<M, T> {
         Self {
             lens: self.lens.clone(),
             binding: self.binding.clone(),
+            label: self.label.clone(),
             format: Arc::clone(&self.format),
             search: self.search.clone(),
             sortable: self.sortable,
@@ -388,7 +428,10 @@ impl<M, T> std::fmt::Debug for TextColumn<M, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TextColumn")
             .field("name", &self.binding.name())
-            .field("label", &self.binding.label())
+            .field(
+                "label",
+                &self.label.as_deref().unwrap_or(self.binding.label()),
+            )
             .field("searchable", &self.search.is_some())
             .field("sortable", &self.sortable)
             .field("width", &self.width)
@@ -520,6 +563,8 @@ impl<M> std::fmt::Debug for ComputedColumn<M> {
 pub struct BooleanColumn<M> {
     lens: Lens<M, bool>,
     binding: Binding,
+    /// The declared label, over the binding's.
+    label: Option<String>,
     sortable: bool,
     labels: (String, String),
     width: ColumnWidth,
@@ -535,6 +580,7 @@ where
         Self {
             lens,
             binding,
+            label: None,
             sortable: false,
             labels: ("Yes".to_string(), "No".to_string()),
             width: ColumnWidth::Narrow,
@@ -544,6 +590,12 @@ where
     /// Make the header a sort link.
     pub fn sortable(mut self) -> Self {
         self.sortable = true;
+        self
+    }
+
+    /// Replace the label the field's name gives it.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -569,7 +621,7 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     fn text(&self, row: &M) -> String {
@@ -630,6 +682,7 @@ impl<M> Clone for BooleanColumn<M> {
         Self {
             lens: self.lens.clone(),
             binding: self.binding.clone(),
+            label: self.label.clone(),
             sortable: self.sortable,
             labels: self.labels.clone(),
             width: self.width,
@@ -641,8 +694,114 @@ impl<M> std::fmt::Debug for BooleanColumn<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BooleanColumn")
             .field("name", &self.binding.name())
-            .field("label", &self.binding.label())
+            .field(
+                "label",
+                &self.label.as_deref().unwrap_or(self.binding.label()),
+            )
             .field("sortable", &self.sortable)
+            .field("width", &self.width)
+            .finish_non_exhaustive()
+    }
+}
+
+/// A column of a `String` field holding an uploaded file's path, rendered as a link to the file.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Doc { #[key] #[auto] id: uuid::Uuid, path: String }
+/// tablo_core::FileColumn::new(tablo_core::lens!(Doc.path));
+/// ```
+///
+/// The cell links a rooted path or an absolute `http(s)` URL, the same rule a
+/// [`Field::file`](crate::Field::file) control applies, and shows any other value as text.
+pub struct FileColumn<M> {
+    lens: Lens<M, String>,
+    binding: Binding,
+    /// The declared label, over the binding's.
+    label: Option<String>,
+    width: ColumnWidth,
+}
+
+impl<M> FileColumn<M>
+where
+    M: toasty::schema::Model,
+{
+    /// Bind the column to the `String` field `lens` reads.
+    pub fn new(lens: Lens<M, String>) -> Self {
+        let binding = Binding::of(&lens.path().clone());
+        Self {
+            lens,
+            binding,
+            label: None,
+            width: ColumnWidth::Wide,
+        }
+    }
+
+    /// Replace the label the field's name gives it.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Declare this column's width.
+    pub fn width(mut self, width: ColumnWidth) -> Self {
+        self.width = width;
+        self
+    }
+}
+
+impl<M> Column<M> for FileColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn name(&self) -> &str {
+        self.binding.name()
+    }
+
+    fn label(&self) -> &str {
+        self.label.as_deref().unwrap_or(self.binding.label())
+    }
+
+    fn text(&self, row: &M) -> String {
+        self.lens.read(row).clone()
+    }
+
+    fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        crate::schema::stored_upload(cx, self.lens.read(row))
+    }
+
+    fn column_width(&self) -> ColumnWidth {
+        self.width
+    }
+
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
+        self.binding.misdeclared()
+    }
+
+    fn bind(&self, resolver: &FieldResolver) {
+        self.binding.bind(resolver);
+    }
+}
+
+impl<M> Clone for FileColumn<M> {
+    fn clone(&self) -> Self {
+        Self {
+            lens: self.lens.clone(),
+            binding: self.binding.clone(),
+            label: self.label.clone(),
+            width: self.width,
+        }
+    }
+}
+
+impl<M> std::fmt::Debug for FileColumn<M> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FileColumn")
+            .field("name", &self.binding.name())
+            .field(
+                "label",
+                &self.label.as_deref().unwrap_or(self.binding.label()),
+            )
             .field("width", &self.width)
             .finish_non_exhaustive()
     }
@@ -682,6 +841,25 @@ where
 impl<M> IntoColumns<M> for BooleanColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![Arc::new(self)]
+    }
+}
+
+impl<M> IntoColumns<M> for FileColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![Arc::new(self)]
+    }
+}
+
+impl<M, T> IntoColumns<M> for EmbeddedColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: crate::EmbeddedForm + Send + Sync + 'static,
 {
     fn into_columns(self) -> Vec<BoxColumn<M>> {
         vec![Arc::new(self)]

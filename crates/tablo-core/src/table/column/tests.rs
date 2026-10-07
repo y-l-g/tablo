@@ -50,7 +50,10 @@ fn text_column_renders_cells_via_typed_projection() {
     assert_eq!(plain.text(&row), "Ada");
     assert_eq!(decorated.text(&row), "Ada!");
     assert_eq!(plain.name(), "name");
-    assert_eq!(plain.label(), "Name");
+    assert_eq!(Column::label(&plain), "Name");
+    let relabelled = TextColumn::new(lens!(User.name)).label("Full name");
+    assert_eq!(Column::label(&relabelled), "Full name");
+    assert_eq!(relabelled.name(), "name", "a label renames no column");
 }
 
 #[test]

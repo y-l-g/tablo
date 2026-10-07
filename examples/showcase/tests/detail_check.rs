@@ -87,6 +87,12 @@ async fn post_detail_renders_the_record_read_only() {
         .await
         .unwrap()
         .expect("the id came from this database");
+    let author = Author::filter(Author::fields().id().eq(post.author_id))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("the post's author");
 
     let resp = client.get(&format!("/admin/posts/{id}")).await;
     assert!(
@@ -107,6 +113,17 @@ async fn post_detail_renders_the_record_read_only() {
     assert!(
         html.contains("Featured</div>"),
         "detail page must label the flag as featured: {html}"
+    );
+    let author_entry = html
+        .find(">Author<")
+        .unwrap_or_else(|| panic!("detail page must show the author: {html}"));
+    assert!(
+        html[author_entry..].contains(&author.name),
+        "the author shows by name, loaded through the column's include: {html}"
+    );
+    assert!(
+        !html.contains(&post.author_id.to_string()),
+        "the author's key never shows: {html}"
     );
     assert!(
         html.contains("Back to list"),
@@ -222,7 +239,7 @@ async fn post_detail_is_scoped_like_every_other_route() {
 }
 
 #[tokio::test]
-async fn a_resource_without_a_view_declaration_shows_its_form_read_only() {
+async fn a_resource_without_a_view_declaration_shows_its_record_forms_fields() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -232,7 +249,7 @@ async fn a_resource_without_a_view_declaration_shows_its_form_read_only() {
     let detail = body_string(client.get(&format!("/admin/authors/{}", author.id)).await).await;
     assert!(
         detail.contains(&author.name) && detail.contains(&author.email),
-        "the detail page shows the form's fields: {detail}"
+        "the detail page shows the record form's fields: {detail}"
     );
     assert_eq!(
         tablo::testing::input_value(&detail, "email"),

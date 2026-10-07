@@ -1,19 +1,20 @@
 # Vocabulary
 
 Use these words in code, comments, issues and commits, and avoid the listed synonyms. A **Panel**
-serves one **Resource** per model; each resource declares a **Table** for its list and a
-**Schema** for its forms and detail page, and writes through its record functions.
+serves one **Resource** per model; each resource declares a **Table** for its list, a **Schema**
+for its forms and a **Detail** for its detail page, and writes through its record functions.
 
 | Term | Meaning | Avoid |
 | --- | --- | --- |
 | Panel | An admin panel under one prefix: its resources, pages, shell and authentication gate. | Admin, Dashboard, App, Site |
 | Page | A panel page that is not a resource: a type implementing `Page`. | CustomPage, Screen, View |
 | Resource | A type implementing `Resource` for one Toasty model. Its `Form` is `NoForm` when list-only. | Model, Entity, Collection, CRUD |
-| Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, schemas, relations, actions. Each panel mounts its own copy. | Config, Settings, Options |
+| Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, relations, actions. Each panel mounts its own copy. | Config, Settings, Options |
 | Query | A resource's own row scoping, such as soft deletes. | Scope, Builder |
 | Table | The declaration of a list view: columns, filters, search, sort, grouping, page size. | Grid, Listing, DataTable |
-| Schema | The layout of a form or detail page: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
-| Column | One cell of a table row, rendered from the record. | Field (in a table), Cell, Attribute |
+| Schema | The layout of a form: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
+| Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::view`. | Infolist, Show page |
+| Column | One value read off a record: a cell of a table row, or an entry on a detail page. | Field (in a table), Cell, Attribute |
 | Filter | A predicate a table adds to its query from a UI control. | Scope, Constraint, Where |
 | Field | One input in a schema, bound to a model column. | Input, Control, Widget |
 | Lens | A model field named once, pairing its query path with its value reader. | Accessor, Getter, statePath |

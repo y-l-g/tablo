@@ -2,7 +2,7 @@
 
 A form resource declares a `#[derive(RecordForm)]` struct with one field per written column,
 named and typed like the model, so a renamed or retyped column fails to compile. The derive also
-provides the default form schema and table. An edit fills every key the submission omits from the
+provides the default form schema, table and detail page. An edit fills every key the submission omits from the
 stored record, so `update_record` receives a whole form and an unposted key keeps its value.
 
 The struct owns presence: a posted-empty field stores its blank answer, and a field with none is

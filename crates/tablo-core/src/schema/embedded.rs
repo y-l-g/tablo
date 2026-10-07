@@ -38,7 +38,7 @@ use super::{
     Schema,
     fields::Field,
     lenses::FieldResolver,
-    tree::{Mode, Node, Source, Unbound},
+    tree::{Node, Source, Unbound},
 };
 use crate::{
     form::{FieldError, FormField},
@@ -324,8 +324,7 @@ impl Embedded {
         }
     }
 
-    /// Renders the value: in a form, every variant group, showing the chosen variant's; in a view,
-    /// only the stored variant's group.
+    /// Renders the value's controls: an enum's every variant group, showing the chosen variant's.
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
@@ -339,29 +338,12 @@ impl Embedded {
                     .render(cx, fields, source)
                     .await?;
                 let stored = source.value(&e.key).map(str::trim);
-                let stored_variant = e
-                    .variants
-                    .iter()
-                    .find(|variant| stored == Some(variant.value.as_str()));
                 let mut shared = Vec::with_capacity(e.shared.len());
                 for index in &e.shared {
-                    let key = fields[*index].name();
-                    let declared = stored_variant.is_some_and(|variant| {
-                        variant
-                            .members
-                            .iter()
-                            .any(|member| matches!(member, Member::Leaf { key: k, .. } if k == key))
-                    });
-                    if source.mode() == Mode::View && !declared {
-                        continue;
-                    }
                     shared.push(Node::Field(*index).render(cx, fields, source).await?);
                 }
                 let mut groups = Vec::with_capacity(e.variants.len());
                 for variant in &e.variants {
-                    if source.mode() == Mode::View && stored != Some(variant.value.as_str()) {
-                        continue;
-                    }
                     let members = render_members(cx, &variant.members, fields, source).await?;
                     groups.push((variant.value.clone(), members));
                 }
@@ -413,6 +395,80 @@ impl Embedded {
                         }
                     })
                 }))
+            }
+        }
+    }
+}
+
+impl Embedded {
+    /// Renders the value `values` spells read-only: each [shown](Self::shown) field's label over
+    /// its stored value.
+    pub(crate) fn display<'a>(
+        &self,
+        cx: &'a Cx,
+        fields: &[Field],
+        values: &HashMap<String, String>,
+    ) -> BoxView<'a> {
+        let views: Vec<BoxView<'a>> = self
+            .shown(fields, values)
+            .into_iter()
+            .map(|index| {
+                let field = &fields[index];
+                field.display(cx, values.get(field.name()).map_or("", String::as_str))
+            })
+            .collect();
+        view! {
+            cx =>
+            for v in views {
+                (v)
+            }
+        }
+        .boxed()
+    }
+
+    /// The slots of the fields a reader of the value `values` spells sees, in order: a struct's
+    /// leaves, or an enum's discriminant, the shared leaves its stored variant declares, and that
+    /// variant's own leaves. An enum whose stored discriminant names no variant shows nothing.
+    pub(crate) fn shown(&self, fields: &[Field], values: &HashMap<String, String>) -> Vec<usize> {
+        let mut out = Vec::new();
+        self.shown_into(fields, values, &mut out);
+        out
+    }
+
+    fn shown_into(&self, fields: &[Field], values: &HashMap<String, String>, out: &mut Vec<usize>) {
+        let members = |members: &[Member], out: &mut Vec<usize>| {
+            for member in members {
+                match member {
+                    Member::Leaf {
+                        field: Some(index), ..
+                    } => out.push(*index),
+                    Member::Leaf { field: None, .. } => {}
+                    Member::Nested(nested) => nested.shown_into(fields, values, out),
+                }
+            }
+        };
+        match &self.shape {
+            Shape::Struct(list) => members(list, out),
+            Shape::Enum(e) => {
+                let stored = values.get(&e.key).map(|value| value.trim());
+                let Some(variant) = e
+                    .variants
+                    .iter()
+                    .find(|variant| stored == Some(variant.value.as_str()))
+                else {
+                    return;
+                };
+                out.push(e.discriminant);
+                // A shared column belongs to the variants that declare it; a unit variant stores
+                // nothing in it.
+                out.extend(e.shared.iter().copied().filter(|index| {
+                    let key = fields[*index].name();
+                    variant
+                        .members
+                        .iter()
+                        .any(|member| matches!(member, Member::Leaf { key: k, .. } if k == key))
+                }));
+                members(&variant.members, out);
             }
         }
     }

@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use tablo::{EmbeddedForm, Field, FieldErrorKind, FieldErrors, IntoSchema, Schema, Source};
+use tablo::{
+    Detail, EmbeddedColumn, EmbeddedForm, Field, FieldErrorKind, FieldErrors, IntoSchema, NoForm,
+    Resource, ResourceDef, Schema, Section, Source, Table, TextColumn, lens,
+};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -644,27 +647,94 @@ async fn the_derived_form_renders_the_variant_select_and_every_payload() {
         html.contains(">Canonical Url<"),
         "an unlabelled field is humanized from its name, got {html}"
     );
+}
 
-    // Read-only: no control renders.
-    let view = render_view(&cx, &schema, &values).await;
+/// A detail page's read-only view of a post.
+struct PostDetail;
+
+impl Resource for PostDetail {
+    type Model = Post;
+    type Form = NoForm<Post>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("posts")
+            .policy(tablo::ReadOnly)
+            .table(Table::new(TextColumn::new(lens!(Post.title))))
+            .view(Detail::new((
+                Section::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
+                Section::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
+                EmbeddedColumn::new(lens!(Post.visibility)),
+            )))
+    }
+}
+
+/// A detail page shows an embedded struct leaf by leaf, and an embedded enum as its variant's name
+/// and that variant's leaves alone, with no control.
+#[tokio::test]
+async fn a_detail_page_shows_an_embedded_value_leaf_by_leaf() {
+    let mut db = crate::framework::common::memory_db(toasty::models!(Post)).await;
+    let post = toasty::create!(Post {
+        title: "Launch".to_string(),
+        seo: Seo {
+            title: "Launch day".to_string(),
+            description: "All about it".to_string(),
+        },
+        publication: Publication::Archived {
+            archived_at: "2026-09-22T00:00:00Z".to_string(),
+            reason: "superseded".to_string(),
+        },
+        media: Media::Image {
+            url: "/a.png".to_string(),
+            alt: "A".to_string(),
+        },
+        post_stats: PostStats::default(),
+        visibility: Visibility::Public,
+        wrapper: Wrapper {
+            label: "w".to_string(),
+            inner: Media::Image {
+                url: "/b.png".to_string(),
+                alt: "B".to_string(),
+            },
+        },
+        casing: Casing::Draft,
+        flags: Flags::default(),
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed post");
+    let router = crate::framework::common::panel_router::<PostDetail>(db);
+    let view = crate::framework::common::body_string(
+        crate::framework::common::get(&router, &format!("/admin/posts/{}", post.id)).await,
+    )
+    .await;
+
     assert!(
         !view.contains("<select") && !view.contains("<input"),
-        "a variant control must not render in view mode, got {view}"
+        "a detail page renders no control, got {view}"
+    );
+    assert!(
+        view.contains("Launch day") && view.contains("All about it"),
+        "each leaf of a struct reads, got {view}"
     );
     assert!(
         view.contains(">Publication<") && view.contains(">Archived<"),
-        "the view must name the stored variant, got {view}"
+        "the detail page names the stored variant, got {view}"
     );
     assert!(
         !view.contains(">3<"),
-        "the view must print the variant's name, never its discriminant, got {view}"
+        "the variant's name, never its discriminant, got {view}"
     );
-    // Only the stored variant's payload reads: the other variants hold no
-    // values on this record.
+    // Only the stored variant's payload reads: the other variants hold no values on this record.
     assert!(view.contains("superseded"), "got {view}");
     assert!(
         !view.contains("Canonical Url") && !view.contains("Scheduled for"),
-        "another variant's payload must not render on the detail page, got {view}"
+        "another variant's payload does not render, got {view}"
+    );
+    let visibility = &view[view.find(">Visibility<").expect("the visibility entry")..];
+    assert!(
+        visibility.contains(">Public<") && !visibility.contains(">Reason<"),
+        "a unit variant reads as its name alone, got {view}"
     );
 }
 
@@ -672,18 +742,6 @@ async fn the_derived_form_renders_the_variant_select_and_every_payload() {
 async fn render_form(cx: &Cx, schema: &Schema, values: &HashMap<String, String>) -> String {
     schema
         .render(cx, Source::form(values, &FieldErrors::new()))
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(cx)
-}
-
-/// The form's read-only HTML, hydrated with `values`.
-async fn render_view(cx: &Cx, schema: &Schema, values: &HashMap<String, String>) -> String {
-    schema
-        .render(cx, Source::view(values))
         .await
         .unwrap()
         .single()

@@ -3,9 +3,9 @@
 //! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model and the
 //! [`RecordForm`](derive@RecordForm) struct its create and edit submissions parse into, and
 //! declares the rest as one [`ResourceDef`] value: its [`Policy`], which denies by default, and
-//! any [`Table`] or [`Schema`] that arranges or extends what the record form derives. The app
-//! mounts the panel on its own Topcoat router with [`RouterBuilderPanelExt::panel`], which builds
-//! each def once, binds it to the database schema and checks it first; one router mounts any
+//! any [`Table`], [`Schema`] or [`Detail`] that arranges or extends what the record form derives.
+//! The app mounts the panel on its own Topcoat router with [`RouterBuilderPanelExt::panel`], which
+//! builds each def once, binds it to the database schema and checks it first; one router mounts any
 //! number of panels at distinct prefixes.
 //!
 //! ```rust,no_run
@@ -68,6 +68,7 @@ pub mod __macro {
 
     pub use crate::{
         Lens,
+        detail::Detail,
         form::{FieldError, FormField, FormScalar, RecordForm, assert_form_scalar, parse_scalar},
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, IntoSchema,
@@ -77,7 +78,7 @@ pub mod __macro {
             },
             form_key,
         },
-        table::{BooleanColumn, Table, TextColumn},
+        table::{BooleanColumn, EmbeddedColumn, FileColumn, Table, TextColumn},
         toasty_compat::VariantId,
     };
 }
@@ -87,6 +88,7 @@ pub mod auth;
 pub mod csrf;
 pub mod db;
 mod declaration;
+pub mod detail;
 mod error;
 pub mod form;
 mod lens;
@@ -109,6 +111,7 @@ pub mod upload;
 
 pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth, membership};
 pub use declaration::{DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site};
+pub use detail::{Detail, IntoDetail};
 pub use form::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
 };
@@ -120,16 +123,16 @@ pub use panel::{Brand, Panel, RouterBuilderPanelExt, can_list, url};
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
     Action, Committed, ForeignKey, Mutation, PublicLink, Relation, Resource, ResourceDef, can,
-    scoped_query, scoped_view_query, write_create, write_update,
+    scoped_query, write_create, write_update,
 };
 pub use schema::{
     ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FieldResolver, FileField,
     Grid, Group, IntoOptions, IntoSchema, Options, Schema, Section, Source, TextField, Toggle,
 };
 pub use table::{
-    BooleanColumn, Column, ColumnWidth, ComputedColumn, Cursor, DateFilter, Filter, FilterInput,
-    Includes, IntoColumns, IntoFilters, QueryFilter, SelectFilter, Sort, Table, TablePage,
-    TableState, TernaryFilter, TextColumn, WiredTable, contains_expr,
+    BooleanColumn, Column, ColumnWidth, ComputedColumn, Cursor, DateFilter, EmbeddedColumn,
+    FileColumn, Filter, FilterInput, Includes, IntoColumns, IntoFilters, QueryFilter, SelectFilter,
+    Sort, Table, TablePage, TableState, TernaryFilter, TextColumn, WiredTable, contains_expr,
 };
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///
@@ -253,8 +256,10 @@ pub use tablo_macros::Options;
 /// arranging one per field in declaration order. `RecordForm::table` lists a
 /// sortable column per text field, searchable over a `String` or
 /// `Option<String>`, an options field by its option's label, and a toggle as
-/// yes or no. A resource's `ResourceDef` defaults its form and table to them;
-/// `ResourceDef::form` and `ResourceDef::table` arrange or extend them instead.
+/// yes or no. `RecordForm::detail` shows the same columns, plus a bare choice's
+/// key, a file field as a link and an embedded value leaf by leaf. A resource's `ResourceDef`
+/// defaults its form, table and detail page to them; `ResourceDef::form`,
+/// `ResourceDef::table` and `ResourceDef::view` arrange or extend them instead.
 ///
 /// # Attributes
 ///

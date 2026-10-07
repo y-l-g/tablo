@@ -42,7 +42,7 @@ impl FormChrome {
         Self {
             title: format!("Edit {}", resource.label),
             submit_label: "Save",
-            public_link: R::public_link(cx, record),
+            public_link: resource.public_link(cx, record),
             list_url: resource.url.clone(),
         }
     }

@@ -144,12 +144,11 @@ async fn composite_pk_edit_fails_loudly_not_404() {
 
 /// The record pages split on the query they load: the edit page, delete and
 /// the write re-loads read the record's own columns through `find_by_key`,
-/// while the detail page loads `view_query`, which here includes `parent`.
-/// The edit load must not pay for the detail page's relations.
+/// while the detail page loads the relations its columns declare, which here
+/// include `parent`. The edit load must not pay for the detail page's
+/// relations.
 #[tokio::test]
 async fn record_loads_skip_the_detail_pages_includes() {
-    use toasty::stmt::{Include, List, Query};
-
     #[derive(Debug, toasty::Model, Clone)]
     struct Parent {
         #[key]
@@ -175,15 +174,17 @@ async fn record_loads_skip_the_detail_pages_includes() {
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::ComputedColumn::new(
-                "Id",
-                |c: &Child| c.id.to_string(),
-            )))
-        }
-
-        fn view_query(_cx: &Cx) -> Query<List<Child>> {
-            let parent: Include<Child, Parent> = Child::fields().parent().into();
-            Query::<List<Child>>::all().include(parent)
+            ResourceDef::new()
+                .table(crate::table::Table::new(crate::table::ComputedColumn::new(
+                    "Id",
+                    |c: &Child| c.id.to_string(),
+                )))
+                .view(crate::Detail::new(
+                    crate::table::ComputedColumn::new("Parent", |c: &Child| {
+                        c.parent.get().name.clone()
+                    })
+                    .include(Child::fields().parent()),
+                ))
         }
     }
 
@@ -215,11 +216,9 @@ async fn record_loads_skip_the_detail_pages_includes() {
         record.parent.is_unloaded(),
         "the edit and write loads read only the record's own columns"
     );
-    let detail = find_by_key_in(&resource, &id, &mut ex, || resource.scoped_view_query(&cx))
-        .await
-        .unwrap();
+    let detail = find_detail(&cx, &resource, &id, &mut ex).await.unwrap();
     assert!(
         !detail.parent.is_unloaded(),
-        "the detail load carries view_query's includes"
+        "the detail load carries its columns' includes"
     );
 }

@@ -45,32 +45,6 @@ async fn text_input_renders_with_label_and_ac_field() {
     assert!(html.contains(">Name"), "missing label in {html}");
 }
 
-/// A typed field shows its stored value on a detail page.
-#[tokio::test]
-async fn a_typed_field_renders_its_stored_value_read_only() {
-    const ID: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
-    let cx = cx();
-    let schema = Schema::new(Field::text(DummyUser::fields().id()));
-    let mut values = HashMap::new();
-    values.insert("id".to_string(), ID.to_string());
-    let html = schema
-        .render(&cx, Source::view(&values))
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(
-        html.contains(ID),
-        "a detail page must show a typed field's stored value, got {html}"
-    );
-    assert!(
-        !html.contains("<input"),
-        "and must render no control, got {html}"
-    );
-}
-
 #[tokio::test]
 async fn text_input_error_marks_the_field_invalid() {
     // topcoat#420 pins `aria-invalid` and the error slot.

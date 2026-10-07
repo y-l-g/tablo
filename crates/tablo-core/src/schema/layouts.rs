@@ -1,4 +1,5 @@
-//! Holds the `Section`, `Group`, and `Grid` containers that compose form layout.
+//! Holds the `Section`, `Group`, and `Grid` blocks that lay out a form's fields or a detail page's
+//! columns.
 
 use tablo_ui::{card_content, card_header, card_title, field_group as ui_field_group};
 use topcoat::{
@@ -12,126 +13,188 @@ use super::{
     fields::Field,
     tree::{IntoSchema, Source, render_nodes},
 };
+use crate::detail::{Detail, IntoDetail};
 
 /// Renders a `Section`'s titled panel.
 const PANEL: StaticClass = class!(
     "flex flex-col gap-5 rounded-xl border border-border bg-card py-6 text-card-foreground shadow-sm"
 );
 
-/// Holds a titled container with an optional child `Schema`.
+/// A titled block holding a form's fields ([`schema`](Self::schema)) or a detail page's columns
+/// ([`columns`](Self::columns)).
 #[derive(Debug)]
-pub struct Section {
+pub struct Section<C = Schema> {
     title: String,
-    pub(crate) children: Schema,
+    pub(crate) children: C,
     extra_class: Option<String>,
 }
 
-impl Section {
+impl Section<()> {
     pub fn new(title: impl Into<String>) -> Self {
         Self {
             title: title.into(),
-            children: Schema::empty(),
+            children: (),
             extra_class: None,
         }
     }
 
-    pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = children.into_schema();
-        self
+    /// Holds a form's fields and blocks.
+    pub fn schema(self, children: impl IntoSchema) -> Section<Schema> {
+        self.holding(children.into_schema())
     }
 
+    /// Holds a detail page's columns and blocks.
+    pub fn columns<M>(self, children: impl IntoDetail<M>) -> Section<Detail<M>> {
+        self.holding(children.into_detail())
+    }
+}
+
+impl<C> Section<C> {
     /// Adds an additive `class` hook on the panel container.
     pub fn class(mut self, class: impl Into<String>) -> Self {
         self.extra_class = Some(class.into());
         self
     }
 
-    pub(crate) async fn render<'a>(
-        &self,
-        cx: &'a Cx,
-        fields: &[Field],
-        source: &Source<'_>,
-    ) -> Result<BoxView<'a>> {
+    pub(crate) fn holding<D>(self, children: D) -> Section<D> {
+        Section {
+            title: self.title,
+            children,
+            extra_class: self.extra_class,
+        }
+    }
+
+    /// The titled panel around `body`, or the title alone when the section holds nothing.
+    pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: Option<BoxView<'a>>) -> BoxView<'a> {
         let title = self.title.clone();
         let extra = self.extra_class.clone();
-        if !self.children.nodes.is_empty() {
-            let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
-            Ok(view! {
+        match body {
+            Some(body) => view! {
                 cx =>
                 <div class=(class!(PANEL, extra.clone()))>
                     card_header(card_title((title)))
                     card_content(
                         attrs: attributes! { class="flex flex-col gap-6" },
-                        (child_view)
+                        (body)
                     )
                 </div>
             }
-            .boxed())
-        } else {
-            Ok(view! {
+            .boxed(),
+            None => view! {
                 cx =>
                 <div class=(class!(PANEL, extra.clone()))>
                     card_header(card_title((title)))
                 </div>
             }
-            .boxed())
+            .boxed(),
         }
     }
 }
 
-/// Holds an unlabelled container for grouping fields.
-#[derive(Debug, Default)]
-pub struct Group {
-    pub(crate) children: Schema,
+impl Section<Schema> {
+    pub(crate) async fn render<'a>(
+        &self,
+        cx: &'a Cx,
+        fields: &[Field],
+        source: &Source<'_>,
+    ) -> Result<BoxView<'a>> {
+        let body = if self.children.nodes.is_empty() {
+            None
+        } else {
+            Some(render_nodes(cx, &self.children.nodes, fields, source).await?)
+        };
+        Ok(self.chrome(cx, body))
+    }
 }
 
-impl Group {
+/// An unlabelled block grouping a form's fields or a detail page's columns.
+#[derive(Debug)]
+pub struct Group<C = Schema> {
+    pub(crate) children: C,
+}
+
+impl Default for Group<()> {
+    fn default() -> Self {
+        Self { children: () }
+    }
+}
+
+impl Group<()> {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = children.into_schema();
-        self
+    /// Holds a form's fields and blocks.
+    pub fn schema(self, children: impl IntoSchema) -> Group<Schema> {
+        self.holding(children.into_schema())
     }
 
+    /// Holds a detail page's columns and blocks.
+    pub fn columns<M>(self, children: impl IntoDetail<M>) -> Group<Detail<M>> {
+        self.holding(children.into_detail())
+    }
+}
+
+impl<C> Group<C> {
+    pub(crate) fn holding<D>(self, children: D) -> Group<D> {
+        Group { children }
+    }
+
+    /// The group around `body`.
+    pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: BoxView<'a>) -> BoxView<'a> {
+        view! { cx => ui_field_group((body)) }.boxed()
+    }
+}
+
+impl Group<Schema> {
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
         fields: &[Field],
         source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
-        let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
-        Ok(view! { cx => ui_field_group((child_view)) }.boxed())
+        let body = render_nodes(cx, &self.children.nodes, fields, source).await?;
+        Ok(self.chrome(cx, body))
     }
 }
 
-/// Holds a column container with `cols` clamped to 1..12.
+/// A block of `cols` columns, clamped to 1..12, laying out a form's fields or a detail page's
+/// columns.
 #[derive(Debug)]
-pub struct Grid {
+pub struct Grid<C = Schema> {
     cols: u8,
-    pub(crate) children: Schema,
+    pub(crate) children: C,
 }
 
-impl Grid {
+impl Grid<()> {
     pub fn new(cols: u8) -> Self {
         Self {
             cols: cols.clamp(1, 12),
-            children: Schema::empty(),
+            children: (),
         }
     }
 
-    pub fn schema(mut self, children: impl IntoSchema) -> Self {
-        self.children = children.into_schema();
-        self
+    /// Holds a form's fields and blocks.
+    pub fn schema(self, children: impl IntoSchema) -> Grid<Schema> {
+        self.holding(children.into_schema())
     }
 
-    pub(crate) async fn render<'a>(
-        &self,
-        cx: &'a Cx,
-        fields: &[Field],
-        source: &Source<'_>,
-    ) -> Result<BoxView<'a>> {
+    /// Holds a detail page's columns and blocks.
+    pub fn columns<M>(self, children: impl IntoDetail<M>) -> Grid<Detail<M>> {
+        self.holding(children.into_detail())
+    }
+}
+
+impl<C> Grid<C> {
+    pub(crate) fn holding<D>(self, children: D) -> Grid<D> {
+        Grid {
+            cols: self.cols,
+            children,
+        }
+    }
+
+    /// The grid around `body`.
+    pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: BoxView<'a>) -> BoxView<'a> {
         // Static literals for Tailwind scanner — `format!("grid grid-cols-{}")` would be
         // purged because Tailwind only sees literal substrings.
         let class: &'static str = match self.cols {
@@ -148,8 +211,19 @@ impl Grid {
             11 => "grid grid-cols-11 gap-4",
             _ => "grid grid-cols-12 gap-4",
         };
-        let child_view = render_nodes(cx, &self.children.nodes, fields, source).await?;
-        Ok(view! { cx => <div class=(class)>(child_view)</div> }.boxed())
+        view! { cx => <div class=(class)>(body)</div> }.boxed()
+    }
+}
+
+impl Grid<Schema> {
+    pub(crate) async fn render<'a>(
+        &self,
+        cx: &'a Cx,
+        fields: &[Field],
+        source: &Source<'_>,
+    ) -> Result<BoxView<'a>> {
+        let body = render_nodes(cx, &self.children.nodes, fields, source).await?;
+        Ok(self.chrome(cx, body))
     }
 }
 

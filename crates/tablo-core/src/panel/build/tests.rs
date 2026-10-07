@@ -756,7 +756,9 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
             ResourceDef::new()
                 .slug("subscribers")
                 .table(keyed_table())
-                .view(Schema::new(Field::text(Subscriber::fields().nickname())))
+                .view(crate::Detail::new(crate::table::TextColumn::new(lens!(
+                    Subscriber.nickname
+                ))))
         }
     }
 
@@ -1191,13 +1193,31 @@ fn serve_dir_accepts_only_a_catch_all_pattern() {
     assert!(!is_directory_pattern("/uploads/{*fi-le}"));
 }
 
+/// A detail column whose path binds no single field.
+struct Unbindable;
+
+impl crate::table::Column<Dummy> for Unbindable {
+    fn name(&self) -> &str {
+        "unbindable"
+    }
+
+    fn label(&self) -> &str {
+        "Unbindable"
+    }
+
+    fn text(&self, _row: &Dummy) -> String {
+        String::new()
+    }
+
+    fn misdeclared(&self) -> Option<DeclarationErrorKind> {
+        Some(DeclarationErrorKind::TraversalLens { steps: 2 })
+    }
+}
+
 /// Rejects a misdeclared view.
 #[tokio::test]
 async fn panel_build_rejects_a_misdeclared_view() {
-    use crate::{
-        resource::Resource,
-        schema::{Field, Schema},
-    };
+    use crate::resource::Resource;
 
     struct BadView;
     impl Resource for BadView {
@@ -1205,10 +1225,9 @@ async fn panel_build_rejects_a_misdeclared_view() {
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(dummy_table()).view(Schema::new((
-                Field::text(Dummy::fields().name()),
-                Field::text(Dummy::fields().name()),
-            )))
+            ResourceDef::new()
+                .table(dummy_table())
+                .view(crate::Detail::empty().column(Unbindable))
         }
     }
 
@@ -1221,9 +1240,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
         refusal(mount(db, panel_for::<BadView>())),
         [DeclarationError::of::<BadView>(
             Site::View,
-            DeclarationErrorKind::DuplicateField {
-                name: "name".to_string(),
-            },
+            DeclarationErrorKind::TraversalLens { steps: 2 },
         )]
     );
 }
@@ -1263,7 +1280,9 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
                 })
                 .table(dummy_table())
                 .form(Schema::new(Field::text(Dummy::fields().name())))
-                .view(Schema::new(Field::text(Dummy::fields().name())))
+                .view(crate::Detail::new(crate::table::TextColumn::new(lens!(
+                    Dummy.name
+                ))))
         }
     }
 
@@ -1341,21 +1360,17 @@ async fn an_unmounted_resource_is_refused_not_rebuilt() {
 /// [`Panel::context`] refuses a misdeclared resource with the errors a router mount reports.
 #[tokio::test]
 async fn context_refuses_a_misdeclared_resource() {
-    use crate::{
-        resource::Resource,
-        schema::{Field, Schema},
-    };
+    use crate::resource::Resource;
 
-    struct DuplicateField;
-    impl Resource for DuplicateField {
+    struct BadView;
+    impl Resource for BadView {
         type Model = Dummy;
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(dummy_table()).view(Schema::new((
-                Field::text(Dummy::fields().name()),
-                Field::text(Dummy::fields().name()),
-            )))
+            ResourceDef::new()
+                .table(dummy_table())
+                .view(crate::Detail::empty().column(Unbindable))
         }
     }
 
@@ -1365,8 +1380,8 @@ async fn context_refuses_a_misdeclared_resource() {
         .await
         .unwrap();
     assert_eq!(
-        refusal(panel_for::<DuplicateField>().context(&db)),
-        refusal(mount(db, panel_for::<DuplicateField>()))
+        refusal(panel_for::<BadView>().context(&db)),
+        refusal(mount(db, panel_for::<BadView>()))
     );
 }
 

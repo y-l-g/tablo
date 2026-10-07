@@ -4,9 +4,9 @@ use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
 use tablo::{
-    Ability, DeclarationErrorKind, Field, FieldErrorKind, FieldErrors, NoForm, Panel, RecordForm,
-    Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId, TextColumn, lens,
-    write_create,
+    Ability, ComputedColumn, DeclarationErrorKind, Detail, Field, FieldErrorKind, FieldErrors,
+    NoForm, Panel, RecordForm, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId,
+    TextColumn, lens, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -71,7 +71,7 @@ impl Resource for ItemResource {
             })
             .table(item_table())
             .form(item_schema())
-            .view(Schema::new(Field::text(Item::fields().title())))
+            .view(Detail::new(TextColumn::new(lens!(Item.title))))
     }
 
     fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemFormField> {
@@ -609,9 +609,9 @@ async fn a_list_only_resource_serves_no_form_route() {
     assert_eq!(reload(&db, item.id).await.title, "Stored");
 }
 
-/// A `NoForm` resource renders its detail page from `view_values` alone.
+/// A `NoForm` resource declares its detail page, whose columns read the record.
 #[tokio::test]
-async fn a_list_only_detail_page_reads_view_values() {
+async fn a_list_only_resource_declares_its_detail_page() {
     struct Viewed;
 
     impl Resource for Viewed {
@@ -623,11 +623,9 @@ async fn a_list_only_detail_page_reads_view_values() {
                 .slug("items")
                 .policy(|_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::View(_)))
                 .table(item_table())
-                .view(Schema::new(Field::text(Item::fields().title())))
-        }
-
-        fn view_values(_cx: &Cx, record: &Item) -> HashMap<String, String> {
-            HashMap::from([("title".to_string(), format!("{} (view)", record.title))])
+                .view(Detail::new(ComputedColumn::new("Title", |item: &Item| {
+                    format!("{} (view)", item.title)
+                })))
         }
     }
 
@@ -1093,7 +1091,7 @@ impl Resource for UnviewedTicketResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(tablo::ReadOnly)
-            .view(Schema::empty())
+            .view(Detail::empty())
     }
 }
 
@@ -1148,18 +1146,26 @@ async fn the_record_form_derives_the_table() {
     );
 }
 
-/// The detail page defaults to the form, read-only; an empty view turns it off.
+/// The record form derives the detail page: each field the table lists, read-only; an empty
+/// view turns it off.
 #[tokio::test]
-async fn the_view_defaults_to_the_form() {
+async fn the_record_form_derives_the_detail_page() {
     let (db, ticket) = ticket_db().await;
     let viewed = panel_router::<TicketResource>(db.clone());
     let detail = get(&viewed, &format!("/admin/tickets/{}", ticket.id)).await;
     assert_eq!(detail.status(), StatusCode::OK);
     let detail = body_string(detail).await;
-    assert!(
-        detail.contains("Printer jam"),
-        "the form's fields, read-only: {detail}"
-    );
+    for (label, value) in [
+        ("Subject", "Printer jam"),
+        ("Status", "Waiting on customer"),
+        ("Urgent", "Yes"),
+        ("Estimate", ">3<"),
+    ] {
+        assert!(
+            entry(&detail, label).contains(value),
+            "{label} shows {value}: {detail}"
+        );
+    }
     assert_eq!(
         input_value(&detail, "subject"),
         None,
@@ -1169,6 +1175,101 @@ async fn the_view_defaults_to_the_form() {
     let unviewed = panel_router::<UnviewedTicketResource>(db);
     let detail = get(&unviewed, &format!("/admin/unviewed-tickets/{}", ticket.id)).await;
     assert_eq!(detail.status(), StatusCode::NOT_FOUND);
+}
+
+/// The detail page's entry labelled `label`: its markup up to the next entry.
+fn entry<'h>(html: &'h str, label: &str) -> &'h str {
+    let at = html
+        .find(&format!(">{label}<"))
+        .unwrap_or_else(|| panic!("no {label} entry: {html}"));
+    let rest = &html[at..];
+    &rest[..rest.find("data-slot=\"field\"").unwrap_or(rest.len())]
+}
+
+/// A post's stage, stored as an embedded enum.
+#[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
+enum Stage {
+    #[column(variant = 1)]
+    Draft,
+    #[column(variant = 2)]
+    Out { note: String },
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Attachment {
+    #[key]
+    #[auto]
+    id: Uuid,
+    path: String,
+    owner_id: Uuid,
+    stage: Stage,
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Attachment)]
+struct AttachmentForm {
+    #[form(file)]
+    path: String,
+    #[form(choice)]
+    owner_id: Uuid,
+    #[form(embed)]
+    stage: Stage,
+}
+
+/// A resource whose detail page the record form derives, over a file, a bare choice and an
+/// embedded enum.
+struct AttachmentResource;
+
+impl Resource for AttachmentResource {
+    type Model = Attachment;
+    type Form = AttachmentForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(tablo::ReadOnly)
+            .table(Table::new((
+                TextColumn::new(lens!(Attachment.path)),
+                tablo::EmbeddedColumn::new(lens!(Attachment.stage)),
+            )))
+    }
+}
+
+/// The derived detail page links a file, shows a bare choice's key and an embedded enum's stored
+/// variant; the table's embedded column exports the same reading.
+#[tokio::test]
+async fn the_derived_detail_page_shows_files_keys_and_embedded_values() {
+    let mut db = memory_db(toasty::models!(Attachment)).await;
+    let owner = Uuid::new_v4();
+    let attachment = toasty::create!(Attachment {
+        path: "/uploads/a.pdf".to_string(),
+        owner_id: owner,
+        stage: Stage::Out {
+            note: "shipped".to_string(),
+        },
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed attachment");
+    let router = panel_router::<AttachmentResource>(db);
+
+    let detail =
+        body_string(get(&router, &format!("/admin/attachments/{}", attachment.id)).await).await;
+    assert!(
+        entry(&detail, "Path").contains("href=\"/uploads/a.pdf\""),
+        "a file links its path: {detail}"
+    );
+    assert!(
+        entry(&detail, "Owner id").contains(&owner.to_string()),
+        "a bare choice shows its key: {detail}"
+    );
+    assert!(entry(&detail, "Stage").contains(">Out<"), "{detail}");
+    assert!(entry(&detail, "Note").contains("shipped"), "{detail}");
+
+    let csv = body_string(get(&router, "/admin/attachments/export").await).await;
+    assert!(
+        csv.contains("/uploads/a.pdf,\"Stage: Out, Note: shipped\"\n"),
+        "the embedded column exports its leaves: {csv}"
+    );
 }
 
 /// Whether the control posting `name` renders `required`.

@@ -5,16 +5,12 @@ use tablo_ui::{input as ui_input, select as ui_select};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    super::{
-        relationship::{
-            OptionLoadError, OptionSource, RelatedCheck, RelationshipCheckFuture,
-            RelationshipChecker, RelationshipLoadFuture, RelationshipLoader,
-            RelationshipSearchLoader, related_record_check, related_records,
-            related_records_search,
-        },
-        tree::Mode,
+    super::relationship::{
+        OptionLoadError, OptionSource, RelatedCheck, RelationshipCheckFuture, RelationshipChecker,
+        RelationshipLoadFuture, RelationshipLoader, RelationshipSearchLoader, related_record_check,
+        related_records, related_records_search,
     },
-    Field, FieldChrome, ValueKind, render_field, render_value,
+    Field, FieldChrome, render_field,
 };
 
 /// What a choice field declares beyond presence.
@@ -115,6 +111,14 @@ where
 impl ChoiceControl {
     pub(crate) fn is_searchable(&self) -> bool {
         self.searchable
+    }
+
+    /// The label of the static option storing `value`.
+    pub(super) fn label_of(&self, value: &str) -> Option<&str> {
+        self.options
+            .iter()
+            .find(|(stored, _)| stored == value)
+            .map(|(_, label)| label.as_str())
     }
 
     pub(crate) fn is_relationship(&self) -> bool {
@@ -228,33 +232,14 @@ fn load_failure(error: &OptionLoadError) -> &'static str {
 }
 
 impl Field {
-    /// Renders a choice field's select and its read-only label.
+    /// Renders a choice field's select.
     pub(super) async fn render_choice<'a>(
         &self,
         choice: &ChoiceControl,
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
-        mode: Mode,
     ) -> Result<BoxView<'a>> {
-        if mode == Mode::View {
-            // Never loads options in view; a relationship shows its stored key.
-            let stored = value.unwrap_or("").trim();
-            let named = choice
-                .options
-                .iter()
-                .find(|(v, _)| v == stored)
-                .map(|(_, label)| label.clone());
-            // A variant control reads as the variant's name.
-            if choice.discriminant {
-                return match named {
-                    Some(name) => render_value(cx, self.label_str(), Some(&name), ValueKind::Prose),
-                    None => Ok(().boxed()),
-                };
-            }
-            let shown = named.unwrap_or_else(|| stored.to_string());
-            return render_value(cx, self.label_str(), Some(&shown), ValueKind::Prose);
-        }
         let name = self.name().to_string();
         let required = self.required;
         let searchable = choice.searchable;
