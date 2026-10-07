@@ -1,66 +1,83 @@
-# Tablo — Agent Instructions
+# Tablo — Rules
 
-## Commands
+Every change follows these rules: code, tests, prose, commits, issues. Behaviour lives in the
+code, the [guide](docs/guide/) and rustdoc; this file says what to do, not why. The commands
+behind a rule are in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set).
 
-The gate set lives in [`CONTRIBUTING.md`](CONTRIBUTING.md#the-gate-set): seven commands
-mirroring `.github/workflows/ci.yml` and `.github/workflows/msrv-udeps.yml`. Run it via `cargo xtask check` (fail-fast,
-cheapest-first, skipping the MSRV/udeps gates CI skips for the change),
-or the ones covering your change; `cargo xtask check --all` before merging. CI also runs the extra
-checks listed there (docs, detached fmt, external).
+## Verify
 
-```sh
-cargo xtask check                                # the gate set, fail-fast
-cargo xtask fmt                                  # nightly fmt + detached fmt + pinned topcoat fmt
-cargo xtask external-check                       # build and test examples/quickstart outside the repo
-cargo run -p showcase                            # http://localhost:3000/admin/users
-cargo xtask sync-topcoat-ui                      # re-vendor primitives, verbatim
-cargo xtask verify-topcoat-ui                    # fail on vendored drift
-
-# `topcoat fmt` only agrees with the pinned CLI version.
-cargo install topcoat-cli --version 0.10.0 --locked --force
-```
-
-## Rules
-
-1. Verify every factual claim in a doc, comment, or commit message against the code.
-2. Document current behavior only; no "used to", "previously". See `CONTRIBUTING.md#prose`.
-3. Run the gate set for the area you touched, plus `cargo test --workspace --locked` on the
-   merged result: branches can merge cleanly and not compile.
-4. Give each worktree its own target directory; a shared `CARGO_TARGET_DIR` cross-contaminates.
-5. Never pipe when you need the exit code: `| tail` masks it. Read `PIPESTATUS` or redirect to
+1. Run the gates for the area you touched; `cargo xtask check --all` before merging.
+2. Run `cargo test --workspace --locked` on the merged result: branches merge cleanly and still
+   fail to compile.
+3. Give each worktree its own target directory; a shared `CARGO_TARGET_DIR` cross-contaminates.
+4. Never pipe when you need the exit code (`| tail` masks it): read `PIPESTATUS` or redirect to
    a file.
+5. `topcoat fmt` reflows `view!` markup differently per release; only the pinned `topcoat-cli`
+   matches CI, and its diff is not a hand-fix.
 6. `cargo fmt` covers workspace members only; the detached `examples/quickstart` package is
-   formatted and linted by manifest path.
-7. Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with xtask. Owned
-   components live in `components/composites/`.
-8. Hunting dead code: prefer `pub` API, always-same-value config, and test-only paths.
-   `unsafe_code` and `warnings` are denied; `too_many_lines` is denied with the
-   budget in the workspace-root `clippy.toml` (`too-many-lines-threshold = 300`).
-9. Run `topcoat fmt` with the pinned CLI after changing `view!` markup; another CLI's
-   diff is not a fix. See `CONTRIBUTING.md`.
+   formatted by manifest path.
+7. Never hand-edit `crates/tablo-ui/src/components/primitives/`; sync it with
+   `cargo xtask sync-topcoat-ui`.
 
-## Git
+## Code
 
-Squash-merge every branch into `master` — one commit per branch, no empty merge commits; a
-branch's commits are working notes. The squashed commit is a Conventional Commit, carrying the
-issue in the subject when the change closes one (`docs/dev/COMMITS.md`).
+8. Verify every factual claim in a doc, comment or commit message against the code.
+9. Verify upstream (Topcoat, Toasty) APIs against the version `Cargo.lock` pins, quoting the
+   source file and symbol; never from memory.
+10. Document current behaviour only: no history, no "used to", no roadmap.
+11. A comment earns its place by explaining why — a non-obvious invariant, a named upstream bug,
+    a safety argument — never by restating what the next line plainly does.
+12. A struct is followed by its inherent impl, then its trait impls; unit tests go last, in
+    `tests.rs` beside the source file.
+13. Name a module's file after the module and place it beside its directory (`foo.rs` next to
+    `foo/`), never `mod.rs`; existing `mod.rs` files stay.
+14. Declare shared dependency versions in the workspace `[workspace.dependencies]`; crates pull
+    them in with `workspace = true`.
+15. Never run a blanket `cargo update`; a `topcoat`/`toasty` bump edits both manifests and the
+    lockfile in one commit.
+16. Hunt dead code in the `pub` API, always-same-value config and test-only paths.
+17. `unsafe_code` and `warnings` are denied; `too_many_lines` is capped in `clippy.toml`.
 
-## Layout
+## Tests
 
-Crate roles live in [`docs/dev/architecture.md`](docs/dev/architecture.md#crates). The user
-guide is `docs/guide/` (mdBook), decisions are in `docs/adr/`, contributor specs in
-`docs/dev/`, domain vocabulary in `CONTEXT.md`, and agent tracker notes in `docs/agents/`.
+18. One predicate, one home: a behaviour is pinned once, by a unit test or an integration test,
+    never both. Grep for the behaviour before pinning it.
+19. Protect the behaviour, not its wording: assert structure, redirects, database state and link
+    targets rather than messages and labels, so a passing rename does not break the suite.
+20. Derive expected values from the intended behaviour, never by repeating the implementation or
+    calling the code under test.
+21. Delete a test no plausible bug would fail.
+22. An example app declares one `it` integration-test binary in its manifest, because Cargo
+    otherwise discovers every file under `tests/` as its own target; unit tests live in
+    `tests.rs` beside their source; the browser suites run with `node --test`; the repo guards
+    live in `xtask/tests/it.rs`.
 
-## Renovate PRs
+## Prose
 
-Renovate groups `topcoat`/`toasty` bumps. Coupled sets (e.g. `argon2` +
-`password-hash`) merge as one combined manual bump.
-Two `syn` majors remain (GH #181, GH #193); do not force-unify.
+23. Write documentation, READMEs, ADRs, pull request and issue bodies, code comments and commit
+    bodies in active voice and present tense, describing what the thing is and does.
+24. Cut filler, buzzwords, weasel words and metaphors: say what the code does instead of "under
+    the hood", "out of the box", "first-class", "magic", "footgun" or code that "lands" or
+    "ships". Every sentence carries information, and a concrete example beats a description.
+25. Wrap prose near column 100; no commit line is longer than 100 characters.
 
-## Further reading
+## Land a change
 
-- Build and verify: [`CONTRIBUTING.md`](CONTRIBUTING.md), `docs/dev/architecture.md`,
-  `docs/dev/TESTING.md`
-- Write: [`CONTRIBUTING.md`](CONTRIBUTING.md#prose), `docs/dev/COMMITS.md`, `docs/dev/LABELS.md`,
-  `docs/guide/`, `CONTEXT.md`
-- Decide: `docs/adr/`, `docs/dev/design/`, `docs/dev/upstream-notes.md`, `docs/agents/`.
+26. Squash-merge every branch into `master`: one Conventional Commit per branch,
+    `type(scope): subject (#123)`, with the issue in the subject when the change closes one.
+27. Mark a breaking change with `!` after the type or scope and explain it in a
+    `BREAKING CHANGE:` footer.
+28. The pull request title becomes the landed commit; the body describes the net diff, not the
+    branch's latest commit.
+29. Issue bodies follow the forms in `.github/ISSUE_TEMPLATE/`; an `upstream` issue carries its
+    status in the body, never in comments. GitHub shares one number space, so a bare `#123` can
+    be an issue or a pull request.
+
+## Know the project
+
+30. Vocabulary is [`CONTEXT.md`](CONTEXT.md): use its words in code, issues and commits, and
+    surface a conflict with a decision rather than silently overriding it.
+31. Crate roles and the request flow are in [`README.md#layout`](README.md#layout); the
+    `tablo-core` layering is enforced by `crates/tablo-core/tests/layers.rs`.
+32. Decisions are in [`docs/adr/`](docs/adr/); the guide documents behaviour and rustdoc on each
+    item is the contract.

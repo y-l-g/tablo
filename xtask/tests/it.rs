@@ -32,13 +32,3 @@ fn primitives_match_registry_verbatim() {
 fn vendored_primitives_are_closed_under_registry_dependencies() {
     xtask::verify_vendored_closure().expect("the vendored set is closed under its dependencies");
 }
-
-/// Guards that the layer table in `docs/dev/architecture.md` and `LAYERS` in
-/// `crates/tablo-core/tests/layers.rs` name the same layers and modules in the
-/// same order. `LAYERS` is what the layering test enforces and the table is
-/// what a contributor reads, so a module added to one alone leaves the other
-/// wrong.
-#[test]
-fn layers_table_matches_layers() {
-    xtask::verify_layers_table().expect("the architecture table matches LAYERS");
-}

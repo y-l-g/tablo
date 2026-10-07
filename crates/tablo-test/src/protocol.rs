@@ -48,6 +48,12 @@ pub fn form_body(pairs: &[(&str, &str)]) -> String {
 
 /// Builds a multipart body, one part per entry: `None` is a text part,
 /// `Some("")` the browser's "no file chosen" part, `Some(name)` a chosen file.
+///
+/// No part carries a `Content-Type`: neither server parser reads one. The
+/// framework tells a file part from a text part by the `filename` parameter
+/// alone, and the showcase's media upload reads a part's content type only as
+/// an image-or-file kind hint that defaults to file. A suite that asserts on
+/// the kind builds that body with a caller-chosen content type instead.
 pub fn multipart_body(boundary: &str, parts: &[(&str, Option<&str>, &str)]) -> String {
     let mut body = String::new();
     for (name, filename, content) in parts {

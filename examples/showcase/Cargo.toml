@@ -7,11 +7,10 @@ rust-version.workspace = true
 publish = false
 description = "Showcase: real-world Panel demo (Users, Authors, Posts) exercising every Tablo feature through real resources."
 
-# GH #179, see `docs/dev/TESTING.md`: one integration-test binary per crate. Cargo
-# autodiscovers
-# every file under `tests/` as its own target, which is exactly the per-file
-# link cost this consolidation removes — so the module files are declared as one
-# target and autodiscovery stays off.
+# GH #179: one integration-test binary per crate. Cargo autodiscovers every file
+# under `tests/` as its own target, the per-file link cost this consolidation
+# removes, so the module files are declared as one target and autodiscovery
+# stays off.
 autotests = false
 
 [[test]]

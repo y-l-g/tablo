@@ -1,14 +1,10 @@
 # Contributing to Tablo
 
 Small fixes, documentation corrections, and tests can go straight to a pull request. For a new
-feature or a public-API change, open an issue first and describe the problem: discuss the
-design first. A change that reshapes `Panel`, `Resource`, `Table`, `Schema`, or the
-policy/tenancy seams needs a design document under [`docs/dev/design/`](docs/dev/design/)
-first: open the design, merge it without implementation, then implement once it is accepted and
-delete the design document in the implementation PR, moving the durable reasoning to an ADR and
-the usage to the guide and rustdoc.
-Read [`AGENTS.md`](AGENTS.md) before your first change; it holds the rules this document
-expands.
+feature or a public-API change, open an issue first and describe the problem: the [feature
+proposal form](.github/ISSUE_TEMPLATE/feature_proposal.yml) asks for the problem, an API sketch,
+the alternatives and a scope estimate, so the issue is where the design is discussed. Read
+[`AGENTS.md`](AGENTS.md) before your first change; it holds the rules this document expands.
 
 ## Fork and branch
 
@@ -30,7 +26,7 @@ cargo run -p showcase
 
 `crates/tablo-core` is the framework. `examples/showcase` is the runnable admin, the reference
 for panel and resource declarations, and the home of the integration tests (`cargo test -p
-showcase`); the JavaScript unit tests are `node --test crates/tablo-ui/assets/*.test.js`.
+showcase`); the JavaScript suites run with `node --test`, and gate 6 below names them.
 
 ## The gate set
 
@@ -101,22 +97,37 @@ vendored file has drifted. Components Tablo owns live in
 ## Dependency pins
 
 `topcoat` and `toasty` are crates.io dependencies in two manifests: the workspace's and
-`examples/quickstart`'s. Renovate groups their bumps. A bump touches both manifests and the
+`examples/quickstart`'s. Renovate groups their bumps; a coupled set, such as `argon2` with
+`password-hash`, merges as one combined manual bump. A bump touches both manifests and the
 workspace lockfile (the quickstart commits none) in one commit:
 
 ```sh
 cargo update -p topcoat -p toasty
 ```
 
-Never run a blanket `cargo update`.
+Never run a blanket `cargo update`. Two `syn` majors remain (GH #181, GH #193); do not
+force-unify them. To work against a local upstream checkout, add an uncommitted `[patch]`
+section pointing at `../topcoat` or `../toasty`.
 
 ## Commits
 
-Every branch is squash-merged into `master`: one commit per branch, so no empty
-merge commits. The squashed commit is a Conventional Commit, with the issue
-reference in the subject when the change closes an issue.
-[`docs/dev/COMMITS.md`](docs/dev/COMMITS.md) is the authoritative format. Pull request titles
-follow the same format, since the title becomes the merged commit; reviewers check it.
+Every branch is squash-merged into `master`: one commit per branch, so no empty merge commits,
+and a branch's own commits are working notes. The squashed commit is a Conventional Commit:
+
+```
+<type>(<scope>): <description> (#123)
+```
+
+`type` is one of `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `perf`, `chore`, `build`,
+`ci`, `revert`. `scope` names the subsystem the change touches: `table`, `panel`, `schema`,
+`core`, `ui`, `xtask`, `showcase`, `docs`, `repo`. The subject is imperative and lowercase, has
+no trailing period, and ends with the issue reference when the change closes an issue. No line
+of the message is longer than 100 characters. A breaking change carries `!` after the type or
+scope and a `BREAKING CHANGE:` footer explaining it. The body says what changed and why without
+restating the diff.
+
+Pull request titles follow the same format, since the title becomes the merged commit;
+reviewers check it.
 
 ## Triage
 
@@ -129,47 +140,8 @@ worth the time to review. If context changes the picture, follow up in the threa
 Record durable design decisions in [`docs/adr/`](docs/adr/): one record per decision, keeping
 only the decision, the rejected alternatives, and the constraint future code must respect.
 Behaviour lives in the guide and in rustdoc. Domain terms and the synonyms to avoid live in
-[`CONTEXT.md`](CONTEXT.md); use its words in code, issues, and commits. Test discipline lives in
-[`docs/dev/TESTING.md`](docs/dev/TESTING.md).
-
-This file is the single home for where each kind of writing lives:
-
-- Vocabulary and domain terms: `CONTEXT.md`
-- Decisions: `docs/adr/`
-- User guide: `docs/guide/` (mdBook); `README.md` is the short entry point
-- Contributor specs — commits, labels, testing: `docs/dev/`; prose rules: below (`#prose`)
-- Transient API proposals: `docs/dev/design/`; upstream API freshness: `docs/dev/upstream-notes.md`
-- Issue bodies: the templates in `.github/ISSUE_TEMPLATE/`
-- Agent tracker notes: `docs/agents/`
-
-## Prose
-
-Rules for every human-readable text in this repo: documentation, the README, ADRs, code comments,
-PR descriptions, issue bodies, and commit bodies.
-
-- State what things are and what they do.
-- Use active voice and present tense: "the engine executes the query", not "the query is
-  executed".
-- Document current behavior only. Omit historical decisions, deprecated approaches, removed APIs,
-  and planned work. A sentence explaining what the code used to do belongs in a commit message
-  or an ADR, not in the source.
-- Prefer concrete examples to description: show the call, the output, or the error.
-- Cut fluff. Every sentence carries information.
-- No buzzwords or business jargon ("leverage", "synergy", "paradigm", "stakeholders",
-  "deliverables", "action items").
-- No weasel words: "very", "really", "quite", "somewhat".
-- No dramatic terms ("critical", "crucial", "vital") unless something actually breaks.
-- No figurative metaphors — pick the literal word. Recurring offenders to avoid by name: "under
-  the hood" (say what the code does), "out of the box" (say "by default"), "first-class" (say
-  what is supported), "magic" (say what happens), "lights up" (say "enables"), "footgun" (name
-  the failure), and "lands" or "ships" as verbs for code existing (say "is added", "exists", or
-  "releases").
-- Start with what the thing is, then why it exists, then what it does, then how to use it. Lead
-  with a code sample where a sample answers the question.
-- A comment earns its place by explaining WHY: a non-obvious invariant, a workaround for a named
-  upstream bug, or a safety argument. A comment that restates what the next line plainly does is
-  noise. Prefer one precise sentence to a paragraph, and do not narrate the refactor or the
-  debugging session that produced the code.
+[`CONTEXT.md`](CONTEXT.md); use its words in code, issues, and commits. The rules for prose,
+tests, commits and issues are in [`AGENTS.md`](AGENTS.md).
 
 By contributing, you agree that your contributions are licensed under the
 [MIT license](LICENSE).

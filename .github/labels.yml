@@ -1,5 +1,5 @@
 # Source of truth synced by `.github/workflows/labels.yml`; update this file, not the GitHub
-# UI. Keep descriptions identical to `docs/dev/LABELS.md`.
+# UI. Each description is the label's meaning; there is no second copy to keep in step.
 
 # Applied by an issue template.
 - name: bug
@@ -8,6 +8,8 @@
 - name: enhancement
   description: "A new feature or a change to the public API."
   color: "a2eeef"
+# The issue body carries the upstream status; the label changes only if the issue stops being an
+# upstream gap.
 - name: upstream
   description: "Missing or unstable upstream Toasty or Topcoat API."
   color: "1d76db"

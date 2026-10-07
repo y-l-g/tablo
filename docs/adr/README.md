@@ -36,7 +36,7 @@ A retired number stays retired and is never reused. Code cites an ADR only for a
 | 0010 | Retired |
 | 0012 | Retired: tenancy folds into 0002 |
 | 0014 | Retired: see `xtask/tests/it.rs` |
-| 0015 | Retired: see `docs/dev/TESTING.md` |
+| 0015 | Retired: the showcase test target (`examples/showcase/Cargo.toml`) |
 | 0016 | Retired |
 | 0020 | Retired |
 | 0021 | Retired: showcase-owned |
