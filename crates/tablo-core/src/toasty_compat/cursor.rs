@@ -3,7 +3,7 @@
 //! Encodes pagination cursors as URL-safe hex tokens preserving the exact value variant with
 //! depth-capped records.
 
-use toasty_core::stmt::Value;
+use toasty::stmt::Value;
 use topcoat::Result;
 
 use crate::error::TabloError;

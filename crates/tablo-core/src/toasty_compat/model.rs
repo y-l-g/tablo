@@ -1,5 +1,5 @@
 //! What Tablo reads off a model's schema: its fields, their columns, its indices and relations
-//! (upstream #114 and #183).
+//! (upstream #183).
 //!
 //! Toasty exposes a model's schema only as its internal `app`, `mapping` and `db` structures. This
 //! module is the one reader of them, and answers in Tablo's own terms: [`FieldInfo`],
@@ -7,11 +7,11 @@
 
 use std::sync::Arc;
 
-use toasty::stmt::{IntoExpr, IntoInsert, Path};
-use toasty_core::{
+use toasty::{
     schema::{app, mapping},
-    stmt::PathRoot,
+    stmt::{IntoExpr, IntoInsert, Path},
 };
+use toasty_core::stmt::PathRoot;
 use topcoat::context::Cx;
 
 use crate::{DeclarationErrorKind, naming::capitalize};
@@ -481,7 +481,7 @@ fn column_of(schema: &toasty_core::Schema, field: &MappingField) -> Option<LeafF
 fn is_document(field: &app::Field) -> bool {
     matches!(
         &field.ty,
-        app::FieldTy::Primitive(p) if matches!(p.ty, toasty_core::stmt::Type::Model(_))
+        app::FieldTy::Primitive(p) if matches!(p.ty, toasty::stmt::Type::Model(_))
     )
 }
 
