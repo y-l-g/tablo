@@ -18,9 +18,26 @@ pub(crate) fn type_stem<T: ?Sized>(suffix: &str) -> &'static str {
 }
 
 /// A CamelCase identifier as a sentence-case phrase: `MediaLibrary` →
-/// `Media library`.
+/// `Media library`. A word the identifier spells in capitals keeps them:
+/// `APIKey` → `API key`.
 pub(crate) fn sentence_case(name: &str) -> String {
-    capitalize(&kebab_case(name).replace('-', " "))
+    // `kebab_case` drops every non-alphanumeric character, so its words, in order, lowercase
+    // the identifier's alphanumeric runs; a word whose run fails that check reads lowercase.
+    let mut source = name.chars().filter(|c| c.is_alphanumeric());
+    let words: Vec<String> = kebab_case(name)
+        .split('-')
+        .map(|word| {
+            let original: String = source.by_ref().take(word.chars().count()).collect();
+            let acronym = original.chars().filter(|c| c.is_alphabetic()).count() > 1
+                && !original.chars().any(char::is_lowercase);
+            if acronym && original.to_lowercase() == word {
+                original
+            } else {
+                word.to_string()
+            }
+        })
+        .collect();
+    capitalize(&words.join(" "))
 }
 
 /// Pluralize a capitalized English word with a compact ruleset (Filament

@@ -109,7 +109,8 @@ impl<R: Resource> ResourceDef<R> {
 
     /// One record's name, the noun in the "Create {label}" and "Edit {label}" titles.
     ///
-    /// Defaults to the model's type name.
+    /// Defaults to the model's type name in sentence case: `BlogPost` → `Blog post`, `APIKey` →
+    /// `API key`.
     #[must_use]
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());

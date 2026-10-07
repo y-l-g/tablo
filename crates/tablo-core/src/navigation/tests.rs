@@ -98,6 +98,23 @@ fn slugs_follow_the_filament_convention() {
 }
 
 #[test]
+fn a_multi_word_model_labels_in_sentence_case() {
+    struct DummyUserResource;
+    impl Resource for DummyUserResource {
+        type Model = crate::test_support::DummyUser;
+        type Form = crate::NoForm<Self::Model>;
+    }
+
+    let mounted = crate::resource::Mounted::new(
+        DummyUserResource::declare(),
+        "/admin",
+        &crate::schema::FieldResolver::default(),
+    );
+    assert_eq!(mounted.label, "Dummy user");
+    assert_eq!(mounted.plural_label, "Dummy users");
+}
+
+#[test]
 fn navigation_item_is_current_path() {
     let users = NavigationItem::at("Users", "/admin/users");
     let showcase = NavigationItem::at("Showcase", "/admin/showcase");

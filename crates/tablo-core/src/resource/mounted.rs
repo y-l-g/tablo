@@ -16,7 +16,7 @@ use crate::{
     DeclarationError, DeclarationErrorKind, Site,
     detail::Detail,
     form::{FormField, RecordForm},
-    naming::{kebab_case, pluralize, type_short_name, type_stem},
+    naming::{kebab_case, pluralize, sentence_case, type_short_name, type_stem},
     navigation::NavigationItem,
     policy::{Ability, Policy},
     schema::{FieldResolver, Schema},
@@ -57,7 +57,7 @@ impl<R: Resource> Mounted<R> {
         let url = format!("{prefix}/{slug}");
         let label = def
             .label
-            .unwrap_or_else(|| type_short_name::<R::Model>().to_string());
+            .unwrap_or_else(|| sentence_case(type_short_name::<R::Model>()));
         let plural_label = def.plural_label.unwrap_or_else(|| pluralize(&label));
         let navigation = def
             .navigation
