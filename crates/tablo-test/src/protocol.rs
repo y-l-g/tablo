@@ -21,7 +21,6 @@ pub fn cookie_header<'a>(cookies: impl IntoIterator<Item = (&'a str, &'a str)>) 
     (!jar.is_empty()).then_some(jar)
 }
 
-/// Collect a response body as bytes.
 pub async fn body_bytes(response: http::Response<Body>) -> Vec<u8> {
     response
         .into_body()
@@ -37,7 +36,6 @@ pub async fn body_string(response: http::Response<Body>) -> String {
     String::from_utf8_lossy(&body_bytes(response).await).into_owned()
 }
 
-/// URL-encode `(key, value)` pairs into an urlencoded form body.
 pub fn form_body(pairs: &[(&str, &str)]) -> String {
     let mut serializer = form_urlencoded::Serializer::new(String::new());
     for (key, value) in pairs {
@@ -98,7 +96,6 @@ pub fn input_value(html: &str, name: &str) -> Option<String> {
 /// Names the session cookie Topcoat's default token store writes.
 pub const SESSION_COOKIE: &str = "__Host-session";
 
-/// The `(name, value)` pairs a response's `Set-Cookie` headers carry.
 pub fn response_cookies(response: &http::Response<Body>) -> Vec<(String, String)> {
     response
         .headers()
@@ -122,7 +119,6 @@ pub fn set_cookie_header(response: &http::Response<Body>, name: &str) -> Option<
         .map(str::to_string)
 }
 
-/// The session cookie value a response set, if any.
 pub fn session_cookie_value(response: &http::Response<Body>) -> Option<String> {
     response_cookies(response)
         .into_iter()

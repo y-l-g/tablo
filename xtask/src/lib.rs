@@ -452,11 +452,8 @@ pub const ASSET_FILES: &[(&str, &str)] = &[
 /// One hook-contract entry: `js` appears in the asset's source and `rust` appears in the Rust
 /// render sources.
 pub struct AssetHook {
-    /// The asset file under `assets/` that consumes the hook.
     pub asset: &'static str,
-    /// The needle that must appear in the asset's source.
     pub js: &'static str,
-    /// The needle that must appear in the Rust sources.
     pub rust: &'static str,
 }
 
