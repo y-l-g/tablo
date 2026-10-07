@@ -2,25 +2,68 @@
 
 use topcoat::{context::Cx, view::*};
 
-use super::{super::WiredTable, BAR_CLASS, QUIET_LINK_CLASS, live_link};
+use super::{super::WiredTable, BAR_CLASS, Frame, QUIET_LINK_CLASS, live_link};
 use crate::table::{
     filter::FilterInput,
     state::{TableSignals, TableState},
 };
 
+/// What a render shows of the table's filters.
+pub(super) struct FilterViews<'a> {
+    /// One control per filter, empty when the filter bar is hidden.
+    pub(super) controls: Vec<BoxView<'a>>,
+    /// Requested filters that produce no predicate, each with the reason.
+    unapplied: Vec<(String, String)>,
+    /// Whether no requested filter produces a predicate.
+    unfiltered: bool,
+}
+
 impl<M> WiredTable<M> {
-    /// Render the fail-visible banner for requested filters that produce no predicate.
+    /// The filter controls and ignored filters a render of `state` shows.
+    pub(super) fn filter_views<'a>(&self, cx: &'a Cx, state: &TableState) -> FilterViews<'a>
+    where
+        M: toasty::schema::Model,
+    {
+        let controls = if self.filter_bar_enabled() {
+            self.filters
+                .iter()
+                .map(|f| {
+                    let current = state.filters.get(f.name()).cloned().unwrap_or_default();
+                    f.control(
+                        cx,
+                        FilterInput::new(
+                            f.name(),
+                            state.filter_param(f.name()),
+                            f.label(),
+                            current,
+                        ),
+                    )
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let unapplied = self.unapplied_filters(state);
+        let unfiltered = !unapplied.is_empty() && self.filter_expr(state).is_none();
+        FilterViews {
+            controls,
+            unapplied,
+            unfiltered,
+        }
+    }
+}
+
+impl Frame<'_> {
+    /// Render the fail-visible banner for the requested filters that produce no predicate.
     pub(super) fn render_filter_warning<'a>(
         &self,
         cx: &'a Cx,
         state: &TableState,
         path: &str,
         signals: &TableSignals,
-    ) -> Option<BoxView<'a>>
-    where
-        M: toasty::schema::Model,
-    {
-        let unapplied = self.unapplied_filters(state);
+        filters: &FilterViews<'_>,
+    ) -> Option<BoxView<'a>> {
+        let unapplied = &filters.unapplied;
         if unapplied.is_empty() {
             return None;
         }
@@ -29,7 +72,7 @@ impl<M> WiredTable<M> {
             .map(|(pair, reason)| format!("{pair} ({reason})"))
             .collect::<Vec<_>>()
             .join(", ");
-        let consequence = if self.filter_expr(state).is_none() {
+        let consequence = if filters.unfiltered {
             "showing unfiltered results"
         } else {
             "other filter(s) still apply"
@@ -54,28 +97,16 @@ impl<M> WiredTable<M> {
         )
     }
 
-    /// Render the filter bar: one `f.<name>` control per filter, which the toolbar form reads.
+    /// Render the filter bar: the `controls`, one `f.<name>` control per filter, which the
+    /// toolbar form reads.
     pub(super) fn render_filter_controls<'a>(
         &self,
         cx: &'a Cx,
         state: &TableState,
         path: &str,
         signals: &TableSignals,
-    ) -> BoxView<'a>
-    where
-        M: toasty::schema::Model,
-    {
-        let controls: Vec<BoxView<'_>> = self
-            .filters
-            .iter()
-            .map(|f| {
-                let current = state.filters.get(f.name()).cloned().unwrap_or_default();
-                f.control(
-                    cx,
-                    FilterInput::new(f.name(), state.filter_param(f.name()), f.label(), current),
-                )
-            })
-            .collect();
+        controls: Vec<BoxView<'a>>,
+    ) -> BoxView<'a> {
         let clear = (!state.filters.is_empty())
             .then(|| live_link(cx, state.without_filters(path), signals));
         view! {

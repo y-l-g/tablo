@@ -3,10 +3,10 @@
 use tablo_ui::{icons, table_head, table_header, table_row};
 use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
-use super::{super::WiredTable, live_link};
+use super::{Frame, live_link};
 use crate::table::state::{TableSignals, TableState, bulk_token};
 
-impl<M> WiredTable<M> {
+impl Frame<'_> {
     /// Render the column-header row: sort links that write the table's query, and the
     /// select-all box over the page's selectable `keys`. Without `links` (the skeleton) the headers
     /// are plain labels.
@@ -18,25 +18,22 @@ impl<M> WiredTable<M> {
         with_actions: bool,
         with_bulk: bool,
         links: Option<(&TableSignals, Vec<String>)>,
-    ) -> Result<BoxView<'a>>
-    where
-        M: toasty::schema::Model,
-    {
+    ) -> Result<BoxView<'a>> {
         let active = state.sort.as_ref().filter(|s| {
             self.columns
                 .iter()
-                .any(|c| c.is_sortable() && c.name() == s.column)
+                .any(|c| c.sortable && c.name == s.column)
         });
         let widths = self.column_widths();
         let mut heads: Vec<BoxView<'_>> = Vec::with_capacity(self.columns.len());
         for (index, col) in self.columns.iter().enumerate() {
             let width = widths.cells[index].clone();
-            let label = col.label().to_string();
-            let sortable = col.is_sortable();
+            let label = col.label.to_string();
+            let sortable = col.sortable;
             let (head_class, aria_sort, header) =
                 if let (true, Some((signals, _))) = (sortable, links.as_ref()) {
                     let (aria, sort_icon, next_desc) = match active {
-                        Some(s) if s.column == col.name() => (
+                        Some(s) if s.column == col.name => (
                             if s.descending {
                                 "descending"
                             } else {
@@ -51,7 +48,7 @@ impl<M> WiredTable<M> {
                         ),
                         _ => ("none", icons::ARROW_UP_DOWN, false),
                     };
-                    let href = state.sorted_by(path, col.name(), next_desc);
+                    let href = state.sorted_by(path, col.name, next_desc);
                     let aria_label = format!(
                         "Sort by {} {}",
                         label,

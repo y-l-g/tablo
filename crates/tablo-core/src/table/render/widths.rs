@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use super::super::WiredTable;
+use super::Frame;
 use crate::table::column::{ColumnWidth, NARROW_DEFAULT_PERCENT};
 
 /// The share of the table the bulk-selection column claims.
@@ -17,22 +17,22 @@ pub(super) struct ColumnWidths {
     pub(super) table_min_width: Option<Cow<'static, str>>,
 }
 
-impl<M> WiredTable<M> {
+impl Frame<'_> {
     /// Whether the table renders a row-actions column.
     pub(super) fn with_actions(&self) -> bool {
-        self.delete_prefix().is_some()
-            || self.edit_prefix().is_some()
-            || self.view_prefix().is_some()
-            || self.row_custom_actions().next().is_some()
+        self.delete_prefix.is_some()
+            || self.edit_prefix.is_some()
+            || self.view_prefix.is_some()
+            || self.row_actions > 0
     }
 
     /// Count the row links side by side in the actions column, counting a labeled custom action as
     /// two.
     fn action_link_count(&self) -> usize {
-        usize::from(self.view_prefix().is_some())
-            + usize::from(self.edit_prefix().is_some())
-            + usize::from(self.delete_prefix().is_some())
-            + 2 * self.row_custom_actions().count()
+        usize::from(self.view_prefix.is_some())
+            + usize::from(self.edit_prefix.is_some())
+            + usize::from(self.delete_prefix.is_some())
+            + 2 * self.row_actions
     }
 
     /// Claim the share of the table the row-actions column takes by link count.
@@ -54,10 +54,7 @@ impl<M> WiredTable<M> {
     }
 
     /// Resolve the width every column of this table declares.
-    pub(super) fn column_widths(&self) -> ColumnWidths
-    where
-        M: toasty::schema::Model,
-    {
+    pub(super) fn column_widths(&self) -> ColumnWidths {
         let bulk = self.bulk_enabled().then_some(BULK_COLUMN_PERCENT);
         let actions = self.with_actions().then(|| self.actions_percent());
         let actions_floor = self.with_actions().then(|| self.actions_min_rem());
@@ -66,7 +63,7 @@ impl<M> WiredTable<M> {
             .chain(
                 self.columns
                     .iter()
-                    .filter_map(|col| col.column_width().default_percent()),
+                    .filter_map(|col| col.width.default_percent()),
             )
             .chain(actions)
             .map(u32::from)
@@ -74,14 +71,14 @@ impl<M> WiredTable<M> {
         let cells = self
             .columns
             .iter()
-            .map(|col| column_width_style(col.column_width(), total))
+            .map(|col| column_width_style(col.width, total))
             .collect();
         let mut min_width = MinWidth::default();
         if let Some(share) = bulk {
             min_width.share(scaled_default_percent(share, total));
         }
         for col in &self.columns {
-            min_width.column(col.column_width(), total);
+            min_width.column(col.width, total);
         }
         let mut actions_style = None;
         if let (Some(share), Some(floor)) = (actions, actions_floor) {

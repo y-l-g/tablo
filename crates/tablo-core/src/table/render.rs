@@ -1,5 +1,9 @@
 //! [`WiredTable`](super::WiredTable) HTML rendering: the entry points plus the chrome.
 //!
+//! The model-typed code stops at the projection: the table's rows become [`rows::RowView`]s,
+//! its filters become controls, and its declaration and wiring become a [`Frame`]. Everything
+//! after renders from those, so the markup compiles once rather than once per model.
+//!
 //! Grouping is page-local and interleaved and a page encodes its row-action
 //! URL base once.
 //!
@@ -26,7 +30,96 @@ use topcoat::{
     view::{Attributes, StaticClass, attributes, class},
 };
 
-use super::state::{TableSignals, TableState, query_of};
+use super::{
+    WiredTable,
+    column::ColumnWidth,
+    state::{TableSignals, TableState, query_of, with_return},
+};
+
+/// What rendering reads from a [`WiredTable`], without its model: the declared columns and
+/// toolbars, and the action wiring.
+pub(super) struct Frame<'t> {
+    columns: Vec<ColumnHead<'t>>,
+    search: bool,
+    filter_bar: bool,
+    delete_prefix: Option<&'t str>,
+    edit_prefix: Option<&'t str>,
+    view_prefix: Option<&'t str>,
+    actions_prefix: Option<&'t str>,
+    bulk_delete: bool,
+    bulk_actions: Vec<BulkAction<'t>>,
+    /// How many custom actions each row may show.
+    row_actions: usize,
+    return_to: Option<&'t str>,
+}
+
+/// One column's header and width.
+struct ColumnHead<'t> {
+    name: &'t str,
+    label: &'t str,
+    sortable: bool,
+    width: ColumnWidth,
+}
+
+/// One custom action the bulk bar offers.
+struct BulkAction<'t> {
+    name: &'static str,
+    label: &'t str,
+    confirm: bool,
+}
+
+impl<M> WiredTable<M> {
+    /// This table's [`Frame`].
+    pub(super) fn frame(&self) -> Frame<'_>
+    where
+        M: toasty::schema::Model,
+    {
+        Frame {
+            columns: self
+                .columns
+                .iter()
+                .map(|col| ColumnHead {
+                    name: col.name(),
+                    label: col.label(),
+                    sortable: col.is_sortable(),
+                    width: col.column_width(),
+                })
+                .collect(),
+            search: self.search_enabled(),
+            filter_bar: self.filter_bar_enabled(),
+            delete_prefix: self.delete_prefix(),
+            edit_prefix: self.edit_prefix(),
+            view_prefix: self.view_prefix(),
+            actions_prefix: self.actions_prefix(),
+            bulk_delete: self.bulk_delete_enabled(),
+            bulk_actions: self
+                .bulk_custom_actions()
+                .map(|action| BulkAction {
+                    name: action.name,
+                    label: &action.label,
+                    confirm: action.confirm,
+                })
+                .collect(),
+            row_actions: self.row_custom_actions().count(),
+            return_to: self.return_to(),
+        }
+    }
+}
+
+impl Frame<'_> {
+    /// Whether the table offers bulk selection.
+    fn bulk_enabled(&self) -> bool {
+        self.bulk_delete || !self.bulk_actions.is_empty()
+    }
+
+    /// `url`, sending the write it starts back where the table was wired to return.
+    fn action_url(&self, url: String) -> String {
+        match self.return_to {
+            Some(target) => with_return(&url, target),
+            None => url,
+        }
+    }
+}
 
 /// A toolbar row above the table: the search-and-bulk row and the filter bar.
 const BAR_CLASS: StaticClass =

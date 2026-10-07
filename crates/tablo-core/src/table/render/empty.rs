@@ -3,10 +3,10 @@
 use tablo_ui::{table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::WiredTable, EMPTY_LINK_CLASS, live_link};
+use super::{EMPTY_LINK_CLASS, Frame, live_link};
 use crate::table::state::{TableSignals, TableState};
 
-impl<M> WiredTable<M> {
+impl Frame<'_> {
     /// Render the zero-rows cell spanning the table, with clear and back-to-first-page links when
     /// filtered.
     pub(super) async fn render_empty_cell<'a>(
@@ -17,10 +17,7 @@ impl<M> WiredTable<M> {
         with_actions: bool,
         with_bulk: bool,
         signals: &TableSignals,
-    ) -> Result<BoxView<'a>>
-    where
-        M: toasty::schema::Model,
-    {
+    ) -> Result<BoxView<'a>> {
         let mut colspan = self.columns.len();
         if with_bulk {
             colspan += 1;

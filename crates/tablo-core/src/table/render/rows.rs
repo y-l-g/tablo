@@ -7,6 +7,7 @@ use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
     super::{GroupKey, RowActions, WiredTable},
+    Frame,
     dialog::write_trigger,
 };
 use crate::table::{
@@ -283,26 +284,28 @@ struct GroupHeader {
 impl<M> WiredTable<M> {
     /// Whether `row`, whose policy allows `actions`, takes a bulk checkbox: bulk delete
     /// allows deleting it, or a bulk custom action allows it.
-    fn selectable(&self, row: &M, actions: RowActions) -> bool {
-        (self.bulk_delete_enabled() && actions.delete)
+    fn selectable(&self, frame: &Frame<'_>, row: &M, actions: RowActions) -> bool {
+        (frame.bulk_delete && actions.delete)
             || self
                 .bulk_custom_actions()
                 .any(|action| (action.allowed)(row))
     }
 
-    /// Project the loaded page into the row presentation the template renders.
+    /// Project the loaded page into the row presentation the template renders, wired as
+    /// `frame` says.
     pub(super) fn row_views<'a>(
         &self,
         cx: &'a Cx,
+        frame: &Frame<'_>,
         page: &TablePage<M>,
         group_key: Option<&GroupKey<M>>,
     ) -> Vec<RowView<'a>>
     where
         M: toasty::schema::Model,
     {
-        let gated = self.delete_prefix().is_some()
-            || self.edit_prefix().is_some()
-            || self.view_prefix().is_some();
+        let gated = frame.delete_prefix.is_some()
+            || frame.edit_prefix.is_some()
+            || frame.view_prefix.is_some();
         let mut row_data: Vec<RowView<'a>> = page
             .rows
             .iter()
@@ -315,31 +318,31 @@ impl<M> WiredTable<M> {
                 };
                 let cells: Vec<BoxView<'a>> =
                     self.columns.iter().map(|col| col.cell(cx, row)).collect();
-                let edit_url = self
-                    .edit_prefix()
+                let edit_url = frame
+                    .edit_prefix
                     .filter(|_| actions.edit)
-                    .map(|prefix| self.action_url(row_edit_url(prefix, &key)));
-                let view_url = self
-                    .view_prefix()
+                    .map(|prefix| frame.action_url(row_edit_url(prefix, &key)));
+                let view_url = frame
+                    .view_prefix
                     .filter(|_| actions.view)
                     .map(|prefix| row_view_url(prefix, &key));
-                let delete_action = self
-                    .delete_prefix()
+                let delete_action = frame
+                    .delete_prefix
                     .filter(|_| actions.delete)
-                    .map(|prefix| self.action_url(delete_action_url(prefix, &key)));
-                let custom = self
-                    .actions_prefix()
+                    .map(|prefix| frame.action_url(delete_action_url(prefix, &key)));
+                let custom = frame
+                    .actions_prefix
                     .map(|prefix| {
                         self.row_custom_actions()
                             .filter(|action| (action.allowed)(row))
                             .map(|action| {
                                 let url = row_action_url(prefix, &key, action.name);
-                                (action.label.clone(), self.action_url(url), action.confirm)
+                                (action.label.clone(), frame.action_url(url), action.confirm)
                             })
                             .collect()
                     })
                     .unwrap_or_default();
-                let selectable = self.bulk_enabled() && self.selectable(row, actions);
+                let selectable = frame.bulk_enabled() && self.selectable(frame, row, actions);
                 RowView {
                     key,
                     cells,

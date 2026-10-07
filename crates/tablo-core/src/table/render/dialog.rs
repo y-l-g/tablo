@@ -10,13 +10,13 @@ use topcoat::{
     view::*,
 };
 
-use super::{super::WiredTable, table_dom_id};
+use super::{Frame, table_dom_id};
 use crate::table::state::{ConfirmSignals, TableSignals, TableState};
 
-impl<M> WiredTable<M> {
+impl Frame<'_> {
     /// Whether the table posts any write: a delete or a custom action.
     pub(super) fn writes(&self) -> bool {
-        self.delete_prefix().is_some() || self.actions_prefix().is_some()
+        self.delete_prefix.is_some() || self.actions_prefix.is_some()
     }
 
     /// Render the table's one write form inside the dialog that confirms it.
