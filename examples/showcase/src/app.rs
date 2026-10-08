@@ -496,8 +496,8 @@ fn url_segment(name: &str) -> String {
     out
 }
 
-/// The admin panel's resources and pages: what the router mounts, and what a background job builds
-/// its context from with [`Panel::context`].
+/// The admin panel's resources and pages: what the router mounts, and what a test builds its
+/// context from with [`Panel::context`].
 pub fn admin_panel() -> Panel {
     Panel::new("admin")
         .auth(Auth::custom(StaffAuth))

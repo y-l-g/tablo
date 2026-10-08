@@ -277,7 +277,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
 ///
 /// A tenant-scoped resource and no tenant in `cx`: 403, the same answer the
 /// handler gate gives. A declaration error when the context's panel does not mount `R`; a
-/// background job builds its context with [`Panel::context`](crate::Panel::context).
+/// background job builds its context with [`PanelHandle::context`](crate::PanelHandle::context).
 ///
 /// App code that loads rows itself must call this: on a scoped resource
 /// [`Resource::query`] is the *tenant-unscoped* base by design.

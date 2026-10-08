@@ -1,7 +1,7 @@
 //! The guide's executed snippets: the Testing chapter's suite and the data-access background job.
 
 use guide::{
-    data_access::count_drafts,
+    data_access::{admin_router, count_drafts},
     first_panel::{Book, BookResource},
     models::{Author, Comment, Post, PostStatus, Seo},
 };
@@ -102,7 +102,13 @@ async fn seeded_blog() -> (Db, uuid::Uuid) {
     let tenant = uuid::Uuid::new_v4();
     let other = uuid::Uuid::new_v4();
     let mut db = Db::builder()
-        .models(toasty::models!(Author, Post, Comment))
+        .models(toasty::models!(
+            Author,
+            Post,
+            Comment,
+            tablo::auth::AdminUser,
+            tablo::auth::AuthSession
+        ))
         .connect("sqlite::memory:")
         .await
         .expect("connect");
@@ -143,6 +149,7 @@ async fn seeded_blog() -> (Db, uuid::Uuid) {
 #[tokio::test]
 async fn a_background_job_counts_the_drafts_of_its_tenant() {
     let (db, tenant) = seeded_blog().await;
-    let drafts = count_drafts(&db, tenant).await.expect("the job runs");
+    let (_router, admin) = admin_router(db).expect("the panel mounts");
+    let drafts = count_drafts(&admin, tenant).await.expect("the job runs");
     assert_eq!(drafts, 2, "two of the four posts are this tenant's drafts");
 }

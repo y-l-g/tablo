@@ -91,7 +91,7 @@ Two things do not belong in `query`:
 In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
 `scoped_query` is `query` with the tenant filter of the def the request's panel mounted, and
 returns an error rather than an unscoped query when the request has no tenant or the panel does
-not mount `R`. A background job builds its context with `Panel::context`; see
+not mount `R`. A background job builds its context from the mounted panel's `PanelHandle`; see
 [Outside a request](./data-access.md#outside-a-request).
 
 The unique-value check on forms probes through the same scoped query, so a `#[unique]` index

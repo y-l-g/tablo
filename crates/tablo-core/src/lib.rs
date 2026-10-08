@@ -127,7 +127,7 @@ pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationStatus};
 pub use page::Page;
-pub use panel::{Brand, Panel, RouterBuilderPanelExt, can_list, url};
+pub use panel::{Brand, Panel, PanelHandle, RouterBuilderPanelExt, can_list, url};
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
     Action, ActionInput, Committed, ForeignKey, Mutation, PublicLink, Relation, Resource,
