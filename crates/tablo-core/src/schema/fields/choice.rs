@@ -2,6 +2,7 @@
 //! rows, with an optional filter input.
 
 use tablo_ui::{input as ui_input, select as ui_select};
+use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
@@ -22,6 +23,33 @@ pub(crate) struct ChoiceControl {
     /// Static `(value, label)` options.
     pub(super) options: Vec<(String, String)>,
     pub(super) relationship: Option<Relationship>,
+    /// The field whose value narrows the relationship's rows, set by `depends_on`.
+    pub(super) parent: Option<Parent>,
+}
+
+/// What narrows a dependent choice's options: the related rows whose column equals the value the
+/// field `watched` posts.
+#[derive(Clone)]
+pub(crate) struct Parent {
+    pub(super) watched: String,
+    /// The model the column belongs to, which must be the relationship's source model.
+    pub(super) model: std::any::TypeId,
+    /// The predicate selecting the rows for a trimmed, non-empty parent value, or `None` when the
+    /// column's type does not parse it.
+    pub(super) scope: ParentScope,
+}
+
+/// A dependent choice's predicate for one parent value.
+pub(crate) type ParentScope = std::sync::Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
+
+/// The rows a dependent choice offers for one parent value.
+enum Scope {
+    /// Not a dependent choice: every row.
+    All,
+    /// The rows the predicate selects.
+    Within(Expr<bool>),
+    /// A blank parent, or one the column does not parse: no row.
+    Nothing,
 }
 
 /// A relationship's three loaders: the bounded option load, the server-side
@@ -33,6 +61,8 @@ pub(crate) struct Relationship {
     check: RelationshipChecker,
     /// The source's type, named in declaration errors.
     source: &'static str,
+    /// The source's model, which a dependent choice's column must belong to.
+    model: std::any::TypeId,
     /// Whether the request's panel can load from the source.
     available: fn(&Cx) -> bool,
     /// The source model when its rows are tenant-owned, so a key the write
@@ -72,11 +102,11 @@ impl Relationship {
                 Ok(records.iter().map(|record| project(&cx, record)).collect())
             }) as RelationshipLoadFuture
         }) as RelationshipLoader;
-        let search = std::sync::Arc::new(move |cx: &Cx, q: String| {
+        let search = std::sync::Arc::new(move |cx: &Cx, q: String, scope: Option<Expr<bool>>| {
             let project = search_project.clone();
             let cx = cx.clone();
             Box::pin(async move {
-                let records = related_records_search::<R>(&cx, q)
+                let records = related_records_search::<R>(&cx, q, scope)
                     .await
                     .map_err(|error| error.clone())?;
                 Ok(records.iter().map(|record| project(&cx, record)).collect())
@@ -88,6 +118,7 @@ impl Relationship {
             search,
             check,
             source: std::any::type_name::<R>(),
+            model: std::any::TypeId::of::<R::Model>(),
             available: R::available,
             tenant_scoped_model: |cx| {
                 R::requires_tenant(cx).then(<R::Model as toasty::schema::Model>::id)
@@ -100,12 +131,13 @@ impl Relationship {
 fn check_record<'a, R>(
     cx: &'a Cx,
     value: String,
+    scope: Option<Expr<bool>>,
     ex: &'a mut dyn toasty::Executor,
 ) -> RelationshipCheckFuture<'a>
 where
     R: OptionSource,
 {
-    Box::pin(related_record_check::<R>(cx, value, ex))
+    Box::pin(related_record_check::<R>(cx, value, scope, ex))
 }
 
 impl ChoiceControl {
@@ -129,6 +161,36 @@ impl ChoiceControl {
 
     pub(crate) fn is_relationship(&self) -> bool {
         self.relationship.is_some()
+    }
+
+    /// The key of the field whose value narrows a dependent choice's options.
+    pub(crate) fn parent_key(&self) -> Option<&str> {
+        self.parent.as_ref().map(|parent| parent.watched.as_str())
+    }
+
+    /// Whether `depends_on` names a column of another model than the relationship's source, or
+    /// the choice has no relationship to narrow.
+    pub(crate) fn misdeclared_parent(&self) -> bool {
+        self.parent.as_ref().is_some_and(|parent| {
+            self.relationship
+                .as_ref()
+                .is_none_or(|relationship| relationship.model != parent.model)
+        })
+    }
+
+    /// The rows the choice offers while its parent posts `parent`.
+    fn scope(&self, parent: Option<&str>) -> Scope {
+        let Some(declared) = &self.parent else {
+            return Scope::All;
+        };
+        let value = parent.unwrap_or("").trim();
+        if value.is_empty() {
+            return Scope::Nothing;
+        }
+        match (declared.scope)(value) {
+            Some(expr) => Scope::Within(expr),
+            None => Scope::Nothing,
+        }
     }
 
     /// Whether the options come from a model with a composite primary key.
@@ -156,27 +218,49 @@ impl ChoiceControl {
             .map(|relationship| relationship.source)
     }
 
-    /// Searches options server-side, answering `Overflow` past the option cap.
+    /// Searches options server-side among those the parent value `parent` offers, answering
+    /// `Overflow` past the option cap.
     pub(crate) async fn search_options(
         &self,
         cx: &Cx,
         q: &str,
+        parent: Option<&str>,
     ) -> Result<Vec<(String, String)>, OptionLoadError> {
-        match &self.relationship {
-            Some(relationship) => (relationship.search)(cx, q.to_string()).await,
-            None => Ok(self.options.clone()),
+        let Some(relationship) = &self.relationship else {
+            return Ok(self.options.clone());
+        };
+        match self.scope(parent) {
+            Scope::All => (relationship.search)(cx, q.to_string(), None).await,
+            Scope::Within(scope) => (relationship.search)(cx, q.to_string(), Some(scope)).await,
+            Scope::Nothing => Ok(Vec::new()),
         }
     }
 
-    async fn load_options(&self, cx: &Cx) -> Result<Vec<(String, String)>, OptionLoadError> {
-        match &self.relationship {
-            Some(relationship) => (relationship.load)(cx).await,
-            None => Ok(self.options.clone()),
+    /// The options the choice offers while its parent posts `parent`: a dependent choice's bounded
+    /// head of the rows its parent selects.
+    async fn load_options(
+        &self,
+        cx: &Cx,
+        parent: Option<&str>,
+    ) -> Result<Vec<(String, String)>, OptionLoadError> {
+        match (&self.relationship, self.scope(parent)) {
+            (Some(relationship), Scope::All) => (relationship.load)(cx).await,
+            (Some(relationship), Scope::Within(scope)) => {
+                (relationship.search)(cx, String::new(), Some(scope)).await
+            }
+            (Some(_), Scope::Nothing) => Ok(Vec::new()),
+            (None, _) => Ok(self.options.clone()),
         }
     }
 
-    /// Checks whether a non-empty `value` matches an option.
-    pub(super) async fn validate_exists(&self, cx: &Cx, label: &str, value: &str) -> Vec<String> {
+    /// Checks whether a non-empty `value` matches an option the parent value `parent` offers.
+    pub(super) async fn validate_exists(
+        &self,
+        cx: &Cx,
+        label: &str,
+        value: &str,
+        parent: Option<&str>,
+    ) -> Vec<String> {
         let trimmed = value.trim();
         if trimmed.is_empty() {
             return Vec::new();
@@ -187,13 +271,18 @@ impl ChoiceControl {
             }
             return Vec::new();
         };
-        let failure = match (relationship.load)(cx).await {
+        let scope = match self.scope(parent) {
+            Scope::All => None,
+            Scope::Within(scope) => Some(scope),
+            Scope::Nothing => return vec![format!("{label} is invalid")],
+        };
+        let failure = match self.load_options(cx, parent).await {
             Ok(opts) if opts.iter().any(|(v, _)| v == trimmed) => return Vec::new(),
             Ok(_) => "is invalid",
             Err(OptionLoadError::Denied) => "is not available",
             Err(OptionLoadError::Overflow) if self.searchable => {
                 let mut db = crate::db::db(cx);
-                match (relationship.check)(cx, trimmed.to_string(), &mut db).await {
+                match (relationship.check)(cx, trimmed.to_string(), scope, &mut db).await {
                     Ok(RelatedCheck::FoundViewable) => return Vec::new(),
                     Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "is invalid",
                     Err(error) => load_failure(&error),
@@ -204,12 +293,14 @@ impl ChoiceControl {
         vec![format!("{label} {failure}")]
     }
 
-    /// Re-checks a submitted relationship key in the write's transaction.
+    /// Re-checks a submitted relationship key in the write's transaction, among the rows the
+    /// parent value `parent` selects.
     pub(super) async fn recheck(
         &self,
         cx: &Cx,
         label: &str,
         value: &str,
+        parent: Option<&str>,
         ex: &mut dyn toasty::Executor,
     ) -> Vec<String> {
         let trimmed = value.trim();
@@ -219,7 +310,12 @@ impl ChoiceControl {
         if trimmed.is_empty() {
             return Vec::new();
         }
-        let failure = match (relationship.check)(cx, trimmed.to_string(), ex).await {
+        let scope = match self.scope(parent) {
+            Scope::All => None,
+            Scope::Within(scope) => Some(scope),
+            Scope::Nothing => return vec![format!("{label} is invalid")],
+        };
+        let failure = match (relationship.check)(cx, trimmed.to_string(), scope, ex).await {
             Ok(RelatedCheck::FoundViewable) => return Vec::new(),
             Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "is invalid",
             Err(error) => load_failure(&error),
@@ -238,19 +334,20 @@ fn load_failure(error: &OptionLoadError) -> &'static str {
 }
 
 impl Field {
-    /// Renders a choice field's select.
+    /// Renders a choice field's select, offering what its parent's value `parent` selects.
     pub(super) async fn render_choice<'a>(
         &self,
         choice: &ChoiceControl,
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
+        parent: Option<&str>,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
         let required = self.required;
         let searchable = choice.searchable;
         let current = value.unwrap_or("").trim().to_string();
-        let loaded = choice.load_options(cx).await;
+        let loaded = choice.load_options(cx, parent).await;
         // A denial hides the stored label and fails closed.
         // A failed load keeps the stored key selectable.
         let denied = matches!(&loaded, Err(OptionLoadError::Denied));
@@ -283,8 +380,13 @@ impl Field {
         }
         let list_id = format!("{name}-options-list");
         let filter_label = format!("Filter {} options", self.label_str());
-        // Fetches from the server only past the cap.
-        let options_field = overflow_searchable.then(|| name.clone());
+        // A dependent choice fetches its options again when its parent changes, and a searchable
+        // one fetches as the user types past the cap.
+        let dependent = choice.parent_key().map(str::to_string);
+        let parent_value = dependent
+            .as_ref()
+            .map(|_| parent.unwrap_or("").trim().to_string());
+        let options_field = (overflow_searchable || dependent.is_some()).then(|| name.clone());
         let options_server = overflow_searchable.then_some("true");
         let overflow_hint = "Too many options — type to search".to_string();
         let aria_invalid = chrome.aria_invalid();
@@ -345,8 +447,13 @@ impl Field {
                 data-select-filterable=""
                 data-options-field=(options_field)
                 data-options-server=(options_server)
+                data-options-parent=(dependent)
+                data-options-parent-value=(parent_value)
             },
             control,
         )
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -1,5 +1,6 @@
 //! Relationship option search endpoint (D2/D5):
-//! `GET {parent_list_url}/options?field=&q=` for tables above the option cap.
+//! `GET {parent_list_url}/options?field=&q=&parent=` for tables above the option cap and for
+//! dependent choices.
 
 use topcoat::{
     context::Cx,
@@ -17,11 +18,13 @@ use crate::{
 
 /// Relationship option search endpoint (D2/D5).
 ///
-/// `GET {parent_list_url}/options?field=&q=` — server-side narrowing for
-/// tables above the option cap. `field` allow-lists to a declared searchable
-/// relationship choice in the resource's form (400 otherwise); a non-searchable
-/// choice keeps the cap error and never calls here. `q` is trimmed and
-/// clamped to the shared query bound; empty `q` returns the bounded head.
+/// `GET {parent_list_url}/options?field=&q=&parent=` — server-side narrowing for
+/// tables above the option cap, and a dependent choice's options for its parent's value.
+/// `field` allow-lists to a declared relationship choice in the resource's form that is
+/// searchable or dependent (400 otherwise); a non-searchable, independent choice keeps the cap
+/// error and never calls here. `q` is trimmed and clamped to the shared query bound; empty `q`
+/// returns the bounded head. `parent` is the dependent choice's parent value: a blank one
+/// answers no option.
 ///
 /// Gates: `auth::guard` + `enforce_tenant` (parent), then the related
 /// gates inside the search (`ViewAny` + tenant + `View` filtering
@@ -41,7 +44,7 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
 
 /// Answers the option search for the relationship field of `form` the query names.
 async fn options_response(cx: &Cx, form: &Schema) -> topcoat::Result<http::Response<Body>> {
-    let (field, q) = options_query(cx);
+    let OptionsQuery { field, q, parent } = options_query(cx);
     let field = field.trim();
     if field.is_empty() {
         return Err(topcoat::router::error::bad_request("missing field").into());
@@ -57,10 +60,10 @@ async fn options_response(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respo
     if !select.is_relationship() {
         return Err(topcoat::router::error::bad_request("not a relationship select").into());
     }
-    if !select.is_searchable() {
+    if !select.is_searchable() && select.parent_key().is_none() {
         return Err(topcoat::router::error::bad_request("not searchable").into());
     }
-    match select.search_options(cx, &q).await {
+    match select.search_options(cx, &q, Some(&parent)).await {
         Ok(opts) => {
             let options: Vec<_> = opts
                 .into_iter()
@@ -95,6 +98,7 @@ async fn options_response(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respo
                 .to_string(),
         )
         .into()),
+        // The header tells a dependent choice's script to search the server from now on.
         Err(OptionLoadError::Overflow) => {
             let html =
                 "<option value=\"\" disabled>Too many results — keep typing</option>".to_string();
@@ -102,33 +106,43 @@ async fn options_response(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respo
                 .status(200)
                 .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
                 .header("x-content-type-options", "nosniff")
+                .header("x-options-overflow", "true")
                 .body(Body::from(html))?;
             Ok(res)
         }
     }
 }
 
-/// Parse `?field=` + `?q=` for the options endpoint (first-wins, like the
-/// table state parser).
-fn options_query(cx: &Cx) -> (String, String) {
+/// The options endpoint's query parameters.
+#[derive(Default)]
+struct OptionsQuery {
+    field: String,
+    q: String,
+    parent: String,
+}
+
+/// Parse `?field=`, `?q=` and `?parent=` for the options endpoint (first-wins, like the table
+/// state parser).
+fn options_query(cx: &Cx) -> OptionsQuery {
+    let mut out = OptionsQuery::default();
     let Some(parts) = topcoat::context::try_request_context::<http::request::Parts>(cx) else {
-        return (String::new(), String::new());
+        return out;
     };
     let query = parts.uri.query().unwrap_or("");
-    let mut field = String::new();
-    let mut q = String::new();
-    let mut seen_field = false;
-    let mut seen_q = false;
+    let (mut seen_field, mut seen_q, mut seen_parent) = (false, false, false);
     for (k, v) in form_urlencoded::parse(query.as_bytes()) {
-        if k == "field" && !seen_field {
-            field = v.into_owned();
-            seen_field = true;
-        } else if k == "q" && !seen_q {
-            q = v.into_owned();
-            seen_q = true;
+        let (slot, seen) = match k.as_ref() {
+            "field" => (&mut out.field, &mut seen_field),
+            "q" => (&mut out.q, &mut seen_q),
+            "parent" => (&mut out.parent, &mut seen_parent),
+            _ => continue,
+        };
+        if !*seen {
+            *slot = v.into_owned();
+            *seen = true;
         }
     }
-    (field, q)
+    out
 }
 
 #[cfg(test)]

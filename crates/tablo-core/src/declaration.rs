@@ -130,6 +130,8 @@ pub enum ActionInputFault {
     FileField(String),
     /// No field, but a parse that refuses an empty submission, so the action could never run.
     RefusesEmpty,
+    /// A dependent choice, whose options no route serves an action's input.
+    DependentChoice(String),
 }
 
 /// What is wrong with a declaration.
@@ -309,6 +311,19 @@ pub enum DeclarationErrorKind {
         /// The value.
         value: String,
     },
+    /// A dependent choice's column belongs to another model than its relationship's source, or
+    /// the choice has no relationship.
+    MisdeclaredDependentChoice {
+        /// The dependent choice.
+        field: String,
+    },
+    /// A dependent choice depends on a field the schema does not place.
+    UnplacedParentField {
+        /// The dependent choice.
+        field: String,
+        /// The field it depends on.
+        parent: String,
+    },
     /// A field a condition hides has no blank answer, so a submission hiding it cannot parse.
     RequiredConditionalField {
         /// The field.
@@ -448,6 +463,11 @@ impl fmt::Display for DeclarationErrorKind {
                     "action '{action}' declares no input field, but its input refuses an empty \
                      submission: declare the fields it parses, or name `()`"
                 ),
+                ActionInputFault::DependentChoice(field) => write!(
+                    f,
+                    "action '{action}' declares a dependent choice '{field}' in its input, whose \
+                     options only a resource's form refreshes: drop `depends_on`"
+                ),
             },
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")
@@ -537,6 +557,16 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "a condition shows a field while '{field}' posts '{value}', which it never posts: \
                  name one of its option values, or `true` or `false` for a toggle"
+            ),
+            Self::MisdeclaredDependentChoice { field } => write!(
+                f,
+                "choice '{field}' depends on a column its options do not have: call \
+                 `relationship::<R>()` and name a column of `R`'s model in `depends_on`"
+            ),
+            Self::UnplacedParentField { field, parent } => write!(
+                f,
+                "choice '{field}' depends on field '{parent}', which the schema does not place: \
+                 place it in the same schema"
             ),
             Self::RequiredConditionalField { field } => write!(
                 f,

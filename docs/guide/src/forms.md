@@ -118,7 +118,7 @@ control's builder, which offers only that control's modifiers, so a modifier on 
 does not compile:
 
 - text (`TextField`): `.email()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
-- choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`.
+- choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`.
 
 A choice needs something to offer: mounting refuses a resource form's or an action input's choice
 with neither options nor a relationship, whose `<select>` would be empty and whose validation
@@ -201,6 +201,30 @@ labels one field's options otherwise, to tell apart records that share a title.
   `GET {list_url}/options`, which searches the related table's `searchable()` columns; a
   non-searchable choice shows an error instead. `.searchable()` also filters a short list as
   you type. Without JavaScript the plain select remains.
+
+### Dependent choices
+
+`.depends_on(&field, column)` narrows a relationship choice to the related records whose `column`
+equals the value another field of the same form posts: the cities of the chosen country.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-dependent-choice}}
+```
+
+- The form renders the options of the parent's current value, and none while it is blank. When the
+  parent changes, the browser fetches the new options from `GET {list_url}/options` and keeps the
+  current choice only if they still offer it. A choice they drop changes too, so a choice
+  depending on it, or a condition watching it, follows.
+- A submission must name a record of the parent value it posts, or, on an edit that does not post
+  the parent, of its stored value. The write checks the key again inside its transaction, as for
+  any relationship.
+- The 200-option cap counts the parent's records. Past it, a `.searchable()` dependent choice
+  searches among them.
+- Without JavaScript the options stay those of the value the page rendered with, and a submission
+  naming another value's record is refused.
+- `column` must belong to the relationship's model, and the parent must be placed in the same
+  schema: mounting refuses either mistake. Only a resource's form serves the options, so mounting
+  also refuses a dependent choice in an action's input.
 
 ### Conditional fields
 

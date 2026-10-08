@@ -83,6 +83,78 @@ pub fn author_control() -> ChoiceField<PostAuthorForm> {
 }
 // ANCHOR_END: forms-relationship-field
 
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Country {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+pub struct City {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub country_id: uuid::Uuid,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Address {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub country_id: uuid::Uuid,
+    pub city_id: uuid::Uuid,
+}
+
+pub struct CountryResource;
+
+impl Resource for CountryResource {
+    type Model = Country;
+    type Form = NoForm<Country>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .table(Table::new(TextColumn::new(lens!(Country.name))))
+            .record_title(lens!(Country.name))
+    }
+}
+
+pub struct CityResource;
+
+impl Resource for CityResource {
+    type Model = City;
+    type Form = NoForm<City>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .table(Table::new(TextColumn::new(lens!(City.name))))
+            .record_title(lens!(City.name))
+    }
+}
+
+// ANCHOR: forms-dependent-choice
+#[derive(Debug, Clone, tablo::RecordForm)]
+#[form(model = Address)]
+pub struct AddressForm {
+    #[form(relationship = CountryResource)]
+    pub country_id: uuid::Uuid,
+    #[form(relationship = CityResource)]
+    pub city_id: uuid::Uuid,
+}
+
+pub fn address_layout() -> Schema<AddressForm> {
+    let c = AddressForm::controls();
+    // The cities whose `country_id` is the chosen country.
+    let city = c
+        .city_id
+        .depends_on(&c.country_id, City::fields().country_id());
+    Schema::new((c.country_id, city))
+}
+// ANCHOR_END: forms-dependent-choice
+
 // ANCHOR: forms-role-options
 pub fn role_fields() {
     Field::choice(lens!(User.role)).options(Role::options());

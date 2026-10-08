@@ -213,6 +213,32 @@ impl<F> Schema<F> {
             .collect()
     }
 
+    /// What is wrong with the schema's dependent choices: a column of another model than the
+    /// relationship's source, or no relationship, and a parent the schema does not place, which
+    /// posts nothing to narrow the options by.
+    fn dependent_errors(&self) -> Vec<crate::DeclarationErrorKind> {
+        let mut errors = Vec::new();
+        for field in &self.fields {
+            let Some(choice) = field.as_choice() else {
+                continue;
+            };
+            if choice.misdeclared_parent() {
+                errors.push(crate::DeclarationErrorKind::MisdeclaredDependentChoice {
+                    field: field.name().to_string(),
+                });
+            }
+            if let Some(parent) = choice.parent_key()
+                && !self.fields.iter().any(|placed| placed.name() == parent)
+            {
+                errors.push(crate::DeclarationErrorKind::UnplacedParentField {
+                    field: field.name().to_string(),
+                    parent: parent.to_string(),
+                });
+            }
+        }
+        errors
+    }
+
     /// Reports what is wrong with this declaration: an embedded value or path never bound, a field
     /// whose lens binds no single column, and two fields sharing a name.
     pub fn declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
@@ -223,6 +249,7 @@ impl<F> Schema<F> {
             .map(|item| crate::DeclarationErrorKind::Unbound { item })
             .collect();
         errors.extend(self.condition_errors());
+        errors.extend(self.dependent_errors());
         let mut seen = HashSet::new();
         for field in &self.fields {
             match field.misdeclared() {
@@ -284,7 +311,11 @@ impl<F> Schema<F> {
                 errors.push(error);
                 continue;
             }
-            for message in field.validate_exists(cx, value).await {
+            let parent = field.parent_key().and_then(|key| values.get(key));
+            for message in field
+                .validate_exists(cx, value, parent.map(String::as_str))
+                .await
+            {
                 errors.add(name, message);
             }
         }
@@ -315,7 +346,11 @@ impl<F> Schema<F> {
             let Some(value) = values.get(name) else {
                 continue;
             };
-            for message in field.recheck(cx, value, &mut *ex).await {
+            let parent = field.parent_key().and_then(|key| values.get(key));
+            for message in field
+                .recheck(cx, value, parent.map(String::as_str), &mut *ex)
+                .await
+            {
                 errors.add(name, message);
             }
         }

@@ -101,9 +101,14 @@ impl Node {
             Node::Field(index) => {
                 let field = &fields[*index];
                 let error = source.error_for(field);
-                let mut view =
-                    Box::pin(field.render(cx, source.value(field.name()), error.as_deref()))
-                        .await?;
+                let parent = field.parent_key().and_then(|key| source.value(key));
+                let mut view = Box::pin(field.render_under(
+                    cx,
+                    source.value(field.name()),
+                    error.as_deref(),
+                    parent,
+                ))
+                .await?;
                 if let Some(conditions) = source.watched.get(field.name()) {
                     view = watch(cx, field, conditions, source.values, view);
                 }

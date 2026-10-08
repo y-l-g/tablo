@@ -499,3 +499,102 @@ test('Enter while the server is searching does not submit', () => {
     global.clearTimeout = realClearTimeout;
   }
 });
+
+// --- dependent choices -------------------------------------------------------
+
+// A dependent `city_id` choice over a `country_id` parent, in one form. The
+// select parses the markup a refresh writes into it, enough for `optionFor`.
+function dependentWorld({ parentValue, current }) {
+  const select = {
+    value: current,
+    options: [
+      { value: '', textContent: '-- Select --', outerHTML: '<option value="">-- Select --</option>' },
+      { value: current, textContent: current },
+    ],
+    events: [],
+    querySelector(selector) {
+      return selector === 'option[value=""]' ? this.options[0] : null;
+    },
+    set innerHTML(html) {
+      this.options = Array.from(html.matchAll(/value="([^"]*)"/g), (m) => ({ value: m[1] }));
+    },
+    dispatchEvent(event) {
+      this.events.push(event);
+      return true;
+    },
+  };
+  const attrs = {
+    'data-options-parent': 'country_id',
+    'data-options-field': 'city_id',
+    'data-options-parent-value': 'fr',
+  };
+  const wrap = {
+    getAttribute: (name) => (name in attrs ? attrs[name] : null),
+    setAttribute: (name, value) => {
+      attrs[name] = value;
+    },
+    removeAttribute: (name) => {
+      delete attrs[name];
+    },
+    hasAttribute: (name) => name in attrs,
+    contains: () => false,
+    querySelector: (selector) => (selector === 'select' ? select : null),
+  };
+  const form = {
+    querySelectorAll: (selector) => (selector === '[data-options-parent]' ? [wrap] : []),
+  };
+  const parent = { name: 'country_id', value: parentValue, form, closest: () => null };
+  return { attrs, select, parent };
+}
+
+// Fire the parent's `change` and let the refresh land.
+async function changeParent(document, parent) {
+  document.listeners('change').forEach((handler) => handler({ target: parent }));
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+test('a blank parent clears its dependent choice without a fetch', async () => {
+  const world = dependentWorld({ parentValue: '', current: 'paris' });
+  const document = standInDocument([]);
+  load(document);
+  global.fetch = () => assert.fail('a blank parent fetches nothing');
+  try {
+    await changeParent(document, world.parent);
+  } finally {
+    delete global.fetch;
+  }
+  assert.deepEqual(world.select.options.map((o) => o.value), ['']);
+  assert.equal(world.select.value, '');
+  assert.equal(world.attrs['data-options-parent-value'], '');
+  assert.equal(world.select.events.length, 1, 'the dropped choice announces its change');
+});
+
+test('a parent value fetches the options it offers, keeping a choice among them', async () => {
+  global.window = { location: { pathname: '/admin/addresses/create' } };
+  const urls = [];
+  global.fetch = async (url) => {
+    urls.push(url);
+    return {
+      ok: true,
+      headers: { get: () => null },
+      text: async () => '<option value="paris">Paris</option><option value="lyon">Lyon</option>',
+    };
+  };
+  try {
+    const kept = dependentWorld({ parentValue: 'fr', current: 'paris' });
+    const document = standInDocument([]);
+    load(document);
+    await changeParent(document, kept.parent);
+    assert.deepEqual(urls, ['/admin/addresses/options?field=city_id&parent=fr']);
+    assert.equal(kept.select.value, 'paris');
+    assert.equal(kept.select.events.length, 0, 'a kept choice does not change');
+
+    const dropped = dependentWorld({ parentValue: 'fr', current: 'berlin' });
+    await changeParent(document, dropped.parent);
+    assert.equal(dropped.select.value, '');
+    assert.equal(dropped.select.events.length, 1, 'the dropped choice announces its change');
+  } finally {
+    delete global.fetch;
+    delete global.window;
+  }
+});
