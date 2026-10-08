@@ -4,7 +4,7 @@ use super::*;
 use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
-    test_support::{DummyUser, cx},
+    test_support::{DummyUser, Html as _, cx},
 };
 
 /// The `<div>` nesting depth at the first occurrence of `marker` in `html`,
@@ -37,11 +37,8 @@ async fn text_input_inside_section_and_grid() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     // No Tailwind-class assertions. What the layout has to prove
     // is structural: the section's title, then the field it wraps, once.
     assert!(html.contains("Account"), "missing section title in {html}");
@@ -64,11 +61,8 @@ async fn section_renders_title_and_child() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(html.contains("Account"), "missing title in {html}");
     assert!(
         html.contains("name=\"name\""),
@@ -91,11 +85,8 @@ async fn group_renders_children() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     // The layout owes the child it holds — once.
     assert!(html.contains("Inside group"), "missing child in {html}");
     assert_eq!(
@@ -117,11 +108,8 @@ async fn grid_renders_with_cols_and_children() {
         )))
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
         assert!(
             html.contains(&format!("grid-cols-{cols}")),
             "Grid::new({cols}) must lay out {cols} columns, got {html}"
@@ -143,11 +131,8 @@ async fn nested_grid_inside_section() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(html.contains("Outer"), "missing outer title in {html}");
     assert!(html.contains("Left"), "missing left in {html}");
     assert!(html.contains("Right"), "missing right in {html}");

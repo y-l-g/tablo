@@ -1,8 +1,10 @@
-use toasty::Db;
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::{Tenancy, TenantId, lens, test_support::User};
+use crate::{
+    Tenancy, TenantId, lens,
+    test_support::{User, memory_db},
+};
 
 struct UserResource;
 
@@ -39,12 +41,7 @@ impl Resource for BareResource {
 async fn query_seam_is_cloneable_via_db_helper() {
     // Proves the seam composes with the `db(cx)` helper without taking
     // ownership of the query.
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(User)).await;
     toasty::create!(User { name: "Ada" })
         .exec(&mut db)
         .await
@@ -99,12 +96,7 @@ impl Resource for OwnedResource {
 /// with no tenant runs no query at all.
 #[tokio::test]
 async fn tenancy_is_anded_onto_the_base_query() {
-    let mut db = Db::builder()
-        .models(toasty::models!(Owned))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Owned)).await;
     let mine = uuid::Uuid::new_v4();
     let theirs = uuid::Uuid::new_v4();
     for (tenant_id, name) in [
@@ -167,12 +159,7 @@ struct OptionTenantForm {
 /// that neither another tenant's row nor a tenantless one is served.
 #[tokio::test]
 async fn a_nullable_tenant_column_is_stamped_and_scoped() {
-    let mut db = Db::builder()
-        .models(toasty::models!(Assignable))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Assignable)).await;
     let mine = uuid::Uuid::new_v4();
     let theirs = uuid::Uuid::new_v4();
     for (tenant_id, name) in [(Some(TenantId::from(theirs)), "Theirs"), (None, "Nobody")] {

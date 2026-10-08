@@ -1,10 +1,10 @@
-use toasty::Db;
 use topcoat::Result;
 
 use super::*;
 use crate::{
     Ability, ResourceDef, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
+    test_support::memory_db,
 };
 
 #[test]
@@ -50,12 +50,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -174,12 +169,7 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     for name in ["one", "two"] {
         toasty::create!(Dummy {
             name: name.to_string(),

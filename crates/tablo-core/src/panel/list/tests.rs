@@ -1,9 +1,8 @@
-use toasty::Db;
-
 use super::*;
 use crate::{
     Ability, ResourceDef, lens,
     panel::test_support::{Dummy, Subscriber, dummy_table, mount, panel_for},
+    test_support::memory_db,
 };
 
 /// Renders the list body with one seeded row.
@@ -20,12 +19,7 @@ async fn list_html_with<R: Resource>(names: &[&str]) -> String {
 async fn list_html_via(names: &[&str], panel: fn() -> crate::Panel) -> String {
     use http_body_util::BodyExt;
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     for name in names {
         toasty::create!(Dummy {
             name: (*name).to_string(),
@@ -76,12 +70,7 @@ async fn two_lists_declare_distinct_signal_ids() {
     list_resource!(FirstResource, "firsts");
     list_resource!(SecondResource, "seconds");
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     // The shell's sidebar signals match on every page; a bare layout leaves only the tables' own.
     fn bare<'a>(_cx: &'a Cx, slot: topcoat::router::Slot<'a>) -> topcoat::view::BoxView<'a> {
         topcoat::view::ViewExt::boxed(slot)
@@ -146,12 +135,7 @@ async fn a_rerun_renders_the_query_its_signal_carries() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     for name in ["Ada", "Bob"] {
         toasty::create!(Dummy {
             name: name.to_string(),
@@ -228,12 +212,7 @@ async fn read_only_resource_hides_delete_chrome() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -412,12 +391,7 @@ async fn denied_rows_render_no_edit_chrome() {
     struct DeniedForm {
         name: String,
     }
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -532,12 +506,7 @@ async fn both_cursors_render_the_first_page() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Subscriber)).await;
     for email in ["a@b.c", "d@e.f"] {
         toasty::create!(Subscriber {
             email: email.to_string()

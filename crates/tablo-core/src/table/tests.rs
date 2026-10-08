@@ -1,4 +1,4 @@
-use toasty::{Db, stmt::List};
+use toasty::stmt::List;
 use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
@@ -6,7 +6,7 @@ use crate::{
     Ability, ComputedColumn, lens,
     resource::{Resource, ResourceDef},
     table::{Column, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
-    test_support::User,
+    test_support::{Html as _, User, memory_db, tableless_db},
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -39,12 +39,7 @@ fn filters_state(pairs: &[(&str, &str)]) -> TableState {
 
 #[tokio::test]
 async fn table_search_filters_via_column() {
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(User)).await;
     toasty::create!(User { name: "Ada" })
         .exec(&mut db)
         .await
@@ -80,11 +75,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(User)).await;
     // The wiring derives the action URLs from the request path, so the Cx needs one.
     let parts = http::Request::builder()
         .uri("/admin/dummies")
@@ -191,12 +182,7 @@ fn order_bys_for_resolves_sort_param_with_fallbacks() {
 
 #[tokio::test]
 async fn table_page_round_trips_real_cursors() {
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(User)).await;
     for name in ["Ada", "Bob", "Cara"] {
         toasty::create!(User { name }).exec(&mut db).await.unwrap();
     }
@@ -294,18 +280,14 @@ fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
 
 #[tokio::test]
 async fn filter_banner_reports_unfiltered_when_nothing_applies() {
-    use topcoat::view::ViewExt;
     let cx = CxTestBuilder::new().build();
     let tbl = status_table();
     let render_banner = async |pairs: &[(&str, &str)]| {
         let page = crate::table::TablePage::<Task>::from(vec![]);
         tbl.render_with_state(&cx, page, &filters_state(pairs), "/admin/tasks")
             .await
-            .unwrap()
-            .single()
+            .html(&cx)
             .await
-            .unwrap()
-            .render(&cx)
     };
     let html = render_banner(&[("status", "typo")]).await;
     assert!(
@@ -412,12 +394,7 @@ async fn a_misdeclared_table_fails_to_render() {
 }
 
 async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(User)).await;
     for name in names {
         toasty::create!(User {
             name: name.to_string()
@@ -758,12 +735,7 @@ async fn stale_cursor_is_marked_for_retry() {
     use toasty::stmt::Value;
     use toasty_core::stmt::ValueRecord;
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Task))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Task)).await;
     for title in ["Alpha", "Bravo", "Charlie", "Delta"] {
         toasty::create!(Task {
             title: title.to_string(),

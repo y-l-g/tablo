@@ -1,9 +1,8 @@
-use toasty::Db;
-
 use super::*;
 use crate::{
     Ability, Action, ResourceDef,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
+    test_support::memory_db,
 };
 
 struct Rename;
@@ -39,12 +38,7 @@ impl Resource for Hidden {
 
 #[tokio::test]
 async fn an_unknown_action_answers_a_refused_caller_like_a_known_one() {
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     let router = mount(db, panel_for::<Hidden>()).expect("panel builds");
     for name in ["rename", "missing"] {
         let response = router

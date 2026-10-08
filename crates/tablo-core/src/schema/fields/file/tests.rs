@@ -9,6 +9,7 @@ use super::{
 use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
+    test_support::Html as _,
 };
 
 #[tokio::test]
@@ -27,11 +28,8 @@ async fn file_upload_renders_without_value_attr() {
     let html = schema
         .render(&cx, Source::form(&values, &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("type=\"file\""),
         "missing file input in {html}"

@@ -11,6 +11,7 @@ use crate::{
     navigation::NavigationItem,
     panel::test_support::{Dummy, dummy_table, mount, mount_without_db, refusal, response_html},
     resource::{Resource, ResourceDef},
+    test_support::memory_db,
 };
 
 struct Dashboard;
@@ -45,12 +46,7 @@ impl Resource for DummyResource {
 }
 
 async fn db() -> Db {
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     db
 }
 

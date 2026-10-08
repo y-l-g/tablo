@@ -1,6 +1,5 @@
-use toasty::Db;
-
 use super::*;
+use crate::test_support::memory_db;
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Task {
@@ -44,12 +43,7 @@ fn vehicule_filter() -> QueryFilter<Driver> {
 
 #[tokio::test]
 async fn date_filter_date_only_matches_whole_day() {
-    let mut db = Db::builder()
-        .models(toasty::models!(Task))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Task)).await;
     for (title, ts) in [
         ("Morning", "2024-01-15T09:30:00Z"),
         ("Night", "2024-01-15T23:59:59Z"),
@@ -184,12 +178,7 @@ fn ternary_filter_to_expr_contract() {
 
 #[tokio::test]
 async fn query_filter_hits_only_the_variant() {
-    let mut db = Db::builder()
-        .models(toasty::models!(Driver))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Driver)).await;
     // Same shared `puissance` value in both variants — the variant gate
     // must exclude the other variant (acceptance).
     toasty::create!(Driver {

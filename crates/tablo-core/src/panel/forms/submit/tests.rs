@@ -1,4 +1,3 @@
-use toasty::Db;
 use topcoat::view::ViewExt;
 
 use super::*;
@@ -6,6 +5,7 @@ use crate::{
     Ability, Panel, ResourceDef, lens,
     panel::test_support::{Dummy, Subscriber, dummy_table, mount, panel_for, response_html},
     schema::{Field, Schema},
+    test_support::{memory_db, tableless_db},
 };
 
 #[test]
@@ -58,12 +58,7 @@ async fn edit_post_requires_view_as_well_as_update() {
     struct ViewDeniedForm {
         name: String,
     }
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -157,12 +152,7 @@ async fn transport_keys_never_reach_the_write() {
         #[form(file)]
         path: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Doc))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Doc)).await;
     let router = mount(db.clone(), panel_for::<CapturingResource>()).expect("panel builds");
     let csrf = uuid::Uuid::new_v4().to_string();
     let boundary = "----TransportBoundary";
@@ -241,11 +231,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     struct WritingForm {
         name: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Dummy)).await;
 
     // Positive control carries driver text, so the assertions cannot pass vacuously.
     let mut raw = db.clone();
@@ -367,12 +353,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         })
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy, Ghost))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy, Ghost)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -496,12 +477,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
         #[form(optional)]
         name: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     let router = mount(db, panel_for::<NotifyingResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
     let resp = router
@@ -584,12 +560,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     struct SubscriberForm {
         email: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Subscriber)).await;
     let router = mount(db.clone(), panel_for::<SubscriberResource>()).expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
@@ -685,12 +656,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         #[form(file)]
         path: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Doc))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Doc)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")

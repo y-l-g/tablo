@@ -1,11 +1,12 @@
 use toasty::stmt::{List, Query};
-use topcoat::{
-    context::{Cx, CxTestBuilder},
-    view::*,
-};
+use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
-use crate::{Ability, schema::Field};
+use crate::{
+    Ability,
+    schema::Field,
+    test_support::{Html as _, memory_db},
+};
 
 /// Reports what a submit's option check says for one choice.
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
@@ -98,12 +99,7 @@ async fn relationship_loader_fails_past_option_cap() {
         author_id: uuid::Uuid,
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(RefAuthor, RefPost))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(RefAuthor, RefPost)).await;
     for i in 0..(MAX_RELATIONSHIP_OPTIONS + 1) {
         toasty::create!(RefAuthor {
             name: format!("author-{i}"),
@@ -125,11 +121,8 @@ async fn relationship_loader_fails_past_option_cap() {
     let html = select
         .render(&cx, Some("stored-fk"), None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("value=\"stored-fk\""),
         "over-cap render must keep the stored value: {html}"
@@ -157,12 +150,7 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
         }
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(RefAuthor))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(RefAuthor)).await;
     let row = toasty::create!(RefAuthor {
         name: "Ada".to_string(),
     })
@@ -179,14 +167,7 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
         check(&select, &cx, "Ada").await,
         vec!["Name is invalid".to_string()]
     );
-    let html = select
-        .render(&cx, Some(&pk), None)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = select.render(&cx, Some(&pk), None).await.html(&cx).await;
     assert!(
         html.contains(&format!("value=\"{pk}\"")),
         "option value must be the PK, got {html}"
@@ -201,12 +182,7 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
 async fn relationship_load_fails_closed_when_view_any_is_refused() {
     // A source that denies `ViewAny` leaks neither labels nor ids and reports "not available".
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(PolicyAuthor))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
     let row = toasty::create!(PolicyAuthor {
         name: "Ada".to_string(),
     })
@@ -221,14 +197,7 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
         check(&select, &cx, &pk).await,
         vec!["Id is not available".to_string()]
     );
-    let html = select
-        .render(&cx, Some(&pk), None)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = select.render(&cx, Some(&pk), None).await.html(&cx).await;
     assert!(
         !html.contains("Ada"),
         "denied labels must not render: {html}"
@@ -248,12 +217,7 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
 async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets() {
     // A tenant-scoped source serves no unscoped options and narrows the load to the request tenant.
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(PolicyAuthor))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
     let tenant = uuid::Uuid::new_v4();
     let row = toasty::create!(PolicyAuthor {
         tenant_id: Some(tenant),
@@ -285,12 +249,7 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
 async fn relationship_load_filters_rows_by_view() {
     // `View`-denied rows are absent from options and validation.
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(PolicyAuthor))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
     let visible = toasty::create!(PolicyAuthor {
         name: "Visible".to_string(),
     })
@@ -318,11 +277,8 @@ async fn relationship_load_filters_rows_by_view() {
     let html = select
         .render(&cx, Some(&visible.id.to_string()), None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(html.contains("Visible"), "viewable row must render: {html}");
     assert!(
         !html.contains("Hidden"),
@@ -334,12 +290,7 @@ async fn relationship_load_filters_rows_by_view() {
 async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
     // The cap is checked on the raw bounded fetch before `View` filtering.
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(PolicyAuthor))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
     let mut hidden_pk = String::new();
     // One past the cap, with one hidden row.
     for i in 0..=MAX_RELATIONSHIP_OPTIONS {
@@ -370,12 +321,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
 async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
     // A row `View` refuses is absent from options, validation, and re-render.
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(PolicyAuthor))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
     let hidden = toasty::create!(PolicyAuthor {
         name: "Hidden".to_string(),
     })
@@ -390,14 +336,7 @@ async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
         check(&select, &cx, &pk).await,
         vec!["Id is invalid".to_string()]
     );
-    let html = select
-        .render(&cx, Some(&pk), None)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = select.render(&cx, Some(&pk), None).await.html(&cx).await;
     assert!(
         !html.contains("Hidden") && !html.contains(&pk),
         "filtered-out stored value must not render: {html}"
@@ -430,12 +369,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
         }
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(Ref))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Ref)).await;
     let row = toasty::create!(Ref {
         name: "Ada".to_string(),
     })
@@ -454,14 +388,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     OPTION_LOADS.store(0, Ordering::SeqCst);
     assert!(check(&s1, &cx, &id).await.is_empty());
     assert!(check(&s2, &cx, &id).await.is_empty());
-    let _ = s1
-        .render(&cx, Some(&id), None)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let _ = s1.render(&cx, Some(&id), None).await.html(&cx).await;
     assert_eq!(
         OPTION_LOADS.load(Ordering::SeqCst),
         1,
@@ -500,12 +427,7 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
         }
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(BigRef))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(BigRef)).await;
     for i in 0..=MAX_RELATIONSHIP_OPTIONS {
         toasty::create!(BigRef {
             name: format!("author-{i}"),
@@ -554,12 +476,7 @@ async fn relationship_search_narrows_past_the_cap() {
         }
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(SearchRef))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(SearchRef)).await;
     for i in 0..MAX_RELATIONSHIP_OPTIONS {
         toasty::create!(SearchRef {
             name: format!("author-{i}"),
@@ -629,12 +546,7 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
         }
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(PlainRef))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(PlainRef)).await;
     for i in 0..=MAX_RELATIONSHIP_OPTIONS {
         toasty::create!(PlainRef {
             name: format!("author-{i}"),
@@ -679,12 +591,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
         }
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(CheckRef))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(CheckRef)).await;
     let mut visible_pk = String::new();
     for i in 0..=MAX_RELATIONSHIP_OPTIONS {
         let name = if i == 0 {
@@ -756,12 +663,7 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
         }
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(HintRef))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(HintRef)).await;
     for i in 0..=MAX_RELATIONSHIP_OPTIONS {
         toasty::create!(HintRef {
             name: format!("author-{i}"),
@@ -777,11 +679,8 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
     let html = select
         .render(&cx, Some("stored-fk"), None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("value=\"stored-fk\""),
         "overflow must keep stored value: {html}"
@@ -825,12 +724,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
         }
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(SmallRef))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(SmallRef)).await;
     toasty::create!(SmallRef {
         name: "Ada".to_string(),
     })
@@ -841,14 +735,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
     let select = Field::choice(SmallRef::fields().name())
         .searchable()
         .relationship::<SmallRefSource>(|r: &SmallRef| r.name.clone());
-    let html = select
-        .render(&cx, None, None)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = select.render(&cx, None, None).await.html(&cx).await;
     assert!(
         html.contains("data-options-filter"),
         "bounded searchable keeps the client filter input: {html}"
@@ -866,12 +753,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
 /// Re-checks a relationship key through the write's own transaction.
 #[tokio::test]
 async fn recheck_resolves_the_key_through_the_write_transaction() {
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(PolicyAuthor))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
     let tenant = uuid::Uuid::new_v4();
     let author = |name: &str, tenant_id: uuid::Uuid| {
         toasty::create!(PolicyAuthor {

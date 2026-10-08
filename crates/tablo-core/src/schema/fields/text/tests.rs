@@ -1,15 +1,13 @@
 use std::collections::HashMap;
 
-use super::{
-    super::{
-        Field,
-        test_support::{DummyUser, cx},
-    },
-    *,
+use super::super::{
+    Field,
+    test_support::{DummyUser, cx},
 };
 use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
+    test_support::Html as _,
 };
 
 #[tokio::test]
@@ -19,11 +17,8 @@ async fn text_input_renders_with_label_and_ac_field() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("data-slot=\"field\"") && html.contains("data-slot=\"field-label\""),
         "missing field/field-label markup in {html}"
@@ -55,11 +50,8 @@ async fn text_input_error_marks_the_field_invalid() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &errors))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("data-invalid=\"true\"") && html.contains("ac-field--error"),
         "missing invalid field state in {html}"
@@ -80,11 +72,8 @@ async fn text_input_required_renders_star_and_email_type() {
     let html_req = Schema::new(Field::text(DummyUser::fields().name()).required())
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html_req.contains(">*</span>"),
         "required should render its asterisk in {html_req}"
@@ -104,11 +93,8 @@ async fn text_input_required_renders_star_and_email_type() {
     let html_email = Schema::new(Field::text(DummyUser::fields().email()).email())
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html_email.contains("type=\"email\"") && !html_email.contains("r#type"),
         "email should render type=email, not r#type=email, in {html_email}"
@@ -116,11 +102,8 @@ async fn text_input_required_renders_star_and_email_type() {
     let html_text = Schema::new(Field::text(DummyUser::fields().name()))
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html_text.contains("type=\"text\"") && !html_text.contains("r#type"),
         "plain should render type=text, not r#type=text, in {html_text}"
@@ -202,11 +185,8 @@ async fn multiline_renders_a_textarea_with_the_stored_value() {
     let html = schema
         .render(&cx, Source::form(&values, &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("<textarea"),
         "a multi-line field must render a textarea control, got {html}"

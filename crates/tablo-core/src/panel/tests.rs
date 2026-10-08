@@ -1,5 +1,8 @@
 use super::*;
-use crate::{lens, navigation::NavigationItem, panel::test_support::Dummy, resource::Mounted};
+use crate::{
+    lens, navigation::NavigationItem, panel::test_support::Dummy, resource::Mounted,
+    test_support::Html as _,
+};
 
 /// `R`'s sidebar entry on `panel`.
 fn nav_item<R: Resource>(panel: &Panel) -> NavigationItem {
@@ -264,11 +267,8 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/backoffice/other", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let pinned_at = html
         .find("/backoffice/pinned")
         .unwrap_or_else(|| panic!("pinned item must link under the panel prefix, got {html}"));

@@ -1,15 +1,10 @@
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::test_support::User;
+use crate::test_support::{User, memory_db};
 
 async fn seeded_db() -> Db {
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect to in-memory sqlite");
-    db.push_schema().await.expect("push schema");
+    let mut db = memory_db(toasty::models!(User)).await;
 
     toasty::create!(User { name: "Ada" })
         .exec(&mut db)

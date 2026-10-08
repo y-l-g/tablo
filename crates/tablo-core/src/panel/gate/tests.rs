@@ -1,10 +1,10 @@
-use toasty::Db;
 use topcoat::router::Body;
 
 use super::*;
 use crate::{
     Panel,
     panel::test_support::{current_panel, mount, panel_state},
+    test_support::memory_db,
 };
 
 #[test]
@@ -58,15 +58,11 @@ fn panel_prefix_prefers_the_panel_over_the_request_path() {
 /// refusal is the only thing that keeps it from being probed.
 #[tokio::test]
 async fn named_shard_endpoints_answer_401_without_a_session() {
-    let db = Db::builder()
-        .models(toasty::models!(
-            crate::auth::AdminUser,
-            crate::auth::AuthSession
-        ))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(
+        crate::auth::AdminUser,
+        crate::auth::AuthSession
+    ))
+    .await;
     let router =
         mount(db, Panel::new("admin").auth(crate::Auth::password())).expect("panel builds");
 

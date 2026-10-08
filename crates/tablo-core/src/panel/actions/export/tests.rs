@@ -1,9 +1,8 @@
-use toasty::Db;
-
 use super::*;
 use crate::{
     Ability, Panel, ReadOnly, ResourceDef, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for, seed_dummies},
+    test_support::memory_db,
 };
 
 /// Drives both chunker walk tests over one table with no filters.
@@ -43,12 +42,7 @@ async fn export_drops_rows_failing_view() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     for name in ["allowed", "denied"] {
         toasty::create!(Dummy {
             name: name.to_string(),
@@ -130,12 +124,7 @@ async fn export_loads_the_relations_its_columns_include() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Parent, Child))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Parent, Child)).await;
     let parent_id = uuid::Uuid::new_v4();
     toasty::create!(Parent {
         id: parent_id,
@@ -252,12 +241,7 @@ async fn export_streams_csv_in_chunks_with_parity() {
 
     // Crosses two chunk boundaries (500/500/203).
     let total = 2 * EXPORT_CHUNK_ROWS + 203;
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     for i in 0..total {
         toasty::create!(Dummy {
             name: format!("user-{i:05}"),
@@ -334,12 +318,7 @@ async fn export_of_an_empty_table_emits_the_header() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     let router = mount(db, panel_for::<EmptyResource>()).expect("panel builds");
     let get = async |uri: &str| {
         let resp = router
@@ -433,12 +412,7 @@ async fn export_visibility_scan_loads_no_includes() {
 
     SCAN_UNLOADED.store(0, Ordering::SeqCst);
     STREAM_LOADED.store(0, Ordering::SeqCst);
-    let mut db = Db::builder()
-        .models(toasty::models!(Parent, Child))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Parent, Child)).await;
     let parent_id = uuid::Uuid::new_v4();
     toasty::create!(Parent {
         id: parent_id,
@@ -512,12 +486,7 @@ async fn export_counts_only_viewable_rows_within_the_window() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     seed_dummies(&mut db, MAX_EXPORT_ROWS + 1, |i| {
         if i % 2 == 0 {
             format!("allowed-{i:05}")
@@ -568,12 +537,7 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     // 20 rows past the window: the viewable count inside it stays under
     // the cap, so only the presence of rows beyond it can refuse.
     seed_dummies(&mut db, MAX_EXPORT_ROWS + 1 + 20, |i| {
@@ -610,12 +574,7 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
 #[tokio::test]
 async fn export_chunker_stops_at_a_short_chunk() {
     // Stops at a short chunk; re-fetching cursor-free would rescan.
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     for name in ["Ada", "Bob", "Cara"] {
         toasty::create!(Dummy {
             name: name.to_string(),
@@ -658,12 +617,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
 #[tokio::test]
 async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
     // An exact multiple of the chunk size ends the walk without rescanning.
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     seed_dummies(&mut db, EXPORT_CHUNK_ROWS, |i| format!("row-{i:05}")).await;
     let cx = crate::test_support::panel_cx::<ChunkerDummyResource>(&db);
     let table = crate::resource::require_mounted::<ChunkerDummyResource>(&cx)
@@ -732,12 +686,7 @@ async fn export_and_list_agree_on_rows_and_order() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Task))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Task)).await;
     for (title, status) in [
         ("alpha", "draft"),
         ("bravo", "published"),
@@ -823,12 +772,7 @@ async fn export_413s_above_the_cap_before_streaming() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     seed_dummies(&mut db, MAX_EXPORT_ROWS + 1, |i| format!("user-{i:05}")).await;
     let router = mount(db, panel_for::<CappedResource>()).expect("panel builds");
     let resp = router

@@ -9,6 +9,7 @@ use super::{
 use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
+    test_support::Html as _,
 };
 
 #[tokio::test]
@@ -16,14 +17,7 @@ async fn searchable_select_renders_filter_input() {
     // Opt-in client-side option search; default selects stay bare.
     let cx = CxTestBuilder::new().build();
     let plain = Field::choice(DummyUser::fields().name()).options(vec!["a".to_string()]);
-    let html = plain
-        .render(&cx, None, None)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = plain.render(&cx, None, None).await.html(&cx).await;
     assert!(
         !html.contains("data-options-filter"),
         "default select must stay bare, got {html}"
@@ -31,14 +25,7 @@ async fn searchable_select_renders_filter_input() {
     let searchable = Field::choice(DummyUser::fields().name())
         .options(vec!["a".to_string()])
         .searchable();
-    let html = searchable
-        .render(&cx, None, None)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = searchable.render(&cx, None, None).await.html(&cx).await;
     assert!(
         html.contains("data-options-filter"),
         "searchable select must render the filter hook, got {html}"
@@ -106,11 +93,8 @@ async fn select_renders_through_the_select_primitive() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     // The primitive's *chrome* is paint; what it composes is
     // structural — the native `<select>` sits inside the primitive's
     // wrapper `<span>`, which carries the checkmark style hook and the
