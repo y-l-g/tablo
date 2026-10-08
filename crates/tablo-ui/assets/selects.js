@@ -24,6 +24,16 @@
 //   visible.
 //   Without JS the input is inert and the plain select keeps working (stored
 //   value kept, relation cannot be changed past the cap).
+// * Dependent choices: the wrapper carries `data-options-parent="<name>"`, the
+//   field whose value narrows the options, and `data-options-parent-value`.
+//   A `change` of that field in the same form fetches `GET
+//   {parent_list_url}/options?field=&parent=` and replaces the options, keeping
+//   the current choice only when the answer offers it; a blank parent offers
+//   none, with no fetch. A choice the answer drops announces its own `change`,
+//   so a choice depending on it, or a condition watching it, follows. A search
+//   sends the parent value too. Without JS the options stay those of the
+//   parent value the page rendered with, and the server refuses a choice of
+//   another one.
 //
 // The server renders both controls so the field works without this script;
 // with it, the native `<select>` is hidden once the combobox over it is wired.
@@ -64,13 +74,110 @@ function preservedOption(current, label, html) {
   return `<option value="${escCurrent}" selected>${escapeAttr(label)}</option>`;
 }
 
+// The `&parent=` a dependent choice's fetch carries, or nothing for an
+// independent one.
+function parentParam(wrap) {
+  if (!wrap.hasAttribute('data-options-parent')) return '';
+  return `&parent=${encodeURIComponent(wrap.getAttribute('data-options-parent-value') || '')}`;
+}
+
+// The value a changed control posts, as the server reads it: a checkbox posts
+// `true` when checked and its hidden `false` otherwise.
+function postedValue(control) {
+  if (control.type === 'checkbox') return control.checked ? 'true' : 'false';
+  return (control.value || '').trim();
+}
+
+const dependentControllers = new WeakMap();
+
+// Replace a dependent choice's options with those `parentValue` offers.
+async function refreshDependent(wrap, parentValue) {
+  const select = wrap.querySelector('select');
+  const field = wrap.getAttribute('data-options-field');
+  if (!select || !field) return;
+  wrap.setAttribute('data-options-parent-value', parentValue);
+  const prev = dependentControllers.get(wrap);
+  if (prev) prev.abort();
+  // A search still pending for the old parent value would land after this
+  // refresh and bring its options back.
+  const filter = wrap.querySelector('[data-options-filter]');
+  if (filter) {
+    const timer = serverTimers.get(filter);
+    if (timer) clearTimeout(timer);
+    serverTimers.delete(filter);
+    const search = serverControllers.get(filter);
+    if (search) search.abort();
+    serverControllers.delete(filter);
+    delete wrap.dataset.optionsSearching;
+  }
+  let html = '';
+  let overflow = false;
+  if (parentValue !== '') {
+    const controller = new AbortController();
+    dependentControllers.set(wrap, controller);
+    const url = `${parentOptionsBase()}?field=${encodeURIComponent(field)}${parentParam(wrap)}`;
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: 'text/html' },
+        signal: controller.signal,
+      });
+      // A failed answer offers nothing rather than the old parent's options,
+      // which the server would refuse.
+      if (res.ok) {
+        overflow = res.headers.get('x-options-overflow') === 'true';
+        html = await res.text();
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    } finally {
+      if (dependentControllers.get(wrap) === controller) {
+        dependentControllers.delete(wrap);
+      }
+    }
+  } else {
+    dependentControllers.delete(wrap);
+  }
+  // Past the cap a searchable choice searches the server, as one rendered
+  // past it does; a choice with no filter offers nothing to type into, so it
+  // offers no option rather than the server's "keep typing" row.
+  if (overflow && !filter) html = '';
+  const current = select.value;
+  const placeholder = select.querySelector('option[value=""]');
+  const placeholderHtml = placeholder ? placeholder.outerHTML : '<option value="">-- Select --</option>';
+  select.innerHTML = `${placeholderHtml}${html}`;
+  const kept = current !== '' && optionFor(select, current) !== null;
+  select.value = kept ? current : '';
+  if (overflow && filter) {
+    wrap.setAttribute('data-options-server', 'true');
+  } else {
+    wrap.removeAttribute('data-options-server');
+  }
+  const hint = wrap.querySelector('[data-options-hint]');
+  if (hint) hint.hidden = !(overflow && filter);
+  if (filter && !kept) filter.value = '';
+  if (!kept && current !== '') {
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+// Refresh every choice in `control`'s form that depends on it.
+function refreshDependents(control) {
+  if (!control || !control.name || !control.closest) return;
+  const scope = control.form || control.closest('form') || document;
+  scope.querySelectorAll('[data-options-parent]').forEach((wrap) => {
+    if (wrap.getAttribute('data-options-parent') !== control.name) return;
+    if (wrap.contains(control)) return;
+    refreshDependent(wrap, postedValue(control));
+  });
+}
+
 async function serverSearch(filter, wrap, select, field, needle) {
   const prev = serverControllers.get(filter);
   if (prev) prev.abort();
   const controller = new AbortController();
   serverControllers.set(filter, controller);
   const current = select.value;
-  const url = `${parentOptionsBase()}?field=${encodeURIComponent(field)}&q=${encodeURIComponent(needle)}`;
+  const url = `${parentOptionsBase()}?field=${encodeURIComponent(field)}&q=${encodeURIComponent(needle)}${parentParam(wrap)}`;
   let html;
   try {
     const res = await fetch(url, {
@@ -438,12 +545,15 @@ function install() {
     });
   });
 
+  // A field's change refreshes every choice in its form that depends on it.
+  //
   // A server fetch replaces the whole option set *after* the list was rendered,
   // so re-render when it lands — but only while the user is still in the field,
   // or an unrelated `change` would pop the list open.
   document.addEventListener(
     'change',
     (e) => {
+      refreshDependents(e.target);
       const select = e.target.closest && e.target.closest('[data-select-filterable] select');
       if (!select) return;
       const wrap = select.closest('[data-select-filterable]');

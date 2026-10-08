@@ -83,7 +83,7 @@ pub(crate) type RelationshipLoader =
 
 #[allow(clippy::type_complexity)]
 pub(crate) type RelationshipSearchLoader =
-    std::sync::Arc<dyn Fn(&Cx, String) -> RelationshipLoadFuture + Send + Sync>;
+    std::sync::Arc<dyn Fn(&Cx, String, Option<Expr<bool>>) -> RelationshipLoadFuture + Send + Sync>;
 
 pub(crate) type RelationshipCheckFuture<'a> = std::pin::Pin<
     Box<dyn std::future::Future<Output = Result<RelatedCheck, OptionLoadError>> + Send + 'a>,
@@ -91,7 +91,12 @@ pub(crate) type RelationshipCheckFuture<'a> = std::pin::Pin<
 
 #[allow(clippy::type_complexity)]
 pub(crate) type RelationshipChecker = std::sync::Arc<
-    dyn for<'a> Fn(&'a Cx, String, &'a mut dyn toasty::Executor) -> RelationshipCheckFuture<'a>
+    dyn for<'a> Fn(
+            &'a Cx,
+            String,
+            Option<Expr<bool>>,
+            &'a mut dyn toasty::Executor,
+        ) -> RelationshipCheckFuture<'a>
         + Send
         + Sync,
 >;
@@ -190,11 +195,12 @@ where
     Ok(records)
 }
 
-/// Searches the related table's declared searchable columns in one bounded round-trip and fails
-/// past the cap with `Overflow`.
+/// Searches the related table's declared searchable columns, among the rows `scope` selects, in
+/// one bounded round-trip and fails past the cap with `Overflow`.
 pub(crate) async fn related_records_search<R>(
     cx: &Cx,
     q: String,
+    scope: Option<Expr<bool>>,
 ) -> Result<Vec<R::Model>, OptionLoadError>
 where
     R: OptionSource,
@@ -202,6 +208,9 @@ where
     ensure_option_access::<R>(cx)?;
     let term = crate::query_term::clamp_query_term(&q);
     let mut query = option_query::<R>(cx)?;
+    if let Some(scope) = scope {
+        query = query.filter(scope);
+    }
     if !term.is_empty()
         && let Some(expr) = R::search_expr(cx, &term)
     {
@@ -227,10 +236,12 @@ pub(crate) enum RelatedCheck {
     NotFound,
 }
 
-/// Checks one submitted key through the given executor against the tenant-scoped query and `View`.
+/// Checks one submitted key through the given executor against the tenant-scoped query, the rows
+/// `scope` selects, and `View`.
 pub(crate) async fn related_record_check<R>(
     cx: &Cx,
     value: String,
+    scope: Option<Expr<bool>>,
     ex: &mut dyn toasty::Executor,
 ) -> Result<RelatedCheck, OptionLoadError>
 where
@@ -241,19 +252,18 @@ where
     let Some(expr) = crate::toasty_compat::pk::pk_eq_expr::<R::Model>(trimmed) else {
         return Ok(RelatedCheck::NotFound);
     };
-    let row = option_query::<R>(cx)?
-        .filter(expr)
-        .first()
-        .exec(ex)
-        .await
-        .map_err(|e| {
-            tracing::warn!(
-                resource = std::any::type_name::<R>(),
-                error = %e,
-                "relationship option check failed"
-            );
-            OptionLoadError::LoadFailed
-        })?;
+    let mut query = option_query::<R>(cx)?.filter(expr);
+    if let Some(scope) = scope {
+        query = query.filter(scope);
+    }
+    let row = query.first().exec(ex).await.map_err(|e| {
+        tracing::warn!(
+            resource = std::any::type_name::<R>(),
+            error = %e,
+            "relationship option check failed"
+        );
+        OptionLoadError::LoadFailed
+    })?;
     match row {
         None => Ok(RelatedCheck::NotFound),
         Some(record) => {

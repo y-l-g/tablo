@@ -582,6 +582,8 @@ fn check_inputs<T: 'static>(
                     Some(ActionInputFault::ReservedField(name))
                 } else if field.is_file() {
                     Some(ActionInputFault::FileField(name))
+                } else if field.parent_key().is_some() {
+                    Some(ActionInputFault::DependentChoice(name))
                 } else {
                     None
                 }

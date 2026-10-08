@@ -10,7 +10,7 @@ use crate::{
 
 /// Reports what a submit's option check says for one choice.
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
-    field.validate_exists(cx, value).await
+    field.validate_exists(cx, value, None).await
 }
 /// Provides the related-source fixtures the option-policy tests share.
 #[derive(Debug, toasty::Model, Clone)]
@@ -514,13 +514,13 @@ async fn relationship_search_narrows_past_the_cap() {
         .unwrap_err();
     assert_eq!(err, &super::OptionLoadError::Overflow);
     // Distinctive term narrows to one.
-    let rows = super::related_records_search::<SearchRefSource>(&cx, "Zebra".to_string())
+    let rows = super::related_records_search::<SearchRefSource>(&cx, "Zebra".to_string(), None)
         .await
         .unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Zebra Unique");
     // Empty q is the bounded head.
-    let err = super::related_records_search::<SearchRefSource>(&cx, "".to_string())
+    let err = super::related_records_search::<SearchRefSource>(&cx, "".to_string(), None)
         .await
         .unwrap_err();
     assert_eq!(err, super::OptionLoadError::Overflow);
@@ -530,7 +530,7 @@ async fn relationship_search_narrows_past_the_cap() {
     let opts = select
         .as_choice()
         .expect("a choice")
-        .search_options(&cx, "Zebra")
+        .search_options(&cx, "Zebra", None)
         .await
         .unwrap();
     assert_eq!(opts.len(), 1);
@@ -574,7 +574,7 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
         .unwrap();
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let err = super::related_records_search::<PlainRefSource>(&cx, "author-1".to_string())
+    let err = super::related_records_search::<PlainRefSource>(&cx, "author-1".to_string(), None)
         .await
         .unwrap_err();
     assert_eq!(err, super::OptionLoadError::Overflow);

@@ -374,11 +374,23 @@ impl Field {
         }
     }
 
-    /// Whether a submitted choice matches its options.
-    pub(crate) async fn validate_exists(&self, cx: &Cx, value: &str) -> Vec<String> {
+    /// The key of the field whose value narrows a dependent choice's options.
+    pub(crate) fn parent_key(&self) -> Option<&str> {
+        self.as_choice().and_then(ChoiceControl::parent_key)
+    }
+
+    /// Whether a submitted choice matches the options its parent's value `parent` offers.
+    pub(crate) async fn validate_exists(
+        &self,
+        cx: &Cx,
+        value: &str,
+        parent: Option<&str>,
+    ) -> Vec<String> {
         match &self.control {
             ControlKind::Choice(choice) => {
-                choice.validate_exists(cx, self.label_str(), value).await
+                choice
+                    .validate_exists(cx, self.label_str(), value, parent)
+                    .await
             }
             _ => Vec::new(),
         }
@@ -389,25 +401,43 @@ impl Field {
         &self,
         cx: &Cx,
         value: &str,
+        parent: Option<&str>,
         ex: &mut dyn toasty::Executor,
     ) -> Vec<String> {
         match &self.control {
-            ControlKind::Choice(choice) => choice.recheck(cx, self.label_str(), value, ex).await,
+            ControlKind::Choice(choice) => {
+                choice
+                    .recheck(cx, self.label_str(), value, parent, ex)
+                    .await
+            }
             _ => Vec::new(),
         }
     }
 
-    /// Renders the field's control.
+    /// Renders the field's control, a dependent choice with no parent value.
+    #[cfg(test)]
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
     ) -> Result<BoxView<'a>> {
+        self.render_under(cx, value, error, None).await
+    }
+
+    /// Renders the field's control, a dependent choice offering what its parent's value `parent`
+    /// selects.
+    pub(crate) async fn render_under<'a>(
+        &self,
+        cx: &'a Cx,
+        value: Option<&str>,
+        error: Option<&str>,
+        parent: Option<&str>,
+    ) -> Result<BoxView<'a>> {
         match &self.control {
             ControlKind::Text(text) => self.render_text(text, cx, value, error),
             ControlKind::Choice(choice) => {
-                Box::pin(self.render_choice(choice, cx, value, error)).await
+                Box::pin(self.render_choice(choice, cx, value, error, parent)).await
             }
             ControlKind::File => self.render_file(cx, value, error),
             ControlKind::Custom(control) => self.render_custom(control.as_ref(), cx, value, error),

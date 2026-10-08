@@ -10,6 +10,7 @@ use super::{
     },
     ChoiceControl, Control, ControlKind, Field, TextControl, choice,
 };
+use crate::form::FormScalar;
 
 /// `label` and `name`, shared by every builder.
 macro_rules! common_modifiers {
@@ -217,6 +218,35 @@ impl<F> ChoiceField<F> {
         R: OptionSource + 'static,
     {
         self.choice_mut().relationship = Some(choice::Relationship::new::<R>(R::label));
+        self
+    }
+
+    /// Offers only the related rows whose column `column` equals the value `parent` posts: the
+    /// cities of the chosen country. The browser fetches the options again when `parent` changes,
+    /// and a submission must name a row of the posted parent value. A blank parent offers none.
+    ///
+    /// `column` belongs to the [`relationship`](Self::relationship)'s source model; mounting
+    /// refuses another model, a choice without a relationship, and a `parent` the schema does not
+    /// place.
+    pub fn depends_on<M, T>(
+        mut self,
+        parent: &impl Watched<F>,
+        column: impl Into<toasty::stmt::Path<M, T>>,
+    ) -> Self
+    where
+        M: Send + Sync + 'static,
+        T: FormScalar + toasty::stmt::IntoExpr<T> + Send + Sync + 'static,
+    {
+        let column: toasty::stmt::Path<M, T> = column.into();
+        self.choice_mut().parent = Some(choice::Parent {
+            watched: parent.key().to_string(),
+            model: std::any::TypeId::of::<M>(),
+            scope: Arc::new(move |value: &str| {
+                T::parse_form(value)
+                    .ok()
+                    .map(|value| column.clone().eq(value))
+            }),
+        });
         self
     }
 
