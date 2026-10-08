@@ -14,7 +14,7 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0013](0013-panel-auth.md) | Authentication is part of the panel, behind one seam |
 | [0017](0017-media-uploads.md) | Uploads go through an app-level `Uploader` |
 | [0018](0018-export-include-scoping.md) | Relations are includes declared where they are read |
-| [0022](0022-record-forms.md) | Forms write through a derived typed struct, embedded values included |
+| [0022](0022-record-forms.md) | Forms write through a derived typed struct, which also owns their controls |
 | [0023](0023-resource-definitions.md) | A resource declares one value; each panel owns what it mounts |
 | [0024](0024-core-layers.md) | `tablo-core` is layered, and a test enforces it |
 | [0026](0026-topcoat-runtime-only.md) | Topcoat's runtime is the browser layer |

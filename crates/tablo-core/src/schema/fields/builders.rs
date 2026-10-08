@@ -1,15 +1,23 @@
 //! The typed builders the [`Field`] constructors return, each offering only its control's modifiers
 //! so a modifier on the wrong control does not compile.
 
+use std::{marker::PhantomData, sync::Arc};
+
 use super::{
-    super::{IntoSchema, OptionSource, Schema},
-    ChoiceControl, ControlKind, Field, TextControl, choice,
+    super::{IntoSchema, OptionSource, Retype, Schema},
+    ChoiceControl, Control, ControlKind, Field, TextControl, choice,
 };
 
 /// `label` and `name`, shared by every builder.
 macro_rules! common_modifiers {
     ($builder:ident) => {
         impl $builder {
+            pub(super) fn new(field: Field) -> Self {
+                Self(field, PhantomData)
+            }
+        }
+
+        impl<F> $builder<F> {
             pub fn label(mut self, label: impl Into<String>) -> Self {
                 self.0.label = Some(label.into());
                 self
@@ -20,15 +28,23 @@ macro_rules! common_modifiers {
             }
         }
 
-        impl From<$builder> for Field {
-            fn from(builder: $builder) -> Field {
+        impl<F> From<$builder<F>> for Field {
+            fn from(builder: $builder<F>) -> Field {
                 builder.0
             }
         }
 
-        impl IntoSchema for $builder {
-            fn into_schema(self) -> Schema {
-                self.0.into_schema()
+        impl<F> IntoSchema<F> for $builder<F> {
+            fn into_schema(self) -> Schema<F> {
+                self.0.into_schema().retype()
+            }
+        }
+
+        impl<F> Retype for $builder<F> {
+            type As<G> = $builder<G>;
+
+            fn retype<G>(self) -> $builder<G> {
+                $builder(self.0, PhantomData)
             }
         }
     };
@@ -38,7 +54,7 @@ macro_rules! common_modifiers {
 #[cfg(test)]
 macro_rules! required_for_tests {
     ($($builder:ident),*) => {$(
-        impl $builder {
+        impl<F> $builder<F> {
             pub(crate) fn required(mut self) -> Self {
                 self.0.set_required(true);
                 self
@@ -50,25 +66,25 @@ macro_rules! required_for_tests {
 #[cfg(test)]
 required_for_tests!(TextField, FileField);
 
-/// A text field: [`Field::text`].
-pub struct TextField(pub(super) Field);
+/// A text field: [`Field::text`], or a record form's text control (`F` is the form).
+pub struct TextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
-/// A choice field: [`Field::choice`].
-pub struct ChoiceField(pub(super) Field);
+/// A choice field: [`Field::choice`], or a record form's choice control (`F` is the form).
+pub struct ChoiceField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
-/// A file field: [`Field::file`].
-pub struct FileField(pub(super) Field);
+/// A file field: [`Field::file`], or a record form's file control (`F` is the form).
+pub struct FileField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
-/// A field an app's [`Control`](super::Control) renders: [`Field::custom`]
-/// and [`Field::toggle`].
-pub struct CustomField(pub(super) Field);
+/// A field an app's [`Control`] renders: [`Field::custom`] and [`Field::toggle`], or a record
+/// form's toggle (`F` is the form).
+pub struct CustomField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
 common_modifiers!(TextField);
 common_modifiers!(ChoiceField);
 common_modifiers!(FileField);
 common_modifiers!(CustomField);
 
-impl TextField {
+impl<F> TextField<F> {
     fn text(&mut self) -> &mut TextControl {
         match &mut self.0.control {
             ControlKind::Text(text) => text,
@@ -100,9 +116,16 @@ impl TextField {
         self.text().rows = Some(rows);
         self
     }
+
+    /// Renders the field with an app's [`Control`] instead, as [`Field::custom`] does: how a
+    /// record form's text control takes a custom input.
+    pub fn custom(mut self, control: impl Control + 'static) -> CustomField<F> {
+        self.0.control = ControlKind::Custom(Arc::new(control));
+        CustomField(self.0, PhantomData)
+    }
 }
 
-impl ChoiceField {
+impl<F> ChoiceField<F> {
     fn choice(&mut self) -> &mut ChoiceControl {
         match &mut self.0.control {
             ControlKind::Choice(choice) => choice,
@@ -173,7 +196,7 @@ mod test_deref {
 
     macro_rules! deref_field {
         ($($builder:ident),*) => {$(
-            impl std::ops::Deref for $builder {
+            impl<F> std::ops::Deref for $builder<F> {
                 type Target = Field;
                 fn deref(&self) -> &Field {
                     &self.0

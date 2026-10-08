@@ -186,7 +186,7 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
 
 #[tokio::test]
 async fn create_policy_deny() {
-    use tablo::{Field, Resource, ResourceDef, Schema, Table, TextColumn};
+    use tablo::{Resource, ResourceDef, Table, TextColumn};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct DummyUser {
@@ -212,7 +212,6 @@ async fn create_policy_deny() {
                     },
                 )
                 .table(Table::new(TextColumn::new(lens!(DummyUser.name))))
-                .form(Schema::new(Field::text(DummyUser::fields().name())))
         }
     }
     #[derive(tablo::RecordForm)]
@@ -370,7 +369,7 @@ async fn users_create_static_selects_set_role_and_active() {
 /// `notify_write_failure`'s doc comment describes this delivery.
 #[tokio::test]
 async fn a_failed_write_toasts_on_the_next_panel_page() {
-    use tablo::{Field, Resource, ResourceDef, Schema, Table, TextColumn};
+    use tablo::{Resource, ResourceDef, Table, TextColumn};
     use topcoat::context::Cx;
 
     #[derive(Debug, toasty::Model, Clone)]
@@ -392,7 +391,6 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(Table::new(TextColumn::new(lens!(Widget.name))).paginate(25))
-                .form(Schema::new(Field::text(Widget::fields().name())))
         }
 
         async fn create_record(

@@ -9,8 +9,8 @@ use http::header::{
     CONTENT_DISPOSITION, IF_MODIFIED_SINCE, LAST_MODIFIED, LOCATION, X_CONTENT_TYPE_OPTIONS,
 };
 use tablo::{
-    Ability, Auth, DeclarationErrorKind, Field, Panel, Resource, ResourceDef, Schema, Table,
-    TextColumn, Uploader, lens,
+    Ability, Auth, DeclarationErrorKind, Panel, Resource, ResourceDef, Table, TextColumn, Uploader,
+    lens,
 };
 use toasty::Db;
 use topcoat::{
@@ -87,19 +87,15 @@ impl Resource for DocResource {
                 )
             })
             .table(Table::new(TextColumn::new(lens!(Doc.title))).paginate(25))
-            .form(Schema::new((
-                Field::text(Doc::fields().title()),
-                Field::file(Doc::fields().cover()).label("Cover"),
-                Field::file(Doc::fields().attachment()).label("Attachment"),
-            )))
     }
 }
 #[derive(tablo::RecordForm)]
 #[form(model = Doc)]
 struct DocForm {
     title: String,
+    #[form(file)]
     cover: String,
-    #[form(optional)]
+    #[form(file, optional)]
     attachment: String,
 }
 async fn seeded_db() -> Db {

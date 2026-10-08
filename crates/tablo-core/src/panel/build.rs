@@ -465,41 +465,14 @@ fn check_form_declaration<R: Resource>(
     form_is_sound: bool,
     errors: &mut Vec<DeclarationError>,
 ) {
-    // A misdeclared field's placeholder name would only echo as an unbound control.
+    // A misdeclared form, such as one placing a control twice, would only echo its mistakes.
     if !form_is_sound {
         return;
     }
-    check_layout(declared, errors);
     if <R::Form as RecordForm>::HAS_FORM {
         check_form_inner(cx, declared, errors);
     } else if declared.can(cx, Ability::Create) {
         errors.push(form_error::<R>(DeclarationErrorKind::CreateWithoutForm));
-    }
-}
-
-/// Every control is one of the record form's, and every record-form key has its control.
-fn check_layout<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
-    let (fields, form) = (declared.fields.as_slice(), &*declared.form);
-    // The schema refuses two controls sharing a key, so each key binds one control.
-    for control in form.fields() {
-        if !fields
-            .iter()
-            .any(|field| field.keys.iter().any(|key| key == control.name()))
-        {
-            errors.push(form_error::<R>(DeclarationErrorKind::UnboundControl {
-                control: control.name().to_string(),
-            }));
-        }
-    }
-    for field in fields {
-        for key in &field.keys {
-            if !form.fields().any(|control| control.name() == key) {
-                errors.push(form_error::<R>(DeclarationErrorKind::MissingControl {
-                    field: field.name.to_string(),
-                    key: key.clone(),
-                }));
-            }
-        }
     }
 }
 

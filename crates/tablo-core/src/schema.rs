@@ -12,7 +12,10 @@ pub(crate) mod relationship;
 mod tree;
 pub(crate) mod validation;
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+};
 
 pub use embedded::EmbeddedForm;
 pub use fields::{ChoiceField, CustomField, Field, FileField, IntoOptions, TextField, Toggle};
@@ -24,7 +27,7 @@ pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{OptionLoadError, OptionSource};
 use topcoat::{Result, context::Cx, view::*};
-pub use tree::{IntoSchema, Source};
+pub use tree::{IntoSchema, Retype, Source};
 pub(crate) use tree::{Node, render_nodes};
 use tree::{bind_nodes, unbound_values};
 pub(crate) use validation::TypedValue;
@@ -32,13 +35,71 @@ pub(crate) use validation::TypedValue;
 use crate::form::FieldErrors;
 
 /// Composes fields and layout blocks and resolves every field once into one list.
-#[derive(Debug, Default)]
-pub struct Schema {
+///
+/// `F` is the record form whose controls the schema places. A resource's form is a
+/// `Schema<UserForm>`, which only `UserForm::controls()` fill, so a control from another form or a
+/// field built with [`Field::text`] fails to compile there. A page's or an action's schema is a
+/// plain `Schema`, which [`Field`]'s constructors fill.
+///
+/// ```compile_fail
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, email: String }
+/// # #[derive(tablo_core::RecordForm)]
+/// # #[form(model = User)]
+/// # struct UserForm { name: String }
+/// use tablo_core::{Field, Schema};
+///
+/// let form: Schema<UserForm> = Schema::new((
+///     UserForm::controls().name,
+///     Field::text(User::fields().email()),
+/// ));
+/// ```
+pub struct Schema<F = ()> {
     pub(crate) nodes: Vec<Node>,
     pub(crate) fields: Vec<Field>,
+    form: PhantomData<fn() -> F>,
+}
+
+impl<F> Default for Schema<F> {
+    fn default() -> Self {
+        Self::from_parts(Vec::new(), Vec::new())
+    }
+}
+
+impl<F> std::fmt::Debug for Schema<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Schema")
+            .field("nodes", &self.nodes)
+            .field("fields", &self.fields)
+            .finish()
+    }
 }
 
 impl Schema {
+    /// A schema with no field: a page's or an action's that renders nothing. A resource's form
+    /// that places nothing is `Schema::default()`, which renders every control.
+    pub fn empty() -> Self {
+        Self::default()
+    }
+}
+
+impl<F> Retype for Schema<F> {
+    type As<G> = Schema<G>;
+
+    fn retype<G>(self) -> Schema<G> {
+        Schema::from_parts(self.nodes, self.fields)
+    }
+}
+
+impl<F> Schema<F> {
+    pub(crate) fn from_parts(nodes: Vec<Node>, fields: Vec<Field>) -> Self {
+        Self {
+            nodes,
+            fields,
+            form: PhantomData,
+        }
+    }
+
     /// Reports whether this schema declares nothing to render.
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
@@ -46,12 +107,8 @@ impl Schema {
 
     /// Builds a `Schema` from any `IntoSchema` and reports duplicate field names as declaration
     /// errors.
-    pub fn new(children: impl IntoSchema) -> Self {
+    pub fn new(children: impl IntoSchema<F>) -> Self {
         children.into_schema()
-    }
-
-    pub fn empty() -> Self {
-        Self::default()
     }
 
     /// Every field, in the order it joins the schema: a layout's fields as it composes, in
@@ -100,8 +157,10 @@ impl Schema {
     }
 
     /// Appends `other`'s nodes and fields after this one's, re-slotting its field slots.
-    pub(crate) fn append(&mut self, other: Schema) {
-        let Schema { mut nodes, fields } = other;
+    pub(crate) fn append(&mut self, other: Schema<F>) {
+        let Schema {
+            mut nodes, fields, ..
+        } = other;
         let offset = self.fields.len();
         for node in &mut nodes {
             node.offset(offset);
@@ -119,7 +178,7 @@ impl Schema {
     }
 
     /// Appends another schema's nodes after this one's.
-    pub fn extend(mut self, other: Schema) -> Schema {
+    pub fn extend(mut self, other: Schema<F>) -> Schema<F> {
         self.append(other);
         self
     }

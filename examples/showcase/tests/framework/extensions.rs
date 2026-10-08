@@ -7,8 +7,8 @@
 //! reaches a framework internal.
 
 use tablo::{
-    Ability, Action, BooleanColumn, Committed, DeclarationErrorKind, Detail, Field, Mutation,
-    Resource, ResourceDef, Schema, Site, Table, TextColumn,
+    Ability, Action, BooleanColumn, Committed, DeclarationErrorKind, Detail, Mutation, Resource,
+    ResourceDef, Schema, Site, Table, TextColumn,
     extend::{Column, Control, ControlInput, Filter, FilterInput},
     lens,
 };
@@ -188,10 +188,7 @@ impl Resource for TaskResource {
                 ))
                 .filters((Initial,)),
             )
-            .form(Schema::new((
-                Field::custom(Task::fields().title(), Shouty),
-                Field::toggle(Task::fields().done()),
-            )))
+            .form(Schema::new(TaskForm::controls().title.custom(Shouty)))
             .view(Detail::new(TextColumn::new(lens!(Task.title))).column(Highlighted))
             .action::<Complete>()
             .action::<Explode>()

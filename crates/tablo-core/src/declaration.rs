@@ -280,18 +280,6 @@ pub enum DeclarationErrorKind {
     },
     /// A resource whose policy allows create but that has no form.
     CreateWithoutForm,
-    /// A form control no record-form field binds, so its input is never written.
-    UnboundControl {
-        /// The control's key.
-        control: String,
-    },
-    /// A record-form field binding a key the form declares no control for.
-    MissingControl {
-        /// The record-form field.
-        field: String,
-        /// The key it binds.
-        key: String,
-    },
     /// A tenant-scoped resource's record form claims the tenant column.
     FormClaimsTenantColumn {
         /// The record-form field.
@@ -477,16 +465,6 @@ impl fmt::Display for DeclarationErrorKind {
             Self::CreateWithoutForm => f.write_str(
                 "the policy allows create, but there is no form: name the record form in `type \
                  Form`",
-            ),
-            Self::UnboundControl { control } => write!(
-                f,
-                "control `{control}` is bound by no record-form field, so what the user types \
-                 there is never written: a form places its record form's own `controls()`"
-            ),
-            Self::MissingControl { field, key } => write!(
-                f,
-                "record-form field `{field}` binds key `{key}`, but no control declares it: place \
-                 its control in the form"
             ),
             Self::FormClaimsTenantColumn { field, column } => write!(
                 f,

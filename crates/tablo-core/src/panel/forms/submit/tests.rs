@@ -51,7 +51,6 @@ async fn edit_post_requires_view_as_well_as_update() {
                     _ => false,
                 })
                 .table(dummy_table())
-                .form(Schema::new(Field::text(Dummy::fields().name())))
         }
     }
     #[derive(crate::RecordForm)]
@@ -126,8 +125,6 @@ async fn edit_post_requires_view_as_well_as_update() {
 /// Transport keys never reach the write.
 #[tokio::test]
 async fn transport_keys_never_reach_the_write() {
-    use crate::schema::{Field, Schema};
-
     #[derive(Debug, toasty::Model, Clone)]
     struct Doc {
         #[key]
@@ -151,16 +148,13 @@ async fn transport_keys_never_reach_the_write() {
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Doc.title),
                 )))
-                .form(Schema::new((
-                    Field::text(Doc::fields().title()),
-                    Field::file(Doc::fields().path()),
-                )))
         }
     }
     #[derive(crate::RecordForm)]
     #[form(model = Doc)]
     struct CapturingForm {
         title: String,
+        #[form(file)]
         path: String,
     }
     let db = Db::builder()
@@ -224,10 +218,7 @@ async fn transport_keys_never_reach_the_write() {
 async fn a_driver_create_failure_does_not_echo_driver_text() {
     use topcoat::cookie::CookieJarCell;
 
-    use crate::{
-        resource::Resource,
-        schema::{Field, Schema},
-    };
+    use crate::resource::Resource;
 
     struct WritingResource;
     impl Resource for WritingResource {
@@ -243,7 +234,6 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Dummy.name),
                 )))
-                .form(Schema::new(Field::text(Dummy::fields().name())))
         }
     }
     #[derive(crate::RecordForm)]
@@ -317,11 +307,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         RouteFn, RouteFuture, Router, RouterBuilderDiscoverExt, response::IntoResponse,
     };
 
-    use crate::{
-        RouterBuilderPanelExt,
-        resource::Resource,
-        schema::{Field, Schema},
-    };
+    use crate::{RouterBuilderPanelExt, resource::Resource};
 
     #[derive(Debug, toasty::Model, Clone)]
     struct Ghost {
@@ -349,7 +335,6 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Dummy.name),
                 )))
-                .form(Schema::new(Field::text(Dummy::fields().name())))
         }
 
         async fn update_record(
@@ -489,9 +474,6 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Dummy.name),
                 )))
-                .form(crate::schema::Schema::new(crate::schema::Field::text(
-                    Dummy::fields().name(),
-                )))
         }
 
         async fn create_record(
@@ -578,7 +560,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
 async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     use crate::{
         resource::{Resource, ResourceDef},
-        schema::{Field, Schema},
+        schema::Schema,
         table::{Table, TextColumn},
     };
 
@@ -594,9 +576,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(Table::new(TextColumn::new(lens!(Subscriber.email))))
-                .form(Schema::new(
-                    Field::text(Subscriber::fields().email()).unique(),
-                ))
+                .form(Schema::new(SubscriberForm::controls().email.unique()))
         }
     }
     #[derive(crate::RecordForm)]
@@ -696,16 +676,13 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Doc.title),
                 )))
-                .form(Schema::new((
-                    Field::text(Doc::fields().title()),
-                    Field::file(Doc::fields().path()),
-                )))
         }
     }
     #[derive(crate::RecordForm)]
     #[form(model = Doc)]
     struct DocForm {
         title: String,
+        #[form(file)]
         path: String,
     }
     let db = Db::builder()

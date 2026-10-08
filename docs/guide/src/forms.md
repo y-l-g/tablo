@@ -1,10 +1,8 @@
 # Forms
 
-A resource with create and edit pages declares two things: a **record form**, the typed struct a
-submission parses into, and a **schema**, set with `ResourceDef::form`, the controls the page
-renders. The schema defaults to the record form's derived schema, so a resource that wants one
-control per field in declaration order declares no form at all. Mounting the panel builds the
-declarations once and checks that the two agree.
+A resource with create and edit pages declares a **record form**, the typed struct a submission
+parses into. The record form also gives each field its control, and `ResourceDef::form` arranges
+them. A resource that wants one control per field, in declaration order, declares no form at all.
 
 ## The record form
 
@@ -29,8 +27,8 @@ a `String` marked `#[form(optional)]`. A field with no blank answer is required:
 its control required, and an empty submission is refused inline. `optional` applies to a `String`
 only; another type declares `blank` or becomes an `Option`.
 
-The resource names the struct as its `Form` and, to arrange the controls, declares them from the
-derive's `controls()`:
+The resource names the struct as its `Form` and, to arrange the controls, places them from the
+derive's `controls()` in a `Schema<UserForm>`:
 
 ```rust
 impl Resource for UserResource {
@@ -48,10 +46,14 @@ impl Resource for UserResource {
 }
 ```
 
-Mounting the panel refuses the resource unless every control posts a key of the record form, every
-form field has a control, and — when the policy allows `Create` — every non-nullable column is
-filled by the form, by Toasty, by the tenant stamp, or by an overridden `create_record` whose def
-names it with `create_column`.
+A `Schema<UserForm>` takes only `UserForm`'s controls: a control of another form, or a field built
+with `Field::text`, does not compile there. A control the schema does not place follows the ones
+it does, in declaration order, so a form that adjusts one control places only that one:
+`.form(Schema::new(c.email.email()))`.
+
+When the policy allows `Create`, mounting the panel refuses the resource unless every
+non-nullable column is filled by the form, by Toasty, by the tenant stamp, or by an overridden
+`create_record` whose def names it with `create_column`.
 
 ## Controls
 
@@ -95,7 +97,8 @@ trait, `label_of()`. A `String` field takes the same list with `#[form(options =
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
 most twelve children; nest a `Group` for more.
 
-**Fields** are built from a Toasty field lens:
+**Fields** are what `controls()` hands over, and what a page's or an action's schema builds from
+a Toasty field lens:
 
 | Constructor | Column | Control | Builder |
 | --- | --- | --- | --- |
@@ -117,7 +120,8 @@ does not compile:
 
 ### Custom controls
 
-A `Control`, from `tablo::extend`, renders the input of a `Field::custom` field. The field keeps everything fields share —
+A `Control`, from `tablo::extend`, renders the input of a custom field: a record form's text control
+turned custom with `.custom(control)`, or a `Field::custom` field. The field keeps everything fields share —
 the key, the label, the required marker, the error slot and the chrome around the input — and the
 control renders only the input, from a `ControlInput` carrying the key, the current value and the
 validation state:
@@ -162,7 +166,8 @@ may stay optional.
 
 ### Relationships
 
-A choice over a foreign key loads its options from the related resource:
+A choice over a foreign key loads its options from the related resource. Mark the record-form field
+`#[form(choice)]`, and declare the relationship on its control:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-relationship-field}}

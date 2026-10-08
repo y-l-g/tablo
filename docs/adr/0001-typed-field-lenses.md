@@ -10,6 +10,9 @@ A closed set of values is a unit enum field deriving `toasty::Embed` and `Option
 field, a select filter, a column and a group header read its options and labels from the type, and
 a query compares a variant rather than its spelling.
 
+A resource's form schema carries its record form's type (ADR-0022), as a table and a detail page
+carry their model's, so a control from another form fails to compile.
+
 Form transport stays string-keyed; a record form (ADR-0022) parses it into a typed struct. A
 detail page reads the typed record, never a map of display strings; only an embedded value's
 leaves are spelled through its form schema, as its form spells them.

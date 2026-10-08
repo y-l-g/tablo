@@ -1,8 +1,5 @@
 use http::header::LOCATION;
-use tablo::{
-    Ability, Allow, Committed, Field, Mutation, Resource, ResourceDef, Schema, Table, TextColumn,
-    lens,
-};
+use tablo::{Ability, Allow, Committed, Mutation, Resource, ResourceDef, Table, TextColumn, lens};
 use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
@@ -64,7 +61,6 @@ impl Resource for AuditedResource {
             .slug("notes")
             .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Note.title))).paginate(25))
-            .form(Schema::new(Field::text(Note::fields().title())))
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
@@ -89,7 +85,6 @@ impl Resource for PlainResource {
                 matches!(ability, Ability::ViewAny | Ability::Create)
             })
             .table(Table::new(TextColumn::new(lens!(Note.title))))
-            .form(Schema::new(Field::text(Note::fields().title())))
     }
 }
 #[derive(tablo::RecordForm)]
@@ -110,7 +105,6 @@ impl Resource for FailingWriteResource {
                 matches!(ability, Ability::ViewAny | Ability::Create)
             })
             .table(Table::new(TextColumn::new(lens!(Note.title))))
-            .form(Schema::new(Field::text(Note::fields().title())))
     }
 
     async fn create_record(
@@ -143,7 +137,6 @@ impl Resource for FailingHookResource {
                 matches!(ability, Ability::ViewAny | Ability::Create)
             })
             .table(Table::new(TextColumn::new(lens!(Note.title))))
-            .form(Schema::new(Field::text(Note::fields().title())))
     }
 
     async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {

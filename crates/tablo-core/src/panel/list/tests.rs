@@ -288,9 +288,6 @@ async fn list_header_renders_create_entry_point_when_allowed() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(dummy_table().paginate(25))
-                .form(crate::schema::Schema::new(crate::schema::Field::text(
-                    Dummy::fields().name(),
-                )))
         }
     }
     #[derive(crate::RecordForm)]
@@ -349,9 +346,6 @@ async fn non_editable_resource_hides_edit_links() {
                     )
                 })
                 .table(dummy_table().paginate(25))
-                .form(crate::schema::Schema::new(crate::schema::Field::text(
-                    Dummy::fields().name(),
-                )))
         }
     }
     #[derive(crate::RecordForm)]
@@ -411,9 +405,6 @@ async fn denied_rows_render_no_edit_chrome() {
                 .slug("dummies")
                 .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
                 .table(dummy_table().paginate(25))
-                .form(crate::schema::Schema::new(crate::schema::Field::text(
-                    Dummy::fields().name(),
-                )))
         }
     }
     #[derive(crate::RecordForm)]

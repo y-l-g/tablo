@@ -57,7 +57,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Option<Table<R::Model>>,
-    pub(crate) form: Option<Schema>,
+    pub(crate) form: Option<Schema<R::Form>>,
     pub(crate) view: Option<Detail<R::Model>>,
     pub(crate) record_label: Option<RecordLabel<R::Model>>,
     pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
@@ -174,15 +174,34 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The schema the create and edit forms render; defaults to the record form's derived schema
-    /// ([`RecordForm::schema`]).
+    /// Arranges the create and edit forms: the record form's own controls, from its
+    /// `controls()`, in layout blocks.
     ///
-    /// The panel refuses a record form field this schema does not declare, and a schema on a
-    /// resource whose [`Form`](Resource::Form) is [`NoForm`](crate::NoForm).
+    /// A control the schema does not place follows the ones it does, in the record form's
+    /// declaration order, so the default form renders one control per field, and a form that
+    /// adjusts one control places only that one:
     ///
-    /// [`RecordForm::schema`]: crate::RecordForm::schema
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, email: String }
+    /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
+    /// # #[form(model = User)]
+    /// # struct UserForm { name: String, email: String }
+    /// # struct UserResource;
+    /// use tablo_core::{Resource, ResourceDef, Schema};
+    ///
+    /// impl Resource for UserResource {
+    ///     type Model = User;
+    ///     type Form = UserForm;
+    ///
+    ///     fn declare() -> ResourceDef<Self> {
+    ///         // `email`, then `name`.
+    ///         ResourceDef::new().form(Schema::new(UserForm::controls().email.email()))
+    ///     }
+    /// }
+    /// ```
     #[must_use]
-    pub fn form(mut self, form: Schema) -> Self {
+    pub fn form(mut self, form: Schema<R::Form>) -> Self {
         self.form = Some(form);
         self
     }

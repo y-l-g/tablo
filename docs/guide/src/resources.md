@@ -24,7 +24,7 @@ one form control per field, and a detail page column per field. Set the def's `t
 | `ResourceDef` method | Default | Purpose |
 | --- | --- | --- |
 | `table(..)` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
-| `form(..)` | the record form's derived schema | the create and edit form's controls: [Forms](./forms.md) |
+| `form(..)` | every control, in declaration order | how the create and edit forms arrange the record form's controls: [Forms](./forms.md) |
 | `view(..)` | the record form's derived detail page | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
 | `record_label(..)` | the label and the record's key | the detail page's heading |
 | `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
@@ -152,13 +152,13 @@ declaration names one. It refuses the resource when:
   size, an empty column set (a resource whose derived table lists nothing declares its own
   `table`), or a lens that binds no column. Rendering such a table through `WiredTable::render`
   or such a schema through `Schema::render` fails with the same errors;
-- the record form and the form schema disagree: a control no form field binds, a form field with
-  no control, a `unique()` field with no unique index or whose non-nullable column an empty
-  submission would fill, or a tenant-owned resource's form claiming its tenant column;
+- the form asks for what the database or the framework will not honor: a `unique()` field with
+  no unique index or whose non-nullable column an empty submission would fill, or a tenant-owned
+  resource's record form claiming its tenant column;
 - a relationship field takes its options from a resource the panel does not register;
 - the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
   Toasty default, not the tenant stamp, and not named by `create_column`;
-- a `NoForm` resource declares a control or its policy allows `Create`;
+- a `NoForm` resource's policy allows `Create`;
 - a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
@@ -178,6 +178,10 @@ action whose name is not one URL segment.
 A modifier on the wrong kind of field does not compile: each `Field` constructor returns its
 control's builder (`TextField`, `ChoiceField`, `FileField`, `CustomField`), which offers only
 that control's modifiers.
+
+A form control from elsewhere does not compile either: `ResourceDef::form` takes a
+`Schema<R::Form>`, which places only the record form's own `controls()`, so a control of another
+form, or a field built with `Field::text`, is a type error rather than a refused mount.
 
 The panel serves the checked def to every request, so `declare()` must not depend on the request:
 it takes no user, tenant or query string. Request-dependent decisions belong to the policy and to

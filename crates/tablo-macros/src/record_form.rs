@@ -29,7 +29,7 @@ struct FieldSpec {
     control: DefaultControl,
 }
 
-/// The control a field gets in the derived schema.
+/// The control `controls()` hands over for a field.
 enum DefaultControl {
     /// A text field: any scalar without a control key.
     Text,
@@ -261,12 +261,15 @@ fn expand_struct(
     let controls_ident = format_ident!("{}Controls", ident);
     let controls_doc = format!(
         "One control per field of [`{ident}`], each chosen from the field: arrange them into a \
-         layout in `ResourceDef::form`, adjusting any with its builder's modifiers."
+         layout in `ResourceDef::form`, adjusting any with its builder's modifiers. A control \
+         left out follows the layout."
     );
     let mut control_fields = Vec::new();
     let mut control_inits = Vec::new();
+    let mut control_arms = Vec::new();
     for field in fields {
         let name = &field.ident;
+        let variant = &field.variant;
         let path = quote! { <#model>::fields().#name() };
         let (ty, init) = match &field.control {
             DefaultControl::Text => (
@@ -314,13 +317,18 @@ fn expand_struct(
                 )
             }
         };
+        // Only the derive hands a control to its form: no other `Schema<#ident>` places one.
+        let init = quote! { #krate::__macro::Retype::retype::<#ident>(#init) };
         let doc = format!(
             "The `{}` control.",
             name.to_string().trim_start_matches("r#")
         );
         control_fields.push(quote! {
             #[doc = #doc]
-            pub #name: #ty
+            pub #name: #ty<#ident>
+        });
+        control_arms.push(quote! {
+            #field_enum::#variant => #krate::__macro::IntoSchema::into_schema(#init)
         });
         control_inits.push(quote! { #name: #init });
     }
@@ -368,10 +376,10 @@ fn expand_struct(
             type Model = #model;
             type Field = #field_enum;
 
-            fn schema() -> #krate::__macro::Schema {
-                let controls = Self::controls();
-                #krate::__macro::Schema::empty()
-                    #(.extend(#krate::__macro::IntoSchema::into_schema(controls.#names)))*
+            fn control(field: #field_enum) -> #krate::__macro::Schema<Self> {
+                match field {
+                    #(#control_arms,)*
+                }
             }
 
             fn fields(

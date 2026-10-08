@@ -109,9 +109,6 @@ async fn composite_pk_edit_fails_loudly_not_404() {
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Pair.name),
                 )))
-                .form(crate::schema::Schema::new(crate::schema::Field::text(
-                    Pair::fields().name(),
-                )))
         }
     }
     #[derive(crate::RecordForm)]

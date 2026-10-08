@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use jiff::Timestamp;
 use tablo_core::{
-    Ability, CountColumn, Field, Panel, RelationColumn, Resource, ResourceDef,
-    RouterBuilderPanelExt, Schema, Table, Tenancy, Tenant, TenantId, TextColumn, lens, relation,
+    Ability, CountColumn, Panel, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt,
+    Table, Tenancy, Tenant, TenantId, TextColumn, lens, relation,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
@@ -98,7 +98,6 @@ impl Resource for PostResource {
                 ))
                 .paginate(50),
             )
-            .form(Schema::new(Field::text(Post::fields().title())))
     }
 }
 
