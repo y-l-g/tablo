@@ -78,6 +78,10 @@ impl Resource for UserResource {
                 c.active,
                 c.age,
             ))))
+            .view(Detail::new(
+                Section::new("Profile").columns(<UserForm as RecordForm>::detail()),
+            ))
+            .record_label(|_cx: &Cx, user: &User| Some(user.name.clone()))
     }
 
     /// Refuses a negative age.
@@ -125,6 +129,9 @@ impl Resource for AuthorResource {
             .table(AuthorForm::table())
             .form(Schema::new(
                 Section::new("Profile").schema((c.name, c.email.email())),
+            ))
+            .view(Detail::new(
+                Section::new("Profile").columns(<AuthorForm as RecordForm>::detail()),
             ))
             // Names the detail heading with the author's name.
             .record_label(|_cx: &Cx, author: &Author| Some(author.name.clone()))
@@ -394,6 +401,7 @@ impl Resource for CommentResource {
                         .label("Post"),
                 )),
             ))
+            .record_label(|_cx: &Cx, comment: &Comment| Some(comment.body.clone()))
     }
 }
 
