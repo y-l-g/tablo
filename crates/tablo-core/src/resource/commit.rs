@@ -11,7 +11,8 @@ pub enum Mutation {
     Create,
     Update,
     Delete,
-    /// The custom action of this [`NAME`](super::Action::NAME).
+    /// The custom [`Action`](super::Action) or [`HeaderAction`](crate::HeaderAction) of this
+    /// `NAME`. A header action's [`Committed`] holds no record.
     Action(&'static str),
 }
 
@@ -52,6 +53,14 @@ impl<M> Committed<M> {
         Self {
             mutation: Mutation::Action(A::NAME),
             records,
+        }
+    }
+
+    /// The header action named `name` ran: it acts on no record.
+    pub(crate) fn ran(name: &'static str) -> Self {
+        Self {
+            mutation: Mutation::Action(name),
+            records: Vec::new(),
         }
     }
 

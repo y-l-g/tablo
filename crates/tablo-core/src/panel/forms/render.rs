@@ -10,11 +10,14 @@ use topcoat::{
     view::{BoxView, ViewExt, attributes, view},
 };
 
-use super::super::gate::{gate, return_target};
+use super::super::{
+    bar::{ActionBar, record_bar},
+    gate::{gate, return_target},
+};
 use crate::{
     form::FieldErrors,
     policy::Ability,
-    resource::{Mounted, PublicLink, Resource},
+    resource::{Mounted, Places, PublicLink, Resource},
     schema::Schema,
     topcoat_compat::async_page,
 };
@@ -27,8 +30,11 @@ pub(crate) struct FormChrome {
     /// it cannot be undone.
     destructive: bool,
     public_link: Option<PublicLink>,
-    /// Where Cancel leads without a `?return=` target: the resource's list.
-    list_url: String,
+    /// The header's action buttons: the edit page's record actions and Delete.
+    actions: ActionBar,
+    /// Where Cancel leads without a `?return=` target: the resource's list, or the page of a
+    /// header action.
+    cancel: String,
     /// Hidden `(name, value)` controls the submit carries besides the schema's.
     hidden: Vec<(String, String)>,
 }
@@ -40,37 +46,49 @@ impl FormChrome {
             submit_label: "Create".to_string(),
             destructive: false,
             public_link: None,
-            list_url: resource.url.clone(),
+            actions: ActionBar::default(),
+            cancel: resource.url.clone(),
             hidden: Vec::new(),
         }
     }
 
+    /// The edit page's: its header carries the record's actions placed on [`Places::EDIT`], each
+    /// landing back on the page, and its Delete.
     pub(super) fn edit<R: Resource>(cx: &Cx, resource: &Mounted<R>, record: &R::Model) -> Self {
         Self {
             title: format!("Edit {}", resource.label),
             submit_label: "Save".to_string(),
             destructive: false,
             public_link: resource.public_link(cx, record),
-            list_url: resource.url.clone(),
+            // An action lands back on the page as it was left, its own `?return=` included.
+            actions: {
+                let uri = topcoat::router::request::uri(cx);
+                let here = uri
+                    .path_and_query()
+                    .map_or(uri.path(), |full| full.as_str());
+                record_bar(cx, resource, record, Places::EDIT, here)
+            },
+            cancel: resource.url.clone(),
             hidden: Vec::new(),
         }
     }
 
-    /// An action's input page: titled and submitted by the action's `label`, carrying `hidden`
-    /// back to the action's POST.
-    pub(crate) fn action<R: Resource>(
-        resource: &Mounted<R>,
+    /// An action's input page: titled `title`, submitted by the action's `label`, carrying
+    /// `hidden` back to the action's POST, and cancelled to `cancel`.
+    pub(crate) fn action(
         title: String,
         label: String,
         destructive: bool,
         hidden: Vec<(String, String)>,
+        cancel: String,
     ) -> Self {
         Self {
             title,
             submit_label: label,
             destructive,
             public_link: None,
-            list_url: resource.url.clone(),
+            actions: ActionBar::default(),
+            cancel,
             hidden,
         }
     }
@@ -91,7 +109,8 @@ pub(crate) async fn render_form_page<'a>(
         submit_label,
         destructive,
         public_link,
-        list_url,
+        actions,
+        cancel,
         hidden,
     } = chrome;
     let form_html = schema
@@ -104,7 +123,9 @@ pub(crate) async fn render_form_page<'a>(
         Some(target) => crate::table::with_return(path, target),
         None => path.to_string(),
     };
-    let cancel = return_to.unwrap_or(list_url);
+    let cancel = return_to.unwrap_or(cancel);
+    let has_actions = public_link.is_some() || !actions.is_empty();
+    let actions = actions.render(cx);
     let enctype: Option<String> = schema
         .fields()
         .any(|field| field.is_file())
@@ -140,18 +161,21 @@ pub(crate) async fn render_form_page<'a>(
                 if destructive {
                     tablo_ui::page_description("This action cannot be undone.")
                 }
-                if let Some(link) = public_link {
+                if has_actions {
                     tablo_ui::page_actions(
-                        <a
-                            href=(link.url)
-                            class=(tablo_ui::button_variants(
-                                tablo_ui::ButtonVariant::Outline,
-                                tablo_ui::ButtonSize::Md,
-                            ))
-                        >
-                            icon(data: tablo_ui::icons::EXTERNAL_LINK)
-                            (link.label)
-                        </a>
+                        if let Some(link) = public_link {
+                            <a
+                                href=(link.url)
+                                class=(tablo_ui::button_variants(
+                                    tablo_ui::ButtonVariant::Outline,
+                                    tablo_ui::ButtonSize::Md,
+                                ))
+                            >
+                                icon(data: tablo_ui::icons::EXTERNAL_LINK)
+                                (link.label)
+                            </a>
+                        }
+                        (actions)
                     )
                 }
             )

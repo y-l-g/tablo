@@ -30,8 +30,9 @@ impl Resource for UserResource {
 | `Update(record)` | the edit page and POST, the row's Edit action |
 | `DeleteAny` | the delete and bulk-delete POSTs, the Delete action and the bulk column |
 | `Delete(record)` | each record a delete removes, the row's Delete action and checkbox |
-| `RunAny { action }` | the [custom action](./tables.md#custom-actions)'s row and bulk POSTs, its row button and bulk-bar entry, and the bulk column for a bulk action |
-| `Run { action, record }` | each record the action runs on, the row's button for it and, for a bulk action, its checkbox |
+| `RunAny { action }` | the [record action](./actions.md#record-actions)'s POSTs and its buttons on rows, record pages and the bulk bar, and the bulk column for a bulk action |
+| `Run { action, record }` | each record a record action runs on, its button on the record's row and pages and, for a bulk action, the record's checkbox |
+| `RunHeader { action }` | the [header action](./actions.md#header-actions)'s POST and its button in the list header, with `ViewAny` |
 
 `action` is the action's `NAME`, so one policy tells a resource's actions apart.
 `ability.is_action::<Publish, _>()` asks whether the ability is `RunAny` or `Run` for the action
@@ -41,9 +42,10 @@ type `Publish`, so renaming the action's `NAME` cannot leave a policy matching t
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-action}}
 ```
 
-The `_` is the resource, inferred when the action belongs to one. Handlers ask the same abilities
-that decide which buttons render, so a hidden action is also a refused request. A denied request
-answers 403.
+The `_` is the resource, inferred when the action belongs to one. A header action, which runs on
+no record, is asked `RunHeader`, which `ability.is_header_action::<A>()` matches. Handlers ask the
+same abilities that decide which buttons render, so a hidden action is also a refused request. A
+denied request answers 403.
 
 - **The list asks `ViewAny` only.** A policy is Rust code that cannot run in the database, and
   filtering rows after pagination would leave pages short. Rows a user must not see on the list
@@ -55,8 +57,10 @@ answers 403.
   record inside the write's transaction and ask the policy about that row, not the submitted id. A
   bulk delete or bulk action fails as a whole if any selected record is refused `View`, and skips
   the records refused `Delete` or `Run`.
-- **An action's `can_run` is not authorization.** It reads the record's state and sees no policy;
-  the policy's `RunAny` and `Run` decide who runs the action. A panel that mounts the resource
+- **A record action's `can_run` is not authorization.** It reads the record's state and sees no
+  policy; the policy's `RunAny` and `Run` decide who runs the action. A header action's
+  `can_run(cx)` is a gate of its own, beside the policy on a resource; on a page, which has no
+  policy, it is where the action asks one. A panel that mounts the resource
   with `ReadOnly` through `Panel::resource_with` therefore offers and runs none of its actions.
 - **Relationship options** require `ViewAny` and `View` from the related resource's policy.
 

@@ -29,7 +29,8 @@ one form control per field, and a detail page column per field. Set the def's `t
 | `record_title(lens!(..))` | the label and the record's key | the detail page's heading, each relationship option over the resource, which also searches the column, and a `RelationColumn::of` cell |
 | `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
 | `relation(..)` | none | a related resource shown as a table on the detail and edit pages |
-| `action::<A>()` | none | a custom action: [Tables](./tables.md#custom-actions) |
+| `action::<A>()` | none | a record action, on rows, the detail and edit pages and the bulk bar: [Actions](./actions.md#record-actions) |
+| `header_action::<A>()` | none | an action on no record, in the list's header: [Actions](./actions.md#header-actions) |
 | `policy(..)` | `Deny` | what the user may do: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
 | `tenancy(..)` | `Tenancy::none()` | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
 | `create_column(..)` | none | a column an overridden `create_record` sets itself, once per column |
@@ -136,9 +137,9 @@ triggers them:
 {{#include ../../../examples/guide/src/resources.rs:notify-after-commit}}
 ```
 
-`Committed` names the mutation (`Mutation::Create`, `Update`, `Delete`, or `Action(NAME)` for a
-[custom action](./tables.md#custom-actions)) and the rows written: the created or updated row,
-every deleted row in one call for a bulk delete, or the rows an action ran on. `Mutation` is
+`Committed` names the mutation (`Mutation::Create`, `Update`, `Delete`, or `Action(NAME)` for an
+[action](./actions.md)) and the rows written: the created or updated row, every deleted row in one
+call for a bulk delete, the rows a record action ran on, or none for a header action. `Mutation` is
 `#[non_exhaustive]`, so a `match` on it ends with a `_` arm. The hook is not called
 when nothing committed. An error it returns is logged; the write stays committed.
 
@@ -164,7 +165,7 @@ declaration names one. It refuses the resource when:
 - a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
-- two actions share a `NAME`;
+- two actions share a `NAME`, record or header;
 - a relation names a resource the panel does not register, or names one twice;
 - the panel registers the resource twice.
 
@@ -174,8 +175,8 @@ it is in (`Registration`, `Table`, `Form`, `View`, `Tenancy`, a `Relation`) and 
 `DeclarationErrorKind`, whose `Display` is the message.
 [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test matching on the kind.
 
-An action's `NAME` is checked when the app compiles: `ResourceDef::action` does not compile an
-action whose name is not one URL segment.
+An action's `NAME` is checked when the app compiles: `ResourceDef::action` and
+`ResourceDef::header_action` do not compile an action whose name is not one URL segment.
 
 A modifier on the wrong kind of field does not compile: each `Field` constructor returns its
 control's builder (`TextField`, `ChoiceField`, `FileField`, `CustomField`), which offers only

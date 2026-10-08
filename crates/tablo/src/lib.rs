@@ -96,10 +96,10 @@ pub mod prelude {
         Ability, Action, ActionInput, Allow, Auth, BooleanColumn, Brand, ChoiceField, ColumnWidth,
         Committed, ComputedColumn, CountColumn, CustomField, DateFilter, Deny, Detail,
         EmbeddedColumn, EmbeddedForm, Field, FieldErrors, FileColumn, FileField, Grid, Group,
-        IntoOptions, Lens, NavigationItem, NoForm, Options, Page, Panel, Policy, Posted,
-        PublicLink, QueryFilter, ReadOnly, RecordForm, Relation, RelationColumn, Resource,
-        ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-        TenantId, TernaryFilter, TextColumn, TextField, Toggle, can, can_list, lens, relation,
-        scoped_query, tenant_id, when,
+        HeaderAction, HeaderActions, IntoOptions, Lens, NavigationItem, NoForm, Options, Page,
+        Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly, RecordForm, Relation,
+        RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
+        SelectFilter, Table, Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, can,
+        can_list, lens, relation, scoped_query, tenant_id, when,
     };
 }

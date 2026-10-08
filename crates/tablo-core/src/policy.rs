@@ -42,7 +42,7 @@ pub enum Ability<'a, M> {
     /// Delete one record.
     Delete(&'a M),
     /// Run the custom [`Action`](crate::Action) whose [`NAME`](crate::Action::NAME) is `action`
-    /// at all.
+    /// at all, before [`Run`](Self::Run) is asked of each record.
     RunAny {
         /// The action's [`NAME`](crate::Action::NAME).
         action: &'static str,
@@ -54,6 +54,12 @@ pub enum Ability<'a, M> {
         action: &'static str,
         /// The record it runs on.
         record: &'a M,
+    },
+    /// Run the [`HeaderAction`](crate::HeaderAction) whose `NAME` is `action` from the list's
+    /// header. It acts on no record, so nothing else of the policy is asked but `ViewAny`.
+    RunHeader {
+        /// The action's [`NAME`](crate::HeaderAction::NAME).
+        action: &'static str,
     },
 }
 
@@ -73,7 +79,11 @@ impl<'a, M> Ability<'a, M> {
             | Self::Update(record)
             | Self::Delete(record)
             | Self::Run { record, .. } => Some(record),
-            Self::ViewAny | Self::Create | Self::DeleteAny | Self::RunAny { .. } => None,
+            Self::ViewAny
+            | Self::Create
+            | Self::DeleteAny
+            | Self::RunAny { .. }
+            | Self::RunHeader { .. } => None,
         }
     }
 

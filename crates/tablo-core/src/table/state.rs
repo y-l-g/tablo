@@ -470,7 +470,7 @@ pub(crate) fn row_action_url(prefix: &str, key: &str, name: &str) -> String {
     )
 }
 
-/// A bulk action's POST target: `{list_path}/-/actions/{name}`.
+/// A bulk or header action's POST target: `{url}/-/actions/{name}` under a list or a page.
 pub(crate) fn bulk_action_url(list_path: &str, name: &str) -> String {
     format!("{list_path}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{name}")
 }

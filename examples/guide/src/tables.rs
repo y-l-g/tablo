@@ -5,12 +5,9 @@ use tablo::{
     prelude::*,
 };
 use toasty::stmt::Expr;
-use topcoat::{Result, context::Cx, view::*};
+use topcoat::{context::Cx, view::*};
 
-use crate::{
-    models::{Author, Post, PostStatus, User},
-    resources::PostResource,
-};
+use crate::models::{Author, Post, User};
 
 // ANCHOR: post-table-post
 pub fn post_table() -> Table<Post> {
@@ -99,66 +96,3 @@ impl Filter<User> for Adults {
     }
 }
 // ANCHOR_END: table-adults-filter
-
-// ANCHOR: table-publish-action
-pub(crate) struct Publish;
-
-impl Action<PostResource> for Publish {
-    type Input = ();
-    const NAME: &'static str = "publish";
-
-    fn can_run(_cx: &Cx, post: &Post) -> bool {
-        post.status != PostStatus::Published
-    }
-
-    async fn run(_cx: &Cx, posts: &[Post], _: (), ex: &mut dyn toasty::Executor) -> Result<()> {
-        for post in posts {
-            Post::filter(Post::fields().id().eq(post.id))
-                .update()
-                .status(PostStatus::Published)
-                .exec(&mut *ex)
-                .await?;
-        }
-        Ok(())
-    }
-}
-// ANCHOR_END: table-publish-action
-
-// ANCHOR: table-input-action
-/// What changing a post's status asks for.
-#[derive(ActionInput)]
-pub(crate) struct StatusChange {
-    #[form(options)]
-    pub status: PostStatus,
-    #[form(label = "Feature on the home page")]
-    pub featured: bool,
-}
-
-pub(crate) struct ChangeStatus;
-
-impl Action<PostResource> for ChangeStatus {
-    type Input = StatusChange;
-    const NAME: &'static str = "change-status";
-
-    fn label(_cx: &Cx) -> String {
-        "Change status".to_string()
-    }
-
-    async fn run(
-        _cx: &Cx,
-        posts: &[Post],
-        change: StatusChange,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<()> {
-        for post in posts {
-            Post::filter(Post::fields().id().eq(post.id))
-                .update()
-                .status(change.status)
-                .featured(change.featured)
-                .exec(&mut *ex)
-                .await?;
-        }
-        Ok(())
-    }
-}
-// ANCHOR_END: table-input-action

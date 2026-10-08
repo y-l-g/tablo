@@ -74,7 +74,7 @@ already rewritten to a `GET`.
 The builder calls never fail; `.panel(..)` returns a `MountError` listing every mistake
 instead. It refuses a router with no `Db`, a `Db` missing the shipped auth models, two resources or pages
 with one slug, a slug the panel routes itself
-(`login`, `logout`), a slug that is not a single URL segment, a second home page, `shell_assets`
+(`login`, `logout`, and `-`, which leads the home page's action routes), a slug that is not a single URL segment, a second home page, `shell_assets`
 on a router with no asset bundle, a prefix that overlaps another panel's or Topcoat's
 `/_topcoat/runtime`, and every resource declaration check described in
 [Resources](./resources.md#startup-checks).
@@ -171,9 +171,13 @@ use topcoat::{Result, context::Cx, view::{View, view}};
   inside the shell layout. Override `Page::can_access(cx)` to narrow that: when it answers `false`
   the page answers 403 and leaves the sidebar. It is synchronous, like a policy, and reads the
   signed-in user with `auth::user::<U>(cx)`.
-- **Forms.** A page serves one `GET`. A form it renders posts to an app `#[route]`; put that route
-  under the panel prefix so the auth gate covers it. `can_access` does not cover that route, so
-  the route calls `P::can_access(cx)` itself.
+- **Actions.** `Page::header_actions` declares [header actions](./actions.md#header-actions), each
+  served at `{page}/-/actions/{NAME}` behind the same sign-in and `can_access` as the page, in a
+  transaction the framework opens. `header_action_buttons::<Self>(cx)` renders their buttons where the
+  page places it, usually in `page_actions`.
+- **Forms.** Any other form a page renders posts to an app `#[route]`; put that route under the
+  panel prefix so the auth gate covers it. `can_access` does not cover that route, so the route
+  calls `P::can_access(cx)` itself.
 
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional

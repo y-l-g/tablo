@@ -10,11 +10,14 @@ use topcoat::{
     view::{BoxView, SuspenseMode, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
-use super::gate::gate;
+use super::{
+    bar::{ActionBar, header_bar},
+    gate::gate,
+};
 use crate::{
     form::RecordForm,
     policy::Ability,
-    resource::{Mounted, Resource},
+    resource::{Mounted, Places, Resource},
     table::{
         RowActions, Table, TableAction, TableChrome, TablePage, TableState, WiredTable,
         create_page_url,
@@ -106,10 +109,10 @@ fn wire_custom_actions<R: Resource>(
             TableAction {
                 name: action.name,
                 label: (action.label)(cx),
-                row: action.row,
-                bulk: action.bulk,
+                row: action.places.contains(Places::ROW),
+                bulk: action.places.contains(Places::BULK),
                 // An action with input confirms on its input page, which its button opens.
-                confirm: action.confirm && !action.takes_input,
+                confirm: action.confirm && !action.input.takes_input,
                 allowed: Arc::new(move |record: &R::Model| {
                     policy.can(&policy_cx, Ability::View(record))
                         && can_run(&policy, &policy_cx, record)
@@ -149,15 +152,17 @@ pub(crate) fn table_error_view<'a>(
     .boxed()
 }
 
-/// Renders the list page header titled `plural_label`, with the CSV export link to `export_url`
-/// and a Create link to `create_url`.
+/// Renders the list page header titled `plural_label`, with the header `actions`, the CSV export
+/// link to `export_url` and a Create link to `create_url`.
 fn list_header<'a>(
     cx: &'a Cx,
     plural_label: &str,
     label: &str,
+    actions: ActionBar,
     create_url: Option<String>,
     export_url: String,
 ) -> BoxView<'a> {
+    let actions = actions.render(cx);
     let title = plural_label.to_string();
     let create_label = format!("Create {label}");
     let outline =
@@ -167,6 +172,7 @@ fn list_header<'a>(
         tablo_ui::page_header(
             tablo_ui::page_title((title))
             tablo_ui::page_actions(
+                (actions)
                 <a href=(export_url) class=(outline)>
                     icon(data: tablo_ui::icons::DOWNLOAD)
                     "Export CSV"
@@ -205,9 +211,18 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let (signals, state) = table.browser_state(cx);
         // A write lands back on the list as the reader left it.
         let back = state.without_cursor(&resource.url);
+        let mut actions = header_bar(cx, &resource.url, &resource.header_actions, |action| {
+            resource.can(
+                cx,
+                Ability::RunHeader {
+                    action: action.name,
+                },
+            )
+        });
         let table = if back == resource.url {
             table
         } else {
+            actions = actions.returning_to(&back);
             table.returning_to(back)
         };
         let skeleton = table.render_skeleton(cx, &state).await?;
@@ -218,6 +233,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             cx,
             &resource.plural_label,
             &resource.label,
+            actions,
             create_url,
             export_url,
         );

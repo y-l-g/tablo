@@ -6,9 +6,9 @@ use toasty::stmt::{List, Query};
 use topcoat::{Result, context::Cx};
 
 use crate::{
+    actions::{ChangeStatus, Publish, PublishDrafts},
     models::{Audit, Author, Comment, Order, Post, PostStatus, Role, User},
     policy_tenancy::editors_only,
-    tables::{ChangeStatus, Publish},
 };
 
 fn is_admin(_cx: &Cx) -> bool {
@@ -43,7 +43,8 @@ impl Resource for UserResource {
                 | Ability::DeleteAny
                 | Ability::Delete(_)
                 | Ability::RunAny { .. }
-                | Ability::Run { .. } => is_admin(cx),
+                | Ability::Run { .. }
+                | Ability::RunHeader { .. } => is_admin(cx),
             })
             // ANCHOR_END: user-policy
             // ANCHOR: user-form
@@ -127,6 +128,7 @@ impl Resource for PostResource {
             // ANCHOR: post-actions
             .action::<Publish>()
             .action::<ChangeStatus>()
+            .header_action::<PublishDrafts>()
         // ANCHOR_END: post-actions
     }
 }

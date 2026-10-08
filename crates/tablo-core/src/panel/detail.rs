@@ -1,4 +1,5 @@
-//! The detail page: `GET {prefix}/{slug}/{id}`, the record's columns and its relation tables.
+//! The detail page: `GET {prefix}/{slug}/{id}`, the record's columns and its relation tables,
+//! under a header with the record's actions.
 
 use topcoat::{
     context::Cx,
@@ -7,12 +8,17 @@ use topcoat::{
     view::{BoxView, ViewExt, view},
 };
 
-use super::{actions::load_detail, gate::gate, relations::render_relations};
+use super::{
+    actions::load_detail,
+    bar::{ActionBar, record_bar},
+    gate::gate,
+    relations::render_relations,
+};
 use crate::{
     db::db,
     form::RecordForm,
     policy::Ability,
-    resource::{PublicLink, Resource},
+    resource::{Places, PublicLink, Resource},
     topcoat_compat::async_page,
 };
 
@@ -24,6 +30,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         if !resource.viewed() {
             return Err(not_found().into());
         }
+        crate::csrf::ensure_token(cx);
         let id = path_param_segment(cx, "id").to_string();
         let mut db = db(cx);
         let record = load_detail(cx, &resource, &mut db).await?;
@@ -32,21 +39,22 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let title = resource.record_title(&record, &id);
         let back = resource.url.clone();
         let public_link = resource.public_link(cx, &record);
+        let uri = topcoat::router::request::uri(cx);
         let edit = (<R::Form as RecordForm>::HAS_FORM
             && resource.can(cx, Ability::Update(&record)))
-        .then(|| {
-            format!(
-                "{}/{}",
-                topcoat::router::request::uri(cx).path(),
-                crate::table::EDIT_ROUTE_SEGMENT
-            )
-        });
+        .then(|| format!("{}/{}", uri.path(), crate::table::EDIT_ROUTE_SEGMENT));
+        // An action lands back on the page as it was left: its related tables' state included.
+        let here = uri
+            .path_and_query()
+            .map_or(uri.path(), |full| full.as_str());
+        let actions = record_bar(cx, &resource, &record, Places::DETAIL, here);
         Ok(detail_page(
             cx,
             DetailPage {
                 title,
                 back,
                 public_link,
+                actions,
                 edit,
                 body,
                 relations,
@@ -60,6 +68,7 @@ struct DetailPage<'a> {
     title: String,
     back: String,
     public_link: Option<PublicLink>,
+    actions: ActionBar,
     edit: Option<String>,
     body: BoxView<'a>,
     relations: Vec<BoxView<'a>>,
@@ -71,10 +80,12 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
         title,
         back,
         public_link,
+        actions,
         edit,
         body,
         relations,
     } = page;
+    let actions = actions.render(cx);
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
@@ -96,6 +107,7 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                             (link.label)
                         </a>
                     }
+                    (actions)
                     if let Some(url) = edit {
                         <a
                             (crate::navigation::runtime_link(cx, &url))

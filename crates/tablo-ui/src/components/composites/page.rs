@@ -10,8 +10,10 @@ const PAGE_HEADER: StaticClass = class!(
     "flex flex-wrap items-center gap-x-4 gap-y-1.5 \
      [&>[data-page-description]]:order-last [&>[data-page-description]]:basis-full"
 );
-const PAGE_TITLE: StaticClass =
-    class!("min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight text-foreground");
+// The basis keeps a title readable: past it, the actions wrap below instead of squeezing it.
+const PAGE_TITLE: StaticClass = class!(
+    "min-w-0 flex-1 basis-64 truncate text-2xl font-semibold tracking-tight text-foreground"
+);
 const PAGE_DESCRIPTION: StaticClass = class!("text-sm text-muted-foreground");
 const PAGE_ACTIONS: StaticClass = class!("flex shrink-0 flex-wrap items-center gap-2");
 const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");

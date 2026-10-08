@@ -202,98 +202,25 @@ Each row shows the actions its record allows:
   record;
 - **Edit** when the resource has a record form and the policy allows `View` and `Update`;
 - **Delete** when the policy allows `DeleteAny`, and `View` and `Delete` of the record;
-- each [custom action](#custom-actions) the record allows.
+- each [custom action](./actions.md) placed on rows that the record allows.
 
 A row that allows none keeps an empty actions cell.
 
-When the policy allows `DeleteAny`, or `RunAny` for a bulk custom action the resource declares,
-the list adds a checkbox column and a bulk bar. A row that neither delete nor any bulk action
-allows gets no checkbox, so select-all only selects rows something can be done to. A bulk delete
+When the policy allows `DeleteAny`, or `RunAny` for a [custom action](./actions.md) the resource
+places on the bulk bar, the list adds a checkbox column and a bulk bar. A row that neither delete
+nor any bulk action allows gets no checkbox, so select-all only selects rows something can be done to. A bulk delete
 accepts at most 400 records and runs in one transaction. It skips the selected records the policy
 refuses `Delete` and reports them in its notification (`"Bulk deleted (1 of 2 skipped)"`); a
 selection of refused records only deletes nothing and returns to the list with an error
 notification.
 
 Both deletes require confirmation. The Delete action opens a confirmation dialog on the list page,
+as it does in the header of the record's [detail and edit pages](./actions.md#on-a-records-pages),
 and the bulk bar's button, disabled while nothing is selected, opens one stating how many rows are
 selected. Confirming posts the write, which returns to the list as it was left (its search, sort
 and filters, on the first page) with a notification. The delete handlers refuse a POST that was not
 confirmed through the dialog with 400. The dialogs need JavaScript: without it the Delete action
 does nothing.
-
-### Custom actions
-
-An action is a mutation beyond create, update and delete, declared as a type implementing
-`Action<R>` and added to the def with `ResourceDef::action`:
-
-```rust
-{{#include ../../../examples/guide/src/tables.rs:table-publish-action}}
-
-impl Resource for PostResource {
-    // …
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            // …
-{{#include ../../../examples/guide/src/resources.rs:post-actions}}
-    }
-}
-```
-
-Its button reads `label`, by default `NAME` in sentence case: `"publish"` reads "Publish" and
-`"send-invite"` reads "Send invite". Override `label(cx)` for any other text.
-
-The list offers the action only when the policy allows `RunAny { action: NAME }`. A row then
-renders its button when the policy's `View` and `Run` and the action's `can_run` allow the record,
-and the bulk bar renders it for the selection. `const ROW: bool = false` keeps it off the rows, and
-`const BULK: bool = false` off the bulk bar. `can_run` reads the record's state; the policy decides
-who runs the action, so a panel that mounts the resource with `ReadOnly` offers none of its
-actions and refuses their POSTs ([Policy](./policy-auth-tenancy.md#policy)).
-
-The framework runs an action the way it runs a delete. The POST goes to
-`{list}/{key}/-/actions/{NAME}` for a row and `{list}/-/actions/{NAME}` for the selection and
-carries the CSRF token. The handler answers 403 before reading the body when the policy refuses
-`RunAny`, then loads the records through the tenant-scoped query inside a transaction. Every record
-must pass the policy's `View`, and `run` writes through the same transaction, so an error rolls
-everything back. After the commit, `after_commit` receives `Mutation::Action(NAME)` with the
-records and the list shows `Action::success`, by default the label and the record count.
-
-A record the policy's `Run` or `can_run` refuses is not handed to `run`: a refused row answers 403,
-and a selection drops the refused records, runs the rest and appends the skipped count out of the
-selection to `Action::success` (`"Publish: 3 records (2 of 5 skipped)"`). A selection every record
-refuses writes nothing and returns to the list with an error notification. A record that fails the
-policy's `View`, and one the scoped query no longer returns, fail the whole POST instead: 403 and
-404, and nothing is written. An action name that is not one URL segment does not compile,
-and mounting the panel refuses a name two actions of a resource share. A destructive action
-declares `const CONFIRM: bool = true` to ask first through the delete's confirmation dialog; an
-unconfirmed POST answers 400. Confirmatory buttons need JavaScript: without it they do nothing.
-
-#### Asking for input
-
-An action names what it asks for before it runs as `type Input`: `()` for nothing, or a struct
-deriving `ActionInput`, which `run` receives parsed:
-
-```rust
-{{#include ../../../examples/guide/src/tables.rs:table-input-action}}
-```
-
-Its button opens an input page instead of running: the POST that would run the action renders
-the input's form, after the same policy, `can_run` and tenancy checks, titled with the label and
-the record's title, or the record count for a selection. Its submit POSTs to the same route with
-the input, and the action runs on the records that pass the checks again, in one transaction. A
-value the input refuses renders the page again with the error under its control and writes
-nothing; a key the input does not declare answers 400. `Action::validate_input` adds refusals of
-its own, each under an input field's key, such as a reason too short to act on. An action with
-input and `CONFIRM` confirms on the input page, which says the action cannot be undone and whose
-submit renders destructive, instead of in the dialog. The input page works without JavaScript.
-
-Each field posts its own name and renders the control its type picks: a `bool` is a checkbox,
-`#[form(options)]` a choice over the field type's `Options` and `#[form(options = T)]` one over
-`T`'s, and any other `FormScalar` a text input. A field with no blank answer is required, as on a
-record form: `#[form(blank = ..)]`, `#[form(optional)]` on a `String`, an `Option` or a `bool`
-gives it one. `#[form(label = "..")]` labels the control, `#[form(placeholder = "..")]` sets a text
-input's placeholder, and `#[form(multiline = N)]` makes it a `<textarea>`. An `Option` choice names its options type, `#[form(options = PostStatus)]`.
-Mounting the panel refuses an input field named `csrf_token`, `confirm` or `ids`, which the
-action's POST carries itself, and a file field, whose upload an action's POST does not read.
 
 If the table fails to load, the list shows an error state with a retry link in place of the rows;
 the rest of the page still renders.

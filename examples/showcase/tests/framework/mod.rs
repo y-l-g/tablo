@@ -9,6 +9,7 @@ mod action_policy;
 mod after_commit;
 mod auth_override;
 mod extensions;
+mod header_actions;
 mod options_enum;
 mod panels;
 mod resource_query_override;
