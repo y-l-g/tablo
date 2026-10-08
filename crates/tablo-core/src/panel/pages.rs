@@ -3,14 +3,14 @@
 use topcoat::{
     context::Cx,
     router::{
-        Body,
+        Body, RouteFuture,
         error::{forbidden, not_found},
         path_param_segment,
     },
     view::BoxView,
 };
 
-use super::actions::run_header;
+use super::actions::{input_options, run_header};
 use crate::{Page, topcoat_compat::async_page};
 
 /// `GET` for a registered page: the auth re-check every panel handler runs and the page's
@@ -44,6 +44,25 @@ pub(super) fn page_action<P: Page>(cx: &Cx, body: Body) -> BoxView<'_> {
             return Err(not_found().into());
         };
         run_header(cx, body, action, &home, None).await
+    })
+}
+
+/// `GET {url}/-/actions/{name}/options` for a registered page: the option search of a header
+/// action's input, behind the same checks as the action's `POST`.
+pub(super) fn page_action_options<P: Page>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+    Box::pin(async move {
+        crate::auth::guard(cx)?;
+        if !P::can_access(cx) {
+            return Err(forbidden().into());
+        }
+        let actions = P::header_actions();
+        let Some(action) = actions.find(path_param_segment(cx, "action")) else {
+            return Err(not_found().into());
+        };
+        if !(action.can_run)(cx) {
+            return Err(forbidden().into());
+        }
+        input_options(cx, action.input).await
     })
 }
 

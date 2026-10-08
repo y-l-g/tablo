@@ -638,3 +638,23 @@ test('a failed fetch offers nothing rather than the old parent value\'s options'
     assert.equal(world.select.events.length, 1, 'the dropped choice announces its change');
   }
 });
+
+test('a choice whose wrapper names its options route fetches from it, not the page\'s', async () => {
+  global.window = { location: { pathname: '/admin/addresses' } };
+  const urls = [];
+  global.fetch = async (url) => {
+    urls.push(url);
+    return { ok: true, headers: { get: () => null }, text: async () => '' };
+  };
+  try {
+    const world = dependentWorld({ parentValue: 'fr', current: '' });
+    world.attrs['data-options-url'] = '/admin/addresses/-/actions/move/options';
+    const document = standInDocument([]);
+    load(document);
+    await changeParent(document, world.parent);
+    assert.deepEqual(urls, ['/admin/addresses/-/actions/move/options?field=city_id&parent=fr']);
+  } finally {
+    delete global.fetch;
+    delete global.window;
+  }
+});

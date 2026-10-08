@@ -368,12 +368,14 @@ impl Embedded {
                 // parses only the chosen variant.
                 // Keyed by the page's path: navigation carries the values of signals two pages
                 // share, and another record's form starts from its own stored variant.
+                // Keyed by the form's scope too, as a condition's signal is.
                 let page = topcoat::context::try_request_context::<http::request::Parts>(cx)
                     .map(|parts| parts.uri.path().to_string())
                     .unwrap_or_default();
+                let scope = source.scope().to_string();
                 Ok(async_page(async move {
                     let variant = signal(
-                        &cx.keyed(("tablo-variant", page, key.as_str())),
+                        &cx.keyed(("tablo-variant", page, scope, key.as_str())),
                         move || stored,
                     );
                     let chosen = variant.clone();

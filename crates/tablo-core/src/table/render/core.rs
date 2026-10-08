@@ -97,6 +97,9 @@ impl Frame<'_> {
             prev_cursor,
             mut filters,
         } = loaded;
+        let signals = &signals
+            .clone()
+            .with_inputs(cx, self.inputs.iter().map(|action| action.name));
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
         let head = self
@@ -125,6 +128,7 @@ impl Frame<'_> {
             )
             .await?;
         let write_form = self.render_write_form(cx, state, signals);
+        let input_dialogs = self.render_input_dialogs(cx, state, signals);
 
         let ColumnWidths {
             cells: cell_widths,
@@ -188,6 +192,9 @@ impl Frame<'_> {
             }
             if let Some(form) = write_form {
                 (form)
+            }
+            for dialog in input_dialogs {
+                (dialog)
             }
         };
         Ok(table_frame(cx, false, content.boxed()))

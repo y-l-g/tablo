@@ -62,8 +62,8 @@ pub trait HeaderAction: 'static {
     /// Whether the action asks first through a confirmation dialog with destructive wording.
     /// Defaults to `false`.
     ///
-    /// An action with input confirms on its input page instead. An unconfirmed POST that would
-    /// write answers 400.
+    /// An action with input confirms in its input dialog, or on its input page, instead. An
+    /// unconfirmed POST that would write answers 400.
     const CONFIRM: bool = false;
 
     /// The button text. Defaults to [`NAME`](Self::NAME) in sentence case: `"recount-tags"`

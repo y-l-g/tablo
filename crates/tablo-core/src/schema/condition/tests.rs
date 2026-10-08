@@ -92,6 +92,55 @@ async fn a_hidden_field_renders_in_a_disabled_fieldset() {
     }
 }
 
+/// Two forms on one page, such as an action's input in a dialog over a record's form, keep their
+/// own DOM ids and follow their own watched fields, though they post the same keys.
+#[tokio::test]
+async fn forms_sharing_a_page_keep_their_ids_and_conditions_apart() {
+    let cx = cx();
+    let render = |scope: &'static str, kind_value: &'static str| {
+        let cx = &cx;
+        async move {
+            let kind = kind();
+            let vat = Field::text(Customer::fields().vat()).visible_when(&kind, ["company"]);
+            let values = values(kind_value);
+            let errors = FieldErrors::new();
+            Schema::new((kind, vat))
+                .render(cx, Source::form(&values, &errors).scoped(scope))
+                .await
+                .html(cx)
+                .await
+        }
+    };
+    let mut signals = Vec::new();
+    for (scope, kind, disabled) in [("first", "person", true), ("second", "company", false)] {
+        let html = render(scope, kind).await;
+        // The browser keeps one value per signal id: a shared one would show both forms' fields
+        // from whichever kind changed last.
+        let marker = "::topcoat::signal({&quot;t&quot;:&quot;signal&quot;,&quot;id&quot;:&quot;";
+        let at = html.find(marker).expect("the condition's signal") + marker.len();
+        signals.push(html[at..at + 32].to_string());
+        for expected in [
+            format!("id=\"{scope}-vat\""),
+            format!("for=\"{scope}-vat\""),
+            format!("id=\"{scope}-kind\""),
+        ] {
+            assert!(html.contains(&expected), "{expected} in {html}");
+        }
+        let input = html.find("name=\"vat\"").expect("the vat input");
+        let fieldset = &html[html[..input].rfind("<fieldset").expect("its fieldset")..input];
+        let tag = &fieldset[..fieldset.find('>').expect("a closed tag")];
+        assert_eq!(
+            tag.contains(" disabled"),
+            disabled,
+            "{scope} follows its own kind={kind}, got {tag}"
+        );
+    }
+    assert_ne!(
+        signals[0], signals[1],
+        "each form's condition has its own signal"
+    );
+}
+
 #[test]
 fn a_condition_must_watch_a_placed_field() {
     let kind = kind();

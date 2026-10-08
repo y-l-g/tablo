@@ -37,6 +37,9 @@ pub(crate) struct FormChrome {
     cancel: String,
     /// Hidden `(name, value)` controls the submit carries besides the schema's.
     hidden: Vec<(String, String)>,
+    /// Where a searchable choice fetches its options: an action's input route, or `None` for the
+    /// resource's own.
+    options: Option<String>,
 }
 
 impl FormChrome {
@@ -49,6 +52,7 @@ impl FormChrome {
             actions: ActionBar::default(),
             cancel: resource.url.clone(),
             hidden: Vec::new(),
+            options: None,
         }
     }
 
@@ -70,17 +74,20 @@ impl FormChrome {
             },
             cancel: resource.url.clone(),
             hidden: Vec::new(),
+            options: None,
         }
     }
 
     /// An action's input page: titled `title`, submitted by the action's `label`, carrying
-    /// `hidden` back to the action's POST, and cancelled to `cancel`.
+    /// `hidden` back to the action's POST, cancelled to `cancel`, and searching its choices'
+    /// options at `options`.
     pub(crate) fn action(
         title: String,
         label: String,
         destructive: bool,
         hidden: Vec<(String, String)>,
         cancel: String,
+        options: String,
     ) -> Self {
         Self {
             title,
@@ -90,6 +97,7 @@ impl FormChrome {
             actions: ActionBar::default(),
             cancel,
             hidden,
+            options: Some(options),
         }
     }
 }
@@ -112,10 +120,13 @@ pub(crate) async fn render_form_page<'a>(
         actions,
         cancel,
         hidden,
+        options,
     } = chrome;
-    let form_html = schema
-        .render(cx, crate::schema::Source::form(values, errors))
-        .await?;
+    let mut source = crate::schema::Source::form(values, errors);
+    if let Some(url) = options {
+        source = source.options_at(url);
+    }
+    let form_html = schema.render(cx, source).await?;
     // Posts to the current path, preserving a validated `?return=` target.
     let path = topcoat::router::request::uri(cx).path();
     let return_to = return_target(cx);

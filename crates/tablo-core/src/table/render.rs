@@ -35,6 +35,7 @@ use super::{
     column::ColumnWidth,
     state::{TableSignals, TableState, query_of, with_return},
 };
+use crate::schema::Schema;
 
 /// What rendering reads from a [`WiredTable`], without its model: the declared columns and
 /// toolbars, and the action wiring.
@@ -48,6 +49,8 @@ pub(super) struct Frame<'t> {
     actions_prefix: Option<&'t str>,
     bulk_delete: bool,
     bulk_actions: Vec<BulkAction<'t>>,
+    /// The custom actions asking for input, each rendering its dialog.
+    inputs: Vec<InputAction<'t>>,
     /// How many custom actions each row may show.
     row_actions: usize,
     return_to: Option<&'t str>,
@@ -65,7 +68,19 @@ struct ColumnHead<'t> {
 struct BulkAction<'t> {
     name: &'static str,
     label: &'t str,
+    /// Whether the confirmation dialog asks first; an action with input confirms in its own.
     confirm: bool,
+    /// Whether its button opens the action's input dialog.
+    input: bool,
+}
+
+/// One custom action asking for input, whose dialog the table renders once for its rows and its
+/// bulk bar.
+struct InputAction<'t> {
+    name: &'static str,
+    label: &'t str,
+    confirm: bool,
+    input: fn() -> Schema,
 }
 
 impl<M> WiredTable<M> {
@@ -97,7 +112,20 @@ impl<M> WiredTable<M> {
                 .map(|action| BulkAction {
                     name: action.name,
                     label: &action.label,
-                    confirm: action.confirm,
+                    confirm: action.confirm && action.input.is_none(),
+                    input: action.input.is_some(),
+                })
+                .collect(),
+            inputs: self
+                .row_custom_actions()
+                .chain(self.bulk_custom_actions().filter(|action| !action.row))
+                .filter_map(|action| {
+                    Some(InputAction {
+                        name: action.name,
+                        label: &action.label,
+                        confirm: action.confirm,
+                        input: action.input?,
+                    })
                 })
                 .collect(),
             row_actions: self.row_custom_actions().count(),

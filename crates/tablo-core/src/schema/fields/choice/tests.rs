@@ -8,7 +8,7 @@ use topcoat::context::{Cx, CxTestBuilder};
 use crate::{
     Ability, DeclarationErrorKind,
     form::FieldErrors,
-    schema::{ChoiceField, Field, OptionSource, Schema, Source},
+    schema::{ChoiceField, Field, OptionSource, Schema, Source, fields::Placement},
     test_support::{Html as _, memory_db},
 };
 
@@ -247,7 +247,15 @@ async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows
 
     let hint = async |parent: &str| {
         let html = city
-            .render_under(&world.cx, None, None, Some(parent))
+            .render_under(
+                &world.cx,
+                None,
+                None,
+                Placement {
+                    parent: Some(parent),
+                    ..Placement::default()
+                },
+            )
             .await
             .html(&world.cx)
             .await;
@@ -271,4 +279,30 @@ async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows
             .to_string()
     };
     assert!(!hint(&germany).await, "Germany does not");
+
+    // In a form sharing its page, the choice carries its form's prefix and searches the route
+    // the form names.
+    let html = city
+        .render_under(
+            &world.cx,
+            None,
+            None,
+            Placement {
+                parent: Some(&world.france),
+                scope: "move",
+                options: Some("/admin/addresses/-/actions/move/options"),
+            },
+        )
+        .await
+        .html(&world.cx)
+        .await;
+    for expected in [
+        "data-options-url=\"/admin/addresses/-/actions/move/options\"",
+        "id=\"move-city_id\"",
+        "for=\"move-city_id\"",
+        "id=\"move-city_id-options-list\"",
+        "name=\"city_id\"",
+    ] {
+        assert!(html.contains(expected), "{expected} in {html}");
+    }
 }

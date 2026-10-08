@@ -414,7 +414,7 @@ impl Field {
         }
     }
 
-    /// Renders the field's control, a dependent choice with no parent value.
+    /// Renders the field's control alone on its page, a dependent choice with no parent value.
     #[cfg(test)]
     pub(crate) async fn render<'a>(
         &self,
@@ -422,25 +422,28 @@ impl Field {
         value: Option<&str>,
         error: Option<&str>,
     ) -> Result<BoxView<'a>> {
-        self.render_under(cx, value, error, None).await
+        self.render_under(cx, value, error, Placement::default())
+            .await
     }
 
-    /// Renders the field's control, a dependent choice offering what its parent's value `parent`
-    /// selects.
+    /// Renders the field's control where `placement` puts it.
     pub(crate) async fn render_under<'a>(
         &self,
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
-        parent: Option<&str>,
+        placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
+        let id = placement.id(self.name());
         match &self.control {
-            ControlKind::Text(text) => self.render_text(text, cx, value, error),
+            ControlKind::Text(text) => self.render_text(text, cx, value, error, id),
             ControlKind::Choice(choice) => {
-                Box::pin(self.render_choice(choice, cx, value, error, parent)).await
+                Box::pin(self.render_choice(choice, cx, value, error, id, placement)).await
             }
-            ControlKind::File => self.render_file(cx, value, error),
-            ControlKind::Custom(control) => self.render_custom(control.as_ref(), cx, value, error),
+            ControlKind::File => self.render_file(cx, value, error, id),
+            ControlKind::Custom(control) => {
+                self.render_custom(control.as_ref(), cx, value, error, id)
+            }
         }
     }
 
@@ -476,11 +479,13 @@ impl Field {
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
+        id: String,
     ) -> Result<BoxView<'a>> {
         let required = self.is_required();
-        let chrome = FieldChrome::new(self.name(), error, None);
+        let chrome = FieldChrome::new(id, error, None);
         let input = ControlInput::new(
             self.name(),
+            &chrome.id,
             value,
             required,
             chrome.aria_invalid() == "true",
@@ -526,24 +531,49 @@ pub(crate) fn value_cell<'a>(cx: &'a Cx, text: &str) -> BoxView<'a> {
     view! { cx => (text) }.boxed()
 }
 
+/// Where a field's control renders: under its parent's value, and in which form of its page.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Placement<'p> {
+    /// The value the field's parent posts: a dependent choice offers the rows it selects.
+    pub(crate) parent: Option<&'p str>,
+    /// The prefix of the form's DOM ids, so several forms on one page never share one; empty
+    /// for a form alone on its page.
+    pub(crate) scope: &'p str,
+    /// The URL a searchable choice fetches its options from; `None` for the resource's own
+    /// `{list}/options`, which the browser derives from the page's URL.
+    pub(crate) options: Option<&'p str>,
+}
+
+impl Placement<'_> {
+    /// The DOM id of the control posting `name`.
+    pub(crate) fn id(&self, name: &str) -> String {
+        if self.scope.is_empty() {
+            name.to_string()
+        } else {
+            format!("{}-{name}", self.scope)
+        }
+    }
+}
+
 /// The validation state a form control renders.
 pub(crate) struct FieldChrome {
-    name: String,
+    /// The control's DOM id, which the label names.
+    pub(crate) id: String,
     error_id: String,
     error_text: String,
     has_error: bool,
 }
 
 impl FieldChrome {
-    pub(crate) fn new(name: &str, error: Option<&str>, fallback: Option<String>) -> Self {
+    pub(crate) fn new(id: String, error: Option<&str>, fallback: Option<String>) -> Self {
         let has_error = error.is_some() || fallback.is_some();
         let error_text = match error {
             Some(message) if !message.is_empty() => message.to_string(),
             _ => fallback.unwrap_or_default(),
         };
         Self {
-            name: name.to_string(),
-            error_id: format!("{name}-error"),
+            error_id: format!("{id}-error"),
+            id,
             error_text,
             has_error,
         }
@@ -567,7 +597,7 @@ pub(crate) fn render_field<'a>(
     attributes: Attributes,
     control: BoxView<'a>,
 ) -> Result<BoxView<'a>> {
-    let name = chrome.name.clone();
+    let id = chrome.id.clone();
     let label_text = label.to_string();
     let has_error = chrome.has_error;
     let error_id = chrome.error_id.clone();
@@ -586,7 +616,7 @@ pub(crate) fn render_field<'a>(
                 (attributes)
             },
             ui_field_label(
-                attrs: attributes! { for=(name) },
+                attrs: attributes! { for=(id) },
                 (label_text)
                 if required {
                     <span class="text-destructive" aria-hidden="true">"*"</span>

@@ -20,5 +20,5 @@ pub(crate) use self::{
         resource_bulk_delete, resource_delete, resource_list_action, resource_record_action,
         run_header,
     },
-    options::resource_options,
+    options::{input_options, resource_action_options, resource_options},
 };

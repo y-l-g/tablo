@@ -180,6 +180,52 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
     assert_eq!(after.tags, "news", "replacing drops the post's own tags");
 }
 
+/// Each page offering Tag asks for the tags in a dialog over itself: the list, and a post's detail
+/// and edit pages, whose form posts `tags` too. No DOM id repeats on any of them.
+#[tokio::test]
+async fn the_post_pages_ask_for_tags_in_a_dialog_with_ids_of_their_own() {
+    use showcase::models::Post;
+
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let post = Post::all()
+        .exec(&mut db_q)
+        .await
+        .expect("query posts")
+        .into_iter()
+        .next()
+        .expect("the seed holds a post");
+
+    for url in [
+        "/admin/posts".to_string(),
+        format!("/admin/posts/{}", post.id),
+        format!("/admin/posts/{}/edit", post.id),
+    ] {
+        let html = body_string(client.get(&url).await).await;
+        let start = html
+            .find("<dialog")
+            .and_then(|_| html.find("name=\"-input\""))
+            .unwrap_or_else(|| panic!("{url} renders Tag's input dialog: {html}"));
+        let dialog = &html[html[..start].rfind("<dialog").unwrap()..];
+        let dialog = &dialog[..dialog.find("</dialog>").unwrap()];
+        assert!(dialog.contains("name=\"tags\""), "{url}: {dialog}");
+        let mut ids: Vec<&str> = html
+            .split(" id=\"")
+            .skip(1)
+            .map(|rest| &rest[..rest.find('"').unwrap()])
+            .collect();
+        ids.sort_unstable();
+        let repeated: Vec<_> = ids
+            .windows(2)
+            .filter(|w| w[0] == w[1])
+            .map(|w| w[0])
+            .collect();
+        assert!(repeated.is_empty(), "{url} repeats {repeated:?}");
+    }
+}
+
 /// The guide's read-only portal over the showcase's `PostResource`: the list shows the tenant's
 /// drafts but offers no Publish, and a forged POST to either route publishes nothing.
 #[tokio::test]

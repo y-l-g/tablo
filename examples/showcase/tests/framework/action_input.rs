@@ -1,5 +1,5 @@
-//! An action that asks for input: its POST renders the input page until a submission parses, then
-//! runs with the typed value.
+//! An action that asks for input: its button opens the input in a dialog over the page, and its
+//! POST renders the input page until a submission parses, then runs with the typed value.
 
 use std::collections::HashMap;
 
@@ -139,7 +139,11 @@ struct Merging {
 
 impl ActionInput for Merging {
     fn schema() -> Schema {
-        Schema::new(Field::choice_input("into").relationship::<TicketResource>())
+        Schema::new(
+            Field::choice_input("into")
+                .relationship::<TicketResource>()
+                .searchable(),
+        )
     }
 
     fn parse(_cx: &Cx, values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
@@ -691,5 +695,124 @@ async fn a_relationship_choice_is_checked_before_the_transaction_and_again_insid
     assert_eq!(
         ticket(&db, alpha.id).await.reason,
         format!("merged into {into}")
+    );
+}
+
+/// The `id` attribute values of `html`, in order.
+fn dom_ids(html: &str) -> Vec<&str> {
+    html.split(" id=\"")
+        .skip(1)
+        .map(|rest| &rest[..rest.find('"').expect("a closed id")])
+        .collect()
+}
+
+/// The list renders one dialog per action asking for input, shared by its rows and its bulk bar:
+/// each holds the input's form, carrying the marker that runs the action and, for an action that
+/// confirms, the confirmation. Each button opens it and still submits to the input page.
+#[tokio::test]
+async fn the_list_asks_for_each_input_in_one_dialog() {
+    let db = db().await;
+    let alpha = seed(&db, "Alpha").await;
+    seed(&db, "Bravo").await;
+    let router = router(&db, runs);
+
+    let html = body_string(get(&router, "/admin/tickets").await).await;
+    for (name, confirm) in [("close", false), ("purge", true), ("merge", false)] {
+        let id = format!("table-writes-input-{name}");
+        assert_eq!(
+            html.matches(&format!("id=\"{id}\"")).count(),
+            1,
+            "one {name} dialog for every row: {html}"
+        );
+        let start = html.find(&format!("id=\"{id}\"")).unwrap();
+        let dialog = &html[start..start + html[start..].find("</dialog>").unwrap()];
+        assert!(dialog.contains("name=\"-input\" value=\"1\""), "{dialog}");
+        assert_eq!(
+            dialog.contains("name=\"confirm\" value=\"1\""),
+            confirm,
+            "{name} confirms in its dialog exactly when it confirms: {dialog}"
+        );
+        assert!(
+            html.contains(&format!("aria-controls=\"{id}\"")),
+            "the {name} buttons open it: {html}"
+        );
+    }
+    let start = html.find("id=\"table-writes-input-close\"").unwrap();
+    let close = &html[start..start + html[start..].find("</dialog>").unwrap()];
+    for expected in [
+        "id=\"table-writes-input-close-reason\"",
+        "for=\"table-writes-input-close-reason\"",
+        "name=\"reason\"",
+        "name=\"outcome\"",
+    ] {
+        assert!(close.contains(expected), "{expected} in {close}");
+    }
+    assert_eq!(
+        confirms_first(&html, &row_close(&alpha)),
+        Some(false),
+        "the row's button still submits to the input page without scripts: {html}"
+    );
+}
+
+/// The list holds several input forms posting the same keys, beside the table's own controls: no
+/// DOM id repeats, so a label names its own control.
+#[tokio::test]
+async fn no_id_repeats_on_a_list_holding_input_dialogs() {
+    let db = db().await;
+    seed(&db, "Alpha").await;
+    seed(&db, "Bravo").await;
+    let router = router(&db, runs);
+
+    let html = body_string(get(&router, "/admin/tickets").await).await;
+    let mut ids = dom_ids(&html);
+    assert!(
+        ids.iter().any(|id| id.ends_with("-reason")),
+        "the list renders Close's input: {html}"
+    );
+    ids.sort_unstable();
+    let repeated: Vec<_> = ids
+        .windows(2)
+        .filter(|w| w[0] == w[1])
+        .map(|w| w[0])
+        .collect();
+    assert!(repeated.is_empty(), "the list repeats {repeated:?}");
+}
+
+/// An input's searchable choice searches the action's own options route, behind the checks the
+/// action's POST makes before it loads a record.
+#[tokio::test]
+async fn an_input_choice_searches_the_options_route_of_its_action() {
+    let db = db().await;
+    seed(&db, "Alpha").await;
+    let bravo = seed(&db, "Bravo").await;
+    let router = router(&db, runs);
+
+    let response = get(
+        &router,
+        "/admin/tickets/-/actions/merge/options?field=into&q=brav",
+    )
+    .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert!(html.contains(&format!("value=\"{}\"", bravo.id)), "{html}");
+    assert!(!html.contains("Alpha"), "the search narrows: {html}");
+
+    for (url, status) in [
+        ("/admin/tickets/-/actions/close/options?field=into", 400),
+        ("/admin/tickets/-/actions/unknown/options?field=into", 404),
+    ] {
+        assert_eq!(get(&router, url).await.status(), status, "{url}");
+    }
+
+    let lists_only = |_cx: &Cx, ability: Ability<'_, Ticket>| {
+        matches!(ability, Ability::ViewAny | Ability::View(_))
+    };
+    let router = self::router(&db, lists_only);
+    assert_eq!(
+        get(&router, "/admin/tickets/-/actions/merge/options?field=into")
+            .await
+            .status(),
+        403,
+        "a caller who may not run the action may not search its input"
     );
 }

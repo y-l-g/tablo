@@ -569,6 +569,27 @@ async fn a_page_header_action_answers_403_where_the_page_does() {
     );
 }
 
+/// A header action's input searches its own options route, behind the checks its POST makes; past
+/// them, the route answers only for the input's own choices.
+#[tokio::test]
+async fn a_header_actions_options_route_asks_what_its_post_asks() {
+    let db = db().await;
+    let router = router(&db, Allow);
+    for (url, status) in [
+        (
+            "/admin/tickets/-/actions/open-ticket/options?field=title",
+            400,
+        ),
+        ("/admin/tickets/-/actions/flagged/options?field=title", 403),
+        ("/admin/ops/-/actions/sweep/options?field=title", 400),
+        ("/admin/ops/-/actions/flagged/options?field=title", 403),
+        ("/admin/locked/-/actions/sweep/options?field=title", 403),
+        ("/admin/ops/-/actions/unknown/options?field=title", 404),
+    ] {
+        assert_eq!(get(&router, url).await.status(), status, "{url}");
+    }
+}
+
 #[tokio::test]
 async fn the_detail_page_offers_the_records_actions_placed_there_and_its_delete() {
     let db = db().await;

@@ -10,7 +10,9 @@ use topcoat::{
 };
 
 use super::{
-    BAR_CLASS, Frame, SEARCH_FIELD_CLASS, SEARCH_ICON_CLASS, dialog::write_trigger, table_dom_id,
+    BAR_CLASS, Frame, SEARCH_FIELD_CLASS, SEARCH_ICON_CLASS,
+    dialog::{input_trigger, write_trigger},
+    table_dom_id,
 };
 use crate::table::state::{TableSignals, TableState, bulk_action_url, bulk_delete_url};
 
@@ -174,8 +176,12 @@ impl Frame<'_> {
             .iter()
             .map(|action| {
                 let url = self.action_url(bulk_action_url(&list, action.name));
-                let confirm = action.confirm.then_some(("Run this action?", "Confirm"));
-                let mut attrs = write_trigger(cx, &form, signals, url, confirm, true);
+                let mut attrs = if action.input {
+                    input_trigger(cx, &form, signals, action.name, url, true)
+                } else {
+                    let confirm = action.confirm.then_some(("Run this action?", "Confirm"));
+                    write_trigger(cx, &form, signals, url, confirm, true)
+                };
                 let bulk = signals.bulk.clone();
                 attrs.extend(attributes! { cx => :disabled=$(bulk.get().is_empty()) });
                 let label = action.label.to_string();

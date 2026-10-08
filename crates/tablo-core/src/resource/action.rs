@@ -81,11 +81,12 @@ use crate::{
 /// - [`Resource::after_commit`] with [`Mutation::Action`](super::Mutation::Action) once the
 ///   transaction commits, and the success notification.
 ///
-/// An action that asks for an [`Input`](Self::Input) renders it as a form page first, after the
-/// same checks: its button opens the page, and the page's submit runs the action with the
-/// parsed value. The submit parses the input, asks [`validate_input`](Self::validate_input) and
-/// checks its choices before the transaction opens, then re-checks a relationship choice inside
-/// it. A refused value renders the page again with its errors and writes nothing.
+/// An action that asks for an [`Input`](Self::Input) asks for it first: its button opens the
+/// input's form in a dialog over the page, or, without JavaScript, as a page the action's route
+/// renders after the same checks. The submit runs the action with the parsed value: it parses the
+/// input, asks [`validate_input`](Self::validate_input) and checks its choices before the
+/// transaction opens, then re-checks a relationship choice inside it. A refused value renders the
+/// input as a page with its errors and writes nothing.
 ///
 /// A run from a detail or edit page lands back on that page; one from a row or the bulk bar lands
 /// on the list.
@@ -140,9 +141,9 @@ pub trait Action<R: Resource>: 'static {
     /// Whether the action asks first through a confirmation dialog sharing the
     /// delete dialog's mechanism and destructive wording. Defaults to `false`.
     ///
-    /// An action with input confirms on its input page instead, which says the action cannot be
-    /// undone and whose submit renders destructive. An unconfirmed POST that would write answers
-    /// 400.
+    /// An action with input confirms in its input dialog, or on its input page, instead, which
+    /// say the action cannot be undone and whose submit renders destructive. An unconfirmed POST
+    /// that would write answers 400.
     const CONFIRM: bool = false;
 
     /// The button text. Defaults to [`NAME`](Self::NAME) in sentence case: `"publish"` reads

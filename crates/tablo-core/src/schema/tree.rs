@@ -8,7 +8,7 @@ use super::{
     Schema,
     condition::{Condition, watch},
     embedded::Embedded,
-    fields::Field,
+    fields::{Field, Placement},
     layouts::{Grid, Group, Section},
     lenses::FieldResolver,
 };
@@ -46,6 +46,11 @@ pub struct Source<'a> {
     errors: &'a FieldErrors,
     /// The conditions each watched field's key drives.
     watched: HashMap<String, Vec<Condition>>,
+    /// The prefix of the form's DOM ids and of its signals' keys; empty for a form alone on its
+    /// page.
+    scope: String,
+    /// Where a searchable choice fetches its options, when not the resource's own route.
+    options: Option<String>,
 }
 
 impl<'a> Source<'a> {
@@ -55,7 +60,27 @@ impl<'a> Source<'a> {
             values,
             errors,
             watched: HashMap::new(),
+            scope: String::new(),
+            options: None,
         }
+    }
+
+    /// Renders a form sharing its page with another: its DOM ids and its signals' keys carry
+    /// `scope`, so neither form's labels, conditions or variants reach the other's.
+    pub(crate) fn scoped(mut self, scope: impl Into<String>) -> Self {
+        self.scope = scope.into();
+        self
+    }
+
+    /// Fetches a searchable choice's options from `url` rather than the resource's own route.
+    pub(crate) fn options_at(mut self, url: impl Into<String>) -> Self {
+        self.options = Some(url.into());
+        self
+    }
+
+    /// The prefix of the form's DOM ids and of its signals' keys.
+    pub(crate) fn scope(&self) -> &str {
+        &self.scope
     }
 
     /// Renders each watched field with the handlers its conditions follow.
@@ -72,7 +97,7 @@ impl<'a> Source<'a> {
         view: BoxView<'v>,
     ) -> BoxView<'v> {
         match condition {
-            Some(condition) => condition.guard(cx, self.values, view),
+            Some(condition) => condition.guard(cx, &self.scope, self.values, view),
             None => view,
         }
     }
@@ -102,15 +127,20 @@ impl Node {
                 let field = &fields[*index];
                 let error = source.error_for(field);
                 let parent = field.parent_key().and_then(|key| source.value(key));
+                let placement = Placement {
+                    parent,
+                    scope: &source.scope,
+                    options: source.options.as_deref(),
+                };
                 let mut view = Box::pin(field.render_under(
                     cx,
                     source.value(field.name()),
                     error.as_deref(),
-                    parent,
+                    placement,
                 ))
                 .await?;
                 if let Some(conditions) = source.watched.get(field.name()) {
-                    view = watch(cx, field, conditions, source.values, view);
+                    view = watch(cx, field, conditions, &source.scope, source.values, view);
                 }
                 Ok(source.guard(cx, field.condition(), view))
             }

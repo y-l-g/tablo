@@ -97,13 +97,15 @@ impl Condition {
     pub(crate) fn guard<'a>(
         &self,
         cx: &'a Cx,
+        scope: &str,
         values: &HashMap<String, String>,
         inner: BoxView<'a>,
     ) -> BoxView<'a> {
         let condition = self.clone();
         let initial = self.holds(values);
+        let scope = scope.to_string();
         async_page(async move {
-            let shown = shown(cx, &condition, initial);
+            let shown = shown(cx, &scope, &condition, initial);
             let enabled = shown.clone();
             Ok(view! {
                 cx =>
@@ -119,17 +121,25 @@ impl Condition {
     }
 }
 
-/// The signal holding whether `condition` holds, shared by its guard and its watched field.
+/// The signal holding whether `condition` holds in the form `scope`, shared by its guard and its
+/// watched field.
 ///
 /// Keyed by the page's path: navigation carries the values of signals two pages share, and
-/// another record's form starts from its own stored values.
-fn shown(cx: &Cx, condition: &Condition, initial: bool) -> Signal<bool> {
+/// another record's form starts from its own stored values. Keyed by the form's scope too: an
+/// action's input in a dialog may watch a key the page's own form watches.
+fn shown(cx: &Cx, scope: &str, condition: &Condition, initial: bool) -> Signal<bool> {
     let page = topcoat::context::try_request_context::<http::request::Parts>(cx)
         .map(|parts| parts.uri.path().to_string())
         .unwrap_or_default();
     let values = condition.values.join("\u{1f}");
     signal(
-        &cx.keyed(("tablo-condition", page, condition.watched.as_str(), values)),
+        &cx.keyed((
+            "tablo-condition",
+            page,
+            scope,
+            condition.watched.as_str(),
+            values,
+        )),
         move || initial,
     )
 }
@@ -145,9 +155,11 @@ pub(crate) fn watch<'a>(
     cx: &'a Cx,
     field: &Field,
     conditions: &[Condition],
+    scope: &str,
     values: &HashMap<String, String>,
     control: BoxView<'a>,
 ) -> BoxView<'a> {
+    let scope = scope.to_string();
     let conditions: Vec<(Condition, bool)> = conditions
         .iter()
         .map(|condition| (condition.clone(), condition.holds(values)))
@@ -157,7 +169,7 @@ pub(crate) fn watch<'a>(
     async_page(async move {
         let mut view = control;
         for (condition, initial) in conditions {
-            let shown = shown(cx, &condition, initial);
+            let shown = shown(cx, &scope, &condition, initial);
             if checkbox {
                 // A checkbox posts `true` when checked and its hidden `false` otherwise.
                 let on = condition.values.iter().any(|value| value == "true");

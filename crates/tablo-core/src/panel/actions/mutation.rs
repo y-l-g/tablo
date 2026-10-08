@@ -43,6 +43,7 @@ use crate::{
         ActionEntry, Committed, ErasedInput, HeaderEntry, InputSpec, Mounted, Places,
         RESERVED_KEYS, Resource, SUBMITTED_KEY, run_after_commit,
     },
+    table::action_options_url,
     topcoat_compat::async_page,
 };
 
@@ -101,16 +102,7 @@ pub(crate) fn resource_list_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         let resource = gate::<R>(cx)?;
         let name = path_param_segment(cx, "action");
         if let Some(header) = resource.header_actions.find(name).copied() {
-            // The button renders on the list only, so the POST asks what the list asks first.
-            let allowed = resource.can(cx, Ability::ViewAny)
-                && resource.can(
-                    cx,
-                    Ability::RunHeader {
-                        action: header.name,
-                    },
-                )
-                && (header.can_run)(cx);
-            if !allowed {
+            if !header_allowed(cx, &resource, &header) {
                 return Err(forbidden().into());
             }
             let after: AfterCommit = after_header_commit::<R>;
@@ -119,6 +111,23 @@ pub(crate) fn resource_list_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         let action = custom_action(cx, &resource, Places::BULK);
         mutate(cx, &resource, body, Target::Bulk, action).await
     })
+}
+
+/// Whether the request may run the list's header action `header`: its button renders on the list
+/// only, so its routes ask what the list asks first.
+pub(super) fn header_allowed<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    header: &HeaderEntry,
+) -> bool {
+    resource.can(cx, Ability::ViewAny)
+        && resource.can(
+            cx,
+            Ability::RunHeader {
+                action: header.name,
+            },
+        )
+        && (header.can_run)(cx)
 }
 
 /// The declared action the `{name}` path segment names, if placed on any of `places`.
@@ -157,9 +166,9 @@ struct Posted {
 /// Reads the POST of the action `name`: its CSRF token, its confirmation when `confirm` asks for
 /// one and the POST would write, and its input.
 ///
-/// The confirmation UI is an alert dialog, or the input page of an action with input, whose forms
-/// carry `confirm=1`, so a missing marker is a malformed client, not a user path. The POST that
-/// opens an input page writes nothing and needs none.
+/// The confirmation UI is an alert dialog, or the input dialog or page of an action with input,
+/// whose forms carry `confirm=1`, so a missing marker is a malformed client, not a user path. The
+/// POST that opens an input page writes nothing and needs none.
 async fn read_post(
     cx: &Cx,
     body: Body,
@@ -254,7 +263,14 @@ async fn mutate<'a, R: Resource>(
         if let (Target::Bulk, Some(ids)) = (target, values.get("ids")) {
             hidden.push(("ids".to_string(), ids.clone()));
         }
-        let chrome = page.chrome(title, label, action.confirm, hidden, &resource.url);
+        let chrome = page.chrome(
+            action.name,
+            title,
+            label,
+            action.confirm,
+            hidden,
+            &resource.url,
+        );
         (page, chrome)
     };
     let input = match pending {
@@ -315,7 +331,14 @@ pub(crate) async fn run_header<'a>(
         read_post(cx, body, action.name, action.confirm, &action.input).await?;
     let render = |page: InputPage| {
         let label = (action.label)(cx);
-        let chrome = page.chrome(label.clone(), label, action.confirm, Vec::new(), home);
+        let chrome = page.chrome(
+            action.name,
+            label.clone(),
+            label,
+            action.confirm,
+            Vec::new(),
+            home,
+        );
         (page, chrome)
     };
     let (input, submitted) = match pending {
@@ -438,10 +461,12 @@ async fn read_input(
 }
 
 impl InputPage {
-    /// The page's chrome: titled `title`, submitted by `label`, carrying the input's marker, the
-    /// confirmation and `hidden` back to this route, and cancelled to `home` or the `?return=`.
+    /// The chrome of the action `name`'s page: titled `title`, submitted by `label`, carrying the
+    /// input's marker, the confirmation and `hidden` back to this route, cancelled to `home` or
+    /// the `?return=`, and searching its choices' options under `home`.
     fn chrome(
         &self,
+        name: &str,
         title: String,
         label: String,
         confirm: bool,
@@ -453,7 +478,14 @@ impl InputPage {
             carried.push(("confirm".to_string(), "1".to_string()));
         }
         carried.extend(hidden);
-        FormChrome::action(title, label, confirm, carried, home.to_string())
+        FormChrome::action(
+            title,
+            label,
+            confirm,
+            carried,
+            home.to_string(),
+            action_options_url(home, name),
+        )
     }
 
     /// Renders the page of the input `spec` with `chrome`.

@@ -8,8 +8,8 @@ use topcoat::router::{PageFn, RouteFn};
 use super::{
     Root,
     actions::{
-        resource_bulk_delete, resource_delete, resource_export, resource_list_action,
-        resource_options, resource_record_action,
+        resource_action_options, resource_bulk_delete, resource_delete, resource_export,
+        resource_list_action, resource_options, resource_record_action,
     },
     build::{
         PageCheck, ResourceCheck, check_page, check_resource, route_path, validate_route_segment,
@@ -17,7 +17,7 @@ use super::{
     detail::resource_view,
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
     list::resource_list,
-    pages::{page_action, page_handler},
+    pages::{page_action, page_action_options, page_handler},
     relations::{Child, relation_table},
     state::NavEntry,
 };
@@ -305,6 +305,14 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
             resource_list_action::<R>,
         );
     }
+    // A record's action asks for the same input as the list's, so one route serves both.
+    if actions.record || actions.list {
+        registry.route(
+            Method::GET,
+            &format!("{}/options", list_actions_route(url)),
+            resource_action_options::<R>,
+        );
+    }
     registry.route(Method::GET, &format!("{url}/export"), resource_export::<R>);
     if <R::Form as RecordForm>::HAS_FORM {
         let create_url = format!("{url}/{CREATE_ROUTE_SEGMENT}");
@@ -356,6 +364,11 @@ impl<P: Page> Registration for PageRegistration<P> {
                 http::Method::POST,
                 &list_actions_route(&url),
                 page_action::<P>,
+            );
+            registry.route(
+                http::Method::GET,
+                &format!("{}/options", list_actions_route(&url)),
+                page_action_options::<P>,
             );
         }
         registry.page_checks.push(check_page::<P>);
