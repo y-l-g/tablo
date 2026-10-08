@@ -46,8 +46,7 @@ impl Resource for DummyResource {
 }
 
 async fn db() -> Db {
-    let db = memory_db(toasty::models!(Dummy)).await;
-    db
+    memory_db(toasty::models!(Dummy)).await
 }
 
 async fn get(router: &topcoat::router::Router, uri: &str) -> (http::StatusCode, String) {

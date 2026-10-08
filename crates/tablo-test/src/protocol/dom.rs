@@ -131,23 +131,23 @@ pub fn field_error(html: &str, name: &str) -> Option<String> {
 /// The options of the select filter `name`, or `None` when `name` has no
 /// select control.
 pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
-    for (tag, _, inner) in tags_where(html, |_, attrs| {
+    let (tag, _, inner) = tags_where(html, |_, attrs| {
         attr_value(attrs, "data-filter-name").as_deref() == Some(name)
-    }) {
-        if tag != "select" {
-            return None;
-        }
-        let mut options = Vec::new();
-        for (_, option_attrs, option_inner) in elements(&inner, "option") {
-            options.push(FilterOption {
-                value: attr_value(&option_attrs, "value").unwrap_or_default(),
-                label: strip_text(&option_inner),
-                selected: is_selected(&option_attrs),
-            });
-        }
-        return Some(options);
+    })
+    .into_iter()
+    .next()?;
+    if tag != "select" {
+        return None;
     }
-    None
+    let options = elements(&inner, "option")
+        .into_iter()
+        .map(|(_, attrs, inner)| FilterOption {
+            value: attr_value(&attrs, "value").unwrap_or_default(),
+            label: strip_text(&inner),
+            selected: is_selected(&attrs),
+        })
+        .collect();
+    Some(options)
 }
 
 fn row(row_html: &str) -> Row {
