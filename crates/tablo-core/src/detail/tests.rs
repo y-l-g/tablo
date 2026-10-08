@@ -80,9 +80,9 @@ async fn a_detail_shows_each_columns_value_in_its_block() {
 }
 
 /// The framework stores `""` rather than NULL, so a stored record cannot tell "no value" from an
-/// empty one, and the page does not imply it can: no placeholder, no dash.
+/// empty one: both read as the dash.
 #[tokio::test]
-async fn an_empty_value_renders_as_empty() {
+async fn an_empty_value_renders_as_a_dash() {
     let detail = Detail::new(TextColumn::new(lens!(Book.title)));
     let html = render(
         &detail,
@@ -98,8 +98,8 @@ async fn an_empty_value_renders_as_empty() {
     let open_end = html[start..].find('>').expect("its tag's end") + start + 1;
     let close = html[open_end..].find("</div>").expect("its closing tag") + open_end;
     assert!(
-        html[open_end..close].is_empty(),
-        "the value is empty: {html}"
+        html[open_end..close].contains('—'),
+        "the value is the dash: {html}"
     );
     assert!(html.contains("Title"), "the label still renders: {html}");
 }

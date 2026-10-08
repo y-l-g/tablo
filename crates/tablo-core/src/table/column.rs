@@ -58,8 +58,7 @@ pub trait Column<M>: Send + Sync {
 
     /// The row's table cell.
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        let text = self.text(row);
-        view! { cx => (text) }.boxed()
+        crate::schema::value_cell(cx, &self.text(row))
     }
 
     /// The record's entry on a detail page: the [`label`](Self::label) over the
@@ -761,7 +760,11 @@ where
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        crate::schema::stored_upload(cx, self.lens.read(row))
+        let path = self.lens.read(row);
+        if path.trim().is_empty() {
+            return crate::schema::value_cell(cx, path);
+        }
+        crate::schema::stored_upload(cx, path)
     }
 
     fn column_width(&self) -> ColumnWidth {

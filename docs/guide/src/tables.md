@@ -45,7 +45,7 @@ loaded records, which the relation columns take. Builders that only query, such 
 | --- | --- | --- |
 | `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
-| `RelationColumn::new(relation!(..), project)` | `project` of a `Deferred` `belongs_to` or `has_one` field's record; empty for a nullable field holding none | neither |
+| `RelationColumn::new(relation!(..), project)` | `project` of a `Deferred` `belongs_to` or `has_one` field's record; a dash for a nullable field holding none | neither |
 | `CountColumn::new(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
 | `BooleanColumn::new(lens)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
@@ -58,6 +58,8 @@ loaded records, which the relation columns take. Builders that only query, such 
 - **Labels.** A field or relation column is labelled from its field name (`created_at` →
   "Created at"), or `.label(..)`; a computed column uses the label you pass. A relation column's
   `.label(..)` also renames it, so two columns over one relation need two labels.
+- **Blank values.** A blank value renders as a muted `—`, in the table and on the detail page; the
+  export leaves the cell empty.
 - **Detail pages.** The same columns build a resource's [detail page](./detail-pages.md).
 - **Relations.** A relation column declares the include its `relation!` names, so the list, the
   export and the detail page load the related records with the page's rows. A relation no column
