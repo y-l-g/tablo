@@ -388,7 +388,7 @@ impl Field {
     /// embedded value's leaf or variant on a detail page.
     pub(crate) fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
         match self.read(value) {
-            Some(text) => read_only(cx, self.label_str(), view! { cx => (text) }.boxed()),
+            Some(text) => read_only(cx, self.label_str(), value_cell(cx, &text)),
             None => ().boxed(),
         }
     }
@@ -439,6 +439,15 @@ pub(crate) fn read_only<'a>(cx: &'a Cx, label: &str, value: BoxView<'a>) -> BoxV
         )
     }
     .boxed()
+}
+
+/// A record's value as read-only text: a blank value reads as a muted dash.
+pub(crate) fn value_cell<'a>(cx: &'a Cx, text: &str) -> BoxView<'a> {
+    if text.trim().is_empty() {
+        return view! { cx => <span class="text-muted-foreground">"—"</span> }.boxed();
+    }
+    let text = text.to_string();
+    view! { cx => (text) }.boxed()
 }
 
 /// The validation state a form control renders.
