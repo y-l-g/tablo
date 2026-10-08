@@ -7,8 +7,14 @@ What Tablo does by default, and what your deployment must provide for those defa
 - **HTTPS.** The session, CSRF and notification cookies are `__Host-` cookies marked `Secure`.
   Browsers accept them over plain HTTP only on `localhost`; anywhere else, without HTTPS, the
   browser drops them and every form POST fails its CSRF check with 403.
-- **Login rate limiting.** Tablo has no rate limiter or account lockout. Limit login attempts at
-  your proxy or firewall.
+- **The client's address behind a proxy.** Tablo throttles sign-ins per login and client address
+  (see [Authentication](#authentication)). Behind a reverse proxy, trust it with the router's
+  `TrustedProxies` so the address is the client's; otherwise every request carries the proxy's,
+  and a guesser who knows a login can lock its owner out.
+- **Per-IP and multi-replica rate limiting.** Limit attempts per IP, and across replicas, at your
+  proxy or firewall: the panel's throttle does not limit one address across logins, one login
+  across addresses, or the spellings of a login that your database matches as one, such as
+  accented variants under MySQL's default collation.
 - **Session revocation.** Call `auth::revoke_sessions_for_user` when a password changes or an
   account is deactivated; see [Authentication](./policy-auth-tenancy.md#authentication).
 
@@ -30,6 +36,14 @@ What Tablo does by default, and what your deployment must provide for those defa
 
 - Passwords are hashed with Argon2id. A login for an unknown email verifies against a dummy hash,
   so it takes as long as a wrong password, and every failure shows the same message.
+- Each login may make five sign-in attempts a minute from one client address. A sixth answers the
+  same 403 and message as a wrong password without checking the password, and logs a warning; a
+  successful sign-in clears that address's count. A guesser elsewhere keeps their own count, so
+  they cannot lock the owner out.
+  `Auth::password().throttle(LoginThrottle::new(10, Duration::from_secs(300)))` changes the limit
+  and `LoginThrottle::off()` removes it. Counts live in the process and the panel: each replica
+  and each panel counts its own, and a restart clears them. Past 10,000 counts the oldest is
+  dropped.
 - Sessions are stored server-side, keyed by a hash of the cookie's token, and replaced on login.
 - A redirect after login follows `next` only to a same-origin path.
 

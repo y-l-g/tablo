@@ -8,6 +8,7 @@ mod gate;
 mod login;
 mod password;
 mod session;
+mod throttle;
 
 use std::{
     any::{Any, TypeId},
@@ -36,6 +37,7 @@ pub use self::{
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
     password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
     session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
+    throttle::LoginThrottle,
 };
 use crate::{
     panel::{
@@ -177,7 +179,11 @@ impl<A: Authenticator> DynAuthenticator for A {
 ///
 /// The default is [`Auth::password`]; [`Auth::custom`] installs an app-owned
 /// [`Authenticator`]; [`Auth::disabled`] is the explicit fail-open opt-out.
-pub struct Auth(Option<Box<dyn DynAuthenticator>>);
+/// Sign-in attempts are throttled per login by default; see [`Auth::throttle`].
+pub struct Auth {
+    authenticator: Option<Box<dyn DynAuthenticator>>,
+    throttle: LoginThrottle,
+}
 
 impl Auth {
     /// The shipped Argon2id + [`AdminUser`] authenticator.
@@ -189,25 +195,45 @@ impl Auth {
     /// An app-owned authenticator over its own user table.
     #[must_use]
     pub fn custom(authenticator: impl Authenticator) -> Self {
-        Self(Some(Box::new(authenticator)))
+        Self {
+            authenticator: Some(Box::new(authenticator)),
+            throttle: LoginThrottle::default(),
+        }
     }
 
     /// Explicit fail-open opt-out for public demos (ADR-0013): no gate, no
     /// login routes, sessions unused.
     #[must_use]
     pub fn disabled() -> Self {
-        Self(None)
+        Self {
+            authenticator: None,
+            throttle: LoginThrottle::off(),
+        }
+    }
+
+    /// How many sign-in attempts one login may make from one client address
+    /// in a window; defaults to five a minute. [`LoginThrottle::off`] counts nothing, for a proxy
+    /// that limits sign-ins itself.
+    #[must_use]
+    pub fn throttle(mut self, throttle: LoginThrottle) -> Self {
+        self.throttle = throttle;
+        self
     }
 
     /// Whether the explicit opt-out is set.
     #[must_use]
     pub fn is_disabled(&self) -> bool {
-        self.0.is_none()
+        self.authenticator.is_none()
     }
 
     /// The authenticator, or `None` when auth is disabled.
     pub(crate) fn authenticator(&self) -> Option<&dyn DynAuthenticator> {
-        self.0.as_deref()
+        self.authenticator.as_deref()
+    }
+
+    /// The sign-in throttle.
+    pub(crate) fn login_throttle(&self) -> &LoginThrottle {
+        &self.throttle
     }
 }
 
@@ -219,11 +245,13 @@ impl Default for Auth {
 
 impl std::fmt::Debug for Auth {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(if self.is_disabled() {
-            "Auth::disabled"
+        if self.is_disabled() {
+            f.write_str("Auth::disabled")
         } else {
-            "Auth"
-        })
+            f.debug_struct("Auth")
+                .field("throttle", &self.throttle)
+                .finish_non_exhaustive()
+        }
     }
 }
 

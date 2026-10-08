@@ -97,6 +97,11 @@ fn infrastructure_failure_keeps_an_app_error_intact() {
 
 /// Builds the `Cx` for a login POST over the password authenticator.
 fn login_cx(db: Db, token: &str) -> Cx {
+    login_cx_with(db, token, Auth::password())
+}
+
+/// Builds the `Cx` for a login POST over `auth`.
+fn login_cx_with(db: Db, token: &str, auth: Auth) -> Cx {
     use topcoat::{context::CxTestBuilder, cookie::CookieJarCell};
 
     let parts = http::Request::builder()
@@ -117,7 +122,7 @@ fn login_cx(db: Db, token: &str) -> Cx {
     CxTestBuilder::new()
         .app_context(db)
         .request_context(crate::panel::test_support::current_panel(
-            crate::panel::test_support::panel_state("/admin", Auth::password()),
+            crate::panel::test_support::panel_state("/admin", auth),
         ))
         .request_context(parts)
         .request_context(CookieJarCell::new())
@@ -228,6 +233,111 @@ async fn a_rejected_password_still_renders_the_generic_error() {
     assert!(
         !rendered.contains(UNAVAILABLE_ERROR),
         "a rejected password must not read as an outage, got {rendered:?}"
+    );
+}
+
+/// Counts `verify` calls and accepts only `opensesame`.
+#[derive(Clone, Default)]
+struct CountingAuth(Arc<std::sync::atomic::AtomicUsize>);
+
+impl CountingAuth {
+    fn calls(&self) -> usize {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+impl Authenticator for CountingAuth {
+    type User = AdminUser;
+
+    async fn verify(
+        &self,
+        _cx: &Cx,
+        _login: &str,
+        password: &str,
+    ) -> topcoat::Result<Option<AdminUser>> {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok((password == "opensesame").then(ada))
+    }
+
+    async fn find_by_id(&self, _cx: &Cx, _id: &str) -> topcoat::Result<Option<AdminUser>> {
+        Ok(None)
+    }
+}
+
+/// A login past its limit answers the wrong-password 403 without asking the authenticator, even
+/// with the right password.
+#[tokio::test]
+async fn a_login_past_its_limit_is_refused_before_the_authenticator() {
+    let counting = CountingAuth::default();
+    let auth = Auth::custom(counting.clone())
+        .throttle(LoginThrottle::new(2, std::time::Duration::from_secs(60)));
+    let token = Uuid::new_v4().to_string();
+    let cx = login_cx_with(schema_less_db().await, &token, auth);
+    let attempt =
+        |password: &str| format!("email=ada@example.com&password={password}&csrf_token={token}");
+    for _ in 0..2 {
+        let (status, _) = post_login(&cx, attempt("wrong")).await;
+        assert_eq!(status, http::StatusCode::FORBIDDEN);
+    }
+    assert_eq!(counting.calls(), 2);
+
+    let (status, _) = post_login(&cx, attempt("opensesame")).await;
+    assert_eq!(status, http::StatusCode::FORBIDDEN);
+    assert_eq!(counting.calls(), 2, "the authenticator is not asked");
+}
+
+/// A login POST to `router` from `client` for ada with `password`, answering its status.
+async fn sign_in_from(
+    router: &topcoat::router::Router,
+    client: [u8; 4],
+    password: &str,
+) -> http::StatusCode {
+    let token = Uuid::new_v4().to_string();
+    let mut request = login_request(
+        format!("email=ada@example.com&password={password}&csrf_token={token}"),
+        &token,
+    );
+    request
+        .extensions_mut()
+        .insert(topcoat::router::RemoteAddr(std::net::SocketAddr::from((
+            client, 4242,
+        ))));
+    router.handle(request).await.status()
+}
+
+/// The default throttle counts per address: a guesser elsewhere does not lock the owner out, and
+/// the owner's sign-in clears only the owner's count.
+#[tokio::test]
+async fn a_sign_in_clears_its_own_count_and_no_other() {
+    const OWNER: [u8; 4] = [192, 0, 2, 1];
+    const GUESSER: [u8; 4] = [198, 51, 100, 7];
+    let router = auth_router(db_with_admin("ada@example.com").await);
+    for _ in 0..5 {
+        assert_eq!(
+            sign_in_from(&router, GUESSER, "wrong").await,
+            http::StatusCode::FORBIDDEN
+        );
+    }
+    for _ in 0..4 {
+        sign_in_from(&router, OWNER, "wrong").await;
+    }
+    assert_eq!(
+        sign_in_from(&router, OWNER, "opensesame").await,
+        http::StatusCode::SEE_OTHER,
+        "the owner's fifth attempt signs in"
+    );
+    for _ in 0..4 {
+        sign_in_from(&router, OWNER, "wrong").await;
+    }
+    assert_eq!(
+        sign_in_from(&router, OWNER, "opensesame").await,
+        http::StatusCode::SEE_OTHER,
+        "the sign-in cleared the owner's count"
+    );
+    assert_eq!(
+        sign_in_from(&router, GUESSER, "opensesame").await,
+        http::StatusCode::FORBIDDEN,
+        "the guesser's count stays"
     );
 }
 

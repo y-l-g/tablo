@@ -3,7 +3,11 @@
 
 use topcoat::{
     context::Cx,
-    router::{Body, RouteFuture, request::uri, response::IntoResponse},
+    router::{
+        Body, RouteFuture,
+        request::{client_ip, uri},
+        response::IntoResponse,
+    },
     session,
     view::{BoxView, ViewExt},
 };
@@ -139,10 +143,21 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let login = values.get(LOGIN_FIELD).map(|value| value.trim());
         let password = values.get(PASSWORD_FIELD).map(String::as_str);
         let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let client = client_ip(cx);
         let verified = match (panel.auth.authenticator(), login, password) {
             (Some(authenticator), Some(login), Some(password))
                 if !login.is_empty() && !password.is_empty() =>
             {
+                // A login past its limit reads as a wrong password, never reaching the
+                // authenticator.
+                if !panel.auth.login_throttle().attempt(login, client) {
+                    tracing::warn!(
+                        panel = %panel.prefix,
+                        client = ?client,
+                        "sign-in attempt throttled"
+                    );
+                    return login_response(cx, Some(LoginError::Credentials), next).await;
+                }
                 match authenticator.verify(cx, login, password).await {
                     Ok(user) => user,
                     Err(error) => return failed(cx, error, next).await,
@@ -155,6 +170,9 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let Some(user) = verified.filter(|user| user.can_access_panel()) else {
             return login_response(cx, Some(LoginError::Credentials), next).await;
         };
+        if let Some(login) = login {
+            panel.auth.login_throttle().clear(login, client);
+        }
         // Rotate on login so a presented token cannot be replayed.
         if let Some(hash) = session::token_hash(cx).await? {
             delete_session(cx, &hash).await?;
