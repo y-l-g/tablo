@@ -114,7 +114,7 @@ impl ChoiceControl {
     }
 
     /// The label of the static option storing `value`.
-    pub(super) fn label_of(&self, value: &str) -> Option<&str> {
+    pub(crate) fn label_of(&self, value: &str) -> Option<&str> {
         self.options
             .iter()
             .find(|(stored, _)| stored == value)

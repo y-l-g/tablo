@@ -10,6 +10,7 @@ use topcoat::{
 
 use super::{
     Schema,
+    condition::{Condition, Watched},
     fields::Field,
     tree::{IntoSchema, Source, render_nodes},
 };
@@ -27,6 +28,7 @@ pub struct Section<C = Schema> {
     title: String,
     pub(crate) children: C,
     extra_class: Option<String>,
+    pub(crate) condition: Option<Condition>,
 }
 
 impl Section<()> {
@@ -35,6 +37,7 @@ impl Section<()> {
             title: title.into(),
             children: (),
             extra_class: None,
+            condition: None,
         }
     }
 
@@ -65,6 +68,7 @@ impl<C> Section<C> {
             title: self.title,
             children: f(self.children),
             extra_class: self.extra_class,
+            condition: self.condition,
         }
     }
 
@@ -115,11 +119,15 @@ impl Section<Schema> {
 #[derive(Debug)]
 pub struct Group<C = Schema> {
     pub(crate) children: C,
+    pub(crate) condition: Option<Condition>,
 }
 
 impl Default for Group<()> {
     fn default() -> Self {
-        Self { children: () }
+        Self {
+            children: (),
+            condition: None,
+        }
     }
 }
 
@@ -147,6 +155,7 @@ impl<C> Group<C> {
     pub(crate) fn map<D>(self, f: impl FnOnce(C) -> D) -> Group<D> {
         Group {
             children: f(self.children),
+            condition: self.condition,
         }
     }
 
@@ -174,6 +183,7 @@ impl Group<Schema> {
 pub struct Grid<C = Schema> {
     cols: u8,
     pub(crate) children: C,
+    pub(crate) condition: Option<Condition>,
 }
 
 impl Grid<()> {
@@ -181,6 +191,7 @@ impl Grid<()> {
         Self {
             cols: cols.clamp(1, 12),
             children: (),
+            condition: None,
         }
     }
 
@@ -204,6 +215,7 @@ impl<C> Grid<C> {
         Grid {
             cols: self.cols,
             children: f(self.children),
+            condition: self.condition,
         }
     }
 
@@ -240,3 +252,26 @@ impl Grid<Schema> {
         Ok(self.chrome(cx, body))
     }
 }
+
+/// Generates `visible_when` for every layout block holding a form's fields.
+macro_rules! conditional_blocks {
+    ($($ty:ident),+ $(,)?) => {
+        $(
+            impl<F> $ty<Schema<F>> {
+                /// Shows the block and every field it holds only while `watched` posts one of
+                /// `values`, as [`TextField::visible_when`](crate::TextField::visible_when) shows a
+                /// field.
+                pub fn visible_when(
+                    mut self,
+                    watched: &impl Watched<F>,
+                    values: impl IntoIterator<Item = impl Into<String>>,
+                ) -> Self {
+                    self.condition = Some(Condition::new(watched, values));
+                    self
+                }
+            }
+        )+
+    };
+}
+
+conditional_blocks!(Section, Group, Grid);

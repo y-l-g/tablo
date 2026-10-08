@@ -4,7 +4,10 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use super::{
-    super::{IntoSchema, OptionSource, Retype, Schema},
+    super::{
+        IntoSchema, OptionSource, Retype, Schema,
+        condition::{Condition, Watched},
+    },
     ChoiceControl, Control, ControlKind, Field, TextControl, choice,
 };
 
@@ -33,7 +36,34 @@ macro_rules! common_modifiers {
             /// `options`, are dropped with it.
             pub fn custom(mut self, control: impl Control + 'static) -> CustomField<F> {
                 self.0.control = ControlKind::Custom(Arc::new(control));
+                self.0.checkbox = false;
                 CustomField(self.0, PhantomData)
+            }
+
+            /// Shows the field only while `watched` posts one of `values`: an option's value, or
+            /// `true` for a checked toggle. A hidden field posts nothing, so an edit keeps its
+            /// stored value and a create takes its blank answer; a field with no blank answer
+            /// cannot be conditional.
+            ///
+            /// ```rust
+            /// # #[derive(Debug, Clone, toasty::Model)]
+            /// # struct Customer {
+            /// #     #[key] #[auto] id: uuid::Uuid,
+            /// #     kind: String,
+            /// #     vat_number: Option<String>,
+            /// # }
+            /// # use tablo_core::{Field, Schema};
+            /// let kind = Field::choice(Customer::fields().kind()).options(["person", "company"]);
+            /// let vat = Field::text(Customer::fields().vat_number()).visible_when(&kind, ["company"]);
+            /// Schema::new((kind, vat));
+            /// ```
+            pub fn visible_when(
+                mut self,
+                watched: &impl Watched<F>,
+                values: impl IntoIterator<Item = impl Into<String>>,
+            ) -> Self {
+                self.0.condition = Some(Condition::new(watched, values));
+                self
             }
         }
 
@@ -87,6 +117,13 @@ pub struct FileField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 /// A field an app's [`Control`] renders: [`Field::custom`] and [`Field::toggle`], or a record
 /// form's toggle (`F` is the form).
 pub struct CustomField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
+
+impl<F> CustomField<F> {
+    /// Whether the control is the built-in checkbox, which a condition follows through `checked`.
+    pub(crate) fn is_checkbox(&self) -> bool {
+        self.0.is_checkbox()
+    }
+}
 
 common_modifiers!(TextField);
 common_modifiers!(ChoiceField);

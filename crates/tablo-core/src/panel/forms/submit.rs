@@ -53,12 +53,28 @@ async fn prepare_submission<R: Resource>(
     reject_unknown_form_keys(&schema, &parts.values)?;
     let FormParts {
         mut values,
-        files,
+        mut files,
         file_part_names,
     } = parts;
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
+    // A hidden field's control is disabled, so the browser posts nothing for it: a key posted
+    // anyway is dropped, with a file field's carried upload, so an edit keeps the stored value and
+    // a create takes the blank answer. An edit that does not post the watched field reads its
+    // stored value, as the parse will.
+    let mut read = stored.clone();
+    read.extend(
+        values
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone())),
+    );
+    for key in schema.condition_hidden(&read) {
+        values.remove(&format!("keep_{key}"));
+        values.remove(&format!("clear_{key}"));
+        values.remove(&key);
+        files.remove(&key);
+    }
     // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
     let (upload_errors, mut carried) =

@@ -23,6 +23,7 @@ use toasty::stmt::Path;
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
+    condition::Condition,
     lenses::{Binding, FieldResolver},
     validation::is_email,
 };
@@ -94,6 +95,10 @@ pub struct Field {
     /// embedded value's derive from its own fields.
     required: bool,
     control: ControlKind,
+    /// The condition showing the field, set by `visible_when`.
+    condition: Option<Condition>,
+    /// Whether the control is a checkbox, which a condition follows through `checked`.
+    checkbox: bool,
 }
 
 /// The control a [`Field`] renders, with what only that control declares.
@@ -121,6 +126,7 @@ impl std::fmt::Debug for Field {
             .field("label", &self.label_str())
             .field("required", &self.required)
             .field("control", &control)
+            .field("condition", &self.condition)
             .finish()
     }
 }
@@ -132,6 +138,8 @@ impl Field {
             label: None,
             required: false,
             control,
+            condition: None,
+            checkbox: false,
         }
     }
 
@@ -190,7 +198,9 @@ impl Field {
     where
         M: toasty::schema::Model,
     {
-        Self::custom(lens, Toggle)
+        let mut field = Self::custom(lens, Toggle);
+        field.0.checkbox = true;
+        field
     }
 
     /// A field over any [`FormScalar`] column, rendered by an app's [`Control`].
@@ -225,10 +235,12 @@ impl Field {
 
     /// A checkbox posting `name`, a key no column binds, that submits `false` when unchecked.
     pub fn toggle_input(name: impl Into<String>) -> CustomField {
-        CustomField::new(Self::bound(
+        let mut field = Self::bound(
             Self::named(name.into()),
             ControlKind::Custom(Arc::new(Toggle)),
-        ))
+        );
+        field.checkbox = true;
+        CustomField::new(field)
     }
 
     /// A binding for `name`, labelled as a column of that name would be.
@@ -249,6 +261,8 @@ impl Field {
                 options: variants,
                 ..ChoiceControl::default()
             }),
+            condition: None,
+            checkbox: false,
         }
     }
 
@@ -296,6 +310,31 @@ impl Field {
 
     pub(crate) fn is_unique(&self) -> bool {
         matches!(&self.control, ControlKind::Text(text) if text.unique)
+    }
+
+    /// The condition showing the field, if any.
+    pub(crate) fn condition(&self) -> Option<&Condition> {
+        self.condition.as_ref()
+    }
+
+    /// Whether the control is a checkbox.
+    pub(crate) fn is_checkbox(&self) -> bool {
+        self.checkbox
+    }
+
+    /// Whether the control can post `value`: a checkbox posts `true` or `false`, and a choice over
+    /// static options one of their values. `None` when the control does not say: a text field, a
+    /// relationship, or an app's own control.
+    pub(crate) fn can_post(&self, value: &str) -> Option<bool> {
+        if self.checkbox {
+            return Some(value == "true" || value == "false");
+        }
+        match &self.control {
+            ControlKind::Choice(choice) if !choice.is_relationship() => {
+                Some(value.is_empty() || choice.label_of(value).is_some())
+            }
+            _ => None,
+        }
     }
 
     /// Whether the control renders as required.
