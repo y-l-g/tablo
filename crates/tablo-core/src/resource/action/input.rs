@@ -18,8 +18,7 @@ use crate::{
 ///
 /// An action with input asks for it before it runs: its button opens the input form in a dialog
 /// over the page, and its submit runs the action with the parsed value. A refused value renders
-/// the form as a page with the field's error, and writes nothing; a browser without scripts
-/// reaches that page from the button too.
+/// the form as a page with the field's error, and writes nothing.
 pub trait ActionInput: Sized + Send + 'static {
     /// The input form's controls. An empty schema asks for nothing: the action runs on its
     /// button.
