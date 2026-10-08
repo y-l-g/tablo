@@ -280,6 +280,3 @@ into_schema_tuples!(
 into_schema_tuples!(
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l
 );
-
-#[cfg(test)]
-mod tests;

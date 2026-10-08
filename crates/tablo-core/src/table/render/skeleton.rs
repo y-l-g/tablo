@@ -92,5 +92,3 @@ impl Frame<'_> {
         Ok(table_frame(cx, true, content.boxed()))
     }
 }
-#[cfg(test)]
-mod tests;

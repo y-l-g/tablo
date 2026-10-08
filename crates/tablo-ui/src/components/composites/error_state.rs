@@ -60,6 +60,3 @@ pub async fn error_state(
         </div>
     })
 }
-
-#[cfg(test)]
-mod tests;

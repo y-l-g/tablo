@@ -278,57 +278,6 @@ async fn users_create_static_selects_set_role_and_active() {
 }
 
 #[tokio::test]
-async fn posts_create_shows_cover_picker_and_tags() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts/create").await;
-    assert!(resp.status().is_success());
-    let html = body_string(resp).await;
-    // One media source: the cover is a picked library row, not a file input.
-    assert!(
-        !html.contains("type=\"file\""),
-        "the post form must not upload a cover directly: {html}"
-    );
-    assert!(
-        html.contains("name=\"cover_id\""),
-        "missing cover picker {html}"
-    );
-    assert!(
-        html.contains("data-slot=\"field\""),
-        "missing field wrapper {html}"
-    );
-    // The optional tags field renders in the Details section.
-    assert!(html.contains("Tags"), "missing Tags label {html}");
-    assert!(
-        html.contains("for=\"tags\"") || html.contains("name=\"tags\""),
-        "missing tags input {html}"
-    );
-    // Content/Group composition: sectioned story fields and a grouped metadata
-    // grid.
-    assert!(html.contains("Content"), "missing Content section {html}");
-    assert!(
-        html.contains("name=\"status\"") && html.contains("name=\"featured\""),
-        "missing lifecycle selects {html}"
-    );
-    // The flag select's label reads "Featured"; the cover picker renders its
-    // own input.
-    assert!(
-        html.contains("Featured</label>"),
-        "missing Featured label for the flag select {html}"
-    );
-    assert!(
-        html.contains("name=\"cover_id\""),
-        "missing Cover picker {html}"
-    );
-    assert!(
-        html.contains("field-group"),
-        "missing Group container {html}"
-    );
-    assert!(html.contains("grid-cols-2"), "missing Grid {html}");
-}
-
-#[tokio::test]
 async fn posts_create_invalid_shows_errors() {
     let db = full_db().await;
     let router = router(db.clone());

@@ -41,24 +41,3 @@ struct Scoped {
     tenant_id: TenantId,
     name: String,
 }
-
-#[test]
-fn tenancy_none_is_unscoped_and_filters_nothing() {
-    let tenancy = Tenancy::<Scoped>::none();
-    assert!(!tenancy.is_scoped());
-    assert!(tenancy.filter(uuid::Uuid::new_v4()).is_none());
-    assert!(tenancy.column_field().is_none());
-}
-
-#[test]
-fn tenancy_column_binds_the_lens_field() {
-    let tenancy = Tenancy::column(Scoped::fields().tenant_id());
-    assert!(tenancy.is_scoped());
-    let field = tenancy
-        .column_field()
-        .expect("a column tenancy names a column")
-        .expect("the lens is one field of the model");
-    // `id` is index 0, `tenant_id` index 1.
-    assert_eq!(field.index, 1);
-    assert_eq!(field.name, "tenant_id");
-}

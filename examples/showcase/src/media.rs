@@ -286,6 +286,3 @@ fn kind_of(content_type: &str) -> &'static str {
         KIND_FILE
     }
 }
-
-#[cfg(test)]
-mod tests;

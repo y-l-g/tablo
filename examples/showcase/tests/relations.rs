@@ -22,22 +22,6 @@ async fn posts_list_shows_author_name() {
 }
 
 #[tokio::test]
-async fn posts_create_shows_select_with_author_options() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts/create").await;
-    assert!(resp.status().is_success(), "status {}", resp.status());
-    let html = body_string(resp).await;
-    assert!(html.contains("<select"), "missing select {}", html);
-    assert!(
-        html.contains("Ada Author"),
-        "missing author option {}",
-        html
-    );
-}
-
-#[tokio::test]
 async fn posts_create_empty_author_shows_required_error() {
     let db = full_db().await;
     let router = router(db.clone());

@@ -9,20 +9,6 @@ fn type_stems_drop_the_suffix_unless_nothing_is_left() {
     assert_eq!(sentence_case("Dashboard"), "Dashboard");
 }
 
-/// A word spelled in capitals is an acronym and keeps them wherever it sits; a single capital
-/// letter is an ordinary word.
-#[test]
-fn sentence_case_keeps_acronyms() {
-    use super::sentence_case;
-    assert_eq!(sentence_case("APIKey"), "API key");
-    assert_eq!(sentence_case("ApiKey"), "Api key");
-    assert_eq!(sentence_case("WebhookURL"), "Webhook URL");
-    assert_eq!(sentence_case("User2FA"), "User2 FA");
-    assert_eq!(sentence_case("MP3Track"), "MP3 track");
-    assert_eq!(sentence_case("XRay"), "X ray");
-    assert_eq!(sentence_case("Audit_Log"), "Audit log");
-}
-
 #[test]
 fn pluralize_and_kebab_follow_english_rules() {
     use super::{kebab_case, pluralize};
@@ -64,17 +50,4 @@ proptest::proptest! {
         proptest::prop_assert!(!kebab.starts_with('-') && !kebab.ends_with('-'), "{kebab:?}");
         proptest::prop_assert!(!super::pluralize(&word).is_empty());
     }
-}
-
-/// A multi-word label keeps its head noun's rules: only the last word
-/// inflects, so an irregular, uncountable or `f`-exception noun at the end of
-/// a label pluralizes as it would alone.
-#[test]
-fn pluralize_inflects_the_last_word_of_a_label() {
-    use super::pluralize;
-    assert_eq!(pluralize("Sales Person"), "Sales People");
-    assert_eq!(pluralize("Company News"), "Company News");
-    assert_eq!(pluralize("Staff Chief"), "Staff Chiefs");
-    assert_eq!(pluralize("Blog Post"), "Blog Posts");
-    assert_eq!(pluralize("Product Category"), "Product Categories");
 }

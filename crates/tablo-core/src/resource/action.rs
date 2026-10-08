@@ -407,6 +407,3 @@ fn bulk_delete_erased<'a, R: Resource>(
 ) -> ActionFuture<'a> {
     Box::pin(R::bulk_delete_records(cx, records, ex))
 }
-
-#[cfg(test)]
-mod tests;

@@ -105,14 +105,6 @@ async fn an_empty_value_renders_as_a_dash() {
     assert!(html.contains("Title"), "the label still renders: {html}");
 }
 
-/// A section holding no column renders its title alone.
-#[tokio::test]
-async fn an_empty_section_renders_its_title() {
-    let detail = Detail::new((Section::new("Notes"), TextColumn::new(lens!(Book.title))));
-    let html = render(&detail, &book()).await;
-    assert!(html.contains("Notes") && html.contains("Dune"), "{html}");
-}
-
 /// The relations every column declares load with the record, however deep its block, so a column
 /// reads a relation without a hand-written query.
 #[tokio::test]

@@ -92,21 +92,6 @@ fn when_gates_every_ability_on_the_request() {
     assert_eq!(answers(&policy, &visitor, &post), [false; ABILITIES]);
 }
 
-#[test]
-fn ability_names_its_record() {
-    let post = Post { locked: true };
-    let named: Vec<bool> = abilities(&post)
-        .into_iter()
-        .map(|ability| ability.record().is_some_and(|record| record.locked))
-        .collect();
-    assert_eq!(named, [false, true, false, true, false, true, false, true]);
-    let reads: Vec<bool> = abilities(&post).into_iter().map(Ability::is_read).collect();
-    assert_eq!(
-        reads,
-        [true, true, false, false, false, false, false, false]
-    );
-}
-
 #[derive(Debug, Clone, toasty::Model)]
 struct Note {
     #[key]

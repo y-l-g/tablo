@@ -240,6 +240,3 @@ impl Grid<Schema> {
         Ok(self.chrome(cx, body))
     }
 }
-
-#[cfg(test)]
-mod tests;

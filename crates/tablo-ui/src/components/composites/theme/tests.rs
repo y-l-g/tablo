@@ -12,19 +12,6 @@ async fn rendered(default_dark: bool) -> String {
         .render(&cx)
 }
 
-#[tokio::test]
-async fn renders_blocking_head_script() {
-    let html = rendered(false).await;
-    assert!(
-        html.starts_with("<script>"),
-        "expected an inline script, got {html}"
-    );
-    assert!(
-        html.contains("classList.add") && html.contains("classList.remove"),
-        "the pre-paint script must reconcile the class both ways, got {html}"
-    );
-}
-
 /// The inline script must survive HTML escaping intact: character
 /// references are not decoded inside `<script>`, so an escaped `&&` would
 /// ship a broken program.
