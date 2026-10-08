@@ -12,7 +12,7 @@ use topcoat::{
 use crate::{
     Ability, Panel, RouterBuilderPanelExt, lens,
     resource::{Resource, ResourceDef},
-    schema::{Field, Schema},
+    schema::Schema,
     table::{Table, TextColumn},
 };
 
@@ -154,10 +154,7 @@ impl crate::resource::Resource for TaggedResource {
             .table(crate::table::Table::new(crate::table::TextColumn::new(
                 lens!(Tagged.name),
             )))
-            .form(Schema::new((
-                Field::text(Tagged::fields().name()),
-                Field::text(Tagged::fields().token()).unique(),
-            )))
+            .form(Schema::new(TaggedForm::controls().token.unique()))
     }
 }
 

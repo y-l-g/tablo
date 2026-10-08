@@ -8,8 +8,12 @@ stored record, so `update_record` receives a whole form and an unposted key keep
 The struct owns presence: a posted-empty field stores its blank answer, and a field with none is
 required, whatever the layout says. Its parse is the only presence and type check; control
 rules, the unique probe and `validate_record` add to one list of errors rendered inline. Mounting
-checks that every control posts a struct key, every key has a control, and a create sets every
-non-nullable column.
+checks that a create sets every non-nullable column.
+
+The struct also owns the controls. The derive gives each field one, typed by the form, and a
+resource's form is a `Schema<Form>` that only those controls fill, so every control posts a
+struct key by construction. The form arranges controls rather than declares them: a field it
+does not place renders after the ones it does, in declaration order.
 
 An embedded value derives `EmbeddedForm` and binds as one field (`#[form(embed)]`). For an enum,
 the variant is the discriminant column, chosen with a `Select`; a named discriminant always
@@ -20,3 +24,8 @@ not supported inside an embedded value.
 
 - Presence on the control (`.required()`): a second declaration of what the blank answers say.
 - A schema-side parse: the struct parses every key anyway.
+- An untyped form schema checked at mount: a control no field binds and a field with no control
+  were startup errors for what the type and the struct already know.
+- Refusing a field the form does not place: the struct already says the field is written, so
+  rendering its control beats refusing to start. The cost is that a field added to a sectioned
+  layout renders after its last block until it is placed.

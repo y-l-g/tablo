@@ -4,9 +4,9 @@ use std::collections::{HashMap, HashSet};
 
 use http::StatusCode;
 use tablo::{
-    Ability, ComputedColumn, DeclarationErrorKind, Detail, Field, FieldErrorKind, FieldErrors,
-    NoForm, Panel, RecordForm, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId,
-    TextColumn, lens, write_create,
+    Ability, ComputedColumn, DeclarationErrorKind, Detail, FieldErrorKind, FieldErrors, NoForm,
+    Panel, RecordForm, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId, TextColumn,
+    lens, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -37,16 +37,17 @@ struct ItemForm {
     notes: String,
     #[form(blank = 3)]
     priority: i64,
-    #[form(blank = false)]
+    #[form(blank = false, choice)]
     done: bool,
 }
 
-fn item_schema() -> Schema {
+fn item_schema() -> Schema<ItemForm> {
+    let c = ItemForm::controls();
     Schema::new((
-        Field::text(Item::fields().title()),
-        Field::text(Item::fields().notes()),
-        Field::text(Item::fields().priority()),
-        Field::choice(Item::fields().done()).options(vec!["true".to_string(), "false".to_string()]),
+        c.title,
+        c.notes,
+        c.priority,
+        c.done.options(["true", "false"]),
     ))
 }
 
@@ -378,7 +379,6 @@ impl Resource for OwnedResource {
             })
             .tenancy(Tenancy::column(Owned::fields().tenant_id()))
             .table(Table::new(TextColumn::new(lens!(Owned.title))))
-            .form(Schema::new(Field::text(Owned::fields().title())))
     }
 }
 
@@ -412,20 +412,20 @@ fn refused<R: Resource>(db: Db) -> Vec<DeclarationErrorKind> {
         .collect()
 }
 
-/// A resource over [`Item`] whose form is `F` and whose schema is `schema`.
+/// A resource over [`Item`] that allows create through [`ItemForm`] placed by `schema`.
 macro_rules! item_resource {
-    ($name:ident, $form:ty, $schema:expr) => {
+    ($name:ident, $schema:expr) => {
         struct $name;
 
         impl Resource for $name {
             type Model = Item;
-            type Form = $form;
+            type Form = ItemForm;
 
             fn declare() -> ResourceDef<Self> {
                 ResourceDef::new()
                     .slug("items")
                     .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
-                        matches!(ability, Ability::ViewAny)
+                        matches!(ability, Ability::Create)
                     })
                     .table(item_table())
                     .form($schema)
@@ -446,40 +446,30 @@ struct PriorityForm {
     priority: i64,
 }
 
+/// A field the form does not place follows the ones it does, in declaration order, and a form
+/// that places nothing renders them all.
 #[tokio::test]
-async fn build_refuses_a_control_no_field_binds() {
-    item_resource!(
-        Unbound,
-        TitleForm,
-        Schema::new((
-            Field::text(Item::fields().title()),
-            Field::text(Item::fields().notes()),
-        ))
-    );
-    let errors = refused::<Unbound>(item_db().await);
-    assert!(
-        errors.contains(&DeclarationErrorKind::UnboundControl {
-            control: "notes".to_string()
-        }),
-        "{errors:?}"
-    );
-}
+async fn a_field_the_form_does_not_place_follows_the_ones_it_does() {
+    item_resource!(Partly, Schema::new(ItemForm::controls().priority));
+    item_resource!(Unplaced, Schema::default());
 
-#[tokio::test]
-async fn build_refuses_a_field_no_control_declares() {
-    item_resource!(
-        Unclaimed,
-        ItemForm,
-        Schema::new(Field::text(Item::fields().title()))
-    );
-    let errors = refused::<Unclaimed>(item_db().await);
-    assert!(
-        errors.contains(&DeclarationErrorKind::MissingControl {
-            field: "notes".to_string(),
-            key: "notes".to_string(),
-        }),
-        "{errors:?}"
-    );
+    /// Where each control posting one of `names` sits on the create page.
+    async fn positions<R: Resource>(names: &[&str]) -> Vec<usize> {
+        let router = panel_router::<R>(item_db().await);
+        let html = body_string(get(&router, "/admin/items/create").await).await;
+        names
+            .iter()
+            .map(|name| {
+                html.find(&format!("name=\"{name}\""))
+                    .unwrap_or_else(|| panic!("no control posts {name}: {html}"))
+            })
+            .collect()
+    }
+
+    let placed = positions::<Partly>(&["priority", "title", "notes", "done"]).await;
+    assert!(placed.is_sorted(), "{placed:?}");
+    let unplaced = positions::<Unplaced>(&["title", "notes", "priority", "done"]).await;
+    assert!(unplaced.is_sorted(), "{unplaced:?}");
 }
 
 #[tokio::test]
@@ -501,10 +491,6 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
             ResourceDef::new()
                 .tenancy(Tenancy::column(Owned::fields().tenant_id()))
                 .table(Table::new(TextColumn::new(lens!(Owned.title))))
-                .form(Schema::new((
-                    Field::text(Owned::fields().tenant_id()),
-                    Field::text(Owned::fields().title()),
-                )))
         }
     }
 
@@ -520,7 +506,7 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
 
 /// A `NoForm` resource over [`Item`].
 macro_rules! list_only_resource {
-    ($name:ident, $create:expr, $schema:expr) => {
+    ($name:ident, $create:expr) => {
         struct $name;
 
         impl Resource for $name {
@@ -535,41 +521,75 @@ macro_rules! list_only_resource {
                         _ => false,
                     })
                     .table(item_table())
-                    .form($schema)
             }
         }
     };
 }
 
+/// A hand-written record form whose `control` renders nothing leaves its fields with no control.
 #[tokio::test]
-async fn build_refuses_a_list_only_resource_that_allows_create() {
-    list_only_resource!(Creating, true, Schema::empty());
-    assert_eq!(
-        refused::<Creating>(item_db().await),
-        [DeclarationErrorKind::CreateWithoutForm]
-    );
-}
+async fn build_refuses_a_field_record_form_control_does_not_render() {
+    struct Bare(TitleForm);
 
-#[tokio::test]
-async fn build_refuses_a_list_only_resource_that_declares_a_schema() {
-    list_only_resource!(
-        Schematic,
-        false,
-        Schema::new(Field::text(Item::fields().title()))
-    );
-    assert_eq!(
-        refused::<Schematic>(item_db().await),
-        [DeclarationErrorKind::UnboundControl {
-            control: "title".to_string()
-        }]
-    );
-}
+    impl RecordForm for Bare {
+        type Model = Item;
+        type Field = TitleFormField;
 
-#[tokio::test]
-async fn build_refuses_an_empty_form_override() {
-    item_resource!(Emptied, TitleForm, Schema::empty());
+        fn fields(resolver: &tablo::FieldResolver) -> Vec<tablo::FormField<TitleFormField>> {
+            TitleForm::fields(resolver)
+        }
+
+        fn control(_field: TitleFormField) -> Schema<Self> {
+            Schema::default()
+        }
+
+        fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
+            TitleForm::hydrate(cx, record)
+        }
+
+        fn parse(
+            cx: &Cx,
+            values: &HashMap<String, String>,
+        ) -> Result<Self, Vec<tablo::FieldError>> {
+            TitleForm::parse(cx, values).map(Bare)
+        }
+
+        fn into_create(self) -> <Item as toasty::schema::Model>::Create {
+            self.0.into_create()
+        }
+
+        fn into_update<'a>(
+            self,
+            record: &'a mut Item,
+            named: &HashSet<TitleFormField>,
+        ) -> Option<<Item as toasty::schema::Model>::Update<'a>> {
+            self.0.into_update(record, named)
+        }
+
+        fn exec_update<'a>(
+            update: <Item as toasty::schema::Model>::Update<'a>,
+            ex: &'a mut dyn toasty::Executor,
+        ) -> impl std::future::Future<Output = toasty::Result<()>> + Send + 'a {
+            TitleForm::exec_update(update, ex)
+        }
+    }
+
+    struct Uncontrolled;
+
+    impl Resource for Uncontrolled {
+        type Model = Item;
+        type Form = Bare;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy(|_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::ViewAny))
+                .table(item_table())
+        }
+    }
+
     assert_eq!(
-        refused::<Emptied>(item_db().await),
+        refused::<Uncontrolled>(item_db().await),
         [DeclarationErrorKind::MissingControl {
             field: "title".to_string(),
             key: "title".to_string(),
@@ -578,8 +598,17 @@ async fn build_refuses_an_empty_form_override() {
 }
 
 #[tokio::test]
+async fn build_refuses_a_list_only_resource_that_allows_create() {
+    list_only_resource!(Creating, true);
+    assert_eq!(
+        refused::<Creating>(item_db().await),
+        [DeclarationErrorKind::CreateWithoutForm]
+    );
+}
+
+#[tokio::test]
 async fn a_list_only_resource_serves_no_form_route() {
-    list_only_resource!(Listed, false, Schema::empty());
+    list_only_resource!(Listed, false);
     let db = item_db().await;
     let item = seed_item(&db).await;
     let router = panel_router::<Listed>(db.clone());
@@ -682,7 +711,6 @@ macro_rules! title_only_resource {
                         matches!(ability, Ability::Create)
                     })
                     .table(item_table())
-                    .form(Schema::new(Field::text(Item::fields().title())))
                     $(.create_column(Item::fields().$column()))*
             }
         }
@@ -711,11 +739,18 @@ async fn create_columns_names_what_an_override_sets() {
 /// A value the control lets through but the field's type refuses renders inline.
 #[tokio::test]
 async fn a_value_the_form_type_refuses_renders_inline() {
+    #[derive(tablo::RecordForm)]
+    #[form(model = Item)]
+    struct LooseForm {
+        #[form(choice)]
+        priority: i64,
+    }
+
     struct Loose;
 
     impl Resource for Loose {
         type Model = Item;
-        type Form = PriorityForm;
+        type Form = LooseForm;
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
@@ -726,10 +761,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
                 .table(item_table())
                 .form(
                     // A static-options select checks membership, not the column's type.
-                    Schema::new(
-                        Field::choice(Item::fields().priority())
-                            .options(vec!["1".to_string(), "lots".to_string()]),
-                    ),
+                    Schema::new(LooseForm::controls().priority.options(["1", "lots"])),
                 )
         }
     }
@@ -765,6 +797,10 @@ async fn an_unkeyable_record_rule_fails_closed() {
 
         fn fields(_: &tablo::FieldResolver) -> Vec<tablo::FormField<PriorityFormField>> {
             Vec::new()
+        }
+
+        fn control(_field: PriorityFormField) -> Schema<Self> {
+            Schema::default()
         }
 
         fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
@@ -811,7 +847,6 @@ async fn an_unkeyable_record_rule_fails_closed() {
                     matches!(ability, Ability::View(_) | Ability::Update(_))
                 })
                 .table(item_table())
-                .form(Schema::empty())
         }
 
         fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<PriorityFormField> {
@@ -841,6 +876,10 @@ async fn an_unkeyable_parse_failure_fails_closed() {
 
         fn fields(_: &tablo::FieldResolver) -> Vec<tablo::FormField<PriorityFormField>> {
             Vec::new()
+        }
+
+        fn control(_field: PriorityFormField) -> Schema<Self> {
+            Schema::default()
         }
 
         fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
@@ -887,7 +926,6 @@ async fn an_unkeyable_parse_failure_fails_closed() {
                     matches!(ability, Ability::View(_) | Ability::Update(_))
                 })
                 .table(item_table())
-                .form(Schema::empty())
         }
     }
 
@@ -1283,8 +1321,8 @@ fn renders_required(html: &str, name: &str) -> bool {
         .any(|attr| attr == "required" || attr.starts_with("required="))
 }
 
-/// The record form decides which controls render required, however the layout built them:
-/// `item_schema` declares plain `Field::text` controls.
+/// The record form decides which controls render required, not the controls `item_schema`
+/// places.
 #[tokio::test]
 async fn the_record_form_decides_which_controls_are_required() {
     let router = panel_router::<ItemResource>(item_db().await);

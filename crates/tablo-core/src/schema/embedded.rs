@@ -626,7 +626,7 @@ impl EmbeddedBuilder {
 
     /// Adds a nested value from its own `build_schema`.
     pub fn nested(&mut self, schema: Schema) {
-        let Schema { nodes, fields } = schema;
+        let Schema { nodes, fields, .. } = schema;
         let Ok([Node::Embedded(mut nested)]) = <[Node; 1]>::try_from(nodes) else {
             panic!("a nested value's schema is its one embedded node");
         };
@@ -644,10 +644,10 @@ impl EmbeddedBuilder {
                 "the type declares fewer variants than the app schema"
             );
         }
-        Schema {
-            nodes: vec![Node::Embedded(Box::new(Embedded { shape: self.shape }))],
-            fields: self.fields,
-        }
+        Schema::from_parts(
+            vec![Node::Embedded(Box::new(Embedded { shape: self.shape }))],
+            self.fields,
+        )
     }
 }
 
@@ -684,13 +684,13 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: EmbeddedForm + Send + Sync + 'static,
 {
-    Schema {
-        nodes: vec![Node::Unbound(Unbound {
+    Schema::from_parts(
+        vec![Node::Unbound(Unbound {
             build: Box::new(move |resolver| T::build_schema(resolver, parent.clone())),
             value: std::any::type_name::<T>(),
         })],
-        fields: Vec::new(),
-    }
+        Vec::new(),
+    )
 }
 
 /// Moves `result`'s value out, or its errors into `errors`.

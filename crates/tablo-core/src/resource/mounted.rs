@@ -19,7 +19,7 @@ use crate::{
     naming::{kebab_case, pluralize, sentence_case, type_short_name, type_stem},
     navigation::NavigationItem,
     policy::{Ability, Policy},
-    schema::{FieldResolver, Schema},
+    schema::{FieldResolver, Retype, Schema},
     table::Table,
     tenancy::Tenancy,
 };
@@ -71,8 +71,19 @@ impl<R: Resource> Mounted<R> {
         let table = def.table.unwrap_or_else(<R::Form as RecordForm>::table);
         table.bind_with(resolver);
         let fields = <R::Form as RecordForm>::fields(resolver);
-        let mut form = def.form.unwrap_or_else(<R::Form as RecordForm>::schema);
+        let mut form: Schema = def.form.unwrap_or_default().retype();
         form.bind_with(resolver);
+        // A field the form does not place follows the ones it does, with its default control.
+        for field in &fields {
+            let placed = form
+                .fields()
+                .any(|control| field.keys.iter().any(|key| key == control.name()));
+            if !placed {
+                let mut control = <R::Form as RecordForm>::control(field.field).retype();
+                control.bind_with(resolver);
+                form.append(control);
+            }
+        }
         // The record form decides which controls an empty submission fails.
         form.require(
             &fields

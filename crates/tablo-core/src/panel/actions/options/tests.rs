@@ -54,7 +54,8 @@ async fn options_endpoint_searches_and_gates() {
                     lens!(OptPost.title),
                 )))
                 .form(crate::schema::Schema::new(
-                    crate::schema::Field::choice(OptPost::fields().author_id())
+                    OptPostForm::controls()
+                        .author_id
                         .relationship::<OptAuthorResource>(|a: &OptAuthor| a.name.clone())
                         .searchable(),
                 ))
@@ -63,6 +64,7 @@ async fn options_endpoint_searches_and_gates() {
     #[derive(crate::RecordForm)]
     #[form(model = OptPost)]
     struct OptPostForm {
+        #[form(choice)]
         author_id: uuid::Uuid,
     }
     async fn body_text(resp: http::Response<Body>) -> String {
@@ -209,7 +211,8 @@ async fn option_load_loads_no_relation() {
                     lens!(Owner.name),
                 )))
                 .form(crate::schema::Schema::new(
-                    crate::schema::Field::choice(Owner::fields().child_id())
+                    OwnerForm::controls()
+                        .child_id
                         .relationship::<ChildSource>(|c: &Child| c.name.clone())
                         .searchable(),
                 ))
@@ -218,6 +221,7 @@ async fn option_load_loads_no_relation() {
     #[derive(crate::RecordForm)]
     #[form(model = Owner)]
     struct OwnerForm {
+        #[form(choice)]
         child_id: uuid::Uuid,
     }
     let mut db = Db::builder()
@@ -326,7 +330,8 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
                     lens!(BigP.name),
                 )))
                 .form(crate::schema::Schema::new(
-                    crate::schema::Field::choice(BigP::fields().author_id())
+                    SearchableParentForm::controls()
+                        .author_id
                         .relationship::<BigAResource>(|a: &BigA| a.name.clone())
                         .searchable(),
                 ))
@@ -335,6 +340,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     #[derive(crate::RecordForm)]
     #[form(model = BigP)]
     struct SearchableParentForm {
+        #[form(choice)]
         author_id: uuid::Uuid,
     }
     struct PlainParent;
@@ -349,7 +355,8 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
                     lens!(BigP.name),
                 )))
                 .form(crate::schema::Schema::new(
-                    crate::schema::Field::choice(BigP::fields().author_id())
+                    PlainParentForm::controls()
+                        .author_id
                         .relationship::<BigAResource>(|a: &BigA| a.name.clone()),
                 ))
         }
@@ -357,6 +364,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     #[derive(crate::RecordForm)]
     #[form(model = BigP)]
     struct PlainParentForm {
+        #[form(choice)]
         author_id: uuid::Uuid,
     }
     let mut db = Db::builder()

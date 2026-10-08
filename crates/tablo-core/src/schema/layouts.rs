@@ -39,7 +39,7 @@ impl Section<()> {
     }
 
     /// Holds a form's fields and blocks.
-    pub fn schema(self, children: impl IntoSchema) -> Section<Schema> {
+    pub fn schema<F>(self, children: impl IntoSchema<F>) -> Section<Schema<F>> {
         self.holding(children.into_schema())
     }
 
@@ -57,9 +57,13 @@ impl<C> Section<C> {
     }
 
     pub(crate) fn holding<D>(self, children: D) -> Section<D> {
+        self.map(|_| children)
+    }
+
+    pub(crate) fn map<D>(self, f: impl FnOnce(C) -> D) -> Section<D> {
         Section {
             title: self.title,
-            children,
+            children: f(self.children),
             extra_class: self.extra_class,
         }
     }
@@ -125,7 +129,7 @@ impl Group<()> {
     }
 
     /// Holds a form's fields and blocks.
-    pub fn schema(self, children: impl IntoSchema) -> Group<Schema> {
+    pub fn schema<F>(self, children: impl IntoSchema<F>) -> Group<Schema<F>> {
         self.holding(children.into_schema())
     }
 
@@ -137,7 +141,13 @@ impl Group<()> {
 
 impl<C> Group<C> {
     pub(crate) fn holding<D>(self, children: D) -> Group<D> {
-        Group { children }
+        self.map(|_| children)
+    }
+
+    pub(crate) fn map<D>(self, f: impl FnOnce(C) -> D) -> Group<D> {
+        Group {
+            children: f(self.children),
+        }
     }
 
     /// The group around `body`.
@@ -175,7 +185,7 @@ impl Grid<()> {
     }
 
     /// Holds a form's fields and blocks.
-    pub fn schema(self, children: impl IntoSchema) -> Grid<Schema> {
+    pub fn schema<F>(self, children: impl IntoSchema<F>) -> Grid<Schema<F>> {
         self.holding(children.into_schema())
     }
 
@@ -187,9 +197,13 @@ impl Grid<()> {
 
 impl<C> Grid<C> {
     pub(crate) fn holding<D>(self, children: D) -> Grid<D> {
+        self.map(|_| children)
+    }
+
+    pub(crate) fn map<D>(self, f: impl FnOnce(C) -> D) -> Grid<D> {
         Grid {
             cols: self.cols,
-            children,
+            children: f(self.children),
         }
     }
 

@@ -1,10 +1,8 @@
 # Forms
 
-A resource with create and edit pages declares two things: a **record form**, the typed struct a
-submission parses into, and a **schema**, set with `ResourceDef::form`, the controls the page
-renders. The schema defaults to the record form's derived schema, so a resource that wants one
-control per field in declaration order declares no form at all. Mounting the panel builds the
-declarations once and checks that the two agree.
+A resource with create and edit pages declares a **record form**, the typed struct a submission
+parses into. The record form also gives each field its control, and `ResourceDef::form` arranges
+them. A resource that wants one control per field, in declaration order, declares no form at all.
 
 ## The record form
 
@@ -29,8 +27,8 @@ a `String` marked `#[form(optional)]`. A field with no blank answer is required:
 its control required, and an empty submission is refused inline. `optional` applies to a `String`
 only; another type declares `blank` or becomes an `Option`.
 
-The resource names the struct as its `Form` and, to arrange the controls, declares them from the
-derive's `controls()`:
+The resource names the struct as its `Form` and, to arrange the controls, places them from the
+derive's `controls()` in a `Schema<UserForm>`:
 
 ```rust
 impl Resource for UserResource {
@@ -48,10 +46,16 @@ impl Resource for UserResource {
 }
 ```
 
-Mounting the panel refuses the resource unless every control posts a key of the record form, every
-form field has a control, and — when the policy allows `Create` — every non-nullable column is
-filled by the form, by Toasty, by the tenant stamp, or by an overridden `create_record` whose def
-names it with `create_column`.
+A `Schema<UserForm>` takes only `UserForm`'s controls: a control of another form, or a field built
+with `Field::text`, does not compile there. A control the schema does not place follows the ones
+it does, in declaration order, so a form that adjusts one control places only that one:
+`.form(Schema::new(c.email.email()))`. An unplaced control renders on its own after the schema's
+last block, outside every section; a form arranged in sections places every control. Any control
+takes an app's own input with `.custom(control)`: see [Custom controls](#custom-controls).
+
+When the policy allows `Create`, mounting the panel refuses the resource unless every
+non-nullable column is filled by the form, by Toasty, by the tenant stamp, or by an overridden
+`create_record` whose def names it with `create_column`.
 
 ## Controls
 
@@ -95,7 +99,8 @@ trait, `label_of()`. A `String` field takes the same list with `#[form(options =
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
 most twelve children; nest a `Group` for more.
 
-**Fields** are built from a Toasty field lens:
+**Fields** are what `controls()` hands over, and what a page's or an action's schema builds from
+a Toasty field lens:
 
 | Constructor | Column | Control | Builder |
 | --- | --- | --- | --- |
@@ -117,7 +122,9 @@ does not compile:
 
 ### Custom controls
 
-A `Control`, from `tablo::extend`, renders the input of a `Field::custom` field. The field keeps everything fields share —
+A `Control`, from `tablo::extend`, renders the input of a custom field: a record form's text control
+turned custom with `.custom(control)`, or a `Field::custom` field. `.custom` (like `.choice()`) replaces the control
+with its modifiers, so `email`, `unique` and `options` set before it no longer apply. The field keeps everything fields share —
 the key, the label, the required marker, the error slot and the chrome around the input — and the
 control renders only the input, from a `ControlInput` carrying the key, the current value and the
 validation state:
@@ -135,7 +142,7 @@ record-form field reads an empty submission as `false`.
 
 ### Typed values
 
-`Field::text` binds more than strings. Over an integer, float, `bool`, `Uuid` or
+A text control binds more than strings. Over an integer, float, `bool`, `Uuid` or
 `jiff::Timestamp` column it renders the stored value, and the record form parses the submission
 back through the type. A value the type refuses is an inline error naming it: `` `twelve` is not a
 valid whole number ``. A `jiff::Timestamp` renders a `datetime-local` input, which carries no time zone, so
@@ -162,7 +169,10 @@ may stay optional.
 
 ### Relationships
 
-A choice over a foreign key loads its options from the related resource:
+A choice over a foreign key loads its options from the related resource. Mark the record-form field
+`#[form(choice)]`, and declare the relationship on its control. `#[form(choice)]` also takes the
+field out of the derived table and shows its key on the detail page; to keep them, leave the field
+unmarked and call `.choice()` on its control instead:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-relationship-field}}
@@ -205,7 +215,8 @@ builder with one assignment per posted field, or `None` when nothing was posted.
 
 ## File uploads
 
-`Field::file` binds a `String` column that stores the file's path or URL, never its bytes. A form
+A file field (`#[form(file)]` on a record-form `String`, or `Field::file` on a page) binds a
+`String` column that stores the file's path or URL, never its bytes. A form
 with a file field is sent as `multipart/form-data`, with a 10 MiB body limit (larger answers 413).
 Filenames are reduced to a safe basename before anything sees them.
 
@@ -266,8 +277,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 - Not supported inside a value: a `#[document]` field, a relation, an enum nested inside an enum
   variant, and tuple structs.
 
-To bind a single embedded field on its own, pass its path: `Field::text(Post::fields().seo().title())`
-binds the flattened `seo_title` column, which the panel resolves through the database schema when
-it mounts. A schema built outside a panel, such as one a custom page renders, binds the same way
-with `.bind(&db)`; rendering one whose embedded paths are unbound fails rather than post the wrong
-key.
+A resource's form places an embedded value whole, as its record form's control. A page's schema
+can bind a single embedded field on its own by its path: `Field::text(Post::fields().seo().title())`
+binds the flattened `seo_title` column. Bind such a schema with `.bind(&db)` before rendering it;
+rendering one whose embedded paths are unbound fails rather than post the wrong key.

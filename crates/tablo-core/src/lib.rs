@@ -81,6 +81,7 @@ pub mod __macro {
                 Embedded, EmbeddedBuilder, embedded_field, embedded_form, take_leaf, take_value,
             },
             form_key,
+            tree::Retype,
         },
         table::{BooleanColumn, EmbeddedColumn, FileColumn, Table, TextColumn},
         toasty_compat::VariantId,
@@ -332,14 +333,16 @@ pub use tablo_macros::Options;
 /// `#[form(options)]` a choice over the field type's options,
 /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
 /// `#[form(embed)]` the embedded value's schema, and any other field a text
-/// field — with `controls()` handing them over and `RecordForm::schema`
-/// arranging one per field in declaration order. `RecordForm::table` lists a
+/// field — with `controls()` handing them over, typed by the form so only a
+/// `Schema<UserForm>` places them, and `RecordForm::control` answering one
+/// field's. `RecordForm::table` lists a
 /// sortable column per text field, searchable over a `String` or
 /// `Option<String>`, an options field by its option's label, and a toggle as
 /// yes or no. `RecordForm::detail` shows the same columns, plus a bare choice's
 /// key, a file field as a link and an embedded value leaf by leaf. A resource's `ResourceDef`
 /// defaults its form, table and detail page to them; `ResourceDef::form`,
-/// `ResourceDef::table` and `ResourceDef::view` arrange or extend them instead.
+/// `ResourceDef::table` and `ResourceDef::view` arrange or extend them instead,
+/// and a form renders the controls it does not place after the ones it does.
 ///
 /// # Attributes
 ///

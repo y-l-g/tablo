@@ -1,15 +1,23 @@
 //! The typed builders the [`Field`] constructors return, each offering only its control's modifiers
 //! so a modifier on the wrong control does not compile.
 
+use std::{marker::PhantomData, sync::Arc};
+
 use super::{
-    super::{IntoSchema, OptionSource, Schema},
-    ChoiceControl, ControlKind, Field, TextControl, choice,
+    super::{IntoSchema, OptionSource, Retype, Schema},
+    ChoiceControl, Control, ControlKind, Field, TextControl, choice,
 };
 
 /// `label` and `name`, shared by every builder.
 macro_rules! common_modifiers {
     ($builder:ident) => {
         impl $builder {
+            pub(super) fn new(field: Field) -> Self {
+                Self(field, PhantomData)
+            }
+        }
+
+        impl<F> $builder<F> {
             pub fn label(mut self, label: impl Into<String>) -> Self {
                 self.0.label = Some(label.into());
                 self
@@ -18,17 +26,34 @@ macro_rules! common_modifiers {
             pub fn name(&self) -> &str {
                 self.0.name()
             }
+
+            /// Renders the field with an app's [`Control`] instead, as [`Field::custom`] does:
+            /// how a record form's control takes a custom input. The field keeps its key and
+            /// label; the replaced control's own modifiers, such as `email`, `unique` or
+            /// `options`, are dropped with it.
+            pub fn custom(mut self, control: impl Control + 'static) -> CustomField<F> {
+                self.0.control = ControlKind::Custom(Arc::new(control));
+                CustomField(self.0, PhantomData)
+            }
         }
 
-        impl From<$builder> for Field {
-            fn from(builder: $builder) -> Field {
+        impl<F> From<$builder<F>> for Field {
+            fn from(builder: $builder<F>) -> Field {
                 builder.0
             }
         }
 
-        impl IntoSchema for $builder {
-            fn into_schema(self) -> Schema {
-                self.0.into_schema()
+        impl<F> IntoSchema<F> for $builder<F> {
+            fn into_schema(self) -> Schema<F> {
+                self.0.into_schema().retype()
+            }
+        }
+
+        impl<F> Retype for $builder<F> {
+            type As<G> = $builder<G>;
+
+            fn retype<G>(self) -> $builder<G> {
+                $builder(self.0, PhantomData)
             }
         }
     };
@@ -38,7 +63,7 @@ macro_rules! common_modifiers {
 #[cfg(test)]
 macro_rules! required_for_tests {
     ($($builder:ident),*) => {$(
-        impl $builder {
+        impl<F> $builder<F> {
             pub(crate) fn required(mut self) -> Self {
                 self.0.set_required(true);
                 self
@@ -50,25 +75,43 @@ macro_rules! required_for_tests {
 #[cfg(test)]
 required_for_tests!(TextField, FileField);
 
-/// A text field: [`Field::text`].
-pub struct TextField(pub(super) Field);
+/// A text field: [`Field::text`], or a record form's text control (`F` is the form).
+pub struct TextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
-/// A choice field: [`Field::choice`].
-pub struct ChoiceField(pub(super) Field);
+/// A choice field: [`Field::choice`], or a record form's choice control (`F` is the form).
+pub struct ChoiceField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
-/// A file field: [`Field::file`].
-pub struct FileField(pub(super) Field);
+/// A file field: [`Field::file`], or a record form's file control (`F` is the form).
+pub struct FileField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
-/// A field an app's [`Control`](super::Control) renders: [`Field::custom`]
-/// and [`Field::toggle`].
-pub struct CustomField(pub(super) Field);
+/// A field an app's [`Control`] renders: [`Field::custom`] and [`Field::toggle`], or a record
+/// form's toggle (`F` is the form).
+pub struct CustomField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
 common_modifiers!(TextField);
 common_modifiers!(ChoiceField);
 common_modifiers!(FileField);
 common_modifiers!(CustomField);
 
-impl TextField {
+/// `choice`, on every builder but the choice's own.
+macro_rules! to_choice {
+    ($($builder:ident),*) => {$(
+        impl<F> $builder<F> {
+            /// Renders the field as a choice instead, as [`Field::choice`] does, ready for
+            /// [`options`](ChoiceField::options) or [`relationship`](ChoiceField::relationship).
+            /// Unlike `#[form(choice)]`, it leaves the record form's derived table and detail
+            /// page as they are. The replaced control's own modifiers are dropped with it.
+            pub fn choice(mut self) -> ChoiceField<F> {
+                self.0.control = ControlKind::Choice(ChoiceControl::default());
+                ChoiceField(self.0, PhantomData)
+            }
+        }
+    )*};
+}
+
+to_choice!(TextField, FileField, CustomField);
+
+impl<F> TextField<F> {
     fn text(&mut self) -> &mut TextControl {
         match &mut self.0.control {
             ControlKind::Text(text) => text,
@@ -102,8 +145,8 @@ impl TextField {
     }
 }
 
-impl ChoiceField {
-    fn choice(&mut self) -> &mut ChoiceControl {
+impl<F> ChoiceField<F> {
+    fn choice_mut(&mut self) -> &mut ChoiceControl {
         match &mut self.0.control {
             ControlKind::Choice(choice) => choice,
             _ => unreachable!("a ChoiceField holds a choice control"),
@@ -115,13 +158,13 @@ impl ChoiceField {
     /// [`#[derive(Options)]`](crate::Options) enum's
     /// [`options()`](crate::schema::Options::options).
     pub fn options(mut self, options: impl IntoOptions) -> Self {
-        self.choice().options = options.into_options();
+        self.choice_mut().options = options.into_options();
         self
     }
 
     /// Filters options as the user types, fetching from the relationship past the option cap.
     pub fn searchable(mut self) -> Self {
-        self.choice().searchable = true;
+        self.choice_mut().searchable = true;
         self
     }
 
@@ -134,7 +177,7 @@ impl ChoiceField {
     where
         R: OptionSource + 'static,
     {
-        self.choice().relationship = Some(choice::Relationship::new::<R>(label));
+        self.choice_mut().relationship = Some(choice::Relationship::new::<R>(label));
         self
     }
 }
@@ -173,7 +216,7 @@ mod test_deref {
 
     macro_rules! deref_field {
         ($($builder:ident),*) => {$(
-            impl std::ops::Deref for $builder {
+            impl<F> std::ops::Deref for $builder<F> {
                 type Target = Field;
                 fn deref(&self) -> &Field {
                     &self.0

@@ -15,7 +15,7 @@ use crate::{
 };
 
 // ANCHOR: forms-controls-layout
-pub fn account_layout() -> Schema {
+pub fn account_layout() -> Schema<UserForm> {
     let c = UserForm::controls();
     Schema::new((
         Section::new("Account").schema((c.email.email(), c.role)),
@@ -34,20 +34,40 @@ impl Control for Color {
     }
 }
 
+// A record form's text control takes it with `.custom`; a page's field with `Field::custom`.
+pub fn accent_control() -> CustomField<ThemeForm> {
+    ThemeForm::controls().accent.custom(Color)
+}
+
 pub fn accent_field() -> CustomField {
     Field::custom(Theme::fields().accent(), Color)
 }
 // ANCHOR_END: forms-color-control
 
+#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[form(model = Theme)]
+pub struct ThemeForm {
+    pub accent: String,
+}
+
 // ANCHOR: forms-relationship-field
-pub fn author_field() -> ChoiceField {
-    Field::choice(Post::fields().author_id())
+// `#[form(choice)] author_id: Uuid` on the record form makes its control a choice.
+pub fn author_control() -> ChoiceField<PostAuthorForm> {
+    PostAuthorForm::controls()
+        .author_id
         // The source, whose scoped query loads the options, and each option's label.
         .relationship::<AuthorResource>(|a: &Author| a.name.clone())
         .searchable()
         .label("Author")
 }
 // ANCHOR_END: forms-relationship-field
+
+#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[form(model = Post)]
+pub struct PostAuthorForm {
+    #[form(choice)]
+    pub author_id: uuid::Uuid,
+}
 
 // ANCHOR: forms-role-options
 pub fn role_fields() {

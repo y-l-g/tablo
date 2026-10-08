@@ -143,7 +143,7 @@ impl Field {
         let path: Path<M, T> = lens.into();
         let binding = Binding::of(&path);
         let control = TextControl::new::<M, T>(path, binding.unique());
-        TextField(Self::bound(binding, ControlKind::Text(control)))
+        TextField::new(Self::bound(binding, ControlKind::Text(control)))
     }
 
     /// The text field `#[derive(EmbeddedForm)]` renders for a leaf.
@@ -153,7 +153,7 @@ impl Field {
         M: toasty::schema::Model,
         T: FormScalar,
     {
-        TextField(Self::bound(
+        TextField::new(Self::bound(
             Binding::of(&path),
             ControlKind::Text(TextControl::leaf::<T>()),
         ))
@@ -165,7 +165,7 @@ impl Field {
     where
         M: toasty::schema::Model,
     {
-        ChoiceField(Self::bound(
+        ChoiceField::new(Self::bound(
             Binding::of::<M, T>(&lens.into()),
             ControlKind::Choice(ChoiceControl::default()),
         ))
@@ -177,7 +177,7 @@ impl Field {
     where
         M: toasty::schema::Model,
     {
-        FileField(Self::bound(
+        FileField::new(Self::bound(
             Binding::of::<M, String>(&lens.into()),
             ControlKind::File,
         ))
@@ -197,7 +197,7 @@ impl Field {
         M: toasty::schema::Model,
         T: FormScalar,
     {
-        CustomField(Self::bound(
+        CustomField::new(Self::bound(
             Binding::of::<M, T>(&lens.into()),
             ControlKind::Custom(Arc::new(control)),
         ))
@@ -206,7 +206,7 @@ impl Field {
     /// A text field posting `name`, a key no column binds: an [`ActionInput`](crate::ActionInput)
     /// field. `T` picks the input type, as a column's type does for [`Field::text`].
     pub fn text_input<T: FormScalar>(name: impl Into<String>) -> TextField {
-        TextField(Self::bound(
+        TextField::new(Self::bound(
             Self::named(name.into()),
             ControlKind::Text(TextControl::leaf::<T>()),
         ))
@@ -215,7 +215,7 @@ impl Field {
     /// A choice field posting `name`, a key no column binds, with options from
     /// [`options`](ChoiceField::options).
     pub fn choice_input(name: impl Into<String>) -> ChoiceField {
-        ChoiceField(Self::bound(
+        ChoiceField::new(Self::bound(
             Self::named(name.into()),
             ControlKind::Choice(ChoiceControl::default()),
         ))
@@ -223,7 +223,7 @@ impl Field {
 
     /// A checkbox posting `name`, a key no column binds, that submits `false` when unchecked.
     pub fn toggle_input(name: impl Into<String>) -> CustomField {
-        CustomField(Self::bound(
+        CustomField::new(Self::bound(
             Self::named(name.into()),
             ControlKind::Custom(Arc::new(Toggle)),
         ))

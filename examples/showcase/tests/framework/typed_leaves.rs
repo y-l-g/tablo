@@ -168,7 +168,6 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
                     "Words",
                     |r: &Reading| r.word_count.to_string(),
                 )))
-                .form(Schema::new(Field::text(Reading::fields().word_count())))
         }
     }
     #[derive(tablo::RecordForm)]

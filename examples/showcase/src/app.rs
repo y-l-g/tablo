@@ -186,7 +186,7 @@ impl Resource for PostResource {
 }
 
 /// The post form: content, details, SEO and publication.
-fn post_form() -> Schema {
+fn post_form() -> Schema<PostForm> {
     let c = PostForm::controls();
     Schema::new((
         Section::new("Content").schema((

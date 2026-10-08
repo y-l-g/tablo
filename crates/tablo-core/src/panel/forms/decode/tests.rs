@@ -94,14 +94,12 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(dummy_table())
-                .form(crate::schema::Schema::new(crate::schema::Field::file(
-                    Dummy::fields().name(),
-                )))
         }
     }
     #[derive(crate::RecordForm)]
     #[form(model = Dummy)]
     struct DummyForm {
+        #[form(file)]
         name: String,
     }
     let db = Db::builder().connect("sqlite::memory:").await.unwrap();

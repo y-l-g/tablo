@@ -130,6 +130,7 @@ pub(crate) fn bind_nodes(nodes: &mut Vec<Node>, fields: &mut Vec<Field>, resolve
                 let Schema {
                     nodes: mut built,
                     fields: built_fields,
+                    ..
                 } = (unbound.build)(resolver);
                 let offset = fields.len();
                 for node in &mut built {
@@ -180,22 +181,37 @@ pub(crate) async fn render_nodes<'a>(
 }
 
 /// Converts a field, a layout block, a tuple of either, or a schema into a [`Schema`].
-pub trait IntoSchema {
-    fn into_schema(self) -> Schema;
+///
+/// `F` is the record form whose controls the schema places, `()` for a page's or an action's
+/// schema: a control converts into the schema of its own form only.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be placed in a `Schema<{F}>`",
+    label = "not a control, layout block, schema, or tuple of 2 to 12 of them for this schema",
+    note = "a resource's form places its record form's own controls, from `controls()`; \
+            `Field::text` and the other constructors build a page's or an action's controls"
+)]
+pub trait IntoSchema<F = ()> {
+    fn into_schema(self) -> Schema<F>;
 }
 
-impl IntoSchema for Schema {
-    fn into_schema(self) -> Schema {
+/// Moves a control or a schema to the form `G`: what `#[derive(RecordForm)]` hands its controls
+/// over with.
+#[doc(hidden)]
+pub trait Retype {
+    type As<G>;
+
+    fn retype<G>(self) -> Self::As<G>;
+}
+
+impl<F> IntoSchema<F> for Schema<F> {
+    fn into_schema(self) -> Schema<F> {
         self
     }
 }
 
 impl IntoSchema for Field {
     fn into_schema(self) -> Schema {
-        Schema {
-            nodes: vec![Node::Field(0)],
-            fields: vec![self],
-        }
+        Schema::from_parts(vec![Node::Field(0)], vec![self])
     }
 }
 
@@ -204,19 +220,20 @@ impl IntoSchema for Field {
 macro_rules! container_nodes {
     ($($ty:ident),+ $(,)?) => {
         $(
-            impl IntoSchema for $ty<Schema> {
-                fn into_schema(mut self) -> Schema {
-                    let fields = std::mem::take(&mut self.children.fields);
-                    Schema {
-                        nodes: vec![Node::$ty(Box::new(self))],
-                        fields,
-                    }
+            impl<F> IntoSchema<F> for $ty<Schema<F>> {
+                fn into_schema(self) -> Schema<F> {
+                    let mut fields = Vec::new();
+                    let block = self.map(|mut children| {
+                        fields = std::mem::take(&mut children.fields);
+                        children.retype()
+                    });
+                    Schema::from_parts(vec![Node::$ty(Box::new(block))], fields)
                 }
             }
 
-            impl IntoSchema for $ty<()> {
-                fn into_schema(self) -> Schema {
-                    self.holding(Schema::empty()).into_schema()
+            impl<F> IntoSchema<F> for $ty<()> {
+                fn into_schema(self) -> Schema<F> {
+                    self.holding(Schema::<F>::default()).into_schema()
                 }
             }
         )+
@@ -228,13 +245,13 @@ container_nodes!(Section, Group, Grid);
 /// Generates the tuple impls of [`IntoSchema`] from one list per arity.
 macro_rules! into_schema_tuples {
     ($($T:ident => $v:ident),+ $(,)?) => {
-        impl<$($T),+> IntoSchema for ($($T,)+)
+        impl<Form, $($T),+> IntoSchema<Form> for ($($T,)+)
         where
-            $($T: IntoSchema,)+
+            $($T: IntoSchema<Form>,)+
         {
-            fn into_schema(self) -> Schema {
+            fn into_schema(self) -> Schema<Form> {
                 let ($($v,)+) = self;
-                let mut schema = Schema::empty();
+                let mut schema = Schema::default();
                 $( schema.append($v.into_schema()); )+
                 schema
             }

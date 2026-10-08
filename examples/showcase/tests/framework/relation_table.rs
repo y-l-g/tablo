@@ -4,7 +4,7 @@
 
 use http::header::LOCATION;
 use tablo::{
-    Ability, DeclarationErrorKind, Field, Relation, Resource, ResourceDef, Schema, Site, Table,
+    Ability, DeclarationErrorKind, Relation, Resource, ResourceDef, Schema, Site, Table,
     TextColumn, lens,
 };
 use toasty::Db;
@@ -47,7 +47,6 @@ impl Resource for OwnerResource {
                 )
             })
             .table(Table::new(TextColumn::new(lens!(Owner.name))))
-            .form(Schema::new(Field::text(Owner::fields().name())))
             .view(tablo::Detail::new(TextColumn::new(lens!(Owner.name))))
             .relation(Relation::has_many::<ChildResource>(
                 Child::fields().owner_id(),
@@ -68,6 +67,7 @@ impl Resource for ChildResource {
     type Form = ChildForm;
 
     fn declare() -> ResourceDef<Self> {
+        let c = ChildForm::controls();
         ResourceDef::new()
             .policy(|cx: &Cx, ability: Ability<'_, Child>| match ability {
                 Ability::ViewAny => !has_header(cx, "x-deny-children"),
@@ -82,8 +82,9 @@ impl Resource for ChildResource {
                 TextColumn::new(lens!(Child.body)).searchable().sortable(),
             ))
             .form(Schema::new((
-                Field::text(Child::fields().body()),
-                Field::choice(Child::fields().owner_id())
+                c.body,
+                c.owner_id
+                    .choice()
                     .relationship::<OwnerResource>(|owner: &Owner| owner.name.clone())
                     .label("Owner"),
             )))

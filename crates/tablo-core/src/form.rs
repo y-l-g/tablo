@@ -307,16 +307,12 @@ pub trait RecordForm: Sized + Send + 'static {
     /// Every field, in declaration order, with the keys it binds through `resolver`'s app schema.
     fn fields(resolver: &FieldResolver) -> Vec<FormField<Self::Field>>;
 
-    /// The form's default schema: one control per field, in declaration
-    /// order. A [`ResourceDef`](crate::ResourceDef) without a [`form`](crate::ResourceDef::form)
-    /// renders it.
+    /// The control the form renders `field` with when its [`form`](crate::ResourceDef::form)
+    /// does not place it: what `controls()` hands over for the field, as a one-control schema.
     ///
-    /// The derive chooses each control from the field (see
-    /// [`RecordForm`](derive@crate::RecordForm)); the default here declares
-    /// none, which is what [`NoForm`] wants.
-    fn schema() -> Schema {
-        Schema::empty()
-    }
+    /// A resource's form renders every field it does not place after the ones it does, in
+    /// declaration order, so a resource that declares no form renders one control per field.
+    fn control(field: Self::Field) -> Schema<Self>;
 
     /// The form's default table: one column per field a column can show, in declaration order.
     /// A [`ResourceDef`](crate::ResourceDef) without a [`table`](crate::ResourceDef::table) lists
@@ -412,6 +408,10 @@ impl<M: Model + toasty::stmt::IntoExpr<M> + Send + Sync + 'static> RecordForm fo
 
     fn fields(_resolver: &FieldResolver) -> Vec<FormField<Self::Field>> {
         Vec::new()
+    }
+
+    fn control(field: Self::Field) -> Schema<Self> {
+        match field {}
     }
 
     fn hydrate(_cx: &Cx, _record: &M) -> HashMap<String, String> {

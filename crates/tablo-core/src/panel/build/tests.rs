@@ -123,10 +123,7 @@ async fn a_star_slug_builds_and_resolves() {
 /// Enforces CSRF with `Auth::disabled()`.
 #[tokio::test]
 async fn csrf_is_enforced_with_auth_disabled() {
-    use crate::{
-        resource::Resource,
-        schema::{Field, Schema},
-    };
+    use crate::resource::Resource;
 
     struct DummyResource;
     impl Resource for DummyResource {
@@ -137,7 +134,6 @@ async fn csrf_is_enforced_with_auth_disabled() {
             ResourceDef::new()
                 .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::Create))
                 .table(dummy_table())
-                .form(Schema::new(Field::text(Dummy::fields().name())))
         }
     }
     #[derive(crate::RecordForm)]
@@ -220,7 +216,7 @@ async fn dark_mode_sets_the_document_class() {
 async fn panel_build_accepts_unique_markers_with_a_backing_index() {
     use crate::{
         resource::{Resource, ResourceDef},
-        schema::{Field, Schema},
+        schema::Schema,
         table::{Table, TextColumn},
     };
 
@@ -245,7 +241,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(Table::new(TextColumn::new(lens!(Author.email))))
-                .form(Schema::new(Field::text(Author::fields().email()).unique()))
+                .form(Schema::new(AuthorForm::controls().email.unique()))
                 // Not gated, so the tenant is not stamped: a create override would
                 // set it.
                 .create_column(Author::fields().tenant_id())
@@ -420,7 +416,7 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
 async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
     use crate::{
         resource::Resource,
-        schema::{Field, Schema},
+        schema::Schema,
         table::{Table, TextColumn},
     };
 
@@ -489,9 +485,7 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
         };
     }
 
-    via_child!(WithoutKey, NameForm, || Schema::new(Field::text(
-        Child::fields().name()
-    )));
+    via_child!(WithoutKey, NameForm, Schema::default);
     via_child!(OverOpenParent, KeyedForm, || {
         let c = KeyedForm::controls();
         Schema::new((
@@ -662,7 +656,7 @@ fn panel_build_rejects_a_hostile_slug() {
 async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
     use crate::{
         resource::Resource,
-        schema::{Field, Schema},
+        schema::Schema,
         table::{Table, TextColumn},
     };
 
@@ -678,9 +672,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(Table::new(TextColumn::new(lens!(Subscriber.nickname))))
-                .form(Schema::new(
-                    Field::text(Subscriber::fields().nickname()).unique(),
-                ))
+                .form(Schema::new(UnbackedForm::controls().nickname.unique()))
         }
     }
     #[derive(crate::RecordForm)]
@@ -709,7 +701,6 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
 async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
     use crate::{
         resource::Resource,
-        schema::{Field, Schema},
         table::{Table, TextColumn},
     };
 
@@ -729,7 +720,6 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
                     matches!(ability, Ability::DeleteAny | Ability::Delete(_))
                 })
                 .table(keyed_table())
-                .form(Schema::new(Field::text(Subscriber::fields().nickname())))
         }
     }
     #[derive(crate::RecordForm)]
@@ -782,7 +772,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
 async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denied() {
     use crate::{
         resource::Resource,
-        schema::{Field, Schema},
+        schema::Schema,
         table::{Table, TextColumn},
     };
 
@@ -799,9 +789,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
                 })
                 // `Create` keeps its default (deny); only the form is declared.
                 .table(Table::new(TextColumn::new(lens!(Subscriber.nickname))))
-                .form(Schema::new(
-                    Field::text(Subscriber::fields().nickname()).unique(),
-                ))
+                .form(Schema::new(ReadOnlyForm::controls().nickname.unique()))
         }
     }
     #[derive(crate::RecordForm)]
@@ -1250,10 +1238,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
 async fn a_resource_declares_once_when_its_panel_mounts() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use crate::{
-        resource::Resource,
-        schema::{Field, Schema},
-    };
+    use crate::resource::Resource;
 
     static DECLARE_CALLS: AtomicUsize = AtomicUsize::new(0);
 
@@ -1279,7 +1264,6 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
                     )
                 })
                 .table(dummy_table())
-                .form(Schema::new(Field::text(Dummy::fields().name())))
                 .view(crate::Detail::new(crate::table::TextColumn::new(lens!(
                     Dummy.name
                 ))))
@@ -1391,7 +1375,6 @@ async fn context_refuses_a_misdeclared_resource() {
 async fn panel_mount_refuses_a_create_column_it_cannot_honor() {
     use crate::{
         resource::Resource,
-        schema::{Field, Schema},
         table::{Table, TextColumn},
     };
 
@@ -1429,7 +1412,6 @@ async fn panel_mount_refuses_a_create_column_it_cannot_honor() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(Table::new(TextColumn::new(lens!(Ticket.title))))
-                .form(Schema::new(Field::text(Ticket::fields().title())))
                 .create_column(Ticket::fields().tenant_id())
                 .create_column(Ticket::fields().place().city())
         }
