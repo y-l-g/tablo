@@ -108,17 +108,15 @@ async fn posts_edit_hydrates_author() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db2 = db.clone();
     let authors = Author::all().exec(&mut db2).await.unwrap();
     let first = &authors[0];
     // create a post via valid route to ensure edit hydrates
     let author_id = first.id.to_string();
     let _ = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!("title=EditMe&author_id={author_id}&cover_id=&tags=edit&csrf_token={csrf}"),
+            &format!("title=EditMe&author_id={author_id}&cover_id=&tags=edit"),
         )
         .await;
     let mut db2 = db.clone();
@@ -238,10 +236,9 @@ async fn posts_update_rechecks_author_existence() {
     // Bogus author is rejected, not silently written (the option check refuses it).
     let fake = uuid::Uuid::new_v4();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &edit_url,
-            format!("title=Bad&author_id={fake}&cover_id=&tags=u&csrf_token={csrf}"),
+            &format!("title=Bad&author_id={fake}&cover_id=&tags=u"),
         )
         .await;
     assert!(
@@ -296,16 +293,14 @@ async fn posts_create_omitted_lifecycle_fields_default_to_draft() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db2 = db.clone();
     let authors = Author::all().exec(&mut db2).await.unwrap();
     let first = &authors[0];
     let author_id = first.id.to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!("title=Stub+Post&author_id={author_id}&cover_id=&tags=stub&csrf_token={csrf}"),
+            &format!("title=Stub+Post&author_id={author_id}&cover_id=&tags=stub"),
         )
         .await;
     assert!(
@@ -587,15 +582,13 @@ async fn a_comment_created_from_the_post_page_returns_to_it() {
         form.contains(&format!("value=\"{}\" selected", bare.id)),
         "the post is preselected: {form}"
     );
-    let csrf = input_value(&form, "csrf_token").expect("the form carries csrf");
+    input_value(&form, "csrf_token").expect("the form carries csrf");
     let response = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/comments/create?return={return_to}"),
-            form_body(&[
+            &form_body(&[
                 ("body", "Written from the post"),
                 ("post_id", &bare.id.to_string()),
-                ("csrf_token", &csrf),
             ]),
         )
         .await;
@@ -619,7 +612,7 @@ async fn a_comment_deleted_from_the_post_page_returns_to_it() {
     let page = format!("/admin/posts/{}", commented.id);
 
     let html = body_string(client.get(&page).await).await;
-    let csrf = input_value(&html, "csrf_token").expect("the page carries csrf");
+    input_value(&html, "csrf_token").expect("the page carries csrf");
     let action = tablo::testing::rows(&html)
         .into_iter()
         .find_map(|row| row.actions.delete_action)
@@ -629,11 +622,7 @@ async fn a_comment_deleted_from_the_post_page_returns_to_it() {
         "the delete carries the return: {action}"
     );
     let response = client
-        .csrf(&csrf)
-        .post_form(
-            &action,
-            form_body(&[("confirm", "1"), ("csrf_token", &csrf)]),
-        )
+        .submit(&action, &form_body(&[("confirm", "1")]))
         .await;
     assert_eq!(
         response.headers().get(http::header::LOCATION).unwrap(),
@@ -729,18 +718,14 @@ async fn comments_row_delete_removes_the_comment() {
 
     let resp = client.get("/admin/comments").await;
     let html = body_string(resp).await;
-    let csrf = input_value(&html, "csrf_token").expect("the list carries csrf");
+    input_value(&html, "csrf_token").expect("the list carries csrf");
     let target = tablo::testing::rows(&html)
         .into_iter()
         .find_map(|row| row.actions.delete_action)
         .expect("a row delete control");
 
     let resp = client
-        .csrf(&csrf)
-        .post_form(
-            &target,
-            form_body(&[("confirm", "1"), ("csrf_token", &csrf)]),
-        )
+        .submit(&target, &form_body(&[("confirm", "1")]))
         .await;
     assert!(
         resp.status().is_redirection(),
@@ -810,20 +795,18 @@ async fn comments_create_valid_redirects_and_creates() {
 
     let page = client.get("/admin/comments/create").await;
     let html = body_string(page).await;
-    let csrf = input_value(&html, "csrf_token").expect("create form carries csrf");
+    input_value(&html, "csrf_token").expect("create form carries csrf");
 
     let mut db_q = db.clone();
     let post = Post::all().exec(&mut db_q).await.unwrap().remove(0);
     let before = Comment::all().exec(&mut db_q).await.unwrap().len();
 
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/comments/create",
-            form_body(&[
+            &form_body(&[
                 ("body", "A thoughtful follow-up"),
                 ("post_id", &post.id.to_string()),
-                ("csrf_token", &csrf),
             ]),
         )
         .await;

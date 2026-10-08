@@ -37,10 +37,7 @@ async fn edit_page_hydrates_and_updates() {
     );
 
     let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&edit_url, format!("name=&email=bad&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&edit_url, "name=&email=bad").await;
     assert!(
         resp.status().is_success(),
         "invalid POST should re-render 200, got {}",
@@ -193,17 +190,10 @@ async fn an_emptied_select_stores_its_blank_answer() {
         .await
         .unwrap()
         .expect("an admin is seeded");
-    let csrf = uuid::Uuid::new_v4().to_string();
     let url = format!("/admin/users/{}/edit", admin.id);
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&url, format!("active=false&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&url, "active=false").await;
     assert!(resp.status().is_redirection());
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&url, format!("role=&active=&age=&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&url, "role=&active=&age=").await;
     assert!(
         resp.status().is_redirection(),
         "got {} {}",
@@ -236,20 +226,10 @@ async fn an_emptied_post_select_stores_its_blank_answer() {
         .await
         .unwrap()
         .expect("the seeded post");
-    let csrf = uuid::Uuid::new_v4().to_string();
     let url = format!("/admin/posts/{}/edit", post.id);
-    let resp = client
-        .csrf(&csrf)
-        .post_form(
-            &url,
-            format!("status=published&featured=true&csrf_token={csrf}"),
-        )
-        .await;
+    let resp = client.submit(&url, "status=published&featured=true").await;
     assert!(resp.status().is_redirection());
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&url, format!("status=&featured=&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&url, "status=&featured=").await;
     assert!(
         resp.status().is_redirection(),
         "got {} {}",

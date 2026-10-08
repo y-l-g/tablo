@@ -104,12 +104,7 @@ async fn a_draft_post_is_published_from_its_row() {
         html.contains("formaction=\"/admin/posts/-/actions/publish\""),
         "the bulk bar offers Publish for the selection: {html}"
     );
-
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&publish, format!("csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&publish, "").await;
     assert!(
         resp.status().is_redirection(),
         "a committed action redirects, got {}",
@@ -237,10 +232,9 @@ async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
         .await;
     assert_eq!(row.status(), 403, "the row route refuses");
     let bulk = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/portal/posts/-/actions/publish",
-            format!("ids={}&csrf_token={csrf}", draft.id),
+            &format!("ids={}", draft.id),
         )
         .await;
     assert_eq!(bulk.status(), 403, "the bulk route refuses");

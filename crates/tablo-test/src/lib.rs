@@ -82,6 +82,19 @@ impl<'a> TestClient<'a> {
         self.router.handle(request).await
     }
 
+    /// Posts the urlencoded `body` as a panel form does: with a fresh CSRF token in both the
+    /// cookie and the `csrf_token` field.
+    pub async fn submit(&self, uri: &str, body: &str) -> http::Response<Body> {
+        let token = uuid::Uuid::new_v4().to_string();
+        let field = form_body(&[("csrf_token", &token)]);
+        let body = if body.is_empty() {
+            field
+        } else {
+            format!("{body}&{field}")
+        };
+        self.csrf(&token).post_form(uri, body).await
+    }
+
     pub async fn post_multipart(
         &self,
         uri: &str,

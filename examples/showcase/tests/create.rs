@@ -40,13 +40,8 @@ async fn create_invalid_submission_rerenders_with_inline_errors() {
     let client = demo_client(&router, &db).await;
 
     let before = user_count(&db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
-            "/admin/users/create",
-            format!("name=&email=not-an-email&csrf_token={csrf}"),
-        )
+        .submit("/admin/users/create", "name=&email=not-an-email")
         .await;
     let status = resp.status();
     let html = body_string(resp).await;
@@ -79,13 +74,10 @@ async fn create_valid_redirects_with_a_one_time_flash() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/users/create",
-            format!("name=New%20User&email=new%40example.com&csrf_token={csrf}"),
+            "name=New%20User&email=new%40example.com",
         )
         .await;
     assert_eq!(resp.status(), 303, "a completed create is a 303");
@@ -140,12 +132,10 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
     let client = demo_client(&router, &db).await;
 
     let before = user_count(&db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/users/create",
-            format!("name=New%20User&email=new%40example.com&csrf_token={csrf}"),
+            "name=New%20User&email=new%40example.com",
         )
         .await;
     assert_eq!(resp.status(), 303, "a completed create is a 303");
@@ -217,12 +207,10 @@ async fn users_create_duplicate_email_shows_taken() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let before = user_count(&db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/users/create",
-            format!("name=Copycat&email=ada%40example.com&csrf_token={csrf}"),
+            "name=Copycat&email=ada%40example.com",
         )
         .await;
     assert!(
@@ -346,17 +334,15 @@ async fn posts_create_invalid_shows_errors() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let before = post_count(&db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db2 = db.clone();
     let authors = Author::all().exec(&mut db2).await.unwrap();
     let first = &authors[0];
     // Missing title (required). The optional Tags field is empty, which is
     // its blank answer — not an error.
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!("title=&author_id={}&tags=&csrf_token={csrf}", first.id),
+            &format!("title=&author_id={}&tags=", first.id),
         )
         .await;
     let status = resp.status();
@@ -423,17 +409,15 @@ async fn posts_create_with_empty_optional_tags_submits() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db2 = db.clone();
     let authors = Author::all().exec(&mut db2).await.unwrap();
     let before = Post::all().exec(&mut db2).await.unwrap().len();
 
     let author_id = authors[0].id.to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!("title=No+Tags&author_id={author_id}&cover_id=&tags=&csrf_token={csrf}"),
+            &format!("title=No+Tags&author_id={author_id}&cover_id=&tags="),
         )
         .await;
     let status = resp.status();

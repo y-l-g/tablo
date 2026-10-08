@@ -66,11 +66,7 @@ async fn create_policy_deny() {
     assert_eq!(resp.status(), 403, "GET create should be 403 when denied");
 
     // POST should also be 403 and not create
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&create_url, format!("name=test&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&create_url, "name=test").await;
     assert_eq!(
         resp.status(),
         403,
@@ -141,15 +137,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     )
     .expect("panel builds");
     let client = TestClient::new(&router);
-
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(
-            "/admin/widgets/create",
-            format!("name=Widget&csrf_token={csrf}"),
-        )
-        .await;
+    let resp = client.submit("/admin/widgets/create", "name=Widget").await;
     assert_eq!(
         resp.status(),
         500,
@@ -257,10 +245,7 @@ async fn forged_delete_runs_no_record_query() {
     let csrf = uuid::Uuid::new_v4().to_string();
     let cookie_mismatch = uuid::Uuid::new_v4().to_string();
 
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&delete_url, format!("confirm=1&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&delete_url, "confirm=1").await;
     assert!(resp.status().is_redirection(), "valid delete redirects");
     assert!(
         QUERIES.load(Ordering::SeqCst) > 0,
@@ -359,14 +344,12 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
     let client = TestClient::new(&router);
     let slug = "partial-denies";
     let bulk_delete = |ids: String| {
-        let csrf = uuid::Uuid::new_v4().to_string();
         let client = &client;
         async move {
             client
-                .csrf(&csrf)
-                .post_form(
+                .submit(
                     &format!("/admin/{slug}/bulk-delete"),
-                    format!("ids={ids}&confirm=1&csrf_token={csrf}"),
+                    &format!("ids={ids}&confirm=1"),
                 )
                 .await
         }

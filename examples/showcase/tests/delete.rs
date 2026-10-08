@@ -20,7 +20,6 @@ async fn delete_requires_confirmation_and_deletes() {
     let user = users.first().unwrap();
     let id = user.id.to_string();
     let delete_url = format!("/admin/users/{}/delete", id);
-    let csrf = uuid::Uuid::new_v4().to_string();
 
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
@@ -52,10 +51,7 @@ async fn delete_requires_confirmation_and_deletes() {
         assert!(html.contains(needle), "dialog missing {needle} in {html}");
     }
 
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&delete_url, format!("csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&delete_url, "").await;
     assert_eq!(
         resp.status(),
         400,
@@ -63,10 +59,7 @@ async fn delete_requires_confirmation_and_deletes() {
         resp.status()
     );
 
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&delete_url, format!("confirm=1&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&delete_url, "confirm=1").await;
     assert!(
         resp.status().is_redirection(),
         "confirmed delete should redirect, got {}",
@@ -173,7 +166,6 @@ async fn bulk_delete_deletes_selected() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db_q = db.clone();
     let users = User::all().exec(&mut db_q).await.unwrap();
     let before = user_count(&db).await;
@@ -193,10 +185,9 @@ async fn bulk_delete_deletes_selected() {
     );
 
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/users/bulk-delete",
-            format!("ids={ids_param}&confirm=1&csrf_token={csrf}"),
+            &format!("ids={ids_param}&confirm=1"),
         )
         .await;
     assert!(
@@ -241,14 +232,9 @@ async fn bulk_delete_without_ids_redirects_with_the_reason() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let before = user_count(&db).await;
     let resp = client
-        .csrf(&csrf)
-        .post_form(
-            "/admin/users/bulk-delete",
-            format!("ids=&confirm=1&csrf_token={csrf}"),
-        )
+        .submit("/admin/users/bulk-delete", "ids=&confirm=1")
         .await;
     assert_eq!(
         resp.status(),
@@ -277,17 +263,15 @@ async fn bulk_delete_short_fetch_404s_and_deletes_nothing() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db_q = db.clone();
     let users = User::all().exec(&mut db_q).await.unwrap();
     let before = users.len();
     let real = users.first().unwrap().id.to_string();
     let missing = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/users/bulk-delete",
-            format!("ids={real},{missing}&confirm=1&csrf_token={csrf}"),
+            &format!("ids={real},{missing}&confirm=1"),
         )
         .await;
     assert_eq!(
@@ -308,7 +292,6 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db_q = db.clone();
     let users = User::all().exec(&mut db_q).await.unwrap();
 
@@ -346,10 +329,9 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
         .collect::<Vec<_>>()
         .join(",");
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/users/bulk-delete",
-            format!("ids={ids_param}&confirm=1&csrf_token={csrf}"),
+            &format!("ids={ids_param}&confirm=1"),
         )
         .await;
     assert!(
@@ -467,14 +449,9 @@ async fn bulk_delete_without_confirmation_is_refused() {
     let users = User::all().exec(&mut db_q).await.unwrap();
     let before = users.len();
     let id = users[0].id.to_string();
-    let csrf = uuid::Uuid::new_v4().to_string();
 
     let resp = client
-        .csrf(&csrf)
-        .post_form(
-            "/admin/users/bulk-delete",
-            format!("ids={id}&csrf_token={csrf}"),
-        )
+        .submit("/admin/users/bulk-delete", &format!("ids={id}"))
         .await;
     assert_eq!(
         resp.status(),

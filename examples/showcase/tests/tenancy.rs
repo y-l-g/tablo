@@ -31,13 +31,10 @@ async fn the_demo_admin_switches_between_their_two_blogs() {
     let html = body_string(client.get("/admin/authors").await).await;
     assert!(html.contains("data-tenant-switcher"), "{html}");
     assert!(html.contains("Main Blog") && html.contains("Side Project"));
-
-    let csrf = uuid::Uuid::new_v4().to_string();
     let switched = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/tenant",
-            form_body(&[("tenant", &SIDE_TENANT.to_string()), ("csrf_token", &csrf)]),
+            &form_body(&[("tenant", &SIDE_TENANT.to_string())]),
         )
         .await;
     assert_eq!(switched.status(), 303);
@@ -197,15 +194,13 @@ async fn create_assigns_the_logged_in_tenant() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let tenant = DEMO_TENANT;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db_q = db.clone();
     let authors = Author::all().exec(&mut db_q).await.unwrap();
     let author_id = authors[0].id.to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!("title=Tenanted&author_id={author_id}&cover_id=&tags=t&csrf_token={csrf}"),
+            &format!("title=Tenanted&author_id={author_id}&cover_id=&tags=t"),
         )
         .await;
     assert!(
@@ -397,18 +392,13 @@ async fn two_tenants_may_share_an_author_email() {
 
     let page = client.tenant(t2).get("/admin/authors/create").await;
     let html = body_string(page).await;
-    let csrf = input_value(&html, "csrf_token").expect("create form carries csrf");
+    input_value(&html, "csrf_token").expect("create form carries csrf");
 
     let resp = client
         .tenant(t2)
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/authors/create",
-            form_body(&[
-                ("name", "Cross Tenant"),
-                ("email", &email),
-                ("csrf_token", &csrf),
-            ]),
+            &form_body(&[("name", "Cross Tenant"), ("email", &email)]),
         )
         .await;
 
@@ -437,18 +427,13 @@ async fn duplicate_email_within_one_tenant_is_reported_inline() {
 
     let page = client.tenant(t1).get("/admin/authors/create").await;
     let html = body_string(page).await;
-    let csrf = input_value(&html, "csrf_token").expect("create form carries csrf");
+    input_value(&html, "csrf_token").expect("create form carries csrf");
 
     let resp = client
         .tenant(t1)
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/authors/create",
-            form_body(&[
-                ("name", "Same Tenant"),
-                ("email", &email),
-                ("csrf_token", &csrf),
-            ]),
+            &form_body(&[("name", "Same Tenant"), ("email", &email)]),
         )
         .await;
 
